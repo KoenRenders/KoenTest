@@ -3,7 +3,7 @@
   {# Golf 6, kop-herziening (Koen, 14 sep 2026): alles bovenaan, sticky —
      de Trix-editor is lang en Opslaan blijft zo in beeld. #}
   <div class="flex items-start justify-between mb-4 sticky top-0 z-20 bg-white py-1">
-    <h2 class="text-lg font-bold text-blue-700">{{ p.title }}</h2>
+    <h2 class="text-lg font-bold text-kop">{{ p.title }}</h2>
     <div class="flex gap-2">
       {# #554: linkt naar de admin-voorbeeld-route zodat ook een concept (nog niet
          gepubliceerd) bekeken kan worden; de publieke /{slug} geeft 404 op concept. #}
@@ -26,7 +26,6 @@
          leest de initiële HTML uit de hidden input en schrijft de bewerkte HTML er
          live in terug; het formulier submit `content`. De opgeslagen HTML wordt
          server-side gesanitiseerd (nh3 via render_cms_content) vóór de |safe-render. #}
-      <input type="hidden" id="cp-content-input" name="content" value="{{ p.content or '' }}">
       <div x-data="{ src: false }">
         {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
            activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
@@ -55,8 +54,8 @@
             <span x-show="!src">&lt;/&gt; HTML</span><span x-show="src" x-cloak>✎ {{ _("Editor") }}</span>
           </button>
         </div>
-        <trix-editor id="cp-trix" input="cp-content-input" x-show="!src"
-                     class="cms-content bg-white text-sm min-h-[16rem] rounded-t-none"></trix-editor>
+        {{ ui.rich_text("content", "cp-trix", value=p.content, input_id="cp-content-input",
+                        cls="min-h-[16rem] rounded-t-none", attrs='x-show="!src"') }}
         {# Bronvenster van de editor: mono en kleiner dan een gewoon veld, en met
            een vierkante bovenrand omdat het aan de werkbalk vastzit. De kitbasis
            laat haar text-sm vallen zodra je zelf een grootte meegeeft (#663).

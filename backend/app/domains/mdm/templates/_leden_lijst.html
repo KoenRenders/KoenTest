@@ -10,9 +10,14 @@
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold text-ink">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</div>
+        {# F34 (#996): scheidingstekens alleen tússen aanwezige waarden — een
+           gezin zonder adres toonde " , · " — en enkelvoud bij één persoon. #}
+        {% set _straat = ((f.street or "") ~ " " ~ (f.house_number or "")).strip() %}
+        {% set _adres = [_straat, f.municipality or ""] | select | join(", ") %}
+        {% set _n = f.members | length %}
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          <span class="text-sm text-ink-soft">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</span>
-          <span class="text-sm text-ink-soft">· {{ f.members | length }} {{ _("personen") }}</span>
+          {% if _adres %}<span class="text-sm text-ink-soft">{{ _adres }}</span>{% endif %}
+          <span class="text-sm text-ink-soft">{% if _adres %}· {% endif %}{{ _n }} {{ _("persoon") if _n == 1 else _("personen") }}</span>
         </div>
       </div>
       <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>

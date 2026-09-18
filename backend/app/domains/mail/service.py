@@ -209,6 +209,97 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None,
     _log_email(to_email, subject, body_html, email_type, "sent", None)
 
 
+class SendingQuotaReached(RuntimeError):
+    """Gmail refused because the account's daily sending quota is used up.
+
+    Not a failure of this mail: the same mail goes through tomorrow. The caller
+    pauses its queue instead of marking anything as failed (CR-05 §3.7).
+    """
+
+
+# Gmail answers a used-up daily quota with an extended status 5.4.5 ("Daily user
+# sending limit exceeded"). Matched loosely, because the wording is Google's and
+# changes; the code is the stable part.
+_QUOTA_MARKERS = ("5.4.5", "sending limit exceeded", "sending quota")
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return any(marker in text for marker in _QUOTA_MARKERS)
+
+
+def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
+                       email_type: str, reply_to: Optional[str] = None,
+                       unsubscribe_url: Optional[str] = None) -> str:
+    """One mail to one recipient, for a campaign such as the newsletter (#984).
+
+    Differs from ``_send`` on three points, each a decision:
+
+    - **No retry job.** The campaign keeps its own queue row per recipient; a
+      second, independent retry mechanism could send the same letter twice.
+      The outcome is returned, and the caller records it.
+    - **A used-up Gmail quota raises** ``SendingQuotaReached`` instead of being
+      logged as a failure: the mail is fine, the day is full.
+    - **Unsubscribe headers** when ``unsubscribe_url`` is given: a
+      ``List-Unsubscribe`` header plus ``List-Unsubscribe-Post`` for one-click
+      unsubscribing from the mail client (RFC 8058).
+
+    Returns the log status: ``sent``, ``logged`` (demo tenant), ``skipped`` (no
+    credentials) or ``failed``.
+    """
+    if _mail_mode() == "log_only":
+        _log_email(to_email, subject, body_html, email_type, "logged",
+                   "demo-tenant: alleen gelogd, niet verstuurd")
+        return "logged"
+    gmail_user, gmail_password, gmail_from = _gmail_config()
+    if not gmail_user or not gmail_password:
+        _log_email(to_email, subject, body_html, email_type, "skipped",
+                   "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+        return "skipped"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"{_env_prefix()}{subject}"
+    msg["From"] = f"{_display_name()} <{gmail_from or gmail_user}>"
+    msg["To"] = to_email
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    if unsubscribe_url:
+        msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
+        msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+    msg.attach(MIMEText(body_html, "html"))
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, [to_email], msg.as_string())
+    except Exception as exc:
+        if _is_quota_error(exc):
+            logger.warning("Gmail-dagquotum bereikt bij %s: %s", to_email, exc)
+            raise SendingQuotaReached(str(exc)) from exc
+        logger.error("Campagnemail naar %s mislukt: %s", to_email, exc)
+        _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        return "failed"
+    _log_email(to_email, subject, body_html, email_type, "sent", None)
+    return "sent"
+
+
+def send_newsletter_confirmation(to_email: str, first_name: Optional[str],
+                                 confirm_url: str) -> str:
+    """The double opt-in mail (CR-05 §3.5): one button, and what to do if it
+    was not you. Nothing is sent to this address until the button is used."""
+    greeting = (_("Dag %(naam)s,") % {"naam": escape(first_name)}) if first_name \
+        else _("Dag,")
+    body = f"""
+        <p>{greeting}</p>
+        <p>{_("Iemand — hopelijk jij — schreef dit adres in voor de nieuwsbrief van %(naam)s.") % {"naam": escape(_display_name())}}</p>
+        <p><a href="{escape(confirm_url)}" style="display:inline-block;padding:10px 18px;background:#0051a4;color:#ffffff;border-radius:8px;text-decoration:none;font-weight:600">{_("Ja, ik wil de nieuwsbrief")}</a></p>
+        <p style="color:#52607a;font-size:13px">{_("Was jij het niet? Dan hoef je niets te doen: zonder bevestiging sturen we niets.")}</p>
+    """
+    return send_campaign_mail(
+        to_email, _("Bevestig je inschrijving op de nieuwsbrief"), body,
+        email_type="newsletter_confirmation")
+
+
 def _transfer_instructions_html(payment_record) -> str:
     """Betaalinstructies-blok voor een overschrijving (#157): bedrag, IBAN,
     begunstigde, gestructureerde mededeling en betaaltermijn. Leeg voor andere

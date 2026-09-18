@@ -16,14 +16,15 @@ niet klopt, dekt het geval af waarvoor hij bestaat — dus maakt hij nu zelf aan
 wat hij nodig heeft, en faalt hij als dat niet lukt.
 """
 import os
+import re
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
 
 
 def _admin_email() -> str:
@@ -80,13 +81,14 @@ def _vul_de_kring(page) -> None:
     """Zet de eerste gevonden persoon in de vergaderkring, via het scherm zelf."""
     page.goto("/admin/vergaderingen/kring")
     page.wait_for_selector("#vg-kring")
-    page.fill("input[name=q]", "e")
-    page.wait_for_timeout(800)
+    # #997: the search is debounced; wait for its answer, not for 800 ms.
+    with htmx_afgerond(page):
+        page.fill("input[name=q]", "e")
     toevoegen = page.locator("#vg-kring form[hx-post='/admin/vergaderingen/kring'] button")
     if toevoegen.count() == 0:
         return
-    toevoegen.first.click()
-    page.wait_for_timeout(800)
+    with htmx_afgerond(page):
+        toevoegen.first.click()
 
 
 def test_een_vergadering_aanmaken_en_notuleren(admin_page):
@@ -117,10 +119,9 @@ def test_een_vergadering_aanmaken_en_notuleren(admin_page):
 
     naam = knoppen.first.text_content().strip()
     knoppen.first.click()
-    page.wait_for_timeout(700)
     aangevinkt = page.locator("#vg-document form[hx-post*='aanwezigheid'] button").first
-    assert "bg-green-50" in (aangevinkt.get_attribute("class") or ""), \
-        f"'{naam}' kleurde niet als aanwezig na de swap"
+    expect(aangevinkt, f"'{naam}' kleurde niet als aanwezig na de swap").to_have_class(
+        re.compile(r"\bbg-green-50\b"))
 
 
 def test_een_notitie_overleeft_de_swap(admin_page):
@@ -142,9 +143,11 @@ def test_een_notitie_overleeft_de_swap(admin_page):
     editor = editors.first
     editor.click()
     editor.type("Uitverkocht — 300 tickets.")
-    # Focus weghalen: dát vuurt `trix-blur` af en start dus het opslaan.
-    page.locator("#vg-document h2").first.click()
-    page.wait_for_timeout(1200)
+    # Focus weghalen: dát vuurt `trix-blur` af en start dus het opslaan. #997:
+    # wachten tot dat opslaan beantwoord is — zonder trigger komt er geen verzoek
+    # en faalt dit wachten, wat de tegenproef hieronder net zo goed dekt.
+    with htmx_afgerond(page):
+        page.locator("#vg-document h2").first.click()
 
     # HERLADEN, en niet kijken naar het veld dat er al staat. Trix schrijft zijn
     # inhoud bij élke toetsaanslag naar dat verborgen veld — puur in de browser.

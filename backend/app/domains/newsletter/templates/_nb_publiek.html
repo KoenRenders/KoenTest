@@ -1,0 +1,65 @@
+{% import "_macros.html" as ui %}
+{# Alle toestanden van de publieke nieuwsbriefpagina's op één plek (CR-05 §3.5).
+   Bevestigen en uitschrijven gebeuren met een KNOP en nooit bij het openen van
+   de link: mailscanners openen elke link vóór de ontvanger dat doet. #}
+{% if state == "form" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Blijf op de hoogte") }}</h1>
+  <p class="text-base text-gray-600 mt-2">{{ _("Af en toe een mail met wat er bij %(naam)s te beleven valt.", naam=site_name) }}</p>
+  {% if error %}<div class="mt-4">{{ ui.error_banner(error) }}</div>{% endif %}
+  <form class="mt-5 space-y-3" hx-post="{{ path_for('/nieuwsbrief') }}" hx-target="#nb-publiek" hx-swap="innerHTML">
+    <div>
+      {{ ui.label(_("E-mailadres"), "nb-email", required=True) }}
+      {{ ui.input_control("email", id="nb-email", type="email", value=email, required=True, cls="w-full",
+                          placeholder=_("jouw@mailadres.be"), attrs='autocomplete="email"') }}
+    </div>
+    <div>
+      {{ ui.label(_("Voornaam (niet verplicht)"), "nb-voornaam") }}
+      {{ ui.input_control("first_name", id="nb-voornaam", cls="w-full", attrs='autocomplete="given-name"') }}
+    </div>
+    {# Honingpot: onzichtbaar voor mensen, ingevuld door eenvoudige bots. #}
+    <div class="hidden" aria-hidden="true">
+      <label for="nb-website">Website</label>
+      <input type="text" id="nb-website" name="website" tabindex="-1" autocomplete="off">
+    </div>
+    {{ ui.btn_primary(_("Inschrijven"), type="submit", cls="w-full justify-center") }}
+    <p class="text-sm text-gray-600">{{ _("Je krijgt eerst een mail om te bevestigen. Uitschrijven kan onderaan elke nieuwsbrief.") }}
+      {% if privacy_url %}<a class="text-blue-500 underline" href="{{ privacy_url }}">{{ _("Privacyverklaring") }}</a>{% endif %}</p>
+    <p class="text-base">{{ _("Liever lid worden?") }} <a class="text-blue-500 underline" href="{{ path_for('/lid-worden') }}">{{ _("Word lid") }}</a></p>
+  </form>
+{% elif state == "sent" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Kijk in je mailbox") }}</h1>
+  <p class="text-base mt-3">{{ _("We stuurden een mail naar %(adres)s. Klik op de knop erin om je inschrijving te bevestigen.", adres=email) }}</p>
+  <p class="text-sm text-gray-600 mt-3">{{ _("Niets ontvangen? Kijk ook bij de ongewenste mail. Zonder bevestiging sturen we niets.") }}</p>
+{% elif state == "confirm" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Inschrijving bevestigen") }}</h1>
+  <p class="text-base mt-3">{{ _("Wil je de nieuwsbrief ontvangen op %(adres)s?", adres=email) }}</p>
+  <form class="mt-5" method="post" action="{{ path_for('/nieuwsbrief/bevestigen/' ~ token) }}" hx-boost="false">
+    {{ ui.btn_primary(_("Ja, ik wil de nieuwsbrief"), type="submit", cls="w-full justify-center") }}
+  </form>
+{% elif state == "confirmed" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Je bent ingeschreven") }}</h1>
+  <p class="text-base mt-3">{{ _("De volgende nieuwsbrief komt naar %(adres)s. Uitschrijven kan onderaan elke mail.", adres=email) }}</p>
+{% elif state == "unsubscribe" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Uitschrijven") }}</h1>
+  <p class="text-base mt-3">{{ _("Geen nieuwsbrief meer ontvangen op %(adres)s?", adres=email) }}</p>
+  <p class="text-sm text-gray-600 mt-1">{{ _("Geen wachtwoord of login nodig.") }}</p>
+  <form class="mt-5" method="post" action="{{ path_for('/nieuwsbrief/uitschrijven/' ~ token) }}" hx-boost="false">
+    {{ ui.btn_primary(_("Uitschrijven"), type="submit", cls="w-full justify-center") }}
+  </form>
+{% elif state == "unsubscribed" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Je bent uitgeschreven") }}</h1>
+  <p class="text-base mt-3">{{ _("Je krijgt geen nieuwsbrief meer op %(adres)s.", adres=email) }}</p>
+  <div class="mt-6 border-t border-gray-200 pt-4">
+    <p class="text-base">{{ _("Per ongeluk?") }}</p>
+    <form class="mt-2" method="post" action="{{ path_for('/nieuwsbrief/opnieuw/' ~ token) }}" hx-boost="false">
+      {{ ui.btn_outline(_("Toch opnieuw inschrijven"), type="submit", size="md", cls="w-full justify-center") }}
+    </form>
+  </div>
+{% elif state == "test" %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Dit was een testmail") }}</h1>
+  <p class="text-base mt-3">{{ _("In de echte nieuwsbrief schrijft deze link de ontvanger uit. Er is niets veranderd.") }}</p>
+{% else %}
+  <h1 class="text-3xl font-bold text-kop">{{ _("Deze link werkt niet meer") }}</h1>
+  <p class="text-base mt-3">{{ _("Misschien werd hij al gebruikt. Je kunt je hieronder gewoon opnieuw inschrijven.") }}</p>
+  <p class="mt-4"><a class="text-blue-500 underline" href="{{ path_for('/nieuwsbrief') }}">{{ _("Naar de inschrijving") }}</a></p>
+{% endif %}

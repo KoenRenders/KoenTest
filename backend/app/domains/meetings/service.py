@@ -863,6 +863,10 @@ class DocumentItem:
     # Verwimp" af, en een scherm dat zelf namen gaat opzoeken is een tweede plek
     # waar dezelfde vraag beantwoord wordt.
     steward_name: str = ""
+    # The activity behind an activity point (#984). The newsletter's drafting
+    # fetches the activity data through it, so the model never has to detect an
+    # activity in the note's prose (CR-05 §3.15).
+    activity_id: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -989,7 +993,7 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
             notes=item.notes or "", kind="activity",
             source_url=f"/admin/activiteiten/{activity.id}",
             is_full=bool(capacity and booked >= capacity),
-            steward_person_id=None)
+            steward_person_id=None, activity_id=activity.id)
 
     if item.member_id:
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
@@ -1048,6 +1052,47 @@ def _address_line(person) -> str:
 # Hoe ver de kiezer terugkijkt onder "Evaluatie". Een jaar, omdat de reden om
 # handmatig toe te voegen juist is dat iets niet automatisch opgepikt werd — en
 # het zoekveld maakt een lange lijst hanteerbaar.
+@dataclass(frozen=True)
+class ReportPoint:
+    """A point of a sent report, as the newsletter's drafting reads it (#984)."""
+
+    meeting_id: int
+    meeting_date: date
+    section: str
+    item: DocumentItem
+
+
+def sent_reports(db: Session, limit: int = 24) -> list[Meeting]:
+    """The reports that went out, newest first — what the newsletter composer
+    may tick as a whole (Koen, 17 September 2026)."""
+    return (db.query(Meeting)
+            .filter(Meeting.status == STATUS_SENT)
+            .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+            .limit(limit).all())
+
+
+def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
+    """The points of these sent reports, newest meeting first.
+
+    Member points are left out on purpose: a new household is not newsletter
+    material, and it would put names and addresses within reach of the model.
+    A meeting that is not (or no longer) sent contributes nothing.
+    """
+    wanted = {int(i) for i in (meeting_ids or [])}
+    points: list[ReportPoint] = []
+    for meeting in sent_reports(db, limit=200):
+        if meeting.id not in wanted:
+            continue
+        for section in document_of(db, meeting):
+            for item in section.items:
+                if item.kind == "member":
+                    continue
+                points.append(ReportPoint(meeting_id=meeting.id,
+                                          meeting_date=meeting.meeting_date,
+                                          section=section.label, item=item))
+    return points
+
+
 EVALUATION_LOOKBACK = timedelta(days=365)
 
 

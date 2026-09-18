@@ -109,7 +109,13 @@
      `nav_oob` in app/ui/__init__.py. #}
   {% set _oob = nav_oob(request) if request is defined else False %}
   <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-40">
-    <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
+    {# #992: the tenant's header colour, when set, overrides bg-blue-700 on the
+       <nav> — which holds both the wide and the mobile menu, so one place covers
+       both. On the <nav> and not on #site-nav-mobiel: the nav has no id and is
+       never an oob target, so htmx' settle (#726) cannot reset it, and a full
+       render always carries the right value. Validated as #rrggbb on write AND
+       on read (`tenant_site_header_color`), because this is a style attribute. #}
+    <nav class="bg-blue-700 text-white shadow-md"{% if site_header_color %} style="background-color: {{ site_header_color }}"{% endif %} x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="{{ path_for("/") }}" class="hover:opacity-80">
           {# Woordmerk "RaaK" (huisstijl): kapitale R en K, kleine "aa" opgetrokken naar
@@ -126,15 +132,20 @@
              woordmerk hieronder. Dezelfde bron als de vergader-PDF (#258), zodat
              de vereniging haar logo één keer uploadt. De hoogte is begrensd zodat
              een groot bestand de balk niet oprekt. #}
+          {# #1001: a logo usually carries the name and the tagline itself, so with a
+             logo the tagline is not repeated as text. It moves into the alt, or a
+             screen reader would read it nowhere. The <title> and og:description
+             keep it — that is text, not image. No "show tagline" switch: the logo
+             is the signal. #}
           {% if site_logo_url %}
-          <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-10 md:h-12 w-auto">
+          <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-10 md:h-12 w-auto">
           {% else %}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
-          {% endif %}
           {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
              design-system: 14 px is een bijschrift op een breed scherm en leestekst
              op een telefoon, en 80% van het bezoek is mobiel. #}
           {% if site_tagline %}<span class="block font-brand text-base md:text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
+          {% endif %}
         </a>
         {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
              lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
@@ -229,6 +240,9 @@
       {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}{% if organisatie.bic %} ({{ organisatie.bic }}){% endif %}</p>{% endif %}
     </div>
     {% endif %}
+    {# De nieuwsbriefinschrijving (#984), alleen bij een afdeling: het platform
+       heeft geen leden en verstuurt geen nieuwsbrief. #}
+    {% if nieuwsbrief_inschrijven %}{% include "_nb_footer.html" %}{% endif %}
     {% if footer_block and footer_block.content %}
     <div class="cms-content text-center text-base md:text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
     {% endif %}

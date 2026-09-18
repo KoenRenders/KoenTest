@@ -39,6 +39,14 @@ class BetalingenView(ViewModel):
     # None. Draagt de tekst en uitgang voor ui.scope_regel plus het hidden field
     # waarmee de scope filterwijzigingen overleeft.
     scope: dict[str, Any] | None
+    # Golf 10 (#913): het actieve statustab-zicht, de tabs zelf (label, aantal,
+    # fragment-URL, actief) en de kengetallenband boven de tabel.
+    zicht: str
+    zichten: list[dict[str, Any]]
+    kpi: dict[str, Any]
+    # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
+    # out-of-band mee; de volledige pagina rendert ze zelf.
+    oob_boven: bool = False
 
     # Filteropties, opgebouwd uit de zichtbare records.
     componenten: list[tuple[int, str]]

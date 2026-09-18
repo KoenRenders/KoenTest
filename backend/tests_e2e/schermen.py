@@ -8,8 +8,101 @@ raakt in plaats van elke flow.
 De testfuncties lezen dan als scenario's, niet als klikinstructies.
 """
 import os
+from contextlib import contextmanager
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+
+
+# ── Waiting on htmx, not on the clock (#997) ─────────────────────────────────
+#
+# A fixed `wait_for_timeout` after a click is a race: on a slow runner the next
+# line looks at a screen that is not there yet. Where something must APPEAR, a
+# test waits on Playwright's own `expect(...)`. Where a test proves that
+# something did NOT happen, there is nothing to wait for — so it waits until
+# htmx is demonstrably done, and only then checks the absence.
+#
+# "Done" is read from htmx itself: every request that began has ended (its
+# XHR fired `loadend`), and no element still carries `htmx-request`,
+# `htmx-swapping` or `htmx-settling`. htmx sets `htmx-swapping` synchronously
+# before a swap — also one delayed by a view transition — and removes
+# `htmx-settling` only after the settle in which #726 resets attributes. So the
+# condition cannot be true between the response and the end of the settle.
+_HTMX_TELLER = """() => {
+  if (!window.__htmxTel) {
+    const t = window.__htmxTel = {begonnen: 0, afgerond: 0};
+    // Counted on the XHR and not with `htmx:afterRequest`: htmx fires that on the
+    // element that made the request, and when the swap removed that element the
+    // event never reaches the document (measured: 2 begun, 1 ended, forever).
+    // `loadend` comes after htmx's own load/error/abort handling, always.
+    document.addEventListener('htmx:beforeRequest', (e) => {
+      const tel = window.__htmxTel;
+      tel.begonnen++;
+      e.detail.xhr.addEventListener('loadend', () => { tel.afgerond++; });
+    });
+  }
+  window.__htmxTel.begonnen = 0;
+  window.__htmxTel.afgerond = 0;
+}"""
+_HTMX_STIL = """(minstens) => {
+  const t = window.__htmxTel;
+  // No counters: the answer replaced the whole document (HX-Redirect,
+  // HX-Refresh). Then "done" is that document having loaded.
+  if (!t) return document.readyState === 'complete';
+  return t.begonnen >= minstens && t.afgerond >= t.begonnen
+    && !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling');
+}"""
+
+
+@contextmanager
+def htmx_afgerond(page, *, verzoeken: int = 1, timeout: int = 10_000):
+    """Run the block, then wait until the htmx requests it started are settled.
+
+    `verzoeken` is how many requests the block must start at least — a debounced
+    input starts its request later, and waiting for "nothing running" before it
+    began would be the race again. Only for htmx actions: a full page load
+    replaces the document and its counters; then the wait ends once the new
+    document has loaded.
+    """
+    page.evaluate(_HTMX_TELLER)
+    yield
+    page.wait_for_function(_HTMX_STIL, arg=verzoeken, timeout=timeout)
+
+
+def netwerk_bijgewerkt(page, *, timeout: int = 10_000) -> None:
+    """A barrier for proving that something did NOT happen (#997).
+
+    Requests leave in the order the page starts them. So once a fresh sentinel
+    request has been answered, any request the page started before it has gone
+    out too — and `htmx_stil` then waits until such a request is also swapped.
+    Only after that is "nothing changed" a finding. A fixed wait passes just as
+    well when the thing is merely slow, and then the test proves nothing.
+    """
+    with page.expect_response(lambda r: "e2e-grens" in r.url, timeout=timeout):
+        page.evaluate("() => fetch('/static/app.css?e2e-grens=' + Date.now())")
+    htmx_stil(page, timeout=timeout)
+
+
+def pagina_klaar(page, *, timeout: int = 10_000) -> None:
+    """After a `goto`: Alpine has initialised every `x-data`, and htmx is idle.
+
+    A check on the starting state ("the menu is closed") says nothing while
+    Alpine has not yet evaluated its `x-show` — this is the moment it does.
+    """
+    page.wait_for_function(
+        "() => !!window.Alpine && [...document.querySelectorAll('[x-data]')]"
+        ".every(e => e._x_dataStack)", timeout=timeout)
+    htmx_stil(page, timeout=timeout)
+
+
+def htmx_stil(page, *, timeout: int = 10_000) -> None:
+    """Wait until nothing htmx started is still running — after a page load.
+
+    For a check right after `goto`: htmx may still be processing what the page
+    loads (`hx-trigger="load"`). Starts no request of its own.
+    """
+    page.wait_for_function(
+        "() => !!window.htmx && !document.querySelector("
+        "'.htmx-request, .htmx-swapping, .htmx-settling')", timeout=timeout)
 
 
 def login_met_sessie(page, sessiewaarde: str) -> None:
@@ -56,12 +149,13 @@ class Gezinsportaal:
         self.page.fill("#np-last_name", achternaam)
         self.page.fill("#np-date_of_birth", "2012-03-04")
         self.page.select_option("#np-gender_code", "M")
-        self.page.get_by_role("button", name="Toevoegen", exact=True).click()
-        self.page.wait_for_timeout(600)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Toevoegen", exact=True).click()
 
 
 class Betalingenscherm:
-    """/admin/betalingen — de kaartenlijst met de FINANCE-acties."""
+    """/admin/betalingen — sinds golf 10 (#913) een dichte tabel: één rij per
+    boeking, de FINANCE-acties per rij, de editors als uitklaprij eronder."""
 
     pad = "/admin/betalingen"
 
@@ -75,95 +169,84 @@ class Betalingenscherm:
         self.page.wait_for_selector("#betalingen-lijst", timeout=5000)
         return self
 
-    def kaart(self, ogm: str):
-        """Een kaart aanwijzen via haar OGM — die is uniek en zichtbaar."""
-        return self.page.locator(".bg-white", has_text=ogm).first
+    def rij(self, ogm: str):
+        """Een rij aanwijzen via haar OGM — die is uniek en zichtbaar."""
+        return self.page.locator("#betalingen-lijst tbody tr", has_text=ogm).first
 
-    def kaart_met_knop(self, knoplabel: str):
-        """De eerste kaart die deze actie aanbiedt.
+    def rij_met_knop(self, knoplabel: str):
+        """De eerste rij die deze actie aanbiedt.
 
-        Betrouwbaarder dan "de eerste kaart" of een kaart op naam (#644-D): op één
+        Betrouwbaarder dan "de eerste rij" of een rij op naam (#644-D): op één
         payable staan meerdere records (een openstaande vordering, een betaalde,
         een terugbetaling) met dezelfde contactnaam, en welke bovenaan staat hangt
         van de aanmaakvolgorde af. Een test die "bevestig betaald" wil, hoort de
-        kaart te kiezen die dat kán.
+        rij te kiezen die dat kán.
         """
         return self.page.locator(
-            ".bg-white", has=self.page.get_by_role("button", name=knoplabel)).first
+            "#betalingen-lijst tbody tr",
+            has=self.page.get_by_role("button", name=knoplabel)).first
 
-    def ogm_van(self, kaart) -> str | None:
-        tekst = kaart.locator("text=OGM").first
-        if tekst.count() == 0:
+    def ogm_van(self, rij) -> str | None:
+        """Sinds golf 10 staat de OGM kaal (mono) onder de naam, zonder
+        "OGM"-voorvoegsel — zoals de Cobalt-referentie."""
+        cel = rij.locator(".font-mono").first
+        if cel.count() == 0:
             return None
-        return tekst.inner_text().split("OGM")[-1].strip()
+        return cel.inner_text().strip()
 
-    def bevestig_betaald(self, kaart):
-        kaart.get_by_role("button", name="Bevestig betaald").click()
+    def bevestig_betaald(self, rij):
+        # Sinds #996 een stille link met het korte label "Bevestig"; de
+        # bevestigingsvraag draagt de type-woorden.
+        rij.get_by_role("button", name="Bevestig", exact=True).click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
-        self.page.get_by_role("button", name="Bevestigen").click()
-        self.page.wait_for_timeout(300)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Bevestigen").click()
 
     def badges(self, ogm: str) -> list[str]:
-        return self.kaart(ogm).locator("span.rounded-full").all_inner_texts()
-
-    def toon_inschrijvingsdetails(self, kaart):
-        """Klap het detail open en geef het paneel terug, zodat de bewerkingen
-        erna binnen díe kaart gebeuren en niet in een andere op de pagina.
-
-        Wacht op de INHOUD, niet op de zichtbaarheid van het paneel zelf. Alpine
-        zet `x-show` meteen om, maar htmx vult het paneel pas met de eerste
-        `hx-get`. Een lege div heeft geen hoogte, en Playwright rekent een element
-        van nul bij nul als verborgen — dus "wacht tot het paneel zichtbaar is"
-        was in werkelijkheid "wacht tot het antwoord binnen is", met een
-        wedloop als het even traag ging. Deze test viel daar geregeld over.
-        """
-        kaart.get_by_text("Toon inschrijvingsdetails").click()
-        paneel = kaart.locator('[id^="det-"]').first
-        paneel.locator(":scope > *").first.wait_for(state="visible", timeout=10000)
-        return paneel
+        return self.rij(ogm).locator("span.rounded-full").all_inner_texts()
 
     def bewerkbaar_detailpaneel(self):
-        """Het eerste detailpaneel dat écht te bewerken is.
+        """Het eerste inschrijvingsdetail dat écht te bewerken is.
 
-        "De eerste kaart met een detailknop" is niet genoeg: een geschrapte
-        inschrijving toont haar paneel wel maar zonder bewerk-toggle, en sinds #673
-        kan een andere kaart bovenaan staan (een lege vordering valt weg, een
-        bijkomende springt in). Dezelfde redenering als bij `kaart_met_knop`
-        (#644-D): kies de kaart die de handeling kán, niet de kaart die toevallig
-        eerst staat.
+        Sinds golf 10 zonder inline-disclosure op het betalingenscherm: de naam
+        in de tabel is de B2-link naar de inschrijvingspagina, en het gedeelde
+        detailfragment staat dáár. Dezelfde #644-D-redenering blijft: kies de
+        inschrijving die de handeling kán — een geschrapte toont haar paneel
+        read-only, zonder bewerk-toggle.
 
-        Geeft None als geen enkele kaart bewerkbaar is — dan is het een
+        Geeft None als geen enkele inschrijving bewerkbaar is — dan is het een
         overslaan-geval voor de test, geen bevinding.
         """
-        # #736: begin bij een VERSE pagina. Deze helper wordt ook aangeroepen ná een
-        # bewerking, en dan staat er al een paneel open met een verbruikte
-        # `hx-trigger="click once"`. De klik hieronder haalt dan geen nieuw fragment
-        # op maar klapt dat oude paneel dicht, waarna de test wacht op iets dat nooit
-        # meer zichtbaar wordt — het beeld van de mislukking was letterlijk
-        # `x-data="{ edit: true }"`, verborgen.
-        #
-        # Een verse pagina in plaats van langer wachten: het gaat niet om een trage
-        # verversing maar om een toestand die er al ís. Wachten lost dat niet op, het
-        # verbergt het alleen tot de volgende keer dat de machine druk staat — en dat
-        # is precies waarom dit enkel in de volle suite omviel.
+        # Begin bij een VERSE lijst (#736): de helper wordt ook ná een bewerking
+        # aangeroepen, en de tabel van dat moment kan al ververst zijn.
         self.open()
-        kaarten = self.page.locator(
-            ".bg-white", has=self.page.get_by_role(
-                "button", name="Toon inschrijvingsdetails"))
-        for i in range(kaarten.count()):
-            kaart = kaarten.nth(i)
-            paneel = self.toon_inschrijvingsdetails(kaart)
-            if paneel.get_by_role("button", name="Bewerken").count():
+        links = self.page.locator(
+            '#betalingen-lijst a[href*="/admin/inschrijvingen/"]')
+        hrefs: list[str] = []
+        for i in range(links.count()):
+            href = links.nth(i).get_attribute("href")
+            if href and href not in hrefs:
+                hrefs.append(href)
+        for href in hrefs:
+            self.page.goto(href)
+            # Ankeren op het formulier-id en niet op de Bewerken-knop: locators
+            # her-resolven bij elke actie, en zodra Bewerken geklikt is verbergt
+            # x-show hem — een has=Bewerken-paneel lost dan op naar niets.
+            paneel = self.page.locator(
+                "div.bg-gray-50.border",
+                has=self.page.locator('form[id^="insch-form-"]')).first
+            if paneel.count() and paneel.get_by_role(
+                    "button", name="Bewerken").count():
                 return paneel
         return None
 
 
 class Inschrijvingsdetail:
-    """Het gedeelde detail/editor-fragment onder een betaalkaart.
+    """Het gedeelde detail/editor-fragment (#455/#613), sinds golf 10 op de
+    inschrijvingspagina zelf.
 
-    Krijgt het paneel mee i.p.v. de hele pagina: op het betalingenscherm staan
-    meerdere kaarten met elk hun eigen "Bewerken" en "Opslaan", en `.first` op de
-    pagina belandde in de verkeerde.
+    Krijgt het paneel mee i.p.v. de hele pagina, zodat de bewerkingen binnen
+    het fragment blijven en niet in een ander element met dezelfde knoppen.
     """
 
     def __init__(self, paneel):
@@ -180,8 +263,8 @@ class Inschrijvingsdetail:
         self.aantalvelden().nth(index).fill(str(aantal))
 
     def opslaan(self):
-        self.paneel.get_by_role("button", name="Opslaan").first.click()
-        self.page.wait_for_timeout(400)
+        with htmx_afgerond(self.page):
+            self.paneel.get_by_role("button", name="Opslaan").first.click()
 
     def totaal(self) -> str:
         return self.paneel.locator("text=Totaal").first.inner_text()
@@ -207,7 +290,7 @@ class Paginascherm:
 
     def open_eerste(self):
         self.page.goto(self.pad)
-        self.page.wait_for_timeout(400)
+        htmx_stil(self.page)
         # De kaarten zijn gewone links naar /admin/paginas/<id>; hx-boost maakt er
         # een fragment-navigatie van. "Nieuw" valt af omdat die op /nieuw uitkomt.
         links = self.page.locator("a[href^='/admin/paginas/']:not([href$='/nieuw'])")
@@ -223,12 +306,12 @@ class Paginascherm:
         return self.page.locator("#cp-htmlsrc")
 
     def opslaan(self):
-        self.page.get_by_role("button", name="Opslaan").first.click()
-        self.page.wait_for_timeout(800)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Opslaan").first.click()
 
     def toon_html_bron(self):
+        # Alpine only, no request: the caller waits on the box itself.
         self.page.get_by_role("button", name="HTML").first.click()
-        self.page.wait_for_timeout(300)
 
     def editorinhoud(self) -> str:
         return self.page.locator("#cp-content-input").first.input_value() or ""
@@ -267,7 +350,14 @@ class Ledenscherm:
         (personen, lidmaatschappen) en welke de laatste is, hangt af van de data
         (#644-D).
         """
-        return self.page.locator("div", has_text="Lidmaatschappen").last
+        # #997: anchored on the detail and on the card's own heading. The old
+        # `div has_text=… .last` also matched on the list page, which carries the
+        # word too — before the detail had arrived, it found some other div.
+        return self.page.locator("#leden-detail div").filter(
+            has=self.page.locator("h3", has_text="Lidmaatschappen")).last
+
+    def lidmaatschapskop(self):
+        return self.page.locator("#leden-detail h3", has_text="Lidmaatschappen")
 
     def lidmaatschap_verwijderknop(self):
         return self.lidmaatschapskaart().get_by_role("button", name="Verwijderen").first
@@ -275,8 +365,8 @@ class Ledenscherm:
     def verwijder_lidmaatschap(self):
         self.lidmaatschap_verwijderknop().click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
-        self.page.get_by_role("button", name="Bevestigen").click()
-        self.page.wait_for_timeout(400)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Bevestigen").click()
 
 
 class Adminschil:
@@ -299,9 +389,9 @@ class Adminschil:
             "!!(document.querySelector('aside') && document.querySelector('aside').__raakMerk)"))
 
     def klik_in_de_zijbalk(self, href: str) -> None:
-        self.page.locator(f'aside a[href="{href}"]').first.click()
+        with htmx_afgerond(self.page):
+            self.page.locator(f'aside a[href="{href}"]').first.click()
         self.page.wait_for_selector("#main h1", timeout=5000)
-        self.page.wait_for_timeout(200)
 
 
 def controlhoogtes(page, container_selector: str) -> dict:

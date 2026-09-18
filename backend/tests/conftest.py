@@ -49,7 +49,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "ai", "media", "analytics", "reporting", "meetings", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "ai", "media", "analytics", "reporting", "meetings", "newsletter", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     # #951: eerst de keten lezen, dan pas draaien. Klopt ze niet, dan valt de

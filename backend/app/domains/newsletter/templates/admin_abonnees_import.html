@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Lijst importeren — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Abonnees"), "/admin/nieuwsbrieven/abonnees") }}
+{{ ui.page_header(_("Lijst importeren"), _("Een tekstbestand met één e-mailadres per regel.")) }}
+<div id="nb-import" class="max-w-2xl">
+  {% include "_nb_import.html" %}
+</div>
+{% endblock %}

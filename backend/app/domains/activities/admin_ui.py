@@ -238,7 +238,8 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
                         end_date: str = Form(""), start_time: str = Form(""),
                         end_time: str = Form(""),
                         location: str = Form(""), poster_url: str = Form(""),
-                        members_only: str = Form("")):
+                        members_only: str = Form(""),
+                        registration_closes_on: str = Form("")):
     from app.domains.activities import service
     from app.schemas.activity import ActivityDateCreate
 
@@ -254,13 +255,32 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
         nieuw = service.create_activity(
             db, name=name.strip(), location=location.strip() or None,
             poster_url=poster_url.strip() or None, members_only=bool(members_only),
-            dates=[first_row], actor=email)
+            dates=[first_row], actor=email,
+            registration_closes_on=_datum_of_none(registration_closes_on))
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
     # onderdelen nodig, en die staan daar (C1, #586).
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
+
+
+def _datum_of_none(ruw: str):
+    """Een `<input type="date">`-waarde als datum, of None wanneer leeg.
+
+    Een ongeldige waarde (een browser zonder datumkiezer laat tekst toe) wordt
+    geweigerd met een leesbare melding in plaats van een 500.
+    """
+    from datetime import date
+
+    waarde = (ruw or "").strip()
+    if not waarde:
+        return None
+    try:
+        return date.fromisoformat(waarde)
+    except ValueError:
+        raise HTTPException(status_code=422,
+                            detail=_("Ongeldige datum voor 'Inschrijven tot'."))
 
 
 @router.post("/admin/activiteiten/{activity_id}", response_class=HTMLResponse,
@@ -272,6 +292,7 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
                                name: str = Form(""), location: str = Form(""),
                                poster_url: str = Form(""), slug: str = Form(""),
                                members_only: str = Form(""), is_cancelled: str = Form(""),
+                               registration_closes_on: str = Form(""),
                                file: Optional[UploadFile] = File(None)):
     """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
 
@@ -292,6 +313,9 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     # dan verdwijnt de vriendelijke URL en blijft alleen de nummer-URL over. Hij volgt
     # de naam niet: wie hem wijzigt, doet dat met de waarschuwing op het scherm.
     velden["slug"] = slug.strip() or None
+    # #974: zelfde reden als de slug — leeg is "geen deadline", en dat moet de
+    # bestaande kunnen wissen.
+    velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
     try:
         bijgewerkt = service.update_activity(db, activity_id, velden, actor=email)
     except service.ActiviteitFout as fout:
@@ -1067,9 +1091,14 @@ def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dic
     """Doorgeefluik naar de ene tabs-bouwer in de service (golf 8, #913):
     de payment-kant rendert dezelfde recordkop en mag alleen via de facade."""
     from app.domains.activities.api import record_tabs
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
 
+    # Golf 10 (#913): de "AI · Activiteit"-knop in de recordkop bestaat alleen
+    # als Raakje voor beheer aan staat — één bron (kernel, CR-07 §6.3), geen
+    # eigen vlag ernaast.
     return {"record_tabs": record_tabs(db, activiteit, email, actief,
-                                       reg_count=reg_count)}
+                                       reg_count=reg_count),
+            "raakje_admin": tenant_admin_chat_enabled(db)}
 
 
 def _record_rail(db, activiteit) -> dict:

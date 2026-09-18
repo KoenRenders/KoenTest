@@ -1,0 +1,208 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ letter.subject or _("Nieuwsbrief") }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+<script>
+  // Invoegen op de cursor (#984). Eén keer registreren: onder hx-boost wordt dit
+  // blok bij elke navigatie opnieuw uitgevoerd. De server levert het stukje HTML;
+  // de browser weet niets van activiteiten — datum, uur en link komen uit
+  // dezelfde bron als de agenda.
+  if (!window.nbInvoegen) {
+    window.nbInvoegen = function (url) {
+      fetch(url, { credentials: "same-origin" })
+        .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+        .then(function (html) {
+          var editor = document.getElementById("nb-trix").editor;
+          editor.insertHTML(html);
+          document.getElementById("nb-trix").focus();
+        })
+        .catch(function (fout) { console.error("invoegen mislukt", fout); });
+      var kiezer = document.getElementById("nb-kiezer");
+      if (kiezer) { kiezer.innerHTML = ""; }
+    };
+  }
+  // Een bijlage opladen en de link op de cursor zetten. Een weigering (verkeerd
+  // type, te groot) komt als tekst terug en verschijnt in de statusregel.
+  if (!window.nbBijlage) {
+    window.nbBijlage = function (veld, url, token) {
+      if (!veld.files || !veld.files.length) { return; }
+      var data = new FormData();
+      data.append("file", veld.files[0]);
+      fetch(url, { method: "POST", body: data, credentials: "same-origin",
+                   headers: { "X-CSRF-Token": token } })
+        .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, tekst: t }; }); })
+        .then(function (antwoord) {
+          if (!antwoord.ok) {
+            var status = document.getElementById("nb-bewaard");
+            if (status) { status.textContent = antwoord.tekst; }
+            return;
+          }
+          var el = document.getElementById("nb-trix");
+          el.editor.insertHTML(antwoord.tekst);
+          el.focus();
+        })
+        .finally(function () { veld.value = ""; });
+    };
+  }
+  // De geselecteerde tekst in de editor: Raakje herschrijft dan alleen die alinea.
+  if (!window.nbSelectie) {
+    window.nbSelectie = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var bereik = el.editor.getSelectedRange();
+      if (bereik[0] === bereik[1]) { return ""; }
+      return el.editor.getDocument().getStringAtRange(bereik).toString();
+    };
+    // Waar de selectie ligt, en wat er vlak voor de cursor staat: Raakje schrijft
+    // dan precies voor die plek (Koen, 17 september 2026).
+    window.nbBereik = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var bereik = el.editor.getSelectedRange();
+      return bereik[0] === bereik[1] ? "" : bereik[0] + "," + bereik[1];
+    };
+    window.nbVoorCursor = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var tot = el.editor.getSelectedRange()[0];
+      return el.editor.getDocument().getStringAtRange([Math.max(0, tot - 400), tot]).toString();
+    };
+  }
+  // Een toegepast voorstel komt via een <template> in het Raakje-paneel. Het gaat
+  // de editor in via Trix zelf, zodat "ongedaan maken" blijft werken.
+  if (!window.__nbToepassen) {
+    window.__nbToepassen = true;
+    document.body.addEventListener("htmx:afterSettle", function () {
+      var sjabloon = document.getElementById("nb-toepassen");
+      var el = document.getElementById("nb-trix");
+      if (!sjabloon || !el || !el.editor) { return; }
+      var html = sjabloon.innerHTML;
+      var plaats = sjabloon.getAttribute("data-plaatsing");
+      var bereik = (sjabloon.getAttribute("data-bereik") || "").split(",").map(Number);
+      sjabloon.remove();
+      el.editor.recordUndoEntry("Raakje");
+      if (plaats === "replace") {
+        el.editor.setSelectedRange([0, el.editor.getDocument().getLength()]);
+      } else if (plaats === "selection" && bereik.length === 2) {
+        el.editor.setSelectedRange(bereik);
+      }
+      // "cursor": Trix onthoudt waar de cursor stond, ook nadat je op een knop
+      // in het paneel klikte — daar komt het stuk.
+      el.editor.insertHTML(html);
+      el.focus();
+    });
+  }
+</script>
+
+{% call ui.page_header(letter.subject or _("Nieuwe nieuwsbrief"), _("Concept — wordt automatisch bewaard.")) %}
+  {# De bevestiging staat op het FORMULIER: htmx leest `data-confirm` op het
+     element dat het verzoek doet, en dat is bij een formulier het formulier,
+     niet de knop erin. #}
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/verwijderen"
+        {{ confirm_attrs(_("Concept"), letter.subject or _("zonder onderwerp"))|safe }}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_danger(_("Verwijderen"), type="submit") }}
+  </form>
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_secondary(_("Kopiëren"), type="submit") }}
+  </form>
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_outline(_("Testmail naar mezelf"), type="submit", size="md", lead_icon="mail") }}
+  </form>
+  {{ ui.btn_primary(_("Versturen…"), href="/admin/nieuwsbrieven/" ~ letter.id ~ "/versturen", lead_icon="send") }}
+{% endcall %}
+
+<div id="nb-bewaard" class="mb-4 min-h-[1.5rem]">
+  {% include "_nb_bewaard.html" %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] items-start">
+  {# Eén formulier voor onderwerp, doelgroep en tekst: elke wijziging bewaart
+     zichzelf, en het antwoord vervangt alleen de statusregel — nooit de editor
+     onder je vingers.
+
+     `hx-indicator` wijst naar die statusregel, en dat is geen detail: de schil
+     maakt het element dat een verzoek doet tijdens dat verzoek doorschijnend en
+     onklikbaar (`.htmx-request`). Zonder indicator was dat het HELE formulier —
+     bij elk automatisch bewaren flitste de editor en ging een klik verloren
+     (gemeten in de e2e: de klik op "Leden" landde op een div). #}
+  <form id="nb-formulier" class="space-y-4"
+        hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
+        hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
+        hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
+    {# Eén regel hoog, zodat de keuze niet in de weg staat naast Raakje (Koen,
+       17 september 2026). Het aantal staat op de knop, de uitleg in de tooltip.
+       Het verborgen veld staat ONDERAAN: als eerste kind telde het mee voor
+       `space-y-4`, en zakte deze kaart 16 px onder het Raakje-paneel. #}
+    <fieldset class="bg-surface border border-line rounded-2xl px-5 py-3">
+      <legend class="sr-only">{{ _("Voor wie?") }}</legend>
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-semibold text-blue-700 mr-1">{{ _("Voor wie?") }}</h2>
+        {% for value, label, count, hint in audience_options %}
+        <label title="{{ hint }}"
+               class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
+          <input type="radio" name="audience" value="{{ value }}"{% if letter.audience == value %} checked{% endif %}>
+          <span class="font-semibold">{{ label }}</span>
+          <span class="text-ink-soft">{{ count }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-ink-soft mt-1.5">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
+    </fieldset>
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      {{ ui.label(_("Onderwerp"), "nb-onderwerp", required=True) }}
+      {{ ui.input_control("subject", id="nb-onderwerp", value=letter.subject, cls="w-full",
+                          placeholder=_("Het najaar in Millegem")) }}
+    </div>
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-semibold text-blue-700 mr-auto">{{ _("Inhoud") }}</h2>
+        {{ ui.btn_outline(_("Activiteit invoegen"), lead_icon="plus",
+                          attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
+        {{ ui.btn_outline(_("Kalender invoegen"), lead_icon="calendar",
+                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
+        {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de
+           brief vertrekt als aparte mail naar honderden adressen. #}
+        <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"
+               aria-label="{{ _("Bijlage kiezen") }}"
+               onchange="nbBijlage(this, '/admin/nieuwsbrieven/{{ letter.id }}/bijlage', '{{ csrf_token }}')">
+        {{ ui.btn_outline(_("Bijlage invoegen"), lead_icon="upload",
+                          attrs='onmousedown="event.preventDefault()" onclick="document.getElementById(\'nb-bijlage\').click()"') }}
+        {{ ui.btn_outline(_("Afsluiting invoegen"), lead_icon="pencil",
+                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
+      </div>
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in Gmail schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
+      <div id="nb-kiezer"></div>
+      <div class="mt-3">
+        {{ ui.rich_text("body_html", "nb-trix", value=letter.body_html, input_id="nb-inhoud",
+                        cls="min-h-[22rem]", placeholder=_("Beste,")) }}
+      </div>
+    </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  </form>
+
+  <div class="space-y-4">
+    {% if raakje_enabled %}
+    <div id="nb-raakje">
+      {% include "_nb_raakje.html" %}
+    </div>
+    {% endif %}
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Zo vertrekt hij") }}</p>
+      <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+        <dt class="text-ink-soft">{{ _("Van") }}</dt><dd>{{ _("het adres van de vereniging, zoals een inschrijvingsbevestiging") }}</dd>
+        <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt><dd>{{ _("naar de vereniging of naar jezelf — je kiest bij het versturen") }}</dd>
+        <dt class="text-ink-soft">{{ _("Per mail") }}</dt><dd>{{ _("één ontvanger — niemand ziet de anderen") }}</dd>
+        <dt class="text-ink-soft">{{ _("Onderaan") }}</dt><dd>{{ _("de naam van de vereniging; bij niet-leden ook de uitschrijflink") }}</dd>
+      </dl>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

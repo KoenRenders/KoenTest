@@ -392,3 +392,33 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
         return json.dumps({"error": f"Ongeldige parameters: {exc}"})
 
     return json.dumps(result, ensure_ascii=False, default=str)
+
+
+
+# ── De leestools, voor een ander pakket (#975) ───────────────────────────────
+#
+# De beheer-assistent mag alles lezen wat de publieke bot leest (Koen, 16
+# september 2026). Die tools blijven van dit domein — hun implementatie én hun
+# veldcontract staan hier — en worden via de facade uitgeleend.
+#
+# Alleen LEZEN. `submit_idea` maakt een bericht en een werkbanktaak aan; een
+# pakket dat dit leent, krijgt hem niet, ook niet per ongeluk. Daarom een eigen
+# allowlist en een eigen ingang, en niet `execute_tool`: die kent de schrijftool.
+READ_ONLY_TOOLS = frozenset({"get_activities", "get_activity_detail"})
+
+
+def read_tool_specs() -> list[dict[str, Any]]:
+    """De specs van de leestools, als kopie — een lener past ze niet aan in het
+    origineel."""
+    import copy
+
+    return [copy.deepcopy(spec) for spec in TOOL_SPECS
+            if spec["function"]["name"] in READ_ONLY_TOOLS]
+
+
+def execute_read_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
+    """Een leestool uitvoeren. Weigert alles wat niet enkel leest, bij naam."""
+    if name not in READ_ONLY_TOOLS:
+        logger.warning("Leestool gevraagd die niet enkel leest: %s", name)
+        return json.dumps({"error": f"Niet toegelaten in deze modus: {name}."})
+    return execute_tool(name, arguments, db)

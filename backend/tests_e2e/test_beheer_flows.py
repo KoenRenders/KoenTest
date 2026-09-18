@@ -14,7 +14,7 @@ import sys
 import time
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -79,15 +79,15 @@ def admin_page():
 def test_betaling_bevestigen(admin_page):
     """De knop die in #616 inert was: doet ze in een echte browser wat ze belooft?"""
     betalingen = Betalingenscherm(admin_page).open()
-    kaart = betalingen.kaart_met_knop("Bevestig betaald")
-    if kaart.count() == 0:
+    rij = betalingen.rij_met_knop("Bevestig")
+    if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
-    ogm = betalingen.ogm_van(kaart)
+    ogm = betalingen.ogm_van(rij)
     if ogm is None:
         _ontbreekt("de openstaande betaling heeft geen OGM om haar aan te herkennen")
 
-    betalingen.bevestig_betaald(kaart)
+    betalingen.bevestig_betaald(rij)
 
     assert "Vereffend" in " ".join(betalingen.badges(ogm))
 
@@ -108,10 +108,9 @@ def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     detail.zet_aantal(0, 3)
     detail.opslaan()
 
-    # Opslaan zet `HX-Trigger: betalingen-ververst`, dus de kaartenlijst wordt
-    # opnieuw opgebouwd en het detailpaneel gaat mee. De invariant is niet dat het
-    # paneel open blijft staan, maar dat het gewijzigde aantal bewaard is en de
-    # bedragen herrekend zijn (#613-4) — dus openen we opnieuw.
+    # De invariant is niet dat het paneel open blijft staan, maar dat het
+    # gewijzigde aantal bewaard is en de bedragen herrekend zijn (#613-4) —
+    # dus openen we het detail opnieuw, via een verse betalingenlijst.
     paneel = betalingen.bewerkbaar_detailpaneel()
     assert paneel is not None, "het paneel is na het opslaan niet meer te openen"
     detail = Inschrijvingsdetail(paneel)
@@ -132,9 +131,13 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     if admin_page.locator("#leden-lijst a").count() == 0:
         _ontbreekt("geen gezinnen op deze omgeving")
 
+    # #997: this waited 400 ms and then read the whole page for "Lidmaatschappen" —
+    # a race, and an empty one: the list page itself already carries that word
+    # (measured), so the check passed before the detail was there. Now it waits
+    # for the section heading inside the detail.
     admin_page.locator("#leden-lijst a").first.click()
-    admin_page.wait_for_timeout(400)
-    assert "Lidmaatschappen" in admin_page.content(), "geen lidmaatschapssectie op het gezinsdetail"
+    expect(leden.lidmaatschapskop(),
+           "geen lidmaatschapssectie op het gezinsdetail").to_be_visible()
 
     knop = leden.lidmaatschap_verwijderknop()
     if knop.count() == 0:
@@ -252,8 +255,8 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
     onderweg. Een `wait_for_timeout` ná de klik zou een race zijn.
     """
     betalingen = Betalingenscherm(admin_page).open()
-    kaart = betalingen.kaart_met_knop("Bevestig betaald")
-    if kaart.count() == 0:
+    rij = betalingen.rij_met_knop("Bevestig")
+    if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
     gezien = {}
@@ -267,7 +270,7 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
 
     admin_page.route("**/admin/betalingen/**", onderschep)
     try:
-        betalingen.bevestig_betaald(kaart)
+        betalingen.bevestig_betaald(rij)
     finally:
         admin_page.unroute("**/admin/betalingen/**", onderschep)
 
@@ -312,8 +315,8 @@ def test_bewerken_vervangt_de_datumregel(admin_page):
     datum = leesregel.inner_text().strip()
 
     scherm.bewerk_de_eerste_datum()
-    admin_page.wait_for_timeout(200)
 
-    assert not leesregel.is_visible(), (
-        f"de leesregel {datum!r} blijft staan naast het bewerkformulier (#648)")
-    assert scherm.datumregel().is_visible(), "het bewerkformulier ging niet open"
+    # Both must BECOME so; `expect` waits for it instead of guessing a time.
+    expect(scherm.datumregel(), "het bewerkformulier ging niet open").to_be_visible()
+    expect(leesregel, f"de leesregel {datum!r} blijft staan naast het "
+                      f"bewerkformulier (#648)").to_be_hidden()

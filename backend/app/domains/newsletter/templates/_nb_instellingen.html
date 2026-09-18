@@ -1,0 +1,18 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
+<form class="space-y-4" hx-post="/admin/nieuwsbrieven/instellingen" hx-target="#nb-instellingen" hx-swap="innerHTML">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="bg-surface border border-line rounded-2xl p-5">
+    {{ ui.label(_("Huisstijl voor Raakje"), "nb-huisstijl") }}
+    <p class="text-sm text-ink-soft mb-2">{{ _("In een paar zinnen: hoe klinkt een brief van jullie afdeling? Raakje leest dit bij elk voorstel, naast de laatste twee verstuurde brieven.") }}</p>
+    {{ ui.textarea_control("house_style", id="nb-huisstijl", value=house_style, rows=4, cls="w-full",
+                           placeholder=_("Warm en enthousiast, jij-vorm, korte zinnen.")) }}
+  </div>
+  <div class="bg-surface border border-line rounded-2xl p-5">
+    {{ ui.label(_("Nieuwsbriefmails per dag"), "nb-plafond") }}
+    <p class="text-sm text-ink-soft mb-2">{{ _("Het mailaccount van het portaal verstuurt ook de inschrijvings- en betaalmails. Hou dit getal onder de daglimiet van dat account, zodat die altijd vertrekken. Leeg = %(n)s.", n=daily_cap_default) }}</p>
+    {{ ui.input_control("daily_cap", id="nb-plafond", type="number", value=daily_cap, cls="w-32", attrs='min="1"') }}
+  </div>
+  <div class="flex justify-end">{{ ui.btn_primary(_("Bewaren"), type="submit") }}</div>
+</form>

@@ -71,11 +71,13 @@ def test_deels_betaald_blijft_apart(client):
     assert tonen["partial"] != tonen["pending"]
 
 
-def test_de_type_badge_terugbetaling_is_oranje():
-    """Pariteit met v1.14.0 (bg-orange-100 text-orange-700), en niet teal."""
+def test_het_soort_terugbetaling_staat_in_de_subregel():
+    """Sinds de Betalingen-verfijning (#996) is de aparte soortbadge weg: het
+    soort staat als tekst in de contextsubregel ("Terugbetaling · Online"),
+    zodat een rij één badge draagt en niet dubbel zo hoog wordt. De oranje
+    v1.14-badge (#660) is daarmee bewust vervallen."""
     lijst = open("app/domains/payment/templates/_betalingen_lijst.html",
                  encoding="utf-8").read()
-    regels = [r for r in lijst.splitlines() if "Terugbetaling" in r and "badge" in r]
-    assert regels, "de type-badge staat niet meer op het scherm"
-    for regel in regels:
-        assert '"orange"' in regel, f"verwacht oranje, kreeg: {regel.strip()}"
+    assert '{{ _("Terugbetaling") }} · ' in lijst
+    regels = [r for r in lijst.splitlines() if "Terugbetaling" in r and "ui.badge" in r]
+    assert not regels, f"soortbadge is terug: {regels[0].strip() if regels else ''}"

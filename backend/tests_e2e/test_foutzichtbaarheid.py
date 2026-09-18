@@ -18,7 +18,8 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, Activiteitdetail, login_als_admin  # noqa: E402
+from tests_e2e.schermen import (BASE, Activiteitdetail, htmx_afgerond,  # noqa: E402
+                                login_als_admin)
 
 
 def _ontbreekt(reden: str) -> None:
@@ -86,6 +87,10 @@ def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
 
     Elf keer dezelfde rode melding stapelen is zijn eigen soort ruis; de gebruiker
     leert er niets bij na de eerste.
+
+    #997: elke poging wacht tot ze afgehandeld is, want de telling is een
+    afwezigheidstoets. Gemeten: de ontdubbeling in `meldFout` weggehaald → deze
+    test valt om.
     """
     scherm = Activiteitdetail(admin_page)
     if not scherm.open_eerste():
@@ -95,9 +100,11 @@ def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
 
     scherm.breek_het_csrf_token()
     scherm.bewerk_de_eerste_datum()
+    # #997: each attempt is finished (the 403 answered and handled) before the
+    # next — the count below is an absence check, so it must not run early.
     for _ in range(3):
-        scherm.bewaar()
-        admin_page.wait_for_timeout(200)
+        with htmx_afgerond(admin_page):
+            scherm.bewaar()
 
     assert scherm.foutmeldingen().count() == 1, (
         f"drie mislukte pogingen gaven {scherm.foutmeldingen().count()} meldingen")

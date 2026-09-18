@@ -15,6 +15,9 @@ from app.domains.mail.service import (  # noqa: F401
     send_registration_confirmation,
     send_with_attachments,
     email_log_url,
+    send_campaign_mail,
+    send_newsletter_confirmation,
+    SendingQuotaReached,
 )
 
 from app.domains.mail.service import (  # noqa: F401
@@ -35,4 +38,7 @@ __all__ = [
     "send_member_contact_board_notice",
     "send_registration_confirmation",
     "send_with_attachments",
+    "send_campaign_mail",
+    "send_newsletter_confirmation",
+    "SendingQuotaReached",
 ]

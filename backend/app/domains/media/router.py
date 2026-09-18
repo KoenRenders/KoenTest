@@ -25,12 +25,14 @@ from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extract
 from app.domains.media.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
+from app.domains.media.svg import SVG_CONTENT_TYPE
 from app.i18n import _
 
 router = APIRouter(tags=["media"])
 
 VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
 MAX_BATCH = 20
+SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
 # Poster/reglement mag een afbeelding óf een PDF zijn (#223).
 DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
@@ -122,6 +124,12 @@ def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request,
         # Inline tonen (PDF in de native viewer, afbeelding gewoon) met een nette
         # naam bij delen/bewaren (#223).
         headers["Content-Disposition"] = f'inline; filename="{filename}"'
+    if (content_type or "").split(";")[0].strip().lower() == SVG_CONTENT_TYPE:
+        # #989: an SVG opened directly is rendered as a document on this origin.
+        # The upload is cleaned (media/svg.py); these headers are the second line,
+        # so that a cleaning that ever misses something still runs nothing.
+        headers["Content-Security-Policy"] = SVG_CSP
+        headers["X-Content-Type-Options"] = "nosniff"
     return Response(
         content=blob,
         media_type=content_type or "application/octet-stream",

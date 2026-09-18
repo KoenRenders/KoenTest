@@ -123,6 +123,30 @@ Vier regels, elk met een reden:
     24 px regel op een telefoon (4 px marge), 20 px op een breed scherm (2 px). Een
     kale `mt-1` op een icoon is dus 2 px te veel op het brede scherm.
 
+36. **Een `<trix-editor>` staat alleen in `ui.rich_text`** (#984). De editor
+    stond als losse markup in de pagina-editor en in de vergadernotities, elk
+    met een eigen verborgen veld en eigen CSS voor de balk; de nieuwsbrief zou
+    de derde kopie worden. Eén macro, en deze regel houdt haar de enige.
+
+37. **Een bevestigingsvraag staat op het element dat het verzoek doet** (#984).
+    htmx leest `data-confirm` op het element met `hx-post`; bij een formulier is
+    dat het formulier, niet de knop erin (gemeten in de broncode van htmx:
+    `htmx:confirm` krijgt `elt` = het formulier). Een `data-confirm` of
+    `confirm=` op een knop zonder eigen `hx-post`, in een `hx-post`-formulier,
+    wordt dus nooit getoond — en het verzoek gaat zonder vraag door. Drie keer
+    zo in de vergadermodule.
+    **Vervallen met #986**: de handler leest nu ook de verzendende knop, dus die
+    vorm werkt. Het nummer blijft staan zodat de nummering niet verschuift; de
+    toets zit in `tests_e2e/test_bevestiging_op_de_knop.py`.
+
+38. **Een e2e wacht niet op de klok** (#997). Een vaste `wait_for_timeout` na
+    een klik is een race — `test_lidmaatschap_schrappen_geeft_een_terugbetaling`
+    faalde er af en toe op — en een afwezigheidstoets na een vaste wachttijd is
+    erger: groen wanneer het ding gewoon trager komt. Wacht op `expect(...)`, of
+    met `htmx_afgerond`/`netwerk_bijgewerkt` uit `tests_e2e/schermen.py`. Een
+    vaste wachttijd die tóch moet blijven, staat in `VASTE_WACHTTIJDEN` én draagt
+    haar reden als commentaar op dezelfde regel. Die lijst mag alleen krimpen.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1405,3 +1429,97 @@ def test_verborgen_beginstand_met_id_staat_ook_in_de_servermarkup():
         'Element met id én x-show zonder letterlijke style="display: none" — '
         "htmx' settle wist anders de Alpine-stand na een swap (#726):\n  "
         + "\n  ".join(fouten))
+
+
+def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
+    """#984 — `<trix-editor>` hoort alleen in `ui.rich_text` (`_macros.html`).
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: in
+    `_vg_punt.html` de macro-aanroep terug vervangen door de losse
+    `<trix-editor>`-markup → de test valt om met dat pad.
+    """
+    fouten = [
+        f"{pad.relative_to(APP)}:{nr}"
+        for pad in TEMPLATES
+        if pad.name != "_macros.html"
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1)
+        if "<trix-editor" in regel
+    ]
+    assert not fouten, (
+        "Gebruik `ui.rich_text(...)` in plaats van een losse `<trix-editor>`; zo "
+        "delen alle schermen hetzelfde verborgen veld en dezelfde balk:\n  "
+        + "\n  ".join(fouten)
+    )
+    kit = (APP / "ui" / "templates" / "_macros.html").read_text()
+    assert "<trix-editor" in kit, "de macro zelf is verdwenen — dan bewaakt deze regel niets"
+
+
+# #984 added a rule here: "`data-confirm` in an hx-post form belongs on the form,
+# not on the button". It was true then — htmx names the form as the confirming
+# element, so a question on the button never appeared. #986 repaired the
+# mechanism instead: the `htmx:confirm` handler in `confirm_host()` also reads
+# the submitting button. The rule was removed rather than rewritten, because it
+# now forbids a form that works, and a gate on the markup cannot prove what only
+# a browser shows. The mechanism is tested where it runs:
+# `tests_e2e/test_bevestiging_op_de_knop.py`. Questions already on the form
+# (the meeting module) keep working and stay as they are.
+
+
+# ── Regel 38: geen vaste wachttijden in de e2e (#997) ────────────────────────
+
+E2E = Path(__file__).resolve().parents[1] / "tests_e2e"
+
+# Per bestand: hoeveel vaste wachttijden er bewust blijven. Mag alleen krimpen.
+# Leeg sinds #997 — alle 48 zijn vervangen; een nieuwe hoort hier niet bij te
+# komen zonder dat iemand in de review uitlegt waarom er niets is om op te wachten.
+VASTE_WACHTTIJDEN: dict[str, int] = {}
+
+
+def _vaste_wachttijden(pad: Path) -> list[tuple[int, str]]:
+    """(regel, commentaar op die regel) voor elke `wait_for_timeout(`-aanroep."""
+    import ast
+    import io
+    import tokenize
+
+    bron = pad.read_text(encoding="utf-8")
+    commentaar = {tok.start[0]: tok.string.lstrip("# ").strip()
+                  for tok in tokenize.generate_tokens(io.StringIO(bron).readline)
+                  if tok.type == tokenize.COMMENT}
+    return [
+        (node.lineno, commentaar.get(node.lineno, ""))
+        for node in ast.walk(ast.parse(bron))
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "wait_for_timeout"
+    ]
+
+
+def test_een_e2e_wacht_niet_op_de_klok():
+    """#997 — geen `wait_for_timeout` in `tests_e2e/`, tenzij bewust en met reden.
+
+    Gelezen uit de syntaxboom, niet met een zoekopdracht: de docstrings en
+    commentaren die het woord noemen (zoals deze uitleg) zijn geen aanroep.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden (gemeten): een
+    `page.wait_for_timeout(300)` teruggezet in `test_raakje_invoer.py` → de test
+    valt om met dat pad en die regel; dezelfde regel met een reden-commentaar
+    maar zonder vermelding in `VASTE_WACHTTIJDEN` → ook rood.
+    """
+    bestanden_e2e = bestanden(E2E.glob("*.py"), wat="de e2e-modules", minstens=15)
+    fouten = []
+    for pad in bestanden_e2e:
+        gevonden = _vaste_wachttijden(pad)
+        toegestaan = VASTE_WACHTTIJDEN.get(pad.name, 0)
+        zonder_reden = [nr for nr, reden in gevonden if not reden]
+        if zonder_reden:
+            fouten += [f"{pad.name}:{nr} — geen reden op de regel" for nr in zonder_reden]
+        if len(gevonden) > toegestaan:
+            fouten.append(f"{pad.name}: {len(gevonden)} vaste wachttijden, "
+                          f"{toegestaan} toegestaan in VASTE_WACHTTIJDEN")
+        elif len(gevonden) < toegestaan:
+            fouten.append(f"{pad.name}: nog {len(gevonden)} over, de lijst zegt "
+                          f"{toegestaan} — laat VASTE_WACHTTIJDEN mee krimpen")
+    onbekend = set(VASTE_WACHTTIJDEN) - {p.name for p in bestanden_e2e}
+    fouten += [f"{naam}: staat in VASTE_WACHTTIJDEN maar bestaat niet" for naam in onbekend]
+    assert not fouten, (
+        "Wacht op iets dat gebeurt (`expect(...)`, `htmx_afgerond`, "
+        "`netwerk_bijgewerkt`), niet op de klok:\n  " + "\n  ".join(fouten))

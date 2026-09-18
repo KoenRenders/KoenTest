@@ -43,3 +43,19 @@ def install_jinja_i18n(env) -> None:
     env.add_extension("jinja2.ext.i18n")
     env.install_gettext_callables(
         gettext=_, ngettext=lambda s, p, n: _(s) if n == 1 else _(p), newstyle=True)
+
+
+def long_date(d) -> str:
+    """A long date in the active locale, e.g. 'zaterdag 29 augustus 2026' (#451).
+
+    Lives here and not in `app.ui` since #974: a domain needed the same wording in a
+    refusal message ("afgesloten sinds zaterdag 29 augustus 2026"), and a domain may
+    not import the UI layer. A second copy of these two lines in the domain would be
+    two places that decide how a date reads — so the one copy moved down to where
+    both can reach it, and the Jinja filter points here.
+    """
+    if d is None:
+        return ""
+    from babel.dates import format_date
+
+    return format_date(d, format="full", locale=current_locale.get())

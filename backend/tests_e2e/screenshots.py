@@ -141,8 +141,10 @@ def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
              document.fonts.load('1em "Radio Canada Big"'),
            ]).then(() => document.fonts.ready).then(() => null)"""
     )
-    # One settle beat for htmx swaps that finished just before the freeze.
-    page.wait_for_timeout(250)
+    # #997: until no htmx swap is still running or settling, instead of one
+    # guessed "settle beat". Without htmx on the page there is nothing to wait for.
+    page.wait_for_function(
+        "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')")
     name = f"{screen.key}-{width['width']}.png"
     target = out_dir / name
     page.screenshot(path=str(target), full_page=True)

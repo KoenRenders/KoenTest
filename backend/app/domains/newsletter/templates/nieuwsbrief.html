@@ -1,0 +1,10 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwsbrief") }} — {{ site_name }}{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div id="nb-publiek">
+    {% include "_nb_publiek.html" %}
+  </div>
+</div>
+{% endblock %}

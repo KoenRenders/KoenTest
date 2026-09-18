@@ -209,10 +209,10 @@
          nog kunnen ophalen. #}
       {% if editable and not verstuurd %}
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/verwijder"
-            hx-target="#vg-document" hx-swap="innerHTML">
+            hx-target="#vg-document" hx-swap="innerHTML"
+            data-confirm="{{ _("Deze bijlage verwijderen?") }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="text-ink-soft hover:text-brand-danger" aria-label="{{ _("Bijlage verwijderen") }}"
-                data-confirm="{{ _("Deze bijlage verwijderen?") }}">{{ ui.icon("x", 13) }}</button>
+        <button type="submit" class="text-ink-soft hover:text-brand-danger" aria-label="{{ _("Bijlage verwijderen") }}">{{ ui.icon("x", 13) }}</button>
       </form>
       {% endif %}
     </span>

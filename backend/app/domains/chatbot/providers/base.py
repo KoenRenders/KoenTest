@@ -36,6 +36,9 @@ class AssistantMessage:
     #: floor; the seam logs it now, so one query answers what the AI costs this
     #: month — for both surfaces at once (CR-07 §6.4).
     usage: dict[str, int] = field(default_factory=dict)
+    #: The provider's own id for this response (#978), so a row in the log can
+    #: be matched to a line on the provider's invoice.
+    request_id: str = ""
 
 
 class LLMProvider(ABC):
@@ -43,6 +46,8 @@ class LLMProvider(ABC):
 
     #: Korte, herkenbare naam voor logging en de privacyverklaring.
     name: str = "base"
+    #: The API this provider calls, for the log (#978), e.g. "chat.completions".
+    endpoint: str = ""
 
     @abstractmethod
     def complete(

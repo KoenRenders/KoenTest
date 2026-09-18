@@ -1,0 +1,9 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Versturen") }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Terug naar het concept"), "/admin/nieuwsbrieven/" ~ letter.id) }}
+<div id="nb-versturen">
+  {% include "_nb_versturen.html" %}
+</div>
+{% endblock %}

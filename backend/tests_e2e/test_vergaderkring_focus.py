@@ -7,6 +7,10 @@ De HTML was telkens correct — alleen stond de cursor er niet meer in.
 
 Alleen een echte browser kan bewijzen dat de focus blijft staan, en dat de tekst
 die je typte er nog staat.
+
+#997: gelezen zodra de gedebouncete zoekopdracht beantwoord en geswapt is, niet na
+1200 ms. Gemeten: de zoekopdracht terug op het hele blok (`hx-target="#vg-kring"`)
+→ de test valt om.
 """
 import os
 import sys
@@ -16,7 +20,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -46,9 +50,10 @@ def test_typen_in_het_zoekveld_verliest_de_focus_niet(admin_page):
     page.wait_for_selector("#vg-kring")
     veld = page.locator("#vg-kring input[name=q]")
     veld.click()
-    veld.type("Kris V", delay=120)
-    # Ruim over de 300 ms debounce heen, zodat de swap zeker gebeurd is.
-    page.wait_for_timeout(1200)
+    # #997: wait until the debounced search has been answered and swapped — the
+    # checks below are about what the swap left behind.
+    with htmx_afgerond(page):
+        veld.type("Kris V", delay=120)
 
     assert veld.input_value() == "Kris V", \
         f"de getypte tekst overleefde de swap niet: {veld.input_value()!r}"

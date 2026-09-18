@@ -127,6 +127,8 @@ class ActivityCreate(BaseModel):
     location: Optional[str] = None
     poster_url: Optional[str] = None
     members_only: Optional[bool] = None
+    # #974: the last day a new registration is accepted (inclusive, Belgian time).
+    registration_closes_on: Optional[Date] = None
 
 
 class ActivityUpdate(BaseModel):
@@ -137,6 +139,9 @@ class ActivityUpdate(BaseModel):
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
     members_only: Optional[bool] = None
+    # #974: explicitly settable to null — clearing the deadline is a valid choice,
+    # so the router reads it from `model_fields_set` rather than dropping None.
+    registration_closes_on: Optional[Date] = None
 
 
 class ActivityResponse(BaseModel):
@@ -159,6 +164,11 @@ class ActivityResponse(BaseModel):
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None
+    registration_closes_on: Optional[Date] = None
+    # #974: `registration_state` as the service decides it — open, past, closed or
+    # cancelled. The card reads THIS and does not work it out again; two places that
+    # each decide "open" is how the deadline would have been forgotten in one.
+    registration_state: Optional[str] = None
     sub_registrations: List[ComponentResponse] = []
 
     model_config = {"from_attributes": True}

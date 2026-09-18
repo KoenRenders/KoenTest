@@ -26,6 +26,11 @@ class SttProvider(ABC):
 
     #: Korte, herkenbare naam voor logging en de privacyverklaring.
     name: str = "base"
+    #: For the AI log (#978): who bills the call, which API, which model.
+    #: `name` is the product ("voxtral"); `vendor` is the provider on the invoice.
+    vendor: str = ""
+    endpoint: str = ""
+    model: str = ""
 
     @abstractmethod
     def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:

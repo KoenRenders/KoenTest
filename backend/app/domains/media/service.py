@@ -12,6 +12,7 @@ gevonden); de route vertaalt die naar een statuscode.
 from typing import Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
+from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.domains.media.models import MediaAsset
 from app.i18n import _
 
@@ -20,6 +21,9 @@ from app.i18n import _
 # ingetypt woordmerk. Een mediasoort en geen tenant-instelling: een logo is
 # bytes, en die horen waar de andere bytes al staan.
 VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
+# Files that another component links to from a text — not part of the media
+# library screen, which is why they are not in VALID_KINDS (#984).
+DOCUMENT_KINDS = {"newsletter_file"}
 MAX_BATCH = 20
 
 
@@ -304,11 +308,17 @@ async def upload_media(db, *, files: Sequence, kind: str,
 
     gemaakt = []
     for index, upload in enumerate(files):
-        if upload.content_type not in ALLOWED_CONTENT_TYPES:
+        # #989: SVG only for the association logo, and then cleaned rather than
+        # re-encoded (see `media/svg.py`). Every other kind stays raster.
+        is_svg = upload.content_type == SVG_CONTENT_TYPE
+        if is_svg and kind != "tenant_logo":
+            raise MediaFout(_("%(bestand)s: een SVG kan alleen als logo van de "
+                              "vereniging.") % {"bestand": upload.filename})
+        if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
             raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
         rauw = await upload.read()
         try:
-            verwerkt = process_image(rauw)
+            verwerkt = process_svg(rauw) if is_svg else process_image(rauw)
         except ImageError as exc:
             raise MediaFout(f"{upload.filename}: {exc}")
 
@@ -322,6 +332,32 @@ async def upload_media(db, *, files: Sequence, kind: str,
     for asset in gemaakt:
         db.refresh(asset)
     return [meta(a) for a in gemaakt]
+
+
+def add_document(db, *, kind: str, filename: str, content_type: str,
+                 data: bytes) -> MediaAsset:
+    """Store one PDF or image that a text will link to, and return it (#984).
+
+    Public like every media asset: it is served at `/api/v1/media/{id}` under its
+    own file name, so a newsletter can link to it instead of attaching it to
+    hundreds of mails.
+    """
+    from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
+
+    if kind not in DOCUMENT_KINDS:
+        raise MediaFout("Ongeldige 'kind'")
+    if content_type not in DOC_CONTENT_TYPES:
+        raise MediaFout(_("Dit bestandstype kan niet: kies een PDF of een afbeelding."))
+    try:
+        processed = _process_document(data, content_type)
+    except ImageError as exc:
+        raise MediaFout(f"{filename}: {exc}")
+    asset = MediaAsset(kind=kind, title=(filename or "bestand")[:255], sort_order=0,
+                       is_active=True, **processed)
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
 
 
 def activity_ids_with_media(db) -> set[int]:

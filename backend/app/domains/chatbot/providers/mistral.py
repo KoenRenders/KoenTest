@@ -25,6 +25,7 @@ MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions"
 
 class MistralProvider(LLMProvider):
     name = "mistral"
+    endpoint = "chat.completions"
 
     def __init__(self, api_key: str, model: str):
         self._api_key = api_key
@@ -86,7 +87,8 @@ class MistralProvider(LLMProvider):
         }
 
         return AssistantMessage(content=message.get("content"),
-                                tool_calls=tool_calls, usage=usage)
+                                tool_calls=tool_calls, usage=usage,
+                                request_id=str(data.get("id") or ""))
 
 
 def build_mistral_provider(model: str = "") -> MistralProvider:

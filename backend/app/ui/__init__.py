@@ -58,15 +58,9 @@ from app.i18n import install_jinja_i18n  # noqa: E402
 install_jinja_i18n(templates.env)
 
 
-def _langedatum(d) -> str:
-    """Lange Nederlandse datum, bv. 'zaterdag 29 augustus 2026' (#451)."""
-    if d is None:
-        return ""
-    from babel.dates import format_date
-    from app.i18n import current_locale
-
-    return format_date(d, format="full", locale=current_locale.get())
-
+# #974: de opmaak zelf staat in `app.i18n.long_date`, zodat een domein dezelfde
+# woorden kan gebruiken zonder de UI-laag te importeren.
+from app.i18n import long_date as _langedatum  # noqa: E402
 
 templates.env.filters["langedatum"] = _langedatum
 
@@ -349,11 +343,11 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ("Financieel", [
         ("/admin/betalingen", "Betalingen"),
     ]),
-    # Communicatie (#258): de vergadermodule. Een eigen werkgebied en niet onder
-    # "Werking", omdat wat hier staat naar buiten gaat — straks komt de
-    # nieuwsbrief (CR-05) ernaast te staan.
+    # Communicatie (#258): wat naar buiten gaat. De vergaderingen gaan naar het
+    # bestuur, de nieuwsbrief (#984, CR-05) naar leden en niet-leden.
     ("Communicatie", [
         ("/admin/vergaderingen", "Vergaderingen"),
+        ("/admin/nieuwsbrieven", "Nieuwsbrief"),
     ]),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
     # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.
@@ -612,7 +606,7 @@ def site_context(db, request=None) -> dict:
                 .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import (get_setting, tenant_display_name,
-                                          umami_tracking)
+                                          tenant_site_header_color, umami_tracking)
     from app.config import settings
 
     base_url = (get_setting(db, "base_url") or "").rstrip("/")
@@ -646,6 +640,9 @@ def site_context(db, request=None) -> dict:
             "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
+            # #992: the public header's own colour, or None for the shell's.
+            # Validated again on read, so it can go into a style attribute.
+            "site_header_color": tenant_site_header_color(db),
             # Het logo van de vereniging (#258), als het er is: de header toont het
             # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
             # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de
@@ -664,6 +661,10 @@ def site_context(db, request=None) -> dict:
             # staan: `site-footer` is vrije tekst en een migratie kan een adres
             # niet van een zin onderscheiden, dus er verdwijnt niets.
             "organisatie": _footer_organisatie(db, organisatie),
+            # De inschrijving op de nieuwsbrief onderaan (#984). Niet op het
+            # platform: dat heeft geen leden en verstuurt geen nieuwsbrief.
+            "nieuwsbrief_inschrijven": (organisatie is not None
+                                        and getattr(organisatie, "org_type", "") != "PLATFORM"),
             # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
             "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.

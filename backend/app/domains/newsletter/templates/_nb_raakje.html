@@ -1,0 +1,160 @@
+{% import "_macros.html" as ui %}
+{# Raakje schrijft mee (CR-05 §3.15). Dit paneel is het enige wat een
+   Raakje-route vervangt; de editor blijft staan. Een voorstel komt pas in de
+   editor na "Toepassen", en een gemarkeerde zin blijft dan weg tenzij je
+   "klopt, behouden" aanvinkt (§3.16).
+
+   De server zet in een voorstel dezelfde klassen als de legende hieronder:
+   <mark class="bg-yellow-100 text-ink rounded px-0.5"> voor een markering en
+   <span class="text-ink-soft italic"> voor een ingevulde activiteitregel. #}
+<div class="bg-surface border border-blue-200 rounded-2xl p-5 space-y-4">
+  <div>
+    <h2 class="font-semibold text-blue-700">{{ _("Raakje schrijft mee") }}</h2>
+    <p class="text-sm text-ink-soft mt-0.5">{{ _("Kies waarover de brief gaat, en vraag Raakje een voorstel.") }}</p>
+  </div>
+  {% if raakje_error %}{{ ui.error_banner(raakje_error) }}{% endif %}
+
+  {# Twee groepen, standaard gevuld (Koen, 17 september 2026): wat doorging
+     sinds de vorige nieuwsbrief, en wat de komende drie maanden komt. #}
+  {% for titel, lijst, doel, kiezer in [
+       (_("Voorbije activiteiten"), past_activities, "raakje-voorbij", "nb-raakje-kiezer-voorbij"),
+       (_("Volgende activiteiten"), coming_activities, "raakje", "nb-raakje-kiezer")] %}
+  <div>
+    <p class="text-sm font-semibold">{{ titel }}</p>
+    <div class="flex flex-wrap gap-1.5 mt-1.5 items-center">
+      {% for fact in lijst %}
+      <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/activiteit/{{ fact.id }}/weg"
+            hx-target="#nb-raakje" hx-swap="innerHTML" class="inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1"
+                aria-label="{{ _("%(naam)s weghalen", naam=fact.name) }}">{{ fact.name }} {{ ui.icon("x", 12) }}</button>
+      </form>
+      {% else %}
+      <span class="text-sm text-ink-soft">{{ _("Geen.") }}</span>
+      {% endfor %}
+      {{ ui.btn_outline(_("Toevoegen"), lead_icon="plus", size="xs",
+                        attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten?purpose=' ~ doel ~ '" hx-target="#' ~ kiezer ~ '" hx-swap="innerHTML"') }}
+    </div>
+    <div id="{{ kiezer }}"></div>
+  </div>
+  {% endfor %}
+
+  {% if reports %}
+  {# Hele verslagen, geen losse punten. Drie zijn meteen zichtbaar, de rest
+     scrolt; het laatste staat standaard aangevinkt. Alles uitvinken houdt de
+     verslaggegevens buiten de brief. #}
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/verslagen" hx-target="#nb-raakje"
+        hx-swap="innerHTML" hx-trigger="change" hx-indicator="#nb-raakje-bezig">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <p class="text-sm font-semibold">{{ _("Vergaderverslagen") }}</p>
+    <p class="text-xs text-ink-soft">{{ _("Raakje haalt eruit wat lezers aanbelangt — wat goed ging, een verbetering tegenover vorig jaar. Namen gaan nooit mee.") }}</p>
+    <div class="mt-1.5 space-y-1 max-h-[5.25rem] overflow-y-auto pr-1">
+      {% for meeting_id, label in reports %}
+      <label class="flex items-center gap-2 text-sm h-7">
+        <input type="checkbox" name="meeting_id" value="{{ meeting_id }}"
+               {% if meeting_id in ticked_reports %}checked{% endif %}>
+        <span>{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </form>
+  {% endif %}
+
+  {# Een eigen, gescheiden deel met een kop: zonder die kop liep het vraagveld
+     naadloos door na de verslagenlijst (Koen, 17 september 2026). #}
+  <div class="border-t border-line pt-4">
+  <h3 class="text-sm font-semibold text-blue-700">{{ _("Gesprek met Raakje") }}</h3>
+  <form class="mt-2" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/vraag" hx-target="#nb-raakje"
+        hx-swap="innerHTML" hx-include="#nb-inhoud" hx-vals='js:{selection: window.nbSelectie ? nbSelectie() : "", selection_range: window.nbBereik ? nbBereik() : "", before_cursor: window.nbVoorCursor ? nbVoorCursor() : ""}'
+        hx-indicator="#nb-raakje-bezig">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.label(_("Wat wil je vertellen?") if not turns else _("Vraag Raakje iets"), "nb-raakje-vraag") }}
+    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", attrs=ui.autogrow(240),
+                           placeholder=(_("Bv. nadruk op de Rumproefavond, feestelijke toon") if not turns
+                                        else _("Selecteer tekst om die te herschrijven, of zet je cursor waar een nieuw stuk moet komen"))) }}
+    <div class="flex items-center gap-2 mt-2">
+      {{ ui.btn_primary(_("Voorstel laten schrijven") if not turns else _("Vraag Raakje"), type="submit", size="sm", lead_icon="send") }}
+      <span id="nb-raakje-bezig" class="htmx-indicator text-sm text-ink-soft">{{ _("Raakje schrijft…") }}</span>
+    </div>
+  </form>
+
+  {# De nieuwste beurt bovenaan, oudere schuiven naar onder (Koen, 17 september
+     2026). Binnen een beurt staat je vraag boven het antwoord. #}
+  {% if turns %}
+  <div class="space-y-2 max-h-[32rem] overflow-y-auto mt-3">
+    {% for turn in turns %}
+    {% for message in turn %}
+    {% if message.role == "author" %}
+    <div class="ml-8 rounded-2xl rounded-br-sm bg-blue-700 text-white text-sm px-3 py-2">{{ message.text }}</div>
+    {% else %}
+    <div class="mr-4 rounded-2xl rounded-bl-sm border border-line bg-surface-2 text-sm px-3 py-2 space-y-2">
+      {% if message.text %}<p>{{ message.text }}</p>{% endif %}
+      {% if message.id in proposals %}
+      {% set p = proposals[message.id] %}
+      <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/{{ message.id }}/toepassen"
+            hx-target="#nb-raakje" hx-swap="innerHTML" hx-include="#nb-inhoud">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if p.subject %}<p><span class="font-semibold">{{ _("Onderwerp") }}:</span> {{ p.subject }}</p>{% endif %}
+        {% for op in p.operations %}
+        <div class="mt-2">
+          <p class="font-semibold">{{ op.label }}</p>
+          {% if op.old %}<p class="text-ink-soft line-through">{{ op.old }}</p>{% endif %}
+          {% if op.new_html %}<div class="mt-1">{{ op.new_html|safe }}</div>{% endif %}
+          {% for mark in op.marks %}
+          <div class="mt-1 text-xs">
+            <p class="text-brand-danger">{{ ui.icon("x", 12) }} {{ mark.reason }} — {{ _("wordt weggelaten") }}</p>
+            {% if p.status == "open" %}
+            <label class="flex items-center gap-1.5"><input type="checkbox" name="keep" value="{{ mark.id }}"> {{ _("klopt, behouden") }}</label>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+        {% if p.unverified %}<p class="text-xs text-brand-danger mt-2">{{ _("De controle tegen de bronnen lukte niet: lees dit voorstel extra goed na.") }}</p>{% endif %}
+        {% if p.status == "open" %}
+          {% if p.stale %}
+          <p class="text-xs text-brand-danger mt-2">{{ _("De brief veranderde sinds dit voorstel. Vraag het opnieuw.") }}</p>
+          {% else %}
+          <div class="flex flex-wrap gap-2 mt-3">
+            {% if p.kind == "letter" and p.has_text %}
+            {{ ui.btn_primary(_("Vervang de brief"), size="sm", attrs='name="placement" value="replace"') }}
+            {{ ui.btn_secondary(_("Invoegen bij de cursor"), type="submit", size="sm", attrs='name="placement" value="cursor"') }}
+            {% elif p.kind == "insert" %}
+            {{ ui.btn_primary(_("Invoegen bij de cursor"), size="sm", attrs='name="placement" value="cursor"') }}
+            {% elif p.kind == "replace" %}
+            {{ ui.btn_primary(_("Vervang de selectie"), size="sm", attrs='name="placement" value="selection"') }}
+            {% else %}
+            {{ ui.btn_primary(_("Toepassen"), size="sm", attrs='name="placement" value="replace"') }}
+            {% endif %}
+          </div>
+          {% endif %}
+        {% elif p.status == "applied" %}
+        <p class="mt-2">{{ ui.badge(_("toegepast"), "green") }}</p>
+        {% else %}
+        <p class="mt-2">{{ ui.badge(_("niet gedaan"), "gray") }}</p>
+        {% endif %}
+      </form>
+      {% if p.status == "open" %}
+      <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/{{ message.id }}/weigeren"
+            hx-target="#nb-raakje" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ ui.btn_secondary(_("Niet doen"), type="submit", size="sm") }}
+      </form>
+      {% endif %}
+      {% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  </div>
+
+
+  <p class="text-xs text-ink-soft">{{ _("Raakje verstuurt nooit en ziet niet wie de brief krijgt. Datums, plaatsen en links vult het portaal zelf in; wat nergens in de gegevens staat, wordt gemarkeerd.") }}
+    <mark class="bg-yellow-100 text-ink rounded px-0.5">{{ _("Zo ziet een markering eruit.") }}</mark></p>
+
+  {% if apply_html %}
+  <template id="nb-toepassen" data-plaatsing="{{ apply_placement }}" data-bereik="{{ apply_range }}">{{ apply_html|safe }}</template>
+  {% endif %}
+</div>

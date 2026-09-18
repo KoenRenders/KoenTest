@@ -47,7 +47,16 @@
      dus bij Trix zelf en niet bij één scherm — het stond eerst alleen in het
      pagina-scherm, waardoor de paperclip in de vergadernotities wél verscheen en
      niets deed (#939). #}
-  <style>trix-toolbar .trix-button-group--file-tools { display: none; }</style>
+  <style>
+    trix-toolbar .trix-button-group--file-tools { display: none; }
+    /* `ui.rich_text(toolbar_on_focus=True)`: de balk verschijnt pas wanneer je in
+       het veld klikt (#939, sinds #984 voor elk scherm). `focus-within` en niet
+       `:has(trix-editor:focus)`: de linkknop opent een dialoogje ín de balk, en
+       dat neemt de focus over — met de enge regel verdween de balk precies op het
+       moment dat je hem nodig had. */
+    .rich-text--balk-bij-focus trix-toolbar { display: none; }
+    .rich-text--balk-bij-focus:focus-within trix-toolbar { display: block; }
+  </style>
   <script>
     if (!window.__raakTrixFilesBlocked) {
       window.__raakTrixFilesBlocked = true;

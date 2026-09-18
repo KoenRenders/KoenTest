@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import logging
+import re
 from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
@@ -353,6 +354,28 @@ def tenant_meeting_signature(db: Session, tenant_id: int | None = None) -> str:
     return (get_setting(db, "meeting_mail_signature", tenant_id=tenant_id) or "").strip()
 
 
+# De dagelijkse bovengrens voor nieuwsbriefmails (#984, CR-05 §3.7). Voorzichtig
+# gekozen: het Gmail-account van het portaal verstuurt ook de inschrijvings- en
+# betaalmails, en die mogen nooit wachten omdat een nieuwsbrief het quotum
+# opgebruikte. Weigert Gmail toch, dan pauzeert de wachtrij tot de volgende dag.
+NEWSLETTER_DAILY_CAP_DEFAULT = 300
+
+
+def tenant_newsletter_daily_cap(db: Session, tenant_id: int | None = None) -> int:
+    """Hoeveel nieuwsbriefmails er per 24 uur vertrekken (#984)."""
+    return max(1, _int_setting(db, "newsletter_daily_cap", NEWSLETTER_DAILY_CAP_DEFAULT,
+                               tenant_id=tenant_id))
+
+
+def tenant_newsletter_house_style(db: Session, tenant_id: int | None = None) -> str:
+    """De huisstijl waarin Raakje een nieuwsbrief schrijft (#984, CR-05 §8.3).
+
+    Leeg is toegestaan: dan schrijft Raakje in de toon van de voorbeeldbrieven,
+    of neutraal als er nog geen zijn.
+    """
+    return (get_setting(db, "newsletter_house_style", tenant_id=tenant_id) or "").strip()
+
+
 def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
 
@@ -472,6 +495,58 @@ def tenant_umami_website_id(db: Session, tenant_id: int | None = None) -> str:
     from app.config import settings
     return (get_setting(db, "umami_website_id", tenant_id=tenant_id)
             or settings.umami_website_id)
+
+
+# ── The public header colour (#992) ─────────────────────────────────────────
+#
+# The value lands in a `style` attribute, and the CSP allows inline style, so an
+# unchecked value is CSS injection. The header text is white, so a light colour
+# makes the navigation unreadable. One rule for both, used where the value is
+# written (mdm) and where it is read (the site shell): a value that reached the
+# table some other way still never reaches a page.
+
+SITE_HEADER_COLOR_KEY = "site_header_color"
+_HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
+#: WCAG 2.x AA for normal text.
+MIN_CONTRAST_WITH_WHITE = 4.5
+
+
+def contrast_with_white(hex_color: str) -> float:
+    """The WCAG contrast ratio of `#rrggbb` against white text."""
+    def kanaal(c: int) -> float:
+        v = c / 255
+        return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    luminantie = 0.2126 * kanaal(r) + 0.7152 * kanaal(g) + 0.0722 * kanaal(b)
+    return 1.05 / (luminantie + 0.05)
+
+
+def header_color_problem(value: str) -> str | None:
+    """Why `value` cannot be the header colour, or None when it can.
+
+    Refused, never repaired: only `#rrggbb`, and dark enough for white text.
+    """
+    from app.i18n import _
+
+    if not _HEX_COLOR.fullmatch(value or ""):
+        return _("geef een kleur als #rrggbb, bijvoorbeeld #005d29.")
+    verhouding = contrast_with_white(value)
+    if verhouding < MIN_CONTRAST_WITH_WHITE:
+        return _("te licht voor witte tekst: contrast %(v)s:1, minstens 4,5:1 nodig.") % {
+            "v": f"{verhouding:.2f}".replace(".", ",")}
+    return None
+
+
+def tenant_site_header_color(db: Session, tenant_id: int | None = None) -> str | None:
+    """The public header colour as `#rrggbb`, or None for the shell's own colour."""
+    value = (get_setting(db, SITE_HEADER_COLOR_KEY, tenant_id=tenant_id) or "").strip()
+    if not value:
+        return None
+    if header_color_problem(value) is not None:
+        logger.warning("Ongeldige kopkleur %r genegeerd (tenant %s)", value, tenant_id)
+        return None
+    return value.lower()
 
 
 def umami_tracking(db: Session, tenant_id: int | None = None) -> tuple[str, str]:

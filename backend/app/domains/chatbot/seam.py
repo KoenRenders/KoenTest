@@ -66,6 +66,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Sequence
 
@@ -93,12 +94,33 @@ _PHONE = re.compile(r"(?:\+32|0032|\b0)[\s./-]?\d(?:[\s./-]?\d){7,9}\b")
 # An IBAN: two letters, two check digits, then up to 30 alphanumerics in groups.
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}\b")
 
+# What `redact` puts in their place; a letter still carrying one is not sent (#984).
+EMAIL_PLACEHOLDER = "[e-mailadres]"
+IBAN_PLACEHOLDER = "[rekeningnummer]"
+PHONE_PLACEHOLDER = "[telefoonnummer]"
+REDACTION_PLACEHOLDERS = (EMAIL_PLACEHOLDER, PHONE_PLACEHOLDER, IBAN_PLACEHOLDER)
+
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("een telefoonnummer", _PHONE),
     ("een rekeningnummer", _IBAN),
 )
 
 _WORD = re.compile(r"[a-zà-ÿ]+")
+
+
+def redact(text: str) -> str:
+    """Replace what the guard refuses by a neutral placeholder (#984).
+
+    For a capability that sends content it did not write itself — flyer text,
+    meeting notes — and would otherwise be blocked by an address somebody put
+    there. The SAME patterns as the guard, so a redacted text never trips it on
+    these; names are the caller's business (the guard reads them from mdm).
+    """
+    if not text:
+        return text or ""
+    text = _EMAIL.sub(EMAIL_PLACEHOLDER, text)
+    text = _IBAN.sub(IBAN_PLACEHOLDER, text)
+    return _PHONE.sub(PHONE_PLACEHOLDER, text)
 
 _ADMIN_MESSAGE = (
     "Deze vraag is niet verstuurd: er stond een persoonsgegeven in ({reden}). "
@@ -199,6 +221,10 @@ def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]
     return found
 
 
+def _ms_since(begin: float) -> int:
+    return int(round((time.monotonic() - begin) * 1000))
+
+
 class GuardedProvider(LLMProvider):
     """Wraps any provider: scan, log, then send — in that order.
 
@@ -229,12 +255,23 @@ class GuardedProvider(LLMProvider):
             raise SeamBlocked(self._rules.message.format(reden=reden))
 
         self.sent.append(text)
-        reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice)
-        self._log(text, usage=getattr(reply, "usage", None))
+        begin = time.monotonic()
+        try:
+            reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice)
+        except Exception:
+            # #978: the payload left, so the call counts — a failed call is
+            # still a call the provider may bill.
+            self._log(text, status="error", duration_ms=_ms_since(begin))
+            raise
+        self._log(text, usage=getattr(reply, "usage", None),
+                  duration_ms=_ms_since(begin),
+                  provider_request_id=getattr(reply, "request_id", "") or "")
         return reply
 
     def _log(self, text: str, *, blocked_reason: str = "",
-             usage: Optional[dict[str, int]] = None) -> None:
+             usage: Optional[dict[str, int]] = None, status: str = "",
+             duration_ms: Optional[int] = None,
+             provider_request_id: str = "") -> None:
         if self._sink is None:
             return
         try:
@@ -245,6 +282,11 @@ class GuardedProvider(LLMProvider):
                 payload=text,
                 blocked_reason=blocked_reason,
                 usage=usage or {},
+                provider=getattr(self._inner, "name", "") or "",
+                endpoint=getattr(self._inner, "endpoint", "") or "",
+                provider_request_id=provider_request_id,
+                status=status or ("blocked" if blocked_reason else "ok"),
+                duration_ms=duration_ms,
             )
         except Exception:  # pragma: no cover - a log must not break an answer
             logger.exception("Kon de uitgaande AI-oproep niet loggen")

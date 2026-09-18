@@ -227,3 +227,31 @@ def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
     assert 'id="aa-recordkop" hx-swap-oob="true"' in r.text
     assert 'id="aa-rail" hx-swap-oob="true"' in r.text
     assert "Vernieuwde naam" in r.text and "Bezetting" in r.text
+
+
+def test_raakje_knop_volgt_de_beheerassistent_schakelaar(client, db_session, monkeypatch):
+    """Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
+    beheer aan staat — één bron (tenant_admin_chat_enabled, CR-07 §6.3), geen
+    eigen vlag. Zolang het record-endpoint er niet is toont de overlay een
+    nette uitgeschakelde staat."""
+    from app.config import settings
+    from app.kernel.tenant_config import set_setting
+    from app.kernel.tenancy import DEFAULT_TENANT_ID
+
+    activity, component = _activiteit_met_inschrijvingen(client, db_session)
+    _login(client)
+
+    # Uit (standaard): geen knop, ook niet op de betalingen-tab.
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert "AI · Activiteit" not in html
+
+    monkeypatch.setattr(settings, "admin_chat_enabled", True)
+    set_setting(db_session, "admin_chat_enabled", "1", tenant_id=DEFAULT_TENANT_ID)
+    db_session.commit()
+
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert "AI · Activiteit" in html
+    # De overlay draagt het echte gesprek (#975): het pad-gebonden endpoint en
+    # het historie-veld dat het antwoordfragment out-of-band bijwerkt.
+    assert f'hx-post="/admin/rapporten/raakje/activiteit/{activity.id}"' in html
+    assert 'name="historie" id="rp-raakje-historie"' in html
