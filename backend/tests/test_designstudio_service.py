@@ -206,6 +206,68 @@ def test_one_click_reserves_four_variants_and_queues_four_jobs(monkeypatch, db_s
     assert budget(db_session).reserved_eur == Decimal(rows[0].reserved_cents * 4) / 100
 
 
+def test_a_second_click_while_the_first_runs_is_refused(monkeypatch, db_session, design):
+    """Four rows and four jobs, not eight: the reservation guards the budget,
+    this guards the click."""
+    from app.domains.designstudio.api import request_images
+
+    monkeypatch.setenv(imaging.ENV_ENABLED, "true")
+    monkeypatch.setenv(imaging.ENV_KEY, "test-key")
+    monkeypatch.setenv(imaging.ENV_BUDGET, "50")
+    request_images(db_session, design, "two adults and two children walking a forest path")
+    with pytest.raises(DesignError, match="loopt al"):
+        request_images(db_session, design, "two adults and two children walking a forest path")
+    assert db_session.query(ImageGeneration).count() == 4
+
+
+def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design):
+    from app.domains.designstudio.api import warnings_for
+
+    facts = facts_for(db_session, design)
+    assert warnings_for(design, facts) == []
+    design.title_override = "Wandelen met Raak"
+    assert any("wijkt af" in w for w in warnings_for(design, facts))
+    assert check_design(db_session, design)["print_a"] == []  # a warning is not a violation
+
+
+@needs_inkscape
+@needs_media_kinds
+def test_an_uploaded_svg_replaces_the_merge_and_ages_with_the_facts(db_session, design, activity):
+    from app.domains.designstudio.api import edited_svg_for, upload_edited_svg
+    from app.domains.designstudio.service import merged_for
+
+    svg = merged_for(db_session, design, "print_a", facts=facts_for(db_session, design)).svg
+    edited = svg.replace("SAMEN WANDELEN", "HANDMATIG BEWERKT")
+    assert upload_edited_svg(db_session, design, "print_a", edited.encode()) == []
+    assert "HANDMATIG BEWERKT" in merged_for(db_session, design, "print_a").svg
+    row = edited_svg_for(db_session, design, "print_a")
+    assert row is not None and row.facts_fingerprint == fingerprint(facts_for(db_session, design))
+    activity.location = "Kerkplein"
+    db_session.flush()
+    assert row.facts_fingerprint != fingerprint(facts_for(db_session, design))  # stale until re-uploaded
+    with pytest.raises(DesignError, match="paginaformaat"):
+        upload_edited_svg(db_session, design, "feed_portrait", edited.encode())
+
+
+@needs_inkscape
+@needs_media_kinds
+@pytest.mark.anyio
+async def test_publishing_an_older_version_restores_that_poster(db_session, design, activity):
+    from fastapi import BackgroundTasks
+
+    from app.domains.designstudio.api import publish
+    from app.domains.media.api import list_media
+
+    v1 = make_version(db_session, design)
+    design.subtitle = "tweede versie"
+    v2 = make_version(db_session, design)
+    await publish(db_session, design, v2, BackgroundTasks())
+    await publish(db_session, design, v1, BackgroundTasks())
+    assert design.published_version_id == v1.id
+    posters = list_media(db_session, kind="activity_poster", activity_id=activity.id)
+    assert len(posters) == 1 and posters[0]["content_type"] == "application/pdf"
+
+
 def test_budget_check_names_the_platform_cap():
     b = imaging.Budget(enabled=True, monthly_eur=Decimal("50"), platform_eur=Decimal("10"),
                        spent_eur=Decimal("0"), reserved_eur=Decimal("0"))

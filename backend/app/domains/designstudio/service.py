@@ -604,10 +604,13 @@ def budget(db: Session) -> imaging.Budget:
 def request_images(db: Session, design: Design, scene: str, *, requested_by: str = "",
                    reference_asset_id: Optional[int] = None) -> str:
     """One click: budget check, four reservations, four jobs. Returns the
-    request key the screen polls on."""
+    request key the screen polls on. A second click while the first is still
+    running is refused — a double click must not cost twice."""
     from app.kernel.jobs import enqueue
 
     prompt = imaging.build_prompt(scene)
+    if any(g.status == GEN_REQUESTED for g in design.generations):
+        raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
     per_image = imaging.expected_cost_eur(with_reference=with_reference)
     imaging.check_budget(budget(db), platform_spent_eur=spent_this_month(db, all_tenants=True),
@@ -626,6 +629,29 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
                                               "tenant_id": _tenant()}, max_attempts=1)
     db.commit()
     return key
+
+
+def sponsor_usage(db: Session, asset_id: int, year: int) -> int:
+    """How many designs carried this sponsor logo on a published version in
+    ``year`` — the Mona agreement allows five posters a year (CR-10 R11)."""
+    from sqlalchemy import extract
+
+    rows = (db.query(DesignVersion.sponsor_asset_ids)
+            .join(Design, Design.published_version_id == DesignVersion.id)
+            .filter(extract("year", DesignVersion.created_at) == year)
+            .filter(DesignVersion.sponsor_asset_ids != "").all())
+    return sum(1 for (ids,) in rows if str(asset_id) in ids.split(","))
+
+
+def warnings_for(design: Design, facts: dict) -> list[str]:
+    """What the unit should know but may do anyway: design text that shadows
+    a fact (CR-10 §3.7). Never blocks a version."""
+    out = []
+    if design.title_override and design.title_override.strip().lower() != (facts["title"] or "").strip().lower():
+        out.append(f"De titel op de affiche ('{design.title_override}') wijkt af van de activiteit ('{facts['title']}').")
+    if design.recurrence_line and len(facts["dates"]) > 1:
+        out.append("De herhalingsregel vervangt de datumregel; de datatabel toont de data zelf.")
+    return out
 
 
 def pick_generation(db: Session, design: Design, generation_id: int, *, slot: str = "main_image_id") -> None:

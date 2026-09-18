@@ -25,6 +25,24 @@ logger = logging.getLogger(__name__)
 #: Replaced by a test; production uses the real client.
 client_factory = imaging.BflClient
 
+#: A FLUX drawing's "white" ground comes back around RGB 253 (iteration 08);
+#: on a white poster that shows as a grey slab. Everything above this level
+#: becomes pure white; the black lines are untouched.
+WHITE_THRESHOLD = 240
+
+
+def whiten(png: bytes) -> bytes:
+    """Push the near-white ground of a line drawing to pure white."""
+    from PIL import Image
+
+    with Image.open(BytesIO(png)) as img:
+        rgb = img.convert("RGB")
+        lut = [255 if v >= WHITE_THRESHOLD else v for v in range(256)] * 3
+        out = rgb.point(lut)
+        buf = BytesIO()
+        out.save(buf, format="PNG", optimize=True)
+        return buf.getvalue()
+
 
 @job("designstudio.generate")
 def generate_image(db: Session, payload: dict) -> None:
@@ -57,8 +75,8 @@ def generate_image(db: Session, payload: dict) -> None:
             provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, status="error",
             blocked_reason=str(exc)[:200], tenant_id=tenant_id)
     else:
-        upload = UploadFile(file=BytesIO(result.image), filename=f"ai-{row.id}.png",
-                            headers=Headers({"content-type": result.mime}))
+        upload = UploadFile(file=BytesIO(whiten(result.image)), filename=f"ai-{row.id}.png",
+                            headers=Headers({"content-type": "image/png"}))
         stored = asyncio.run(upload_media(db, files=[upload], kind="design_image",
                                           activity_id=row.design.activity_id))
         row.media_asset_id = stored[0]["id"]

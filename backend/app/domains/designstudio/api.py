@@ -51,7 +51,9 @@ from app.domains.designstudio.service import (  # noqa: F401
     request_images,
     save_design,
     sponsor_options,
+    sponsor_usage,
     upload_edited_svg,
+    warnings_for,
 )
 
 __all__ = [
@@ -63,5 +65,5 @@ __all__ = [
     "add_design_image", "budget", "check_design", "content_for", "create_design", "delete_design",
     "edited_svg_for", "facts_for", "fingerprint", "get_design", "image_options", "is_stale", "list_designs",
     "make_version", "pick_generation", "preview_png", "publish", "remove_edited_svg", "rendition",
-    "request_images", "save_design", "sponsor_options", "upload_edited_svg",
+    "request_images", "save_design", "sponsor_options", "sponsor_usage", "upload_edited_svg", "warnings_for",
 ]

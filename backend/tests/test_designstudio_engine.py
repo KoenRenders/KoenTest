@@ -221,6 +221,23 @@ def test_wordmark_is_recoloured_per_duo_and_loses_its_ids():
     assert "#ffce00" not in yellow and "#460359" in yellow
 
 
+# ── AI drawings ─────────────────────────────────────────────────────────────
+
+def test_whitening_pushes_the_near_white_ground_to_white_and_keeps_the_lines():
+    from io import BytesIO
+
+    from PIL import Image
+
+    from app.domains.designstudio.handlers import whiten
+
+    img = Image.new("RGB", (4, 1))
+    img.putdata([(253, 253, 253), (0, 0, 0), (200, 200, 200), (245, 250, 248)])
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    with Image.open(BytesIO(whiten(buf.getvalue()))) as out:
+        assert list(out.getdata()) == [(255, 255, 255), (0, 0, 0), (200, 200, 200), (255, 255, 255)]
+
+
 # ── Inkscape ────────────────────────────────────────────────────────────────
 
 @needs_inkscape

@@ -141,8 +141,10 @@ class DesignEditorView(ViewModel):
     layout: str
     layout_options: list[tuple[str, str]]
     violations: list[str]
+    warnings: list[str]
     render_error: Optional[str]
     edited_layouts: list[str]
+    font_links: list[tuple[str, str]]
 
     versions: list[VersionRow]
     published_version_id: Optional[int]

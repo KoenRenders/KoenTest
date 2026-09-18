@@ -253,6 +253,9 @@
           {{ ui.btn_secondary(_("Download %(l)s", l=label), href="/admin/ontwerpen/" ~ design_id ~ "/svg/" ~ code, size="sm") }}
         {% endfor %}
       </div>
+      <p class="text-xs text-ink-soft">{{ _("Lettertypes voor op je computer:") }}
+        {% for name, href in font_links %}<a href="{{ href }}" class="underline text-link">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+      </p>
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="space-y-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <div class="grid grid-cols-[1fr_auto] gap-3 items-end">

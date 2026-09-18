@@ -15,6 +15,7 @@ confirmation.
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
@@ -57,7 +58,9 @@ from app.domains.designstudio.api import (
     request_images,
     save_design,
     sponsor_options,
+    sponsor_usage,
     upload_edited_svg,
+    warnings_for,
 )
 from app.domains.designstudio.viewmodels import (
     DesignEditorView,
@@ -211,7 +214,10 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
             violations, render_error = [], str(exc)
     options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"], label=m.get("title") or f"#{m['id']}",
                            source=m["source"]) for m in image_options(db, design)]
-    logos = [ImageOption(id=m["id"], thumb_url=m["thumb_url"], label=m.get("title") or f"#{m['id']}", source="sponsor")
+    year = date.today().year
+    logos = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],
+                         label=f"{m.get('title') or '#' + str(m['id'])} ({sponsor_usage(db, m['id'], year)}× in {year})",
+                         source="sponsor")
              for m in sponsor_options(db)]
     versions = []
     for v in sorted(design.versions, key=lambda v: -v.number):
@@ -244,8 +250,10 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         facts=_facts_rows(facts), facts_href=f"/admin/activiteiten/{design.activity_id}",
         preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&v={fingerprint(facts)[:8]}",
         layout=layout, layout_options=[(code, _(label)) for code, label in LAYOUT_LABELS.items()],
-        violations=violations or [], render_error=render_error,
+        violations=violations or [], warnings=warnings_for(design, facts), render_error=render_error,
         edited_layouts=[lc for lc in LAYOUTS if edited_svg_for(db, design, lc) is not None],
+        font_links=[("Radio Canada Big", "/static/fonts/RadioCanadaBig-VariableFont_wght.ttf"),
+                    ("Caveat", "/static/fonts/Caveat-VariableFont_wght.ttf")],
         versions=versions, published_version_id=design.published_version_id, max_versions=MAX_VERSIONS,
         ai_enabled=ai.enabled, ai_budget_line=ai.line(), generations=generations, ai_prompt=ai_prompt,
         csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))

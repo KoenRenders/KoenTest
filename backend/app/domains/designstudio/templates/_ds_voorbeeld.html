@@ -29,3 +29,8 @@
 {% else %}
 <p class="mt-3 text-sm text-ink-soft">{{ _("Alles past. 'Definitief maken' meet nog één keer met Inkscape.") }}</p>
 {% endif %}
+{% if warnings %}
+<ul class="mt-2 list-disc pl-5 text-sm text-ink-soft space-y-0.5">
+  {% for w in warnings %}<li>{{ w }}</li>{% endfor %}
+</ul>
+{% endif %}
