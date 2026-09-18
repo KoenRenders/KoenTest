@@ -230,24 +230,14 @@ def meeting_create(request: Request, db: Session = Depends(get_db),
 
 def _circle_view(request: Request, db: Session, query: str = "",
                  error: Optional[str] = None) -> MeetingCircleView:
-    from app.domains.mdm.api import list_persons, organization_circle
+    from app.domains.mdm.api import organization_circle, search_persons
 
     circle = organization_circle(db)
     in_circle = {entry.person.id for entry in circle}
-    candidates = []
-    needle = query.strip().lower()
-    if needle:
-        # Filtered here and not in mdm: `list_persons` answers "all people of this
-        # tenant" and is used by two other screens. A search argument would be a
-        # second contract on it for one caller.
-        for person in list_persons(db):
-            if person.id in in_circle:
-                continue
-            haystack = f"{person.first_name} {person.last_name}".lower()
-            if needle in haystack:
-                candidates.append(person)
-            if len(candidates) >= 15:
-                break
+    # #1006: the search moved to `mdm.api`, where the organiser picker of CR-10
+    # uses the same one. Deliberately without `members_only`: the circle holds
+    # people who are not members (#939).
+    candidates = search_persons(db, query, exclude_ids=in_circle)
     return MeetingCircleView(circle=circle, candidates=candidates, query=query,
                              signature=mail_signature(db),
                              csrf_token=_csrf(request), error=error,

@@ -13,9 +13,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import NamedTuple, Optional
+from typing import Iterable, NamedTuple, Optional
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.models import Person, PersonHistory
@@ -156,6 +156,46 @@ def list_persons(db):
     from app.domains.mdm.models import Person
 
     return db.query(Person).order_by(Person.last_name, Person.first_name).all()
+
+
+# Characters that mean something to SQL's LIKE. Escaped rather than stripped: a
+# search for "O'Neil %" must find that name and nothing else (#1006).
+_LIKE_SPECIAAL = str.maketrans({"\\": "\\\\", "%": "\\%", "_": "\\_"})
+
+
+def search_persons(db, query: str, *, members_only: bool = False,
+                   exclude_ids: Iterable[int] = (), limit: int = 15) -> list:
+    """Persons whose "first last" contains `query`, case-insensitively (#1006).
+
+    One search for every caller: the meeting circle and, from CR-10 on, the
+    organiser picker. It lived in the circle SCREEN, with the note that a search
+    argument would be "a second contract for one caller" — with a second caller
+    that note turned into two searches drifting apart.
+
+    `members_only` limits to people in a household (a `MemberPerson` row, any
+    relation), without any test on paid dues — Koen, 16 September 2026. The
+    circle deliberately does NOT use it: the support worker of the department is
+    not a member and must stay findable (#939).
+
+    Sorted by last name, first name, and id as the tiebreaker (#761), so the
+    same query gives the same order on every run.
+    """
+    from app.domains.mdm.models import MemberPerson
+
+    naald = (query or "").strip().lower()
+    if not naald:
+        return []
+    patroon = f"%{naald.translate(_LIKE_SPECIAAL)}%"
+    vraag = db.query(Person).filter(
+        func.lower(Person.first_name + " " + Person.last_name).like(patroon, escape="\\"))
+    if members_only:
+        vraag = vraag.filter(db.query(MemberPerson.id)
+                             .filter(MemberPerson.person_id == Person.id).exists())
+    uitgesloten = list(exclude_ids)
+    if uitgesloten:
+        vraag = vraag.filter(~Person.id.in_(uitgesloten))
+    return (vraag.order_by(Person.last_name, Person.first_name, Person.id)
+            .limit(limit).all())
 
 
 def list_postal_codes(db):
