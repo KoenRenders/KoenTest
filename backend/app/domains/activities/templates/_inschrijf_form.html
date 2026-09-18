@@ -60,9 +60,14 @@
       {{ ui.label(_("Betaalwijze"), "payment_method") }}
       {# F21 (#996): de volle labelregel is aanklikbaar (44px) en de keuze
          benoemt haar gevolg — zelfde uitleg als op Word-lid. #}
+      {# Naast elkaar (Koens ronde op het pakket): twee 44px-regels onder
+         elkaar stonden te ver uit elkaar; zo blijft de tikzone ruim en de
+         vorm compact. #}
       <div x-data="{ pm: '{{ values.get('payment_method', 'ONLINE') }}' }">
+      <div class="flex flex-wrap gap-x-6">
       <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="ONLINE" x-model="pm" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
       <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="OVERSCHRIJVING" x-model="pm" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      </div>
       <p class="text-xs text-ink-soft" x-show="pm === 'ONLINE'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
       <p class="text-xs text-ink-soft" x-show="pm === 'OVERSCHRIJVING'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
       </div>

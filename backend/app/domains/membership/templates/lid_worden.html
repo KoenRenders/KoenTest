@@ -50,9 +50,12 @@
        niet iets anders beloven dan de betaling vraagt. #}
     <p class="text-sm text-ink-soft mb-3">{{ _("Lidgeld") }}: <strong class="text-ink">€ {{ lidgeld.prijs|geld }}</strong> {{ _("per gezin, geldig tot en met") }} {{ lidgeld.tot|langedatum }}.</p>
     {{ ui.label(_("Betaalwijze"), "payment_method", required=True) }}
+    {# Zelfde vorm als de inschrijfmodal: de twee keuzes naast elkaar. #}
     <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+    <div class="flex flex-wrap gap-x-6">
+    <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+    <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+    </div>
     {# De knop zegt wat er volgt: bij online ga je meteen naar de betaalpagina,
        bij overschrijving komen de instructies per e-mail. #}
     <p class="text-xs text-ink-soft mt-2" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>

@@ -54,8 +54,10 @@
   <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ _id) }}{{ ui.input_control("max_value", id="fmaxv-" ~ _id, value=(f.max_value or "" if f else ""), cls="w-full") }}</div>
   {% elif _type == "rating" %}
   <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ _id) }}{{ ui.input_control("rating_max", id="frm-" ~ _id, value=(f.rating_max or 5 if f else 5), cls="w-full") }}</div>
-  <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
-  <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
+  {# Voorbeeldteksten als placeholder (Koens vraag op het clusterpakket):
+     zonder labels betekenen de cijfers van de schaal niets. #}
+  <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), placeholder=_("bv. niet graag"), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), placeholder=_("bv. zeer graag"), cls="w-full") }}</div>
   {% endif %}
   {# Golf 6, kop-herziening: bij een bestaand veld staat het cluster in de
      kaartkop; alleen de toevoegvariant houdt zijn knoppen in de vorm. #}
