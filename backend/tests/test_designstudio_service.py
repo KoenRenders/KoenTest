@@ -4,11 +4,11 @@ Facts stay on the activity and age the version; a version is all-or-nothing;
 publishing goes through media's poster door; the AI budget refuses before a
 call; the screens sit behind the admin door.
 
-Tests marked ``needs_media_kinds`` depend on #1005 (media kinds
-``design_image`` / ``design_render``, SVG accepted for renders). They are
-strict xfails: the day #1005 lands on master they turn red here, which is the
-signal to drop the marker — a test that passes silently under xfail proves
-nothing.
+Tests marked ``needs_media_kinds`` depend on #1011 (media stores
+``design_render`` files — PDF, PNG and SVG, the SVG cleaned by media's one
+allowlist). They are strict xfails: the day #1011 lands on master they turn
+red here, which is the signal to drop the marker — a test that passes
+silently under xfail proves nothing.
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
-needs_media_kinds = pytest.mark.xfail(strict=True, reason="#1005: media kinds design_image/design_render not on master yet")
+needs_media_kinds = pytest.mark.xfail(strict=True, reason="#1011: media does not store design_render yet (add_document refuses the kind and SVG)")
 
 
 @pytest.fixture
@@ -252,14 +252,23 @@ def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design
 
 @needs_inkscape
 @needs_media_kinds
-def test_an_uploaded_svg_replaces_the_merge_and_ages_with_the_facts(db_session, design, activity):
+def test_an_uploaded_svg_survives_media_cleaning_replaces_the_merge_and_ages_with_the_facts(db_session, design, activity):
+    """Download → edit → upload: media cleans the file (#1011, one allowlist);
+    what a poster needs — text, layers, photos, filters — must come back,
+    and the edited file then counts for that layout."""
     from app.domains.designstudio.api import edited_svg_for, upload_edited_svg
     from app.domains.designstudio.service import merged_for
 
     svg = merged_for(db_session, design, "print_a", facts=facts_for(db_session, design)).svg
     edited = svg.replace("SAMEN WANDELEN", "HANDMATIG BEWERKT")
     assert upload_edited_svg(db_session, design, "print_a", edited.encode()) == []
-    assert "HANDMATIG BEWERKT" in merged_for(db_session, design, "print_a").svg
+    stored = merged_for(db_session, design, "print_a").svg
+    for kept in ("HANDMATIG BEWERKT", "feTurbulence", "<pattern", "data:image/png", "inkscape:label", "t-title-0"):
+        assert kept in stored, kept
+    assert stored.count("<text") == svg.count("<text")
+    scripted = edited.replace("</svg>", "<script>alert(1)</script></svg>")
+    upload_edited_svg(db_session, design, "print_a", scripted.encode())
+    assert "<script" not in merged_for(db_session, design, "print_a").svg
     row = edited_svg_for(db_session, design, "print_a")
     assert row is not None and row.facts_fingerprint == fingerprint(facts_for(db_session, design))
     activity.location = "Kerkplein"

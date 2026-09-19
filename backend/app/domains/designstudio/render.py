@@ -252,6 +252,23 @@ def _run(args: list[str]) -> subprocess.CompletedProcess:
     return result
 
 
+_PAGE = re.compile(r'<svg\b[^>]*?\swidth="([0-9.]+)(mm|px)?"\sheight="([0-9.]+)(mm|px)?"')
+
+
+def page_size_mm(svg: str) -> tuple[float, float]:
+    """The page size of an SVG in mm, from its root ``width``/``height``
+    (px are converted at 96 dpi). Raises when the root carries none."""
+    m = _PAGE.search(svg)
+    if not m:
+        raise RenderError("SVG zonder paginaformaat")
+    w, h = float(m.group(1)), float(m.group(3))
+    if m.group(2) != "mm":
+        w *= 25.4 / 96
+    if m.group(4) != "mm":
+        h *= 25.4 / 96
+    return w, h
+
+
 def resize_page(svg: str, width_mm: float, height_mm: float) -> str:
     """Another paper size for the same design: only the ``width``/``height``
     attributes change, the viewBox scales everything (A3 → A4)."""

@@ -411,7 +411,7 @@ preview is debounced and full renders run as a job. Q10 in the Q&A log.
 | `kernel.tenant_config` | used | per-unit budget override, logo and reference assets |
 | Inkscape 1.4 (Debian package) | **new** in the image | SVG → PDF and PNG, headless subprocess |
 | segno, Pillow, fontTools, defusedxml | **new** dependencies | QR; image prep; text-width measurement for the overflow check; safe SVG parsing |
-| SVG sanitiser + restricted renderer | **new** | allowlist re-serialiser for uploaded SVG; Inkscape run without network and with assets from the store only |
+| SVG cleaner (in `media`, #1011) + restricted renderer | **changed** / **new** | the one allowlist re-serialiser of the platform, widened for posters (§3.6a); Inkscape run without network and with assets from the store only |
 | Black Forest Labs API (`api.eu.bfl.ai`) | **new** integration | illustrations |
 | Radio Canada Big, Caveat (OFL) | used / **new** font | poster typography, handwritten note; installed in the image and offered for download to units that edit in Inkscape |
 | WeasyPrint (#258) | unchanged | stays for the meeting PDFs; not used for posters |
@@ -700,9 +700,10 @@ international; its fiscal host is a US non-profit).
   It is a platform asset in the database, like the unit lockups, and not a
   repository file. It is the supplied SVG (A4.2), recoloured in the same way.
 
-  **Uploaded SVG is sanitised** — no `<script>`, no event attributes, no
-  external references — because an SVG served to a browser is active
-  content. The sanitiser gets a test that proves a scripted SVG is refused.
+  **Uploaded SVG is sanitised by `media`** — no `<script>`, no event
+  attributes, no external references — because an SVG served to a browser
+  is active content; one cleaner for logos and posters alike (§3.6a, #1011).
+  Its test proves a scripted SVG is refused.
 
 - **The poster follows the Raak house style guide**, not the site's
   design-track palette (#913): a poster carries the Raak brand outside the
@@ -866,16 +867,37 @@ Inkscape decision makes the merged SVG that file.
   - Staleness is tracked **per layout**: a hand-edited print layout and a
     template-merged Instagram layout can differ in currency, and the design
     shows both states.
-- **Sanitising, without exception.** An uploaded SVG is active content and
-  reaches the renderer. It is parsed with defusedxml (no entity expansion)
-  and **re-serialised through an allowlist**: known elements and attributes
-  only; no `<script>`, `<foreignObject>`, event attributes, `javascript:`
-  hrefs, external `href`/`xlink:href` (images must be data URIs or store
-  assets), no `<style>` with `@import`. Inkscape runs without network access
-  and with a size limit on the file. A test proves refusal on each class.
+- **Sanitising, without exception — and by one cleaner** (Koen, 19
+  September 2026, #1011). An uploaded SVG is active content and reaches the
+  renderer. It is parsed with defusedxml (no entity expansion) and
+  **re-serialised through an allowlist** — the allowlist that already exists
+  for the association logo in `media`, widened with what a poster draws:
+  gradients, clip paths, masks, patterns, filters, images as data URIs, and
+  the `inkscape:`/`sodipodi:` annotations that keep the layers editable.
+  The Design Studio does **not** carry a cleaner of its own: the build had
+  one (`designstudio/svgsafe.py`, a proven superset of the logo list), and it
+  was dropped for this reason: the difference between a logo and a poster is
+  **no security difference**, only drawing power. The real dividing line is
+  *drawing versus doing* — out goes what can execute (`<script>`, `on…`
+  attributes, `<foreignObject>`) or fetch (external `href` on `use`, `image`,
+  `@import` in `<style>`); what only describes shape and colour stays, in a
+  logo as much as in a poster. Two lists would be the same list with a
+  drift between them; one list carries its reason written out, so the next
+  person who adds an element knows what to test it against. The Design
+  Studio uploads through `media.api` and gets the cleaned file back; it does
+  not rely on byte-identical storage — the file is rewritten — but #1011's
+  round-trip test guarantees that text objects and the Inkscape namespaces
+  survive, so the file stays editable. Should something a poster truly needs
+  be stripped, that is a design question for the media component, not a
+  reason to widen the list quietly. Inkscape runs without network access and
+  with a size limit on the file.
 - **Two sources, one design:** the merged SVG is derived and re-creatable;
   the uploaded SVG is stored as a `design_render`-kind asset with
-  `variant = svg_edited`. The overflow check does not run on an uploaded
+  `variant = svg_edited`. **Versions stay in this component**
+  (`design_versions`, `design_renditions`): media stores files and does not
+  know that a PDF and a PNG belong together. Koen asked (19 September 2026)
+  whether media should get version management of its own; no — "version"
+  means something different per domain, and there is one consumer today. The overflow check does not run on an uploaded
   file (the person took over). **The brand gate warns and does not block**
   on an uploaded file (Koen, 17 September 2026, Q18): the person may choose
   to leave the house style, exactly as today, where any poster can be
@@ -1591,9 +1613,9 @@ switch, default off).
   editing of member photos). Doing that would be a separate decision.
 - Contacts are rendered locally and never sent anywhere.
 - **Uploaded SVG** (logos, style references, reworked designs) is parsed
-  with defusedxml and re-serialised through an allowlist before it is stored
-  or rendered; Inkscape runs without network and only sees the asset store
-  (§3.6a). This closes the local-file-read/SSRF path the review of
+  with defusedxml and re-serialised through the one allowlist in `media`
+  (#1011) before it is stored or rendered; Inkscape runs without network and
+  only sees the asset store (§3.6a). This closes the local-file-read/SSRF path the review of
   17 September named.
 - BFL's zero-retention option is an enterprise offer. The standard API keeps
   results for about 10 minutes.
@@ -1708,8 +1730,8 @@ are of course unchanged; she prints version 2.
 **10. The hand-edited variant.** For the September ride An wants a line
 the template has no field for. She downloads the print SVG of the draft,
 opens it in Inkscape, adds a text box in the free space, saves, and uploads
-it on the design's print layout. The portal sanitises the file (allowlist;
-a file with a script or an external link is refused with a message),
+it on the design's print layout. Media cleans the file (the one allowlist;
+a file with a script or an external link loses it, with a message),
 stores it as `svg_edited`, marks the **print layout "handmatig bewerkt"**,
 and renders it as it is; the brand gate only warns ("een kleur buiten de
 huisstijl"). The Instagram layout stays template-merged. "Definitief maken"
@@ -1997,6 +2019,17 @@ Clarified in the same conversation:
   with emphasis, welcome line, price override and handwritten note. Each
   template shows only the fields it uses.
 
+### B10.3 One SVG cleaner (Koen, 19 September 2026, #1011)
+
+The build had a cleaner of its own for uploaded posters, wider than the
+logo's. Koen's question: is anything on that wider list not plain common
+sense? It is not — every addition draws, none executes or fetches. So there
+is **one cleaner, in `media`, one list with its reason written out**, and the
+Design Studio hands its files over and takes the cleaned result back
+(§3.6a). Two consequences accepted: storage is not byte-identical (the
+round-trip test in #1011 keeps the file editable in Inkscape), and versioning
+stays a Design Studio concept, not a media one.
+
 ## Q&A log
 
 Questions asked during shaping and review, with their answers, so they are
@@ -2024,6 +2057,7 @@ not asked twice. Open questions carry no answer yet.
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
 | Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
 | Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | **Both** (Koen, 17 Sep): the person chooses to upload a photo or to generate. AI illustrations move from phase 3 into the pilot; #978 is on master. |
+| Q22 | 19 Sep | The build asked media for byte-identical storage of `design_render` SVGs, cleaned by the Design Studio's own allowlist (CLI, on #1005). | Koen, 19 Sep (#1011): **no — one cleaner, one list, in `media`.** The difference between a logo and a poster is drawing power, not security; the line is "drawing versus doing". The studio's `svgsafe.py` goes; media's list is widened with a written reason; files are rewritten, not stored as-is; versions stay in `designstudio` (B10.3). |
 | Q21 | 18 Sep | Coverage of the real posters (B4 §3.16): contacts two or three? bank-transfer block? second deadline? (CLI) | Koen, 18 Sep: **organisers**, up to three, tick who is a contact; **no payment block** (registration is always via the website); Scherpenheuvel ignored; series always as a series; partner logos are plain images; practical/programme as **formatted text**. "Brood en spelen" assessed and taken into the pilot. |
 
 ## Non-goals

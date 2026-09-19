@@ -30,7 +30,7 @@ upload, and a numbered version that can be published as the activity's poster.
 | Component | For |
 |---|---|
 | `activities.api` | `get_activity` (title, dates, place, deadline, cancelled), `organisers_for` (#1004: the contacts on the poster) |
-| `media.api` | `list_activity_photos`, `list_media` (kinds `design_image`, `sponsor`), `upload_media` (kind `design_image`, #1005), `add_document` (kind `design_render`: PDF, PNG, SVG), `delete_media`, `replace_activity_poster` (publishing), `MediaAsset` (bytes of an image by id) |
+| `media.api` | `list_activity_photos`, `list_media` (kinds `design_image`, `sponsor`), `upload_media` (kind `design_image`, #1005), `add_document` (kind `design_render`: PDF, PNG, SVG — an SVG is cleaned by media's one allowlist, #1011), `delete_media`, `replace_activity_poster` (publishing), `MediaAsset` (bytes of an image by id) |
 | `mdm.api` | `organization_details` (website, e-mail, gsm of the association) |
 | `chatbot.api` | `sink_for` (the AI log, #978) and `cost_per_period` (the month's spend) |
 | `kernel` | `tenant_home_url` (the QR target, https), `current_tenant_id`, `jobs` (`designstudio.generate`) |
@@ -59,10 +59,11 @@ through `rendition`.
   one is never pruned.
 - **Publishing is a copy with confirmation**: the A3 PDF goes through the
   same door as a hand-made upload.
-- **An uploaded SVG is cleaned by an allowlist** (`svgsafe`, a proven
-  superset of the logo's list), must have the layout's page size, replaces
-  the merge for that layout, and is named "handmatig bewerkt". The brand check
-  on it warns only.
+- **An uploaded SVG is cleaned by media's one allowlist** (#1011: "drawing
+  versus doing" — this component carries no cleaner and does not rely on
+  byte-identical storage), must have the layout's page size, replaces the
+  merge for that layout, and is named "handmatig bewerkt". The brand check on
+  it warns only.
 - **AI images**: kill switch (`DESIGNSTUDIO_AI_IMAGES_ENABLED`) and monthly
   budget per unit (`DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`) plus platform cap
   (`DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR`) are checked before any call; a click

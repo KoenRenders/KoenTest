@@ -14,7 +14,8 @@ Layout of the package:
 - ``richtext``  — the formatted-text subset (paragraphs, bold, bullets) and its
                   rendering to SVG text spans, with line wrapping on real font
                   metrics.
-- ``models``    — schema ``designstudio``.
+- ``models``    — schema ``designstudio``. (Uploaded SVGs are cleaned by
+                  ``media``'s one allowlist, #1011 — no cleaner lives here.)
 - ``render``    — merge, overflow check (estimate + Inkscape as authority),
                   Inkscape export.
 - ``service``   — designs, versions, publishing, staleness.

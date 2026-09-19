@@ -1,7 +1,7 @@
 """Design Studio — the rendering engine without a database (CR-10 B8, #1007).
 
-Brand gate, formatted text, the poster sanitiser and the merge/check/export
-chain with the real Inkscape. Every gate here is proven the way CLAUDE.md asks:
+Brand gate, formatted text and the merge/check/export chain with the real
+Inkscape. (Uploaded SVGs are cleaned by media, #1011 — tested there.) Every gate here is proven the way CLAUDE.md asks:
 one violation, the intended message, then the clean case.
 """
 from __future__ import annotations
@@ -13,10 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from app.domains.designstudio import brand, render, richtext, svgsafe
+from app.domains.designstudio import brand, render, richtext
 from app.domains.designstudio.blocks import fit_size
 from app.domains.designstudio.content import Contact, Highlight, ImageBytes, PosterContent
-from app.domains.media import svg as logo_svg
 
 HERE = Path(__file__).resolve().parent
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
@@ -108,60 +107,6 @@ def test_richtext_wraps_on_font_metrics_and_the_estimate_is_an_upper_bound():
     assert fit_size("EEN VEEL TE LANGE TITEL VOOR DEZE AFFICHE", 260, 51, 24) < 51
 
 
-# ── Sanitiser ───────────────────────────────────────────────────────────────
-
-def test_poster_allowlist_is_a_superset_of_the_logo_allowlist():
-    """The two lists live apart on purpose (a poster embeds photos and filters,
-    a logo may not); this keeps them from drifting the wrong way."""
-    assert logo_svg.ALLOWED_ELEMENTS <= svgsafe.ALLOWED_ELEMENTS
-    assert logo_svg.ALLOWED_ATTRIBUTES - {"type"} <= svgsafe.ALLOWED_ATTRIBUTES
-
-
-def test_poster_sanitiser_drops_script_events_foreign_objects_and_external_refs():
-    raw = (b'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" '
-           b'width="297mm" height="420mm" onload="alert(1)">'
-           b'<script>alert(1)</script><foreignObject><div>x</div></foreignObject>'
-           b'<a href="https://evil.example"><text>klik</text></a>'
-           b'<image href="https://evil.example/x.png" width="1" height="1"/>'
-           b'<image href="data:image/png;base64,AAAA" width="1" height="1"/>'
-           b'<use xlink:href="https://evil.example/#x"/>'
-           b'<style>@import url(https://evil.example/x.css)</style>'
-           b'<rect style="fill:url(https://evil.example/p)" width="1" height="1"/>'
-           b'<text>blijft</text></svg>')
-    cleaned, w, h = svgsafe.clean_poster_svg(raw)
-    text = cleaned.decode()
-    for gone in ("script", "foreignObject", "onload", "<a", "evil.example", "@import"):
-        assert gone not in text
-    assert "blijft" in text
-    assert text.count("<image") == 1 and "data:image/png" in text
-    assert (round(w), round(h)) == (297, 420)
-
-
-def test_poster_sanitiser_refuses_what_it_cannot_read():
-    with pytest.raises(svgsafe.SvgError):
-        svgsafe.clean_poster_svg(b"")
-    with pytest.raises(svgsafe.SvgError):
-        svgsafe.clean_poster_svg(b"<html/>")
-    with pytest.raises(svgsafe.SvgError):
-        svgsafe.clean_poster_svg(b'<svg xmlns="http://www.w3.org/2000/svg"/>')  # no page size
-    with pytest.raises(svgsafe.SvgError):
-        svgsafe.clean_poster_svg(b'<!DOCTYPE x [<!ENTITY a "aaaa"><!ENTITY b "&a;&a;">]>'
-                                 b'<svg xmlns="http://www.w3.org/2000/svg" width="1mm" height="1mm">&b;</svg>')
-
-
-def test_the_rendered_poster_survives_its_own_sanitiser():
-    """Download → upload of an unedited SVG must keep every layer, photo and
-    filter; otherwise "handmatig bewerkt" would lose what it was given."""
-    merged = render.merge(_content(), layout="print_a", qr_url="https://www.raakmillegem.be")
-    cleaned, w, h = svgsafe.clean_poster_svg(merged.svg.encode())
-    text = cleaned.decode()
-    assert (w, h) == (297, 420)
-    for kept in ("feTurbulence", "feDisplacementMap", "<pattern", "data:image/png", 'inkscape:label="Inhoud (bewerkbaar)"',
-                 "t-title-0", "ref100mm"):
-        assert kept in text
-    assert text.count("<text") == merged.svg.count("<text")
-
-
 # ── Merge and the overflow check ────────────────────────────────────────────
 
 def test_merge_places_every_content_block_and_promises_a_box_per_text():
@@ -203,6 +148,14 @@ def test_feed_layout_keeps_four_highlights_and_says_so():
 def test_a_focal_point_moves_the_crop():
     left = render.merge(_content(main_image=ImageBytes(PNG_2x2, "image/png", 0.1, 0.9)), layout="print_a")
     assert 'preserveAspectRatio="xMinYMax slice"' in left.svg
+
+
+def test_page_size_is_read_from_the_root_in_mm_or_px():
+    assert render.page_size_mm('<svg width="297mm" height="420mm" viewBox="0 0 297 420"/>') == (297, 420)
+    w, h = render.page_size_mm('<svg width="96" height="192"/>')
+    assert (round(w, 1), round(h, 1)) == (25.4, 50.8)
+    with pytest.raises(render.RenderError):
+        render.page_size_mm("<svg><rect/></svg>")
 
 
 def test_resize_page_changes_only_the_page_attributes():

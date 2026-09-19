@@ -13,7 +13,8 @@ The rules that live here and nowhere else:
 - **Publishing is a copy.** The version's A3 PDF is handed to
   ``media.replace_activity_poster`` exactly like a hand-made upload; the
   activity never learns the Design Studio exists.
-- **An uploaded SVG is the unit's.** Cleaned, kept per layout, used instead
+- **An uploaded SVG is the unit's.** Cleaned by media's one allowlist
+  (#1011 — this component carries no cleaner), kept per layout, used instead
   of the merge for that layout's exports, and named "handmatig bewerkt" until
   it is removed. Its brand check only warns.
 """
@@ -31,7 +32,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from starlette.datastructures import Headers, UploadFile
 
-from app.domains.designstudio import brand, imaging, render, svgsafe
+from app.domains.designstudio import brand, imaging, render
 from app.domains.designstudio.content import Contact, Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import ICONS
 from app.domains.designstudio.models import (
@@ -485,24 +486,32 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
 # ── Hand-edited SVG ─────────────────────────────────────────────────────────
 
 def upload_edited_svg(db: Session, design: Design, layout: str, raw: bytes) -> list[str]:
-    """Clean, store, replace for this layout. Returns the brand warnings —
-    warnings only (§3.6a): a hand-made poster may break the guide, knowingly."""
+    """Store through media — which cleans the file with the platform's one
+    allowlist (#1011) — check the page size on what came back, replace for
+    this layout. Returns the brand warnings — warnings only (§3.6a): a
+    hand-made poster may break the guide, knowingly."""
+    from app.domains.media.api import MediaFout, add_document, delete_media
+
     if layout not in LAYOUTS:
         raise DesignError("Onbekende opmaak.")
+    if not raw:
+        raise DesignError("Leeg bestand.")
     try:
-        cleaned, w, h = svgsafe.clean_poster_svg(raw)
-    except svgsafe.SvgError as exc:
+        asset = add_document(db, kind="design_render", filename=f"ontwerp-{design.id}-{layout}-bewerkt.svg",
+                             content_type="image/svg+xml", data=raw)
+    except MediaFout as exc:
         raise DesignError(str(exc)) from exc
+    cleaned = bytes(asset.data).decode("utf-8")
     spec = render.contract(design.template_key)["layouts"][layout]
+    w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
+        delete_media(db, asset.id)
         raise DesignError(f"Het paginaformaat klopt niet: {w:.0f} × {h:.0f} mm in plaats van "
                           f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm.")
-    warnings = brand.check_template(cleaned.decode("utf-8"))
+    warnings = brand.check_template(cleaned)
     remove_edited_svg(db, design, layout)
-    asset_id = _store_render(db, filename=f"ontwerp-{design.id}-{layout}-bewerkt.svg",
-                             content_type="image/svg+xml", data=cleaned)
     db.add(DesignRendition(design_id=design.id, version_id=None, layout_code=layout, variant=VARIANT_SVG_EDITED,
-                           size_code="", media_asset_id=asset_id, facts_fingerprint=fingerprint(facts_for(db, design))))
+                           size_code="", media_asset_id=asset.id, facts_fingerprint=fingerprint(facts_for(db, design))))
     design.status = STATUS_DRAFT
     db.commit()
     return warnings
