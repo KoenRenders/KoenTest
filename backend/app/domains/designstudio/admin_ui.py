@@ -90,6 +90,16 @@ GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gek
                      "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
 
 
+def _short(name: str, limit: int = 22) -> str:
+    """A file name cut to what a select shows: the extension goes, the middle
+    gives way ("WhatsApp Image 2026-05-01 at 15.14.39.jpeg" → "WhatsApp Im…15.14.39")."""
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    if len(stem) <= limit:
+        return stem or _("(zonder naam)")
+    keep = (limit - 1) // 2
+    return f"{stem[:keep]}…{stem[-keep:]}"
+
+
 def _csrf(request: Request) -> str:
     return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
 
@@ -214,7 +224,11 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
             violations = check_design(db, design).get(layout, [])
         except RenderError as exc:
             violations, render_error = [], str(exc)
-    options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"], label=m.get("title") or f"#{m['id']}",
+    # Short labels: a select shows ~25 characters; a phone's file name does
+    # not fit and the source in Dutch says more than "activity_photo".
+    source_labels = {"activity_photo": _("foto activiteit"), "design_image": _("studio"), "generated": _("AI")}
+    options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],
+                           label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
                            source=m["source"]) for m in image_options(db, design)]
     year = date.today().year
     logos = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],

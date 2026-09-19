@@ -121,18 +121,19 @@
           {{ ui.label(label, "ds-" ~ slot) }}
           {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
             <option value="">{{ _("— geen —") }}</option>
-            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }} ({{ opt.source }})</option>{% endfor %}
+            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>{% endfor %}
           {% endcall %}
         </div>
         {% endfor %}
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <p class="text-sm font-medium text-ink mt-2">{{ _("Brandpunt van het hoofdbeeld") }} <span class="font-normal text-ink-soft">({{ _("0 = links/boven, 1 = rechts/onder; bepaalt welke kant behouden blijft bij het bijsnijden") }})</span></p>
+      <div class="grid grid-cols-2 gap-3 items-end">
         <div>
-          {{ ui.label(_("Brandpunt hoofdbeeld — horizontaal (0–1)"), "ds-focus-x") }}
+          {{ ui.label(_("Links–rechts"), "ds-focus-x") }}
           {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
         <div>
-          {{ ui.label(_("Brandpunt hoofdbeeld — verticaal (0–1)"), "ds-focus-y") }}
+          {{ ui.label(_("Boven–onder"), "ds-focus-y") }}
           {{ ui.input_control("main_focus_y", id="ds-focus-y", type="number", value=main_focus_y, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
       </div>
