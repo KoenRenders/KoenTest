@@ -162,15 +162,20 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
 
     if len(highlights) > MAX_HIGHLIGHTS:
         raise DesignError(f"Ten hoogste {MAX_HIGHLIGHTS} kernpunten.")
+    if len(logo_ids) > MAX_LOGOS:
+        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
+    # Replace, not merge — and flush the removal before the new rows go in:
+    # the unit of work inserts before it deletes, so the same `sort_order`
+    # would collide on `uq_design_highlight_order` / `uq_design_logo_order`
+    # (HDEV, 19 September 2026: every second save failed with a 500).
     design.highlights.clear()
+    design.logos.clear()
+    db.flush()
     for i, (icon, line, emphasis) in enumerate(hl for hl in highlights if (hl[1] or "").strip()):
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
         design.highlights.append(DesignHighlight(sort_order=i, icon_code=icon, text=line.strip()[:90],
                                                  emphasis=bool(emphasis)))
-    if len(logo_ids) > MAX_LOGOS:
-        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
-    design.logos.clear()
     for i, asset_id in enumerate(logo_ids):
         design.logos.append(DesignLogo(media_asset_id=asset_id, sort_order=i))
     design.status = STATUS_DRAFT

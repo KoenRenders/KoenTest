@@ -293,9 +293,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     if not lines:
         p.violations.append("Geen titel")
     top: float = 101 if len(lines) == 2 else 118
+    # Line two ends at the right edge; with the EN badge on its left it has
+    # about 60 mm less (iteration 19: a full-width second line ran under the
+    # badge).
+    line_widths = (title_w, title_w - (62 if content.title_joiner and len(lines) == 2 else 10))
     for i, text in enumerate(lines):
-        size = fit_size(text, title_w if i == 0 else title_w - 10, 51 if i == 0 else 46, 24, tracking_per_em=-0.016)
-        if richtext.text_width(text, size, bold=True, tracking=-0.016 * size) > (title_w if i == 0 else title_w - 10):
+        size = fit_size(text, line_widths[i], 51 if i == 0 else 46, 24, tracking_per_em=-0.016)
+        if richtext.text_width(text, size, bold=True, tracking=-0.016 * size) > line_widths[i]:
             p.violations.append(f"Titelregel {i + 1} is te lang voor de affiche")
         anchor = "start" if i == 0 else "end"
         x = 17 if i == 0 else width - 17
@@ -303,7 +307,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": ty, "size": size, "anchor": anchor,
                         "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
                         "stroke": pal["tile"] if i == 0 else pal["accent4"]})
-        p.boxes[f"t-title-{i}"] = title_w if i == 0 else title_w - 10
+        p.boxes[f"t-title-{i}"] = line_widths[i]
     if len(lines) == 2 and content.title_joiner:
         p.joiner = {"text": content.title_joiner, "cx": 44, "cy": 131}
         p.boxes["t-joiner"] = 44

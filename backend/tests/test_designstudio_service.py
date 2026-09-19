@@ -185,6 +185,21 @@ def test_highlights_are_capped_and_icons_checked(db_session, design):
                     highlights=[], logo_ids=[1, 2, 3])
 
 
+def test_saving_twice_with_the_same_highlights_and_logos_works(db_session, design):
+    """HDEV, 19 September 2026: the second save of a design with highlights
+    (or logos) died on the unique (design, sort_order) — the new rows were
+    inserted before the old ones were deleted. Nothing of the form arrived,
+    the preset included."""
+    form = {"duo_code": design.duo_code, "preset": "tekst"}
+    hls = [("users", "Eerste", False), ("coffee", "Tweede", True)]
+    save_design(db_session, design, form, highlights=hls, logo_ids=[41, 42])
+    save_design(db_session, design, form, highlights=hls, logo_ids=[42, 41])
+    db_session.refresh(design)
+    assert [h.text for h in design.highlights] == ["Eerste", "Tweede"]
+    assert [lg.media_asset_id for lg in design.logos] == [42, 41]
+    assert design.preset == "tekst"
+
+
 def test_check_design_reports_per_layout_without_inkscape(db_session, design):
     problems = check_design(db_session, design)
     assert set(problems) == {"print_a", "feed_portrait"}
