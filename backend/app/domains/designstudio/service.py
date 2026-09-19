@@ -74,8 +74,9 @@ MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AU
              "SEPTEMBER", "OKTOBER", "NOVEMBER", "DECEMBER")
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
-PRESET_LABELS = {"beeld": "Met beeld — foto of tekening rechts, kernpunten links",
-                 "tekst": "Tekst — geen beeld, tekst over de volle breedte"}
+PRESET_LABELS = {"eenvoudig": "Eenvoudig — één grote foto en de tekst van de activiteit over de volle breedte",
+                 "beeld": "Met beeld — foto of tekening rechts, kernpunten links, omschrijving eronder",
+                 "tekst": "Tekst — geen beeld, kernpunten links, omschrijving rechts"}
 STATUS_LABELS = {STATUS_DRAFT: "Ontwerp", STATUS_FINAL: "Definitief"}
 STATUS_TONES = {STATUS_DRAFT: "yellow", STATUS_FINAL: "green"}
 LAYOUT_LABELS = {LAYOUT_PRINT: "Print (A3/A4)", LAYOUT_FEED: "Instagram (4:5)"}
@@ -142,13 +143,17 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
         raise DesignError("Dit kleurenduo staat niet aan.")
     if form.get("preset") not in PRESETS:
         raise DesignError("Onbekende opmaak.")
-    for key in ("duo_code", "preset", "title_breaks", "title_override", "tagline", "subtitle",
-                "recurrence_line", "welcome_line", "price_text", "explanation_md", "practical_md",
-                "programme_md"):
+    for key in ("duo_code", "preset", "tagline", "subtitle"):
         if key in form:
             value = (form[key] or "").strip()
             setattr(design, key, value or None if key not in ("duo_code", "preset") else value)
-    design.show_kicker = bool(form.get("show_kicker"))
+    if "explanation_md" in form:
+        # "Omschrijving anders": the field shows the activity's description;
+        # unchanged (or emptied) means "use the activity's", stored as NULL so
+        # it stays live.
+        typed = (form["explanation_md"] or "").strip()
+        own = facts_for(db, design)["description"]
+        design.explanation_md = typed if typed and typed != own else None
     for key in ("main_image_id", "inset_image_id", "third_image_id"):
         if key in form:
             raw = (form[key] or "").strip()
@@ -246,6 +251,7 @@ def facts_for(db: Session, design: Design) -> dict:
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),
         "cancelled": bool(activity.is_cancelled),
+        "members_only": bool(activity.members_only),
         "organisers": [{"name": c.name, "mobile": c.mobile, "email": c.email}
                        for c in _organisers(db, activity.id)],
         "website": assoc["website"], "email": assoc["email"], "mobile": assoc["mobile"],
@@ -274,14 +280,11 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
     return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]))
 
 
-def _title_lines(design: Design, title: str) -> tuple[tuple[str, ...], str]:
-    """One or two title lines and the joiner. An explicit "/" wins; a title
-    with " en " becomes two lines around an EN badge; a long title splits at
-    the middle word; a short one stays whole."""
-    text = (design.title_override or title or "").strip()
-    if design.title_breaks and "/" in design.title_breaks:
-        parts = [p.strip() for p in design.title_breaks.split("/") if p.strip()]
-        return tuple(p.upper() for p in parts[:2]), ""
+def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
+    """One or two title lines and the joiner: a title with " en " becomes
+    two lines around an EN badge; a long title splits at the middle word; a
+    short one stays whole."""
+    text = (title or "").strip()
     words = text.split()
     if len(words) == 3 and words[1].lower() in ("en", "&"):
         return (words[0].upper(), words[2].upper()), "EN"
@@ -293,13 +296,11 @@ def _title_lines(design: Design, title: str) -> tuple[tuple[str, ...], str]:
 
 def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> PosterContent:
     facts = facts or facts_for(db, design)
-    title_lines, joiner = _title_lines(design, facts["title"])
+    title_lines, joiner = _title_lines(facts["title"])
 
     highlights: list[Highlight] = []
     dates = facts["dates"]
-    if design.recurrence_line:
-        highlights.append(Highlight("calendar", design.recurrence_line.upper(), True))
-    elif len(dates) == 1:
+    if len(dates) == 1:
         day = date.fromisoformat(dates[0]["date"])
         line = day_label(day, weekday=True)
         if dates[0]["time"]:
@@ -316,20 +317,20 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
     if not contacts and facts["mobile"]:
-        contacts = (Contact(name=facts["association"] or "Raak", mobile=facts["mobile"]),)
+        # Nobody ticked: the association's own gsm, without a name — the
+        # band already carries its website and e-mail (Koen, 19 September).
+        contacts = (Contact(name="", mobile=facts["mobile"]),)
 
     return PosterContent(
         duo_code=design.duo_code, preset=design.preset,
         title_lines=title_lines, title_joiner=joiner,
-        kicker=(facts["association"] or "").upper() if design.show_kicker else "",
         bar_text=(design.subtitle or "").upper(),
         tagline=design.tagline or "",
         highlights=tuple(highlights),
-        welcome_line=design.welcome_line or "",
+        members_only=bool(facts["members_only"]),
         dates_heading=f"DATA IN {year}",
         dates=grid,
-        explanation_md=design.explanation_md or facts["description"], practical_md=design.practical_md or "",
-        programme_md=design.programme_md or "", price_text=design.price_text or "",
+        explanation_md=design.explanation_md or facts["description"],
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
         inset_image=_image(db, design.inset_image_id),
         third_image=_image(db, design.third_image_id),
@@ -617,13 +618,16 @@ def budget(db: Session) -> imaging.Budget:
 
 
 def request_images(db: Session, design: Design, scene: str, *, requested_by: str = "",
-                   reference_asset_id: Optional[int] = None) -> str:
+                   reference_asset_id: Optional[int] = None, style: str = "lijn", change: str = "") -> str:
     """One click: budget check, four reservations, four jobs. Returns the
     request key the screen polls on. A second click while the first is still
-    running is refused — a double click must not cost twice."""
+    running is refused — a double click must not cost twice. With a
+    reference image (a variant the unit liked) and ``change`` ("wat wil je
+    anders?") the new variants build on that image."""
     from app.kernel.jobs import enqueue
 
-    prompt = imaging.build_prompt(scene)
+    prompt = imaging.build_prompt(scene, style, change)
+    scene = scene.strip() or change.strip()
     if any(g.status == GEN_REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
@@ -634,6 +638,7 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     rnd = random.Random()
     for _ in range(imaging.VARIANTS_PER_CLICK):
         row = ImageGeneration(design_id=design.id, request_key=key, seed=rnd.randint(1, 2**31 - 1),
+                              scene=scene.strip()[:600], style=style,
                               width=1440, height=1248, status=GEN_REQUESTED,
                               reserved_cents=int((per_image * 100).to_integral_value()),
                               requested_by=requested_by)
@@ -662,13 +667,11 @@ def warnings_for(design: Design, facts: dict) -> list[str]:
     """What the unit should know but may do anyway: design text that shadows
     a fact (CR-10 §3.7). Never blocks a version."""
     out = []
-    if design.title_override and design.title_override.strip().lower() != (facts["title"] or "").strip().lower():
-        out.append(f"De titel op de affiche ('{design.title_override}') wijkt af van de activiteit ('{facts['title']}').")
-    if design.recurrence_line and len(facts["dates"]) > 1:
-        out.append("De herhalingsregel vervangt de datumregel; de datatabel toont de data zelf.")
     if design.explanation_md and facts.get("description") and \
             design.explanation_md.strip() != facts["description"].strip():
-        out.append("De toelichting op de affiche wijkt af van de omschrijving van de activiteit.")
+        out.append("De omschrijving op de affiche wijkt af van die van de activiteit.")
+    if design.third_image_id and design.logos:
+        out.append("Het derde beeld vervalt: de logostrook neemt die plek.")
     return out
 
 

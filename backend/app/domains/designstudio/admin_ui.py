@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.designstudio import render
 from app.domains.designstudio.api import (
     ENABLED_DUOS,
     ICONS,
@@ -35,6 +36,7 @@ from app.domains.designstudio.api import (
     PRESETS,
     STATUS_LABELS,
     STATUS_TONES,
+    STYLE_LABELS,
     DesignError,
     ImagingError,
     RenderError,
@@ -85,6 +87,7 @@ DUO_LABELS = {
     "dark_green-golden_yellow": "Donkergroen · Geel",
     "ocean_blue-golden_yellow": "Blauw · Geel",
     "golden_yellow-indigo": "Geel · Paars",
+    "indigo-golden_yellow": "Paars · Geel",
 }
 GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gekozen", "discarded": "Niet gekozen",
                      "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
@@ -214,7 +217,7 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
 
 def _editor_view(request: Request, db: Session, design, *, layout: str = "print_a",
                  error: Optional[str] = None, notice: Optional[str] = None,
-                 violations: Optional[list[str]] = None, ai_prompt: str = "") -> DesignEditorView:
+                 violations: Optional[list[str]] = None, ai_prompt: str = "", ai_style: str = "lijn") -> DesignEditorView:
     if layout not in LAYOUTS:
         layout = "print_a"
     facts = facts_for(db, design)
@@ -243,7 +246,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
                                    published=(v.id == design.published_version_id), stale=is_stale(db, v), files=files))
     generations = [GenerationRow(id=g.id, status=g.status, status_label=_(GENERATION_LABELS.get(g.status, g.status)),
                                  thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
-                                 media_asset_id=g.media_asset_id, failure_reason=g.failure_reason or "")
+                                 media_asset_id=g.media_asset_id, failure_reason=g.failure_reason or "",
+                                 scene=g.scene or "", style=g.style or "lijn")
                    for g in sorted(design.generations, key=lambda g: -g.id)[:12]]
     highlights = [HighlightRow(icon=h.icon_code, text=h.text, emphasis=h.emphasis) for h in design.highlights]
     while len(highlights) < MAX_HIGHLIGHTS:
@@ -254,11 +258,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         status=design.status, status_label=_(STATUS_LABELS.get(design.status, design.status)),
         status_tone=STATUS_TONES.get(design.status, "gray"),
         preset=design.preset, preset_options=_preset_options(), duo_code=design.duo_code, duo_options=_duo_options(),
-        title_breaks=design.title_breaks or "", title_override=design.title_override or "",
-        show_kicker=bool(design.show_kicker), tagline=design.tagline or "", subtitle=design.subtitle or "",
-        recurrence_line=design.recurrence_line or "", welcome_line=design.welcome_line or "",
-        price_text=design.price_text or "", explanation_md=design.explanation_md or "",
-        practical_md=design.practical_md or "", programme_md=design.programme_md or "",
+        tagline=design.tagline or "", subtitle=design.subtitle or "",
+        explanation_md=design.explanation_md or facts["description"], explanation_is_own=bool(design.explanation_md),
         highlights=highlights, icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
         main_image_id=design.main_image_id, inset_image_id=design.inset_image_id, third_image_id=design.third_image_id,
         main_focus_x=f"{float(design.main_focus_x):.2f}", main_focus_y=f"{float(design.main_focus_y):.2f}",
@@ -272,6 +273,7 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
                     ("Caveat", "/static/fonts/Caveat-VariableFont_wght.ttf")],
         versions=versions, published_version_id=design.published_version_id, max_versions=MAX_VERSIONS,
         ai_enabled=ai.enabled, ai_budget_line=ai.line(), generations=generations, ai_prompt=ai_prompt,
+        ai_style=ai_style, style_options=[(code, _(label)) for code, label in STYLE_LABELS.items()],
         csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))
 
 
@@ -295,6 +297,25 @@ def design_preview(design_id: int, db: Session = Depends(get_db), _email: str = 
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@router.get("/admin/ontwerpen/{design_id}/voorbeeld.pdf")
+def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
+                       layout: str = "print_a"):
+    """The draft as a PDF, to look at it large or print a proof — no version
+    is made (Koen, 19 September 2026: "in het groot bekijken")."""
+    from app.domains.designstudio.service import merged_for
+
+    design = _design_or_404(db, design_id)
+    if layout not in LAYOUTS:
+        raise HTTPException(status_code=404)
+    try:
+        merged = merged_for(db, design, layout, facts=facts_for(db, design))
+        pdf = render.export(merged.svg, "pdf")
+    except (DesignError, RenderError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="ontwerp-{design.id}-{layout}.pdf"'})
 
 
 @router.get("/admin/ontwerpen/{design_id}/svg/{layout}")
@@ -354,15 +375,19 @@ async def design_image_upload(request: Request, design_id: int, db: Session = De
              dependencies=[Depends(require_csrf)])
 def design_generate(request: Request, design_id: int, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui), scene: str = Form(""), layout: str = Form("print_a"),
-                    reference_id: str = Form("")):
+                    reference_id: str = Form(""), style: str = Form("lijn"), change: str = Form("")):
+    """Four variants — from scratch, or ("wat wil je anders?") on top of a
+    variant the unit liked: then `reference_id` is that variant's picture and
+    `change` the instruction."""
     design = _design_or_404(db, design_id)
     try:
-        request_images(db, design, scene, requested_by=email,
+        request_images(db, design, scene, requested_by=email, style=style, change=change,
                        reference_asset_id=int(reference_id) if reference_id.isdigit() else None)
     except (DesignError, ImagingError) as exc:
         return templates.TemplateResponse(
             request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=str(exc), ai_prompt=scene).as_context())
+            _editor_view(request, db, design, layout=layout, error=str(exc), ai_prompt=scene,
+                         ai_style=style).as_context())
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gevraagd")
 
 
@@ -390,7 +415,8 @@ def design_finalise(request: Request, design_id: int, db: Session = Depends(get_
     except DesignError as exc:
         return templates.TemplateResponse(
             request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=_("Nog niet definitief:"),
+            _editor_view(request, db, design, layout=layout,
+                         error=_("Nog niet definitief: ") + " · ".join(exc.messages),
                          violations=exc.messages).as_context())
     except RenderError as exc:
         return templates.TemplateResponse(request, "admin_ontwerp.html",

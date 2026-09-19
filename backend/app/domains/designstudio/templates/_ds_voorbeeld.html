@@ -16,7 +16,12 @@
   {{ ui.error_banner(render_error) }}
 {% else %}
 <div class="bg-surface-2 border border-line rounded-2xl p-3">
-  <img src="{{ preview_url }}" alt="{{ _('Voorbeeld van de affiche') }}" class="w-full h-auto rounded-lg shadow-sm">
+  <a href="{{ preview_url }}" target="_blank" rel="noopener" title="{{ _('Groot bekijken') }}"><img src="{{ preview_url }}" alt="{{ _('Voorbeeld van de affiche') }}" class="w-full h-auto rounded-lg shadow-sm"></a>
+  <p class="text-xs text-ink-soft mt-2">
+    <a href="{{ preview_url }}" target="_blank" rel="noopener" class="underline text-link">{{ _("Groot bekijken") }}</a> ·
+    <a href="/admin/ontwerpen/{{ design_id }}/voorbeeld.pdf?layout={{ layout }}" target="_blank" rel="noopener" class="underline text-link">{{ _("Pdf van dit ontwerp") }}</a>
+    <span>{{ _("(proefdruk; een versie maak je met 'Definitief maken')") }}</span>
+  </p>
 </div>
 {% endif %}
 {% if violations %}

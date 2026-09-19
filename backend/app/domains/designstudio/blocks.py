@@ -36,7 +36,6 @@ class Plan:
     pal: dict[str, str]
     seed: int
     paper_path: str = ""
-    kicker: str = ""
     title: list[dict] = field(default_factory=list)
     joiner: dict | None = None
     bar: dict | None = None
@@ -45,6 +44,7 @@ class Plan:
     full: str = ""
     band: dict = field(default_factory=dict)
     logos: str = ""
+    lockup: dict = field(default_factory=dict)   # x, y, width of the lockup in the band
     boxes: dict[str, float] = field(default_factory=dict)  # text id → max width in mm
     violations: list[str] = field(default_factory=list)
     band_y: float = 0.0
@@ -131,13 +131,17 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
         bg = accents[i % len(accents)]
         fg = pal["white"] if bg != pal["accent"] else pal["ink"]
         out.append(icon_svg(hl.icon, fg=fg, bg=bg, x=x, y=y, size=ICON_S))
-        ly = y + 8.2
+        # Centre the text block on the icon: one line sits on the icon's
+        # middle, two lines straddle it (Koen, 19 September 2026).
+        line_step = size * 1.05 + 1
+        block_h = size * 0.72 + (len(lines) - 1) * line_step
+        ly = y + (ICON_S - block_h) / 2 + size * 0.72
         for j, line in enumerate(lines):
             txt = "".join(r.text for r in line)
             eid = f"t-hl-{i}-{j}"
             out.append(text_el(eid, txt, text_x, ly, size, pal["ink"], weight="bold" if hl.emphasis or j == 0 else "600"))
             plan.boxes[eid] = text_w
-            ly += size * 1.05 + 1
+            ly += line_step
         if i - index_offset < len(content.highlights) - 1:
             out.append(f'<line x1="{x}" y1="{y + 23.5}" x2="{x + w}" y2="{y + 23.5}" stroke="{pal["ink"]}" '
                        f'stroke-width="0.4" stroke-dasharray="0.5 1.2" stroke-linecap="round"/>')
@@ -145,18 +149,19 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     return "".join(out), y
 
 
-def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
+def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float,
+                *, icon: float = ICON_S, max_size: float = 10.5) -> tuple[str, float]:
+    """Always on the poster (Koen, 19 September 2026): "IEDEREEN WELKOM!" —
+    or "ENKEL LEDEN" when the activity is members-only."""
     pal = plan.pal
-    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=ICON_S)]
-    text_x = x + ICON_S + 5
-    text_w = w - ICON_S - 5
-    size = fit_size("IEDEREEN WELKOM!", text_w, 10.5, 7)
-    out.append(text_el("t-welcome-0", "IEDEREEN WELKOM!", text_x, y + 8.2, size, pal["ink"], weight="bold"))
+    text = "ENKEL LEDEN" if content.members_only else "IEDEREEN WELKOM!"
+    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=icon)]
+    text_x = x + icon + 5
+    text_w = w - icon - 5
+    size = fit_size(text, text_w, max_size, 6)
+    out.append(text_el("t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"))
     plan.boxes["t-welcome-0"] = text_w
-    if content.welcome_line:
-        out.append(text_el("t-welcome-1", content.welcome_line, text_x, y + 8.2 + 5.8, 4.6, pal["ink"]))
-        plan.boxes["t-welcome-1"] = text_w
-    return "".join(out), y + 22
+    return "".join(out), y + icon + 5
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -253,15 +258,6 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
     return "".join(out), y + h + 5
 
 
-def price_block(plan: Plan, text: str, x: float, y: float, w: float) -> tuple[str, float]:
-    pal = plan.pal
-    size = fit_size(text, w - 16, 12, 7)
-    out = [icon_svg("euro", fg=pal["white"], bg=pal["accent3"], x=x, y=y, size=ICON_S),
-           text_el("t-price", text, x + ICON_S + 5, y + 12.5, size, pal["ink"], weight="bold")]
-    plan.boxes["t-price"] = w - ICON_S - 5
-    return "".join(out), y + 24
-
-
 def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float) -> str:
     """Sponsor logos, right-aligned, each at most 2:1 wide."""
     out = []
@@ -277,136 +273,162 @@ def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: flo
 
 # ── The planner ───────────────────────────────────────────────────────────
 
+def _dates_grid_height(n: int) -> float:
+    rows = (n + 1) // 2
+    return 10 + rows * 14 + 3 + 3
+
+
+def _richtext_height(source: str, w: float, size: float) -> float:
+    return richtext.line_count(source, width=w, size=size) * size * 1.3 + 5
+
+
+def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4) -> float:
+    shown = content.highlights[:limit_n]
+    col_y: list[float] = [y, y]
+    for i, hl in enumerate(shown):
+        cx, cw_ = cols[i % 2]
+        one = PosterContent(duo_code=content.duo_code, highlights=(hl,))
+        frag, ny = highlight_rows(p, one, cx, col_y[i % 2], cw_, index_offset=i)
+        p.full += frag
+        col_y[i % 2] = ny
+    if len(content.highlights) > limit_n:
+        p.violations.append(f"Deze opmaak toont ten hoogste {limit_n} kernpunten")
+    return max(col_y)
+
+
 def plan_affiche(content: PosterContent, *, layout: str, width: float, height: float,
                  pal: dict[str, str]) -> Plan:
+    """Round 3 (Koen, 19 September 2026): the title at the top over the full
+    width, both lines the same size; the lockup in the band at the bottom
+    left; one picture fills the whole right column; "iedereen welkom" always;
+    the third picture takes the bottom-left spot unless sponsor logos do.
+    Three presets: ``beeld`` (picture right, highlights left), ``tekst``
+    (highlights left, description right) and ``eenvoudig`` (one big picture
+    over the full width, a few highlights under it — the Bowlen poster,
+    half of what the unit makes)."""
     frame = 9.0
     p = Plan(width=width, height=height, frame=frame, pal=pal, seed=content.seed)
     x0, y0, x1, y1 = frame, frame, width - frame, height - frame
-    cw, ch, r = 92.0, 50.0, 22.0
-    p.paper_path = (f"M{x0 + cw} {y0} H{x1} V{y1} H{x0} V{y0 + ch} H{x0 + cw - r} "
-                    f"A{r} {r} 0 0 0 {x0 + cw} {y0 + ch - r} Z")
-    p.kicker = content.kicker
 
-    # Title: one or two lines, each fitted to the paper width.
+    # ── Title: one or two lines, one size, at the top ─────────────────────
     title_w = width - 2 * frame - 16
     lines = [t for t in content.title_lines if t][:2]
     if not lines:
         p.violations.append("Geen titel")
-    top: float = 101 if len(lines) == 2 else 118
-    # Line two ends at the right edge; with the EN badge on its left it has
-    # about 60 mm less (iteration 19: a full-width second line ran under the
-    # badge).
-    line_widths = (title_w, title_w - (62 if content.title_joiner and len(lines) == 2 else 10))
+    with_badge = bool(content.title_joiner) and len(lines) == 2
+    line_widths = (title_w, title_w - (62 if with_badge else 0))
+    max_size = 51.0 if layout == "print_a" else 44.0
+    size = max_size
     for i, text in enumerate(lines):
-        size = fit_size(text, line_widths[i], 51 if i == 0 else 46, 24, tracking_per_em=-0.016)
+        size = min(size, fit_size(text, line_widths[i], max_size, 24, tracking_per_em=-0.016))
+    for i, text in enumerate(lines):
         if richtext.text_width(text, size, bold=True, tracking=-0.016 * size) > line_widths[i]:
             p.violations.append(f"Titelregel {i + 1} is te lang voor de affiche")
+    base1 = frame + 12 + size * 0.72          # cap height ≈ 0.72 em
+    step = size * 1.08
+    baselines = [base1 + i * step for i in range(len(lines))]
+    for i, text in enumerate(lines):
         anchor = "start" if i == 0 else "end"
         x = 17 if i == 0 else width - 17
-        ty = top if i == 0 else top + 46
-        p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": ty, "size": size, "anchor": anchor,
-                        "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
+        p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": baselines[i], "size": size,
+                        "anchor": anchor, "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
                         "stroke": pal["tile"] if i == 0 else pal["accent4"]})
         p.boxes[f"t-title-{i}"] = line_widths[i]
-    if len(lines) == 2 and content.title_joiner:
-        p.joiner = {"text": content.title_joiner, "cx": 44, "cy": 131}
+    if with_badge:
+        p.joiner = {"text": content.title_joiner, "cx": 44, "cy": baselines[1] - size * 0.36}
         p.boxes["t-joiner"] = 44
+    y_after_title = (baselines[-1] if lines else frame + 40) + 6
     if content.bar_text:
-        bar_y = 152 if len(lines) == 2 else 128
-        size = fit_size(content.bar_text, 118, 12.5, 7, tracking_per_em=0.024)
-        p.bar = {"path": rough_band(147, bar_y, 130, 17, seed=content.seed + 3), "text": content.bar_text,
-                 "x": 212, "y": bar_y + 12.3, "size": size}
-        p.boxes["t-bar"] = 118
+        bar_w = 130.0
+        bsize = fit_size(content.bar_text, bar_w - 12, 12.5, 7, tracking_per_em=0.024)
+        p.bar = {"path": rough_band(width - frame - 8 - bar_w, y_after_title, bar_w, 17, seed=content.seed + 3),
+                 "text": content.bar_text, "x": width - frame - 8 - bar_w / 2, "y": y_after_title + 12.3, "size": bsize}
+        p.boxes["t-bar"] = bar_w - 12
+        y_after_title += 17
+    top_y: float = y_after_title + 10
 
-    # Band at the bottom, one left-aligned column of rows: the heading, then
-    # website and e-mail side by side (icon + text), then one row per contact
-    # person — "Naam · gsm · e-mail" — so the band grows 6.5 mm per contact
-    # (at most three, #1004) and nothing floats. The QR sits at the right,
-    # centred on the band's height.
-    contacts = [" · ".join(part for part in (c.name, c.mobile, c.email) if part) for c in content.contacts[:3]]
-    band_h: float = 26 + 6.5 * len(contacts)
+    # ── Bottom: the lockup in a rounded corner tile at the left (the arc Koen
+    #    liked at the top, now bottom-left), the rough info band to its right ──
+    contacts: list[dict[str, object]] = [
+        {"text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
+         "icon": "users" if c.name else "mobile"} for c in content.contacts[:3]]
+    # Rows: heading, website, e-mail, one per contact — stacked, since the
+    # tile takes a third of the width.
+    band_h: float = 33 + 6.5 * len(contacts)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
-    text_left = frame + 2 + 13          # after a 6 mm icon at frame + 2 + 5
+    cw, r = 92.0, 22.0
+    ch = band_h + 8
+    # The paper: the frame's inner rectangle minus the corner tile bottom-left.
+    p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
+                    f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
+    lockup_w = 66.0
+    lockup_h = lockup_w * 245 / 491
+    p.lockup = {"x": x0 + (cw - r / 2 - lockup_w) / 2 + 2, "y": y1 - ch + (ch - lockup_h) / 2, "width": lockup_w}
+    band_x = x0 + cw + 5
+    col_x = band_x + 7
+    text_left = col_x + 8
     qr_left = width - frame - 2 - 24
-    p.band = {"path": rough_band(frame + 2, band_y, width - 2 * frame - 4, band_h, seed=content.seed + 5, jag=2.5),
+    p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "website": content.website, "email": content.email,
               "contacts": contacts, "label": content.more_info_label,
-              "icon_x": frame + 2 + 5, "text_x": text_left, "col2_icon_x": 132, "col2_text_x": 140,
-              "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2}
-    p.boxes["t-website"] = 132 - text_left - 4
-    p.boxes["t-email"] = qr_left - 140 - 4
-    for i, _line in enumerate(contacts):
-        p.boxes[f"t-contact-{i}"] = qr_left - text_left - 4
+              "icon_x": col_x, "text_x": text_left,
+              "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
+              "row_y": band_y + 2}
+    row_w = qr_left - text_left - 4
+    p.boxes["t-website"] = row_w
+    p.boxes["t-email"] = row_w
+    for i, line in enumerate(contacts):
+        # A long name with gsm and e-mail shrinks a little rather than overflow.
+        line["size"] = fit_size(str(line["text"]), row_w, 5.6, 4.4, bold=False)
+        p.boxes[f"t-contact-{i}"] = row_w
 
-    # Content area between the title and the band, two columns.
-    top_y: float = 186 if (len(lines) == 2 or content.bar_text) else 150
-    limit: float = band_y - 1
+    # ── Content between title and band ─────────────────────────────────────
+    limit: float = band_y - 3
     lx, lw = 19.0, 119.0
     rx, rw = 151.0, width - frame - 4 - 151
+    full_w = width - lx - frame - 4 - 6
     left: list[str] = []
     right: list[str] = []
-    full: list[str] = []
     y: float
-
     if content.logos:
         limit -= 22
         p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, 16)
 
-    if layout == "feed_portrait":
+    if content.preset == "eenvoudig" and layout == "print_a":
+        # Koen, 19 September 2026 (evening): one big picture, then the
+        # activity's text over the full width — no icon rows for date and
+        # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
-        shown = content.highlights[:4]
-        rows = (len(shown) + 1) // 2
+        text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
+        below = text_h + 4 + 16 + 4
         if content.main_image:
-            # The hero takes what the highlights and the band leave: a taller
-            # band (contact rows) shortens the photo, never the checks.
-            avail = limit - y - 6 - rows * ROW_H
-            frag, y = main_image_block(p, content.main_image, lx, y, width - lx - frame - 4 - 6,
-                                       max(50.0, min(85.0, avail)))
-            full.append(frag)
+            avail = limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
+            p.full += frag
             y += 6
-        cols = ((lx, lw), (rx, rw))
-        col_y: list[float] = [y, y]
-        for i, hl in enumerate(shown):
-            cx, cw_ = cols[i % 2]
-            one = PosterContent(duo_code=content.duo_code, highlights=(hl,))
-            frag, ny = highlight_rows(p, one, cx, col_y[i % 2], cw_, index_offset=i)
-            full.append(frag)
-            col_y[i % 2] = ny
-        if len(content.highlights) > 4:
-            p.violations.append("Instagram toont ten hoogste vier kernpunten")
-        p.full = "".join(full)
-        y = max(col_y)
-        if y > limit:
-            p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
-    elif content.preset == "tekst":
-        y = top_y
-        if content.highlights:
-            frag, y = highlight_rows(p, content, lx, y, lw)
-            left.append(frag)
-            y2 = top_y
-            if content.dates and len(content.dates) > 1:
-                frag, y2 = dates_grid(p, content, rx, y2, rw)
-                right.append(frag)
-            y = max(y, y2)
         if content.explanation_md:
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, width - lx - frame - 4, 7.2)
-            full.append(frag)
-        if content.programme_md:
-            frag, y = richtext_block(p, "t-rt-programme", content.programme_md, lx, y, width - lx - frame - 4, 6.6,
-                                     boxed=True, heading="PROGRAMMA")
-            full.append(frag)
-        if content.practical_md:
-            frag, y = richtext_block(p, "t-rt-practical", content.practical_md, lx, y, width - lx - frame - 4, 6.6,
-                                     boxed=True, heading="PRAKTISCH")
-            full.append(frag)
-        if content.price_text:
-            frag, y = price_block(p, content.price_text, lx, y, lw)
-            full.append(frag)
-        if content.welcome_line:
-            frag, y = welcome_row(p, content, lx, y, lw)
-            full.append(frag)
-        p.full = "".join(full)
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
+            p.full += frag
+        wy = max(y + 2, limit - 16)
+        frag, wy = welcome_row(p, content, lx, wy, lw, icon=11, max_size=7.5)
+        p.full += frag
+        if wy > limit + 3:
+            p.violations.append(f"Te veel inhoud: {wy - limit:.0f} mm te veel")
+    elif layout == "feed_portrait":
+        # Instagram: title, one picture over the full width, a few highlights.
+        y = top_y - 4
+        n = min(len(content.highlights), 4)
+        rows = (n + 1) // 2
+        below = rows * ROW_H + 24 + 6
+        if content.main_image:
+            avail = limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
+            p.full += frag
+            y += 6
+        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)))
+        frag, y = welcome_row(p, content, lx, y, lw)
+        p.full += frag
         if y > limit:
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
     else:
@@ -415,41 +437,53 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
-        if content.main_image:
-            frag, ry = main_image_block(p, content.main_image, rx + 3, ry - 4, rw - 8, 102)
-            right.append(frag)
-        if content.inset_image:
-            overlap = 45 if content.main_image else 0
-            frag, ry = polaroid_block(p, content.inset_image, rx, ry - overlap + 2, 88)
-            right.append(frag)
-        elif content.main_image:
-            ry += 6
-        if content.dates and len(content.dates) > 1:
-            frag, ry = dates_grid(p, content, rx, ry, rw)
-            right.append(frag)
-        if content.tagline:
-            frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
-            right.append(frag)
-        if content.explanation_md:
-            frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
-            right.append(frag)
-        if content.practical_md:
-            frag, ry = richtext_block(p, "t-rt-practical", content.practical_md, rx, ry, rw, 6.2,
-                                      boxed=True, heading="PRAKTISCH")
-            right.append(frag)
-        if content.price_text:
-            frag, ly = price_block(p, content.price_text, lx, ly, lw)
+        frag, ly = welcome_row(p, content, lx, ly, lw)
+        left.append(frag)
+        if content.third_image and not content.logos and content.preset != "tekst":
+            frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
-        if content.programme_md:
-            frag, ly = richtext_block(p, "t-rt-programme", content.programme_md, lx, ly, lw, 6.2,
-                                      boxed=True, heading="PROGRAMMA")
-            left.append(frag)
-        if content.welcome_line:
-            frag, ly = welcome_row(p, content, lx, ly, lw)
-            left.append(frag)
-        if content.third_image:
-            frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 2, 88, angle=3)
-            left.append(frag)
+
+        if content.preset == "tekst":
+            if content.dates and len(content.dates) > 1:
+                frag, ry = dates_grid(p, content, rx, ry, rw)
+                right.append(frag)
+            if content.tagline:
+                frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
+                right.append(frag)
+            if content.explanation_md:
+                frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry + 2, rw, 7.2)
+                right.append(frag)
+        else:
+            # The picture takes what the other right-hand blocks leave.
+            fixed = 0.0
+            if content.inset_image:
+                fixed += 88 * 0.72 + 2 - 45 + 2
+            if content.dates and len(content.dates) > 1:
+                fixed += _dates_grid_height(len(content.dates[:12]))
+            if content.tagline:
+                fixed += 12.5
+            if content.explanation_md:
+                fixed += _richtext_height(content.explanation_md, rw, 6.4)
+            hero_h = limit - ry - fixed - 6
+            if content.main_image:
+                frag, ry = main_image_block(p, content.main_image, rx + 3, ry - 2, rw - 8,
+                                            max(60.0, min(hero_h, 240.0)))
+                right.append(frag)
+            if content.inset_image:
+                overlap = 45 if content.main_image else 0
+                frag, ry = polaroid_block(p, content.inset_image, rx, ry - overlap + 2, 88)
+                right.append(frag)
+            elif content.main_image:
+                ry += 6
+            if content.dates and len(content.dates) > 1:
+                frag, ry = dates_grid(p, content, rx, ry, rw)
+                right.append(frag)
+            if content.tagline:
+                frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
+                right.append(frag)
+            if content.explanation_md:
+                frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
+                right.append(frag)
         for name, bottom in (("links", ly), ("rechts", ry)):
             if bottom > limit:
                 p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - limit:.0f} mm te veel")

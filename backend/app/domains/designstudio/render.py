@@ -125,7 +125,7 @@ def merge(content: PosterContent, *, layout: str, template_key: str = "affiche",
     p: Plan = plan_affiche(content, layout=layout, width=spec["width_mm"], height=spec["height_mm"], pal=pal)
     svg = _env().get_template(f"{template_key}/{template_key}.svg.j2").render(
         p=p, title=title,
-        wordmark=wordmark(pal, x=p.frame + 3, y=p.frame + 3.13, width=72),
+        wordmark=wordmark(pal, x=p.lockup["x"], y=p.lockup["y"], width=p.lockup["width"]),
         qr=qr_fragment(qr_url, pal["tile"]) if qr_url else "",
     )
     return Merged(svg=svg, boxes=dict(p.boxes), violations=tuple(p.violations),

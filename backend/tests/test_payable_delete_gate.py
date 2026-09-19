@@ -70,7 +70,7 @@ ALLOWLIST: dict[tuple[str, int], str] = {
     # heeft geen grafsteen nodig. Er hangt geen betaling aan, dus er kan geen wees
     # ontstaan. De sleutel draagt het regelnummer: verschuift de aanroep, dan valt
     # de gate om en kijkt iemand er opnieuw naar — dat is de bedoeling.
-    ("domains/activities/service.py", 1449): (
+    ("domains/activities/service.py", 1463): (
         "ActivityOrganiser: geen payable, geen soft delete (#1004)"),
 }
 

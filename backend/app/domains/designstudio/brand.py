@@ -64,6 +64,7 @@ ENABLED_DUOS: tuple[str, ...] = (
     "dark_green-golden_yellow",
     "ocean_blue-golden_yellow",
     "golden_yellow-indigo",
+    "indigo-golden_yellow",     # the reverse — purple tile, yellow accent (Koen, 19 Sep 2026)
 )
 
 #: The guide's general rule: at most four or five colours per design. Counted
