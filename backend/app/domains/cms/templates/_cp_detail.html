@@ -77,7 +77,11 @@
            Niet Trix, hoewel dat de eerste verdenking was: met de `<trix-editor>`
            volledig uit deze template gehaald bleef het vak na het opslaan even goed
            staan. #}
+        {# autogrow=False (#1027): dit vak start verborgen (x-show), dus x-init
+           zou scrollHeight 0 lezen en de hoogte op nul pinnen; de min-h doet
+           hier het werk. #}
         {{ ui.textarea_control("", id="cp-htmlsrc", cls="w-full min-h-[16rem] rounded-b-lg font-mono text-xs bg-white",
+                               autogrow=False,
                                attrs='x-ref="htmlsrc" x-show="src" x-cloak style="display: none"'
                                      " @input=\"document.getElementById('cp-content-input').value = $refs.htmlsrc.value\"") }}
       </div>

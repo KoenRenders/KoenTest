@@ -287,6 +287,15 @@ Import with `{% import "_macros.html" as ui %}`.
 - Pass your own text size (`text-xs` for a code field) and the kit base drops
   its `text-sm`; otherwise two equal utilities collide and the generated CSS
   order decides, not the attribute.
+- **Every multi-line field grows with its content** (#1027): `textarea_control`
+  carries the grow behaviour itself, capped at `max_px` (default 400). Opt out
+  with `autogrow=False` plus the reason on the call site — a field that starts
+  hidden must (`x-init` would read `scrollHeight` 0 and pin the height at
+  zero), and so does a field with its own grow handler or an `x-ref` that
+  must register on the surrounding Alpine scope (the macro's `x-data` would
+  nest a scope in between). Single-line fields are `input_control` and never grow. A raw
+  `<textarea>` outside the macro never gets the behaviour; the gate
+  (`RAUWE_TEXTAREAS`, shrink-only) keeps new ones out.
 - A control that sets its own border (`border-gray-300`) is by definition
   hand-written; gate rule 30 catches it.
 - All fields the same height, one focus ring, error inline below the field,
