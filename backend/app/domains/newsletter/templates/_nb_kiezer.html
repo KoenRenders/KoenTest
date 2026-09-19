@@ -15,10 +15,20 @@
   <div id="nb-kiezer-resultaten-{{ purpose }}" class="mt-2 divide-y divide-line max-h-72 overflow-y-auto">
     {% for span in spans %}
     <div class="flex items-center gap-3 py-2">
+      {% if purpose == "calendar" %}
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" class="nb-kal-vinkje" value="{{ span.activity.id }}"
+               {% if span.activity.id in ticked %}checked{% endif %}>
+        <span class="font-medium">{{ span.activity.name }}</span>
+        <span class="text-ink-soft"> · {{ dates[span.activity.id] }}</span>
+      </label>
+      {% else %}
       <span class="text-sm"><span class="font-medium">{{ span.activity.name }}</span>
         <span class="text-ink-soft"> · {{ dates[span.activity.id] }}</span></span>
+      {% endif %}
       <span class="ml-auto">
-      {% if purpose != "insert" %}
+      {% if purpose == "calendar" %}
+      {% elif purpose != "insert" %}
         <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/activiteit" hx-target="#nb-raakje" hx-swap="innerHTML">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="activity_id" value="{{ span.activity.id }}">
@@ -34,4 +44,13 @@
     <p class="text-sm text-ink-soft py-2">{{ _("Geen komende activiteit gevonden.") }}</p>
     {% endfor %}
   </div>
+  {% if purpose == "calendar" %}
+  {# Koen, 19 september 2026: de kalender blijft compacte regels, maar je kiest
+     wat erin staat — een activiteit verderop mag mee, een andere mag weg. #}
+  <div class="mt-3 flex items-center gap-2">
+    <p class="text-sm text-ink-soft mr-auto">{{ _("Aangevinkt komt in de kalender.") }}</p>
+    {{ ui.btn_secondary(_("Kalender invoegen"), size="sm",
+                        attrs='onmousedown="event.preventDefault()" onclick="nbKalender(this, \'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
+  </div>
+  {% endif %}
 </div>

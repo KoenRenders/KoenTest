@@ -67,6 +67,8 @@ class NewsletterPickerView(ViewModel):
     dates: dict[int, str]
     q: str
     purpose: str
+    # Which boxes start ticked — only the calendar uses this.
+    ticked: list[int]
     csrf_token: str
 
 

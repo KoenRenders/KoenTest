@@ -426,11 +426,15 @@ def activity_picker(newsletter_id: int, request: Request, db: Session = Depends(
     """The picker: every coming activity. `purpose` says what a click does —
     insert a line in the editor, or give the activity to Raakje."""
     letter = _letter_or_404(db, newsletter_id)
-    purpose = purpose if purpose in ("insert", "raakje", "raakje-voorbij") else "insert"
+    purpose = (purpose if purpose in ("insert", "calendar", "raakje", "raakje-voorbij")
+               else "insert")
     spans = nb.insertable_activities(db, query=q, past=purpose == "raakje-voorbij")
     view = NewsletterPickerView(
         letter=letter, spans=spans, q=q, purpose=purpose,
         dates={s.activity.id: nb.short_date(s.start) for s in spans},
+        # The calendar opens with the coming weeks ticked; everything further
+        # ahead is there to add (Koen, 19 September 2026).
+        ticked=nb.calendar_default_ids(db) if purpose == "calendar" else [],
         csrf_token=_csrf(request))
     return templates.TemplateResponse(request, "_nb_kiezer.html", view.as_context())
 
@@ -456,9 +460,12 @@ def insert_activity(newsletter_id: int, activity_id: int, db: Session = Depends(
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender",
             response_class=HTMLResponse)
 def insert_calendar(newsletter_id: int, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui)):
+                    _email: str = Depends(require_admin_ui), ids: str = ""):
+    """The calendar lines. `ids` holds the author's choice; empty means the
+    coming weeks, the same list the picker ticks."""
     _letter_or_404(db, newsletter_id)
-    return HTMLResponse(nb.calendar_html(db, base_url=_base_url(db)))
+    chosen = [int(i) for i in ids.split(",") if i.strip().isdigit()] or None
+    return HTMLResponse(nb.calendar_html(db, base_url=_base_url(db), activity_ids=chosen))
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting",
