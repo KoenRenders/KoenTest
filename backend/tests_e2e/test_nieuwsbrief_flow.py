@@ -106,8 +106,13 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     page.wait_for_selector("#nb-trix")
     _klikbaar(page, "#nb-onderwerp")
     bewaard = page.locator("#nb-inhoud").get_attribute("value") or ""
-    assert naam in bewaard, "de ingevoegde regel is niet bewaard"
-    assert "/activiteiten/" in bewaard, "de regel draagt geen inschrijflink"
+    assert naam in bewaard, "de ingevoegde verwijzing is niet bewaard"
+    # #984, 19 September 2026: the letter holds the activity NUMBER; the block
+    # with picture and registration link is built when it is sent. Measured:
+    # Trix keeps no table and no class, and makes an inserted image its own
+    # full-width attachment — which is what spilled out of a letter on HDEV.
+    assert "[[activiteit:" in bewaard, "de markering naar de activiteit ontbreekt"
+    assert "<table" not in bewaard and "trix-attachment" not in bewaard
     assert page.locator("input[name=audience][value=members]").is_checked()
 
 

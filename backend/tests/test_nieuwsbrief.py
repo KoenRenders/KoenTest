@@ -748,6 +748,45 @@ def test_een_voorbije_activiteit_vraagt_geen_inschrijving(db_session):
     assert str(voorbij.day) in blok, "de datum van toen staat er wel"
 
 
+def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
+    """Measured on 19 September 2026: Trix keeps no table and no class, and
+    turns an inserted image into an attachment of its own at full width — Koen
+    saw the picture spill out of the letter. So the letter carries the activity
+    NUMBER and the server builds the block when it sends.
+
+    Broken on purpose: `expand_blocks` taken out of `render_mail` → the mail
+    arrives with the bare reference and this test fails.
+    """
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Zo vader zo zoon", vandaag + timedelta(days=10),
+                               location="Miloheem")
+    activity.description = "Een avond over vaderschap."
+    db_session.flush()
+    facts = nb.activity_facts(db_session, [activity.id], base_url="https://raak.example")
+    kaart = nb.activity_card_html(facts[activity.id])
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS, body=kaart)
+
+    assert f"[[activiteit:{activity.id}|" in letter.body_html, "overleeft de ontsmetting"
+    assert "<table" not in letter.body_html, "de brief draagt geen blok"
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+                          base_url="https://raak.example")
+    assert "Zo vader zo zoon" in mail and "Een avond over vaderschap." in mail
+    assert "Schrijf je in!" in mail
+    assert "[[activiteit:" not in mail, "de markering zelf gaat niet mee"
+
+
+def test_een_verwijzing_naar_een_verdwenen_activiteit_laat_niets_achter(db_session):
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body="<div>[[activiteit:99999|Weggehaalde activiteit]]</div>")
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+                          base_url="https://raak.example")
+
+    assert "Weggehaalde activiteit" not in mail
+    assert "[[activiteit:" not in mail
+
+
 def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
     """The sanitiser drops `style` on every autosave, so the block travels as
     classes and `render_mail` inlines them.

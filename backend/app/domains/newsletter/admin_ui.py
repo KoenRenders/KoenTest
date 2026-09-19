@@ -447,7 +447,10 @@ def insert_activity(newsletter_id: int, activity_id: int, db: Session = Depends(
     # Koen, 19 September 2026: "Activiteit invoegen" puts the block of the Raak
     # nationaal letter at the cursor — picture, title, description, call to
     # action. The compact line lives on in the calendar.
-    return HTMLResponse(nb.activity_block_html(facts[activity_id]))
+    # The letter carries a REFERENCE; the server builds the block when the
+    # letter is sent (measured: Trix keeps no table, no class, and turns an
+    # image into an attachment of its own — Koen saw it spill out of a letter).
+    return HTMLResponse(f"<div>{nb.activity_card_html(facts[activity_id])}</div>")
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender",
@@ -484,6 +487,29 @@ async def insert_attachment(newsletter_id: int, db: Session = Depends(get_db),
     except nb.NewsletterError as exc:
         return HTMLResponse(str(exc), status_code=400)
     return HTMLResponse(html)
+
+
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld",
+            response_class=HTMLResponse)
+def newsletter_preview(newsletter_id: int, db: Session = Depends(get_db),
+                       _email: str = Depends(require_admin_ui)):
+    """The letter as it will arrive — markers expanded, styling applied.
+
+    Needed since the activity block became a marker (Koen, 19 September 2026):
+    the editor shows `[[activiteit:12|…]]`, so without this screen the author
+    can only judge the result by mailing it to himself. Shown as a non-member
+    would see it when non-members are in the audience, so the unsubscribe line
+    is part of the picture.
+    """
+    letter = _letter_or_404(db, newsletter_id)
+    base = _base_url(db)
+    kind = (nb.DELIVERY_SUBSCRIBER
+            if letter.audience in (nb.AUDIENCE_NON_MEMBERS, nb.AUDIENCE_BOTH)
+            else nb.DELIVERY_MEMBER)
+    unsubscribe = (f"{base}/nieuwsbrief/uitschrijven/test"
+                   if kind == nb.DELIVERY_SUBSCRIBER else None)
+    return HTMLResponse(nb.render_mail(db, letter, kind=kind,
+                                       unsubscribe_url=unsubscribe, base_url=base))
 
 
 @router.post("/admin/nieuwsbrieven/{newsletter_id:int}/testmail",

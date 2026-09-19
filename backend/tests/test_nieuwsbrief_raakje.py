@@ -264,8 +264,14 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
     marks = turn.proposal["marks"]
     assert any(m["quote"] == "12" for m in marks)
     html = turn.proposal["operations"][0]["html"]
-    assert f"{BASE}/activiteiten/brood-en-spelen" in html
-    assert "Dorpsplein" in html
+    # The marker becomes the same reference the button inserts; the date, the
+    # place and the link come from the data when the letter is sent.
+    assert f"[[activiteit:{brood.id}|" in html
+    from app.domains.newsletter import service as nb
+
+    mail = nb.expand_blocks(db_session, html, base_url=BASE)
+    assert f"{BASE}/activiteiten/brood-en-spelen" in mail
+    assert "Dorpsplein" in mail
 
 
 def test_een_bedrag_dat_geen_prijs_is_wordt_gemarkeerd(db_session, raakje):

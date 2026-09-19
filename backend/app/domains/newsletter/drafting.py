@@ -376,7 +376,7 @@ def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
             # Koen, 19 September 2026: what Raakje inserts is what the button
             # inserts — the whole block, built by the server, never typed.
             if kind == "activiteit":
-                blocks.append(nb.activity_block_html(fact))
+                blocks.append(f"<div>{nb.activity_card_html(fact)}</div>")
                 continue
             html = nb.photos_line_html(fact)
             if html:
