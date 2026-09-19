@@ -1,0 +1,23 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not rows %}
+  {{ ui.empty_state(_("Nog geen ontwerpen. Maak er een voor een activiteit; de affiche staat er meteen.")) }}
+{% else %}
+<div class="space-y-2">
+  {% for row in rows %}
+  <a href="/admin/ontwerpen/{{ row.id }}"
+     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="font-semibold text-ink">{{ row.activity_name }}</span>
+      {{ ui.badge(row.status_label, row.status_tone) }}
+      {% if row.published %}{{ ui.badge(_("Gepubliceerd"), "blue") }}{% endif %}
+      {% if row.stale %}{{ ui.badge(_("Verouderd"), "red") }}{% endif %}
+      <span class="text-sm text-ink-soft">{{ row.preset_label }}</span>
+      <span class="text-sm text-ink-soft ml-auto">
+        {% if row.version_count %}{{ _("%(n)s versie(s)", n=row.version_count) }} · {% endif %}{{ row.updated }}
+      </span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}

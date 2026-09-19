@@ -18,6 +18,8 @@ import pytest
 from jinja2 import meta
 
 from app.domains.activities.viewmodels import AdminActiviteitenView
+from app.domains.designstudio.viewmodels import (
+    DesignEditorView, DesignListView, DesignNewView)
 from app.domains.mdm.viewmodels import LedenView
 from app.domains.payment.viewmodels import BetalingenView
 from app.domains.meetings.viewmodels import (
@@ -68,6 +70,11 @@ VIEWMODELS = {
     "_nb_abonnees.html": SubscriberListView,
     "admin_abonnees_import.html": SubscriberImportView,
     "_nb_import.html": SubscriberImportView,
+    "admin_ontwerpen.html": DesignListView,
+    "_ds_lijst.html": DesignListView,
+    "admin_ontwerp_nieuw.html": DesignNewView,
+    "admin_ontwerp.html": DesignEditorView,
+    "_ds_voorbeeld.html": DesignEditorView,
     "admin_nieuwsbrief_instellingen.html": NewsletterSettingsView,
     "_nb_instellingen.html": NewsletterSettingsView,
 }

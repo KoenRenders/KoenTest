@@ -1,0 +1,40 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuw ontwerp") }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Nieuw ontwerp"), _("Kies de activiteit en het kleurenduo. Titel, data, plaats en contactpersonen komen van de activiteit zelf; wat je hier verder invult is ontwerptekst.")) %}{% endcall %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<div class="bg-surface border border-line rounded-2xl p-6 max-w-xl">
+  <form method="post" action="/admin/ontwerpen" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div>
+      {{ ui.label(_("Activiteit"), "ds-activiteit", required=True) }}
+      {% call ui.select_control("activity_id", cls="w-full", attrs='id="ds-activiteit" required') %}
+        <option value="">{{ _("— kies —") }}</option>
+        {% for id, label in activity_options %}
+        <option value="{{ id }}"{% if activity_id == id|string %} selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      {% endcall %}
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        {{ ui.label(_("Kleurenduo"), "ds-duo") }}
+        {% call ui.select_control("duo_code", cls="w-full", attrs='id="ds-duo"') %}
+          {% for code, label in duo_options %}
+          <option value="{{ code }}"{% if code == duo_code %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        {% endcall %}
+      </div>
+      <div>
+        {{ ui.label(_("Opmaak"), "ds-preset") }}
+        {% call ui.select_control("preset", cls="w-full", attrs='id="ds-preset"') %}
+          {% for code, label in preset_options %}
+          <option value="{{ code }}"{% if code == preset %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        {% endcall %}
+      </div>
+    </div>
+    {{ ui.action_bar(save_label=_("Ontwerp aanmaken"), cancel_href="/admin/ontwerpen") }}
+  </form>
+</div>
+{% endblock %}
