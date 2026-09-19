@@ -52,6 +52,10 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PAYMENT_IBAN: ${PAYMENT_IBAN:-}
       PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
+      # #1023: dev gaf dit als enige omgeving niet door, terwijl hdev, uat en prod
+      # dat wel doen. Zonder gevolg zolang niemand lokaal met meerdere afdelingen
+      # of een platformhost werkt — en dat is precies waarom het onopgemerkt bleef.
+      PLATFORM_HOSTS: ${PLATFORM_HOSTS:-}
       # Hier stond een gat, en het was het derde van zijn soort (#798, #821, nu
       # #917). Deze variabelen staan met uitleg in `.env.<omgeving>.example` — dus
       # gedocumenteerd als iets dat je per omgeving zet — maar werden nergens
