@@ -176,7 +176,7 @@
         {{ ui.btn_outline(_("Afsluiting invoegen"), lead_icon="pencil",
                           attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
       </div>
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in Gmail schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
       <div id="nb-kiezer"></div>
       <div class="mt-3">
         {{ ui.rich_text("body_html", "nb-trix", value=letter.body_html, input_id="nb-inhoud",
