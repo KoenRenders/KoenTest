@@ -29,6 +29,9 @@ weasyprint==70.0
 # packages above already bring — no new system package. defusedxml parses the
 # upload and refuses entity expansion and external entities.
 cairosvg==2.9.1
+# #1019: de eerste bladzijde van een PDF-affiche als afbeelding (PDFium-wheel,
+# geen systeempakket; Apache/BSD, anders dan PyMuPDF dat AGPL is).
+pypdfium2==5.13.0
 defusedxml==0.7.1
 # STT Voxtral Realtime (#282). De realtime-adapter (app/domains/stt/providers/voxtral.py)
 # lazy-importeert deze SDK; vereist httpx>=0.28.1 + pydantic>=2.11.2 (vandaar de bumps
