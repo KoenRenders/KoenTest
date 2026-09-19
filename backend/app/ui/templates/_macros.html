@@ -828,10 +828,15 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
 {% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="") -%}
 {# size="sm" overal (Koen, 15 sep): de kleinere knoppen van de tabbladen ogen
    rustiger en professioneler — één maat voor elk cluster en elke opener. #}
-<div class="flex items-center gap-2{% if cls %} {{ cls }}{% endif %}">
+{# F26 (#996): flex-wrap met Annuleren+Opslaan als ondeelbaar paar — op een
+   smal bewerkvlak viel Opslaan buiten de kaart; nu zakt het paar samen naar
+   een volgende regel en blijft Verwijderen afzonderlijk links. #}
+<div class="flex flex-wrap items-center justify-end gap-2{% if cls %} {{ cls }}{% endif %}">
   {% if delete_attrs %}<span class="mr-3">{{ btn_danger(delete_label or _("Verwijderen"), size="sm", attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
+  <span class="flex gap-2">
   {{ btn_secondary(_("Annuleren"), size="sm", href=cancel_href, attrs=cancel_attrs) }}
   {{ btn_primary(save_label or _("Opslaan"), size="sm", attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
+  </span>
 </div>
 {%- endmacro %}
 
@@ -917,11 +922,11 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    /admin/design-system waren zo zes referentielinks dood — en een aanroeper had geen
    enkele correcte manier om er een link van te maken. Daarom hier gerepareerd en
    niet bij de aanroepers. #}
-{% macro section_header(title, action_label=None, action_attrs="", action_href=None) -%}
-<div class="flex items-center justify-between mb-3">
+{% macro section_header(title, action_label=None, action_attrs="", action_href=None, cls="") -%}
+<div class="flex items-center justify-between mb-3{% if cls %} {{ cls }}{% endif %}">
   <h3 class="text-xl font-semibold text-kop">{{ title }}</h3>
   {% if action_label %}{{ btn_secondary(action_label, type="button", href=action_href,
-                                        attrs=action_attrs, size="sm") }}{% endif %}
+                                        attrs=action_attrs, size="sm", cls="whitespace-nowrap") }}{% endif %}
 </div>
 {%- endmacro %}
 
@@ -929,7 +934,9 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    optionele mini-kop (titel + "+"-actie). Maakt "deze inhoud hoort onder dit item"
    zichtbaar — bv. producten binnen een onderdeel. Caller-macro. #}
 {% macro nested_panel(title=None, action_label=None, action_attrs="") -%}
-<div class="mt-3 ml-2 border-l-2 border-blue-200 pl-3 bg-gray-50 rounded-r-lg py-2 pr-2">
+{# F17 (#996): op smal een lichtere insprong — geneste kaders drukten de
+   inhoud samen. #}
+<div class="mt-3 ml-0 pl-2 md:ml-2 md:pl-3 border-l-2 border-blue-200 bg-gray-50 rounded-r-lg py-2 pr-2">
   {% if title or action_label %}
   <div class="flex items-center justify-between mb-2">
     {% if title %}<span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ title }}</span>{% endif %}
@@ -1362,8 +1369,11 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    het echte tekstalternatief. #}
 {% set _plot = {"left": 96, "right": 704, "top": 24, "bottom": 248, "legend": 276} %}
 
+{# F28 (#996): min-w houdt as- en legendatekst leesbaar; op smal scrolt de
+   grafiek binnen haar container (de aanroepers wikkelen in overflow-x-auto)
+   in plaats van tot onleesbaar te verkleinen. #}
 {% macro _chart_open(chart, id) -%}
-<svg viewBox="0 0 720 300" class="w-full h-auto" role="img"
+<svg viewBox="0 0 720 300" class="w-full h-auto min-w-[480px]" role="img"
      aria-labelledby="{{ id }}-t {{ id }}-d" preserveAspectRatio="xMidYMid meet">
   <title id="{{ id }}-t">{{ chart.title }}</title>
   <desc id="{{ id }}-d">{{ chart.description }}</desc>

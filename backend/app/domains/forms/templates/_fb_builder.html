@@ -54,8 +54,10 @@
   <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ _id) }}{{ ui.input_control("max_value", id="fmaxv-" ~ _id, value=(f.max_value or "" if f else ""), cls="w-full") }}</div>
   {% elif _type == "rating" %}
   <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ _id) }}{{ ui.input_control("rating_max", id="frm-" ~ _id, value=(f.rating_max or 5 if f else 5), cls="w-full") }}</div>
-  <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
-  <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
+  {# Voorbeeldteksten als placeholder (Koens vraag op het clusterpakket):
+     zonder labels betekenen de cijfers van de schaal niets. #}
+  <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), placeholder=_("bv. niet graag"), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), placeholder=_("bv. zeer graag"), cls="w-full") }}</div>
   {% endif %}
   {# Golf 6, kop-herziening: bij een bestaand veld staat het cluster in de
      kaartkop; alleen de toevoegvariant houdt zijn knoppen in de vorm. #}
@@ -192,24 +194,26 @@
   {# Instellingen #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
     <div class="flex flex-wrap items-center justify-between gap-2">
-      <h2 class="font-bold text-lg">{{ form.title }}
-        {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{# F30 (#996): concept is een ontwerpstatus, geen openstaande handeling — grijs per §2.5. #}{{ ui.badge(_("concept"), "gray") }}{% endif %}
-      </h2>
-      <div class="flex flex-wrap gap-2">
+      {# De recordkop draagt titel + status (F15); de kaart zelf heeft geen
+         kop — "Instellingen" mag nergens staan (#712), en de deellink-regel
+         zegt al wat hier woont. F14: de uitvoeracties zijn stille links
+         (link_action, zoals het Betalingen-referentiescherm) — vier knoppen
+         plus import drukten de bewerkactie weg. #}
+      <div class="flex flex-wrap gap-3 items-center ml-auto">
         {# Dezelfde link als hieronder getoond wordt (#928): stond hier de sleutel-URL
            terwijl de deellink de slug toont, dan zou dit scherm twee adressen voor
            één formulier laten zien. #}
-        {{ ui.btn_secondary(_("Bekijk"), href=path_for(share_path), size="sm", attrs='target="_blank"') }}
-        {{ ui.btn_secondary(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", size="sm", attrs='target="_blank"') }}
+        {{ ui.link_action(_("Bekijk"), href=path_for(share_path), attrs='target="_blank"') }}
+        {{ ui.link_action(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", attrs='target="_blank"') }}
         {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
-        {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
-        {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm", attrs='hx-boost="false"') }}
+        {{ ui.link_action(_("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", attrs='hx-boost="false"') }}
+        {{ ui.link_action(_("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", attrs='hx-boost="false"') }}
         {# #665: import staat hier, maar niet als gelijke van Bekijk/Afdruk/Export —
            die vier zijn onschadelijk, importeren gooit de opbouw weg. Het gewicht
            zit in de eigen bevestigingstekst op de knop die het écht doet, en de
            knop verdwijnt zodra er antwoorden zijn die eraan zouden sneuvelen. #}
         {% if not submission_count %}
-        {{ ui.btn_secondary(_("JSON-import"), size="sm", attrs='@click="jsonimport = !jsonimport"') }}
+        {{ ui.link_action(_("JSON-import"), attrs='@click="jsonimport = !jsonimport"') }}
         {% endif %}
         {# #722: de import staat vóór de bewerktoggle. Deze rij mengt acties op de
            INHOUD (bekijken, afdrukken, exporteren, importeren) met acties op het
@@ -359,6 +363,26 @@
      Een naamloze sectie is dus een geldige toestand — klikken maakt haar aan,
      benoemen doe je in haar eigen bewerkvorm. Bij een veld kan dat niet, want
      `add_field` eist een label; vandaar dáár de client-side lege kaart. #}
+  {# F16 (#996): een leeg formulier begint bij de eerste vraag — de kleine
+     knoppen naast het importpaneel lazen als "JSON is de verplichte start".
+     De import blijft bestaan als alternatief, één zin verderop. #}
+  {% if not grouped and not loose_fields %}
+  <div class="bg-white rounded-card border border-dashed border-gray-300 p-6 text-center" x-data="{ nieuw: false }">
+    <p class="font-semibold text-ink mb-1">{{ _("Dit formulier is nog leeg.") }}</p>
+    <p class="text-sm text-ink-soft mb-4">{{ _("Begin met je eerste vraag, of maak eerst secties om vragen in te groeperen.") }}</p>
+    <div class="flex flex-wrap gap-2 justify-center">
+      {{ ui.btn_primary(_("+ Eerste vraag toevoegen"), type="button", attrs='@click="nieuw = !nieuw"') }}
+      <form hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
+        {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
+      </form>
+    </div>
+    <div class="text-left mt-3">{{ veld_vorm(None, None, tonen='nieuw') }}</div>
+    {% if not submission_count %}
+    <p class="text-xs text-ink-soft mt-4">{{ _("Al een opzet als JSON? Gebruik dan de JSON-import hierboven.") }}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% if grouped or loose_fields %}
   <div class="flex flex-wrap gap-2">
     {% if not loose_fields %}
     <div x-data="{ nieuw: false }">
@@ -370,24 +394,11 @@
       {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
     </form>
   </div>
+  {% endif %}
 
-  {# Resultaten-tab (statistiek, #454) #}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-semibold">{{ _("Resultaten") }}</h3>
-      {{ ui.btn_secondary(_("Toon resultaten"), attrs='hx-get="/admin/formulieren/' ~ form.id ~ '/resultaten" hx-target="#fb-resultaten" hx-swap="innerHTML"') }}
-    </div>
-    <div id="fb-resultaten"></div>
-  </div>
-
-  {# Inzendingen-tab #}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-semibold">{{ _("Inzendingen") }} ({{ submission_count }})</h3>
-      {{ ui.btn_secondary(_("Toon inzendingen"), attrs='hx-get="/admin/formulieren/' ~ form.id ~ '/inzendingen" hx-target="#fb-inzendingen" hx-swap="innerHTML"') }}
-    </div>
-    <div id="fb-inzendingen"></div>
-  </div>
+  {# De vroegere Resultaten- en Inzendingen-kaarten zijn recordtabs geworden
+     (F15/F23, #996): twee grote kaarten met alleen een titel en een
+     navigatieknop namen meer ruimte in dan het formulier zelf. #}
 
   {# JSON-import (vluchtluik). Enkel bij een formulier zonder antwoorden: een
      import vervangt de volledige opbouw, en omdat FormSubmissionAnswer.field_id
@@ -414,7 +425,9 @@
       {{ ui.btn_primary(_("Importeren (vervangt de opbouw)"),
                         confirm=_("De volledige opbouw van dit formulier vervangen?")) }}
     </form>
-    <p x-show="!jsonimport" class="text-xs text-gray-600">{{ _("Gebruik de knop \"JSON-import\" bovenaan om een definitie in te lezen.") }}</p>
+    {# F16 (#996): geen JSON-eerst-instructie meer als vaste voettekst — bij
+       een leeg formulier las hij als de verplichte start. De lege staat
+       verwijst zelf, en de knop bovenaan heet al wat hij doet. #}
   </div>
   {% endif %}
 </div>

@@ -240,8 +240,8 @@ def test_the_dashboard_shows_six_tiles_that_link_to_their_report(client,
     assert pagina.status_code == 200
 
     for titel, doel in [("Leden", "/admin/leden"),
-                        ("Actieve leden", "/admin/leden"),
-                        ("Leden (personen)", "/admin/leden"),
+                        ("Actieve gezinnen", "/admin/leden"),
+                        ("Personen (actief lid)", "/admin/leden"),
                         ("Komende activiteiten", "/admin/activiteiten"),
                         ("Open taken (werkbank)", "/admin/werkbank"),
                         ("Openstaand saldo", "/admin/betalingen")]:

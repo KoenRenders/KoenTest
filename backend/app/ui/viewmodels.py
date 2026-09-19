@@ -18,7 +18,8 @@ class DesignSystemView(ViewModel):
     """
 
     #: (naam, waarde) uit de `:root`-blok van de gegenereerde app.css.
-    tokens: list[tuple[str, str]]
+    # (naam, hex, komt-van-de-beheerschil) — F27 (#996).
+    tokens: list[tuple[str, str, bool]]
     #: De namen uit de `paths`-tabel van `ui.icon()`.
     iconen: list[str]
     #: Eén voorbeeldveld per soort uit `FIELD_TYPES` (#811), gerenderd door dezelfde

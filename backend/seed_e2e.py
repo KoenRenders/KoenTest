@@ -181,8 +181,13 @@ def main() -> None:
                       label="Naam ploeg", required=True, position=0),
             FormField(form_id=open_formulier.id, field_type="textarea",
                       label="Opmerking", position=1),
+            # Mét schaal-labels (Koens vraag op het clusterpakket): zonder
+            # betekenen de cijfers niets — en de afdrukken tonen dan een
+            # kaler scherm dan het product kan.
             FormField(form_id=open_formulier.id, field_type="rating",
-                      label="Hoe graag kom je?", position=2, rating_max=5),
+                      label="Hoe graag kom je?", position=2, rating_max=5,
+                      rating_low_label="niet graag",
+                      rating_high_label="zeer graag"),
         ])
         db.commit()
 

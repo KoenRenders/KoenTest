@@ -366,9 +366,12 @@
           {# De grafiek leest hetzelfde resultaat als de draaitabel eronder; die
              tabel is haar tekstalternatief en blijft dus staan (#835). #}
           <div class="bg-white border border-gray-200 rounded-xl p-4">
+            {# F28 (#996): de grafiek scrolt op smal binnen haar kader. #}
+            <div class="overflow-x-auto">
             {% if layout == "bar" %}{{ ui.chart_bar(chart, id="rp-chart") }}
             {% elif layout == "line" %}{{ ui.chart_line(chart, id="rp-chart") }}
             {% else %}{{ ui.chart_stacked(chart, id="rp-chart") }}{% endif %}
+            </div>
           </div>
           <div class="mt-4">{{ ui.pivot_table(pivot, drill_url=paneel_url) }}</div>
           {% elif pivot %}

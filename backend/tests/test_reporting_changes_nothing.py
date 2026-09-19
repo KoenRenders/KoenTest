@@ -200,9 +200,9 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     pagina = client.get("/admin")
     assert pagina.status_code == 200
 
-    for titel, doel in [("Leden", "/admin/leden"),
-                        ("Actieve leden", "/admin/leden"),
-                        ("Leden (personen)", "/admin/leden"),
+    for titel, doel in [("Gezinnen", "/admin/leden"),
+                        ("Actieve gezinnen", "/admin/leden"),
+                        ("Personen (actief lid)", "/admin/leden"),
                         ("Komende activiteiten", "/admin/activiteiten"),
                         ("Open taken (werkbank)", "/admin/werkbank"),
                         ("Openstaand saldo", "/admin/betalingen")]:

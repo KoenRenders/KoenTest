@@ -59,6 +59,11 @@ class Screen:
     # Runs after navigation, e.g. to open a modal or click through to a
     # seeded record. Receives the page; raises to signal a missing target.
     action: Optional[Callable] = None
+    # Koens vraag op het clusterpakket (#996): een full-page-opname mét open
+    # modal plakt de hele gedimde pagina onder het venster, waardoor de
+    # afbeelding bij passend zoomen sterk verkleint en vaag oogt. Een
+    # overlay-scherm knipt daarom alleen de viewport.
+    viewport_only: bool = False
 
 
 def _open_first_link(page, text: str, url_glob: str) -> None:
@@ -92,7 +97,7 @@ SCREENS: tuple[Screen, ...] = (
     # Public — judged phone-first.
     Screen("public-home", "/", admin=False),
     Screen("public-activiteiten", "/activiteiten", admin=False),
-    Screen("public-inschrijfmodal", "/activiteiten", admin=False,
+    Screen("public-inschrijfmodal", "/activiteiten", admin=False, viewport_only=True,
            action=_open_register_modal),
     Screen("public-word-lid", "/lid-worden", admin=False),
     Screen("public-formulier", "/formulier/tok-e2e-open", admin=False),
@@ -147,7 +152,7 @@ def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
         "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')")
     name = f"{screen.key}-{width['width']}.png"
     target = out_dir / name
-    page.screenshot(path=str(target), full_page=True)
+    page.screenshot(path=str(target), full_page=not screen.viewport_only)
     return target
 
 

@@ -72,8 +72,8 @@
 
          `pl-4` en niet `pl-3`: de doorzichtige rand van 4 px telt mee, dus de tekst
          van een vraag begint op 4+12 = 16 px. #}
-      {% if g.section.title %}<h2 class="text-lg font-bold mb-1 pl-4">{{ g.section.title }}</h2>{% endif %}
-      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 pl-4 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
+      {% if g.section.title %}<h2 class="text-lg font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
+      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
       {# #749: ruim tussen de vragen, dicht bij de opties. De typografie alleen loste
          het half op — alles stond op gelijke afstand, en dáárom las de lijst als één
          massa. Nabijheid doet het werk.
