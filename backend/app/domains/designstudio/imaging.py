@@ -146,11 +146,15 @@ def build_prompt(scene: str, style: str = "lijn", change: str = "") -> str:
     """The scene, the change asked on top of a reference ("wat wil je
     anders?") and the style suffix."""
     scene = " ".join((scene or "").split())
+    change = " ".join((change or "").split())
+    if not scene and change:
+        # A redo on a variant made before the scene was kept (round 3): the
+        # change is all we have, and with the reference image it is enough.
+        scene, change = change, ""
     if len(scene) < 8:
         raise ImagingError("Beschrijf wat op de tekening moet staan (minstens een paar woorden).")
     if style not in STYLES:
         raise ImagingError("Onbekende stijl.")
-    change = " ".join((change or "").split())
     text = scene[:600]
     if change:
         text += ". Keep the same composition and characters as the reference image; change only this: " + change[:300]

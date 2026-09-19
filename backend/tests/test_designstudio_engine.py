@@ -188,7 +188,7 @@ def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
     # The lockup's y lies inside the band, not at the top-left corner.
     m = re.search(r'viewBox="106 106.2 491 245"', merged.svg)
     assert m is not None
-    lockup_y = float(re.search(r'x="[0-9.]+" y="([0-9.]+)" width="50.000"', merged.svg).group(1))
+    lockup_y = float(re.search(r'x="[0-9.]+" y="([0-9.]+)" width="66.000"', merged.svg).group(1))
     assert lockup_y > 350
 
 

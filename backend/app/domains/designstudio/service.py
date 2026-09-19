@@ -627,6 +627,7 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     from app.kernel.jobs import enqueue
 
     prompt = imaging.build_prompt(scene, style, change)
+    scene = scene.strip() or change.strip()
     if any(g.status == GEN_REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
