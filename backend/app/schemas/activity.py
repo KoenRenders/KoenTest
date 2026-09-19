@@ -125,6 +125,8 @@ class ActivityCreate(BaseModel):
     name: str
     dates: List[ActivityDateCreate] = Field(min_length=1)
     location: Optional[str] = None
+    # #1016: the public description, two or three sentences.
+    description: Optional[str] = None
     poster_url: Optional[str] = None
     members_only: Optional[bool] = None
     # #974: the last day a new registration is accepted (inclusive, Belgian time).
@@ -136,6 +138,8 @@ class ActivityUpdate(BaseModel):
     # #884: optionele vriendelijke URL. Volgt de naam NIET — zie Activity.slug.
     slug: Optional[str] = None
     location: Optional[str] = None
+    # #1016: emptying it is a valid choice, so the routes send it along always.
+    description: Optional[str] = None
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
     members_only: Optional[bool] = None
@@ -154,6 +158,7 @@ class ActivityResponse(BaseModel):
     sort_date: Optional[Date] = None
     dates: List[ActivityDateResponse] = []
     location: Optional[str] = None
+    description: Optional[str] = None
     poster_url: Optional[str] = None
     poster_asset_url: Optional[str] = None
     # Feedbackronde 2 golf 8 (#913): de leeslink toont de documenttitel.

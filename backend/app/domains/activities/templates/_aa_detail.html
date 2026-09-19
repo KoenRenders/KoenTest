@@ -50,6 +50,10 @@
         <div>{{ ui.label(_("Locatie"), "location") }}
           {{ ui.input_control("location", id="location", value=a.location or "", cls="w-full") }}</div>
       </div>
+      <div>{{ ui.label(_("Omschrijving"), "description") }}
+        {{ ui.textarea_control("description", id="description", value=a.description or "", rows=3,
+                               placeholder=_("Twee à drie zinnen die bezoekers lezen."), cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Staat op de activiteitenpagina en komt mee in de nieuwsbrief.") }}</p></div>
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
         {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}</div>
       {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),

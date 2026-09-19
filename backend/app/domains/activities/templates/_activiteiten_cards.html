@@ -75,6 +75,10 @@
         </div>
       </div>
       {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
+      {# #1016: de omschrijving die het bestuur schreef — dezelfde zinnen die in de
+         nieuwsbrief belanden. Onder de praktische regels: wie de datum zoekt, leest
+         niet eerst een alinea. #}
+      {% if a.description %}<p class="text-base md:text-sm text-ink whitespace-pre-line">{{ a.description }}</p>{% endif %}
     </div>
       </div>
     </div>

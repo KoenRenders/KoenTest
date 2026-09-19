@@ -240,9 +240,9 @@
       {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}{% if organisatie.bic %} ({{ organisatie.bic }}){% endif %}</p>{% endif %}
     </div>
     {% endif %}
-    {# De nieuwsbriefinschrijving (#984), alleen bij een afdeling: het platform
-       heeft geen leden en verstuurt geen nieuwsbrief. #}
-    {% if nieuwsbrief_inschrijven %}{% include "_nb_footer.html" %}{% endif %}
+    {# De nieuwsbrief staat NIET in deze voet (Koen, 19 september 2026): een
+       inschrijfformulier onder élke pagina — ook onder een verzonden formulier —
+       staat in de weg. Alleen de homepagina draagt er een link naar. #}
     {% if footer_block and footer_block.content %}
     <div class="cms-content text-center text-base md:text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
     {% endif %}

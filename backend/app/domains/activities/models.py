@@ -131,6 +131,9 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # bestuurder en meldt het dus nooit.
     slug = Column(String(255), nullable=True, index=True)
     location = Column(String(255), nullable=True)
+    # #1016: two or three sentences the visitor reads — on the activity page and
+    # in the newsletter block (#984). Not `notes`: that column is shown nowhere.
+    description = Column(Text, nullable=True)
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)

@@ -304,6 +304,7 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
                                db: Session = Depends(get_db),
                                email: str = Depends(require_admin_ui),
                                name: str = Form(""), location: str = Form(""),
+                               description: str = Form(""),
                                poster_url: str = Form(""), slug: str = Form(""),
                                members_only: str = Form(""), is_cancelled: str = Form(""),
                                registration_closes_on: str = Form(""),
@@ -327,6 +328,9 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     # dan verdwijnt de vriendelijke URL en blijft alleen de nummer-URL over. Hij volgt
     # de naam niet: wie hem wijzigt, doet dat met de waarschuwing op het scherm.
     velden["slug"] = slug.strip() or None
+    # #1016: like the slug, outside `exclude_none` — clearing the description is
+    # a valid choice and must reach the column.
+    velden["description"] = description.strip() or None
     # #974: zelfde reden als de slug — leeg is "geen deadline", en dat moet de
     # bestaande kunnen wissen.
     velden["registration_closes_on"] = _datum_of_none(registration_closes_on)

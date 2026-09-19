@@ -661,8 +661,9 @@ def site_context(db, request=None) -> dict:
             # staan: `site-footer` is vrije tekst en een migratie kan een adres
             # niet van een zin onderscheiden, dus er verdwijnt niets.
             "organisatie": _footer_organisatie(db, organisatie),
-            # De inschrijving op de nieuwsbrief onderaan (#984). Niet op het
-            # platform: dat heeft geen leden en verstuurt geen nieuwsbrief.
+            # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
+            # op 19 september 2026). Niet op het platform: dat heeft geen leden en
+            # verstuurt geen nieuwsbrief.
             "nieuwsbrief_inschrijven": (organisatie is not None
                                         and getattr(organisatie, "org_type", "") != "PLATFORM"),
             # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.

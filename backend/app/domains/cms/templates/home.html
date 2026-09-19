@@ -20,4 +20,11 @@
   <h2 class="text-2xl font-bold mb-6 text-kop">{{ _("Activiteiten") }}</h2>
   {% include "_activiteiten_cards.html" %}
 </section>
+{# De enige verwijzing naar de nieuwsbrief op de publieke site (Koen, 19 september
+   2026): één link onderaan de homepagina, niet een formulier onder elke pagina. #}
+{% if nieuwsbrief_inschrijven %}
+<p class="mt-10 text-base md:text-sm text-gray-600">
+  <a id="nb-home-link" class="underline hover:text-blue-700" href="{{ path_for('/nieuwsbrief') }}">{{ _("Nieuwsbrief") }}</a>
+  — {{ _("af en toe een mail met wat er bij ons te beleven valt.") }}</p>
+{% endif %}
 {% endblock %}

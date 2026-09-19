@@ -288,6 +288,7 @@ def create_activity(
     try:
         nieuw = service.create_activity(
             db, name=data.name, location=data.location, poster_url=data.poster_url,
+            description=data.description,
             members_only=bool(data.members_only), dates=data.dates, actor=admin.email,
             registration_closes_on=data.registration_closes_on)
     except service.ActiviteitFout as fout:
