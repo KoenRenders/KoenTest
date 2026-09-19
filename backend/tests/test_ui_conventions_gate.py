@@ -1523,3 +1523,52 @@ def test_een_e2e_wacht_niet_op_de_klok():
     assert not fouten, (
         "Wacht op iets dat gebeurt (`expect(...)`, `htmx_afgerond`, "
         "`netwerk_bijgewerkt`), niet op de klok:\n  " + "\n  ".join(fouten))
+
+
+# Rauwe <textarea>'s buiten de kit, per bestand het aantal en de reden. De lijst
+# mag alleen krimpen (#1027): een nieuw meerregelig veld gaat via
+# `ui.textarea_control` en groeit dan vanzelf mee — een rauwe <textarea> krijgt
+# dat gedrag nooit en holt de standaard stil uit.
+RAUWE_TEXTAREAS: dict[str, tuple[int, str]] = {
+    "domains/newsletter/templates/_nb_import.html":
+        (1, "verborgen payload-drager (hidden aria-hidden) tussen voorbeeld en "
+            "bevestigings-POST — geen invoerveld, dus geen kit-stijl of groei"),
+}
+
+
+def test_meerregelige_velden_gaan_via_de_kitmacro():
+    """#1027 — meegroeien is een eigenschap van `textarea_control`, dus elk
+    meerregelig veld hoort door die macro te gaan.
+
+    Geteld zoals de vaste wachttijden hierboven: ook een gekrompen of verdwenen
+    uitzondering laat de test omvallen, zodat de lijst meekrimpt met de code.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: een kale
+    `<textarea>` in `leden.html` gezet → rood met dat pad en die regel; de
+    `_nb_import.html`-drager verwijderd zonder de lijst aan te passen → ook rood.
+    """
+    fouten = []
+    geteld: dict[str, int] = {}
+    for pad in TEMPLATES:
+        rel = str(pad.relative_to(APP))
+        if rel == "ui/templates/_macros.html":  # de macro rendert hem zelf
+            continue
+        tekst = _zonder_commentaar(pad)
+        treffers = [tekst[:m.start()].count("\n") + 1
+                    for m in re.finditer(r"<textarea\b", tekst)]
+        if not treffers:
+            continue
+        geteld[rel] = len(treffers)
+        toegestaan = RAUWE_TEXTAREAS.get(rel, (0, ""))[0]
+        if len(treffers) > toegestaan:
+            fouten += [f"{rel}:{nr}" for nr in treffers[toegestaan:]]
+        elif len(treffers) < toegestaan:
+            fouten.append(f"{rel}: nog {len(treffers)} over, de lijst zegt "
+                          f"{toegestaan} — laat RAUWE_TEXTAREAS mee krimpen")
+    for rel in set(RAUWE_TEXTAREAS) - set(geteld):
+        fouten.append(f"{rel}: staat in RAUWE_TEXTAREAS maar heeft geen rauwe "
+                      "<textarea> meer — laat de lijst mee krimpen")
+    assert not fouten, (
+        "Een meerregelig veld gaat via ui.textarea_control (groeit standaard "
+        "mee, #1027); een bewuste uitzondering krijgt een reden in "
+        "RAUWE_TEXTAREAS:\n  " + "\n  ".join(fouten))

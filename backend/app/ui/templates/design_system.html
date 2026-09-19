@@ -185,17 +185,20 @@
       <p class="text-xs text-red-600 mt-1">{{ _("Dit is geen geldig e-mailadres.") }}</p>
     </div>
     <div>
-      {{ ui.label(_("Omschrijving"), "ds-omschrijving") }}
-      {{ ui.textarea_control("omschrijving", id="ds-omschrijving", rows=2, value=_("Korte toelichting bij de activiteit."), cls="w-full") }}
+      {# Meegroeien is sinds #1027 de standaard van `textarea_control` (max_px
+         zet het plafond); dit eerste vak toont dat zonder één extra argument.
+         Het tweede vak toont de expliciete opt-out `autogrow=False`, voor een
+         vak waar meegroeien niet kan — met de reden op de aanroep. #}
+      {{ ui.label(_("Omschrijving (groeit mee)"), "ds-omschrijving") }}
+      {{ ui.textarea_control("omschrijving", id="ds-omschrijving", rows=2,
+                             value=_("Typ hier meerdere regels.\nHet vak groeit mee tot het maximum."),
+                             cls="w-full", max_px=200) }}
     </div>
     <div>
-      {# `autogrow` levert de attributen die een tekstvak met zijn inhoud laten
-         meegroeien (#788/#258). Hier op een tweede tekstvak, zodat de demo toont
-         wat het verschil is met het vaste vak hierboven. #}
-      {{ ui.label(_("Notities (groeit mee)"), "ds-notities") }}
+      {{ ui.label(_("Notities (vaste hoogte)"), "ds-notities") }}
       {{ ui.textarea_control("notities", id="ds-notities", rows=2,
-                             value=_("Typ hier meerdere regels.\nHet vak groeit mee tot het maximum."),
-                             cls="w-full", attrs=ui.autogrow(200)) }}
+                             value=_("Korte toelichting bij de activiteit."),
+                             cls="w-full", autogrow=False) }}
     </div>
     <div>
       {# `rich_text` is de opgemaakte-tekst-editor van elk beheerscherm (#984):

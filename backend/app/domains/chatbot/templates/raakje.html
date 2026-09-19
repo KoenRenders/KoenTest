@@ -37,8 +37,13 @@
            hieronder genegeerd, en dan groeit het veld niet mee en verstuurt Enter
            niet. De widget heeft die scope al van haar buitenste div. #}
         x-data class="flex gap-2 items-end">
+    {# autogrow=False (#1027): dit chatveld draagt zijn eigen groeihandler met
+       plafond 120 én een reset-naar-auto na het verzenden; de macrovariant zou
+       er een dubbel x-on:input naast zetten waarvan de browser er één laat
+       vallen. De handler staat in beide raakje-templates en wordt door
+       tests_e2e/test_dictaat_laat_het_veld_groeien.py gelijk gehouden. #}
     {{ ui.textarea_control("vraag", id="raakje-vraag", rows=1, required=True,
-                           placeholder=_("Typ je vraag…"),
+                           placeholder=_("Typ je vraag…"), autogrow=False,
                            cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
                            attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
                                  ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}

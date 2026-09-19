@@ -34,6 +34,9 @@
   <form class="mt-4 flex justify-end gap-2" hx-post="/admin/nieuwsbrieven/abonnees/import/bevestigen"
         hx-target="#nb-import" hx-swap="innerHTML">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {# Rauwe textarea, bewust buiten de kit (#1027): dit is een verborgen
+       payload-drager die de plaktekst naar de bevestigings-POST meedraagt —
+       geen invoerveld, dus geen kit-stijl en geen meegroeien. #}
     <textarea name="text" hidden aria-hidden="true">{{ text }}</textarea>
     {{ ui.btn_secondary(_("Annuleren"), href="/admin/nieuwsbrieven/abonnees/import") }}
     {{ ui.btn_primary(_("Importeren (%(n)s)", n=preview.new|length), type="submit") }}

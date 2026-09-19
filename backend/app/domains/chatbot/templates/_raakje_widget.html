@@ -47,8 +47,12 @@
          aanhalingsteken scheelt een rij escapes die niemand later nog kan lezen.
          (Commentaar hoort BUITEN de aanroep: Jinja staat het niet toe binnen een
          expressie — dat kostte me hier twee pogingen.) #}
+      {# autogrow=False (#1027): eigen groeihandler met plafond 120 (zie
+         raakje.html), en x-ref="v" moet op de wídget-scope registreren — de
+         x-data van de macro zou een geneste scope tussenschuiven waardoor
+         $refs.v op het formulier hierboven leeg blijft. #}
       {{ ui.textarea_control("vraag", id="raakje-widget-vraag", rows=1, required=True,
-                             placeholder=_("Typ je vraag…"),
+                             placeholder=_("Typ je vraag…"), autogrow=False,
                              cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
                              attrs='x-ref="v" autocomplete="off"'
                                    ' x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'

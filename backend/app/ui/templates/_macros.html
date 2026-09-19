@@ -493,14 +493,17 @@
    laten meegroeien. Als macro en niet per scherm overgetypt — dit stond al op drie
    plaatsen in de chatbot-schermen, en de vergadernotities waren de vierde. `max_px`
    begrenst de groei; zet hem hoog waar de tekst lang mag worden. #}
-{% macro autogrow(max_px=400) -%}
-x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`"
-{%- endmacro %}
-
+{# Elk meerregelig tekstvak groeit standaard met zijn inhoud mee, tot `max_px`
+   (#1027; het gedrag zelf is #788). Opt-out met `autogrow=False` — alleen voor
+   een vak waar meegroeien niet kan of niet hoort, met de reden op de aanroep;
+   een vak dat verborgen start hoort erbij, want `x-init` leest dan
+   `scrollHeight` 0 en pint de hoogte op nul. Eenregelige velden zijn
+   `input_control` en groeien nooit. #}
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,
-                          placeholder="", cls="", attrs="") -%}
+                          placeholder="", cls="", attrs="", autogrow=True, max_px=400) -%}
 <textarea{% if name %} name="{{ name }}"{% endif %} id="{{ id or name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
-          class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ value }}</textarea>
+          class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"
+          {% if autogrow %}x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
 {# De opgemaakte-tekst-editor (Trix) — één vorm voor elk scherm dat opgemaakte
