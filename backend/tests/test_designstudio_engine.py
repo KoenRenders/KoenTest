@@ -7,6 +7,7 @@ one violation, the intended message, then the clean case.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -124,11 +125,11 @@ def test_merge_places_every_content_block_and_promises_a_box_per_text():
     svg = merged.svg
     for expected in ("STAPPEN", "KLAPPEN", ">EN<", "SAMEN WANDELEN", "IEDERE 2DE MAANDAG", "DATA IN 2026",
                      "13 JULI", "Zet het in je agenda!", "IEDEREEN WELKOM!", "www.raakmillegem.be",
-                     "Voornaam Naam 0470 00 00 00", 'preserveAspectRatio="xMidYMid slice"', "<svg x="):
+                     "Voornaam Naam · 0470 00 00 00", 'preserveAspectRatio="xMidYMid slice"', "<svg x="):
         assert expected in svg, expected
     assert merged.violations == ()
     assert render.estimate(merged) == []
-    for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contacts"):
+    for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
         assert eid in merged.boxes and f'id="{eid}"' in svg
 
 
@@ -153,6 +154,24 @@ def test_feed_layout_keeps_four_highlights_and_says_so():
     assert merged.height_mm == 371.25
     assert "Instagram toont ten hoogste vier kernpunten" in merged.violations
     assert "t-hl-3-0" in merged.boxes and "t-hl-4-0" not in merged.boxes
+
+
+def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
+    """Koen, 19 September 2026: the e-mail address was missing and the
+    contact line floated under the icons. One row per contact, left-aligned
+    under the same icon column, "Naam · gsm · e-mail"; the band grows 6.5 mm
+    per contact and the content limit moves with it."""
+    three = tuple(Contact(f"Persoon {i}", f"047{i} 00 00 00", f"persoon{i}@example.com") for i in range(3))
+    none = render.merge(_content(contacts=()), layout="print_a")
+    with_three = render.merge(_content(contacts=three), layout="print_a")
+    for i in range(3):
+        assert f'id="t-contact-{i}"' in with_three.svg
+        assert f"Persoon {i} · 047{i} 00 00 00 · persoon{i}@example.com" in with_three.svg
+    assert 't-contact-3' not in with_three.svg and "t-contact-" not in none.svg
+    # Same x for the website row and every contact row: nothing floats.
+    xs = set(re.findall(r'id="t-(?:website|contact-\d)" x="([0-9.]+)"', with_three.svg))
+    assert len(xs) == 1
+    assert render.estimate(with_three) == []
 
 
 def test_a_focal_point_moves_the_crop():
