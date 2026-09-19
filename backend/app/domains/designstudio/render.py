@@ -38,7 +38,14 @@ from app.domains.designstudio.icons import icon_svg
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 POSTERS = TEMPLATES / "posters"
 BRAND = TEMPLATES / "brand"
-INKSCAPE = os.environ.get("INKSCAPE_BIN", "inkscape")
+# Deliberately not a setting and not an environment variable (#1018, the
+# env gate's first real catch): the binary ships in the image via apt and sits
+# on PATH; nobody points at another Inkscape today. A knob would cost a
+# Settings field, four compose lines, four example lines and a handover step
+# for something never turned. Need it to vary one day (another base image, a
+# test rig)? Then it becomes a field on `Settings` like the five AI settings —
+# never a bare `os.environ.get` here.
+INKSCAPE = "inkscape"
 INKSCAPE_TIMEOUT = 240
 
 SVG_NS = "http://www.w3.org/2000/svg"
