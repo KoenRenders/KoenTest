@@ -18,6 +18,11 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `autogrow=True
 uit de macro-signatuur terug naar geen groei-attributen → de eerste twee tests
 vallen om; de `{% if autogrow %}` weggehaald zodat ook de opt-out groeit → de
 opt-out-test valt om.
+
+#1037 bracht de ondergrens van `rows` erbij en verplaatste de berekening naar
+`groei()`; de attribuutnaam hieronder volgt dat. Hoe hoog een vak dan werkelijk
+opent, staat in de browsertest van #1037 — dit bestand blijft over WELKE velden
+meegroeien.
 """
 import re
 from pathlib import Path
@@ -29,7 +34,12 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-GROEI = 'x-init="$el.style.height'
+# #1037: de macro schrijft de hoogte niet meer rechtstreeks in het attribuut maar
+# in `groei()`, zodat de ondergrens van `rows` lui gemeten kan worden. Deze tests
+# leggen vast WELKE velden meegroeien; de gerenderde hoogte zelf wordt gemeten in
+# `tests_e2e/test_tekstvak_ondergrens.py` — een vergelijking van attribuuttekst
+# bewijst niets over pixels.
+GROEI = 'x-init="groei()"'
 TEMPLATES = Path(__file__).resolve().parents[1] / "app"
 
 
@@ -55,10 +65,11 @@ def test_omschrijving_groeit_en_naam_niet(client, db_session):
 
     html = client.get(f"/admin/activiteiten/{a.id}").text
     assert GROEI in _veld(html, "description")
-    assert "Math.min($el.scrollHeight, 400)" in _veld(html, "description")
+    # Het plafond staat sinds #1037 in `groei()`, met de ondergrens ernaast.
+    assert "this.bodem), 400)" in _veld(html, "description")
     naam = _veld(html, "name")
     assert naam.startswith("<input")
-    assert GROEI not in naam and "scrollHeight" not in naam
+    assert GROEI not in naam and "groei()" not in naam
 
 
 def test_eigen_plafond_blijft_en_de_optout_groeit_niet(client):
@@ -69,11 +80,11 @@ def test_eigen_plafond_blijft_en_de_optout_groeit_niet(client):
     html = client.get("/admin/design-system").text
 
     groeiend = _veld(html, "ds-omschrijving")
-    assert "Math.min($el.scrollHeight, 200)" in groeiend
+    assert "this.bodem), 200)" in groeiend
     assert groeiend.count("x-init") == 1, "de groei-attributen staan er dubbel op"
 
     vast = _veld(html, "ds-notities")
-    assert GROEI not in vast and "scrollHeight" not in vast
+    assert GROEI not in vast and "groei()" not in vast
 
 
 def test_de_twee_bewuste_afwijkingen_staan_met_reden_in_de_bron():

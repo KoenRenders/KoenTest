@@ -495,15 +495,39 @@
    begrenst de groei; zet hem hoog waar de tekst lang mag worden. #}
 {# Elk meerregelig tekstvak groeit standaard met zijn inhoud mee, tot `max_px`
    (#1027; het gedrag zelf is #788). Opt-out met `autogrow=False` — alleen voor
-   een vak waar meegroeien niet kan of niet hoort, met de reden op de aanroep;
-   een vak dat verborgen start hoort erbij, want `x-init` leest dan
-   `scrollHeight` 0 en pint de hoogte op nul. Eenregelige velden zijn
-   `input_control` en groeien nooit. #}
+   een vak waar meegroeien niet kan of niet hoort, met de reden op de aanroep.
+   Eenregelige velden zijn `input_control` en groeien nooit.
+
+   **Meegroeien heeft een ondergrens, en die is `rows` (#1037.)** Een inline
+   `style.height` wint van het `rows`-attribuut, en bij een LEEG vak is
+   `scrollHeight` één regel plus padding — dus wie `rows=3` vroeg, kreeg één
+   regel, zo laag dat de placeholder doorgesneden werd. `bodem` meet daarom de
+   natuurlijke hoogte van het vak vóór er ook maar één keer een hoogte
+   geschreven is, en beide handlers klemmen daartegen.
+
+   Bewust een MEting en geen getal in deze macro: `_aa_recordkop.html` vraagt
+   met reden `rows=1`, en een harde ondergrens van drie regels zou dat scherm
+   breken om dit te repareren. Wie `rows` meegeeft, krijgt wat hij vroeg.
+
+   De meting is LUI, en dat is de kern van de reparatie. Een vak dat verborgen
+   start — Omschrijving en Interne nota zitten in een bewerkvorm die dicht
+   begint — heeft bij `x-init` hoogte nul. Wie dán meet, pint nul vast; dat is
+   precies hoe #1027 het veld op één regel zette. `groei()` meet daarom pas
+   wanneer er iets te meten valt, en schrijft niets zolang het vak onzichtbaar
+   is: dan blijft `rows` gewoon gelden tot het opengeklapt wordt. Daarmee
+   vervalt de REDEN om een verborgen vak `autogrow=False` te geven; bestaande
+   opt-outs blijven staan wat ze zijn, want daar kan een andere reden onder
+   liggen (`_cp_detail.html`). #}
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,
                           placeholder="", cls="", attrs="", autogrow=True, max_px=400) -%}
 <textarea{% if name %} name="{{ name }}"{% endif %} id="{{ id or name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
           class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"
-          {% if autogrow %}x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
+          {% if autogrow %}x-data="{ bodem: 0,
+              meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+              groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+                        this.$el.style.height = `auto`;
+                        this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), {{ max_px }}) + `px`; } }"
+             x-init="groei()" x-on:input="groei()" {% endif %}{{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
 {# De opgemaakte-tekst-editor (Trix) — één vorm voor elk scherm dat opgemaakte
