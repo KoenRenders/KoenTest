@@ -21,7 +21,10 @@
 {# F5 (#996): mobiel drie compacte regels (label links, bedrag rechts) in
    één kaart; op md+ de vertrouwde kolomindeling. Eén markup met responsieve
    klassen — geen tweede band die kan gaan afwijken. #}
-<div class="mb-4 flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+{# Compact links (Koen, 19 sep, uit het echte gebruik): op volle breedte
+   dreven de drie cijfers zo ver uiteen dat het overzicht verdween — het oog
+   hoort ze in één blik te vangen. #}
+<div class="mb-4 md:max-w-2xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
   <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
     <div class="text-[11px] text-ink-soft">{{ _("Netto te betalen") }} <span class="md:hidden">· {{ kpi.boekingen }} {{ _("boekingen") }}</span></div>
     <div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ {{ kpi.due|geld }}</div>
