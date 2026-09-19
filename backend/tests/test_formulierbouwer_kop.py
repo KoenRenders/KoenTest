@@ -44,8 +44,12 @@ def _formulier(client, admin_headers, slug=None):
     assert r.status_code == 200, r.text
     form = r.json()
     if slug:
-        csrf = csrf_token_for(make_session_value(SEEDED_ADMIN_EMAIL))
-        client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+        # #1024: één sessiewaarde voor de cookie én het token. Twee muntingen
+        # dragen elk hun eigen `int(time.time())`: over een secondegrens hoort het
+        # token bij een andere sessie en weigert de route met 403.
+        waarde = make_session_value(SEEDED_ADMIN_EMAIL)
+        csrf = csrf_token_for(waarde)
+        client.cookies.set(SESSION_COOKIE, waarde)
         resp = client.post(f"/admin/formulieren/{form['id']}/instellingen",
                            data={"title": form["title"], "status": "draft",
                                  "slug": slug},

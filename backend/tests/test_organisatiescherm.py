@@ -27,7 +27,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import text
 
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
                             seed_postal_code)
 from tests.test_reporting_panel_ui import login
@@ -49,8 +49,10 @@ def postcode(db_session):
 
 
 def _operator(client, db):
-    login(client, db, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
-    return csrf_token_for(make_session_value(SEEDED_ADMIN_EMAIL))
+    # #1024: het token dat `login` teruggeeft hoort bij de cookie die ze zette.
+    # Een tweede `make_session_value()` draagt een nieuwe `int(time.time())` en
+    # geeft over een secondegrens een token van een ándere sessie — 403, willekeurig.
+    return login(client, db, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
 
 
 def _post(client, db, organization_id: int, **velden):
