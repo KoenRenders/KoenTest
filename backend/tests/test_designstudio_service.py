@@ -19,6 +19,7 @@ from app.config import settings
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
+from app.domains.designstudio.content import Contact
 from app.domains.designstudio.api import (
     DesignError,
     ImagingError,
@@ -54,7 +55,7 @@ def activity(db_session):
 
 @pytest.fixture
 def design(db_session, activity):
-    d = create_design(db_session, activity_id=activity.id, duo_code="dark_green-golden_yellow", preset="reeks",
+    d = create_design(db_session, activity_id=activity.id, duo_code="dark_green-golden_yellow", preset="beeld",
                       created_by="bestuur@example.com")
     from app.domains.media.api import MediaAsset
 
@@ -63,9 +64,8 @@ def design(db_session, activity):
                        title="proef", sort_order=0, is_active=True)
     db_session.add(photo)
     db_session.flush()
-    save_design(db_session, d, {"duo_code": "dark_green-golden_yellow", "preset": "reeks", "subtitle": "samen wandelen",
-                                "tagline": "Zet het in je agenda!", "welcome_line": "ook zonder lidkaart",
-                                "main_image_id": str(photo.id)},
+    save_design(db_session, d, {"duo_code": "dark_green-golden_yellow", "preset": "beeld", "subtitle": "samen wandelen",
+                                "tagline": "Zet het in je agenda!", "main_image_id": str(photo.id)},
                 highlights=[("users", "Gezellig samen wandelen en praten", False),
                             ("coffee", "Nadien ene drinken", False)],
                 logo_ids=[])
@@ -125,20 +125,77 @@ def test_a_ticked_organiser_lands_on_the_poster_and_an_unticked_one_does_not(db_
     assert facts["organisers"] == [{"name": "Test Persoon", "mobile": "0470 00 00 00", "email": "trekker@example.com"}]
     content = content_for(db_session, design, facts)
     assert content.contacts[0].name == "Test Persoon" and content.contacts[0].mobile == "0470 00 00 00"
-    assert "Test Persoon 0470 00 00 00" in render.merge(content, layout="print_a").svg
+    assert "Test Persoon · 0470 00 00 00 · trekker@example.com" in render.merge(content, layout="print_a").svg
+
+
+def test_the_activity_description_is_the_explanation_unless_the_design_types_its_own(db_session, design, activity):
+    """#1016 on the poster: live fact, in the fingerprint; a typed
+    explanation wins and is named as a deviation."""
+    from app.domains.designstudio.api import warnings_for
+
+    activity.description = "Een rustige tocht langs het kanaal."
+    db_session.flush()
+    facts = facts_for(db_session, design)
+    assert content_for(db_session, design, facts).explanation_md == "Een rustige tocht langs het kanaal."
+    before = fingerprint(facts)
+    activity.description = "Een pittige tocht langs het kanaal."
+    db_session.flush()
+    assert fingerprint(facts_for(db_session, design)) != before
+    design.explanation_md = "Eigen tekst."
+    facts = facts_for(db_session, design)
+    assert content_for(db_session, design, facts).explanation_md == "Eigen tekst."
+    assert any("wijkt af" in w for w in warnings_for(design, facts))
+
+
+def test_only_the_two_presets_exist_and_the_database_agrees(db_session, design):
+    with pytest.raises(DesignError, match="opmaak"):
+        save_design(db_session, design, {"duo_code": design.duo_code, "preset": "illustratie"}, highlights=[], logo_ids=[])
+    save_design(db_session, design, {"duo_code": design.duo_code, "preset": "eenvoudig"}, highlights=[], logo_ids=[])
+    assert design.preset == "eenvoudig"
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        db_session.execute(text("UPDATE designstudio.designs SET preset = 'reeks' WHERE id = :id"), {"id": design.id})
+    db_session.rollback()
+
+
+def test_without_a_ticked_organiser_the_band_shows_the_association_gsm_without_a_name(db_session, design):
+    """Koen, 19 September 2026: the association's name stood next to its gsm;
+    the band already names the association through website and e-mail."""
+    facts = facts_for(db_session, design)
+    facts = dict(facts, organisers=[], mobile="0470 00 00 00", association="Raak Millegem",
+                 website="www.example.be", email="info@example.be")
+    content = content_for(db_session, design, facts)
+    assert content.contacts == (Contact(name="", mobile="0470 00 00 00", email=""),)
+    svg = render.merge(content, layout="print_a").svg
+    assert ">0470 00 00 00</text>" in svg and "Raak Millegem · 0470" not in svg
+
+
+def test_one_ticked_organiser_out_of_two_means_no_association_row(db_session, design, activity):
+    """Koen, 19 September 2026: the association's gsm row appears only when
+    nobody is ticked — never next to a ticked organiser."""
+    from app.domains.activities.api import add_organiser, organisers_for, update_organiser
+    from tests.conftest import create_test_family
+
+    _m1, p1 = create_test_family(db_session, email="een@example.com")
+    _m2, p2 = create_test_family(db_session, email="twee@example.com")
+    add_organiser(db_session, activity.id, p1.id)
+    add_organiser(db_session, activity.id, p2.id)
+    rows = organisers_for(db_session, activity.id)
+    update_organiser(db_session, activity.id, rows[0].id, {"is_contact": True, "mobile_override": "0470 11 11 11", "email_override": ""})
+    update_organiser(db_session, activity.id, rows[1].id, {"is_contact": False, "mobile_override": "", "email_override": ""})
+    facts = dict(facts_for(db_session, design), mobile="0499 99 99 99")
+    content = content_for(db_session, design, facts)
+    assert len(content.contacts) == 1 and content.contacts[0].mobile == "0470 11 11 11"
+    svg = render.merge(content, layout="print_a").svg
+    assert "0499 99 99 99" not in svg and 't-contact-1' not in svg
 
 
 def test_title_splitting_rules():
-    class D:
-        title_breaks = None
-        title_override = None
-
-    assert _title_lines(D(), "Stappen en Klappen") == (("STAPPEN", "KLAPPEN"), "EN")
-    assert _title_lines(D(), "Bowlen") == (("BOWLEN",), "")
-    assert _title_lines(D(), "Info- en gespreksavond vaderschap") == (("INFO- EN", "GESPREKSAVOND VADERSCHAP"), "")
-    d = D()
-    d.title_breaks = "Zo vader / zo zoon"
-    assert _title_lines(d, "whatever") == (("ZO VADER", "ZO ZOON"), "")
+    assert _title_lines("Stappen en Klappen") == (("STAPPEN", "KLAPPEN"), "EN")
+    assert _title_lines("Bowlen") == (("BOWLEN",), "")
+    assert _title_lines("Info- en gespreksavond vaderschap") == (("INFO- EN", "GESPREKSAVOND VADERSCHAP"), "")
     assert day_label(date(2026, 7, 13)) == "13 JULI"
     assert day_label(date(2026, 7, 13), weekday=True) == "MAANDAG 13 JULI"
 
@@ -153,6 +210,21 @@ def test_highlights_are_capped_and_icons_checked(db_session, design):
     with pytest.raises(DesignError, match="logo"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
                     highlights=[], logo_ids=[1, 2, 3])
+
+
+def test_saving_twice_with_the_same_highlights_and_logos_works(db_session, design):
+    """HDEV, 19 September 2026: the second save of a design with highlights
+    (or logos) died on the unique (design, sort_order) — the new rows were
+    inserted before the old ones were deleted. Nothing of the form arrived,
+    the preset included."""
+    form = {"duo_code": design.duo_code, "preset": "tekst"}
+    hls = [("users", "Eerste", False), ("coffee", "Tweede", True)]
+    save_design(db_session, design, form, highlights=hls, logo_ids=[41, 42])
+    save_design(db_session, design, form, highlights=hls, logo_ids=[42, 41])
+    db_session.refresh(design)
+    assert [h.text for h in design.highlights] == ["Eerste", "Tweede"]
+    assert [lg.media_asset_id for lg in design.logos] == [42, 41]
+    assert design.preset == "tekst"
 
 
 def test_check_design_reports_per_layout_without_inkscape(db_session, design):
@@ -176,7 +248,8 @@ def test_a_version_is_all_or_nothing_and_ages_with_the_facts(db_session, design,
     assert is_stale(db_session, version)
 
     # A title that cannot fit: no version, and the old one untouched.
-    design.title_override = "EEN ONMOGELIJK LANGE ACTIVITEITSTITEL DIE NERGENS OP PAST"
+    activity.name = "EEN ONMOGELIJK LANGE ACTIVITEITSTITEL DIE NERGENS OP PAST OF DE AFFICHE"
+    db_session.flush()
     with pytest.raises(DesignError) as exc:
         make_version(db_session, design)
     assert any("Titelregel" in m for m in exc.value.messages)
@@ -226,6 +299,7 @@ def test_one_click_reserves_four_variants_and_queues_four_jobs(monkeypatch, db_s
                          requested_by="bestuur@example.com")
     rows = db_session.query(ImageGeneration).filter(ImageGeneration.request_key == key).all()
     assert len(rows) == 4 and all(r.status == "requested" and r.reserved_cents > 0 for r in rows)
+    assert all(r.scene.startswith("two adults") and r.style == "lijn" for r in rows)
     jobs = db_session.query(KernelJob).filter(KernelJob.name == "designstudio.generate").all()
     assert len(jobs) == 4 and all(j.payload["prompt"].endswith(imaging.STYLE_SUFFIX) for j in jobs)
     # The reservation counts against the next click.
@@ -248,14 +322,40 @@ def test_a_second_click_while_the_first_runs_is_refused(monkeypatch, db_session,
     assert db_session.query(ImageGeneration).count() == 4
 
 
-def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design):
+def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design, activity):
     from app.domains.designstudio.api import warnings_for
 
+    activity.description = "Samen wandelen."
+    db_session.flush()
     facts = facts_for(db_session, design)
     assert warnings_for(design, facts) == []
-    design.title_override = "Wandelen met Raak"
+    design.explanation_md = "Eigen tekst."
     assert any("wijkt af" in w for w in warnings_for(design, facts))
     assert check_design(db_session, design)["print_a"] == []  # a warning is not a violation
+
+
+def test_omschrijving_anders_stores_nothing_when_it_equals_the_activity_description(db_session, design, activity):
+    """The field shows the activity's description; unchanged means "use the
+    activity's", stored as NULL so it stays live (Koen, 19 September 2026)."""
+    activity.description = "Samen wandelen."
+    db_session.flush()
+    form = {"duo_code": design.duo_code, "preset": design.preset, "explanation_md": "Samen wandelen."}
+    save_design(db_session, design, form, highlights=[], logo_ids=[])
+    assert design.explanation_md is None
+    form["explanation_md"] = "Samen wandelen, en nadien iets drinken."
+    save_design(db_session, design, form, highlights=[], logo_ids=[])
+    assert design.explanation_md == "Samen wandelen, en nadien iets drinken."
+    form["explanation_md"] = ""
+    save_design(db_session, design, form, highlights=[], logo_ids=[])
+    assert design.explanation_md is None
+
+
+def test_members_only_reaches_the_poster(db_session, design, activity):
+    activity.members_only = True
+    db_session.flush()
+    facts = facts_for(db_session, design)
+    assert facts["members_only"] is True
+    assert "ENKEL LEDEN" in render.merge(content_for(db_session, design, facts), layout="print_a").svg
 
 
 @needs_inkscape
@@ -301,6 +401,24 @@ async def test_publishing_an_older_version_restores_that_poster(db_session, desi
     assert design.published_version_id == v1.id
     posters = list_media(db_session, kind="activity_poster", activity_id=activity.id)
     assert len(posters) == 1 and posters[0]["content_type"] == "application/pdf"
+
+
+def test_a_redo_on_a_variant_carries_the_change_and_the_style(monkeypatch, db_session, design):
+    """"Wat wil je anders?": the new prompt keeps the scene, names the change
+    and the chosen style; the reference image goes with the job."""
+    from app.domains.designstudio.api import request_images
+
+    monkeypatch.setattr(settings, "designstudio_ai_images_enabled", True)
+    monkeypatch.setattr(settings, "bfl_api_key", "test-key")
+    monkeypatch.setattr(settings, "designstudio_ai_monthly_budget_eur", 50.0)
+    request_images(db_session, design, "a family on bicycles along a country road", style="kleur",
+                   change="add a dog running along", reference_asset_id=design.main_image_id)
+    job = db_session.query(KernelJob).filter(KernelJob.name == "designstudio.generate").first()
+    assert job.payload["reference_asset_id"] == design.main_image_id
+    assert "change only this: add a dog running along" in job.payload["prompt"]
+    assert "flat cheerful colours" in job.payload["prompt"] and "no shading" in job.payload["prompt"]
+    with pytest.raises(ImagingError, match="stijl"):
+        imaging.build_prompt("a family on bicycles", style="olie")
 
 
 def test_budget_check_names_the_platform_cap():

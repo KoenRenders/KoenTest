@@ -7,6 +7,7 @@ one violation, the intended message, then the clean case.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -39,12 +40,11 @@ PNG_2x2 = _png()
 
 def _content(**overrides) -> PosterContent:
     base = {
-        "duo_code": "dark_green-golden_yellow", "preset": "reeks",
+        "duo_code": "dark_green-golden_yellow", "preset": "beeld",
         "title_lines": ("STAPPEN", "KLAPPEN"), "title_joiner": "EN", "bar_text": "SAMEN WANDELEN",
         "tagline": "Zet het in je agenda!",
         "highlights": (Highlight("calendar", "IEDERE 2DE MAANDAG VAN DE MAAND", True),
                        Highlight("map-pin", "VERTREK AAN HET MILOHEEM")),
-        "welcome_line": "ook als je (nog) geen lid bent",
         "dates_heading": "DATA IN 2026", "dates": ("13 JULI", "10 AUGUSTUS", "14 SEPTEMBER"),
         "main_image": ImageBytes(PNG_2x2, "image/png"),
         "website": "www.raakmillegem.be", "email": "info@example.com",
@@ -124,11 +124,11 @@ def test_merge_places_every_content_block_and_promises_a_box_per_text():
     svg = merged.svg
     for expected in ("STAPPEN", "KLAPPEN", ">EN<", "SAMEN WANDELEN", "IEDERE 2DE MAANDAG", "DATA IN 2026",
                      "13 JULI", "Zet het in je agenda!", "IEDEREEN WELKOM!", "www.raakmillegem.be",
-                     "Voornaam Naam 0470 00 00 00", 'preserveAspectRatio="xMidYMid slice"', "<svg x="):
+                     "Voornaam Naam · 0470 00 00 00", 'preserveAspectRatio="xMidYMid slice"', "<svg x="):
         assert expected in svg, expected
     assert merged.violations == ()
     assert render.estimate(merged) == []
-    for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contacts"):
+    for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
         assert eid in merged.boxes and f'id="{eid}"' in svg
 
 
@@ -141,18 +141,79 @@ def test_the_estimate_catches_a_title_that_cannot_fit():
 
 def test_too_much_content_is_reported_never_cut():
     many = tuple(Highlight("smile", f"Kernpunt nummer {i} met wat tekst erbij") for i in range(6))
-    merged = render.merge(_content(highlights=many, programme_md="\n\n".join(["Een alinea tekst."] * 12)),
+    merged = render.merge(_content(highlights=many, explanation_md="\n\n".join(["Een alinea tekst die lang genoeg is."] * 30)),
                           layout="print_a")
-    assert any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations)
-    assert "Kernpunt nummer 5" in merged.svg
+    assert any(v.startswith("Te veel inhoud in de kolom rechts") for v in merged.violations)
+    assert "Kernpunt nummer 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
 
 
 def test_feed_layout_keeps_four_highlights_and_says_so():
     many = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(5))
     merged = render.merge(_content(highlights=many), layout="feed_portrait")
     assert merged.height_mm == 371.25
-    assert "Instagram toont ten hoogste vier kernpunten" in merged.violations
+    assert "Deze opmaak toont ten hoogste 4 kernpunten" in merged.violations
     assert "t-hl-3-0" in merged.boxes and "t-hl-4-0" not in merged.boxes
+
+
+def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
+    """Koen, 19 September 2026: the e-mail address was missing and the
+    contact line floated under the icons. One row per contact, left-aligned
+    under the same icon column, "Naam · gsm · e-mail"; the band grows 6.5 mm
+    per contact and the content limit moves with it."""
+    three = tuple(Contact(f"Persoon {i}", f"047{i} 00 00 00", f"persoon{i}@example.com") for i in range(3))
+    none = render.merge(_content(contacts=()), layout="print_a")
+    with_three = render.merge(_content(contacts=three), layout="print_a")
+    for i in range(3):
+        assert f'id="t-contact-{i}"' in with_three.svg
+        assert f"Persoon {i} · 047{i} 00 00 00 · persoon{i}@example.com" in with_three.svg
+    assert 't-contact-3' not in with_three.svg and "t-contact-" not in none.svg
+    # Same x for the website row and every contact row: nothing floats.
+    xs = set(re.findall(r'id="t-(?:website|contact-\d)" x="([0-9.]+)"', with_three.svg))
+    assert len(xs) == 1
+    assert render.estimate(with_three) == []
+
+
+def test_welcome_is_always_there_and_members_only_changes_it():
+    """Koen, 19 September 2026: "iedereen welkom" is not a field — it is on
+    every poster, unless the activity is members-only."""
+    assert "IEDEREEN WELKOM!" in render.merge(_content(), layout="print_a").svg
+    svg = render.merge(_content(members_only=True), layout="print_a").svg
+    assert "ENKEL LEDEN" in svg and "IEDEREEN WELKOM" not in svg
+
+
+def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
+    merged = render.merge(_content(title_lines=("STAPPEN", "KLAPPEN"), title_joiner="EN"), layout="print_a")
+    sizes = set(re.findall(r'id="t-title-\d" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)"', merged.svg))
+    assert len(sizes) == 1
+    # The lockup's y lies inside the band, not at the top-left corner.
+    m = re.search(r'viewBox="106 106.2 491 245"', merged.svg)
+    assert m is not None
+    lockup_y = float(re.search(r'x="[0-9.]+" y="([0-9.]+)" width="66.000"', merged.svg).group(1))
+    assert lockup_y > 350
+
+
+def test_the_third_picture_gives_way_to_sponsor_logos():
+    three = _content(inset_image=ImageBytes(PNG_2x2, "image/png"), third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2))
+    assert three.third_image is not None
+    without_logos = render.merge(three, layout="print_a").svg
+    with_logos = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
+                                       third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
+                                       logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
+    assert without_logos.count("<image") == 3 and with_logos.count("<image") == 3  # hero, inset, third | hero, inset, logo
+    assert 'id="logo-0"' in with_logos and 'preserveAspectRatio="xMinYMin slice"' not in with_logos
+
+
+def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
+    """Half of the unit's posters are a Bowlen: one big picture, the
+    activity's text, "iedereen welkom" small and low — no icon rows."""
+    simple = render.merge(_content(preset="eenvoudig", dates=(), explanation_md="De **tekst** van de activiteit."),
+                          layout="print_a")
+    assert simple.violations == ()
+    m = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"', simple.svg)
+    assert m is not None and float(m.group(1)) > 250 and float(m.group(2)) > 100
+    assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
+    welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
+    assert welcome_y > 330
 
 
 def test_a_focal_point_moves_the_crop():
@@ -177,9 +238,19 @@ def test_resize_page_changes_only_the_page_attributes():
         render.resize_page("<svg><rect/></svg>", 210, 297)
 
 
-def test_wordmark_is_recoloured_per_duo_and_loses_its_ids():
+def test_wordmark_is_recoloured_per_duo_and_keeps_the_baseline_glyphs():
+    """Koen, 19 September 2026: "Beleef meer in Millegem" had vanished. The
+    baseline is one <use href="#font_…"> per letter; every referenced glyph
+    must still be defined in the wordmark, and the root loses only its own
+    id/role attributes."""
     green = render.wordmark(brand.palette_for("dark_green-golden_yellow"), x=0, y=0, width=72)
-    assert "#ffce00" in green and 'id="' not in green and 'viewBox="106 106.2 491 245"' in green
+    assert "#ffce00" in green and 'viewBox="106 106.2 491 245"' in green
+    assert not re.search(r'<svg[^>]*\sid="', green) and 'aria-labelledby' not in green
+    uses = re.findall(r'href="#(font_[^"]+)"', green)
+    used = set(uses)
+    assert len(uses) >= 20 and len(used) >= 10, "the baseline's letters are missing"
+    defined = set(re.findall(r'id="(font_[^"]+)"', green))
+    assert used <= defined, used - defined
     yellow = render.wordmark(brand.palette_for("golden_yellow-indigo"), x=0, y=0, width=72)
     assert "#ffce00" not in yellow and "#460359" in yellow
 

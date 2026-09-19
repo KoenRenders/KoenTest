@@ -1337,6 +1337,11 @@ class OrganiserView(NamedTuple):
     mobile: str
     email_override: str
     mobile_override: str
+    #: #1032 — of dit gegeven op de affiche mag. `email`/`mobile` hierboven zijn
+    #: al leeg wanneer het niet mag; deze twee zijn voor het SCHERM, dat de
+    #: vinkjes moet kunnen tonen.
+    show_email: bool
+    show_mobile: bool
     sort_order: int
 
 
@@ -1368,15 +1373,38 @@ def organisers_for(db, activity_id: int) -> list:
     for rij in rijen:
         person = personen.get(rij.person_id)
         naam = f"{person.first_name} {person.last_name}".strip() if person else ""
+        # #1032: de volgorde is de regel. Eerst wint de override van de
+        # ledenwaarde, en PAS DAARNA beslist de vlag of er iets naar buiten gaat.
+        # Andersom zou een ingevulde override alsnog lekken terwijl het vinkje uit
+        # staat — precies wat dit issue moet voorkomen.
+        email = rij.email_override or contacten.get((rij.person_id, "EMAIL"), "")
+        mobile = rij.mobile_override or contacten.get((rij.person_id, "MOBILE"), "")
         gezien.append(OrganiserView(
             id=rij.id, person_id=rij.person_id, name=naam,
             is_contact=bool(rij.is_contact),
-            email=rij.email_override or contacten.get((rij.person_id, "EMAIL"), ""),
-            mobile=rij.mobile_override or contacten.get((rij.person_id, "MOBILE"), ""),
+            email=email if rij.show_email else "",
+            mobile=mobile if rij.show_mobile else "",
             email_override=rij.email_override or "",
             mobile_override=rij.mobile_override or "",
+            show_email=bool(rij.show_email),
+            show_mobile=bool(rij.show_mobile),
             sort_order=rij.sort_order))
     return gezien
+
+
+def board_notes(db, activity_id: int) -> str:
+    """De interne bestuursnota van één activiteit (#1028), of "".
+
+    Met `db.get` en niet met een query: de recordpagina heeft de rij vlak
+    hiervoor al geladen, dus dit komt uit de identiteitskaart van de sessie en
+    kost geen tweede query — gemeten met het querybudget (#645 D), dat er anders
+    één bijkrijgt voor een veld dat al binnen was.
+
+    Als losse functie en niet als veld op `ActivityResponse`: dat schema is óók
+    het publieke JSON-antwoord, dus een veld erbij is een lek.
+    """
+    rij = db.get(Activity, activity_id)
+    return (rij.board_notes if rij is not None else "") or ""
 
 
 def add_organiser(db, activity_id: int, person_id: int):
@@ -1416,8 +1444,9 @@ def update_organiser(db, activity_id: int, organiser_id: int, velden: dict):
     rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
     if rij is None:
         raise LookupError("Organisator niet gevonden")
-    if "is_contact" in velden:
-        rij.is_contact = bool(velden["is_contact"])
+    for vlag in ("is_contact", "show_email", "show_mobile"):
+        if vlag in velden:
+            setattr(rij, vlag, bool(velden[vlag]))
     for veld in ("email_override", "mobile_override"):
         if veld in velden:
             waarde = (velden[veld] or "").strip()

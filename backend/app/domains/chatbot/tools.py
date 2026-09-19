@@ -135,7 +135,7 @@ PUBLIC_FIELD_CONTRACT: dict[str, dict[str, set[str]]] = {
     "get_activity_detail": {
         # Twee vormen: de gevonden activiteit, of de nette weigering.
         "": {
-            "id", "name", "location", "members_only", "notes", "flyer_text",
+            "id", "name", "location", "members_only", "description", "flyer_text",
             "price_from", "dates", "components", "error",
         },
         "dates[]": {"start_date", "end_date", "start_time", "end_time"},
@@ -296,7 +296,13 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         "name": a.name,
         "location": a.location,
         "members_only": a.members_only,
-        "notes": _text_or_unspecified(a.notes),
+        # #1028: de publieke omschrijving (#1016) — de twee, drie zinnen die ook op
+        # de activiteitenpagina staan. Bewust toegevoegd: Raakje beantwoordde
+        # "waar gaat dit over?" tot nu met de affichetekst, terwijl de bestuurder
+        # net een zin schreef voor precies die vraag. Hier stond `notes`, en dat
+        # was een lek: die kolom leest als een interne nota en ging integraal naar
+        # het model. Ze is weg (migratie 137).
+        "description": _text_or_unspecified(a.description),
         # Zachte info uit de poster (#206); structuurvelden hierboven winnen altijd.
         "flyer_text": _text_or_unspecified(
             _extracted_text(db, "activity_poster", activity_id=a.id)

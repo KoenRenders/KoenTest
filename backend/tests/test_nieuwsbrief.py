@@ -4,7 +4,7 @@ The numbered sections follow CR-05 §7, the test set the build has to prove.
 The mail transport is replaced by a mailbox that records what would leave; the
 queue is driven by calling the job's own function, the way the scheduler does.
 """
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 
 import pytest
 
@@ -672,3 +672,136 @@ def test_de_kalender_is_een_regel_per_activiteit(db_session):
     assert html.index("Eerste") < html.index("Tweede")
     regels = [r for r in html.split("</div>") if r]
     assert all(r.startswith("<div><a ") and " | " in r for r in regels)
+
+
+# ── The activity block (Koen, 19 September 2026) ─────────────────────────────
+
+def _block(db, activity, today):
+    facts = nb.activity_facts(db, [activity.id], base_url="https://raak.example", today=today)
+    return nb.activity_block_html(facts[activity.id])
+
+
+def _poster(db, activity, *, content_type="image/png"):
+    from app.domains.media.api import MediaAsset
+
+    asset = MediaAsset(kind="activity_poster", activity_id=activity.id, title="Affiche",
+                       content_type=content_type, data=b"x", byte_size=1)
+    db.add(asset)
+    db.flush()
+    return asset
+
+
+def test_het_blok_draagt_titel_beeld_omschrijving_en_een_inschrijflink(db_session):
+    """The shape of the Raak nationaal letter, built by the server so that what
+    Raakje inserts and what the button inserts are the same thing.
+
+    Broken on purpose: `description` left off `ActivityFacts` → the sentence
+    disappears from the block and this test fails.
+    """
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10),
+                               start_time=time(20, 0), location="Miloheem")
+    activity.description = "We proeven acht rums uit het Caribisch gebied."
+    asset = _poster(db_session, activity)
+    db_session.flush()
+
+    blok = _block(db_session, activity, vandaag)
+
+    assert 'class="nb-blok-titel"' in blok and "Rumproefavond" in blok
+    assert "https://raak.example/activiteiten/rumproefavond" in blok
+    assert "We proeven acht rums uit het Caribisch gebied." in blok
+    assert " 20u · Miloheem" in blok
+    assert f'src="https://raak.example/api/v1/media/{asset.id}"' in blok
+    assert "Schrijf je in!" in blok
+
+
+def test_een_blok_zonder_beeld_of_omschrijving_houdt_geen_lege_plek_over(db_session):
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Wandeling", vandaag + timedelta(days=20))
+
+    blok = _block(db_session, activity, vandaag)
+
+    assert "nb-blok-beeld" not in blok, "geen kolom voor een beeld dat er niet is"
+    assert "nb-blok-omschrijving" not in blok
+    assert "nb-blok-titel" in blok
+
+
+def test_een_pdf_affiche_zonder_afbeelding_levert_geen_gebroken_beeld(db_session):
+    """`/thumb` van een PDF zonder rendering antwoordt met de PDF zelf — dat zou
+    in een mail een gebroken beeld geven. Media beslist dat, niet de brief."""
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Quiz", vandaag + timedelta(days=25))
+    _poster(db_session, activity, content_type="application/pdf")
+    db_session.flush()
+
+    assert "nb-blok-foto" not in _block(db_session, activity, vandaag)
+
+
+def test_een_voorbije_activiteit_vraagt_geen_inschrijving(db_session):
+    vandaag = date.today()
+    voorbij = vandaag - timedelta(days=20)
+    activity = _dated_activity(db_session, "Zomerbar", voorbij)
+
+    blok = _block(db_session, activity, vandaag)
+
+    assert "Schrijf je in!" not in blok
+    assert str(voorbij.day) in blok, "de datum van toen staat er wel"
+
+
+def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
+    """Measured on 19 September 2026: Trix keeps no table and no class, and
+    turns an inserted image into an attachment of its own at full width — Koen
+    saw the picture spill out of the letter. So the letter carries the activity
+    NUMBER and the server builds the block when it sends.
+
+    Broken on purpose: `expand_blocks` taken out of `render_mail` → the mail
+    arrives with the bare reference and this test fails.
+    """
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Zo vader zo zoon", vandaag + timedelta(days=10),
+                               location="Miloheem")
+    activity.description = "Een avond over vaderschap."
+    db_session.flush()
+    facts = nb.activity_facts(db_session, [activity.id], base_url="https://raak.example")
+    kaart = nb.activity_card_html(facts[activity.id])
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS, body=kaart)
+
+    assert f"[[activiteit:{activity.id}|" in letter.body_html, "overleeft de ontsmetting"
+    assert "<table" not in letter.body_html, "de brief draagt geen blok"
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+                          base_url="https://raak.example")
+    assert "Zo vader zo zoon" in mail and "Een avond over vaderschap." in mail
+    assert "Schrijf je in!" in mail
+    assert "[[activiteit:" not in mail, "de markering zelf gaat niet mee"
+
+
+def test_een_verwijzing_naar_een_verdwenen_activiteit_laat_niets_achter(db_session):
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body="<div>[[activiteit:99999|Weggehaalde activiteit]]</div>")
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+                          base_url="https://raak.example")
+
+    assert "Weggehaalde activiteit" not in mail
+    assert "[[activiteit:" not in mail
+
+
+def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
+    """The sanitiser drops `style` on every autosave, so the block travels as
+    classes and `render_mail` inlines them.
+
+    Broken on purpose: `with_inline_styles` taken out of `render_mail` → the
+    block arrives without styling and this test fails.
+    """
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=12))
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body=_block(db_session, activity, vandaag))
+
+    bewaard = letter.body_html
+    assert "style=" not in bewaard, "de ontsmetting laat geen style toe"
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    assert 'class="nb-blok-titel" style="font-size:20px' in mail
+    assert "@media only screen and (max-width:480px)" in mail, "op een telefoon onder elkaar"

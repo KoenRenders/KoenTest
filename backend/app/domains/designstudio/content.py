@@ -40,24 +40,20 @@ class Contact:
 @dataclass(frozen=True)
 class PosterContent:
     duo_code: str
-    preset: str = "illustratie"
+    preset: str = "beeld"
 
     # Title in one or two lines; the "EN" badge sits between two lines when
     # ``title_joiner`` is set (STAPPEN *en* KLAPPEN).
     title_lines: tuple[str, ...] = ()
     title_joiner: str = ""
-    kicker: str = ""            # small line above the title ("Raak Millegem nodigt uit")
     bar_text: str = ""          # the rough bar under the title ("SAMEN WANDELEN")
     tagline: str = ""           # handwritten line ("Zet het in je agenda!")
 
     highlights: tuple[Highlight, ...] = ()
-    welcome_line: str = ""
+    members_only: bool = False      # "ENKEL LEDEN" instead of "IEDEREEN WELKOM!"
     dates_heading: str = ""
     dates: tuple[str, ...] = ()     # "13 JULI" … at most twelve
     explanation_md: str = ""
-    practical_md: str = ""
-    programme_md: str = ""
-    price_text: str = ""
 
     main_image: ImageBytes | None = None
     inset_image: ImageBytes | None = None

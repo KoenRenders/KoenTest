@@ -11,15 +11,15 @@ replaced — an intro a board has rewritten is left alone. The data step reports
 how many rows it touched, so "zero touched" never silently passes for success
 (see test_golf11_home.py).
 
-Revision ID: 137_2026_09_19_210502
-Revises: 136_2026_09_18_153000
+Revision ID: 141_2026_09_19_210502
+Revises: 140_2026_09_19_190000
 Create Date: 2026-09-19
 """
 import sqlalchemy as sa
 from alembic import op
 
-revision = "137_2026_09_19_210502"
-down_revision = "136_2026_09_18_153000"
+revision = "141_2026_09_19_210502"
+down_revision = "140_2026_09_19_190000"
 branch_labels = None
 depends_on = None
 
@@ -50,7 +50,7 @@ def vervang(bind) -> int:
 
 
 def upgrade():
-    print(f"137: home-intro vervangen op {vervang(op.get_bind())} rij(en)")
+    print(f"141: home-intro vervangen op {vervang(op.get_bind())} rij(en)")
 
 
 def downgrade():

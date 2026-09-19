@@ -59,11 +59,20 @@ VARIANTS_PER_CLICK = 4
 POLL_SECONDS = 2.0
 POLL_TIMEOUT_SECONDS = 180
 
-#: The house style, appended to every prompt. The unit describes the scene;
-#: the look is not theirs to change.
-STYLE_SUFFIX = (" — simple black line drawing in a friendly hand-drawn style, thick even lines, "
-                "no shading, no text, no background scenery, pure white background, "
-                "single subject centred, poster illustration")
+#: The house style, appended to every prompt. The unit describes the scene
+#: and picks one of two looks; the rest is not theirs to change. Round 3
+#: (Koen, 19 September 2026): "voeg kleuren toe" was ignored because the one
+#: suffix said "black, no shading" — so colour is a style, not a wish.
+STYLES = {
+    "lijn": (" — simple black line drawing in a friendly hand-drawn style, thick even lines, "
+             "no shading, no text, no background scenery, pure white background, "
+             "single subject centred, poster illustration"),
+    "kleur": (" — friendly hand-drawn illustration with thick black outlines and flat cheerful colours, "
+              "no gradients, no shading, no text, no background scenery, pure white background, "
+              "single subject centred, poster illustration"),
+}
+STYLE_LABELS = {"lijn": "Lijntekening (zwart-wit)", "kleur": "Kleurtekening (vlakke kleuren)"}
+STYLE_SUFFIX = STYLES["lijn"]
 
 # The five settings live on `Settings` (app/config.py) like every other
 # per-host setting, so the compose files pass them and the #821/#917 gate sees
@@ -133,11 +142,23 @@ def check_budget(budget: Budget, *, platform_spent_eur: Decimal, cost_eur: Decim
         raise ImagingError("Het platformplafond voor AI-beelden is bereikt; vraag het aan de beheerder.")
 
 
-def build_prompt(scene: str) -> str:
+def build_prompt(scene: str, style: str = "lijn", change: str = "") -> str:
+    """The scene, the change asked on top of a reference ("wat wil je
+    anders?") and the style suffix."""
     scene = " ".join((scene or "").split())
+    change = " ".join((change or "").split())
+    if not scene and change:
+        # A redo on a variant made before the scene was kept (round 3): the
+        # change is all we have, and with the reference image it is enough.
+        scene, change = change, ""
     if len(scene) < 8:
         raise ImagingError("Beschrijf wat op de tekening moet staan (minstens een paar woorden).")
-    return scene[:600] + STYLE_SUFFIX
+    if style not in STYLES:
+        raise ImagingError("Onbekende stijl.")
+    text = scene[:600]
+    if change:
+        text += ". Keep the same composition and characters as the reference image; change only this: " + change[:300]
+    return text + STYLES[style]
 
 
 def new_request_key() -> str:

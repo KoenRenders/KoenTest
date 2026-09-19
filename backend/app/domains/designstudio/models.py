@@ -60,7 +60,13 @@ GEN_FAILED = "failed"
 GENERATION_STATES = (GEN_REQUESTED, GEN_FETCHED, GEN_PICKED, GEN_DISCARDED, GEN_REFUSED, GEN_FAILED)
 
 #: Presets are block choices within the one template "Affiche" (CR-10 §3.4).
-PRESETS = ("beeld", "tekstflyer", "illustratie", "reeks")
+#: Two, since Koen's HDEV round of 19 September 2026: the four of the CR
+#: (Beeld, Tekstflyer, Illustratie, Reeks) were three times the same flow —
+#: a picture is a picture, and a series is a dates grid that appears by
+#: itself when there is more than one date.
+#: Round 3 adds ``eenvoudig``: one big picture over the full width with a few
+#: highlights under it — the Bowlen poster, half of what the unit makes.
+PRESETS = ("beeld", "tekst", "eenvoudig")
 
 
 class Design(TenantMixin, Base):
@@ -71,24 +77,16 @@ class Design(TenantMixin, Base):
     activity_id = Column(Integer, nullable=False, index=True)  # soft ref → activities.activities
     template_key = Column(String(40), nullable=False, default="affiche")
     template_version = Column(Integer, nullable=False, default=1)
-    preset = Column(String(20), nullable=False, default="illustratie")
+    preset = Column(String(20), nullable=False, default="beeld")
     duo_code = Column(String(60), nullable=False)
     status = Column(String(10), nullable=False, default=STATUS_DRAFT)
 
-    # Design text — never a copy of a fact. `title_breaks` holds the activity
-    # title with "/" where a line breaks; `title_override` is a deviating title
-    # and carries the ageing warning when the activity title changes.
-    title_breaks = Column(String(255), nullable=True)
-    title_override = Column(String(255), nullable=True)
-    show_kicker = Column(Boolean, nullable=False, default=False)
+    # Design text — never a copy of a fact. Round 3 (Koen, 19 September 2026)
+    # cut it to three: the subtitle bar, the handwritten line and
+    # "Omschrijving anders" — empty when the activity's own description is used.
     tagline = Column(String(90), nullable=True)
     subtitle = Column(String(120), nullable=True)
-    recurrence_line = Column(String(80), nullable=True)
-    welcome_line = Column(String(80), nullable=True)
-    price_text = Column(String(60), nullable=True)
     explanation_md = Column(Text, nullable=True)
-    practical_md = Column(Text, nullable=True)
-    programme_md = Column(Text, nullable=True)
 
     # Images: soft refs to media.media_assets (kind design_image); the focal
     # point is a fraction of width/height.
@@ -220,6 +218,8 @@ class ImageGeneration(TenantMixin, Base):
     request_key = Column(String(64), nullable=False, index=True)  # one per click: four rows share it
     ai_call_log_id = Column(Integer, nullable=True)  # soft ref → ai.ai_call_log
     seed = Column(Integer, nullable=True)
+    scene = Column(Text, nullable=False, default="")        # what was asked, for "wat wil je anders?"
+    style = Column(String(10), nullable=False, default="lijn")  # lijn | kleur
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     status = Column(String(12), nullable=False, default=GEN_REQUESTED)

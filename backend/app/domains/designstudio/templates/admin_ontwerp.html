@@ -47,16 +47,6 @@
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          {{ ui.label(_("Titel anders"), "ds-title-override") }}
-          {{ ui.input_control("title_override", id="ds-title-override", value=title_override, cls="w-full", placeholder=_("leeg = titel van de activiteit")) }}
-        </div>
-        <div>
-          {{ ui.label(_("Regelafbreking"), "ds-title-breaks") }}
-          {{ ui.input_control("title_breaks", id="ds-title-breaks", value=title_breaks, cls="w-full", placeholder=_("bv. STAPPEN / KLAPPEN")) }}
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
           {{ ui.label(_("Balk onder de titel"), "ds-subtitle") }}
           {{ ui.input_control("subtitle", id="ds-subtitle", value=subtitle, cls="w-full", placeholder=_("bv. SAMEN WANDELEN")) }}
         </div>
@@ -65,26 +55,7 @@
           {{ ui.input_control("tagline", id="ds-tagline", value=tagline, cls="w-full", placeholder=_("bv. Zet het in je agenda!")) }}
         </div>
       </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          {{ ui.label(_("Herhaling"), "ds-recurrence") }}
-          {{ ui.input_control("recurrence_line", id="ds-recurrence", value=recurrence_line, cls="w-full", placeholder=_("bv. iedere 2de maandag van de maand")) }}
-        </div>
-        <div>
-          {{ ui.label(_("Prijs"), "ds-price") }}
-          {{ ui.input_control("price_text", id="ds-price", value=price_text, cls="w-full", placeholder=_("bv. Gratis · drankje € 1")) }}
-        </div>
-      </div>
-      <div>
-        {{ ui.label(_("Iedereen welkom — toelichting"), "ds-welcome") }}
-        {{ ui.input_control("welcome_line", id="ds-welcome", value=welcome_line, cls="w-full", placeholder=_("bv. ook als je (nog) geen lid bent")) }}
-      </div>
-      <label class="flex items-center gap-2 text-sm text-ink">
-        <input type="checkbox" name="show_kicker" value="1"{% if show_kicker %} checked{% endif %}>
-        {{ _("Naam van de vereniging rechtsboven") }}
-      </label>
-
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s; datum en plaats komen er vanzelf bij", n=highlights|length) }})</span></h3>
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
       <div class="space-y-2">
         {% for hl in highlights %}
         {% set i = loop.index0 %}
@@ -98,20 +69,12 @@
         {% endfor %}
       </div>
 
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Tekstblokken") }} <span class="font-normal text-ink-soft">({{ _("alinea's, **vet** en - opsommingen") }})</span></h3>
-      <div>
-        {{ ui.label(_("Toelichting"), "ds-explanation") }}
+      <div class="pt-2">
+        {{ ui.label(_("Omschrijving anders"), "ds-explanation") }}
         {{ ui.textarea_control("explanation_md", id="ds-explanation", value=explanation_md, rows=4, cls="w-full") }}
-      </div>
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          {{ ui.label(_("Praktisch"), "ds-practical") }}
-          {{ ui.textarea_control("practical_md", id="ds-practical", value=practical_md, rows=4, cls="w-full") }}
-        </div>
-        <div>
-          {{ ui.label(_("Programma"), "ds-programme") }}
-          {{ ui.textarea_control("programme_md", id="ds-programme", value=programme_md, rows=4, cls="w-full") }}
-        </div>
+        <p class="text-xs text-ink-soft mt-1">
+          {% if explanation_is_own %}{{ _("Eigen tekst — wijkt af van de omschrijving van de activiteit. Leegmaken = de omschrijving van de activiteit terug.") }}{% else %}{{ _("Dit is de omschrijving van de activiteit; ze volgt de activiteit tot je ze hier aanpast. Alinea's, **vet** en - opsommingen kunnen.") }}{% endif %}
+        </p>
       </div>
 
       <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Beelden") }}</h3>
@@ -121,18 +84,19 @@
           {{ ui.label(label, "ds-" ~ slot) }}
           {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
             <option value="">{{ _("— geen —") }}</option>
-            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }} ({{ opt.source }})</option>{% endfor %}
+            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>{% endfor %}
           {% endcall %}
         </div>
         {% endfor %}
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <p class="text-sm font-medium text-ink mt-2">{{ _("Brandpunt van het hoofdbeeld") }} <span class="font-normal text-ink-soft">({{ _("0 = links/boven, 1 = rechts/onder; bepaalt welke kant behouden blijft bij het bijsnijden") }})</span></p>
+      <div class="grid grid-cols-2 gap-3 items-end">
         <div>
-          {{ ui.label(_("Brandpunt hoofdbeeld — horizontaal (0–1)"), "ds-focus-x") }}
+          {{ ui.label(_("Links–rechts"), "ds-focus-x") }}
           {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
         <div>
-          {{ ui.label(_("Brandpunt hoofdbeeld — verticaal (0–1)"), "ds-focus-y") }}
+          {{ ui.label(_("Boven–onder"), "ds-focus-y") }}
           {{ ui.input_control("main_focus_y", id="ds-focus-y", type="number", value=main_focus_y, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
         </div>
       </div>
@@ -173,16 +137,24 @@
 
     {# ── AI line drawing ── #}
     <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
-      <h2 class="text-sm font-semibold text-ink">{{ _("Lijntekening laten maken") }}</h2>
+      <h2 class="text-sm font-semibold text-ink">{{ _("Tekening laten maken") }}</h2>
       <p class="text-sm text-ink-soft">{{ ai_budget_line }}</p>
       {% if ai_enabled %}
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="space-y-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="layout" value="{{ layout }}">
-        <div>
-          {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
-          {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
-          <p class="text-xs text-ink-soft mt-1">{{ _("In het Engels werkt het best. De stijl (lijntekening, wit, huisstijl) zit er al bij; je krijgt vier varianten.") }}</p>
+        <div class="grid grid-cols-[1fr_auto] gap-3 items-start">
+          <div>
+            {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
+            {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
+            <p class="text-xs text-ink-soft mt-1">{{ _("In het Engels werkt het best. Witte achtergrond en huisstijl zitten er al bij; je krijgt vier varianten.") }}</p>
+          </div>
+          <div>
+            {{ ui.label(_("Stijl"), "ds-style") }}
+            {% call ui.select_control("style", attrs='id="ds-style"') %}
+              {% for code, label in style_options %}<option value="{{ code }}"{% if code == ai_style %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            {% endcall %}
+          </div>
         </div>
         {{ ui.action_bar(save_label=_("Vier varianten maken")) }}
       </form>
@@ -194,13 +166,24 @@
           {% if g.thumb_url %}<img src="{{ g.thumb_url }}" alt="" class="w-full h-auto rounded-lg">{% endif %}
           <p class="text-xs text-ink-soft mt-1">{{ g.status_label }}</p>
           {% if g.failure_reason %}<p class="text-xs text-ink-soft">{{ g.failure_reason }}</p>{% endif %}
-          {% if g.media_asset_id and g.status in ("fetched", "discarded") %}
+          {% if g.media_asset_id and g.status in ("fetched", "discarded", "picked") %}
           <form method="post" action="/admin/ontwerpen/{{ design_id }}/kies/{{ g.id }}" class="mt-1">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <input type="hidden" name="layout" value="{{ layout }}">
             <input type="hidden" name="slot" value="main_image_id">
             {{ ui.btn_outline(_("Gebruiken"), type="submit", size="sm") }}
           </form>
+          {% if ai_enabled %}
+          <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="mt-2 space-y-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="layout" value="{{ layout }}">
+            <input type="hidden" name="reference_id" value="{{ g.media_asset_id }}">
+            <input type="hidden" name="scene" value="{{ g.scene }}">
+            <input type="hidden" name="style" value="{{ g.style }}">
+            {{ ui.input_control("change", cls="w-full text-xs", placeholder=_("Wat wil je anders? bv. add a dog"), aria_label=_("Wat wil je anders aan dit beeld?")) }}
+            {{ ui.btn_outline(_("Opnieuw op basis van dit beeld"), type="submit", size="sm") }}
+          </form>
+          {% endif %}
           {% endif %}
         </div>
         {% endfor %}

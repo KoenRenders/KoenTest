@@ -126,7 +126,7 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
     """Publiek worden de prijscodes ingevuld vanuit config; de editor (admin)
     krijgt de ruwe codes zodat ze bewerkbaar blijven.
 
-    Sinds golf 11 (migratie 137, #913) bevat de STANDAARD-introtekst geen
+    Sinds golf 11 (migratie 141, #913) bevat de STANDAARD-introtekst geen
     prijscodes meer — het tarief komt uit de betaal-api in de introband. Het
     placeholder-mechanisme zelf blijft bestaan voor redacteurs die de codes
     typen, dus de test zaait zijn eigen tekst mét code in plaats van op de

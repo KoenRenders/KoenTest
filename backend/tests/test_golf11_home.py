@@ -99,7 +99,7 @@ def test_word_lid_heeft_de_begrensde_formulierkolom(client):
     assert 'class="max-w-2xl mx-auto"' in html
 
 
-def test_migratie_137_vervangt_alleen_de_onaangeroerde_intro(db_session):
+def test_migratie_141_vervangt_alleen_de_onaangeroerde_intro(db_session):
     """De datastap ruilt exact de standaardtekst (na 028+132) voor Koens
     bandtekst; een herschreven intro blijft staan, en nul geraakt gaat nooit
     stil als succes door."""
@@ -108,8 +108,8 @@ def test_migratie_137_vervangt_alleen_de_onaangeroerde_intro(db_session):
     import sqlalchemy as sa
 
     pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "137_home_intro_membership_band.py")
-    spec = importlib.util.spec_from_file_location("migratie_137", pad)
+           / "141_home_intro_membership_band.py")
+    spec = importlib.util.spec_from_file_location("migratie_141", pad)
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
 

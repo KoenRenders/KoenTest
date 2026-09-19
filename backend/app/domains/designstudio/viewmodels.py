@@ -63,6 +63,8 @@ class GenerationRow:
     thumb_url: str
     media_asset_id: Optional[int]
     failure_reason: str
+    scene: str
+    style: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -108,17 +110,12 @@ class DesignEditorView(ViewModel):
     preset_options: list[tuple[str, str]]
     duo_code: str
     duo_options: list[tuple[str, str]]
-    title_breaks: str
-    title_override: str
-    show_kicker: bool
     tagline: str
     subtitle: str
-    recurrence_line: str
-    welcome_line: str
-    price_text: str
+    # "Omschrijving anders": the activity's description unless the design
+    # typed its own; `explanation_is_own` says which one the field shows.
     explanation_md: str
-    practical_md: str
-    programme_md: str
+    explanation_is_own: bool
     highlights: list[HighlightRow]
     icon_options: list[tuple[str, str]]
 
@@ -155,6 +152,8 @@ class DesignEditorView(ViewModel):
     ai_budget_line: str
     generations: list[GenerationRow]
     ai_prompt: str
+    ai_style: str
+    style_options: list[tuple[str, str]]
 
     csrf_token: str
     error: Optional[str] = None

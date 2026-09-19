@@ -3,6 +3,20 @@
 {% block title %}{{ letter.subject or _("Nieuwsbrief") }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
 {{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+{# Het activiteitenblok draagt klassen; de mail krijgt de opmaak pas bij het
+   versturen (de ontsmetting bij elke autobewaring gooit `style` weg). Hier
+   dezelfde vorm, zodat de schrijver ziet wat hij verstuurt. #}
+<style>
+  trix-editor .nb-blok { margin: 18px 0; }
+  trix-editor .nb-blok-tabel { border-collapse: collapse; width: 100%; }
+  trix-editor .nb-blok-beeld { vertical-align: top; width: 180px; padding-right: 14px; }
+  trix-editor .nb-blok-foto { display: block; width: 100%; max-width: 180px; height: auto; border-radius: 10px; }
+  trix-editor .nb-blok-tekst { vertical-align: top; }
+  trix-editor .nb-blok-titel { font-size: 20px; font-weight: 700; line-height: 1.3; padding-bottom: 6px; }
+  trix-editor .nb-blok-omschrijving, trix-editor .nb-blok-praktisch { padding-bottom: 6px; }
+  trix-editor .nb-blok-praktisch { color: var(--ink-soft); }
+  trix-editor .nb-blok-actie { font-weight: 700; }
+</style>
 <script>
   // Invoegen op de cursor (#984). Eén keer registreren: onder hx-boost wordt dit
   // blok bij elke navigatie opnieuw uitgevoerd. De server levert het stukje HTML;
@@ -108,6 +122,10 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.btn_secondary(_("Kopiëren"), type="submit") }}
   </form>
+  {# De brief zoals hij aankomt: de markeringen zijn dan blokken. Nieuw tabblad,
+     want dit is de mail zelf en geen beheerscherm. #}
+  {{ ui.btn_secondary(_("Voorbeeld"), href="/admin/nieuwsbrieven/" ~ letter.id ~ "/voorbeeld",
+                      attrs='target="_blank" rel="noopener" data-turbo="false" hx-boost="false"') }}
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.btn_outline(_("Testmail naar mezelf"), type="submit", size="md", lead_icon="mail") }}
@@ -177,6 +195,10 @@
                           attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
       </div>
       <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in een mailprogramma schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
+      {# Koen, 19 september 2026: de editor bewaart geen tabel, dus een activiteit
+         reist als markering en wordt pas bij het versturen een blok. Dat moet op
+         het scherm staan, anders lijkt het een fout. #}
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Een regel als [[activiteit:12|Naam]] wordt bij het versturen een blok met affiche, omschrijving en inschrijflink. Verplaats of verwijder ze gerust; bewerk de tekst ertussen niet.") }}</p>
       <div id="nb-kiezer"></div>
       <div class="mt-3">
         {{ ui.rich_text("body_html", "nb-trix", value=letter.body_html, input_id="nb-inhoud",

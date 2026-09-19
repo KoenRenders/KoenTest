@@ -124,7 +124,8 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
     # De zonder-onderdeel-kaart (#650) verdween in feedbackronde 2 van golf 8:
     # de Inschrijvingen-tab toont die inschrijvingen als groep "Zonder onderdeel",
     # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
-    from app.domains.activities.api import MAX_ORGANISERS, organisers_for
+    from app.domains.activities.api import (MAX_ORGANISERS, board_notes,
+                                            organisers_for)
 
     organisers = organisers_for(db, activiteit.id)
     return {
@@ -136,6 +137,11 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
         "max_organisers": MAX_ORGANISERS,
         "organiser_query": organiser_query,
         "organiser_candidates": organiser_candidates or [],
+        # #1028: de interne nota komt NIET uit `activiteit` — dat is
+        # `ActivityResponse`, en dat schema is óók het publieke JSON-antwoord. Een
+        # veld erbij zou de nota meteen publiek maken. Ze reist apart, en alleen
+        # naar dit scherm.
+        "board_notes": board_notes(db, activiteit.id),
     }
 
 
@@ -305,6 +311,7 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
                                email: str = Depends(require_admin_ui),
                                name: str = Form(""), location: str = Form(""),
                                description: str = Form(""),
+                               board_notes: str = Form(""),
                                poster_url: str = Form(""), slug: str = Form(""),
                                members_only: str = Form(""), is_cancelled: str = Form(""),
                                registration_closes_on: str = Form(""),
@@ -331,6 +338,9 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     # #1016: like the slug, outside `exclude_none` — clearing the description is
     # a valid choice and must reach the column.
     velden["description"] = description.strip() or None
+    # #1028: de interne nota, zelfde behandeling als de omschrijving — leegmaken
+    # is een geldige keuze en moet de kolom bereiken.
+    velden["board_notes"] = board_notes.strip() or None
     # #974: zelfde reden als de slug — leeg is "geen deadline", en dat moet de
     # bestaande kunnen wissen.
     velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
@@ -1278,7 +1288,8 @@ def organisator_bijwerken(activity_id: int, organiser_id: int, request: Request,
                           db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui),
                           is_contact: str = Form(""), email_override: str = Form(""),
-                          mobile_override: str = Form(""), bevestigd: str = Form("")):
+                          mobile_override: str = Form(""), show_email: str = Form(""),
+                          show_mobile: str = Form(""), bevestigd: str = Form("")):
     """Het vinkje en de twee overrides.
 
     Het laatste vinkje weghalen vraagt een bevestiging, en die is een SERVERregel
@@ -1301,7 +1312,10 @@ def organisator_bijwerken(activity_id: int, organiser_id: int, request: Request,
             "en het gsm-nummer van Raak. Bevestig om door te gaan."))
     service.update_organiser(db, activity_id, organiser_id, {
         "is_contact": aan, "email_override": email_override,
-        "mobile_override": mobile_override})
+        "mobile_override": mobile_override,
+        # #1032: een vinkje dat niet meekomt, staat uit. Het formulier stuurt de
+        # drie altijd mee, dus afwezig betekent hier echt "uitgezet".
+        "show_email": bool(show_email), "show_mobile": bool(show_mobile)})
     return _detail_response(request, db, activity_id, toast=True)
 
 

@@ -40,7 +40,10 @@ def _seeded_activity(db):
         name="Buurtfeest",
         location="De Zaal",
         members_only=False,
-        notes="Breng een taart mee.",
+        # #1028: hier stond `notes`, en dat veld ging integraal naar het model —
+        # precies wat deze gate moest vangen en waarvoor de kolom verdwenen is.
+        # De publieke omschrijving is wat de bezoeker wél mag lezen.
+        description="Een feest voor de hele buurt, met taart.",
     )
     db.add(a)
     db.flush()

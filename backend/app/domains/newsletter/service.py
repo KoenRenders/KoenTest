@@ -575,6 +575,11 @@ class ActivityFacts:
     # to link (registration closed, or no participant list).
     register_url: Optional[str] = None
     registrations_url: Optional[str] = None
+    # #1016: the two or three sentences the board wrote about this activity.
+    description: str = ""
+    # #984/#1019: the picture of the block — the poster first, then the album
+    # cover of a past activity. Absolute, because it ends up in a mail.
+    image_url: Optional[str] = None
 
 
 def _activity_key(activity) -> str:
@@ -605,6 +610,22 @@ def _albums(db: Session) -> set[int]:
         return set()
 
 
+def _pictures(db: Session, activity_ids: set[int]) -> dict[int, str]:
+    """The picture per activity, as the media domain chooses it (#984)."""
+    from app.domains.media.api import activity_image_path
+
+    out: dict[int, str] = {}
+    for activity_id in activity_ids:
+        try:
+            path = activity_image_path(db, activity_id)
+        except Exception:  # noqa: BLE001 — a letter without a picture is still a letter
+            logger.exception("Beeld van activiteit %s niet gelezen", activity_id)
+            continue
+        if path:
+            out[activity_id] = path
+    return out
+
+
 def activity_facts(db: Session, activity_ids, *, base_url: str,
                    today: Optional[date] = None) -> dict[int, ActivityFacts]:
     """The facts of these activities, from the activities domain.
@@ -617,6 +638,7 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
     if not wanted:
         return {}
     albums = _albums(db)
+    pictures = _pictures(db, wanted)
     since = (today or date.today()) - timedelta(days=400)
     spans = {span.activity.id: span for span in activities_from(db, since)
              if span.activity.id in wanted}
@@ -666,7 +688,10 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
             end_time=first.end_time if first else None,
             days=tuple((d.start_date, d.end_date or d.start_date) for d in dates),
             register_url=register_url,
-            registrations_url=registrations_url)
+            registrations_url=registrations_url,
+            description=(activity.description or "").strip(),
+            image_url=(f"{base_url}{pictures.get(activity.id)}"
+                       if pictures.get(activity.id) else None))
     return out
 
 
@@ -736,6 +761,134 @@ def activity_line_html(facts: ActivityFacts) -> str:
         if facts.registrations_url:
             parts.append(f'<a href="{esc(facts.registrations_url)}">{esc(_("inschrijvingen"))}</a>')
     return " | ".join(parts)
+
+
+# ── The activity block (Koen, 19 September 2026) ─────────────────────────────
+#
+# Modelled on the newsletter of Raak nationaal: a picture beside a title, two
+# sentences and one clear call to action. It is built here and not typed, so
+# what Raakje inserts and what the button inserts are the same thing.
+#
+# Why CLASSES and not inline styles: the letter is sanitised on every autosave
+# (`_clean_body` → `cms/render.py`), and that sanitiser drops `style`. So the
+# block carries class names, and `render_mail` turns those into inline styles at
+# send time — the one moment the HTML is not edited again.
+BLOCK_STYLES: dict[str, str] = {
+    "nb-blok": "margin:18px 0",
+    "nb-blok-tabel": "border-collapse:collapse;width:100%",
+    "nb-blok-beeld": "vertical-align:top;width:180px;padding:0 14px 0 0",
+    "nb-blok-foto": "display:block;width:100%;max-width:180px;height:auto;border-radius:10px",
+    "nb-blok-tekst": "vertical-align:top",
+    "nb-blok-titel": "font-size:20px;font-weight:700;line-height:1.3;padding-bottom:6px",
+    "nb-blok-omschrijving": "padding-bottom:6px",
+    "nb-blok-praktisch": "color:#52607a;padding-bottom:6px",
+    "nb-blok-actie": "font-weight:700",
+}
+#: On a phone the two columns become two rows. A media query is the only way to
+#: say that in a mail, and it needs a `<style>`; the inline styles above keep the
+#: block readable in a client that drops one (Outlook does).
+BLOCK_MEDIA_CSS = (
+    "@media only screen and (max-width:480px){"
+    ".nb-blok-beeld,.nb-blok-tekst{display:block!important;width:100%!important;"
+    "padding:0 0 10px 0!important}"
+    ".nb-blok-foto{max-width:100%!important}}"
+)
+
+
+def activity_card_html(facts: ActivityFacts) -> str:
+    """What the LETTER carries for an activity: a marker, not the block.
+
+    Measured on 19 September 2026, after Koen saw a picture spill out of a
+    letter: Trix keeps neither a table, nor a class, nor a data attribute. It
+    turns an inserted ``<img>`` into a full-width attachment of its own and
+    glues the text lines together. The only things that survive its document
+    model are text and links — so the reference is TEXT.
+
+    It reads as what it is, and it carries the name so the author can see which
+    activity it is: ``[[activiteit:12|Zo vader zo zoon]]``. The number decides;
+    the name after the bar is there for the eye. ``expand_blocks`` builds the
+    block from the data at the moment of sending, so a letter written weeks ago
+    still leaves with today's hour, place and registration link.
+    """
+    return f"[[activiteit:{facts.id}|{facts.name}]]"
+
+
+#: The marker in a letter. The name behind the bar is decoration: it may hold
+#: anything but a closing bracket, and nothing reads it.
+ACTIVITY_MARKER = re.compile(r"\[\[activiteit:(\d+)(?:\|[^\]]*)?\]\]")
+
+
+def expand_blocks(db: Session, html: str, *, base_url: str) -> str:
+    """Replace every activity marker by its block — the step before sending.
+
+    An activity that no longer exists leaves nothing behind: better a letter
+    without a block than a letter with an empty frame or a raw marker.
+    """
+    ids = [int(m.group(1)) for m in ACTIVITY_MARKER.finditer(html or "")]
+    if not ids:
+        return html or ""
+    facts = activity_facts(db, ids, base_url=base_url)
+
+    def build(match: "re.Match[str]") -> str:
+        fact = facts.get(int(match.group(1)))
+        return activity_block_html(fact) if fact else ""
+
+    return ACTIVITY_MARKER.sub(build, html or "")
+
+
+def activity_block_html(facts: ActivityFacts) -> str:
+    """One activity as a block: picture, title, description, when, and the link.
+
+    Everything that is not there falls away — no picture, no empty column; no
+    description, no empty line; a past activity has nothing to register for.
+    """
+    esc = html_lib.escape
+    rows = [f'<div class="nb-blok-titel"><a href="{esc(facts.url)}">{esc(facts.name)}</a></div>']
+    if facts.description:
+        rows.append(f'<div class="nb-blok-omschrijving">{esc(facts.description)}</div>')
+    when = when_text(facts)
+    if facts.location:
+        when += f" · {facts.location}"
+    if facts.members_only:
+        when += f" · {_('enkel leden')}"
+    rows.append(f'<div class="nb-blok-praktisch">{esc(when)}</div>')
+    action = ""
+    if not facts.is_past:
+        if facts.is_full:
+            action = esc(_("Volzet"))
+        elif facts.register_url:
+            action = f'<a href="{esc(facts.register_url)}">{esc(_("Schrijf je in!"))}</a>'
+    elif facts.photos_url:
+        action = (f'<a href="{esc(facts.photos_url)}">'
+                  f'{esc(_("Bekijk de foto’s"))}</a>')
+    if action:
+        rows.append(f'<div class="nb-blok-actie">{action}</div>')
+    text_cell = f'<td class="nb-blok-tekst">{"".join(rows)}</td>'
+    image_cell = ""
+    if facts.image_url:
+        image_cell = (f'<td class="nb-blok-beeld"><a href="{esc(facts.url)}">'
+                      f'<img class="nb-blok-foto" src="{esc(facts.image_url)}" '
+                      f'alt="{esc(facts.name)}" width="180"></a></td>')
+    return (f'<div class="nb-blok"><table class="nb-blok-tabel"><tr>'
+            f'{image_cell}{text_cell}</tr></table></div>')
+
+
+def with_inline_styles(html: str) -> str:
+    """Give every block class its inline style — the step before sending.
+
+    A mail client is not a browser: it reads `style` on the element and often
+    throws a stylesheet away. The classes stay, so the compose screen can show
+    the same shape.
+    """
+    def replace(match: "re.Match[str]") -> str:
+        names = match.group(1).split()
+        styles = "".join(BLOCK_STYLES.get(name, "") + ";" if BLOCK_STYLES.get(name) else ""
+                         for name in names)
+        if not styles:
+            return match.group(0)
+        return f'class="{match.group(1)}" style="{styles.rstrip(";")}"'
+
+    return re.sub(r'class="([^"]+)"', replace, html or "")
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -860,13 +1013,17 @@ def closing_html(db: Session) -> str:
 
 
 def render_mail(db: Session, letter: Newsletter, *, kind: str,
-                unsubscribe_url: Optional[str], logo_url: Optional[str] = None) -> str:
+                unsubscribe_url: Optional[str], logo_url: Optional[str] = None,
+                base_url: str = "") -> str:
     """The letter as it arrives: a simple frame around the text.
 
     Inline styles only — many mail clients ignore a style block. A member mail
     has no unsubscribe line (CR-05 §3.4); a subscriber mail always has one.
     """
     esc = html_lib.escape
+    # The letter's own origin once it is sent (`link_base`), the caller's while
+    # it is still a draft — the links in a block must be absolute either way.
+    base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
     header = (f'<img src="{esc(logo_url)}" alt="{esc(name)}" style="max-height:56px">'
               if logo_url else
@@ -880,11 +1037,12 @@ def render_mail(db: Session, letter: Newsletter, *, kind: str,
         footer.append(f'<a href="{esc(unsubscribe_url)}" style="color:#52607a">'
                       f'{esc(_("Uitschrijven"))}</a>')
     return (
+        f'<style>{BLOCK_MEDIA_CSS}</style>'
         '<div style="background:#eef3f9;padding:20px 10px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f'{letter.body_html or ""}'
+        f'{with_inline_styles(expand_blocks(db, letter.body_html or "", base_url=base))}'
         '</div>'
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
@@ -940,7 +1098,7 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
             else DELIVERY_MEMBER)
     unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DELIVERY_SUBSCRIBER else None
     body = render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe_url,
-                       logo_url=_logo_url(db, base_url))
+                       logo_url=_logo_url(db, base_url), base_url=base_url)
     return send_campaign_mail(to_email, f"[{_('TEST')}] {letter.subject}", body,
                               email_type="newsletter")
 
