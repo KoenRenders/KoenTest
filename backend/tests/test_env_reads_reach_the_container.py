@@ -44,7 +44,18 @@ Kapotgemaakt om te controleren dat deze poort rood kan worden (gemeten):
 * een module die `PLATFORM_HOSTS` leest én die naam uit
   `docker-compose.hdev.yml` gehaald → rood voor hdev, met dat bestand bij naam.
 
-Bij die laatste meting viel ook op dat `docker-compose.dev.yml` `PLATFORM_HOSTS`
+**Wat deze poort op haar eerste dag ving.** Bij het binnenhalen van master stond
+er `INKSCAPE = os.environ.get("INKSCAPE_BIN", "inkscape")` in
+`designstudio/render.py`: in geen compose-bestand, in geen voorbeeldbestand. Het
+pad naar Inkscape was dus op geen enkele omgeving in te stellen — zit de binary
+elders, dan faalt elke render en is er geen knop om dat recht te zetten. De
+uitkomst was niet "zet hem op de uitzonderingslijst" en ook niet "maak er een
+instelling van", maar: de knop verdween (Koen, 19 september 2026 — de binary zit
+in het image, niemand hoeft ernaast te wijzen). Dat staat hier omdat een poort
+met een echte vangst in haar geschiedenis minder snel wordt uitgezet omdat ze
+zeurt.
+
+Bij de meting hierboven viel ook op dat `docker-compose.dev.yml` `PLATFORM_HOSTS`
 helemaal niet doorgeeft. Vandaag heeft dat geen gevolg — niets leest hem via de
 omgeving, `Settings` valt terug op zijn standaard — maar het is dezelfde vorm
 als #821. Gemeld, niet hier gerepareerd.
