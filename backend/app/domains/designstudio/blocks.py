@@ -149,18 +149,19 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     return "".join(out), y
 
 
-def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
+def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float,
+                *, icon: float = ICON_S, max_size: float = 10.5) -> tuple[str, float]:
     """Always on the poster (Koen, 19 September 2026): "IEDEREEN WELKOM!" —
     or "ENKEL LEDEN" when the activity is members-only."""
     pal = plan.pal
     text = "ENKEL LEDEN" if content.members_only else "IEDEREEN WELKOM!"
-    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=ICON_S)]
-    text_x = x + ICON_S + 5
-    text_w = w - ICON_S - 5
-    size = fit_size(text, text_w, 10.5, 7)
-    out.append(text_el("t-welcome-0", text, text_x, y + 9.5, size, pal["ink"], weight="bold"))
+    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=icon)]
+    text_x = x + icon + 5
+    text_w = w - icon - 5
+    size = fit_size(text, text_w, max_size, 6)
+    out.append(text_el("t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"))
     plan.boxes["t-welcome-0"] = text_w
-    return "".join(out), y + 24
+    return "".join(out), y + icon + 5
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -394,26 +395,40 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         limit -= 22
         p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, 16)
 
-    if layout == "feed_portrait" or content.preset == "eenvoudig":
-        # One picture over the full width, a few highlights under it, welcome,
-        # and (print only) the description under that.
+    if content.preset == "eenvoudig" and layout == "print_a":
+        # Koen, 19 September 2026 (evening): one big picture, then the
+        # activity's text over the full width — no icon rows for date and
+        # place — and a smaller "iedereen welkom" low on the page.
+        y = top_y - 4
+        text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
+        below = text_h + 4 + 16 + 4
+        if content.main_image:
+            avail = limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
+            p.full += frag
+            y += 6
+        if content.explanation_md:
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
+            p.full += frag
+        wy = max(y + 2, limit - 16)
+        frag, wy = welcome_row(p, content, lx, wy, lw, icon=11, max_size=7.5)
+        p.full += frag
+        if wy > limit + 3:
+            p.violations.append(f"Te veel inhoud: {wy - limit:.0f} mm te veel")
+    elif layout == "feed_portrait":
+        # Instagram: title, one picture over the full width, a few highlights.
         y = top_y - 4
         n = min(len(content.highlights), 4)
         rows = (n + 1) // 2
-        with_text = layout == "print_a" and bool(content.explanation_md)
-        below = rows * ROW_H + 24 + 6 + (_richtext_height(content.explanation_md, full_w, 6.6) + 4 if with_text else 0)
+        below = rows * ROW_H + 24 + 6
         if content.main_image:
             avail = limit - y - below
-            cap = 110.0 if layout == "feed_portrait" else 190.0
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(cap, avail)))
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
             p.full += frag
             y += 6
         y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)))
         frag, y = welcome_row(p, content, lx, y, lw)
         p.full += frag
-        if with_text:
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 6.6)
-            p.full += frag
         if y > limit:
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
     else:
