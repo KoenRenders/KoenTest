@@ -308,7 +308,10 @@ def test_activity_detail_marks_empty_fields_as_unspecified(db_session):
     de afwezigheid als feit ziet i.p.v. te verzinnen."""
     a = _activity(db_session, "Kale activiteit", date.today() + timedelta(days=5))
     out = json.loads(execute_tool("get_activity_detail", {"activity_id": a.id}, db_session))
-    assert out["notes"] == "niet vermeld"
+    # #1028: hier stond `notes`. Die kolom is weg — ze heette intern en ging
+    # tegelijk integraal naar het model. De publieke omschrijving nam haar plaats
+    # in het antwoord in.
+    assert out["description"] == "niet vermeld"
     assert out["flyer_text"] == "niet vermeld"
 
 

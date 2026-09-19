@@ -132,7 +132,8 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     slug = Column(String(255), nullable=True, index=True)
     location = Column(String(255), nullable=True)
     # #1016: two or three sentences the visitor reads — on the activity page and
-    # in the newsletter block (#984). Not `notes`: that column is shown nowhere.
+    # in the newsletter block (#984). Since #1028 Raakje reads it too — the
+    # question "what is this about?" used to be answered from the poster text.
     description = Column(Text, nullable=True)
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
@@ -142,7 +143,12 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # decides whether registration is open is `service.registration_state` — this
     # column is only one of its inputs, and nothing else should read it to decide.
     registration_closes_on = Column(Date, nullable=True)
-    notes = Column(Text, nullable=True)
+    # #1028: de interne nota van het bestuur — alleen op het beheerscherm. Hier
+    # stond `notes`, met de opmerking dat die kolom nergens getoond werd; dat
+    # klopte niet (de publieke bot zette hem in `get_activity_detail`), dus ze is
+    # weg en deze begint leeg, onder een naam die niet met de oude te verwarren
+    # is. Wat de bezoeker mag lezen is `description` hierboven.
+    board_notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

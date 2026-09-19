@@ -1379,6 +1379,21 @@ def organisers_for(db, activity_id: int) -> list:
     return gezien
 
 
+def board_notes(db, activity_id: int) -> str:
+    """De interne bestuursnota van één activiteit (#1028), of "".
+
+    Met `db.get` en niet met een query: de recordpagina heeft de rij vlak
+    hiervoor al geladen, dus dit komt uit de identiteitskaart van de sessie en
+    kost geen tweede query — gemeten met het querybudget (#645 D), dat er anders
+    één bijkrijgt voor een veld dat al binnen was.
+
+    Als losse functie en niet als veld op `ActivityResponse`: dat schema is óók
+    het publieke JSON-antwoord, dus een veld erbij is een lek.
+    """
+    rij = db.get(Activity, activity_id)
+    return (rij.board_notes if rij is not None else "") or ""
+
+
 def add_organiser(db, activity_id: int, person_id: int):
     """Add one organiser. Refuses a fourth, and someone who is no member."""
     from app.domains.activities.models import ActivityOrganiser
