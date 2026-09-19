@@ -900,14 +900,37 @@ def photos_line_html(facts: ActivityFacts) -> str:
             f'{esc(_("Bekijk de foto’s van %(naam)s") % {"naam": facts.name})}</a>')
 
 
-def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -> str:
-    """"Kalender invoegen": the activities of the coming weeks, one line each,
-    in the same format as "Activiteit invoegen"."""
+def calendar_default_ids(db: Session, *, today: Optional[date] = None) -> list[int]:
+    """What the calendar proposes: the coming weeks, soonest first (#984).
+
+    A separate function because the picker ticks exactly these boxes and the
+    insert uses exactly this list — two places that must not drift apart.
+    """
     from app.domains.activities.api import activities_from
 
     start = today or date.today()
     until = start + timedelta(weeks=CALENDAR_WEEKS)
-    spans = [s for s in activities_from(db, start) if s.start <= until]
+    return [s.activity.id for s in activities_from(db, start) if s.start <= until]
+
+
+def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None,
+                  activity_ids: Optional[list[int]] = None) -> str:
+    """"Kalender invoegen": one compact line per activity, soonest first.
+
+    Without a choice it is the coming weeks; with one (Koen, 19 September 2026)
+    exactly the activities the author ticked — so an extra activity further
+    ahead can join, and one that does not belong in this letter can stay out.
+    """
+    from app.domains.activities.api import activities_from
+
+    start = today or date.today()
+    if activity_ids is not None:
+        wanted = {int(i) for i in activity_ids}
+        spans = [s for s in activities_from(db, start - timedelta(days=400))
+                 if s.activity.id in wanted]
+    else:
+        until = start + timedelta(weeks=CALENDAR_WEEKS)
+        spans = [s for s in activities_from(db, start) if s.start <= until]
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)

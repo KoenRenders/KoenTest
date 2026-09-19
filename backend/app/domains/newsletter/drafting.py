@@ -72,6 +72,10 @@ MAX_TOOL_ROUNDS = 3
 SCAN_PROMPT_NAMES = False
 
 _MARKER = re.compile(r"\[\[(activiteit|fotos|naam):(\d+)\]\]")
+#: Markers without a number (Koen, 19 September 2026: "Raakje zou alles moeten
+#: kunnen"). The portal fills them in the same way the buttons do — except an
+#: attachment, which is a file the author uploads and Raakje cannot know.
+_PLAIN_MARKER = re.compile(r"\[\[(kalender|afsluiting)\]\]")
 # The blank line between blocks, the way Trix writes one.
 BLANK = "<div><br></div>"
 _NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
@@ -285,7 +289,8 @@ VASTE REGELS
 - Noem nooit personen en bedank nooit individuele organisatoren of vrijwilligers. [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Geef niemand een functie of rol die niet letterlijk in een bron staat.
 - Verzin geen programma-onderdelen, spelletjes, gerechten, prijzen of aantallen. Een bedrag noem je alleen zoals het in de activiteitgegevens staat.
-- Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij.
+- Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij. Vraagt de auteur uitdrukkelijk om de afsluiting, zet dan [[afsluiting]] op een eigen regel.
+- Vraagt de auteur een kalender of een overzicht van de komende activiteiten, zet dan [[kalender]] op een eigen regel: het portaal zet er één compacte regel per activiteit, met datum, plaats en inschrijflink. Schrijf die regels nooit zelf.
 - Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje: een regel die begint met "# ". Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel. Vet schrijf je als **zo**.
 - Een volledige brief heeft deze volgorde: eerst een TERUGBLIK op de voorbije activiteiten, dan een VOORUITBLIK op de activiteiten die nog komen. Een voorbije activiteit noem je met [[naam:ID]] en, als er een album is, [[fotos:ID]]; nooit met [[activiteit:ID]], want inschrijven kan niet meer. Een activiteit die nog komt krijgt [[activiteit:ID]].
 - De vergaderverslagen zijn INTERN. Neem er alleen uit over wat een lezer aanbelangt: wat goed ging, waar mensen van genoten, een verbetering tegenover vorig jaar. Nooit geld, discussies, taken, problemen tussen mensen of wat nog beslist moet worden. Wat je eruit overneemt, hoort in de terugblik bij de activiteit waarover het gaat.
@@ -355,7 +360,8 @@ def _inline(text: str) -> str:
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
 
 
-def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
+def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] = None,
+                    base_url: str = "") -> str:
     """Model text → editor HTML, with every marker filled in by the server.
 
     A heading starts a new topic and gets a blank line above it, except at the
@@ -366,6 +372,15 @@ def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
     for line in (text or "").splitlines():
         line = line.strip()
         if not line:
+            continue
+        plain = _PLAIN_MARKER.fullmatch(line)
+        if plain and db is not None:
+            if plain.group(1) == "kalender":
+                blocks.append(nb.calendar_html(db, base_url=base_url))
+            else:
+                blocks.append(nb.closing_html(db))
+            continue
+        if plain:
             continue
         marker = _MARKER.fullmatch(line)
         if marker:
@@ -436,7 +451,7 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
                         names: set[str]) -> list[dict[str, str]]:
     """Layer 3: numbers, amounts, function words and names, without a model."""
     marks: list[dict[str, str]] = []
-    prose = _MARKER.sub(" ", text or "")
+    prose = _PLAIN_MARKER.sub(" ", _MARKER.sub(" ", text or ""))
     fact_text = sources.fact_text().lower()
     fact_numbers = set(_NUMBER.findall(fact_text))
 
@@ -639,7 +654,7 @@ def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
     prices = {p for f in facts.values() for p in f.prices}
     raw_marks: list[dict[str, Any]] = [
         {**mark, "index": 0} for mark in deterministic_marks(text, sources, prices, names)]
-    ops[0]["html"] = _paragraph_html(text, facts)
+    ops[0]["html"] = _paragraph_html(text, facts, db=db, base_url=base_url)
     subject = data.get("subject") if mode == MODE_LETTER else None
     return {"kind": mode,
             "subject": scrub(str(subject), names).strip()[:500] if subject else None,
@@ -753,7 +768,8 @@ def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
                        if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
-    html = _paragraph_html(_without(operation.get("text") or "", drop), facts)
+    html = _paragraph_html(_without(operation.get("text") or "", drop), facts,
+                           db=db, base_url=base_url)
     kind = proposal.get("kind")
 
     if kind == MODE_LETTER and placement != "cursor":

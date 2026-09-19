@@ -22,6 +22,20 @@
   // blok bij elke navigatie opnieuw uitgevoerd. De server levert het stukje HTML;
   // de browser weet niets van activiteiten — datum, uur en link komen uit
   // dezelfde bron als de agenda.
+  // De kalender voegt de AANGEVINKTE activiteiten in (Koen, 19 september 2026).
+  // De keuze staat in het scherm; de regels komen van de server, zodat datum,
+  // uur en link uit dezelfde bron komen als de agenda.
+  if (!window.nbKalender) {
+    window.nbKalender = function (knop, url) {
+      var doos = knop.closest(".rounded-xl");
+      var ids = Array.prototype.slice
+        .call(doos.querySelectorAll(".nb-kal-vinkje:checked"))
+        .map(function (v) { return v.value; });
+      if (!ids.length) { return; }
+      window.nbInvoegen(url + "?ids=" + ids.join(","));
+      doos.remove();
+    };
+  }
   if (!window.nbInvoegen) {
     window.nbInvoegen = function (url) {
       fetch(url, { credentials: "same-origin" })
@@ -183,7 +197,7 @@
         {{ ui.btn_outline(_("Activiteit invoegen"), lead_icon="plus",
                           attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
         {{ ui.btn_outline(_("Kalender invoegen"), lead_icon="calendar",
-                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
+                          attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten?purpose=calendar" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
         {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de
            brief vertrekt als aparte mail naar honderden adressen. #}
         <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"

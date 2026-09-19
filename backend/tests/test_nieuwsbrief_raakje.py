@@ -685,3 +685,36 @@ def test_de_nieuwste_beurt_staat_bovenaan(client, db_session, monkeypatch, raakj
     assert html.index("Vraag twee") < html.index("Antwoord twee") < html.index("Vraag een") \
         < html.index("Antwoord een")
     assert html.index("Gesprek met Raakje") < html.index("Vraag twee")
+
+
+# ── Raakje kan alles wat de knoppen kunnen (Koen, 19 September 2026) ─────────
+
+def test_raakje_zet_de_kalender_en_de_afsluiting(db_session, raakje):
+    """"Raakje zou alles moeten kunnen (muv bijlagen invoegen)." De markeringen
+    zonder nummer worden door het portaal gevuld, net als de knoppen.
+
+    Broken on purpose: `_PLAIN_MARKER` niet meer herkend in `_paragraph_html` →
+    de kalenderregel en de afsluiting verdwijnen en deze test faalt.
+    """
+    fuif = _activity(db_session, "Herfstfuif", days_ahead=14)
+    letter = _letter(db_session, activity_ids=[fuif.id])
+    raakje(_draft(["# Wat komt er aan", "[[kalender]]", "[[afsluiting]]"]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    html = turn.proposal["operations"][0]["html"]
+    assert "Herfstfuif" in html, "de kalender staat er als compacte regel"
+    assert "[[kalender]]" not in html and "[[afsluiting]]" not in html
+    assert "Tot binnenkort!" in html
+
+
+def test_een_markering_zonder_nummer_wordt_niet_als_verzonnen_gemarkeerd(db_session, raakje):
+    """Een markering is geen proza: ze mag de feitencontrole niet triggeren."""
+    fuif = _activity(db_session, "Herfstfuif", days_ahead=14)
+    letter = _letter(db_session, activity_ids=[fuif.id])
+    raakje(_draft(["# Wat komt er aan", "[[kalender]]"]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    quotes = [m["quote"] for m in turn.proposal["marks"]]
+    assert not [q for q in quotes if "kalender" in q]
