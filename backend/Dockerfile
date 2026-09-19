@@ -9,8 +9,13 @@ WORKDIR /app
 # libcairo2 (#989): CairoSVG renders the PNG version of an SVG logo for e-mail.
 # Measured: WeasyPrint 70 no longer uses Cairo, and the Pango packages do not
 # bring it along — Koen chose to add it (17 September 2026).
+#
+# Inkscape (#1007, CR-10): renders the poster SVGs to PDF and PNG as a
+# subprocess, without network. The poster fonts ship in app/static/fonts; the
+# renderer hands Inkscape a fontconfig that adds that directory, so nothing
+# has to be installed here (designstudio/render.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libcairo2 \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libcairo2 inkscape \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

@@ -63,6 +63,17 @@ class Settings(BaseSettings):
     admin_chat_model: str = "mistral-medium-latest"
     admin_chat_daily_char_budget: int = 40000
     admin_chat_max_tool_rounds: int = 6
+
+    # Design Studio (CR-10, #1007): AI illustrations via Black Forest Labs.
+    # `designstudio_ai_images_enabled` is the kill switch — default OFF, so the
+    # code ships without spending anything; on HDEV it goes on for validation.
+    # The key is a secret per host; the budgets are EUR per calendar month for
+    # one unit and for the whole platform; the rate converts BFL's USD prices.
+    bfl_api_key: Optional[str] = None
+    designstudio_ai_images_enabled: bool = False
+    designstudio_ai_monthly_budget_eur: float = 50.0
+    designstudio_ai_platform_budget_eur: float = 150.0
+    bfl_usd_eur_rate: float = 0.92
     # Rijen per tool-resultaat. Meer dan dit leest geen model en betaalt niemand
     # graag; wie afgekapt wordt, krijgt dat te zien in het resultaat zelf.
     admin_chat_max_rows: int = 50

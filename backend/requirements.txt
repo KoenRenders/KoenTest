@@ -43,3 +43,11 @@ cryptography==50.0.1  # per-tenant secrets versleuteld (Fernet, #406)
 Babel==2.18.0  # taalcatalogus nl_BE (#407-T)
 nh3==0.3.6  # HTML-sanitisatie van CMS-inhoud bij render (stored-XSS-guard, #476)
 markdown-it-py==4.2.0  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566; CommonMark sinds #790 — python-markdown eiste vier spaties voor een geneste lijst, modellen schrijven er twee)
+
+# Design Studio (CR-10, #1007). fontTools measures text with the font's own
+# metrics so the overflow check and the preview agree with Inkscape (iteration
+# 16: the estimate lies 0.3–3.4 % above the ink width). segno draws the QR codes
+# (BSD, pure Python, no dependencies). Inkscape itself is an apt package in the
+# Dockerfile, not a pip package.
+fonttools==4.60.2
+segno==1.6.6

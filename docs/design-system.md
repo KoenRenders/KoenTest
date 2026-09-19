@@ -236,6 +236,19 @@ a choice but a remnant from before the helper; the gate rejects them.
 `ui.icon()` fails silently on an unknown name (empty SVG), so the gate asserts
 the rendered `<path>`, not the macro call.
 
+### 1.5 Print and social — the Design Studio (CR-10, #1007)
+
+Posters and Instagram images are made in `/admin/ontwerpen`, not by hand. The
+house style there is the **style guide's**, not the site's: the eight brand
+colours by name (`designstudio/brand.py` is the only place with the hex
+values), the twelve permitted duos with three enabled, at most five brand
+colours per template, Radio Canada Big for everything on paper (no Inter — the
+readability deviation is a screen decision) and Caveat for the one handwritten
+line. A template is an SVG rendered by Inkscape; its colours are checked by a
+gate (`brand.check_template`) and the rendered poster passes the same gate by
+test. The site's tokens above do not apply to a poster and the poster's rules
+do not apply to a screen.
+
 ## 2. Components
 
 Each component is built once, has a macro name, and is identical everywhere.

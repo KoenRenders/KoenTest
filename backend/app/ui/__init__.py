@@ -348,6 +348,8 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ("Communicatie", [
         ("/admin/vergaderingen", "Vergaderingen"),
         ("/admin/nieuwsbrieven", "Nieuwsbrief"),
+        # Design Studio (#1007, CR-10): affiches en sociale beelden uit een activiteit.
+        ("/admin/ontwerpen", "Design Studio"),
     ]),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
     # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.

@@ -1,0 +1,294 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Ontwerp") }} — {{ activity_name }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{# The editor: form left, preview right. Every button posts a plain form —
+   the screen decides nothing that the service does not also enforce. #}
+{% call ui.page_header(activity_name, _("De feiten (titel, data, plaats, contact) komen van de activiteit. Hier kies je beeld, kleur en ontwerptekst.")) %}
+    {{ ui.badge(status_label, status_tone) }}
+    {{ ui.btn_secondary(_("Activiteit"), href=facts_href, size="sm") }}
+    {{ ui.btn_secondary(_("Alle ontwerpen"), href="/admin/ontwerpen", size="sm") }}
+  {% endcall %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
+
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+  <div class="lg:col-span-3 space-y-6">
+
+    {# ── Facts ── #}
+    <section class="bg-surface border border-line rounded-2xl p-5">
+      <h2 class="text-sm font-semibold text-ink mb-2">{{ _("Uit de activiteit") }}</h2>
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {% for label, value in facts %}
+        <dt class="text-ink-soft">{{ label }}</dt><dd class="text-ink">{{ value }}</dd>
+        {% endfor %}
+      </dl>
+      <p class="text-xs text-ink-soft mt-2">{{ _("Aanpassen doe je op de activiteit; het ontwerp volgt.") }}</p>
+    </section>
+
+    {# ── Design text ── #}
+    <form method="post" action="/admin/ontwerpen/{{ design_id }}" class="bg-surface border border-line rounded-2xl p-5 space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="layout" value="{{ layout }}">
+      <h2 class="text-sm font-semibold text-ink">{{ _("Ontwerp") }}</h2>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Kleurenduo"), "ds-duo") }}
+          {% call ui.select_control("duo_code", cls="w-full", attrs='id="ds-duo"') %}
+            {% for code, label in duo_options %}<option value="{{ code }}"{% if code == duo_code %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% endcall %}
+        </div>
+        <div>
+          {{ ui.label(_("Opmaak"), "ds-preset") }}
+          {% call ui.select_control("preset", cls="w-full", attrs='id="ds-preset"') %}
+            {% for code, label in preset_options %}<option value="{{ code }}"{% if code == preset %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% endcall %}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Titel anders"), "ds-title-override") }}
+          {{ ui.input_control("title_override", id="ds-title-override", value=title_override, cls="w-full", placeholder=_("leeg = titel van de activiteit")) }}
+        </div>
+        <div>
+          {{ ui.label(_("Regelafbreking"), "ds-title-breaks") }}
+          {{ ui.input_control("title_breaks", id="ds-title-breaks", value=title_breaks, cls="w-full", placeholder=_("bv. STAPPEN / KLAPPEN")) }}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Balk onder de titel"), "ds-subtitle") }}
+          {{ ui.input_control("subtitle", id="ds-subtitle", value=subtitle, cls="w-full", placeholder=_("bv. SAMEN WANDELEN")) }}
+        </div>
+        <div>
+          {{ ui.label(_("Handgeschreven lijn"), "ds-tagline") }}
+          {{ ui.input_control("tagline", id="ds-tagline", value=tagline, cls="w-full", placeholder=_("bv. Zet het in je agenda!")) }}
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Herhaling"), "ds-recurrence") }}
+          {{ ui.input_control("recurrence_line", id="ds-recurrence", value=recurrence_line, cls="w-full", placeholder=_("bv. iedere 2de maandag van de maand")) }}
+        </div>
+        <div>
+          {{ ui.label(_("Prijs"), "ds-price") }}
+          {{ ui.input_control("price_text", id="ds-price", value=price_text, cls="w-full", placeholder=_("bv. Gratis · drankje € 1")) }}
+        </div>
+      </div>
+      <div>
+        {{ ui.label(_("Iedereen welkom — toelichting"), "ds-welcome") }}
+        {{ ui.input_control("welcome_line", id="ds-welcome", value=welcome_line, cls="w-full", placeholder=_("bv. ook als je (nog) geen lid bent")) }}
+      </div>
+      <label class="flex items-center gap-2 text-sm text-ink">
+        <input type="checkbox" name="show_kicker" value="1"{% if show_kicker %} checked{% endif %}>
+        {{ _("Naam van de vereniging rechtsboven") }}
+      </label>
+
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s; datum en plaats komen er vanzelf bij", n=highlights|length) }})</span></h3>
+      <div class="space-y-2">
+        {% for hl in highlights %}
+        {% set i = loop.index0 %}
+        <div class="grid grid-cols-[9rem_1fr_auto] gap-2 items-center">
+          {% call ui.select_control("hl_icon_" ~ i, cls="w-full", aria_label=_("Icoon")) %}
+            {% for code, label in icon_options %}<option value="{{ code }}"{% if code == hl.icon %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% endcall %}
+          {{ ui.input_control("hl_text_" ~ i, value=hl.text, cls="w-full", aria_label=_("Tekst van het kernpunt")) }}
+          <label class="flex items-center gap-1 text-xs text-ink-soft"><input type="checkbox" name="hl_emphasis_{{ i }}" value="1"{% if hl.emphasis %} checked{% endif %}> {{ _("vet") }}</label>
+        </div>
+        {% endfor %}
+      </div>
+
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Tekstblokken") }} <span class="font-normal text-ink-soft">({{ _("alinea's, **vet** en - opsommingen") }})</span></h3>
+      <div>
+        {{ ui.label(_("Toelichting"), "ds-explanation") }}
+        {{ ui.textarea_control("explanation_md", id="ds-explanation", value=explanation_md, rows=4, cls="w-full") }}
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Praktisch"), "ds-practical") }}
+          {{ ui.textarea_control("practical_md", id="ds-practical", value=practical_md, rows=4, cls="w-full") }}
+        </div>
+        <div>
+          {{ ui.label(_("Programma"), "ds-programme") }}
+          {{ ui.textarea_control("programme_md", id="ds-programme", value=programme_md, rows=4, cls="w-full") }}
+        </div>
+      </div>
+
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Beelden") }}</h3>
+      <div class="grid grid-cols-3 gap-3">
+        {% for slot, label, current in (("main_image_id", _("Hoofdbeeld"), main_image_id), ("inset_image_id", _("Polaroid"), inset_image_id), ("third_image_id", _("Derde beeld"), third_image_id)) %}
+        <div>
+          {{ ui.label(label, "ds-" ~ slot) }}
+          {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
+            <option value="">{{ _("— geen —") }}</option>
+            {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }} ({{ opt.source }})</option>{% endfor %}
+          {% endcall %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          {{ ui.label(_("Brandpunt hoofdbeeld — horizontaal (0–1)"), "ds-focus-x") }}
+          {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
+        </div>
+        <div>
+          {{ ui.label(_("Brandpunt hoofdbeeld — verticaal (0–1)"), "ds-focus-y") }}
+          {{ ui.input_control("main_focus_y", id="ds-focus-y", type="number", value=main_focus_y, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
+        </div>
+      </div>
+      {% if logo_options %}
+      <div>
+        <p class="text-sm font-medium text-ink mb-1">{{ _("Logostrook") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste twee") }})</span></p>
+        <div class="flex flex-wrap gap-3">
+          {% for opt in logo_options %}
+          <label class="flex items-center gap-2 text-sm text-ink">
+            <input type="checkbox" name="logo_ids" value="{{ opt.id }}"{% if opt.id in logo_ids %} checked{% endif %}>
+            <img src="{{ opt.thumb_url }}" alt="" class="h-6 w-auto"> {{ opt.label }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {{ ui.action_bar(save_label=_("Bewaren en voorbeeld vernieuwen")) }}
+    </form>
+
+    {# ── Upload a photo ── #}
+    <form method="post" action="/admin/ontwerpen/{{ design_id }}/afbeelding" enctype="multipart/form-data" class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="layout" value="{{ layout }}">
+      <h2 class="text-sm font-semibold text-ink">{{ _("Foto toevoegen") }}</h2>
+      <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
+        {{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}
+        <div>
+          {{ ui.label(_("Plaats"), "ds-upload-slot") }}
+          {% call ui.select_control("slot", attrs='id="ds-upload-slot"') %}
+            <option value="main_image_id">{{ _("Hoofdbeeld") }}</option>
+            <option value="inset_image_id">{{ _("Polaroid") }}</option>
+            <option value="third_image_id">{{ _("Derde beeld") }}</option>
+          {% endcall %}
+        </div>
+      </div>
+      {{ ui.action_bar(save_label=_("Uploaden")) }}
+    </form>
+
+    {# ── AI line drawing ── #}
+    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+      <h2 class="text-sm font-semibold text-ink">{{ _("Lijntekening laten maken") }}</h2>
+      <p class="text-sm text-ink-soft">{{ ai_budget_line }}</p>
+      {% if ai_enabled %}
+      <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="layout" value="{{ layout }}">
+        <div>
+          {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
+          {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
+          <p class="text-xs text-ink-soft mt-1">{{ _("In het Engels werkt het best. De stijl (lijntekening, wit, huisstijl) zit er al bij; je krijgt vier varianten.") }}</p>
+        </div>
+        {{ ui.action_bar(save_label=_("Vier varianten maken")) }}
+      </form>
+      {% endif %}
+      {% if generations %}
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {% for g in generations %}
+        <div class="rounded-xl border border-line p-2 text-center">
+          {% if g.thumb_url %}<img src="{{ g.thumb_url }}" alt="" class="w-full h-auto rounded-lg">{% endif %}
+          <p class="text-xs text-ink-soft mt-1">{{ g.status_label }}</p>
+          {% if g.failure_reason %}<p class="text-xs text-ink-soft">{{ g.failure_reason }}</p>{% endif %}
+          {% if g.media_asset_id and g.status in ("fetched", "discarded") %}
+          <form method="post" action="/admin/ontwerpen/{{ design_id }}/kies/{{ g.id }}" class="mt-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="layout" value="{{ layout }}">
+            <input type="hidden" name="slot" value="main_image_id">
+            {{ ui.btn_outline(_("Gebruiken"), type="submit", size="sm") }}
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    {# ── Versions and publishing ── #}
+    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+      <h2 class="text-sm font-semibold text-ink">{{ _("Versies") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s bewaard", n=max_versions) }})</span></h2>
+      <form method="post" action="/admin/ontwerpen/{{ design_id }}/definitief">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="layout" value="{{ layout }}">
+        {{ ui.btn_primary(_("Definitief maken"), type="submit", size="sm") }}
+        <span class="text-xs text-ink-soft ml-2">{{ _("Rendert print (A3 en A4, pdf en png) en Instagram (png), alles of niets.") }}</span>
+      </form>
+      {% if versions %}
+      <div class="space-y-2">
+        {% for v in versions %}
+        <div class="rounded-xl border border-line p-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-ink">{{ _("Versie %(n)s", n=v.number) }}</span>
+            <span class="text-sm text-ink-soft">{{ v.created }}</span>
+            {% if v.published %}{{ ui.badge(_("Gepubliceerd als affiche"), "blue") }}{% endif %}
+            {% if v.stale %}{{ ui.badge(_("Verouderd — feiten gewijzigd"), "red") }}{% endif %}
+            {% if not v.published %}
+            <form method="post" action="/admin/ontwerpen/{{ design_id }}/publiceer" class="ml-auto">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="layout" value="{{ layout }}">
+              <input type="hidden" name="version_id" value="{{ v.id }}">
+              {{ ui.btn_outline(_("Publiceren als affiche"), type="submit", size="sm", confirm=_("De huidige affiche van de activiteit wordt vervangen door de A3-pdf van deze versie. Doorgaan?")) }}
+            </form>
+            {% endif %}
+          </div>
+          <div class="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+            {% for f in v.files %}<a href="{{ f.url }}" class="text-sm text-link underline" target="_blank" rel="noopener">{{ f.label }}</a>{% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+
+    {# ── SVG round trip ── #}
+    <section class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+      <h2 class="text-sm font-semibold text-ink">{{ _("Zelf bewerken in Inkscape") }}</h2>
+      <p class="text-sm text-ink-soft">{{ _("Download het SVG, werk het bij in Inkscape en laad het terug op. Dan telt jouw bestand voor deze opmaak, tot je het weer weghaalt.") }}</p>
+      <div class="flex flex-wrap gap-2">
+        {% for code, label in layout_options %}
+          {{ ui.btn_secondary(_("Download %(l)s", l=label), href="/admin/ontwerpen/" ~ design_id ~ "/svg/" ~ code, size="sm") }}
+        {% endfor %}
+      </div>
+      <p class="text-xs text-ink-soft">{{ _("Lettertypes voor op je computer:") }}
+        {% for name, href in font_links %}<a href="{{ href }}" class="underline text-link">{{ name }}</a>{% if not loop.last %} · {% endif %}{% endfor %}
+      </p>
+      <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="space-y-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
+          {{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}
+          <div>
+            {{ ui.label(_("Voor opmaak"), "ds-svg-layout") }}
+            {% call ui.select_control("layout", attrs='id="ds-svg-layout"') %}
+              {% for code, label in layout_options %}<option value="{{ code }}"{% if code == layout %} selected{% endif %}>{{ label }}</option>{% endfor %}
+            {% endcall %}
+          </div>
+        </div>
+        {{ ui.action_bar(save_label=_("SVG opladen")) }}
+      </form>
+      {% if edited_layouts %}
+      <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg/verwijderen" class="flex items-center gap-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="layout" value="{{ layout }}">
+        <span class="text-sm text-ink-soft">{{ _("Handmatig bewerkt: %(l)s", l=edited_layouts|join(", ")) }}</span>
+        {{ ui.btn_danger(_("Bewerkt SVG weghalen"), type="submit", size="sm") }}
+      </form>
+      {% endif %}
+    </section>
+
+    <form method="post" action="/admin/ontwerpen/{{ design_id }}/verwijderen">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ ui.btn_danger(_("Ontwerp verwijderen"), type="submit", size="sm", confirm=confirm_attrs("ontwerp", activity_name)) }}
+    </form>
+  </div>
+
+  <div class="lg:col-span-2">
+    <div id="ds-voorbeeld" class="lg:sticky lg:top-4">
+      {% include "_ds_voorbeeld.html" %}
+    </div>
+  </div>
+</div>
+{% endblock %}
