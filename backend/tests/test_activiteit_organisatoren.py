@@ -239,3 +239,145 @@ def test_the_public_activity_page_shows_nothing_of_this(client, db_session, acti
     for geheim in ("Zwaluwke", "Kontaktnaam", "kontakt-1004@example.org",
                    "0470 12 34 56", "organisator"):
         assert geheim.lower() not in html.lower(), geheim
+
+
+# ── Wat er van een contactpersoon op de affiche komt (#1032) ─────────────────
+#
+# Een lege override betekent "neem de ledenwaarde", niet "toon niets". Wie wel
+# bereikbaar wil zijn op gsm maar zijn privé-adres niet op een publiek affiche
+# wil, had geen uitweg. Twee vlaggen dus, standaard AAN: er verandert niets aan
+# wat er vandaag gedrukt wordt, en weglaten is een bewuste handeling.
+#
+# Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten): de
+# twee regels in `organisers_for` omgedraaid — eerst de vlag, dan de override —
+# → twee tests vallen om: `test_an_override_does_not_leak_when_the_tick_is_off`
+# (de ingevulde override komt er alsnog uit, exact het lek dat dit issue
+# voorkomt) en `test_an_override_wins_and_clearing_it_gives_the_member_value_back`
+# van #1004, want met die volgorde wint de ledenwaarde van de override.
+
+def _contactpersoon(db, activiteit, **velden):
+    person = _persoon(db, "Els", "Bereikbaar",
+                      email="els@example.org", gsm="0470 00 00 00")
+    rij = add_organiser(db, activiteit.id, person.id)
+    update_organiser(db, activiteit.id, rij.id, {"is_contact": True, **velden})
+    return organisers_for(db, activiteit.id)[0]
+
+
+def test_by_default_both_details_go_on_the_poster(db_session, activiteit):
+    zicht = _contactpersoon(db_session, activiteit)
+
+    assert (zicht.show_email, zicht.show_mobile) == (True, True)
+    assert (zicht.email, zicht.mobile) == ("els@example.org", "0470 00 00 00")
+
+
+def test_a_tick_off_keeps_that_detail_off_the_poster(db_session, activiteit):
+    zicht = _contactpersoon(db_session, activiteit, show_email=False)
+
+    assert zicht.email == "", "het e-mailadres staat toch op de affiche"
+    assert zicht.mobile == "0470 00 00 00", "het gsm-nummer hoort er wél op"
+    assert zicht.show_email is False
+
+
+def test_an_override_does_not_leak_when_the_tick_is_off(db_session, activiteit):
+    """De volgorde is de regel: eerst de override, dan pas het vinkje.
+
+    Andersom zou een ingevulde override er alsnog doorkomen — en dan is het
+    vinkje een knop die niets doet zodra je een ander adres invult.
+    """
+    zicht = _contactpersoon(db_session, activiteit,
+                            email_override="quiz@example.org", show_email=False)
+
+    assert zicht.email == "", "de override lekte langs het uitgezette vinkje"
+    assert zicht.email_override == "quiz@example.org", (
+        "de ingevulde waarde blijft bewaard — ze wordt alleen niet getoond")
+
+
+def test_the_screen_shows_the_two_ticks_and_saves_them(client, db_session, activiteit):
+    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
+    rij = add_organiser(db_session, activiteit.id, person.id)
+    csrf = _login(client)
+
+    html = client.get(f"/admin/activiteiten/{activiteit.id}").text
+    assert "e-mailadres op de affiche" in html and "gsm-nummer op de affiche" in html
+
+    # Zoals het scherm post: aangevinkt komt mee, uitgevinkt komt níet mee.
+    resp = client.post(
+        f"/admin/activiteiten/{activiteit.id}/organisatoren/{rij.id}",
+        data={"is_contact": "1", "email_override": "", "mobile_override": "",
+              "show_mobile": "1", "bevestigd": "1"},
+        headers={"X-CSRF-Token": csrf})
+
+    assert resp.status_code == 200
+    db_session.expire_all()
+    [zicht] = organisers_for(db_session, activiteit.id)
+    assert (zicht.show_email, zicht.show_mobile) == (False, True)
+    assert zicht.email == "" and zicht.is_contact is True
+
+
+def test_who_is_no_contact_person_shows_nothing_anyway(db_session, activiteit):
+    """De vlaggen zijn alleen zinvol bij een contactpersoon — het scherm toont ze
+    daar dan ook naar. Wie niet aangevinkt staat, komt sowieso niet op de affiche."""
+    person = _persoon(db_session, "Jan", "Drager", email="jan@example.org")
+    add_organiser(db_session, activiteit.id, person.id)
+
+    [zicht] = organisers_for(db_session, activiteit.id)
+    assert zicht.is_contact is False
+    assert (zicht.show_email, zicht.show_mobile) == (True, True), (
+        "de vlaggen staan standaard aan; het vinkje 'contactpersoon' beslist eerst")
+
+
+# ── Lees- en bewerkmodus (#1033) ────────────────────────────────────────────
+#
+# Twee bevindingen van Koen op ditzelfde blok. "Bewaren" leek niets te doen: het
+# blok had geen lees/bewerk-modus, dus het bleef open en de POST hertekende
+# dezelfde velden — het scherm zag er identiek uit. De kaart erboven klapt wél
+# dicht, en twee blokken op één scherm die anders reageren op dezelfde handeling
+# is een inconsistentie, geen smaakkwestie. En de rij sprong: alles in één
+# `flex-wrap` breekt per schermbreedte én per naamlengte ergens anders.
+#
+# Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
+# `x-show="edit"` en de `style="display: none"` van de bewerkvorm weggehaald →
+# beide tests hieronder vallen om, want dan staat de vorm meteen open.
+
+def _rij_html(client, activiteit) -> str:
+    return client.get(f"/admin/activiteiten/{activiteit.id}").text
+
+
+def test_de_leesregel_toont_geen_invoervelden(client, db_session, activiteit):
+    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
+    rij = add_organiser(db_session, activiteit.id, person.id)
+    update_organiser(db_session, activiteit.id, rij.id, {"is_contact": True})
+    _login(client)
+
+    html = _rij_html(client, activiteit)
+
+    assert "Els Bereikbaar" in html and "contactpersoon" in html
+    assert "els@example.org" in html, "de leesregel zegt wat er op de affiche komt"
+    # De invoervelden bestaan wel in de DOM, maar in een blok dat dicht begint.
+    vorm = html.split('hx-post="/admin/activiteiten/%d/organisatoren/%d"'
+                      % (activiteit.id, rij.id))[0]
+    assert 'x-show="edit" style="display: none"' in html, (
+        "de bewerkvorm begint niet dicht; dan verandert er niets zichtbaar na "
+        "Bewaren — de melding van #1033")
+    assert "org-mail-" not in vorm, "een invoerveld staat buiten de bewerkvorm"
+
+
+def test_na_bewaren_komt_de_rij_dicht_terug(client, db_session, activiteit):
+    """Het antwoord op Bewaren is hetzelfde fragment, en dat rendert dicht.
+
+    Daarom is dit te toetsen zonder browser: de server bepaalt de beginstand.
+    """
+    person = _persoon(db_session, "Els", "Bereikbaar", email="els@example.org")
+    rij = add_organiser(db_session, activiteit.id, person.id)
+    csrf = _login(client)
+
+    antwoord = client.post(
+        f"/admin/activiteiten/{activiteit.id}/organisatoren/{rij.id}",
+        data={"is_contact": "1", "email_override": "", "mobile_override": "",
+              "show_email": "1", "show_mobile": "1", "bevestigd": "1"},
+        headers={"X-CSRF-Token": csrf})
+
+    assert antwoord.status_code == 200
+    assert 'x-show="edit" style="display: none"' in antwoord.text, (
+        "de rij komt open terug; dan lijkt Bewaren niets te doen")
+    assert "contactpersoon" in antwoord.text, "en de leesregel toont de nieuwe stand"

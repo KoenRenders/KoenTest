@@ -64,6 +64,11 @@ class ActivityOrganiser(TenantMixin, Base):
     is_contact = Column(Boolean, nullable=False, default=False)
     email_override = Column(String(255), nullable=True)
     mobile_override = Column(String(50), nullable=True)
+    # #1032: mag dit gegeven op de affiche? Standaard ja, zodat er niets verandert
+    # aan wat er vandaag gedrukt wordt. Een LEGE override betekent "neem de
+    # ledenwaarde" — niet "toon niets"; daarvoor zijn deze twee.
+    show_email = Column(Boolean, nullable=False, default=True)
+    show_mobile = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True),
                         default=lambda: datetime.now(timezone.utc), nullable=False)
 

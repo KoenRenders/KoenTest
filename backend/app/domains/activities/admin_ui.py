@@ -1288,7 +1288,8 @@ def organisator_bijwerken(activity_id: int, organiser_id: int, request: Request,
                           db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui),
                           is_contact: str = Form(""), email_override: str = Form(""),
-                          mobile_override: str = Form(""), bevestigd: str = Form("")):
+                          mobile_override: str = Form(""), show_email: str = Form(""),
+                          show_mobile: str = Form(""), bevestigd: str = Form("")):
     """Het vinkje en de twee overrides.
 
     Het laatste vinkje weghalen vraagt een bevestiging, en die is een SERVERregel
@@ -1311,7 +1312,10 @@ def organisator_bijwerken(activity_id: int, organiser_id: int, request: Request,
             "en het gsm-nummer van Raak. Bevestig om door te gaan."))
     service.update_organiser(db, activity_id, organiser_id, {
         "is_contact": aan, "email_override": email_override,
-        "mobile_override": mobile_override})
+        "mobile_override": mobile_override,
+        # #1032: een vinkje dat niet meekomt, staat uit. Het formulier stuurt de
+        # drie altijd mee, dus afwezig betekent hier echt "uitgezet".
+        "show_email": bool(show_email), "show_mobile": bool(show_mobile)})
     return _detail_response(request, db, activity_id, toast=True)
 
 
