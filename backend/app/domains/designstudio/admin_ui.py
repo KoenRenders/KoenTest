@@ -15,6 +15,7 @@ confirmation.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from datetime import date
 from typing import Optional
 
@@ -215,6 +216,26 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
     return rows
 
 
+def _typed_over(view: DesignEditorView, values: dict, highlights: list[tuple[str, str, bool]],
+                logo_ids: list[int]) -> DesignEditorView:
+    """After a refused save the form shows what was typed, not what was
+    saved — otherwise a wrong icon in row six costs the other five rows."""
+    def num(key: str) -> Optional[int]:
+        raw = (values.get(key) or "").strip()
+        return int(raw) if raw.isdigit() else None
+
+    return replace(
+        view,
+        duo_code=values.get("duo_code", view.duo_code), preset=values.get("preset", view.preset),
+        tagline=values.get("tagline", view.tagline), subtitle=values.get("subtitle", view.subtitle),
+        explanation_md=values.get("explanation_md", view.explanation_md), explanation_is_own=True,
+        highlights=[HighlightRow(icon=i, text=t, emphasis=e) for i, t, e in highlights],
+        logo_ids=logo_ids,
+        main_image_id=num("main_image_id"), inset_image_id=num("inset_image_id"), third_image_id=num("third_image_id"),
+        main_focus_x=values.get("main_focus_x", view.main_focus_x), main_focus_y=values.get("main_focus_y", view.main_focus_y),
+    )
+
+
 def _editor_view(request: Request, db: Session, design, *, layout: str = "print_a",
                  error: Optional[str] = None, notice: Optional[str] = None,
                  violations: Optional[list[str]] = None, ai_prompt: str = "", ai_style: str = "lijn") -> DesignEditorView:
@@ -352,8 +373,10 @@ async def design_save(request: Request, design_id: int, db: Session = Depends(ge
     try:
         save_design(db, design, values, highlights=highlights, logo_ids=logo_ids)
     except DesignError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
+        # The service refuses before it mutates, so `design` is still the saved
+        # state; the form shows what was typed on top of it.
+        view = _typed_over(_editor_view(request, db, design, layout=layout, error=str(exc)), values, highlights, logo_ids)
+        return templates.TemplateResponse(request, "admin_ontwerp.html", view.as_context())
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=bewaard")
 
 

@@ -138,11 +138,22 @@ def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str =
 
 def save_design(db: Session, design: Design, form: dict, *, highlights: list[tuple[str, str, bool]],
                 logo_ids: list[int]) -> None:
-    """Store the editor form. Facts are not in ``form``; they cannot be."""
+    """Store the editor form. Facts are not in ``form``; they cannot be.
+
+    Every refusal comes before the first mutation, so a refused save leaves
+    the design exactly as it was and the screen can show what was typed."""
     if form.get("duo_code") not in brand.ENABLED_DUOS:
         raise DesignError("Dit kleurenduo staat niet aan.")
     if form.get("preset") not in PRESETS:
         raise DesignError("Onbekende opmaak.")
+    if len(highlights) > MAX_HIGHLIGHTS:
+        raise DesignError(f"Ten hoogste {MAX_HIGHLIGHTS} kernpunten.")
+    if len(logo_ids) > MAX_LOGOS:
+        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
+    kept = [(icon, line, emphasis) for icon, line, emphasis in highlights if (line or "").strip()]
+    for icon, _line, _emphasis in kept:
+        if icon not in ICONS:
+            raise DesignError(f"Onbekend icoon: {icon}")
     for key in ("duo_code", "preset", "tagline", "subtitle"):
         if key in form:
             value = (form[key] or "").strip()
@@ -165,10 +176,6 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
             except (TypeError, ValueError):
                 pass
 
-    if len(highlights) > MAX_HIGHLIGHTS:
-        raise DesignError(f"Ten hoogste {MAX_HIGHLIGHTS} kernpunten.")
-    if len(logo_ids) > MAX_LOGOS:
-        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
     # Replace, not merge — and flush the removal before the new rows go in:
     # the unit of work inserts before it deletes, so the same `sort_order`
     # would collide on `uq_design_highlight_order` / `uq_design_logo_order`
@@ -176,9 +183,7 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
     design.highlights.clear()
     design.logos.clear()
     db.flush()
-    for i, (icon, line, emphasis) in enumerate(hl for hl in highlights if (hl[1] or "").strip()):
-        if icon not in ICONS:
-            raise DesignError(f"Onbekend icoon: {icon}")
+    for i, (icon, line, emphasis) in enumerate(kept):
         design.highlights.append(DesignHighlight(sort_order=i, icon_code=icon, text=line.strip()[:90],
                                                  emphasis=bool(emphasis)))
     for i, asset_id in enumerate(logo_ids):
