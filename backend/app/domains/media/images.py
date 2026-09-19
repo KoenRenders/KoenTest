@@ -26,7 +26,17 @@ JPEG_QUALITY = 82
 # hercodering is de beveiliging — ze strips EXIF en kleurprofiel, en een bestand
 # dat zich als afbeelding voordoet komt er niet doorheen. Alleen de doelmaat
 # verschilt.
-MAX_FULL_BY_KIND = {"design_image": 4096}
+# `design_render` staat er ook op (#1011): dat is de gerenderde affiche zelf.
+# Ze terugbrengen tot 1600 px zou het beeld vernietigen waarvoor 4096 px net is
+# toegestaan.
+MAX_FULL_BY_KIND = {"design_image": 4096, "design_render": 4096}
+
+# Soorten die verliesvrij blijven (#1011). Een render is een drukklaar beeld van
+# een affiche: JPEG zet juist rond letterranden de artefacten neer die je op A3
+# ziet staan. Een foto in een affiche (`design_image`) mag wél JPEG worden —
+# daar kost verliesvrij alleen bytes.
+LOSSLESS_KINDS = frozenset({"design_render"})
+
 
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
@@ -82,8 +92,9 @@ def process_image(raw: bytes, *, kind: str = "") -> dict:
     width, height, byte_size.
     Werpt :class:`ImageError` als de input geen geldige afbeelding is.
 
-    `kind` bepaalt alleen de doelmaat (`MAX_FULL_BY_KIND`, #1005); de
-    hercodering zelf gebeurt voor élke soort. Het type komt uit de INHOUD —
+    `kind` bepaalt de doelmaat (`MAX_FULL_BY_KIND`, #1005) en of de uitvoer
+    verliesvrij blijft (`LOSSLESS_KINDS`, #1011); de hercodering zelf gebeurt
+    voor élke soort. Het type komt uit de INHOUD —
     Pillow leest de bytes, niet de bestandsnaam.
     """
     if not raw:
@@ -98,7 +109,7 @@ def process_image(raw: bytes, *, kind: str = "") -> dict:
         raise ImageError("Geen geldige afbeelding") from exc
 
     img = ImageOps.exif_transpose(img)
-    keep_alpha = img.mode in ("RGBA", "LA") or (
+    keep_alpha = kind in LOSSLESS_KINDS or img.mode in ("RGBA", "LA") or (
         img.mode == "P" and "transparency" in img.info
     )
     if keep_alpha and img.mode != "RGBA":
