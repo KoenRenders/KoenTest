@@ -46,5 +46,5 @@ markdown-it-py==4.2.0  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (
 # 16: the estimate lies 0.3–3.4 % above the ink width). segno draws the QR codes
 # (BSD, pure Python, no dependencies). Inkscape itself is an apt package in the
 # Dockerfile, not a pip package.
-fonttools==4.60.1
+fonttools==4.60.2
 segno==1.6.6
