@@ -21,10 +21,20 @@ HERE = Path(__file__).resolve().parent
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
 
-# A 1×1 white JPEG and a 2×2 PNG — enough for an <image> element.
-PNG_2x2 = bytes.fromhex(
-    "89504e470d0a1a0a0000000d49484452000000020000000208060000007" "2b60d24"
-    "0000001049444154789c63f8cfc0f01f0a0003fe03fd" "a35a3b6e" "0000000049454e44ae426082")
+
+
+def _png(size: tuple[int, int] = (2, 2), colour: str = "white") -> bytes:
+    """A real PNG (media validates data URIs by decoding them, #1011)."""
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", size, colour).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+PNG_2x2 = _png()
 
 
 def _content(**overrides) -> PosterContent:

@@ -4,11 +4,8 @@ Facts stay on the activity and age the version; a version is all-or-nothing;
 publishing goes through media's poster door; the AI budget refuses before a
 call; the screens sit behind the admin door.
 
-Tests marked ``needs_media_kinds`` depend on #1011 (media stores
-``design_render`` files — PDF, PNG and SVG, the SVG cleaned by media's one
-allowlist). They are strict xfails: the day #1011 lands on master they turn
-red here, which is the signal to drop the marker — a test that passes
-silently under xfail proves nothing.
+Renders and edited SVGs go through media (#1011: ``design_render`` — PDF,
+PNG and SVG, the SVG cleaned by media's one allowlist).
 """
 from __future__ import annotations
 
@@ -37,10 +34,10 @@ from app.domains.designstudio.models import ImageGeneration
 from app.domains.designstudio.service import _title_lines, day_label
 from app.kernel.jobs import KernelJob
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.test_designstudio_engine import PNG_2x2
 
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
-needs_media_kinds = pytest.mark.xfail(strict=True, reason="#1011: media does not store design_render yet (add_document refuses the kind and SVG)")
 
 
 @pytest.fixture
@@ -58,8 +55,16 @@ def activity(db_session):
 def design(db_session, activity):
     d = create_design(db_session, activity_id=activity.id, duo_code="dark_green-golden_yellow", preset="reeks",
                       created_by="bestuur@example.com")
+    from app.domains.media.api import MediaAsset
+
+    photo = MediaAsset(kind="design_image", activity_id=activity.id, data=PNG_2x2, content_type="image/png",
+                       thumbnail=PNG_2x2, thumb_content_type="image/png", width=2, height=2, byte_size=len(PNG_2x2),
+                       title="proef", sort_order=0, is_active=True)
+    db_session.add(photo)
+    db_session.flush()
     save_design(db_session, d, {"duo_code": "dark_green-golden_yellow", "preset": "reeks", "subtitle": "samen wandelen",
-                                "tagline": "Zet het in je agenda!", "welcome_line": "ook zonder lidkaart"},
+                                "tagline": "Zet het in je agenda!", "welcome_line": "ook zonder lidkaart",
+                                "main_image_id": str(photo.id)},
                 highlights=[("users", "Gezellig samen wandelen en praten", False),
                             ("coffee", "Nadien ene drinken", False)],
                 logo_ids=[])
@@ -158,7 +163,6 @@ def test_check_design_reports_per_layout_without_inkscape(db_session, design):
 # ── Versions ────────────────────────────────────────────────────────────────
 
 @needs_inkscape
-@needs_media_kinds
 def test_a_version_is_all_or_nothing_and_ages_with_the_facts(db_session, design, activity):
     version = make_version(db_session, design, created_by="bestuur@example.com")
     assert version.number == 1
@@ -179,7 +183,6 @@ def test_a_version_is_all_or_nothing_and_ages_with_the_facts(db_session, design,
 
 
 @needs_inkscape
-@needs_media_kinds
 def test_at_most_three_versions_and_the_published_one_survives(db_session, design):
     v1 = make_version(db_session, design)
     design.published_version_id = v1.id
@@ -251,7 +254,6 @@ def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design
 
 
 @needs_inkscape
-@needs_media_kinds
 def test_an_uploaded_svg_survives_media_cleaning_replaces_the_merge_and_ages_with_the_facts(db_session, design, activity):
     """Download → edit → upload: media cleans the file (#1011, one allowlist);
     what a poster needs — text, layers, photos, filters — must come back,
@@ -279,7 +281,6 @@ def test_an_uploaded_svg_survives_media_cleaning_replaces_the_merge_and_ages_wit
 
 
 @needs_inkscape
-@needs_media_kinds
 @pytest.mark.anyio
 async def test_publishing_an_older_version_restores_that_poster(db_session, design, activity):
     from fastapi import BackgroundTasks

@@ -449,14 +449,18 @@ def _prune_versions(db: Session, design: Design) -> None:
         victim = next((v for v in versions if v.id != design.published_version_id), None)
         if victim is None:
             break
-        for rendition in list(victim.renditions):
-            try:
-                delete_media(db, rendition.media_asset_id)
-            except Exception:  # noqa: BLE001 - a missing file must not block the new version
-                logger.warning("designstudio: render %s already gone", rendition.media_asset_id)
+        asset_ids = [r.media_asset_id for r in victim.renditions]
         versions.remove(victim)
+        # The collection cascades delete-orphan: removing the version is the
+        # delete; its renditions go with it. The media files go afterwards —
+        # `delete_media` commits, so it must not run mid-flush.
         design.versions.remove(victim)
-        db.delete(victim)
+        db.flush()
+        for asset_id in asset_ids:
+            try:
+                delete_media(db, asset_id)
+            except Exception:  # noqa: BLE001 - a missing file must not block the new version
+                logger.warning("designstudio: render %s already gone", asset_id)
 
 
 def rendition(version: DesignVersion, layout: str, variant: str, size: str = "") -> Optional[DesignRendition]:
