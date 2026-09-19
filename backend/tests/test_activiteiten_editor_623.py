@@ -104,3 +104,48 @@ def test_de_info_route_heet_niet_meer_reglement(client, db_session):
                        headers=hdr).status_code == 200
     detail = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "reglement" not in detail.lower()
+
+
+# ── #1016: the public description ────────────────────────────────────────────
+
+def test_de_omschrijving_wordt_bewaard_en_kan_weer_leeg(client, db_session):
+    """Two or three sentences for the visitor — and the newsletter (#984).
+
+    Broken on purpose: `velden["description"]` moved back inside the
+    `exclude_none` dump → clearing the text silently keeps the old one, and the
+    second half of this test fails.
+    """
+    activity, _comp, _product = seed_activity_with_product(db_session)
+    hdr = _login(client)
+
+    detail = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert 'name="description"' in detail, "het veld hoort in de bewerkvorm te staan"
+
+    velden = {"name": activity.name, "location": "", "poster_url": "",
+              "members_only": "", "is_cancelled": ""}
+    resp = client.post(f"/admin/activiteiten/{activity.id}", headers=hdr,
+                       data={**velden, "description": "We proeven acht rums.\nKom op tijd."})
+    assert resp.status_code == 200, resp.text
+    db_session.expire_all()
+    assert db_session.get(Activity, activity.id).description.startswith("We proeven acht rums.")
+
+    client.post(f"/admin/activiteiten/{activity.id}", headers=hdr,
+                data={**velden, "description": "   "})
+    db_session.expire_all()
+    assert db_session.get(Activity, activity.id).description is None
+
+
+def test_de_omschrijving_staat_op_de_publieke_pagina(client, db_session):
+    """Broken on purpose: the `{% if a.description %}` block removed from
+    `_activiteiten_cards.html` → the sentence never reaches a visitor."""
+    activity, _comp, _product = seed_activity_with_product(db_session)
+    activity.description = "We proeven acht rums uit het Caribisch gebied."
+    db_session.commit()
+
+    publiek = client.get("/activiteiten").text
+    assert "We proeven acht rums uit het Caribisch gebied." in publiek
+
+    activity.description = None
+    db_session.commit()
+    leeg = client.get("/activiteiten").text
+    assert "whitespace-pre-line" not in leeg, "een lege omschrijving toont geen lege alinea"

@@ -219,7 +219,7 @@ def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> 
     return schoon
 
 
-def create_activity(db, *, name: str, location=None, poster_url=None,
+def create_activity(db, *, name: str, location=None, poster_url=None, description=None,
                     members_only: bool = False, dates=(), actor=None,
                     slug: str | None = None,
                     registration_closes_on: Optional[date] = None) -> Activity:
@@ -242,6 +242,7 @@ def create_activity(db, *, name: str, location=None, poster_url=None,
     else:
         slug = _controleer_slug(db, slug)
     activity = Activity(name=name, location=location, poster_url=poster_url,
+                        description=description,
                         members_only=bool(members_only), slug=slug,
                         registration_closes_on=registration_closes_on)
     db.add(activity)
