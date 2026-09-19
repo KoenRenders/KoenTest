@@ -795,6 +795,47 @@ BLOCK_MEDIA_CSS = (
 )
 
 
+def activity_card_html(facts: ActivityFacts) -> str:
+    """What the LETTER carries for an activity: a marker, not the block.
+
+    Measured on 19 September 2026, after Koen saw a picture spill out of a
+    letter: Trix keeps neither a table, nor a class, nor a data attribute. It
+    turns an inserted ``<img>`` into a full-width attachment of its own and
+    glues the text lines together. The only things that survive its document
+    model are text and links — so the reference is TEXT.
+
+    It reads as what it is, and it carries the name so the author can see which
+    activity it is: ``[[activiteit:12|Zo vader zo zoon]]``. The number decides;
+    the name after the bar is there for the eye. ``expand_blocks`` builds the
+    block from the data at the moment of sending, so a letter written weeks ago
+    still leaves with today's hour, place and registration link.
+    """
+    return f"[[activiteit:{facts.id}|{facts.name}]]"
+
+
+#: The marker in a letter. The name behind the bar is decoration: it may hold
+#: anything but a closing bracket, and nothing reads it.
+ACTIVITY_MARKER = re.compile(r"\[\[activiteit:(\d+)(?:\|[^\]]*)?\]\]")
+
+
+def expand_blocks(db: Session, html: str, *, base_url: str) -> str:
+    """Replace every activity marker by its block — the step before sending.
+
+    An activity that no longer exists leaves nothing behind: better a letter
+    without a block than a letter with an empty frame or a raw marker.
+    """
+    ids = [int(m.group(1)) for m in ACTIVITY_MARKER.finditer(html or "")]
+    if not ids:
+        return html or ""
+    facts = activity_facts(db, ids, base_url=base_url)
+
+    def build(match: "re.Match[str]") -> str:
+        fact = facts.get(int(match.group(1)))
+        return activity_block_html(fact) if fact else ""
+
+    return ACTIVITY_MARKER.sub(build, html or "")
+
+
 def activity_block_html(facts: ActivityFacts) -> str:
     """One activity as a block: picture, title, description, when, and the link.
 
@@ -972,13 +1013,17 @@ def closing_html(db: Session) -> str:
 
 
 def render_mail(db: Session, letter: Newsletter, *, kind: str,
-                unsubscribe_url: Optional[str], logo_url: Optional[str] = None) -> str:
+                unsubscribe_url: Optional[str], logo_url: Optional[str] = None,
+                base_url: str = "") -> str:
     """The letter as it arrives: a simple frame around the text.
 
     Inline styles only — many mail clients ignore a style block. A member mail
     has no unsubscribe line (CR-05 §3.4); a subscriber mail always has one.
     """
     esc = html_lib.escape
+    # The letter's own origin once it is sent (`link_base`), the caller's while
+    # it is still a draft — the links in a block must be absolute either way.
+    base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
     header = (f'<img src="{esc(logo_url)}" alt="{esc(name)}" style="max-height:56px">'
               if logo_url else
@@ -997,7 +1042,7 @@ def render_mail(db: Session, letter: Newsletter, *, kind: str,
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f'{with_inline_styles(letter.body_html or "")}'
+        f'{with_inline_styles(expand_blocks(db, letter.body_html or "", base_url=base))}'
         '</div>'
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
@@ -1053,7 +1098,7 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
             else DELIVERY_MEMBER)
     unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DELIVERY_SUBSCRIBER else None
     body = render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe_url,
-                       logo_url=_logo_url(db, base_url))
+                       logo_url=_logo_url(db, base_url), base_url=base_url)
     return send_campaign_mail(to_email, f"[{_('TEST')}] {letter.subject}", body,
                               email_type="newsletter")
 

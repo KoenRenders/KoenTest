@@ -100,11 +100,13 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     assert 'id="nb-trix"' in scherm.text
     assert 'name="audience"' in scherm.text and " checked" not in scherm.text.split('name="audience"')[1][:40]
 
-    # 3. The insert helpers deliver a line with date and link — from the data.
+    # 3. "Activiteit invoegen" delivers a REFERENCE (#984, 19 September 2026):
+    # the block itself is built when the letter is sent, because Trix keeps no
+    # table and no class. The calendar is still a line per activity.
     regel = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/activiteit/{rum.id}")
     assert regel.status_code == 200
     assert "Rumproefavond" in regel.text
-    assert "/activiteiten/rumproefavond" in regel.text
+    assert f"[[activiteit:{rum.id}|" in regel.text
     kalender = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")
     assert "Rumproefavond" in kalender.text
     kiezer = client.get(f"/admin/nieuwsbrieven/{letter.id}/activiteiten?q=rum")
@@ -432,3 +434,26 @@ def test_de_bijlagen_staan_niet_in_de_mediabibliotheek(client, db_session):
     from app.domains.media.api import VALID_KINDS
 
     assert "newsletter_file" not in VALID_KINDS
+
+
+def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
+    """Sinds de activiteit als markering in de brief staat (#984, 19 september
+    2026) moet de schrijver het resultaat kunnen zien zonder te mailen.
+
+    Broken on purpose: `expand_blocks` uit `render_mail` → het voorbeeld toont
+    de rauwe markering en deze test faalt.
+    """
+    _login(client)
+    rum = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
+    rum.description = "We proeven acht rums."
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    nb.update_draft(db_session, letter, subject="Het najaar", audience="members",
+                    body_html=f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>")
+
+    voorbeeld = client.get(f"/admin/nieuwsbrieven/{letter.id}/voorbeeld")
+
+    assert voorbeeld.status_code == 200
+    assert "[[activiteit:" not in voorbeeld.text, "de markering hoort een blok te zijn"
+    assert "We proeven acht rums." in voorbeeld.text
+    assert "Rumproefavond" in voorbeeld.text
+    assert 'class="nb-blok-titel" style=' in voorbeeld.text, "de opmaak staat erop"
