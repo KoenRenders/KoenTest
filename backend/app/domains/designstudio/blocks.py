@@ -131,13 +131,17 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
         bg = accents[i % len(accents)]
         fg = pal["white"] if bg != pal["accent"] else pal["ink"]
         out.append(icon_svg(hl.icon, fg=fg, bg=bg, x=x, y=y, size=ICON_S))
-        ly = y + 8.2
+        # Centre the text block on the icon: one line sits on the icon's
+        # middle, two lines straddle it (Koen, 19 September 2026).
+        line_step = size * 1.05 + 1
+        block_h = size * 0.72 + (len(lines) - 1) * line_step
+        ly = y + (ICON_S - block_h) / 2 + size * 0.72
         for j, line in enumerate(lines):
             txt = "".join(r.text for r in line)
             eid = f"t-hl-{i}-{j}"
             out.append(text_el(eid, txt, text_x, ly, size, pal["ink"], weight="bold" if hl.emphasis or j == 0 else "600"))
             plan.boxes[eid] = text_w
-            ly += size * 1.05 + 1
+            ly += line_step
         if i - index_offset < len(content.highlights) - 1:
             out.append(f'<line x1="{x}" y1="{y + 23.5}" x2="{x + w}" y2="{y + 23.5}" stroke="{pal["ink"]}" '
                        f'stroke-width="0.4" stroke-dasharray="0.5 1.2" stroke-linecap="round"/>')
@@ -145,18 +149,19 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     return "".join(out), y
 
 
-def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
+def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float,
+                *, icon: float = ICON_S, max_size: float = 10.5) -> tuple[str, float]:
     """Always on the poster (Koen, 19 September 2026): "IEDEREEN WELKOM!" —
     or "ENKEL LEDEN" when the activity is members-only."""
     pal = plan.pal
     text = "ENKEL LEDEN" if content.members_only else "IEDEREEN WELKOM!"
-    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=ICON_S)]
-    text_x = x + ICON_S + 5
-    text_w = w - ICON_S - 5
-    size = fit_size(text, text_w, 10.5, 7)
-    out.append(text_el("t-welcome-0", text, text_x, y + 9.5, size, pal["ink"], weight="bold"))
+    out = [icon_svg("heart", fg=pal["white"], bg=pal["accent2"], x=x, y=y, size=icon)]
+    text_x = x + icon + 5
+    text_w = w - icon - 5
+    size = fit_size(text, text_w, max_size, 6)
+    out.append(text_el("t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"))
     plan.boxes["t-welcome-0"] = text_w
-    return "".join(out), y + 24
+    return "".join(out), y + icon + 5
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -304,7 +309,6 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     frame = 9.0
     p = Plan(width=width, height=height, frame=frame, pal=pal, seed=content.seed)
     x0, y0, x1, y1 = frame, frame, width - frame, height - frame
-    p.paper_path = f"M{x0} {y0} H{x1} V{y1} H{x0} Z"
 
     # ── Title: one or two lines, one size, at the top ─────────────────────
     title_w = width - 2 * frame - 16
@@ -343,28 +347,41 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         y_after_title += 17
     top_y: float = y_after_title + 10
 
-    # ── Band at the bottom: lockup left, then the contact column, QR right ──
-    contacts = [" · ".join(part for part in (c.name, c.mobile, c.email) if part) for c in content.contacts[:3]]
-    lockup_w = 50.0
-    band_h: float = max(34.0, 26 + 6.5 * len(contacts))
+    # ── Bottom: the lockup in a rounded corner tile at the left (the arc Koen
+    #    liked at the top, now bottom-left), the rough info band to its right ──
+    contacts: list[dict[str, object]] = [
+        {"text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
+         "icon": "users" if c.name else "mobile"} for c in content.contacts[:3]]
+    # Rows: heading, website, e-mail, one per contact — stacked, since the
+    # tile takes a third of the width.
+    band_h: float = 33 + 6.5 * len(contacts)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
+    cw, r = 92.0, 22.0
+    ch = band_h + 8
+    # The paper: the frame's inner rectangle minus the corner tile bottom-left.
+    p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
+                    f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
+    lockup_w = 66.0
     lockup_h = lockup_w * 245 / 491
-    p.lockup = {"x": frame + 2 + 5, "y": band_y + (band_h - lockup_h) / 2, "width": lockup_w}
-    col_x = frame + 2 + 5 + lockup_w + 8
+    p.lockup = {"x": x0 + (cw - r / 2 - lockup_w) / 2 + 2, "y": y1 - ch + (ch - lockup_h) / 2, "width": lockup_w}
+    band_x = x0 + cw + 5
+    col_x = band_x + 7
     text_left = col_x + 8
     qr_left = width - frame - 2 - 24
-    col2_icon = col_x + (qr_left - col_x) * 0.52
-    p.band = {"path": rough_band(frame + 2, band_y, width - 2 * frame - 4, band_h, seed=content.seed + 5, jag=2.5),
+    p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "website": content.website, "email": content.email,
               "contacts": contacts, "label": content.more_info_label,
-              "icon_x": col_x, "text_x": text_left, "col2_icon_x": col2_icon, "col2_text_x": col2_icon + 8,
+              "icon_x": col_x, "text_x": text_left,
               "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
-              "row_y": band_y + (band_h - (26 + 6.5 * len(contacts))) / 2}
-    p.boxes["t-website"] = col2_icon - text_left - 4
-    p.boxes["t-email"] = qr_left - (col2_icon + 8) - 4
-    for i, _line in enumerate(contacts):
-        p.boxes[f"t-contact-{i}"] = qr_left - text_left - 4
+              "row_y": band_y + 2}
+    row_w = qr_left - text_left - 4
+    p.boxes["t-website"] = row_w
+    p.boxes["t-email"] = row_w
+    for i, line in enumerate(contacts):
+        # A long name with gsm and e-mail shrinks a little rather than overflow.
+        line["size"] = fit_size(str(line["text"]), row_w, 5.6, 4.4, bold=False)
+        p.boxes[f"t-contact-{i}"] = row_w
 
     # ── Content between title and band ─────────────────────────────────────
     limit: float = band_y - 3
@@ -378,16 +395,35 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         limit -= 22
         p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, 16)
 
-    if layout == "feed_portrait" or content.preset == "eenvoudig":
-        # One picture over the full width, a few highlights under it, welcome.
+    if content.preset == "eenvoudig" and layout == "print_a":
+        # Koen, 19 September 2026 (evening): one big picture, then the
+        # activity's text over the full width — no icon rows for date and
+        # place — and a smaller "iedereen welkom" low on the page.
+        y = top_y - 4
+        text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
+        below = text_h + 4 + 16 + 4
+        if content.main_image:
+            avail = limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
+            p.full += frag
+            y += 6
+        if content.explanation_md:
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
+            p.full += frag
+        wy = max(y + 2, limit - 16)
+        frag, wy = welcome_row(p, content, lx, wy, lw, icon=11, max_size=7.5)
+        p.full += frag
+        if wy > limit + 3:
+            p.violations.append(f"Te veel inhoud: {wy - limit:.0f} mm te veel")
+    elif layout == "feed_portrait":
+        # Instagram: title, one picture over the full width, a few highlights.
         y = top_y - 4
         n = min(len(content.highlights), 4)
         rows = (n + 1) // 2
         below = rows * ROW_H + 24 + 6
         if content.main_image:
             avail = limit - y - below
-            cap = 110.0 if layout == "feed_portrait" else 190.0
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(cap, avail)))
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
             p.full += frag
             y += 6
         y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)))

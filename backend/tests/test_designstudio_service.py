@@ -19,6 +19,7 @@ from app.config import settings
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
+from app.domains.designstudio.content import Contact
 from app.domains.designstudio.api import (
     DesignError,
     ImagingError,
@@ -157,6 +158,38 @@ def test_only_the_two_presets_exist_and_the_database_agrees(db_session, design):
     with pytest.raises(IntegrityError):
         db_session.execute(text("UPDATE designstudio.designs SET preset = 'reeks' WHERE id = :id"), {"id": design.id})
     db_session.rollback()
+
+
+def test_without_a_ticked_organiser_the_band_shows_the_association_gsm_without_a_name(db_session, design):
+    """Koen, 19 September 2026: the association's name stood next to its gsm;
+    the band already names the association through website and e-mail."""
+    facts = facts_for(db_session, design)
+    facts = dict(facts, organisers=[], mobile="0470 00 00 00", association="Raak Millegem",
+                 website="www.example.be", email="info@example.be")
+    content = content_for(db_session, design, facts)
+    assert content.contacts == (Contact(name="", mobile="0470 00 00 00", email=""),)
+    svg = render.merge(content, layout="print_a").svg
+    assert ">0470 00 00 00</text>" in svg and "Raak Millegem · 0470" not in svg
+
+
+def test_one_ticked_organiser_out_of_two_means_no_association_row(db_session, design, activity):
+    """Koen, 19 September 2026: the association's gsm row appears only when
+    nobody is ticked — never next to a ticked organiser."""
+    from app.domains.activities.api import add_organiser, organisers_for, update_organiser
+    from tests.conftest import create_test_family
+
+    _m1, p1 = create_test_family(db_session, email="een@example.com")
+    _m2, p2 = create_test_family(db_session, email="twee@example.com")
+    add_organiser(db_session, activity.id, p1.id)
+    add_organiser(db_session, activity.id, p2.id)
+    rows = organisers_for(db_session, activity.id)
+    update_organiser(db_session, activity.id, rows[0].id, {"is_contact": True, "mobile_override": "0470 11 11 11", "email_override": ""})
+    update_organiser(db_session, activity.id, rows[1].id, {"is_contact": False, "mobile_override": "", "email_override": ""})
+    facts = dict(facts_for(db_session, design), mobile="0499 99 99 99")
+    content = content_for(db_session, design, facts)
+    assert len(content.contacts) == 1 and content.contacts[0].mobile == "0470 11 11 11"
+    svg = render.merge(content, layout="print_a").svg
+    assert "0499 99 99 99" not in svg and 't-contact-1' not in svg
 
 
 def test_title_splitting_rules():

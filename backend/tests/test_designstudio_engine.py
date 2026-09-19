@@ -188,7 +188,7 @@ def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
     # The lockup's y lies inside the band, not at the top-left corner.
     m = re.search(r'viewBox="106 106.2 491 245"', merged.svg)
     assert m is not None
-    lockup_y = float(re.search(r'x="[0-9.]+" y="([0-9.]+)" width="50.000"', merged.svg).group(1))
+    lockup_y = float(re.search(r'x="[0-9.]+" y="([0-9.]+)" width="66.000"', merged.svg).group(1))
     assert lockup_y > 350
 
 
@@ -203,12 +203,17 @@ def test_the_third_picture_gives_way_to_sponsor_logos():
     assert 'id="logo-0"' in with_logos and 'preserveAspectRatio="xMinYMin slice"' not in with_logos
 
 
-def test_the_simple_preset_puts_one_picture_over_the_full_width():
-    """Half of the unit's posters are a Bowlen: one big picture, a few facts."""
-    simple = render.merge(_content(preset="eenvoudig", dates=()), layout="print_a")
+def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
+    """Half of the unit's posters are a Bowlen: one big picture, the
+    activity's text, "iedereen welkom" small and low — no icon rows."""
+    simple = render.merge(_content(preset="eenvoudig", dates=(), explanation_md="De **tekst** van de activiteit."),
+                          layout="print_a")
     assert simple.violations == ()
     m = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"', simple.svg)
     assert m is not None and float(m.group(1)) > 250 and float(m.group(2)) > 100
+    assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
+    welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
+    assert welcome_y > 330
 
 
 def test_a_focal_point_moves_the_crop():

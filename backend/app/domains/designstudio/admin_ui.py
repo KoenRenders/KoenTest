@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.designstudio import render
 from app.domains.designstudio.api import (
     ENABLED_DUOS,
     ICONS,
@@ -86,6 +87,7 @@ DUO_LABELS = {
     "dark_green-golden_yellow": "Donkergroen · Geel",
     "ocean_blue-golden_yellow": "Blauw · Geel",
     "golden_yellow-indigo": "Geel · Paars",
+    "indigo-golden_yellow": "Paars · Geel",
 }
 GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gekozen", "discarded": "Niet gekozen",
                      "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
@@ -297,6 +299,25 @@ def design_preview(design_id: int, db: Session = Depends(get_db), _email: str = 
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
+@router.get("/admin/ontwerpen/{design_id}/voorbeeld.pdf")
+def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
+                       layout: str = "print_a"):
+    """The draft as a PDF, to look at it large or print a proof — no version
+    is made (Koen, 19 September 2026: "in het groot bekijken")."""
+    from app.domains.designstudio.service import merged_for
+
+    design = _design_or_404(db, design_id)
+    if layout not in LAYOUTS:
+        raise HTTPException(status_code=404)
+    try:
+        merged = merged_for(db, design, layout, facts=facts_for(db, design))
+        pdf = render.export(merged.svg, "pdf")
+    except (DesignError, RenderError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'inline; filename="ontwerp-{design.id}-{layout}.pdf"'})
+
+
 @router.get("/admin/ontwerpen/{design_id}/svg/{layout}")
 def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_db),
                         _email: str = Depends(require_admin_ui)):
@@ -394,7 +415,8 @@ def design_finalise(request: Request, design_id: int, db: Session = Depends(get_
     except DesignError as exc:
         return templates.TemplateResponse(
             request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=_("Nog niet definitief:"),
+            _editor_view(request, db, design, layout=layout,
+                         error=_("Nog niet definitief: ") + " · ".join(exc.messages),
                          violations=exc.messages).as_context())
     except RenderError as exc:
         return templates.TemplateResponse(request, "admin_ontwerp.html",

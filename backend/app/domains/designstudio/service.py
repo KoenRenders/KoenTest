@@ -74,7 +74,7 @@ MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AU
              "SEPTEMBER", "OKTOBER", "NOVEMBER", "DECEMBER")
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
-PRESET_LABELS = {"eenvoudig": "Eenvoudig — één grote foto over de volle breedte, enkele kernpunten eronder",
+PRESET_LABELS = {"eenvoudig": "Eenvoudig — één grote foto en de tekst van de activiteit over de volle breedte",
                  "beeld": "Met beeld — foto of tekening rechts, kernpunten links, omschrijving eronder",
                  "tekst": "Tekst — geen beeld, kernpunten links, omschrijving rechts"}
 STATUS_LABELS = {STATUS_DRAFT: "Ontwerp", STATUS_FINAL: "Definitief"}
@@ -317,7 +317,9 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
     if not contacts and facts["mobile"]:
-        contacts = (Contact(name=facts["association"] or "Raak", mobile=facts["mobile"]),)
+        # Nobody ticked: the association's own gsm, without a name — the
+        # band already carries its website and e-mail (Koen, 19 September).
+        contacts = (Contact(name="", mobile=facts["mobile"]),)
 
     return PosterContent(
         duo_code=design.duo_code, preset=design.preset,
@@ -625,6 +627,7 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     from app.kernel.jobs import enqueue
 
     prompt = imaging.build_prompt(scene, style, change)
+    scene = scene.strip() or change.strip()
     if any(g.status == GEN_REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
