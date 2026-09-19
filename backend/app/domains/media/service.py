@@ -352,25 +352,42 @@ async def upload_media(db, *, files: Sequence, kind: str,
 
 
 def add_document(db, *, kind: str, filename: str, content_type: str,
-                 data: bytes) -> MediaAsset:
-    """Store one PDF or image that a text will link to, and return it (#984).
+                 data: bytes, activity_id: Optional[int] = None) -> MediaAsset:
+    """Store one file another component links to or produced, and return it.
 
     Public like every media asset: it is served at `/api/v1/media/{id}` under its
     own file name, so a newsletter can link to it instead of attaching it to
-    hundreds of mails.
+    hundreds of mails (#984).
+
+    Since #1011 this is also the way in for a `design_render`: the PDF, the PNG
+    and the editable SVG of one poster version. Widened here instead of a second
+    `add_design_render` next to it, because the two would differ in exactly one
+    line — the list of accepted types — and a copy of a storage function is the
+    kind of duplication that drifts (CLAUDE.md). SVG is accepted only for a
+    render; nothing else has a reason to store one through this door.
+
+    **Media cleans the SVG itself, always** (#1011). Not because the Design
+    Studio would forget it, but because the day a second caller uses this
+    function without cleaning, nothing may break. Trusting the caller is a rule
+    that holds until someone new reads the signature and not the history.
     """
     from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
 
-    if kind not in DOCUMENT_KINDS:
+    toegestane_soorten = DOCUMENT_KINDS | {DESIGN_RENDER_KIND}
+    if kind not in toegestane_soorten:
         raise MediaFout("Ongeldige 'kind'")
-    if content_type not in DOC_CONTENT_TYPES:
+    is_svg = content_type == SVG_CONTENT_TYPE
+    if is_svg and kind != DESIGN_RENDER_KIND:
+        raise MediaFout(_("Een SVG kan hier alleen als render van de Design Studio."))
+    if not is_svg and content_type not in DOC_CONTENT_TYPES:
         raise MediaFout(_("Dit bestandstype kan niet: kies een PDF of een afbeelding."))
     try:
-        processed = _process_document(data, content_type)
+        processed = (process_svg(data) if is_svg
+                     else _process_document(data, content_type, kind=kind))
     except ImageError as exc:
         raise MediaFout(f"{filename}: {exc}")
     asset = MediaAsset(kind=kind, title=(filename or "bestand")[:255], sort_order=0,
-                       is_active=True, **processed)
+                       activity_id=activity_id, is_active=True, **processed)
     db.add(asset)
     db.commit()
     db.refresh(asset)

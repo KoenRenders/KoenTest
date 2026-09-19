@@ -48,11 +48,54 @@ PNG_MAX_SIDE = 800
 #: crafted file from tying up the renderer.
 MAX_ELEMENTS = 20_000
 
+INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
+SODIPODI_NS = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd"
+
+# ── Wat mag er in een SVG staan, en waarom ───────────────────────────────────
+#
+# Eén lijst voor élke soort (#1011). De scheidslijn is niet "logo tegenover
+# affiche" maar **tekenen tegenover doen**:
+#
+#   MAG — alles wat alleen vorm, kleur of tekst beschrijft. Een vorm kan niets
+#   uitvoeren en haalt niets op; of ze in een logo of in een affiche staat,
+#   verandert daar niets aan. Vandaar dat de lijst van #989 hier verbreed wordt
+#   in plaats van dat er een tweede, ruimere lijst naast komt: twee lijsten voor
+#   dezelfde vraag lopen uit elkaar, en dan is de strengste van de twee de
+#   enige die telt op de dag dat iemand de verkeerde gebruikt.
+#
+#   MAG NIET — twee dingen, en alleen deze twee:
+#     * **uitvoeren**: `script`, elk `on…`-attribuut, `foreignObject` (dat haalt
+#       HTML binnen en daarmee alles wat HTML kan), `javascript:` in een waarde;
+#     * **ophalen van buiten**: een verwijzing die het document verlaat — een
+#       externe `href`/`xlink:href`, `image` (verwijst per definitie naar een
+#       bestand), `feImage`, en `url(...)` in stijl die niet naar `#id` wijst.
+#       Wat van buiten komt, kan morgen iets anders zijn dan vandaag, en het
+#       vertelt de buitenwereld wie het document opende.
+#
+# Wie hier iets bij wil zetten, toetst aan die twee vragen: kan het uitvoeren?
+# kan het iets ophalen? Twee keer nee → het hoort thuis op de lijst. Twee keer
+# nee is ook precies waarom de filters hieronder mochten: een gaussische vervaging
+# rekent op pixels die er al zijn.
 ALLOWED_ELEMENTS = frozenset({
-    "svg", "g", "defs", "title", "desc", "symbol", "use", "style",
+    # Structuur en vorm
+    "svg", "g", "defs", "title", "desc", "symbol", "use", "style", "metadata",
     "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
     "text", "tspan", "textPath",
     "linearGradient", "radialGradient", "stop", "clipPath", "mask", "pattern",
+    # Markers: pijlpunten en stippen op een lijn — tekenen, niets meer (#1011).
+    "marker",
+    # `image` mag, maar alleen met een INGEBEDDE rasterafbeelding — zie
+    # `_BRUIKBARE_AFBEELDING` hieronder. Het element zelf is tekenwerk; het is de
+    # WAARDE van zijn href die kan ophalen.
+    "image",
+    # Filters (#1011): een affiche gebruikt schaduw, vervaging en kleurcorrectie.
+    # Allemaal rekenwerk op de pixels van het document zelf. `feImage` staat er
+    # bewust NIET bij: dat is het enige filterelement dat iets van buiten haalt.
+    "filter", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite",
+    "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feDistantLight",
+    "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG", "feFuncR",
+    "feGaussianBlur", "feMerge", "feMergeNode", "feMorphology", "feOffset",
+    "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence",
 })
 
 ALLOWED_ATTRIBUTES = frozenset({
@@ -84,9 +127,33 @@ ALLOWED_ATTRIBUTES = frozenset({
     "href",
     # <style>
     "type", "media",
+    # Markers (#1011)
+    "marker-start", "marker-mid", "marker-end", "markerUnits", "markerWidth",
+    "markerHeight", "refX", "refY", "orient",
+    # Filters (#1011): parameters van het rekenwerk hierboven. Geen van deze
+    # waarden kan een adres zijn — `in`/`in2`/`result` verwijzen naar een
+    # tussenresultaat binnen hetzelfde filter.
+    "filter", "filterUnits", "primitiveUnits", "in", "in2", "result",
+    "stdDeviation", "mode", "values", "operator", "k1", "k2", "k3", "k4",
+    "radius", "flood-color", "flood-opacity", "surfaceScale", "specularConstant",
+    "specularExponent", "diffuseConstant", "kernelMatrix", "kernelUnitLength",
+    "order", "divisor", "bias", "targetX", "targetY", "edgeMode", "preserveAlpha",
+    "xChannelSelector", "yChannelSelector", "scale", "baseFrequency",
+    "numOctaves", "seed", "stitchTiles", "tableValues", "slope", "intercept",
+    "amplitude", "exponent", "azimuth", "elevation", "pointsAtX", "pointsAtY",
+    "pointsAtZ", "limitingConeAngle", "z", "color-interpolation-filters",
 })
 
 _LOCAL_REF = re.compile(r"^#[A-Za-z_][\w.\-]*$")
+# Een `<image>` die haar beeld meedraagt in plaats van het op te halen (#1011).
+# Twee deuren blijven dicht:
+#   * `http(s)://` of `file://` — dat is ophalen van buiten, en dat verbiedt de
+#     regel van dit bestand;
+#   * `data:image/svg+xml` — een SVG ín een SVG. De buitenste wordt opgeschoond,
+#     de binnenste niet: deze opschoner kijkt niet in een data-URI. Vandaar dat
+#     alleen RASTERformaten erdoor mogen.
+_BRUIKBARE_AFBEELDING = re.compile(
+    r"^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$", re.I)
 # Anything in style text that loads or runs something. `url(#id)` stays: that
 # is how a fill points at a gradient in the same document.
 _UNSAFE_STYLE = re.compile(
@@ -102,7 +169,7 @@ def _local(tag: str) -> tuple[str, str]:
     return "", tag
 
 
-def _clean_attributes(el: ET.Element) -> None:
+def _clean_attributes(el: ET.Element, *, naam: str = "") -> None:
     for key in list(el.attrib):
         ns, name = _local(key)
         value = el.attrib[key]
@@ -113,8 +180,16 @@ def _clean_attributes(el: ET.Element) -> None:
             keep = True
         elif ns == XML_NS and name in ("lang", "space"):
             keep = True
+        elif ns in (INKSCAPE_NS, SODIPODI_NS):
+            # #1011: de eigen aantekeningen van Inkscape (laagnamen, hulplijnen,
+            # het type van een vorm). Ze tekenen niets en voeren niets uit; ze
+            # laten een bestand een rondgang naar de editor overleven. Ze wegkuisen
+            # maakt een affiche onbewerkbaar zonder iets veiliger te maken.
+            keep = True
         if keep and name == "href":
-            keep = bool(_LOCAL_REF.match(value.strip()))
+            schoon = value.strip()
+            keep = bool(_LOCAL_REF.match(schoon)) or (
+                naam == "image" and bool(_BRUIKBARE_AFBEELDING.match(schoon)))
         if keep and _UNSAFE_STYLE.search(value):
             keep = False
         if not keep:
@@ -124,13 +199,19 @@ def _clean_attributes(el: ET.Element) -> None:
 def _clean(el: ET.Element) -> None:
     for child in list(el):
         ns, name = _local(child.tag)
+        if ns in (INKSCAPE_NS, SODIPODI_NS):
+            # Zelfde reden als bij de attributen: `sodipodi:namedview` draagt de
+            # instellingen van de editor, meer niet.
+            _clean_attributes(child, naam=name)
+            _clean(child)
+            continue
         if ns != SVG_NS or name not in ALLOWED_ELEMENTS:
             el.remove(child)
             continue
         if name == "style" and child.text and _UNSAFE_STYLE.search(child.text):
             el.remove(child)
             continue
-        _clean_attributes(child)
+        _clean_attributes(child, naam=name)
         _clean(child)
         # Text belongs to text elements and <style>; anywhere else it is noise.
         if name not in ("text", "tspan", "textPath", "title", "desc", "style"):
@@ -179,6 +260,8 @@ def clean_svg(raw: bytes) -> tuple[bytes, float, float]:
 
     ET.register_namespace("", SVG_NS)
     ET.register_namespace("xlink", XLINK_NS)
+    ET.register_namespace("inkscape", INKSCAPE_NS)
+    ET.register_namespace("sodipodi", SODIPODI_NS)
     data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
     return data, width, height
 
