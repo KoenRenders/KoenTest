@@ -444,8 +444,10 @@ def insert_activity(newsletter_id: int, activity_id: int, db: Session = Depends(
     facts = nb.activity_facts(db, [activity_id], base_url=_base_url(db))
     if activity_id not in facts:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden."))
-    line = nb.activity_line_html(facts[activity_id])
-    return HTMLResponse(f"<div>{line}</div>")
+    # Koen, 19 September 2026: "Activiteit invoegen" puts the block of the Raak
+    # nationaal letter at the cursor — picture, title, description, call to
+    # action. The compact line lives on in the calendar.
+    return HTMLResponse(nb.activity_block_html(facts[activity_id]))
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender",
