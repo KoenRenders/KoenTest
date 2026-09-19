@@ -48,7 +48,8 @@ AFFICHE = f'''<svg xmlns="{SVG}" xmlns:inkscape="{INKSCAPE_NS}"
     <marker id="punt" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
       <path d="M0,0 L6,3 L0,6 z"/></marker>
   </defs>
-  <g inkscape:label="Achtergrond" inkscape:groupmode="layer" clip-path="url(#kader)">
+  <g inkscape:label="Achtergrond" inkscape:groupmode="layer" sodipodi:insensitive="true"
+     clip-path="url(#kader)">
     <rect width="420" height="300" fill="url(#lucht)" filter="url(#schaduw)"/>
     <line x1="10" y1="320" x2="410" y2="320" stroke="#000" marker-end="url(#punt)"/>
   </g>
@@ -158,14 +159,18 @@ def test_the_round_trip_stays_editable_in_inkscape(db_session):
     eerste = _render(db_session).data.decode()
 
     for kenmerk in (INKSCAPE_NS, SODIPODI_NS, "namedview",
-                    'inkscape:label="Achtergrond"', "groupmode", "<text"):
+                    'inkscape:label="Achtergrond"', "groupmode", "<text",
+                    # De vergrendeling van de huisstijllaag (#1011, nagelezen door
+                    # de designstudio-CLI): verdwijnt dat slotje, dan versleept
+                    # iemand na een rondgang per ongeluk het logo.
+                    'sodipodi:insensitive="true"'):
         assert kenmerk in eerste, f"{kenmerk} is weg na het opslaan"
 
     # Tweede rondgang: wat bewaard werd, moet opnieuw bewaard kunnen worden
     # zonder verder te eroderen — anders slijt een affiche bij elke bewerking.
     tweede = _render(db_session, svg=eerste, naam="ronde2.svg").data.decode()
     for kenmerk in (INKSCAPE_NS, SODIPODI_NS, "namedview", "groupmode",
-                    "feDropShadow", "Quiz van Raak"):
+                    'sodipodi:insensitive="true"', "feDropShadow", "Quiz van Raak"):
         assert kenmerk in tweede, f"{kenmerk} is weg na de tweede rondgang"
 
 
