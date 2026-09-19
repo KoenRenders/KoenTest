@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ form.title }} — {{ _("inzendingen") }}{% endblock %}
+{% block content %}
+{% include "_fb_recordkop.html" %}
+{# Het bestaande fragment; verwijderen swapt dit doel opnieuw. #}
+<div id="fb-inzendingen">
+  {% include "_fb_inzendingen.html" %}
+</div>
+{% endblock %}

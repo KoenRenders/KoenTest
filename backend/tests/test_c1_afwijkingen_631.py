@@ -31,7 +31,7 @@ def test_de_kpi_rij_staat_ook_op_leden_na_de_titel(client, db_session):
     """Het zusterscherm, als vergelijkingspunt."""
     _login(client, db_session)
     html = client.get("/admin/leden").text
-    assert html.index("<h1") < html.index("Actieve leden")
+    assert html.index("<h1") < html.index("Actieve gezinnen")
 
 
 def test_de_verstuurknop_van_de_widget_heeft_een_aria_label():
@@ -74,10 +74,12 @@ def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_sessi
     _login(client, db_session)
 
     for pad, label in (("/admin/activiteiten", "Open inschrijvingen"),
-                       ("/admin/leden", "Actieve leden")):
+                       ("/admin/leden", "Actieve gezinnen")):
         html = client.get(pad).text
-        kaart = html[html.index(label) - 400:html.index(label) + 200]
-        assert "bg-white border border-line" in kaart, f"{pad}: KPI-kaart is niet wit"
+        kaart = html[html.index(label) - 600:html.index(label) + 200]
+        # Sinds #996 delen beide schermen de kengetallenBAND (witte kaart,
+        # kolommen op md+, compacte regels mobiel) — zelfde vorm als Betalingen.
+        assert "border-gray-200 bg-white" in kaart, f"{pad}: KPI-kaart is niet wit"
         # Label bóven het cijfer: het label staat eerder in de HTML dan de waarde.
         na_label = html[html.index(label):]
         assert "text-3xl" in na_label[:300], f"{pad}: het cijfer hoort ná het label"

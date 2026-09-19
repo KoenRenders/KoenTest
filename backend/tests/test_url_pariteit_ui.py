@@ -55,6 +55,6 @@ def test_admin_dashboard(client):
     _login(client)
     resp = client.get("/admin")
     assert resp.status_code == 200
-    for label in ("Dashboard", "Actieve leden", "Komende activiteiten",
+    for label in ("Dashboard", "Actieve gezinnen", "Komende activiteiten",
                   "Openstaand saldo"):
         assert label in resp.text, label

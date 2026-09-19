@@ -20,7 +20,10 @@
    `border-l-4 … pl-3` erbij, en dat verschóóf de vraag op het moment dat ze
    gemarkeerd werd — precies wanneer je hem staat te lezen. Nu wisselt alleen de
    kleur. #}
-<div data-veld="{{ key }}" class="border-l-4 border-transparent pl-3">
+{# F19 (#996): -ml-3 trekt de gereserveerde foutgoot (border-l-4 + pl-3) de
+   kaartmarge in, zodat vraag en contactvelden op dezelfde inhoudsrand
+   beginnen — en de fout-markering nog altijd niets verschuift. #}
+<div data-veld="{{ key }}" class="border-l-4 border-transparent pl-3 -ml-4">
   {% if f.field_type == "info" %}
   <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
     {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
@@ -151,15 +154,18 @@
     {% endfor %}
   </div>
   {% elif f.field_type == "rating" %}
-  <div class="flex gap-3 items-center text-sm">
-    {% if f.rating_low_label %}<span class="text-gray-500">{{ f.rating_low_label }}</span>{% endif %}
+  {# F20 (#996): radio en cijfer samen één ruim aanklikbaar label, gelijk
+     verdeeld over de breedte — vijf dicht opeengepakte rondjes waren op een
+     telefoon moeilijk gericht te raken. Native radio's, 44px-aanraakmaat. #}
+  <div class="flex gap-2 items-center text-sm">
+    {% if f.rating_low_label %}<span class="text-gray-500 shrink-0">{{ f.rating_low_label }}</span>{% endif %}
     {% for n in range(1, (f.rating_max or 5) + 1) %}
-    <label class="flex flex-col items-center gap-1">
+    <label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
       <input type="radio" name="{{ key }}" value="{{ n }}" {% if val is string and val == n|string %}checked{% endif %}>
       <span class="text-xs text-gray-500">{{ n }}</span>
     </label>
     {% endfor %}
-    {% if f.rating_high_label %}<span class="text-gray-500">{{ f.rating_high_label }}</span>{% endif %}
+    {% if f.rating_high_label %}<span class="text-gray-500 shrink-0">{{ f.rating_high_label }}</span>{% endif %}
   </div>
   {% endif %}
   {% endif %}

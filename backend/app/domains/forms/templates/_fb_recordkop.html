@@ -1,0 +1,11 @@
+{% import "_macros.html" as ui %}
+{# Recordkop van het formulier (F15, #996 — het golf-8-patroon): titel +
+   status als kop, de tabbalk eronder. Gedeeld door de drie tabpagina's
+   (Formulier, Inzendingen, Resultaten); de tabs komen uit _form_tabs. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/formulieren">{{ _("← Formulieren") }}</a></p>
+<div class="mb-2">
+  <h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">{{ form.title }}
+    {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "gray") }}{% endif %}
+  </h1>
+</div>
+{{ ui.tabs(form_tabs) }}

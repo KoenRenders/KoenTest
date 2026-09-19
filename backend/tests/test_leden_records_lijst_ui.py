@@ -101,7 +101,7 @@ def test_kpi_rij_noemt_het_doeljaar_in_het_label(client, db_session):
     _login(client)
     _, doeljaar = renewal_years()
     html = client.get("/admin/leden").text
-    assert "Actieve leden" in html and "Actieve personen" in html
+    assert "Actieve gezinnen" in html and "Actieve personen" in html
     assert f"Nog niet vernieuwd</div>" not in html      # zonder jaar is het dubbelzinnig
     assert f"({doeljaar})" in html
 
@@ -181,7 +181,7 @@ def test_acties_staan_op_de_titelregel_boven_de_kpi_rij(client, db_session):
     toetsen: ze komen vóór de KPI-rij in de HTML."""
     _login(client)
     html = client.get("/admin/leden").text
-    assert html.index("+ Nieuw lid") < html.index("Actieve leden")
+    assert html.index("+ Nieuw lid") < html.index("Actieve gezinnen")
     assert html.index("Leden importeren") < html.index("+ Nieuw lid")  # secundair links
 
 
@@ -192,6 +192,6 @@ def test_kpi_kaart_noemt_het_referentiejaar_niet_nog_eens_het_doeljaar(client, d
     _login(client)
     referentiejaar, doeljaar = renewal_years()
     html = client.get("/admin/leden").text
-    assert f"Was lid in {referentiejaar}" in html
+    assert f"was lid in {referentiejaar}" in html  # subzin achter · sinds #996
     assert referentiejaar == doeljaar - 1
     assert "dekt" not in html          # de oude formulering is weg

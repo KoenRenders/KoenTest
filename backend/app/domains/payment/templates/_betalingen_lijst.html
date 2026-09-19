@@ -51,8 +51,11 @@
        twee gestapelde badges en werd de rij dubbel zo hoog. #686's zorg
        (statusbadges op één lijn) is daarmee vanzelf gedekt: er staat nog
        één badge per rij. #}
-    <div class="text-[11px] text-ink-soft">{% if r.type == "refund" %}{{ _("Terugbetaling") }} · {% endif %}{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}</div>
-    {% if r.note %}<div class="text-[11px] text-ink-soft truncate max-w-[13rem]" title="{{ r.note }}">{{ r.note }}</div>{% endif %}
+    {# Notitie ACHTER de soort/wijze op dezelfde subregel (Koen, 19 sep, uit
+       het echte gebruik): als eigen regel maakte ze rijen mét reden 15px
+       hoger dan hun betaling — gelijke rijen lezen als één geheel. De volle
+       tekst blijft via de tooltip. #}
+    <div class="text-[11px] text-ink-soft truncate max-w-[22rem]"{% if r.note %} title="{{ r.note }}"{% endif %}>{% if r.type == "refund" %}{{ _("Terugbetaling") }} · {% endif %}{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.note %} · {{ r.note }}{% endif %}</div>
   </td>
   <td class="px-3 py-2 hidden md:table-cell">
     {% set _st = kaart_status.get(k.status) %}

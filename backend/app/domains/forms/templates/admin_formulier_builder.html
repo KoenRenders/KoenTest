@@ -1,7 +1,7 @@
 {% extends "admin_base.html" %}
 {% block title %}{{ form.title }} — form-builder{% endblock %}
 {% block content %}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/formulieren">{{ _("← Formulieren") }}</a></p>
+{% include "_fb_recordkop.html" %}
 <div id="fb-detail">
   {% include "_fb_builder.html" %}
 </div>

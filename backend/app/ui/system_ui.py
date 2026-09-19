@@ -32,19 +32,23 @@ NAV = admin_nav("/admin/info")
 # `geld=True` op de laatste: die tegel toont een bedrag — sinds golf 7 (#913)
 # via dezelfde geld-formatter als overal ("€ 45,00", §735). #848 had de oude
 # punt-notatie bewust laten staan; die eigen wijziging is dit.
+# F12/F13 (#996, door Koen goedgekeurd op ronde 2): één neutrale kaart voor
+# elk kengetal — zes kleuren gaven gewone categorieën het gewicht van
+# statussen — en de labels benoemen de daadwerkelijk getelde eenheid: een
+# Member is een GEZIN, dus "Leden" telde geen leden.
 DASHBOARD_TEGELS = [
-    ("Leden", "dashboard_members", "member_total_count",
-     "bg-blue-50 text-blue-700", "/admin/leden", False),
-    ("Actieve leden", "dashboard_active_members", "membership_active_count",
-     "bg-green-50 text-green-800", "/admin/leden", False),
-    ("Leden (personen)", "dashboard_member_persons", "membership_person_unique",
-     "bg-teal-50 text-teal-800", "/admin/leden", False),
+    ("Gezinnen", "dashboard_members", "member_total_count",
+     "/admin/leden", False),
+    ("Actieve gezinnen", "dashboard_active_members", "membership_active_count",
+     "/admin/leden", False),
+    ("Personen (actief lid)", "dashboard_member_persons", "membership_person_unique",
+     "/admin/leden", False),
     ("Komende activiteiten", "dashboard_upcoming_activities", "activity_count",
-     "bg-purple-50 text-purple-800", "/admin/activiteiten", False),
+     "/admin/activiteiten", False),
     ("Open taken (werkbank)", "dashboard_open_tasks", "task_count",
-     "bg-yellow-50 text-yellow-800", "/admin/werkbank", False),
+     "/admin/werkbank", False),
     ("Openstaand saldo", "dashboard_outstanding", "payment_amount",
-     "bg-orange-50 text-orange-800", "/admin/betalingen", True),
+     "/admin/betalingen", True),
 ]
 
 
@@ -67,7 +71,7 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
     # scherm zegt eronder van wanneer de cijfers zijn.
     peilmoment = datetime.now()
     cijfers = dashboard_numbers(
-        db, [(sleutel, maat) for _l, sleutel, maat, _k, _h, _g in DASHBOARD_TEGELS],
+        db, [(sleutel, maat) for _l, sleutel, maat, _h, _g in DASHBOARD_TEGELS],
         tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID, viewer=email,
         today=peilmoment.date())
 
@@ -80,11 +84,11 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         return ("€ " + bedrag(getal)) if geld else getal
 
     tegels = [
-        {"label": label, "waarde": _toon(sleutel, geld), "kleur": kleur,
+        {"label": label, "waarde": _toon(sleutel, geld),
          "href": href,
          "rapport_href": (f"/admin/rapporten/{cijfers[sleutel].report_id}"
                           if cijfers[sleutel].report_id else None)}
-        for label, sleutel, _maat, kleur, href, geld in DASHBOARD_TEGELS
+        for label, sleutel, _maat, href, geld in DASHBOARD_TEGELS
     ]
     # #693: het dashboard zette een LEEG csrf-token in `hx-headers`. Landde je hier
     # en boostte je daarna naar een beheerscherm, dan hield de body die lege waarde
