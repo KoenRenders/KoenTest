@@ -40,7 +40,7 @@ class Contact:
 @dataclass(frozen=True)
 class PosterContent:
     duo_code: str
-    preset: str = "illustratie"
+    preset: str = "beeld"
 
     # Title in one or two lines; the "EN" badge sits between two lines when
     # ``title_joiner`` is set (STAPPEN *en* KLAPPEN).

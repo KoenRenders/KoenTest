@@ -314,18 +314,26 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                  "x": 212, "y": bar_y + 12.3, "size": size}
         p.boxes["t-bar"] = 118
 
-    # Band at the bottom: MEER INFO, website, e-mail, contacts, QR.
-    band_h: float = 30
+    # Band at the bottom, one left-aligned column of rows: the heading, then
+    # website and e-mail side by side (icon + text), then one row per contact
+    # person — "Naam · gsm · e-mail" — so the band grows 6.5 mm per contact
+    # (at most three, #1004) and nothing floats. The QR sits at the right,
+    # centred on the band's height.
+    contacts = [" · ".join(part for part in (c.name, c.mobile, c.email) if part) for c in content.contacts[:3]]
+    band_h: float = 26 + 6.5 * len(contacts)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
+    text_left = frame + 2 + 13          # after a 6 mm icon at frame + 2 + 5
+    qr_left = width - frame - 2 - 24
     p.band = {"path": rough_band(frame + 2, band_y, width - 2 * frame - 4, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "website": content.website, "email": content.email,
-              "contacts": "   ·   ".join(f"{c.name} {c.mobile}".strip() for c in content.contacts),
-              "label": content.more_info_label}
-    p.boxes["t-website"] = 80
-    p.boxes["t-email"] = 95
-    if content.contacts:
-        p.boxes["t-contacts"] = width - 2 * frame - 60
+              "contacts": contacts, "label": content.more_info_label,
+              "icon_x": frame + 2 + 5, "text_x": text_left, "col2_icon_x": 132, "col2_text_x": 140,
+              "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2}
+    p.boxes["t-website"] = 132 - text_left - 4
+    p.boxes["t-email"] = qr_left - 140 - 4
+    for i, _line in enumerate(contacts):
+        p.boxes[f"t-contact-{i}"] = qr_left - text_left - 4
 
     # Content area between the title and the band, two columns.
     top_y: float = 186 if (len(lines) == 2 or content.bar_text) else 150
@@ -343,12 +351,17 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
 
     if layout == "feed_portrait":
         y = top_y - 4
+        shown = content.highlights[:4]
+        rows = (len(shown) + 1) // 2
         if content.main_image:
-            frag, y = main_image_block(p, content.main_image, lx, y, width - lx - frame - 4 - 6, 85)
+            # The hero takes what the highlights and the band leave: a taller
+            # band (contact rows) shortens the photo, never the checks.
+            avail = limit - y - 6 - rows * ROW_H
+            frag, y = main_image_block(p, content.main_image, lx, y, width - lx - frame - 4 - 6,
+                                       max(50.0, min(85.0, avail)))
             full.append(frag)
             y += 6
         cols = ((lx, lw), (rx, rw))
-        shown = content.highlights[:4]
         col_y: list[float] = [y, y]
         for i, hl in enumerate(shown):
             cx, cw_ = cols[i % 2]
@@ -362,7 +375,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         y = max(col_y)
         if y > limit:
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
-    elif content.preset == "tekstflyer":
+    elif content.preset == "tekst":
         y = top_y
         if content.highlights:
             frag, y = highlight_rows(p, content, lx, y, lw)
@@ -427,7 +440,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             frag, ly = richtext_block(p, "t-rt-programme", content.programme_md, lx, ly, lw, 6.2,
                                       boxed=True, heading="PROGRAMMA")
             left.append(frag)
-        if content.welcome_line or content.preset == "reeks":
+        if content.welcome_line:
             frag, ly = welcome_row(p, content, lx, ly, lw)
             left.append(frag)
         if content.third_image:

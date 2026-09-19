@@ -54,7 +54,7 @@ def activity(db_session):
 
 @pytest.fixture
 def design(db_session, activity):
-    d = create_design(db_session, activity_id=activity.id, duo_code="dark_green-golden_yellow", preset="reeks",
+    d = create_design(db_session, activity_id=activity.id, duo_code="dark_green-golden_yellow", preset="beeld",
                       created_by="bestuur@example.com")
     from app.domains.media.api import MediaAsset
 
@@ -63,7 +63,7 @@ def design(db_session, activity):
                        title="proef", sort_order=0, is_active=True)
     db_session.add(photo)
     db_session.flush()
-    save_design(db_session, d, {"duo_code": "dark_green-golden_yellow", "preset": "reeks", "subtitle": "samen wandelen",
+    save_design(db_session, d, {"duo_code": "dark_green-golden_yellow", "preset": "beeld", "subtitle": "samen wandelen",
                                 "tagline": "Zet het in je agenda!", "welcome_line": "ook zonder lidkaart",
                                 "main_image_id": str(photo.id)},
                 highlights=[("users", "Gezellig samen wandelen en praten", False),
@@ -125,7 +125,37 @@ def test_a_ticked_organiser_lands_on_the_poster_and_an_unticked_one_does_not(db_
     assert facts["organisers"] == [{"name": "Test Persoon", "mobile": "0470 00 00 00", "email": "trekker@example.com"}]
     content = content_for(db_session, design, facts)
     assert content.contacts[0].name == "Test Persoon" and content.contacts[0].mobile == "0470 00 00 00"
-    assert "Test Persoon 0470 00 00 00" in render.merge(content, layout="print_a").svg
+    assert "Test Persoon · 0470 00 00 00 · trekker@example.com" in render.merge(content, layout="print_a").svg
+
+
+def test_the_activity_description_is_the_explanation_unless_the_design_types_its_own(db_session, design, activity):
+    """#1016 on the poster: live fact, in the fingerprint; a typed
+    explanation wins and is named as a deviation."""
+    from app.domains.designstudio.api import warnings_for
+
+    activity.description = "Een rustige tocht langs het kanaal."
+    db_session.flush()
+    facts = facts_for(db_session, design)
+    assert content_for(db_session, design, facts).explanation_md == "Een rustige tocht langs het kanaal."
+    before = fingerprint(facts)
+    activity.description = "Een pittige tocht langs het kanaal."
+    db_session.flush()
+    assert fingerprint(facts_for(db_session, design)) != before
+    design.explanation_md = "Eigen tekst."
+    facts = facts_for(db_session, design)
+    assert content_for(db_session, design, facts).explanation_md == "Eigen tekst."
+    assert any("wijkt af van de omschrijving" in w for w in warnings_for(design, facts))
+
+
+def test_only_the_two_presets_exist_and_the_database_agrees(db_session, design):
+    with pytest.raises(DesignError, match="opmaak"):
+        save_design(db_session, design, {"duo_code": design.duo_code, "preset": "illustratie"}, highlights=[], logo_ids=[])
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        db_session.execute(text("UPDATE designstudio.designs SET preset = 'reeks' WHERE id = :id"), {"id": design.id})
+    db_session.rollback()
 
 
 def test_title_splitting_rules():

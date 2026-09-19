@@ -60,7 +60,11 @@ GEN_FAILED = "failed"
 GENERATION_STATES = (GEN_REQUESTED, GEN_FETCHED, GEN_PICKED, GEN_DISCARDED, GEN_REFUSED, GEN_FAILED)
 
 #: Presets are block choices within the one template "Affiche" (CR-10 §3.4).
-PRESETS = ("beeld", "tekstflyer", "illustratie", "reeks")
+#: Two, since Koen's HDEV round of 19 September 2026: the four of the CR
+#: (Beeld, Tekstflyer, Illustratie, Reeks) were three times the same flow —
+#: a picture is a picture, and a series is a dates grid that appears by
+#: itself when there is more than one date.
+PRESETS = ("beeld", "tekst")
 
 
 class Design(TenantMixin, Base):
@@ -71,7 +75,7 @@ class Design(TenantMixin, Base):
     activity_id = Column(Integer, nullable=False, index=True)  # soft ref → activities.activities
     template_key = Column(String(40), nullable=False, default="affiche")
     template_version = Column(Integer, nullable=False, default=1)
-    preset = Column(String(20), nullable=False, default="illustratie")
+    preset = Column(String(20), nullable=False, default="beeld")
     duo_code = Column(String(60), nullable=False)
     status = Column(String(10), nullable=False, default=STATUS_DRAFT)
 

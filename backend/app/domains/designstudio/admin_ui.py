@@ -158,7 +158,7 @@ def design_list(request: Request, db: Session = Depends(get_db),
 
 
 def _new_view(request: Request, db: Session, *, activity_id: str = "", duo_code: str = "",
-              preset: str = "illustratie", error: Optional[str] = None) -> DesignNewView:
+              preset: str = "beeld", error: Optional[str] = None) -> DesignNewView:
     return DesignNewView(activity_options=_activity_options(db), activity_id=activity_id,
                          duo_options=_duo_options(), duo_code=duo_code or ENABLED_DUOS[0],
                          preset_options=_preset_options(), preset=preset,
@@ -174,7 +174,7 @@ def design_new(request: Request, db: Session = Depends(get_db), _email: str = De
 
 @router.post("/admin/ontwerpen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def design_create(request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                  activity_id: str = Form(""), duo_code: str = Form(""), preset: str = Form("illustratie")):
+                  activity_id: str = Form(""), duo_code: str = Form(""), preset: str = Form("beeld")):
     try:
         design = create_design(db, activity_id=int(activity_id or 0), duo_code=duo_code, preset=preset,
                                created_by=email)
@@ -195,8 +195,10 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
             f"{d['date']} {d['time']}".strip() for d in facts["dates"])))
     rows.append((_("Plaats"), facts["location"] or "—"))
     rows.append((_("Inschrijven tot"), facts["deadline"] or "—"))
-    rows.append((_("Contact"), "; ".join(f"{c['name']} {c['mobile']}".strip() for c in facts["organisers"])
+    rows.append((_("Contact"), "; ".join(" · ".join(p for p in (c["name"], c["mobile"], c["email"]) if p)
+                                          for c in facts["organisers"])
                  or _("niemand aangevinkt → gegevens van de vereniging")))
+    rows.append((_("Omschrijving"), facts["description"] or _("— (leeg; typ hieronder een toelichting)")))
     return rows
 
 
