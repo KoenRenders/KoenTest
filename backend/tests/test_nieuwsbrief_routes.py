@@ -377,11 +377,21 @@ def test_automatisch_bewaren_maakt_het_formulier_niet_onklikbaar(client, db_sess
     assert 'hx-indicator="#nb-bewaard"' in formulier
 
 
-def test_de_inschrijfpagina_toont_het_formulier_een_keer(client, db_session):
-    """The footer block is left out on the page that is the signup itself."""
-    html = client.get("/nieuwsbrief").text
-    assert html.count('name="email"') == 1
-    assert 'id="nb-voet"' not in html
+def test_de_nieuwsbrief_staat_alleen_als_link_op_de_homepagina(client, db_session):
+    """Koen, 19 September 2026: the signup block stood under every public page,
+    a sent contact form included. Only the home page links to the newsletter.
+
+    Broken on purpose: the include put back in `site_base.html` → the form is on
+    every page again and the first two assertions fail.
+    """
+    home = client.get("/").text
+    assert 'id="nb-home-link"' in home
+    assert 'id="nb-voet"' not in home, "geen inschrijfformulier in de voet"
+    for pad in ("/activiteiten", "/lid-worden", "/berichten"):
+        assert 'id="nb-voet"' not in client.get(pad).text, pad
+
+    pagina = client.get("/nieuwsbrief").text
+    assert pagina.count('name="email"') == 1
 
 
 # ── Attachments as links (Koen, 17 September 2026) ───────────────────────────

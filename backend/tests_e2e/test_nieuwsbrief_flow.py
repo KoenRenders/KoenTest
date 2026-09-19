@@ -143,17 +143,19 @@ def test_een_agendapunt_weghalen_vraagt_eerst_bevestiging(admin_page):
     assert page.locator("button[aria-label='Punt van deze agenda halen']").count() == aantal
 
 
-def test_inschrijven_onderaan_de_site_op_een_telefoon(browser):
+def test_inschrijven_via_de_link_op_de_homepagina_op_een_telefoon(browser):
+    """Koen, 19 September 2026: the home page links to the newsletter, and the
+    signup itself lives on that page — no form under every public page."""
     page = browser.new_page(base_url=BASE, viewport=TELEFOON)
     try:
         page.goto("/")
-        blok = page.locator("#nb-voet")
-        blok.scroll_into_view_if_needed()
-        _klikbaar(page, "#nb-voet-email")
-        assert blok.count() == 1, "het inschrijfblok hoort onderaan elke afdelingssite"
-        blok.scroll_into_view_if_needed()
-        page.fill("#nb-voet-email", "e2e-nieuwsbrief@example.org")
-        blok.get_by_role("button", name="Inschrijven").click()
+        assert page.locator("#nb-voet").count() == 0, "geen inschrijfblok in de voet"
+        _klikbaar(page, "#nb-home-link")
+        page.locator("#nb-home-link").click()
+        page.wait_for_selector("#nb-publiek", timeout=5_000)
+        _klikbaar(page, "#nb-email")
+        page.fill("#nb-email", "e2e-nieuwsbrief@example.org")
+        page.locator("#nb-publiek").get_by_role("button", name="Inschrijven").click()
         page.get_by_text("Kijk in je mailbox").wait_for(timeout=5_000)
         breedte = page.evaluate("document.documentElement.scrollWidth")
         assert breedte <= TELEFOON["width"], f"de pagina scrollt horizontaal ({breedte}px)"
