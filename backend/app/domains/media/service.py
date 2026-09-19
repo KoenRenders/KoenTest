@@ -12,6 +12,8 @@ gevonden); de route vertaalt die naar een statuscode.
 from typing import Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
+from app.domains.media.pdf import (PDF_CONTENT_TYPE, PNG_CONTENT_TYPE,
+                                    first_page_png)
 from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.domains.media.models import MediaAsset
 from app.i18n import _
@@ -484,6 +486,41 @@ def delete_component_info(db, component_id: int) -> None:
                           MediaAsset.component_id == component_id).all()):
         db.delete(asset)
     db.commit()
+
+
+def activity_image_path(db, activity_id: int) -> Optional[str]:
+    """The picture that represents this activity in a mail, or None (#984).
+
+    The order is Koen's (19 September 2026): **the poster first** — for an
+    activity that still has to happen it is the only picture there is, since
+    photos come from the album and that exists only afterwards — then the album
+    cover of a past one.
+
+    A PDF poster answers with its rendering (#1019) and only when that rendering
+    exists: without it ``/thumb`` would serve the PDF itself, and a mail would
+    show a broken image. Media decides this, not the newsletter: whether a file
+    has a usable picture is knowledge of this domain.
+    """
+    poster = (db.query(MediaAsset)
+              .filter(MediaAsset.kind == "activity_poster",
+                      MediaAsset.activity_id == activity_id)
+              .order_by(MediaAsset.id.desc()).first())
+    if poster is not None:
+        if poster.content_type == PDF_CONTENT_TYPE:
+            if poster.thumbnail is None:
+                png = first_page_png(poster.data or b"")
+                if png:
+                    poster.thumbnail = png
+                    poster.thumb_content_type = PNG_CONTENT_TYPE
+                    db.commit()
+            return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
+        return f"/api/v1/media/{poster.id}"
+    cover = (db.query(MediaAsset)
+             .filter(MediaAsset.kind == "activity_photo",
+                     MediaAsset.is_active.is_(True),
+                     MediaAsset.activity_id == activity_id)
+             .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc()).first())
+    return f"/api/v1/media/{cover.id}/thumb" if cover is not None else None
 
 
 def tenant_logo(db):

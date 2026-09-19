@@ -373,8 +373,12 @@ def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
             fact = facts.get(activity_id)
             if fact is None:
                 continue
-            html = (nb.activity_line_html(fact) if kind == "activiteit"
-                    else nb.photos_line_html(fact))
+            # Koen, 19 September 2026: what Raakje inserts is what the button
+            # inserts — the whole block, built by the server, never typed.
+            if kind == "activiteit":
+                blocks.append(nb.activity_block_html(fact))
+                continue
+            html = nb.photos_line_html(fact)
             if html:
                 blocks.append(f"<div>{html}</div>")
             continue
