@@ -233,11 +233,15 @@ def test_versturen_zonder_csrf_token_gaat_niet(client, db_session):
     Een POST zonder token hoort te weigeren — en dat is het soort regel dat je
     juist wil toetsen op de route, want de servicelaag weet niets van CSRF.
     """
-    _login(client)
+    # #1024: de headers van `_login` hergebruiken, niet een TWEEDE sessiewaarde
+    # munten. `make_session_value()` draagt `int(time.time())`, dus viel die tweede
+    # munting in een andere seconde dan de cookie, dan hoorde het token bij een
+    # andere sessie en weigerde de AANMAAK al met 403 — vóór het onderwerp van deze
+    # test aan bod kwam. Een test die willekeurig rood wordt, leert iedereen rood
+    # te negeren.
+    headers = _login(client)
     _kringlid(db_session)
-    vergadering = client.post("/admin/vergaderingen",
-                              headers={"X-CSRF-Token": csrf_token_for(
-                                  make_session_value(SEEDED_ADMIN_EMAIL))},
+    vergadering = client.post("/admin/vergaderingen", headers=headers,
                               data={"meeting_date": "2026-10-01"},
                               follow_redirects=False)
     assert vergadering.status_code in (200, 204, 303)
