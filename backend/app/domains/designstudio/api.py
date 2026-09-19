@@ -5,7 +5,7 @@ reads it; the screens are its one caller.
 """
 from app.domains.designstudio.brand import COLOURS, DUOS, ENABLED_DUOS, check_template, palette_for  # noqa: F401
 from app.domains.designstudio.icons import ICONS  # noqa: F401
-from app.domains.designstudio.imaging import Budget, ImagingError  # noqa: F401
+from app.domains.designstudio.imaging import STYLE_LABELS, STYLES, Budget, ImagingError  # noqa: F401
 from app.domains.designstudio.models import (  # noqa: F401
     GENERATION_STATES,
     LAYOUT_FEED,
@@ -58,7 +58,7 @@ from app.domains.designstudio.service import (  # noqa: F401
 
 __all__ = [
     "COLOURS", "DUOS", "ENABLED_DUOS", "check_template", "palette_for", "ICONS",
-    "Budget", "ImagingError", "RenderError", "DesignError",
+    "Budget", "ImagingError", "RenderError", "DesignError", "STYLE_LABELS", "STYLES",
     "GENERATION_STATES", "LAYOUT_FEED", "LAYOUT_PRINT", "LAYOUTS", "PRESETS", "STATUS_DRAFT", "STATUS_FINAL",
     "LAYOUT_LABELS", "MAX_HIGHLIGHTS", "MAX_LOGOS", "MAX_VERSIONS", "PRESET_LABELS", "STATUS_LABELS", "STATUS_TONES",
     "Design", "DesignRendition", "DesignVersion", "ImageGeneration",
