@@ -1,7 +1,7 @@
-{#- Template "Affiche" (CR-10 §3.4) — the look of the page. -#}
+{#- Template "Affiche" (CR-10 §3.4) — the look of the page, round 3. -#}
 {#- Content blocks arrive positioned from blocks.plan_affiche; this file draws -#}
-{#- the frame, the corner tile with the lockup, the speckled title, the bar and -#}
-{#- the band. Colours come only from the palette (brand.palette_for). -#}
+{#- the frame, the speckled title at the top, the bar, and the band with the -#}
+{#- lockup. Colours come only from the palette (brand.palette_for). -#}
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
      xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
      xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -28,46 +28,43 @@
 <rect width="{{ p.width }}" height="{{ p.height }}" fill="{{ p.pal.white }}"/>
 <g id="raak" inkscape:label="Raak (vast)" inkscape:groupmode="layer" sodipodi:insensitive="true">
   <path fill-rule="evenodd" fill="{{ p.pal.tile }}" d="M0 0 H{{ p.width }} V{{ p.height }} H0 Z {{ p.paper_path }}"/>
-  {{ wordmark | safe }}
   <path d="{{ p.band.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
-  {{ icon("globe", p.pal.white, p.pal.accent3, p.band.icon_x, p.band.y + 13, 6) | safe }}
-  {{ icon("mail", p.pal.white, p.pal.accent2, p.band.col2_icon_x, p.band.y + 13, 6) | safe }}
+  {{ wordmark | safe }}
+  {{ icon("globe", p.pal.white, p.pal.accent3, p.band.icon_x, p.band.row_y + 13, 6) | safe }}
+  {{ icon("mail", p.pal.white, p.pal.accent2, p.band.col2_icon_x, p.band.row_y + 13, 6) | safe }}
   {%- for line in p.band.contacts %}
-  {{ icon("users", p.pal.ink, p.pal.accent, p.band.icon_x, p.band.y + 19.5 + loop.index0 * 6.5, 6) | safe }}
+  {{ icon("users", p.pal.ink, p.pal.accent, p.band.icon_x, p.band.row_y + 19.5 + loop.index0 * 6.5, 6) | safe }}
   {%- endfor %}
 </g>
 <g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">
-  {%- if p.kicker %}
-  <text id="t-kicker" x="{{ p.width - p.frame - 6 }}" y="{{ p.frame + 16 }}" font-size="8" font-weight="bold" fill="{{ p.pal.ink }}" text-anchor="end" letter-spacing="0.3">{{ p.kicker }}</text>
-  {%- endif %}
-  <g transform="rotate(-2.2 19 100)">
+  <g transform="rotate(-2.2 19 60)">
     {%- for t in p.title %}
-    <text id="{{ t.id }}" x="{{ t.x }}" y="{{ t.y }}" font-size="{{ t.size }}" font-weight="bold" fill="url(#{{ t.pattern }})" text-anchor="{{ t.anchor }}" letter-spacing="{{ '%.2f' % t.tracking }}" stroke="{{ t.stroke }}" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke">{{ t.text }}</text>
+    <text id="{{ t.id }}" x="{{ t.x }}" y="{{ '%.2f' % t.y }}" font-size="{{ '%.2f' % t.size }}" font-weight="bold" fill="url(#{{ t.pattern }})" text-anchor="{{ t.anchor }}" letter-spacing="{{ '%.2f' % t.tracking }}" stroke="{{ t.stroke }}" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke">{{ t.text }}</text>
     {%- endfor %}
     {%- if p.joiner %}
-    <path d="M{{ p.joiner.cx - 16 }} {{ p.joiner.cy + 16 }} L{{ p.joiner.cx - 27 }} {{ p.joiner.cy + 30 }} L{{ p.joiner.cx - 6 }} {{ p.joiner.cy + 19 }} Z" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4" stroke-linejoin="round"/>
-    <ellipse cx="{{ p.joiner.cx }}" cy="{{ p.joiner.cy }}" rx="26" ry="18.5" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4"/>
-    <path d="M{{ p.joiner.cx - 15 }} {{ p.joiner.cy + 15 }} L{{ p.joiner.cx - 23 }} {{ p.joiner.cy + 26 }} L{{ p.joiner.cx - 7 }} {{ p.joiner.cy + 18 }} Z" fill="{{ p.pal.white }}"/>
-    <text id="t-joiner" x="{{ p.joiner.cx }}" y="{{ p.joiner.cy + 9.5 }}" font-size="27" font-weight="bold" fill="{{ p.pal.ink }}" text-anchor="middle">{{ p.joiner.text }}</text>
+    <path d="M{{ p.joiner.cx - 16 }} {{ '%.2f' % (p.joiner.cy + 16) }} L{{ p.joiner.cx - 27 }} {{ '%.2f' % (p.joiner.cy + 30) }} L{{ p.joiner.cx - 6 }} {{ '%.2f' % (p.joiner.cy + 19) }} Z" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4" stroke-linejoin="round"/>
+    <ellipse cx="{{ p.joiner.cx }}" cy="{{ '%.2f' % p.joiner.cy }}" rx="26" ry="18.5" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4"/>
+    <path d="M{{ p.joiner.cx - 15 }} {{ '%.2f' % (p.joiner.cy + 15) }} L{{ p.joiner.cx - 23 }} {{ '%.2f' % (p.joiner.cy + 26) }} L{{ p.joiner.cx - 7 }} {{ '%.2f' % (p.joiner.cy + 18) }} Z" fill="{{ p.pal.white }}"/>
+    <text id="t-joiner" x="{{ p.joiner.cx }}" y="{{ '%.2f' % (p.joiner.cy + 9.5) }}" font-size="27" font-weight="bold" fill="{{ p.pal.ink }}" text-anchor="middle">{{ p.joiner.text }}</text>
     {%- endif %}
     {%- if p.bar %}
     <path d="{{ p.bar.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
-    <text id="t-bar" x="{{ p.bar.x }}" y="{{ p.bar.y }}" font-size="{{ p.bar.size }}" font-weight="bold" fill="{{ p.pal.white }}" text-anchor="middle" letter-spacing="0.3">{{ p.bar.text }}</text>
+    <text id="t-bar" x="{{ '%.2f' % p.bar.x }}" y="{{ '%.2f' % p.bar.y }}" font-size="{{ p.bar.size }}" font-weight="bold" fill="{{ p.pal.white }}" text-anchor="middle" letter-spacing="0.3">{{ p.bar.text }}</text>
     {%- endif %}
   </g>
   {{ p.left | safe }}
   {{ p.right | safe }}
   {{ p.full | safe }}
   {{ p.logos | safe }}
-  <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ p.band.y + 9 }}" font-size="8.5" font-weight="bold" fill="{{ p.pal.accent }}" letter-spacing="0.4">{{ p.band.label }}</text>
-  <text id="t-website" x="{{ p.band.text_x }}" y="{{ p.band.y + 17.4 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
-  <text id="t-email" x="{{ p.band.col2_text_x }}" y="{{ p.band.y + 17.4 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
+  <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ '%.2f' % (p.band.row_y + 9) }}" font-size="8.5" font-weight="bold" fill="{{ p.pal.accent }}" letter-spacing="0.4">{{ p.band.label }}</text>
+  <text id="t-website" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 17.4) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
+  <text id="t-email" x="{{ p.band.col2_text_x }}" y="{{ '%.2f' % (p.band.row_y + 17.4) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
   {%- for line in p.band.contacts %}
-  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ p.band.y + 23.9 + loop.index0 * 6.5 }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}">{{ line }}</text>
+  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 23.9 + loop.index0 * 6.5) }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}">{{ line }}</text>
   {%- endfor %}
   {%- if qr %}
-  <rect x="{{ p.band.qr_x }}" y="{{ p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>
-  <svg x="{{ p.band.qr_x + 1 }}" y="{{ p.band.qr_y + 1 }}" width="20" height="20" {{ qr | safe }}
+  <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>
+  <svg x="{{ p.band.qr_x + 1 }}" y="{{ '%.2f' % (p.band.qr_y + 1) }}" width="20" height="20" {{ qr | safe }}
   {%- endif %}
 </g>
 </svg>

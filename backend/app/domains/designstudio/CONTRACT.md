@@ -44,9 +44,14 @@ through `rendition`.
 ## Invariants
 
 - **A design stores inputs, never facts and never renders.** Title, dates,
-  place, deadline, organisers and the association's lines are read at render
-  time; each version keeps `facts_fingerprint`, and "verouderd" is computed on
-  read (`is_stale`). Nothing in `activities` calls into this schema.
+  place, deadline, members-only, description (#1016), organisers and the
+  association's lines are read at render time; each version keeps
+  `facts_fingerprint`, and "verouderd" is computed on read (`is_stale`).
+  Nothing in `activities` calls into this schema. Since round 3 (19 September
+  2026) the design text is three fields — subtitle bar, handwritten line,
+  "Omschrijving anders" (NULL when the activity's description is used) — plus
+  highlights, images and the logo strip; "iedereen welkom" / "enkel leden" is
+  derived, never typed.
 - **Templates use colours by name only.** `brand.check_template` refuses any
   hex outside the eight colours, white and black, and more than five brand
   colours per template. The rendered poster passes the same gate (test).
@@ -86,5 +91,8 @@ photo edges, stroke with `paint-order` for bolder titles.
 
 `/admin/ontwerpen` (list, new design per activity) and
 `/admin/ontwerpen/{id}` (the editor: form, preview per layout, violations,
-images, AI variants, versions, publish, SVG download/upload). ADMIN/OPERATOR
-only (`require_admin_ui`).
+images, AI variants with a style and "wat wil je anders?" on a variant,
+versions, publish, SVG download/upload). ADMIN/OPERATOR only
+(`require_admin_ui`). Presets: `eenvoudig` (one picture over the full width,
+a few facts), `beeld` (picture right, highlights left), `tekst` (highlights
+left, description right).
