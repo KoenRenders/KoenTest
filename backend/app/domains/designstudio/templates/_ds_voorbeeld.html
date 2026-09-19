@@ -15,8 +15,9 @@
 {% if render_error %}
   {{ ui.error_banner(render_error) }}
 {% else %}
-<div class="bg-surface-2 border border-line rounded-2xl p-3">
-  <a href="{{ preview_url }}" target="_blank" rel="noopener" title="{{ _('Groot bekijken') }}"><img src="{{ preview_url }}" alt="{{ _('Voorbeeld van de affiche') }}" class="w-full h-auto rounded-lg shadow-sm"></a>
+<div class="bg-surface-2 border {% if violations %}border-red-600 border-2{% else %}border-line{% endif %} rounded-2xl p-3 relative">
+  {% if violations %}<span class="absolute top-5 left-5 rounded-full bg-red-600 text-white text-xs font-semibold px-2 py-0.5">{{ _("Past niet — zie de lijst hieronder") }}</span>{% endif %}
+  <a href="{{ preview_url }}" target="_blank" rel="noopener" title="{{ _('Groot bekijken') }}"><img src="{{ preview_url }}" alt="{{ _('Voorbeeld van de affiche') }}" class="w-full h-auto rounded-lg shadow-sm{% if violations %} opacity-60{% endif %}"></a>
   <p class="text-xs text-ink-soft mt-2">
     <a href="{{ preview_url }}" target="_blank" rel="noopener" class="underline text-link">{{ _("Groot bekijken") }}</a> ·
     <a href="/admin/ontwerpen/{{ design_id }}/voorbeeld.pdf?layout={{ layout }}" target="_blank" rel="noopener" class="underline text-link">{{ _("Pdf van dit ontwerp") }}</a>

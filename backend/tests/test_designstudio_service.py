@@ -438,6 +438,22 @@ def test_the_screens_sit_behind_the_admin_door(client):
         assert response.status_code in (302, 303, 401, 403), path
 
 
+def test_a_refused_save_shows_what_was_typed(client, db_session, design):
+    """Round 5: a wrong icon in one row must not cost the other rows and the
+    subtitle the person just typed."""
+    from app.domains.auth.api import csrf_token_for
+
+    sess = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, sess)
+    data = {"duo_code": design.duo_code, "preset": "beeld", "subtitle": "net getypt", "layout": "print_a",
+            "hl_icon_0": "users", "hl_text_0": "Eerste kernpunt net getypt", "hl_icon_1": "no-such-icon", "hl_text_1": "Fout"}
+    page = client.post(f"/admin/ontwerpen/{design.id}", data=data, headers={"X-CSRF-Token": csrf_token_for(sess)})
+    assert page.status_code == 200 and "Onbekend icoon" in page.text
+    assert 'value="net getypt"' in page.text and 'value="Eerste kernpunt net getypt"' in page.text
+    db_session.refresh(design)
+    assert design.subtitle == "samen wandelen"  # nothing saved
+
+
 def test_the_list_and_the_editor_render_for_an_admin(client, db_session, design):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     page = client.get("/admin/ontwerpen")
