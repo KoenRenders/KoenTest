@@ -375,7 +375,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         y = max(col_y)
         if y > limit:
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
-    elif content.preset == "tekstflyer":
+    elif content.preset == "tekst":
         y = top_y
         if content.highlights:
             frag, y = highlight_rows(p, content, lx, y, lw)
@@ -440,7 +440,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             frag, ly = richtext_block(p, "t-rt-programme", content.programme_md, lx, ly, lw, 6.2,
                                       boxed=True, heading="PROGRAMMA")
             left.append(frag)
-        if content.welcome_line or content.preset == "reeks":
+        if content.welcome_line:
             frag, ly = welcome_row(p, content, lx, ly, lw)
             left.append(frag)
         if content.third_image:

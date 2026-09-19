@@ -40,7 +40,7 @@ PNG_2x2 = _png()
 
 def _content(**overrides) -> PosterContent:
     base = {
-        "duo_code": "dark_green-golden_yellow", "preset": "reeks",
+        "duo_code": "dark_green-golden_yellow", "preset": "beeld",
         "title_lines": ("STAPPEN", "KLAPPEN"), "title_joiner": "EN", "bar_text": "SAMEN WANDELEN",
         "tagline": "Zet het in je agenda!",
         "highlights": (Highlight("calendar", "IEDERE 2DE MAANDAG VAN DE MAAND", True),
@@ -196,9 +196,19 @@ def test_resize_page_changes_only_the_page_attributes():
         render.resize_page("<svg><rect/></svg>", 210, 297)
 
 
-def test_wordmark_is_recoloured_per_duo_and_loses_its_ids():
+def test_wordmark_is_recoloured_per_duo_and_keeps_the_baseline_glyphs():
+    """Koen, 19 September 2026: "Beleef meer in Millegem" had vanished. The
+    baseline is one <use href="#font_…"> per letter; every referenced glyph
+    must still be defined in the wordmark, and the root loses only its own
+    id/role attributes."""
     green = render.wordmark(brand.palette_for("dark_green-golden_yellow"), x=0, y=0, width=72)
-    assert "#ffce00" in green and 'id="' not in green and 'viewBox="106 106.2 491 245"' in green
+    assert "#ffce00" in green and 'viewBox="106 106.2 491 245"' in green
+    assert not re.search(r'<svg[^>]*\sid="', green) and 'aria-labelledby' not in green
+    uses = re.findall(r'href="#(font_[^"]+)"', green)
+    used = set(uses)
+    assert len(uses) >= 20 and len(used) >= 10, "the baseline's letters are missing"
+    defined = set(re.findall(r'id="(font_[^"]+)"', green))
+    assert used <= defined, used - defined
     yellow = render.wordmark(brand.palette_for("golden_yellow-indigo"), x=0, y=0, width=72)
     assert "#ffce00" not in yellow and "#460359" in yellow
 
