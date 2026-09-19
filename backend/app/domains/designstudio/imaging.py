@@ -31,7 +31,6 @@ from __future__ import annotations
 
 import base64
 import logging
-import os
 import secrets
 import time
 from dataclasses import dataclass
@@ -40,6 +39,7 @@ from decimal import Decimal
 
 import httpx
 
+from app.config import settings
 from app.kernel.clock import belgian_today
 
 logger = logging.getLogger(__name__)
@@ -65,11 +65,11 @@ STYLE_SUFFIX = (" — simple black line drawing in a friendly hand-drawn style, 
                 "no shading, no text, no background scenery, pure white background, "
                 "single subject centred, poster illustration")
 
-ENV_ENABLED = "DESIGNSTUDIO_AI_IMAGES_ENABLED"
-ENV_BUDGET = "DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR"
-ENV_PLATFORM_BUDGET = "DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR"
-ENV_KEY = "BFL_API_KEY"
-ENV_RATE = "BFL_USD_EUR_RATE"
+# The five settings live on `Settings` (app/config.py) like every other
+# per-host setting, so the compose files pass them and the #821/#917 gate sees
+# them: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED`,
+# `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`, `DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR`,
+# `BFL_USD_EUR_RATE`. Reading `os.environ` here would have bypassed all three.
 
 
 class ImagingError(RuntimeError):
@@ -95,20 +95,14 @@ class Budget:
                 + (f" (€ {self.reserved_eur:.2f} gereserveerd)" if self.reserved_eur else ""))
 
 
-def _env_decimal(name: str, fallback: str) -> Decimal:
-    try:
-        return Decimal(os.environ.get(name) or fallback)
-    except ArithmeticError:
-        return Decimal(fallback)
-
-
 def enabled() -> bool:
-    return (os.environ.get(ENV_ENABLED) or "").strip().lower() in ("1", "true", "yes", "on") \
-        and bool(os.environ.get(ENV_KEY))
+    """The kill switch, and a key to go with it: without a key there is nothing
+    to switch on."""
+    return bool(settings.designstudio_ai_images_enabled) and bool(settings.bfl_api_key)
 
 
 def usd_to_eur(usd: Decimal) -> Decimal:
-    return (usd * _env_decimal(ENV_RATE, "0.92")).quantize(Decimal("0.0001"))
+    return (usd * Decimal(str(settings.bfl_usd_eur_rate))).quantize(Decimal("0.0001"))
 
 
 def expected_cost_eur(*, with_reference: bool) -> Decimal:
@@ -119,8 +113,8 @@ def expected_cost_eur(*, with_reference: bool) -> Decimal:
 def budget_for(db, *, tenant_id: int, spent_eur: Decimal, reserved_cents: int) -> Budget:
     return Budget(
         enabled=enabled(),
-        monthly_eur=_env_decimal(ENV_BUDGET, "50"),
-        platform_eur=_env_decimal(ENV_PLATFORM_BUDGET, "150"),
+        monthly_eur=Decimal(str(settings.designstudio_ai_monthly_budget_eur)),
+        platform_eur=Decimal(str(settings.designstudio_ai_platform_budget_eur)),
         spent_eur=spent_eur,
         reserved_eur=Decimal(reserved_cents) / 100,
     )
@@ -167,7 +161,7 @@ class BflClient:
     with a failure. Separate class so a test can replace it."""
 
     def __init__(self, api_key: str | None = None, *, timeout: float = 60.0):
-        self.api_key = api_key or os.environ.get(ENV_KEY, "")
+        self.api_key = api_key or settings.bfl_api_key or ""
         self.timeout = timeout
 
     def generate(self, prompt: str, *, width: int, height: int, seed: int | None,

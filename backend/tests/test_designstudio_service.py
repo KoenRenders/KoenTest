@@ -15,6 +15,7 @@ from decimal import Decimal
 
 import pytest
 
+from app.config import settings
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
@@ -197,12 +198,16 @@ def test_at_most_three_versions_and_the_published_one_survives(db_session, desig
 def test_the_budget_refuses_before_any_call(monkeypatch, db_session, design):
     from app.domains.designstudio.api import request_images
 
-    monkeypatch.delenv(imaging.ENV_ENABLED, raising=False)
+    monkeypatch.setattr(settings, "designstudio_ai_images_enabled", False)
+    monkeypatch.setattr(settings, "bfl_api_key", "test-key")
     with pytest.raises(ImagingError, match="kill switch"):
         request_images(db_session, design, "two people walking a forest path")
-    monkeypatch.setenv(imaging.ENV_ENABLED, "true")
-    monkeypatch.setenv(imaging.ENV_KEY, "test-key")
-    monkeypatch.setenv(imaging.ENV_BUDGET, "0.10")
+    monkeypatch.setattr(settings, "designstudio_ai_images_enabled", True)
+    monkeypatch.setattr(settings, "bfl_api_key", None)  # switch on, no key: still off
+    with pytest.raises(ImagingError, match="kill switch"):
+        request_images(db_session, design, "two people walking a forest path")
+    monkeypatch.setattr(settings, "bfl_api_key", "test-key")
+    monkeypatch.setattr(settings, "designstudio_ai_monthly_budget_eur", 0.10)
     with pytest.raises(ImagingError, match="maandbudget"):
         request_images(db_session, design, "two people walking a forest path")
     assert db_session.query(ImageGeneration).count() == 0
@@ -212,9 +217,9 @@ def test_the_budget_refuses_before_any_call(monkeypatch, db_session, design):
 def test_one_click_reserves_four_variants_and_queues_four_jobs(monkeypatch, db_session, design):
     from app.domains.designstudio.api import request_images
 
-    monkeypatch.setenv(imaging.ENV_ENABLED, "true")
-    monkeypatch.setenv(imaging.ENV_KEY, "test-key")
-    monkeypatch.setenv(imaging.ENV_BUDGET, "50")
+    monkeypatch.setattr(settings, "designstudio_ai_images_enabled", True)
+    monkeypatch.setattr(settings, "bfl_api_key", "test-key")
+    monkeypatch.setattr(settings, "designstudio_ai_monthly_budget_eur", 50.0)
     with pytest.raises(ImagingError, match="minstens"):
         request_images(db_session, design, "kids")
     key = request_images(db_session, design, "two adults and two children walking a forest path",
@@ -234,9 +239,9 @@ def test_a_second_click_while_the_first_runs_is_refused(monkeypatch, db_session,
     this guards the click."""
     from app.domains.designstudio.api import request_images
 
-    monkeypatch.setenv(imaging.ENV_ENABLED, "true")
-    monkeypatch.setenv(imaging.ENV_KEY, "test-key")
-    monkeypatch.setenv(imaging.ENV_BUDGET, "50")
+    monkeypatch.setattr(settings, "designstudio_ai_images_enabled", True)
+    monkeypatch.setattr(settings, "bfl_api_key", "test-key")
+    monkeypatch.setattr(settings, "designstudio_ai_monthly_budget_eur", 50.0)
     request_images(db_session, design, "two adults and two children walking a forest path")
     with pytest.raises(DesignError, match="loopt al"):
         request_images(db_session, design, "two adults and two children walking a forest path")
