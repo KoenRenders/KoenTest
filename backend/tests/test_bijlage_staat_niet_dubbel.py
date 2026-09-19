@@ -51,7 +51,10 @@ def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_sessio
     # Sinds ronde 2 van golf 8 draagt de leeslink de documentTITEL; het vaste
     # label staat alleen nog in het uploadblok. Op de bijlage-URL zoeken dekt
     # beide vormen — de invariant (#653: nooit twee tegelijk) blijft dezelfde.
-    regels = _regels_met(html, "/api/v1/media/")
+    # Alleen LINKS tellen (#1019): sinds de affiche ook als voorbeeldafbeelding
+    # getoond wordt, staat er een derde media-URL op het scherm, en die is geen
+    # leeslink maar een <img>. De invariant gaat over de leeslink.
+    regels = [r for r in _regels_met(html, "/api/v1/media/") if "<a " in r]
     assert len(regels) == 2, (
         f"verwacht één leeslink en één in het uploadblok, kreeg er {len(regels)}")
     lees = [r for r in regels if 'x-show="!edit"' in r]

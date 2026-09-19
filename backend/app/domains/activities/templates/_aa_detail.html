@@ -62,6 +62,7 @@
         {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}</div>
       {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
                          current_url=a.poster_asset_url,
+                         preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
                          huidig_label=_("Huidige affiche bekijken"),
                          delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                          delete_confirm=_("De opgeladen affiche verwijderen?"),

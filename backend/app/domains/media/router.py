@@ -25,6 +25,7 @@ from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extract
 from app.domains.media.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
+from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
 from app.domains.media.svg import SVG_CONTENT_TYPE
 from app.i18n import _
 
@@ -52,9 +53,13 @@ def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
             raise ImageError("Leeg bestand")
         if len(raw) > MAX_UPLOAD_BYTES:
             raise ImageError("Bestand te groot")
+        # #1019: de eerste bladzijde als afbeelding, zodat een scherm of een mail
+        # die geen PDF toont er tóch een beeld van heeft. Lukt het niet, dan blijft
+        # het document gewoon een document — geen mislukte upload.
+        png = first_page_png(raw)
         return {
             "data": raw, "content_type": "application/pdf",
-            "thumbnail": None, "thumb_content_type": None,
+            "thumbnail": png, "thumb_content_type": PNG_CONTENT_TYPE if png else None,
             "width": None, "height": None, "byte_size": len(raw),
         }
     return process_image(raw, kind=kind)
@@ -153,6 +158,15 @@ def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    # #1019: een PDF van vóór deze release heeft nog geen afbeelding. Ze wordt hier
+    # één keer gemaakt en bewaard — dat spaart een eenmalig script, en zonder dit
+    # zou de "thumb" van een PDF de PDF zelf zijn.
+    if a.content_type == PDF_CONTENT_TYPE and a.thumbnail is None:
+        png = first_page_png(a.data or b"")
+        if png:
+            a.thumbnail = png
+            a.thumb_content_type = PNG_CONTENT_TYPE
+            db.commit()
     blob = a.thumbnail or a.data
     ctype = a.thumb_content_type or a.content_type
     return _serve(blob, ctype, request, f"thumb-{a.id}")
