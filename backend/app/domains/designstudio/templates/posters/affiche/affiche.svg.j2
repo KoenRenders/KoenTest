@@ -30,8 +30,11 @@
   <path fill-rule="evenodd" fill="{{ p.pal.tile }}" d="M0 0 H{{ p.width }} V{{ p.height }} H0 Z {{ p.paper_path }}"/>
   {{ wordmark | safe }}
   <path d="{{ p.band.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
-  {{ icon("globe", p.pal.white, p.pal.accent3, 70, p.band.y + 13.5, 7) | safe }}
-  {{ icon("mail", p.pal.white, p.pal.accent2, 160, p.band.y + 13.5, 7) | safe }}
+  {{ icon("globe", p.pal.white, p.pal.accent3, p.band.icon_x, p.band.y + 13, 6) | safe }}
+  {{ icon("mail", p.pal.white, p.pal.accent2, p.band.col2_icon_x, p.band.y + 13, 6) | safe }}
+  {%- for line in p.band.contacts %}
+  {{ icon("users", p.pal.ink, p.pal.accent, p.band.icon_x, p.band.y + 19.5 + loop.index0 * 6.5, 6) | safe }}
+  {%- endfor %}
 </g>
 <g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">
   {%- if p.kicker %}
@@ -56,16 +59,15 @@
   {{ p.right | safe }}
   {{ p.full | safe }}
   {{ p.logos | safe }}
-  <text id="t-meerinfo" x="148.5" y="{{ p.band.y + 10.5 }}" font-size="9.5" font-weight="bold" fill="{{ p.pal.white }}" text-anchor="middle" letter-spacing="0.4">{{ p.band.label }}</text>
-  <g stroke="{{ p.pal.accent }}" stroke-width="1.1" stroke-linecap="round" fill="none"><path d="M116 {{ p.band.y + 7 }} h4 M117 {{ p.band.y + 4.5 }} l3 2.5 M117 {{ p.band.y + 9.5 }} l3 -2.5"/><path d="M181 {{ p.band.y + 7 }} h-4 M180 {{ p.band.y + 4.5 }} l-3 2.5 M180 {{ p.band.y + 9.5 }} l-3 -2.5"/></g>
-  <text id="t-website" x="79" y="{{ p.band.y + 18.7 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
-  <text id="t-email" x="169" y="{{ p.band.y + 18.7 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
-  {%- if p.band.contacts %}
-  <text id="t-contacts" x="148.5" y="{{ p.band.y + 26.3 }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ p.band.contacts }}</text>
-  {%- endif %}
+  <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ p.band.y + 9 }}" font-size="8.5" font-weight="bold" fill="{{ p.pal.accent }}" letter-spacing="0.4">{{ p.band.label }}</text>
+  <text id="t-website" x="{{ p.band.text_x }}" y="{{ p.band.y + 17.4 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
+  <text id="t-email" x="{{ p.band.col2_text_x }}" y="{{ p.band.y + 17.4 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
+  {%- for line in p.band.contacts %}
+  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ p.band.y + 23.9 + loop.index0 * 6.5 }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}">{{ line }}</text>
+  {%- endfor %}
   {%- if qr %}
-  <rect x="{{ p.width - p.frame - 2 - 24 }}" y="{{ p.band.y + 3 }}" width="22" height="22" fill="{{ p.pal.white }}"/>
-  <svg x="{{ p.width - p.frame - 2 - 23 }}" y="{{ p.band.y + 4 }}" width="20" height="20" {{ qr | safe }}
+  <rect x="{{ p.band.qr_x }}" y="{{ p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>
+  <svg x="{{ p.band.qr_x + 1 }}" y="{{ p.band.qr_y + 1 }}" width="20" height="20" {{ qr | safe }}
   {%- endif %}
 </g>
 </svg>

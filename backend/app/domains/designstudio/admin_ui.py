@@ -90,6 +90,16 @@ GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gek
                      "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
 
 
+def _short(name: str, limit: int = 22) -> str:
+    """A file name cut to what a select shows: the extension goes, the middle
+    gives way ("WhatsApp Image 2026-05-01 at 15.14.39.jpeg" → "WhatsApp Im…15.14.39")."""
+    stem = name.rsplit(".", 1)[0] if "." in name else name
+    if len(stem) <= limit:
+        return stem or _("(zonder naam)")
+    keep = (limit - 1) // 2
+    return f"{stem[:keep]}…{stem[-keep:]}"
+
+
 def _csrf(request: Request) -> str:
     return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
 
@@ -158,7 +168,7 @@ def design_list(request: Request, db: Session = Depends(get_db),
 
 
 def _new_view(request: Request, db: Session, *, activity_id: str = "", duo_code: str = "",
-              preset: str = "illustratie", error: Optional[str] = None) -> DesignNewView:
+              preset: str = "beeld", error: Optional[str] = None) -> DesignNewView:
     return DesignNewView(activity_options=_activity_options(db), activity_id=activity_id,
                          duo_options=_duo_options(), duo_code=duo_code or ENABLED_DUOS[0],
                          preset_options=_preset_options(), preset=preset,
@@ -174,7 +184,7 @@ def design_new(request: Request, db: Session = Depends(get_db), _email: str = De
 
 @router.post("/admin/ontwerpen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def design_create(request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                  activity_id: str = Form(""), duo_code: str = Form(""), preset: str = Form("illustratie")):
+                  activity_id: str = Form(""), duo_code: str = Form(""), preset: str = Form("beeld")):
     try:
         design = create_design(db, activity_id=int(activity_id or 0), duo_code=duo_code, preset=preset,
                                created_by=email)
@@ -195,8 +205,10 @@ def _facts_rows(facts: dict) -> list[tuple[str, str]]:
             f"{d['date']} {d['time']}".strip() for d in facts["dates"])))
     rows.append((_("Plaats"), facts["location"] or "—"))
     rows.append((_("Inschrijven tot"), facts["deadline"] or "—"))
-    rows.append((_("Contact"), "; ".join(f"{c['name']} {c['mobile']}".strip() for c in facts["organisers"])
+    rows.append((_("Contact"), "; ".join(" · ".join(p for p in (c["name"], c["mobile"], c["email"]) if p)
+                                          for c in facts["organisers"])
                  or _("niemand aangevinkt → gegevens van de vereniging")))
+    rows.append((_("Omschrijving"), facts["description"] or _("— (leeg; typ hieronder een toelichting)")))
     return rows
 
 
@@ -212,7 +224,11 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
             violations = check_design(db, design).get(layout, [])
         except RenderError as exc:
             violations, render_error = [], str(exc)
-    options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"], label=m.get("title") or f"#{m['id']}",
+    # Short labels: a select shows ~25 characters; a phone's file name does
+    # not fit and the source in Dutch says more than "activity_photo".
+    source_labels = {"activity_photo": _("foto activiteit"), "design_image": _("studio"), "generated": _("AI")}
+    options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],
+                           label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
                            source=m["source"]) for m in image_options(db, design)]
     year = date.today().year
     logos = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],

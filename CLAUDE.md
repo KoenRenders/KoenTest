@@ -747,7 +747,29 @@ ls backend/alembic/versions/ | sort | tail -1     # from a checkout
 alembic heads                                      # in a running backend container
 ```
 
-Never modify a migration that has already been merged to master. Always create a new migration file for schema changes. Make migrations idempotent (check if table/column exists before creating).
+Never modify a migration that has already been merged to master. Always create a new migration
+for schema changes. Make migrations idempotent (check if table/column exists before creating).
+
+**Let the tool write the file — do not hand-type one** (#951, and the reason added on
+19 September 2026):
+
+```bash
+alembic revision -m "wat de migratie doet"
+```
+
+The template (`backend/alembic/script.py.mako`) fills in a `revision` id that carries a real
+timestamp, so two branches can never pick the same key. That is the whole point of the scheme:
+the collision becomes a one-line `down_revision` repoint instead of a rename with references to
+chase.
+
+**Typing the id by hand defeats it, and that is not hypothetical.** This paragraph used to say
+only "create a new migration file", so every CLI wrote one by hand and picked a tidy time.
+Within a week the ids drifted from real stamps (`…_070503`, `…_073104`) to round ones
+(`…_141900`, `…_153000`, `…_160000`), and on 19 September two branches chose
+`137_2026_09_19_160000` — the *same* key, not merely two heads. The chain check caught it; it
+cost a renumbering that the generator would have made impossible.
+
+If you must write one by hand, take the id from `date +%Y_%m_%d_%H%M%S` — never a round hour.
 
 After adding a migration, verify the chain:
 ```bash

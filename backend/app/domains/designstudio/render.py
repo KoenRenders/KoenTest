@@ -100,8 +100,13 @@ def wordmark(pal: dict[str, str], *, x: float, y: float, width: float) -> str:
                       f'x="{x:.3f}" y="{y:.3f}" width="{width:.3f}" height="{height:.3f}"')
     accent = pal["accent"] if pal["tile"] != brand.COLOURS["golden_yellow"].hex else pal["ink"]
     svg = svg.replace("#ffce00", accent)
-    # Strip the source's ids: they would collide when two lockups are pasted.
-    return re.sub(r'\s(?:id|aria-labelledby|role)="[^"]*"', "", svg)
+    # Only the root's own attributes go (a poster has one lockup and one
+    # title). The glyph ids stay: the baseline "Beleef meer in Millegem" is
+    # <use href="#font_…"> per letter — strip those ids and the baseline
+    # silently vanishes (Koen, 19 September 2026).
+    head, rest = svg.split(">", 1)
+    head = re.sub(r'\s(?:id|aria-labelledby|role)="[^"]*"', "", head)
+    return head + ">" + rest
 
 
 def qr_fragment(url: str, dark: str) -> str:

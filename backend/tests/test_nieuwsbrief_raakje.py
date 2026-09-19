@@ -192,9 +192,14 @@ def test_niemands_adres_en_geen_ontvangerslijst_in_de_payload(db_session, raakje
 
 def test_een_adres_in_de_gegevens_blokkeert_raakje_niet_meer(db_session, raakje):
     """Found on HDEV (17 September 2026): a question without any address was
-    refused, because an activity's notes carried one. Everything outbound now
+    refused, because the text of an activity carried one. Everything outbound now
     loses e-mail addresses, phone numbers and account numbers first, with the
     guard's own patterns.
+
+    The carrier here is `description` since #1028: it used to be `notes`, and
+    that column is gone — it read as an internal note while going straight to the
+    model. The path is the same, because Raakje reads the activity through the
+    public read tool.
 
     Broken on purpose: `scrub` without `redact` → the guard refuses the call
     (SeamBlocked) and this test fails.
@@ -202,7 +207,7 @@ def test_een_adres_in_de_gegevens_blokkeert_raakje_niet_meer(db_session, raakje)
     from app.domains.activities.api import Activity
 
     activiteit = _activity(db_session, "Wandelweekend Eifel")
-    db_session.get(Activity, activiteit.id).notes = (
+    db_session.get(Activity, activiteit.id).description = (
         "Inschrijven via info@raak.example of 0473 12 34 56, betalen op BE68539007547034.")
     db_session.commit()
     letter = _letter(db_session, activity_ids=[activiteit.id])

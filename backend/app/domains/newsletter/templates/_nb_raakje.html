@@ -69,7 +69,7 @@
         hx-indicator="#nb-raakje-bezig">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.label(_("Wat wil je vertellen?") if not turns else _("Vraag Raakje iets"), "nb-raakje-vraag") }}
-    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", attrs=ui.autogrow(240),
+    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", max_px=240,
                            placeholder=(_("Bv. nadruk op de Rumproefavond, feestelijke toon") if not turns
                                         else _("Selecteer tekst om die te herschrijven, of zet je cursor waar een nieuw stuk moet komen"))) }}
     <div class="flex items-center gap-2 mt-2">

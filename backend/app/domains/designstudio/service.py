@@ -74,7 +74,8 @@ MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AU
              "SEPTEMBER", "OKTOBER", "NOVEMBER", "DECEMBER")
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
-PRESET_LABELS = {"beeld": "Beeld", "tekstflyer": "Tekstflyer", "illustratie": "Illustratie", "reeks": "Reeks"}
+PRESET_LABELS = {"beeld": "Met beeld — foto of tekening rechts, kernpunten links",
+                 "tekst": "Tekst — geen beeld, tekst over de volle breedte"}
 STATUS_LABELS = {STATUS_DRAFT: "Ontwerp", STATUS_FINAL: "Definitief"}
 STATUS_TONES = {STATUS_DRAFT: "yellow", STATUS_FINAL: "green"}
 LAYOUT_LABELS = {LAYOUT_PRINT: "Print (A3/A4)", LAYOUT_FEED: "Instagram (4:5)"}
@@ -117,7 +118,7 @@ def get_design(db: Session, design_id: int) -> Optional[Design]:
     return db.query(Design).filter(Design.id == design_id).first()
 
 
-def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str = "illustratie",
+def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str = "beeld",
                   created_by: str = "") -> Design:
     from app.domains.activities.api import get_activity
 
@@ -161,15 +162,20 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
 
     if len(highlights) > MAX_HIGHLIGHTS:
         raise DesignError(f"Ten hoogste {MAX_HIGHLIGHTS} kernpunten.")
+    if len(logo_ids) > MAX_LOGOS:
+        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
+    # Replace, not merge — and flush the removal before the new rows go in:
+    # the unit of work inserts before it deletes, so the same `sort_order`
+    # would collide on `uq_design_highlight_order` / `uq_design_logo_order`
+    # (HDEV, 19 September 2026: every second save failed with a 500).
     design.highlights.clear()
+    design.logos.clear()
+    db.flush()
     for i, (icon, line, emphasis) in enumerate(hl for hl in highlights if (hl[1] or "").strip()):
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
         design.highlights.append(DesignHighlight(sort_order=i, icon_code=icon, text=line.strip()[:90],
                                                  emphasis=bool(emphasis)))
-    if len(logo_ids) > MAX_LOGOS:
-        raise DesignError(f"Ten hoogste {MAX_LOGOS} logo's op de logostrook.")
-    design.logos.clear()
     for i, asset_id in enumerate(logo_ids):
         design.logos.append(DesignLogo(media_asset_id=asset_id, sort_order=i))
     design.status = STATUS_DRAFT
@@ -236,6 +242,9 @@ def facts_for(db: Session, design: Design) -> dict:
         "dates": [{"date": d.start_date.isoformat(),
                    "time": d.start_time.strftime("%H:%M") if d.start_time else ""} for d in dates],
         "deadline": activity.registration_closes_on.isoformat() if activity.registration_closes_on else "",
+        # #1016: the public description — the poster's explanation unless the
+        # design types its own (then the screen names the difference).
+        "description": (activity.description or "").strip(),
         "cancelled": bool(activity.is_cancelled),
         "organisers": [{"name": c.name, "mobile": c.mobile, "email": c.email}
                        for c in _organisers(db, activity.id)],
@@ -319,7 +328,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         welcome_line=design.welcome_line or "",
         dates_heading=f"DATA IN {year}",
         dates=grid,
-        explanation_md=design.explanation_md or "", practical_md=design.practical_md or "",
+        explanation_md=design.explanation_md or facts["description"], practical_md=design.practical_md or "",
         programme_md=design.programme_md or "", price_text=design.price_text or "",
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
         inset_image=_image(db, design.inset_image_id),
@@ -657,6 +666,9 @@ def warnings_for(design: Design, facts: dict) -> list[str]:
         out.append(f"De titel op de affiche ('{design.title_override}') wijkt af van de activiteit ('{facts['title']}').")
     if design.recurrence_line and len(facts["dates"]) > 1:
         out.append("De herhalingsregel vervangt de datumregel; de datatabel toont de data zelf.")
+    if design.explanation_md and facts.get("description") and \
+            design.explanation_md.strip() != facts["description"].strip():
+        out.append("De toelichting op de affiche wijkt af van de omschrijving van de activiteit.")
     return out
 
 
