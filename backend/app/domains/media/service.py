@@ -24,6 +24,17 @@ VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
 DOCUMENT_KINDS = {"newsletter_file"}
+# The Design Studio (CR-10 §3.11, #1005). `design_image` is the picture that goes
+# INTO a poster and is uploaded like any other image — re-encoded, only to 4096 px
+# instead of 1600. `design_render` is the rendered poster, produced by the studio
+# itself (Inkscape); it never arrives through an upload, and the upload refuses it
+# by name so the reason is readable instead of "unknown kind".
+DESIGN_IMAGE_KIND = "design_image"
+DESIGN_RENDER_KIND = "design_render"
+DESIGN_KINDS = {DESIGN_IMAGE_KIND, DESIGN_RENDER_KIND}
+# What may come in through the upload endpoint. The library screen still offers
+# only VALID_KINDS — a design image belongs to its activity, not to the library.
+UPLOADABLE_KINDS = VALID_KINDS | {DESIGN_IMAGE_KIND}
 MAX_BATCH = 20
 
 
@@ -279,15 +290,21 @@ async def upload_media(db, *, files: Sequence, kind: str,
     """
     from app.domains.activities.api import Activity
 
-    if kind not in VALID_KINDS:
+    if kind == DESIGN_RENDER_KIND:
+        raise MediaFout(_("Een render wordt door de Design Studio gemaakt en "
+                          "niet opgeladen."))
+    if kind not in UPLOADABLE_KINDS:
         raise MediaFout("Ongeldige 'kind'")
-    if kind == "activity_photo":
-        if activity_id is None:
+    # #1005: een design-beeld hangt óók aan een activiteit, maar hoeft het niet —
+    # de Design Studio maakt eerst het beeld en koppelt het daarna.
+    if kind in ("activity_photo", DESIGN_IMAGE_KIND):
+        if activity_id is None and kind == "activity_photo":
             # #696: v1.14 zei "Kies eerst een activiteit." en dat is wat de
             # gebruiker moet doen; "activity_id vereist" is de naam van een
             # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
             raise MediaFout(_("Kies eerst een activiteit."))
-        if not db.query(Activity).filter(Activity.id == activity_id).first():
+        if (activity_id is not None
+                and not db.query(Activity).filter(Activity.id == activity_id).first()):
             raise LookupError("Activiteit niet gevonden")
     else:
         activity_id = None      # sponsors hangen niet aan een activiteit
@@ -318,7 +335,7 @@ async def upload_media(db, *, files: Sequence, kind: str,
             raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
         rauw = await upload.read()
         try:
-            verwerkt = process_svg(rauw) if is_svg else process_image(rauw)
+            verwerkt = process_svg(rauw) if is_svg else process_image(rauw, kind=kind)
         except ImageError as exc:
             raise MediaFout(f"{upload.filename}: {exc}")
 
@@ -335,25 +352,42 @@ async def upload_media(db, *, files: Sequence, kind: str,
 
 
 def add_document(db, *, kind: str, filename: str, content_type: str,
-                 data: bytes) -> MediaAsset:
-    """Store one PDF or image that a text will link to, and return it (#984).
+                 data: bytes, activity_id: Optional[int] = None) -> MediaAsset:
+    """Store one file another component links to or produced, and return it.
 
     Public like every media asset: it is served at `/api/v1/media/{id}` under its
     own file name, so a newsletter can link to it instead of attaching it to
-    hundreds of mails.
+    hundreds of mails (#984).
+
+    Since #1011 this is also the way in for a `design_render`: the PDF, the PNG
+    and the editable SVG of one poster version. Widened here instead of a second
+    `add_design_render` next to it, because the two would differ in exactly one
+    line — the list of accepted types — and a copy of a storage function is the
+    kind of duplication that drifts (CLAUDE.md). SVG is accepted only for a
+    render; nothing else has a reason to store one through this door.
+
+    **Media cleans the SVG itself, always** (#1011). Not because the Design
+    Studio would forget it, but because the day a second caller uses this
+    function without cleaning, nothing may break. Trusting the caller is a rule
+    that holds until someone new reads the signature and not the history.
     """
     from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
 
-    if kind not in DOCUMENT_KINDS:
+    toegestane_soorten = DOCUMENT_KINDS | {DESIGN_RENDER_KIND}
+    if kind not in toegestane_soorten:
         raise MediaFout("Ongeldige 'kind'")
-    if content_type not in DOC_CONTENT_TYPES:
+    is_svg = content_type == SVG_CONTENT_TYPE
+    if is_svg and kind != DESIGN_RENDER_KIND:
+        raise MediaFout(_("Een SVG kan hier alleen als render van de Design Studio."))
+    if not is_svg and content_type not in DOC_CONTENT_TYPES:
         raise MediaFout(_("Dit bestandstype kan niet: kies een PDF of een afbeelding."))
     try:
-        processed = _process_document(data, content_type)
+        processed = (process_svg(data) if is_svg
+                     else _process_document(data, content_type, kind=kind))
     except ImageError as exc:
         raise MediaFout(f"{filename}: {exc}")
     asset = MediaAsset(kind=kind, title=(filename or "bestand")[:255], sort_order=0,
-                       is_active=True, **processed)
+                       activity_id=activity_id, is_active=True, **processed)
     db.add(asset)
     db.commit()
     db.refresh(asset)

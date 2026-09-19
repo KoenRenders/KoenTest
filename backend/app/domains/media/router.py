@@ -30,7 +30,9 @@ from app.i18n import _
 
 router = APIRouter(tags=["media"])
 
-VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
+# #1005: hier stond een tweede kopie van VALID_KINDS, die niemand las. Weg in
+# plaats van bijgewerkt: twee lijsten van dezelfde soorten lopen uit elkaar, en
+# de service heeft de enige die telt.
 MAX_BATCH = 20
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
@@ -42,7 +44,7 @@ _EXT_BY_TYPE = {
 }
 
 
-def _process_document(raw: bytes, content_type: str) -> dict:
+def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
     """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
     thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
     if content_type == "application/pdf":
@@ -55,7 +57,7 @@ def _process_document(raw: bytes, content_type: str) -> dict:
             "thumbnail": None, "thumb_content_type": None,
             "width": None, "height": None, "byte_size": len(raw),
         }
-    return process_image(raw)
+    return process_image(raw, kind=kind)
 
 
 async def _replace_single_asset(db, file: UploadFile, *, kind: str,

@@ -112,7 +112,8 @@ def _kpi(activities: list) -> dict:
     }
 
 
-def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None = None):
+def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None = None,
+                   *, organiser_query: str = "", organiser_candidates=None):
     """De context van `_aa_detail.html`, op één plek.
 
     Dat fragment wordt vanuit twee routes gerenderd: als volledige pagina
@@ -123,13 +124,24 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
     # De zonder-onderdeel-kaart (#650) verdween in feedbackronde 2 van golf 8:
     # de Inschrijvingen-tab toont die inschrijvingen als groep "Zonder onderdeel",
     # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
+    from app.domains.activities.api import MAX_ORGANISERS, organisers_for
+
+    organisers = organisers_for(db, activiteit.id)
     return {
         "a": activiteit, "csrf_token": csrf_from_request(request), "error": error,
+        # #1004: organisatoren horen bij het record zelf, dus ze reizen mee met
+        # elke rendering van dit fragment.
+        "organisers": organisers,
+        "contact_count": sum(1 for o in organisers if o.is_contact),
+        "max_organisers": MAX_ORGANISERS,
+        "organiser_query": organiser_query,
+        "organiser_candidates": organiser_candidates or [],
     }
 
 
 def _detail_response(request: Request, db: Session, activity_id: int,
-                     error: str | None = None, *, toast: bool = False):
+                     error: str | None = None, *, toast: bool = False,
+                     organiser_query: str = "", organiser_candidates=None):
     from app.domains.activities.api import get_activity_detail
 
     # #651: was `list_activities(scope="all")` + in Python filteren op id. Het
@@ -138,7 +150,9 @@ def _detail_response(request: Request, db: Session, activity_id: int,
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
-    ctx = _aa_detail_ctx(request, db, activiteit, error)
+    ctx = _aa_detail_ctx(request, db, activiteit, error,
+                         organiser_query=organiser_query,
+                         organiser_candidates=organiser_candidates)
     ctx["toast_opgeslagen"] = toast
     # HDEV-melding 15 sep: kop en rail staan buiten #aa-detail en bleven na een
     # opslag op de oude stand. Het fragment stuurt ze nu out-of-band mee; de
@@ -1213,3 +1227,87 @@ def onderdeel_export(activity_id: int, component_id: int, request: Request,
         content=inhoud,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
         headers={"Content-Disposition": f'attachment; filename="{bestandsnaam}"'})
+
+
+# ── Organisatoren (#1004, CR-10 §3.9) ────────────────────────────────────────
+
+@router.get("/admin/activiteiten/{activity_id}/organisatoren", response_class=HTMLResponse)
+def organisatoren_zoeken(activity_id: int, request: Request,
+                         db: Session = Depends(get_db),
+                         email: str = Depends(require_admin_ui),
+                         organiser_q: str = ""):
+    """De kandidatenlijst van de kiezer — alleen leden (#1004).
+
+    Zoeken gebeurt met `search_persons` uit mdm (#1006), dezelfde functie als de
+    vergaderkring; `members_only` is hier wél aan, want een organisator is een lid.
+    """
+    from app.domains.activities.api import organisers_for
+    from app.domains.mdm.api import search_persons
+
+    bezet = {o.person_id for o in organisers_for(db, activity_id)}
+    kandidaten = search_persons(db, organiser_q, members_only=True, exclude_ids=bezet)
+    return _detail_response(request, db, activity_id,
+                            organiser_query=organiser_q,
+                            organiser_candidates=kandidaten)
+
+
+@router.post("/admin/activiteiten/{activity_id}/organisatoren", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def organisator_toevoegen(activity_id: int, request: Request,
+                          db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui),
+                          person_id: int = Form(...)):
+    from app.domains.activities import service
+
+    try:
+        service.add_organiser(db, activity_id, person_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    except service.ActiviteitFout as fout:
+        return _detail_response(request, db, activity_id, error=str(fout))
+    return _detail_response(request, db, activity_id, toast=True)
+
+
+@router.post("/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def organisator_bijwerken(activity_id: int, organiser_id: int, request: Request,
+                          db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui),
+                          is_contact: str = Form(""), email_override: str = Form(""),
+                          mobile_override: str = Form(""), bevestigd: str = Form("")):
+    """Het vinkje en de twee overrides.
+
+    Het laatste vinkje weghalen vraagt een bevestiging, en die is een SERVERregel
+    (#1004): zonder `bevestigd` gebeurt er niets. Alleen een dialoog in het scherm
+    zou betekenen dat een tweede scherm of een script de contactpersoon stil kan
+    laten verdwijnen — en dan tonen de affiches ineens de gegevens van Raak.
+    """
+    from app.domains.activities import service
+    from app.domains.activities.api import organisers_for
+
+    aan = bool(is_contact)
+    huidig = organisers_for(db, activity_id)
+    rij = next((o for o in huidig if o.id == organiser_id), None)
+    if rij is None:
+        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
+    laatste = rij.is_contact and sum(1 for o in huidig if o.is_contact) == 1
+    if laatste and not aan and not bevestigd:
+        return _detail_response(request, db, activity_id, error=_(
+            "Zonder contactpersoon tonen de affiches de website, het e-mailadres "
+            "en het gsm-nummer van Raak. Bevestig om door te gaan."))
+    service.update_organiser(db, activity_id, organiser_id, {
+        "is_contact": aan, "email_override": email_override,
+        "mobile_override": mobile_override})
+    return _detail_response(request, db, activity_id, toast=True)
+
+
+@router.post("/admin/activiteiten/{activity_id}/organisatoren/{organiser_id}/verwijderen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def organisator_verwijderen(activity_id: int, organiser_id: int, request: Request,
+                            db: Session = Depends(get_db),
+                            email: str = Depends(require_admin_ui)):
+    from app.domains.activities import service
+
+    if not service.remove_organiser(db, activity_id, organiser_id):
+        raise HTTPException(status_code=404, detail=_("Organisator niet gevonden"))
+    return _detail_response(request, db, activity_id, toast=True)
