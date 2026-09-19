@@ -19,6 +19,7 @@ from app.config import settings
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
+from app.domains.designstudio.content import Contact
 from app.domains.designstudio.api import (
     DesignError,
     ImagingError,
@@ -157,6 +158,18 @@ def test_only_the_two_presets_exist_and_the_database_agrees(db_session, design):
     with pytest.raises(IntegrityError):
         db_session.execute(text("UPDATE designstudio.designs SET preset = 'reeks' WHERE id = :id"), {"id": design.id})
     db_session.rollback()
+
+
+def test_without_a_ticked_organiser_the_band_shows_the_association_gsm_without_a_name(db_session, design):
+    """Koen, 19 September 2026: the association's name stood next to its gsm;
+    the band already names the association through website and e-mail."""
+    facts = facts_for(db_session, design)
+    facts = dict(facts, organisers=[], mobile="0470 00 00 00", association="Raak Millegem",
+                 website="www.example.be", email="info@example.be")
+    content = content_for(db_session, design, facts)
+    assert content.contacts == (Contact(name="", mobile="0470 00 00 00", email=""),)
+    svg = render.merge(content, layout="print_a").svg
+    assert ">0470 00 00 00</text>" in svg and "Raak Millegem · 0470" not in svg
 
 
 def test_title_splitting_rules():

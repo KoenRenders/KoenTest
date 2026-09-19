@@ -33,7 +33,7 @@
   {{ icon("globe", p.pal.white, p.pal.accent3, p.band.icon_x, p.band.row_y + 13, 6) | safe }}
   {{ icon("mail", p.pal.white, p.pal.accent2, p.band.col2_icon_x, p.band.row_y + 13, 6) | safe }}
   {%- for line in p.band.contacts %}
-  {{ icon("users", p.pal.ink, p.pal.accent, p.band.icon_x, p.band.row_y + 19.5 + loop.index0 * 6.5, 6) | safe }}
+  {{ icon(line.icon, p.pal.ink, p.pal.accent, p.band.icon_x, p.band.row_y + 19.5 + loop.index0 * 6.5, 6) | safe }}
   {%- endfor %}
 </g>
 <g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">
@@ -60,7 +60,7 @@
   <text id="t-website" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 17.4) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
   <text id="t-email" x="{{ p.band.col2_text_x }}" y="{{ '%.2f' % (p.band.row_y + 17.4) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
   {%- for line in p.band.contacts %}
-  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 23.9 + loop.index0 * 6.5) }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}">{{ line }}</text>
+  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 23.9 + loop.index0 * 6.5) }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}">{{ line.text }}</text>
   {%- endfor %}
   {%- if qr %}
   <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>

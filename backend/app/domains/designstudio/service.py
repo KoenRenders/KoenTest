@@ -317,7 +317,9 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
     if not contacts and facts["mobile"]:
-        contacts = (Contact(name=facts["association"] or "Raak", mobile=facts["mobile"]),)
+        # Nobody ticked: the association's own gsm, without a name — the
+        # band already carries its website and e-mail (Koen, 19 September).
+        contacts = (Contact(name="", mobile=facts["mobile"]),)
 
     return PosterContent(
         duo_code=design.duo_code, preset=design.preset,

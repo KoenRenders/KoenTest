@@ -344,7 +344,10 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     top_y: float = y_after_title + 10
 
     # ── Band at the bottom: lockup left, then the contact column, QR right ──
-    contacts = [" · ".join(part for part in (c.name, c.mobile, c.email) if part) for c in content.contacts[:3]]
+    # One row per contact: "Naam · gsm · e-mail"; a nameless row is the
+    # association's own gsm and gets the phone icon instead of a person.
+    contacts = [{"text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
+                 "icon": "users" if c.name else "mobile"} for c in content.contacts[:3]]
     lockup_w = 50.0
     band_h: float = max(34.0, 26 + 6.5 * len(contacts))
     band_y: float = y1 - band_h - 2
