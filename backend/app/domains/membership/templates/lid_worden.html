@@ -2,6 +2,9 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Word lid — Raak") }}{% endblock %}
 {% block content %}
+{# Golf 11 (F18, #913): dezelfde begrensde formulierkolom als het publieke
+   formulier — korte persoonsvelden horen niet over de volle paginabreedte. #}
+<div class="max-w-2xl mx-auto">
 {{ ui.page_header(_("Lid worden")) }}
 {{ ui.error_banner(error) }}
 <form hx-post="/lid-worden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
@@ -64,4 +67,5 @@
 
   {{ ui.btn_primary(_("Word lid")) }}
 </form>
+</div>
 {% endblock %}
