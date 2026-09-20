@@ -11,8 +11,8 @@
 {% endcall %}
 
 {% call ui.filter_bar("/admin/organisaties", "#org-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
     {% call ui.select_control("org_type", aria_label=_("Soort")) %}
       <option value="">{{ _("Alle soorten") }}</option>
       {% for code, label in soort_options %}

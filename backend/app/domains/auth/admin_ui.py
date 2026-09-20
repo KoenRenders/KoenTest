@@ -75,7 +75,7 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
     OPERATOR-vinkje bestaat alleen voor wie zelf OPERATOR is — een ADMIN kent
     rollen toe binnen zijn werkruimte, niet daarboven.
     """
-    from app.domains.auth.api import list_assignable_roles
+    from app.domains.auth.api import list_assignable_roles, role_options
     from app.domains.auth.users import is_platform_workspace, list_users
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
@@ -122,8 +122,11 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
             "operator_van": operator_van,
             "op_platform": op_platform, "werkruimtes": werkruimtes,
             "toon_operator": op_platform and is_operator,
-            # Chip-opties per request: _() volgt de taal van de tenant.
-            "rol_options": [("", _("Alle rollen"))] + [(r.code, r.code) for r in rollen],
+            # Filteropties per request: _() volgt de taal van de tenant.
+            # Sinds #1079 één keuzelijst i.p.v. knoppen: het aantal rollen is
+            # data-gedreven en groeit mee met de codetabel, dus een rij knoppen
+            # groeit mee met de breedte van het scherm.
+            "rol_options": [("", _("Alle rollen"))] + role_options(rollen),
             "actief_options": [("", _("Alle accounts")), ("ja", _("Actief")),
                                ("nee", _("Inactief"))],
             "role_codes": rollen,

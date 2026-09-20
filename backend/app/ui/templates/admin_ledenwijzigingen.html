@@ -20,15 +20,13 @@
      fragment ververst deze velden out-of-band (#748-conform). #}
   <input type="hidden" id="lw-sort" name="sort" value="{{ sort }}">
   <input type="hidden" id="lw-richting" name="richting" value="{{ richting }}">
-  <div>{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-end gap-3">
-    <div>{{ ui.label(_("Vanaf"), "lw-since") }}
-      {{ ui.input_control("since", id="lw-since", type="date", value=since) }}</div>
-    <div>{{ ui.label(_("Groep"), "lw-group") }}
-      {% call ui.select_control("group", attrs='id="lw-group"') %}
-        <option value="">{{ _("Alle") }}</option>
-        {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
-      {% endcall %}</div>
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
+    {{ ui.input_control("since", id="lw-since", type="date", value=since, aria_label=_("Vanaf")) }}
+    {% call ui.select_control("group", attrs='id="lw-group"', aria_label=_("Groep")) %}
+      <option value="">{{ _("Alle groepen") }}</option>
+      {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
+    {% endcall %}
   </div>
 {% endcall %}
 
