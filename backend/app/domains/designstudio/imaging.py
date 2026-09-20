@@ -96,24 +96,27 @@ def looks_dutch(text: str) -> bool:
 def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
     """The scene in English, and whether it was translated. Without a real
     LLM (mock provider) or without Dutch in it, the text goes through as is."""
-    from app.domains.chatbot.api import get_provider, sink_for
+    from dataclasses import replace
+
+    from app.domains.chatbot.api import GuardedProvider, admin_rules, get_provider, sink_for
 
     text = " ".join((scene or "").split())
     if not text or not looks_dutch(text):
         return text, False
-    provider = get_provider()
-    if provider.name == "mock":
+    inner = get_provider()
+    if inner.name == "mock":
         return text, False
-    t0 = time.monotonic()
+    # Through the seam like every other LLM call (test_ai_log_coverage_gate):
+    # the guard logs the call — provider, model, cost, duration — under this
+    # component's surface and the capability "translate".
+    rules = replace(admin_rules(lambda: set(), capability="translate", scan_prompt_names=False), surface=SURFACE)
+    provider = GuardedProvider(inner, rules, sink_for(actor))
     answer = provider.complete([
         {"role": "system", "content": "Translate the user's text from Dutch to English for an image-generation "
                                       "prompt. Reply with the translation only, no quotes, no commentary."},
         {"role": "user", "content": text[:600]},
     ])
     english = " ".join((answer.content or "").split()).strip('"')
-    sink_for(actor)(surface=SURFACE, capability="translate", model=getattr(provider, "model", "") or provider.name,
-                    payload=f"nl: {text}\nen: {english}", provider=provider.name, endpoint=provider.endpoint,
-                    usage=answer.usage or None, status="ok", duration_ms=int((time.monotonic() - t0) * 1000))
     return english or text, bool(english)
 
 # The five settings live on `Settings` (app/config.py) like every other
