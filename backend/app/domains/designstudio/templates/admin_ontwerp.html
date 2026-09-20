@@ -4,6 +4,10 @@
 {% block content %}
 {# The editor: form left, preview right. Every button posts a plain form —
    the screen decides nothing that the service does not also enforce. #}
+{# Where "Annuleren" goes on every form here: back to this editor, which reads
+   the saved design again and so drops whatever was typed (#1089). One value,
+   because four forms must not drift apart. #}
+{% set editor_url = "/admin/ontwerpen/" ~ design_id ~ "?layout=" ~ layout %}
 {% call ui.page_header(activity_name, _("De feiten (titel, data, plaats, contact) komen van de activiteit. Hier kies je beeld, kleur en ontwerptekst.")) %}
     {{ ui.badge(status_label, status_tone) }}
     {{ ui.btn_secondary(_("Activiteit"), href=facts_href, size="sm") }}
@@ -90,7 +94,13 @@
         {% endfor %}
       </div>
       <p class="text-sm font-medium text-ink mt-2">{{ _("Brandpunt van het hoofdbeeld") }} <span class="font-normal text-ink-soft">({{ _("0 = links/boven, 1 = rechts/onder; bepaalt welke kant behouden blijft bij het bijsnijden") }})</span></p>
-      <div class="grid grid-cols-2 gap-3 items-end">
+      <div class="grid grid-cols-3 gap-3 items-end">
+        <div>
+          {{ ui.label(_("Polaroid op de foto"), "ds-corner") }}
+          {% call ui.select_control("inset_corner", cls="w-full", attrs='id="ds-corner"') %}
+            {% for code, label in corner_options %}<option value="{{ code }}"{% if code == inset_corner %} selected{% endif %}>{{ label }}</option>{% endfor %}
+          {% endcall %}
+        </div>
         <div>
           {{ ui.label(_("Links–rechts"), "ds-focus-x") }}
           {{ ui.input_control("main_focus_x", id="ds-focus-x", type="number", value=main_focus_x, cls="w-full", attrs='min="0" max="1" step="0.05"') }}
@@ -113,7 +123,7 @@
         </div>
       </div>
       {% endif %}
-      {{ ui.action_bar(save_label=_("Bewaren en voorbeeld vernieuwen")) }}
+      {{ ui.action_bar(save_label=_("Bewaren en voorbeeld vernieuwen"), cancel_href=editor_url) }}
     </form>
 
     {# ── Upload a photo ── #}
@@ -132,7 +142,7 @@
           {% endcall %}
         </div>
       </div>
-      {{ ui.action_bar(save_label=_("Uploaden")) }}
+      {{ ui.action_bar(save_label=_("Uploaden"), cancel_href=editor_url) }}
     </form>
 
     {# ── AI line drawing ── #}
@@ -159,7 +169,7 @@
         <details class="text-xs text-ink-soft"><summary class="cursor-pointer">{{ _("Wat het model per stijl te horen krijgt") }}</summary>
           <dl class="mt-1 space-y-1">{% for code, label in style_options %}<dt class="font-medium text-ink">{{ label }}</dt><dd>{{ style_texts[code] }}</dd>{% endfor %}</dl>
         </details>
-        {{ ui.action_bar(save_label=_("Vier varianten maken")) }}
+        {{ ui.action_bar(save_label=_("Vier varianten maken"), cancel_href=editor_url) }}
       </form>
       {% endif %}
       {% include "_ds_varianten.html" %}
@@ -224,7 +234,7 @@
             {% endcall %}
           </div>
         </div>
-        {{ ui.action_bar(save_label=_("SVG opladen")) }}
+        {{ ui.action_bar(save_label=_("SVG opladen"), cancel_href=editor_url) }}
       </form>
       {% if edited_layouts %}
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg/verwijderen" class="flex items-center gap-2">

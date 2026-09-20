@@ -36,6 +36,7 @@ from app.domains.designstudio import brand, imaging, render
 from app.domains.designstudio.content import Contact, Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import ICONS
 from app.domains.designstudio.models import (
+    INSET_CORNERS,
     GEN_DISCARDED,
     GEN_PICKED,
     GEN_REQUESTED,
@@ -162,10 +163,16 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
     for icon, _line, _emphasis in kept:
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
-    for key in ("duo_code", "preset", "tagline", "subtitle"):
+    if "inset_corner" in form and form["inset_corner"] not in INSET_CORNERS:
+        raise DesignError("Onbekende hoek voor de polaroid.")
+    # Choices keep their last value when the form leaves them empty; free text
+    # becomes NULL so "empty" and "not filled in" stay the same thing.
+    for key in ("duo_code", "preset", "inset_corner"):
+        if (form.get(key) or "").strip():
+            setattr(design, key, form[key].strip())
+    for key in ("tagline", "subtitle"):
         if key in form:
-            value = (form[key] or "").strip()
-            setattr(design, key, value or None if key not in ("duo_code", "preset") else value)
+            setattr(design, key, (form[key] or "").strip() or None)
     if "explanation_md" in form:
         # "Omschrijving anders": the field shows the activity's description;
         # unchanged (or emptied) means "use the activity's", stored as NULL so
@@ -360,7 +367,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         dates=grid,
         explanation_md=design.explanation_md or facts["description"],
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
-        inset_image=_image(db, design.inset_image_id),
+        inset_image=_image(db, design.inset_image_id), inset_corner=design.inset_corner or "bottom_right",
         third_image=_image(db, design.third_image_id),
         website=facts["website"], email=facts["email"], association_mobile=facts["mobile"], contacts=contacts,
         logos=tuple(img for img in (_image(db, lg.media_asset_id) for lg in design.logos) if img),

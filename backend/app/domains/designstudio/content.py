@@ -64,6 +64,7 @@ class PosterContent:
 
     main_image: ImageBytes | None = None
     inset_image: ImageBytes | None = None
+    inset_corner: str = "bottom_right"   # which corner of the main picture it lies on
     third_image: ImageBytes | None = None
 
     website: str = ""               # shown without scheme; the QR carries https://

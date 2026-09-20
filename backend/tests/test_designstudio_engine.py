@@ -38,6 +38,13 @@ def _png(size: tuple[int, int] = (2, 2), colour: str = "white") -> bytes:
 PNG_2x2 = _png()
 
 
+def _plan():
+    """A bare plan, for the block functions that only need the palette."""
+    from app.domains.designstudio.blocks import Plan
+
+    return Plan(width=297, height=420, frame=9, pal=brand.palette_for("dark_green-golden_yellow"), seed=1)
+
+
 def _content(**overrides) -> PosterContent:
     base = {
         "duo_code": "dark_green-golden_yellow", "preset": "beeld",
@@ -94,11 +101,22 @@ def test_the_rendered_poster_passes_the_brand_gate():
 # ── Formatted text ──────────────────────────────────────────────────────────
 
 def test_richtext_subset_parses_bold_bullets_and_paragraphs_and_nothing_else():
-    blocks = richtext.parse("Eerste **vet** woord\nzelfde alinea\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>")
-    assert [b.bullet for b in blocks] == [False, True, True, False]
+    blocks = richtext.parse("Eerste **vet** woord\nnieuwe regel\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>")
+    assert [b.bullet for b in blocks] == [False, False, True, True, False]
     assert [r.bold for r in blocks[0].runs] == [False, True, False]
-    assert "".join(r.text for r in blocks[0].runs) == "Eerste vet woord zelfde alinea"
-    assert "".join(r.text for r in blocks[3].runs) == "<b>geen html</b>"
+    assert "".join(r.text for r in blocks[0].runs) == "Eerste vet woord"
+    assert "".join(r.text for r in blocks[4].runs) == "<b>geen html</b>"
+
+
+def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
+    """Koen, 20 September 2026: what he types with Enter must break on the
+    poster too; a blank line keeps its air."""
+    blocks = richtext.parse("Regel een\nRegel twee\n\nNa een lege regel")
+    assert [b.gap for b in blocks] == [False, False, True]
+    lines = richtext.wrap(blocks, width=200, size=6)
+    assert ["".join(r.text for r in line) for line in lines] == [
+        "Regel een", "Regel twee", "", "Na een lege regel"]
+    assert richtext.LINE_HEIGHT > 1.3        # a little more air than before
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1
@@ -335,10 +353,12 @@ def test_the_body_text_grows_into_the_room_it_has():
 
 def test_the_deadline_is_the_bands_call_to_action():
     """"Inschrijven tot 8 november" stood at the foot of the hand-made
-    poster; it sits in the band now, in the accent colour, above the address
-    it points at. No shared deadline (it differs per component) → no row."""
+    poster; it sits in the band now, above the address it points at, in the
+    same white as the rows under it. No shared deadline (it differs per
+    component) → no row."""
     svg = render.merge(_content(deadline_text="Inschrijven tot 8 november"), layout="print_a").svg
     assert ">Inschrijven tot 8 november</text>" in svg
+    assert re.search(r'id="t-deadline"[^>]*fill="#ffffff"', svg)
     deadline_y = float(re.search(r'id="t-deadline" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     website_y = float(re.search(r'id="t-website" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     assert deadline_y < website_y
@@ -356,6 +376,30 @@ def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
     assert aspect_for(wide, 260, 200) == "xMidYMid slice"     # normal: crop
     assert aspect_for(ImageBytes(PNG_2x2, "image/png"), 260, 60) == "xMidYMid slice"   # size unknown: crop
     assert 'preserveAspectRatio="xMidYMid slice"' in render.merge(_content(main_image=wide), layout="print_a").svg
+
+
+def test_the_polaroid_lies_on_the_corner_that_was_chosen():
+    """Koen, 20 September 2026: bottom right covered exactly the subject on
+    some photos. Four corners, and a fifth bigger."""
+    from app.domains.designstudio.blocks import polaroid_on
+
+    inset = ImageBytes(PNG_2x2, "image/png")
+    rect = (19.0, 100.0, 260.0, 120.0)          # x, y, w, h of the main picture
+    places = {}
+    for corner in ("top_left", "top_right", "bottom_left", "bottom_right"):
+        frag, bottom = polaroid_on(_plan(), inset, rect, corner, 91.0)
+        x, y = (float(v) for v in re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="91', frag).groups())
+        places[corner] = (x, y, bottom)
+    assert places["top_left"][0] == places["bottom_left"][0] == 25.0          # 6 mm inside the left edge
+    assert places["top_right"][0] == places["bottom_right"][0] == 182.0       # ... and the right edge
+    assert places["top_left"][1] < places["bottom_left"][1]
+    assert places["top_left"][2] == 220.0                                     # inside: the picture's own bottom
+    assert places["bottom_left"][2] > 220.0                                   # breaks the bottom edge
+    # And the poster really uses the design's choice.
+    svg = render.merge(_content(preset="eenvoudig", dates=(), inset_image=inset,
+                                inset_corner="top_left"), layout="print_a").svg
+    hero_x = float(re.search(r'<image x="19.00"', svg).group(0).split('"')[1])
+    assert hero_x == 19.0 and svg.count("<image") == 2
 
 
 def test_a_focal_point_moves_the_crop():

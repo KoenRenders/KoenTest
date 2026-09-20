@@ -6,10 +6,12 @@ sizes and colours are the house style's, so the input format cannot carry them.
 
 Input is a small Markdown subset stored as text:
 
-- a blank line separates paragraphs;
+- every line break starts a new line on the poster (Koen, 20 September 2026:
+  "als in de omschrijving een enter staat, kan je dat dan ook op de affiche
+  doen?");
+- a blank line leaves a blank line;
 - a line starting with ``- `` or ``* `` is a bullet;
-- ``**bold**`` marks bold runs;
-- a single line break inside a paragraph is a soft break (joined with a space).
+- ``**bold**`` marks bold runs.
 
 Everything else is literal text. Output is a list of *lines*, each a list of
 runs ``(text, bold)``, wrapped to a width measured with the real font metrics —
@@ -50,11 +52,19 @@ class Run:
     bold: bool = False
 
 
+#: Line spacing of body text. A little more than the 1.3 it was, because the
+#: poster now keeps typed line breaks and those read better with air between
+#: them (Koen, 20 September 2026).
+LINE_HEIGHT = 1.4
+
+
 @dataclass(frozen=True)
 class Block:
-    """One paragraph or one bullet item."""
+    """One typed line: a paragraph, a bullet, or a line after an Enter."""
     runs: tuple[Run, ...]
     bullet: bool = False
+    #: Preceded by a blank line, so it gets a blank line before it.
+    gap: bool = False
 
 
 HAND_FONT = FONTS_DIR / "Caveat-VariableFont_wght.ttf"
@@ -99,24 +109,16 @@ def parse(source: str) -> list[Block]:
     """Parse the Markdown subset. Unknown markup stays literal; there is no way
     to smuggle in a font, a colour or markup."""
     blocks: list[Block] = []
-    paragraph: list[str] = []
-
-    def flush() -> None:
-        if paragraph:
-            blocks.append(Block(runs=_runs(" ".join(paragraph))))
-            paragraph.clear()
-
+    gap = False
     for raw in (source or "").replace("\r\n", "\n").split("\n"):
         line = raw.strip()
         if not line:
-            flush()
+            gap = bool(blocks)      # a blank line before the first line means nothing
             continue
-        if _BULLET.match(line):
-            flush()
-            blocks.append(Block(runs=_runs(_BULLET.sub("", line, count=1)), bullet=True))
-            continue
-        paragraph.append(line)
-    flush()
+        bullet = bool(_BULLET.match(line))
+        text = _BULLET.sub("", line, count=1) if bullet else line
+        blocks.append(Block(runs=_runs(text), bullet=bullet, gap=gap))
+        gap = False
     return blocks
 
 
@@ -140,7 +142,7 @@ def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float
     A blank line separates blocks."""
     lines: list[list[Run]] = []
     for i, block in enumerate(blocks):
-        if i:
+        if i and block.gap:
             lines.append([])
         words: list[tuple[str, bool]] = []
         for run in block.runs:
@@ -188,7 +190,7 @@ def line_count(source: str, *, width: float, size: float) -> int:
 
 
 def to_svg(source: str, *, x: float, y: float, width: float, size: float,
-           line_height: float = 1.3, fill: str, max_lines: int | None = None,
+           line_height: float = LINE_HEIGHT, fill: str, max_lines: int | None = None,
            element_id: str = "") -> tuple[str, int]:
     """Render formatted text as one ``<text>`` element with ``<tspan>`` lines.
 

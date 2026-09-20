@@ -502,3 +502,28 @@ def test_the_list_and_the_editor_render_for_an_admin(client, db_session, design)
     svg = client.get(f"/admin/ontwerpen/{design.id}/svg/print_a")
     assert svg.status_code == 200 and svg.headers["content-type"].startswith("image/svg+xml")
     assert "STAPPEN" in svg.text and "ref100mm" in svg.text
+
+
+def test_annuleren_brengt_de_bewaarde_waarde_terug(client, db_session, design):
+    """#1089: the cancel button had no destination and did nothing.
+
+    The behaviour, not the button: type something, follow "Annuleren", and the
+    screen shows what is saved again — not what was typed.
+    """
+    import re as _re
+
+    from app.domains.auth.api import csrf_token_for
+
+    sess = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, sess)
+    data = {"duo_code": design.duo_code, "preset": "beeld", "subtitle": "net getypt",
+            "layout": "print_a", "hl_icon_0": "no-such-icon", "hl_text_0": "Fout"}
+    typed = client.post(f"/admin/ontwerpen/{design.id}", data=data,
+                        headers={"X-CSRF-Token": csrf_token_for(sess)})
+    assert 'value="net getypt"' in typed.text
+
+    hrefs = _re.findall(r'href="([^"]+)"[^>]*>\s*Annuleren', typed.text)
+    assert hrefs, "Annuleren heeft geen bestemming — hij doet dan niets (#1089)"
+    back = client.get(hrefs[0])
+    assert back.status_code == 200
+    assert 'value="samen wandelen"' in back.text and "net getypt" not in back.text

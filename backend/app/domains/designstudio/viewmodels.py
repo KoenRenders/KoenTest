@@ -126,6 +126,8 @@ class DesignEditorView(ViewModel):
     third_image_id: Optional[int]
     main_focus_x: str
     main_focus_y: str
+    inset_corner: str
+    corner_options: list[tuple[str, str]]
     image_options: list[ImageOption]
     logo_options: list[ImageOption]
     logo_ids: list[int]

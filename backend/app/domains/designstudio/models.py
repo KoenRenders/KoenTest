@@ -68,6 +68,9 @@ GENERATION_STATES = (GEN_REQUESTED, GEN_FETCHED, GEN_PICKED, GEN_DISCARDED, GEN_
 #: highlights under it — the Bowlen poster, half of what the unit makes.
 PRESETS = ("beeld", "tekst", "eenvoudig")
 
+#: Where the polaroid lies on the main picture (Koen, 20 September 2026).
+INSET_CORNERS = ("top_left", "top_right", "bottom_left", "bottom_right")
+
 
 class Design(TenantMixin, Base):
     __tablename__ = "designs"
@@ -94,6 +97,9 @@ class Design(TenantMixin, Base):
     main_focus_x = Column(Numeric(4, 3), nullable=False, default=0.5)
     main_focus_y = Column(Numeric(4, 3), nullable=False, default=0.5)
     inset_image_id = Column(Integer, nullable=True)
+    # Which corner of the main picture the polaroid lies on (Koen, 20 Sep 2026):
+    # top_left | top_right | bottom_left | bottom_right.
+    inset_corner = Column(String(12), nullable=False, default="bottom_right")
     third_image_id = Column(Integer, nullable=True)
 
     published_version_id = Column(Integer, nullable=True)  # → designstudio.design_versions (set after insert)
