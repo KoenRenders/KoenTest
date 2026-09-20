@@ -419,10 +419,11 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
     rows: list[dict[str, object]] = []
     if content.deadline_text:
-        # The one line that asks for something (Koen, 20 September 2026): in
-        # the accent colour, above the address it points at.
+        # The one line that asks for something (Koen, 20 September 2026):
+        # above the address it points at. White like the rows under it — its
+        # accent-coloured ticket icon carries the emphasis (Koen, 20 Sep, second look).
         rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": content.deadline_text, "size": 6.6, "colour": pal["accent"]})
+                     "text": content.deadline_text, "size": 6.6, "colour": pal["white"]})
     rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
                  "text": content.website, "size": 6.2, "colour": pal["white"]})
     if content.contacts:

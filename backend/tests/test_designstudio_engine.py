@@ -335,10 +335,12 @@ def test_the_body_text_grows_into_the_room_it_has():
 
 def test_the_deadline_is_the_bands_call_to_action():
     """"Inschrijven tot 8 november" stood at the foot of the hand-made
-    poster; it sits in the band now, in the accent colour, above the address
-    it points at. No shared deadline (it differs per component) → no row."""
+    poster; it sits in the band now, above the address it points at, in the
+    same white as the rows under it. No shared deadline (it differs per
+    component) → no row."""
     svg = render.merge(_content(deadline_text="Inschrijven tot 8 november"), layout="print_a").svg
     assert ">Inschrijven tot 8 november</text>" in svg
+    assert re.search(r'id="t-deadline"[^>]*fill="#ffffff"', svg)
     deadline_y = float(re.search(r'id="t-deadline" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     website_y = float(re.search(r'id="t-website" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     assert deadline_y < website_y
