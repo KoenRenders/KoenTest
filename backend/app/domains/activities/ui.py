@@ -261,7 +261,47 @@ def activiteit_deeplink(sleutel: str, request: Request,
     # middernacht door naar een lijst waar de kaart (nog) niet op staat.
     from app.kernel.clock import belgian_today
 
-    lijst = ("/activiteiten/archief" if laatste and laatste < belgian_today()
-             else "/activiteiten")
-    anker = activiteit.slug or f"act-{activiteit.id}"
-    return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)
+    voorbij = bool(laatste and laatste < belgian_today())
+    # Golf 12 (#913): de pagina neemt het adres over, zoals deze docstring sinds
+    # golf 8 aankondigde — geen enkele gedeelde link breekt. Het view-model komt
+    # uit list_activities, dezelfde bron als de kaart, dus status, volzet en
+    # deadline kunnen nooit uiteenlopen met de lijst.
+    from app.domains.activities.api import list_activities
+
+    scope = "archived" if voorbij else "upcoming"
+    vm = next((x for x in list_activities(db, scope=scope)
+               if x.id == activiteit.id), None)
+    if vm is None:
+        # Vangnet voor een record dat (nog) in geen van beide lijstscopes valt:
+        # de oude redirect, zodat de link nooit doodloopt.
+        anker = activiteit.slug or f"act-{activiteit.id}"
+        lijst = "/activiteiten/archief" if voorbij else "/activiteiten"
+        return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)
+    poster_url = None
+    poster_link = None
+    if activiteit.poster_asset_url:
+        # Een PDF-affiche toont haar voorblad (#1019); het beeld linkt altijd
+        # naar het volledige bestand.
+        poster_link = activiteit.poster_asset_url
+        poster_url = (activiteit.poster_asset_url + "/thumb"
+                      if activiteit.poster_asset_is_pdf else activiteit.poster_asset_url)
+    elif activiteit.poster_url:
+        poster_link = activiteit.poster_url
+    # De klokregel bovenaan (#1051-copy: zonder jaartal, oranje in de laatste
+    # week). De datum is vandaag nog activiteitsbreed en dus per definitie "alle
+    # onderdelen dezelfde" — de kopregel-tak van de #1053-weergaveregels. Zodra
+    # #1053 het veld per onderdeel legt, vult `deadline_per` de andere tak.
+    from app.i18n import long_date
+
+    deadline_kop = None
+    if (scope == "upcoming" and vm.registration_state == "open"
+            and vm.registration_closes_on):
+        deadline_kop = {
+            "label": long_date(vm.registration_closes_on).rsplit(" ", 1)[0],
+            "urgent": (vm.registration_closes_on - belgian_today()).days <= 7}
+    return templates.TemplateResponse(request, "activiteit.html", {
+        **site_context(db, request), "a": vm, "scope": scope,
+        "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
+        "poster_url": poster_url, "poster_link": poster_link,
+        "deadline_kop": deadline_kop, "deadline_per": {},
+    })

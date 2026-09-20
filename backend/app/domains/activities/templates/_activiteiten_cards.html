@@ -39,10 +39,13 @@
       </div>
       {% endif %}
       <div class="min-w-0 flex-1">
-    {# Titel + status-badge inline (#488); titel linkt naar de affiche (v1.14). #}
+    {# Titel + status-badge inline (#488). Golf 12 (#913): de titel linkt naar
+       de activiteitspagina op het deeladres — de affiche staat dáár als beeld
+       en blijft zo bereikbaar; tot golf 12 linkte de titel rechtstreeks naar
+       het affichebestand (v1.14-erfenis). #}
     <div>
       <h2 class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
-        {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ a.name }}</a>{% else %}<span>{{ a.name }}</span>{% endif %}
+        <a href="{{ path_for('/activiteiten/' ~ (a.slug or a.id)) }}" class="text-blue-700 hover:underline">{{ a.name }}</a>
         {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
            krijgt geen badge — de inschrijfknop ís het positieve signaal. Badges
            blijven voor wat afwijkt: Vol, Geannuleerd, Voorbij, enkel leden. #}
