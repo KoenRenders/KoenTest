@@ -59,8 +59,10 @@ reconstructed.
    language-model *insights* on top of that context (Mistral, Europe First),
    under the standing rule that every claim carries a clickable source and
    unsupported claims are dropped.
-6. **STT/TTS in the Raakje overlay.** Open decision with Koen (via the
-   master CLI); parked until he chooses — no build before that.
+6. ~~STT/TTS in the Raakje overlay~~ — **un-parked 20 September 2026**:
+   Koen chose mic + read-aloud, identical to the rapporten-Raakje, with the
+   wider principle "Raakje is the same everywhere; the only difference is the
+   public security boundary". Now issue #1075 (scheduled via the master CLI).
 7. **Table conventions from the conventions debate** (#785 triage, A12/A17):
    sortable columns as the norm, column chooser, saved views, Ctrl-K command
    palette. Independently confirmed by all three maker-round directions;
