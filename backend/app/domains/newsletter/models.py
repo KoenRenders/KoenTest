@@ -124,6 +124,10 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String(500), nullable=False, default="")
+    # #984: the line a mail client shows beside the subject. Empty is fine — the
+    # letter then derives it from its own first sentence, so the inbox never
+    # reads "Beste,".
+    preview_text = Column(String(200), nullable=False, default="")
     body_html = Column(Text, nullable=False, default="")
     # Empty in a draft on purpose: there is no default audience (CR-05 §3.2).
     audience = Column(String(20), nullable=True)

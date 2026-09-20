@@ -230,7 +230,8 @@ def _is_quota_error(exc: Exception) -> bool:
 
 def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
                        email_type: str, reply_to: Optional[str] = None,
-                       unsubscribe_url: Optional[str] = None) -> str:
+                       unsubscribe_url: Optional[str] = None,
+                       body_text: Optional[str] = None) -> str:
     """One mail to one recipient, for a campaign such as the newsletter (#984).
 
     Differs from ``_send`` on three points, each a decision:
@@ -243,6 +244,11 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
     - **Unsubscribe headers** when ``unsubscribe_url`` is given: a
       ``List-Unsubscribe`` header plus ``List-Unsubscribe-Post`` for one-click
       unsubscribing from the mail client (RFC 8058).
+    - **A text part** when ``body_text`` is given (#984). The message announces
+      itself as ``multipart/alternative``, so without it a reader that strips
+      HTML — a screen reader, a watch, a client set to plain text — is left with
+      a blank page. The text part goes FIRST: the last part is the preferred
+      one, and that must stay the HTML.
 
     Returns the log status: ``sent``, ``logged`` (demo tenant), ``skipped`` (no
     credentials) or ``failed``.
@@ -266,6 +272,10 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
     if unsubscribe_url:
         msg["List-Unsubscribe"] = f"<{unsubscribe_url}>"
         msg["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click"
+    # The text part goes FIRST: in `multipart/alternative` the LAST part is the
+    # preferred one, and that must stay the HTML.
+    if body_text:
+        msg.attach(MIMEText(body_text, "plain"))
     msg.attach(MIMEText(body_html, "html"))
 
     try:

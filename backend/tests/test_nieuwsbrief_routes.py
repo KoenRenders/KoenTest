@@ -39,9 +39,10 @@ def mailbox(monkeypatch):
     sent = []
 
     def fake(to_email, subject, body_html, *, email_type, reply_to=None,
-             unsubscribe_url=None):
+             unsubscribe_url=None, body_text=None):
         sent.append({"to": to_email, "subject": subject, "body": body_html,
-                     "reply_to": reply_to, "unsubscribe_url": unsubscribe_url})
+                     "reply_to": reply_to, "unsubscribe_url": unsubscribe_url,
+                     "body_text": body_text})
         return "sent"
 
     monkeypatch.setattr("app.domains.mail.api.send_campaign_mail", fake)
