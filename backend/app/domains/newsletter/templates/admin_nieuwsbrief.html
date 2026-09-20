@@ -7,6 +7,11 @@
    versturen (de ontsmetting bij elke autobewaring gooit `style` weg). Hier
    dezelfde vorm, zodat de schrijver ziet wat hij verstuurt. #}
 <style>
+  /* Dezelfde kop als in de mail: de brief laat je zien wat je verstuurt. */
+  trix-editor h1, trix-editor h2, trix-editor h3 {
+    font-size: 20px; font-weight: 700; line-height: 1.3;
+    color: rgb(var(--c-kop)); margin: 18px 0 6px;
+  }
   trix-editor .nb-blok { margin: 18px 0; }
   trix-editor .nb-blok-tabel { border-collapse: collapse; width: 100%; }
   trix-editor .nb-blok-beeld { vertical-align: top; width: 180px; padding-right: 14px; }

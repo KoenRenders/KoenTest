@@ -76,6 +76,8 @@ _MARKER = re.compile(r"\[\[(activiteit|fotos|naam):(\d+)\]\]")
 #: kunnen"). The portal fills them in the same way the buttons do — except an
 #: attachment, which is a file the author uploads and Raakje cannot know.
 _PLAIN_MARKER = re.compile(r"\[\[(kalender|afsluiting)\]\]")
+#: A heading line, however many hashes the model used.
+_HEADING = re.compile(r"#{1,6}\s+")
 # The blank line between blocks, the way Trix writes one.
 BLANK = "<div><br></div>"
 _NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
@@ -284,14 +286,17 @@ WAT JE DOET
 - De FEITEN komen uitsluitend uit de BRONNEN die je krijgt, en uit de leestools voor activiteiten. Staat iets niet in een bron, schrijf het dan niet. Weglaten is altijd beter dan aanvullen.
 
 VASTE REGELS
-- Schrijf NOOIT zelf een datum, een uur, een plaats, een inschrijflink of een fotolink. Zet in de plaats daarvan een markering op een EIGEN regel: [[activiteit:ID]] voor de regel met datum, uur, plaats en inschrijflink van activiteit ID, en [[fotos:ID]] voor de link naar het fotoalbum van activiteit ID. Het portaal vult die in. Verwijs daarom nooit met "hier" of "hieronder" naar een link.
+- Schrijf NOOIT zelf een datum, een uur, een plaats, een inschrijflink of een fotolink. Zet in de plaats daarvan een markering op een EIGEN regel: [[activiteit:ID]] en [[fotos:ID]] voor het fotoalbum van activiteit ID. Het portaal vult die in. Verwijs daarom nooit met "hier" of "hieronder" naar een link.
+- [[activiteit:ID]] wordt een VOLLEDIG BLOK: de affiche, de naam als titel, de omschrijving van de activiteit, de datum met plaats, en "Schrijf je in!". Herhaal die omschrijving dus niet in je eigen tekst, en beschrijf de activiteit niet nog eens: schrijf ernaast wat er NIET in staat — de sfeer, de terugblik, waarom het de moeite is.
+- [[kalender]] wordt een opsomming met één regel per activiteit; [[afsluiting]] wordt de groet van het bestuur.
+- Een kopje is één regel die begint met "# ". Gebruik geen "##" of "###" en geen andere opmaakcodes: alleen "# " voor een kopje en **vet** voor vet.
 - Noem je een activiteit midden in een zin, schrijf dan [[naam:ID]]: het portaal zet daar de naam van de activiteit in het vet. Schrijf de naam dan niet zelf, en bouw de zin zo dat hij klopt MET die naam erin. Een naam is een eigennaam, ook als hij als een zin klinkt: schrijf "tijdens [[naam:12]]" of "op [[naam:12]]", nooit een zin waarin de naam als werkwoord of onderwerp moet werken.
 - Noem nooit personen en bedank nooit individuele organisatoren of vrijwilligers. [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Geef niemand een functie of rol die niet letterlijk in een bron staat.
 - Verzin geen programma-onderdelen, spelletjes, gerechten, prijzen of aantallen. Een bedrag noem je alleen zoals het in de activiteitgegevens staat.
 - Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij. Vraagt de auteur uitdrukkelijk om de afsluiting, zet dan [[afsluiting]] op een eigen regel.
 - Vraagt de auteur een kalender of een overzicht van de komende activiteiten, zet dan [[kalender]] op een eigen regel: het portaal zet er één compacte regel per activiteit, met datum, plaats en inschrijflink. Schrijf die regels nooit zelf.
-- Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje: een regel die begint met "# ". Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel. Vet schrijf je als **zo**.
+- Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje. Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel.
 - Een volledige brief heeft deze volgorde: eerst een TERUGBLIK op de voorbije activiteiten, dan een VOORUITBLIK op de activiteiten die nog komen. Een voorbije activiteit noem je met [[naam:ID]] en, als er een album is, [[fotos:ID]]; nooit met [[activiteit:ID]], want inschrijven kan niet meer. Een activiteit die nog komt krijgt [[activiteit:ID]].
 - De vergaderverslagen zijn INTERN. Neem er alleen uit over wat een lezer aanbelangt: wat goed ging, waar mensen van genoten, een verbetering tegenover vorig jaar. Nooit geld, discussies, taken, problemen tussen mensen of wat nog beslist moet worden. Wat je eruit overneemt, hoort in de terugblik bij de activiteit waarover het gaat.
 - Schrijf correct Nederlands. Lees elke zin na voor je antwoordt: geen woord dat twee keer staat ("er op ... op uit"), geen ontbrekend voegwoord of lidwoord, en elke zin moet kloppen zoals hij er staat.
@@ -397,14 +402,19 @@ def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] =
             if html:
                 blocks.append(f"<div>{html}</div>")
             continue
-        heading = line.startswith("# ")
-        body = _with_names(line[2:].strip() if heading else line, facts)
+        # Any number of hashes (Koen, 20 September 2026: Raakje wrote
+        # "## Spel en plezier" and it arrived as literal text). A heading is a
+        # heading; counting hashes is the model's business, not the reader's.
+        hashes = _HEADING.match(line)
+        body = _with_names(line[hashes.end():].strip() if hashes else line, facts)
         if not body:
             continue
-        if heading:
+        if hashes:
             if blocks:
                 blocks.append(BLANK)
-            blocks.append(f"<div><strong>{body}</strong></div>")
+            # An `h1`, so the letter gives it the brand colour and size when it
+            # is sent — the same heading the editor's title button makes.
+            blocks.append(f"<h1>{body}</h1>")
         else:
             blocks.append(f"<div>{body}</div>")
     return "".join(blocks)
