@@ -16,7 +16,12 @@
   {% for a in activities %}
   {% set _jaar = a.sort_date.year if a.sort_date else None %}
   {% if _jaar and _jaar != _ns.jaar %}
+  {# Golf 11 (eigenaarbevinding 2, #913): geen jaarkop pal onder de sectiekop
+     zolang het gewoon het lopende jaar is — twee koppen boven elkaar was ruis.
+     Bij een jaarwissel verderop in de lijst blijft de kop staan. #}
+  {% if not (loop.first and _jaar == current_year) %}
   <h3 class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
+  {% endif %}
   {% set _ns.jaar = _jaar %}
   {% endif %}
   {# Anker voor de deellink op de recordpagina (golf 8): de slug als hij
@@ -26,9 +31,9 @@
        de gekozen Cobalt-richting): dag groot, maand kort, in de zachte
        selectietint. Afgeleid van de sorteerdatum; een activiteit zonder datum
        krijgt gewoon geen blok. #}
-    <div class="flex gap-4">
+    <div class="flex gap-3 sm:gap-4">
       {% if a.sort_date %}
-      <div class="shrink-0 w-14 h-14 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+      <div class="shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
         <span class="text-xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
         <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
       </div>
@@ -38,7 +43,10 @@
     <div>
       <h2 class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
         {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ a.name }}</a>{% else %}<span>{{ a.name }}</span>{% endif %}
-        {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
+        {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
+           krijgt geen badge — de inschrijfknop ís het positieve signaal. Badges
+           blijven voor wat afwijkt: Vol, Geannuleerd, Voorbij, enkel leden. #}
+        {% if a.status and a.status != "Open" %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
       {# #810: `items-start` en niet `items-center`. Dat laatste centreert het icoon
@@ -80,15 +88,18 @@
          niet eerst een alinea. #}
       {% if a.description %}<p class="text-base md:text-sm text-ink whitespace-pre-line">{{ a.description }}</p>{% endif %}
     </div>
-      </div>
-    </div>
+    {# Golf 11 (F32, #913): de onderdelen en acties staan ín de inhoudskolom,
+       niet meer onder de datumtegel — titel, gegevens en vervolgstap lezen zo
+       als één groep met dezelfde linkerkant. F32 is een desktop-bevinding: op
+       een telefoon nemen de acties de volle kaartbreedte (-ml compenseert de
+       tegel van 48px + gap 12), anders wrappen de twee knoppen. #}
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,
        maar de inschrijfknop/-form vervallen (voorbij → niet meer inschrijven). #}
     {# #489: bij één onderdeel de componentnaam verbergen (React-pariteit) — de
        naam is dan redundant; enkel de knoppen tonen. #}
     {% set _multi = (a.sub_registrations | length) > 1 %}
-    <div class="mt-4 space-y-3">
+    <div class="mt-3 space-y-3{% if a.sort_date %} -ml-[60px] sm:ml-0{% endif %}">
       {% for c in a.sub_registrations %}
       <div class="pt-2" x-data="{ open: false, ins: false }">
         {% set _btn = ui.btn_class("outline", "xs") %}
@@ -163,6 +174,8 @@
       {% endfor %}
     </div>
     {% endif %}
+      </div>
+    </div>
   {% endcall %}
   {% else %}
   {{ ui.empty_state(_("Geen activiteiten gevonden.")) }}
