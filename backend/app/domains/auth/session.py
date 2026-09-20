@@ -148,6 +148,23 @@ def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
     return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
 
 
+def may_use_admin_assistant(db: Session, email: str) -> bool:
+    """Mag deze gebruiker de beheer-assistent aanspreken? (#1060)
+
+    Dezelfde vraag als `require_admin_ui`, maar als vraag in plaats van als poort —
+    voor de zichtbaarheid van een ingang. Ze is nodig omdat de twee niet
+    samenvallen: het betalingenscherm draait op `require_finance_ui`, dus een
+    FINANCE-only gebruiker ziet die lijst wél en mag de assistent niet. Zonder deze
+    vraag zou daar een knop staan die op een 403 uitkomt.
+
+    Geen nieuwe rol en geen verbreding (Koen, 20 september 2026): de ingang volgt
+    exact wie de route toelaat.
+    """
+    from app.domains.auth.service import get_user_roles
+
+    return bool(set(get_user_roles(db, email)) & set(_GENERAL_ADMIN_ROLES))
+
+
 def may_view_payments(db: Session, email: str) -> bool:
     """Dezelfde vraag als require_finance_ui, maar als vraag i.p.v. poort —
     voor tab-zichtbaarheid (golf 9, #913): een tab die je niet mag openen

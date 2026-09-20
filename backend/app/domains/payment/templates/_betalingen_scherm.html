@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% import "_raakje_overlay.html" as raakje %}
 {# Het betalingenscherm zonder schil (golf 8, #913): filterbalk + lijst.
    Gedeeld door /admin/betalingen en de ingebedde Betalingen-tab van een
    activiteit — één bron, twee koppen. #}
@@ -45,6 +46,18 @@
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
                         href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ "&zicht=" ~ zicht ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
+    {# #1060: Raakje met de selectie die hierboven staat. De ingang verschijnt
+       alleen als de assistent aanstaat ÉN deze gebruiker hem mag aanspreken —
+       dit scherm laat FINANCE binnen, de assistent niet, en een knop die op een
+       403 uitkomt is erger dan geen knop. De selectie zelf reist niet mee in dit
+       formulier: de route leidt ze server-side af uit dezelfde filterstand die
+       dit scherm leest. #}
+    {% if raakje_scherm %}
+    {{ raakje.overlay(_("AI · Betalingen"),
+                      "/admin/rapporten/raakje/scherm/betalingen",
+                      _("Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over lidgeld en activiteiten?”. Namen van personen geef ik niet: ik antwoord op groepsniveau."),
+                      stt_mode, gesprek_id="bt-raakje-gesprek") }}
+    {% endif %}
   </div>
 {% endcall %}
 

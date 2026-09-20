@@ -124,6 +124,29 @@ def _paginakeuze(request, stand: dict) -> int:
     return max(1, int(ruw)) if ruw.isdigit() else 1
 
 
+def _raakje_op_dit_scherm(db: Session, email: str) -> bool:
+    """Mag hier een Raakje-ingang staan? (#1060)
+
+    Twee voorwaarden, en de tweede is de reden dat deze functie bestaat: de
+    beheer-assistent moet aanstaan (omgeving én tenant, CR-07 §6.3), én deze
+    gebruiker moet hem mogen aanspreken. Dat laatste valt hier NIET samen met wie
+    het scherm mag zien: Betalingen laat FINANCE binnen, de assistent niet. Een
+    knop die op een 403 uitkomt is erger dan geen knop.
+    """
+    from app.domains.auth.api import may_use_admin_assistant
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
+
+    return tenant_admin_chat_enabled(db) and may_use_admin_assistant(db, email)
+
+
+def _stt_mode() -> str:
+    """De spraakmodus van de kit, lokaal geïmporteerd zoals de rest van dit
+    bestand — `app.config` hoort niet in de modulekop van een scherm."""
+    from app.config import settings
+
+    return settings.stt_mode
+
+
 def _view(request: Request, db: Session, email: str,
           nav_items: list | None = None, *,
           forceer_activiteit: int | None = None,
@@ -413,6 +436,8 @@ def _view(request: Request, db: Session, email: str,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
         is_finance="FINANCE" in get_user_roles(db, email),
+        raakje_scherm=_raakje_op_dit_scherm(db, email),
+        stt_mode=_stt_mode(),
         csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
         nav_items=nav_items or [],
     )

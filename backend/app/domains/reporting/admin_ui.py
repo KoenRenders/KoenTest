@@ -77,6 +77,9 @@ from app.domains.reporting.api import (
 )
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, is_fragment_request, templates
+from app.domains.reporting.assistant import (Scope, ScopeNietOverdraagbaar,
+                                              scope_for_activity,
+                                              scope_for_payments)
 from app.domains.reporting.viewmodels import (
     AssistantTurnView, AssistantView, ReportListView, ReportPanelView,
 )
@@ -808,7 +811,7 @@ def assistant_page(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 async def assistant_ask(request: Request, db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
-    return await _ask(request, db, email, activity_id=None)
+    return await _ask(request, db, email, scope=None)
 
 
 @router.post("/admin/rapporten/raakje/activiteit/{activity_id}",
@@ -832,11 +835,60 @@ async def assistant_ask_about_activity(activity_id: int, request: Request,
 
     if get_activity(db, activity_id) is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    return await _ask(request, db, email, activity_id=activity_id)
+    return await _ask(request, db, email,
+                      scope=scope_for_activity(activity_id))
+
+
+#: De schermen waarvan de assistent de selectie kan overnemen (#1060). Een scherm
+#: staat hier pas in als zijn selectie EXACT over te zetten is naar het universum;
+#: half overzetten is erger dan niet overzetten. Een server-side lijst en geen vrij
+#: pad: wat de gebruiker in de URL typt, kiest geen code uit.
+SCHERMSCOPES = {"betalingen": scope_for_payments}
+
+
+@router.post("/admin/rapporten/raakje/scherm/{scherm}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def assistant_ask_about_screen(scherm: str, request: Request,
+                                     db: Session = Depends(get_db),
+                                     email: str = Depends(require_admin_ui)):
+    """Raakje met de selectie van het scherm waar hij aangeroepen wordt (#1060).
+
+    Zelfde vorm als #975: het scherm zit in het PAD, en de selectie wordt
+    SERVER-SIDE herleid uit dezelfde filterstand die het scherm zelf leest — nooit
+    uit het formulier van de vraag. Een vervalst veld daarin verandert dus niets.
+
+    De rol blijft `require_admin_ui`, zoals elk rapportenscherm. Op Betalingen
+    betekent dat iets: dat scherm draait op `require_finance_ui`, dus een
+    FINANCE-only gebruiker ziet de lijst wél en mag de assistent niet. Die krijgt
+    hier een 403 en op het scherm geen ingang — geen nieuwe rol, geen verbreding
+    (Koen, 20 september 2026).
+
+    Kan de selectie niet exact overgezet worden, dan antwoordt de route met de
+    reden in plaats van met een getal over een ruimere verzameling. Zie
+    `ScopeNietOverdraagbaar`.
+    """
+    from app.ui import filterparams
+
+    bouwer = SCHERMSCOPES.get(scherm)
+    if bouwer is None:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    try:
+        scope = bouwer(filterparams(request))
+    except ScopeNietOverdraagbaar as waarom:
+        return templates.TemplateResponse(
+            request, "_rp_raakje_antwoord.html",
+            AssistantTurnView(
+                vraag="", antwoord="",
+                error=_("Raakje kan deze selectie niet overnemen: %(wat)s valt "
+                        "buiten wat de rapportering kent. Neem dat filter weg, of "
+                        "stel je vraag op het rapportenscherm.")
+                % {"wat": str(waarom)},
+                payload="", history="[]").as_context())
+    return await _ask(request, db, email, scope=scope)
 
 
 async def _ask(request: Request, db: Session, email: str, *,
-               activity_id: Optional[int]):
+               scope: Optional[Scope]):
     """One question to Raakje, with or without an activity scope.
 
     One implementation for both routes: the scope is a parameter of the SAME path,
@@ -853,7 +905,7 @@ async def _ask(request: Request, db: Session, email: str, *,
     from app.domains.reporting.assistant import (
         CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, detokenise,
         dispatcher, scrub_question, tool_specs,
-    )
+    )  # noqa: F401  (Scope staat bovenaan geïmporteerd voor de annotatie)
 
     form = await request.form()
     vraag = str(form.get("vraag") or "").strip()
@@ -880,7 +932,7 @@ async def _ask(request: Request, db: Session, email: str, *,
     verstuurd = scrub_question(db, vraag, tenant_id=tenant)
 
     messages = [{"role": "system",
-                 "content": build_system_prompt(activity_id=activity_id)}]
+                 "content": build_system_prompt(scope)}]
     messages += turns
     messages.append({"role": "user", "content": verstuurd})
 
@@ -896,7 +948,7 @@ async def _ask(request: Request, db: Session, email: str, *,
                             max_rounds=settings.admin_chat_max_tool_rounds,
                             tools=tool_specs(),
                             dispatch=dispatcher(tenant_id=tenant,
-                                                activity_id=activity_id),
+                                                scope=scope),
                             deadline=deadline)
     except (SeamBlocked, ChatTimeout) as gestopt:
         # The log row is already written, in the logbook's own session — precisely

@@ -1,0 +1,58 @@
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
+{# De Raakje-overlay als gedeelde vorm (#1060).
+
+   Eén knop die een modal opent met het gesprek erin. De aanroeper geeft mee waar
+   de vraag heen gaat en wat de openingszin is; de rest — de modal, de ballon, het
+   invoerveld, de wachtmelding — is voor elke plek hetzelfde.
+
+   Waarom gedeeld: de activiteit-recordkop droeg deze vorm als eerste (#975) en
+   Betalingen is de tweede (#1060). Twee kopieën van vijfentwintig regels overlay
+   is precies de duplicatie waar `CLAUDE.md` voor waarschuwt — de tweede loopt
+   achter zodra de eerste iets leert.
+
+   `_aa_recordkop.html` draagt vandaag nog zijn eigen kopie: dat bestand is op dit
+   moment van een andere CLI (#1075, mic en voorlezen), en twee sessies in hetzelfde
+   blok is hoe je elkaars werk overschrijft. Zodra dat gemerged is, hoort die kop
+   hierheen te wijzen; tot dan is dit één bron mét een bekende tweede plek, en dat
+   staat hier zodat het geen vergetelheid wordt.
+
+   `gesprek_id` moet uniek zijn op de pagina; `historie_id` is dat bewust NIET —
+   het antwoordfragment werkt dat veld out-of-band bij en gebruikt daarvoor het id
+   van de rapporten-Raakje. #}
+{% macro overlay(knop, post_url, opening, stt_mode, gesprek_id="raakje-gesprek",
+                 historie_id="rp-raakje-historie") -%}
+<div x-data="{ raakje: false }" class="shrink-0">
+  {{ ui.btn_secondary(knop, size="sm", attrs='@click="raakje = true"') }}
+  <div x-show="raakje" x-cloak role="dialog" aria-modal="true" aria-label="{{ _('Raakje') }}"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="display: none; background: rgba(17,17,17,.5)"
+       @keydown.escape.window="raakje = false">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden"
+         @click.outside="raakje = false">
+      <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
+        <span class="font-semibold">{{ _("Raakje") }}</span>
+        <button type="button" class="hover:opacity-80" @click="raakje = false"
+                aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+      </div>
+      <div class="p-4 text-sm">
+        <div id="{{ gesprek_id }}" class="space-y-3 mb-3 max-h-[50vh] overflow-y-auto">
+          <div><div class="{{ ballon.van_raakje() }}">{{ opening }}</div></div>
+        </div>
+        {# De geschiedenis reist mee in het formulier en staat niet op de server
+           (CR-07 §10); het antwoordfragment werkt dit veld out-of-band bij. #}
+        <form hx-post="{{ post_url }}" hx-target="#{{ gesprek_id }}" hx-swap="beforeend"
+              hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
+              x-data class="flex gap-2 items-end">
+          <input type="hidden" name="historie" id="{{ historie_id }}" value="">
+          {{ controls.input_row(gesprek_id ~ "-vraag", stt_mode) }}
+        </form>
+        {# Een antwoord duurt 15 tot 30 seconden (CR-07 §4.3): zonder deze regel
+           lijkt de overlay stuk. #}
+        {{ ui.loading(_("Raakje denkt na… dit kan een halve minuut duren.")) }}
+      </div>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
