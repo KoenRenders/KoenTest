@@ -171,19 +171,19 @@ def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tup
     pal = plan.pal
     members_only = content.members_only
     text = "ENKEL LEDEN" if members_only else "IEDEREEN WELKOM!"
-    size = 11.0
+    size = 8.5   # "iets kleiner" (Koen, 20 September 2026)
     tw = richtext.text_width(text, size, bold=True, tracking=0.2)
-    band_w = tw + 14
+    band_w = tw + 12
     brush = pal["accent4"] if members_only else pal["accent3"]
     ink = pal["white"] if members_only else pal["ink"]
-    out = [f'<path d="{rough_band(x, y, band_w, 15, seed=plan.seed + 7, jag=2.2)}" fill="{brush}" '
+    out = [f'<path d="{rough_band(x, y, band_w, 12, seed=plan.seed + 7, jag=2.0)}" fill="{brush}" '
            f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
-           text_el("t-welcome-0", text, x + 7, y + 10.8, size, ink, weight="bold", tracking=0.2)]
-    plan.boxes["t-welcome-0"] = band_w - 10
-    sx = x + band_w + 3
-    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.2" stroke-linecap="round" fill="none">'
-               f'<path d="M{sx:.1f} {y + 4:.1f} l4 -3.5 M{sx + 1:.1f} {y + 8:.1f} l5 0 M{sx:.1f} {y + 12:.1f} l4 3.5"/></g>')
-    return "".join(out), y + 15
+           text_el("t-welcome-0", text, x + 6, y + 8.6, size, ink, weight="bold", tracking=0.2)]
+    plan.boxes["t-welcome-0"] = band_w - 8
+    sx = x + band_w + 2.5
+    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.0" stroke-linecap="round" fill="none">'
+               f'<path d="M{sx:.1f} {y + 3:.1f} l3.2 -2.8 M{sx + 1:.1f} {y + 6.3:.1f} l4 0 M{sx:.1f} {y + 9.5:.1f} l3.2 2.8"/></g>')
+    return "".join(out), y + 12
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -405,7 +405,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # on the frame's bottom bar; little purple above and right of it.
     p.lockup = {"x": x0 + 4, "y": y1 - 2 - lockup_h, "width": lockup_w}
     # The welcome badge sits above the tile; the left column stops above it.
-    welcome_y = tile_top - 17
+    welcome_y = tile_top - 14
     left_limit = welcome_y - 2
     band_x = x0 + cw + 5
     col_x = band_x + 7
