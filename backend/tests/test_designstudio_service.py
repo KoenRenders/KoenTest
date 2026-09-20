@@ -202,18 +202,23 @@ def test_title_splitting_rules():
 def test_highlights_are_capped_and_icons_checked(db_session, design):
     with pytest.raises(DesignError, match="kernpunten"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[("smile", f"punt {i}", False) for i in range(7)], logo_ids=[])
-    # Six own rows all reach the poster, next to the two automatic ones.
+                    highlights=[("smile", f"punt {i}", False) for i in range(5)], logo_ids=[])
+    # Four own rows all reach the poster, next to the automatic ones.
     save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                highlights=[("smile", f"eigen punt {i}", False) for i in range(6)], logo_ids=[])
-    content = content_for(db_session, design)  # the fixture has two dates: place + six own = 7
-    assert len(content.highlights) == 7 and content.highlights[-1].text == "eigen punt 5"
-    with pytest.raises(DesignError, match="icoon"):
-        save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[("no-such-icon", "x", False)], logo_ids=[])
-    with pytest.raises(DesignError, match="logo"):
-        save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[], logo_ids=[1, 2, 3])
+                highlights=[("smile", f"eigen punt {i}", False) for i in range(4)], logo_ids=[])
+    content = content_for(db_session, design)  # the fixture has two dates: place + four own = 5
+    assert len(content.highlights) == 5 and content.highlights[-1].text == "EIGEN PUNT 3"
+
+
+def test_the_database_refuses_a_fifth_own_highlight(db_session, design):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    params = {"t": design.tenant_id, "d": design.id}
+    with pytest.raises(IntegrityError):
+        db_session.execute(text("INSERT INTO designstudio.design_highlights (tenant_id, design_id, sort_order, icon_code, text, emphasis) "
+                                "VALUES (:t, :d, 4, 'smile', 'vijfde', false)"), params)
+    db_session.rollback()
 
 
 def test_saving_twice_with_the_same_highlights_and_logos_works(db_session, design):

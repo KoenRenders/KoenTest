@@ -158,7 +158,11 @@ def gevulde_databank(client, db_session):
 # query zolang er geen zijn; met organisatoren komen er twee bij (personen en
 # contactgegevens), en dat schaalt niet mee met het aantal activiteiten. Gemeten
 # met een warme cache — zie de opmerking in de test zelf.
-BUDGET_ACTIVITEITDETAIL = 18
+# 18 → 19 op 20 september 2026 (#1049): de sprong naar de Design Studio leest de
+# ontwerpen van déze activiteit. Eén query, die niet meeschaalt met het aantal
+# activiteiten — het scherm toont het aantal en kiest de bestemming, dus het moet
+# ze tellen. Gemeten met een warme cache, zoals de opmerking in de test zegt.
+BUDGET_ACTIVITEITDETAIL = 19
 RIJEN_ACTIVITEITDETAIL = 20
 
 

@@ -109,7 +109,7 @@ def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
 
 # ── The blocks ────────────────────────────────────────────────────────────
 
-ROW_H = 26.5   # eight rows (two automatic, six own) fit the left column of A3
+ROW_H = 27.5   # six rows (two automatic, four own) sit easily in the left column of A3
 ICON_S = 19
 
 
@@ -122,9 +122,9 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     text_w = w - ICON_S - 5
     accents = (pal["tile"], pal["accent3"], pal["accent2"], pal["tile"], pal["accent"], pal["tile"])
     for i, hl in enumerate(content.highlights, start=index_offset):
-        size = 8.2 if hl.emphasis else 7.4
+        size = 7.4   # one size, upper case, bold for every row (Koen, 20 September 2026)
         # The first line is drawn bold: wrap on the bold metrics so it fits too.
-        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "") + "**"), width=text_w, size=size)
+        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size)
         if len(lines) > 2:
             plan.violations.append(f"Kernpunt {i + 1} past niet in twee regels op deze breedte")
             lines = lines[:2]
@@ -139,7 +139,7 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
         for j, line in enumerate(lines):
             txt = "".join(r.text for r in line)
             eid = f"t-hl-{i}-{j}"
-            out.append(text_el(eid, txt, text_x, ly, size, pal["ink"], weight="bold" if hl.emphasis or j == 0 else "600"))
+            out.append(text_el(eid, txt.upper(), text_x, ly, size, pal["ink"], weight="bold"))
             plan.boxes[eid] = text_w
             ly += line_step
         if i - index_offset < len(content.highlights) - 1:
@@ -369,25 +369,20 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     band_h: float = 20 + 6.5 * len(rows)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
-    cw, r = 92.0, 22.0
-    ch = band_h + 8
+    lockup_w = 66.0
+    lockup_h = lockup_w * 245 / 491
+    cw, r = lockup_w + 14, 18.0
+    ch = max(band_h + 2, lockup_h + 7)
     # The paper: the frame's inner rectangle minus the corner tile bottom-left.
     p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
                     f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
     # The lockup sits flush: the R starts on the paper's left edge, the
     # baseline's bottom on the frame's bottom bar (Koen, 20 September 2026).
-    lockup_w = 66.0
-    lockup_h = lockup_w * 245 / 491
     tile_top = y1 - ch
-    p.lockup = {"x": x0, "y": y1 - lockup_h, "width": lockup_w}
-    if lockup_h > ch - 4:
-        lockup_w = (ch - 4) * 491 / 245
-        lockup_h = lockup_w * 245 / 491
-        p.lockup = {"x": x0, "y": y1 - lockup_h, "width": lockup_w}
-    # "Iedereen welkom": small and fixed, right above the tile, on every
-    # print preset; the left column stops above it.
-    welcome_y = tile_top - 13
-    left_limit = welcome_y - 3
+    # The R starts 4 mm in from the paper's left edge, the baseline's bottom
+    # on the frame's bottom bar; little purple above and right of it.
+    p.lockup = {"x": x0 + 4, "y": y1 - lockup_h, "width": lockup_w}
+    left_limit = tile_top - 6
     band_x = x0 + cw + 5
     col_x = band_x + 7
     text_left = col_x + 8
@@ -421,16 +416,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
-        below = text_h + 9
+        below = text_h + 9 + 16 + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
             p.full += frag
+            if content.inset_image:
+                # The polaroid lies on the big picture, bottom right, and the
+                # big picture stays the same size with or without it (Koen,
+                # 20 September 2026).
+                pw = 76.0
+                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                p.full += frag
+                y += 10
             y += 6
         if content.explanation_md:
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
             p.full += frag
-        frag, _wy = welcome_row(p, content, lx, welcome_y, lw, icon=9, max_size=6.5)
+        frag, y = welcome_row(p, content, lx, y + 2, lw, icon=9, max_size=6.5)
         p.full += frag
         if y > left_limit:
             p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
@@ -459,7 +462,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.third_image and not content.logos and content.preset != "tekst":
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
-        frag, _wy = welcome_row(p, content, lx, welcome_y, lw, icon=9, max_size=6.5)
+        # "Iedereen welkom" follows the last row, small — not a lone line
+        # above the tile (Koen, 20 September 2026, second look).
+        frag, ly = welcome_row(p, content, lx, ly + 2, lw, icon=9, max_size=6.5)
         left.append(frag)
 
         if content.preset == "tekst":

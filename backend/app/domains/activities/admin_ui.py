@@ -1141,9 +1141,21 @@ def _record_rail(db, activiteit) -> dict:
         "bezet": bezetting.get(c.id, 0),
         "max": c.max_participants,
     } for c in activiteit.sub_registrations]
+    # #1049 (CR-10 Q23): de sprong naar de Design Studio. Het aantal en de
+    # bestemming worden HIER bepaald en niet in het sjabloon — een template die
+    # zelf telt, is precies wat de laaggate verbiedt. Gelezen via de facade van
+    # de Design Studio; haar interne modules blijven buiten bereik
+    # (`test_import_boundaries.py`).
+    from app.domains.designstudio.api import designs_for_activity
+
+    ontwerpen = designs_for_activity(db, activiteit.id)
     # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
     # staat al op de tab.
-    return {"rail_onderdelen": onderdelen}
+    return {"rail_onderdelen": onderdelen,
+            "ontwerpen_aantal": len(ontwerpen),
+            "ontwerpen_href": (f"/admin/ontwerpen?activity_id={activiteit.id}"
+                               if ontwerpen
+                               else f"/admin/ontwerpen/nieuw?activity_id={activiteit.id}")}
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen",

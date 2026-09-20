@@ -55,16 +55,15 @@
           {{ ui.input_control("tagline", id="ds-tagline", value=tagline, cls="w-full", placeholder=_("bv. Zet het in je agenda!")) }}
         </div>
       </div>
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen, allemaal in hoofdletters en vet; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
       <div class="space-y-2">
         {% for hl in highlights %}
         {% set i = loop.index0 %}
-        <div class="grid grid-cols-[9rem_1fr_auto] gap-2 items-center">
+        <div class="grid grid-cols-[9rem_1fr] gap-2 items-center">
           {% call ui.select_control("hl_icon_" ~ i, cls="w-full", aria_label=_("Icoon")) %}
             {% for code, label in icon_options %}<option value="{{ code }}"{% if code == hl.icon %} selected{% endif %}>{{ label }}</option>{% endfor %}
           {% endcall %}
           {{ ui.input_control("hl_text_" ~ i, value=hl.text, cls="w-full", aria_label=_("Tekst van het kernpunt")) }}
-          <label class="flex items-center gap-1 text-xs text-ink-soft"><input type="checkbox" name="hl_emphasis_{{ i }}" value="1"{% if hl.emphasis %} checked{% endif %}> {{ _("vet") }}</label>
         </div>
         {% endfor %}
       </div>
@@ -121,8 +120,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="layout" value="{{ layout }}">
       <h2 class="text-sm font-semibold text-ink">{{ _("Foto toevoegen") }}</h2>
-      <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
-        {{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}
+      <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+        <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}</div>
         <div>
           {{ ui.label(_("Plaats"), "ds-upload-slot") }}
           {% call ui.select_control("slot", attrs='id="ds-upload-slot"') %}
@@ -143,7 +142,7 @@
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="space-y-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="layout" value="{{ layout }}">
-        <div class="grid grid-cols-[1fr_auto] gap-3 items-start">
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
           <div>
             {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
             {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
@@ -241,8 +240,8 @@
       </p>
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="space-y-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
-          {{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+          <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}</div>
           <div>
             {{ ui.label(_("Voor opmaak"), "ds-svg-layout") }}
             {% call ui.select_control("layout", attrs='id="ds-svg-layout"') %}
