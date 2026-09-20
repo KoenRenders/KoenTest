@@ -40,6 +40,11 @@
                first=a.is_first, last=a.is_last) }}
         </label>
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
+        {# #1057: alleen bij een sponsorlogo — elders betekent de kolom niets en zou
+           een vinkje een keuze suggereren die nergens gelezen wordt. #}
+        {% if a.kind == "sponsor" %}
+        <label class="flex items-center gap-1" title="{{ _("Uit: het logo blijft beschikbaar voor affiches, maar staat niet onder de publieke pagina's.") }}"><input type="checkbox" name="show_in_footer" value="1" {% if a.show_in_footer %}checked{% endif %}> {{ _("In de footer") }}</label>
+        {% endif %}
         <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
       </div>
     </div>

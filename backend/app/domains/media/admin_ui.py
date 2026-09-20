@@ -221,6 +221,7 @@ def media_bijwerken(asset_id: int, request: Request,
                     email: str = Depends(require_admin_ui),
                     kind: str = Form("sponsor"), title: str = Form(""),
                     link_url: str = Form(""), is_active: str = Form(""),
+                    show_in_footer: str = Form(""),
                     q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
     """Titel, link en zichtbaarheid. NIET de volgorde (#882).
 
@@ -235,6 +236,10 @@ def media_bijwerken(asset_id: int, request: Request,
         update_media(db, asset_id, {
             "title": title.strip() or None, "link_url": link_url.strip() or None,
             "is_active": bool(is_active),
+            # #1057: een niet-aangevinkt vakje stuurt niets mee, dus dit is altijd
+            # de stand van het formulier — voor élke soort. Buiten een sponsorlogo
+            # betekent de kolom niets en leest niemand haar.
+            "show_in_footer": bool(show_in_footer),
         })
     except (LookupError, MediaFout) as exc:
         return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)

@@ -610,8 +610,12 @@ def site_context(db, request=None) -> dict:
     footer_block = None
     if footer is not None:
         footer_block = {"content": render_cms_content(footer.content or "")}
+    # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
+    # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
+    # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
     sponsors = (db.query(MediaAsset)
-                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
+                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True,  # noqa: E712
+                        MediaAsset.show_in_footer == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import (get_setting, tenant_display_name,
                                           tenant_site_header_color, umami_tracking)
