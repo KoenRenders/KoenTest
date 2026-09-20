@@ -275,6 +275,9 @@ def facts_for(db: Session, design: Design) -> dict:
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),
         "cancelled": bool(activity.is_cancelled),
+        # What the QR points at: the activity's own page (slug or id), so
+        # "scan voor meer info" really shows this activity (CR-10 §3.7).
+        "key": activity.slug or str(activity.id),
         "members_only": bool(activity.members_only),
         "organisers": [{"name": c.name, "mobile": c.mobile, "email": c.email}
                        for c in _organisers(db, activity.id)],
@@ -351,6 +354,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         highlights=tuple(highlights),
         date_line=date_line, location=(facts["location"] or "").upper(),
         deadline_text=deadline_line(facts["deadline"]),
+        more_info_label="Meer info en inschrijven:",
         members_only=bool(facts["members_only"]),
         dates_heading=f"DATA IN {year}",
         dates=grid,
@@ -373,11 +377,13 @@ def deadline_line(iso: str) -> str:
     return f"Inschrijven tot {day.day} {MONTHS_NL[day.month - 1].lower()}"
 
 
-def qr_url(db: Session) -> str:
+def qr_url(db: Session, key: str = "") -> str:
     from app.kernel.tenant_config import tenant_home_url
 
-    url = tenant_home_url(db)
-    return url.replace("http://", "https://", 1) if url.startswith("http://") else url
+    url = tenant_home_url(db).rstrip("/")
+    if url.startswith("http://"):
+        url = url.replace("http://", "https://", 1)
+    return f"{url}/activiteiten/{key}" if key else url
 
 
 # ── Preview and check ───────────────────────────────────────────────────────
@@ -409,7 +415,8 @@ def merged_for(db: Session, design: Design, layout: str, *, facts: Optional[dict
         return render.Merged(svg=svg, boxes={}, violations=(), width_mm=spec["width_mm"], height_mm=spec["height_mm"])
     content = content or content_for(db, design, facts)
     return render.merge(content, layout=layout, template_key=design.template_key,
-                        title=facts["title"] if facts else "Affiche", qr_url=qr_url(db))
+                        title=facts["title"] if facts else "Affiche",
+                        qr_url=qr_url(db, facts.get("key", "") if facts else ""))
 
 
 def preview_png(db: Session, design: Design, layout: str, *, width_px: int = 700) -> tuple[bytes, list[str]]:
