@@ -130,6 +130,12 @@ def test_merge_places_every_content_block_and_promises_a_box_per_text():
     assert render.estimate(merged) == []
     for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
         assert eid in merged.boxes and f'id="{eid}"' in svg
+    # With a contact person the association's e-mail stays off the poster (Koen, 20 Sep 2026).
+    assert "info@example.com" not in svg
+    alone = render.merge(_content(contacts=(), association_mobile="0499 00 00 00"), layout="print_a").svg
+    assert "info@example.com" in alone and "0499 00 00 00" in alone and "t-contact-" not in alone
+    for eid in ():
+        assert eid in merged.boxes and f'id="{eid}"' in svg
 
 
 def test_the_estimate_catches_a_title_that_cannot_fit():

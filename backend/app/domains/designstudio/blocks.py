@@ -349,12 +349,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
 
     # ── Bottom: the lockup in a rounded corner tile at the left (the arc Koen
     #    liked at the top, now bottom-left), the rough info band to its right ──
-    contacts: list[dict[str, object]] = [
-        {"text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
-         "icon": "users" if c.name else "mobile"} for c in content.contacts[:3]]
-    # Rows: heading, website, e-mail, one per contact — stacked, since the
-    # tile takes a third of the width.
-    band_h: float = 33 + 6.5 * len(contacts)
+    # The band's rows, one per line: the website always; the association's
+    # e-mail and gsm only when nobody is a contact person (CR-10 §3.9 — with a
+    # contact person the association's own lines stay off the poster; Koen,
+    # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
+    rows: list[dict[str, object]] = [{"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
+                                      "text": content.website, "size": 6.2}]
+    if content.contacts:
+        for i, c in enumerate(content.contacts[:3]):
+            rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
+                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part), "size": 5.6})
+    else:
+        if content.email:
+            rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
+                         "text": content.email, "size": 6.2})
+        if content.association_mobile:
+            rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
+                         "text": content.association_mobile, "size": 6.2})
+    band_h: float = 20 + 6.5 * len(rows)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
     cw, r = 92.0, 22.0
@@ -369,19 +381,16 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     col_x = band_x + 7
     text_left = col_x + 8
     qr_left = width - frame - 2 - 24
+    row_w = qr_left - text_left - 4
+    for row in rows:
+        # A long row shrinks a little rather than overflow.
+        row["size"] = fit_size(str(row["text"]), row_w, float(row["size"]), 4.4, bold=False)  # type: ignore[arg-type]
+        p.boxes[str(row["id"])] = row_w
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
-              "y": band_y, "h": band_h, "website": content.website, "email": content.email,
-              "contacts": contacts, "label": content.more_info_label,
+              "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
               "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
               "row_y": band_y + 2}
-    row_w = qr_left - text_left - 4
-    p.boxes["t-website"] = row_w
-    p.boxes["t-email"] = row_w
-    for i, line in enumerate(contacts):
-        # A long name with gsm and e-mail shrinks a little rather than overflow.
-        line["size"] = fit_size(str(line["text"]), row_w, 5.6, 4.4, bold=False)
-        p.boxes[f"t-contact-{i}"] = row_w
 
     # ── Content between title and band ─────────────────────────────────────
     limit: float = band_y - 3
@@ -419,8 +428,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # Instagram: title, one picture over the full width, a few highlights.
         y = top_y - 4
         n = min(len(content.highlights), 4)
-        rows = (n + 1) // 2
-        below = rows * ROW_H + 24 + 6
+        hl_rows = (n + 1) // 2
+        below = hl_rows * ROW_H + 24 + 6
         if content.main_image:
             avail = limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
