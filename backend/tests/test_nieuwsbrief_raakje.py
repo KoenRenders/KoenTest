@@ -737,3 +737,34 @@ def test_een_kopje_met_twee_hekjes_is_ook_een_kopje(db_session, raakje):
     html = turn.proposal["operations"][0]["html"]
     assert "<h1>Spel en plezier</h1>" in html
     assert "#" not in html, "geen hekjes in de brief"
+
+
+def test_geen_kopje_dat_de_titel_van_het_blok_herhaalt(db_session, raakje):
+    """Koen, 20 september 2026: boven élk blok stond een kopje met precies de
+    naam die het blok zelf al als titel draagt.
+
+    Broken on purpose: `_without_duplicate_headings` uit `_paragraph_html` → het
+    dubbele kopje staat er weer en deze test faalt.
+    """
+    brood = _activity(db_session, "Brood en Spelen")
+    letter = _letter(db_session, activity_ids=[brood.id])
+    raakje(_draft(["# Wat er aankomt", "Het najaar zit vol.",
+                   "# Brood en Spelen", "Een middag vol spel.",
+                   f"[[activiteit:{brood.id}]]"]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    html = turn.proposal["operations"][0]["html"]
+    assert "<h1>Wat er aankomt</h1>" in html, "een kopje over een ONDERDEEL blijft"
+    assert "<h1>Brood en Spelen</h1>" not in html, "het dubbele kopje is weg"
+    assert "Een middag vol spel." in html, "de zin eronder blijft staan"
+
+
+def test_een_naam_plakt_niet_tegen_het_leesteken(db_session, raakje):
+    brood = _activity(db_session, "Brood en Spelen")
+    letter = _letter(db_session, activity_ids=[brood.id])
+    raakje(_draft([f"We proostten tijdens [[naam:{brood.id}]] ."]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    assert "</strong>." in turn.proposal["operations"][0]["html"]
