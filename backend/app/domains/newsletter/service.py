@@ -763,8 +763,10 @@ def activity_line_html(facts: ActivityFacts) -> str:
             parts.append(f"<em>{esc(_('volzet'))}</em>")
         elif facts.register_url:
             parts.append(f'<a href="{esc(facts.register_url)}">{esc(_("inschrijven"))}</a>')
-        if facts.registrations_url:
-            parts.append(f'<a href="{esc(facts.registrations_url)}">{esc(_("inschrijvingen"))}</a>')
+    # No "inschrijvingen" (Koen, 20 September 2026): the participant list is for
+    # the board, and in a letter to hundreds of readers it is a second link to
+    # the same page. The list stays where it belongs — the screens and the
+    # meeting documents.
     return " | ".join(parts)
 
 
@@ -789,6 +791,14 @@ BLOCK_STYLES: dict[str, str] = {
     "nb-blok-praktisch": "color:#52607a;padding-bottom:6px",
     "nb-blok-actie": "font-weight:700",
 }
+#: A heading the author set with the editor's title button. Trix writes `<h1>`
+#: and a mail client then shows its own default: huge, black, fighting with the
+#: block title below it. Koen, 19 September 2026, after comparing with the
+#: letter of Raak nationaal: give it the brand colour and one step up in size —
+#: the minimum, and no colour picker anywhere.
+HEADING_STYLE = ("font-size:20px;font-weight:700;line-height:1.3;color:#0051a4;"
+                 "margin:18px 0 6px")
+HEADING_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6")
 #: On a phone the two columns become two rows. A media query is the only way to
 #: say that in a mail, and it needs a `<style>`; the inline styles above keep the
 #: block readable in a client that drops one (Outlook does).
@@ -893,7 +903,15 @@ def with_inline_styles(html: str) -> str:
             return match.group(0)
         return f'class="{match.group(1)}" style="{styles.rstrip(";")}"'
 
-    return re.sub(r'class="([^"]+)"', replace, html or "")
+    out = re.sub(r'class="([^"]+)"', replace, html or "")
+
+    def heading(match: "re.Match[str]") -> str:
+        attrs = match.group(2)
+        if "style=" in attrs.lower():
+            return match.group(0)
+        return f"<{match.group(1)}{attrs} style=\"{HEADING_STYLE}\">"
+
+    return re.sub(rf'<({"|".join(HEADING_TAGS)})([^>]*)>', heading, out, flags=re.I)
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -939,8 +957,12 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None,
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)
-    return "".join(f"<div>{activity_line_html(facts[s.activity.id])}</div>"
-                   for s in spans if s.activity.id in facts)
+    # A bulleted list (Koen, 20 September 2026): seven lines under each other
+    # read as one block of text; a bullet per activity makes them countable at a
+    # glance. Trix keeps `ul`/`li`, so the list survives the editor.
+    items = "".join(f"<li>{activity_line_html(facts[s.activity.id])}</li>"
+                    for s in spans if s.activity.id in facts)
+    return f"<ul>{items}</ul>" if items else ""
 
 
 def insertable_activities(db: Session, *, query: str = "", past: bool = False,

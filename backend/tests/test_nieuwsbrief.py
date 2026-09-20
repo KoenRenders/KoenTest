@@ -597,8 +597,9 @@ def _line(db, activity, today):
 
 
 def test_de_regel_van_een_activiteit_zoals_het_bestuur_ze_schreef(db_session):
-    """Naam (enkel leden) | datum uur plaats | inschrijven | inschrijvingen —
-    the name links to the activity.
+    """Naam (enkel leden) | datum uur plaats | inschrijven — the name links to
+    the activity. No participant list (Koen, 20 September 2026): that is for the
+    board, and in a letter it is a second link to the same page.
 
     Broken on purpose: `members_only` not passed into the facts → the
     "(enkel leden)" assertion fails.
@@ -615,7 +616,8 @@ def test_de_regel_van_een_activiteit_zoals_het_bestuur_ze_schreef(db_session):
     link = 'href="https://raak.example/activiteiten/mannenkroegentocht"'
     assert regel.startswith(f'<a {link}>Mannenkroegentocht</a> (enkel leden) | ')
     assert " 20u Miloheem | " in regel
-    assert regel.endswith(f'<a {link}>inschrijven</a> | <a {link}>inschrijvingen</a>')
+    assert regel.endswith(f'<a {link}>inschrijven</a>')
+    assert "inschrijvingen" not in regel, "de deelnemerslijst hoort niet in een brief"
 
 
 def test_de_datum_leest_zoals_het_bestuur_ze_schrijft():
@@ -659,20 +661,25 @@ def test_volzet_vervangt_inschrijven():
     regel = nb.activity_line_html(facts)
     assert "<em>volzet</em>" in regel
     assert ">inschrijven<" not in regel
-    assert ">inschrijvingen<" in regel
+    assert "inschrijvingen" not in regel
 
 
-def test_de_kalender_is_een_regel_per_activiteit(db_session):
+def test_de_kalender_is_een_opsomming_met_een_bolletje_per_activiteit(db_session):
+    """Koen, 20 September 2026: zeven regels onder elkaar lezen als één blok
+    tekst; met een bolletje per activiteit tel je ze in één oogopslag.
+
+    Broken on purpose: de `<li>` terug naar een `<div>` → deze test faalt.
+    """
     vandaag = date.today()
     _dated_activity(db_session, "Eerste", vandaag + timedelta(days=3))
     _dated_activity(db_session, "Tweede", vandaag + timedelta(days=6))
 
     html = nb.calendar_html(db_session, base_url="https://raak.example", today=vandaag)
 
-    assert "<ul>" not in html
+    assert html.startswith("<ul>") and html.endswith("</ul>")
     assert html.index("Eerste") < html.index("Tweede")
-    regels = [r for r in html.split("</div>") if r]
-    assert all(r.startswith("<div><a ") and " | " in r for r in regels)
+    regels = [r for r in html.replace("<ul>", "").replace("</ul>", "").split("</li>") if r]
+    assert all(r.startswith("<li><a ") and " | " in r for r in regels)
 
 
 # ── The activity block (Koen, 19 September 2026) ─────────────────────────────
@@ -860,3 +867,37 @@ def test_de_tekstversie_van_een_abonnee_draagt_de_uitschrijflink(db_session):
                            base_url=BASE)
 
     assert f"{BASE}/nieuwsbrief/uit/tok" in tekst
+
+
+def test_een_kop_krijgt_de_merkkleur_bij_het_versturen(db_session):
+    """Koen, 20 September 2026, after reading a sent letter: "Dit is onze
+    kalender:" arrived as a mail client's own `h1` — huge, black, fighting with
+    the block title under it. The minimum of the national letter: brand colour,
+    one step up in size, no colour picker anywhere.
+
+    Broken on purpose: the heading branch removed from `with_inline_styles` →
+    the heading leaves unstyled and this test fails.
+    """
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body="<div>Beste,</div><h1>Dit is onze kalender:</h1><div>…</div>")
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+
+    assert 'style="font-size:20px;font-weight:700;line-height:1.3;color:#0051a4' in mail
+    assert "<h1>" not in mail, "elke kop draagt opmaak"
+
+
+def test_elke_kop_krijgt_ze_en_de_tekstversie_blijft_tekst(db_session):
+    """Een brief heeft meer dan één onderwerp; en de opmaak hoort niet in de
+    tekstversie te lekken."""
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body="<h1>Terugblik</h1><div>a</div><h1>Vooruitblik</h1><div>b</div>")
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    # Op de kopstijl tellen, niet op de kleur alleen: zonder logo draagt de
+    # briefkop diezelfde merkkleur.
+    assert mail.count(nb.HEADING_STYLE) == 2
+
+    tekst = nb.render_text(db_session, letter, unsubscribe_url=None)
+    assert "Terugblik" in tekst and "Vooruitblik" in tekst
+    assert "style=" not in tekst and "#0051a4" not in tekst

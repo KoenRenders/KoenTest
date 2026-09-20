@@ -590,8 +590,10 @@ def test_een_volledige_brief_krijgt_aanhef_witregels_en_afsluiting(db_session, r
     html = drafting.apply(db_session, letter, message, keep=set(), body_html="",
                           base_url=BASE).html
 
-    assert html.startswith("<div>Beste,</div><div><br></div><div><strong>Vooruitblik</strong></div>")
-    assert "<div><br></div><div><strong>Terugblik</strong></div>" in html
+    # Sinds 20 september 2026 is een kopje een echte titel (`h1`), zodat ze bij
+    # het versturen dezelfde merkkleur krijgt als de rest van de brief.
+    assert html.startswith("<div>Beste,</div><div><br></div><h1>Vooruitblik</h1>")
+    assert "<div><br></div><h1>Terugblik</h1>" in html
     assert "Het was gezellig.</div><div><br></div><div>Tot binnenkort!" in html
     assert html.count("<div><br></div>") == 3
 
@@ -718,3 +720,20 @@ def test_een_markering_zonder_nummer_wordt_niet_als_verzonnen_gemarkeerd(db_sess
 
     quotes = [m["quote"] for m in turn.proposal["marks"]]
     assert not [q for q in quotes if "kalender" in q]
+
+
+def test_een_kopje_met_twee_hekjes_is_ook_een_kopje(db_session, raakje):
+    """Koen, 20 september 2026: Raakje schreef "## Spel en plezier" en dat kwam
+    letterlijk in de brief terecht.
+
+    Broken on purpose: `_HEADING` terug naar `line.startswith("# ")` → de regel
+    met twee hekjes wordt gewone tekst en deze test faalt.
+    """
+    letter = _letter(db_session)
+    raakje(_draft(["## Spel en plezier", "Er valt veel te beleven."]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    html = turn.proposal["operations"][0]["html"]
+    assert "<h1>Spel en plezier</h1>" in html
+    assert "#" not in html, "geen hekjes in de brief"
