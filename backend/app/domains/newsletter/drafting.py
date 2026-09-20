@@ -296,7 +296,8 @@ VASTE REGELS
 - Verzin geen programma-onderdelen, spelletjes, gerechten, prijzen of aantallen. Een bedrag noem je alleen zoals het in de activiteitgegevens staat.
 - Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij. Vraagt de auteur uitdrukkelijk om de afsluiting, zet dan [[afsluiting]] op een eigen regel.
 - Vraagt de auteur een kalender of een overzicht van de komende activiteiten, zet dan [[kalender]] op een eigen regel: het portaal zet er één compacte regel per activiteit, met datum, plaats en inschrijflink. Schrijf die regels nooit zelf.
-- Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje. Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel.
+- Deel de brief op in ONDERDELEN, niet in activiteiten. Een kopje benoemt een onderdeel van de brief — "Terugblik op een drukke maand", "Wat er aankomt" — en is NOOIT de naam van één activiteit: die naam staat al als titel in het blok eronder, dus een kopje erboven is een dubbel. Onder een kopje komen één tot drie korte zinnen, en daarna de markeringen van de activiteiten die erbij horen, elk op een eigen regel.
+- Zet nooit een kopje vlak boven één [[activiteit:ID]]. Wil je bij die activiteit iets schrijven, zet dan een of twee zinnen boven de markering, zonder kopje.
 - Een volledige brief heeft deze volgorde: eerst een TERUGBLIK op de voorbije activiteiten, dan een VOORUITBLIK op de activiteiten die nog komen. Een voorbije activiteit noem je met [[naam:ID]] en, als er een album is, [[fotos:ID]]; nooit met [[activiteit:ID]], want inschrijven kan niet meer. Een activiteit die nog komt krijgt [[activiteit:ID]].
 - De vergaderverslagen zijn INTERN. Neem er alleen uit over wat een lezer aanbelangt: wat goed ging, waar mensen van genoten, een verbetering tegenover vorig jaar. Nooit geld, discussies, taken, problemen tussen mensen of wat nog beslist moet worden. Wat je eruit overneemt, hoort in de terugblik bij de activiteit waarover het gaat.
 - Schrijf correct Nederlands. Lees elke zin na voor je antwoordt: geen woord dat twee keer staat ("er op ... op uit"), geen ontbrekend voegwoord of lidwoord, en elke zin moet kloppen zoals hij er staat.
@@ -374,8 +375,9 @@ def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] =
     ``[[naam:ID]]`` becomes the activity's name in bold.
     """
     blocks: list[str] = []
-    for line in (text or "").splitlines():
-        line = line.strip()
+    lines = [line.strip() for line in (text or "").splitlines()]
+    lines = _without_duplicate_headings(lines, facts)
+    for line in lines:
         if not line:
             continue
         plain = _PLAIN_MARKER.fullmatch(line)
@@ -420,6 +422,41 @@ def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] =
     return "".join(blocks)
 
 
+def _without_duplicate_headings(lines: list[str], facts: dict[int, Any]) -> list[str]:
+    """Drop a heading that only repeats the title of the block under it.
+
+    Koen, 20 September 2026, reading a letter he had sent himself: above every
+    activity stood a heading with exactly the name the block already carries as
+    its title. The prompt now says a heading names a PART of the letter, never
+    one activity — but a prompt is advice, so this is the guarantee: a heading
+    directly above a single activity marker, saying the same thing, is removed.
+    """
+    names = {activity_id: (fact.name or "").strip().lower()
+             for activity_id, fact in facts.items()}
+    out: list[str] = []
+    for index, line in enumerate(lines):
+        hashes = _HEADING.match(line)
+        if hashes:
+            heading = line[hashes.end():].strip().lower()
+            # Look ahead to the end of this section — a sentence or two may
+            # stand between the heading and its activity, and in the letter
+            # Koen read that is exactly the shape it had.
+            for later in lines[index + 1:]:
+                if not later:
+                    continue
+                if _HEADING.match(later):
+                    break
+                marker = _MARKER.fullmatch(later)
+                if marker and marker.group(1) == "activiteit" \
+                        and heading and heading == names.get(int(marker.group(2))):
+                    heading = ""  # the block carries this name already
+                    break
+            if not heading:
+                continue
+        out.append(line)
+    return out
+
+
 def _with_names(line: str, facts: dict[int, Any]) -> str:
     """Escape a prose line; an inline name marker becomes the name in bold.
     Any other marker inside a sentence is dropped — its line belongs on its own."""
@@ -432,7 +469,11 @@ def _with_names(line: str, facts: dict[int, Any]) -> str:
             out.append(f"<strong>{html_lib.escape(fact.name)}</strong>")
         position = match.end()
     out.append(_inline(line[position:]))
-    return re.sub(r"\s{2,}", " ", "".join(out)).strip()
+    text = re.sub(r"\s{2,}", " ", "".join(out))
+    # "tijdens Bezoek wijndomein Aldeneyck ." — a marker followed by a space and
+    # a full stop (Koen, 20 September 2026). The space belongs to the marker, not
+    # to the sentence.
+    return re.sub(r"\s+([.,;:!?])", r"\1", text).strip()
 
 
 def _marker_ids(texts: list[str]) -> set[int]:
