@@ -262,6 +262,17 @@
     </tfoot>
   </table>
 </div>
+{# Paginering (#1059, §2.3: server-side, 50 per pagina). Ze telt GROEPEN — een
+   inschrijving met vier boekingen mag niet over twee pagina's breken — dus
+   "1–50 van 120" gaat over inschrijvingen, terwijl de regels erboven en eronder
+   de boekingen van de hele selectie tellen. Onder de tabel, zoals op
+   Ledenwijzigingen en in het rapportenpaneel: de macro rendert haar eigen regel
+   en in de meta-regel proppen zou eigen markup vragen (§2.3 verbiedt dat).
+
+   Geen `include`: `pager_url` draagt de filterstand al, net als de tab-URL's. De
+   filterbalk stuurt géén `page` mee, dus een filterwissel begint weer op 1. #}
+{{ ui.pager(page, per_page=per_page, total=totaal_groepen,
+            hx_get=pager_url, hx_target="#betalingen-lijst") }}
 {% else %}
 {{ ui.empty_state(_("Geen betalingen voor deze filter.")) }}
 {% endif %}
