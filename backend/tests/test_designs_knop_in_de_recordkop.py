@@ -208,7 +208,13 @@ def test_de_andere_tabs_renderen_en_dragen_dezelfde_knop(client, db_session,
                                                           activiteit, tab):
     """De kop wordt door vier sjablonen ingesloten; de context kwam van twee
     plekken. Zonder deze test valt dat pas op HDEV op — als een FOUT, want de
-    templates renderen onder StrictUndefined."""
+    templates renderen onder StrictUndefined.
+
+    **Dit is meteen de bewaker van de één-bouwer-regel.** Stelt een aanroeper de
+    kop weer zelf samen en vergeet hij een sleutel, dan faalt deze render met de
+    naam van die sleutel erbij. Een bronscan die naar het ontbreken van symbolen
+    zoekt, deed dat werk slechter — zie de notitie onderaan dit bestand.
+    """
     ontwerp = _ontwerp(db_session, activiteit)
     _login(client)
 
@@ -219,18 +225,20 @@ def test_de_andere_tabs_renderen_en_dragen_dezelfde_knop(client, db_session,
     assert f'href="/admin/ontwerpen/{ontwerp.id}"' in antwoord.text
 
 
-def test_de_kop_komt_uit_een_bouwer_en_niet_uit_twee(client, db_session):
-    """Eén bron voor de context van de recordkop (#1070).
-
-    Een grep, en die volstaat hier: de twee aanroepers staan met naam in deze
-    test, dus een derde plek die het weer zelf samenstelt valt hierop niet — maar
-    een terugval van deze twee wel. Dat is precies de fout die dit issue blootlegde.
-    """
-    from pathlib import Path
-
-    wortel = Path(__file__).resolve().parents[1] / "app" / "domains"
-    for pad in ("activities/admin_ui.py", "payment/ui.py"):
-        bron = (wortel / pad).read_text()
-        assert "record_kop_ctx" in bron, pad
-        assert "tenant_admin_chat_enabled" not in bron, (
-            f"{pad} stelt de recordkop weer zelf samen")
+# Hier stond een bronscan die naliep of `activities.admin_ui` en `payment.ui` de
+# recordkop niet zelf samenstelden. Ze is WEGGEHAALD, en dat is een meting waard
+# voor wie hem terug wil zetten: ze sloeg twee keer aan op een geldig geval en
+# nul keer op een echt.
+#
+#   1. #1060 gaf `payment/ui.py` een eigen Raakje-ingang, met dezelfde
+#      kernel-vlag die de scan verbood. Een poort die een SYMBOOL verbiedt,
+#      verbiedt ook de gevallen die ze niet bedoelde.
+#   2. Verfijnd naar de sleutels sloeg ze aan op `ctx["record_tabs"]` van de
+#      GEZINStab — een andere recordkop, met een eigen tabbouwer. De sleutelnaam
+#      is gedeeld; de regel geldt maar voor één van de koppen.
+#
+# Wat de duplicatie wél vangt, is de test hierboven: rendert een tab van de
+# activiteit zonder fout? Stelt een aanroeper de kop weer zelf samen en vergeet
+# hij een sleutel, dan faalt die render onder StrictUndefined — met de naam van
+# de ontbrekende sleutel erbij. Dat is het gedrag zelf in plaats van een
+# gelijkenis erop, en het heeft geen uitzonderingenlijst nodig.
