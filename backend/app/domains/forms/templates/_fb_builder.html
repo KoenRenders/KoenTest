@@ -310,12 +310,16 @@
          edit_attrs='@click="sedit = !sedit"') }}
     <div class="p-4">
     {% if g.section.next_is_end %}<p class="mb-2">{{ ui.badge(_("daarna: einde"), "yellow") }}</p>{% elif g.section.next_section_id %}<p class="mb-2">{{ ui.badge(_("daarna: sprong"), "yellow") }}</p>{% endif %}
+    {# #1101: de drie htmx-attributen horen op DIT element. Ze stonden op de
+       `</div`-sluittag van het cluster hieronder (die tag was niet afgesloten),
+       waar ze niets doen — de vorm had dus geen hx-post, geen action en geen
+       method, en Opslaan deed een gewone GET: de getypte titel was weg. #}
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
-          data-sectievorm>
+          data-sectievorm
+          hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
       {# Golf 6, kop-herziening: het cluster staat bovenaan het bewerkvlak. #}
       <div class="sm:col-span-2">{{ ui.action_bar(cancel_attrs='@click="sedit = false"',
-           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}</div
-          hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
+           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}</div>
       <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}{{ ui.input_control("title", id="st-" ~ (g.section.id), value=(g.section.title or ""), cls="w-full") }}</div>
       {# #699: één keuzelijst, net als bij een optie. "Daarna: einde" stond als los
          vakje naast deze select en kon samen met een sectie gezet worden — een
