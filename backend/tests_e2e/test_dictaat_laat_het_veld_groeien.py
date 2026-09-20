@@ -4,8 +4,8 @@ De tekst kwam altijd al aan — het veld groeide alleen niet mee, zodat een inge
 zin uit beeld liep. Typte je daarna zelf één teken bij, dan sprong het alsnog open.
 
 **De oorzaak is één regel JavaScript-gedrag:** `input.value = t` vuurt géén
-`input`-gebeurtenis, en het meegroeien hangt daaraan (`x-on:input` in de twee
-raakje-templates). Typen vuurt ze wel — vandaar het verschil.
+`input`-gebeurtenis, en het meegroeien hangt daaraan (`x-on:input` in het gedeelde
+Raakje-invoerdeel, `_raakje_controls.html`). Typen vuurt ze wel — vandaar het verschil.
 
 **Daarom toetst dit op de HOOGTE en niet op de waarde.** Een test op de waarde stond
 al die tijd groen; die kon dit niet zien.
@@ -26,6 +26,15 @@ de kortere tekst wéér volgen. Dat tweede is geen extraatje — het is het bewi
 `onFinal` de gebeurtenis afvuurt. Zonder die tweede aanroep zou het veld op 120 px
 blijven staan met drie woorden erin.
 
+**Sinds #1075 ook op de Raakje-overlay van het activiteitenscherm.** Die draagt
+dezelfde microfoon uit hetzelfde partial, maar zit in een `x-show`-dialoog op een
+beheerscherm: een knop die in een verborgen overlay niet bedraad raakt, of een veld dat
+daar niet meegroeit, ziet de publieke test niet. De overlay-test doorloopt dus dezelfde
+keten — knop, worklet, WebSocket, mock — op `#aa-raakje-vraag`, als beheerder, met de
+beheer-assistent aan (`ADMIN_CHAT_ENABLED` plus de tenantschakelaar uit `seed_e2e.py`).
+Dat de vier Raakje-plekken hetzelfde partial gebruiken bewijst
+`tests/test_raakje_controls_shared.py`; hier staat alleen wat een browser moet tonen.
+
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: het `dispatchEvent`
 in `schrijf()` weggehaald → de eerste twee vallen om (de tekst staat er, het veld
 beweegt niet); de `hx-on::after-request` die de hoogte terugzet weggehaald → de derde
@@ -39,10 +48,12 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (BASE, Activiteitdetail, login_met_sessie,  # noqa: E402
+                                pagina_klaar)
+from tests_e2e.test_beheer_flows import _admin_email, _ontbreekt  # noqa: E402
 
-SJABLONEN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                         "app", "domains", "chatbot", "templates")
+PUBLIEK = "#raakje-vraag"
+OVERLAY = "#aa-raakje-vraag"
 
 
 @pytest.fixture(scope="module")
@@ -71,7 +82,7 @@ def page():
         browser.close()
 
 
-def _open(page):
+def _open(page, veld_selector: str = PUBLIEK):
     """Laadt het scherm en geeft (veld, hoogte mét handler, natuurlijke hoogte).
 
     Er zijn twee "één regel"-hoogtes en ze schelen twee pixels: 38 px tekent de
@@ -80,39 +91,65 @@ def _open(page):
     of je verwart de terugzetting na het verzenden (die op `auto` zet, dus 38) met een
     veld dat hoog blijft staan.
     """
-    page.goto("/raakje")
-    pagina_klaar(page)
-    veld = page.locator("#raakje-vraag")
+    if veld_selector == PUBLIEK:
+        page.goto("/raakje")
+        pagina_klaar(page)
+    else:
+        _open_de_overlay(page)
+    veld = page.locator(veld_selector)
     natuurlijk = veld.bounding_box()["height"]
-    page.evaluate("""() => document.querySelector('#raakje-vraag')
-        .dispatchEvent(new Event('input', { bubbles: true }))""")
+    page.evaluate("""(s) => document.querySelector(s)
+        .dispatchEvent(new Event('input', { bubbles: true }))""", veld_selector)
     # #997: the handler has run once it has set an inline height.
     page.wait_for_function(
-        "() => document.querySelector('#raakje-vraag').style.height !== ''", timeout=5000)
+        "(s) => document.querySelector(s).style.height !== ''", arg=veld_selector,
+        timeout=5000)
     return veld, veld.bounding_box()["height"], natuurlijk
 
 
-def _hoogte_wordt(page, voorwaarde: str, arg, melding: str) -> None:
+def _open_de_overlay(page):
+    """Als beheerder naar een activiteit, en de Raakje-overlay open (#1075).
+
+    De knop bestaat alleen als de beheer-assistent aan staat (CR-07 §6.3). Onder de
+    e2e-seed hoort hij er te zijn; ontbreekt hij daar, dan is dat een bevinding en
+    geen skip (#644).
+    """
+    from app.domains.auth.api import make_session_value
+
+    login_met_sessie(page, make_session_value(_admin_email()))
+    if not Activiteitdetail(page).open_eerste():
+        _ontbreekt("geen activiteit om te openen")
+    pagina_klaar(page)
+    knop = page.get_by_role("button", name="AI · Activiteit")
+    if knop.count() == 0:
+        _ontbreekt("geen AI · Activiteit-knop — staat de beheer-assistent aan "
+                   "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?")
+    knop.click()
+    page.wait_for_selector(OVERLAY, state="visible", timeout=5000)
+
+
+def _hoogte_wordt(page, voorwaarde: str, arg, melding: str,
+                  veld_selector: str = PUBLIEK) -> None:
     """Wait until the field's height meets `voorwaarde` (`(h, a) => …`) — #997.
 
     The height must BECOME so; a timeout is the finding, reported as `melding`.
     """
     try:
         page.wait_for_function(
-            f"a => ({voorwaarde})(document.querySelector('#raakje-vraag')"
+            f"a => ({voorwaarde})(document.querySelector('{veld_selector}')"
             f".getBoundingClientRect().height, a)", arg=arg, timeout=5000)
     except Exception as fout:
         raise AssertionError(melding) from fout
 
 
-def _knop(page):
-    knop = page.locator("[data-stt-target='#raakje-vraag']")
+def _knop(page, veld_selector: str = PUBLIEK):
+    knop = page.locator(f"[data-stt-target='{veld_selector}']")
     assert knop.count() == 1, (
         "de spraakknop staat er niet — staat STT_MODE op een modus met provider?")
     return knop
 
 
-def _dicteer_tot_lang(page, hoogte_leeg):
+def _dicteer_tot_lang(page, hoogte_leeg, veld_selector: str = PUBLIEK):
     """Start de opname en wacht tot er een lange tekst staat **en** het veld gegroeid is.
 
     Als één wachtvoorwaarde en niet als meting-daarna, en dat is geen stijlkeuze. De
@@ -127,13 +164,13 @@ def _dicteer_tot_lang(page, hoogte_leeg):
     past er nog in en zou niets over meegroeien zeggen. De mock levert een partial per
     audioblok, dus dit is binnen een seconde bereikt.
     """
-    _knop(page).click()
+    _knop(page, veld_selector).click()
     page.wait_for_function(
-        """(basis) => {
-             const v = document.querySelector('#raakje-vraag');
+        """([basis, s]) => {
+             const v = document.querySelector(s);
              return v.value.length > 300 && v.offsetHeight > basis;
            }""",
-        arg=hoogte_leeg, timeout=15000)
+        arg=[hoogte_leeg, veld_selector], timeout=15000)
 
 
 def _stop_zoals_de_app(page):
@@ -207,14 +244,34 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
         "de hoogte wordt na het verzenden niet teruggezet")
 
 
-def test_beide_schermen_dragen_dezelfde_groeihandler():
-    """`stt.js` is gedeeld, de templates niet — de uitdrukking staat twee keer.
+# ── De Raakje-overlay van het activiteitenscherm (#1075) ─────────────────────
+#
+# Hetzelfde partial, maar een andere plek: een dialoog die met `x-show` verborgen
+# begint, op een beheerscherm dat via hx-boost binnenkomt. `stt.js` bedraadt zijn
+# knoppen bij het laden én na elke swap; dat dat ook voor een knop in een nog
+# verborgen overlay geldt, en dat het veld daar even goed meegroeit, ziet alleen een
+# browser. (Dat de handler op één plek staat, bewijst tests/test_raakje_controls_shared.py.)
 
-    De e2e hierboven draait op `/raakje`; deze regel legt vast dat de widget dezelfde
-    handler draagt, zodat een wijziging niet één van de twee schermen repareert.
-    """
-    handler = ("x-on:input=\"$el.style.height = `auto`; "
-               "$el.style.height = Math.min($el.scrollHeight, 120) + `px`\"")
-    for naam in ("raakje.html", "_raakje_widget.html"):
-        with open(os.path.join(SJABLONEN, naam)) as f:
-            assert handler in f.read(), f"{naam} laat het veld niet meegroeien"
+def test_op_de_activiteit_overlay_groeit_het_veld_mee_tijdens_het_dicteren(page):
+    veld, hoogte_leeg, _natuurlijk = _open(page, OVERLAY)
+
+    _dicteer_tot_lang(page, hoogte_leeg, OVERLAY)
+
+    hoogte_vol = veld.bounding_box()["height"]
+    _stop_zoals_de_app(page)
+    assert hoogte_vol <= 130, (
+        f"het overlay-veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort "
+        "het te scrollen")
+
+
+def test_op_de_activiteit_overlay_volgt_het_veld_ook_de_eindtekst(page):
+    veld, hoogte_leeg, _natuurlijk = _open(page, OVERLAY)
+    _dicteer_tot_lang(page, hoogte_leeg, OVERLAY)
+
+    _stop_zoals_de_app(page)
+    page.wait_for_function(
+        "(s) => document.querySelector(s).value.length < 100", arg=OVERLAY, timeout=10000)
+
+    _hoogte_wordt(page, "(h, a) => h === a", hoogte_leeg,
+                  "het overlay-veld blijft hoog terwijl de eindtekst op één regel past",
+                  OVERLAY)

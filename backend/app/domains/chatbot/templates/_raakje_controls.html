@@ -1,0 +1,79 @@
+{% import "_macros.html" as ui %}
+{# #1075: the controls of Raakje, in one place.
+
+   Raakje appears on four surfaces — the public widget, `/raakje`, the reporting
+   assistant and the record overlays — and Koen's rule for them is one sentence:
+   *everywhere the same; the only difference is the security on the public one.*
+   The controls are the part that must not differ: the growing input field, Enter
+   sends and Shift+Enter breaks the line, the microphone, and reading answers
+   aloud. Before this file each surface carried its own copy of that row, and the
+   overlay had silently lost the microphone and the read-aloud toggle — exactly
+   the drift a copy invites. A new Raakje surface calls these macros and inherits
+   the controls; it does not copy them (design-system §2.11).
+
+   Like `_raakje_ballon.html`, deliberately NOT in `_macros.html`: a kit macro
+   would need a place on `/admin/design-system`, and that is a separate decision
+   (#791). This stays inside the chatbot domain and is imported from there.
+
+   The toolset — what Raakje may look up — is not in here. It is bound in the
+   route (`run_public_chat` versus the assistant dispatcher of the reporting
+   domain) and guarded by `tests/test_public_tool_boundary_gate.py`. #}
+
+{# The input row: the question field, the microphone and the send button.
+
+   `id` must be unique on the page — the microphone addresses the field by it
+   (`data-stt-target`), and the widget and `/raakje` never share a page with a
+   second Raakje.
+
+   `stt_mode` comes from the configuration and decides whether the browser
+   listens itself or our Voxtral proxy does; without a value stt.js falls back to
+   the browser.
+
+   `compact` is the widget variant: an icon-only send button and a lower
+   microphone, because the widget is 20rem wide. The behaviour is identical.
+
+   autogrow=False (#1027): the chat field carries its own growth handler with a
+   120 px ceiling and a reset to `auto` after sending; the macro's variant would
+   put a second x-on:input beside it, of which the browser drops one. The
+   handlers need an Alpine scope: the widget has one on its outer div, the pages
+   put a bare `x-data` on the form. Backticks in the JS strings: the Jinja literal
+   is in single quotes and the HTML attribute in double, so a third kind of quote
+   saves a row of escapes nobody can read later. #}
+{% macro input_row(id, stt_mode, compact=False) -%}
+{{ ui.textarea_control("vraag", id=id, rows=1, required=True,
+                       placeholder=_("Typ je vraag…"), autogrow=False,
+                       cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
+                       attrs='autocomplete="off"'
+                             ' x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
+                             ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
+{# Dictation (#567/#917). The three states travel as kit SVGs on the button
+   itself: loose characters render differently per font and OS. #}
+<button type="button" data-stt-target="#{{ id }}" data-stt-mode="{{ stt_mode }}"
+        class="{% if compact %}border border-gray-300 hover:bg-gray-100 px-2 rounded-lg self-end h-[38px]{% else %}bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg{% endif %}"
+        title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}"
+        data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
+        data-icon-connecting='{{ ui.icon("loader") }}'>{{ ui.icon("mic") }}</button>
+{% if compact %}
+{# #631: a symbol-only button needs a readable name — for a screen reader it was
+   "➤", on every public page. #}
+{{ ui.btn_primary(ui.icon("send"), type="submit", cls="px-3 self-end", aria_label=_("Versturen")) }}
+{% else %}
+{{ ui.btn_primary(_("Vraag")) }}
+{% endif %}
+{%- endmacro %}
+
+{# Reading aloud on/off (#568/#917). One toggle per conversation — it applies
+   to every answer, not to one question — so it sits in the header of the
+   surface. The per-answer 🔈 button is not here: tts.js adds it to every
+   `data-raakje-answer` element as it arrives, so an answer fragment only has to
+   carry that attribute.
+
+   `on_dark` is the variant for a blue header (widget, overlay): white on blue,
+   no size bump. The attributes — what tts.js reads — are the same in both. #}
+{% macro read_aloud_toggle(on_dark=False) -%}
+<button type="button" data-tts-toggle
+        class="{% if on_dark %}hover:opacity-80 leading-none{% else %}text-xl leading-none opacity-90 hover:opacity-100{% endif %}"
+        title="{{ _('Antwoorden voorlezen') }}"
+        aria-label="{{ _('Antwoorden voorlezen aan/uit') }}"
+        data-icon-aan='{{ ui.icon("volume-2") }}' data-icon-uit='{{ ui.icon("volume-x") }}'>{{ ui.icon("volume-x") }}</button>
+{%- endmacro %}

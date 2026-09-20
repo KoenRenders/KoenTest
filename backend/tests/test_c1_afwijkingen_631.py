@@ -44,8 +44,10 @@ def test_de_verstuurknop_van_de_widget_heeft_een_aria_label():
     """
     from pathlib import Path
 
+    # #1075: de knop staat sinds het gedeelde bedieningsdeel in
+    # `_raakje_controls.html` (compact-variant); de widget roept dat aan.
     tpl = (Path(__file__).resolve().parents[1] / "app" / "domains" / "chatbot"
-           / "templates" / "_raakje_widget.html").read_text()
+           / "templates" / "_raakje_controls.html").read_text()
     # #570: het teken ➤ is een kit-icoon geworden — losse tekens renderen per
     # lettertype en OS anders. De regel die deze test bewaakt verandert daar niet
     # door: een knop zonder leesbare tekst heeft een aria-label nodig, of het nu een
