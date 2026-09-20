@@ -116,11 +116,12 @@ class Design(TenantMixin, Base):
 
 
 class DesignHighlight(TenantMixin, Base):
-    """One icon line ("Gezellig samen wandelen en praten"), at most six."""
+    """One icon line ("Gezellig samen wandelen en praten"), at most four of
+    the unit's own — date and place come by themselves (Koen, 20 Sep 2026)."""
     __tablename__ = "design_highlights"
     __table_args__ = (
         UniqueConstraint("design_id", "sort_order", name="uq_design_highlight_order"),
-        CheckConstraint("sort_order >= 0 AND sort_order < 6", name="ck_design_highlight_order"),
+        CheckConstraint("sort_order >= 0 AND sort_order < 4", name="ck_design_highlight_order"),
         {"schema": "designstudio"},
     )
 

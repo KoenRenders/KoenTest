@@ -55,16 +55,15 @@
           {{ ui.input_control("tagline", id="ds-tagline", value=tagline, cls="w-full", placeholder=_("bv. Zet het in je agenda!")) }}
         </div>
       </div>
-      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
+      <h3 class="text-sm font-semibold text-ink pt-2">{{ _("Kernpunten") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste %(n)s eigen, allemaal in hoofdletters en vet; datum, plaats en 'iedereen welkom' komen er vanzelf bij", n=highlights|length) }})</span></h3>
       <div class="space-y-2">
         {% for hl in highlights %}
         {% set i = loop.index0 %}
-        <div class="grid grid-cols-[9rem_1fr_auto] gap-2 items-center">
+        <div class="grid grid-cols-[9rem_1fr] gap-2 items-center">
           {% call ui.select_control("hl_icon_" ~ i, cls="w-full", aria_label=_("Icoon")) %}
             {% for code, label in icon_options %}<option value="{{ code }}"{% if code == hl.icon %} selected{% endif %}>{{ label }}</option>{% endfor %}
           {% endcall %}
           {{ ui.input_control("hl_text_" ~ i, value=hl.text, cls="w-full", aria_label=_("Tekst van het kernpunt")) }}
-          <label class="flex items-center gap-1 text-xs text-ink-soft"><input type="checkbox" name="hl_emphasis_{{ i }}" value="1"{% if hl.emphasis %} checked{% endif %}> {{ _("vet") }}</label>
         </div>
         {% endfor %}
       </div>

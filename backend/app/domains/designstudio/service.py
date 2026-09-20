@@ -65,8 +65,8 @@ def _tenant() -> int:
 logger = logging.getLogger(__name__)
 
 MAX_VERSIONS = 3
-MAX_HIGHLIGHTS = 6          # the unit's own rows
-MAX_HIGHLIGHT_ROWS = 8      # plus date/time and place, which come by themselves
+MAX_HIGHLIGHTS = 4          # the unit's own rows (Koen, 20 September 2026: six in total is calmer)
+MAX_HIGHLIGHT_ROWS = 6      # plus date/time and place, which come by themselves
 MAX_LOGOS = 2
 MAX_DATES = 12
 IMAGE_SLOTS = ("main_image_id", "inset_image_id", "third_image_id")
@@ -322,9 +322,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
     if facts["location"]:
         highlights.append(Highlight("map-pin", facts["location"].upper()))
     for hl in design.highlights:
-        highlights.append(Highlight(hl.icon_code, hl.text.upper() if hl.emphasis else hl.text, hl.emphasis))
-    # Koen, 20 September 2026: six of his own plus the two automatic rows —
-    # the cap at six swallowed rows five and six.
+        highlights.append(Highlight(hl.icon_code, hl.text.upper()))
     highlights = highlights[:MAX_HIGHLIGHT_ROWS]
 
     grid = tuple(day_label(date.fromisoformat(d["date"])) for d in dates[:MAX_DATES]) if len(dates) > 1 else ()
