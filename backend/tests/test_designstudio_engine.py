@@ -116,7 +116,7 @@ def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
     lines = richtext.wrap(blocks, width=200, size=6)
     assert ["".join(r.text for r in line) for line in lines] == [
         "Regel een", "Regel twee", "", "Na een lege regel"]
-    assert richtext.LINE_HEIGHT > 1.3        # a little more air than before
+    assert richtext.LINE_HEIGHT >= 1.5       # air you can see without measuring it
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1

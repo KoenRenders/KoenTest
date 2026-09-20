@@ -52,10 +52,12 @@ class Run:
     bold: bool = False
 
 
-#: Line spacing of body text. A little more than the 1.3 it was, because the
-#: poster now keeps typed line breaks and those read better with air between
-#: them (Koen, 20 September 2026).
-LINE_HEIGHT = 1.4
+#: Line spacing of body text. It was 1.3, went to 1.4 when the poster started
+#: keeping typed line breaks, and is 1.6 since Koen looked at that result:
+#: "zou je niet beter 1,5 of zelfs 1,6 nemen? Nu zie ik niets tenzij ik de
+#: meetlat er naast leg" (20 September 2026). At A3 reading distance the extra
+#: air has to be visible without measuring it.
+LINE_HEIGHT = 1.6
 
 
 @dataclass(frozen=True)
