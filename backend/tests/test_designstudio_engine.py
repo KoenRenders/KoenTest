@@ -260,6 +260,17 @@ def test_every_highlight_row_is_upper_case_bold_and_one_size():
     assert [r[2] for r in rows] == ["MILOHEEM", "GEZELLIG SAMEN"]
 
 
+def test_a_wide_box_shows_a_known_wide_picture_whole():
+    """A squeezed Instagram hero letterboxes a drawing rather than cutting it."""
+    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1440, 1248)
+    print_svg = render.merge(_content(main_image=wide), layout="print_a").svg      # tall box: crop as before
+    assert 'preserveAspectRatio="xMidYMid slice"' in print_svg
+    six = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(6))
+    feed_svg = render.merge(_content(main_image=wide, highlights=six, dates=tuple(f"{i} MEI" for i in range(1, 13)),
+                                     contacts=()), layout="feed_portrait").svg
+    assert 'preserveAspectRatio="xMidYMid meet"' in feed_svg
+
+
 def test_a_focal_point_moves_the_crop():
     left = render.merge(_content(main_image=ImageBytes(PNG_2x2, "image/png", 0.1, 0.9)), layout="print_a")
     assert 'preserveAspectRatio="xMinYMax slice"' in left.svg
