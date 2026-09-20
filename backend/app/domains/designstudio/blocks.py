@@ -164,6 +164,28 @@ def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float
     return "".join(out), y + icon + 5
 
 
+def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tuple[str, float]:
+    """"IEDEREEN WELKOM!" as an accent, not a row (Koen, 20 September 2026):
+    one line on a brush stroke in the light green, with three sparkle
+    strokes; "ENKEL LEDEN" the same on the red. Sits above the tile."""
+    pal = plan.pal
+    members_only = content.members_only
+    text = "ENKEL LEDEN" if members_only else "IEDEREEN WELKOM!"
+    size = 11.0
+    tw = richtext.text_width(text, size, bold=True, tracking=0.2)
+    band_w = tw + 14
+    brush = pal["accent4"] if members_only else pal["accent3"]
+    ink = pal["white"] if members_only else pal["ink"]
+    out = [f'<path d="{rough_band(x, y, band_w, 15, seed=plan.seed + 7, jag=2.2)}" fill="{brush}" '
+           f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
+           text_el("t-welcome-0", text, x + 7, y + 10.8, size, ink, weight="bold", tracking=0.2)]
+    plan.boxes["t-welcome-0"] = band_w - 10
+    sx = x + band_w + 3
+    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.2" stroke-linecap="round" fill="none">'
+               f'<path d="M{sx:.1f} {y + 4:.1f} l4 -3.5 M{sx + 1:.1f} {y + 8:.1f} l5 0 M{sx:.1f} {y + 12:.1f} l4 3.5"/></g>')
+    return "".join(out), y + 15
+
+
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
     """The hero photo or drawing with a ragged edge: the filter sits on a mask,
     never on the image (a displaced photo looks warped; a displaced mask looks
@@ -381,12 +403,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     tile_top = y1 - ch
     # The R starts 4 mm in from the paper's left edge, the baseline's bottom
     # on the frame's bottom bar; little purple above and right of it.
-    p.lockup = {"x": x0 + 4, "y": y1 - lockup_h, "width": lockup_w}
-    left_limit = tile_top - 6
+    p.lockup = {"x": x0 + 4, "y": y1 - 2 - lockup_h, "width": lockup_w}
+    # The welcome badge sits above the tile; the left column stops above it.
+    welcome_y = tile_top - 17
+    left_limit = welcome_y - 2
     band_x = x0 + cw + 5
     col_x = band_x + 7
     text_left = col_x + 8
-    qr_left = width - frame - 2 - 24
+    qr_left = width - frame - 2 - 30
     row_w = qr_left - text_left - 4
     for row in rows:
         # A long row shrinks a little rather than overflow.
@@ -416,7 +440,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
-        below = text_h + 9 + 16 + (10 if content.inset_image else 0)
+        below = text_h + 9 + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
@@ -433,7 +457,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.explanation_md:
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
             p.full += frag
-        frag, y = welcome_row(p, content, lx, y + 2, lw, icon=9, max_size=6.5)
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
         if y > left_limit:
             p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
@@ -459,12 +483,10 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
-        if content.third_image and not content.logos and content.preset != "tekst":
+        if content.third_image and content.preset != "tekst":
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
-        # "Iedereen welkom" follows the last row, small — not a lone line
-        # above the tile (Koen, 20 September 2026, second look).
-        frag, ly = welcome_row(p, content, lx, ly + 2, lw, icon=9, max_size=6.5)
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
         left.append(frag)
 
         if content.preset == "tekst":
@@ -509,7 +531,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
                 right.append(frag)
         for name, bottom, bound in (("links", ly, left_limit), ("rechts", ry, limit)):
-            if bottom > bound:
+            if bottom > bound + 0.5:   # half a millimetre is rounding, not overflow
                 p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - bound:.0f} mm te veel")
     p.left, p.right = "".join(left), "".join(right)
     return p

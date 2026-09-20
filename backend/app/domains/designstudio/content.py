@@ -64,7 +64,7 @@ class PosterContent:
     association_mobile: str = ""    # idem
     contacts: tuple[Contact, ...] = ()
     logos: tuple[ImageBytes, ...] = ()
-    more_info_label: str = "MEER INFO"
+    more_info_label: str = "Meer info"
 
     # Random seeds for the speckles and rough edges — fixed per design so the
     # PDF and the PNG of one version look identical.
