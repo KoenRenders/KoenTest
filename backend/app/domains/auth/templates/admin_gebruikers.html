@@ -17,9 +17,13 @@
 
 
 {% call ui.filter_bar("/admin/gebruikers", "#gu-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op e-mail…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-center gap-3">
-    {{ ui.chips("rol", rol_options, rol) }}
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op e-mail…'), standalone=False) }}</div>
+    {% call ui.select_control("rol", aria_label=_("Rol")) %}
+      {% for code, label in rol_options %}
+      <option value="{{ code }}" {% if rol == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    {% endcall %}
     {{ ui.chips("actief", actief_options, actief) }}
   </div>
 {% endcall %}

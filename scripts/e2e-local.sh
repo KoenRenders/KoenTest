@@ -100,8 +100,11 @@ docker restart "$NAAM" >/dev/null
 # élke andere e2e-test een platformverzoek en kreeg `/` de landing in plaats van de
 # tenantsite. Chromium resolvet `*.localhost` zelf naar loopback, dus dit heeft geen DNS
 # nodig.
+# ADMIN_CHAT_ENABLED (#1075): de dicteer-e2e draait ook op de Raakje-overlay van het
+# activiteitenscherm, en die bestaat alleen met de beheer-assistent aan — deze
+# schakelaar plus de tenantschakelaar die seed_e2e.py zet. Zelfde waarde als de e2e-job.
 docker exec -d -e CHAT_ENABLED=true -e STT_MODE=native_first -e STT_PROVIDER=mock \
-  -e PLATFORM_HOSTS=platform.localhost \
+  -e PLATFORM_HOSTS=platform.localhost -e ADMIN_CHAT_ENABLED=true \
   "$NAAM" sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${POORT} > /tmp/uvicorn.log 2>&1"
 for _ in $(seq 1 30); do
   if docker exec "$NAAM" python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${POORT}/')" 2>/dev/null; then

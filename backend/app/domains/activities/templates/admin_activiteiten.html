@@ -36,8 +36,10 @@
 </div>
 
 {% call ui.filter_bar("/admin/activiteiten", "#aa-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of locatie…'), standalone=False) }}</div>
-  {{ ui.chips("scope", [("upcoming", _("Komende")), ("archived", _("Archief")), ("all", _("Alles"))], scope) }}
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel of locatie…'), standalone=False) }}</div>
+    {{ ui.chips("scope", [("upcoming", _("Komende")), ("archived", _("Archief")), ("all", _("Alles"))], scope) }}
+  </div>
 {% endcall %}
 
 <div id="aa-lijst">

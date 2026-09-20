@@ -38,6 +38,7 @@ from app.domains.designstudio.api import (
     STATUS_LABELS,
     STATUS_TONES,
     STYLE_LABELS,
+    STYLES,
     DesignError,
     ImagingError,
     RenderError,
@@ -273,7 +274,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
     generations = [GenerationRow(id=g.id, status=g.status, status_label=_(GENERATION_LABELS.get(g.status, g.status)),
                                  thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
                                  media_asset_id=g.media_asset_id, failure_reason=g.failure_reason or "",
-                                 scene=g.scene or "", style=g.style or "lijn")
+                                 scene=g.scene or "", style=g.style or "lijn",
+                                 image_url=f"/api/v1/media/{g.media_asset_id}" if g.media_asset_id else "")
                    for g in sorted(design.generations, key=lambda g: -g.id)[:12]]
     highlights = [HighlightRow(icon=h.icon_code, text=h.text, emphasis=h.emphasis) for h in design.highlights]
     while len(highlights) < MAX_HIGHLIGHTS:
@@ -300,6 +302,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         versions=versions, published_version_id=design.published_version_id, max_versions=MAX_VERSIONS,
         ai_enabled=ai.enabled, ai_budget_line=ai.line(), generations=generations, ai_prompt=ai_prompt,
         ai_style=ai_style, style_options=[(code, _(label)) for code, label in STYLE_LABELS.items()],
+        style_texts={code: text.lstrip(" —") for code, text in STYLES.items()},
+        ai_pending=any(g.status == "requested" for g in design.generations),
         csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))
 
 
@@ -310,6 +314,16 @@ def design_editor(request: Request, design_id: int, db: Session = Depends(get_db
     view = _editor_view(request, db, design, layout=layout, notice=notice or None)
     template = "_ds_voorbeeld.html" if is_fragment_request(request) else "admin_ontwerp.html"
     return templates.TemplateResponse(request, template, view.as_context())
+
+
+@router.get("/admin/ontwerpen/{design_id}/varianten", response_class=HTMLResponse)
+def design_variants(request: Request, design_id: int, db: Session = Depends(get_db),
+                    _email: str = Depends(require_admin_ui), layout: str = "print_a"):
+    """The variants grid alone, polled by the editor while a request runs, so
+    a drawing shows the moment it lands (Koen, 20 September 2026)."""
+    design = _design_or_404(db, design_id)
+    view = _editor_view(request, db, design, layout=layout, violations=[])
+    return templates.TemplateResponse(request, "_ds_varianten.html", view.as_context())
 
 
 @router.get("/admin/ontwerpen/{design_id}/voorbeeld.png")

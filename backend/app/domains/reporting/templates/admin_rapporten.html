@@ -13,8 +13,8 @@
 {% endcall %}
 
 {% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of omschrijving…'), standalone=False) }}</div>
-  <div class="flex flex-wrap gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of omschrijving…'), standalone=False) }}</div>
     {% call ui.select_control("owner", aria_label=_("Eigenaar")) %}
       <option value="all" {% if owner == "all" %}selected{% endif %}>{{ _("Alle eigenaars") }}</option>
       <option value="mine" {% if owner == "mine" %}selected{% endif %}>{{ _("Van mij") }}</option>

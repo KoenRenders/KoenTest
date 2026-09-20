@@ -25,8 +25,8 @@
 
 
 {% call ui.filter_bar("/admin/media", "#me-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-center gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
     {{ ui.chips("kind", kind_options, kind) }}
     {% if kind == "activity_photo" and activiteiten %}
     {% call ui.select_control("activity_id") %}

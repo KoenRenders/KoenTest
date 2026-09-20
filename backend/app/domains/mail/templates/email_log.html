@@ -13,11 +13,9 @@
      oob mag, want het is een fragment-antwoord). #}
   <input type="hidden" id="el-sort" name="sort" value="{{ sort }}">
   <input type="hidden" id="el-richting" name="richting" value="{{ richting }}">
-  <div>
-    {{ ui.search(value=recipient or "", name="recipient",
-                 placeholder=_('Zoek op ontvanger…'), standalone=False) }}
-  </div>
-  <div class="flex flex-wrap gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=recipient or "", name="recipient",
+                 placeholder=_('Zoek op ontvanger…'), standalone=False) }}</div>
     {% call ui.select_control("email_type") %}
       <option value="">{{ _("Alle types") }}</option>
       {% for t in email_types %}<option value="{{ t }}" {% if t == email_type %}selected{% endif %}>{{ type_labels.get(t, t) }}</option>{% endfor %}

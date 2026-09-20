@@ -53,6 +53,7 @@ change to all four, in one pull request.
 | 16 Sep 2026 | Dense-list tabs slice on derived saldo/kind, never the raw status column; the status select stays the column filter (AND, #669) | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | Row actions stay buttons (size `xs` in dense tables); Cobalt's text links wait for a portal-wide pass | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | The record AI button ("AI · <record>") exists only where `tenant_admin_chat_enabled` is true; one kernel switch, never a UI-side flag; the overlay uses the public Raakje look | #913 (wave 10), CR-07 §6.3 |
+| 20 Sep 2026 | **Raakje is one product everywhere**: every appearance carries the same controls from shared partials; the only permitted difference between public and back office is the toolset, guarded by a gate | #1075, §2.11 |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
@@ -512,6 +513,7 @@ the macro stays kit code and knows nothing about reporting.
 
 ### 2.10 Charts (#835)
 
+
 Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
 `ui.chart_stacked`. No library, no CDN, no data leaving the server.
 
@@ -537,6 +539,48 @@ Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
 - **Not built, on purpose**: pie and donut (a share drawn as a quantity), scatter,
   and a second y-axis (two unrelated scales made to look comparable). Three kinds
   are what a board member needs.
+
+### 2.11 Raakje — one assistant, one set of controls (#1075)
+
+Raakje appears in four places: the public widget on every site page, the public
+page `/raakje`, the reporting assistant (`/admin/rapporten/raakje`) and the
+record overlays ("AI · Activiteit"). The owner's rule for them, 20 September
+2026: *Raakje and Raakje-admin are the same everywhere; the only difference is
+the security on the public one, which must be 100% closed — no information
+about members, payments, registrations or forms.*
+
+**The controls are the same, always.** Every appearance carries the balloons,
+the growing question field (Enter sends, Shift+Enter breaks the line, ceiling
+120 px, back to one line after sending), the microphone (`data-stt-target`, the
+speech path from `stt_mode`), the read-aloud toggle in its header
+(`data-tts-toggle`) and the per-answer read-aloud button that `tts.js` attaches
+to every `data-raakje-answer`. A place may differ in *layout* — the widget is
+compact, a blue header takes the light toggle variant — never in behaviour.
+
+**One place per control.** The controls live in two partials of the chatbot
+domain and nowhere else: `_raakje_ballon.html` (the two balloons, #791) and
+`_raakje_controls.html` (`input_row(id, stt_mode, compact)` and
+`read_aloud_toggle(on_dark)`). A new Raakje surface imports them; it does not
+copy their markup. The reason is the overlay itself: built from a copy, it had
+silently lost the microphone and the toggle, because the next change to the
+controls landed on the surface someone was looking at. Deliberately not kit
+macros in `_macros.html` — that would put them on `/admin/design-system`, a
+separate decision (#791).
+
+**The only difference is the toolset, and that is guarded.** The public loop
+runs the public pack (`chatbot.tools`, three tools, one field contract); the
+back office runs the reporting pack plus the public *read* tools. The two are
+disjoint by construction and by gate: `test_public_tool_field_contract.py`
+fixes which fields leave the building, `test_public_tool_boundary_gate.py`
+proves that no admin tool is in the public set and that a public session cannot
+reach one even with a forged call. A behaviour that the public Raakje may not
+have (looking up a member) is a toolset decision, taken in the route — never a
+missing button.
+
+Gates: `test_raakje_controls_shared.py` (every surface uses the partials; the
+overlay's controls equal the reporting Raakje's; all four templates that include
+the record header still render), and the dictation e2e on both the public page
+and the overlay.
 
 ## 3. Screen types
 

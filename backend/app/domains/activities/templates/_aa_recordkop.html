@@ -1,5 +1,6 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
 {# Recordkop van de activiteit (golf 8-feedbackronde, 15 sep 2026): naam +
    status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
    Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
@@ -23,6 +24,13 @@
      #975-endpoint: de activiteit zit in het PAD (een formveld kan stil
      wegvallen, een pad niet) en een uitgeschakelde of vreemde tenant krijgt
      daar een 404. #}
+  {# #1070: de sprong naar de Design Studio stond in de rechterrail onder een
+     eigen kopje *Affiche* (#1049) en dus alleen op Overzicht. Hier staat hij op
+     élke tab. Eén label, drie bestemmingen: de knop belooft altijd hetzelfde en
+     het aantal ontwerpen bepaalt waar je uitkomt — zie `record_kop_ctx`. #}
+  <div class="shrink-0 mt-1">
+    {{ ui.btn_secondary(_("Designs"), href=designs_href, size="sm") }}
+  </div>
   {% if raakje_admin|default(false) %}
   <div x-data="{ raakje: false }" class="shrink-0 mt-1">
     {{ ui.btn_secondary(_("AI · Activiteit"), size="sm", attrs='@click="raakje = true"') }}
@@ -33,7 +41,13 @@
       <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" @click.outside="raakje = false">
         <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
           <span class="font-semibold">{{ _("Raakje") }}</span>
-          <button type="button" class="hover:opacity-80" @click="raakje = false" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+          <div class="flex items-center gap-1">
+            {# #1075: same controls as every other Raakje — the read-aloud toggle
+               in the header, the microphone at the field. Both from the shared
+               partial, so this overlay cannot drift from the reporting Raakje. #}
+            {{ controls.read_aloud_toggle(on_dark=True) }}
+            <button type="button" class="hover:opacity-80" @click="raakje = false" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+          </div>
         </div>
         <div class="p-4 text-sm">
           {# Zelfde ballonnen als de publieke en de rapporten-Raakje (#791):
@@ -49,12 +63,7 @@
                 hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
                 x-data class="flex gap-2 items-end">
             <input type="hidden" name="historie" id="rp-raakje-historie" value="">
-            {{ ui.textarea_control("vraag", id="aa-raakje-vraag", rows=1, required=True,
-                                   placeholder=_("Typ je vraag…"),
-                                   cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
-                                   attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
-                                         ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
-            {{ ui.btn_primary(_("Vraag"), size="sm") }}
+            {{ controls.input_row("aa-raakje-vraag", stt_mode) }}
           </form>
           {# Een antwoord duurt 15 tot 30 seconden (CR-07 §4.3): zonder deze
              regel lijkt de overlay stuk. #}

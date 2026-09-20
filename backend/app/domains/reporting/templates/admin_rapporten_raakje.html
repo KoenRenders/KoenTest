@@ -1,19 +1,16 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
 {% block title %}{{ _("Vraag het Raakje — Raak beheer") }}{% endblock %}
 {% block content %}
 {% call ui.page_header(_("Vraag het Raakje"), _("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje draait er een echt rapport voor — het verzint geen getallen.")) %}
   {% if enabled %}
   {# Voorlezen aan/uit, identiek aan de publieke Raakje (#917): zelfde attribuut,
      zelfde iconen, zelfde script uit de schil. Hij staat in de kop en niet bij het
-     invoerveld, want hij geldt voor het hele gesprek en niet voor één vraag. #}
-  <button type="button" data-tts-toggle
-          class="text-xl leading-none opacity-90 hover:opacity-100"
-          title="{{ _('Antwoorden voorlezen') }}"
-          aria-label="{{ _('Antwoorden voorlezen aan/uit') }}"
-          data-icon-aan='{{ ui.icon("volume-2") }}'
-          data-icon-uit='{{ ui.icon("volume-x") }}'>{{ ui.icon("volume-x") }}</button>
+     invoerveld, want hij geldt voor het hele gesprek en niet voor één vraag.
+     #1075: uit het gedeelde bedieningsdeel, zoals elke Raakje. #}
+  {{ controls.read_aloud_toggle() }}
   {% endif %}
   {{ ui.btn_secondary(_("Naar de rapporten"), href="/admin/rapporten") }}
 {% endcall %}
@@ -37,20 +34,9 @@
         hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
         x-data class="flex gap-2 items-end">
     <input type="hidden" name="historie" id="rp-raakje-historie" value="{{ history }}">
-    {{ ui.textarea_control("vraag", id="rp-raakje-vraag", rows=1, required=True,
-                           placeholder=_("Typ je vraag…"),
-                           cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
-                           attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
-                                 ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
-    {# Dicteren, identiek aan de publieke Raakje (#917). `data-stt-mode` komt uit de
-       configuratie en bepaalt of de browser zelf luistert of onze Voxtral-proxy;
-       zonder die waarde valt stt.js terug op de browser. #}
-    <button type="button" data-stt-target="#rp-raakje-vraag" data-stt-mode="{{ stt_mode }}"
-            class="bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg"
-            title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}"
-            data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
-            data-icon-connecting='{{ ui.icon("loader") }}'>{{ ui.icon("mic") }}</button>
-    {{ ui.btn_primary(_("Vraag")) }}
+    {# Invoerveld, microfoon en verstuurknop uit het gedeelde bedieningsdeel
+       (#1075): dezelfde regel als de publieke Raakje en de record-overlay. #}
+    {{ controls.input_row("rp-raakje-vraag", stt_mode) }}
   </form>
   {# Een antwoord duurt 15 tot 30 seconden (§4.3): zonder deze regel lijkt het
      scherm stuk. #}

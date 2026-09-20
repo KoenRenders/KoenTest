@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 from app.domains.designstudio import richtext
-from app.domains.designstudio.content import ImageBytes, PosterContent
+from app.domains.designstudio.content import Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import icon_svg
 
 FONT = "Radio Canada Big"
@@ -56,11 +56,16 @@ def data_uri(image: ImageBytes) -> str:
     return f"data:{image.mime};base64," + base64.b64encode(image.data).decode()
 
 
-def aspect_for(image: ImageBytes) -> str:
-    """Map the focal point to SVG's nine-point crop. Coarse, and honest about
-    it: a finer crop needs the image size, which the renderer does not read."""
+def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0) -> str:
+    """Map the focal point to SVG's nine-point crop. When the box is much
+    wider than the picture (an Instagram hero squeezed by the rest of the
+    page), the picture is shown whole instead of cut in half — a drawing on
+    white loses nothing that way (Koen, 20 September 2026)."""
     fx = "Min" if image.focus_x < 1 / 3 else "Max" if image.focus_x > 2 / 3 else "Mid"
     fy = "Min" if image.focus_y < 1 / 3 else "Max" if image.focus_y > 2 / 3 else "Mid"
+    if image.width and image.height and box_w and box_h:
+        if (box_w / box_h) > (image.width / image.height) * 1.6:
+            return "xMidYMid meet"
     return f"x{fx}Y{fy} slice"
 
 
@@ -171,19 +176,33 @@ def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tup
     pal = plan.pal
     members_only = content.members_only
     text = "ENKEL LEDEN" if members_only else "IEDEREEN WELKOM!"
-    size = 11.0
+    size = 8.5   # "iets kleiner" (Koen, 20 September 2026)
     tw = richtext.text_width(text, size, bold=True, tracking=0.2)
-    band_w = tw + 14
+    band_w = tw + 12
     brush = pal["accent4"] if members_only else pal["accent3"]
     ink = pal["white"] if members_only else pal["ink"]
-    out = [f'<path d="{rough_band(x, y, band_w, 15, seed=plan.seed + 7, jag=2.2)}" fill="{brush}" '
+    out = [f'<path d="{rough_band(x, y, band_w, 12, seed=plan.seed + 7, jag=2.0)}" fill="{brush}" '
            f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
-           text_el("t-welcome-0", text, x + 7, y + 10.8, size, ink, weight="bold", tracking=0.2)]
-    plan.boxes["t-welcome-0"] = band_w - 10
-    sx = x + band_w + 3
-    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.2" stroke-linecap="round" fill="none">'
-               f'<path d="M{sx:.1f} {y + 4:.1f} l4 -3.5 M{sx + 1:.1f} {y + 8:.1f} l5 0 M{sx:.1f} {y + 12:.1f} l4 3.5"/></g>')
-    return "".join(out), y + 15
+           text_el("t-welcome-0", text, x + 6, y + 8.6, size, ink, weight="bold", tracking=0.2)]
+    plan.boxes["t-welcome-0"] = band_w - 8
+    sx = x + band_w + 2.5
+    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.0" stroke-linecap="round" fill="none">'
+               f'<path d="M{sx:.1f} {y + 3:.1f} l3.2 -2.8 M{sx + 1:.1f} {y + 6.3:.1f} l4 0 M{sx:.1f} {y + 9.5:.1f} l3.2 2.8"/></g>')
+    return "".join(out), y + 12
+
+
+def hero_height(image: ImageBytes, box_w: float, available: float, *, cap: float, floor: float) -> float:
+    """The height the picture wants at this width, clamped to what is left.
+
+    Koen, 20 September 2026: a photo he had cropped shorter still filled a
+    tall box, so it was cut at the sides and took the whole page. A picture
+    whose pixel size is known now gets the height of its own proportions —
+    a wide photo a low strip, a tall one a taller block — and only a picture
+    that would not fit at all is cropped."""
+    wanted = box_w * image.height / image.width if image.width and image.height else cap
+    # Never below the floor: a page that is already full must report its
+    # overflow, not shrink the picture into nothing.
+    return max(floor, min(wanted, cap, max(available, floor)))
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -193,7 +212,7 @@ def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float
     mask_id = "ragmask-main"
     out = (f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
-           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" preserveAspectRatio="{aspect_for(image)}" '
+           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" preserveAspectRatio="{aspect_for(image, w, h)}" '
            f'mask="url(#{mask_id})" href="{data_uri(image)}"/>')
     return out, y + h
 
@@ -210,11 +229,13 @@ def polaroid_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, 
 
 
 def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
-    """Up to twelve dates in two columns, the heading on a coloured lid."""
+    """Up to twelve dates in two columns, the heading on a coloured lid.
+    Print only: a feed image carries one line instead (Koen, 20 Sep 2026)."""
     pal = plan.pal
+    cols = 2
     dates = content.dates[:12]
-    rows = (len(dates) + 1) // 2
-    col_w = (w - 8) / 2
+    rows = (len(dates) + cols - 1) // cols
+    col_w = (w - 4 * cols) / cols
     h = 10 + rows * 14 + 3
     out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>',
            f'<rect x="{x}" y="{y}" width="{w}" height="10" fill="{pal["tile"]}"/>',
@@ -231,8 +252,9 @@ def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float)
         if row < rows - 1:
             out.append(f'<line x1="{cx}" y1="{cy + 13.5}" x2="{cx + col_w - 4}" y2="{cy + 13.5}" stroke="{pal["ink"]}" '
                        f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
-    if rows > 1 or len(dates) > 1:
-        out.append(f'<line x1="{x + w / 2}" y1="{y + 12}" x2="{x + w / 2}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
+    for c in range(1, cols):
+        vx = x + 4 + c * (col_w + 4) - 2
+        out.append(f'<line x1="{vx:.2f}" y1="{y + 12}" x2="{vx:.2f}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
                    f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
     return "".join(out), y + h + 3
 
@@ -304,6 +326,21 @@ def _richtext_height(source: str, w: float, size: float) -> float:
     return richtext.line_count(source, width=w, size=size) * size * 1.3 + 5
 
 
+def fit_richtext_size(source: str, w: float, available: float, *, max_size: float, min_size: float) -> float:
+    """The largest body size whose wrapped text still fits ``available``.
+
+    Koen, 20 September 2026: his Bowlen poster was "vrij leeg" — the text sat
+    at its smallest size under a picture that no longer filled the page. The
+    body now grows into the room that is left, down to ``min_size`` when
+    there is more text than room (the planner reports that as overflow)."""
+    size = max_size
+    while size > min_size:
+        if _richtext_height(source, w, size) <= available:
+            return round(size, 1)
+        size -= 0.2
+    return min_size
+
+
 def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4) -> float:
     shown = content.highlights[:limit_n]
     col_y: list[float] = [y, y]
@@ -350,8 +387,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     step = size * 1.08
     baselines = [base1 + i * step for i in range(len(lines))]
     for i, text in enumerate(lines):
-        anchor = "start" if i == 0 else "end"
-        x = 17 if i == 0 else width - 17
+        # One line is centred; two lines keep the staggered left/right of the
+        # house style (Koen, 20 September 2026).
+        if len(lines) == 1:
+            anchor, x = "middle", width / 2
+        else:
+            anchor = "start" if i == 0 else "end"
+            x = 17 if i == 0 else width - 17
         p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": baselines[i], "size": size,
                         "anchor": anchor, "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
                         "stroke": pal["tile"] if i == 0 else pal["accent4"]})
@@ -375,19 +417,26 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # e-mail and gsm only when nobody is a contact person (CR-10 §3.9 — with a
     # contact person the association's own lines stay off the poster; Koen,
     # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
-    rows: list[dict[str, object]] = [{"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
-                                      "text": content.website, "size": 6.2}]
+    rows: list[dict[str, object]] = []
+    if content.deadline_text:
+        # The one line that asks for something (Koen, 20 September 2026): in
+        # the accent colour, above the address it points at.
+        rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
+                     "text": content.deadline_text, "size": 6.6, "colour": pal["accent"]})
+    rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
+                 "text": content.website, "size": 6.2, "colour": pal["white"]})
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
             rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part), "size": 5.6})
+                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
+                         "size": 5.6, "colour": pal["white"]})
     else:
         if content.email:
             rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
-                         "text": content.email, "size": 6.2})
+                         "text": content.email, "size": 6.2, "colour": pal["white"]})
         if content.association_mobile:
             rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": content.association_mobile, "size": 6.2})
+                         "text": content.association_mobile, "size": 6.2, "colour": pal["white"]})
     band_h: float = 20 + 6.5 * len(rows)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
@@ -405,7 +454,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # on the frame's bottom bar; little purple above and right of it.
     p.lockup = {"x": x0 + 4, "y": y1 - 2 - lockup_h, "width": lockup_w}
     # The welcome badge sits above the tile; the left column stops above it.
-    welcome_y = tile_top - 17
+    welcome_y = tile_top - 14
     left_limit = welcome_y - 2
     band_x = x0 + cw + 5
     col_x = band_x + 7
@@ -419,7 +468,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
-              "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
+              "qr_x": qr_left, "qr_y": band_y + (band_h - 26) / 2, "qr_caption": "Scan voor meer info",
               "row_y": band_y + 2}
 
     # ── Content between title and band ─────────────────────────────────────
@@ -439,11 +488,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # activity's text over the full width — no icon rows for date and
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
+        # When and where above the picture, in the same icon rows the other
+        # presets use — date left, place right (Koen, 20 September 2026).
+        when = (content.date_line if content.date_line
+                else (f"{len(content.dates)} {content.dates_heading} · zie de website"
+                      if len(content.dates) > 1 else ""))
+        top_rows = tuple(hl for hl in (Highlight("calendar", when, True) if when else None,
+                                       Highlight("map-pin", content.location) if content.location else None)
+                         if hl is not None)
+        if top_rows:
+            y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
+                                       y, ((lx, lw), (rx, rw))) + 3
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
         below = text_h + 9 + (10 if content.inset_image else 0)
+        text_size = 7.2
         if content.main_image:
             avail = left_limit - y - below
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
+                                       hero_height(content.main_image, full_w, avail, cap=200.0, floor=60.0))
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, bottom right, and the
@@ -455,28 +517,51 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 y += 10
             y += 6
         if content.explanation_md:
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
+            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 6,
+                                          max_size=11.0, min_size=7.2)
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, text_size)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
         if y > left_limit:
             p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     elif layout == "feed_portrait":
-        # Instagram: title, one picture over the full width, a few highlights.
+        # Instagram (Koen, 20 September 2026): title, one picture over the
+        # full width with the polaroid on it, every highlight row in two
+        # columns, the dates grid, the welcome badge above the tile. The
+        # description and the third picture stay off the feed image.
         y = top_y - 4
-        n = min(len(content.highlights), 4)
+        n = min(len(content.highlights), 6)
         hl_rows = (n + 1) // 2
-        below = hl_rows * ROW_H + 24 + 6
+        series = len(content.dates) > 1
+        if content.logos:
+            left_limit -= 22   # the logo strip sits in the flow's way on a feed image
+        below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
         if content.main_image:
-            avail = limit - y - below
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
+            avail = left_limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
+                                       hero_height(content.main_image, full_w, avail, cap=120.0, floor=50.0))
             p.full += frag
+            if content.inset_image:
+                pw = 70.0
+                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                p.full += frag
+                y += 10
             y += 6
-        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)))
-        frag, y = welcome_row(p, content, lx, y, lw)
+        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
+        if series:
+            # Koen, 20 September 2026: nobody reads twelve dates while
+            # scrolling, and the QR already leads to the site. One row in the
+            # highlights' own typography, over the full width.
+            summary = PosterContent(duo_code=content.duo_code, highlights=(
+                Highlight("calendar", f"{len(content.dates)} {content.dates_heading or 'DATA'} · zie de website",
+                          True),))
+            frag, y = highlight_rows(p, summary, lx, y, full_w, index_offset=6)
+            p.full += frag
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
-        if y > limit:
-            p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
+        if y > left_limit + 0.5:
+            p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     else:
         ly: float = top_y
         ry: float = top_y
@@ -513,7 +598,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             hero_h = limit - ry - fixed - 6
             if content.main_image:
                 frag, ry = main_image_block(p, content.main_image, rx + 3, ry - 2, rw - 8,
-                                            max(60.0, min(hero_h, 240.0)))
+                                            hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0))
                 right.append(frag)
             if content.inset_image:
                 overlap = 45 if content.main_image else 0

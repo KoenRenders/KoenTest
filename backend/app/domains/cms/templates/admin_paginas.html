@@ -17,8 +17,10 @@
 
 
 {% call ui.filter_bar("/admin/paginas", "#cp-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of slug…'), standalone=False) }}</div>
-  {{ ui.chips("status", [("", _("Alles")), ("published", _("Gepubliceerd")), ("draft", _("Concept")), ("in_nav", _("In navigatie"))], status) }}
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel of slug…'), standalone=False) }}</div>
+    {{ ui.chips("status", [("", _("Alles")), ("published", _("Gepubliceerd")), ("draft", _("Concept")), ("in_nav", _("In navigatie"))], status) }}
+  </div>
 {% endcall %}
 
 <div id="cp-lijst">

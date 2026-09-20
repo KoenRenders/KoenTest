@@ -275,6 +275,9 @@ def facts_for(db: Session, design: Design) -> dict:
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),
         "cancelled": bool(activity.is_cancelled),
+        # What the QR points at: the activity's own page (slug or id), so
+        # "scan voor meer info" really shows this activity (CR-10 §3.7).
+        "key": activity.slug or str(activity.id),
         "members_only": bool(activity.members_only),
         "organisers": [{"name": c.name, "mobile": c.mobile, "email": c.email}
                        for c in _organisers(db, activity.id)],
@@ -301,7 +304,8 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None or not asset.content_type.startswith("image/") or asset.content_type == "image/svg+xml":
         return None
-    return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]))
+    return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]),
+                      int(asset.width or 0), int(asset.height or 0))
 
 
 def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
@@ -324,12 +328,13 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
     highlights: list[Highlight] = []
     dates = facts["dates"]
+    date_line = ""
     if len(dates) == 1:
         day = date.fromisoformat(dates[0]["date"])
-        line = day_label(day, weekday=True)
+        date_line = day_label(day, weekday=True)
         if dates[0]["time"]:
-            line += f" {time_label(datetime.strptime(dates[0]['time'], '%H:%M').time())}"
-        highlights.append(Highlight("calendar", line, True))
+            date_line += f" {time_label(datetime.strptime(dates[0]['time'], '%H:%M').time())}"
+        highlights.append(Highlight("calendar", date_line, True))
     if facts["location"]:
         highlights.append(Highlight("map-pin", facts["location"].upper()))
     for hl in design.highlights:
@@ -347,6 +352,9 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         bar_text=(design.subtitle or "").upper(),
         tagline=design.tagline or "",
         highlights=tuple(highlights),
+        date_line=date_line, location=(facts["location"] or "").upper(),
+        deadline_text=deadline_line(facts["deadline"]),
+        more_info_label="Meer info en inschrijven:",
         members_only=bool(facts["members_only"]),
         dates_heading=f"DATA IN {year}",
         dates=grid,
@@ -360,11 +368,22 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
     )
 
 
-def qr_url(db: Session) -> str:
+def deadline_line(iso: str) -> str:
+    """"Inschrijven tot 8 november", or "" when there is no single deadline
+    for the whole activity (#1053: it lives per component)."""
+    if not iso:
+        return ""
+    day = date.fromisoformat(iso)
+    return f"Inschrijven tot {day.day} {MONTHS_NL[day.month - 1].lower()}"
+
+
+def qr_url(db: Session, key: str = "") -> str:
     from app.kernel.tenant_config import tenant_home_url
 
-    url = tenant_home_url(db)
-    return url.replace("http://", "https://", 1) if url.startswith("http://") else url
+    url = tenant_home_url(db).rstrip("/")
+    if url.startswith("http://"):
+        url = url.replace("http://", "https://", 1)
+    return f"{url}/activiteiten/{key}" if key else url
 
 
 # ── Preview and check ───────────────────────────────────────────────────────
@@ -396,7 +415,8 @@ def merged_for(db: Session, design: Design, layout: str, *, facts: Optional[dict
         return render.Merged(svg=svg, boxes={}, violations=(), width_mm=spec["width_mm"], height_mm=spec["height_mm"])
     content = content or content_for(db, design, facts)
     return render.merge(content, layout=layout, template_key=design.template_key,
-                        title=facts["title"] if facts else "Affiche", qr_url=qr_url(db))
+                        title=facts["title"] if facts else "Affiche",
+                        qr_url=qr_url(db, facts.get("key", "") if facts else ""))
 
 
 def preview_png(db: Session, design: Design, layout: str, *, width_px: int = 700) -> tuple[bytes, list[str]]:
@@ -646,8 +666,10 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     anders?") the new variants build on that image."""
     from app.kernel.jobs import enqueue
 
-    prompt = imaging.build_prompt(scene, style, change)
-    scene = scene.strip() or change.strip()
+    english, _translated = imaging.translate_scene(scene, actor=requested_by)
+    english_change, _c = imaging.translate_scene(change, actor=requested_by)
+    prompt = imaging.build_prompt(english, style, english_change)
+    scene = scene.strip() or change.strip()   # kept as typed, so the redo shows Dutch to a Dutch speaker
     if any(g.status == GEN_REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)

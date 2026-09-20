@@ -75,6 +75,7 @@ VIEWMODELS = {
     "admin_ontwerp_nieuw.html": DesignNewView,
     "admin_ontwerp.html": DesignEditorView,
     "_ds_voorbeeld.html": DesignEditorView,
+    "_ds_varianten.html": DesignEditorView,
     "admin_nieuwsbrief_instellingen.html": NewsletterSettingsView,
     "_nb_instellingen.html": NewsletterSettingsView,
 }

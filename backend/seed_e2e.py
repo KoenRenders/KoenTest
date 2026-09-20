@@ -59,6 +59,15 @@ def main() -> None:
 
     db = SessionLocal()
     try:
+        # #1075: de Raakje-overlay op het activiteitenscherm bestaat alleen als de
+        # beheer-assistent aan staat — twee schakelaars in serie (CR-07 §6.3). De
+        # omgevingskant zet de e2e-job (`ADMIN_CHAT_ENABLED`); de tenantkant staat
+        # hier, vóór de markercontrole, want een schakelaar is geen seed-data.
+        from app.kernel.tenant_config import set_setting
+
+        set_setting(db, "admin_chat_enabled", "1")
+        db.commit()
+
         bestaat = (db.query(ContactDetail)
                    .filter(ContactDetail.value == MARKER_EMAIL).first())
         if bestaat is not None:

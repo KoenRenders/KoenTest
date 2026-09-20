@@ -19,8 +19,8 @@
 
 
 {% call ui.filter_bar("/admin/tenants", "#tn-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
-  <div class="flex flex-wrap gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
     {% call ui.select_control("status") %}
       <option value="">{{ _("Alle statussen") }}</option>
       <option value="actief" {% if status == "actief" %}selected{% endif %}>{{ _("Actief") }}</option>

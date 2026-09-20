@@ -2,16 +2,14 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_teksten.html" as teksten %}
 {% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
 {% block title %}{{ _("Raakje — Raak") }}{% endblock %}
 {% block content %}
 {% call ui.card() %}
   <div class="flex items-center justify-between mb-2">
     <h1 class="text-2xl font-bold text-blue-700">Raakje 🤖</h1>
     {% if enabled %}
-    <button type="button" data-tts-toggle class="text-xl leading-none opacity-90 hover:opacity-100"
-            title="{{ _('Antwoorden voorlezen') }}"
-            aria-label="{{ _('Antwoorden voorlezen aan/uit') }}"
-            data-icon-aan='{{ ui.icon("volume-2") }}' data-icon-uit='{{ ui.icon("volume-x") }}'>{{ ui.icon("volume-x") }}</button>
+    {{ controls.read_aloud_toggle() }}
     {% endif %}
   </div>
   {% if not enabled %}
@@ -37,22 +35,10 @@
            hieronder genegeerd, en dan groeit het veld niet mee en verstuurt Enter
            niet. De widget heeft die scope al van haar buitenste div. #}
         x-data class="flex gap-2 items-end">
-    {# autogrow=False (#1027): dit chatveld draagt zijn eigen groeihandler met
-       plafond 120 én een reset-naar-auto na het verzenden; de macrovariant zou
-       er een dubbel x-on:input naast zetten waarvan de browser er één laat
-       vallen. De handler staat in beide raakje-templates en wordt door
-       tests_e2e/test_dictaat_laat_het_veld_groeien.py gelijk gehouden. #}
-    {{ ui.textarea_control("vraag", id="raakje-vraag", rows=1, required=True,
-                           placeholder=_("Typ je vraag…"), autogrow=False,
-                           cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
-                           attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
-                                 ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
-    <button type="button" data-stt-target="#raakje-vraag" data-stt-mode="{{ stt_mode }}"
-            class="bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg"
-            title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}"
-            data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
-            data-icon-connecting='{{ ui.icon("loader") }}'>{{ ui.icon("mic") }}</button>
-    {{ ui.btn_primary(_("Vraag")) }}
+    {# Invoerveld, microfoon en verstuurknop uit het gedeelde bedieningsdeel
+       (#1075): één handler voor het meegroeien (met plafond 120, #1027) op elke
+       Raakje; tests/test_raakje_controls_shared.py houdt de vier plekken gelijk. #}
+    {{ controls.input_row("raakje-vraag", stt_mode) }}
   </form>
   {{ ui.loading(_("Raakje denkt na…")) }}
   {% endif %}

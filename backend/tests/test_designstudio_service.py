@@ -452,7 +452,7 @@ def test_a_redo_on_a_variant_carries_the_change_and_the_style(monkeypatch, db_se
     job = db_session.query(KernelJob).filter(KernelJob.name == "designstudio.generate").first()
     assert job.payload["reference_asset_id"] == design.main_image_id
     assert "change only this: add a dog running along" in job.payload["prompt"]
-    assert "flat cheerful colours" in job.payload["prompt"] and "no shading" in job.payload["prompt"]
+    assert "flat colours" in job.payload["prompt"] and "no shading" in job.payload["prompt"]
     with pytest.raises(ImagingError, match="stijl"):
         imaging.build_prompt("a family on bicycles", style="olie")
 
@@ -497,6 +497,8 @@ def test_the_list_and_the_editor_render_for_an_admin(client, db_session, design)
     editor = client.get(f"/admin/ontwerpen/{design.id}")
     assert editor.status_code == 200
     assert "Miloheem" in editor.text and 'name="hl_text_0"' in editor.text
+    variants = client.get(f"/admin/ontwerpen/{design.id}/varianten", headers={"X-Raak-Filter": "1"})
+    assert variants.status_code == 200 and 'id="ds-varianten"' in variants.text and "hx-trigger" not in variants.text
     svg = client.get(f"/admin/ontwerpen/{design.id}/svg/print_a")
     assert svg.status_code == 200 and svg.headers["content-type"].startswith("image/svg+xml")
     assert "STAPPEN" in svg.text and "ref100mm" in svg.text

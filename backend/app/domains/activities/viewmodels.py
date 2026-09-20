@@ -85,5 +85,11 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     # Golf 10 (#913): staat de beheer-assistent aan? Stuurt de
     # "AI · Activiteit"-knop in de recordkop.
     raakje_admin: bool
+    # #1075: which speech path the overlay's microphone uses; from the
+    # configuration via `record_kop_ctx`, like the reporting Raakje's view-model.
+    stt_mode: str
+    # #1070: de bestemming van de Designs-knop in diezelfde kop. Eén label, drie
+    # bestemmingen — de keuze valt in `record_kop_ctx`, niet in het sjabloon.
+    designs_href: str
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)

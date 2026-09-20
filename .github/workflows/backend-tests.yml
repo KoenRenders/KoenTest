@@ -148,6 +148,11 @@ jobs:
       # een platformverzoek en kreeg `/` de landing in plaats van de tenantsite.
       # Chromium resolvet `*.localhost` zelf naar loopback, dus dit heeft geen DNS nodig.
       PLATFORM_HOSTS: platform.localhost
+      # #1075: de dicteer-e2e draait ook op de Raakje-overlay van het
+      # activiteitenscherm, en die overlay bestaat alleen met de beheer-assistent
+      # aan (CR-07 §6.3: deze schakelaar én de tenantschakelaar uit seed_e2e.py).
+      # De overlay zelf belt niemand: dicteren gaat via de mock-STT hierboven.
+      ADMIN_CHAT_ENABLED: "true"
 
     steps:
       - uses: actions/checkout@v4

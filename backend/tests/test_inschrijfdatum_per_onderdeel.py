@@ -209,6 +209,13 @@ def test_verschillende_datums_zetten_de_datum_bij_het_onderdeel(client, db_sessi
     # Beide datums staan er, elk ná de naam van zijn onderdeel.
     assert kaart.index("Barbecue") < kaart.index("donderdag 20 mei")
     assert kaart.index("Cornhole") < kaart.index("dinsdag 25 mei")
+    # En als eigen klokregel ONDER de knoppenrij, niet tussen de knoppen geperst
+    # (Koens plek van het golf 12-pakket; hij merkte de inline-variant meteen op).
+    # Kapotgemaakt: de regel terug als <span> in de knoppen-flex → geen mt-1-blok.
+    assert kaart.count('mt-1 flex items-center gap-1 text-xs') == 2
+    knopblok = kaart[kaart.index("Barbecue"):kaart.index("donderdag 20 mei")]
+    assert "Inschrijven</button>" in knopblok, (
+        "de klokregel hoort ná de knoppenrij, niet ervoor of ertussen")
 
 
 def test_een_volzet_onderdeel_telt_niet_mee_voor_de_regel(client, db_session,
