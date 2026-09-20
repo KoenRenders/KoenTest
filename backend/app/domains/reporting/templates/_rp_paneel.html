@@ -456,6 +456,13 @@
   <form id="rp-bewaren" class="mt-4 bg-white border border-gray-200 rounded-xl p-4"
         hx-post="/admin/rapporten{% if report_id %}/{{ report_id }}{% endif %}">
     <h2 class="font-semibold text-ink">{{ _("Bewaren") }}</h2>
+    {# #1092: een tegelrapport voedt de landingspagina. Wijzigen mag (het is van
+       de vereniging), maar het getal op het dashboard verandert mee — en wie de
+       maat van de tegel uit de selectie haalt, ziet daar een streepje. Eén regel,
+       informatie en geen bevestiging. #}
+    {% if dashboard_tile %}
+    <p class="mt-1 text-sm text-ink-soft">{{ _("Dit rapport voedt de dashboardtegel «%(tegel)s»: een wijziging verandert ook dat getal.", tegel=dashboard_tile) }}</p>
+    {% endif %}
     <div class="mt-2 grid gap-3 sm:grid-cols-2">
       <div>
         <label class="block text-sm text-ink" for="rp-naam">{{ _("Naam") }}</label>
@@ -476,8 +483,9 @@
     {# #1090: inhoudsacties (Kopiëren, Exporteren) links, het actiecluster uit
        `ui.action_bar` rechts — [Verwijderen] apart links van het paar, dan
        [Annuleren] [Opslaan] met Opslaan uiterst rechts, zoals op elk bewerkvlak.
-       Verwijderen alleen voor de eigenaar en nooit voor een meegeleverd rapport
-       (Koen, 20 september 2026); dat is een zichtbaarheidsregel, geen plaats. #}
+       Verwijderen alleen als de service het toestaat (#1092: van jou of van
+       niemand, en geen rapport dat een dashboardtegel voedt); dat is een
+       zichtbaarheidsregel, geen plaats. #}
     <div class="mt-3 flex flex-wrap items-center gap-2">
       {% if report_id %}
       {{ ui.btn_secondary(_("Kopiëren"), size="sm",
@@ -491,7 +499,7 @@
       {{ ui.action_bar(cls="ml-auto",
            cancel_attrs='hx-get="' ~ paneel_url ~ '"',
            delete_attrs=('hx-post="/admin/rapporten/' ~ report_id ~ '/verwijderen" ' ~ confirm_attrs(_("Rapport"), name))
-                        if (report_id and is_owner and not is_builtin) else "") }}
+                        if is_deletable else "") }}
     </div>
   </form>
 </div>

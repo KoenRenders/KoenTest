@@ -588,18 +588,20 @@ def test_deleting_a_report_sends_you_back_to_the_list(client, db_session, situat
                             viewer=ADMIN_EMAIL) is None
 
 
-def test_a_shipped_report_cannot_be_deleted_from_the_panel(client, db_session,
-                                                           situation):
-    """It would come back on the next deploy, so the button is not offered."""
+def test_a_tile_report_cannot_be_deleted_from_the_panel(client, db_session,
+                                                        situation):
+    """Since #1092 the block covers the reports that feed a dashboard tile — not
+    every shipped one. Nothing comes back on a deploy; the tile would show a dash.
+    The full boundary is in `test_meegeleverde_rapporten_1092.py`."""
     from app.domains.reporting.api import list_saved_reports
 
     login(client, db_session)
-    meegeleverd = [r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
-                                                 viewer=ADMIN_EMAIL)
-                   if r.builtin_key == "revenue_per_month"][0]
-    paneel = client.get(f"/admin/rapporten/{meegeleverd.id}")
+    tegel = [r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
+                                           viewer=ADMIN_EMAIL)
+             if r.builtin_key == "dashboard_members"][0]
+    paneel = client.get(f"/admin/rapporten/{tegel.id}")
     assert paneel.status_code == 200
-    assert f"/admin/rapporten/{meegeleverd.id}/verwijderen" not in paneel.text
+    assert f"/admin/rapporten/{tegel.id}/verwijderen" not in paneel.text
 
 
 def test_a_report_that_points_at_a_vanished_object_says_so(client, db_session,

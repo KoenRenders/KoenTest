@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import csrf_from_request, require_admin_ui
+from app.domains.reporting.api import DASHBOARD_TEGELS
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, templates
 
@@ -32,24 +33,9 @@ NAV = admin_nav("/admin/info")
 # `geld=True` op de laatste: die tegel toont een bedrag — sinds golf 7 (#913)
 # via dezelfde geld-formatter als overal ("€ 45,00", §735). #848 had de oude
 # punt-notatie bewust laten staan; die eigen wijziging is dit.
-# F12/F13 (#996, door Koen goedgekeurd op ronde 2): één neutrale kaart voor
-# elk kengetal — zes kleuren gaven gewone categorieën het gewicht van
-# statussen — en de labels benoemen de daadwerkelijk getelde eenheid: een
-# Member is een GEZIN, dus "Leden" telde geen leden.
-DASHBOARD_TEGELS = [
-    ("Gezinnen", "dashboard_members", "member_total_count",
-     "/admin/leden", False),
-    ("Actieve gezinnen", "dashboard_active_members", "membership_active_count",
-     "/admin/leden", False),
-    ("Personen (actief lid)", "dashboard_member_persons", "membership_person_unique",
-     "/admin/leden", False),
-    ("Komende activiteiten", "dashboard_upcoming_activities", "activity_count",
-     "/admin/activiteiten", False),
-    ("Open taken (werkbank)", "dashboard_open_tasks", "task_count",
-     "/admin/werkbank", False),
-    ("Openstaand saldo", "dashboard_outstanding", "payment_amount",
-     "/admin/betalingen", True),
-]
+# De tegels zelf staan sinds #1092 in het rapportagedomein (`DASHBOARD_TEGELS`
+# via de facade): dezelfde lijst is daar de regel voor welke meegeleverde
+# rapporten niet verwijderd mogen worden. Hier staat alleen nog het tonen.
 
 
 @router.get("/admin", response_class=HTMLResponse)

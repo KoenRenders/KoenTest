@@ -483,11 +483,29 @@ def copy_report(db: Session, report: SavedReport, *, owner: str) -> SavedReport:
 
 
 def delete_report(db: Session, report: SavedReport, *, actor: str) -> None:
-    """Remove a report. A shipped one comes back on the next deploy, by design."""
+    """Remove a report — somebody else's never, a dashboard-tile report never.
+
+    A deleted report does **not** come back on the next deploy: migrations run
+    once, and nothing at startup seeds reports. This used to claim the opposite,
+    and the claim was the reason the block covered every shipped report. Koen's
+    decision of 20 September 2026 (#1092): only the reports that feed a
+    dashboard tile stay undeletable — `dashboard_numbers` looks them up by
+    `builtin_key`, and without one the tile shows a dash with no way back from
+    the screen. The other shipped ones are the tenant's to throw away.
+
+    It is a *soft* delete: the row stays in the database with a timestamp, but
+    there is no way back through the application. Whoever loosens this further
+    should know that the soft-deleted row is the only safety net there is.
+    """
     from app.soft_delete import soft_delete
 
     if report.owner_email is not None and report.owner_email != actor:
         raise SavedReportError("Dit rapport is van iemand anders.")
+    tegel = dashboard_tile_of(report)
+    if tegel is not None:
+        raise SavedReportError(
+            f"Dit rapport voedt de dashboardtegel «{tegel}» en kan niet verwijderd "
+            "worden.")
     soft_delete(report)
     db.commit()
 
@@ -545,6 +563,54 @@ class TileNumber:
 
     value: Any
     report_id: int | None
+
+
+# The dashboard tiles: (label, builtin_key of the report that feeds it, the
+# measure it shows, the operational link, money?). Owned by this domain since
+# #1092 and not by the dashboard screen: the list is also the rule for which
+# shipped reports may not be deleted, and a rule belongs in the service, where
+# every caller meets it. The screen (`app.ui.system_ui`) reads it through the
+# facade and adds nothing of its own.
+#
+# F12/F13 (#996, approved by Koen on round 2): one neutral card per figure,
+# and the labels name the unit actually counted — a Member is a HOUSEHOLD, so
+# "Leden" counted no members. `geld=True` on the last: that tile shows an
+# amount, through the house money formatter (§735).
+DASHBOARD_TEGELS: list[tuple[str, str, str, str, bool]] = [
+    ("Gezinnen", "dashboard_members", "member_total_count",
+     "/admin/leden", False),
+    ("Actieve gezinnen", "dashboard_active_members", "membership_active_count",
+     "/admin/leden", False),
+    ("Personen (actief lid)", "dashboard_member_persons", "membership_person_unique",
+     "/admin/leden", False),
+    ("Komende activiteiten", "dashboard_upcoming_activities", "activity_count",
+     "/admin/activiteiten", False),
+    ("Open taken (werkbank)", "dashboard_open_tasks", "task_count",
+     "/admin/werkbank", False),
+    ("Openstaand saldo", "dashboard_outstanding", "payment_amount",
+     "/admin/betalingen", True),
+]
+
+
+def dashboard_tile_of(report: SavedReport) -> str | None:
+    """The label of the dashboard tile this report feeds, or None (#1092).
+
+    Derived from `DASHBOARD_TEGELS` at call time — never a second list of keys.
+    Two places for one fact is exactly how this drifts the day a tile is added.
+    """
+    for label, sleutel, _maat, _href, _geld in DASHBOARD_TEGELS:
+        if report.builtin_key and report.builtin_key == sleutel:
+            return label
+    return None
+
+
+def may_delete(report: SavedReport, *, actor: str) -> bool:
+    """Whether `actor` may delete this report: theirs (or nobody's), and not a
+    tile report. The same rule the panel uses to show the button and the
+    service uses to refuse — one rule, read from here by both."""
+    if report.owner_email is not None and report.owner_email != actor:
+        return False
+    return dashboard_tile_of(report) is None
 
 
 def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
