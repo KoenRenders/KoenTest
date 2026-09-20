@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from dataclasses import dataclass
 from typing import Any, Optional
 
 from sqlalchemy import text as sql_text
@@ -498,17 +499,18 @@ activity_id {activity_id}.
 """
 
 
-def build_system_prompt(activity_id: Optional[int] = None) -> str:
-    """The system prompt, optionally bound to one activity (#975).
+def build_system_prompt(scope: Optional["Scope"] = None) -> str:
+    """The system prompt, optionally bound to a scope (#975, generalised by #1060).
 
-    Only the NUMBER of the activity goes in, never its name. The prompt of this pack
+    Only NUMBERS and our own labels go in, never stored text. The prompt of this pack
     is exempt from the seam guard's name check (`SCAN_PROMPT_NAMES`) because it is
     rendered from the declaration and carries no stored value; an activity name is
     stored content, so it would break that promise. The model gets the name the way
-    it gets everything else — through a tool, whose result IS scanned.
+    it gets everything else — through a tool, whose result IS scanned. That is why
+    `Scope.prompt` is written where the scope is built and not from a database row.
     """
-    scope = SCOPE_PROMPT.format(activity_id=activity_id) if activity_id else ""
-    return SYSTEM_PROMPT.format(catalogue=render_catalogue(), scope=scope)
+    return SYSTEM_PROMPT.format(catalogue=render_catalogue(),
+                                scope=scope.prompt if scope else "")
 
 
 # ── The tools ────────────────────────────────────────────────────────────────
@@ -616,13 +618,13 @@ def _check_exposure(keys: list[str]) -> str:
 
 def run_report(db: Session, arguments: dict[str, Any], *,
                tenant_id: int, max_rows: int,
-               activity_id: Optional[int] = None) -> dict[str, Any]:
+               scope: Optional["Scope"] = None) -> dict[str, Any]:
     objects = [str(k) for k in (arguments.get("objects") or [])]
     if not objects:
         return {"error": "Geef minstens één object mee."}
-    if activity_id is not None:
+    if scope is not None:
         arguments, weigering = _scope_report(db, arguments, tenant_id=tenant_id,
-                                             activity_id=activity_id)
+                                             scope=scope)
         if weigering:
             return weigering
 
@@ -708,6 +710,164 @@ def list_values(db: Session, arguments: dict[str, Any], *,
     return {"object": key, "values": values}
 
 
+# ── Scope (#975 for one activity, generalised by #1060) ──────────────────────
+
+
+@dataclass(frozen=True)
+class Scope:
+    """Waar dit gesprek over gaat — en waartoe de server het beperkt.
+
+    #975 bond het gesprek aan één ACTIVITEIT. #1060 voegt de plek toe waar de
+    assistent aangeroepen wordt: een lijstscherm met zijn actieve selectie. Dat
+    zijn twee gevallen van hetzelfde ding, dus één vorm, en niet twee mechanismen
+    naast elkaar die elk hun eigen fence hebben.
+
+    Drie velden, en ze doen elk iets anders:
+
+    * `activity_id` — de recordscope van #975. Zij narrows óók de leestools, want
+      die geven van nature een lijst terug; een schermscope doet dat niet.
+    * `facts` — welke feiten een rapport nog mag bevragen. Leeg betekent "alle";
+      een schermscope zet hier het feit van dat scherm in.
+    * `filters` — wat er ALTIJD aan een rapport toegevoegd wordt, in de vorm die
+      `run_report` al kent. Dit is de grens: de prompt vertelt het model wat er
+      geldt, maar de prompt is geen grens — het model kan haar vergeten, negeren
+      of eromheen praten. Deze lijst kan het niet.
+
+    `prompt` is de zin die het model leest. Alleen getallen en onze eigen labels
+    horen erin, nooit opgeslagen tekst: de systeemprompt van dit pakket wordt niet
+    op namen gescand (`SCAN_PROMPT_NAMES`), en die vrijstelling is alleen houdbaar
+    zolang er niets uit de databank in komt.
+    """
+
+    activity_id: Optional[int] = None
+    facts: frozenset[str] = frozenset()
+    filters: tuple[dict[str, Any], ...] = ()
+    prompt: str = ""
+
+    @property
+    def is_record(self) -> bool:
+        """Een recordscope beperkt óók de leestools; een selectie niet."""
+        return self.activity_id is not None
+
+
+def scope_for_activity(activity_id: int) -> Scope:
+    """De scope van #975: dit gesprek gaat over één activiteit."""
+    return Scope(activity_id=activity_id,
+                 facts=ACTIVITY_FACTS,
+                 filters=({"object": "activity_id", "operator": "eq",
+                           "values": [str(activity_id)]},),
+                 prompt=SCOPE_PROMPT.format(activity_id=activity_id))
+
+
+class ScopeNietOverdraagbaar(ValueError):
+    """Deel van de schermselectie is niet exact over te zetten (#1060).
+
+    Dan is er maar één eerlijk antwoord, en dat is géén antwoord over een RUIMERE
+    verzameling dan het scherm toont. Een assistent die naast een gefilterde lijst
+    een getal over álles geeft, liegt zonder het te zeggen — en op Betalingen gaat
+    dat over geld. De route vertelt de gebruiker wélk deel in de weg zit, zodat hij
+    het filter kan wegnemen of zijn vraag op het rapportenscherm kan stellen.
+    """
+
+
+#: Het zicht van de betalingenlijst → de filter die dezelfde doorsnede maakt.
+#: "openstaand" kan pas sinds #1078: daarvóór bestond het saldo-begrip niet in het
+#: universum en was er geen exacte vertaling. De labels komen uit de fact-view
+#: (migratie 102) en de codelijst (migratie 096) — niet uit de code van het scherm.
+_ZICHT_FILTER: dict[str, dict[str, Any]] = {
+    "alle": {},
+    "openstaand": {"object": "payment_open", "operator": "eq", "values": ["Ja"]},
+    "betaald": {"object": "payment_status", "operator": "eq", "values": ["Betaald"]},
+    "terugbetaald": {"object": "payment_type", "operator": "eq",
+                     "values": ["Terugbetaling"]},
+}
+
+#: De statuskeuzelijst van het scherm draagt codes; het universum draagt labels.
+_STATUS_LABEL = {"pending": "In afwachting", "paid": "Betaald",
+                 "failed": "Mislukt", "cancelled": "Geannuleerd"}
+
+_BETALINGEN_PROMPT = """
+DIT GESPREK GAAT OVER DE SELECTIE OP HET BETALINGENSCHERM: {selectie}. Elk rapport \
+wordt op de server tot die selectie beperkt; je hoeft er niet zelf op te filteren, \
+en je mag ervan uitgaan dat elk getal dat je krijgt over precies die selectie gaat. \
+Vragen over andere gegevens dan betalingen kan je hier niet beantwoorden — zeg dat \
+dan.
+"""
+
+
+def scope_for_payments(stand: dict[str, str]) -> Scope:
+    """De selectie van het betalingenscherm als scope (#1060).
+
+    `stand` is de filterstand zoals het scherm zélf hem leest (`ui.filterparams`):
+    uit de URL, nooit uit het formulier van de vraag. Een vervalst veld in dat
+    formulier verandert hier dus niets — dat is dezelfde keuze als #975, waar de
+    activiteit in het PAD zit.
+
+    **Overdragen of weigeren, niets ertussenin.** Wat exact overzetbaar is wordt
+    een filter; wat dat niet is, maakt de scope ongeldig in plaats van stil te
+    verdwijnen. Zie `ScopeNietOverdraagbaar` voor waarom.
+
+    Wat vandaag NIET overdraagbaar is, met de reden per geval — want ze zijn niet
+    van dezelfde soort, en wie er later een wil toevoegen moet weten welke:
+
+    * de **zoekterm**. Vrije tekst, en die mag per afspraak nooit naar een model
+      (CR-07 §5.6). Dit gat is **permanent**: het gaat niet dicht met een dimensie
+      erbij, want het probleem is de tekst zelf en niet het ontbreken van een kolom.
+    * de context **per lidmaatschapsjaar** of **per onderdeel**. `f_payments` joint
+      wel `d_activity`, maar niet het onderdeel en niet het lidmaatschapsjaar. Een
+      **bekend gat**: dit kan later bestaan, met een join of een dimensie erbij.
+    * de scopes **gezin** en **inschrijving**. Op het scherm zijn dat verzamelingen
+      payables (`_gezin_scope`, `_activiteit_scope`), en zo'n verzameling heeft geen
+      tegenhanger in het universum. Ook een **bekend gat**, van dezelfde soort als
+      het vorige — geen vergetelheid.
+
+    Een gat erbij hoort een weigering te worden en geen stilzwijgen: de route noemt
+    aan de gebruiker WELK filter in de weg zit, zodat hij het kan wegnemen.
+    """
+    filters: list[dict[str, Any]] = []
+    beschrijving: list[str] = []
+
+    zicht = (stand.get("zicht") or "alle").strip() or "alle"
+    if zicht not in _ZICHT_FILTER:
+        zicht = "alle"
+    if _ZICHT_FILTER[zicht]:
+        filters.append(dict(_ZICHT_FILTER[zicht]))
+    beschrijving.append(f"tabblad '{zicht}'")
+
+    status = (stand.get("status") or "all").strip()
+    if status in _STATUS_LABEL:
+        filters.append({"object": "payment_status", "operator": "eq",
+                        "values": [_STATUS_LABEL[status]]})
+        beschrijving.append(f"status '{_STATUS_LABEL[status]}'")
+
+    context = (stand.get("context") or "all").strip()
+    if context == "membership":
+        filters.append({"object": "payment_payable_type", "operator": "eq",
+                        "values": ["Lidgeld"]})
+        beschrijving.append("alleen lidgeld")
+    elif context.startswith("year-") or context.startswith("comp-"):
+        raise ScopeNietOverdraagbaar(
+            "de contextfilter van dit scherm (per jaar of per onderdeel)")
+
+    activiteit = (stand.get("activiteit") or "").strip()
+    if activiteit.isdigit():
+        filters.append({"object": "activity_id", "operator": "eq",
+                        "values": [activiteit]})
+        beschrijving.append(f"activiteit {activiteit}")
+
+    if (stand.get("q") or "").strip():
+        raise ScopeNietOverdraagbaar("de zoekterm")
+    for sleutel, wat in (("gezin", "de gezinsfilter"),
+                         ("inschrijving", "de inschrijvingsfilter")):
+        if (stand.get(sleutel) or "").strip():
+            raise ScopeNietOverdraagbaar(wat)
+
+    return Scope(facts=frozenset({"f_payments"}),
+                 filters=tuple(filters),
+                 prompt=_BETALINGEN_PROMPT.format(
+                     selectie=", ".join(beschrijving)))
+
+
 # ── Activity scope (#975) ────────────────────────────────────────────────────
 #
 # In the activity mode the conversation is bound to ONE activity, and the binding
@@ -737,10 +897,19 @@ SCOPE_COUNT_MEASURE = {
 _ACTIVITY_FILTER_KEYS = ("activity", "activity_id")
 
 
-def _outside_scope(what: str) -> dict[str, Any]:
+def _outside_scope(what: str, scope: Optional["Scope"] = None) -> dict[str, Any]:
+    """De weigering noemt WAAROM het buiten bereik valt, niet alleen dát.
+
+    Het model leest de weigering en stuurt bij: "geen verband met d_activity" kost
+    een ronde, "dit gesprek gaat over één activiteit" kost er geen.
+    """
+    waarover = ("Dit gesprek gaat over één activiteit"
+                if scope is None or scope.is_record
+                else "Dit gesprek gaat over de selectie op het scherm")
+    hier = "deze activiteit" if scope is None or scope.is_record else "deze selectie"
     return {"error": (
-        f"Dit gesprek gaat over één activiteit; {what} valt daarbuiten. Beantwoord "
-        "de vraag voor deze activiteit, of zeg dat ze hier niet te beantwoorden is.")}
+        f"{waarover}; {what} valt daarbuiten. Beantwoord "
+        f"de vraag voor {hier}, of zeg dat ze hier niet te beantwoorden is.")}
 
 
 def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
@@ -751,7 +920,7 @@ def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional
 
 
 def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
-                  activity_id: int) -> tuple[dict[str, Any], Optional[dict]]:
+                  scope: "Scope") -> tuple[dict[str, Any], Optional[dict]]:
     """The arguments of `run_report`, bound to the activity — or a refusal.
 
     Three things, in order:
@@ -770,62 +939,66 @@ def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
     fact = population_of(objects)
     feiten: set[str] = ({fact.key} if fact else
                         {f for k in objects if k in BY_KEY and (f := BY_KEY[k].fact)})
-    buiten = sorted(f for f in feiten if f not in ACTIVITY_FACTS)
+    buiten = sorted(f for f in feiten if scope.facts and f not in scope.facts)
     if buiten:
         namen = ", ".join(next((x.name for x in FACTS if x.key == f), f) for f in buiten)
-        return {}, _outside_scope(f"'{namen}'")
+        return {}, _outside_scope(f"'{namen}'", scope)
 
     filters = [f for f in (arguments.get("filters") or []) if isinstance(f, dict)]
-    eigen_naam = None
-    overige = []
-    for flt in filters:
-        key = str(flt.get("object") or "")
-        if key not in _ACTIVITY_FILTER_KEYS:
-            overige.append(flt)
-            continue
-        waarden = [str(v).strip() for v in (flt.get("values") or [])]
-        if key == "activity_id":
-            if any(w != str(activity_id) for w in waarden):
-                return {}, _outside_scope("een andere activiteit")
-        else:
-            if eigen_naam is None:
-                eigen_naam = _activity_name(db, tenant_id=tenant_id,
-                                            activity_id=activity_id) or ""
-            if any(w.lower() != eigen_naam.lower() for w in waarden):
-                return {}, _outside_scope("een andere activiteit")
+    overige = filters
+    record_id = scope.activity_id
+    if record_id is not None:
+        eigen_naam = None
+        overige = []
+        for flt in filters:
+            key = str(flt.get("object") or "")
+            if key not in _ACTIVITY_FILTER_KEYS:
+                overige.append(flt)
+                continue
+            waarden = [str(v).strip() for v in (flt.get("values") or [])]
+            if key == "activity_id":
+                if any(w != str(record_id) for w in waarden):
+                    return {}, _outside_scope("een andere activiteit", scope)
+            else:
+                if eigen_naam is None:
+                    eigen_naam = _activity_name(db, tenant_id=tenant_id,
+                                                activity_id=record_id) or ""
+                if any(w.lower() != eigen_naam.lower() for w in waarden):
+                    return {}, _outside_scope("een andere activiteit", scope)
 
     # The model's own filter on THIS activity is dropped rather than kept: the
     # scope filter says the same thing exactly, and a name filter compares text —
     # "quiz" would find nothing where the activity is called "Quiz".
     gebonden = dict(arguments)
-    gebonden["filters"] = overige + [
-        {"object": "activity_id", "operator": "eq", "values": [str(activity_id)]}]
+    gebonden["filters"] = overige + list(scope.filters)
     return gebonden, None
 
 
 def _scoped_values(db: Session, arguments: dict[str, Any], *, tenant_id: int,
-                   activity_id: int, max_rows: int) -> dict[str, Any]:
-    """`list_values` within the activity: the groups of a scoped count.
+                   scope: "Scope", max_rows: int) -> dict[str, Any]:
+    """`list_values` within the scope: the groups of a scoped count.
 
     The plain `list_values` reads a whole dimension — every activity's components,
-    every product. In this mode that would show the model what lies outside its
-    scope, so the values come from the same scoped report path instead.
+    every product. In a scope that would show the model what lies outside it, so the
+    values come from the same scoped report path instead.
     """
     key = str(arguments.get("object") or "")
     obj = BY_KEY.get(key)
     if obj is None or obj.is_measure:
         return list_values(db, arguments, tenant_id=tenant_id)
-    if key in _ACTIVITY_FILTER_KEYS:
-        return _outside_scope("een lijst van activiteiten")
+    if scope.is_record and key in _ACTIVITY_FILTER_KEYS:
+        return _outside_scope("een lijst van activiteiten", scope)
     fout = None
     for fact, maat in SCOPE_COUNT_MEASURE.items():
+        if scope.facts and fact not in scope.facts:
+            continue
         antwoord = run_report(db, {"objects": [key, maat]}, tenant_id=tenant_id,
-                              max_rows=max_rows, activity_id=activity_id)
+                              max_rows=max_rows, scope=scope)
         if "error" not in antwoord:
             waarden = [r.get(key) for r in antwoord.get("rows", [])]
             return {"object": key, "values": [w for w in waarden if w is not None]}
         fout = antwoord
-    return fout or _outside_scope(f"'{obj.name}'")
+    return fout or _outside_scope(f"'{obj.name}'", scope)
 
 
 def _scoped_read_tool(db: Session, name: str, arguments: dict[str, Any], *,
@@ -842,7 +1015,8 @@ def _scoped_read_tool(db: Session, name: str, arguments: dict[str, Any], *,
     if name == "get_activity_detail":
         gevraagd = args.get("activity_id")
         if gevraagd not in (None, "", activity_id, str(activity_id)):
-            return json.dumps(_outside_scope("een andere activiteit"), ensure_ascii=False)
+            return json.dumps(_outside_scope("een andere activiteit"),
+                              ensure_ascii=False)
         args["activity_id"] = activity_id
         return execute_read_tool(name, args, db)
 
@@ -868,7 +1042,7 @@ def tool_specs() -> list[dict[str, Any]]:
 # ── Dispatch (the security boundary of this pack) ─────────────────────────────
 
 def dispatcher(*, tenant_id: int, max_rows: int = 0,
-               activity_id: Optional[int] = None):
+               scope: Optional["Scope"] = None):
     """A dispatcher bound to one tenant — the shape the shared loop expects.
 
     The tenant is bound here and cannot be reached by the model: it comes from the
@@ -876,9 +1050,10 @@ def dispatcher(*, tenant_id: int, max_rows: int = 0,
     is the tenant fence for this surface, and it is closed by construction rather
     than by validation.
 
-    `activity_id` (#975) binds the conversation to one activity the same way: it
-    comes from the route, which checked it, and every tool below is constrained to
-    it here. The model can name another activity; it cannot reach one.
+    `scope` (#975, generalised by #1060) binds the conversation the same way: it
+    comes from the route, which derived and checked it, and every tool below is
+    constrained to it here. The model can name another activity or another
+    selection; it cannot reach one.
     """
     from app.domains.chatbot.api import execute_read_tool, read_only_tool_names
 
@@ -893,15 +1068,20 @@ def dispatcher(*, tenant_id: int, max_rows: int = 0,
         args = arguments or {}
         try:
             if name in leestools:
-                if activity_id is not None:
-                    return _scoped_read_tool(db, name, args, activity_id=activity_id)
+                # Alleen een RECORDscope knijpt de leestools af: die geven een
+                # lijst terug en zijn zo een zijdeur uit de scope. Een selectie op
+                # een lijstscherm zegt niets over wélke activiteit je mag lezen.
+                record_id = scope.activity_id if scope else None
+                if record_id is not None:
+                    return _scoped_read_tool(db, name, args,
+                                             activity_id=record_id)
                 return execute_read_tool(name, args, db)
             if name == "run_report":
                 result = run_report(db, args, tenant_id=tenant_id, max_rows=cap,
-                                    activity_id=activity_id)
-            elif activity_id is not None:
+                                    scope=scope)
+            elif scope is not None:
                 result = _scoped_values(db, args, tenant_id=tenant_id,
-                                        activity_id=activity_id, max_rows=cap)
+                                        scope=scope, max_rows=cap)
             else:
                 result = list_values(db, args, tenant_id=tenant_id)
         except (TypeError, ValueError) as exc:

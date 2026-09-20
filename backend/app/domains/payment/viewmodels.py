@@ -57,6 +57,13 @@ class BetalingenView(ViewModel):
     # geen `hx-include` op de filterbalk, want die zou de paginakeuze overschrijven
     # met wat er toevallig in het formulier staat.
     pager_url: str = ""
+    # #1060: staat de beheer-assistent aan én mag deze gebruiker hem aanspreken?
+    # Twee vragen, één antwoord: een ingang die op een 403 uitkomt is erger dan
+    # geen ingang. Het betalingenscherm laat FINANCE binnen, de assistent niet.
+    raakje_scherm: bool = False
+    #: Welke spraakmodus de kit mag tonen (CR-07): de overlay deelt haar
+    #: invoerregel met de andere Raakje-ingangen.
+    stt_mode: str = ""
 
     # Filteropties, opgebouwd uit de zichtbare records.
     componenten: list[tuple[int, str]]

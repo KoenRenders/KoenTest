@@ -19,7 +19,8 @@ import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.reporting.assistant import (ACTIVITY_FACTS, SCOPE_COUNT_MEASURE,
-                                             build_system_prompt, dispatcher)
+                                             build_system_prompt, dispatcher,
+                                             scope_for_activity)
 from tests._assistant_seed import TENANT, seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -31,7 +32,7 @@ def situatie(db_session):
 
 def _scoped(situatie, naam="quiz"):
     return dispatcher(tenant_id=TENANT,
-                      activity_id=situatie["activities"][naam])
+                      scope=scope_for_activity(situatie["activities"][naam]))
 
 
 def _call(dispatch, db, name, args):
@@ -176,7 +177,8 @@ def test_the_scoped_prompt_names_the_number_and_not_the_name(db_session, situati
     """The prompt of this pack is exempt from the name check because it carries no
     stored value. An activity name is stored content — so only the number goes in,
     and the name reaches the model through a tool, whose result IS scanned."""
-    prompt = build_system_prompt(activity_id=situatie["activities"]["quiz"])
+    prompt = build_system_prompt(
+        scope_for_activity(situatie["activities"]["quiz"]))
     assert f"nummer {situatie['activities']['quiz']}" in prompt
     assert "Quiz" not in prompt
 
