@@ -228,6 +228,24 @@ def polaroid_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, 
     return out, y + h + 2
 
 
+def polaroid_on(plan: Plan, image: ImageBytes, rect: tuple[float, float, float, float],
+                corner: str, width: float, *, angle: float = 4) -> tuple[str, float]:
+    """The polaroid on one corner of the main picture, and the bottom it
+    reaches.
+
+    Koen, 20 September 2026: it always sat bottom right, so on a photo whose
+    subject is in that corner it covered exactly what mattered. The corner is
+    the person's choice now. Bottom corners break the picture's edge by a
+    centimetre — that overlap is what makes it look laid on rather than
+    pasted in; top corners stay inside."""
+    rx, ry, rw, rh = rect
+    h = width * 0.72
+    x = rx + 6 if corner.endswith("_left") else rx + rw - width - 6
+    y = ry + 6 if corner.startswith("top_") else max(ry + 6, ry + rh - h + 10)
+    frag, _below = polaroid_block(plan, image, x, y, width, angle=angle if corner.endswith("_right") else -angle)
+    return frag, max(ry + rh, y + h)
+
+
 def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
     """Up to twelve dates in two columns, the heading on a coloured lid.
     Print only: a feed image carries one line instead (Koen, 20 Sep 2026)."""
@@ -505,17 +523,17 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         text_size = 7.2
         if content.main_image:
             avail = left_limit - y - below
+            hero_top = y
             frag, y = main_image_block(p, content.main_image, lx, y, full_w,
                                        hero_height(content.main_image, full_w, avail, cap=200.0, floor=60.0))
             p.full += frag
             if content.inset_image:
-                # The polaroid lies on the big picture, bottom right, and the
-                # big picture stays the same size with or without it (Koen,
-                # 20 September 2026).
-                pw = 76.0
-                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                # The polaroid lies on the big picture, in the chosen corner;
+                # the big picture stays the same size with or without it.
+                frag, bottom = polaroid_on(p, content.inset_image, (lx, hero_top, full_w, y - hero_top),
+                                           content.inset_corner, 91.0)
                 p.full += frag
-                y += 10
+                y = bottom
             y += 6
         if content.explanation_md:
             text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 6,
@@ -540,14 +558,15 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
+            hero_top = y
             frag, y = main_image_block(p, content.main_image, lx, y, full_w,
                                        hero_height(content.main_image, full_w, avail, cap=120.0, floor=50.0))
             p.full += frag
             if content.inset_image:
-                pw = 70.0
-                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                frag, bottom = polaroid_on(p, content.inset_image, (lx, hero_top, full_w, y - hero_top),
+                                           content.inset_corner, 84.0)
                 p.full += frag
-                y += 10
+                y = bottom
             y += 6
         y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
         if series:
@@ -597,13 +616,18 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             if content.explanation_md:
                 fixed += _richtext_height(content.explanation_md, rw, 6.4)
             hero_h = limit - ry - fixed - 6
+            hero_rect: tuple[float, float, float, float] | None = None
             if content.main_image:
-                frag, ry = main_image_block(p, content.main_image, rx + 3, ry - 2, rw - 8,
+                hero_top = ry - 2
+                frag, ry = main_image_block(p, content.main_image, rx + 3, hero_top, rw - 8,
                                             hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0))
                 right.append(frag)
-            if content.inset_image:
-                overlap = 45 if content.main_image else 0
-                frag, ry = polaroid_block(p, content.inset_image, rx, ry - overlap + 2, 88)
+                hero_rect = (rx + 3, hero_top, rw - 8, ry - hero_top)
+            if content.inset_image and hero_rect:
+                frag, ry = polaroid_on(p, content.inset_image, hero_rect, content.inset_corner, 105.0)
+                right.append(frag)
+            elif content.inset_image:
+                frag, ry = polaroid_block(p, content.inset_image, rx, ry + 2, 105.0)
                 right.append(frag)
             elif content.main_image:
                 ry += 6

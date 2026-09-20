@@ -37,6 +37,7 @@ from app.domains.designstudio.api import (
     PRESETS,
     STATUS_LABELS,
     STATUS_TONES,
+    INSET_CORNERS,
     STYLE_LABELS,
     STYLES,
     DesignError,
@@ -91,6 +92,8 @@ DUO_LABELS = {
     "golden_yellow-indigo": "Geel · Paars",
     "indigo-golden_yellow": "Paars · Geel",
 }
+CORNER_LABELS = {"top_left": "Linksboven", "top_right": "Rechtsboven",
+                 "bottom_left": "Linksonder", "bottom_right": "Rechtsonder"}
 GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gekozen", "discarded": "Niet gekozen",
                      "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
 
@@ -239,6 +242,7 @@ def _typed_over(view: DesignEditorView, values: dict, highlights: list[tuple[str
         logo_ids=logo_ids,
         main_image_id=num("main_image_id"), inset_image_id=num("inset_image_id"), third_image_id=num("third_image_id"),
         main_focus_x=values.get("main_focus_x", view.main_focus_x), main_focus_y=values.get("main_focus_y", view.main_focus_y),
+        inset_corner=values.get("inset_corner", view.inset_corner),
     )
 
 
@@ -291,6 +295,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         highlights=highlights, icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
         main_image_id=design.main_image_id, inset_image_id=design.inset_image_id, third_image_id=design.third_image_id,
         main_focus_x=f"{float(design.main_focus_x):.2f}", main_focus_y=f"{float(design.main_focus_y):.2f}",
+        inset_corner=design.inset_corner or "bottom_right",
+        corner_options=[(code, _(CORNER_LABELS[code])) for code in INSET_CORNERS],
         image_options=options, logo_options=logos, logo_ids=[lg.media_asset_id for lg in design.logos],
         facts=_facts_rows(facts), facts_href=f"/admin/activiteiten/{design.activity_id}",
         preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&v={fingerprint(facts)[:8]}",
