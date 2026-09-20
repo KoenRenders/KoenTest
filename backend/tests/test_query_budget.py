@@ -5,15 +5,32 @@ lijstscherm dat per rij een extra query doet, valt bij tien rijen niet op en bij
 tweehonderd wel — en dan is het al maanden zo. Deze gate telt de queries van een
 scherm bij een gevulde databank en begrenst ze.
 
-De budgetten zijn **ruim** en vast: ze staan op wat het scherm vandaag nodig heeft,
-afgerond naar boven. Ze zijn geen doel maar een plafond — verlaag ze wanneer een
-fix het aantal omlaag brengt, zodat de winst niet stilletjes weer weglekt. Faalt
-de gate, dan toont ze het aantal en de eerste vijf statements, zodat je meteen
-ziet wélke query zich herhaalt.
+**Twee gates met een verschillende rol** (#1058, 20 september 2026):
 
-Belangrijk: het budget mag **niet** met de hoeveelheid data meeschalen. Daarom
-vult de fixture veertig gezinnen en veertig inschrijvingen — bij een N+1 loopt het
-aantal queries dan zo ver op dat geen enkel redelijk plafond nog past.
+* het **plafond** per scherm is een grove bovengrens. Het mag meegeven als er werk
+  bijkomt, mét een reden in de commit — het plafond van het activiteitendetail ging
+  in vier dagen drie keer omhoog en alle drie terecht. Het vangt wat de andere niet
+  vangt: een scherm dat zestig VASTE vragen stelt is traag zonder mee te schalen.
+* de **verschiltest** meet hetzelfde scherm bij twee databankgroottes en eist dat
+  het aantal gelijk is. Die mag nooit bewegen: "schaalt niet mee met de data" is
+  de eigenschap die ertoe doet, en die verandert niet als er een functie bijkomt.
+
+Zonder die tweede meet het plafond op den duur "hoeveel functies staan er op dit
+scherm", en is een verhoging die wél meeschaalt niet te onderscheiden van een die
+dat niet doet.
+
+Faalt een gate, dan toont ze het aantal en de vijf meest herhaalde statements,
+zodat je meteen ziet wélke query zich herhaalt.
+
+Kapotgemaakt om te controleren dat de verschiltest het onderscheid werkelijk maakt
+(gemeten op 20 september 2026, allebei op het activiteitendetail):
+
+* een echte **N+1** erin — `db.query(Activity).all()` en per rij `poster_asset_url`
+  aanraken — gaf *"26 vragen bij 5 rijen per soort, 66 bij 45 — dit scherm schaalt
+  mee met de data"*, met de herhaalde media-query bovenaan het rapport;
+* één **vaste** extra vraag (`db.query(Activity).count()`) liet de verschiltest
+  **groen** en deed alleen het plafond aanslaan (20 tegen 19). Dat is de toets die
+  bewijst dat de nieuwe gate iets anders meet dan de oude.
 """
 from collections import Counter
 from datetime import date
@@ -85,21 +102,28 @@ class Queryteller:
         return "\n    ".join(regels)
 
 
-@pytest.fixture
-def gevulde_databank(client, db_session):
-    """Genoeg rijen dat een N+1 niet meer binnen een plafond past."""
-    from app.domains.activities.api import Registration, RegistrationItem
+def _vul(db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int,
+         vanaf: int = 0, doel=None):
+    """Voeg rijen TOE aan de databank; geef het drietal terug om op te bouwen.
+
+    #1058 maakte hier een fabriek van. Ze is bewust **aanvullend** en niet
+    "zet de databank op N": de verschiltest meet hetzelfde scherm twee keer in
+    dezelfde transactie, en dan is groeien de enige manier om een tweede grootte te
+    krijgen. `vanaf` houdt de e-mailadressen en namen uniek tussen twee rondes.
+    """
+    from datetime import timedelta
+
+    from app.domains.activities.api import (Activity, ActivityDate, Registration,
+                                            RegistrationItem)
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
-    seed_postal_code(db_session)
-    activity, component, product = seed_activity_with_product(db_session, is_free=False)
+    if doel is None:
+        seed_postal_code(db_session)
+        doel = seed_activity_with_product(db_session, is_free=False)
+    activity, component, product = doel
 
-    from datetime import timedelta
-
-    from app.domains.activities.api import Activity, ActivityDate
-
-    for i in range(AANTAL_ACTIVITEITEN):
+    for i in range(vanaf, vanaf + activiteiten):
         extra = Activity(name=f"Budgetactiviteit {i}")
         db_session.add(extra)
         db_session.flush()
@@ -107,7 +131,7 @@ def gevulde_databank(client, db_session):
                                     start_date=date.today() - timedelta(days=30 * i)))
 
     jaar = date.today().year
-    for i in range(AANTAL_GEZINNEN):
+    for i in range(vanaf, vanaf + gezinnen):
         member, _person = create_test_family(db_session, email=f"budget{i}@example.com")
         db_session.add(Membership(member_id=member.id, year=jaar, is_active=True,
                                   valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
@@ -115,7 +139,7 @@ def gevulde_databank(client, db_session):
             payable_type="membership", payable_id=member.id, type="charge",
             amount=Decimal("20.00"), method="transfer", status="pending"))
 
-    for i in range(AANTAL_INSCHRIJVINGEN):
+    for i in range(vanaf, vanaf + inschrijvingen):
         registratie = Registration(activity_id=activity.id, component_id=component.id,
                                    registration_type="INDIVIDUAL",
                                    contact_name=f"Budget {i}",
@@ -128,7 +152,14 @@ def gevulde_databank(client, db_session):
             payable_type="registration", payable_id=registratie.id, type="charge",
             amount=Decimal("20.00"), method="transfer", status="pending"))
     db_session.commit()
+    return doel
 
+
+@pytest.fixture
+def gevulde_databank(client, db_session):
+    """Genoeg rijen dat een N+1 niet meer binnen een plafond past."""
+    _vul(db_session, activiteiten=AANTAL_ACTIVITEITEN, gezinnen=AANTAL_GEZINNEN,
+         inschrijvingen=AANTAL_INSCHRIJVINGEN)
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     return client
 
@@ -232,6 +263,84 @@ def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_s
         f"{pad}: {len(teller)} queries (budget {BUDGET_ACTIVITEITDETAIL}).\n"
         f"    Meest herhaalde statements:\n    {teller.rapport()}"
     )
+
+
+# ── De gate die niet mag bewegen: schaalt het scherm mee? (#1058) ────────────
+#
+# Het plafond hierboven ging in vier dagen drie keer omhoog, en elke keer terecht:
+# vaste vragen die niet meeschalen. Maar een plafond dat bij elke nieuwe functie
+# meegeeft, meet op den duur "hoeveel functies staan er op dit scherm" — en dan is
+# de dag dat iemand een verhoging doorvoert die WEL meeschaalt, niet te
+# onderscheiden van de drie die dat niet deden.
+#
+# Daarom twee gates met een verschillende rol, en dat verschil hoort hier te staan
+# zodat de volgende de verhogingen hierboven niet als slordigheid leest:
+#
+#   * het PLAFOND is een grove bovengrens. Het mag meegeven als er werk bijkomt —
+#     mét een reden in de commit. Het vangt wat de verschiltest niet vangt: een
+#     scherm dat zestig VASTE vragen stelt, is traag zonder mee te schalen.
+#   * de VERSCHILTEST hieronder mag nooit bewegen. Ze meet hetzelfde scherm bij
+#     twee databankgroottes en eist dat het aantal gelijk is. Die eigenschap
+#     verandert niet als er een functie bijkomt.
+#
+# De groottes liggen ver genoeg uiteen dat één N+1 tientallen vragen scheelt, en de
+# grote is ongeveer het volume van `gevulde_databank` — zwaarder maakt de suite
+# trager zonder iets extra te bewijzen.
+SCHAAL_KLEIN = 5
+SCHAAL_GROOT = 45
+
+
+def _meet(client, pad) -> Queryteller:
+    """Eén meting, met een opwarmronde erbij.
+
+    De tenant-caches zijn procesbreed en koud bij de eerste aanroep in een proces;
+    die drie cachemissers horen niet bij het scherm. #1004 warmde één keer op, vóór
+    één meting. Hier moet het bij ÉLKE meting, anders zou het verschil tussen de
+    twee groottes de cache kunnen zijn in plaats van de data.
+    """
+    client.get(pad)
+    with Queryteller() as teller:
+        antwoord = client.get(pad)
+    assert antwoord.status_code == 200, f"{pad}: {antwoord.status_code}"
+    return teller
+
+
+def _verschiltest(client, db_session, pad_van):
+    """Meet `pad_van(doel)` klein, laat de databank groeien, meet opnieuw."""
+    doel = _vul(db_session, activiteiten=SCHAAL_KLEIN, gezinnen=SCHAAL_KLEIN,
+                inschrijvingen=SCHAAL_KLEIN)
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+    pad = pad_van(doel)
+
+    klein = _meet(client, pad)
+
+    groei = SCHAAL_GROOT - SCHAAL_KLEIN
+    _vul(db_session, activiteiten=groei, gezinnen=groei, inschrijvingen=groei,
+         vanaf=SCHAAL_KLEIN, doel=doel)
+
+    groot = _meet(client, pad)
+
+    assert len(klein) == len(groot), (
+        f"{pad}: {len(klein)} vragen bij {SCHAAL_KLEIN} rijen per soort, "
+        f"{len(groot)} bij {SCHAAL_GROOT} — dit scherm schaalt mee met de data.\n"
+        f"    Meest herhaalde statements bij {SCHAAL_GROOT}:\n    {groot.rapport()}"
+    )
+
+
+def test_het_activiteitdetail_schaalt_niet_mee(client, db_session):
+    """Waar de drift zat (#1058). De plafondtest hierboven staat erboven, niet
+    ervoor: die twee vangen niet hetzelfde."""
+    _verschiltest(client, db_session,
+                  lambda doel: f"/admin/activiteiten/{doel[0].id}")
+
+
+# Gemeten, scherm per scherm, op 20 september 2026 (#1058): alle zeven zijn vlak —
+# hetzelfde aantal vragen bij 5 en bij 45 rijen per soort. Geen enkel scherm is hier
+# opgenomen zonder die meting; een lijst die je niet gemeten hebt, hoort niet stil in
+# een gate te belanden alsof ze bewezen is.
+@pytest.mark.parametrize("pad", sorted(BUDGET))
+def test_een_lijstscherm_schaalt_niet_mee(client, db_session, pad):
+    _verschiltest(client, db_session, lambda _doel: pad)
 
 
 @pytest.mark.parametrize("pad", sorted(BUDGET))
