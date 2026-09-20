@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from xml.sax.saxutils import escape
 
 from app.domains.designstudio import richtext
-from app.domains.designstudio.content import ImageBytes, PosterContent
+from app.domains.designstudio.content import Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import icon_svg
 
 FONT = "Radio Canada Big"
@@ -214,11 +214,11 @@ def polaroid_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, 
     return out, y + h + 2
 
 
-def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float,
-               *, cols: int = 2) -> tuple[str, float]:
-    """Up to twelve dates in two (print) or three (Instagram) columns, the
-    heading on a coloured lid."""
+def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
+    """Up to twelve dates in two columns, the heading on a coloured lid.
+    Print only: a feed image carries one line instead (Koen, 20 Sep 2026)."""
     pal = plan.pal
+    cols = 2
     dates = content.dates[:12]
     rows = (len(dates) + cols - 1) // cols
     col_w = (w - 4 * cols) / cols
@@ -303,8 +303,8 @@ def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: flo
 
 # ── The planner ───────────────────────────────────────────────────────────
 
-def _dates_grid_height(n: int, cols: int = 2) -> float:
-    rows = (n + cols - 1) // cols
+def _dates_grid_height(n: int) -> float:
+    rows = (n + 1) // 2
     return 10 + rows * 14 + 3 + 3
 
 
@@ -477,12 +477,10 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         y = top_y - 4
         n = min(len(content.highlights), 6)
         hl_rows = (n + 1) // 2
-        grid = len(content.dates) > 1
+        series = len(content.dates) > 1
         if content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
-        grid_cols = 4 if len(content.dates) > 8 else 3   # twelve dates in three rows, not four
-        below = hl_rows * ROW_H + 6 + (_dates_grid_height(len(content.dates[:12]), cols=grid_cols) + 3 if grid else 0) \
-            + (10 if content.inset_image else 0)
+        below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(120.0, avail)))
@@ -494,8 +492,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 y += 10
             y += 6
         y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
-        if grid:
-            frag, y = dates_grid(p, content, lx, y + 3, full_w, cols=grid_cols)
+        if series:
+            # Koen, 20 September 2026: nobody reads twelve dates while
+            # scrolling, and the QR already leads to the site. One row in the
+            # highlights' own typography, over the full width.
+            summary = PosterContent(duo_code=content.duo_code, highlights=(
+                Highlight("calendar", f"{len(content.dates)} {content.dates_heading or 'DATA'} · zie de website",
+                          True),))
+            frag, y = highlight_rows(p, summary, lx, y, full_w, index_offset=6)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag

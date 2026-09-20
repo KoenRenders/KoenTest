@@ -163,7 +163,10 @@ def test_feed_layout_shows_every_row_the_grid_the_polaroid_and_the_badge():
                           layout="feed_portrait")
     assert merged.height_mm == 371.25
     assert all(f"t-hl-{i}-0" in merged.boxes for i in range(6)) and "Deze opmaak toont" not in " ".join(merged.violations)
-    assert 'id="t-dates-head"' in merged.svg and 'id="t-welcome-0"' in merged.svg
+    assert 'id="t-welcome-0"' in merged.svg
+    # The dates grid gives way to one row (Koen, 20 September 2026).
+    assert 'id="t-dates-head"' not in merged.svg
+    assert "3 DATA IN 2026 · ZIE DE WEBSITE" in merged.svg
     assert merged.svg.count("<image") == 2 and 'id="t-rt-explanation"' not in merged.svg
 
 
@@ -260,15 +263,17 @@ def test_every_highlight_row_is_upper_case_bold_and_one_size():
     assert [r[2] for r in rows] == ["MILOHEEM", "GEZELLIG SAMEN"]
 
 
-def test_a_wide_box_shows_a_known_wide_picture_whole():
-    """A squeezed Instagram hero letterboxes a drawing rather than cutting it."""
+def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
+    """Koen's feed image had the drawing cut in half. A picture whose known
+    size is much wider than its box is letterboxed; an unknown size crops as
+    before, and a normal box always crops."""
+    from app.domains.designstudio.blocks import aspect_for
+
     wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1440, 1248)
-    print_svg = render.merge(_content(main_image=wide), layout="print_a").svg      # tall box: crop as before
-    assert 'preserveAspectRatio="xMidYMid slice"' in print_svg
-    six = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(6))
-    feed_svg = render.merge(_content(main_image=wide, highlights=six, dates=tuple(f"{i} MEI" for i in range(1, 13)),
-                                     contacts=()), layout="feed_portrait").svg
-    assert 'preserveAspectRatio="xMidYMid meet"' in feed_svg
+    assert aspect_for(wide, 260, 60) == "xMidYMid meet"       # squeezed: whole
+    assert aspect_for(wide, 260, 200) == "xMidYMid slice"     # normal: crop
+    assert aspect_for(ImageBytes(PNG_2x2, "image/png"), 260, 60) == "xMidYMid slice"   # size unknown: crop
+    assert 'preserveAspectRatio="xMidYMid slice"' in render.merge(_content(main_image=wide), layout="print_a").svg
 
 
 def test_a_focal_point_moves_the_crop():
