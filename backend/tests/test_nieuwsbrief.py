@@ -49,14 +49,15 @@ class _Mailbox:
         self.quota_after: int | None = None
 
     def __call__(self, to_email, subject, body_html, *, email_type,
-                 reply_to=None, unsubscribe_url=None):
+                 reply_to=None, unsubscribe_url=None, body_text=None):
         from app.domains.mail.api import SendingQuotaReached
 
         if self.quota_after is not None and len(self.sent) >= self.quota_after:
             raise SendingQuotaReached("550 5.4.5 Daily user sending limit exceeded")
         self.sent.append({"to": to_email, "subject": subject, "body": body_html,
                           "type": email_type, "reply_to": reply_to,
-                          "unsubscribe_url": unsubscribe_url})
+                          "unsubscribe_url": unsubscribe_url,
+                          "body_text": body_text})
         return self.answer
 
     @property
@@ -805,3 +806,57 @@ def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
     mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
     assert 'class="nb-blok-titel" style="font-size:20px' in mail
     assert "@media only screen and (max-width:480px)" in mail, "op een telefoon onder elkaar"
+
+
+# ── The inbox line and the text part (Koen, 19 September 2026) ───────────────
+
+def test_de_voorbeeldtekst_staat_in_de_mail_en_valt_terug_op_de_eerste_zin(db_session):
+    """Raak nationaal zet er "Ontdek onze webinars…"; bij ons las het postvak
+    "Beste,".
+
+    Broken on purpose: the fallback in `preview_text_of` removed → the letter
+    without a typed line carries nothing and the second half fails.
+    """
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body="<div>Beste,</div><div>Het najaar zit vol activiteiten.</div>")
+
+    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    assert "Het najaar zit vol activiteiten." in mail
+    assert nb.preview_text_of(letter) == "Het najaar zit vol activiteiten."
+
+    nb.update_draft(db_session, letter, subject=letter.subject, body_html=letter.body_html,
+                    audience=AUDIENCE_MEMBERS, preview_text="Ontdek ons najaar!")
+    assert nb.preview_text_of(letter) == "Ontdek ons najaar!"
+    assert "Ontdek ons najaar!" in nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER,
+                                                  unsubscribe_url=None)
+
+
+def test_de_mail_draagt_ook_een_tekstversie(db_session, mailbox):
+    """A mail announcing itself as multipart/alternative with only an HTML part
+    is a blank page in a reader that strips HTML.
+
+    Broken on purpose: `body_text` not passed in `send_test` → the mail leaves
+    without its text part and this test fails.
+    """
+    vandaag = date.today()
+    activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10))
+    facts = nb.activity_facts(db_session, [activity.id], base_url=BASE)
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+                     body=f"<div>Beste,</div><div>{nb.activity_card_html(facts[activity.id])}</div>")
+
+    nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
+
+    tekst = mailbox.sent[0]["body_text"]
+    assert "Rumproefavond" in tekst
+    assert "<div" not in tekst and "&nbsp;" not in tekst
+    # Links as the letter of Raak nationaal writes them: the text, then the URL.
+    assert f"Schrijf je in! ({BASE}/activiteiten/rumproefavond)" in tekst
+
+
+def test_de_tekstversie_van_een_abonnee_draagt_de_uitschrijflink(db_session):
+    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, body="<div>Dag!</div>")
+
+    tekst = nb.render_text(db_session, letter, unsubscribe_url=f"{BASE}/nieuwsbrief/uit/tok",
+                           base_url=BASE)
+
+    assert f"{BASE}/nieuwsbrief/uit/tok" in tekst

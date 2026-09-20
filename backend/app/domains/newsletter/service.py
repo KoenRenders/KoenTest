@@ -490,13 +490,17 @@ def _clean_body(body_html: str) -> str:
 
 
 def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: str,
-                 audience: Optional[str]) -> None:
+                 audience: Optional[str], preview_text: Optional[str] = None) -> None:
     _refuse_unless_draft(letter)
     if audience and audience not in AUDIENCES:
         raise NewsletterError(_("Onbekende doelgroep."))
     letter.subject = (subject or "").strip()[:500]
     letter.body_html = _clean_body(body_html)
     letter.audience = audience or None
+    # None means "not part of this save" (Raakje applying a proposal); an empty
+    # string means the author cleared it, and then the letter derives one again.
+    if preview_text is not None:
+        letter.preview_text = preview_text.strip()[:PREVIEW_MAX]
     db.commit()
 
 
@@ -512,6 +516,7 @@ def set_draft_sources(db: Session, letter: Newsletter, *, activity_ids: list[int
 def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> Newsletter:
     """A new draft with the same subject and text — and no audience (CR-05 §3.12)."""
     copy = Newsletter(subject=letter.subject, body_html=letter.body_html,
+                      preview_text=letter.preview_text,
                       audience=None, created_by=created_by, copied_from_id=letter.id,
                       draft_activity_ids=list(letter.draft_activity_ids or []),
                       draft_meeting_ids=list(letter.draft_meeting_ids or []))
@@ -1026,6 +1031,70 @@ def greeting_html() -> str:
     return f"<div>{html_lib.escape(_('Beste,'))}</div>"
 
 
+#: How long a preview line may be. Gmail and Apple Mail show roughly a hundred
+#: characters; beyond two hundred nothing reads it, so the field stops there.
+PREVIEW_MAX = 200
+
+
+def preview_text_of(letter: Newsletter) -> str:
+    """The line the inbox shows beside the subject (#984).
+
+    What the author typed, or else the letter's own first real sentence — the
+    greeting and a marker line skipped, because "Beste," is exactly what this
+    is meant to replace.
+    """
+    typed = (letter.preview_text or "").strip()
+    if typed:
+        return typed[:PREVIEW_MAX]
+    greeting = plain_text(greeting_html()).strip().rstrip(",").lower()
+    for line in plain_text(letter.body_html or "").splitlines():
+        line = line.strip()
+        if not line or ACTIVITY_MARKER.fullmatch(line):
+            continue
+        if line.rstrip(",").lower() == greeting:
+            continue
+        return line[:PREVIEW_MAX]
+    return ""
+
+
+def plain_text(html: str) -> str:
+    """HTML as readable text, links as "tekst (adres)" — the way the letter of
+    Raak nationaal writes them (#984).
+
+    Also the text part of the mail: a mail that carries only HTML is a blank
+    page in a reader that strips it, and for anyone using a screen reader or a
+    watch there is then nothing left at all.
+    """
+    text = html or ""
+    text = re.sub(r"<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>",
+                  lambda m: f"{re.sub(r'<[^>]+>', '', m.group(2))} ({m.group(1)})",
+                  text, flags=re.I | re.S)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    text = re.sub(r"</(li|div|p|h\d|tr|table)>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html_lib.unescape(text)
+    lines = [re.sub(r"[ \t]+", " ", line).strip() for line in text.splitlines()]
+    out: list[str] = []
+    for line in lines:
+        if line or (out and out[-1]):
+            out.append(line)
+    return "\n".join(out).strip()
+
+
+def render_text(db: Session, letter: Newsletter, *, unsubscribe_url: Optional[str],
+                base_url: str = "") -> str:
+    """The letter as plain text, with the same footer as the HTML version."""
+    base = (base_url or letter.link_base or "").rstrip("/")
+    name, address = _organisation_footer(db)
+    body = plain_text(expand_blocks(db, letter.body_html or "", base_url=base))
+    footer = [f"{name} · {address}" if address else name]
+    if unsubscribe_url:
+        footer.append(_("Je krijgt deze mail omdat je op de mailinglijst van "
+                        "%(naam)s staat.") % {"naam": name})
+        footer.append(f"{_('Uitschrijven')}: {unsubscribe_url}")
+    return f"{body}\n\n---\n" + "\n".join(footer)
+
+
 def closing_html(db: Session) -> str:
     """The closing of every letter: no personal names (CR-05 §3.10)."""
     from app.kernel.tenant_config import tenant_display_name
@@ -1059,8 +1128,16 @@ def render_mail(db: Session, letter: Newsletter, *, kind: str,
                             "%(naam)s staat.") % {"naam": name}))
         footer.append(f'<a href="{esc(unsubscribe_url)}" style="color:#52607a">'
                       f'{esc(_("Uitschrijven"))}</a>')
+    # The preview line: hidden in the letter, shown by the inbox beside the
+    # subject. The spaces after it stop a client from padding it with the first
+    # words of the letter.
+    preview = preview_text_of(letter)
+    preview_block = (
+        f'<div style="display:none;font-size:0;line-height:0;max-height:0;'
+        f'max-width:0;opacity:0;overflow:hidden">{esc(preview)}'
+        + "&#847;&zwnj;&nbsp;" * 40 + "</div>") if preview else ""
     return (
-        f'<style>{BLOCK_MEDIA_CSS}</style>'
+        f'<style>{BLOCK_MEDIA_CSS}</style>{preview_block}'
         '<div style="background:#eef3f9;padding:20px 10px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
@@ -1122,8 +1199,9 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
     unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DELIVERY_SUBSCRIBER else None
     body = render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe_url,
                        logo_url=_logo_url(db, base_url), base_url=base_url)
+    text = render_text(db, letter, unsubscribe_url=unsubscribe_url, base_url=base_url)
     return send_campaign_mail(to_email, f"[{_('TEST')}] {letter.subject}", body,
-                              email_type="newsletter")
+                              email_type="newsletter", body_text=text)
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────
@@ -1277,9 +1355,10 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
                                f"{subscriber.unsubscribe_token}")
         body = render_mail(db, letter, kind=delivery.kind,
                            unsubscribe_url=unsubscribe_url, logo_url=logo_url)
+        text = render_text(db, letter, unsubscribe_url=unsubscribe_url)
         try:
             outcome = send_campaign_mail(delivery.email, letter.subject, body,
-                                         email_type="newsletter",
+                                         email_type="newsletter", body_text=text,
                                          reply_to=letter.reply_to_address,
                                          unsubscribe_url=unsubscribe_url)
         except SendingQuotaReached:

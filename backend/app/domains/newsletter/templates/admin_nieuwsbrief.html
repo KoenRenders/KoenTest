@@ -185,10 +185,24 @@
       <p class="text-xs text-ink-soft mt-1.5">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
     </fieldset>
 
-    <div class="bg-surface border border-line rounded-2xl p-5">
-      {{ ui.label(_("Onderwerp"), "nb-onderwerp", required=True) }}
-      {{ ui.input_control("subject", id="nb-onderwerp", value=letter.subject, cls="w-full",
-                          placeholder=_("Het najaar in Millegem")) }}
+    <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+      <div>
+        {{ ui.label(_("Onderwerp"), "nb-onderwerp", required=True) }}
+        {{ ui.input_control("subject", id="nb-onderwerp", value=letter.subject, cls="w-full",
+                            placeholder=_("Het najaar in Millegem")) }}
+      </div>
+      {# Koen, 19 september 2026, naar het voorbeeld van Raak nationaal: de regel
+         die het postvak naast het onderwerp toont. Laat je hem leeg, dan neemt de
+         brief zijn eigen eerste zin — zo staat er nooit "Beste," in de inbox. #}
+      <div x-data="{ n: {{ (letter.preview_text or '')|length }} }">
+        {{ ui.label(_("Voorbeeldtekst"), "nb-voorbeeldtekst") }}
+        {{ ui.input_control("preview_text", id="nb-voorbeeldtekst", value=letter.preview_text,
+                            cls="w-full", placeholder=_("Ontdek onze najaarsactiviteiten!"),
+                            attrs='maxlength="200" @input="n = $event.target.value.length"') }}
+        <p class="text-xs text-ink-soft mt-1">
+          {{ _("Optioneel. Staat in het postvak naast het onderwerp; leeg = de eerste zin van de brief.") }}
+          <span x-text="n + ' / 200'"></span></p>
+      </div>
     </div>
 
     <div class="bg-surface border border-line rounded-2xl p-5">

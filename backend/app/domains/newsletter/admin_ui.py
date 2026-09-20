@@ -403,14 +403,14 @@ def newsletter_screen(newsletter_id: int, request: Request, db: Session = Depend
 def newsletter_save(newsletter_id: int, request: Request, db: Session = Depends(get_db),
                     _email: str = Depends(require_admin_ui),
                     subject: str = Form(""), body_html: str = Form(""),
-                    audience: str = Form("")):
+                    audience: str = Form(""), preview_text: str = Form("")):
     """Autosave: the status line comes back, nothing else is swapped — the
     editor must never be replaced under the author's fingers."""
     letter = _letter_or_404(db, newsletter_id)
     error = None
     try:
         nb.update_draft(db, letter, subject=subject, body_html=body_html,
-                        audience=audience or None)
+                        audience=audience or None, preview_text=preview_text)
     except nb.NewsletterError as exc:
         error = str(exc)
     return templates.TemplateResponse(
