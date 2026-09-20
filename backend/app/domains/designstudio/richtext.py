@@ -52,12 +52,39 @@ class Run:
     bold: bool = False
 
 
-#: Line spacing of body text. It was 1.3, went to 1.4 when the poster started
-#: keeping typed line breaks, and is 1.6 since Koen looked at that result:
-#: "zou je niet beter 1,5 of zelfs 1,6 nemen? Nu zie ik niets tenzij ik de
-#: meetlat er naast leg" (20 September 2026). At A3 reading distance the extra
-#: air has to be visible without measuring it.
-LINE_HEIGHT = 1.6
+#: Step between two lines of the same typed line — text that only wrapped
+#: because the column ran out. Ordinary body leading; nothing was meant by
+#: the break, so nothing should be read into it.
+LINE_HEIGHT = 1.3
+
+#: Step onto a line the writer started with Enter. Koen, 20 September 2026:
+#: "ik bedoelde bij een enter, niet bij elke lijn". The air marks the break
+#: he typed, and at A3 reading distance it has to be visible without a ruler
+#: — hence 1.6 rather than the 1.4 that was tried first.
+BREAK_HEIGHT = 1.6
+
+
+@dataclass(frozen=True)
+class Line:
+    """One drawn line, and whether the writer asked for it.
+
+    Iterating a line yields its runs, so a caller that only wants the text
+    does not need to know about the break.
+    """
+    runs: tuple[Run, ...] = ()
+    #: Follows a typed Enter (or a blank line), so the step onto it is
+    #: :data:`BREAK_HEIGHT` instead of :data:`LINE_HEIGHT`.
+    after_break: bool = False
+
+    def __iter__(self):
+        return iter(self.runs)
+
+    def __len__(self) -> int:
+        return len(self.runs)
+
+    def lead(self, size: float) -> float:
+        """The step in millimetres onto this line at this font size."""
+        return size * (BREAK_HEIGHT if self.after_break else LINE_HEIGHT)
 
 
 @dataclass(frozen=True)
@@ -137,15 +164,19 @@ def _runs(text: str) -> tuple[Run, ...]:
     return tuple(r for r in runs if r.text)
 
 
-def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float = 0.0) -> list[list[Run]]:
+def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float = 0.0) -> list[Line]:
     """Wrap blocks into lines that fit ``width`` at ``size``. A bullet block
     gets its marker as the first run of its first line and continuation lines
     indented by ``bullet_indent`` (handled by the caller through an empty run).
-    A blank line separates blocks."""
-    lines: list[list[Run]] = []
+    A blank line separates blocks.
+
+    Each line says whether it follows a break the writer typed, which is what
+    decides its leading.
+    """
+    lines: list[Line] = []
     for i, block in enumerate(blocks):
         if i and block.gap:
-            lines.append([])
+            lines.append(Line((), after_break=True))
         words: list[tuple[str, bool]] = []
         for run in block.runs:
             for w in _ALLOWED_INLINE.split(run.text):
@@ -159,14 +190,16 @@ def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float
             ww = text_width(word, size, bold=bold)
             space = text_width(" ", size) if current else 0.0
             if current and current_w + space + ww > avail:
-                lines.append(_line(current, bullet=block.bullet and first))
+                lines.append(Line(tuple(_line(current, bullet=block.bullet and first)),
+                                  after_break=bool(lines) and first))
                 first = False
                 current, current_w = [], 0.0
                 space = 0.0
             current.append((word, bold))
             current_w += space + ww
         if current:
-            lines.append(_line(current, bullet=block.bullet and first))
+            lines.append(Line(tuple(_line(current, bullet=block.bullet and first)),
+                              after_break=bool(lines) and first))
     return lines
 
 
@@ -185,14 +218,29 @@ def _line(words: list[tuple[str, bool]], *, bullet: bool) -> list[Run]:
     return runs
 
 
+def _lines_of(source: str, width: float, size: float) -> list[Line]:
+    return wrap(parse(source), width=width, size=size, bullet_indent=size * 1.1)
+
+
 def line_count(source: str, *, width: float, size: float) -> int:
-    """How many lines the text takes at this width — what the planner needs to
-    reserve room before anything is drawn."""
-    return len(wrap(parse(source), width=width, size=size, bullet_indent=size * 1.1))
+    """How many lines the text takes at this width."""
+    return len(_lines_of(source, width, size))
+
+
+def text_height(source: str, *, width: float, size: float) -> float:
+    """How much room the text needs, in millimetres — what the planner has to
+    reserve before anything is drawn.
+
+    Counting the steps rather than the lines, because lines no longer all
+    cost the same: one the writer started with Enter is taller than one that
+    merely wrapped. One step per line, including the first, which leaves the
+    descender room the old line count also left.
+    """
+    return sum(ln.lead(size) for ln in _lines_of(source, width, size))
 
 
 def to_svg(source: str, *, x: float, y: float, width: float, size: float,
-           line_height: float = LINE_HEIGHT, fill: str, max_lines: int | None = None,
+           fill: str, max_lines: int | None = None,
            element_id: str = "") -> tuple[str, int]:
     """Render formatted text as one ``<text>`` element with ``<tspan>`` lines.
 
@@ -201,13 +249,12 @@ def to_svg(source: str, *, x: float, y: float, width: float, size: float,
     exceeds the block's box (shrink, refuse); ``max_lines`` cuts the output so
     the preview never draws outside the block.
     """
-    lines = wrap(parse(source), width=width, size=size, bullet_indent=size * 1.1)
+    lines = _lines_of(source, width, size)
     if max_lines is not None:
         lines = lines[:max_lines]
-    step = size * line_height
     parts = []
     for i, line in enumerate(lines):
-        dy = f"{step:.3f}" if i else "0"
+        dy = f"{line.lead(size):.3f}" if i else "0"
         inner = "".join(
             f'<tspan font-weight="bold">{escape(r.text)}</tspan>' if r.bold else escape(r.text)
             for r in line
