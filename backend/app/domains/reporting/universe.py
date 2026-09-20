@@ -1405,6 +1405,29 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
+        key="payment_open", name="Openstaand (ja/nee)", klass="Betalingen",
+        kind=ObjectKind.DIMENSION, view="f_payments",
+        sql="CASE WHEN ABS({view}.open_amount) > 0 THEN 'Ja' ELSE 'Nee' END",
+        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
+        description=(
+            "Of er op deze betaling nog geld openstaat — het verschil tussen te betalen "
+            "en ontvangen. Kijkt naar het SALDO en niet naar de status: een deels "
+            "betaalde vordering staat nog op 'In afwachting' maar kan al grotendeels "
+            "voldaan zijn, en een vordering die op 'Betaald' staat kan nog een rest "
+            "openhebben. Dit is dezelfde doorsnede als het tab 'Openstaand' op het "
+            "betalingenscherm, en net als daar op de ABSOLUTE waarde: een "
+            "terugbetaling draagt een negatief bedrag en een te veel betaalde "
+            "vordering levert eveneens een negatief saldo — met een "
+            "eenrichtingsvergelijking vielen die uit het filter (#668). De "
+            "verduidelijking tussen haakjes staat er omdat "
+            "'Openstaand' in deze klasse al het BEDRAG is dat openstaat; zo staan de "
+            "twee in de kiezer naast elkaar en blijft zichtbaar dat ze over hetzelfde "
+            "begrip gaan. Dezelfde vorm als 'Gemeente (adres)' en 'Aantal leden "
+            "(personen)'."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
         key="payment_type", name="Type", klass="Betalingen", kind=ObjectKind.DIMENSION,
         view="f_payments", sql="{view}.record_type_label", format=Format.LABEL,
         role=Role.FINANCE, fact="f_payments",

@@ -108,7 +108,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Universe role | Meaning | Objects |
 |---|---|---|
 | `admin` | the default: what an admin screen already shows | 84 |
-| `finance` | money — every measure formatted as money, and the Betalingen class | 30 |
+| `finance` | money — every measure formatted as money, and the Betalingen class | 31 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
 ## Objects
@@ -211,6 +211,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `payment_days_to_paid` | Gemiddelde betaaltermijn | measure | days | `finance` | admin_plain | `AVG(f_payments.days_to_paid)` | Gemiddeld aantal dagen tussen aanmaak en betaling, over de betaalde records. |
 | `payment_method` | Betaalwijze | dimension | label | `finance` | admin_plain | `d_payment_method.label` | Hoe er betaald werd of moet worden: online, overschrijving of cash. |
 | `payment_status` | Status | dimension | label | `finance` | admin_plain | `d_payment_status.label` | Waar deze betaling staat: in afwachting, betaald, mislukt of geannuleerd. Een deels betaalde vordering staat nog in afwachting. |
+| `payment_open` | Openstaand (ja/nee) | dimension | label | `finance` | admin_plain | `CASE WHEN ABS(f_payments.open_amount) > 0 THEN 'Ja' ELSE 'Nee' END` | Of er op deze betaling nog geld openstaat — het verschil tussen te betalen en ontvangen. Kijkt naar het SALDO en niet naar de status: een deels betaalde vordering staat nog op 'In afwachting' maar kan al grotendeels voldaan zijn, en een vordering die op 'Betaald' staat kan nog een rest openhebben. Dit is dezelfde doorsnede als het tab 'Openstaand' op het betalingenscherm, en net als daar op de ABSOLUTE waarde: een terugbetaling draagt een negatief bedrag en een te veel betaalde vordering levert eveneens een negatief saldo — met een eenrichtingsvergelijking vielen die uit het filter (#668). De verduidelijking tussen haakjes staat er omdat 'Openstaand' in deze klasse al het BEDRAG is dat openstaat; zo staan de twee in de kiezer naast elkaar en blijft zichtbaar dat ze over hetzelfde begrip gaan. Dezelfde vorm als 'Gemeente (adres)' en 'Aantal leden (personen)'. |
 | `payment_type` | Type | dimension | label | `finance` | admin_plain | `f_payments.record_type_label` | Of deze regel een vordering is of een terugbetaling. Terugbetalingen tellen negatief mee in 'Te betalen'. |
 | `payment_payable_type` | Soort | dimension | label | `finance` | admin_plain | `f_payments.payable_type_label` | Waarvoor betaald wordt: lidgeld of een activiteit. Hiermee splits je de geldvragen in hun twee stromen. |
 | `payment_age_bucket` | Ouderdom | dimension | label | `finance` | admin_plain | `f_payments.age_bucket` | Hoe lang een vordering al openstaat, in klassen. Betaalde records staan op 'Betaald'. |
