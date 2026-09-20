@@ -190,11 +190,15 @@
 {% if groepen %}
 {# F9 (#996): geen kolomsortering nog — dan benoemen we de werkelijk gebruikte
    vaste volgorde (§2.3), zodat ze uitlegbaar is bij grote aantallen. #}
-{# Verticaal gecentreerd tussen filterbalk en tabel (Cobalt view-meta). #}
-<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
-  <span>{{ records|length }} {{ _("boekingen") }} · {{ _("recentste eerst, gegroepeerd per inschrijving") }}</span>
-  <span>EUR · {{ _("alleen FINANCE kan bevestigen") }}</span>
-</div>
+{# Verticaal gecentreerd tussen filterbalk en tabel (Cobalt view-meta). Sinds
+   #1103 uit de kit: dit scherm is de referentie van §2.3 en schreef als enige
+   nog zijn eigen versie van een regel die `ui.list_meta` levert. De macro rendert
+   exact deze opmaak — dat was de eis, en er is een gelijkwaardigheidstest op.
+
+   De telling met een newstyle-placeholder en niet met `~`: `_()` levert Markup,
+   en die aan elkaar plakken is de klasse fout uit #514/#613. #}
+{% call ui.list_meta(_("%(aantal)s boekingen", aantal=records|length),
+                     _("recentste eerst, gegroepeerd per inschrijving")) %}EUR · {{ _("alleen FINANCE kan bevestigen") }}{% endcall %}
 <div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
   <table class="w-full text-xs">
     <thead>

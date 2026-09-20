@@ -630,13 +630,26 @@
    afleidt hoe er gesorteerd is, leidt het op het volgende scherm net anders af.
 
    Als macro en niet per scherm overgetypt: Betalingen schreef deze regel als
-   losse markup, en Wijzigingen en het e-maillog zouden kopie twee en drie zijn
-   geweest. Betalingen mag er in een aparte veeg naartoe — dat bestand hoort bij
-   een ander spoor. #}
+   losse markup, en Wijzigingen en het e-maillog werden kopie twee en drie. Sinds
+   #1103 gebruikt Betalingen haar ook, en bestaat de regel dus nog op één plek.
+
+   De opmaak is LETTERLIJK die van Betalingen — dat is geen toeval maar de eis van
+   #1103: aan het referentiescherm mocht niets veranderen. De eerste versie van
+   deze macro droeg twee dingen extra, en die zijn er bij die gelijkstelling weer
+   af gegaan omdat ze niets deden:
+
+   * `flex-wrap` op de buitenste div. Gemeten: de rechterkant heeft een harde
+     ondergrens (de keuzelijst `w-20` plus een `whitespace-nowrap`-label, samen
+     ±145px) en de linkertekst breekt zelf af, dus de rij past ook op 320px —
+     het afbreken werd nooit bereikt. Zet het niet terug "voor de zekerheid";
+     meet eerst of het bij jouw inhoud wél kan gebeuren.
+   * `flex items-center gap-2` op de rechter span. Alle drie de schermen zetten
+     er één element in, en bij één flex-item doen `gap` en `items-center` niets.
+     Heb je er twee nodig, geef ze dan hun eigen omhulsel mee in de call-body. #}
 {% macro list_meta(count_text, order_text) -%}
-<div class="my-2.5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-ink-soft">
+<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
   <span>{{ count_text }} · {{ order_text }}</span>
-  <span class="flex items-center gap-2">{{ caller() }}</span>
+  <span>{{ caller() }}</span>
 </div>
 {%- endmacro %}
 
