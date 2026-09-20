@@ -438,7 +438,7 @@ def activiteit_betalingen_tab(activity_id: int, request: Request,
     exact het betalingenscherm, gefilterd op dit record, onder de recordkop —
     zonder scope-regel, want de kop zegt al waar je bent. FINANCE-gated zoals
     /admin/betalingen zelf (#544)."""
-    from app.domains.activities.api import get_activity_detail, record_tabs
+    from app.domains.activities.api import get_activity_detail, record_kop_ctx
 
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
@@ -449,10 +449,10 @@ def activiteit_betalingen_tab(activity_id: int, request: Request,
     ctx = _view(request, db, email, nav_items=nav,
                 forceer_activiteit=activity_id, scope_stil=True).as_context()
     ctx["a"] = activiteit
-    ctx["record_tabs"] = record_tabs(db, activiteit, email, "betalingen")
-    from app.kernel.tenant_config import tenant_admin_chat_enabled
-
-    ctx["raakje_admin"] = tenant_admin_chat_enabled(db)
+    # #1070: één bouwer voor de hele recordkop. Stond hier met de hand samengesteld
+    # naast dezelfde samenstelling in `activities.admin_ui`; een sleutel erbij ging
+    # dan onvermijdelijk op één van de twee plekken ontbreken.
+    ctx.update(record_kop_ctx(db, activiteit, email, "betalingen"))
     return templates.TemplateResponse(
         request, "admin_activiteit_betalingen.html", ctx)
 

@@ -1117,17 +1117,14 @@ def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: 
 
 
 def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
-    """Doorgeefluik naar de ene tabs-bouwer in de service (golf 8, #913):
-    de payment-kant rendert dezelfde recordkop en mag alleen via de facade."""
-    from app.domains.activities.api import record_tabs
-    from app.kernel.tenant_config import tenant_admin_chat_enabled
+    """Doorgeefluik naar de ene bouwer van de recordkop-context (#1070).
 
-    # Golf 10 (#913): de "AI · Activiteit"-knop in de recordkop bestaat alleen
-    # als Raakje voor beheer aan staat — één bron (kernel, CR-07 §6.3), geen
-    # eigen vlag ernaast.
-    return {"record_tabs": record_tabs(db, activiteit, email, actief,
-                                       reg_count=reg_count),
-            "raakje_admin": tenant_admin_chat_enabled(db)}
+    Stelde tot dan zelf twee sleutels samen, en `payment.ui` deed hetzelfde nog
+    eens — zie `service.record_kop_ctx` voor waarom dat één plek geworden is.
+    """
+    from app.domains.activities.api import record_kop_ctx
+
+    return record_kop_ctx(db, activiteit, email, actief, reg_count=reg_count)
 
 
 def _record_rail(db, activiteit) -> dict:
@@ -1142,14 +1139,6 @@ def _record_rail(db, activiteit) -> dict:
         "bezet": bezetting.get(c.id, 0),
         "max": c.max_participants,
     } for c in activiteit.sub_registrations]
-    # #1049 (CR-10 Q23): de sprong naar de Design Studio. Het aantal en de
-    # bestemming worden HIER bepaald en niet in het sjabloon — een template die
-    # zelf telt, is precies wat de laaggate verbiedt. Gelezen via de facade van
-    # de Design Studio; haar interne modules blijven buiten bereik
-    # (`test_import_boundaries.py`).
-    from app.domains.designstudio.api import designs_for_activity
-
-    ontwerpen = designs_for_activity(db, activiteit.id)
     # #1053: de uiterste datum hoort bij het onderdeel, maar de rail vat de
     # activiteit samen. Eén datum wanneer élk onderdeel dezelfde heeft (het
     # gewone geval), anders een verwijzing naar de onderdelen eronder. De keuze
@@ -1161,11 +1150,9 @@ def _record_rail(db, activiteit) -> dict:
     # staat al op de tab.
     return {"rail_onderdelen": onderdelen,
             "rail_deadline": samen,
-            "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit)),
-            "ontwerpen_aantal": len(ontwerpen),
-            "ontwerpen_href": (f"/admin/ontwerpen?activity_id={activiteit.id}"
-                               if ontwerpen
-                               else f"/admin/ontwerpen/nieuw?activity_id={activiteit.id}")}
+            # #1070: het Affiche-blok is naar de recordkop verhuisd, waar de
+            # knop op álle tabs staat in plaats van alleen op Overzicht.
+            "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit))}
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen",
