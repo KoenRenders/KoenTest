@@ -401,14 +401,18 @@ by the status choice; convert one and the field shows two notations.
 - The old #722 adjacency rule ("Bewerken directly left of Verwijderen") is
   **replaced by the bar** on edit surfaces. It still governs `row_actions` on
   list rows, where delete remains a row action (e.g. the AI-context rows).
-  Accepted exceptions to the bar, tracked by the ratchet in
-  `test_actiebalk_ratchet.py`: the kit page's raw-pair demo, and the payments
-  row (`_betalingen_lijst.html`), which builds the cluster by hand — correctly —
+  Accepted exceptions to the bar, frozen with a reason each in
+  `HANDGEROLDE_CLUSTERS` (`test_ui_conventions_gate.py`, #1091 — a list that
+  can only shrink): the kit page's raw-pair demo, and the payments row
+  (`_betalingen_lijst.html`), which builds the cluster by hand — correctly —
   because that row also carries a "Status verversen" button and an input the
   macro does not know. Since #1090 the user row, the report panel's save bar,
   the organiser rows and the form builder's option row all use the bar; a
   content action (Kopiëren, Exporteren) sits left of the cluster, never inside
-  it.
+  it. Two more gate rules guard the bar (#1089, #1091): every `action_bar`
+  call gives Annuleren a destination (`cancel_href` or `cancel_attrs`), and
+  every `btn_danger` call names its `size` — `sm` in a cluster, `md` outside,
+  never the silent default.
 
 ### 2.5 Status chips (badges)
 
