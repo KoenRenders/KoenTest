@@ -473,23 +473,25 @@
       {{ _("Delen met de rest van het bestuur") }}
     </label>
 
-    <div class="mt-3 flex flex-wrap gap-2">
-      {{ ui.btn_primary(_("Opslaan"), type="submit", size="sm") }}
-      {{ ui.btn_secondary(_("Annuleren"), size="sm",
-           attrs='hx-get="' ~ paneel_url ~ '"') }}
+    {# #1090: inhoudsacties (Kopiëren, Exporteren) links, het actiecluster uit
+       `ui.action_bar` rechts — [Verwijderen] apart links van het paar, dan
+       [Annuleren] [Opslaan] met Opslaan uiterst rechts, zoals op elk bewerkvlak.
+       Verwijderen alleen voor de eigenaar en nooit voor een meegeleverd rapport
+       (Koen, 20 september 2026); dat is een zichtbaarheidsregel, geen plaats. #}
+    <div class="mt-3 flex flex-wrap items-center gap-2">
       {% if report_id %}
       {{ ui.btn_secondary(_("Kopiëren"), size="sm",
            attrs='hx-post="/admin/rapporten/' ~ report_id ~ '/kopieren"') }}
-      {% if is_owner and not is_builtin %}
-      {{ ui.btn_danger(_("Verwijderen"), size="sm",
-           attrs='hx-post="/admin/rapporten/' ~ report_id ~ '/verwijderen" ' ~ confirm_attrs(_("Rapport"), name)) }}
-      {% endif %}
       {% endif %}
       {% if chosen %}
       {{ ui.btn_outline(_("Exporteren (.ods)"), size="sm", lead_icon="download",
            href="/admin/rapporten/export.ods?" ~ query ~ ("&report=" ~ report_id if report_id else ""),
            attrs='hx-boost="false" download') }}
       {% endif %}
+      {{ ui.action_bar(cls="ml-auto",
+           cancel_attrs='hx-get="' ~ paneel_url ~ '"',
+           delete_attrs=('hx-post="/admin/rapporten/' ~ report_id ~ '/verwijderen" ' ~ confirm_attrs(_("Rapport"), name))
+                        if (report_id and is_owner and not is_builtin) else "") }}
     </div>
   </form>
 </div>

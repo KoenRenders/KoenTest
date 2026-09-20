@@ -17,12 +17,11 @@ from pathlib import Path
 APP = Path(__file__).resolve().parents[1] / "app"
 
 # template → aantal handgerolde Opslaan-knoppen. Alleen omlaag bijwerken.
-# Na golf 6b resten twee bewuste uitzonderingen: de gebruikersrij is een
-# horizontale rij (een balk eronder zou elke rij verdubbelen — herbekijken als
-# dat scherm ooit panelen krijgt), en de kitpagina demonstreert het rauwe
-# knoppenpaar naast de actiebalk.
+# Na golf 6b resten twee bewuste uitzonderingen; #1090 bracht de gebruikersrij
+# alsnog naar `ui.action_bar` (het cluster sluit de altijd-open rij rechts af),
+# dus rest de kitpagina, die het rauwe knoppenpaar naast de actiebalk
+# demonstreert.
 BASELINE = {
-    "domains/auth/templates/_gu_lijst.html": 1,
     "ui/templates/design_system.html": 2,
 }
 
