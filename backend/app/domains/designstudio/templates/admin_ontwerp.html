@@ -121,8 +121,8 @@
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="layout" value="{{ layout }}">
       <h2 class="text-sm font-semibold text-ink">{{ _("Foto toevoegen") }}</h2>
-      <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
-        {{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}
+      <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+        <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bestand"), accept="image/*", hint=_("Wordt bewaard tot 4096 px; groot genoeg voor A3.")) }}</div>
         <div>
           {{ ui.label(_("Plaats"), "ds-upload-slot") }}
           {% call ui.select_control("slot", attrs='id="ds-upload-slot"') %}
@@ -143,7 +143,7 @@
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="space-y-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="hidden" name="layout" value="{{ layout }}">
-        <div class="grid grid-cols-[1fr_auto] gap-3 items-start">
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-start">
           <div>
             {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
             {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
@@ -241,8 +241,8 @@
       </p>
       <form method="post" action="/admin/ontwerpen/{{ design_id }}/svg" enctype="multipart/form-data" class="space-y-2">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <div class="grid grid-cols-[1fr_auto] gap-3 items-end">
-          {{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}
+        <div class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 items-end">
+          <div class="min-w-0 [&_input]:max-w-full">{{ ui.upload_field(name="file", text=_("Bewerkt SVG"), accept=".svg,image/svg+xml") }}</div>
           <div>
             {{ ui.label(_("Voor opmaak"), "ds-svg-layout") }}
             {% call ui.select_control("layout", attrs='id="ds-svg-layout"') %}
