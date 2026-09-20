@@ -23,6 +23,13 @@
      #975-endpoint: de activiteit zit in het PAD (een formveld kan stil
      wegvallen, een pad niet) en een uitgeschakelde of vreemde tenant krijgt
      daar een 404. #}
+  {# #1070: de sprong naar de Design Studio stond in de rechterrail onder een
+     eigen kopje *Affiche* (#1049) en dus alleen op Overzicht. Hier staat hij op
+     élke tab. Eén label, drie bestemmingen: de knop belooft altijd hetzelfde en
+     het aantal ontwerpen bepaalt waar je uitkomt — zie `record_kop_ctx`. #}
+  <div class="shrink-0 mt-1">
+    {{ ui.btn_secondary(_("Designs"), href=designs_href, size="sm") }}
+  </div>
   {% if raakje_admin|default(false) %}
   <div x-data="{ raakje: false }" class="shrink-0 mt-1">
     {{ ui.btn_secondary(_("AI · Activiteit"), size="sm", attrs='@click="raakje = true"') }}

@@ -13,10 +13,8 @@ terugschuift: de bestaande tests van #1033 toetsen gedrag, niet plaats.
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - de include terug op haar oude plek (vóór *Onderdelen & producten*) → de
   volgordetest én de lege-toestand-test vallen om;
-- `ontwerpen_href` altijd de lijst-URL laten geven → de "zonder ontwerp"-test
-  valt om. Een test die alleen "er staat een link" toetst, blijft groen als
-  beide takken hetzelfde geven — vandaar één test per tak, plus een derde die
-  de toestand omdraait.
+- de knop terug in de rail zetten → de "rail draagt het blok niet meer"-test
+  valt om.
 - de include ná de buitenste `</div>` van dit bestand → **groen**, en dat is
   een meting die de aanname uit het issue bijstelt: zie de test hieronder.
 """
@@ -120,40 +118,21 @@ def test_zonder_onderdelen_blijft_de_scheiding_leesbaar(client, db_session,
     assert html.index("Nog geen onderdelen") < html.index(">Organisatoren</h3>")
 
 
-# ── #1049: de sprong naar de Design Studio ───────────────────────────────────
+# ── #1049 → #1070: de sprong naar de Design Studio ───────────────────────────
+#
+# Stond in de rechterrail onder een kopje *Affiche* en dus alleen op Overzicht.
+# Sinds #1070 staat de knop in de recordkop en reist hij mee naar élke tab, met
+# één label en drie bestemmingen. De tests daarvoor staan in
+# `test_designs_knop_in_de_recordkop.py`; hier blijft alleen de waarborg dat het
+# oude blok werkelijk weg is en de publieke kant er nooit iets van zag.
 
-def test_met_een_ontwerp_wijst_de_sprong_naar_de_lijst(client, db_session, activiteit):
-    _ontwerp(db_session, activiteit)
+def test_de_rail_draagt_het_afficheblok_niet_meer(client, db_session, activiteit):
+    """#1070: het kopje bestond alleen voor die ene knop, dus het verdwijnt mee."""
     _login(client)
-
     html = _scherm(client, activiteit)
 
-    assert f'href="/admin/ontwerpen?activity_id={activiteit.id}"' in html
-    assert "Ontwerpen: 1" in html
-    assert f'href="/admin/ontwerpen/nieuw?activity_id={activiteit.id}"' not in html, (
-        "beide takken geven dezelfde link; dan toetst deze test niets")
-
-
-def test_zonder_ontwerp_wijst_de_sprong_naar_maken(client, db_session, activiteit):
-    _login(client)
-
-    html = _scherm(client, activiteit)
-
-    assert f'href="/admin/ontwerpen/nieuw?activity_id={activiteit.id}"' in html
-    assert "Affiche maken in de Design Studio" in html
-    assert f'href="/admin/ontwerpen?activity_id={activiteit.id}"' not in html
-
-
-def test_het_aantal_volgt_de_ontwerpen(client, db_session, activiteit):
-    """De tegenhanger binnen één test: de toestand omdraaien verandert de link."""
-    _login(client)
-    assert "Affiche maken" in _scherm(client, activiteit)
-
-    _ontwerp(db_session, activiteit)
-    _ontwerp(db_session, activiteit)
-    html = _scherm(client, activiteit)
-
-    assert "Ontwerpen: 2" in html and "Affiche maken" not in html
+    assert ">Affiche</h3>" not in html
+    assert "Naar de Design Studio" not in html
 
 
 def test_de_publieke_kant_toont_de_sprong_niet(client, db_session, activiteit):
@@ -171,18 +150,4 @@ def test_de_publieke_kant_toont_de_sprong_niet(client, db_session, activiteit):
         html = client.get(pad).text
         assert "ontwerpen" not in html.lower(), pad
         assert "Design Studio" not in html, pad
-
-
-def test_de_sprong_komt_uit_de_facade_en_niet_uit_de_interne_modules():
-    """Het scherm leest de Design Studio via haar facade (#1049).
-
-    Een grep, en dat volstaat hier: `test_import_boundaries.py` bewaakt de regel
-    zelf: deze test zegt alleen dat DIT scherm haar volgt.
-    """
-    from pathlib import Path
-
-    bron = (Path(__file__).resolve().parents[1]
-            / "app/domains/activities/admin_ui.py").read_text()
-
-    assert "from app.domains.designstudio.api import designs_for_activity" in bron
-    assert not re.search(r"from app\.domains\.designstudio\.(?!api)", bron)
+        assert "Designs" not in html, pad

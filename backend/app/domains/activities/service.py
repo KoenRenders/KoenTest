@@ -1069,6 +1069,42 @@ def registrations_without_component_count(db, activity_id: int) -> int:
             .scalar() or 0)
 
 
+def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
+                   reg_count: int | None = None) -> dict:
+    """Alles wat `_aa_recordkop.html` nodig heeft, op één plek (#1070).
+
+    Die kop wordt door VIER sjablonen ingesloten — Overzicht, de paginaschil, de
+    tab Inschrijvingen en de tab Betalingen — en de context werd op twee plaatsen
+    met de hand samengesteld: in `activities.admin_ui` en in `payment.ui`. Zolang
+    het bij twee sleutels bleef viel dat niet op; #1070 voegt er een derde toe, en
+    dan is het de duplicatie uit `CLAUDE.md`: de ene plek loopt achter en het
+    sjabloon faalt onder `StrictUndefined` — geen leeg vlak, een fout.
+
+    De knop naar de Design Studio draagt **altijd hetzelfde label** en laat de
+    BESTEMMING het aantal volgen (Koen, 20 september 2026): geen ontwerp → er een
+    maken, precies één → dat ontwerp, meerdere → de lijst van deze activiteit.
+    De keuze valt hier en niet in het sjabloon, zoals de laaggate vraagt.
+    """
+    from app.domains.designstudio.api import designs_for_activity
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
+
+    ontwerpen = designs_for_activity(db, activiteit.id)
+    if not ontwerpen:
+        designs_href = f"/admin/ontwerpen/nieuw?activity_id={activiteit.id}"
+    elif len(ontwerpen) == 1:
+        designs_href = f"/admin/ontwerpen/{ontwerpen[0].id}"
+    else:
+        designs_href = f"/admin/ontwerpen?activity_id={activiteit.id}"
+    return {
+        "record_tabs": record_tabs(db, activiteit, viewer_email, actief,
+                                   reg_count=reg_count),
+        # Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
+        # beheer aan staat — één bron (kernel, CR-07 §6.3), geen eigen vlag ernaast.
+        "raakje_admin": tenant_admin_chat_enabled(db),
+        "designs_href": designs_href,
+    }
+
+
 def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
                 reg_count: int | None = None) -> list[dict]:
     """De tabbalk van de activiteit-recordpagina (golf 8, #913) — P13 in
