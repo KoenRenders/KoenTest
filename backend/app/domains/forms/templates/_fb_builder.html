@@ -115,12 +115,15 @@
       <option value="end" {% if o.skip_to_end %}selected{% endif %}>{{ _("→ einde") }}</option>
     {% endcall %}
     {% endif %}
-    {{ ui.btn_primary(_("Opslaan"), size="sm") }}
-    {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='hx-get="/admin/formulieren/' ~ form.id ~ '" hx-target="#fb-detail" hx-swap="innerHTML"') }}
+    {# #1090: het cluster uit `ui.action_bar`, ook op deze kleine rij — de
+       verwijderknop stond ernaast zonder maat (md, de #616-fout opnieuw) en
+       Opslaan stond vóór Annuleren. Bij een nieuwe optie is er niets te
+       verwijderen, dus geen Verwijderen. #}
+    {{ ui.action_bar(cls="ml-auto",
+         cancel_attrs='hx-get="/admin/formulieren/' ~ form.id ~ '" hx-target="#fb-detail" hx-swap="innerHTML"',
+         delete_attrs=('hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Optie"), o.label))
+                      if o else "") }}
   </form>
-  {% if o %}
-  {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
-  {% endif %}
 </div>
 {% endmacro %}
 

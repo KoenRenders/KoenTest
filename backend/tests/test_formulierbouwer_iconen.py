@@ -50,15 +50,19 @@ def _bouwer(client, admin_headers) -> str:
 
 # ── 1. De iconen staan er, en de glyphs niet meer ──────────────────────────
 
-def test_de_prullenbak_wordt_echt_gerenderd(client, admin_headers):
-    """Toetst het `<path>`, niet de macro-aanroep.
+def test_de_prullenbak_staat_klaar_in_de_set():
+    """Sinds #1090 rendert de bouwer de prullenbak nergens meer: het verwijderen
+    van een optie is een tekstknop in de actiebalk geworden, net als dat van een
+    veld en een sectie. Het icoon blijft in de set, zoals het potlood hieronder —
+    de eerstvolgende symboolknop "verwijderen" hoort hém te nemen en geen ×.
 
-    `ui.icon()` geeft bij een onbekende naam een lege SVG zonder te klagen, dus
-    `lead_icon="trash-1"` zou een knop zonder icoon opleveren en elke test op de
-    aanroep zou groen blijven.
+    Tot #1090 toetste dit het gerenderde `<path>` in de bouwer, omdat `ui.icon()`
+    bij een onbekende naam stil een lege SVG geeft; nu er geen aanroep meer is,
+    is het geregistreerde pad het enige wat te toetsen valt.
     """
-    html = _bouwer(client, admin_headers)
-    assert PRULLENBAK in html, "de prullenbak rendert niet (typefout in de naam?)"
+    macros = open("app/ui/templates/_macros.html", encoding="utf-8").read()
+    assert '"trash-2"' in macros
+    assert PRULLENBAK in macros, "het geregistreerde pad klopt niet meer"
 
 
 def test_het_potlood_staat_klaar_in_de_set():
@@ -79,23 +83,33 @@ def test_het_potlood_staat_klaar_in_de_set():
     assert POTLOOD in macros, "het geregistreerde pad klopt niet meer"
 
 
+def _optie_verwijderknop(html: str, tot: str = "</button>") -> str:
+    """De verwijderknop van de eerste optie — sinds #1090 een tekstknop uit
+    `ui.action_bar`, herkenbaar aan haar route."""
+    import re
+
+    treffer = re.search(r'hx-post="/admin/formulieren/\d+/opties/\d+/verwijderen"', html)
+    assert treffer, "geen optie-verwijderknop gevonden"
+    start = treffer.start()
+    return html[html.rindex("<button", 0, start):html.index(tot, start)]
+
+
 def test_de_glyphs_zijn_weg_van_de_knoppen(client, admin_headers):
     html = _bouwer(client, admin_headers)
     assert "⚙" not in html, "het tandwiel staat er nog"
     # `×` mag nog voorkomen als sluitknop van de toast-sjabloon in de schil; wat weg
-    # moet is de verwijderknop. Die herken je aan zijn aria-label.
-    start = html.index('aria-label="Optie verwijderen"')
-    knop = html[html.rindex("<button", 0, start):html.index("</button>", start)]
+    # moet is de verwijderknop. Sinds #1090 is dat een tekstknop ("Verwijderen")
+    # uit de actiebalk: geen teken en geen icoon meer, de tekst draagt de betekenis.
+    knop = _optie_verwijderknop(html)
     assert "×" not in knop, f"de verwijderknop draagt nog een ×: {knop[:200]}"
-    assert PRULLENBAK in knop
+    assert "Verwijderen" in knop
 
 
 def test_verwijderen_blijft_rood(client, admin_headers):
-    """§2.12: een verwijderknop is altijd rood. Het icoon vervangt het teken, niet
+    """§2.12: een verwijderknop is altijd rood. De tekst vervangt het teken, niet
     het signaal."""
     html = _bouwer(client, admin_headers)
-    start = html.index('aria-label="Optie verwijderen"')
-    knop = html[html.rindex("<button", 0, start):html.index(">", start)]
+    knop = _optie_verwijderknop(html, tot=">")
     assert "red" in knop, knop
 
 
@@ -103,9 +117,10 @@ def test_verwijderen_blijft_rood(client, admin_headers):
 
 # "Optie bewerken" stond hier tot #699; die knop bestaat niet meer — de velden van
 # een optie staan nu altijd inline, dus er valt niets te openen. "Veld verwijderen"
-# verdween in golf 6 (#913): het veld-verwijderen is nu een tekstknop in de
-# actiebalk van de veldvorm, en een knop met tekst krijgt geen tooltip.
-@pytest.mark.parametrize("label", ["Optie verwijderen"])
+# verdween in golf 6 (#913) en "Optie verwijderen" in #1090, om dezelfde reden:
+# het verwijderen zit in de actiebalk als tekstknop, en een knop met tekst krijgt
+# geen tooltip. Wat rest aan symboolknoppen zijn de verplaatspijlen (`ui.reorder`).
+@pytest.mark.parametrize("label", ["Naar boven", "Naar onder"])
 def test_elke_symboolknop_draagt_een_tooltip(client, admin_headers, label):
     """De schermlezer had het label al; wie met een muis werkt zag enkel een
     symbool."""

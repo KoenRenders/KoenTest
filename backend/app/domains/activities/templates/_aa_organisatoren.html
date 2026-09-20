@@ -19,9 +19,14 @@
        Opengeklapt is het nu een raster: twee kolommen breed, onder elkaar op een
        telefoon. #}
     <div class="py-3" x-data="{ edit: false, contact: {{ 'true' if o.is_contact else 'false' }} }">
-      {# Leesregel: wie het is, of hij op de affiche komt, en met wat. #}
-      <div class="flex flex-wrap items-center gap-3" x-show="!edit">
+      {# Kopregel: wie het is, of hij op de affiche komt, en met wat — en rechts
+         de opener, die in bewerkmodus wijkt voor het cluster (#1090, §2.4: één
+         cluster per bewerkvlak, bovenaan, Opslaan op de plek van Bewerken). De
+         naam blijft staan; alleen de leesinfo wijkt in bewerkmodus. #}
+      <div class="flex flex-wrap items-center gap-3">
         <span class="font-medium text-sm">{{ o.name }}</span>
+        <template x-if="!edit">
+        <span class="contents">
         {% if o.is_contact %}{{ ui.badge(_("contactpersoon"), "green") }}
         {% else %}<span class="text-sm text-ink-soft">{{ _("niet op de affiche") }}</span>{% endif %}
         {% if o.is_contact %}
@@ -33,14 +38,20 @@
           {%- endif -%}
         </span>
         {% endif %}
-        <span class="ml-auto">{{ ui.edit_toggle("edit") }}</span>
+        </span>
+        </template>
+        <span class="ml-auto flex gap-2">
+          {{ ui.edit_toggle("edit") }}
+          <div x-show="edit" x-cloak>{{ ui.action_bar(form="org-" ~ o.id, cancel_attrs='@click="edit = false"',
+               delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Organisator"), o.name)) }}</div>
+        </span>
       </div>
 
       {# Bewerkvorm. `style="display: none"` staat er letterlijk bij: dit blok zit
          in een fragment dat geswapt wordt, en dan zet htmx' settle de attributen
          van het serverantwoord terug (#726, §2.9b). Verborgen is hier de juiste
          beginstand — na het bewaren hertekent de server deze rij dicht. #}
-      <form x-show="edit" style="display: none" class="mt-1"
+      <form id="org-{{ o.id }}" x-show="edit" style="display: none" class="mt-1"
             hx-post="/admin/activiteiten/{{ a.id }}/organisatoren/{{ o.id }}"
             hx-target="#aa-detail" hx-swap="innerHTML"
             {% if o.is_contact and contact_count == 1 %}data-confirm="{{ _("Zonder contactpersoon tonen de affiches de website, het e-mailadres en het gsm-nummer van Raak. Doorgaan?") }}"{% endif %}>
@@ -81,12 +92,8 @@
                                 value=o.mobile_override, placeholder=o.mobile or _("uit de ledenfiche"),
                                 cls="w-full") }}
           </div>
-          <div class="flex gap-2 sm:col-span-2">
-            {{ ui.btn_primary(_("Bewaren"), size="sm") }}
-            {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='@click="edit = false"') }}
-            <span class="ml-auto">{{ ui.btn_danger(_("Verwijderen"), size="sm",
-                 attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Organisator"), o.name)) }}</span>
-          </div>
+          {# Geen knoppen hier: het cluster staat in de kopregel (#1090), gebonden
+             aan deze vorm via `form="org-<id>"`. #}
         </div>
       </form>
     </div>

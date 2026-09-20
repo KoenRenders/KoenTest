@@ -402,8 +402,13 @@ by the status choice; convert one and the field shows two notations.
   **replaced by the bar** on edit surfaces. It still governs `row_actions` on
   list rows, where delete remains a row action (e.g. the AI-context rows).
   Accepted exceptions to the bar, tracked by the ratchet in
-  `test_actiebalk_ratchet.py`: the horizontal user row, and the kit page's
-  raw-pair demo.
+  `test_actiebalk_ratchet.py`: the kit page's raw-pair demo, and the payments
+  row (`_betalingen_lijst.html`), which builds the cluster by hand — correctly —
+  because that row also carries a "Status verversen" button and an input the
+  macro does not know. Since #1090 the user row, the report panel's save bar,
+  the organiser rows and the form builder's option row all use the bar; a
+  content action (Kopiëren, Exporteren) sits left of the cluster, never inside
+  it.
 
 ### 2.5 Status chips (badges)
 
