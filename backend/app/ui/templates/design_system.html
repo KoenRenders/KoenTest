@@ -297,18 +297,42 @@
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De vaste volgorde van een records-lijst — §3.2: zoeken, filters, tabel, pager.") }}
   </p>
-  {% call ui.filter_bar("/admin/design-system", "#ds-lijst") %}
-    {# `standalone=False`: binnen een filterbalk doen de echte schermen dat ook —
-       de balk levert de omhulling al. #}
-    {{ ui.search(hx_get="/admin/design-system", hx_target="#ds-lijst",
-                 value="", placeholder=_("Zoek op naam…"), standalone=False) }}
-    {{ ui.grouped_filter("jaar", top_options=[("", _("Alle jaren"))],
-                         groups={_("Recent"): [("2026", "2026"), ("2025", "2025")]},
-                         current="2026", hx_get="/admin/design-system",
-                         hx_target="#ds-lijst") }}
+  {# Eén regel, zoals §2.3 en #1079 vragen: zoekveld op `flex-1`, de filters
+     ernaast. Elk DIRECT kind van de filterbalk is een eigen regel — daarom staat
+     hier één kind en niet drie. #}
+  {% call ui.filter_bar("/admin/design-system", "#ds-lijst", id="ds-filter") %}
+    <div class="flex flex-wrap gap-3 items-center">
+      {# `standalone=False`: binnen een filterbalk doen de echte schermen dat ook —
+         de balk levert de omhulling al. #}
+      <div class="flex-1 min-w-[14rem]">{{ ui.search(hx_get="/admin/design-system", hx_target="#ds-lijst",
+                   value="", placeholder=_("Zoek op naam…"), standalone=False) }}</div>
+      {# `inline_label` (#1083): een label NAAST zijn veld. `ui.label` zet het
+         erboven, en dan is die kolom hoger dan de rest van de regel. #}
+      {% call ui.inline_label(_("Vanaf"), "ds-vanaf") %}
+        {{ ui.input_control("since", id="ds-vanaf", type="date", value="2026-09-01") }}
+      {% endcall %}
+      {{ ui.grouped_filter("jaar", top_options=[("", _("Alle jaren"))],
+                           groups={_("Recent"): [("2026", "2026"), ("2025", "2025")]},
+                           current="2026", hx_get="/admin/design-system",
+                           hx_target="#ds-lijst") }}
+    </div>
   {% endcall %}
   {{ ui.chips("status", [("", _("Alle")), ("open", _("Open")), ("dicht", _("Gesloten"))],
               current="open") }}
+  {# De meta-regel tussen filterbalk en tabel (§2.3, referentie Betalingen):
+     links hoeveel regels en in welke volgorde, rechts de paginagrootte. Die
+     keuze hangt via `form=` aan de filterbalk hierboven, zodat ze een
+     filterwissel overleeft (#1083).
+
+     De maten staan hier als letterlijke demo-waarde en niet als
+     `app.ui.PER_PAGE_OPTIONS`: deze pagina toont bewust met WELKE argumenten een
+     macro is aangeroepen (zie de docstring van `DesignSystemView`), net als de
+     "132 activiteiten" ernaast. De echte schermen krijgen de reeks wél uit die
+     ene bron. #}
+  {% call ui.list_meta(_("132 activiteiten"), _("nieuwste eerst")) %}
+    {{ ui.per_page_select("/admin/design-system", "#ds-lijst", "ds-filter",
+                          50, (25, 50, 100), id="ds-per-page") }}
+  {% endcall %}
   {# F25 (#996, meetronde ronde 2): §2.3 zelf — een tabel hoort in een
      overflow-x-auto-container; zonder die wrapper rekte dit voorbeeld de hele
      kitpagina op mobiel tot 601px op (gemeten). #}

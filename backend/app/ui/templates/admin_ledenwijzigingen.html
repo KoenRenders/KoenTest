@@ -1,9 +1,11 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Wijzigingen — Raak beheer") }}{% endblock %}
-{# Brede contentkolom (#620): acht kolommen in max-w-5xl schoven de meest
-   informatieve kolom altijd buiten beeld. #}
-{% block content_width %}max-w-7xl{% endblock %}
+{# Volle breedte (#1083), zoals Betalingen. De 5xl-grens van de schil is voor
+   leesbare formulieren; #620 verbreedde dit scherm al tot 7xl omdat acht kolommen
+   anders buiten beeld schoven, maar dat is nog altijd een grens — en een dichte
+   tabel heeft er geen reden voor. #}
+{% block content_width %}max-w-none{% endblock %}
 {% block content %}
 {# Read-only records-lijst (design-system C1 + §4 Gedrag, #590): geen "+ Nieuwe",
    wél dezelfde zoek- en filterconventie. Filters passen live toe via htmx — de
@@ -22,7 +24,9 @@
   <input type="hidden" id="lw-richting" name="richting" value="{{ richting }}">
   <div class="flex flex-wrap gap-3 items-center">
     <div class="flex-1 min-w-[14rem]">{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
-    {{ ui.input_control("since", id="lw-since", type="date", value=since, aria_label=_("Vanaf")) }}
+    {% call ui.inline_label(_("Vanaf"), "lw-since") %}
+      {{ ui.input_control("since", id="lw-since", type="date", value=since) }}
+    {% endcall %}
     {% call ui.select_control("group", attrs='id="lw-group"', aria_label=_("Groep")) %}
       <option value="">{{ _("Alle groepen") }}</option>
       {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
