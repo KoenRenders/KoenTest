@@ -154,7 +154,8 @@ def test_een_datum_bijwerken_bewaart_de_geschiedenis(db_session):
 def _onderdeel_gegevens(naam="Onderdeel"):
     return SimpleNamespace(name=naam, team_name_required=False, sort_order=0,
                            external_register_url=None, external_registrations_url=None,
-                           info_url=None, max_participants=None)
+                           info_url=None, max_participants=None,
+                           registration_closes_on=None)
 
 
 def _product_gegevens(naam="Product", is_free=False, pay_on_site=False):

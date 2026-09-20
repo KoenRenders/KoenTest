@@ -40,9 +40,6 @@
       <div>{{ ui.label(_("Einduur"), "end_time") }}
         {{ ui.input_control("end_time", id="end_time", type="time", cls="w-full") }}</div>
     </fieldset>
-    <div class="max-w-xs">{{ ui.label(_("Inschrijven tot"), "registration_closes_on") }}
-      {{ ui.input_control("registration_closes_on", id="registration_closes_on", type="date", cls="w-full") }}
-      <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Inschrijven kan tot en met die dag; daarna niet meer.") }}</p></div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>
   </form>

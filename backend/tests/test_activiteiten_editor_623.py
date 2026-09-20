@@ -135,17 +135,9 @@ def test_de_omschrijving_wordt_bewaard_en_kan_weer_leeg(client, db_session):
     assert db_session.get(Activity, activity.id).description is None
 
 
-def test_de_omschrijving_staat_op_de_publieke_pagina(client, db_session):
-    """Broken on purpose: the `{% if a.description %}` block removed from
-    `_activiteiten_cards.html` → the sentence never reaches a visitor."""
-    activity, _comp, _product = seed_activity_with_product(db_session)
-    activity.description = "We proeven acht rums uit het Caribisch gebied."
-    db_session.commit()
-
-    publiek = client.get("/activiteiten").text
-    assert "We proeven acht rums uit het Caribisch gebied." in publiek
-
-    activity.description = None
-    db_session.commit()
-    leeg = client.get("/activiteiten").text
-    assert "whitespace-pre-line" not in leeg, "een lege omschrijving toont geen lege alinea"
+# `test_de_omschrijving_staat_op_de_publieke_pagina` stond hier (#1016) en is
+# weggehaald door #1054: Koen vroeg op 20 september 2026 om de omschrijving van de
+# publieke kaart te halen, "overal weg". Het omgekeerde staat nu vastgelegd in
+# `test_inschrijfdatum_per_onderdeel.py`, samen met de tegenhanger die bewaakt dat
+# het veld zelf blijft bestaan en elders gelezen wordt. De test hierboven — bewaren
+# en weer leegmaken — blijft, want dat gedrag verandert niet.

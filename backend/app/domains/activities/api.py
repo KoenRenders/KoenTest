@@ -52,6 +52,34 @@ def get_activity_detail(db, activity_id: int):
     return _impl(db, activity_id)
 
 
+def open_deadlines(activity):
+    """De uiterste inschrijfdatums van deze activiteit, zonder dubbels (#1053)."""
+    from app.domains.activities.service import open_deadlines as _impl
+
+    return _impl(activity)
+
+
+def shared_deadline(activity):
+    """De ene uiterste datum die voor élk onderdeel geldt, of None (#1053)."""
+    from app.domains.activities.service import shared_deadline as _impl
+
+    return _impl(activity)
+
+
+def card_deadline(activity):
+    """De ene uiterste datum die de publieke kaart toont, of None (#1053)."""
+    from app.domains.activities.service import card_deadline as _impl
+
+    return _impl(activity)
+
+
+def deadline_is_near(deadline):
+    """Valt de uiterste inschrijfdatum binnen de laatste week? (#1051)"""
+    from app.domains.activities.service import deadline_is_near as _impl
+
+    return _impl(deadline)
+
+
 def enrich_registration(registration, activity):
     """Een inschrijving met haar activiteit- en productcontext, zoals het
     beheerscherm ze toont. Implementatie in de service (#679, batch 6)."""
