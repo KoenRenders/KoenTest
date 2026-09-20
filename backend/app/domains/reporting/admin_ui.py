@@ -59,8 +59,10 @@ from app.domains.reporting.api import (
     classes_of,
     classes_with_objects,
     copy_report,
+    dashboard_tile_of,
     dataset_filename,
     delete_report,
+    may_delete,
     dimension_values,
     get_saved_report,
     list_saved_reports,
@@ -533,11 +535,11 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         name=report.name if report else "",
         description=(report.description or "") if report else "",
         is_shared=report.is_shared if report else True,
-        # A shipped report has no owner and therefore belongs to the tenant:
-        # anyone who may see it may adjust it (see `update_report`).
-        is_owner=bool(report) and (report.owner_email is None
-                                   or report.owner_email == _viewer(request)),
-        is_builtin=bool(report and report.builtin_key),
+        # #1092: one rule for the button and for the refusal, read from the
+        # service; and the tile a shipped report feeds, so the panel can say
+        # that a change here changes the landing page too.
+        is_deletable=bool(report) and may_delete(report, actor=_viewer(request)),
+        dashboard_tile=dashboard_tile_of(report) if report else None,
         query=_query_string(state),
         error=error,
         toast=toast,

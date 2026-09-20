@@ -129,8 +129,12 @@ class ReportPanelView(ViewModel):
     name: str
     description: str
     is_shared: bool
-    is_owner: bool
-    is_builtin: bool
+    # #1092: may the viewer delete this report — theirs or nobody's, and not one
+    # that feeds a dashboard tile. Decided in the service (`may_delete`), not here.
+    is_deletable: bool
+    # The label of the dashboard tile this report feeds, or None. Editing such a
+    # report changes the landing page; the panel says so.
+    dashboard_tile: str | None
 
     # The panel's own state as a query string, for the export link and paging.
     query: str
