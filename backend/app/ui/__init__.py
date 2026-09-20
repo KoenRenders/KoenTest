@@ -64,6 +64,12 @@ from app.i18n import long_date as _langedatum  # noqa: E402
 
 templates.env.filters["langedatum"] = _langedatum
 
+# #1051: dezelfde datum zonder jaartal, voor de deadline-regel op de publieke
+# kaart — het jaar staat in de datumregel erboven.
+from app.i18n import long_date_no_year as _datumzonderjaar  # noqa: E402
+
+templates.env.filters["datumzonderjaar"] = _datumzonderjaar
+
 
 def _maandkort(d) -> str:
     """Korte Nederlandse maand voor het datumblok op activiteitenkaarten
@@ -604,8 +610,12 @@ def site_context(db, request=None) -> dict:
     footer_block = None
     if footer is not None:
         footer_block = {"content": render_cms_content(footer.content or "")}
+    # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
+    # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
+    # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
     sponsors = (db.query(MediaAsset)
-                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
+                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True,  # noqa: E712
+                        MediaAsset.show_in_footer == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import (get_setting, tenant_display_name,
                                           tenant_site_header_color, umami_tracking)

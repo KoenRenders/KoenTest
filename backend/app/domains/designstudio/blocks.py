@@ -109,7 +109,7 @@ def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
 
 # ── The blocks ────────────────────────────────────────────────────────────
 
-ROW_H = 27.5
+ROW_H = 27.5   # six rows (two automatic, four own) sit easily in the left column of A3
 ICON_S = 19
 
 
@@ -122,9 +122,9 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     text_w = w - ICON_S - 5
     accents = (pal["tile"], pal["accent3"], pal["accent2"], pal["tile"], pal["accent"], pal["tile"])
     for i, hl in enumerate(content.highlights, start=index_offset):
-        size = 8.2 if hl.emphasis else 7.4
+        size = 7.4   # one size, upper case, bold for every row (Koen, 20 September 2026)
         # The first line is drawn bold: wrap on the bold metrics so it fits too.
-        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "") + "**"), width=text_w, size=size)
+        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size)
         if len(lines) > 2:
             plan.violations.append(f"Kernpunt {i + 1} past niet in twee regels op deze breedte")
             lines = lines[:2]
@@ -139,7 +139,7 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
         for j, line in enumerate(lines):
             txt = "".join(r.text for r in line)
             eid = f"t-hl-{i}-{j}"
-            out.append(text_el(eid, txt, text_x, ly, size, pal["ink"], weight="bold" if hl.emphasis or j == 0 else "600"))
+            out.append(text_el(eid, txt.upper(), text_x, ly, size, pal["ink"], weight="bold"))
             plan.boxes[eid] = text_w
             ly += line_step
         if i - index_offset < len(content.highlights) - 1:
@@ -162,6 +162,28 @@ def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float
     out.append(text_el("t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"))
     plan.boxes["t-welcome-0"] = text_w
     return "".join(out), y + icon + 5
+
+
+def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tuple[str, float]:
+    """"IEDEREEN WELKOM!" as an accent, not a row (Koen, 20 September 2026):
+    one line on a brush stroke in the light green, with three sparkle
+    strokes; "ENKEL LEDEN" the same on the red. Sits above the tile."""
+    pal = plan.pal
+    members_only = content.members_only
+    text = "ENKEL LEDEN" if members_only else "IEDEREEN WELKOM!"
+    size = 11.0
+    tw = richtext.text_width(text, size, bold=True, tracking=0.2)
+    band_w = tw + 14
+    brush = pal["accent4"] if members_only else pal["accent3"]
+    ink = pal["white"] if members_only else pal["ink"]
+    out = [f'<path d="{rough_band(x, y, band_w, 15, seed=plan.seed + 7, jag=2.2)}" fill="{brush}" '
+           f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
+           text_el("t-welcome-0", text, x + 7, y + 10.8, size, ink, weight="bold", tracking=0.2)]
+    plan.boxes["t-welcome-0"] = band_w - 10
+    sx = x + band_w + 3
+    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.2" stroke-linecap="round" fill="none">'
+               f'<path d="M{sx:.1f} {y + 4:.1f} l4 -3.5 M{sx + 1:.1f} {y + 8:.1f} l5 0 M{sx:.1f} {y + 12:.1f} l4 3.5"/></g>')
+    return "".join(out), y + 15
 
 
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
@@ -349,39 +371,56 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
 
     # ── Bottom: the lockup in a rounded corner tile at the left (the arc Koen
     #    liked at the top, now bottom-left), the rough info band to its right ──
-    contacts: list[dict[str, object]] = [
-        {"text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
-         "icon": "users" if c.name else "mobile"} for c in content.contacts[:3]]
-    # Rows: heading, website, e-mail, one per contact — stacked, since the
-    # tile takes a third of the width.
-    band_h: float = 33 + 6.5 * len(contacts)
+    # The band's rows, one per line: the website always; the association's
+    # e-mail and gsm only when nobody is a contact person (CR-10 §3.9 — with a
+    # contact person the association's own lines stay off the poster; Koen,
+    # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
+    rows: list[dict[str, object]] = [{"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
+                                      "text": content.website, "size": 6.2}]
+    if content.contacts:
+        for i, c in enumerate(content.contacts[:3]):
+            rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
+                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part), "size": 5.6})
+    else:
+        if content.email:
+            rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
+                         "text": content.email, "size": 6.2})
+        if content.association_mobile:
+            rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
+                         "text": content.association_mobile, "size": 6.2})
+    band_h: float = 20 + 6.5 * len(rows)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
-    cw, r = 92.0, 22.0
-    ch = band_h + 8
+    lockup_w = 66.0
+    lockup_h = lockup_w * 245 / 491
+    cw, r = lockup_w + 14, 18.0
+    ch = max(band_h + 2, lockup_h + 7)
     # The paper: the frame's inner rectangle minus the corner tile bottom-left.
     p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
                     f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
-    lockup_w = 66.0
-    lockup_h = lockup_w * 245 / 491
-    p.lockup = {"x": x0 + (cw - r / 2 - lockup_w) / 2 + 2, "y": y1 - ch + (ch - lockup_h) / 2, "width": lockup_w}
+    # The lockup sits flush: the R starts on the paper's left edge, the
+    # baseline's bottom on the frame's bottom bar (Koen, 20 September 2026).
+    tile_top = y1 - ch
+    # The R starts 4 mm in from the paper's left edge, the baseline's bottom
+    # on the frame's bottom bar; little purple above and right of it.
+    p.lockup = {"x": x0 + 4, "y": y1 - 2 - lockup_h, "width": lockup_w}
+    # The welcome badge sits above the tile; the left column stops above it.
+    welcome_y = tile_top - 17
+    left_limit = welcome_y - 2
     band_x = x0 + cw + 5
     col_x = band_x + 7
     text_left = col_x + 8
-    qr_left = width - frame - 2 - 24
+    qr_left = width - frame - 2 - 30
+    row_w = qr_left - text_left - 4
+    for row in rows:
+        # A long row shrinks a little rather than overflow.
+        row["size"] = fit_size(str(row["text"]), row_w, float(row["size"]), 4.4, bold=False)  # type: ignore[arg-type]
+        p.boxes[str(row["id"])] = row_w
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
-              "y": band_y, "h": band_h, "website": content.website, "email": content.email,
-              "contacts": contacts, "label": content.more_info_label,
+              "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
               "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
               "row_y": band_y + 2}
-    row_w = qr_left - text_left - 4
-    p.boxes["t-website"] = row_w
-    p.boxes["t-email"] = row_w
-    for i, line in enumerate(contacts):
-        # A long name with gsm and e-mail shrinks a little rather than overflow.
-        line["size"] = fit_size(str(line["text"]), row_w, 5.6, 4.4, bold=False)
-        p.boxes[f"t-contact-{i}"] = row_w
 
     # ── Content between title and band ─────────────────────────────────────
     limit: float = band_y - 3
@@ -401,26 +440,33 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
-        below = text_h + 4 + 16 + 4
+        below = text_h + 9 + (10 if content.inset_image else 0)
         if content.main_image:
-            avail = limit - y - below
+            avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
             p.full += frag
+            if content.inset_image:
+                # The polaroid lies on the big picture, bottom right, and the
+                # big picture stays the same size with or without it (Koen,
+                # 20 September 2026).
+                pw = 76.0
+                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                p.full += frag
+                y += 10
             y += 6
         if content.explanation_md:
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
             p.full += frag
-        wy = max(y + 2, limit - 16)
-        frag, wy = welcome_row(p, content, lx, wy, lw, icon=11, max_size=7.5)
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
-        if wy > limit + 3:
-            p.violations.append(f"Te veel inhoud: {wy - limit:.0f} mm te veel")
+        if y > left_limit:
+            p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     elif layout == "feed_portrait":
         # Instagram: title, one picture over the full width, a few highlights.
         y = top_y - 4
         n = min(len(content.highlights), 4)
-        rows = (n + 1) // 2
-        below = rows * ROW_H + 24 + 6
+        hl_rows = (n + 1) // 2
+        below = hl_rows * ROW_H + 24 + 6
         if content.main_image:
             avail = limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
@@ -437,11 +483,11 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
-        frag, ly = welcome_row(p, content, lx, ly, lw)
-        left.append(frag)
-        if content.third_image and not content.logos and content.preset != "tekst":
+        if content.third_image and content.preset != "tekst":
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
+        left.append(frag)
 
         if content.preset == "tekst":
             if content.dates and len(content.dates) > 1:
@@ -484,8 +530,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             if content.explanation_md:
                 frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
                 right.append(frag)
-        for name, bottom in (("links", ly), ("rechts", ry)):
-            if bottom > limit:
-                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - limit:.0f} mm te veel")
+        for name, bottom, bound in (("links", ly, left_limit), ("rechts", ry, limit)):
+            if bottom > bound + 0.5:   # half a millimetre is rounding, not overflow
+                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - bound:.0f} mm te veel")
     p.left, p.right = "".join(left), "".join(right)
     return p

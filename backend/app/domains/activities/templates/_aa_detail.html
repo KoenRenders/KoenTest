@@ -76,11 +76,6 @@
                          delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                          delete_confirm=_("De opgeladen affiche verwijderen?"),
                          hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
-      {# #974: leeg laten = geen deadline. Leegmaken is een geldige keuze, dus de
-         route stuurt dit veld altijd door, ook als het leeg is. #}
-      <div class="max-w-xs">{{ ui.label(_("Inschrijven tot"), "registration_closes_on") }}
-        {{ ui.input_control("registration_closes_on", id="registration_closes_on", type="date", value=(a.registration_closes_on.strftime("%Y-%m-%d") if a.registration_closes_on else ""), cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Inschrijven kan tot en met die dag; daarna niet meer.") }}</p></div>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
     </form>
@@ -136,8 +131,6 @@
     </form>
   </div>
 
-  {% include "_aa_organisatoren.html" %}
-
   {# Onderdelen-sectie (#509): sectiekop met "+ Onderdeel", sterk-afgelijnde
      onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ addcomp: false }">
@@ -154,6 +147,11 @@
         {{ ui.input_control("name", id="nc-name", required=True) }}</div>
       <div>{{ ui.label(_("Max"), "nc-max") }}
         {{ ui.input_control("max_participants", id="nc-max", cls="w-24") }}</div>
+      {# #1053: de uiterste inschrijfdatum hoort hier, bij het onderdeel. Ze stond
+         tot dan op de activiteit, waar ze élk onderdeel sloot — ook het onderdeel
+         waar nog wel ingeschreven kon worden. Leeg laten = geen uiterste datum. #}
+      <div>{{ ui.label(_("Inschrijven tot"), "nc-deadline") }}
+        {{ ui.input_control("registration_closes_on", id="nc-deadline", type="date") }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
         {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
@@ -179,6 +177,7 @@
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
         {% if c.max_participants %}{{ ui.badge("max " ~ c.max_participants) }}{% endif %}
+        {% if c.registration_closes_on %}{{ ui.badge(_("t/m") ~ " " ~ (c.registration_closes_on | langedatum)) }}{% endif %}
       </h3>
       <div class="flex gap-2">
         {{ ui.reorder(
@@ -211,6 +210,11 @@
         {{ ui.input_control("name", id="cname-" ~ c.id, value=c.name, required=True) }}</div>
       <div>{{ ui.label(_("Max"), "cmax-" ~ c.id) }}
         {{ ui.input_control("max_participants", id="cmax-" ~ c.id, value=c.max_participants or "", cls="w-24") }}</div>
+      {# #1053: leegmaken is een geldige keuze, dus de route stuurt dit veld altijd
+         door — ook leeg. #}
+      <div>{{ ui.label(_("Inschrijven tot"), "cdeadline-" ~ c.id) }}
+        {{ ui.input_control("registration_closes_on", id="cdeadline-" ~ c.id, type="date",
+                            value=(c.registration_closes_on.strftime("%Y-%m-%d") if c.registration_closes_on else "")) }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1" {% if c.team_name_required %}checked{% endif %}> {{ _("Ploegnaam vereist") }}</label>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
         {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
@@ -303,6 +307,13 @@
   {% endif %}
     </div>
   </div>
+
+  {# #1046: organisatoren staan onderaan, ónder Onderdelen & producten (Koen,
+     20 september 2026). BINNEN `#aa-detail`: erbuiten verdwijnt het blok stil bij
+     de eerstvolgende fragmentvervanging, want elke bewerking swapt dit fragment.
+     De lege-toestand-waarschuwing hierboven (#637/#650) doet nu haar werk voor
+     dit blok: zonder onderdelen las de kaart eronder anders als een onderdeel. #}
+  {% include "_aa_organisatoren.html" %}
 
 </div>
 

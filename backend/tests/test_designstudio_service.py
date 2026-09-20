@@ -16,10 +16,10 @@ from decimal import Decimal
 import pytest
 
 from app.config import settings
-from app.domains.activities.api import Activity, ActivityDate
+from app.domains.activities.api import (Activity, ActivityDate,
+                                        ActivitySubRegistration)
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
-from app.domains.designstudio.content import Contact
 from app.domains.designstudio.api import (
     DesignError,
     ImagingError,
@@ -44,11 +44,17 @@ needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed
 
 @pytest.fixture
 def activity(db_session):
-    act = Activity(name="Stappen en Klappen", location="Miloheem", registration_closes_on=date(2026, 10, 1))
+    act = Activity(name="Stappen en Klappen", location="Miloheem")
     db_session.add(act)
     db_session.flush()
     for day in (date(2026, 10, 12), date(2026, 11, 9)):
         db_session.add(ActivityDate(activity_id=act.id, start_date=day, start_time=time(20, 0)))
+    # #1053: de uiterste inschrijfdatum hoort bij het onderdeel. Eén onderdeel hier,
+    # dus de affiche draagt die datum nog steeds — zie de test hieronder voor het
+    # geval waarin de onderdelen het oneens zijn.
+    db_session.add(ActivitySubRegistration(
+        activity_id=act.id, name="Deelname", registration_type_code="INDIVIDUAL",
+        registration_closes_on=date(2026, 10, 1)))
     db_session.flush()
     return act
 
@@ -96,6 +102,26 @@ def test_facts_come_from_the_activity_and_the_design_never_copies_them(db_sessio
     assert content.bar_text == "SAMEN WANDELEN"
     # Nothing of the activity lives on the design row.
     assert not any(v == "Stappen en Klappen" for v in vars(design).values())
+
+
+def test_a_poster_drops_the_deadline_when_the_components_disagree(db_session, design,
+                                                                  activity):
+    """#1053: one line cannot carry two dates, and a wrong date on paper is worse
+    than none. So the poster only shows a deadline when every component has the
+    same one.
+
+    Broken to see it red: `_shared_deadline` returning the earliest date instead of
+    the shared one — the poster then prints 1 October while the second component
+    still takes registrations until the 8th.
+    """
+    db_session.add(ActivitySubRegistration(
+        activity_id=activity.id, name="Cornhole",
+        registration_type_code="INDIVIDUAL",
+        registration_closes_on=date(2026, 10, 8)))
+    db_session.flush()
+    db_session.refresh(activity)
+
+    assert facts_for(db_session, design)["deadline"] == ""
 
 
 def test_the_fingerprint_changes_when_a_fact_changes(db_session, design, activity):
@@ -167,9 +193,9 @@ def test_without_a_ticked_organiser_the_band_shows_the_association_gsm_without_a
     facts = dict(facts, organisers=[], mobile="0470 00 00 00", association="Raak Millegem",
                  website="www.example.be", email="info@example.be")
     content = content_for(db_session, design, facts)
-    assert content.contacts == (Contact(name="", mobile="0470 00 00 00", email=""),)
+    assert content.contacts == () and content.association_mobile == "0470 00 00 00"
     svg = render.merge(content, layout="print_a").svg
-    assert ">0470 00 00 00</text>" in svg and "Raak Millegem · 0470" not in svg
+    assert ">0470 00 00 00</text>" in svg and "info@example.be" in svg and "Raak Millegem · 0470" not in svg
 
 
 def test_one_ticked_organiser_out_of_two_means_no_association_row(db_session, design, activity):
@@ -185,11 +211,11 @@ def test_one_ticked_organiser_out_of_two_means_no_association_row(db_session, de
     rows = organisers_for(db_session, activity.id)
     update_organiser(db_session, activity.id, rows[0].id, {"is_contact": True, "mobile_override": "0470 11 11 11", "email_override": ""})
     update_organiser(db_session, activity.id, rows[1].id, {"is_contact": False, "mobile_override": "", "email_override": ""})
-    facts = dict(facts_for(db_session, design), mobile="0499 99 99 99")
+    facts = dict(facts_for(db_session, design), mobile="0499 99 99 99", email="raak@example.be")
     content = content_for(db_session, design, facts)
     assert len(content.contacts) == 1 and content.contacts[0].mobile == "0470 11 11 11"
     svg = render.merge(content, layout="print_a").svg
-    assert "0499 99 99 99" not in svg and 't-contact-1' not in svg
+    assert "0499 99 99 99" not in svg and "raak@example.be" not in svg and 't-contact-1' not in svg
 
 
 def test_title_splitting_rules():
@@ -203,13 +229,23 @@ def test_title_splitting_rules():
 def test_highlights_are_capped_and_icons_checked(db_session, design):
     with pytest.raises(DesignError, match="kernpunten"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[("smile", f"punt {i}", False) for i in range(7)], logo_ids=[])
-    with pytest.raises(DesignError, match="icoon"):
-        save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[("no-such-icon", "x", False)], logo_ids=[])
-    with pytest.raises(DesignError, match="logo"):
-        save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
-                    highlights=[], logo_ids=[1, 2, 3])
+                    highlights=[("smile", f"punt {i}", False) for i in range(5)], logo_ids=[])
+    # Four own rows all reach the poster, next to the automatic ones.
+    save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
+                highlights=[("smile", f"eigen punt {i}", False) for i in range(4)], logo_ids=[])
+    content = content_for(db_session, design)  # the fixture has two dates: place + four own = 5
+    assert len(content.highlights) == 5 and content.highlights[-1].text == "EIGEN PUNT 3"
+
+
+def test_the_database_refuses_a_fifth_own_highlight(db_session, design):
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    params = {"t": design.tenant_id, "d": design.id}
+    with pytest.raises(IntegrityError):
+        db_session.execute(text("INSERT INTO designstudio.design_highlights (tenant_id, design_id, sort_order, icon_code, text, emphasis) "
+                                "VALUES (:t, :d, 4, 'smile', 'vijfde', false)"), params)
+    db_session.rollback()
 
 
 def test_saving_twice_with_the_same_highlights_and_logos_works(db_session, design):

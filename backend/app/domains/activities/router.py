@@ -120,6 +120,17 @@ def _mark_full(responses: List[ActivityResponse], occ: dict) -> None:
                 comp.is_full = occ.get(comp.id, 0) >= comp.max_participants
 
 
+def _mark_card_deadline(responses: List[ActivityResponse]) -> None:
+    """Vul `shared_deadline` — ná `_mark_full`, want ze leest `is_full` (#1053)."""
+    from app.domains.activities.service import card_deadline, deadline_is_near
+
+    for resp in responses:
+        resp.shared_deadline = card_deadline(resp)
+        resp.shared_deadline_near = deadline_is_near(resp.shared_deadline)
+        for comp in resp.sub_registrations:
+            comp.deadline_near = deadline_is_near(comp.registration_closes_on)
+
+
 def _build_response(
     activity: Activity,
     today: date,
@@ -150,6 +161,11 @@ def _build_response(
     from app.domains.activities.service import registration_state
 
     resp.registration_state = registration_state(activity).value
+    # #1053: en per onderdeel, want de barbecue mag een week eerder sluiten dan
+    # cornhole. Gevraagd aan het ANTWOORD-onderdeel: dat draagt dezelfde datum,
+    # dus er is geen tweede lus die op volgorde moet vertrouwen.
+    for comp in resp.sub_registrations:
+        comp.registration_state = registration_state(activity, component=comp).value
     return resp
 
 
@@ -230,6 +246,7 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
             result.append(_build_response(a, today, all_dates=(scope == "all"), reg_count=reg_count, status=info["status"]))
     if scope != "archived":
         _mark_full(result, _component_occupancy(db, [a.id for a in activities]))
+        _mark_card_deadline(result)
     return result
 
 
@@ -271,6 +288,7 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
     # even goed. Nagekeken omdat een berekening die stilzwijgend van de volledige
     # lijst afhangt, hier een lege bezetting zou geven.
     _mark_full([resp], _component_occupancy(db, [activity.id]))
+    _mark_card_deadline([resp])
     return resp
 
 
@@ -290,7 +308,7 @@ def create_activity(
             db, name=data.name, location=data.location, poster_url=data.poster_url,
             description=data.description,
             members_only=bool(data.members_only), dates=data.dates, actor=admin.email,
-            registration_closes_on=data.registration_closes_on)
+            )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     activity = service._activity_met_boom(db, nieuw.id)
@@ -311,10 +329,6 @@ def update_activity(
     from app.domains.activities import service
 
     velden = data.model_dump(exclude_none=True)
-    # #974: een deadline leegmaken is een geldige keuze, dus None telt hier mee —
-    # maar alleen als de aanroeper het veld werkelijk meestuurde.
-    if "registration_closes_on" in data.model_fields_set:
-        velden["registration_closes_on"] = data.registration_closes_on
     activity = service.update_activity(db, activity_id, velden, actor=admin.email)
     if activity is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
@@ -786,7 +800,11 @@ def register_for_activity(
     # `date.today()`, zonder deadline en zonder annulering.
     from app.domains.activities.service import registration_refusal
 
-    weigering = registration_refusal(activity)
+    # #1053: mét het onderdeel, want de deadline hoort daar. Zonder dat argument
+    # zou de strengste datum van de activiteit ook de andere onderdelen sluiten.
+    onderdeel = next((c for c in activity.sub_registrations
+                      if c.id == data.component_id), None)
+    weigering = registration_refusal(activity, component=onderdeel)
     if weigering:
         raise HTTPException(status_code=400, detail=weigering)
 

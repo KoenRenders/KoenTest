@@ -49,12 +49,15 @@ def _pin(monkeypatch, instant_utc: datetime) -> None:
 
 
 def _activity(db, name, *, last_day=LAST_DAY, closes_on=None, cancelled=False):
-    a = Activity(name=name, registration_closes_on=closes_on, is_cancelled=cancelled)
+    a = Activity(name=name, is_cancelled=cancelled)
     db.add(a)
     db.flush()
     db.add(ActivityDate(activity_id=a.id, start_date=last_day))
+    # #1053: de uiterste inschrijfdatum staat op het onderdeel. Eén onderdeel hier,
+    # dus dezelfde toestand als voorheen.
     db.add(ActivitySubRegistration(activity_id=a.id, name="Deelname",
                                    registration_type_code="INDIVIDUAL",
+                                   registration_closes_on=closes_on,
                                    price=Decimal("0"), is_free=True))
     db.flush()
     return a
@@ -80,13 +83,15 @@ def test_after_midnight_the_activity_is_in_the_archive_although_utc_says_otherwi
 
 def test_a_shared_link_after_midnight_goes_to_the_archive(client, db_session,
                                                           monkeypatch):
+    """Sinds golf 12 rendert het deeladres de pagina zelf; de Belgische
+    middernachtblik (#977) bepaalt nu de terug-link en de scope."""
     a = _activity(db_session, "Zomerbowling")
     _pin(monkeypatch, AFTER_MIDNIGHT)
 
-    resp = client.get(f"/activiteiten/{a.id}", follow_redirects=False)
+    resp = client.get(f"/activiteiten/{a.id}")
 
-    assert resp.status_code == 302
-    assert "/activiteiten/archief" in resp.headers["location"]
+    assert resp.status_code == 200 and "Zomerbowling" in resp.text
+    assert 'href="/activiteiten/archief"' in resp.text
 
 
 def test_a_passed_deadline_reads_afgesloten_and_not_open(client, db_session,

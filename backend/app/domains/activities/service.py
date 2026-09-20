@@ -46,7 +46,84 @@ def _effective_end(ad: ActivityDate) -> date:
     return ad.end_date or ad.start_date
 
 
-def registration_state(activity: Activity, *,
+def _deadline_van(component) -> Optional[date]:
+    return getattr(component, "registration_closes_on", None)
+
+
+def open_deadlines(activity: Activity) -> list[date]:
+    """De uiterste inschrijfdatums van deze activiteit, zonder dubbels (#1053).
+
+    Eén datum in de lijst betekent: elk onderdeel dat er een heeft, heeft
+    dezelfde — dat is het gewone geval (76 van de 86 activiteiten met onderdelen
+    op HDEV hebben er precies één). Meer dan één betekent dat de datum bij het
+    onderdeel hoort en niet bovenaan de kaart.
+    """
+    return sorted({d for d in (_deadline_van(c) for c in activity.sub_registrations)
+                   if d is not None})
+
+
+def shared_deadline(activity: Activity) -> Optional[date]:
+    """De ene uiterste datum die voor ÉLK onderdeel geldt, of None (#1053).
+
+    Twee schermen stellen dezelfde vraag — de rail van het beheerdetail en de
+    publieke kaart (#1051) — en ze moeten hem niet elk op hun eigen manier
+    beantwoorden. None betekent hier twee dingen die beide "geen ene datum" zijn:
+    geen enkel onderdeel heeft er een, of ze verschillen. Welke van de twee zegt
+    :func:`open_deadlines`.
+    """
+    onderdelen = list(activity.sub_registrations)
+    if not onderdelen:
+        return None
+    datums = {_deadline_van(c) for c in onderdelen}
+    return datums.pop() if len(datums) == 1 else None
+
+
+#: Hoeveel dagen vóór de uiterste datum de kaart de regel oranje kleurt (#1051).
+#: Zeven, zodat "nog deze week" klopt: op de dag zelf is het verschil 0.
+DEADLINE_ATTENTIE_DAGEN = 7
+
+
+def deadline_is_near(deadline: Optional[date], *, today: Optional[date] = None) -> bool:
+    """Valt de uiterste datum binnen de laatste week? (#1051)
+
+    Een regel en dus hier: ze hangt af van welke dag het vandaag is, en de
+    Belgische dag is dezelfde als die van de poort — anders kleurt de kaart een
+    paar uur eerder of later dan er werkelijk gesloten wordt.
+    """
+    from app.kernel.clock import belgian_today
+
+    if deadline is None:
+        return False
+    vandaag = today or belgian_today()
+    return 0 <= (deadline - vandaag).days <= DEADLINE_ATTENTIE_DAGEN
+
+
+def card_deadline(activity, *, today: Optional[date] = None) -> Optional[date]:
+    """De ene uiterste datum die de publieke kaart onder datum en locatie zet,
+    of None wanneer er geen zo'n datum is (#1053, dat de aanpak van #1051 vervangt).
+
+    "Open" is hier smaller dan in :func:`registration_state`: een volzet onderdeel
+    neemt geen inschrijvingen meer aan, dus zijn datum hoort niet meer op de kaart —
+    dat was al zo vóór deze verhuizing. Delen alle open onderdelen dezelfde datum,
+    dan is dat de datum van de kaart; verschillen ze, dan hoort elke datum bij haar
+    eigen onderdeel en geeft deze functie None.
+
+    `is_full` wordt via `getattr` gelezen omdat alleen het ANTWOORD-onderdeel het
+    draagt (de router vult het na de bezettingstelling); op een kaal ORM-onderdeel
+    telt het als niet-volzet. De toestand wordt wél opnieuw berekend in plaats van
+    afgelezen, zodat deze functie hetzelfde antwoord geeft op beide vormen.
+    """
+    openstaand = [c for c in activity.sub_registrations
+                  if registration_state(activity, component=c,
+                                        today=today) is RegistrationState.OPEN
+                  and not getattr(c, "is_full", False)]
+    if not openstaand:
+        return None
+    datums = {_deadline_van(c) for c in openstaand}
+    return datums.pop() if len(datums) == 1 else None
+
+
+def registration_state(activity: Activity, *, component=None,
                        today: Optional[date] = None) -> RegistrationState:
     """The one place that decides whether an activity takes a new registration.
 
@@ -59,6 +136,14 @@ def registration_state(activity: Activity, *,
     day a registration is accepted, until midnight in Brussels. `today` defaults to
     `belgian_today()` and not to `date.today()`, because the container may run on
     UTC and a deadline would then close two hours late in summer.
+
+    **The deadline belongs to the COMPONENT since #1053.** Pass the component
+    where one is known — the registration route and the modal both know it — and
+    this function answers for that component. Without one it answers for the
+    activity as a whole: closed only when every component has a deadline that has
+    passed, because as long as one component still takes registrations, the
+    activity is not closed. The barbecue closing a week early may not close
+    cornhole; that is the case this moved for.
 
     **Only for NEW registrations.** A board member correcting an existing
     registration after the deadline — or refunding one on a cancelled activity — is
@@ -75,8 +160,14 @@ def registration_state(activity: Activity, *,
         return RegistrationState.CANCELLED
     if not any(_effective_end(d) >= vandaag for d in activity.dates):
         return RegistrationState.PAST
-    deadline = activity.registration_closes_on
-    if deadline is not None and vandaag > deadline:
+    if component is not None:
+        deadline = _deadline_van(component)
+        if deadline is not None and vandaag > deadline:
+            return RegistrationState.CLOSED
+        return RegistrationState.OPEN
+    onderdelen = list(activity.sub_registrations)
+    if onderdelen and all((d := _deadline_van(c)) is not None and vandaag > d
+                          for c in onderdelen):
         return RegistrationState.CLOSED
     return RegistrationState.OPEN
 
@@ -106,7 +197,7 @@ def status_label(activity: Activity, *, today: Optional[date] = None) -> str:
     return STATUS_LABELS[registration_state(activity, today=today)]
 
 
-def registration_refusal(activity: Activity, *,
+def registration_refusal(activity: Activity, *, component=None,
                          today: Optional[date] = None) -> Optional[str]:
     """Why a new registration is refused, in the words the visitor reads — or None.
 
@@ -116,12 +207,21 @@ def registration_refusal(activity: Activity, *,
     """
     from app.i18n import _, long_date
 
-    toestand = registration_state(activity, today=today)
+    toestand = registration_state(activity, component=component, today=today)
     if toestand is RegistrationState.CANCELLED:
         return _("Deze activiteit is geannuleerd; inschrijven kan niet meer.")
     if toestand is RegistrationState.CLOSED:
-        return (_("De inschrijvingen voor deze activiteit zijn afgesloten sinds "
-                  "%(datum)s.") % {"datum": long_date(activity.registration_closes_on)})
+        # De datum die de bezoeker leest, is die van ZIJN onderdeel (#1053) — met
+        # verschillende datums per onderdeel zou elke andere datum liegen.
+        if component is not None:
+            return (_("De inschrijvingen voor dit onderdeel zijn afgesloten sinds "
+                      "%(datum)s.")
+                    % {"datum": long_date(_deadline_van(component))})
+        # Zonder onderdeel gaat het over de activiteit als geheel, en die is pas
+        # dicht als élk onderdeel dicht is — dus telt de LAATSTE datum.
+        alle = open_deadlines(activity)
+        return (_("De inschrijvingen zijn afgesloten sinds %(datum)s.")
+                % {"datum": long_date(alle[-1] if alle else None)})
     if toestand is RegistrationState.PAST:
         return _("Activity is no longer open for registration")
     return None
@@ -221,8 +321,7 @@ def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> 
 
 def create_activity(db, *, name: str, location=None, poster_url=None, description=None,
                     members_only: bool = False, dates=(), actor=None,
-                    slug: str | None = None,
-                    registration_closes_on: Optional[date] = None) -> Activity:
+                    slug: str | None = None) -> Activity:
     """Maak een activiteit met haar eerste datums (#679, batch 1).
 
     De audit-snapshots horen bij de mutatie, niet bij de route: een activiteit die
@@ -243,8 +342,7 @@ def create_activity(db, *, name: str, location=None, poster_url=None, descriptio
         slug = _controleer_slug(db, slug)
     activity = Activity(name=name, location=location, poster_url=poster_url,
                         description=description,
-                        members_only=bool(members_only), slug=slug,
-                        registration_closes_on=registration_closes_on)
+                        members_only=bool(members_only), slug=slug)
     db.add(activity)
     db.flush()
     snapshot_activity(db, activity, operation="insert", action="activity_created",
@@ -425,6 +523,7 @@ def add_component(db, activity_id: int, gegevens, *, actor=None):
         external_registrations_url=gegevens.external_registrations_url,
         info_url=gegevens.info_url,
         max_participants=gegevens.max_participants,
+        registration_closes_on=gegevens.registration_closes_on,
         # Verplichte FK, bewaard voor DB-compatibiliteit; sinds de v2.0-unificatie
         # vertakt er niets meer op dit veld.
         registration_type_code="INDIVIDUAL",

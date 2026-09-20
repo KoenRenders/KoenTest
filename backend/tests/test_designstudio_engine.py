@@ -130,6 +130,12 @@ def test_merge_places_every_content_block_and_promises_a_box_per_text():
     assert render.estimate(merged) == []
     for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
         assert eid in merged.boxes and f'id="{eid}"' in svg
+    # With a contact person the association's e-mail stays off the poster (Koen, 20 Sep 2026).
+    assert "info@example.com" not in svg
+    alone = render.merge(_content(contacts=(), association_mobile="0499 00 00 00"), layout="print_a").svg
+    assert "info@example.com" in alone and "0499 00 00 00" in alone and "t-contact-" not in alone
+    for eid in ():
+        assert eid in merged.boxes and f'id="{eid}"' in svg
 
 
 def test_the_estimate_catches_a_title_that_cannot_fit():
@@ -144,7 +150,7 @@ def test_too_much_content_is_reported_never_cut():
     merged = render.merge(_content(highlights=many, explanation_md="\n\n".join(["Een alinea tekst die lang genoeg is."] * 30)),
                           layout="print_a")
     assert any(v.startswith("Te veel inhoud in de kolom rechts") for v in merged.violations)
-    assert "Kernpunt nummer 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
+    assert "KERNPUNT NUMMER 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
 
 
 def test_feed_layout_keeps_four_highlights_and_says_so():
@@ -173,12 +179,17 @@ def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_gro
     assert render.estimate(with_three) == []
 
 
-def test_welcome_is_always_there_and_members_only_changes_it():
-    """Koen, 19 September 2026: "iedereen welkom" is not a field — it is on
-    every poster, unless the activity is members-only."""
-    assert "IEDEREEN WELKOM!" in render.merge(_content(), layout="print_a").svg
-    svg = render.merge(_content(members_only=True), layout="print_a").svg
-    assert "ENKEL LEDEN" in svg and "IEDEREEN WELKOM" not in svg
+def test_welcome_is_a_badge_above_the_tile_and_members_only_turns_it_red():
+    """Koen, 19/20 September 2026: "iedereen welkom" is not a field and not a
+    row — a brush-stroke badge above the tile on every poster; "ENKEL
+    LEDEN" the same on the red."""
+    svg = render.merge(_content(), layout="print_a").svg
+    assert "IEDEREEN WELKOM!" in svg
+    y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+    assert 355 < y < 380
+    members = render.merge(_content(members_only=True), layout="print_a").svg
+    assert "ENKEL LEDEN" in members and "IEDEREEN WELKOM" not in members
+    assert f'fill="{brand.COLOURS["watermelon_red"].hex}" fill-opacity="1"' in members
 
 
 def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
@@ -192,15 +203,13 @@ def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
     assert lockup_y > 350
 
 
-def test_the_third_picture_gives_way_to_sponsor_logos():
-    three = _content(inset_image=ImageBytes(PNG_2x2, "image/png"), third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2))
-    assert three.third_image is not None
-    without_logos = render.merge(three, layout="print_a").svg
-    with_logos = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
-                                       third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
-                                       logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
-    assert without_logos.count("<image") == 3 and with_logos.count("<image") == 3  # hero, inset, third | hero, inset, logo
-    assert 'id="logo-0"' in with_logos and 'preserveAspectRatio="xMinYMin slice"' not in with_logos
+def test_the_third_picture_and_the_sponsor_logos_do_not_collide():
+    """Third picture bottom-left under the highlights, logos bottom-right
+    above the band — both may be there (Koen, 20 September 2026)."""
+    both = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
+                                 third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
+                                 logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
+    assert both.count("<image") == 4 and 'id="logo-0"' in both and 'preserveAspectRatio="xMinYMin slice"' in both
 
 
 def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
@@ -212,8 +221,37 @@ def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     m = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"', simple.svg)
     assert m is not None and float(m.group(1)) > 250 and float(m.group(2)) > 100
     assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
-    welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
-    assert welcome_y > 330
+    # A polaroid lies on the big picture; the big picture keeps its size.
+    with_inset = render.merge(_content(preset="eenvoudig", dates=(), explanation_md="De tekst.",
+                                       inset_image=ImageBytes(PNG_2x2, "image/png")), layout="print_a")
+    assert with_inset.violations == () and with_inset.svg.count("<image") == 2
+    hero = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', simple.svg).group(1)
+    hero2 = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', with_inset.svg).group(1)
+    assert abs(float(hero) - float(hero2)) < 12
+    # The lockup sits 4 mm in from the paper's left edge, its bottom level with the band's.
+    x, y, w = (float(v) for v in re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106', simple.svg).groups())
+    assert x == 13.0 and abs(y + w * 245 / 491 - 409) < 0.01
+
+
+def test_six_highlight_rows_fit_the_left_column():
+    """Date, place and four own rows (Koen, 20 September 2026: six in total,
+    rows five and six structurally gone) — all six on the print poster, room
+    to spare."""
+    six = tuple(Highlight("smile", f"Kernpunt {i} met een tweede regel erbij", i == 0) for i in range(6))
+    merged = render.merge(_content(highlights=six, inset_image=None, dates=()), layout="print_a")
+    assert all(f't-hl-{i}-0' in merged.svg for i in range(6))
+    assert not any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations), merged.violations
+
+
+def test_every_highlight_row_is_upper_case_bold_and_one_size():
+    """Koen, 20 September 2026: the place row looked smaller and lighter
+    than the others. One size, upper case, bold — whatever was typed."""
+    merged = render.merge(_content(highlights=(Highlight("map-pin", "Miloheem"), Highlight("users", "gezellig samen"))),
+                          layout="print_a")
+    rows = re.findall(r'<text id="t-hl-\d-0" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)" font-weight="(\w+)"[^>]*>([^<]*)</text>', merged.svg)
+    assert len(rows) == 2
+    assert {r[0] for r in rows} == {"7.400"} and {r[1] for r in rows} == {"bold"}
+    assert [r[2] for r in rows] == ["MILOHEEM", "GEZELLIG SAMEN"]
 
 
 def test_a_focal_point_moves_the_crop():

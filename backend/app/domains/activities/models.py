@@ -143,11 +143,6 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)
-    # #974: the last day on which a NEW registration is accepted, inclusive, in
-    # Belgian time. A date and not a timestamp: what the board types is a day. Who
-    # decides whether registration is open is `service.registration_state` — this
-    # column is only one of its inputs, and nothing else should read it to decide.
-    registration_closes_on = Column(Date, nullable=True)
     # #1028: de interne nota van het bestuur — alleen op het beheerscherm. Hier
     # stond `notes`, met de opmerking dat die kolom nergens getoond werd; dat
     # klopte niet (de publieke bot zette hem in `get_activity_detail`), dus ze is
@@ -162,7 +157,14 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivityOrganiser.sort_order")
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
-    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
+    # De id is de tiebreak, en dat is geen franje: `sort_order` staat standaard op 0,
+    # dus twee onderdelen die je achter elkaar toevoegt zijn gelijk gerangschikt en
+    # Postgres mag ze dan in om het even welke volgorde teruggeven. Dat gebeurde ook:
+    # CI-run 35499069480 zette op de Inschrijvingen-tab het tweede onderdeel boven het
+    # eerste, terwijl dezelfde code lokaal de invoegvolgorde gaf. Met de id erbij is
+    # de volgorde overal dezelfde — en sinds #1053 draagt elk onderdeel zijn eigen
+    # uiterste datum, dus een wisselende volgorde is ook op de publieke kaart zichtbaar.
+    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order, ActivitySubRegistration.id")
 
     @property
     def poster_asset_url(self):
@@ -233,6 +235,13 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     info_url = Column(String(500), nullable=True)
     registration_type_code = Column(String(10), nullable=False, default="INDIVIDUAL")  # code gevalideerd in de router-schema's (§8: geen cross-schema FK)
     max_participants = Column(Integer, nullable=True)
+    # #1053: the last day on which a NEW registration for THIS component is
+    # accepted, inclusive, in Belgian time. A date and not a timestamp: what the
+    # board types is a day. It sat on the activity until #1053 — and then the
+    # barbecue's deadline also closed cornhole, which is the case Koen ran into.
+    # Who decides whether registration is open is `service.registration_state`;
+    # this column is only one of its inputs.
+    registration_closes_on = Column(Date, nullable=True)
     price = Column(Numeric(10, 2), nullable=False, default=0)
     member_price = Column(Numeric(10, 2), nullable=True)
     is_free = Column(Boolean, default=True, nullable=False)

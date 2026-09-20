@@ -56,6 +56,8 @@ def meta(asset: MediaAsset) -> dict:
         "link_url": asset.link_url,
         "sort_order": asset.sort_order,
         "is_active": asset.is_active,
+        # #1057: alleen betekenisvol bij een sponsorlogo — zie het model.
+        "show_in_footer": asset.show_in_footer,
         "width": asset.width,
         "height": asset.height,
         "byte_size": asset.byte_size,
@@ -151,7 +153,7 @@ def update_media(db, asset_id: int, payload: dict) -> dict:
         # asset beslist, niet wat het formulier meestuurt.
         payload = {**payload, "link_url": controleer_link(payload["link_url"],
                                                           kind=asset.kind)}
-    for veld in ("title", "link_url", "sort_order", "is_active"):
+    for veld in ("title", "link_url", "sort_order", "is_active", "show_in_footer"):
         if veld in payload:
             setattr(asset, veld, payload[veld])
     db.commit()

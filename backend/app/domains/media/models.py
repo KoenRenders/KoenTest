@@ -24,8 +24,10 @@ class MediaAsset(TenantMixin, Base):
     """Binaire assetbibliotheek, opgeslagen in Postgres (BYTEA).
 
     Eén tabel voor meerdere soorten media:
-    - ``kind="sponsor"``  → logo's die in de footer/homepage verschijnen
-      (optioneel met ``link_url`` als doorklik).
+    - ``kind="sponsor"``  → logo's die op een affiche en/of in de footer mogen
+      verschijnen (optioneel met ``link_url`` als doorklik). Of ze in de footer
+      staan, beslist ``show_in_footer`` per logo (#1057); de Design Studio biedt
+      élk actief sponsorlogo aan.
     - ``kind="activity_photo"`` → foto's bij een activiteit (``activity_id``),
       getoond in het archief.
     - ``kind="activity_poster"`` → de poster van één activiteit (``activity_id``):
@@ -71,6 +73,12 @@ class MediaAsset(TenantMixin, Base):
     link_url = Column(String(500), nullable=True)     # doorklik voor sponsorlogo
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
+    # #1057: alleen zinvol bij ``kind="sponsor"``. Tot dan las de footer dezelfde
+    # vlag als de Design Studio, dus een logo dat je enkel op een affiche wilde,
+    # stond onvermijdelijk ook onder élke publieke pagina. Deze schakelaar zit
+    # ÓNDER `is_active` en niet ernaast: uit betekent nog steeds nergens.
+    # Standaard aan, zodat een gewone sponsor geen extra handeling vraagt.
+    show_in_footer = Column(Boolean, nullable=False, default=True)
 
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 

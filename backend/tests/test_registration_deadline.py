@@ -12,6 +12,11 @@ makes both views of it consistent: the Belgian clock (`app.kernel.clock`) and th
 naive `date.today()` a UTC container would report. That is what makes the
 summer-midnight test able to go red: put `date.today()` back in the service and it
 reads the UTC date, which is still the deadline day, and lets the registration in.
+
+**#1053 moved the deadline to the component.** Every test here has one component, so
+what they measure is unchanged; only where the date is written moved. The case that
+needs two components — one closed, one open — lives in
+`test_inschrijfdatum_per_onderdeel.py`, with the screen tests of #1051.
 """
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
@@ -50,13 +55,15 @@ def _activity(db, *, closes_on=DEADLINE, cancelled=False, external_url=None):
     Its date is fixed relative to DEADLINE and not to the real today, so the pinned
     clock is the only thing that decides whether it is open.
     """
-    a = Activity(name="Bowling", registration_closes_on=closes_on,
-                 is_cancelled=cancelled)
+    a = Activity(name="Bowling", is_cancelled=cancelled)
     db.add(a)
     db.flush()
     db.add(ActivityDate(activity_id=a.id, start_date=DEADLINE + timedelta(days=30)))
+    # #1053: de datum staat op het ONDERDEEL. Eén onderdeel hier, dus dezelfde
+    # meting als voorheen.
     comp = ActivitySubRegistration(
         activity_id=a.id, name="Deelname", registration_type_code="INDIVIDUAL",
+        registration_closes_on=closes_on,
         price=Decimal("0"), is_free=True, external_register_url=external_url)
     db.add(comp)
     db.flush()
@@ -206,7 +213,7 @@ def test_before_the_deadline_the_card_says_until_when(client, db_session,
     start = html.index("Bowling")
     kaart = html[start:start + 6000]
 
-    assert "Inschrijven kan tot" in kaart
+    assert "Inschrijven t/m" in kaart
     assert "Inschrijvingen afgesloten" not in kaart
 
 
@@ -257,27 +264,30 @@ def test_the_board_can_still_correct_an_existing_registration(client, db_session
 # ── Beheer: het veld ─────────────────────────────────────────────────────────
 
 def test_the_deadline_can_be_set_and_cleared_in_the_admin(client, db_session):
-    """Clearing is a valid choice, so an empty field must remove the deadline."""
+    """Clearing is a valid choice, so an empty field must remove the deadline.
+
+    #1053: the field sits on the COMPONENT form now, so this posts to the component
+    route. Same three steps as before: set, read back on the screen, clear.
+    """
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
                                       make_session_value)
 
-    a, _comp, _product = _activity(db_session, closes_on=None)
+    a, comp, _product = _activity(db_session, closes_on=None)
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     kop = {"X-CSRF-Token": csrf_token_for(value)}
+    pad = f"/admin/activiteiten/{a.id}/onderdelen/{comp.id}"
 
-    client.post(f"/admin/activiteiten/{a.id}",
-                data={"name": "Bowling", "registration_closes_on": "2027-07-15"},
-                headers=kop)
-    db_session.refresh(a)
-    assert a.registration_closes_on == DEADLINE
+    client.post(pad, data={"name": "Deelname",
+                           "registration_closes_on": "2027-07-15"}, headers=kop)
+    db_session.refresh(comp)
+    assert comp.registration_closes_on == DEADLINE
 
     html = client.get(f"/admin/activiteiten/{a.id}").text
     assert 'value="2027-07-15"' in html
 
-    client.post(f"/admin/activiteiten/{a.id}",
-                data={"name": "Bowling", "registration_closes_on": ""},
-                headers=kop)
-    db_session.refresh(a)
-    assert a.registration_closes_on is None
+    client.post(pad, data={"name": "Deelname",
+                           "registration_closes_on": ""}, headers=kop)
+    db_session.refresh(comp)
+    assert comp.registration_closes_on is None

@@ -59,3 +59,17 @@ def long_date(d) -> str:
     from babel.dates import format_date
 
     return format_date(d, format="full", locale=current_locale.get())
+
+
+def long_date_no_year(d) -> str:
+    """The same long date without the year, e.g. 'zondag 8 november' (#1051).
+
+    Next to `long_date` and not in the UI layer for the same reason: it is the
+    wording of a date, and the deadline line on the public card sits directly under
+    the activity's own dates — which already carry the year.
+    """
+    if d is None:
+        return ""
+    from babel.dates import format_date
+
+    return format_date(d, format="EEEE d MMMM", locale=current_locale.get())

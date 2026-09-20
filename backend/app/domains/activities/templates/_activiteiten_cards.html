@@ -39,10 +39,13 @@
       </div>
       {% endif %}
       <div class="min-w-0 flex-1">
-    {# Titel + status-badge inline (#488); titel linkt naar de affiche (v1.14). #}
+    {# Titel + status-badge inline (#488). Golf 12 (#913): de titel linkt naar
+       de activiteitspagina op het deeladres — de affiche staat dáár als beeld
+       en blijft zo bereikbaar; tot golf 12 linkte de titel rechtstreeks naar
+       het affichebestand (v1.14-erfenis). #}
     <div>
       <h2 class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
-        {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ a.name }}</a>{% else %}<span>{{ a.name }}</span>{% endif %}
+        <a href="{{ path_for('/activiteiten/' ~ (a.slug or a.id)) }}" class="text-blue-700 hover:underline">{{ a.name }}</a>
         {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
            krijgt geen badge — de inschrijfknop ís het positieve signaal. Badges
            blijven voor wat afwijkt: Vol, Geannuleerd, Voorbij, enkel leden. #}
@@ -83,10 +86,28 @@
         </div>
       </div>
       {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
-      {# #1016: de omschrijving die het bestuur schreef — dezelfde zinnen die in de
-         nieuwsbrief belanden. Onder de praktische regels: wie de datum zoekt, leest
-         niet eerst een alinea. #}
-      {% if a.description %}<p class="text-base md:text-sm text-ink whitespace-pre-line">{{ a.description }}</p>{% endif %}
+      {# #1051: de uiterste inschrijfdatum stond als klein grijs tekstje naast de
+         inschrijfknop — dus één keer per onderdeel, drie keer bij drie onderdelen.
+         Ze hoort bij de praktische regels, onder datum en locatie.
+
+         Het icoon is de KLOK. Die bestond niet toen dit issue geschreven werd —
+         vandaar de instructie "neem het dichtstbijzijnde en meld welk" — maar golf
+         12 (#913) voegde hem toe voor de activiteitspagina, dus dit is de klok die
+         het issue vroeg.
+
+         #1053: wélke datum hier staat, beslist de service (`card_deadline`) — één
+         regel als álle open onderdelen dezelfde datum hebben, anders niets, en dan
+         staat de datum bij het onderdeel zelf. Een volzet onderdeel telt niet mee.
+         In de laatste week kleurt de regel oranje (§1.1: oranje is attentie). #}
+      {% if a.shared_deadline %}
+      {% call ui.icon_text("clock", cls=("text-orange-600" if a.shared_deadline_near else "text-ink-soft")) %}
+        {{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}
+      {% endcall %}
+      {% endif %}
+      {# #1054: de omschrijving stond hier (#1016) en is op Koens vraag van
+         20 september 2026 van de kaart verdwenen — "omschrijving overal weg".
+         Ze blijft bestaan en blijft gelezen worden: op de detailpagina, in de
+         nieuwsbrief, op de affiche en door Raakje. #}
     </div>
     {# Golf 11 (F32, #913): de onderdelen en acties staan ín de inhoudskolom,
        niet meer onder de datumtegel — titel, gegevens en vervolgstap lezen zo
@@ -117,7 +138,7 @@
              (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
              deadline verdwijnt ook de externe link: het formulier daarachter kunnen
              we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
-          {% if a.registration_state == "closed" %}
+          {% if c.registration_state == "closed" %}
           {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
           {% elif c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
@@ -131,8 +152,12 @@
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
           {% endif %}
-          {% if a.registration_state == "open" and a.registration_closes_on and not c.is_full %}
-          <span class="text-xs text-ink-soft">{{ _("Inschrijven kan tot") }} {{ a.registration_closes_on | langedatum }}</span>
+          {# #1053: verschillen de datums per onderdeel, dan staat de datum hier —
+             bij het onderdeel waar hij bij hoort. Delen ze er één, dan staat ze al
+             als icoonregel bovenaan en zou ze hier een tweede keer staan. #}
+          {% if not a.shared_deadline and c.registration_closes_on
+                and c.registration_state == "open" and not c.is_full %}
+          <span class="text-xs {{ "text-orange-600" if c.deadline_near else "text-ink-soft" }}">{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</span>
           {% endif %}
           {% endif %}
           {% if c.external_registrations_url %}

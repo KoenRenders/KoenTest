@@ -58,6 +58,9 @@ class ProductResponse(BaseModel):
 class ComponentCreate(BaseModel):
     name: str
     team_name_required: bool = False
+    # #1053: de uiterste inschrijfdatum hoort bij het ONDERDEEL — de barbecue mag
+    # een week eerder sluiten dan cornhole.
+    registration_closes_on: Optional[Date] = None
     sort_order: int = 0
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
@@ -68,6 +71,10 @@ class ComponentCreate(BaseModel):
 class ComponentUpdate(BaseModel):
     name: Optional[str] = None
     team_name_required: Optional[bool] = None
+    # #1053: leegmaken is een geldige keuze. De JSON-route gebruikt
+    # `exclude_unset` en laat een bewust gezette None dus staan; het beheerscherm
+    # stuurt het veld altijd mee en zet het apart (admin_ui).
+    registration_closes_on: Optional[Date] = None
     sort_order: Optional[int] = None
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
@@ -87,6 +94,14 @@ class ComponentResponse(BaseModel):
     info_asset_is_pdf: bool = False
     max_participants: Optional[int] = None
     is_full: bool = False
+    # #1053: per onderdeel, zodat de kaart kan tonen wat er werkelijk geldt.
+    registration_closes_on: Optional[Date] = None
+    # #1053: de toestand van DIT onderdeel, beslist door `registration_state`.
+    # De kaart rekent niet zelf uit of een deadline voorbij is — dat was precies
+    # de duplicatie die #974 wegnam, en ze mag niet per onderdeel terugkomen.
+    registration_state: Optional[str] = None
+    # #1051: binnen de laatste week kleurt de regel oranje (attentietint, §1.1).
+    deadline_near: bool = False
     products: List[ProductResponse] = []
 
     model_config = {"from_attributes": True}
@@ -129,8 +144,6 @@ class ActivityCreate(BaseModel):
     description: Optional[str] = None
     poster_url: Optional[str] = None
     members_only: Optional[bool] = None
-    # #974: the last day a new registration is accepted (inclusive, Belgian time).
-    registration_closes_on: Optional[Date] = None
 
 
 class ActivityUpdate(BaseModel):
@@ -143,9 +156,6 @@ class ActivityUpdate(BaseModel):
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
     members_only: Optional[bool] = None
-    # #974: explicitly settable to null — clearing the deadline is a valid choice,
-    # so the router reads it from `model_fields_set` rather than dropping None.
-    registration_closes_on: Optional[Date] = None
 
 
 class ActivityResponse(BaseModel):
@@ -169,7 +179,13 @@ class ActivityResponse(BaseModel):
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None
-    registration_closes_on: Optional[Date] = None
+    # #1053: de ene uiterste inschrijfdatum die voor élk open onderdeel geldt —
+    # None zodra ze verschillen, want dan hoort elke datum bij haar onderdeel.
+    # Afgeleid, zoals `is_full` en `registration_state`, en pas ingevuld als de
+    # bezetting bekend is.
+    shared_deadline: Optional[Date] = None
+    # #1051: idem, voor de ene regel bovenaan de kaart.
+    shared_deadline_near: bool = False
     # #974: `registration_state` as the service decides it — open, past, closed or
     # cancelled. The card reads THIS and does not work it out again; two places that
     # each decide "open" is how the deadline would have been forgotten in one.

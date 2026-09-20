@@ -140,12 +140,15 @@ def _redirect(request: Request, target: str):
 
 # ── The list ─────────────────────────────────────────────────────────────────
 
-def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] = None) -> DesignListView:
+def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] = None,
+               activity_id: Optional[int] = None) -> DesignListView:
     from app.domains.activities.api import get_activity
 
     rows = []
     needle = (q or "").strip().lower()
     for design in list_designs(db):
+        if activity_id is not None and design.activity_id != activity_id:
+            continue
         activity = get_activity(db, design.activity_id)
         name = activity.name if activity is not None else _("(activiteit verwijderd)")
         if needle and needle not in name.lower():
@@ -165,8 +168,10 @@ def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] 
 
 @router.get("/admin/ontwerpen", response_class=HTMLResponse)
 def design_list(request: Request, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), q: str = ""):
-    view = _list_view(request, db, q=q)
+                _email: str = Depends(require_admin_ui), q: str = "", activity_id: Optional[int] = None):
+    """`?activity_id=` narrows the list to one activity — the target of the
+    jump from the activity screen."""
+    view = _list_view(request, db, q=q, activity_id=activity_id)
     template = "_ds_lijst.html" if is_fragment_request(request) else "admin_ontwerpen.html"
     return templates.TemplateResponse(request, template, view.as_context())
 

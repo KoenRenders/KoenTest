@@ -1,0 +1,139 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ a.name }} — {{ site_name }}{% endblock %}
+{% block meta %}
+{# Deelbaarheid (golf 12): een gedeelde link toont in WhatsApp/zoekmachines de
+   activiteit zelf, niet een generieke sitetekst. #}
+{% if a.description %}<meta name="description" content="{{ a.description | truncate(160, True) }}">{% endif %}
+<meta property="og:title" content="{{ a.name }}">
+{% if a.description %}<meta property="og:description" content="{{ a.description | truncate(160, True) }}">{% endif %}
+{% endblock %}
+{% block content %}
+{# Golf 12 (#913): volwaardige publieke activiteitspagina op het deeladres
+   /activiteiten/<slug|nr> — nam de redirect van golf 8 over, geen link breekt. #}
+{% set _status_tone = {"Afgesloten": "gray", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "orange"} %}
+<nav class="pt-4 text-base md:text-sm">
+  <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
+</nav>
+<div class="mt-4 md:flex md:gap-8">
+  <div class="min-w-0 flex-1">
+    <div class="flex gap-3 sm:gap-4">
+      {% if a.sort_date %}
+      <div class="shrink-0 w-14 h-14 md:w-16 md:h-16 rounded-lg bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+        <span class="text-2xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
+        <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
+      </div>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <h1 class="text-2xl md:text-3xl font-bold text-ink flex flex-wrap items-center gap-2">
+          <span>{{ a.name }}</span>
+          {% if a.status and a.status != "Open" %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
+          {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
+        </h1>
+        <div class="mt-1 text-base md:text-sm text-ink-soft flex items-start gap-1">
+          {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
+          <div class="flex flex-col">
+            {% for d in a.dates %}
+            <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
+        {# Uiterste inschrijfdatum (#1053-weergave): één onderdeel — of allemaal
+           dezelfde datum — toont de klokregel hier; verschillende datums staan
+           bij de onderdelen. Oranje in de laatste week (#1051).
+
+           #1053: de datum en de urgentie komen uit het view-model (`shared_deadline`,
+           `shared_deadline_near`), net als op de kaart. Golf 12 rekende ze hier nog
+           zelf uit omdat de kolom toen op de activiteit stond; twee berekeningen van
+           dezelfde regel is precies hoe de ene op een dag anders afrondt dan de
+           andere. #}
+        {% if a.shared_deadline %}{% call ui.icon_text("clock", cls="text-orange-600" if a.shared_deadline_near else "text-ink-soft") %}{{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}{% endcall %}{% endif %}
+      </div>
+    </div>
+
+    {% if poster_url %}
+    {# De affiche als beeld op mobiel: boven de omschrijving, klikbaar naar het
+       volledige bestand. Op een breed scherm staat ze in de rechterkolom. #}
+    <a href="{{ poster_link }}" target="_blank" rel="noopener" class="block mt-5 md:hidden">
+      <img src="{{ poster_url }}" alt="{{ _('Affiche van %(naam)s', naam=a.name) }}"
+           class="w-full max-w-sm rounded-xl border border-line shadow-sm">
+    </a>
+    {% endif %}
+
+    {% if a.description %}
+    <div class="mt-5 text-base md:text-sm text-ink whitespace-pre-line max-w-2xl">{{ a.description }}</div>
+    {% endif %}
+
+    {% if not a.is_cancelled %}
+    {% set _multi = (a.sub_registrations | length) > 1 %}
+    <div class="mt-6 space-y-3">
+      {% for c in a.sub_registrations %}
+      <div class="pt-2" x-data="{ open: false, ins: false }">
+        {% set _btn = ui.btn_class("outline", "sm") %}
+        {% set _info = c.info_asset_url or c.info_url %}
+        {% set _info_extern = c.info_url and not c.info_asset_url %}
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+          {% if _multi %}<span class="text-base md:text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
+          <div class="flex flex-wrap gap-2 items-center">
+          {% if scope != "archived" %}
+          {% if a.registration_state == "closed" %}
+          {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
+          {% elif c.external_register_url %}
+          <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
+          {% elif c.is_full %}
+          {{ ui.badge(_("Volzet"), "orange") }}
+          {% else %}
+          <button type="button" class="{{ ui.btn_class('primary', 'sm') }}"
+                  @click="ins = true"
+                  hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
+                  hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
+          {% endif %}
+          {% endif %}
+          {% if c.external_registrations_url %}
+          <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
+          {% elif not c.external_register_url %}
+          <button type="button" class="{{ _btn }}" @click="open = !open"
+                  hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
+                  hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
+            <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
+          </button>
+          {% endif %}
+          {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
+          </div>
+        </div>
+        {# Klokregel ONDER het onderdeel (Koen op het golf 12-pakket, 20 sep).
+           #1053: alleen wanneer de onderdelen het ONEENS zijn — delen ze één datum,
+           dan staat ze al als klokregel bovenaan en zou ze hier een tweede keer
+           staan. Zelfde voorwaarden als op de kaart. #}
+        {% if not a.shared_deadline and c.registration_closes_on
+              and c.registration_state == "open" and not c.is_full %}<div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>{% endif %}
+        {% if not c.external_register_url and not c.external_registrations_url %}
+        <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
+        {% endif %}
+        {% if scope != "archived" %}
+        <div x-show="ins" x-cloak x-transition.opacity.duration.150ms @keydown.escape.window="ins = false" @click.self="ins = false"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(17,17,17,.5)">
+          <div x-show="ins" x-transition.opacity.duration.150ms class="relative w-full max-w-md max-h-[90vh] overflow-auto bg-white rounded-2xl shadow-xl">
+            <button type="button" class="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-700 text-2xl leading-none"
+                    @click="ins = false" aria-label="{{ _('Sluiten') }}">&times;</button>
+            <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if poster_url %}
+  <aside class="hidden md:block md:w-72 lg:w-80 shrink-0">
+    <a href="{{ poster_link }}" target="_blank" rel="noopener" class="block">
+      <img src="{{ poster_url }}" alt="{{ _('Affiche van %(naam)s', naam=a.name) }}"
+           class="w-full rounded-xl border border-line shadow-sm">
+    </a>
+  </aside>
+  {% endif %}
+</div>
+{% endblock %}

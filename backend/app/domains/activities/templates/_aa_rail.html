@@ -12,9 +12,11 @@
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Toegang") }}</dt>
           <dd>{% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}</dd></div>
         {# #974: zichtbaar in de detailweergave, met de toestand zoals de service
-           ze beslist — niet opnieuw uitgerekend in het sjabloon. #}
+           ze beslist — niet opnieuw uitgerekend in het sjabloon. #1053: de datum
+           hoort bij het onderdeel, dus de rail toont ze alleen wanneer ze voor élk
+           onderdeel dezelfde is; verschillen ze, dan staan ze bij de onderdelen. #}
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Inschrijven tot") }}</dt>
-          <dd>{% if a.registration_closes_on %}{{ a.registration_closes_on | langedatum }}{% if a.registration_state == "closed" %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% else %}—{% endif %}</dd></div>
+          <dd>{% if rail_deadline %}{{ rail_deadline | langedatum }}{% if a.registration_state == "closed" %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% elif rail_deadline_verschilt %}{{ _("verschilt per onderdeel") }}{% else %}—{% endif %}</dd></div>
       </dl>
       {# Deel de activiteit (feedbackronde): de publieke lijst, verankerd op deze
          kaart. Een echte activiteitspagina bestaat nog niet — zie het
@@ -23,6 +25,20 @@
       <div class="flex items-center gap-2 mb-3 text-xs">
         <span class="font-mono bg-surface-2 border border-line rounded px-2 py-1 truncate">{{ deellink }}</span>
         {{ ui.copy_button(deellink, _("Kopieer de link")) }}
+      </div>
+      {# #1049 (CR-10 Q23): van een activiteit naar haar affiche, zonder langs de
+         ontwerpenlijst te passeren. Twee toestanden, want de nuttige handeling
+         verschilt: bestaat er al een ontwerp, dan wil je erheen; bestaat er geen,
+         dan wil je er een maken. Het aantal en de bestemming komen uit de route. #}
+      <h3 class="font-semibold mb-1">{{ _("Affiche") }}</h3>
+      <div class="mb-3">
+        {% if ontwerpen_aantal %}
+        {{ ui.btn_secondary(_("Ontwerpen: %(n)s · Naar de Design Studio", n=ontwerpen_aantal),
+                            href=ontwerpen_href, size="sm") }}
+        {% else %}
+        {{ ui.btn_secondary(_("Affiche maken in de Design Studio"),
+                            href=ontwerpen_href, size="sm") }}
+        {% endif %}
       </div>
       <h3 class="font-semibold mb-1">{{ _("Bezetting") }}</h3>
       {% if rail_onderdelen %}

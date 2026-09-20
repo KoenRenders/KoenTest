@@ -153,7 +153,7 @@ def inschrijf_form(activity_id: int, component_id: int, request: Request,
     # #974: een modal die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
-    ctx["error"] = registration_refusal(activity)
+    ctx["error"] = registration_refusal(activity, component=component)
     return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
 
 
@@ -261,7 +261,41 @@ def activiteit_deeplink(sleutel: str, request: Request,
     # middernacht door naar een lijst waar de kaart (nog) niet op staat.
     from app.kernel.clock import belgian_today
 
-    lijst = ("/activiteiten/archief" if laatste and laatste < belgian_today()
-             else "/activiteiten")
-    anker = activiteit.slug or f"act-{activiteit.id}"
-    return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)
+    voorbij = bool(laatste and laatste < belgian_today())
+    # Golf 12 (#913): de pagina neemt het adres over, zoals deze docstring sinds
+    # golf 8 aankondigde — geen enkele gedeelde link breekt. Het view-model komt
+    # uit list_activities, dezelfde bron als de kaart, dus status, volzet en
+    # deadline kunnen nooit uiteenlopen met de lijst.
+    from app.domains.activities.api import list_activities
+
+    scope = "archived" if voorbij else "upcoming"
+    vm = next((x for x in list_activities(db, scope=scope)
+               if x.id == activiteit.id), None)
+    if vm is None:
+        # Vangnet voor een record dat (nog) in geen van beide lijstscopes valt:
+        # de oude redirect, zodat de link nooit doodloopt.
+        anker = activiteit.slug or f"act-{activiteit.id}"
+        lijst = "/activiteiten/archief" if voorbij else "/activiteiten"
+        return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)
+    poster_url = None
+    poster_link = None
+    if activiteit.poster_asset_url:
+        # Een PDF-affiche toont haar voorblad (#1019); het beeld linkt altijd
+        # naar het volledige bestand.
+        poster_link = activiteit.poster_asset_url
+        poster_url = (activiteit.poster_asset_url + "/thumb"
+                      if activiteit.poster_asset_is_pdf else activiteit.poster_asset_url)
+    elif activiteit.poster_url:
+        poster_link = activiteit.poster_url
+    # De klokregel bovenaan (#1051-copy: zonder jaartal, oranje in de laatste week)
+    # rekende hier nog zelf uit welke datum en welke urgentie golden. Sinds #1053
+    # staat dat in het view-model — `shared_deadline` en `shared_deadline_near`,
+    # dezelfde velden die de kaart leest — en kan het sjabloon ze rechtstreeks
+    # tonen. Eén bron: twee berekeningen van "de laatste week" lopen vroeg of laat
+    # uiteen, en de datumopmaak zat hier bovendien met `rsplit` in plaats van via
+    # de babel-filter.
+    return templates.TemplateResponse(request, "activiteit.html", {
+        **site_context(db, request), "a": vm, "scope": scope,
+        "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
+        "poster_url": poster_url, "poster_link": poster_link,
+    })

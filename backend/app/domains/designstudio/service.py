@@ -65,7 +65,8 @@ def _tenant() -> int:
 logger = logging.getLogger(__name__)
 
 MAX_VERSIONS = 3
-MAX_HIGHLIGHTS = 6
+MAX_HIGHLIGHTS = 4          # the unit's own rows (Koen, 20 September 2026: six in total is calmer)
+MAX_HIGHLIGHT_ROWS = 6      # plus date/time and place, which come by themselves
 MAX_LOGOS = 2
 MAX_DATES = 12
 IMAGE_SLOTS = ("main_image_id", "inset_image_id", "third_image_id")
@@ -113,6 +114,13 @@ def _now() -> datetime:
 
 def list_designs(db: Session) -> list[Design]:
     return db.query(Design).order_by(Design.updated_at.desc(), Design.id.desc()).all()
+
+
+def designs_for_activity(db: Session, activity_id: int) -> list[Design]:
+    """The designs of one activity, newest first — for the activity screen's
+    jump to the Design Studio (Koen, 20 September 2026)."""
+    return (db.query(Design).filter(Design.activity_id == activity_id)
+            .order_by(Design.updated_at.desc(), Design.id.desc()).all())
 
 
 def get_design(db: Session, design_id: int) -> Optional[Design]:
@@ -234,6 +242,14 @@ def time_label(moment) -> str:
     return f"OM {moment.hour}U" + (f"{moment.minute:02d}" if moment.minute else "")
 
 
+def _shared_deadline(activity) -> str:
+    """The one deadline that holds for every component, as an ISO date or ""."""
+    from app.domains.activities.api import shared_deadline
+
+    datum = shared_deadline(activity)
+    return datum.isoformat() if datum else ""
+
+
 def facts_for(db: Session, design: Design) -> dict:
     """Everything the poster takes from outside the design, as plain values.
     This is what the fingerprint hashes, so every key must be JSON-plain."""
@@ -251,7 +267,10 @@ def facts_for(db: Session, design: Design) -> dict:
         "location": activity.location or "",
         "dates": [{"date": d.start_date.isoformat(),
                    "time": d.start_time.strftime("%H:%M") if d.start_time else ""} for d in dates],
-        "deadline": activity.registration_closes_on.isoformat() if activity.registration_closes_on else "",
+        # #1053: the deadline moved to the component. A poster speaks for the
+        # whole activity, so it only carries a date when every component has the
+        # same one; differing dates belong on the page, not on one printed line.
+        "deadline": _shared_deadline(activity),
         # #1016: the public description — the poster's explanation unless the
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),
@@ -314,17 +333,13 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
     if facts["location"]:
         highlights.append(Highlight("map-pin", facts["location"].upper()))
     for hl in design.highlights:
-        highlights.append(Highlight(hl.icon_code, hl.text.upper() if hl.emphasis else hl.text, hl.emphasis))
-    highlights = highlights[:MAX_HIGHLIGHTS]
+        highlights.append(Highlight(hl.icon_code, hl.text.upper()))
+    highlights = highlights[:MAX_HIGHLIGHT_ROWS]
 
     grid = tuple(day_label(date.fromisoformat(d["date"])) for d in dates[:MAX_DATES]) if len(dates) > 1 else ()
     year = date.fromisoformat(dates[0]["date"]).year if dates else date.today().year
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
-    if not contacts and facts["mobile"]:
-        # Nobody ticked: the association's own gsm, without a name — the
-        # band already carries its website and e-mail (Koen, 19 September).
-        contacts = (Contact(name="", mobile=facts["mobile"]),)
 
     return PosterContent(
         duo_code=design.duo_code, preset=design.preset,
@@ -339,7 +354,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
         inset_image=_image(db, design.inset_image_id),
         third_image=_image(db, design.third_image_id),
-        website=facts["website"], email=facts["email"], contacts=contacts,
+        website=facts["website"], email=facts["email"], association_mobile=facts["mobile"], contacts=contacts,
         logos=tuple(img for img in (_image(db, lg.media_asset_id) for lg in design.logos) if img),
         seed=design.id or 1,
     )
@@ -675,8 +690,6 @@ def warnings_for(design: Design, facts: dict) -> list[str]:
     if design.explanation_md and facts.get("description") and \
             design.explanation_md.strip() != facts["description"].strip():
         out.append("De omschrijving op de affiche wijkt af van die van de activiteit.")
-    if design.third_image_id and design.logos:
-        out.append("Het derde beeld vervalt: de logostrook neemt die plek.")
     return out
 
 
