@@ -136,8 +136,6 @@
     </form>
   </div>
 
-  {% include "_aa_organisatoren.html" %}
-
   {# Onderdelen-sectie (#509): sectiekop met "+ Onderdeel", sterk-afgelijnde
      onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ addcomp: false }">
@@ -303,6 +301,13 @@
   {% endif %}
     </div>
   </div>
+
+  {# #1046: organisatoren staan onderaan, ónder Onderdelen & producten (Koen,
+     20 september 2026). BINNEN `#aa-detail`: erbuiten verdwijnt het blok stil bij
+     de eerstvolgende fragmentvervanging, want elke bewerking swapt dit fragment.
+     De lege-toestand-waarschuwing hierboven (#637/#650) doet nu haar werk voor
+     dit blok: zonder onderdelen las de kaart eronder anders als een onderdeel. #}
+  {% include "_aa_organisatoren.html" %}
 
 </div>
 
