@@ -209,12 +209,14 @@ def polaroid_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, 
     return out, y + h + 2
 
 
-def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
-    """Up to twelve dates in two columns, the heading on a coloured lid."""
+def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float,
+               *, cols: int = 2) -> tuple[str, float]:
+    """Up to twelve dates in two (print) or three (Instagram) columns, the
+    heading on a coloured lid."""
     pal = plan.pal
     dates = content.dates[:12]
-    rows = (len(dates) + 1) // 2
-    col_w = (w - 8) / 2
+    rows = (len(dates) + cols - 1) // cols
+    col_w = (w - 4 * cols) / cols
     h = 10 + rows * 14 + 3
     out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>',
            f'<rect x="{x}" y="{y}" width="{w}" height="10" fill="{pal["tile"]}"/>',
@@ -231,8 +233,9 @@ def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float)
         if row < rows - 1:
             out.append(f'<line x1="{cx}" y1="{cy + 13.5}" x2="{cx + col_w - 4}" y2="{cy + 13.5}" stroke="{pal["ink"]}" '
                        f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
-    if rows > 1 or len(dates) > 1:
-        out.append(f'<line x1="{x + w / 2}" y1="{y + 12}" x2="{x + w / 2}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
+    for c in range(1, cols):
+        vx = x + 4 + c * (col_w + 4) - 2
+        out.append(f'<line x1="{vx:.2f}" y1="{y + 12}" x2="{vx:.2f}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
                    f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
     return "".join(out), y + h + 3
 
@@ -295,8 +298,8 @@ def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: flo
 
 # ── The planner ───────────────────────────────────────────────────────────
 
-def _dates_grid_height(n: int) -> float:
-    rows = (n + 1) // 2
+def _dates_grid_height(n: int, cols: int = 2) -> float:
+    rows = (n + cols - 1) // cols
     return 10 + rows * 14 + 3 + 3
 
 
@@ -462,21 +465,36 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if y > left_limit:
             p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     elif layout == "feed_portrait":
-        # Instagram: title, one picture over the full width, a few highlights.
+        # Instagram (Koen, 20 September 2026): title, one picture over the
+        # full width with the polaroid on it, every highlight row in two
+        # columns, the dates grid, the welcome badge above the tile. The
+        # description and the third picture stay off the feed image.
         y = top_y - 4
-        n = min(len(content.highlights), 4)
+        n = min(len(content.highlights), 6)
         hl_rows = (n + 1) // 2
-        below = hl_rows * ROW_H + 24 + 6
+        grid = len(content.dates) > 1
+        if content.logos:
+            left_limit -= 22   # the logo strip sits in the flow's way on a feed image
+        below = hl_rows * ROW_H + 6 + (_dates_grid_height(len(content.dates[:12]), cols=3) + 3 if grid else 0) \
+            + (10 if content.inset_image else 0)
         if content.main_image:
-            avail = limit - y - below
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(110.0, avail)))
+            avail = left_limit - y - below
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(120.0, avail)))
             p.full += frag
+            if content.inset_image:
+                pw = 70.0
+                frag, _py = polaroid_block(p, content.inset_image, lx + full_w - pw - 6, y - pw * 0.72 + 12, pw, angle=4)
+                p.full += frag
+                y += 10
             y += 6
-        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)))
-        frag, y = welcome_row(p, content, lx, y, lw)
+        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
+        if grid:
+            frag, y = dates_grid(p, content, lx, y + 3, full_w, cols=3)
+            p.full += frag
+        frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
-        if y > limit:
-            p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
+        if y > left_limit + 0.5:
+            p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     else:
         ly: float = top_y
         ry: float = top_y

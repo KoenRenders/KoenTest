@@ -153,12 +153,18 @@ def test_too_much_content_is_reported_never_cut():
     assert "KERNPUNT NUMMER 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
 
 
-def test_feed_layout_keeps_four_highlights_and_says_so():
-    many = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(5))
-    merged = render.merge(_content(highlights=many), layout="feed_portrait")
+def test_feed_layout_shows_every_row_the_grid_the_polaroid_and_the_badge():
+    """Koen, 20 September 2026: Instagram shows all six rows (two automatic,
+    four own), the dates grid, the polaroid on the picture and the same
+    welcome badge as print; the description and the third picture stay off."""
+    six = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(6))
+    merged = render.merge(_content(highlights=six, inset_image=ImageBytes(PNG_2x2, "image/png"),
+                                   third_image=ImageBytes(PNG_2x2, "image/png"), explanation_md="Tekst."),
+                          layout="feed_portrait")
     assert merged.height_mm == 371.25
-    assert "Deze opmaak toont ten hoogste 4 kernpunten" in merged.violations
-    assert "t-hl-3-0" in merged.boxes and "t-hl-4-0" not in merged.boxes
+    assert all(f"t-hl-{i}-0" in merged.boxes for i in range(6)) and "Deze opmaak toont" not in " ".join(merged.violations)
+    assert 'id="t-dates-head"' in merged.svg and 'id="t-welcome-0"' in merged.svg
+    assert merged.svg.count("<image") == 2 and 'id="t-rt-explanation"' not in merged.svg
 
 
 def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
