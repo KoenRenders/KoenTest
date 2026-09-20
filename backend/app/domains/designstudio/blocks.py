@@ -326,6 +326,21 @@ def _richtext_height(source: str, w: float, size: float) -> float:
     return richtext.line_count(source, width=w, size=size) * size * 1.3 + 5
 
 
+def fit_richtext_size(source: str, w: float, available: float, *, max_size: float, min_size: float) -> float:
+    """The largest body size whose wrapped text still fits ``available``.
+
+    Koen, 20 September 2026: his Bowlen poster was "vrij leeg" — the text sat
+    at its smallest size under a picture that no longer filled the page. The
+    body now grows into the room that is left, down to ``min_size`` when
+    there is more text than room (the planner reports that as overflow)."""
+    size = max_size
+    while size > min_size:
+        if _richtext_height(source, w, size) <= available:
+            return round(size, 1)
+        size -= 0.2
+    return min_size
+
+
 def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4) -> float:
     shown = content.highlights[:limit_n]
     col_y: list[float] = [y, y]
@@ -372,8 +387,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     step = size * 1.08
     baselines = [base1 + i * step for i in range(len(lines))]
     for i, text in enumerate(lines):
-        anchor = "start" if i == 0 else "end"
-        x = 17 if i == 0 else width - 17
+        # One line is centred; two lines keep the staggered left/right of the
+        # house style (Koen, 20 September 2026).
+        if len(lines) == 1:
+            anchor, x = "middle", width / 2
+        else:
+            anchor = "start" if i == 0 else "end"
+            x = 17 if i == 0 else width - 17
         p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": baselines[i], "size": size,
                         "anchor": anchor, "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
                         "stroke": pal["tile"] if i == 0 else pal["accent4"]})
@@ -402,7 +422,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # The one line that asks for something (Koen, 20 September 2026): in
         # the accent colour, above the address it points at.
         rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": f"{content.deadline_text} via de website", "size": 6.6, "colour": pal["accent"]})
+                     "text": content.deadline_text, "size": 6.6, "colour": pal["accent"]})
     rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
                  "text": content.website, "size": 6.2, "colour": pal["white"]})
     if content.contacts:
@@ -448,7 +468,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
-              "qr_x": qr_left, "qr_y": band_y + (band_h - 22) / 2,
+              "qr_x": qr_left, "qr_y": band_y + (band_h - 26) / 2, "qr_caption": "Scan voor meer info",
               "row_y": band_y + 2}
 
     # ── Content between title and band ─────────────────────────────────────
@@ -468,20 +488,20 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # activity's text over the full width — no icon rows for date and
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
-        # When and where, above the picture, as they stood on the hand-made
-        # poster (Koen, 20 September 2026) — this preset has no icon rows.
-        when_where = " · ".join(part for part in (
-            content.date_line.upper() if content.date_line
-            else (f"{len(content.dates)} {content.dates_heading}" if len(content.dates) > 1 else ""),
-            content.location) if part)
-        if when_where:
-            ww_size = fit_size(when_where, full_w, 11.0, 7.0, tracking_per_em=0.02)
-            p.full += text_el("t-whenwhere", when_where, lx, y + ww_size * 0.72, ww_size, pal["tile"],
-                              weight="bold", tracking=0.02 * ww_size)
-            p.boxes["t-whenwhere"] = full_w
-            y += ww_size * 0.72 + 5
+        # When and where above the picture, in the same icon rows the other
+        # presets use — date left, place right (Koen, 20 September 2026).
+        when = (content.date_line if content.date_line
+                else (f"{len(content.dates)} {content.dates_heading} · zie de website"
+                      if len(content.dates) > 1 else ""))
+        top_rows = tuple(hl for hl in (Highlight("calendar", when, True) if when else None,
+                                       Highlight("map-pin", content.location) if content.location else None)
+                         if hl is not None)
+        if top_rows:
+            y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
+                                       y, ((lx, lw), (rx, rw))) + 3
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
         below = text_h + 9 + (10 if content.inset_image else 0)
+        text_size = 7.2
         if content.main_image:
             avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w,
@@ -497,7 +517,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 y += 10
             y += 6
         if content.explanation_md:
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
+            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 6,
+                                          max_size=11.0, min_size=7.2)
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, text_size)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag

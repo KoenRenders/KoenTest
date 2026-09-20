@@ -119,6 +119,11 @@ def test_richtext_wraps_on_font_metrics_and_the_estimate_is_an_upper_bound():
 
 # ── Merge and the overflow check ────────────────────────────────────────────
 
+def test_the_qr_says_what_it_is_for():
+    svg = render.merge(_content(), layout="print_a", qr_url="https://www.raakmillegem.be/activiteiten/bowlen").svg
+    assert ">Scan voor meer info</text>" in svg
+
+
 def test_merge_places_every_content_block_and_promises_a_box_per_text():
     merged = render.merge(_content(), layout="print_a", qr_url="https://www.raakmillegem.be")
     svg = merged.svg
@@ -284,14 +289,48 @@ def test_the_picture_takes_the_height_of_its_own_proportions():
     assert hl < 110 < hh
 
 
-def test_the_simple_preset_prints_when_and_where_above_the_picture():
-    """The preset has no icon rows, so date and place go above the picture,
-    as on the hand-made poster (Koen, 20 September 2026)."""
+def test_the_simple_preset_puts_when_left_and_where_right_above_the_picture():
+    """The preset has no highlight column, so date and place go above the
+    picture in those same icon rows — date left, place right (Koen,
+    20 September 2026)."""
     one = render.merge(_content(preset="eenvoudig", dates=(), date_line="ZONDAG 15 NOVEMBER OM 9U45",
                                 location="BOWLING BRUUL"), layout="print_a")
-    assert "ZONDAG 15 NOVEMBER OM 9U45 · BOWLING BRUUL" in one.svg and one.violations == ()
+    assert one.violations == ()
+    rows: dict[str, list[str]] = {}
+    for idx, text in re.findall(r'<text id="t-hl-(\d)-\d"[^>]*>([^<]*)</text>', one.svg):
+        rows.setdefault(idx, []).append(text)
+    assert " ".join(rows["0"]) == "ZONDAG 15 NOVEMBER OM 9U45"   # may wrap inside its column
+    assert " ".join(rows["1"]) == "BOWLING BRUUL"
+    xs = [float(x) for x, _y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg)]
+    assert xs[0] < xs[1]                                     # date left, place right
+    top = max(float(y) for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg))
+    picture_y = float(re.search(r'<image x="19.00" y="([0-9.]+)"', one.svg).group(1))
+    assert top < picture_y                                   # both above the picture
     series = render.merge(_content(preset="eenvoudig", location="MILOHEEM"), layout="print_a").svg
-    assert "3 DATA IN 2026 · MILOHEEM" in series
+    lines = [text for _i, text in re.findall(r'<text id="t-hl-(0)-\d"[^>]*>([^<]*)</text>', series)]
+    assert " ".join(lines) == "3 DATA IN 2026 · ZIE DE WEBSITE" and "MILOHEEM" in series
+
+
+def test_a_single_title_line_is_centred_two_lines_stay_staggered():
+    one = render.merge(_content(title_lines=("BOWLEN",), title_joiner=""), layout="print_a").svg
+    assert re.search(r'id="t-title-0" x="148.5" [^>]*text-anchor="middle"', one)
+    two = render.merge(_content(), layout="print_a").svg
+    assert 'id="t-title-0" x="17" ' in two and 'text-anchor="end"' in two
+
+
+def test_the_body_text_grows_into_the_room_it_has():
+    """Koen, 20 September 2026: "de affiche is vrij leeg" — a short text sat
+    at its smallest size under a picture that no longer filled the page."""
+    from app.domains.designstudio.blocks import fit_richtext_size
+
+    short = "Twee zinnen over de activiteit. Meer niet."
+    long = " ".join(["Een alinea die maar doorgaat en doorgaat."] * 40)
+    assert fit_richtext_size(short, 260, 120, max_size=11.0, min_size=7.2) == 11.0
+    assert fit_richtext_size(long, 260, 60, max_size=11.0, min_size=7.2) == 7.2
+    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 700)    # a low strip leaves room
+    svg = render.merge(_content(preset="eenvoudig", dates=(), main_image=wide, explanation_md=short),
+                       layout="print_a").svg
+    assert float(re.search(r'id="t-rt-explanation"[^>]*font-size="([0-9.]+)"', svg).group(1)) > 8
 
 
 def test_the_deadline_is_the_bands_call_to_action():
@@ -299,7 +338,7 @@ def test_the_deadline_is_the_bands_call_to_action():
     poster; it sits in the band now, in the accent colour, above the address
     it points at. No shared deadline (it differs per component) → no row."""
     svg = render.merge(_content(deadline_text="Inschrijven tot 8 november"), layout="print_a").svg
-    assert "Inschrijven tot 8 november via de website" in svg
+    assert ">Inschrijven tot 8 november</text>" in svg
     deadline_y = float(re.search(r'id="t-deadline" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     website_y = float(re.search(r'id="t-website" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
     assert deadline_y < website_y
