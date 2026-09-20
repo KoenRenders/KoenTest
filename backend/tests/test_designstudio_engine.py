@@ -225,6 +225,15 @@ def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     assert x == 9.0 and abs(y + w * 245 / 491 - 411) < 0.01
 
 
+def test_eight_highlight_rows_fit_the_left_column():
+    """Date, place and six own rows (Koen, 20 September 2026: "waar zijn
+    kernpunt 5 en 6?") — all eight on the print poster, none overflowing."""
+    eight = tuple(Highlight("smile", f"Kernpunt {i} met een tweede regel erbij", i == 0) for i in range(8))
+    merged = render.merge(_content(highlights=eight, inset_image=None, dates=()), layout="print_a")
+    assert all(f't-hl-{i}-0' in merged.svg for i in range(8))
+    assert not any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations), merged.violations
+
+
 def test_a_focal_point_moves_the_crop():
     left = render.merge(_content(main_image=ImageBytes(PNG_2x2, "image/png", 0.1, 0.9)), layout="print_a")
     assert 'preserveAspectRatio="xMinYMax slice"' in left.svg

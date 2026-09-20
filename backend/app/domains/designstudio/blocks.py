@@ -109,7 +109,7 @@ def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
 
 # ── The blocks ────────────────────────────────────────────────────────────
 
-ROW_H = 27.5
+ROW_H = 26.5   # eight rows (two automatic, six own) fit the left column of A3
 ICON_S = 19
 
 

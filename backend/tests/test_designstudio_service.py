@@ -203,6 +203,11 @@ def test_highlights_are_capped_and_icons_checked(db_session, design):
     with pytest.raises(DesignError, match="kernpunten"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
                     highlights=[("smile", f"punt {i}", False) for i in range(7)], logo_ids=[])
+    # Six own rows all reach the poster, next to the two automatic ones.
+    save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
+                highlights=[("smile", f"eigen punt {i}", False) for i in range(6)], logo_ids=[])
+    content = content_for(db_session, design)  # the fixture has two dates: place + six own = 7
+    assert len(content.highlights) == 7 and content.highlights[-1].text == "eigen punt 5"
     with pytest.raises(DesignError, match="icoon"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": design.preset},
                     highlights=[("no-such-icon", "x", False)], logo_ids=[])
