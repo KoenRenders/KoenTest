@@ -1,0 +1,37 @@
+{% import "_macros.html" as ui %}
+{# The AI variants grid — included in the editor and served alone while a
+   request runs, so the editor polls it every five seconds. The wrapper
+   carries the polling itself and drops it once nothing is under way. #}
+<div id="ds-varianten"{% if ai_pending %} hx-get="/admin/ontwerpen/{{ design_id }}/varianten?layout={{ layout }}" hx-trigger="every 5s" hx-swap="outerHTML" hx-headers='{"X-Raak-Filter": "1"}'{% endif %}>
+      {% if ai_pending %}<p class="text-xs text-ink-soft mb-2">{{ _('Varianten onderweg… dit blok ververst vanzelf.') }}</p>{% endif %}
+      {% if generations %}
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {% for g in generations %}
+        <div class="rounded-xl border border-line p-2 text-center">
+          {% if g.thumb_url %}<a href="{{ g.image_url }}" target="_blank" rel="noopener" title="{{ _('Groot bekijken') }}"><img src="{{ g.thumb_url }}" alt="" class="w-full h-auto rounded-lg"></a>{% endif %}
+          <p class="text-xs text-ink-soft mt-1">{{ g.status_label }}</p>
+          {% if g.failure_reason %}<p class="text-xs text-ink-soft">{{ g.failure_reason }}</p>{% endif %}
+          {% if g.media_asset_id and g.status in ("fetched", "discarded", "picked") %}
+          <form method="post" action="/admin/ontwerpen/{{ design_id }}/kies/{{ g.id }}" class="mt-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="layout" value="{{ layout }}">
+            <input type="hidden" name="slot" value="main_image_id">
+            {{ ui.btn_outline(_("Gebruiken"), type="submit", size="sm") }}
+          </form>
+          {% if ai_enabled %}
+          <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="mt-2 space-y-1">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="layout" value="{{ layout }}">
+            <input type="hidden" name="reference_id" value="{{ g.media_asset_id }}">
+            <input type="hidden" name="scene" value="{{ g.scene }}">
+            <input type="hidden" name="style" value="{{ g.style }}">
+            {{ ui.input_control("change", cls="w-full text-xs", placeholder=_("Wat wil je anders? bv. add a dog"), aria_label=_("Wat wil je anders aan dit beeld?")) }}
+            {{ ui.btn_outline(_("Opnieuw op basis van dit beeld"), type="submit", size="sm") }}
+          </form>
+          {% endif %}
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+</div>

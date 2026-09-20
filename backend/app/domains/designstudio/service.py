@@ -301,7 +301,8 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None or not asset.content_type.startswith("image/") or asset.content_type == "image/svg+xml":
         return None
-    return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]))
+    return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]),
+                      int(asset.width or 0), int(asset.height or 0))
 
 
 def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
@@ -646,8 +647,10 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     anders?") the new variants build on that image."""
     from app.kernel.jobs import enqueue
 
-    prompt = imaging.build_prompt(scene, style, change)
-    scene = scene.strip() or change.strip()
+    english, _translated = imaging.translate_scene(scene, actor=requested_by)
+    english_change, _c = imaging.translate_scene(change, actor=requested_by)
+    prompt = imaging.build_prompt(english, style, english_change)
+    scene = scene.strip() or change.strip()   # kept as typed, so the redo shows Dutch to a Dutch speaker
     if any(g.status == GEN_REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)

@@ -301,6 +301,41 @@ def test_wordmark_is_recoloured_per_duo_and_keeps_the_baseline_glyphs():
 
 # ── AI drawings ─────────────────────────────────────────────────────────────
 
+def test_dutch_scenes_are_translated_and_logged_english_ones_pass(monkeypatch):
+    """Koen, 20 September 2026: type Dutch, the model gets English, the
+    translation lands in the AI log."""
+    from app.domains.designstudio import imaging
+    from app.domains.chatbot import api as chatbot_api
+
+    class FakeAnswer:
+        content = "two adults and two children on bicycles"
+        usage = {"prompt": 30, "completion": 9}
+
+    class FakeProvider:
+        name, endpoint, model = "mistral", "chat.completions", "mistral-small-latest"
+
+        def complete(self, messages, tools=None, tool_choice=None):
+            assert messages[-1]["content"] == "twee volwassenen en twee kinderen op de fiets"
+            return FakeAnswer()
+
+    logged: list[dict] = []
+    monkeypatch.setattr(chatbot_api, "get_provider", lambda model="": FakeProvider())
+    monkeypatch.setattr(chatbot_api, "sink_for", lambda actor="": (lambda **kw: logged.append(kw)))
+    english, translated = imaging.translate_scene("twee volwassenen en twee kinderen op de fiets", actor="x")
+    assert translated and english == "two adults and two children on bicycles"
+    assert logged and logged[0]["capability"] == "translate" and "nl: twee" in logged[0]["payload"]
+    assert imaging.translate_scene("two adults on bicycles") == ("two adults on bicycles", False)
+    assert imaging.looks_dutch("een gezin met twee kinderen op de fiets") and not imaging.looks_dutch("a family on bikes")
+
+
+def test_three_styles_and_their_wording():
+    from app.domains.designstudio import imaging
+
+    assert set(imaging.STYLES) == {"lijn", "lijnkleur", "kleur"} == set(imaging.STYLE_LABELS)
+    assert "flat colour accents" in imaging.build_prompt("a family on bicycles", "lijnkleur")
+    assert all("realistic proportions" in s and "no cartoon" in s for s in imaging.STYLES.values())
+
+
 def test_whitening_pushes_the_near_white_ground_to_white_and_keeps_the_lines():
     from io import BytesIO
 

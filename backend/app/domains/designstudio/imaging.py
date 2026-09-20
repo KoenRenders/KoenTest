@@ -63,16 +63,58 @@ POLL_TIMEOUT_SECONDS = 180
 #: and picks one of two looks; the rest is not theirs to change. Round 3
 #: (Koen, 19 September 2026): "voeg kleuren toe" was ignored because the one
 #: suffix said "black, no shading" — so colour is a style, not a wish.
+# Koen, 20 September 2026: "kleuterachtig" — the first wording asked for a
+# "friendly hand-drawn style" and got nursery drawings. These ask for a
+# modern editorial line illustration with realistic proportions instead.
+_BASE = ("realistic proportions, adults look like adults, no cartoon exaggeration, no text, "
+         "no background scenery, pure white background, single subject centred, poster illustration")
 STYLES = {
-    "lijn": (" — simple black line drawing in a friendly hand-drawn style, thick even lines, "
-             "no shading, no text, no background scenery, pure white background, "
-             "single subject centred, poster illustration"),
-    "kleur": (" — friendly hand-drawn illustration with thick black outlines and flat cheerful colours, "
-              "no gradients, no shading, no text, no background scenery, pure white background, "
-              "single subject centred, poster illustration"),
+    "lijn": (" — clean black ink line illustration in a modern editorial style, confident even lines, "
+             "no shading, no colour, " + _BASE),
+    "lijnkleur": (" — clean black ink line illustration in a modern editorial style, confident even lines, "
+                  "with a few flat colour accents in muted tones, no shading, " + _BASE),
+    "kleur": (" — flat vector illustration with bold black outlines and a limited palette of flat colours, "
+              "no gradients, no shading, " + _BASE),
 }
-STYLE_LABELS = {"lijn": "Lijntekening (zwart-wit)", "kleur": "Kleurtekening (vlakke kleuren)"}
+STYLE_LABELS = {"lijn": "Lijntekening (zwart-wit)", "lijnkleur": "Lijntekening met kleuraccenten",
+                "kleur": "Kleurtekening (vlakke kleuren)"}
 STYLE_SUFFIX = STYLES["lijn"]
+
+# A scene typed in Dutch is translated before it goes to BFL (the model reads
+# English best). The check is a stopword heuristic; a wrong guess only costs
+# one cheap Mistral call, and the translation is logged (#978) so it can be
+# read back next to the drawing it produced.
+_DUTCH = {"de", "het", "een", "en", "met", "van", "voor", "op", "in", "die", "dat", "naar", "twee", "drie",
+          "kinderen", "ouders", "mensen", "fiets", "wandelen", "aan", "bij", "zonder", "onder", "over"}
+
+
+def looks_dutch(text: str) -> bool:
+    words = [w.strip(".,!?;:()").lower() for w in (text or "").split()]
+    return sum(1 for w in words if w in _DUTCH) >= max(1, len(words) // 6)
+
+
+def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
+    """The scene in English, and whether it was translated. Without a real
+    LLM (mock provider) or without Dutch in it, the text goes through as is."""
+    from app.domains.chatbot.api import get_provider, sink_for
+
+    text = " ".join((scene or "").split())
+    if not text or not looks_dutch(text):
+        return text, False
+    provider = get_provider()
+    if provider.name == "mock":
+        return text, False
+    t0 = time.monotonic()
+    answer = provider.complete([
+        {"role": "system", "content": "Translate the user's text from Dutch to English for an image-generation "
+                                      "prompt. Reply with the translation only, no quotes, no commentary."},
+        {"role": "user", "content": text[:600]},
+    ])
+    english = " ".join((answer.content or "").split()).strip('"')
+    sink_for(actor)(surface=SURFACE, capability="translate", model=getattr(provider, "model", "") or provider.name,
+                    payload=f"nl: {text}\nen: {english}", provider=provider.name, endpoint=provider.endpoint,
+                    usage=answer.usage or None, status="ok", duration_ms=int((time.monotonic() - t0) * 1000))
+    return english or text, bool(english)
 
 # The five settings live on `Settings` (app/config.py) like every other
 # per-host setting, so the compose files pass them and the #821/#917 gate sees
