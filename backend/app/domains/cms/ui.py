@@ -46,11 +46,19 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     # → niet getoond, zonder uitzondering voor blok-pagina's; die uitzondering was
     # juist de verwarring.
     intro = get_published_page(db, "home-intro")
+    # Golf 11 (F31, #913): de lidmaatschapsband toont bedrag en geldigheid uit
+    # dezelfde betaal-helpers als het Word-lid-scherm en de aanrekening zelf —
+    # het tarief staat dus niet meer als tekst in de intro.
+    from app.domains.payment.api import (membership_price_for_date,
+                                         membership_valid_period)
+
+    _van, tot = membership_valid_period()
     return templates.TemplateResponse(request, "home.html", {
         **site_context(db, request),
         "intro_html": render_cms_content(intro.content or "") if intro else None,
         "activities": list_activities(db, scope="upcoming"),
         "scope": "upcoming",
+        "lidgeld": {"prijs": membership_price_for_date(), "tot": tot},
         "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
     })
 

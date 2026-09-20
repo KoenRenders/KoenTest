@@ -122,9 +122,22 @@ def test_webhook_update_idempotent_no_double_credit(client, db_session):
     assert transitions == 1
 
 
-def test_cms_placeholders_public_vs_editor(client, admin_headers):
-    """Publiek wordt de home-intro ingevuld vanuit config; de editor (admin)
-    krijgt de ruwe codes zodat ze bewerkbaar blijven."""
+def test_cms_placeholders_public_vs_editor(client, admin_headers, db_session):
+    """Publiek worden de prijscodes ingevuld vanuit config; de editor (admin)
+    krijgt de ruwe codes zodat ze bewerkbaar blijven.
+
+    Sinds golf 11 (migratie 141, #913) bevat de STANDAARD-introtekst geen
+    prijscodes meer — het tarief komt uit de betaal-api in de introband. Het
+    placeholder-mechanisme zelf blijft bestaan voor redacteurs die de codes
+    typen, dus de test zaait zijn eigen tekst mét code in plaats van op de
+    standaardtekst te leunen."""
+    import sqlalchemy as sa
+
+    db_session.execute(sa.text(
+        "UPDATE cms.cms_pages SET content = :c WHERE slug = 'home-intro'"
+    ).bindparams(c="<p>Lidgeld: {{membership_price_full}} per gezin.</p>"))
+    db_session.commit()
+
     public = client.get("/api/v1/blocks/home-intro")
     assert public.status_code == 200
     content = public.json()["content"]
