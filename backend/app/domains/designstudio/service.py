@@ -679,8 +679,6 @@ def warnings_for(design: Design, facts: dict) -> list[str]:
     if design.explanation_md and facts.get("description") and \
             design.explanation_md.strip() != facts["description"].strip():
         out.append("De omschrijving op de affiche wijkt af van die van de activiteit.")
-    if design.third_image_id and design.logos:
-        out.append("Het derde beeld vervalt: de logostrook neemt die plek.")
     return out
 
 

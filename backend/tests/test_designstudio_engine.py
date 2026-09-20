@@ -179,12 +179,17 @@ def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_gro
     assert render.estimate(with_three) == []
 
 
-def test_welcome_is_always_there_and_members_only_changes_it():
-    """Koen, 19 September 2026: "iedereen welkom" is not a field — it is on
-    every poster, unless the activity is members-only."""
-    assert "IEDEREEN WELKOM!" in render.merge(_content(), layout="print_a").svg
-    svg = render.merge(_content(members_only=True), layout="print_a").svg
-    assert "ENKEL LEDEN" in svg and "IEDEREEN WELKOM" not in svg
+def test_welcome_is_a_badge_above_the_tile_and_members_only_turns_it_red():
+    """Koen, 19/20 September 2026: "iedereen welkom" is not a field and not a
+    row — a brush-stroke badge above the tile on every poster; "ENKEL
+    LEDEN" the same on the red."""
+    svg = render.merge(_content(), layout="print_a").svg
+    assert "IEDEREEN WELKOM!" in svg
+    y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+    assert 355 < y < 380
+    members = render.merge(_content(members_only=True), layout="print_a").svg
+    assert "ENKEL LEDEN" in members and "IEDEREEN WELKOM" not in members
+    assert f'fill="{brand.COLOURS["watermelon_red"].hex}" fill-opacity="1"' in members
 
 
 def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
@@ -198,15 +203,13 @@ def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
     assert lockup_y > 350
 
 
-def test_the_third_picture_gives_way_to_sponsor_logos():
-    three = _content(inset_image=ImageBytes(PNG_2x2, "image/png"), third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2))
-    assert three.third_image is not None
-    without_logos = render.merge(three, layout="print_a").svg
-    with_logos = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
-                                       third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
-                                       logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
-    assert without_logos.count("<image") == 3 and with_logos.count("<image") == 3  # hero, inset, third | hero, inset, logo
-    assert 'id="logo-0"' in with_logos and 'preserveAspectRatio="xMinYMin slice"' not in with_logos
+def test_the_third_picture_and_the_sponsor_logos_do_not_collide():
+    """Third picture bottom-left under the highlights, logos bottom-right
+    above the band — both may be there (Koen, 20 September 2026)."""
+    both = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
+                                 third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
+                                 logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
+    assert both.count("<image") == 4 and 'id="logo-0"' in both and 'preserveAspectRatio="xMinYMin slice"' in both
 
 
 def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
@@ -225,12 +228,9 @@ def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     hero = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', simple.svg).group(1)
     hero2 = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', with_inset.svg).group(1)
     assert abs(float(hero) - float(hero2)) < 12
-    welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
-    text_y = float(re.search(r'id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
-    assert welcome_y > text_y  # welcome follows the text, small
-    # The lockup sits 4 mm in from the paper's left edge, its bottom on the frame bar.
+    # The lockup sits 4 mm in from the paper's left edge, its bottom level with the band's.
     x, y, w = (float(v) for v in re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106', simple.svg).groups())
-    assert x == 13.0 and abs(y + w * 245 / 491 - 411) < 0.01
+    assert x == 13.0 and abs(y + w * 245 / 491 - 409) < 0.01
 
 
 def test_six_highlight_rows_fit_the_left_column():
