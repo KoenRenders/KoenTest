@@ -426,8 +426,24 @@ def merged_for(db: Session, design: Design, layout: str, *, facts: Optional[dict
                         qr_url=qr_url(db, facts.get("key", "") if facts else ""))
 
 
-def preview_png(db: Session, design: Design, layout: str, *, width_px: int = 700) -> tuple[bytes, list[str]]:
-    """The editor's preview: quick check (no Inkscape measurement), then a PNG."""
+#: Pixel width of the editor's preview, over the sheet's full width. It was
+#: 700, which put the QR code at roughly 60 px — too coarse for a phone to
+#: read off a screen (Koen, 20 September 2026). 1400 is about 4.7 px per
+#: millimetre on A3 and still renders in a few seconds.
+PREVIEW_PX = 1400
+#: What "Groot bekijken" renders: print resolution, several seconds, only
+#: when someone asks for it.
+PREVIEW_LARGE_PX = 2400
+
+
+def preview_png(db: Session, design: Design, layout: str, *, width_px: int = PREVIEW_PX) -> tuple[bytes, list[str]]:
+    """The editor's preview: quick check (no Inkscape measurement), then a PNG.
+
+    1400 px over an A3 sheet is about 4.7 px per millimetre. It was 700, and
+    at that size the QR code came out around 60 px across — too coarse for a
+    phone to read off the screen (Koen, 20 September 2026). The picture is
+    shown scaled to its box either way, so this is sharpness, not size.
+    """
     facts = facts_for(db, design)
     merged = merged_for(db, design, layout, facts=facts)
     problems = render.check(merged, authority=False)

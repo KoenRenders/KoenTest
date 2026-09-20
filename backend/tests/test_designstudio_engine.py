@@ -116,7 +116,7 @@ def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
     lines = richtext.wrap(blocks, width=200, size=6)
     assert ["".join(r.text for r in line) for line in lines] == [
         "Regel een", "Regel twee", "", "Na een lege regel"]
-    assert richtext.LINE_HEIGHT > 1.3        # a little more air than before
+    assert richtext.LINE_HEIGHT >= 1.5       # air you can see without measuring it
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1
@@ -191,6 +191,78 @@ def test_feed_layout_shows_every_row_the_grid_the_polaroid_and_the_badge():
     assert 'id="t-dates-head"' not in merged.svg
     assert "3 DATA IN 2026 · ZIE DE WEBSITE" in merged.svg
     assert merged.svg.count("<image") == 2 and 'id="t-rt-explanation"' not in merged.svg
+
+
+def _rows(svg: str) -> list[str]:
+    """The icon rows as whole sentences — a row wraps into several `<text>`
+    elements inside its own column."""
+    per_row: dict[str, list[str]] = {}
+    for idx, text in re.findall(r'<text id="t-hl-(\d)-\d"[^>]*>([^<]*)</text>', svg):
+        per_row.setdefault(idx, []).append(text)
+    return [" ".join(parts) for _idx, parts in sorted(per_row.items())]
+
+
+def test_the_simple_preset_puts_date_and_place_on_the_feed_image_too():
+    """#1097 — the feed image lost both facts.
+
+    The simple preset shows date and place as icon rows because whoever picks
+    it types no highlights. That branch was tied to the print sheet, so the
+    feed fell through to the general path, drew an empty highlight list and
+    left a third of the image blank.
+
+    The counter-proof the master CLI asked for: take the feed branch's
+    `rows_content` back to `content` and this test goes red while
+    `test_the_simple_preset_puts_when_left_and_where_right_above_the_picture` stays
+    green — proof that the print branch was not moved along with it.
+    """
+    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
+                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL")
+    feed = render.merge(_content(**simple), layout="feed_portrait")
+    printed = render.merge(_content(**simple), layout="print_a")
+    for merged in (feed, printed):
+        assert _rows(merged.svg) == ["ZONDAG 15 NOVEMBER OM 9U45", "BOWLING BRUUL"]
+    assert not feed.violations
+
+
+def test_the_date_line_of_a_series_is_derived_in_one_place():
+    """#1097 — the same sentence stood in two branches and had already
+    drifted: one fell back to "DATA", the other printed an empty heading.
+
+    A series says how many dates there are and sends the reader to the site,
+    once, in whichever layout and preset asks for it.
+    """
+    series = dict(preset="eenvoudig", highlights=(), date_line="", location="")
+    feed = render.merge(_content(**series), layout="feed_portrait")
+    printed = render.merge(_content(**series), layout="print_a")
+    for merged in (feed, printed):
+        assert _rows(merged.svg) == ["3 DATA IN 2026 · ZIE DE WEBSITE"]
+    # No heading means no empty gap in the sentence.
+    headless = render.merge(_content(**dict(series, dates_heading="")), layout="feed_portrait")
+    assert _rows(headless.svg) == ["3 DATA · ZIE DE WEBSITE"]
+
+
+def test_the_qr_is_big_enough_to_scan_and_stays_inside_the_band():
+    """Koen, 20 September 2026: his phone could not read the code off a
+    computer screen. A QR is read at a distance proportional to its size, so
+    it grew from 20 to 26 mm — and the band now refuses to be shorter than
+    the block that holds it.
+
+    Broken on purpose to check this can go red: `band_h` back to
+    `20 + 6.5 * len(rows)` → the one-row poster below puts the code and its
+    caption through the bottom edge of the band, and the second assert fails.
+    """
+    from app.domains.designstudio.blocks import QR_BLOCK, QR_MM, plan_affiche
+
+    assert QR_MM >= 26
+    # One band row is the sparsest poster there is: no deadline, no contacts,
+    # nothing but the website.
+    sparse = _content(contacts=(), email="", association_mobile="", deadline_text="")
+    plan = plan_affiche(sparse, layout="print_a", width=297, height=420,
+                        pal=brand.palette_for(sparse.duo_code))
+    assert len(plan.band["rows"]) == 1
+    assert plan.band["qr_mm"] == QR_MM
+    assert plan.band["y"] <= plan.band["qr_y"]
+    assert plan.band["qr_y"] + QR_BLOCK <= plan.band["y"] + plan.band["h"]
 
 
 def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():

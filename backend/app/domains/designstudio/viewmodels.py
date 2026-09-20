@@ -138,6 +138,9 @@ class DesignEditorView(ViewModel):
 
     # Preview and checks
     preview_url: str
+    #: The same picture at print resolution, for "Groot bekijken" — slow to
+    #: render, so it is not what the panel shows inline.
+    preview_large_url: str
     layout: str
     layout_options: list[tuple[str, str]]
     violations: list[str]

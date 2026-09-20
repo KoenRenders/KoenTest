@@ -58,6 +58,8 @@ from app.domains.designstudio.api import (
     make_version,
     pick_generation,
     preview_png,
+    PREVIEW_LARGE_PX,
+    PREVIEW_PX,
     publish,
     remove_edited_svg,
     request_images,
@@ -300,6 +302,7 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         image_options=options, logo_options=logos, logo_ids=[lg.media_asset_id for lg in design.logos],
         facts=_facts_rows(facts), facts_href=f"/admin/activiteiten/{design.activity_id}",
         preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&v={fingerprint(facts)[:8]}",
+        preview_large_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&groot=1&v={fingerprint(facts)[:8]}",
         layout=layout, layout_options=[(code, _(label)) for code, label in LAYOUT_LABELS.items()],
         violations=violations or [], warnings=warnings_for(design, facts), render_error=render_error,
         edited_layouts=[lc for lc in LAYOUTS if edited_svg_for(db, design, lc) is not None],
@@ -334,12 +337,16 @@ def design_variants(request: Request, design_id: int, db: Session = Depends(get_
 
 @router.get("/admin/ontwerpen/{design_id}/voorbeeld.png")
 def design_preview(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
-                   layout: str = "print_a"):
+                   layout: str = "print_a", groot: bool = False):
     design = _design_or_404(db, design_id)
     if layout not in LAYOUTS:
         raise HTTPException(status_code=404)
     try:
-        png, _problems = preview_png(db, design, layout)
+        # "Groot bekijken" renders at print resolution so a phone camera can
+        # read the QR code off the screen (Koen, 20 September 2026). It takes
+        # several seconds, which is why the panel's own picture does not.
+        png, _problems = preview_png(db, design, layout,
+                                     width_px=PREVIEW_LARGE_PX if groot else PREVIEW_PX)
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
