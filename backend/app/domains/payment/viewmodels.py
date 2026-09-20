@@ -47,6 +47,16 @@ class BetalingenView(ViewModel):
     # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
     # out-of-band mee; de volledige pagina rendert ze zelf.
     oob_boven: bool = False
+    # #1059: de paginering telt GROEPEN, niet rijen — een inschrijving mag nooit
+    # over twee pagina's breken. `records` blijft de volledige selectie, want de
+    # meta-regel, de totaalregel en het financieel overzicht tellen daarover.
+    page: int = 1
+    per_page: int = 50
+    totaal_groepen: int = 0
+    # De bladerknoppen dragen hun eigen filterstand in de URL, zoals de tabs —
+    # geen `hx-include` op de filterbalk, want die zou de paginakeuze overschrijven
+    # met wat er toevallig in het formulier staat.
+    pager_url: str = ""
 
     # Filteropties, opgebouwd uit de zichtbare records.
     componenten: list[tuple[int, str]]

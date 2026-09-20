@@ -100,6 +100,30 @@ def _gezin_scope(db: Session, family_id: int):
             family_payables(db, family_id))
 
 
+#: Groepen per pagina (#1059). Vijftig, zoals elke andere beheerlijst
+#: (`docs/design-system.md` §2.3) — en GROEPEN en geen rijen, want een
+#: inschrijving met vier boekingen mag niet over twee pagina's breken.
+PER_PAGE = 50
+
+
+def _paginakeuze(request, stand: dict) -> int:
+    """Welke pagina er gevraagd wordt (#1059).
+
+    Twee bronnen, en het verschil is de hele truc. Een **GET** zegt zelf waar hij
+    heen wil: de bladerknoppen dragen `page=` in hun URL, een tabwissel en een
+    filterwijziging niet — en die horen dan ook op pagina 1 te beginnen, want hun
+    selectie is een andere. Zou `page` uit `HX-Current-URL` komen, dan sleepte een
+    tabwissel de oude pagina 3 mee naar een tab die er misschien maar één heeft.
+
+    Een **mutatie** (POST) is geen navigatie: bevestig je een betaling op pagina 3,
+    dan hoor je daar te blijven staan. Die post draagt geen query-string, dus
+    daarvoor is `HX-Current-URL` — via `stand` — juist de goede bron.
+    """
+    ruw = (request.query_params.get("page") if request.method == "GET"
+           else stand.get("page")) or ""
+    return max(1, int(ruw)) if ruw.isdigit() else 1
+
+
 def _view(request: Request, db: Session, email: str,
           nav_items: list | None = None, *,
           forceer_activiteit: int | None = None,
@@ -173,6 +197,7 @@ def _view(request: Request, db: Session, email: str,
     # de scope-regel zou dat herhalen. De vlag reist als hidden field mee met
     # elke filterwissel, anders dook de regel na de eerste wissel alsnog op.
     stil = scope_stil or stand.get("scope_stil") == "1"
+    page = _paginakeuze(request, stand)
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -289,6 +314,10 @@ def _view(request: Request, db: Session, email: str,
     # 18 − (−9) = 27, terwijl de totaalregels onderaan (aggregate over alle
     # records van een groep) correct 9 zeiden (HDEV-melding Koen, 15 sep).
     m_net = {k: m_bet[k] + m_ref[k] for k in ("due", "paid", "saldo")}
+    # #1059: dezelfde stand als de tabs, plus het actieve zicht. De macro plakt er
+    # `&page=N` achter. Bewust zonder `hx-include`: de filterbalk serialiseert
+    # geen `page`, dus meesturen zou de knop zijn eigen keuze laten overschrijven.
+    pager_url = f"/admin/betalingen/lijst?{urlencode([('zicht', zicht)] + [p for p in _tabstand if p])}"
 
     def _kaart(rec) -> dict:
         """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
@@ -314,6 +343,16 @@ def _view(request: Request, db: Session, email: str,
     # `records` erbij zodat een gefilterde terugbetaling haar charge als context
     # kan meenemen (#668); die telt niet mee in de totalen.
     groepen = group_cards(zichtbaar, records)
+    # #1059: pas hier snijden, en op GROEPEN. Het snijden gebeurt vóór de
+    # kaartopmaak hieronder, zodat die alleen het zichtbare deel kost; de
+    # tellingen erboven (kpi, tabaantallen, matrix) zijn al berekend over de
+    # volledige selectie en blijven dus onaangeroerd.
+    totaal_groepen = len(groepen)
+    paginas = max(1, -(-totaal_groepen // PER_PAGE))
+    # Een verwijdering kan de laatste groep van de laatste pagina weghalen; dan
+    # is "pagina 4" van zonet er geen meer.
+    page = min(page, paginas)
+    groepen = groepen[(page - 1) * PER_PAGE:page * PER_PAGE]
     for groep in groepen:
         groep["kaarten"] = [(_kaart(k["charge"]) | {"is_context": k["is_context"],
                                                     "is_extra": k["is_extra"]},
@@ -368,6 +407,8 @@ def _view(request: Request, db: Session, email: str,
         },
         status=status, openstaand=openstaand, q=q, scope=scope,
         zicht=zicht, zichten=zichten, kpi=kpi,
+        page=page, per_page=PER_PAGE, totaal_groepen=totaal_groepen,
+        pager_url=pager_url,
         componenten=_comp, jaren=_jaren,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
