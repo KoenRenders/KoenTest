@@ -434,6 +434,47 @@ def filterparams(request) -> dict:
     return dict(request.query_params)
 
 
+# Hoeveel rijen er op een pagina passen (#1083). Eén bron: de route toetst
+# hiertegen en de keuzelijst in de meta-regel wordt hieruit gevuld. Stonden de
+# waarden op twee plaatsen, dan kon je een optie kiezen die de server weigert —
+# en dan valt hij stil terug op 50, wat leest als een kapotte keuzelijst.
+PER_PAGE_OPTIONS = (25, 50, 100)
+PER_PAGE_DEFAULT = 50
+
+
+def per_page_from(value) -> int:
+    """De gekozen paginagrootte uit de querystring, of de standaard.
+
+    Whitelist en geen `min/max`: alles wat uit een URL komt is invoer, en een
+    `per_page=100000` zou hier anders een pagina van honderdduizend rijen worden.
+    """
+    try:
+        gekozen = int(value)
+    except (TypeError, ValueError):
+        return PER_PAGE_DEFAULT
+    return gekozen if gekozen in PER_PAGE_OPTIONS else PER_PAGE_DEFAULT
+
+
+def sort_description(column_label: str, direction: str, is_date: bool = False) -> str:
+    """De actieve sortering in woorden, voor de meta-regel boven een tabel (#1083).
+
+    §2.3 vraagt die regel bij een sorteerbare lijst: welke rij bovenaan staat en
+    waarom, zonder de kolomkoppen af te gaan. Hier en niet per scherm, want de
+    twee schermen die hem vandaag vragen zouden hem elk net anders formuleren —
+    en het derde zou dat weer anders doen.
+
+    Een datumkolom krijgt "nieuwste/oudste eerst": dát is wat iemand van een
+    logboek wil weten, en "op Datum, aflopend" zegt hetzelfde met meer moeite.
+    """
+    from app.i18n import _
+
+    if is_date:
+        return _("nieuwste eerst") if direction == "desc" else _("oudste eerst")
+    sjabloon = (_("op %(kolom)s, aflopend") if direction == "desc"
+                else _("op %(kolom)s, oplopend"))
+    return sjabloon % {"kolom": column_label}
+
+
 def admin_nav(active: str, roles=None) -> list[dict]:
     """Navigatiegroepen voor de AdminShell; `active` is de href van het scherm.
 

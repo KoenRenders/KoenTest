@@ -16,7 +16,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui
-from app.ui import admin_nav, is_fragment_request, templates
+from app.i18n import _
+from app.ui import (PER_PAGE_OPTIONS, admin_nav, is_fragment_request,
+                    per_page_from, sort_description, templates)
 
 router = APIRouter(include_in_schema=False)
 
@@ -28,9 +30,6 @@ def _since(value: str) -> date:
         return date.fromisoformat(value)
     except ValueError:
         return date.today() - timedelta(days=30)
-
-
-PER_PAGE = 50  # §2.5: server-side, 50 per pagina zodra een lijst kan groeien.
 
 
 # Sorteerbare kolommen (golf 3, #913): sleutel → veld van de feed-rij. De feed
@@ -47,9 +46,21 @@ _SORT_VELDEN = {
 }
 
 
+def _sorteer_labels() -> dict[str, str]:
+    """De zichtbare kolomnaam per sorteersleutel.
+
+    Per request en niet als moduleconstante: `_()` volgt de taal van de tenant.
+    Hier en niet in het sjabloon, omdat de meta-regel dezelfde woorden gebruikt
+    als de kolomkop — twee plekken zouden na de eerste hernoeming uiteenlopen.
+    """
+    return {"wanneer": _("Wanneer"), "wijziging": _("Wijziging"),
+            "groep": _("Groep"), "persoon": _("Persoon"),
+            "object": _("Object"), "actor": _("Actor")}
+
+
 def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor: str,
                     page: int = 1, sort: str = "wanneer",
-                    richting: str = "desc") -> dict:
+                    richting: str = "desc", per_page: str = "") -> dict:
     from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
@@ -67,6 +78,7 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
         sort = "wanneer"
     richting = "asc" if richting == "asc" else "desc"
     veld = _SORT_VELDEN[sort]
+    labels = _sorteer_labels()
 
     def _sleutel(r: dict):
         w = r.get(veld)
@@ -81,6 +93,11 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
 
     from urllib.parse import quote, urlencode
 
+    # Standaard 50, met de keuze 25/50/100 in de meta-regel (#1083). De whitelist
+    # staat in `app.ui`: de keuzelijst wordt uit diezelfde reeks gevuld, zodat er
+    # geen maat te kiezen valt die deze route weigert.
+    rijen_per_pagina = per_page_from(per_page)
+
     def _sorteer_url(key: str) -> str:
         params = {k: v for k, v in (("since", since), ("group", group),
                                     ("actor", actor)) if v}
@@ -89,11 +106,14 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
         else:
             volgende = "desc" if key == "wanneer" else "asc"
         params.update({"sort": key, "richting": volgende})
+        # De paginagrootte reist mee met een kop-klik: die gaat langs de link en
+        # niet langs de filterbalk, dus zonder dit valt de keuze daar terug op 50.
+        params["per_page"] = str(rijen_per_pagina)
         return "/admin/ledenwijzigingen?" + urlencode(params)
 
     totaal = len(alle)
     page = max(1, page)
-    feed_rows = alle[(page - 1) * PER_PAGE:page * PER_PAGE]
+    feed_rows = alle[(page - 1) * rijen_per_pagina:page * rijen_per_pagina]
 
     # P13-spronglinks (golf 5, #913): de object-cel linkt naar de canonieke
     # pagina van het record — alleen voor entiteiten die er een hébben; de rest
@@ -117,8 +137,16 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
         "group": group, "actor": actor,
         "sort": sort, "richting": richting,
         "sorteer_urls": {key: _sorteer_url(key) for key in _SORT_VELDEN},
+        "sorteer_labels": labels,
         "groups": GROUPS, "feed_rows": feed_rows,
-        "page": page, "per_page": PER_PAGE, "totaal": totaal,
+        "page": page, "per_page": rijen_per_pagina, "totaal": totaal,
+        "per_page_options": PER_PAGE_OPTIONS,
+        # De meta-regel boven de tabel (§2.3): hoeveel regels, en in welke
+        # volgorde. `totaal` telt de HELE selectie en niet deze pagina — dat is
+        # hier eerlijk, want de datumfilter begrenst al wat er opgehaald wordt.
+        "meta_telling": _("%(aantal)s wijzigingen") % {"aantal": totaal},
+        "meta_volgorde": sort_description(labels[sort], richting,
+                                          is_date=(sort == "wanneer")),
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
 
@@ -127,9 +155,11 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
 def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
                            actor: str = "", page: int = 1,
                            sort: str = "wanneer", richting: str = "desc",
+                           per_page: str = "",
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
-    ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting)
+    ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting,
+                          per_page)
     template = ("_lw_inhoud.html" if is_fragment_request(request)
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":

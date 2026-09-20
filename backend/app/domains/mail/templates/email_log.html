@@ -1,6 +1,10 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("E-maillog — Raak") }}{% endblock %}
+{# Volle breedte (#1083), zoals Betalingen. Dit scherm had geen overschrijving en
+   stond dus in de 5xl-leeskolom van de schil — zes kolommen in de breedte van een
+   formulier. #}
+{% block content_width %}max-w-none{% endblock %}
 {% block content %}
 {# Lijst-index-volgorde (design-system C1): paginatitel → zoeken → filters →
    records. Er is hier geen "+ Nieuwe": een e-maillogregel ontstaat door te

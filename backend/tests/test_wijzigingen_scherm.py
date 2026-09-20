@@ -13,7 +13,7 @@ import re
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
-from app.ui.changes_ui import PER_PAGE
+from app.ui import PER_PAGE_DEFAULT as PER_PAGE
 
 _TH_BLOK = re.compile(r"<th[^>]*>(.*?)</th>", re.S)
 

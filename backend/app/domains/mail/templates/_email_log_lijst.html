@@ -3,39 +3,49 @@
    de eerstvolgende filterwijziging de actuele sortering mee. #}
 <input type="hidden" id="el-sort" name="sort" value="{{ sort }}" hx-swap-oob="true">
 <input type="hidden" id="el-richting" name="richting" value="{{ richting }}" hx-swap-oob="true">
-<input type="hidden" id="el-per-page" name="per_page" value="{{ per_page }}" hx-swap-oob="true">
 {% if toast_melding is defined and toast_melding %}{{ ui.toast_oob(toast_melding) }}{% endif %}
 {% if rows %}
-<div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
-  <table class="min-w-full text-sm">
+{# Meta-regel boven de tabel (§2.3, referentie Betalingen): hoeveel regels en in
+   welke volgorde, met de paginagrootte rechts. Die keuze stond onder de tabel —
+   §2.3 zet ze boven, bij de rest van wat over de LIJST gaat. #}
+{% set _kopcel = "px-3 py-2 font-medium" %}
+{% call ui.list_meta(meta_telling, meta_volgorde) %}
+  {{ ui.per_page_select("/admin/e-maillog/lijst", "#email-log-lijst", "el-filters",
+                        per_page, per_page_options, id="el-per-page") }}
+{% endcall %}
+{# Dichte tabel (§2.3): 12px celtekst, 11px subregels, `align-middle`. #}
+<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
+  <table class="w-full text-xs">
     <thead>
-      <tr class="text-left text-gray-500 border-b border-gray-200">
-        {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst") }}
-        {{ ui.sort_th(_("Ontvanger"), sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst") }}
-        {{ ui.sort_th(_("Onderwerp"), sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst") }}
-        {{ ui.sort_th(_("Type"), sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst") }}
-        {{ ui.sort_th(_("Status"), sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst") }}
-        <th class="px-4 py-3"></th>
+      <tr class="bg-gray-50 text-xs text-ink-soft text-left">
+        {{ ui.sort_th(sorteer_labels["datum"], sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
+        {{ ui.sort_th(sorteer_labels["ontvanger"], sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
+        {{ ui.sort_th(sorteer_labels["onderwerp"], sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
+        {{ ui.sort_th(sorteer_labels["type"], sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
+        {{ ui.sort_th(sorteer_labels["status"], sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst", cls=_kopcel) }}
+        {# w-px: de actiekolom krijgt exact haar inhoudsbreedte, zodat de rest van
+           de tabel de ruimte houdt (zelfde reden als op Betalingen). #}
+        <th scope="col" class="{{ _kopcel }} text-right w-px">{{ _("Acties") }}</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr class="border-b border-gray-100">
-        <td class="px-4 py-2 whitespace-nowrap">{{ row.created_at.strftime("%d-%m-%Y %H:%M") }}</td>
-        <td class="px-4 py-2 whitespace-nowrap">{{ row.recipient }}</td>
+      <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+        <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ row.created_at.strftime("%d-%m-%Y %H:%M") }}</td>
+        <td class="px-3 py-2 whitespace-nowrap">{{ row.recipient }}</td>
         {# #523: onderwerp op één regel (truncate + title-tooltip) i.p.v. wrappen. #}
-        <td class="px-4 py-2 max-w-xs truncate" title="{{ row.subject }}">{{ row.subject }}</td>
+        <td class="px-3 py-2 max-w-xs truncate" title="{{ row.subject }}">{{ row.subject }}</td>
         {# #523: Type als rustige tekst i.p.v. blauwe pill — kleur reserveren we voor
            de semantische Status (§2.10). #}
-        <td class="px-4 py-2 whitespace-nowrap text-gray-600">{{ type_labels.get(row.email_type, row.email_type) }}</td>
-        <td class="px-4 py-2">
+        <td class="px-3 py-2 whitespace-nowrap text-ink-soft">{{ type_labels.get(row.email_type, row.email_type) }}</td>
+        <td class="px-3 py-2">
           {% if row.status == "sent" %}{{ ui.badge(status_labels.get("sent", "sent"), "green") }}
           {% elif row.status == "failed" %}{{ ui.badge(status_labels.get("failed", "failed"), "red") }}
           {% else %}{{ ui.badge(status_labels.get(row.status, row.status), "yellow") }}{% endif %}
-          {% if row.error_message %}<span class="block text-xs text-gray-500 mt-1">{{ row.error_message }}</span>{% endif %}
+          {% if row.error_message %}<span class="block text-[11px] text-ink-soft mt-1">{{ row.error_message }}</span>{% endif %}
         </td>
-        <td class="px-4 py-2 text-right whitespace-nowrap" x-data="{ open: false }">
-          <button type="button" class="text-blue-700 hover:underline text-sm" @click="open = true">{{ _("Bekijk") }}</button>
+        <td class="px-3 py-2 text-right whitespace-nowrap w-px" x-data="{ open: false }">
+          <button type="button" class="text-blue-700 hover:underline text-xs" @click="open = true">{{ _("Bekijk") }}</button>
           {# Modal (design-system §2.5, §2.8): een read-only detailweergave in een
              lijstcontext — hét geval waarvoor een modal juist is. Sinds #640 via
              ui.modal() i.p.v. een eigen kopie van dezelfde overlay-markup: die
@@ -71,18 +81,8 @@
    een COUNT te doen, dus has_prev/has_next sturen de knoppen. De filters gaan mee
    in de URL zodat ze bij het bladeren behouden blijven. #}
 {% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") ~ "&sort=" ~ sort ~ "&richting=" ~ richting ~ "&per_page=" ~ per_page %}
-<div class="flex items-center justify-between gap-3">
-  <div class="flex items-center gap-2 mt-3 text-sm text-ink-soft">
-    <label for="el-per-page-keuze">{{ _("Per pagina") }}</label>
-    {% call ui.select_control("per_page", cls="w-20", attrs='id="el-per-page-keuze" hx-get="/admin/e-maillog/lijst?email_type=' ~ (email_type or "") ~ '&status=' ~ (status or "") ~ '&recipient=' ~ (recipient or "") ~ '&sort=' ~ sort ~ '&richting=' ~ richting ~ '" hx-target="#email-log-lijst" hx-trigger="change"') %}
-      {% for n in (25, 50, 100) %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>{% endfor %}
-    {% endcall %}
-  </div>
-  <div class="flex-1">
 {{ ui.pager(page, hx_get=_base, hx_target="#email-log-lijst",
             has_prev=has_prev, has_next=has_next) }}
-  </div>
-</div>
 {% else %}
 {{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}

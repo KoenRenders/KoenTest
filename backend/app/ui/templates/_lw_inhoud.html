@@ -12,38 +12,51 @@
    Wijziging + Details al zeggen. Ze hangt nu als `title` aan de badge, voor wie
    hem toch wil zien. #}
 {% set _op_tone = {"insert": "green", "update": "yellow", "delete": "red"} %}
+{# Eén kolomkopmaat voor de zeven koppen: zes komen uit `sort_th`, de zevende
+   (Details, niet sorteerbaar) is eigen markup en moet dezelfde maat dragen. #}
+{% set _kopcel = "px-3 py-2 font-medium" %}
 <input type="hidden" id="lw-sort" name="sort" value="{{ sort }}" hx-swap-oob="true">
 <input type="hidden" id="lw-richting" name="richting" value="{{ richting }}" hx-swap-oob="true">
 <section>
   <h2 class="text-lg font-bold text-blue-700 mb-3">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
   {% if feed_rows %}
-  <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-        <tr>{{ ui.sort_th(_("Wanneer"), sorteer_urls["wanneer"], active=(sort == "wanneer"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}
-            {{ ui.sort_th(_("Wijziging"), sorteer_urls["wijziging"], active=(sort == "wijziging"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}
-            {{ ui.sort_th(_("Groep"), sorteer_urls["groep"], active=(sort == "groep"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}
-            {{ ui.sort_th(_("Persoon"), sorteer_urls["persoon"], active=(sort == "persoon"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}
-            <th class="px-3 py-2 w-full">{{ _("Details") }}</th>
-            {{ ui.sort_th(_("Object"), sorteer_urls["object"], active=(sort == "object"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}
-            {{ ui.sort_th(_("Actor"), sorteer_urls["actor"], active=(sort == "actor"), direction=richting, hx_target="#lw-inhoud", cls="px-3 py-2") }}</tr>
+  {# Meta-regel boven de tabel (§2.3, referentie Betalingen): hoeveel regels en in
+     welke volgorde, met de paginagrootte rechts. De teksten komen uit het
+     view-model — een sjabloon dat zelf afleidt hoe er gesorteerd is, leidt het op
+     het volgende scherm net anders af. #}
+  {% call ui.list_meta(meta_telling, meta_volgorde) %}
+    {{ ui.per_page_select("/admin/ledenwijzigingen", "#lw-inhoud", "lw-filters",
+                          per_page, per_page_options, id="lw-per-page") }}
+  {% endcall %}
+  {# Dichte tabel (§2.3): 12px celtekst, 11px subregels, `align-middle`. #}
+  <div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
+    <table class="w-full text-xs">
+      <thead>
+        <tr class="bg-gray-50 text-xs text-ink-soft text-left">
+            {{ ui.sort_th(sorteer_labels["wanneer"], sorteer_urls["wanneer"], active=(sort == "wanneer"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}
+            {{ ui.sort_th(sorteer_labels["wijziging"], sorteer_urls["wijziging"], active=(sort == "wijziging"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}
+            {{ ui.sort_th(sorteer_labels["groep"], sorteer_urls["groep"], active=(sort == "groep"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}
+            {{ ui.sort_th(sorteer_labels["persoon"], sorteer_urls["persoon"], active=(sort == "persoon"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}
+            <th scope="col" class="{{ _kopcel }} w-full">{{ _("Details") }}</th>
+            {{ ui.sort_th(sorteer_labels["object"], sorteer_urls["object"], active=(sort == "object"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}
+            {{ ui.sort_th(sorteer_labels["actor"], sorteer_urls["actor"], active=(sort == "actor"), direction=richting, hx_target="#lw-inhoud", cls=_kopcel) }}</tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody>
         {% for r in feed_rows %}
         {# Geen rijtint meer (#620): de status draagt één signaal — de badge — net
            zoals de kaart-stripe in #596 (B6) verdween. §2.10 noemt "Gewijzigd" en
            "Verwijderd" letterlijk als badge-voorbeelden. Zonder rijtint kan de rij
            weer een hover dragen zonder met de statuskleur te vechten. #}
-        <tr class="hover:bg-gray-50">
-          <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
+        <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+          <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
           <td class="px-3 py-2 whitespace-nowrap"{% if r.action %} title="{{ (r.action or '').replace('_', ' ') }}"{% endif %}>{{ ui.badge(r.operation_label, _op_tone.get(r.operation, "gray")) }}</td>
           <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(r.group, "blue") }}</td>
           <td class="px-3 py-2 whitespace-nowrap">{{ r.person_name }}</td>
-          <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
+          <td class="px-3 py-2 text-ink-soft">{{ r.summary }}</td>
           {# P13-spronglink (golf 5, #913): het object springt naar zijn eigen
              pagina waar die bestaat; entiteiten zonder pagina blijven tekst. #}
           <td class="px-3 py-2 whitespace-nowrap">{% if r.object_url %}{{ ui.spronglink(r.object_url, r.entity ~ (" #" ~ r.entity_id if r.entity_id else ""), aria=_("Open") ~ " " ~ r.entity ~ " #" ~ r.entity_id) }}{% else %}{{ r.entity }}{% if r.entity_id %} #{{ r.entity_id }}{% endif %}{% endif %}</td>
-          <td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ r.actor or "" }}</td>
+          <td class="px-3 py-2 text-ink-soft whitespace-nowrap">{{ r.actor or "" }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -53,7 +66,7 @@
      scherm had er geen; op HDEV stonden 792 rijen in één DOM, groeiend met ~1200
      per jaar. De filters gaan mee in de hx-get, zodat bladeren de stand behoudt. #}
   {{ ui.pager(page, per_page=per_page, total=totaal,
-              hx_get="/admin/ledenwijzigingen?since=" ~ since ~ "&group=" ~ group ~ "&actor=" ~ actor,
+              hx_get="/admin/ledenwijzigingen?since=" ~ since ~ "&group=" ~ group ~ "&actor=" ~ actor ~ "&sort=" ~ sort ~ "&richting=" ~ richting ~ "&per_page=" ~ per_page,
               hx_target="#lw-inhoud") }}
   {% else %}
   {{ ui.empty_state(_("Geen wijzigingen sinds") ~ " " ~ since ~ ".") }}

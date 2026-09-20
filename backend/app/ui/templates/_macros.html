@@ -228,6 +228,28 @@
 <label for="{{ for_id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ text }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
 {%- endmacro %}
 
+{# Een veldlabel NAAST zijn veld, in één regel (#1083).
+
+   `label()` hierboven is een BLOK-label bóven het veld, en dat is precies waarom
+   het op Wijzigingen wegging: een kolom met een label erboven is hoger dan een
+   kaal invoerveld, dus die vorm moest op `items-end` uitlijnen en week af van de
+   tien andere filterbalken (#1079). In een filterregel die op `items-center`
+   staat, hoort het label ernaast.
+
+   Label én veld in één `inline-flex`: die twee mogen bij het afbreken van de rij
+   niet uit elkaar vallen, en dat is niet te garanderen als de aanroeper ze als
+   twee zusters neerzet. Het veld komt van de caller, want de kit kent zijn soort
+   niet — hier een datumveld, elders een keuzelijst.
+
+   `for_id` moet gelijk zijn aan de `id` van het veld in de body; dat is dezelfde
+   belofte als bij `label()`, en er is een test op. #}
+{% macro inline_label(text, for_id, text_cls="text-sm font-medium text-gray-700") -%}
+<span class="inline-flex items-center gap-2">
+  <label for="{{ for_id }}" class="{{ text_cls }} whitespace-nowrap">{{ text }}</label>
+  {{ caller() }}
+</span>
+{%- endmacro %}
+
 {# ─────────────────────────────────────────────────────────────────────────────
    UI-sweep (#482): uitbreiding van de kit — paginakop, formuliervelden, modal,
    tabs, reorder- en export-controls. Conventies uit docs/design-system.html + docs/ui-conventies.md.
@@ -594,6 +616,59 @@
   </span>
 </nav>
 {% endif %}
+{%- endmacro %}
+
+{# ── Meta-regel boven een dichte tabel (§2.3; referentie Betalingen) ──────────
+   Eén regel tussen de filterbalk en de tabel: links WAT er staat (hoeveel regels
+   en in welke volgorde), rechts de bediening die bij de lijst hoort en niet bij
+   een rij — vandaag de paginagrootte.
+
+   De volgorde benoemen is de kern en niet een versiering: §2.3 vraagt ze bij een
+   lijst die sorteerbaar is, zodat "waarom staat dit bovenaan" te beantwoorden is
+   zonder de kolomkoppen af te gaan. De tekst zelf komt uit het view-model
+   (`app.ui.sort_description`), niet uit dit sjabloon — een sjabloon dat zelf
+   afleidt hoe er gesorteerd is, leidt het op het volgende scherm net anders af.
+
+   Als macro en niet per scherm overgetypt: Betalingen schreef deze regel als
+   losse markup, en Wijzigingen en het e-maillog zouden kopie twee en drie zijn
+   geweest. Betalingen mag er in een aparte veeg naartoe — dat bestand hoort bij
+   een ander spoor. #}
+{% macro list_meta(count_text, order_text) -%}
+<div class="my-2.5 flex flex-wrap items-center justify-between gap-3 text-[11px] text-ink-soft">
+  <span>{{ count_text }} · {{ order_text }}</span>
+  <span class="flex items-center gap-2">{{ caller() }}</span>
+</div>
+{%- endmacro %}
+
+{# Hoeveel rijen er op een pagina staan (#1083). Hoort in de meta-regel.
+
+   De keuze moet een filterwissel en een kop-klik OVERLEVEN, en daarvoor is één
+   bewaarplaats genoeg: de browser-URL. Die krijgt ze langs dezelfde weg als elk
+   filter — `X-Raak-Filter` laat `_filter_push_url` (main.py) het paginapad met
+   deze query in de adresbalk zetten, en htmx stuurt hem daarna bij élk verzoek
+   mee als `HX-Current-URL`, waar `app.ui.filterparams()` hem uitleest.
+
+   `form=` is dragend en geen franje. Het veld staat BUITEN de filterbalk (het
+   hoort visueel bij de tabel), en zonder die koppeling serialiseert de balk het
+   niet mee — dan wist de eerstvolgende filterwissel de paginagrootte uit de
+   URL die ze zelf duwt. Met `form=` reist ze mee. Omgekeerd bubbelt een `change`
+   op dit veld níét naar de balk (het is geen afstammeling), dus het eigen
+   `hx-get` hieronder is de enige aanvraag die vertrekt — geen dubbel verzoek.
+
+   `hx-include` haalt de filterstand uit de balk zelf in plaats van hem in een
+   URL samen te stellen: die samenstelling is precies waar een vergeten parameter
+   in gaat zitten. `page` zit bewust in geen van beide — een andere paginagrootte
+   begint weer op pagina 1. #}
+{% macro per_page_select(hx_get, hx_target, form_id, current, options, id="per-page") -%}
+{% call inline_label(_("Per pagina"), id, text_cls="text-[11px] text-ink-soft") %}
+  {%- call select_control("per_page", cls="w-20 text-[11px]",
+        attrs='id="' ~ id ~ '" form="' ~ form_id ~ '" hx-get="' ~ hx_get ~ '"'
+              ~ ' hx-target="' ~ hx_target ~ '" hx-swap="innerHTML" hx-trigger="change"'
+              ~ ' hx-include="#' ~ form_id ~ '"'
+              ~ " hx-headers='{\"X-Raak-Filter\": \"1\"}'") -%}
+    {% for n in options %}<option value="{{ n }}" {% if n == current %}selected{% endif %}>{{ n }}</option>{% endfor %}
+  {%- endcall %}
+{% endcall %}
 {%- endmacro %}
 
 {# ── Filterbalk (#580) ────────────────────────────────────────────────────────

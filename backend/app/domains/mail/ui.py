@@ -14,11 +14,10 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_u
 from app.domains.mail.api import (EMAIL_LOG_SORT_KEYS, EMAIL_STATUSES,
                                   EMAIL_TYPES, delete_email_log, list_email_log)
 from app.i18n import _
-from app.ui import admin_nav, filterparams, templates
+from app.ui import (PER_PAGE_OPTIONS, admin_nav, filterparams, per_page_from,
+                    sort_description, templates)
 
 router = APIRouter(include_in_schema=False)
-
-PAGE_SIZE = 50
 
 
 _TYPE_LABELS = {
@@ -32,6 +31,18 @@ _TYPE_LABELS = {
     "other": "Overig",
 }
 _STATUS_LABELS = {"sent": "Verstuurd", "failed": "Mislukt", "skipped": "Overgeslagen"}
+
+
+def _sorteer_labels() -> dict[str, str]:
+    """De zichtbare kolomnaam per sorteersleutel (#1083).
+
+    Per request en niet als moduleconstante: `_()` volgt de taal van de tenant.
+    Hier en niet in het sjabloon, omdat de meta-regel boven de tabel dezelfde
+    woorden gebruikt als de kolomkop.
+    """
+    return {"datum": _("Datum"), "ontvanger": _("Ontvanger"),
+            "onderwerp": _("Onderwerp"), "type": _("Type"),
+            "status": _("Status")}
 
 
 def _ctx(request: Request, db: Session) -> dict:
@@ -51,14 +62,11 @@ def _ctx(request: Request, db: Session) -> dict:
     if sort not in EMAIL_LOG_SORT_KEYS:
         sort = "datum"
     richting = "asc" if (stand.get("richting") or "").strip() == "asc" else "desc"
+    labels = _sorteer_labels()
     # Golf 3 (#913): paginagrootte-keuze — whitelist, zoals alles wat uit de
-    # querystring komt.
-    try:
-        per_page = int(stand.get("per_page", ""))
-    except ValueError:
-        per_page = PAGE_SIZE
-    if per_page not in (25, 50, 100):
-        per_page = PAGE_SIZE
+    # querystring komt. De whitelist staat sinds #1083 in `app.ui`, want de
+    # keuzelijst in de meta-regel wordt uit diezelfde reeks gevuld.
+    per_page = per_page_from(stand.get("per_page"))
     rows, has_next = list_email_log(db, email_type=email_type, status=status,
                                     recipient=recipient, page=page,
                                     page_size=per_page, sort=sort,
@@ -74,8 +82,11 @@ def _ctx(request: Request, db: Session) -> dict:
         params = {k: v for k, v in (("email_type", email_type), ("status", status),
                                     ("recipient", recipient)) if v}
         params.update({"sort": key, "richting": volgende if sort == key else ("desc" if key == "datum" else "asc")})
-        if per_page != PAGE_SIZE:
-            params["per_page"] = per_page
+        # Altijd meesturen (#1083): met "alleen als het afwijkt" viel de keuze bij
+        # een kop-klik terug op de standaard zodra ze toevallig 50 was — en die
+        # voorwaarde is precies het soort ding dat bij de volgende standaard
+        # vergeten wordt.
+        params["per_page"] = str(per_page)
         return "/admin/e-maillog/lijst?" + urlencode(params)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
@@ -91,6 +102,15 @@ def _ctx(request: Request, db: Session) -> dict:
         "richting": richting,
         "per_page": per_page,
         "sorteer_urls": {key: _sorteer_url(key) for key in EMAIL_LOG_SORT_KEYS},
+        "sorteer_labels": labels,
+        "per_page_options": PER_PAGE_OPTIONS,
+        # De meta-regel boven de tabel (§2.3). Bewust "op deze pagina": dit scherm
+        # doet met opzet GEEN COUNT (§2.3 noemt het als het geval daarvoor) en
+        # haalt één rij extra op om te weten of er nog een pagina is. "N e-mails"
+        # zou dus een totaal suggereren dat we niet gemeten hebben.
+        "meta_telling": _("%(aantal)s e-mails op deze pagina") % {"aantal": len(rows)},
+        "meta_volgorde": sort_description(labels[sort], richting,
+                                          is_date=(sort == "datum")),
         "email_types": EMAIL_TYPES,
         "email_statuses": EMAIL_STATUSES,
         "type_labels": _TYPE_LABELS,
