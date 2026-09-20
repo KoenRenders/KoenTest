@@ -52,6 +52,11 @@ class PosterContent:
     tagline: str = ""           # handwritten line ("Zet het in je agenda!")
 
     highlights: tuple[Highlight, ...] = ()
+    # The same facts the first two highlight rows carry, as plain lines: the
+    # simple preset has no icon rows and prints them above the picture.
+    date_line: str = ""             # "ZONDAG 15 NOVEMBER OM 9U45", empty for a series
+    location: str = ""
+    deadline_text: str = ""         # "Inschrijven tot 8 november", empty when it differs per component
     members_only: bool = False      # "ENKEL LEDEN" instead of "IEDEREEN WELKOM!"
     dates_heading: str = ""
     dates: tuple[str, ...] = ()     # "13 JULI" … at most twelve

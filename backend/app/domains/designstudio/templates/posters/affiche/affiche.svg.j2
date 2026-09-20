@@ -56,7 +56,7 @@
   {{ p.logos | safe }}
   <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ '%.2f' % (p.band.row_y + 8.5) }}" font-size="7" font-weight="bold" fill="{{ p.pal.accent }}">{{ p.band.label }}</text>
   {%- for row in p.band.rows %}
-  <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * 6.5) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ p.pal.white }}">{{ row.text }}</text>
+  <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * 6.5) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ row.colour }}">{{ row.text }}</text>
   {%- endfor %}
   {%- if qr %}
   <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>

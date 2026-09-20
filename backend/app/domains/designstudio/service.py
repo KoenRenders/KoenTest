@@ -325,12 +325,13 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
     highlights: list[Highlight] = []
     dates = facts["dates"]
+    date_line = ""
     if len(dates) == 1:
         day = date.fromisoformat(dates[0]["date"])
-        line = day_label(day, weekday=True)
+        date_line = day_label(day, weekday=True)
         if dates[0]["time"]:
-            line += f" {time_label(datetime.strptime(dates[0]['time'], '%H:%M').time())}"
-        highlights.append(Highlight("calendar", line, True))
+            date_line += f" {time_label(datetime.strptime(dates[0]['time'], '%H:%M').time())}"
+        highlights.append(Highlight("calendar", date_line, True))
     if facts["location"]:
         highlights.append(Highlight("map-pin", facts["location"].upper()))
     for hl in design.highlights:
@@ -348,6 +349,8 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         bar_text=(design.subtitle or "").upper(),
         tagline=design.tagline or "",
         highlights=tuple(highlights),
+        date_line=date_line, location=(facts["location"] or "").upper(),
+        deadline_text=deadline_line(facts["deadline"]),
         members_only=bool(facts["members_only"]),
         dates_heading=f"DATA IN {year}",
         dates=grid,
@@ -359,6 +362,15 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         logos=tuple(img for img in (_image(db, lg.media_asset_id) for lg in design.logos) if img),
         seed=design.id or 1,
     )
+
+
+def deadline_line(iso: str) -> str:
+    """"Inschrijven tot 8 november", or "" when there is no single deadline
+    for the whole activity (#1053: it lives per component)."""
+    if not iso:
+        return ""
+    day = date.fromisoformat(iso)
+    return f"Inschrijven tot {day.day} {MONTHS_NL[day.month - 1].lower()}"
 
 
 def qr_url(db: Session) -> str:
