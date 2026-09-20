@@ -10,8 +10,8 @@ Idempotent: the column is only added when it is missing.
 from alembic import op
 import sqlalchemy as sa
 
-revision = "141_2026_09_20_083000"
-down_revision = "140_2026_09_19_190000"
+revision = "142_2026_09_20_090500"
+down_revision = "141_2026_09_19_210502"
 branch_labels = None
 depends_on = None
 
