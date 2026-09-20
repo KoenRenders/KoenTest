@@ -34,3 +34,8 @@ backend/tests/__pycache__/
 # Design-track screenshot output (scripts/screenshots.sh, #785) — seed-data
 # screenshots, maar hoort nooit in de publieke repo
 /screenshots/
+
+# Gebouwde PDF-tussenstap: docs/build/<naam>.html wordt bij elke bouw herschreven.
+# De SVG-diagrammen onder docs/build/figuren/ horen er WEL in: zonder die bestanden
+# heeft een bouw Node nodig, en dat is precies wat de cache voorkomt.
+docs/build/*.html
