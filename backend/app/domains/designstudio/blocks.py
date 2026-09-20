@@ -191,6 +191,20 @@ def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tup
     return "".join(out), y + 12
 
 
+def hero_height(image: ImageBytes, box_w: float, available: float, *, cap: float, floor: float) -> float:
+    """The height the picture wants at this width, clamped to what is left.
+
+    Koen, 20 September 2026: a photo he had cropped shorter still filled a
+    tall box, so it was cut at the sides and took the whole page. A picture
+    whose pixel size is known now gets the height of its own proportions —
+    a wide photo a low strip, a tall one a taller block — and only a picture
+    that would not fit at all is cropped."""
+    wanted = box_w * image.height / image.width if image.width and image.height else cap
+    # Never below the floor: a page that is already full must report its
+    # overflow, not shrink the picture into nothing.
+    return max(floor, min(wanted, cap, max(available, floor)))
+
+
 def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
     """The hero photo or drawing with a ragged edge: the filter sits on a mask,
     never on the image (a displaced photo looks warped; a displaced mask looks
@@ -383,19 +397,26 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # e-mail and gsm only when nobody is a contact person (CR-10 §3.9 — with a
     # contact person the association's own lines stay off the poster; Koen,
     # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
-    rows: list[dict[str, object]] = [{"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
-                                      "text": content.website, "size": 6.2}]
+    rows: list[dict[str, object]] = []
+    if content.deadline_text:
+        # The one line that asks for something (Koen, 20 September 2026): in
+        # the accent colour, above the address it points at.
+        rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
+                     "text": f"{content.deadline_text} via de website", "size": 6.6, "colour": pal["accent"]})
+    rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
+                 "text": content.website, "size": 6.2, "colour": pal["white"]})
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
             rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part), "size": 5.6})
+                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
+                         "size": 5.6, "colour": pal["white"]})
     else:
         if content.email:
             rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
-                         "text": content.email, "size": 6.2})
+                         "text": content.email, "size": 6.2, "colour": pal["white"]})
         if content.association_mobile:
             rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": content.association_mobile, "size": 6.2})
+                         "text": content.association_mobile, "size": 6.2, "colour": pal["white"]})
     band_h: float = 20 + 6.5 * len(rows)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
@@ -447,11 +468,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # activity's text over the full width — no icon rows for date and
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
+        # When and where, above the picture, as they stood on the hand-made
+        # poster (Koen, 20 September 2026) — this preset has no icon rows.
+        when_where = " · ".join(part for part in (
+            content.date_line.upper() if content.date_line
+            else (f"{len(content.dates)} {content.dates_heading}" if len(content.dates) > 1 else ""),
+            content.location) if part)
+        if when_where:
+            ww_size = fit_size(when_where, full_w, 11.0, 7.0, tracking_per_em=0.02)
+            p.full += text_el("t-whenwhere", when_where, lx, y + ww_size * 0.72, ww_size, pal["tile"],
+                              weight="bold", tracking=0.02 * ww_size)
+            p.boxes["t-whenwhere"] = full_w
+            y += ww_size * 0.72 + 5
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
         below = text_h + 9 + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
+                                       hero_height(content.main_image, full_w, avail, cap=200.0, floor=60.0))
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, bottom right, and the
@@ -483,7 +517,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(50.0, min(120.0, avail)))
+            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
+                                       hero_height(content.main_image, full_w, avail, cap=120.0, floor=50.0))
             p.full += frag
             if content.inset_image:
                 pw = 70.0
@@ -541,7 +576,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             hero_h = limit - ry - fixed - 6
             if content.main_image:
                 frag, ry = main_image_block(p, content.main_image, rx + 3, ry - 2, rw - 8,
-                                            max(60.0, min(hero_h, 240.0)))
+                                            hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0))
                 right.append(frag)
             if content.inset_image:
                 overlap = 45 if content.main_image else 0

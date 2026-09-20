@@ -263,6 +263,49 @@ def test_every_highlight_row_is_upper_case_bold_and_one_size():
     assert [r[2] for r in rows] == ["MILOHEEM", "GEZELLIG SAMEN"]
 
 
+def test_the_picture_takes_the_height_of_its_own_proportions():
+    """Koen, 20 September 2026: "de hoofdfoto is nu overdreven groot" — he
+    had cropped the photo shorter and it still filled a tall box. A picture
+    of a known size takes the height that belongs to its width."""
+    from app.domains.designstudio.blocks import hero_height
+
+    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 600)     # 8:3
+    tall = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1000, 1200)
+    unknown = ImageBytes(PNG_2x2, "image/png")
+    assert round(hero_height(wide, 240, 200, cap=200, floor=60)) == 90      # its own strip
+    assert hero_height(tall, 240, 200, cap=200, floor=60) == 200            # capped, then cropped
+    assert hero_height(unknown, 240, 200, cap=200, floor=60) == 200         # unchanged for unknown sizes
+    assert hero_height(wide, 240, 40, cap=200, floor=60) == 60              # an over-full page keeps the floor
+    # And the poster really reserves less room for a wide photo.
+    low = render.merge(_content(main_image=wide, preset="eenvoudig", dates=()), layout="print_a").svg
+    high = render.merge(_content(main_image=tall, preset="eenvoudig", dates=()), layout="print_a").svg
+    hl = float(re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', low).group(1))
+    hh = float(re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', high).group(1))
+    assert hl < 110 < hh
+
+
+def test_the_simple_preset_prints_when_and_where_above_the_picture():
+    """The preset has no icon rows, so date and place go above the picture,
+    as on the hand-made poster (Koen, 20 September 2026)."""
+    one = render.merge(_content(preset="eenvoudig", dates=(), date_line="ZONDAG 15 NOVEMBER OM 9U45",
+                                location="BOWLING BRUUL"), layout="print_a")
+    assert "ZONDAG 15 NOVEMBER OM 9U45 · BOWLING BRUUL" in one.svg and one.violations == ()
+    series = render.merge(_content(preset="eenvoudig", location="MILOHEEM"), layout="print_a").svg
+    assert "3 DATA IN 2026 · MILOHEEM" in series
+
+
+def test_the_deadline_is_the_bands_call_to_action():
+    """"Inschrijven tot 8 november" stood at the foot of the hand-made
+    poster; it sits in the band now, in the accent colour, above the address
+    it points at. No shared deadline (it differs per component) → no row."""
+    svg = render.merge(_content(deadline_text="Inschrijven tot 8 november"), layout="print_a").svg
+    assert "Inschrijven tot 8 november via de website" in svg
+    deadline_y = float(re.search(r'id="t-deadline" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+    website_y = float(re.search(r'id="t-website" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+    assert deadline_y < website_y
+    assert 't-deadline' not in render.merge(_content(), layout="print_a").svg
+
+
 def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
     """Koen's feed image had the drawing cut in half. A picture whose known
     size is much wider than its box is letterboxed; an unknown size crops as
