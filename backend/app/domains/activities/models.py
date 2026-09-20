@@ -157,7 +157,14 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivityOrganiser.sort_order")
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
-    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
+    # De id is de tiebreak, en dat is geen franje: `sort_order` staat standaard op 0,
+    # dus twee onderdelen die je achter elkaar toevoegt zijn gelijk gerangschikt en
+    # Postgres mag ze dan in om het even welke volgorde teruggeven. Dat gebeurde ook:
+    # CI-run 35499069480 zette op de Inschrijvingen-tab het tweede onderdeel boven het
+    # eerste, terwijl dezelfde code lokaal de invoegvolgorde gaf. Met de id erbij is
+    # de volgorde overal dezelfde — en sinds #1053 draagt elk onderdeel zijn eigen
+    # uiterste datum, dus een wisselende volgorde is ook op de publieke kaart zichtbaar.
+    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order, ActivitySubRegistration.id")
 
     @property
     def poster_asset_url(self):

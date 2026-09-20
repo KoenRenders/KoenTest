@@ -137,3 +137,25 @@ def test_een_verwijdering_keert_terug_naar_de_activiteit(client, db_session):
     assert r.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
     tab = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
     assert "AnnekeA" not in tab
+
+
+def test_de_volgorde_van_onderdelen_is_vastgelegd():
+    """Onderdelen met dezelfde `sort_order` staan overal in dezelfde volgorde.
+
+    `sort_order` staat standaard op 0, dus twee onderdelen die je achter elkaar
+    toevoegt zijn gelijk gerangschikt. Een ORDER BY met alleen dat veld laat
+    Postgres vrij om ze om te wisselen, en dat deed hij: CI-run 35499069480 liet
+    `test_de_tab_groepeert_per_onderdeel` hierboven omvallen — het tweede onderdeel
+    stond boven het eerste — terwijl dezelfde code lokaal de invoegvolgorde gaf.
+
+    Deze test toetst de RELATIE en niet het scherm, en dat is een bewuste keuze:
+    het gedrag zelf is niet betrouwbaar rood te krijgen, want of een gelijkstand
+    omklapt hangt af van het queryplan en het aantal rijen in de tabel. Wat wél
+    vastligt, is de belofte. Haal de id-tiebreak weg en deze test valt om
+    (gemeten); de test hierboven valt dan alleen om als het toeval meewerkt.
+    """
+    from app.domains.activities.api import Activity
+
+    namen = [getattr(k, "name", str(k))
+             for k in Activity.sub_registrations.property.order_by]
+    assert namen == ["sort_order", "id"], namen
