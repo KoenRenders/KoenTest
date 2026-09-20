@@ -304,7 +304,7 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
     pad = 4 if boxed else 0
     inner_w = w - 2 * pad
     lines = richtext.line_count(source, width=inner_w, size=size)
-    step = size * 1.3
+    step = size * richtext.LINE_HEIGHT
     head_h = 8 if heading else 0
     h = 2 * pad + head_h + lines * step + (1.5 if boxed else 0)
     out = []
@@ -341,7 +341,7 @@ def _dates_grid_height(n: int) -> float:
 
 
 def _richtext_height(source: str, w: float, size: float) -> float:
-    return richtext.line_count(source, width=w, size=size) * size * 1.3 + 5
+    return richtext.line_count(source, width=w, size=size) * size * richtext.LINE_HEIGHT + 5
 
 
 def fit_richtext_size(source: str, w: float, available: float, *, max_size: float, min_size: float) -> float:

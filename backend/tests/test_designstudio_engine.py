@@ -101,11 +101,22 @@ def test_the_rendered_poster_passes_the_brand_gate():
 # ── Formatted text ──────────────────────────────────────────────────────────
 
 def test_richtext_subset_parses_bold_bullets_and_paragraphs_and_nothing_else():
-    blocks = richtext.parse("Eerste **vet** woord\nzelfde alinea\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>")
-    assert [b.bullet for b in blocks] == [False, True, True, False]
+    blocks = richtext.parse("Eerste **vet** woord\nnieuwe regel\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>")
+    assert [b.bullet for b in blocks] == [False, False, True, True, False]
     assert [r.bold for r in blocks[0].runs] == [False, True, False]
-    assert "".join(r.text for r in blocks[0].runs) == "Eerste vet woord zelfde alinea"
-    assert "".join(r.text for r in blocks[3].runs) == "<b>geen html</b>"
+    assert "".join(r.text for r in blocks[0].runs) == "Eerste vet woord"
+    assert "".join(r.text for r in blocks[4].runs) == "<b>geen html</b>"
+
+
+def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
+    """Koen, 20 September 2026: what he types with Enter must break on the
+    poster too; a blank line keeps its air."""
+    blocks = richtext.parse("Regel een\nRegel twee\n\nNa een lege regel")
+    assert [b.gap for b in blocks] == [False, False, True]
+    lines = richtext.wrap(blocks, width=200, size=6)
+    assert ["".join(r.text for r in line) for line in lines] == [
+        "Regel een", "Regel twee", "", "Na een lege regel"]
+    assert richtext.LINE_HEIGHT > 1.3        # a little more air than before
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1
