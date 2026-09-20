@@ -81,6 +81,7 @@
         {% for slot, label, current in (("main_image_id", _("Hoofdbeeld"), main_image_id), ("inset_image_id", _("Polaroid"), inset_image_id), ("third_image_id", _("Derde beeld"), third_image_id)) %}
         <div>
           {{ ui.label(label, "ds-" ~ slot) }}
+          {% if slot == "third_image_id" %}<p class="text-xs text-ink-soft -mt-1 mb-1">{{ _("Linksonder, alleen in de opmaak 'met beeld' en alleen zonder sponsorlogo's: die staan op dezelfde plek.") }}</p>{% endif %}
           {% call ui.select_control(slot, cls="w-full", attrs='id="ds-' ~ slot ~ '"') %}
             <option value="">{{ _("— geen —") }}</option>
             {% for opt in image_options %}<option value="{{ opt.id }}"{% if opt.id == current %} selected{% endif %}>{{ opt.label }}</option>{% endfor %}
@@ -101,7 +102,7 @@
       </div>
       {% if logo_options %}
       <div>
-        <p class="text-sm font-medium text-ink mb-1">{{ _("Logostrook") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste twee") }})</span></p>
+        <p class="text-sm font-medium text-ink mb-1">{{ _("Logostrook") }} <span class="font-normal text-ink-soft">({{ _("ten hoogste twee; neemt de plek van het derde beeld") }})</span></p>
         <div class="flex flex-wrap gap-3">
           {% for opt in logo_options %}
           <label class="flex items-center gap-2 text-sm text-ink">
