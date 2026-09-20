@@ -49,10 +49,11 @@ from app.domains.auth.login import (  # noqa: F401
     consume_magic_link,
     start_login,
 )
-from app.domains.auth.users import list_assignable_roles  # noqa: F401
+from app.domains.auth.users import list_assignable_roles, role_options  # noqa: F401
 
 __all__ = [
-    "check_otp", "consume_magic_link", "list_assignable_roles", "start_login",
+    "check_otp", "consume_magic_link", "list_assignable_roles", "role_options",
+    "start_login",
     "find_persons_by_email", "login_person_for_email", "resolve_household",
     "ApiKey", "LoginToken", "User", "UserRole",
     "API_KEY_HEADER", "hash_api_key", "require_api_key",

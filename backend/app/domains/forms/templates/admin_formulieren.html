@@ -21,8 +21,8 @@
 
 
 {% call ui.filter_bar("/admin/formulieren", "#fb-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam…'), standalone=False) }}</div>
-  <div class="flex flex-wrap gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam…'), standalone=False) }}</div>
     {% call ui.select_control("status") %}
       <option value="">{{ _("Alle statussen") }}</option>
       {% for s in statuses %}

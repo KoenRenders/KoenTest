@@ -44,8 +44,8 @@
 </div>
 
 {% call ui.filter_bar("/admin/leden/lijst", "#leden-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of e-mail…'), standalone=False, cls='w-full') }}</div>
-  <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam of e-mail…'), standalone=False) }}</div>
     {{ ui.chips("status", [("", _("Alle")), ("actief", _("Actief")), ("opgezegd", _("Opgezegd"))], status) }}
     {% if jaren %}
     {% call ui.select_control("jaar") %}

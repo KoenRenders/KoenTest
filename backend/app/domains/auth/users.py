@@ -215,3 +215,26 @@ def list_assignable_roles(db):
 
     return (db.query(RoleCode).filter(RoleCode.code.notin_(["USER", "MEMBER"]))
             .order_by(RoleCode.code).all())
+
+
+def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
+    """De toekenbare rollen als (code, leesbaar label) — voor een keuzelijst.
+
+    Het label is `value` uit de codetabel ("Beheerder", "Penningmeester") en niet
+    de code. Tussen knoppen viel een ruwe `FINANCE` weg te kijken; in een
+    keuzelijst leest ze als een bug (#1079).
+
+    Neemt de rijen die de aanroeper al heeft i.p.v. zelf te queryen: het scherm
+    toont dezelfde rollen als vinkjes, en twee queries op één codetabel zijn twee
+    plekken die kunnen uiteenlopen.
+
+    Zelfde vorm als `legal_form_options` in mdm, want dezelfde codetabelvorm
+    (code, language, value): één regel per taal, dus per code samenvouwen. Valt
+    terug op nl en daarna op de code zelf — een lege optie is erger dan een
+    onvertaald label.
+    """
+    per_code: dict[str, dict[str, str]] = {}
+    for rij in rollen:
+        per_code.setdefault(rij.code, {})[rij.language] = rij.value
+    return [(code, labels.get(taal) or labels.get("nl") or code)
+            for code, labels in sorted(per_code.items())]
