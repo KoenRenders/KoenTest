@@ -154,6 +154,12 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
 
     organisers = relationship(
         "ActivityOrganiser", back_populates="activity", cascade="all, delete-orphan",
+        # GEEN id-tiebreak nodig, en dat is gemeten (#1068): migratie 133 legt een
+        # unieke sleutel op (activity_id, sort_order) plus een CHECK op 0/1/2, dus
+        # twee organisatoren kunnen geen gelijke `sort_order` hebben. Zonder
+        # gelijkstand is er niets om willekeurig te ordenen. Zie
+        # `test_sorteervolgorde_gelijkstand.py`, dat die sleutel vastlegt — valt
+        # hij weg, dan geldt deze redenering niet meer.
         order_by="ActivityOrganiser.sort_order")
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
@@ -251,7 +257,7 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     activity = relationship("Activity", back_populates="sub_registrations")
-    products = relationship("ActivityProduct", back_populates="component", cascade="all, delete-orphan", order_by="ActivityProduct.sort_order")
+    products = relationship("ActivityProduct", back_populates="component", cascade="all, delete-orphan", order_by="ActivityProduct.sort_order, ActivityProduct.id")  # id als tiebreak, #1068
 
     def _info_asset(self):
         sess = object_session(self)
