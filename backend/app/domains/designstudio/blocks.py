@@ -56,11 +56,16 @@ def data_uri(image: ImageBytes) -> str:
     return f"data:{image.mime};base64," + base64.b64encode(image.data).decode()
 
 
-def aspect_for(image: ImageBytes) -> str:
-    """Map the focal point to SVG's nine-point crop. Coarse, and honest about
-    it: a finer crop needs the image size, which the renderer does not read."""
+def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0) -> str:
+    """Map the focal point to SVG's nine-point crop. When the box is much
+    wider than the picture (an Instagram hero squeezed by the rest of the
+    page), the picture is shown whole instead of cut in half — a drawing on
+    white loses nothing that way (Koen, 20 September 2026)."""
     fx = "Min" if image.focus_x < 1 / 3 else "Max" if image.focus_x > 2 / 3 else "Mid"
     fy = "Min" if image.focus_y < 1 / 3 else "Max" if image.focus_y > 2 / 3 else "Mid"
+    if image.width and image.height and box_w and box_h:
+        if (box_w / box_h) > (image.width / image.height) * 1.6:
+            return "xMidYMid meet"
     return f"x{fx}Y{fy} slice"
 
 
@@ -193,7 +198,7 @@ def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float
     mask_id = "ragmask-main"
     out = (f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
-           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" preserveAspectRatio="{aspect_for(image)}" '
+           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" preserveAspectRatio="{aspect_for(image, w, h)}" '
            f'mask="url(#{mask_id})" href="{data_uri(image)}"/>')
     return out, y + h
 
@@ -475,7 +480,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         grid = len(content.dates) > 1
         if content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
-        below = hl_rows * ROW_H + 6 + (_dates_grid_height(len(content.dates[:12]), cols=3) + 3 if grid else 0) \
+        grid_cols = 4 if len(content.dates) > 8 else 3   # twelve dates in three rows, not four
+        below = hl_rows * ROW_H + 6 + (_dates_grid_height(len(content.dates[:12]), cols=grid_cols) + 3 if grid else 0) \
             + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
@@ -489,7 +495,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             y += 6
         y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
         if grid:
-            frag, y = dates_grid(p, content, lx, y + 3, full_w, cols=3)
+            frag, y = dates_grid(p, content, lx, y + 3, full_w, cols=grid_cols)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag

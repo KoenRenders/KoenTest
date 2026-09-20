@@ -21,6 +21,8 @@ class ImageBytes:
     mime: str  # image/png | image/jpeg
     focus_x: float = 0.5
     focus_y: float = 0.5
+    width: int = 0     # pixel size when known — lets a wide box show a drawing whole instead of cropping it
+    height: int = 0
 
 
 @dataclass(frozen=True)

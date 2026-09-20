@@ -147,7 +147,7 @@
           <div>
             {{ ui.label(_("Wat moet erop staan?"), "ds-scene") }}
             {{ ui.textarea_control("scene", id="ds-scene", value=ai_prompt, rows=2, cls="w-full", placeholder=_("bv. two adults and two children walking a forest path, one carries a lantern")) }}
-            <p class="text-xs text-ink-soft mt-1">{{ _("In het Engels werkt het best. Witte achtergrond en huisstijl zitten er al bij; je krijgt vier varianten.") }}</p>
+            <p class="text-xs text-ink-soft mt-1">{{ _("Nederlands mag: de tekst wordt vóór het verzenden naar het Engels vertaald (Mistral) en die vertaling staat in het AI-logboek. Witte achtergrond en huisstijl zitten er al bij; je krijgt vier varianten.") }}</p>
           </div>
           <div>
             {{ ui.label(_("Stijl"), "ds-style") }}
@@ -156,39 +156,13 @@
             {% endcall %}
           </div>
         </div>
+        <details class="text-xs text-ink-soft"><summary class="cursor-pointer">{{ _("Wat het model per stijl te horen krijgt") }}</summary>
+          <dl class="mt-1 space-y-1">{% for code, label in style_options %}<dt class="font-medium text-ink">{{ label }}</dt><dd>{{ style_texts[code] }}</dd>{% endfor %}</dl>
+        </details>
         {{ ui.action_bar(save_label=_("Vier varianten maken")) }}
       </form>
       {% endif %}
-      {% if generations %}
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {% for g in generations %}
-        <div class="rounded-xl border border-line p-2 text-center">
-          {% if g.thumb_url %}<img src="{{ g.thumb_url }}" alt="" class="w-full h-auto rounded-lg">{% endif %}
-          <p class="text-xs text-ink-soft mt-1">{{ g.status_label }}</p>
-          {% if g.failure_reason %}<p class="text-xs text-ink-soft">{{ g.failure_reason }}</p>{% endif %}
-          {% if g.media_asset_id and g.status in ("fetched", "discarded", "picked") %}
-          <form method="post" action="/admin/ontwerpen/{{ design_id }}/kies/{{ g.id }}" class="mt-1">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="layout" value="{{ layout }}">
-            <input type="hidden" name="slot" value="main_image_id">
-            {{ ui.btn_outline(_("Gebruiken"), type="submit", size="sm") }}
-          </form>
-          {% if ai_enabled %}
-          <form method="post" action="/admin/ontwerpen/{{ design_id }}/genereer" class="mt-2 space-y-1">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="layout" value="{{ layout }}">
-            <input type="hidden" name="reference_id" value="{{ g.media_asset_id }}">
-            <input type="hidden" name="scene" value="{{ g.scene }}">
-            <input type="hidden" name="style" value="{{ g.style }}">
-            {{ ui.input_control("change", cls="w-full text-xs", placeholder=_("Wat wil je anders? bv. add a dog"), aria_label=_("Wat wil je anders aan dit beeld?")) }}
-            {{ ui.btn_outline(_("Opnieuw op basis van dit beeld"), type="submit", size="sm") }}
-          </form>
-          {% endif %}
-          {% endif %}
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
+      {% include "_ds_varianten.html" %}
     </section>
 
     {# ── Versions and publishing ── #}

@@ -65,6 +65,7 @@ class GenerationRow:
     failure_reason: str
     scene: str
     style: str
+    image_url: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -154,6 +155,8 @@ class DesignEditorView(ViewModel):
     ai_prompt: str
     ai_style: str
     style_options: list[tuple[str, str]]
+    style_texts: dict[str, str]      # what the model is told per style, shown so nobody guesses
+    ai_pending: bool                 # variants still under way → the grid polls
 
     csrf_token: str
     error: Optional[str] = None
