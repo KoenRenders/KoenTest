@@ -102,6 +102,9 @@
     </div>
   </section>
 
-  {{ ui.action_bar(form="org-form") }}
+  {# Annuleren haalt het bewaarde scherm opnieuw op (#1089). Het formulier
+     vervangt bij opslaan de hele body, dus een gewone link naar dezelfde
+     pagina geeft precies wat een geslaagde opslag ook toont. #}
+  {{ ui.action_bar(form="org-form", cancel_href="/admin/organisaties/" ~ organization_id) }}
 </form>
 {% endblock %}

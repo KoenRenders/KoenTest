@@ -1574,3 +1574,53 @@ def test_meerregelige_velden_gaan_via_de_kitmacro():
         "Een meerregelig veld gaat via ui.textarea_control (groeit standaard "
         "mee, #1027); een bewuste uitzondering krijgt een reden in "
         "RAUWE_TEXTAREAS:\n  " + "\n  ".join(fouten))
+
+
+def _oproepen(tekst: str, naam: str) -> list[tuple[int, str]]:
+    """Every call to ``naam(...)`` as (line number, argument text).
+
+    Balanced on parentheses, because an argument may itself be a call
+    (``_("Opslaan")``) or carry a nested one.
+    """
+    gevonden = []
+    for m in re.finditer(rf"\b{naam}\s*\(", tekst):
+        diepte, i = 1, m.end()
+        while i < len(tekst) and diepte:
+            diepte += (tekst[i] == "(") - (tekst[i] == ")")
+            i += 1
+        gevonden.append((tekst[:m.start()].count("\n") + 1, tekst[m.end():i - 1]))
+    return gevonden
+
+
+def test_annuleren_gaat_ergens_heen():
+    """#1089 — een actiecluster zonder bestemming voor Annuleren.
+
+    `action_bar` rendert Annuleren altijd. Geef je noch `cancel_href` noch
+    `cancel_attrs` mee, dan wordt het een `<button type="button">` zonder href
+    en zonder handler: hij oogt normaal, is niet uitgeschakeld en doet niets.
+    Zo kon hij op vijf schermen blijven staan zonder dat iets faalde — daarom
+    toetst deze test niet dát er een knop staat, maar dát hij een bestemming
+    heeft.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: `cancel_href` op
+    één van de vier oproepen in `admin_ontwerp.html` weggehaald → rood met dat
+    pad en dat regelnummer.
+    """
+    fouten = []
+    geteld = 0
+    for pad in TEMPLATES:
+        rel = str(pad.relative_to(APP))
+        if rel == "ui/templates/_macros.html":   # daar wordt de macro gedefinieerd
+            continue
+        for regel, argumenten in _oproepen(_zonder_commentaar(pad), "action_bar"):
+            geteld += 1
+            if "cancel_href" not in argumenten and "cancel_attrs" not in argumenten:
+                fouten.append(f"{rel}:{regel}")
+    assert geteld >= 10, (
+        f"maar {geteld} action_bar-oproepen gevonden — de zoekopdracht mist er, "
+        "een gate die nergens kijkt bewaakt niets")
+    assert not fouten, (
+        "Annuleren rendert zonder href en zonder handler, dus hij doet niets "
+        "(#1089). Geef `cancel_href` mee (eigen pagina: terug naar de "
+        "leesweergave) of `cancel_attrs` (htmx-vlak: de hx-get die het vlak "
+        "opnieuw ophaalt):\n  " + "\n  ".join(fouten))
