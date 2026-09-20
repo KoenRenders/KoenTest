@@ -90,18 +90,17 @@
          inschrijfknop — dus één keer per onderdeel, drie keer bij drie onderdelen.
          Ze hoort bij de praktische regels, onder datum en locatie.
 
-         Het icoon is een KALENDER en geen klok: de kit heeft geen klok, en het
-         issue vraagt uitdrukkelijk om het dichtstbijzijnde bestaande icoon te
-         nemen en te melden welk, in plaats van er een toe te voegen. Dat het
-         dezelfde vorm is als de datumregel erboven is de prijs; de melding staat
-         in de PR.
+         Het icoon is de KLOK. Die bestond niet toen dit issue geschreven werd —
+         vandaar de instructie "neem het dichtstbijzijnde en meld welk" — maar golf
+         12 (#913) voegde hem toe voor de activiteitspagina, dus dit is de klok die
+         het issue vroeg.
 
          #1053: wélke datum hier staat, beslist de service (`card_deadline`) — één
          regel als álle open onderdelen dezelfde datum hebben, anders niets, en dan
          staat de datum bij het onderdeel zelf. Een volzet onderdeel telt niet mee.
          In de laatste week kleurt de regel oranje (§1.1: oranje is attentie). #}
       {% if a.shared_deadline %}
-      {% call ui.icon_text("calendar", cls=("text-orange-700" if a.shared_deadline_near else "text-ink-soft")) %}
+      {% call ui.icon_text("clock", cls=("text-orange-600" if a.shared_deadline_near else "text-ink-soft")) %}
         {{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}
       {% endcall %}
       {% endif %}
@@ -158,7 +157,7 @@
              als icoonregel bovenaan en zou ze hier een tweede keer staan. #}
           {% if not a.shared_deadline and c.registration_closes_on
                 and c.registration_state == "open" and not c.is_full %}
-          <span class="text-xs {{ "text-orange-700" if c.deadline_near else "text-ink-soft" }}">{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</span>
+          <span class="text-xs {{ "text-orange-600" if c.deadline_near else "text-ink-soft" }}">{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</span>
           {% endif %}
           {% endif %}
           {% if c.external_registrations_url %}

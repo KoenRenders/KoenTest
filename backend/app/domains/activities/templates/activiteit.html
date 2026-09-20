@@ -41,8 +41,14 @@
         {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
         {# Uiterste inschrijfdatum (#1053-weergave): één onderdeel — of allemaal
            dezelfde datum — toont de klokregel hier; verschillende datums staan
-           bij de onderdelen. Oranje in de laatste week (#1051). #}
-        {% if deadline_kop %}{% call ui.icon_text("clock", cls="text-orange-600" if deadline_kop.urgent else "text-ink-soft") %}{{ _("Inschrijven t/m") }} {{ deadline_kop.label }}{% endcall %}{% endif %}
+           bij de onderdelen. Oranje in de laatste week (#1051).
+
+           #1053: de datum en de urgentie komen uit het view-model (`shared_deadline`,
+           `shared_deadline_near`), net als op de kaart. Golf 12 rekende ze hier nog
+           zelf uit omdat de kolom toen op de activiteit stond; twee berekeningen van
+           dezelfde regel is precies hoe de ene op een dag anders afrondt dan de
+           andere. #}
+        {% if a.shared_deadline %}{% call ui.icon_text("clock", cls="text-orange-600" if a.shared_deadline_near else "text-ink-soft") %}{{ _("Inschrijven t/m") }} {{ a.shared_deadline | datumzonderjaar }}{% endcall %}{% endif %}
       </div>
     </div>
 
@@ -96,9 +102,12 @@
           {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
           </div>
         </div>
-        {# Klokregel ONDER het onderdeel (Koen op het golf 12-pakket, 20 sep). #}
-        {% set _dl = deadline_per.get(c.id) %}
-        {% if _dl and not c.is_full %}<div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if _dl.urgent else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ _dl.label }}</div>{% endif %}
+        {# Klokregel ONDER het onderdeel (Koen op het golf 12-pakket, 20 sep).
+           #1053: alleen wanneer de onderdelen het ONEENS zijn — delen ze één datum,
+           dan staat ze al als klokregel bovenaan en zou ze hier een tweede keer
+           staan. Zelfde voorwaarden als op de kaart. #}
+        {% if not a.shared_deadline and c.registration_closes_on
+              and c.registration_state == "open" and not c.is_full %}<div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>{% endif %}
         {% if not c.external_register_url and not c.external_registrations_url %}
         <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
         {% endif %}

@@ -287,21 +287,15 @@ def activiteit_deeplink(sleutel: str, request: Request,
                       if activiteit.poster_asset_is_pdf else activiteit.poster_asset_url)
     elif activiteit.poster_url:
         poster_link = activiteit.poster_url
-    # De klokregel bovenaan (#1051-copy: zonder jaartal, oranje in de laatste
-    # week). De datum is vandaag nog activiteitsbreed en dus per definitie "alle
-    # onderdelen dezelfde" — de kopregel-tak van de #1053-weergaveregels. Zodra
-    # #1053 het veld per onderdeel legt, vult `deadline_per` de andere tak.
-    from app.i18n import long_date
-
-    deadline_kop = None
-    if (scope == "upcoming" and vm.registration_state == "open"
-            and vm.registration_closes_on):
-        deadline_kop = {
-            "label": long_date(vm.registration_closes_on).rsplit(" ", 1)[0],
-            "urgent": (vm.registration_closes_on - belgian_today()).days <= 7}
+    # De klokregel bovenaan (#1051-copy: zonder jaartal, oranje in de laatste week)
+    # rekende hier nog zelf uit welke datum en welke urgentie golden. Sinds #1053
+    # staat dat in het view-model — `shared_deadline` en `shared_deadline_near`,
+    # dezelfde velden die de kaart leest — en kan het sjabloon ze rechtstreeks
+    # tonen. Eén bron: twee berekeningen van "de laatste week" lopen vroeg of laat
+    # uiteen, en de datumopmaak zat hier bovendien met `rsplit` in plaats van via
+    # de babel-filter.
     return templates.TemplateResponse(request, "activiteit.html", {
         **site_context(db, request), "a": vm, "scope": scope,
         "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
         "poster_url": poster_url, "poster_link": poster_link,
-        "deadline_kop": deadline_kop, "deadline_per": {},
     })

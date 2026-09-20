@@ -4,6 +4,12 @@ Koens geval: bij *Brood en Spelen* sluit de inschrijving voor de BBQ een week v�
 de dag zelf, terwijl cornhole en sjoelbak tot en met die dag openblijven. Met één
 datum op de activiteit kan dat niet: de vroegste datum sluit alles.
 
+**Golf 12 (#913) landde tussendoor op master** met een publieke activiteitspagina
+die dezelfde klokregel toont. Die pagina rekende haar datum en haar urgentie zelf
+uit omdat de kolom toen nog op de activiteit stond; sinds #1053 leest ze dezelfde
+velden van het view-model als de kaart. Eén bron, dus geen twee plekken die
+beslissen wat "de laatste week" is.
+
 **De poort is de kern, de rest is weergave.** Toets 1 hieronder is het hele issue:
 twee onderdelen, verschillende datums, "vandaag" ertussenin. De schermtests
 daaronder tonen de gevolgen op de publieke kaart (#1051) en leggen vast dat de
@@ -24,7 +30,9 @@ elk één keer gedraaid; tussen haakjes wat er werkelijk omviel:
   diezelfde test is wat dat vangt);
 - de kopieerstap van de migratie leegmaken (*de migratie kopieert*);
 - het omschrijvingsblok terug in de partial (*niet meer op de kaart*, beide
-  paden, én *ook niet in het archief*).
+  paden, én *ook niet in het archief*);
+- de `not a.shared_deadline`-voorwaarde uit de activiteitspagina (*de
+  activiteitspagina volgt dezelfde twee takken*) — dan staat de datum er twee keer.
 """
 from datetime import date, timedelta
 from decimal import Decimal
@@ -244,6 +252,9 @@ def test_zonder_datum_staat_er_geen_regel_en_geen_leeg_icoon(client, db_session,
 def test_in_de_laatste_week_kleurt_de_regel_oranje(client, db_session, vandaag):
     """Koen, 20 september 2026: de attentietint van *Volzet*, niet rood (§1.1).
 
+    `text-orange-600`, dezelfde tint als de klokregel op de activiteitspagina van
+    golf 12 — twee tinten voor dezelfde melding zou de eerste zijn die verschuift.
+
     Met de tegenhanger in dezelfde test: een datum verder weg blijft grijs. Zonder
     die helft zou "altijd oranje" ook groen staan.
     """
@@ -251,12 +262,36 @@ def test_in_de_laatste_week_kleurt_de_regel_oranje(client, db_session, vandaag):
     comp, _ = _onderdeel(db_session, a, "Deelname",
                          deadline=VANDAAG + timedelta(days=3))
 
-    assert "text-orange-700" in _kaart(client, a)
+    assert "text-orange-600" in _kaart(client, a)
 
     comp.registration_closes_on = VANDAAG + timedelta(days=30)
     db_session.flush()
     kaart = _kaart(client, a)
-    assert "Inschrijven t/m" in kaart and "text-orange-700" not in kaart
+    assert "Inschrijven t/m" in kaart and "text-orange-600" not in kaart
+
+
+def test_de_activiteitspagina_volgt_dezelfde_twee_takken(client, db_session,
+                                                          vandaag):
+    """Golf 12's pagina toont één klokregel of één per onderdeel — zoals de kaart.
+
+    De per-onderdeel-tak stond daar als `deadline_per: {}`: gebouwd, maar nooit
+    gevuld, want met één datum op de activiteit kón ze niet bestaan. Deze test
+    vult haar in en bewijst meteen dat beide takken elkaar uitsluiten — zonder de
+    `not a.shared_deadline`-voorwaarde zou de datum er twee keer staan.
+    """
+    a = _activiteit(db_session, naam="Twee datums")
+    _onderdeel(db_session, a, "Barbecue", deadline=LAAT)
+    _onderdeel(db_session, a, "Cornhole", deadline=LAAT + timedelta(days=5))
+
+    html = client.get(f"/activiteiten/{a.id}").text
+    assert html.count("Inschrijven t/m") == 2
+    assert html.index("Barbecue") < html.index("donderdag 20 mei")
+
+    b = _activiteit(db_session, naam="Eén datum")
+    _onderdeel(db_session, b, "Barbecue", deadline=LAAT)
+    _onderdeel(db_session, b, "Cornhole", deadline=LAAT)
+
+    assert client.get(f"/activiteiten/{b.id}").text.count("Inschrijven t/m") == 1
 
 
 # ── De omschrijving verdwijnt van de kaart (#1054) ───────────────────────────
@@ -301,24 +336,26 @@ def test_ook_niet_in_het_archief(client, db_session):
     assert OMSCHRIJVING not in html
 
 
-def test_het_beheerscherm_toont_de_omschrijving_nog_wel(client, db_session):
+def test_de_activiteitspagina_toont_de_omschrijving_nog_wel(client, db_session):
     """De test die voorkomt dat "weg van de kaart" stil "weg uit de weergave" wordt.
 
-    Een publieke detailpagina bestaat niet — `/activiteiten/<sleutel>` stuurt door
-    naar de lijst met een anker (gemeten in `ui.py: activiteit_deeplink`). De
-    plaats waar de omschrijving bewerkt en gelezen wordt, is het beheerdetail; daar
-    wordt ze hier getoetst. De andere lezers (nieuwsbrief, affiche, Raakje) hebben
-    elk hun eigen test.
+    Toen #1054 geschreven werd bestond er geen publieke detailpagina —
+    `/activiteiten/<sleutel>` stuurde door naar de lijst met een anker. Golf 12
+    (#913) heeft die pagina er intussen wél, en dáár staat de volledige
+    omschrijving. Dat is precies de bedoeling van het issue: van de KAART af, niet
+    uit de weergave. Het beheerscherm staat er als tweede helft bij, want daar
+    wordt ze getypt.
     """
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     a = _activiteit(db_session, omschrijving=OMSCHRIJVING)
+    _onderdeel(db_session, a, "Deelname")
+
+    assert OMSCHRIJVING in client.get(f"/activiteiten/{a.id}").text
+
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-
-    html = client.get(f"/admin/activiteiten/{a.id}").text
-
-    assert OMSCHRIJVING in html
+    assert OMSCHRIJVING in client.get(f"/admin/activiteiten/{a.id}").text
 
 
 # ── De migratie ──────────────────────────────────────────────────────────────

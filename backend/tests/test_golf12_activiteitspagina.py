@@ -20,13 +20,28 @@ pytestmark = pytest.mark.ui_serverrendered
 
 def _activiteit(db, naam="Paginaproef", slug=None, dagen=21, closes_on=None,
                 description=None):
-    from app.domains.activities.api import Activity, ActivityDate
+    """#1053: de uiterste inschrijfdatum hoort bij het ONDERDEEL.
+
+    Vandaar dat deze helper er sindsdien één aanmaakt zodra er een datum meegegeven
+    wordt: één onderdeel met één datum is de kopregel-tak van de weergaveregels, en
+    dat is precies wat de tests hieronder meten.
+    """
+    from decimal import Decimal
+
+    from app.domains.activities.api import (Activity, ActivityDate,
+                                            ActivitySubRegistration)
 
     a = Activity(name=naam, slug=slug, location="Miloheem",
-                 registration_closes_on=closes_on, description=description)
+                 description=description)
     db.add(a); db.flush()
     db.add(ActivityDate(activity_id=a.id,
                         start_date=date.today() + timedelta(days=dagen)))
+    if closes_on is not None:
+        db.add(ActivitySubRegistration(
+            activity_id=a.id, name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            registration_closes_on=closes_on,
+            price=Decimal("0"), is_free=True))
     db.commit()
     return a
 
@@ -81,14 +96,17 @@ def test_klokregel_bovenaan_zonder_jaartal_en_oranje_in_de_laatste_week(client, 
     """#1051-copy op de kopregel: "Inschrijven t/m <dag> <maand>" zonder
     jaartal; binnen zeven dagen kleurt hij oranje. De datum is vandaag nog
     activiteitsbreed en valt dus onder de kopregel-tak van #1053."""
-    from app.i18n import long_date
+    from app.i18n import long_date_no_year
 
-    ver = _activiteit(db_session, "Verweg", dagen=60,
-                      closes_on=date.today() + timedelta(days=30))
+    datum = date.today() + timedelta(days=30)
+    ver = _activiteit(db_session, "Verweg", dagen=60, closes_on=datum)
     html = client.get(f"/activiteiten/{ver.id}").text
-    label = long_date(ver.registration_closes_on).rsplit(" ", 1)[0]
-    assert f"Inschrijven t/m" in html and label in html
-    assert str(ver.registration_closes_on.year) not in label
+    # #1053: de opmaak komt uit `long_date_no_year`, dezelfde bron als de filter in
+    # het sjabloon — het eigen `rsplit` hier was de tweede plek die besliste hoe een
+    # datum leest.
+    label = long_date_no_year(datum)
+    assert "Inschrijven t/m" in html and label in html
+    assert str(datum.year) not in label
     assert "text-orange-600" not in html
 
     gauw = _activiteit(db_session, "Bijna", dagen=10,
@@ -103,8 +121,9 @@ def test_geen_klokregel_na_de_deadline(client, db_session):
     De badge staat bij het onderdeel, dus de activiteit heeft er een nodig."""
     from tests.conftest import seed_activity_with_product
 
-    activity, _component, _product = seed_activity_with_product(db_session)
-    activity.registration_closes_on = date.today() - timedelta(days=1)
+    activity, component, _product = seed_activity_with_product(db_session)
+    # #1053: de datum staat op het onderdeel — en dát onderdeel draagt ook de badge.
+    component.registration_closes_on = date.today() - timedelta(days=1)
     db_session.commit()
 
     html = client.get(f"/activiteiten/{activity.id}").text
