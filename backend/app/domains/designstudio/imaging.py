@@ -103,14 +103,13 @@ def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
     text = " ".join((scene or "").split())
     if not text or not looks_dutch(text):
         return text, False
-    inner = get_provider()
-    if inner.name == "mock":
-        return text, False
     # Through the seam like every other LLM call (test_ai_log_coverage_gate):
     # the guard logs the call — provider, model, cost, duration — under this
     # component's surface and the capability "translate".
     rules = replace(admin_rules(lambda: set(), capability="translate", scan_prompt_names=False), surface=SURFACE)
-    provider = GuardedProvider(inner, rules, sink_for(actor))
+    provider = GuardedProvider(get_provider(), rules, sink_for(actor))
+    if provider.name == "mock":
+        return text, False
     answer = provider.complete([
         {"role": "system", "content": "Translate the user's text from Dutch to English for an image-generation "
                                       "prompt. Reply with the translation only, no quotes, no commentary."},
