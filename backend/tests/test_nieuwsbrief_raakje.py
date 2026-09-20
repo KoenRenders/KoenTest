@@ -768,3 +768,22 @@ def test_een_naam_plakt_niet_tegen_het_leesteken(db_session, raakje):
     turn = _ask(db_session, letter)
 
     assert "</strong>." in turn.proposal["operations"][0]["html"]
+
+
+def test_de_groet_staat_maar_een_keer_onder_een_volledige_brief(db_session, raakje):
+    """Koen, 20 september 2026: hij vroeg Raakje uitdrukkelijk om de afsluiting
+    en kreeg ze twee keer — het portaal zet er onder élke volledige brief al een.
+
+    Broken on purpose: `_CLOSING_MARKER.sub` uit `apply` → de groet staat er
+    weer twee keer en deze test faalt.
+    """
+    letter = _letter(db_session)
+    raakje(_draft(["# Wat er aankomt", "Het najaar zit vol.", "[[afsluiting]]"]), _verdict())
+    turn = _ask(db_session, letter)
+    message = drafting.record(db_session, letter, author_text="schrijf de brief", turn=turn)
+
+    html = drafting.apply(db_session, letter, message, keep=set(), body_html="",
+                          base_url=BASE).html
+
+    assert html.count("Tot binnenkort!") == 1
+    assert "[[afsluiting]]" not in html

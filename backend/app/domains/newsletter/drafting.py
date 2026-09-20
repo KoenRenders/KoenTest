@@ -76,6 +76,8 @@ _MARKER = re.compile(r"\[\[(activiteit|fotos|naam):(\d+)\]\]")
 #: kunnen"). The portal fills them in the same way the buttons do — except an
 #: attachment, which is a file the author uploads and Raakje cannot know.
 _PLAIN_MARKER = re.compile(r"\[\[(kalender|afsluiting)\]\]")
+#: The closing marker on a line of its own — dropped from a whole letter.
+_CLOSING_MARKER = re.compile(r"^[ \t]*\[\[afsluiting\]\][ \t]*$", re.M)
 #: A heading line, however many hashes the model used.
 _HEADING = re.compile(r"#{1,6}\s+")
 # The blank line between blocks, the way Trix writes one.
@@ -288,7 +290,7 @@ WAT JE DOET
 VASTE REGELS
 - Schrijf NOOIT zelf een datum, een uur, een plaats, een inschrijflink of een fotolink. Zet in de plaats daarvan een markering op een EIGEN regel: [[activiteit:ID]] en [[fotos:ID]] voor het fotoalbum van activiteit ID. Het portaal vult die in. Verwijs daarom nooit met "hier" of "hieronder" naar een link.
 - [[activiteit:ID]] wordt een VOLLEDIG BLOK: de affiche, de naam als titel, de omschrijving van de activiteit, de datum met plaats, en "Schrijf je in!". Herhaal die omschrijving dus niet in je eigen tekst, en beschrijf de activiteit niet nog eens: schrijf ernaast wat er NIET in staat — de sfeer, de terugblik, waarom het de moeite is.
-- [[kalender]] wordt een opsomming met één regel per activiteit; [[afsluiting]] wordt de groet van het bestuur.
+- [[kalender]] wordt een opsomming met één regel per activiteit. [[afsluiting]] wordt de groet van het bestuur, en gebruik je ALLEEN wanneer de auteur om een los stuk tekst vraagt: onder een volledige brief zet het portaal die groet er zelf al onder.
 - Een kopje is één regel die begint met "# ". Gebruik geen "##" of "###" en geen andere opmaakcodes: alleen "# " voor een kopje en **vet** voor vet.
 - Noem je een activiteit midden in een zin, schrijf dan [[naam:ID]]: het portaal zet daar de naam van de activiteit in het vet. Schrijf de naam dan niet zelf, en bouw de zin zo dat hij klopt MET die naam erin. Een naam is een eigennaam, ook als hij als een zin klinkt: schrijf "tijdens [[naam:12]]" of "op [[naam:12]]", nooit een zin waarin de naam als werkwoord of onderwerp moet werken.
 - Noem nooit personen en bedank nooit individuele organisatoren of vrijwilligers. [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
@@ -819,9 +821,14 @@ def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
                        if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
-    html = _paragraph_html(_without(operation.get("text") or "", drop), facts,
-                           db=db, base_url=base_url)
     kind = proposal.get("kind")
+    text = _without(operation.get("text") or "", drop)
+    if kind == MODE_LETTER and placement != "cursor":
+        # Koen, 20 September 2026: he asked Raakje for the closing and got it
+        # twice — because the portal puts one under every whole letter anyway.
+        # The portal stays the only one that writes it.
+        text = _CLOSING_MARKER.sub("", text)
+    html = _paragraph_html(text, facts, db=db, base_url=base_url)
 
     if kind == MODE_LETTER and placement != "cursor":
         # A whole letter gets its greeting and its closing from the portal, each
