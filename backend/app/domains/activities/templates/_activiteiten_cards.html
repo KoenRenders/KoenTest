@@ -152,13 +152,6 @@
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
           {% endif %}
-          {# #1053: verschillen de datums per onderdeel, dan staat de datum hier —
-             bij het onderdeel waar hij bij hoort. Delen ze er één, dan staat ze al
-             als icoonregel bovenaan en zou ze hier een tweede keer staan. #}
-          {% if not a.shared_deadline and c.registration_closes_on
-                and c.registration_state == "open" and not c.is_full %}
-          <span class="text-xs {{ "text-orange-600" if c.deadline_near else "text-ink-soft" }}">{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</span>
-          {% endif %}
           {% endif %}
           {% if c.external_registrations_url %}
           <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
@@ -172,6 +165,16 @@
           {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
           </div>
         </div>
+        {# #1053: verschillen de datums per onderdeel, dan staat de datum bij het
+           onderdeel waar hij bij hoort — als eigen klokregel ÓNDER de knoppenrij,
+           dezelfde plek die Koen op het golf 12-pakket koos voor de
+           activiteitspagina (20 sep; tussen de knoppen geperst is hij opgemerkt
+           en teruggelegd). Delen de onderdelen één datum, dan staat ze al als
+           icoonregel bovenaan en zou ze hier een tweede keer staan. #}
+        {% if scope != "archived" and not a.shared_deadline and c.registration_closes_on
+              and c.registration_state == "open" and not c.is_full %}
+        <div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>
+        {% endif %}
         {% if not c.external_register_url and not c.external_registrations_url %}
         {# #737: zelfde regel als hierboven (§2.9b). Gemeten wist htmx' settle óók hier de
            style, maar het valt niet op omdat de container op dat moment leeg is —
