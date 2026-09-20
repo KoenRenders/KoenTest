@@ -143,11 +143,6 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)
-    # #974: the last day on which a NEW registration is accepted, inclusive, in
-    # Belgian time. A date and not a timestamp: what the board types is a day. Who
-    # decides whether registration is open is `service.registration_state` — this
-    # column is only one of its inputs, and nothing else should read it to decide.
-    registration_closes_on = Column(Date, nullable=True)
     # #1028: de interne nota van het bestuur — alleen op het beheerscherm. Hier
     # stond `notes`, met de opmerking dat die kolom nergens getoond werd; dat
     # klopte niet (de publieke bot zette hem in `get_activity_detail`), dus ze is
@@ -233,6 +228,13 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     info_url = Column(String(500), nullable=True)
     registration_type_code = Column(String(10), nullable=False, default="INDIVIDUAL")  # code gevalideerd in de router-schema's (§8: geen cross-schema FK)
     max_participants = Column(Integer, nullable=True)
+    # #1053: the last day on which a NEW registration for THIS component is
+    # accepted, inclusive, in Belgian time. A date and not a timestamp: what the
+    # board types is a day. It sat on the activity until #1053 — and then the
+    # barbecue's deadline also closed cornhole, which is the case Koen ran into.
+    # Who decides whether registration is open is `service.registration_state`;
+    # this column is only one of its inputs.
+    registration_closes_on = Column(Date, nullable=True)
     price = Column(Numeric(10, 2), nullable=False, default=0)
     member_price = Column(Numeric(10, 2), nullable=True)
     is_free = Column(Boolean, default=True, nullable=False)

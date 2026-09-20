@@ -242,6 +242,14 @@ def time_label(moment) -> str:
     return f"OM {moment.hour}U" + (f"{moment.minute:02d}" if moment.minute else "")
 
 
+def _shared_deadline(activity) -> str:
+    """The one deadline that holds for every component, as an ISO date or ""."""
+    from app.domains.activities.api import shared_deadline
+
+    datum = shared_deadline(activity)
+    return datum.isoformat() if datum else ""
+
+
 def facts_for(db: Session, design: Design) -> dict:
     """Everything the poster takes from outside the design, as plain values.
     This is what the fingerprint hashes, so every key must be JSON-plain."""
@@ -259,7 +267,10 @@ def facts_for(db: Session, design: Design) -> dict:
         "location": activity.location or "",
         "dates": [{"date": d.start_date.isoformat(),
                    "time": d.start_time.strftime("%H:%M") if d.start_time else ""} for d in dates],
-        "deadline": activity.registration_closes_on.isoformat() if activity.registration_closes_on else "",
+        # #1053: the deadline moved to the component. A poster speaks for the
+        # whole activity, so it only carries a date when every component has the
+        # same one; differing dates belong on the page, not on one printed line.
+        "deadline": _shared_deadline(activity),
         # #1016: the public description — the poster's explanation unless the
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),

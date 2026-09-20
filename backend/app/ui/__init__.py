@@ -64,6 +64,12 @@ from app.i18n import long_date as _langedatum  # noqa: E402
 
 templates.env.filters["langedatum"] = _langedatum
 
+# #1051: dezelfde datum zonder jaartal, voor de deadline-regel op de publieke
+# kaart — het jaar staat in de datumregel erboven.
+from app.i18n import long_date_no_year as _datumzonderjaar  # noqa: E402
+
+templates.env.filters["datumzonderjaar"] = _datumzonderjaar
+
 
 def _maandkort(d) -> str:
     """Korte Nederlandse maand voor het datumblok op activiteitenkaarten

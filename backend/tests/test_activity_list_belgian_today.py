@@ -49,12 +49,15 @@ def _pin(monkeypatch, instant_utc: datetime) -> None:
 
 
 def _activity(db, name, *, last_day=LAST_DAY, closes_on=None, cancelled=False):
-    a = Activity(name=name, registration_closes_on=closes_on, is_cancelled=cancelled)
+    a = Activity(name=name, is_cancelled=cancelled)
     db.add(a)
     db.flush()
     db.add(ActivityDate(activity_id=a.id, start_date=last_day))
+    # #1053: de uiterste inschrijfdatum staat op het onderdeel. Eén onderdeel hier,
+    # dus dezelfde toestand als voorheen.
     db.add(ActivitySubRegistration(activity_id=a.id, name="Deelname",
                                    registration_type_code="INDIVIDUAL",
+                                   registration_closes_on=closes_on,
                                    price=Decimal("0"), is_free=True))
     db.flush()
     return a

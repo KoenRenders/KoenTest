@@ -153,7 +153,7 @@ def inschrijf_form(activity_id: int, component_id: int, request: Request,
     # #974: een modal die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
-    ctx["error"] = registration_refusal(activity)
+    ctx["error"] = registration_refusal(activity, component=component)
     return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
 
 

@@ -16,7 +16,8 @@ from decimal import Decimal
 import pytest
 
 from app.config import settings
-from app.domains.activities.api import Activity, ActivityDate
+from app.domains.activities.api import (Activity, ActivityDate,
+                                        ActivitySubRegistration)
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
 from app.domains.designstudio.api import (
@@ -43,11 +44,17 @@ needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed
 
 @pytest.fixture
 def activity(db_session):
-    act = Activity(name="Stappen en Klappen", location="Miloheem", registration_closes_on=date(2026, 10, 1))
+    act = Activity(name="Stappen en Klappen", location="Miloheem")
     db_session.add(act)
     db_session.flush()
     for day in (date(2026, 10, 12), date(2026, 11, 9)):
         db_session.add(ActivityDate(activity_id=act.id, start_date=day, start_time=time(20, 0)))
+    # #1053: de uiterste inschrijfdatum hoort bij het onderdeel. Eén onderdeel hier,
+    # dus de affiche draagt die datum nog steeds — zie de test hieronder voor het
+    # geval waarin de onderdelen het oneens zijn.
+    db_session.add(ActivitySubRegistration(
+        activity_id=act.id, name="Deelname", registration_type_code="INDIVIDUAL",
+        registration_closes_on=date(2026, 10, 1)))
     db_session.flush()
     return act
 
@@ -95,6 +102,26 @@ def test_facts_come_from_the_activity_and_the_design_never_copies_them(db_sessio
     assert content.bar_text == "SAMEN WANDELEN"
     # Nothing of the activity lives on the design row.
     assert not any(v == "Stappen en Klappen" for v in vars(design).values())
+
+
+def test_a_poster_drops_the_deadline_when_the_components_disagree(db_session, design,
+                                                                  activity):
+    """#1053: one line cannot carry two dates, and a wrong date on paper is worse
+    than none. So the poster only shows a deadline when every component has the
+    same one.
+
+    Broken to see it red: `_shared_deadline` returning the earliest date instead of
+    the shared one — the poster then prints 1 October while the second component
+    still takes registrations until the 8th.
+    """
+    db_session.add(ActivitySubRegistration(
+        activity_id=activity.id, name="Cornhole",
+        registration_type_code="INDIVIDUAL",
+        registration_closes_on=date(2026, 10, 8)))
+    db_session.flush()
+    db_session.refresh(activity)
+
+    assert facts_for(db_session, design)["deadline"] == ""
 
 
 def test_the_fingerprint_changes_when_a_fact_changes(db_session, design, activity):

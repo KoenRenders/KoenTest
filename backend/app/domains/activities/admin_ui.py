@@ -258,8 +258,7 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
                         end_date: str = Form(""), start_time: str = Form(""),
                         end_time: str = Form(""),
                         location: str = Form(""), poster_url: str = Form(""),
-                        members_only: str = Form(""),
-                        registration_closes_on: str = Form("")):
+                        members_only: str = Form("")):
     from app.domains.activities import service
     from app.schemas.activity import ActivityDateCreate
 
@@ -275,8 +274,7 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
         nieuw = service.create_activity(
             db, name=name.strip(), location=location.strip() or None,
             poster_url=poster_url.strip() or None, members_only=bool(members_only),
-            dates=[first_row], actor=email,
-            registration_closes_on=_datum_of_none(registration_closes_on))
+            dates=[first_row], actor=email)
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
@@ -314,7 +312,6 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
                                board_notes: str = Form(""),
                                poster_url: str = Form(""), slug: str = Form(""),
                                members_only: str = Form(""), is_cancelled: str = Form(""),
-                               registration_closes_on: str = Form(""),
                                file: Optional[UploadFile] = File(None)):
     """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
 
@@ -341,9 +338,6 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     # #1028: de interne nota, zelfde behandeling als de omschrijving — leegmaken
     # is een geldige keuze en moet de kolom bereiken.
     velden["board_notes"] = board_notes.strip() or None
-    # #974: zelfde reden als de slug — leeg is "geen deadline", en dat moet de
-    # bestaande kunnen wissen.
-    velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
     try:
         bijgewerkt = service.update_activity(db, activity_id, velden, actor=email)
     except service.ActiviteitFout as fout:
@@ -448,6 +442,7 @@ async def onderdeel_toevoegen(activity_id: int, request: Request,
                               email: str = Depends(require_admin_ui),
                               name: str = Form(...), team_name_required: str = Form(""),
                               max_participants: str = Form(""),
+                              registration_closes_on: str = Form(""),
                               external_register_url: str = Form(""),
                               external_registrations_url: str = Form(""),
                               info_url: str = Form(""),
@@ -466,6 +461,7 @@ async def onderdeel_toevoegen(activity_id: int, request: Request,
     gegevens = ComponentCreate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
+        registration_closes_on=_datum_of_none(registration_closes_on),
         external_register_url=_opt_str(external_register_url),
         external_registrations_url=_opt_str(external_registrations_url),
         info_url=_opt_str(info_url))
@@ -489,6 +485,7 @@ async def onderdeel_bijwerken(activity_id: int, component_id: int, request: Requ
                               email: str = Depends(require_admin_ui),
                               name: str = Form(...), team_name_required: str = Form(""),
                               max_participants: str = Form(""),
+                              registration_closes_on: str = Form(""),
                               external_register_url: str = Form(""),
                               external_registrations_url: str = Form(""),
                               info_url: str = Form(""),
@@ -514,6 +511,10 @@ async def onderdeel_bijwerken(activity_id: int, component_id: int, request: Requ
         external_registrations_url=_opt_str(external_registrations_url),
         info_url=_opt_str(info_url),
     ).model_dump(exclude_unset=True)
+    # #1053: zelfde behandeling als de slug op de activiteit — leeg betekent "geen
+    # uiterste datum", en dat moet een bestaande kunnen wissen. Dus buiten
+    # `exclude_unset` om, met de waarde die het formulier werkelijk stuurde.
+    velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
     if service.update_component(db, activity_id, component_id, velden,
                                 actor=email) is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
@@ -1149,9 +1150,18 @@ def _record_rail(db, activiteit) -> dict:
     from app.domains.designstudio.api import designs_for_activity
 
     ontwerpen = designs_for_activity(db, activiteit.id)
+    # #1053: de uiterste datum hoort bij het onderdeel, maar de rail vat de
+    # activiteit samen. Eén datum wanneer élk onderdeel dezelfde heeft (het
+    # gewone geval), anders een verwijzing naar de onderdelen eronder. De keuze
+    # valt HIER en niet in het sjabloon — zie `shared_deadline`.
+    from app.domains.activities.api import open_deadlines, shared_deadline
+
+    samen = shared_deadline(activiteit)
     # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
     # staat al op de tab.
     return {"rail_onderdelen": onderdelen,
+            "rail_deadline": samen,
+            "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit)),
             "ontwerpen_aantal": len(ontwerpen),
             "ontwerpen_href": (f"/admin/ontwerpen?activity_id={activiteit.id}"
                                if ontwerpen
