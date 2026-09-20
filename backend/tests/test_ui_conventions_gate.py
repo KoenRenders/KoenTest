@@ -1737,3 +1737,40 @@ def test_de_uitzonderingslijst_wijst_nergens_dood_heen():
         "Deze uitzonderingen wijzen naar een scherm dat geen handgerold cluster "
         "meer heeft (of niet meer bestaat); haal ze uit HANDGEROLDE_CLUSTERS zodat "
         "de ratchet niet terug kan:\n  " + "\n  ".join(dood))
+
+
+def test_een_sluittag_draagt_geen_attributen():
+    """#1101 — een `</div` die niet afgesloten was, slikte drie htmx-attributen op.
+
+    In `_fb_builder.html` stond `</div` zonder `>`, gevolgd door de `hx-post`,
+    `hx-target` en `hx-swap` die bij de `<form data-sectievorm>` erboven hoorden.
+    De browser leest dat als een sluittag mét attributen — geldige Jinja, geldig
+    genoeg voor elke tolerante HTML-parser, en volkomen dood: de vorm had geen
+    bestemming en Opslaan deed een GET die de getypte sectietitel wegveegde.
+
+    **Waarom geen volledige HTML-validatie over de gerenderde uitvoer.** De vraag
+    is gesteld (#1101) en dit is het antwoord: een strikte HTML5-parser
+    (html5lib in strict-modus) weigert de attribuutnamen van Alpine en htmx
+    (`@click`, `x-on:input`, `:class`, `hx-on::after-request`) en zou op élk
+    scherm afgaan; de tolerante parsers (`html.parser`, html5lib standaard)
+    slikken precies deze fout stil in, want een sluittag met attributen is voor
+    hen gewoon een sluittag. Een tag-balans over de uitvoer ziet het evenmin: de
+    sluittag sluit nog altijd. Wat deze familie herkent is klein en exact —
+    een sluittag gevolgd door iets anders dan `>` — dus dát is de regel, over de
+    templatebron, zonder een parser die eromheen moet worden geconfigureerd.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: de `>` van die
+    `</div>` in `_fb_builder.html` weer weggehaald → rood met dat pad en dat
+    regelnummer.
+    """
+    sluittag_met_attributen = re.compile(r"</[A-Za-z][\w-]*\s+(?=[^\s>])")
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for m in sluittag_met_attributen.finditer(tekst):
+            regel = tekst[:m.start()].count("\n") + 1
+            fouten.append(f"{pad.relative_to(APP)}:{regel}: {m.group(0).strip()}…")
+    assert not fouten, (
+        "Een sluittag met iets anders dan `>` erachter: de tag is niet afgesloten en "
+        "de attributen die volgen, belanden op een sluittag waar ze niets doen "
+        "(#1101):\n  " + "\n  ".join(fouten))
