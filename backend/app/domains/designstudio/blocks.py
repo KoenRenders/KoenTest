@@ -117,6 +117,14 @@ def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
 ROW_H = 27.5   # six rows (two automatic, four own) sit easily in the left column of A3
 ICON_S = 19
 
+#: The QR block in the band: the code, its quiet-zone box, and room for the
+#: caption under it. Koen, 20 September 2026: his phone could not read the
+#: 20 mm code off a computer screen. A QR is read at a distance proportional
+#: to its size, so the fix is millimetres.
+QR_MM = 26.0
+QR_BOX = QR_MM + 2
+QR_BLOCK = QR_BOX + 6
+
 
 def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: float,
                    *, index_offset: int = 0) -> tuple[str, float]:
@@ -359,6 +367,35 @@ def fit_richtext_size(source: str, w: float, available: float, *, max_size: floa
     return min_size
 
 
+def when_line(content: PosterContent) -> str:
+    """The date line both layouts print, derived once (#1097).
+
+    One date gives the activity's own line; a series gives the count and
+    sends the reader to the website, because nobody reads twelve dates off a
+    poster. It lived in two branches that had already drifted apart — one
+    fell back to "DATA", the other printed an empty heading.
+    """
+    if content.date_line:
+        return content.date_line
+    if len(content.dates) > 1:
+        return f"{len(content.dates)} {content.dates_heading or 'DATA'} · zie de website"
+    return ""
+
+
+def fact_rows(content: PosterContent) -> tuple[Highlight, ...]:
+    """Date and place as icon rows — what the simple preset shows in place of
+    typed highlights, on print and on the feed alike (#1097).
+
+    Whoever picks ``eenvoudig`` types no highlights: that is the point of the
+    preset. So the feed image drew an empty list and lost the two facts that
+    matter most.
+    """
+    when = when_line(content)
+    return tuple(hl for hl in (Highlight("calendar", when, True) if when else None,
+                               Highlight("map-pin", content.location) if content.location else None)
+                 if hl is not None)
+
+
 def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4) -> float:
     shown = content.highlights[:limit_n]
     col_y: list[float] = [y, y]
@@ -456,7 +493,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.association_mobile:
             rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
                          "text": content.association_mobile, "size": 6.2, "colour": pal["white"]})
-    band_h: float = 20 + 6.5 * len(rows)
+    # The band never gets shorter than the QR block: a sparse poster with one
+    # row used to squeeze the code half out of the band.
+    band_h: float = max(20 + 6.5 * len(rows), QR_BLOCK + 2)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
     lockup_w = 66.0
@@ -478,7 +517,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     band_x = x0 + cw + 5
     col_x = band_x + 7
     text_left = col_x + 8
-    qr_left = width - frame - 2 - 30
+    qr_left = width - frame - 2 - QR_BOX - 8
     row_w = qr_left - text_left - 4
     for row in rows:
         # A long row shrinks a little rather than overflow.
@@ -487,7 +526,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
-              "qr_x": qr_left, "qr_y": band_y + (band_h - 26) / 2, "qr_caption": "Scan voor meer info",
+              "qr_x": qr_left, "qr_y": band_y + (band_h - QR_BLOCK) / 2, "qr_caption": "Scan voor meer info",
+              "qr_box": QR_BOX, "qr_mm": QR_MM,
               "row_y": band_y + 2}
 
     # ── Content between title and band ─────────────────────────────────────
@@ -509,12 +549,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         y = top_y - 4
         # When and where above the picture, in the same icon rows the other
         # presets use — date left, place right (Koen, 20 September 2026).
-        when = (content.date_line if content.date_line
-                else (f"{len(content.dates)} {content.dates_heading} · zie de website"
-                      if len(content.dates) > 1 else ""))
-        top_rows = tuple(hl for hl in (Highlight("calendar", when, True) if when else None,
-                                       Highlight("map-pin", content.location) if content.location else None)
-                         if hl is not None)
+        top_rows = fact_rows(content)
         if top_rows:
             y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
                                        y, ((lx, lw), (rx, rw))) + 3
@@ -550,9 +585,15 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # columns, the dates grid, the welcome badge above the tile. The
         # description and the third picture stay off the feed image.
         y = top_y - 4
-        n = min(len(content.highlights), 6)
+        # The simple preset carries no typed highlights, so the feed shows the
+        # same two facts the print sheet puts above its picture (#1097).
+        rows_content = (PosterContent(duo_code=content.duo_code, highlights=fact_rows(content))
+                        if content.preset == "eenvoudig" else content)
+        n = min(len(rows_content.highlights), 6)
         hl_rows = (n + 1) // 2
-        series = len(content.dates) > 1
+        # A series already says so in its date row; a second summary would
+        # repeat it word for word.
+        series = len(content.dates) > 1 and content.preset != "eenvoudig"
         if content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
         below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
@@ -568,14 +609,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 p.full += frag
                 y = bottom
             y += 6
-        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
+        y = _two_column_highlights(p, rows_content, y, ((lx, lw), (rx, rw)), limit_n=6)
         if series:
             # Koen, 20 September 2026: nobody reads twelve dates while
             # scrolling, and the QR already leads to the site. One row in the
             # highlights' own typography, over the full width.
-            summary = PosterContent(duo_code=content.duo_code, highlights=(
-                Highlight("calendar", f"{len(content.dates)} {content.dates_heading or 'DATA'} · zie de website",
-                          True),))
+            summary = PosterContent(duo_code=content.duo_code,
+                                    highlights=(Highlight("calendar", when_line(content), True),))
             frag, y = highlight_rows(p, summary, lx, y, full_w, index_offset=6)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)

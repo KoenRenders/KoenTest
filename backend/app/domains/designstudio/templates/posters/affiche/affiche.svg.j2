@@ -59,9 +59,9 @@
   <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * 6.5) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ row.colour }}">{{ row.text }}</text>
   {%- endfor %}
   {%- if qr %}
-  <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>
-  <text id="t-qr-caption" x="{{ p.band.qr_x + 11 }}" y="{{ '%.2f' % (p.band.qr_y + 26.4) }}" font-size="3.8" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ p.band.qr_caption }}</text>
-  <svg x="{{ p.band.qr_x + 1 }}" y="{{ '%.2f' % (p.band.qr_y + 1) }}" width="20" height="20" {{ qr | safe }}
+  <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="{{ p.band.qr_box }}" height="{{ p.band.qr_box }}" fill="{{ p.pal.white }}"/>
+  <text id="t-qr-caption" x="{{ p.band.qr_x + p.band.qr_box / 2 }}" y="{{ '%.2f' % (p.band.qr_y + p.band.qr_box + 4.4) }}" font-size="3.8" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ p.band.qr_caption }}</text>
+  <svg x="{{ p.band.qr_x + 1 }}" y="{{ '%.2f' % (p.band.qr_y + 1) }}" width="{{ p.band.qr_mm }}" height="{{ p.band.qr_mm }}" {{ qr | safe }}
   {%- endif %}
 </g>
 </svg>
