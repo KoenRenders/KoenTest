@@ -374,9 +374,20 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # The paper: the frame's inner rectangle minus the corner tile bottom-left.
     p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
                     f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
+    # The lockup sits flush: the R starts on the paper's left edge, the
+    # baseline's bottom on the frame's bottom bar (Koen, 20 September 2026).
     lockup_w = 66.0
     lockup_h = lockup_w * 245 / 491
-    p.lockup = {"x": x0 + (cw - r / 2 - lockup_w) / 2 + 2, "y": y1 - ch + (ch - lockup_h) / 2, "width": lockup_w}
+    tile_top = y1 - ch
+    p.lockup = {"x": x0, "y": y1 - lockup_h, "width": lockup_w}
+    if lockup_h > ch - 4:
+        lockup_w = (ch - 4) * 491 / 245
+        lockup_h = lockup_w * 245 / 491
+        p.lockup = {"x": x0, "y": y1 - lockup_h, "width": lockup_w}
+    # "Iedereen welkom": small and fixed, right above the tile, on every
+    # print preset; the left column stops above it.
+    welcome_y = tile_top - 13
+    left_limit = welcome_y - 3
     band_x = x0 + cw + 5
     col_x = band_x + 7
     text_left = col_x + 8
@@ -410,20 +421,19 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # place — and a smaller "iedereen welkom" low on the page.
         y = top_y - 4
         text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
-        below = text_h + 4 + 16 + 4
+        below = text_h + 9
         if content.main_image:
-            avail = limit - y - below
+            avail = left_limit - y - below
             frag, y = main_image_block(p, content.main_image, lx, y, full_w, max(60.0, min(200.0, avail)))
             p.full += frag
             y += 6
         if content.explanation_md:
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, 7.2)
             p.full += frag
-        wy = max(y + 2, limit - 16)
-        frag, wy = welcome_row(p, content, lx, wy, lw, icon=11, max_size=7.5)
+        frag, _wy = welcome_row(p, content, lx, welcome_y, lw, icon=9, max_size=6.5)
         p.full += frag
-        if wy > limit + 3:
-            p.violations.append(f"Te veel inhoud: {wy - limit:.0f} mm te veel")
+        if y > left_limit:
+            p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     elif layout == "feed_portrait":
         # Instagram: title, one picture over the full width, a few highlights.
         y = top_y - 4
@@ -446,11 +456,11 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
-        frag, ly = welcome_row(p, content, lx, ly, lw)
-        left.append(frag)
         if content.third_image and not content.logos and content.preset != "tekst":
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
+        frag, _wy = welcome_row(p, content, lx, welcome_y, lw, icon=9, max_size=6.5)
+        left.append(frag)
 
         if content.preset == "tekst":
             if content.dates and len(content.dates) > 1:
@@ -493,8 +503,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             if content.explanation_md:
                 frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
                 right.append(frag)
-        for name, bottom in (("links", ly), ("rechts", ry)):
-            if bottom > limit:
-                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - limit:.0f} mm te veel")
+        for name, bottom, bound in (("links", ly, left_limit), ("rechts", ry, limit)):
+            if bottom > bound:
+                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - bound:.0f} mm te veel")
     p.left, p.right = "".join(left), "".join(right)
     return p

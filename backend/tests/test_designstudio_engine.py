@@ -220,6 +220,9 @@ def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
     welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
     assert welcome_y > 330
+    # The lockup sits flush left on the paper edge, its bottom on the frame bar.
+    x, y, w = (float(v) for v in re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106', simple.svg).groups())
+    assert x == 9.0 and abs(y + w * 245 / 491 - 411) < 0.01
 
 
 def test_a_focal_point_moves_the_crop():
