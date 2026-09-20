@@ -60,7 +60,8 @@ class PosterContent:
     third_image: ImageBytes | None = None
 
     website: str = ""               # shown without scheme; the QR carries https://
-    email: str = ""
+    email: str = ""                 # the association's — on the poster only without contact persons
+    association_mobile: str = ""    # idem
     contacts: tuple[Contact, ...] = ()
     logos: tuple[ImageBytes, ...] = ()
     more_info_label: str = "MEER INFO"

@@ -30,10 +30,8 @@
   <path fill-rule="evenodd" fill="{{ p.pal.tile }}" d="M0 0 H{{ p.width }} V{{ p.height }} H0 Z {{ p.paper_path }}"/>
   <path d="{{ p.band.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
   {{ wordmark | safe }}
-  {{ icon("globe", p.pal.white, p.pal.accent3, p.band.icon_x, p.band.row_y + 12.5, 6) | safe }}
-  {{ icon("mail", p.pal.white, p.pal.accent2, p.band.icon_x, p.band.row_y + 19, 6) | safe }}
-  {%- for line in p.band.contacts %}
-  {{ icon(line.icon, p.pal.ink, p.pal.accent, p.band.icon_x, p.band.row_y + 25.5 + loop.index0 * 6.5, 6) | safe }}
+  {%- for row in p.band.rows %}
+  {{ icon(row.icon, row.fg, row.bg, p.band.icon_x, p.band.row_y + 12.5 + loop.index0 * 6.5, 6) | safe }}
   {%- endfor %}
 </g>
 <g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">
@@ -57,10 +55,8 @@
   {{ p.full | safe }}
   {{ p.logos | safe }}
   <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ '%.2f' % (p.band.row_y + 9) }}" font-size="8.5" font-weight="bold" fill="{{ p.pal.accent }}" letter-spacing="0.4">{{ p.band.label }}</text>
-  <text id="t-website" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
-  <text id="t-email" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 23.4) }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
-  {%- for line in p.band.contacts %}
-  <text id="t-contact-{{ loop.index0 }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 29.9 + loop.index0 * 6.5) }}" font-size="{{ '%.2f' % line.size }}" font-weight="600" fill="{{ p.pal.white }}">{{ line.text }}</text>
+  {%- for row in p.band.rows %}
+  <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * 6.5) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ p.pal.white }}">{{ row.text }}</text>
   {%- endfor %}
   {%- if qr %}
   <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="22" height="22" fill="{{ p.pal.white }}"/>

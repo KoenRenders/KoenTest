@@ -7,7 +7,7 @@ upload, and a numbered version that can be published as the activity's poster.
 
 ## Facade (`api.py`) — the only door for other components
 
-- **Read**: `list_designs`, `get_design`, `facts_for` (what the poster takes
+- **Read**: `list_designs`, `designs_for_activity` (for the activity screen's jump link), `get_design`, `facts_for` (what the poster takes
   from the activity and the association, plain values), `fingerprint`,
   `is_stale`, `content_for` (the `PosterContent` value), `check_design`,
   `preview_png`, `image_options`, `sponsor_options`, `budget`, `edited_svg_for`,
@@ -37,9 +37,11 @@ upload, and a numbered version that can be published as the activity's poster.
 
 ## What other components take from here
 
-Today: nothing. The activity keeps its poster through `media`, unchanged; the
-Design Studio is invisible to it. A newsletter may later read a version's PNG
-through `rendition`.
+The activity screen may read `designs_for_activity` for a jump link
+("Ontwerpen: n · naar de Design Studio", `/admin/ontwerpen?activity_id=…`,
+or `/admin/ontwerpen/nieuw?activity_id=…` when there is none). The activity
+keeps its poster through `media`, unchanged. A newsletter may later read a
+version's PNG through `rendition`.
 
 ## Invariants
 

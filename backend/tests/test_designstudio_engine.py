@@ -130,6 +130,12 @@ def test_merge_places_every_content_block_and_promises_a_box_per_text():
     assert render.estimate(merged) == []
     for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
         assert eid in merged.boxes and f'id="{eid}"' in svg
+    # With a contact person the association's e-mail stays off the poster (Koen, 20 Sep 2026).
+    assert "info@example.com" not in svg
+    alone = render.merge(_content(contacts=(), association_mobile="0499 00 00 00"), layout="print_a").svg
+    assert "info@example.com" in alone and "0499 00 00 00" in alone and "t-contact-" not in alone
+    for eid in ():
+        assert eid in merged.boxes and f'id="{eid}"' in svg
 
 
 def test_the_estimate_catches_a_title_that_cannot_fit():
@@ -214,6 +220,18 @@ def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
     welcome_y = float(re.search(r'id="t-welcome-0" x="[0-9.]+" y="([0-9.]+)"', simple.svg).group(1))
     assert welcome_y > 330
+    # The lockup sits flush left on the paper edge, its bottom on the frame bar.
+    x, y, w = (float(v) for v in re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106', simple.svg).groups())
+    assert x == 9.0 and abs(y + w * 245 / 491 - 411) < 0.01
+
+
+def test_eight_highlight_rows_fit_the_left_column():
+    """Date, place and six own rows (Koen, 20 September 2026: "waar zijn
+    kernpunt 5 en 6?") — all eight on the print poster, none overflowing."""
+    eight = tuple(Highlight("smile", f"Kernpunt {i} met een tweede regel erbij", i == 0) for i in range(8))
+    merged = render.merge(_content(highlights=eight, inset_image=None, dates=()), layout="print_a")
+    assert all(f't-hl-{i}-0' in merged.svg for i in range(8))
+    assert not any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations), merged.violations
 
 
 def test_a_focal_point_moves_the_crop():
