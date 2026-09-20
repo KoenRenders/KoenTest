@@ -638,7 +638,9 @@ def test_geen_rauwe_db_waarde_in_een_badge():
     # Uitzondering mét reden, zoals de andere allowlists: `Activity.status` is géén
     # DB-code maar een server-side gezet Nederlands label ("Open" / "Voorbij" /
     # "Geannuleerd", activities/router.py:76-80). Daar valt niets te mappen.
-    TOEGESTAAN = {("_activiteiten_cards.html", "a.status")}
+    # Sinds golf 12 rendert ook de activiteitspagina datzelfde label.
+    TOEGESTAAN = {("_activiteiten_cards.html", "a.status"),
+                  ("activiteit.html", "a.status")}
 
     fouten = []
     for pad in TEMPLATES:

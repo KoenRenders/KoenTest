@@ -80,13 +80,15 @@ def test_after_midnight_the_activity_is_in_the_archive_although_utc_says_otherwi
 
 def test_a_shared_link_after_midnight_goes_to_the_archive(client, db_session,
                                                           monkeypatch):
+    """Sinds golf 12 rendert het deeladres de pagina zelf; de Belgische
+    middernachtblik (#977) bepaalt nu de terug-link en de scope."""
     a = _activity(db_session, "Zomerbowling")
     _pin(monkeypatch, AFTER_MIDNIGHT)
 
-    resp = client.get(f"/activiteiten/{a.id}", follow_redirects=False)
+    resp = client.get(f"/activiteiten/{a.id}")
 
-    assert resp.status_code == 302
-    assert "/activiteiten/archief" in resp.headers["location"]
+    assert resp.status_code == 200 and "Zomerbowling" in resp.text
+    assert 'href="/activiteiten/archief"' in resp.text
 
 
 def test_a_passed_deadline_reads_afgesloten_and_not_open(client, db_session,

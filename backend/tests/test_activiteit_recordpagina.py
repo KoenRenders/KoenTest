@@ -183,8 +183,10 @@ def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
 
 def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     """Ronde 6 (15 sep): een vooraf gedeelde link blijft ná het evenement
-    werken — het kanonieke adres kiest zelf tussen de komende lijst en het
-    archief, met het kaart-anker erbij."""
+    werken. Sinds golf 12 rendert het adres de activiteitspagina zelf (zoals
+    de golf 8-docstring aankondigde); de terug-link kiest tussen de komende
+    lijst en het archief. De paginainhoud staat in
+    test_golf12_activiteitspagina.py."""
     from datetime import date, timedelta
 
     from app.domains.activities.api import Activity, ActivityDate
@@ -201,15 +203,15 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     ])
     db_session.flush()
 
-    r1 = client.get("/activiteiten/komende-proef", follow_redirects=False)
-    assert r1.status_code == 302 and r1.headers["location"].endswith(
-        "/activiteiten#komende-proef")
-    r2 = client.get("/activiteiten/voorbije-proef", follow_redirects=False)
-    assert r2.status_code == 302 and r2.headers["location"].endswith(
-        "/activiteiten/archief#voorbije-proef")
+    r1 = client.get("/activiteiten/komende-proef")
+    assert r1.status_code == 200 and "Komende proef" in r1.text
+    assert 'href="/activiteiten"' in r1.text  # terug naar de komende lijst
+    r2 = client.get("/activiteiten/voorbije-proef")
+    assert r2.status_code == 200 and "Voorbije proef" in r2.text
+    assert 'href="/activiteiten/archief"' in r2.text
     # Ook op nummer, en onbekend is een nette 404.
-    r3 = client.get(f"/activiteiten/{komend.id}", follow_redirects=False)
-    assert r3.status_code == 302
+    r3 = client.get(f"/activiteiten/{komend.id}")
+    assert r3.status_code == 200 and "Komende proef" in r3.text
     assert client.get("/activiteiten/bestaat-niet",
                       follow_redirects=False).status_code == 404
 
