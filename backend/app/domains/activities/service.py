@@ -1085,6 +1085,7 @@ def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
     maken, precies één → dat ontwerp, meerdere → de lijst van deze activiteit.
     De keuze valt hier en niet in het sjabloon, zoals de laaggate vraagt.
     """
+    from app.config import settings
     from app.domains.designstudio.api import designs_for_activity
     from app.kernel.tenant_config import tenant_admin_chat_enabled
 
@@ -1101,6 +1102,10 @@ def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
         # Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
         # beheer aan staat — één bron (kernel, CR-07 §6.3), geen eigen vlag ernaast.
         "raakje_admin": tenant_admin_chat_enabled(db),
+        # #1075: the overlay carries the same microphone as every other Raakje,
+        # and the button needs to know which speech path to take — read from the
+        # configuration here, the same value the reporting Raakje passes on.
+        "stt_mode": settings.stt_mode,
         "designs_href": designs_href,
     }
 

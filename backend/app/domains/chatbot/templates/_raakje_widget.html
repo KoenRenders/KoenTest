@@ -1,6 +1,7 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_teksten.html" as teksten %}
 {% import "_raakje_ballon.html" as ballon %}
+{% import "_raakje_controls.html" as controls %}
 {# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag.
    Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
 <div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
@@ -13,13 +14,7 @@
     <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
       <span class="font-semibold">{{ _("Raakje") }}</span>
       <div class="flex items-center gap-1">
-        {# #570: kit-iconen in plaats van losse tekens. De twee standen reizen als
-           data-attribuut mee, want tts.js wisselt ze in JS. #}
-        <button type="button" data-tts-toggle
-                class="hover:opacity-80 leading-none"
-                data-icon-aan='{{ ui.icon("volume-2") }}' data-icon-uit='{{ ui.icon("volume-x") }}'
-                title="{{ _('Antwoorden voorlezen') }}"
-                aria-label="{{ _('Antwoorden voorlezen aan/uit') }}">{{ ui.icon("volume-x") }}</button>
+        {{ controls.read_aloud_toggle(on_dark=True) }}
         <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
       </div>
     </div>
@@ -39,33 +34,15 @@
        laatste doet een textarea vanzelf, het eerste moet je zelf doen. De hoogte
        gaat na een antwoord terug naar één regel; anders blijft het veld hangen op
        de hoogte van de vorige vraag. #}
+    {# #1075: dezelfde reset na het verzenden als op /raakje en in de beheer-
+       Raakje's — via het formulier zelf, dus zonder x-ref op het veld. #}
     <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
           class="border-t border-gray-200 p-2 flex gap-2 items-end"
-          x-on:htmx:after-request="if ($event.detail.successful) { $refs.v.value = ''; $refs.v.style.height = 'auto'; }">
-      {# Backticks voor de JS-strings hieronder: het Jinja-literal staat tussen enkele
-         quotes en de HTML-attributen tussen dubbele, dus een derde soort
-         aanhalingsteken scheelt een rij escapes die niemand later nog kan lezen.
-         (Commentaar hoort BUITEN de aanroep: Jinja staat het niet toe binnen een
-         expressie — dat kostte me hier twee pogingen.) #}
-      {# autogrow=False (#1027): eigen groeihandler met plafond 120 (zie
-         raakje.html), en x-ref="v" moet op de wídget-scope registreren — de
-         x-data van de macro zou een geneste scope tussenschuiven waardoor
-         $refs.v op het formulier hierboven leeg blijft. #}
-      {{ ui.textarea_control("vraag", id="raakje-widget-vraag", rows=1, required=True,
-                             placeholder=_("Typ je vraag…"), autogrow=False,
-                             cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
-                             attrs='x-ref="v" autocomplete="off"'
-                                   ' x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
-                                   ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
-      <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
-              class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg self-end h-[38px]"
-              data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
-              data-icon-connecting='{{ ui.icon("loader") }}'
-              title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">{{ ui.icon("mic") }}</button>
-      {# #631: enige knop zonder leesbare tekst én zonder aria-label — voor een
-         schermlezer heette ze "➤". Deze widget staat op élke publieke pagina. De
-         knopkleur stond hier handmatig gekopieerd; nu via de kit. #}
-      {{ ui.btn_primary(ui.icon("send"), type="submit", cls="px-3 self-end", aria_label=_("Versturen")) }}
+          hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'">
+      {# Invoerveld, microfoon en verstuurknop uit het gedeelde bedieningsdeel
+         (#1075); `compact` is de widgetvariant: iconknop en lagere microfoon,
+         want het paneel is 20rem breed. Het gedrag is hetzelfde. #}
+      {{ controls.input_row("raakje-widget-vraag", stt_mode, compact=True) }}
     </form>
   </div>
 </div>
