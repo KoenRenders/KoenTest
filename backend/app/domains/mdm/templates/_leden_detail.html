@@ -122,7 +122,7 @@
       <span>{{ ms.year }}
         {% if ms.is_active %}{{ ui.badge(_("Actief"), "green") }}{% else %}{{ ui.badge(_("Inactief")) }}{% endif %}
       </span>
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Lidmaatschap"), ms.year)) }}
+      {{ ui.btn_danger(_("Verwijderen"), size="md", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Lidmaatschap"), ms.year)) }}
     </div>
     {% endfor %}
     <form class="flex gap-3 items-end mt-4"

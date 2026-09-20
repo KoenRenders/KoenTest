@@ -1624,3 +1624,116 @@ def test_annuleren_gaat_ergens_heen():
         "(#1089). Geef `cancel_href` mee (eigen pagina: terug naar de "
         "leesweergave) of `cancel_attrs` (htmx-vlak: de hx-get die het vlak "
         "opnieuw ophaalt):\n  " + "\n  ".join(fouten))
+
+
+def test_een_verwijderknop_kiest_haar_maat():
+    """#1091 regel 2 — `ui.btn_danger` zonder `size=` faalt.
+
+    De macro valt terug op `md`, en dat gaf in #616 een rode knop die groter was
+    dan de rest van het cluster; in `_fb_builder.html` stond dezelfde fout opnieuw
+    (#1090). De standaard in de macro veranderen is níét de oplossing: buiten een
+    cluster klopt `md` juist. Dus: elke aanroep kiest, en een stille terugval
+    bestaat niet meer. Wie `md` bedoelt, schrijft `size="md"`.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: `size="md"` van de
+    verwijderknop in `_fb_inzendingen.html` weggehaald → rood met dat pad en dat
+    regelnummer.
+    """
+    fouten = []
+    geteld = 0
+    for pad in TEMPLATES:
+        rel = str(pad.relative_to(APP))
+        if rel == "ui/templates/_macros.html":
+            continue
+        for regel, argumenten in _oproepen(_zonder_commentaar(pad), "btn_danger"):
+            geteld += 1
+            if "size=" not in argumenten:
+                fouten.append(f"{rel}:{regel}")
+    assert geteld >= 10, (
+        f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
+        "een gate die nergens kijkt bewaakt niets")
+    assert not fouten, (
+        "btn_danger zonder size= valt stil terug op md — de #616-fout. Kies de "
+        "maat op de aanroep (sm in een cluster, md erbuiten):\n  " + "\n  ".join(fouten))
+
+
+# #1091 regel 3 — de bevroren uitzonderingen op "een bewerkvlak bouwt zijn
+# cluster met ui.action_bar". Elk met een reden; de lijst mag alleen krimpen.
+# Een scherm dat omgebouwd wordt verdwijnt eruit (de dode-regel-test hieronder
+# dwingt dat af) en kan er niet meer op; een nieuw scherm kan er niet bij.
+# #1090 haalde de gebruikersrij, het rapportpaneel, de organisatoren en de
+# optierij van de formulierbouwer eraf; dit is wat er rest.
+HANDGEROLDE_CLUSTERS = {
+    "domains/payment/templates/_betalingen_lijst.html":
+        "bouwt het patroon correct na (Verwijderen apart links, Annuleren, Opslaan, "
+        "alles sm) omdat de rij óók 'Status verversen' en een invoerveld draagt, "
+        "wat action_bar niet kent — bij een volgende wijziging aan de volgorde "
+        "moet dit bestand apart mee",
+    "ui/templates/design_system.html":
+        "de kitpagina demonstreert het rauwe knoppenpaar naast de actiebalk; "
+        "documentatie, geen scherm",
+}
+
+
+def _handgerold_cluster(tekst: str) -> bool:
+    """Een Opslaan-/Bewaren-knop én een Annuleren-knop die niet uit `action_bar`
+    komen — het herkenningspunt van een met de hand gebouwd cluster."""
+    opslaan = any('_("Opslaan")' in arg or '_("Bewaren")' in arg
+                  for _r, arg in _oproepen(tekst, "btn_primary"))
+    annuleren = any('_("Annuleren")' in arg
+                    for _r, arg in _oproepen(tekst, "btn_secondary"))
+    return opslaan and annuleren
+
+
+def test_een_bewerkvlak_bouwt_zijn_cluster_met_action_bar():
+    """#1091 regel 3 — de regel die het echte werk doet.
+
+    `ui.action_bar` is dé afsluiting van een bewerkvlak (design-system §2.4): één
+    cluster, bovenaan, [Verwijderen] apart links, [Annuleren] [Opslaan], alles sm.
+    Vier schermen bouwden hem met de hand en kregen hem elk anders (#1090), zonder
+    dat iets faalde. De ratchet die hier tot #1091 voor stond
+    (`test_actiebalk_ratchet.py`) telde de letterlijke tekst
+    `btn_primary(_("Opslaan"))` — en miste daardoor drie van die vier: een
+    `size="sm"` erbij, of "Bewaren" in plaats van "Opslaan", en de telling zag
+    niets. Een poort die op één macro én één letterlijk label keert, bewaakt de
+    spelling van dat label en niet de regel. Deze regel kijkt daarom naar de
+    aanroepen zelf (`_oproepen`, op balans van haakjes) en naar de combinatie die
+    een cluster maakt: een Opslaan-/Bewaren-knop mét een Annuleren-knop buiten
+    `action_bar`. Wie hem smaller wil maken, maakt hem weer blind.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: in `_gu_lijst.html`
+    het cluster weer met losse knoppen gebouwd → rood met dat pad.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        rel = str(pad.relative_to(APP))
+        if rel == "ui/templates/_macros.html" or rel in HANDGEROLDE_CLUSTERS:
+            continue
+        if _handgerold_cluster(_zonder_commentaar(pad)):
+            fouten.append(rel)
+    assert not fouten, (
+        "Een bewerkvlak bouwt zijn knoppenrij met losse knoppen — gebruik "
+        "ui.action_bar (§2.4). Kan dat echt niet, zet het bestand dan mét reden in "
+        "HANDGEROLDE_CLUSTERS:\n  " + "\n  ".join(fouten))
+
+
+def test_de_uitzonderingslijst_wijst_nergens_dood_heen():
+    """Een uitzondering die niet meer nodig is, is een regel die nog steeds
+    krimpt op papier maar niet in de code: het scherm is omgebouwd en de lijst
+    houdt de deur open voor de dag dat iemand het weer met de hand bouwt.
+    Zelfde eis als bij de payable-poort (#1040).
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: een uitzondering
+    voor `_gu_lijst.html` (sinds #1090 op action_bar) toegevoegd → rood met dat
+    pad.
+    """
+    dood = []
+    for rel, reden in HANDGEROLDE_CLUSTERS.items():
+        assert reden.strip(), f"{rel}: een uitzondering zonder reden"
+        pad = APP / rel
+        if not pad.exists() or not _handgerold_cluster(_zonder_commentaar(pad)):
+            dood.append(rel)
+    assert not dood, (
+        "Deze uitzonderingen wijzen naar een scherm dat geen handgerold cluster "
+        "meer heeft (of niet meer bestaat); haal ze uit HANDGEROLDE_CLUSTERS zodat "
+        "de ratchet niet terug kan:\n  " + "\n  ".join(dood))
