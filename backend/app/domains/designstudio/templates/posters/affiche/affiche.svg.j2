@@ -32,7 +32,7 @@
   {{ wordmark | safe }}
   {%- for row in p.band.rows %}
   {%- if row.icon %}
-  {{ icon(row.icon, row.fg, row.bg, p.band.icon_x, p.band.row_y + 12.5 + loop.index0 * p.band.row_step + (1 if loop.last else 0), 6) | safe }}
+  {{ icon(row.icon, row.fg, row.bg, p.band.icon_x, p.band.row_y + 12.5 + loop.index0 * p.band.row_step + (1 if loop.last and row.icon else 0), 6) | safe }}
   {%- endif %}
   {%- endfor %}
 </g>
@@ -58,7 +58,7 @@
   {{ p.logos | safe }}
   <text id="t-meerinfo" x="{{ p.band.icon_x }}" y="{{ '%.2f' % (p.band.row_y + 8.5) }}" font-size="7" font-weight="bold" fill="{{ p.pal.accent }}">{{ p.band.label }}</text>
   {%- for row in p.band.rows %}
-  <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * p.band.row_step + (1 if loop.last else 0)) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ row.colour }}">{{ row.text }}</text>
+  <text id="{{ row.id }}" x="{{ p.band.text_x }}" y="{{ '%.2f' % (p.band.row_y + 16.9 + loop.index0 * p.band.row_step + (1 if loop.last and row.icon else 0)) }}" font-size="{{ '%.2f' % row.size }}" font-weight="600" fill="{{ row.colour }}">{{ row.text }}</text>
   {%- endfor %}
   {%- if qr %}
   <rect x="{{ p.band.qr_x }}" y="{{ '%.2f' % p.band.qr_y }}" width="{{ p.band.qr_box }}" height="{{ p.band.qr_box }}" fill="{{ p.pal.white }}"/>

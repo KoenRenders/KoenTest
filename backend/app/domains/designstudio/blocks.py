@@ -146,7 +146,10 @@ BAND_TEXT = 5.6
 #: And with a little more air between them, now that they are smaller. The
 #: last row drops one millimetre further still, so the block does not end
 #: flush against the bottom of the band ("je kan misschien de onderste regel
-#: ook nog een milimeter laten zakken").
+#: ook nog een milimeter laten zakken") — but only when that row starts
+#: something of its own. A row without an icon continues the line above it,
+#: and an extra millimetre there pushes apart what belongs together (Koen,
+#: 21 September 2026, about the two registration lines).
 BAND_ROW_STEP = 7.2
 
 QR_MM = 26.0
@@ -379,19 +382,29 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
 #: gemaakt (niet hoger, niet rechtser, dus een beetje meer uitrekken naar
 #: links en naar onder, bvb. 20%)?" (21 September 2026).
 LOGO_H = 19.2
+#: How much wider than high a logo's box may be.
+LOGO_RATIO = 2.0
 
 
-def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float) -> str:
-    """Sponsor logos, right-aligned, each at most 2:1 wide.
+def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float,
+               ratio: float = LOGO_RATIO) -> str:
+    """Sponsor logos, right-aligned, each at most ``ratio`` times as wide as
+    it is high.
 
-    Right edge fixed (``xMax``) and centred in its box (``YMid``): a taller
-    box therefore grows to the left and a little downwards, which is what
-    Koen asked for — not higher, not further right.
+    Right edge fixed (``xMax``) and centred in its box (``YMid``): a bigger
+    box therefore grows to the left and, within the height it already had,
+    a little up and down — not higher as a block, not further right.
+
+    The box is as big as the band allows: under two millimetres separate it
+    from the band below. How large the mark *looks* inside it is therefore
+    decided by the file — a logo delivered with white padding around it is
+    drawn that much smaller, and trimming the file is what makes it bigger
+    (measured on MONA's, 21 September 2026: 43 % of its height is margin).
     """
     out = []
     x = x_right
     for i, logo in enumerate(logos[:2]):
-        w = h * 2
+        w = h * ratio
         x -= w
         out.append(f'<image id="logo-{i}" x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
                    f'preserveAspectRatio="xMaxYMid meet" href="{data_uri(logo)}"/>')
