@@ -1035,29 +1035,6 @@ out-of-band feature this is the first question. A server test cannot see this
 failure: it checks that the response *contains* the toast, and it does. Assert
 visibility, e2e.
 
-### 8.4 A button that depends on the filter state travels with the filter response (#1138, #1141)
-
-A filter bar swaps the **list**. Anything outside that target — the buttons in
-`ui.page_header`, an export link, a "+ Nieuw" that carries the current filter —
-is not in the response, so it keeps the href the server rendered at **page
-load**. Click a filter chip and the list is right while the button still points
-at the state you left. The two measured cases differ only in how loudly they
-fail: on Media `+ Uploaden` opened the upload form for the previous kind; on
-Ledenwijzigingen the export button produced a **file** for the wrong period,
-which nothing on screen contradicts.
-
-**The rule:** does a button's href depend on the filter state? Then the list
-fragment sends it back out-of-band, with its own `id` — the #748 pattern, which
-is allowed here precisely because this is a fragment response (§8.2).
-
-**Deliberately no gate** (owner decision, 21 September 2026). The relation
-between a header button, a filter bar and the fragment they share is declared
-nowhere in the markup; a gate would have to infer it, and an inferred gate goes
-green the moment somebody renames a wrapper. The rule lives here, and the screen
-that needs it carries its own test that clicks the chip and *then* reads the
-href — never a test that fetches the URL directly, which passes while the button
-is broken.
-
 ### 8.3 Where logic lives — view-models and strict templates (#643, #635)
 
 Jinja checks nothing up front. A template that reads `total` while the route
@@ -1082,6 +1059,29 @@ Five rules replace that safety net:
 5. **Two gates keep it that way**: `test_layer_gate.py` (imports, ORM,
    view-models) and `test_template_variables_gate.py` (a template asks for
    nothing its model does not promise). Both carry a shrinking allowlist.
+
+### 8.4 A button that depends on the filter state travels with the filter response (#1138, #1141)
+
+A filter bar swaps the **list**. Anything outside that target — the buttons in
+`ui.page_header`, an export link, a "+ Nieuw" that carries the current filter —
+is not in the response, so it keeps the href the server rendered at **page
+load**. Click a filter chip and the list is right while the button still points
+at the state you left. The two measured cases differ only in how loudly they
+fail: on Media `+ Uploaden` opened the upload form for the previous kind; on
+Ledenwijzigingen the export button produced a **file** for the wrong period,
+which nothing on screen contradicts.
+
+**The rule:** does a button's href depend on the filter state? Then the list
+fragment sends it back out-of-band, with its own `id` — the #748 pattern, which
+is allowed here precisely because this is a fragment response (§8.2).
+
+**Deliberately no gate** (owner decision, 21 September 2026). The relation
+between a header button, a filter bar and the fragment they share is declared
+nowhere in the markup; a gate would have to infer it, and an inferred gate goes
+green the moment somebody renames a wrapper. The rule lives here, and the screen
+that needs it carries its own test that clicks the chip and *then* reads the
+href — never a test that fetches the URL directly, which passes while the button
+is broken.
 
 ## 9. Sanctioned exceptions
 
