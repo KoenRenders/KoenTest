@@ -393,7 +393,7 @@ def test_every_row_in_the_band_is_set_in_one_size():
 
     Broken on purpose: one row back on 6.2 → the first assert names it.
     """
-    from app.domains.designstudio.blocks import BAND_ROW_STEP, BAND_TEXT
+    from app.domains.designstudio.blocks import BAND_CONT_STEP, BAND_ROW_STEP, BAND_TEXT
 
     merged = render.merge(_content(deadline_text="Inschrijven tot 8 november",
                                    contacts=(Contact("Voornaam Naam", "0470 00 00 00"),)), layout="print_a")
@@ -406,7 +406,8 @@ def test_every_row_in_the_band_is_set_in_one_size():
     # millimetre depends on whether it starts something of its own — that is
     # `test_a_continued_line_keeps_the_ordinary_step`.
     assert round(ys[1] - ys[0], 1) == BAND_ROW_STEP
-    assert all(round(n - v, 1) in (BAND_ROW_STEP, BAND_ROW_STEP + 1) for v, n in zip(ys, ys[1:]))
+    assert all(round(n - v, 1) in (BAND_ROW_STEP, BAND_ROW_STEP + 1, BAND_CONT_STEP)
+               for v, n in zip(ys, ys[1:]))
 
 
 def test_the_sponsor_logo_grew_to_the_left_and_down(recwarn=None):
@@ -676,30 +677,37 @@ def test_registering_closes_the_band_in_the_accent_colour():
     assert "via</text>" not in losse_datum
 
 
-def test_a_continued_line_keeps_the_ordinary_step():
-    """Koen, 21 September 2026: "wat is de lijnafstand tussen 'Inschrijven
-    tot en met 1 november via' en 'www.raakmillegem.be'? Ik heb de indruk dat
-    dat meer is dan tussen de lijnen daarboven terwijl het net samenhangt."
+def test_a_continued_line_sits_closer_than_a_row_of_its_own():
+    """Koen, 21 September 2026, twice: "wat is de lijnafstand tussen
+    'Inschrijven tot en met 1 november via' en 'www.raakmillegem.be'? Ik heb
+    de indruk dat dat meer is dan tussen de lijnen daarboven terwijl het net
+    samenhangt." And then: "ik wil enkel dat www.raakmillegem.be hoort bij de
+    tekst erboven."
 
-    It was: 8,2 mm against 7,2. The last row of the band drops a millimetre
-    so the block does not end flush against the band's bottom edge — and the
-    address was the last row, so that millimetre landed inside a sentence.
-    A row without an icon continues the line above it and keeps the ordinary
-    step now; the millimetre is for a row that starts something of its own.
+    It was 8,2 mm against 7,2, because the last row of the band drops a
+    millimetre so the block does not end flush against the band's bottom
+    edge — and since round 27 the address is that last row, so the millimetre
+    landed inside a sentence.
 
-    Broken on purpose to check this can go red: the condition back to
-    `loop.last` alone → the step under the deadline is 8,2 again.
+    Taking it away only made the address stop standing out. What makes it
+    *belong* is sitting closer than the rows that stand on their own: a row
+    without an icon steps 6,0 mm where a row with one steps 7,2.
+
+    Broken on purpose to check this can go red: the continued row given
+    `BAND_ROW_STEP` → the sentence falls apart again and the first assert
+    names the millimetres.
     """
-    from app.domains.designstudio.blocks import BAND_ROW_STEP
+    from app.domains.designstudio.blocks import BAND_CONT_STEP, BAND_ROW_STEP
 
     svg = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
                                 contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
                        layout="print_a").svg
     y = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
          for rij in ("t-contact-0", "t-deadline", "t-website")}
-    # De zin hangt samen: dezelfde stap als tussen de rijen erboven.
-    assert round(y["t-website"] - y["t-deadline"], 1) == BAND_ROW_STEP
+    # De zin hangt samen: dichter dan de rijen die op zichzelf staan.
+    assert round(y["t-website"] - y["t-deadline"], 1) == BAND_CONT_STEP
     assert round(y["t-deadline"] - y["t-contact-0"], 1) == BAND_ROW_STEP
+    assert BAND_CONT_STEP < BAND_ROW_STEP
 
     # Sluit een rij mét icoon de balk af, dan zakt die wél een millimeter.
     los = render.merge(_content(deadline_text="", contacts=()), layout="print_a").svg

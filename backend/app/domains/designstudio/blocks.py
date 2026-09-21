@@ -151,6 +151,12 @@ BAND_TEXT = 5.6
 #: and an extra millimetre there pushes apart what belongs together (Koen,
 #: 21 September 2026, about the two registration lines).
 BAND_ROW_STEP = 7.2
+#: And the step onto a row that CONTINUES the one above it — the address
+#: under "Inschrijven tot en met 1 november via". Equal spacing only makes
+#: such a line stop standing out; tighter is what makes it belong (Koen,
+#: 21 September 2026: "ik wil enkel dat www.raakmillegem.be hoort bij de
+#: tekst erboven").
+BAND_CONT_STEP = 6.0
 
 QR_MM = 26.0
 QR_BOX = QR_MM + 2
@@ -622,9 +628,23 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                      # Registering is the band's call to action; a bare
                      # address belongs with the ways to reach us.
                      "colour": pal["accent"] if inschrijven else pal["white"]})
+    # Where each row sits, measured from the first. A row that continues the
+    # one above it (no icon of its own) steps closer; a row that starts
+    # something of its own takes the full step. The last row drops one more
+    # millimetre so the block does not end flush against the band's bottom
+    # edge — but only when it starts something, or that millimetre would
+    # land inside a sentence.
+    span = 0.0
+    for i, row in enumerate(rows):
+        if i:
+            span += BAND_ROW_STEP if row["icon"] else BAND_CONT_STEP
+        row["dy"] = span
+    if rows and rows[-1]["icon"]:
+        rows[-1]["dy"] = span + 1
+
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.
-    band_h: float = max(20 + BAND_ROW_STEP * len(rows), QR_BLOCK + 2)
+    band_h: float = max(20 + BAND_ROW_STEP + span, QR_BLOCK + 2)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
     ch = max(band_h + 2, lockup_h + 7)
@@ -648,7 +668,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
-              "row_step": BAND_ROW_STEP,
+              "row_step": BAND_ROW_STEP, "cont_step": BAND_CONT_STEP,
               "qr_x": qr_left, "qr_y": band_y + (band_h - QR_BLOCK) / 2, "qr_caption": "Scan voor meer info",
               "qr_box": QR_BOX, "qr_mm": QR_MM,
               "row_y": band_y + 2}
