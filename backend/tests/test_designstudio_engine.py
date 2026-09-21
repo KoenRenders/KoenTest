@@ -634,18 +634,34 @@ def test_the_body_text_grows_into_the_room_it_has():
     assert float(re.search(r'id="t-rt-explanation"[^>]*font-size="([0-9.]+)"', svg).group(1)) > 8
 
 
-def test_the_deadline_is_the_bands_call_to_action():
-    """"Inschrijven tot 8 november" stood at the foot of the hand-made
-    poster; it sits in the band now, above the address it points at, in the
-    same white as the rows under it. No shared deadline (it differs per
-    component) → no row."""
-    svg = render.merge(_content(deadline_text="Inschrijven tot 8 november"), layout="print_a").svg
-    assert ">Inschrijven tot 8 november</text>" in svg
-    assert re.search(r'id="t-deadline"[^>]*fill="#ffffff"', svg)
-    deadline_y = float(re.search(r'id="t-deadline" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
-    website_y = float(re.search(r'id="t-website" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
-    assert deadline_y < website_y
-    assert 't-deadline' not in render.merge(_content(), layout="print_a").svg
+def test_registering_closes_the_band_in_the_accent_colour():
+    """The organisers of the bowling, through Koen on 21 September 2026: "ik
+    wil vermijden dat ze gaan inschrijven door een mail te sturen naar ons".
+
+    They were reading the band top-down under one heading that said "Meer
+    info en inschrijven", with the contacts right under it. So the heading
+    covers only the ways to reach us now, and registering closes the band:
+    the deadline and the address, under the contacts, in the accent colour.
+
+    Broken on purpose to check this can go red: the two rows put back above
+    the contacts → the order assert names them.
+    """
+    pal = brand.palette_for("dark_green-golden_yellow")
+    svg = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
+                                contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
+                       layout="print_a").svg
+    assert ">Inschrijven tot en met 8 november</text>" in svg
+    for rij in ("t-deadline", "t-website"):
+        assert re.search(rf'id="{rij}"[^>]*fill="{pal["accent"]}"', svg), rij
+    y = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+         for rij in ("t-contact-0", "t-deadline", "t-website")}
+    assert y["t-contact-0"] < y["t-deadline"] < y["t-website"]
+
+    # No shared deadline (it differs per component): the address says what it
+    # is for on its own.
+    alone = render.merge(_content(contacts=()), layout="print_a").svg
+    assert "t-deadline" not in alone
+    assert ">Inschrijven via www.raakmillegem.be</text>" in alone
 
 
 def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
