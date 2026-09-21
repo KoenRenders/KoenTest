@@ -66,6 +66,7 @@ change to all four, in one pull request.
 | 14 Sep 2026 | Wave 3 start: title + create in ONE header row (all eight list screens measured conform; §3.2 text follows practice); `empty_state` carries the three forms of empty with an optional first action (A10) | #913 |
 | 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
 | 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
+| 21 Sep 2026 | The sidebar stays **text only** — no icons, not even on `AI · Raakje`. One icon among twenty plain items reads as something somebody forgot to finish, and icons for all twenty is its own design round. Recognition comes from the `AI ·` prefix the three entry points share. Deliberately **not** parked in CR-11 either: this is settled, not deferred | #1117 |
 
 Decisions still open are listed in §12.
 
