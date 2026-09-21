@@ -31,11 +31,25 @@
 
 
 {% call ui.filter_bar("/admin/media", "#me-lijst") %}
+  {# #1138 punt 1: de bovengrens op de keuzelijst houdt de rij op één regel.
+     Een <select> is zo breed als haar LANGSTE optie, dus zonder grens bepaalt
+     de langste activiteitentitel of de rij breekt — bij de seed-titel
+     "Gezinsuitstap naar Irrland met bus en picknick" werd ze 399 px en wrapte
+     de rij op élke gemeten breedte, 1600 px incluis. Met `max-w-[14rem]` (224)
+     staat alles op één regel tot en met een venster van 1280 px en breekt ze
+     vanaf 1152. Dat mag: het issue vraagt één regel op een gewone
+     laptopbreedte, niet op elke.
+
+     De ondergrens van het zoekveld blijft bewust `min-w-[14rem]`: die klasse
+     is de gedeelde referentie van alle elf filterbalken en wordt bewaakt door
+     `tests/test_filterbalk_op_een_regel.py` (#1079/#996). Ze verlagen voor één
+     scherm zou die ene regel op elf plaatsen laten uiteenlopen. De meting staat
+     in `tests_e2e/test_mediafilterrij_blijft_een_regel.py`. #}
   <div class="flex flex-wrap gap-3 items-center">
     <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
     {{ ui.chips("kind", kind_options, kind) }}
     {% if kind == "activity_photo" and activiteiten %}
-    {% call ui.select_control("activity_id") %}
+    {% call ui.select_control("activity_id", cls="max-w-[14rem] truncate") %}
       <option value="">{{ _("Alle activiteiten") }}</option>
       {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
     {% endcall %}

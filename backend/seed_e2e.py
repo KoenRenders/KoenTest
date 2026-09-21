@@ -118,6 +118,40 @@ def main() -> None:
         product = ActivityProduct(component_id=component.id, name="E2E-product",
                                   price=Decimal("10.00"), is_free=False)
         db.add(product)
+
+        # ── Twee activiteitenfoto's ─────────────────────────────────────────
+        # Zonder media rendert het mediascherm zijn activiteitenkeuzelijst NIET
+        # (die toont alleen activiteiten die al media hebben), en dan is de
+        # drukste stand van dat scherm onmeetbaar in e2e — precies de stand waar
+        # de filterrij brak (#1138 punt 1).
+        from app.domains.media.api import MediaAsset
+
+        beeld = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+
+        # Een TWEEDE activiteit met een lange naam (#1138 punt 1). De
+        # keuzelijst op het mediascherm is zo breed als haar langste optie, dus
+        # de titel bepaalt of de filterrij op één regel past. Gemeten op 21
+        # september 2026, beheerscherm 1024 px breed bij een venster van 1440:
+        # met "E2E-activiteit (2026)" was de rij 1024 van 1024 px — exact vol,
+        # dus elke echte titel duwt haar naar een tweede regel. Met Koens eigen
+        # "Gezinsuitstap Irrland (2026)" paste ze nog nét; dat is geen marge.
+        # Deze naam is langer, zodat de test rood staat zonder de reparatie.
+        #
+        # De datum ligt een jaar vooruit, zodat deze activiteit achteraan de
+        # komende-lijst staat en `Activiteitdetail.open_eerste()` nog steeds de
+        # bestaande E2E-activiteit opent.
+        lange = Activity(name="Gezinsuitstap naar Irrland met bus en picknick")
+        db.add(lange)
+        db.flush()
+        db.add(ActivityDate(activity_id=lange.id,
+                            start_date=date.today() + timedelta(days=365)))
+
+        for doel in (activity, lange):
+            db.add(MediaAsset(kind="activity_photo", activity_id=doel.id,
+                              title=f"E2E-foto {doel.name}", data=beeld,
+                              content_type="image/png", thumbnail=beeld,
+                              thumb_content_type="image/png", width=64, height=64,
+                              byte_size=len(beeld), sort_order=0, is_active=True))
         db.commit()
 
         # ── Inschrijving via het echte registratiepad ────────────────────────
