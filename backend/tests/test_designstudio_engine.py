@@ -116,10 +116,34 @@ def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
     lines = richtext.wrap(blocks, width=200, size=6)
     assert ["".join(r.text for r in line) for line in lines] == [
         "Regel een", "Regel twee", "", "Na een lege regel"]
-    assert richtext.LINE_HEIGHT >= 1.5       # air you can see without measuring it
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1
+
+
+def test_only_a_typed_enter_gets_the_extra_air():
+    """Koen, 20 September 2026: "ik bedoelde bij een enter, niet bij elke
+    lijn". A line that only wrapped because the column ran out keeps ordinary
+    leading; a line he started himself gets the wider step.
+
+    Broken on purpose to check this can go red: `after_break` hard-wired to
+    True in `wrap` → the wrapped continuation below claims the wide step and
+    the first assert fails.
+    """
+    assert richtext.LINE_HEIGHT == 1.3 and richtext.BREAK_HEIGHT >= 1.5
+
+    # One typed line, too long for the column: it wraps, and the wrap is not
+    # a break.
+    wrapped = richtext.wrap(richtext.parse("Gezellig samen wandelen en praten in het Miloheem"),
+                            width=40, size=6)
+    assert len(wrapped) > 1 and [ln.after_break for ln in wrapped] == [False] * len(wrapped)
+
+    # Two typed lines and then a blank one: the step onto each is the wide one.
+    typed = richtext.wrap(richtext.parse("Een\nTwee\n\nDrie"), width=200, size=6)
+    assert [ln.after_break for ln in typed] == [False, True, True, True]
+
+    # And the height follows the steps, not the line count.
+    assert richtext.text_height("Een\nTwee", width=200, size=6) == 6 * (1.3 + 1.6)
 
 
 def test_richtext_wraps_on_font_metrics_and_the_estimate_is_an_upper_bound():
@@ -203,12 +227,14 @@ def _rows(svg: str) -> list[str]:
 
 
 def test_the_simple_preset_puts_date_and_place_on_the_feed_image_too():
-    """#1097 — the feed image lost both facts.
+    """#1097, and Koen on 20 September 2026: "zou je instagram voor de
+    eenvoudige opmaak niet gelijk trekken aan de A3?".
 
     The simple preset shows date and place as icon rows because whoever picks
     it types no highlights. That branch was tied to the print sheet, so the
     feed fell through to the general path, drew an empty highlight list and
-    left a third of the image blank.
+    left two thirds of the square blank. Both layouts now run through the
+    same branch: facts above the picture, the activity's text under it.
 
     The counter-proof the master CLI asked for: take the feed branch's
     `rows_content` back to `content` and this test goes red while
@@ -216,11 +242,18 @@ def test_the_simple_preset_puts_date_and_place_on_the_feed_image_too():
     green — proof that the print branch was not moved along with it.
     """
     simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
-                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL")
+                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
+                  explanation_md="Jong en oud zijn welkom op onze familiebowling.")
     feed = render.merge(_content(**simple), layout="feed_portrait")
     printed = render.merge(_content(**simple), layout="print_a")
     for merged in (feed, printed):
+        # The same shape on both: facts above the picture, text under it.
         assert _rows(merged.svg) == ["ZONDAG 15 NOVEMBER OM 9U45", "BOWLING BRUUL"]
+        assert 'id="t-rt-explanation"' in merged.svg
+        rows_y = max(float(y) for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', merged.svg))
+        picture_y = float(re.search(r'<image x="19.00" y="([0-9.]+)"', merged.svg).group(1))
+        text_y = float(re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)"', merged.svg).group(1))
+        assert rows_y < picture_y < text_y
     assert not feed.violations
 
 
