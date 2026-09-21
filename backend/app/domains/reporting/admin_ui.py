@@ -910,10 +910,9 @@ async def _ask(request: Request, db: Session, email: str, *,
         ChatTimeout, GuardedProvider, SeamBlocked, admin_chat_char_budget,
         admin_rules, get_provider, run_chat, sink_for,
     )
-    from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
         CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, detokenise,
-        dispatcher, scrub_question, tool_specs,
+        dispatcher, scan_names, scrub_question, tool_specs,
     )  # noqa: F401  (Scope staat bovenaan geïmporteerd voor de annotatie)
 
     form = await request.form()
@@ -947,7 +946,7 @@ async def _ask(request: Request, db: Session, email: str, *,
 
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY,
+        admin_rules(lambda: scan_names(db), capability=CAPABILITY,
                     scan_prompt_names=SCAN_PROMPT_NAMES),
         sink_for(email),
     )

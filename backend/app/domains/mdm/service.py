@@ -267,13 +267,27 @@ def person_name_parts(db: Session) -> set[str]:
     de bekende valse blokkade uit §5.8 en die kant is de veilige.
     """
     rows = db.query(Person.first_name, Person.last_name).all()
+    return name_parts(waarde for rij in rows for waarde in rij)
+
+
+def name_parts(values) -> set[str]:
+    """Scanbare delen uit willekeurige namen — de regel van hierboven, apart.
+
+    Losgemaakt in #1135, toen de assistent óók de contactnamen van inschrijvingen
+    moest scannen. Die staan in het activiteitendomein en niet op `Person`, dus ze
+    komen niet uit `person_name_parts`. Ze door een eigen splitsing halen zou
+    betekenen dat "hoe een naam in scanbare delen uiteenvalt" op twee plaatsen
+    staat — met de tussenvoegsel-regel, de lengtedrempel en de apostrof elk twee
+    keer, en dus twee keer te vergeten bij de volgende meting.
+
+    De regel zelf is ongewijzigd; alleen de bron is nu een argument.
+    """
     parts: set[str] = set()
-    for first, last in rows:
-        for value in (first, last):
-            for part in (value or "").replace("-", " ").split():
-                schoon = part.lower().strip("'\u2019")
-                if len(schoon) >= 3 and schoon not in NAME_PARTICLES:
-                    parts.add(schoon)
+    for value in values:
+        for part in (value or "").replace("-", " ").split():
+            schoon = part.lower().strip("'\u2019")
+            if len(schoon) >= 3 and schoon not in NAME_PARTICLES:
+                parts.add(schoon)
     return parts
 
 
