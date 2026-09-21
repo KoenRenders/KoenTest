@@ -564,12 +564,16 @@ def test_six_highlight_rows_fit_the_left_column():
 
 def test_every_highlight_row_is_upper_case_bold_and_one_size():
     """Koen, 20 September 2026: the place row looked smaller and lighter
-    than the others. One size, upper case, bold — whatever was typed."""
+    than the others. One size, upper case, bold — whatever was typed. The
+    size itself went from 7,4 to 8,0 on 21 September ("dat moet het best
+    leesbaar zijn"); what this test guards is that there is only one."""
     merged = render.merge(_content(highlights=(Highlight("map-pin", "Miloheem"), Highlight("users", "gezellig samen"))),
                           layout="print_a")
     rows = re.findall(r'<text id="t-hl-\d-0" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)" font-weight="(\w+)"[^>]*>([^<]*)</text>', merged.svg)
     assert len(rows) == 2
-    assert {r[0] for r in rows} == {"7.400"} and {r[1] for r in rows} == {"bold"}
+    from app.domains.designstudio.blocks import ROW_TEXT
+
+    assert {r[0] for r in rows} == {f"{ROW_TEXT:.3f}"} and {r[1] for r in rows} == {"bold"}
     assert [r[2] for r in rows] == ["MILOHEEM", "GEZELLIG SAMEN"]
 
 

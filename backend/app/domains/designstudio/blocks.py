@@ -124,6 +124,16 @@ def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
 # ── The blocks ────────────────────────────────────────────────────────────
 
 ROW_H = 27.5   # six rows (two automatic, four own) sit easily in the left column of A3
+#: One size, upper case, bold for every icon row (Koen, 20 September 2026).
+ROW_TEXT = 7.4
+#: Except the two rows the simple layout derives from the activity itself,
+#: date and place: those carry the poster and may be read from further away
+#: (Koen, 21 September 2026: "kunnen de datum/uur en locatie in een iets
+#: grotere fontsize, dat moet het best leesbaar zijn"). They are short and
+#: the layout gives them the full width, so the extra 8 % costs no wrap —
+#: a typed highlight in the narrow column of the "beeld" layout would need
+#: a third line at this size, which is why it is not shared.
+ROW_TEXT_FACTS = 8.0
 ICON_S = 19
 
 #: The QR block in the band: the code, its quiet-zone box, and room for the
@@ -164,7 +174,7 @@ QR_BLOCK = QR_BOX + 6
 
 
 def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: float,
-                   *, index_offset: int = 0) -> tuple[str, float]:
+                   *, index_offset: int = 0, size: float = ROW_TEXT) -> tuple[str, float]:
     """Icon + one or two lines each, a dotted rule between rows."""
     pal = plan.pal
     out: list[str] = []
@@ -172,7 +182,6 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     text_w = w - ICON_S - 5
     accents = (pal["tile"], pal["accent3"], pal["accent2"], pal["tile"], pal["accent"], pal["tile"])
     for i, hl in enumerate(content.highlights, start=index_offset):
-        size = 7.4   # one size, upper case, bold for every row (Koen, 20 September 2026)
         # The first line is drawn bold: wrap on the bold metrics so it fits too.
         lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size)
         if len(lines) > 2:
@@ -480,13 +489,14 @@ def fact_rows(content: PosterContent) -> tuple[Highlight, ...]:
                  if hl is not None)
 
 
-def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4) -> float:
+def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4,
+                           size: float = ROW_TEXT) -> float:
     shown = content.highlights[:limit_n]
     col_y: list[float] = [y, y]
     for i, hl in enumerate(shown):
         cx, cw_ = cols[i % 2]
         one = PosterContent(duo_code=content.duo_code, highlights=(hl,))
-        frag, ny = highlight_rows(p, one, cx, col_y[i % 2], cw_, index_offset=i)
+        frag, ny = highlight_rows(p, one, cx, col_y[i % 2], cw_, index_offset=i, size=size)
         p.full += frag
         col_y[i % 2] = ny
     if len(content.highlights) > limit_n:
@@ -522,7 +532,11 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     for i, text in enumerate(lines):
         if richtext.text_width(text, size, bold=True, tracking=-0.016 * size) > line_widths[i]:
             p.violations.append(f"Titelregel {i + 1} is te lang voor de affiche")
-    base1 = frame + 12 + size * 0.72          # cap height ≈ 0.72 em
+    # 14 and not 12: the title block is tilted 2.2°, which lifts its right
+    # end some ten millimetres, and on a wide one-line title that put the
+    # letters against the frame (Koen, 21 September 2026: "hij komt tot bijna
+    # tegen de paarse balk bovenaan").
+    base1 = frame + 14 + size * 0.72          # cap height ≈ 0.72 em
     step = size * 1.08
     baselines = [base1 + i * step for i in range(len(lines))]
     for i, text in enumerate(lines):
@@ -718,7 +732,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         top_rows = fact_rows(content)
         if top_rows:
             y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
-                                       y, ((lx, lw), (rx, rw))) + 3
+                                       y, ((lx, lw), (rx, rw)), size=ROW_TEXT_FACTS) + 3
         # What the text needs at its smallest, so the picture cannot take the
         # whole column.
         min_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
