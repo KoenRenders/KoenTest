@@ -203,6 +203,49 @@ def test_without_a_ticked_organiser_the_band_shows_the_association_gsm_without_a
     assert ">0470 00 00 00</text>" in svg and "info@example.be" in svg and "Raak Millegem · 0470" not in svg
 
 
+def test_the_poster_gsm_comes_from_the_real_mobile_row(db_session, design):
+    """#1160: het opschonen van de contactsoorten mag de affiche niet raken.
+
+    De terugval hierboven wordt getoetst met een `mobile` die de test zelf in de
+    feiten schrijft — die blijft dus groen als de echte rij nooit meer gelezen
+    wordt. Deze test legt de bedrading erbij: een `MOBILE`-rij op de organisatie,
+    door `facts_for` heen, tot in de voetbalk.
+
+    Waarom dat nu telt: #1160 verhuist de vraag *"is deze contactsoort een
+    sociaal netwerk?"* naar `contact_type_codes`, en haalt `MOBILE` uit de
+    footer. De affiche leest langs een andere weg (`CONTACTVELDEN` in
+    `organization_service`) en hoort niets te merken. Koen heeft de rij *Mobiel*
+    bewust laten staan omdat een affiche zonder organisatoren anders geen enkele
+    manier overhoudt om iemand te bereiken.
+
+    Tegenproef: `CONTACTVELDEN` de regel `("mobile", "MOBILE")` afgenomen — dan
+    faalt deze test met *"de feiten lezen het gsm-nummer niet uit de MOBILE-rij:
+    \'\'"*. De eerdere terugvaltest blijft daarbij groen, want die schrijft het
+    nummer zelf in de feiten.
+    """
+    from app.domains.mdm.api import ContactDetail, Organization
+    from app.kernel.tenant_config import _actieve_tenant
+
+    organisatie = (db_session.query(Organization)
+                   .filter(Organization.id == _actieve_tenant(None))
+                   .execution_options(include_all_tenants=True).one())
+    db_session.add(ContactDetail(tenant_id=organisatie.id, organization_id=organisatie.id,
+                                 contact_type_code="MOBILE", value="0470 55 44 33"))
+    db_session.commit()
+
+    facts = facts_for(db_session, design)
+    assert facts["organisers"] == [], (
+        "deze activiteit hoort geen organisatoren te hebben; anders toetst de "
+        "test de terugval niet maar de gewone weg")
+    assert facts["mobile"] == "0470 55 44 33", (
+        f"de feiten lezen het gsm-nummer niet uit de MOBILE-rij: {facts['mobile']!r}")
+
+    content = content_for(db_session, design, facts)
+    assert content.contacts == () and content.association_mobile == "0470 55 44 33"
+    assert ">0470 55 44 33</text>" in render.merge(content, layout="print_a").svg, (
+        "het nummer staat niet in de voetbalk van de affiche")
+
+
 def test_one_ticked_organiser_out_of_two_means_no_association_row(db_session, design, activity):
     """Koen, 19 September 2026: the association's gsm row appears only when
     nobody is ticked — never next to a ticked organiser."""
