@@ -581,14 +581,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # they wanted to avoid (Koen, 21 September 2026). Two rows, because
     # "Inschrijven tot en met 30 september via raakmillegem.be" measures
     # 159 mm against a column of 133.
+    # One sentence, and whether it needs one line or two is decided here,
+    # because only here are both halves known (Koen, 21 September 2026:
+    # "zouden we dat niet als zin zien? Ik vind dat dat samen hoort").
+    #
+    #   Inschrijven tot en met 1 november via     ← ticket, the sentence opens
+    #   www.raakmillegem.be                       ← no icon: same sentence
+    #
+    # Without a deadline it is one line with the globe, and without an
+    # address the deadline stands on its own without a dangling "via".
+    samen = bool(content.deadline_text and content.website)
     if content.deadline_text:
         rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": content.deadline_text, "size": BAND_TEXT, "colour": pal["accent"]})
+                     "text": f"{content.deadline_text} via" if samen else content.deadline_text,
+                     "size": BAND_TEXT, "colour": pal["accent"]})
     if content.website:
-        rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
-                     # Without a deadline above it, this row has to say what
-                     # it is for itself.
-                     "text": content.website if content.deadline_text else f"Inschrijven via {content.website}",
+        rows.append({"id": "t-website", "icon": "" if samen else "globe",
+                     "bg": pal["accent3"], "fg": pal["white"],
+                     "text": content.website if samen else f"Inschrijven via {content.website}",
                      "size": BAND_TEXT, "colour": pal["accent"]})
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.

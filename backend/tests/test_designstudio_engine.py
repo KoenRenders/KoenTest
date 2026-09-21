@@ -650,18 +650,27 @@ def test_registering_closes_the_band_in_the_accent_colour():
     svg = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
                                 contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
                        layout="print_a").svg
-    assert ">Inschrijven tot en met 8 november</text>" in svg
+    # One sentence over two lines: the first ends on "via", the second is
+    # the address and carries no icon of its own.
+    assert ">Inschrijven tot en met 8 november via</text>" in svg
+    assert ">www.raakmillegem.be</text>" in svg
     for rij in ("t-deadline", "t-website"):
         assert re.search(rf'id="{rij}"[^>]*fill="{pal["accent"]}"', svg), rij
     y = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
          for rij in ("t-contact-0", "t-deadline", "t-website")}
     assert y["t-contact-0"] < y["t-deadline"] < y["t-website"]
 
-    # No shared deadline (it differs per component): the address says what it
-    # is for on its own.
+    # No shared deadline (it differs per component): one line with the globe,
+    # saying what it is for on its own.
     alone = render.merge(_content(contacts=()), layout="print_a").svg
     assert "t-deadline" not in alone
     assert ">Inschrijven via www.raakmillegem.be</text>" in alone
+
+    # And no address to follow it: no dangling "via".
+    losse_datum = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
+                                        website=""), layout="print_a").svg
+    assert ">Inschrijven tot en met 8 november</text>" in losse_datum
+    assert "via</text>" not in losse_datum
 
 
 def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
