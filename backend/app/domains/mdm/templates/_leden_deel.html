@@ -1,0 +1,33 @@
+{% import "_macros.html" as ui %}
+{% import "_leden_kaarten.html" as kaart with context %}
+{# The answer to one partial action on the family screen (#1111): only the
+   card(s) the action changed, in the place of the card that posted
+   (`outerHTML`), plus what must change elsewhere on the screen — out-of-band.
+
+   `kaarten` is the list the route asks for, in order; `persoon:<id>` renders one
+   person card. An empty list is a valid answer: a deleted person's card is
+   replaced by nothing. `oob_bestuurslid` re-renders the board-member card
+   out-of-band, because its list names every person. `oob_kop` and
+   `toast_opgeslagen` are the same signals `_leden_detail.html` carries. #}
+{% for naam in kaarten %}
+  {% if naam == "adres" %}{{ kaart.adres_card() }}
+  {% elif naam == "toevoegen" %}{{ kaart.toevoegen_card() }}
+  {% elif naam == "bestuurslid" %}{{ kaart.bestuurslid_card() }}
+  {% elif naam == "lidmaatschappen" %}{{ kaart.lidmaatschappen_card() }}
+  {% elif naam.startswith("persoon:") %}
+    {% set pid = naam.split(":")[1] | int %}
+    {% for m in family.members if m.id == pid %}{{ kaart.persoon_card(m, hoofdlid is not none and m.id == hoofdlid.id) }}{% endfor %}
+  {% endif %}
+{% endfor %}
+
+{% if oob_bestuurslid|default(false) %}{{ kaart.bestuurslid_card(oob=True) }}{% endif %}
+
+{# #742: bevestiging na een geslaagde opslag (§2.9), alleen op het succespad. #}
+{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}
+
+{# De kop — naam en adres — staat buiten #leden-detail en reist oob mee (#748). #}
+{% if oob_kop|default(false) %}
+<div id="gezin-recordkop" hx-swap-oob="true">
+  {% include "_leden_recordkop.html" %}
+</div>
+{% endif %}

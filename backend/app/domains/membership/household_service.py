@@ -383,7 +383,29 @@ def update_person_address(
         raise HTTPException(status_code=404, detail=_("Person not found"))
     address = person.address
     if not address:
-        raise HTTPException(status_code=404, detail=_("Address not found"))
+        # #1111: a household created in the back office has no address row —
+        # `create_member` never makes one — so "update" refused every first
+        # address with 404 "Address not found", and the screen showed the
+        # generic banner. Saving an address on a household without one means
+        # creating it; the three required parts must all be there.
+        if not (data.street and data.house_number and data.postal_code):
+            raise HTTPException(
+                status_code=422,
+                detail=_("Straat, huisnummer en postcode zijn verplicht."))
+        pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
+        if not pc:
+            raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
+        address = Address(person_id=person.id, street=data.street,
+                          house_number=data.house_number,
+                          bus_number=data.bus_number or None, postal_code_id=pc.id)
+        db.add(address)
+        db.flush()
+        snapshot_address(db, address, operation="insert", action="address_created",
+                         source="admin_manual", actor=admin.email)
+        db.commit()
+        db.refresh(person)
+        mp = next((mp for mp in person.member_persons), None)
+        return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
     if data.postal_code is not None:
         pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
         if not pc:

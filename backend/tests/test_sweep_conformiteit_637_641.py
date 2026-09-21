@@ -22,7 +22,10 @@ def test_adres_bewerken_houdt_zijn_knop_tijdens_het_bewerken():
     telt is dat de adressectie beide standen kent — "Bewerken" en "Annuleren" —
     zoals de personenlijst in hetzelfde bestand al deed.
     """
-    tekst = (APP / "domains" / "mdm" / "templates" / "_leden_detail.html").read_text()
+    # #1111: de kaarten van het gezinsscherm zijn macro's geworden
+    # (`_leden_kaarten.html`), zodat een deelactie alleen haar eigen kaart
+    # vervangt. De adressectie staat daar; `_leden_detail.html` roept haar aan.
+    tekst = (APP / "domains" / "mdm" / "templates" / "_leden_kaarten.html").read_text()
     adresblok = tekst.split('/adres"')[0].rsplit("{# Adres", 1)[-1]
 
     assert "ui.edit_toggle" in adresblok, "de adressectie gebruikt de kit-toggle niet"
