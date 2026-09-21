@@ -57,11 +57,11 @@ def data_uri(image: ImageBytes) -> str:
 
 
 #: How much wider than its own proportions a box may be before the picture
-#: is shown whole instead of cropped. The hero gets a roomier one: it is a
-#: photo of the activity and a wide strip of it still reads, while a square
-#: drawing on white cut in half does not (Koen, 20 and 21 September 2026).
+#: is shown whole instead of cropped. Tried at 2.6 for the hero on
+#: 21 September 2026 so the text could take more room; Koen, on the result:
+#: "de visualisatie van de foto is echt niet OK". A hero cropped to a band
+#: reads as a mistake, so one value for every picture again.
 CROP_TOLERANCE = 1.6
-HERO_CROP_TOLERANCE = 2.6
 
 
 def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0,
@@ -136,6 +136,18 @@ ICON_S = 19
 #: how the feed image ended up with a line of 6 mm text under a picture that
 #: had taken everything (Koen, 21 September 2026).
 BLOCK_GAP = 6.0
+
+#: Every row in the band is set in one size, the smallest of the four that
+#: used to be there (deadline 6.6, website and e-mail 6.2, a contact 5.6).
+#: Koen, 21 September 2026: "is de lettergrootte van alles onder 'Meer info
+#: en inschrijven' dezelfde? Dat zou wel de bedoeling moeten zijn." They are
+#: one list of ways to reach us, so nothing in it outranks the rest.
+BAND_TEXT = 5.6
+#: And with a little more air between them, now that they are smaller. The
+#: last row drops one millimetre further still, so the block does not end
+#: flush against the bottom of the band ("je kan misschien de onderste regel
+#: ook nog een milimeter laten zakken").
+BAND_ROW_STEP = 7.2
 
 QR_MM = 26.0
 QR_BOX = QR_MM + 2
@@ -219,16 +231,16 @@ def full_bleed_floor(image: ImageBytes, box_w: float, cap: float, floor: float) 
     """The shortest box in which this picture still fills the width.
 
     Below it, :func:`aspect_for` stops cropping and shows the picture whole,
-    so it sits letterboxed in a band of white — which reads as a mistake on
-    a hero image. Giving the text room by taking it from the picture is fine
-    until exactly that point, and no further (Koen, 21 September 2026).
+    so it sits letterboxed in a band of white — "de visualisatie van de foto
+    is echt niet OK" (Koen, 21 September 2026). The hero is never given a
+    height under this one; the text gives way instead.
 
     A picture too tall to fill the width inside ``cap`` (a portrait photo in
-    a wide box) is letterboxed whatever we do; it keeps the plain floor.
+    a wide box) is letterboxed whatever we do, and keeps the plain floor.
     """
     if not (image.width and image.height):
         return floor
-    edge = box_w / (HERO_CROP_TOLERANCE * (image.width / image.height))
+    edge = box_w / (CROP_TOLERANCE * (image.width / image.height))
     return max(floor, edge) if edge <= cap else floor
 
 
@@ -254,7 +266,7 @@ def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float
     out = (f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
            f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
-           f'preserveAspectRatio="{aspect_for(image, w, h, HERO_CROP_TOLERANCE)}" '
+           f'preserveAspectRatio="{aspect_for(image, w, h)}" '
            f'mask="url(#{mask_id})" href="{data_uri(image)}"/>')
     return out, y + h
 
@@ -341,7 +353,7 @@ def tagline_block(plan: Plan, text: str, x_right: float, y: float, w: float) -> 
 
 
 def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: float, size: float,
-                   *, boxed: bool = False, heading: str = "") -> tuple[str, float]:
+                   *, boxed: bool = False, heading: str = "", trailing: float = 5.0) -> tuple[str, float]:
     pal = plan.pal
     pad = 4 if boxed else 0
     inner_w = w - 2 * pad
@@ -358,7 +370,7 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
                               fill=pal["ink"], element_id=eid)
     plan.boxes[eid] = inner_w
     out.append(frag)
-    return "".join(out), y + h + 5
+    return "".join(out), y + h + trailing
 
 
 def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float) -> str:
@@ -391,10 +403,17 @@ def fit_richtext_size(source: str, w: float, available: float, *, max_size: floa
     Koen, 20 September 2026: his Bowlen poster was "vrij leeg" — the text sat
     at its smallest size under a picture that no longer filled the page. The
     body now grows into the room that is left, down to ``min_size`` when
-    there is more text than room (the planner reports that as overflow)."""
+    there is more text than room (the planner reports that as overflow).
+
+    It measures the text itself, not the reserved block around it. Measuring
+    the block cost a size step of head-room that nobody could see and that
+    the reader would rather have as ink — "gewoon de ruimte onderaan meer
+    benutten, bvb. door de fontsize 1 of 2 pixels te doen groeien"
+    (21 September 2026).
+    """
     size = max_size
     while size > min_size:
-        if _richtext_height(source, w, size) <= available:
+        if richtext.text_height(source, width=w, size=size) <= available:
             return round(size, 1)
         size -= 0.2
     return min_size
@@ -511,24 +530,24 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # above the address it points at. White like the rows under it — its
         # accent-coloured ticket icon carries the emphasis (Koen, 20 Sep, second look).
         rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": content.deadline_text, "size": 6.6, "colour": pal["white"]})
+                     "text": content.deadline_text, "size": BAND_TEXT, "colour": pal["white"]})
     rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
-                 "text": content.website, "size": 6.2, "colour": pal["white"]})
+                 "text": content.website, "size": BAND_TEXT, "colour": pal["white"]})
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
             rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
                          "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
-                         "size": 5.6, "colour": pal["white"]})
+                         "size": BAND_TEXT, "colour": pal["white"]})
     else:
         if content.email:
             rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
-                         "text": content.email, "size": 6.2, "colour": pal["white"]})
+                         "text": content.email, "size": BAND_TEXT, "colour": pal["white"]})
         if content.association_mobile:
             rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": content.association_mobile, "size": 6.2, "colour": pal["white"]})
+                         "text": content.association_mobile, "size": BAND_TEXT, "colour": pal["white"]})
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.
-    band_h: float = max(20 + 6.5 * len(rows), QR_BLOCK + 2)
+    band_h: float = max(20 + BAND_ROW_STEP * len(rows), QR_BLOCK + 2)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
     lockup_w = 66.0
@@ -554,11 +573,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     row_w = qr_left - text_left - 4
     for row in rows:
         # A long row shrinks a little rather than overflow.
+        # Only a row too long for its width drops below the one size.
         row["size"] = fit_size(str(row["text"]), row_w, float(row["size"]), 4.4, bold=False)  # type: ignore[arg-type]
         p.boxes[str(row["id"])] = row_w
     p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
               "icon_x": col_x, "text_x": text_left,
+              "row_step": BAND_ROW_STEP,
               "qr_x": qr_left, "qr_y": band_y + (band_h - QR_BLOCK) / 2, "qr_caption": "Scan voor meer info",
               "qr_box": QR_BOX, "qr_mm": QR_MM,
               "row_y": band_y + 2}
@@ -586,14 +607,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         feed = layout == "feed_portrait"
         if feed and content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
-        hero_cap, hero_floor, polaroid_w = (170.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
-        # Three sizes, and the middle one is what keeps the sheet full. The
-        # picture may take everything the text does not need *at the
-        # comfortable size*; whatever the picture then leaves, the text grows
-        # into, up to the maximum. Koen, 21 September 2026: "kan je iets
-        # voorzien zodat de ruimte maximaal bezet wordt? Nu heb ik de indruk
-        # dat de tekst te klein is en er veel witte ruimte is."
-        comfort_text, min_text, max_text = (8.5, 5.5, 13.0) if feed else (7.2, 7.2, 11.0)
+        hero_cap, hero_floor, polaroid_w = (120.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
+        # The picture takes its own share first and the text fills what is
+        # left. Round 20 turned that around — the text was promised a
+        # comfortable size and the picture paid for it — and the picture
+        # ended up a band. Koen, 21 September 2026: "de tekst moest niet
+        # zoveel groter, gewoon de ruimte onderaan meer benutten".
+        min_text, max_text = (5.5, 10.0) if feed else (7.2, 11.0)
         y = top_y - 4
         # When and where above the picture, in the same icon rows the other
         # presets use — date left, place right (Koen, 20 September 2026).
@@ -601,23 +621,17 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if top_rows:
             y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
                                        y, ((lx, lw), (rx, rw))) + 3
-        # Everything between the fact rows and the welcome badge, to be
-        # shared by the picture and the text.
-        space = left_limit - y - 2 * BLOCK_GAP - (10 if content.inset_image else 0)
-        comfort_h = _richtext_height(content.explanation_md, full_w, comfort_text) if content.explanation_md else 0.0
+        # What the text needs at its smallest, so the picture cannot take the
+        # whole column.
         min_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
         if content.main_image:
             hero_top = y
-            # The picture stays full width down to the point where it would
-            # be shown whole instead of cropped, and gives up the rest to the
-            # text. Only when even the smallest text no longer fits beside it
-            # does it let itself be letterboxed — better a picture with white
-            # beside it than a paragraph nobody can read.
-            edge = full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor)
             frag, y = main_image_block(
                 p, content.main_image, lx, y, full_w,
-                hero_height(content.main_image, full_w, space - comfort_h, cap=hero_cap,
-                            floor=edge if space - edge >= min_h else hero_floor))
+                hero_height(content.main_image, full_w,
+                            left_limit - y - min_h - 2 * BLOCK_GAP - (10 if content.inset_image else 0),
+                            cap=hero_cap,
+                            floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor)))
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, in the chosen corner;
@@ -628,9 +642,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 y = bottom
             y += BLOCK_GAP
         if content.explanation_md:
-            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - BLOCK_GAP,
+            # The real room under the picture: the block starts 2 mm lower
+            # and must end before the welcome badge.
+            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 4,
                                           max_size=max_text, min_size=min_text)
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, text_size)
+            # Nothing follows this block but the welcome badge, which keeps
+            # its own margin, so it does not need a trailing gap of its own.
+            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w,
+                                     text_size, trailing=0.0)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
