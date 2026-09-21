@@ -288,6 +288,11 @@ def facts_for(db: Session, design: Design) -> dict:
         # whole activity, so it only carries a date when every component has the
         # same one; differing dates belong on the page, not on one printed line.
         "deadline": _shared_deadline(activity),
+        # Whether there is anything to register for at all: the public page
+        # builds its registration blocks from the components, so an activity
+        # without them has none. A poster may then print the address but not
+        # the word (Koen, 21 September 2026).
+        "registration": bool(activity.sub_registrations),
         # #1016: the public description — the poster's explanation unless the
         # design types its own (then the screen names the difference).
         "description": (activity.description or "").strip(),
@@ -389,6 +394,7 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         highlights=tuple(highlights),
         date_line=date_line, location=(facts["location"] or "").upper(),
         deadline_text=deadline_line(facts["deadline"]),
+        registration=bool(facts.get("registration", True)),
         # The heading covers what is under it, and what is under it is the
         # way to reach us. Registering has its own two lines at the foot of
         # the band, in the accent colour (Koen, 21 September 2026, after the
