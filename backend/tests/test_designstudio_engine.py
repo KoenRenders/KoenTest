@@ -298,6 +298,57 @@ def test_the_qr_is_big_enough_to_scan_and_stays_inside_the_band():
     assert plan.band["qr_y"] + QR_BLOCK <= plan.band["y"] + plan.band["h"]
 
 
+def _white_band(svg: str, text: str) -> tuple[float, float]:
+    """(size of the body text, millimetres of white between it and the
+    welcome badge) — the two numbers Koen reads off a feed image."""
+    m = re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"', svg)
+    top, size = float(m.group(1)), float(m.group(2))
+    bottom = top - size + richtext.text_height(text, width=259.0, size=size)
+    badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', svg).group(1))
+    return size, badge - bottom
+
+
+def test_the_feed_image_fills_the_square_instead_of_leaving_it_white():
+    """Koen, 21 September 2026: "kan je iets voorzien zodat de ruimte maximaal
+    bezet wordt? Nu heb ik de indruk dat de tekst te klein is en er veel witte
+    ruimte is."
+
+    The picture and the text share what is left between the fact rows and the
+    welcome badge. The text is promised a comfortable size, the picture takes
+    what remains up to its own proportions, and whatever the picture cannot
+    use the text grows into. So a short description gives a tall picture and a
+    long one a strip — but neither leaves a white band, and neither shrinks
+    the text to unreadable.
+
+    Broken on purpose to check this can go red: the picture's share computed
+    from the text at its *smallest* size again (`space - min_h`) → the long
+    text lands at 6.6 mm and the first assert fails.
+    """
+    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
+                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
+                  main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100))
+    short = "Kom mee bowlen met het hele gezin."
+    long = ("Raak Millegem gaat bowlen! Jong en oud zijn welkom! De deelnameprijs bedraagt 6 euro "
+            "voor één spel waarbij dit met 8 personen ongeveer 1,5 uur duurt.\n"
+            "Voor de kleinsten zijn er hulpmiddelen om toch strikes te kunnen gooien!\n"
+            "Nadien kan je aan een voordeliger tarief naar de binnenspeeltuin.")
+    heights = []
+    for text in (short, long):
+        merged = render.merge(_content(**simple, explanation_md=text), layout="feed_portrait")
+        size, white = _white_band(merged.svg, text)
+        assert size >= 7.2, f"tekst van {size} mm is te klein om te lezen"
+        # A dozen of those millimetres are the block's own breathing room,
+        # and a size step can add a whole wrapped line, so the bar is not
+        # zero — but on master the short text left 58 mm here.
+        assert white < 30, f"{white:.0f} mm wit tussen de tekst en de badge"
+        picture = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
+                            r'[^>]*preserveAspectRatio="([^"]+)"', merged.svg)
+        assert "slice" in picture.group(3), "de foto staat gebrievenbust in plaats van over de volle breedte"
+        heights.append(float(picture.group(2)))
+    # The short text leaves the picture more room; that is the whole trade.
+    assert heights[0] > heights[1] + 40
+
+
 def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
     """Koen, 19 September 2026: the e-mail address was missing and the
     contact line floated under the icons. One row per contact, left-aligned

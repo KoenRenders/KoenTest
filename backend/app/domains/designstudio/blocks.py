@@ -56,7 +56,16 @@ def data_uri(image: ImageBytes) -> str:
     return f"data:{image.mime};base64," + base64.b64encode(image.data).decode()
 
 
-def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0) -> str:
+#: How much wider than its own proportions a box may be before the picture
+#: is shown whole instead of cropped. The hero gets a roomier one: it is a
+#: photo of the activity and a wide strip of it still reads, while a square
+#: drawing on white cut in half does not (Koen, 20 and 21 September 2026).
+CROP_TOLERANCE = 1.6
+HERO_CROP_TOLERANCE = 2.6
+
+
+def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0,
+               tolerance: float = CROP_TOLERANCE) -> str:
     """Map the focal point to SVG's nine-point crop. When the box is much
     wider than the picture (an Instagram hero squeezed by the rest of the
     page), the picture is shown whole instead of cut in half — a drawing on
@@ -64,7 +73,7 @@ def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0) -> str
     fx = "Min" if image.focus_x < 1 / 3 else "Max" if image.focus_x > 2 / 3 else "Mid"
     fy = "Min" if image.focus_y < 1 / 3 else "Max" if image.focus_y > 2 / 3 else "Mid"
     if image.width and image.height and box_w and box_h:
-        if (box_w / box_h) > (image.width / image.height) * 1.6:
+        if (box_w / box_h) > (image.width / image.height) * tolerance:
             return "xMidYMid meet"
     return f"x{fx}Y{fy} slice"
 
@@ -121,6 +130,13 @@ ICON_S = 19
 #: caption under it. Koen, 20 September 2026: his phone could not read the
 #: 20 mm code off a computer screen. A QR is read at a distance proportional
 #: to its size, so the fix is millimetres.
+#: The air between two stacked blocks in a column. Reserved and spent
+#: through this one name: the picture's share is computed from what the text
+#: needs *including* these gaps, and reserving less than is spent is exactly
+#: how the feed image ended up with a line of 6 mm text under a picture that
+#: had taken everything (Koen, 21 September 2026).
+BLOCK_GAP = 6.0
+
 QR_MM = 26.0
 QR_BOX = QR_MM + 2
 QR_BLOCK = QR_BOX + 6
@@ -199,6 +215,23 @@ def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tup
     return "".join(out), y + 12
 
 
+def full_bleed_floor(image: ImageBytes, box_w: float, cap: float, floor: float) -> float:
+    """The shortest box in which this picture still fills the width.
+
+    Below it, :func:`aspect_for` stops cropping and shows the picture whole,
+    so it sits letterboxed in a band of white — which reads as a mistake on
+    a hero image. Giving the text room by taking it from the picture is fine
+    until exactly that point, and no further (Koen, 21 September 2026).
+
+    A picture too tall to fill the width inside ``cap`` (a portrait photo in
+    a wide box) is letterboxed whatever we do; it keeps the plain floor.
+    """
+    if not (image.width and image.height):
+        return floor
+    edge = box_w / (HERO_CROP_TOLERANCE * (image.width / image.height))
+    return max(floor, edge) if edge <= cap else floor
+
+
 def hero_height(image: ImageBytes, box_w: float, available: float, *, cap: float, floor: float) -> float:
     """The height the picture wants at this width, clamped to what is left.
 
@@ -220,7 +253,8 @@ def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float
     mask_id = "ragmask-main"
     out = (f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
            f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
-           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" preserveAspectRatio="{aspect_for(image, w, h)}" '
+           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+           f'preserveAspectRatio="{aspect_for(image, w, h, HERO_CROP_TOLERANCE)}" '
            f'mask="url(#{mask_id})" href="{data_uri(image)}"/>')
     return out, y + h
 
@@ -552,10 +586,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         feed = layout == "feed_portrait"
         if feed and content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
-        hero_cap, hero_floor, polaroid_w = (120.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
-        # A feed image is read on a phone, so its text may be smaller than a
-        # sheet you pin on a wall.
-        max_text, min_text = (9.0, 5.5) if feed else (11.0, 7.2)
+        hero_cap, hero_floor, polaroid_w = (170.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
+        # Three sizes, and the middle one is what keeps the sheet full. The
+        # picture may take everything the text does not need *at the
+        # comfortable size*; whatever the picture then leaves, the text grows
+        # into, up to the maximum. Koen, 21 September 2026: "kan je iets
+        # voorzien zodat de ruimte maximaal bezet wordt? Nu heb ik de indruk
+        # dat de tekst te klein is en er veel witte ruimte is."
+        comfort_text, min_text, max_text = (8.5, 5.5, 13.0) if feed else (7.2, 7.2, 11.0)
         y = top_y - 4
         # When and where above the picture, in the same icon rows the other
         # presets use — date left, place right (Koen, 20 September 2026).
@@ -563,14 +601,23 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if top_rows:
             y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
                                        y, ((lx, lw), (rx, rw))) + 3
-        text_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
-        below = text_h + 9 + (10 if content.inset_image else 0)
+        # Everything between the fact rows and the welcome badge, to be
+        # shared by the picture and the text.
+        space = left_limit - y - 2 * BLOCK_GAP - (10 if content.inset_image else 0)
+        comfort_h = _richtext_height(content.explanation_md, full_w, comfort_text) if content.explanation_md else 0.0
+        min_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
         if content.main_image:
-            avail = left_limit - y - below
             hero_top = y
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
-                                       hero_height(content.main_image, full_w, avail,
-                                                   cap=hero_cap, floor=hero_floor))
+            # The picture stays full width down to the point where it would
+            # be shown whole instead of cropped, and gives up the rest to the
+            # text. Only when even the smallest text no longer fits beside it
+            # does it let itself be letterboxed — better a picture with white
+            # beside it than a paragraph nobody can read.
+            edge = full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor)
+            frag, y = main_image_block(
+                p, content.main_image, lx, y, full_w,
+                hero_height(content.main_image, full_w, space - comfort_h, cap=hero_cap,
+                            floor=edge if space - edge >= min_h else hero_floor))
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, in the chosen corner;
@@ -579,9 +626,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                                            content.inset_corner, polaroid_w)
                 p.full += frag
                 y = bottom
-            y += 6
+            y += BLOCK_GAP
         if content.explanation_md:
-            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 6,
+            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - BLOCK_GAP,
                                           max_size=max_text, min_size=min_text)
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, text_size)
             p.full += frag
