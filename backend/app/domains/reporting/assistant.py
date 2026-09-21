@@ -110,25 +110,24 @@ _TOKEN = re.compile(r"\b(gezin|persoon)-(\d+)\b")
 _LABEL_SQL = {
     "gezin": ("SELECT member_id, head_name FROM reporting.d_member "
               "WHERE tenant_id = :tenant AND member_id = ANY(:ids)"),
-    # `persoon` kent MEER dan één bron, en dat is geen slordigheid maar een gevolg
-    # van hoe dit universum met namen omgaat: `d_person` draagt er bewust geen —
-    # een persoonsdimensie zonder naam is de privacyveilige vorm — dus een naam
-    # staat alleen in de weergaven waar een doel hem rechtvaardigde. Tot #1077 was
-    # dat alleen het bestuurslid, en een token voor wie géén bestuurslid is bleef
-    # daardoor als `persoon-90` in het antwoord staan. Dat was een bestaande klacht
-    # van Koen, en #1077 zou ze talrijker gemaakt hebben in plaats van kleiner.
+    # Sinds #1132 ÉÉN bron. Dit was een groeiende samenvoeging: `d_person` droeg
+    # bewust geen naam, dus een naam stond alleen in de weergaven waar een rol hem
+    # rechtvaardigde — bestuurslid, en sinds #1077 organisator. Elke nieuwe rol was
+    # een tak erbij, en wie géén van die rollen had, bleef als `persoon-90` in het
+    # antwoord staan. Dat was een klacht van Koen.
     #
-    # Eén bron zou beter zijn: een naamkolom op `d_person`. Dat is hier NIET gedaan
-    # omdat het de persoonsdimensie namen zou laten dragen voor élke lezer van de
-    # rapportering, en dat is een privacykeuze en geen opruimwerk. Komt die kolom
-    # er, dan vervangt ze deze UNION.
-    "persoon": ("SELECT DISTINCT board_member_id, board_member_name "
-                "FROM reporting.d_board_member "
-                "WHERE tenant_id = :tenant AND board_member_id = ANY(:ids) "
-                "UNION "
-                "SELECT DISTINCT person_id, organiser_name "
-                "FROM reporting.d_activity_organiser "
-                "WHERE tenant_id = :tenant AND person_id = ANY(:ids)"),
+    # Koen besliste op 21 september 2026 dat de namen in de views mogen staan zolang
+    # ze niet naar het model gaan, en daarmee vervalt de reden voor de samenvoeging.
+    #
+    # **Wat deze ene bron NIET dekt**, en dat hoort hier te staan: `d_person` sluit
+    # samengevoegde personen uit (`superseded_by_id IS NULL`), `d_board_member` doet
+    # dat niet, en een merge legt `members.board_member_id` niet om. Een samengevoegd
+    # bestuurslid loste vóór #1132 dus wél op en nu niet meer. Dat is één randgeval
+    # tegenover iedereen die er nu bij komt; de duurzame oplossing is het omleggen
+    # van verwijzingen bij een merge, niet een tweede tak hier.
+    "persoon": ("SELECT person_id, person_name FROM reporting.d_person "
+                "WHERE tenant_id = :tenant AND person_id = ANY(:ids) "
+                "AND person_name <> ''"),
 }
 
 
@@ -202,6 +201,19 @@ def detokenise(db: Session, text: str, *, tenant_id: int) -> str:
     return _TOKEN.sub(vervang, text)
 
 
+# De namen waar de naadwachter op scant. De gezinsnamen blijven: een naam kan
+# `gezin-23` betekenen én `persoon-90`, en welk van de twee het model moet zien
+# hangt af van waar de naam staat — `scrub_question` kiest de langste match.
+#
+# De personenbron is sinds #1132 `d_person` in plaats van de bestuursleden.
+#
+# **Wat dat wel en niet oplevert, gemeten.** Het is GEEN nieuwe privacygrens: de
+# blokkerende naadwachter (`chatbot/seam.py`) krijgt zijn namen van
+# `mdm.person_name_parts`, dat élke persoon leest — die dekte iedereen al. Wat dit
+# wint is bruikbaarheid: typte je vroeger de naam van iemand die geen bestuurslid
+# of organisator was, dan liet deze lijst hem staan, en blokkeerde de wachter de
+# oproep. De naam lekte niet; de vraag mislukte. Nu wordt hij `persoon-90` en komt
+# er een antwoord.
 _NAME_SQL = (
     "SELECT 'gezin', member_id, head_name FROM reporting.d_member "
     "WHERE tenant_id = :tenant AND head_name <> '' "
@@ -209,8 +221,8 @@ _NAME_SQL = (
     "SELECT 'gezin', member_id, partner_name FROM reporting.d_member "
     "WHERE tenant_id = :tenant AND partner_name <> '' "
     "UNION ALL "
-    "SELECT 'persoon', board_member_id, board_member_name "
-    "FROM reporting.d_board_member WHERE tenant_id = :tenant"
+    "SELECT 'persoon', person_id, person_name FROM reporting.d_person "
+    "WHERE tenant_id = :tenant AND person_name <> ''"
 )
 
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
@@ -253,6 +265,19 @@ def scrub_question(db: Session, text: str, *, tenant_id: int) -> str:
 
     Longest match first, so "Jan Peeters" resolves as a person before "Peeters"
     resolves as a family.
+
+    **Eén gezin wint van de personen erin (#1132).** Sinds de namenlijst uit
+    `d_person` komt, betekent élke achternaam minstens twee dingen: het gezin én de
+    persoon die erin zit. Zonder deze regel viel dus ook "Stopt het gezin Peeters
+    dit jaar?" terug op `[naam]` — en precies die vraag moest het model op
+    `gezin-23` kunnen filteren. Gemeten toen de namenlijst verbreed werd: twee
+    bestaande tests vielen om, allebei op een gezin dat er maar één was.
+
+    Wijst een naam naar precies één GEZIN, dan is dat het token, hoeveel personen
+    er ook in dat gezin dezelfde naam dragen. Wijzen er twee gezinnen naar, dan
+    blijft het `[naam]`: dát is de echte dubbelzinnigheid, en die bestond al.
+    De privacykant verandert hier niets aan — de naam vertrekt in geen van beide
+    gevallen.
     """
     if not text:
         return text
@@ -268,11 +293,20 @@ def scrub_question(db: Session, text: str, *, tenant_id: int) -> str:
     )
     resultaat = text
     for naam in kandidaten:
-        tokens = index[naam]
-        vervanging = next(iter(tokens)) if len(tokens) == 1 else AMBIGUOUS
+        vervanging = _token_voor(index[naam])
         resultaat = re.sub(rf"\b{re.escape(naam)}\b", vervanging, resultaat,
                            flags=re.IGNORECASE)
     return resultaat
+
+
+def _token_voor(tokens: set[str]) -> str:
+    """Welk token een naam vervangt — of `[naam]` als er niet één aan te wijzen is."""
+    if len(tokens) == 1:
+        return next(iter(tokens))
+    gezinnen = {t for t in tokens if t.startswith("gezin-")}
+    if len(gezinnen) == 1:
+        return next(iter(gezinnen))
+    return AMBIGUOUS
 
 
 def _detokenise_filter_values(values: list[str]) -> tuple[list[str], str]:
