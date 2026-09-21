@@ -373,8 +373,21 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
     return "".join(out), y + h + trailing
 
 
+#: Height of the box a sponsor logo is fitted into; it may be twice as wide.
+#: Was 16 mm, which left a logo with a tagline under it — MONA's, on Koen's
+#: Bowlen poster — too small to read: "kan dat een klein beetje groter worden
+#: gemaakt (niet hoger, niet rechtser, dus een beetje meer uitrekken naar
+#: links en naar onder, bvb. 20%)?" (21 September 2026).
+LOGO_H = 19.2
+
+
 def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float) -> str:
-    """Sponsor logos, right-aligned, each at most 2:1 wide."""
+    """Sponsor logos, right-aligned, each at most 2:1 wide.
+
+    Right edge fixed (``xMax``) and centred in its box (``YMid``): a taller
+    box therefore grows to the left and a little downwards, which is what
+    Koen asked for — not higher, not further right.
+    """
     out = []
     x = x_right
     for i, logo in enumerate(logos[:2]):
@@ -611,7 +624,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     y: float
     if content.logos:
         limit -= 22
-        p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, 16)
+        p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, LOGO_H)
 
     if content.preset == "eenvoudig":
         # Koen, 19 September 2026 (evening): one big picture, then the
