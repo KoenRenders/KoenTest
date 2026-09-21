@@ -117,6 +117,9 @@ class DesignEditorView(ViewModel):
     # typed its own; `explanation_is_own` says which one the field shows.
     explanation_md: str
     explanation_is_own: bool
+    #: The activity's own description, shown as a hint in the empty field so
+    #: it is clear what the poster prints when nothing is typed (#1007).
+    explanation_hint: str
     highlights: list[HighlightRow]
     icon_options: list[tuple[str, str]]
 

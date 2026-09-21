@@ -9,6 +9,7 @@ PNG and SVG, the SVG cleaned by media's one allowlist).
 """
 from __future__ import annotations
 
+import re
 import shutil
 from datetime import date, time
 from decimal import Decimal
@@ -430,6 +431,44 @@ def test_omschrijving_anders_stores_nothing_when_it_equals_the_activity_descript
     form["explanation_md"] = ""
     save_design(db_session, design, form, highlights=[], logo_ids=[])
     assert design.explanation_md is None
+
+
+def test_an_emptied_description_field_stays_empty_on_the_screen(client, db_session, design, activity):
+    """Koen, 21 September 2026: "ik maakte Omschrijving anders leeg en drukte
+    op Bewaren en voorbeeld vernieuwen. De Omschrijving anders is niet leeg."
+
+    It was not a save that failed: the field used to be filled with the
+    activity's description whenever nothing of its own was stored, so
+    emptying it put that text straight back and the screen looked unchanged.
+    The activity's text is a hint in the empty field now, so what the poster
+    prints is still visible while the field itself says what it holds.
+
+    Broken on purpose to check this can go red: the view-model back on
+    `design.explanation_md or facts["description"]` → the textarea carries
+    the activity's text as its value again and the second assert fails.
+    """
+    from app.domains.auth.api import csrf_token_for
+
+    activity.description = "Samen bowlen met het hele gezin."
+    design.explanation_md = "Een eigen tekst voor op de affiche."
+    db_session.flush()
+    db_session.commit()
+
+    sess = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, sess)
+    data = {"duo_code": design.duo_code, "preset": design.preset, "layout": "print_a",
+            "explanation_md": ""}
+    page = client.post(f"/admin/ontwerpen/{design.id}", data=data,
+                       headers={"X-CSRF-Token": csrf_token_for(sess)})
+    assert page.status_code == 200
+    field = re.search(r'<textarea[^>]*name="explanation_md"[^>]*>(.*?)</textarea>', page.text, re.S)
+    assert field is not None and field.group(1).strip() == ""
+    # The activity's description is still in sight, as a hint, and still on
+    # the poster.
+    assert "Samen bowlen met het hele gezin." in page.text
+    db_session.refresh(design)
+    assert design.explanation_md is None
+    assert content_for(db_session, design).explanation_md == "Samen bowlen met het hele gezin."
 
 
 def test_members_only_reaches_the_poster(db_session, design, activity):
