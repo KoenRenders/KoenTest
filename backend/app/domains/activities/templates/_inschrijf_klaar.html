@@ -15,3 +15,18 @@
 {{ ui.success_banner("✅ Bedankt, " ~ naam ~ "! Je inschrijving is ontvangen. Je krijgt een bevestiging per e-mail.") }}
 {% endif %}
 </div>
+{% if not checkout %}
+{# #1159: "Wie doet er mee?" staat op de kaart en dus BUITEN het doel van dit
+   formulier (`closest .inschrijf-card`). Zonder dit blok toont die lijst na een
+   gratis inschrijving nog de stand van vóór jouw inschrijving. Zelfde vorm als
+   §8.4: wat buiten het doel staat, reist out-of-band mee.
+
+   `innerHTML:` en niet de hele div: de omhullende draagt `x-show="open"`,
+   `x-cloak` en een inline `style` die htmx' settle anders wist (#737, §2.9b).
+   Zo blijft het open/dicht-gedrag van Alpine ongemoeid en verandert alleen de
+   inhoud — ook wanneer het paneel dicht staat en de bezoeker de lijst nog nooit
+   opende. #}
+<div hx-swap-oob="innerHTML:#deelnemers-{{ activity_id }}-{{ component_id }}">
+  {% include "_deelnemers.html" %}
+</div>
+{% endif %}
