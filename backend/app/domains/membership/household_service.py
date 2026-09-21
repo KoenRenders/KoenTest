@@ -185,6 +185,154 @@ def create_member(db: Session, data: MemberCreate, admin=None):
     db.refresh(member)
     return member
 
+
+def create_family_with_members(db: Session, data, *, actor: str, source: str,
+                               membership_active: bool = False,
+                               today: Optional[date] = None) -> tuple[Member, Membership]:
+    """Een gezin met al zijn personen, het adres, de contactgegevens en het
+    lidmaatschap — in één keer, in één transactie (#1110).
+
+    Dit is de **ene** schrijfweg voor "maak een gezin aan". Ze stond in
+    `register_router.register_family`, verweven met de publieke dedup, de betaling
+    en de bevestigingsmail; de beheerkant schreef daardoor haar eigen, kortere
+    versie (`create_member`: gezin + hoofdlid, meer niet) en vulde de rest met drie
+    extra opslag-acties aan. Twee wegen naar hetzelfde feit, met verschillende
+    regels — dat is precies de duplicatie die `CLAUDE.md` verbiedt.
+
+    Wat per ingang verschilt, staat hier als parameter en niet als een tweede
+    functie: **wie** het doet (``actor``/``source`` in de auditregels) en of het
+    lidmaatschap meteen actief is (publiek niet — dat volgt op de betaling; in de
+    beheerkant wél, want daar is geen betaling). Wat NIET hier hoort, blijft bij
+    de publieke ingang: de dedup op het hoofdlid-e-mailadres (die gaat over een
+    dubbele betaling), de betaling zelf en de bevestigingsmail.
+
+    **Deze functie commit niet.** De publieke ingang hangt er nog een betaling aan
+    vóór ze de transactie sluit; de beheerkant commit meteen. De transactiegrens
+    ligt dus bij de aanroeper — en dat is precies wat "één opslaan-actie" betekent:
+    faalt er iets halverwege, dan is er niets bewaard.
+
+    De regels die hier wél staan gelden voor élke ingang: een bestaande postcode,
+    en geboortedatum + geslacht voor élk lid (#681). Het adres hangt aan het
+    hoofdlid (= het gezinsadres, #125).
+
+    Geeft het gezin én zijn lidmaatschap terug: de publieke ingang hangt haar
+    betaling aan dat lidmaatschap, en zonder die tweede waarde zou ze het meteen
+    weer moeten opzoeken.
+    """
+    from app.domains.audit.api import (snapshot_address, snapshot_contact_detail,
+                                       snapshot_member, snapshot_member_person,
+                                       snapshot_membership, snapshot_person)
+    from app.domains.payment.api import membership_valid_period
+
+    # Eén actie voor de hele handeling: er is één gezin geregistreerd. WIE het
+    # deed staat in `actor`/`source` — dat is het onderscheid, niet de naam van
+    # de handeling (#1110; vóór dit issue heette de beheerweg `member_created`).
+    ACTIE = "family_registered"
+    vandaag = today or date.today()
+
+    pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
+    if not pc:
+        raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
+
+    # Server-side, vóór er iets geschreven wordt: de client-`required` is enkel UX.
+    for lid in data.members:
+        try:
+            controleer_geboortedatum_en_geslacht(lid.date_of_birth,
+                                                 lid.resolved_gender_code)
+        except LidgegevensFout as fout:
+            raise HTTPException(status_code=422, detail=str(fout))
+
+    member = Member()
+    db.add(member)
+    db.flush()
+    snapshot_member(db, member, operation="insert", action=ACTIE, source=source,
+                    actor=actor)
+
+    for person_data in data.members:
+        person = Person(
+            last_name=person_data.last_name,
+            first_name=person_data.first_name,
+            date_of_birth=person_data.date_of_birth,
+            gender_code=person_data.resolved_gender_code,
+        )
+        db.add(person)
+        db.flush()
+        snapshot_person(db, person, operation="insert", action=ACTIE, source=source,
+                        actor=actor)
+
+        mp = MemberPerson(member_id=member.id, person_id=person.id,
+                          relation_type=person_data.relation_type)
+        db.add(mp)
+        db.flush()
+        snapshot_member_person(db, mp, operation="insert", action=ACTIE,
+                               source=source, actor=actor)
+
+        # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
+        if person_data.relation_type == "HOOFDLID":
+            address = Address(person_id=person.id, street=data.street,
+                              house_number=data.house_number,
+                              bus_number=data.bus_number or None,
+                              postal_code_id=pc.id)
+            db.add(address)
+            db.flush()
+            snapshot_address(db, address, operation="insert", action=ACTIE,
+                             source=source, actor=actor)
+
+        contacts = []
+        if person_data.phone:
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="PHONE",
+                                          value=person_data.phone, is_primary=True))
+        if person_data.mobile:
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="MOBILE",
+                                          value=person_data.mobile,
+                                          is_primary=not person_data.phone))
+        if person_data.email:
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
+                                          value=person_data.email, is_primary=True))
+        for contact in contacts:
+            db.add(contact)
+        if contacts:
+            db.flush()
+            for contact in contacts:
+                snapshot_contact_detail(db, contact, operation="insert", action=ACTIE,
+                                        source=source, actor=actor)
+
+    valid_from, valid_to = membership_valid_period(vandaag)
+    membership = Membership(member_id=member.id, year=vandaag.year,
+                            is_active=membership_active,
+                            valid_from=valid_from, valid_to=valid_to)
+    db.add(membership)
+    db.flush()
+    snapshot_membership(db, membership, operation="insert", action=ACTIE,
+                        source=source, actor=actor)
+    return member, membership
+
+
+def create_family_by_admin(db: Session, data, *, actor: str) -> Member:
+    """De beheerweg naar een nieuw gezin: één opslaan-actie, één transactie (#1110).
+
+    Dezelfde schrijfweg als de publieke registratie, met drie verschillen die er
+    echt zijn: de beheerder tekent de auditregels (#713), er hangt geen betaling
+    aan — dus het lidmaatschap is meteen actief — en er is geen dedup op het
+    e-mailadres, want die bestaat om een dubbele *betaling* te voorkomen.
+
+    De transactiegrens ligt hier en niet in het scherm: faalt er iets halverwege
+    — een ongeldig tweede gezinslid, een onbekende postcode — dan blijft er niets
+    half bewaard achter. Zonder dat zou het scherm een fout tonen terwijl het
+    gezin en het eerste lid er wél stonden.
+
+    Een SAVEPOINT (`begin_nested`) en geen kale `db.rollback()`: die laatste trekt
+    de héle sessie terug, dus ook wat de aanroeper er vóór deze handeling in
+    gezet had. Hier hoort alleen déze handeling ongedaan gemaakt te worden.
+    """
+    with db.begin_nested():
+        member, _membership = create_family_with_members(
+            db, data, actor=actor, source="admin_manual", membership_active=True)
+    db.commit()
+    db.refresh(member)
+    return member
+
+
 def list_families(
     db: Session,
     page: int = 1,

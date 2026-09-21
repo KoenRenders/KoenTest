@@ -76,24 +76,12 @@
   <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/adres"
         hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">
-    <div class="grid grid-cols-4 gap-3">
-      <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
-        {{ ui.input_control("street", id="street", value=family.street, required=True, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
-        {{ ui.input_control("house_number", id="house_number", value=family.house_number, required=True, cls="w-full") }}</div>
-      <div>{{ ui.label(_("Bus"), "bus_number") }}
-        {{ ui.input_control("bus_number", id="bus_number", value=family.bus_number or "", cls="w-full") }}</div>
-      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
-        {# #1111: een lege eerste optie. Zonder die toonde de lijst de eerste
-           postcode alsof dat de waarde van dit gezin was; een keuzelijst zonder
-           waarde hoort er leeg uit te zien. `required` houdt de submit tegen. #}
-        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
-          <option value="" {% if not family.postal_code %}selected{% endif %}>{{ _("— kies —") }}</option>
-          {% for pc in postal_codes %}
-          <option value="{{ pc.postal_code }}" {% if pc.postal_code == family.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
-          {% endfor %}
-        {% endcall %}</div>
-    </div>
+    {# De veldenset staat in `_leden_adres_velden.html` — het aanmaakscherm
+       vraagt hetzelfde adres (#1110). #}
+    {% with av = {"street": family.street, "house_number": family.house_number,
+                  "bus_number": family.bus_number, "postal_code": family.postal_code} %}
+      {% include "_leden_adres_velden.html" %}
+    {% endwith %}
   </form>
 </div>
 {% endmacro %}

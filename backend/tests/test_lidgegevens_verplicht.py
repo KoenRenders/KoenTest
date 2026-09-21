@@ -228,20 +228,23 @@ def test_nieuw_lid_scherm_vraagt_de_velden_en_dwingt_ze_af(client, db_session):
     kon komen terwijl élke andere ingang ze afdwingt. Koen koos ervoor de twee
     velden toe te voegen in plaats van de uitzondering te laten bestaan.
     """
+    from tests.conftest import nieuw_lid_velden
+
     csrf = _admin(client)
 
     scherm = client.get("/admin/leden/nieuw")
     assert scherm.status_code == 200
-    assert 'name="date_of_birth"' in scherm.text and 'name="gender_code"' in scherm.text
+    # #1110: één formulier met de gedeelde veldenset, dus m0_-namen.
+    assert 'name="m0_date_of_birth"' in scherm.text and 'name="m0_gender_code"' in scherm.text
 
-    velden = {"first_name": "Nieuw", "last_name": "Lid"}
-    zonder = client.post("/admin/leden", data=velden, headers={"X-CSRF-Token": csrf})
+    zonder = client.post("/admin/leden",
+                         data=nieuw_lid_velden(db_session, m0_date_of_birth=None,
+                                               m0_gender_code=None),
+                         headers={"X-CSRF-Token": csrf})
     assert zonder.status_code == 422, zonder.text
     assert not db_session.query(Person).filter(Person.first_name == "Nieuw").all()
 
-    met = client.post("/admin/leden",
-                      data={**velden, "date_of_birth": "1980-01-01",
-                            "gender_code": "M"},
+    met = client.post("/admin/leden", data=nieuw_lid_velden(db_session),
                       headers={"X-CSRF-Token": csrf})
     assert met.status_code == 204, met.text
     assert db_session.query(Person).filter(Person.first_name == "Nieuw").one()

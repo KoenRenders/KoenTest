@@ -194,6 +194,31 @@ def seed_postal_code(db, code="2400", municipality="Mol"):
     return pc
 
 
+def nieuw_lid_velden(db=None, **overrides) -> dict:
+    """De velden die het beheer-aanmaakscherm verstuurt (#1110).
+
+    Eén formulier met `m<i>_`-velden voor de personen plus het adres, en het
+    hoofdlid heeft e-mail en gsm nodig — dezelfde regel als publiek. Hier op één
+    plaats, zodat een volgende wijziging aan dat formulier niet in acht
+    testbestanden overgetypt moet worden. Geef `db` mee om de postcode te seeden.
+    """
+    if db is not None:
+        from app.domains.mdm.api import PostalCode
+
+        if db.query(PostalCode).filter(PostalCode.postal_code == "2400").first() is None:
+            seed_postal_code(db)
+    velden = {
+        "m0_first_name": "Nieuw", "m0_last_name": "Lid",
+        "m0_date_of_birth": "1980-01-01", "m0_gender_code": "M",
+        "m0_email": "nieuw@example.com", "m0_mobile": "0470000000",
+        "m0_relation_type": "HOOFDLID",
+        "street": "Nieuwstraat", "house_number": "7", "bus_number": "",
+        "postal_code": "2400",
+    }
+    velden.update(overrides)
+    return {k: v for k, v in velden.items() if v is not None}
+
+
 def seed_activity_with_product(db, price="10.00", is_free=False, max_participants=None):
     """Maak een activiteit met één onderdeel en één (betalend) product."""
     from datetime import date, timedelta

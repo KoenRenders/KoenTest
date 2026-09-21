@@ -17,8 +17,7 @@ problemen op één scherm:
 
 Wat hier bewezen wordt, in de volgorde van het issue:
 
-1. adres op een nieuw gezin: aanmaken via de backoffice, adres opslaan, en het
-   staat in de databank;
+1. adres op een gezin zonder adresrij: opslaan, en het staat in de databank;
 2. getypte tekst overleeft een andere deelactie — de serverkant ervan: het
    antwoord op "persoon toevoegen" bevat de adreskaart niet, dus htmx kan ze niet
    vervangen (de browserkant staat in `tests_e2e/test_gezinsscherm_tekst_overleeft.py`);
@@ -60,15 +59,19 @@ def _postcode(db) -> PostalCode:
     return pc
 
 
-def _nieuw_gezin(client, csrf) -> int:
-    """Een gezin zoals de backoffice het aanmaakt: naam, geboortedatum, geslacht —
-    en dus zonder adresrij."""
-    r = client.post("/admin/leden", data={"first_name": "Nieuw", "last_name": "Gezin",
-                                          "date_of_birth": "1980-01-01",
-                                          "gender_code": "M"},
-                    headers={"X-CSRF-Token": csrf})
-    assert r.status_code == 204, r.text
-    return int(r.headers["HX-Redirect"].rsplit("/", 1)[1])
+def _gezin_zonder_adres(db) -> int:
+    """Een gezin met een hoofdlid en **geen adresrij**.
+
+    Rechtstreeks opgebouwd en niet via het aanmaakscherm: sinds #1110 vraagt dat
+    scherm het adres meteen mee. Zo'n gezin bestaat nog volop — de ledenimport en
+    oudere records leveren er op — en het is precies de toestand waarin het adres
+    voor het eerst bewaard moet kunnen worden.
+    """
+    from tests.conftest import create_test_family
+
+    member, _persoon = create_test_family(db, email="gezin1111@example.com")
+    db.flush()
+    return member.id
 
 
 def _hoofdlid_id(db, family_id: int) -> int:
@@ -83,7 +86,7 @@ def _hoofdlid_id(db, family_id: int) -> int:
 def test_een_nieuw_gezin_krijgt_een_adres(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
     hoofdlid = _hoofdlid_id(db_session, gezin)
     assert db_session.query(Address).filter(Address.person_id == hoofdlid).first() is None, (
         "voorwaarde: het aangemaakte gezin heeft nog geen adresrij")
@@ -107,7 +110,7 @@ def test_een_adres_zonder_straat_op_een_nieuw_gezin_wordt_geweigerd(client, db_s
     """Aanmaken is geen reden om minder te eisen dan bewerken."""
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
     antwoord = client.post(f"/admin/leden/gezin/{gezin}/adres",
                            data={"street": "", "house_number": "7", "postal_code": "2400"},
                            headers={"X-CSRF-Token": csrf})
@@ -131,7 +134,7 @@ def _forms_met_doel(html: str) -> list[tuple[str, str, str]]:
 def test_elke_deelactie_richt_zich_op_haar_eigen_kaart(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
     client.post(f"/admin/leden/gezin/{gezin}/lidmaatschappen", data={"year": "2030"},
                 headers={"X-CSRF-Token": csrf})
     hoofdlid = _hoofdlid_id(db_session, gezin)
@@ -162,7 +165,7 @@ def test_persoon_toevoegen_raakt_de_adreskaart_niet(client, db_session):
     kan htmx niet vervangen."""
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
 
     antwoord = client.post(f"/admin/leden/gezin/{gezin}/personen",
                            data={"first_name": "Partner", "last_name": "Erbij",
@@ -183,7 +186,7 @@ def test_persoon_toevoegen_raakt_de_adreskaart_niet(client, db_session):
 def test_persoon_verwijderen_laat_de_kaart_verdwijnen(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
     client.post(f"/admin/leden/gezin/{gezin}/personen",
                 data={"first_name": "Weg", "last_name": "Ermee", "date_of_birth": "1985-05-05",
                       "gender_code": "F", "relation_type": "PARTNER"},
@@ -202,7 +205,7 @@ def test_persoon_verwijderen_laat_de_kaart_verdwijnen(client, db_session):
 def test_een_naamswijziging_reist_oob_naar_kop_en_bestuurslidlijst(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
     hoofdlid = _hoofdlid_id(db_session, gezin)
 
     antwoord = client.post(f"/admin/leden/gezin/{gezin}/persoon/{hoofdlid}",
@@ -230,7 +233,7 @@ def _postcode_opties(html: str) -> list[tuple[str, bool]]:
 def test_de_postcodelijst_toont_geen_waarde_zonder_adres(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
-    gezin = _nieuw_gezin(client, csrf)
+    gezin = _gezin_zonder_adres(db_session)
 
     opties = _postcode_opties(client.get(f"/admin/leden/gezin/{gezin}").text)
     assert opties[0] == ("", True), opties[:3]

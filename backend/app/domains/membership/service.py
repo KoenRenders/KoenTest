@@ -273,6 +273,31 @@ def membership_years(db) -> list[int]:
             .order_by(Membership.year.desc()).all() if jaar]
 
 
+def parse_member_rows(form) -> list[dict]:
+    """De `m<i>_`-velden van een gezinsformulier, als één rij per persoon.
+
+    Gedeeld door het publieke "Word lid" en het beheer-aanmaakscherm (#1110): twee
+    schermen met dezelfde veldnamen horen niet elk hun eigen ontleding te hebben.
+
+    Gat-bestendig (#456): een verwijderd gezinslid laat een gat in de nummering,
+    dus scan álle aanwezige indices in plaats van te stoppen bij het eerste
+    ontbrekende. Een rij zonder naam telt niet mee — dat is een lege rij die de
+    bezoeker openliet.
+    """
+    import re
+
+    indices = sorted({int(mo.group(1)) for k in form.keys()
+                      if (mo := re.match(r"m(\d+)_", str(k)))})
+    rijen: list[dict] = []
+    for index in indices:
+        rij = {k: (form.get(f"m{index}_{k}") or "").strip() for k in
+               ("first_name", "last_name", "date_of_birth", "gender_code",
+                "email", "phone", "mobile", "relation_type")}
+        if rij["first_name"] or rij["last_name"]:
+            rijen.append(rij)
+    return rijen
+
+
 # ── Verplichte lidgegevens (#681) ────────────────────────────────────────────
 
 class LidgegevensFout(ValueError):

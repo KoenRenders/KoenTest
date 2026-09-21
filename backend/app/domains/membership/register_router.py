@@ -17,7 +17,6 @@ from app.database import get_db
 from app.domains.membership.models import Membership
 from app.domains.mdm.api import Member, Person, MemberPerson
 from app.domains.mdm.api import PostalCode
-from app.domains.mdm.api import Address
 from app.domains.mdm.api import ContactDetail
 from app.domains.auth.api import User
 from app.domains.membership.schemas_member import (
@@ -41,18 +40,13 @@ from app.domains.membership.schemas_member import (
     BoardMemberAssign,
 )
 from app.domains.membership import household_service as _service
-from app.domains.membership.service import (LidgegevensFout,
-                                            controleer_geboortedatum_en_geslacht)
 from app.domains.membership.schemas_family import FamilyCreate
-from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
+from app.domains.payment.api import create_payment_record, membership_price_for_date
+# #1110: het schrijven van een gezin staat in household_service, dus de snapshots
+# daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
 from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
-    snapshot_person,
-    snapshot_member,
-    snapshot_member_person,
     snapshot_membership,
-    snapshot_address,
-    snapshot_contact_detail,
 )
 from app.soft_delete import soft_delete
 from app.domains.mail.api import send_registration_confirmation
@@ -316,21 +310,16 @@ def assign_board_member(
 
 @router.post("/families", status_code=201, response_model=FamilyRegisteredResponse, dependencies=[Depends(registration_limiter)])
 def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    """Public endpoint: register a new family (member household)."""
-    pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
-    if not pc:
-        raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
+    """Public endpoint: register a new family (member household).
 
-    # Betekenis-regel (#551, verruimd in #681): geboortedatum én geslacht zijn
-    # verplicht voor élk lid — het hoofdlid was uitgezonderd, en dat klopte niet
-    # met hoe Raak zijn ledenbestand voert. Server-side afgedwongen zodat de regel
-    # geldt ongeacht de caller; de client-`required` is enkel UX.
-    for m in data.members:
-        try:
-            controleer_geboortedatum_en_geslacht(m.date_of_birth, m.resolved_gender_code)
-        except LidgegevensFout as fout:
-            raise HTTPException(status_code=422, detail=str(fout))
-
+    Het schrijven zelf — gezin, personen, adres, contactgegevens, lidmaatschap —
+    staat sinds #1110 in `household_service.create_family_with_members`, want de
+    beheerkant maakt hetzelfde aan en deed dat met een eigen, kortere versie. Wat
+    hier blijft is wat álléén voor de publieke ingang geldt: de dedup op het
+    hoofdlid-e-mailadres, de betaling en de bevestigingsmail. De postcode- en
+    lidgegevensregels (#551/#681) gelden voor élke ingang en staan dus in die
+    functie.
+    """
     today = date.today()
 
     # Dedup: voorkom een dubbel lidmaatschap (en dus dubbele betaling) voor
@@ -369,70 +358,9 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
                                  "Neem contact op met het bestuur als dit niet klopt.") % {"year": today.year},
                     )
 
-    member = Member()
-    db.add(member)
-    db.flush()
-    snapshot_member(db, member, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
-
-    for person_data in data.members:
-        person = Person(
-            last_name=person_data.last_name,
-            first_name=person_data.first_name,
-            date_of_birth=person_data.date_of_birth,
-            gender_code=person_data.resolved_gender_code,
-        )
-        db.add(person)
-        db.flush()
-        snapshot_person(db, person, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
-
-        mp = MemberPerson(
-            member_id=member.id,
-            person_id=person.id,
-            relation_type=person_data.relation_type,
-        )
-        db.add(mp)
-        db.flush()
-        snapshot_member_person(db, mp, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
-
-        # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
-        if person_data.relation_type == "HOOFDLID":
-            address = Address(
-                person_id=person.id,
-                street=data.street,
-                house_number=data.house_number,
-                bus_number=data.bus_number or None,
-                postal_code_id=pc.id,
-            )
-            db.add(address)
-            db.flush()
-            snapshot_address(db, address, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
-
-        contacts = []
-        if person_data.phone:
-            contacts.append(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=person_data.phone, is_primary=True))
-        if person_data.mobile:
-            contacts.append(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=person_data.mobile, is_primary=not person_data.phone))
-        if person_data.email:
-            contacts.append(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
-        for contact in contacts:
-            db.add(contact)
-        if contacts:
-            db.flush()
-            for contact in contacts:
-                snapshot_contact_detail(db, contact, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
-
-    # Annual membership record
-    valid_from, valid_to = membership_valid_period(today)
-    membership = Membership(
-        member_id=member.id,
-        year=today.year,
-        is_active=False,
-        valid_from=valid_from,
-        valid_to=valid_to,
-    )
-    db.add(membership)
-    db.flush()
-    snapshot_membership(db, membership, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
+    member, membership = _service.create_family_with_members(
+        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today)
+    pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
 
     # Payment
     amount = membership_price_for_date(today)

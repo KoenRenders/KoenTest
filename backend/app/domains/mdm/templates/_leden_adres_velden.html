@@ -1,0 +1,29 @@
+{% import "_macros.html" as ui %}
+{# De adresvelden van een gezin, op één plaats (#1110).
+
+   Twee schermen vragen hetzelfde adres: de adreskaart van een bestaand gezin
+   (`_leden_kaarten.html`) en het aanmaakscherm (`leden_nieuw.html`). `av` is een
+   dict met de huidige waarden — uit het gezin bij het bewerken, uit het
+   ingediende formulier bij een foutpad — zodat één veldenset beide bedient,
+   zoals `_leden_persoon_velden.html` dat voor een persoon doet.
+
+   Vaste UI-beslissing: 4-koloms raster (straat over twee, huisnummer, bus op
+   dezelfde rij; postcode over de volle breedte) en de postcode is altijd een
+   keuzelijst uit de postcodetabel — nooit een vrij tekstveld. De lege eerste
+   optie hoort erbij (#1111): zonder die toont de lijst de eerste postcode alsof
+   dat de waarde van dit gezin was. #}
+<div class="grid grid-cols-4 gap-3">
+  <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
+    {{ ui.input_control("street", id="street", value=av.get("street") or "", required=True, cls="w-full") }}</div>
+  <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
+    {{ ui.input_control("house_number", id="house_number", value=av.get("house_number") or "", required=True, cls="w-full") }}</div>
+  <div>{{ ui.label(_("Bus"), "bus_number") }}
+    {{ ui.input_control("bus_number", id="bus_number", value=av.get("bus_number") or "", cls="w-full") }}</div>
+  <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
+    {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
+      <option value="" {% if not av.get("postal_code") %}selected{% endif %}>{{ _("— kies —") }}</option>
+      {% for pc in postal_codes %}
+      <option value="{{ pc.postal_code }}" {% if pc.postal_code == av.get("postal_code") %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
+      {% endfor %}
+    {% endcall %}</div>
+</div>
