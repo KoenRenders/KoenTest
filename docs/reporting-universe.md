@@ -44,6 +44,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 |---|---|---|
 | `d_date` | Datum | `date_key` |
 | `d_activity` | Activiteit | `activity_id` |
+| `d_activity_organiser` | Organisator | `organiser_id` |
 | `d_member` | Gezin | `member_id` |
 | `d_person` | Persoon | `person_id` |
 | `d_payment_method` | Betaalwijze | `code` |
@@ -95,6 +96,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_members` | `d_member_created` | `date_key` = `date_key` |
 | `f_members` | `d_member` | `member_id` = `member_id` |
 | `f_activities` | `d_activity` | `activity_id` = `activity_id` |
+| `f_activities` | `d_activity_organiser` | `activity_id` = `activity_id` |
 | `f_activities` | `d_activity_start` | `first_date` = `date_key` |
 | `f_activities` | `d_activity_end` | `last_date` = `date_key` |
 | `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
@@ -107,7 +109,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 84 |
+| `admin` | the default: what an admin screen already shows | 88 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 31 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
@@ -179,6 +181,10 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `registration_quantity` | Aantal stuks | measure | count | `admin` | admin_plain | `SUM(f_registrations.quantity)` | Som van de aantallen op de inschrijfregels — de bezetting, dus wat je neemt voor 'hoeveel deelnemers'. Een inschrijving met vier kaarten telt hier vier en bij 'Aantal inschrijvingen' één. |
 | `registration_amount` | Inschrijfbedrag | measure | money | `finance` | admin_plain | `SUM(f_registrations.line_amount)` | Waarde van de inschrijfregels aan de prijs van dat moment — de omzet uit inschrijvingen, gefactureerd en niet ontvangen. Gratis producten en 'ter plaatse te betalen' tellen niet mee. Wat er werkelijk betaald is, staat bij Betalingen. |
 | `activity` | Activiteit | dimension | label | `admin` | admin_plain | `d_activity.activity_name` | Naam van de activiteit. Klik door naar het activiteitdossier. |
+| `activity_description` | Omschrijving | detail | label | `admin` | admin_plain | `d_activity.activity_description` | De omschrijving die het bestuur bij de activiteit schreef — dezelfde zinnen die op de website en in de nieuwsbrief staan. Publieke tekst, dus geen reden om ze voor een rapport achter te houden. |
+| `activity_board_notes` | Notities bestuur | detail | label | `admin` | none | `d_activity.activity_board_notes` | De interne nota bij de activiteit: afspraken, contacten, wat iemand zichzelf wilde herinneren. Zichtbaar in een rapport dat een bestuurder zelf opvraagt, en NOOIT in een vraag aan Raakje — het is vrije interne tekst en wat erin staat is niet te voorspellen. Het scherm belooft precies dat bij het veld. |
+| `activity_organisers` | Organisatoren (samengevoegd) | detail | label | `admin` | none | `d_activity.activity_organisers` | Wie deze activiteit trekt, als één regel: de aangevinkte contactpersonen met een · ertussen, in dezelfde volgorde als op de affiche. Eén kolom en geen eigen korrel — daardoor blijft een rapport over activiteiten één rij per activiteit, en kan je er niet op groeperen. Wil je dat laatste — of wil je Raakje erover kunnen vragen — neem dan 'Organisator'; die heeft een eigen korrel. |
+| `activity_organiser` | Organisator | dimension | label | `admin` | admin_tokenised (`persoon-…`) | `d_activity_organiser.organiser_name` | Wie een activiteit trekt, met één rij PER ORGANISATOR. Daarmee kan je groeperen op 'activiteiten per organisator', en kan Raakje vertellen wie wat organiseert. LET OP: een activiteit met twee organisatoren levert twee rijen, dus zet dit object alleen in een rapport waar je die opsplitsing wil. Wil je één regel per activiteit, neem dan 'Organisatoren (samengevoegd)'. |
 | `activity_id` | Activiteitnummer | dimension | label | `admin` | admin_plain | `d_activity.activity_id` | Het technische nummer van de activiteit. Niet in het objectenpaneel: het bestaat om op één activiteit te kunnen filteren, want de naam is daar niet eenduidig genoeg voor — een activiteit die elk jaar terugkomt, heet elk jaar hetzelfde (#975). |
 | `activity_year` | Jaar van de activiteit | dimension | year | `admin` | admin_plain | `d_activity.activity_year` | Het jaar van de eerste datum van de activiteit, als eigenschap van de activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per maand of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen seizoen (CR-06 §12). |
 | `activity_location` | Locatie | dimension | label | `admin` | admin_plain | `d_activity.location` | Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, dus geen adres en niet genormaliseerd. |
