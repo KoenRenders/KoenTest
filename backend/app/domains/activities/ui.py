@@ -210,6 +210,8 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
                for pid, qty in quantities.items() if qty > 0],
         remarks=(values.get("remarks") or "").strip() or None,
     )
+    from app.domains.activities.api import public_registrations
+
     try:
         result = register_for_activity(db, activity.id, data, background_tasks,
                                        current_member=person)
@@ -225,8 +227,23 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
                                               {"naam": naam, "checkout": True})
         response.headers["HX-Redirect"] = checkout_url
         return response
-    return templates.TemplateResponse(request, "_inschrijf_klaar.html",
-                                      {"naam": naam, "checkout": False})
+    # #1159: de deelnemerslijst staat BUITEN het swap-doel van dit formulier
+    # (`closest .inschrijf-card`), dus ze bleef staan zoals ze bij het laden van
+    # de pagina was — de verse inschrijving verscheen niet bij "Wie doet er mee?".
+    # Het betaalde pad verborg dat half: Mollie dwingt een volledige herlaadbeurt
+    # af. Het gat zat bij een gratis inschrijving en bij betalen ter plaatse.
+    #
+    # Zelfde vorm en zelfde antwoord als §8.4 van het design system: wat buiten
+    # het doel staat, reist out-of-band mee met het antwoord. Mag hier, want dit
+    # is een fragment-antwoord en geen volledige paginaswap (§8.2, #748).
+    #
+    # Alleen op dit pad: het betaalde pad stuurt hierboven `HX-Redirect` en de
+    # browser verlaat de pagina, dus een OOB-blok zou daar nergens landen.
+    return templates.TemplateResponse(
+        request, "_inschrijf_klaar.html",
+        {"naam": naam, "checkout": False,
+         "activity_id": activity.id, "component_id": component.id,
+         "deelnemers": public_registrations(db, activity.id, component.id)})
 
 
 @router.get("/activiteiten/{sleutel}")

@@ -158,6 +158,15 @@
           {% elif not c.external_register_url %}
           <button type="button" class="{{ _btn }}" @click="open = !open"
                   hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
+                  {# #1159: `once` blijft. Nagegaan wat het nog kost nu het antwoord op
+                     een inschrijving de lijst out-of-band meestuurt: voor wie zich
+                     inschrijft is er geen verouderd geval meer over — stond het paneel
+                     open, dan ververst het OOB-blok; stond het dicht, dan haalt deze
+                     eerste klik de lijst alsnog op. Wat overblijft is een bezoeker die
+                     de lijst openliet terwijl IEMAND ANDERS zich inschreef, en dat lost
+                     `once` weghalen niet op — dan moet hij nog altijd dicht- en
+                     openklappen. Een verzoek per klik zou daar niets voor kopen en de
+                     zichtbare inhoud tijdens het kijken vervangen. #}
                   hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
             <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
           </button>
