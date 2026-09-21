@@ -1,0 +1,10 @@
+{% import "_macros.html" as ui %}
+{# De exportknop, één bron voor twee plaatsen: de paginakop rendert haar bij het
+   laden, `_lw_inhoud.html` stuurt haar out-of-band mee bij elke filterwissel
+   (#1141). Ze draagt alleen `since`, en dat klopt: `ledenwijzigingen_export`
+   neemt één parameter en `member_changes_since` kent alleen een datum — groep
+   en actor filteren de tabel, niet het bestand. Gemeten en vastgepind in
+   tests/test_ledenexport_volgt_de_periode.py. #}
+{{ ui.btn_secondary(_("Ledenexport (.ods) voor Raak Nationaal"), lead_icon="download",
+                    href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm",
+                    attrs='hx-boost="false"') }}
