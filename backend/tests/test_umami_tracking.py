@@ -67,11 +67,12 @@ def _beheerder(client, db_session, email="umami@example.com"):
     client.cookies.set(SESSION_COOKIE, make_session_value(email))
 
 
-# Er zijn TWEE publieke schillen en ze erven niet van elkaar: `site_base.html`
-# (veertien templates) en `public_base.html` (alleen `/raakje`). Het script alleen in
-# de eerste zetten maakt precies één pagina blind, en dat merk je nooit — de cijfers
-# zien er verder normaal uit.
-PUBLIEKE_PAGINAS = ["/", "/raakje"]
+# Elke publieke schil draagt het script. Er waren er twee die niet van elkaar
+# erven — `site_base.html` en `public_base.html` (alleen `/raakje`) — en het script
+# in één ervan zetten maakte precies één pagina blind zonder dat de cijfers er raar
+# uitzagen. Sinds #1120 is die tweede schil weg met haar enige pagina; komt er een
+# nieuwe publieke schil, dan hoort ze hier in deze lijst te staan.
+PUBLIEKE_PAGINAS = ["/"]
 
 
 @pytest.mark.parametrize("pad", PUBLIEKE_PAGINAS)

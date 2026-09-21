@@ -130,17 +130,17 @@ def test_een_vak_dat_een_regel_vraagt_blijft_een_regel(admin_page):
     """De tegenhanger: de vraagbalk van Raakje vraagt bewust `rows=1`.
 
     Zonder deze test zou "zet de ondergrens op drie regels" ook groen staan — en
-    dan is het ene scherm gerepareerd ten koste van het andere. Gemeten op
-    `/raakje`, waar die balk altijd staat; in de recordkop hangt ze aan een
-    schakelaar die in de e2e-omgeving uit staat.
+    dan is het ene scherm gerepareerd ten koste van het andere. Gemeten op de
+    zwevende bel: de pagina `/raakje` waar dit vroeger op stond is weg (#1120), en
+    de bel draagt exact dezelfde balk.
     """
-    admin_page.goto("/raakje")
-    pagina_klaar(admin_page)
-    veld = admin_page.locator("#raakje-vraag")
+    from tests_e2e.schermen import open_de_raakje_bel
+
+    veld = open_de_raakje_bel(admin_page)
     if veld.count() == 0:
         _ontbreekt("de vraagbalk van Raakje staat er niet")
 
-    een_regel = admin_page.evaluate(NATUURLIJK, "#raakje-vraag")
+    een_regel = admin_page.evaluate(NATUURLIJK, "#raakje-widget-vraag")
     gemeten = veld.bounding_box()["height"]
 
     assert gemeten <= een_regel + SPELING, (

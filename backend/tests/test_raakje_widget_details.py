@@ -34,7 +34,6 @@ pytestmark = pytest.mark.ui_serverrendered
 
 CHATBOT = Path(__file__).resolve().parents[1] / "app/domains/chatbot/templates"
 WIDGET = (CHATBOT / "_raakje_widget.html").read_text()
-PAGINA = (CHATBOT / "raakje.html").read_text()
 TEKSTEN = (CHATBOT / "_raakje_teksten.html").read_text()
 MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html").read_text()
 
@@ -52,16 +51,17 @@ def test_de_bot_stelt_zich_voor():
         "de doorgeef-zin uit #570 mag niet sneuvelen — die vertelt dát dat kan")
 
 
-def test_beide_schermen_lezen_dezelfde_tekst():
+def test_de_widget_leest_de_gedeelde_tekst():
     """#765: één bron, want twee kopieën lopen uiteen bij de eerste wijziging.
 
-    Zo is dit verschil ook ontstaan: #570 raakte de widget en niet `/raakje`, en
-    sindsdien stelde de bot zich op het ene scherm voor en op het andere niet.
+    Zo is dit verschil ook ontstaan: #570 raakte de widget en niet de pagina
+    `/raakje`, en sindsdien stelde de bot zich op het ene scherm voor en op het
+    andere niet. Die pagina is weg (#1120), dus de widget is de enige lezer — de
+    regel blijft staan voor de volgende plek die de begroeting toont.
     """
-    for naam, bron in (("widget", WIDGET), ("/raakje", PAGINA)):
-        assert "teksten.intro()" in bron, f"{naam} gebruikt de gedeelde tekst niet"
-        assert "Hallo, ik ben Raakje" not in bron, (
-            f"{naam} heeft de tekst weer overgeschreven in plaats van hem te lezen")
+    assert "teksten.intro()" in WIDGET, "de widget gebruikt de gedeelde tekst niet"
+    assert "Hallo, ik ben Raakje" not in WIDGET, (
+        "de widget heeft de tekst weer overgeschreven in plaats van hem te lezen")
 
 
 def test_het_stopvierkantje_houdt_zijn_bijgesneden_viewbox():

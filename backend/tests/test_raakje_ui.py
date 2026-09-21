@@ -10,9 +10,10 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def test_raakje_page_renders(client):
-    resp = client.get("/raakje")
-    assert resp.status_code == 200 and "Raakje" in resp.text
+def test_de_publieke_raakje_pagina_bestaat_niet_meer(client):
+    """#1120: de pagina is weg (niemand kwam er; niets verwees ernaar). Het
+    eindpunt eronder blijft — dat toetst `test_publieke_raakje_bel_1120.py`."""
+    assert client.get("/raakje").status_code == 404
 
 
 def test_raakje_vraag_geeft_antwoord_via_mock(client, db_session, monkeypatch):

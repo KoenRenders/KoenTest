@@ -15,8 +15,13 @@ def _env():
 
 
 def test_shells_render():
+    """#1120: `public_base.html` stond hier ook, als tweede publieke schil. Ze is
+    weg met de pagina die er als enige op stond (`/raakje`); `site_base.html` is de
+    publieke schil, en die rendert hier niet los omdat ze een `site_context` vraagt
+    — `tests/test_publieke_site.py` toetst haar door de echte route.
+    """
     env = _env()
-    for shell in ("public_base.html", "admin_base.html"):
+    for shell in ("admin_base.html",):
         html = env.get_template(shell).render(
             nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}])
         assert "htmx.min.js" in html and "alpine.min.js" in html and "app.css" in html

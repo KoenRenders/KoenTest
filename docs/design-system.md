@@ -53,6 +53,7 @@ change to all four, in one pull request.
 | 16 Sep 2026 | Dense-list tabs slice on derived saldo/kind, never the raw status column; the status select stays the column filter (AND, #669) | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | Row actions stay buttons (size `xs` in dense tables); Cobalt's text links wait for a portal-wide pass | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | The record AI button ("AI · <record>") exists only where `tenant_admin_chat_enabled` is true; one kernel switch, never a UI-side flag; the overlay uses the public Raakje look | #913 (wave 10), CR-07 §6.3 |
+| 21 Sep 2026 | The public page `/raakje` is removed (zero measured visits, nothing linked to it); the bell and its endpoint `POST /raakje/vraag` stay | #1120, §2.11 |
 | 21 Sep 2026 | Every Raakje entry is `AI · <Scherm>` with the `sparkles` icon; `AI · Raakje` (the assistant itself) gets its own item in *Inzicht* | #1117, §2.11 |
 | 21 Sep 2026 | A Raakje overlay never sits inside another form — `filter_bar` renders one, and nesting silently kills the submit button; guarded on the rendered output | #1115, §2.11 |
 | 20 Sep 2026 | **Raakje is one product everywhere**: every appearance carries the same controls from shared partials; the only permitted difference between public and back office is the toolset, guarded by a gate | #1075, §2.11 |
@@ -553,9 +554,12 @@ Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
 
 ### 2.11 Raakje — one assistant, one set of controls (#1075)
 
-Raakje appears in four places: the public widget on every site page, the public
-page `/raakje`, the reporting assistant (`/admin/rapporten/raakje`) and the
-record overlays ("AI · Activiteit"). The owner's rule for them, 20 September
+Raakje appears in three places: the public widget on every site page (the
+floating bell), the assistant page `/admin/rapporten/raakje`, and the record
+overlays (`AI · Activiteit`, `AI · Betalingen`). There was a fourth — the public
+page `/raakje` — until #1120: nothing in the application linked to it and Umami
+measured zero visits in three months, so it was removed. Its endpoint
+`POST /raakje/vraag` stayed, because the bell posts there. The owner's rule for them, 20 September
 2026: *Raakje and Raakje-admin are the same everywhere; the only difference is
 the security on the public one, which must be 100% closed — no information
 about members, payments, registrations or forms.*
