@@ -30,9 +30,12 @@ def situatie(db_session):
     return seed(db_session)
 
 
-def _scoped(situatie, naam="quiz"):
+def _scoped(db, situatie, naam="quiz"):
+    # #1126: de bouwer zoekt de naam van de activiteit op, dus hij krijgt de
+    # databank en de tenant mee — zoals de route dat doet.
     return dispatcher(tenant_id=TENANT,
-                      scope=scope_for_activity(situatie["activities"][naam]))
+                      scope=scope_for_activity(db, situatie["activities"][naam],
+                                               tenant_id=TENANT))
 
 
 def _call(dispatch, db, name, args):
@@ -50,7 +53,7 @@ def test_a_report_without_a_filter_still_covers_only_this_activity(db_session,
     is what the second assertion names. Measured: this test and three others
     (filter-on-this-activity, values, the route) turn red.
     """
-    out = _call(_scoped(situatie), db_session, "run_report",
+    out = _call(_scoped(db_session, situatie), db_session, "run_report",
                 {"objects": ["activity", "registration_quantity"]})
 
     namen = [r["activity"] for r in out["rows"]]
@@ -64,7 +67,7 @@ def test_a_filter_on_another_activity_is_refused_with_the_reason(db_session,
     for filt in ({"object": "activity", "operator": "eq", "values": ["Wandeling"]},
                  {"object": "activity_id", "operator": "eq",
                   "values": [str(situatie["activities"]["wandeling"])]}):
-        out = _call(_scoped(situatie), db_session, "run_report",
+        out = _call(_scoped(db_session, situatie), db_session, "run_report",
                     {"objects": ["registration_quantity"], "filters": [filt]})
         assert "error" in out, filt
         assert "één activiteit" in out["error"]
@@ -78,7 +81,7 @@ def test_a_filter_on_this_activity_costs_no_round(db_session, situatie):
     would find nothing where the activity is called "Quiz". Measured — the first
     version kept it and returned no rows.
     """
-    out = _call(_scoped(situatie), db_session, "run_report",
+    out = _call(_scoped(db_session, situatie), db_session, "run_report",
                 {"objects": ["activity", "registration_quantity"],
                  "filters": [{"object": "activity", "operator": "eq",
                               "values": ["quiz"]}]})
@@ -90,7 +93,7 @@ def test_a_fact_that_does_not_hang_on_an_activity_is_refused_by_name(db_session,
                                                                      situatie):
     """Memberships have no activity. The engine would refuse too, but with a
     message about a dimension the model cannot act on."""
-    out = _call(_scoped(situatie), db_session, "run_report",
+    out = _call(_scoped(db_session, situatie), db_session, "run_report",
                 {"objects": ["membership_households"]})
     assert "error" in out
     assert "één activiteit" in out["error"]
@@ -103,7 +106,7 @@ def test_values_come_from_this_activity_only(db_session, situatie):
     The Quiz is paid and the Wandeling is not, so the payment status of the Quiz
     has one value — and the unscoped list would have two.
     """
-    scoped = _call(_scoped(situatie), db_session, "list_values",
+    scoped = _call(_scoped(db_session, situatie), db_session, "list_values",
                    {"object": "payment_status"})
     alles = _call(dispatcher(tenant_id=TENANT), db_session, "list_values",
                   {"object": "payment_status"})
@@ -113,7 +116,7 @@ def test_values_come_from_this_activity_only(db_session, situatie):
 
 
 def test_a_list_of_activities_is_not_offered_in_scope(db_session, situatie):
-    out = _call(_scoped(situatie), db_session, "list_values", {"object": "activity"})
+    out = _call(_scoped(db_session, situatie), db_session, "list_values", {"object": "activity"})
     assert "error" in out and "één activiteit" in out["error"]
 
 
@@ -125,7 +128,7 @@ def test_get_activities_shows_only_this_activity(db_session, situatie):
     Broken to see it red: the `activities` filter in `_scoped_read_tool` removed —
     the Wandeling is then in the list.
     """
-    dispatch = _scoped(situatie)
+    dispatch = _scoped(db_session, situatie)
     gezien = []
     for when in ("upcoming", "past"):
         out = _call(dispatch, db_session, "get_activities", {"when": when})
@@ -135,7 +138,7 @@ def test_get_activities_shows_only_this_activity(db_session, situatie):
 
 
 def test_get_activity_detail_is_bound_to_this_activity(db_session, situatie):
-    dispatch = _scoped(situatie)
+    dispatch = _scoped(db_session, situatie)
 
     eigen = _call(dispatch, db_session, "get_activity_detail", {})
     assert eigen["name"] == "Quiz", "zonder id valt de tool terug op de scope"
@@ -173,21 +176,33 @@ def test_the_admin_kit_holds_no_write_tool(db_session, situatie):
 
 # ── wat er naar het model gaat ───────────────────────────────────────────────
 
-def test_the_scoped_prompt_names_the_number_and_not_the_name(db_session, situatie):
-    """The prompt of this pack is exempt from the name check because it carries no
-    stored value. An activity name is stored content — so only the number goes in,
-    and the name reaches the model through a tool, whose result IS scanned."""
+def test_the_scoped_prompt_names_the_activity_and_its_number(db_session, situatie):
+    """Sinds #1126 staat de NAAM erbij, en het nummer blijft.
+
+    Tot dan stond hier het omgekeerde, met een goede reden: deze prompt is
+    vrijgesteld van de naam-controle van de naadwachter (`SCAN_PROMPT_NAMES`),
+    en die vrijstelling rust erop dat de prompt uit een declaratie komt en geen
+    opgeslagen waarde draagt. Een activiteitsnaam ís opgeslagen waarde.
+
+    Die aanname is niet losgelaten maar afgedwongen: de titel gaat eerst door
+    dezelfde naamschoonmaak als de getypte vraag (`_activity_label`). Wat er
+    overblijft draagt geen ledennaam — dat bewijst de test hieronder — dus de
+    vrijstelling blijft waar wat ze belooft.
+
+    Het nummer blijft náást de naam staan: het model filtert erop.
+    """
     prompt = build_system_prompt(
-        scope_for_activity(situatie["activities"]["quiz"]))
+        scope_for_activity(db_session, situatie["activities"]["quiz"],
+                           tenant_id=TENANT))
     assert f"nummer {situatie['activities']['quiz']}" in prompt
-    assert "Quiz" not in prompt
+    assert "«Quiz»" in prompt, "de beheerder herkent 'activiteit 23' niet"
 
 
 def test_person_values_are_still_tokens_in_scope(db_session, situatie):
     """Scope does not weaken the masking (#975). With the small-cell threshold gone,
     the token is the only line on a row about one household."""
     # Payments hang on a household; registrations hang on a person.
-    out = _call(_scoped(situatie), db_session, "run_report",
+    out = _call(_scoped(db_session, situatie), db_session, "run_report",
                 {"objects": ["member", "payment_count"]})
     assert out.get("rows"), out
     assert all(str(r["member"]).startswith("gezin-") for r in out["rows"])

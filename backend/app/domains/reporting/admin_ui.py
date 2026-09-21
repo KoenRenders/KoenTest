@@ -842,7 +842,10 @@ async def assistant_ask_about_activity(activity_id: int, request: Request,
     if get_activity(db, activity_id) is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     return await _ask(request, db, email,
-                      scope=scope_for_activity(activity_id))
+                      # #1126: de naam van de activiteit gaat mee de prompt in, dus
+                      # de bouwer heeft de databank en de tenant nodig.
+                      scope=scope_for_activity(db, activity_id,
+                                               tenant_id=_tenant(request)))
 
 
 #: De schermen waarvan de assistent de selectie kan overnemen (#1060). Een scherm
@@ -879,7 +882,7 @@ async def assistant_ask_about_screen(scherm: str, request: Request,
     if bouwer is None:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     try:
-        scope = bouwer(filterparams(request))
+        scope = bouwer(filterparams(request), db, tenant_id=_tenant(request))
     except ScopeNietOverdraagbaar as waarom:
         return templates.TemplateResponse(
             request, "_rp_raakje_antwoord.html",
