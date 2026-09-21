@@ -1,0 +1,158 @@
+{% import "_macros.html" as ui %}
+{# The cards of the family screen, one macro each (#1111).
+
+   Every partial action on this screen used to post to `#leden-detail` with
+   `innerHTML`, and the server answered with a fresh render of the whole block
+   from the database. Type an address, click "Persoon toevoegen", and the text
+   was gone — and the Alpine `edit` state reset with it, so the panel closed and
+   it looked as if nothing had happened.
+
+   Since #1111 an action replaces ITS OWN card (`hx-target` on the card's id,
+   `outerHTML`), and the route renders only that card through `_leden_deel.html`.
+   What changes elsewhere on the screen — the name in the record header, a name
+   in the board-member list — travels out-of-band (#748), not by redrawing
+   everything. The full block (`_leden_detail.html`) composes the same macros,
+   so a card cannot look different on first load and after an action.
+
+   Imported `with context`: the macros read the screen's context (`family`,
+   `gender_codes`, `postal_codes`, `all_persons`, `current_year`) the way the
+   block did before they were macros. #}
+
+{% macro persoon_card(m, hoofd) %}
+<div id="persoon-{{ m.id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+  {# #639-patroon, maar de KNOPPEN horen buiten de x-show: Koens bevinding op
+     golfpakket-6 v2 — in bewerkmodus verdween de hele kop en was er geen
+     Opslaan. De leesinfo wijkt, de knoppenrij blijft. #}
+  <div>
+    <div class="flex items-start justify-between">
+      <div x-show="!edit">
+        <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
+        <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
+        {# Alle invulbare velden zichtbaar in leesmodus (Koen, 15 sep — de
+           golf 8-regel geldt ook hier): het geslacht ontbrak als enige. #}
+        {% set geslacht = gender_codes | selectattr("code", "equalto", m.gender) | map(attribute="value") | first | default(none) %}
+        {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth.strftime("%d-%m-%Y") }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
+        <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
+          {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}
+          {% if m.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ m.email }}</span>{% endif %}
+          {% if m.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ m.mobile }}</span>{% endif %}
+          {% if m.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ m.phone }}</span>{% endif %}
+        </div>
+      </div>
+      <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ m.first_name }} {{ m.last_name }} — {{ _("bewerken") }}</span>
+      <div class="flex gap-2 shrink-0 ml-4">
+        {{ ui.edit_toggle("edit") }}
+        {# Verwijderen vervangt deze kaart door niets (leeg antwoord, outerHTML);
+           de bestuurslidlijst reist oob mee, want die noemt elke persoon. #}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="pc-" ~ m.id, cancel_attrs='@click="edit = false"',
+             delete_attrs=('hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#persoon-' ~ m.id ~ '" hx-swap="outerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) if not hoofd else "") }}</div>
+      </div>
+    </div>
+  </div>
+  <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
+        hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
+        hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML" style="display: none">
+    {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
+    {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+  </form>
+</div>
+{% endmacro %}
+
+{% macro adres_card() %}
+{# Adres — bij het hoofdlid, getoond ná het hoofdlid (#133); vaste 4-koloms grid #}
+<div id="adres-kaart" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+  {# #639: de knop stond binnen het x-show="!edit"-blok en verdween dus zodra je
+     begon te bewerken — §2.8 noemt precies dat: verbergen geeft layout-shift, en
+     je hebt geen weg terug. Nu ui.edit_toggle(), net als de personenlijst
+     hierboven: de knop blijft staan en heet "Annuleren" tijdens het bewerken. #}
+  <div class="flex items-center justify-between gap-2">
+    <span x-show="!edit" class="text-sm text-gray-700 inline-flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {% if family.street %}{{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}{% else %}{{ _("Nog geen adres") }}{% endif %}</span>
+    <span x-show="edit" x-cloak class="text-sm text-gray-500">{{ _("Adres bewerken") }}</span>
+    <div class="flex gap-2">
+      {{ ui.edit_toggle("edit") }}
+      <div x-show="edit" x-cloak>{{ ui.action_bar(form="adres-form", cancel_attrs='@click="edit = false"') }}</div>
+    </div>
+  </div>
+  <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
+        hx-post="/admin/leden/gezin/{{ family.id }}/adres"
+        hx-target="#adres-kaart" hx-swap="outerHTML" style="display: none">
+    <div class="grid grid-cols-4 gap-3">
+      <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
+        {{ ui.input_control("street", id="street", value=family.street, required=True, cls="w-full") }}</div>
+      <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
+        {{ ui.input_control("house_number", id="house_number", value=family.house_number, required=True, cls="w-full") }}</div>
+      <div>{{ ui.label(_("Bus"), "bus_number") }}
+        {{ ui.input_control("bus_number", id="bus_number", value=family.bus_number or "", cls="w-full") }}</div>
+      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
+        {# #1111: een lege eerste optie. Zonder die toonde de lijst de eerste
+           postcode alsof dat de waarde van dit gezin was; een keuzelijst zonder
+           waarde hoort er leeg uit te zien. `required` houdt de submit tegen. #}
+        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
+          <option value="" {% if not family.postal_code %}selected{% endif %}>{{ _("— kies —") }}</option>
+          {% for pc in postal_codes %}
+          <option value="{{ pc.postal_code }}" {% if pc.postal_code == family.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
+          {% endfor %}
+        {% endcall %}</div>
+    </div>
+  </form>
+</div>
+{% endmacro %}
+
+{% macro toevoegen_card() %}
+{# Persoon toevoegen. Het antwoord is de nieuwe persoonkaart gevolgd door een
+   verse toevoegkaart, in de plaats van deze kaart (outerHTML) — de nieuwe
+   persoon komt dus boven de toevoegknop te staan, en de vorm begint leeg. #}
+<div id="persoon-toevoegen" class="bg-blue-50 rounded-2xl border border-blue-100 p-4" x-data="{ open: false }">
+  {{ ui.btn_secondary(_("+ Persoon toevoegen"), attrs='@click="open = !open"') }}
+  <form x-show="open" x-cloak class="space-y-3 mt-3"
+        hx-post="/admin/leden/gezin/{{ family.id }}/personen"
+        hx-target="#persoon-toevoegen" hx-swap="outerHTML">
+    {# Veldenset incl. relatie via de gedeelde macro (#511/#498). #}
+    {% with p = None %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+    {{ ui.btn_primary(_("Toevoegen")) }}
+  </form>
+</div>
+{% endmacro %}
+
+{% macro bestuurslid_card(oob=False) %}
+<div id="bestuurslid-kaart" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h3 class="font-semibold mb-2">{{ _("Verantwoordelijk bestuurslid") }}</h3>
+  {# A8 (golf 6, #913): autosave alleen als benoemd gedrag — de regel eronder
+     zegt het; een stille autosave was de enige in het beheer. #}
+  <form hx-post="/admin/leden/gezin/{{ family.id }}/bestuurslid"
+        hx-target="#bestuurslid-kaart" hx-swap="outerHTML" hx-trigger="change">
+    {% call ui.select_control("person_id", cls="w-full") %}
+      <option value="">{{ _("— Geen —") }}</option>
+      {% for p in all_persons %}
+      <option value="{{ p.id }}" {% if family.board_member and family.board_member.id == p.id %}selected{% endif %}>{{ p.last_name }} {{ p.first_name }}</option>
+      {% endfor %}
+    {% endcall %}
+    {# A8 (golf 6, #913): dit was de enige stille autosave in het beheer.
+       Autosave mag, maar alleen benoemd — vandaar deze regel. #}
+    <p class="text-xs text-ink-soft mt-1">{{ _("Een keuze wordt meteen bewaard.") }}</p>
+  </form>
+</div>
+{% endmacro %}
+
+{% macro lidmaatschappen_card() %}
+<div id="lidmaatschappen-kaart" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+  <h3 class="font-semibold mb-3">{{ _("Lidmaatschappen") }}</h3>
+  {% for ms in family.memberships %}
+  <div class="flex items-center justify-between text-sm py-1">
+    <span>{{ ms.year }}
+      {% if ms.is_active %}{{ ui.badge(_("Actief"), "green") }}{% else %}{{ ui.badge(_("Inactief")) }}{% endif %}
+    </span>
+    {{ ui.btn_danger(_("Verwijderen"), size="md", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#lidmaatschappen-kaart" hx-swap="outerHTML" ' ~ confirm_attrs(_("Lidmaatschap"), ms.year)) }}
+  </div>
+  {% endfor %}
+  <form class="flex gap-3 items-end mt-4"
+        hx-post="/admin/leden/gezin/{{ family.id }}/lidmaatschappen"
+        hx-target="#lidmaatschappen-kaart" hx-swap="outerHTML">
+    <div>{{ ui.label(_("Jaar toevoegen"), "year") }}
+      {{ ui.input_control("year", id="year", type="number", value=(family.memberships[0].year + 1 if family.memberships else current_year), cls="w-28") }}</div>
+    {# §2.12 (#641): een sub-item toevoegen heet "Toevoegen" — het formulier voegt
+       een lidmaatschapsjaar toe, het maakt geen lid. #}
+    {{ ui.btn_primary(_("Toevoegen")) }}
+  </form>
+</div>
+{% endmacro %}

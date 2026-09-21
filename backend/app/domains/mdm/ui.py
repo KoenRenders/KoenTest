@@ -129,6 +129,31 @@ def _detail_response(request: Request, db: Session, family_id: int, *,
     return templates.TemplateResponse(request, "_leden_detail.html", ctx)
 
 
+def _kaart_response(request: Request, db: Session, family_id: int, *,
+                    kaarten: list[str], toast: bool = False, kop: bool = False,
+                    bestuurslid: bool = False):
+    """The answer to one partial action (#1111): only the card(s) it changed.
+
+    Every action used to answer with the whole block, re-read from the database;
+    that wiped whatever the board member had typed in another card and reset the
+    Alpine state, so the panel closed and nothing seemed to happen. Now the route
+    names its cards; what changes elsewhere travels out-of-band: the record
+    header (`kop`, name and address) and the board-member card (`bestuurslid`,
+    which lists every person by name).
+    """
+    ctx = _detail_ctx(request, db, family_id)
+    ctx.update(kaarten=kaarten, toast_opgeslagen=toast, oob_bestuurslid=bestuurslid)
+    if kop:
+        from app.domains.auth.api import SESSION_COOKIE, read_session_value
+        from app.domains.mdm.api import gezin_tabs
+
+        email = read_session_value(request.cookies.get(SESSION_COOKIE))
+        if email:
+            ctx["record_tabs"] = gezin_tabs(db, ctx["family"], email, "overzicht")
+            ctx["oob_kop"] = True
+    return templates.TemplateResponse(request, "_leden_deel.html", ctx)
+
+
 # ── Overzicht ──────────────────────────────────────────────────────────────────
 
 @router.get("/admin/leden", response_class=HTMLResponse)
@@ -285,7 +310,10 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
     set_relation_type(db, family_id, person_id, relation_type)
     # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
     # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
-    return _detail_response(request, db, family_id, toast=True)
+    # #1111: alleen deze kaart; de naam staat ook in de kop en in de
+    # bestuurslidlijst, dus die twee reizen oob mee.
+    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"],
+                           toast=True, kop=True, bestuurslid=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/adres", response_class=HTMLResponse,
@@ -307,7 +335,9 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),
     ), admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id, toast=True)
+    # #1111: alleen de adreskaart; het adres staat ook in de kop.
+    return _kaart_response(request, db, family_id, kaarten=["adres"], toast=True,
+                           kop=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/personen", response_class=HTMLResponse,
@@ -318,16 +348,24 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
                       date_of_birth: str = Form(""), gender_code: str = Form(""),
                       contact_email: str = Form("", alias="email"), phone: str = Form(""),
                       mobile: str = Form(""), relation_type: str = Form("PARTNER")):
-    from app.domains.membership.api import add_person_to_family
+    from app.domains.membership.api import add_person_to_family, get_family
     from app.domains.membership.api import PersonAddToFamily
 
-    add_person_to_family(db, family_id, PersonAddToFamily(
+    # `add_person_to_family` geeft het hele gezin terug; de nieuwe persoon is de
+    # enige die er vóór de toevoeging niet in zat (#1111: zijn kaart is het antwoord).
+    voorheen = {m.id for m in get_family(db, family_id).members}
+    gezin = add_person_to_family(db, family_id, PersonAddToFamily(
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None, relation_type=relation_type,
     ), admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    # #1111: de nieuwe persoonkaart plus een verse toevoegkaart, in de plaats van
+    # de toevoegkaart die postte; de bestuurslidlijst krijgt de nieuwe naam oob.
+    (nieuw_id,) = {m.id for m in gezin.members} - voorheen
+    return _kaart_response(request, db, family_id,
+                           kaarten=[f"persoon:{nieuw_id}", "toevoegen"],
+                           bestuurslid=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}/verwijderen",
@@ -338,7 +376,9 @@ def persoon_verwijderen(family_id: int, person_id: int, request: Request,
     from app.domains.membership.api import delete_person
 
     delete_person(db, person_id, admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    # #1111: de kaart verdwijnt (leeg antwoord op haar eigen outerHTML-doel); de
+    # bestuurslidlijst noemde deze persoon en reist oob mee.
+    return _kaart_response(request, db, family_id, kaarten=[], bestuurslid=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/bestuurslid", response_class=HTMLResponse,
@@ -352,7 +392,7 @@ def bestuurslid_zetten(family_id: int, request: Request, db: Session = Depends(g
     assign_board_member(db, family_id, BoardMemberAssign(
         person_id=int(person_id) if person_id else None,
     ), admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    return _kaart_response(request, db, family_id, kaarten=["bestuurslid"])
 
 
 @router.post("/admin/leden/gezin/{family_id}/lidmaatschappen", response_class=HTMLResponse,
@@ -366,7 +406,7 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
 
     create_membership_for_family(db, family_id, MembershipCreate(year=year, is_active=True),
                                  admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    return _kaart_response(request, db, family_id, kaarten=["lidmaatschappen"])
 
 
 @router.post("/admin/leden/gezin/{family_id}/lidmaatschappen/{membership_id}/verwijderen",
@@ -377,7 +417,7 @@ def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Reques
     from app.domains.membership.api import delete_membership
 
     delete_membership(db, membership_id, admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    return _kaart_response(request, db, family_id, kaarten=["lidmaatschappen"])
 
 
 @router.post("/admin/leden/gezin/{family_id}/verwijderen", response_class=HTMLResponse,
