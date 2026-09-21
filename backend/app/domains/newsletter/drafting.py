@@ -71,13 +71,40 @@ MAX_TOOL_ROUNDS = 3
 # the guard need not scan it for names (CR-07's rule; proven by a test).
 SCAN_PROMPT_NAMES = False
 
-_MARKER = re.compile(r"\[\[(activiteit|fotos|naam):(\d+)\]\]")
+# Deliberately tolerant (Koen, 20 September 2026): Raakje wrote "[[nam:7]]" and
+# the letter carried that literally to the reader, because only the exact word
+# was recognised. A misspelt marker is a typo, not a new instruction — so any
+# word is accepted and mapped to the kind it obviously means. Unknown words
+# become a name, which is the marker that stands inside a sentence and the only
+# one whose absence leaves a hole in the prose.
+_MARKER = re.compile(r"\[\[([A-Za-z]+):(\d+)\]\]")
+_PLAIN = re.compile(r"\[\[([A-Za-z]+)\]\]")
+
+
+def _kind_of(word: str) -> str:
+    """The marker kind a word means: "activiteit", "fotos" or "naam"."""
+    word = (word or "").lower()
+    if word.startswith("act"):
+        return "activiteit"
+    if word.startswith("foto") or word.startswith("photo"):
+        return "fotos"
+    return "naam"
+
+
+def _plain_kind_of(word: str) -> str:
+    """The kind of a marker without a number, or "" when it means nothing."""
+    word = (word or "").lower()
+    if word.startswith("kal"):
+        return "kalender"
+    if word.startswith("afsl") or word.startswith("groet"):
+        return "afsluiting"
+    return ""
 #: Markers without a number (Koen, 19 September 2026: "Raakje zou alles moeten
 #: kunnen"). The portal fills them in the same way the buttons do — except an
 #: attachment, which is a file the author uploads and Raakje cannot know.
-_PLAIN_MARKER = re.compile(r"\[\[(kalender|afsluiting)\]\]")
+_PLAIN_MARKER = _PLAIN
 #: The closing marker on a line of its own — dropped from a whole letter.
-_CLOSING_MARKER = re.compile(r"^[ \t]*\[\[afsluiting\]\][ \t]*$", re.M)
+_CLOSING_MARKER = re.compile(r"^[ \t]*\[\[[A-Za-z]+\]\][ \t]*$", re.M)
 #: A heading line, however many hashes the model used.
 _HEADING = re.compile(r"#{1,6}\s+")
 # The blank line between blocks, the way Trix writes one.
@@ -292,6 +319,7 @@ VASTE REGELS
 - [[activiteit:ID]] wordt een VOLLEDIG BLOK: de affiche, de naam als titel, de omschrijving van de activiteit, de datum met plaats, en "Schrijf je in!". Herhaal die omschrijving dus niet in je eigen tekst, en beschrijf de activiteit niet nog eens: schrijf ernaast wat er NIET in staat — de sfeer, de terugblik, waarom het de moeite is.
 - [[kalender]] wordt een opsomming met één regel per activiteit. [[afsluiting]] wordt de groet van het bestuur, en gebruik je ALLEEN wanneer de auteur om een los stuk tekst vraagt: onder een volledige brief zet het portaal die groet er zelf al onder.
 - Een kopje is één regel die begint met "# ". Gebruik geen "##" of "###" en geen andere opmaakcodes: alleen "# " voor een kopje en **vet** voor vet.
+- Schrijf een markering ALTIJD voluit en exact: [[naam:ID]], [[activiteit:ID]], [[fotos:ID]], [[kalender]], [[afsluiting]]. Kort ze nooit af.
 - Noem je een activiteit midden in een zin, schrijf dan [[naam:ID]]: het portaal zet daar de naam van de activiteit in het vet. Schrijf de naam dan niet zelf, en bouw de zin zo dat hij klopt MET die naam erin. Een naam is een eigennaam, ook als hij als een zin klinkt: schrijf "tijdens [[naam:12]]" of "op [[naam:12]]", nooit een zin waarin de naam als werkwoord of onderwerp moet werken.
 - Noem nooit personen en bedank nooit individuele organisatoren of vrijwilligers. [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Geef niemand een functie of rol die niet letterlijk in een bron staat.
@@ -383,17 +411,18 @@ def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] =
         if not line:
             continue
         plain = _PLAIN_MARKER.fullmatch(line)
-        if plain and db is not None:
-            if plain.group(1) == "kalender":
-                blocks.append(nb.calendar_html(db, base_url=base_url))
-            else:
-                blocks.append(nb.closing_html(db))
-            continue
         if plain:
+            soort = _plain_kind_of(plain.group(1))
+            if db is not None and soort == "kalender":
+                blocks.append(nb.calendar_html(db, base_url=base_url))
+            elif db is not None and soort == "afsluiting":
+                blocks.append(nb.closing_html(db))
+            # A marker that means nothing leaves nothing: never show the reader
+            # a raw [[…]].
             continue
         marker = _MARKER.fullmatch(line)
         if marker:
-            kind, activity_id = marker.group(1), int(marker.group(2))
+            kind, activity_id = _kind_of(marker.group(1)), int(marker.group(2))
             fact = facts.get(activity_id)
             if fact is None:
                 continue
@@ -449,7 +478,7 @@ def _without_duplicate_headings(lines: list[str], facts: dict[int, Any]) -> list
                 if _HEADING.match(later):
                     break
                 marker = _MARKER.fullmatch(later)
-                if marker and marker.group(1) == "activiteit" \
+                if marker and _kind_of(marker.group(1)) == "activiteit" \
                         and heading and heading == names.get(int(marker.group(2))):
                     heading = ""  # the block carries this name already
                     break
@@ -467,7 +496,7 @@ def _with_names(line: str, facts: dict[int, Any]) -> str:
     for match in _MARKER.finditer(line):
         out.append(_inline(line[position:match.start()]))
         fact = facts.get(int(match.group(2)))
-        if match.group(1) == "naam" and fact is not None:
+        if _kind_of(match.group(1)) == "naam" and fact is not None:
             out.append(f"<strong>{html_lib.escape(fact.name)}</strong>")
         position = match.end()
     out.append(_inline(line[position:]))
@@ -735,7 +764,7 @@ def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
 
     def readable(text: str) -> str:
         return _MARKER.sub(lambda m: labels.get(m.group(2), "[markering]")
-                           if m.group(1) == "naam" else "[markering]", text)
+                           if _kind_of(m.group(1)) == "naam" else "[markering]", text)
 
     listing = "\n".join(f"{i + 1}. {scrub(readable(t), names)}"
                         for i, t in texts.items())
@@ -906,7 +935,7 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
                                         f'{sentence}</mark>', 1)
 
         def chip(match: re.Match) -> str:
-            kind, activity_id = match.group(1), int(match.group(2))
+            kind, activity_id = _kind_of(match.group(1)), int(match.group(2))
             name = html_lib.escape(names.get(activity_id, str(activity_id)))
             if kind == "naam":
                 return f"<strong>{name}</strong>"
