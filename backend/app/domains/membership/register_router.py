@@ -17,7 +17,6 @@ from app.database import get_db
 from app.domains.membership.models import Membership
 from app.domains.mdm.api import Member, Person, MemberPerson
 from app.domains.mdm.api import PostalCode
-from app.domains.mdm.api import Address
 from app.domains.mdm.api import ContactDetail
 from app.domains.auth.api import User
 from app.domains.membership.schemas_member import (
@@ -41,18 +40,13 @@ from app.domains.membership.schemas_member import (
     BoardMemberAssign,
 )
 from app.domains.membership import household_service as _service
-from app.domains.membership.service import (LidgegevensFout,
-                                            controleer_geboortedatum_en_geslacht)
 from app.domains.membership.schemas_family import FamilyCreate
-from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
+from app.domains.payment.api import create_payment_record, membership_price_for_date
+# #1110: het schrijven van een gezin staat in household_service, dus de snapshots
+# daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
 from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
-    snapshot_person,
-    snapshot_member,
-    snapshot_member_person,
     snapshot_membership,
-    snapshot_address,
-    snapshot_contact_detail,
 )
 from app.soft_delete import soft_delete
 from app.domains.mail.api import send_registration_confirmation

@@ -311,10 +311,9 @@ def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: flo
     pal = plan.pal
     pad = 4 if boxed else 0
     inner_w = w - 2 * pad
-    lines = richtext.line_count(source, width=inner_w, size=size)
-    step = size * richtext.LINE_HEIGHT
     head_h = 8 if heading else 0
-    h = 2 * pad + head_h + lines * step + (1.5 if boxed else 0)
+    h = (2 * pad + head_h + richtext.text_height(source, width=inner_w, size=size)
+         + (1.5 if boxed else 0))
     out = []
     if boxed:
         out.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>')
@@ -349,7 +348,7 @@ def _dates_grid_height(n: int) -> float:
 
 
 def _richtext_height(source: str, w: float, size: float) -> float:
-    return richtext.line_count(source, width=w, size=size) * size * richtext.LINE_HEIGHT + 5
+    return richtext.text_height(source, width=w, size=size) + 5
 
 
 def fit_richtext_size(source: str, w: float, available: float, *, max_size: float, min_size: float) -> float:
@@ -542,10 +541,21 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         limit -= 22
         p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, 16)
 
-    if content.preset == "eenvoudig" and layout == "print_a":
+    if content.preset == "eenvoudig":
         # Koen, 19 September 2026 (evening): one big picture, then the
-        # activity's text over the full width — no icon rows for date and
-        # place — and a smaller "iedereen welkom" low on the page.
+        # activity's text over the full width, and a smaller "iedereen
+        # welkom" low on the page. Since 20 September the feed image is laid
+        # out the same way — "zou je instagram voor de eenvoudige opmaak niet
+        # gelijk trekken aan de A3?" — because it was two thirds empty
+        # without the text, and the facts hung under the picture instead of
+        # above it. Only three numbers differ; the shape does not.
+        feed = layout == "feed_portrait"
+        if feed and content.logos:
+            left_limit -= 22   # the logo strip sits in the flow's way on a feed image
+        hero_cap, hero_floor, polaroid_w = (120.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
+        # A feed image is read on a phone, so its text may be smaller than a
+        # sheet you pin on a wall.
+        max_text, min_text = (9.0, 5.5) if feed else (11.0, 7.2)
         y = top_y - 4
         # When and where above the picture, in the same icon rows the other
         # presets use — date left, place right (Koen, 20 September 2026).
@@ -553,31 +563,31 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if top_rows:
             y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
                                        y, ((lx, lw), (rx, rw))) + 3
-        text_h = _richtext_height(content.explanation_md, full_w, 7.2) if content.explanation_md else 0.0
+        text_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
         below = text_h + 9 + (10 if content.inset_image else 0)
-        text_size = 7.2
         if content.main_image:
             avail = left_limit - y - below
             hero_top = y
             frag, y = main_image_block(p, content.main_image, lx, y, full_w,
-                                       hero_height(content.main_image, full_w, avail, cap=200.0, floor=60.0))
+                                       hero_height(content.main_image, full_w, avail,
+                                                   cap=hero_cap, floor=hero_floor))
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, in the chosen corner;
                 # the big picture stays the same size with or without it.
                 frag, bottom = polaroid_on(p, content.inset_image, (lx, hero_top, full_w, y - hero_top),
-                                           content.inset_corner, 91.0)
+                                           content.inset_corner, polaroid_w)
                 p.full += frag
                 y = bottom
             y += 6
         if content.explanation_md:
             text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 6,
-                                          max_size=11.0, min_size=7.2)
+                                          max_size=max_text, min_size=min_text)
             frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w, text_size)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
-        if y > left_limit:
+        if y > left_limit + (0.5 if feed else 0.0):
             p.violations.append(f"Te veel inhoud: {y - left_limit:.0f} mm te veel")
     elif layout == "feed_portrait":
         # Instagram (Koen, 20 September 2026): title, one picture over the
@@ -585,15 +595,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # columns, the dates grid, the welcome badge above the tile. The
         # description and the third picture stay off the feed image.
         y = top_y - 4
-        # The simple preset carries no typed highlights, so the feed shows the
-        # same two facts the print sheet puts above its picture (#1097).
-        rows_content = (PosterContent(duo_code=content.duo_code, highlights=fact_rows(content))
-                        if content.preset == "eenvoudig" else content)
-        n = min(len(rows_content.highlights), 6)
+        n = min(len(content.highlights), 6)
         hl_rows = (n + 1) // 2
-        # A series already says so in its date row; a second summary would
-        # repeat it word for word.
-        series = len(content.dates) > 1 and content.preset != "eenvoudig"
+        series = len(content.dates) > 1
         if content.logos:
             left_limit -= 22   # the logo strip sits in the flow's way on a feed image
         below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
@@ -609,7 +613,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 p.full += frag
                 y = bottom
             y += 6
-        y = _two_column_highlights(p, rows_content, y, ((lx, lw), (rx, rw)), limit_n=6)
+        y = _two_column_highlights(p, content, y, ((lx, lw), (rx, rw)), limit_n=6)
         if series:
             # Koen, 20 September 2026: nobody reads twelve dates while
             # scrolling, and the QR already leads to the site. One row in the
