@@ -2,7 +2,14 @@
 {# Enkel de kaarten (C1, #588): kop, "+ Uploaden" en de filterbalk staan op
    admin_media.html. Dit fragment is wat een upload/opslaan/verwijderen terug-
    swapt, dus het draagt de actieve filters mee als verborgen velden — anders
-   valt het filter weg zodra je iets bewerkt. #}
+   valt het filter weg zodra je iets bewerkt.
+
+   #1138: en het stuurt de UPLOADKNOP out-of-band mee. Die staat buiten #me-lijst,
+   dus ze werd alleen bij een paginalading gebouwd: wie op een chip klikte, kreeg
+   nieuwe kaarten maar een knop die nog de vorige soort droeg — en landde dus op
+   activiteitenfoto's terwijl hij op Sponsorlogo stond. Gemeten op de weg die de
+   gebruiker neemt; via de URL rechtstreeks klopte het wél, en dáárom bleef het
+   staan. Zelfde patroon als de recordkop van een activiteit (#748/#714). #}
 {{ ui.error_banner(error) }}
 {% if assets %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -58,4 +65,12 @@
 {{ ui.empty_state(_("Kies eerst een activiteit om haar foto's te zien.")) }}
 {% else %}
 {{ ui.empty_state(_("Geen media gevonden.") if gefilterd else _("Nog geen media in deze categorie.")) }}
+{% endif %}
+
+{# Alleen op het FRAGMENT-antwoord: de volledige pagina rendert deze knop zelf,
+   en een oob-blok zou hem daar dubbel zetten. #}
+{% if oob_uploadknop|default(false) %}
+<span id="me-uploadknop" hx-swap-oob="true">
+  {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
+</span>
 {% endif %}

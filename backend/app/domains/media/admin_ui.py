@@ -147,6 +147,9 @@ def _lijst_response(request: Request, db: Session, kind: str,
     """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina."""
     ctx = _lijst_ctx(request, db, kind, q, activity_id)
     ctx["error"] = error
+    # #1138: de uploadknop staat buiten dit fragment en reist out-of-band mee.
+    # Alleen hier en niet in de paginaroute: daar rendert het sjabloon hem zelf.
+    ctx["oob_uploadknop"] = True
     return templates.TemplateResponse(request, "_me_lijst.html", ctx)
 
 

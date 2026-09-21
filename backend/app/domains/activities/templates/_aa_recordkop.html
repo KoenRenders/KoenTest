@@ -34,6 +34,15 @@
      knop doet — je gaat naar de Design Studio, die brengt je waar het nuttigst
      is — waar "Designs" een lijst suggereerde terwijl er drie bestemmingen zijn. #}
   <div class="flex items-center gap-2 shrink-0 mt-1">
+  {# #1138 punt 3: vanaf hier foto's toevoegen, met deze activiteit al ingevuld.
+     Koen moest de activiteit die hij net bekeek opnieuw opzoeken in een lijst —
+     en dat is de handeling die hij het vaakst doet. Zelfde vorm als de sprong
+     hiernaast: de bestemming kent de parameters al, dus het is een link en geen
+     nieuw scherm. `kind` staat er expliciet bij, want vanaf een activiteit is de
+     soort per definitie een activiteitenfoto. #}
+  {{ ui.btn_secondary(_("Foto's uploaden"),
+                      href="/admin/media/nieuw?kind=activity_photo&activity_id=" ~ a.id,
+                      size="sm") }}
   {{ ui.btn_secondary(_("Design Studio"), href=designs_href, size="sm") }}
   {% if raakje_admin|default(false) %}
   {# #1115: dezelfde overlay als Betalingen, uit `_raakje_overlay.html`. Deze kop
