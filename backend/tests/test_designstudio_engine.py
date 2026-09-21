@@ -406,6 +406,35 @@ def test_every_row_in_the_band_is_set_in_one_size():
     assert round(ys[2] - ys[1], 1) == BAND_ROW_STEP + 1      # and the last one a millimetre lower
 
 
+def test_the_sponsor_logo_grew_to_the_left_and_down(recwarn=None):
+    """Koen, 21 September 2026, about the sponsor on his Bowlen poster: "kan
+    dat een klein beetje groter worden gemaakt (niet hoger, niet rechtser,
+    dus een beetje meer uitrekken naar links en naar onder, bvb. 20%)? Het is
+    nu eigenlijk moeilijk leesbaar."
+
+    A fifth bigger, with the right edge and the top of the box where they
+    were, so the growth goes left and down.
+
+    Broken on purpose to check this can go red: the anchor back to `xMinYMid`
+    → the right edge moves and the second assert fails.
+    """
+    from app.domains.designstudio.blocks import LOGO_H, Plan, logo_strip
+
+    assert round(LOGO_H / 16, 2) == 1.2          # a fifth over the old 16 mm
+    plan = Plan(width=297, height=420, frame=10, pal=brand.palette_for("dark_green-golden_yellow"), seed=1)
+    logo = ImageBytes(PNG_2x2, "image/png", width=600, height=190)
+    boxes = {}
+    for h in (16.0, LOGO_H):
+        m = re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"',
+                      logo_strip(plan, (logo,), 283.0, 300.0, h))
+        boxes[h] = [float(v) for v in m.groups()]
+    (x0, y0, w0, h0), (x1, y1, w1, h1) = boxes[16.0], boxes[LOGO_H]
+    assert y0 == y1                               # not higher
+    assert round(x0 + w0, 2) == round(x1 + w1, 2)  # not further right
+    assert x1 < x0 and h1 > h0                    # so it grew left and down
+    assert "xMax" in logo_strip(plan, (logo,), 283.0, 300.0, LOGO_H)
+
+
 def test_a_contact_that_does_not_fit_takes_a_second_line_instead_of_shrinking():
     """Koen, 21 September 2026: for bowling they leave the mobile numbers off,
     for other activities they do not — and with one the line no longer fits.
