@@ -1,4 +1,11 @@
 {% import "_macros.html" as ui %}
+{# #1028/#1077: de belofte bij de interne nota staat op ÉÉN plek, want ze staat
+   op twee schermplaatsen — bij het veld waar iemand beslist wat hij typt, en in
+   leesmodus waar iemand beslist of hij het doorvertelt (#1139). #1077 heeft die
+   tekst al een keer moeten bijstellen ("niet in een export" werd onwaar toen dit
+   veld in de rapportering kwam); twee kopieën betekent dat de volgende bijstelling
+   er één vergeet, en een belofte die niet meer klopt is erger dan geen belofte. #}
+{% set INTERNE_NOTA_BELOFTE = _("Alleen het bestuur ziet dit: het komt niet op de website en niet in de nieuwsbrief. In de rapportering kan je het wél opvragen — dat blijft binnen het bestuur.") %}
 <div class="space-y-4">
   {{ ui.error_banner(error|default(None)) }}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
@@ -30,10 +37,27 @@
        x-show per regel: gate-regel 28 leest per element. #}
     {% if a.poster_asset_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Affiche") }}:</span> <a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>
     {% elif a.poster_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Poster-URL") }}:</span> <a href="{{ a.poster_url }}" target="_blank" rel="noopener" class="text-link underline break-all">{{ a.poster_url }}</a></p>
-    {% else %}
-    {# F33 (#996): zonder affiche toonde deze kaart alleen haar kop en knop —
-       een kader dat inhoud suggereert die er niet is. Nu benoemt hij het. #}
-    <p class="mt-2 text-sm text-ink-soft" x-show="!edit" x-cloak>{{ _("Nog geen affiche — voeg er een toe via Bewerken.") }}</p>{% endif %}
+    {% endif %}
+    {# #1139: de kaart toont in leesmodus WAT ZE BEVAT. Tot hier stond er precies
+       één ding — de affichelink, of de zin dat er nog geen affiche is — en zat al
+       het andere in het formulier eronder achter `x-show="edit"`. Je zag de
+       omschrijving en de interne nota dus alleen terwijl je ze bewerkte.
+
+       Een leeg veld wordt WEGGELATEN en niet als lege regel getoond: dan is de
+       kaart opnieuw een kader zonder inhoud, en precies dat was de klacht.
+
+       `x-show` per element en niet één omhullende div: de bijlage-poort
+       (§2.12, #653) leest per regel, en de leeslink hierboven moet haar
+       `x-show="!edit"` op haar eigen regel hebben. #}
+    {% if a.description %}<div class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Omschrijving") }}:</span> <span class="whitespace-pre-line">{{ a.description }}</span></div>{% endif %}
+    {% if board_notes %}<div class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Interne nota") }}:</span> <span class="whitespace-pre-line">{{ board_notes }}</span>
+      <p class="text-xs text-ink-soft mt-1">{{ INTERNE_NOTA_BELOFTE }}</p></div>{% endif %}
+    {# F33 (#996) verklaarde een lege kaart met een zin over de affiche. Die zin
+       blijft, maar hoort nu bij de kaart als geheel: met een omschrijving erin is
+       de kaart niet leeg en is "nog geen affiche" ruis. Alleen wanneer er écht
+       niets te tonen valt, zegt de kaart dat. #}
+    {% if not (a.poster_asset_url or a.poster_url or a.description or board_notes) %}
+    <p class="mt-2 text-sm text-ink-soft" x-show="!edit" x-cloak>{{ _("Nog niets ingevuld — voeg een omschrijving of een affiche toe via Bewerken.") }}</p>{% endif %}
     {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
        verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
        uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
@@ -70,7 +94,7 @@
         {{ ui.textarea_control("board_notes", id="board_notes", value=board_notes, rows=3,
                                placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
                                cls="w-full") }}
-        <p class="text-xs text-ink-soft mt-1">{{ _("Alleen het bestuur ziet dit: het komt niet op de website en niet in de nieuwsbrief. In de rapportering kan je het wél opvragen — dat blijft binnen het bestuur.") }}</p></div>
+        <p class="text-xs text-ink-soft mt-1">{{ INTERNE_NOTA_BELOFTE }}</p></div>
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
         {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}</div>
       {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
