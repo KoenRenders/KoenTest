@@ -31,7 +31,9 @@
   <path d="{{ p.band.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
   {{ wordmark | safe }}
   {%- for row in p.band.rows %}
+  {%- if row.icon %}
   {{ icon(row.icon, row.fg, row.bg, p.band.icon_x, p.band.row_y + 12.5 + loop.index0 * p.band.row_step + (1 if loop.last else 0), 6) | safe }}
+  {%- endif %}
   {%- endfor %}
 </g>
 <g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">

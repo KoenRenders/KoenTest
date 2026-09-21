@@ -151,7 +151,11 @@ def test_a_ticked_organiser_lands_on_the_poster_and_an_unticked_one_does_not(db_
     assert facts["organisers"] == [{"name": "Test Persoon", "mobile": "0470 00 00 00", "email": "trekker@example.com"}]
     content = content_for(db_session, design, facts)
     assert content.contacts[0].name == "Test Persoon" and content.contacts[0].mobile == "0470 00 00 00"
-    assert "Test Persoon · 0470 00 00 00 · trekker@example.com" in render.merge(content, layout="print_a").svg
+    # Name and mobile on one line, the address under it: the whole of it does
+    # not fit in the band's column, and since 21 September it wraps instead of
+    # shrinking.
+    svg = render.merge(content, layout="print_a").svg
+    assert "Test Persoon · 0470 00 00 00" in svg and "trekker@example.com" in svg
 
 
 def test_the_activity_description_is_the_explanation_unless_the_design_types_its_own(db_session, design, activity):
