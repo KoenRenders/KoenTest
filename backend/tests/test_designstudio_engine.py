@@ -673,6 +673,45 @@ def test_registering_closes_the_band_in_the_accent_colour():
     assert "via</text>" not in losse_datum
 
 
+def test_the_icon_follows_the_meaning_not_the_length_of_the_line():
+    """Koen, 21 September 2026: "zou het website-icoon getoond kunnen worden
+    als er geen mogelijkheid tot inschrijven is?" — and, on the icons: "ik
+    bedoelde het icoon voor inschrijven en website op 1 of 2 regels".
+
+    The same sentence used to get a ticket when it broke over two lines and a
+    globe when it fitted on one, which said something about the length and
+    nothing about the meaning. The ticket carries registering now, in both
+    shapes. The globe is for the other case: an activity with nothing to
+    register for prints the address and not the word.
+
+    Both layouts read the same band, so print and feed say the same thing —
+    asserted here for each.
+
+    Broken on purpose to check this can go red: the icon back on `globe` for
+    the one-line case → the first assert names it.
+    """
+    from app.domains.designstudio.blocks import plan_affiche
+
+    def band(content, layout):
+        maat = {"print_a": 420.0, "feed_portrait": 371.25}[layout]
+        plan = plan_affiche(content, layout=layout, width=297, height=maat,
+                            pal=brand.palette_for(content.duo_code))
+        return [(r["id"], r["icon"], r["text"]) for r in plan.band["rows"]]
+
+    for layout in ("print_a", "feed_portrait"):
+        een = band(_content(deadline_text="", contacts=()), layout)
+        assert een[-1] == ("t-website", "ticket", "Inschrijven via www.raakmillegem.be"), layout
+
+        twee = band(_content(deadline_text="Inschrijven tot en met 8 november", contacts=()), layout)
+        assert twee[-2:] == [("t-deadline", "ticket", "Inschrijven tot en met 8 november via"),
+                             ("t-website", "", "www.raakmillegem.be")], layout
+
+        # Niets om op in te schrijven: enkel het adres, met de wereldbol.
+        geen = band(_content(registration=False, deadline_text="", contacts=()), layout)
+        assert geen[-1] == ("t-website", "globe", "www.raakmillegem.be"), layout
+        assert not any("Inschrijven" in tekst for _id, _icoon, tekst in geen), layout
+
+
 def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
     """Koen's feed image had the drawing cut in half. A picture whose known
     size is much wider than its box is letterboxed; an unknown size crops as

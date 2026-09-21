@@ -56,7 +56,11 @@ class PosterContent:
     # simple preset has no icon rows and prints them above the picture.
     date_line: str = ""             # "ZONDAG 15 NOVEMBER OM 9U45", empty for a series
     location: str = ""
-    deadline_text: str = ""         # "Inschrijven tot 8 november", empty when it differs per component
+    deadline_text: str = ""         # "Inschrijven tot en met 8 november", empty when it differs per component
+    #: Whether the activity takes registrations at all. False turns the band's
+    #: closing line into the plain address: no point inviting someone to
+    #: register for something that has no registration.
+    registration: bool = True
     members_only: bool = False      # "ENKEL LEDEN" instead of "IEDEREEN WELKOM!"
     dates_heading: str = ""
     dates: tuple[str, ...] = ()     # "13 JULI" … at most twelve

@@ -588,18 +588,27 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     #   Inschrijven tot en met 1 november via     ← ticket, the sentence opens
     #   www.raakmillegem.be                       ← no icon: same sentence
     #
-    # Without a deadline it is one line with the globe, and without an
-    # address the deadline stands on its own without a dangling "via".
-    samen = bool(content.deadline_text and content.website)
-    if content.deadline_text:
+    # The ticket carries that sentence whether it takes one line or two: the
+    # icon says what the line is about, not how long it is. The globe is for
+    # the other case — an activity you cannot register for — where the band
+    # prints the address and not the word.
+    inschrijven = content.registration
+    samen = bool(inschrijven and content.deadline_text and content.website)
+    if inschrijven and content.deadline_text:
         rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
                      "text": f"{content.deadline_text} via" if samen else content.deadline_text,
                      "size": BAND_TEXT, "colour": pal["accent"]})
     if content.website:
-        rows.append({"id": "t-website", "icon": "" if samen else "globe",
-                     "bg": pal["accent3"], "fg": pal["white"],
-                     "text": content.website if samen else f"Inschrijven via {content.website}",
-                     "size": BAND_TEXT, "colour": pal["accent"]})
+        rows.append({"id": "t-website",
+                     "icon": ("" if samen else "ticket") if inschrijven else "globe",
+                     "bg": pal["accent"] if inschrijven else pal["accent3"],
+                     "fg": pal["ink"] if inschrijven else pal["white"],
+                     "text": (content.website if samen else f"Inschrijven via {content.website}")
+                             if inschrijven else content.website,
+                     "size": BAND_TEXT,
+                     # Registering is the band's call to action; a bare
+                     # address belongs with the ways to reach us.
+                     "colour": pal["accent"] if inschrijven else pal["white"]})
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.
     band_h: float = max(20 + BAND_ROW_STEP * len(rows), QR_BLOCK + 2)
