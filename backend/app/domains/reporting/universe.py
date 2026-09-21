@@ -168,6 +168,20 @@ class Dimension:
     #: `d_paid_date` en `d_date` lezen allebei uit `reporting.d_date`, maar hangen
     #: aan een andere kolom van het feit (#895). Leeg = de sleutel zelf.
     source_view: str = ""
+    #: Kan deze dimensie MEER DAN ÉÉN rij per koppelsleutel hebben? (#1114)
+    #:
+    #: Zo ja, dan vermenigvuldigt een join de rijen van het feit eronder, en telt
+    #: elke maat die niet op `DISTINCT` steunt dubbel. `d_activity_organiser` is
+    #: vandaag de enige: een activiteit heeft er tot drie.
+    #:
+    #: De meeste dimensies staan hier op False omdat een unieke sleutel dat
+    #: afdwingt — `d_address` heeft er een op `person_id`, `d_board_member` één per
+    #: gezin. Zet dit dus niet op gevoel: kijk de constraint na. Stond het op False
+    #: terwijl de databank het niet afdwingt, dan bewaakt de poort iets wat niet
+    #: waar is.
+    #:
+    #: `test_reporting_fanout_gate.py` dwingt af wat dit veld belooft.
+    multi_row: bool = False
 
     @property
     def source(self) -> str:
@@ -428,7 +442,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
     # De sleutel is de rij zelf en niet de persoon: dezelfde persoon trekt
     # meerdere activiteiten.
     Dimension(key="d_activity_organiser", name="Organisator",
-              key_column="organiser_id"),
+              key_column="organiser_id", multi_row=True),
     Dimension(key="d_member", name="Gezin", key_column="member_id"),
     Dimension(key="d_person", name="Persoon", key_column="person_id"),
     Dimension(key="d_payment_method", name="Betaalwijze", key_column="code"),
