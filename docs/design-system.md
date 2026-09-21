@@ -67,6 +67,7 @@ change to all four, in one pull request.
 | 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
 | 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 | 21 Sep 2026 | The sidebar stays **text only** — no icons, not even on `AI · Raakje`. One icon among twenty plain items reads as something somebody forgot to finish, and icons for all twenty is its own design round. Recognition comes from the `AI ·` prefix the three entry points share. Deliberately **not** parked in CR-11 either: this is settled, not deferred | #1117 |
+| 21 Sep 2026 | **A button whose link depends on the filter state travels back with the filter response.** A header button sits outside the swap target, so it keeps the href it was rendered with at page load: the list updates, the button still points at the old state. Send it out-of-band from the list fragment. No gate — the link between header button, filter bar and fragment is declared nowhere, so a gate inferring it from the markup would be brittle (owner decision) | #1138, #1141, §8.4 |
 
 Decisions still open are listed in §12.
 
@@ -1033,6 +1034,29 @@ from the shell. Nine forms in this app do a body swap; for every new
 out-of-band feature this is the first question. A server test cannot see this
 failure: it checks that the response *contains* the toast, and it does. Assert
 visibility, e2e.
+
+### 8.4 A button that depends on the filter state travels with the filter response (#1138, #1141)
+
+A filter bar swaps the **list**. Anything outside that target — the buttons in
+`ui.page_header`, an export link, a "+ Nieuw" that carries the current filter —
+is not in the response, so it keeps the href the server rendered at **page
+load**. Click a filter chip and the list is right while the button still points
+at the state you left. The two measured cases differ only in how loudly they
+fail: on Media `+ Uploaden` opened the upload form for the previous kind; on
+Ledenwijzigingen the export button produced a **file** for the wrong period,
+which nothing on screen contradicts.
+
+**The rule:** does a button's href depend on the filter state? Then the list
+fragment sends it back out-of-band, with its own `id` — the #748 pattern, which
+is allowed here precisely because this is a fragment response (§8.2).
+
+**Deliberately no gate** (owner decision, 21 September 2026). The relation
+between a header button, a filter bar and the fragment they share is declared
+nowhere in the markup; a gate would have to infer it, and an inferred gate goes
+green the moment somebody renames a wrapper. The rule lives here, and the screen
+that needs it carries its own test that clicks the chip and *then* reads the
+href — never a test that fetches the URL directly, which passes while the button
+is broken.
 
 ### 8.3 Where logic lives — view-models and strict templates (#643, #635)
 
