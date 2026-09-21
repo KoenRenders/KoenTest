@@ -105,7 +105,18 @@ def test_free_text_fields_reach_no_model():
 
 # ── Phase 2: a token needs a prefix as much as it needs an id ────────────────
 
-KNOWN_PREFIXES = {"gezin", "persoon"}
+def _known_prefixes() -> set[str]:
+    """De prefixen waarvoor de terugvertaling écht een opzoeking heeft.
+
+    Uit `_LABEL_SQL` en niet uit een lijst hier (#1135). Die lijst stond met de
+    hand in dit bestand, en toen `inschrijving` erbij kwam viel deze poort om op
+    een prefix waarvoor de opzoeking wél bestond — ze bewaakte haar eigen kopie in
+    plaats van de terugvertaling. Nu kan ze dat niet meer.
+    """
+    from app.domains.reporting.assistant import _LABEL_SQL
+
+    assert _LABEL_SQL, "geen opzoekingen gevonden — dan toetst deze poort niets"
+    return set(_LABEL_SQL)
 
 
 def test_a_tokenised_object_declares_what_its_token_is_called():
@@ -135,7 +146,7 @@ def test_a_tokenised_object_declares_what_its_token_is_called():
     assert not zonder, f"deze objecten worden getokeniseerd zonder prefix: {zonder}"
 
     onbekend = {o.key: o.token_prefix for o in tokenised
-                if o.token_prefix not in KNOWN_PREFIXES}
+                if o.token_prefix not in _known_prefixes()}
     assert not onbekend, (
         "deze prefixen kent de terugvertaling niet, dus hun token wordt op het "
         f"scherm nooit een naam: {onbekend}. Voeg de opzoeking toe in "

@@ -109,9 +109,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 88 |
+| `admin` | the default: what an admin screen already shows | 89 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 31 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 10 |
 
 ## Objects
 
@@ -192,6 +192,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `activity_members_only` | Enkel voor leden | dimension | label | `admin` | admin_plain | `CASE WHEN d_activity.members_only THEN 'Ja' ELSE 'Nee' END` | Of enkel leden zich mochten inschrijven op deze activiteit. |
 | `activity_count` | Aantal activiteiten | measure | count | `admin` | admin_plain | `COUNT(DISTINCT f_activities.activity_id)` | Elke activiteit, ook zonder inschrijvingen. Verschilt van 'Aantal inschrijvingen', dat de inschrijvingen telt. |
 | `activity_last_date` | Laatste datum | dimension | date | `admin` | admin_plain | `f_activities.last_date` | De laatste dag van de activiteit (einddatum, anders begindatum). Filter hierop vanaf vandaag voor de komende activiteiten. |
+| `registrant` | Ingeschreven door | dimension | label | `member_details` | admin_tokenised (`inschrijving-…`) | `COALESCE(NULLIF(f_registrations.registrant_name, ''), 'Onbekend')` | Wie er ingeschreven is. Komt uit de gekoppelde persoon als de inschrijving er een heeft, en anders uit de contactnaam die de inschrijver zelf intypte — dat laatste is het gewone geval, niet de uitzondering. Zet 'Herkomst inschrijver' ernaast om te zien welke van de twee je voor je hebt. |
+| `registrant_source` | Herkomst inschrijver | dimension | label | `admin` | admin_plain | `f_registrations.registrant_source` | Waar de naam van de ingeschrevene vandaan komt: 'Lid' uit de ledenadministratie, 'Contactgegeven' uit wat de inschrijver zelf intypte. Zonder deze kolom lijken die twee soorten zekerheid op elkaar. Let op: ze beschrijft de herkomst van de NAAM, niet of er een koppeling bestaat — wijst een inschrijving naar een intussen verwijderde of samengevoegde persoon, dan valt de naam terug op het contactgegeven en zegt deze kolom dat ook. |
 | `component` | Onderdeel | dimension | label | `admin` | admin_plain | `f_registrations.component_name` | Het onderdeel van de activiteit waarop ingeschreven werd — een activiteit kan er meerdere hebben, elk met een eigen prijs en capaciteit. |
 | `product` | Product | dimension | label | `admin` | admin_plain | `f_registrations.product_name` | Het gekozen product. 'Geen product' bij een inschrijving zonder regels. |
 | `registration_type` | Inschrijfvorm | dimension | label | `admin` | admin_plain | `f_registrations.registration_type` | Of er individueel of als gezin ingeschreven werd. |
