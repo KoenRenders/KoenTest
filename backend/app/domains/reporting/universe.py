@@ -424,6 +424,11 @@ FACTS: tuple[Fact, ...] = (
 DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(key="d_date", name="Datum", key_column="date_key"),
     Dimension(key="d_activity", name="Activiteit", key_column="activity_id"),
+    # #1077: één rij per organisator, naast de samengevoegde kolom op d_activity.
+    # De sleutel is de rij zelf en niet de persoon: dezelfde persoon trekt
+    # meerdere activiteiten.
+    Dimension(key="d_activity_organiser", name="Organisator",
+              key_column="organiser_id"),
     Dimension(key="d_member", name="Gezin", key_column="member_id"),
     Dimension(key="d_person", name="Persoon", key_column="person_id"),
     Dimension(key="d_payment_method", name="Betaalwijze", key_column="code"),
@@ -498,6 +503,13 @@ JOINS: tuple[Join, ...] = (
     Join("f_members", "d_member_created", (("date_key", "date_key"),)),
     Join("f_members", "d_member", (("member_id", "member_id"),)),
     Join("f_activities", "d_activity", (("activity_id", "activity_id"),)),
+    # #1077: ALLEEN aan dit feit, en dat is gemeten. Een activiteit met twee
+    # organisatoren levert twee rijen; `f_activities` draagt precies één maat en
+    # die is `COUNT(DISTINCT activity_id)`, dus die vermenigvuldiging kan hem niet
+    # opblazen. Dezelfde join op `f_payments` zou een `SUM(amount)` verdubbelen —
+    # stil, en in geld.
+    Join("f_activities", "d_activity_organiser",
+         (("activity_id", "activity_id"),)),
     Join("f_activities", "d_activity_start", (("first_date", "date_key"),)),
     Join("f_activities", "d_activity_end", (("last_date", "date_key"),)),
     # A snowflake: the board member hangs off the household, not off a fact. Same
@@ -1212,6 +1224,69 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN, drill="activity", drill_sql="{view}.activity_id",
         description="Naam van de activiteit. Klik door naar het activiteitdossier.",
         ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_description", name="Omschrijving", klass="Activiteiten",
+        kind=ObjectKind.DETAIL, view="d_activity",
+        sql="{view}.activity_description", format=Format.LABEL, role=Role.ADMIN,
+        description=(
+            "De omschrijving die het bestuur bij de activiteit schreef — dezelfde "
+            "zinnen die op de website en in de nieuwsbrief staan. Publieke tekst, "
+            "dus geen reden om ze voor een rapport achter te houden."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
+        key="activity_board_notes", name="Notities bestuur", klass="Activiteiten",
+        kind=ObjectKind.DETAIL, view="d_activity",
+        sql="{view}.activity_board_notes", format=Format.LABEL, role=Role.ADMIN,
+        description=(
+            "De interne nota bij de activiteit: afspraken, contacten, wat iemand "
+            "zichzelf wilde herinneren. Zichtbaar in een rapport dat een bestuurder "
+            "zelf opvraagt, en NOOIT in een vraag aan Raakje — het is vrije interne "
+            "tekst en wat erin staat is niet te voorspellen. Het scherm belooft "
+            "precies dat bij het veld."
+        ),
+        ai_exposure=AiExposure.NONE,
+    ),
+    UniverseObject(
+        key="activity_organisers", name="Organisatoren (samengevoegd)",
+        klass="Activiteiten",
+        kind=ObjectKind.DETAIL, view="d_activity",
+        sql="{view}.activity_organisers", format=Format.LABEL, role=Role.ADMIN,
+        description=(
+            "Wie deze activiteit trekt, als één regel: de aangevinkte "
+            "contactpersonen met een · ertussen, in dezelfde volgorde als op de "
+            "affiche. Eén kolom en geen eigen korrel — daardoor blijft een rapport "
+            "over activiteiten één rij per activiteit, en kan je er niet op "
+            "groeperen. Wil je dat laatste — of wil je Raakje erover kunnen vragen "
+            "— neem dan 'Organisator'; die heeft een eigen korrel."
+        ),
+        # NIET tokenised, en dat is een meting en geen slordigheid (#1077):
+        # tokenisatie vervangt een waarde door `persoon-23` met een id dat de engine
+        # per RIJ meelevert. Deze kolom voegt meerdere personen samen, dus er is
+        # geen id om te vervangen — en een naam zonder id laat de naadwachter de
+        # hele toolaanroep blokkeren, niet enkel deze kolom. NONE weigert hem netjes
+        # bij naam, vóór de query, terwijl het rapportenpaneel de namen gewoon toont.
+        ai_exposure=AiExposure.NONE,
+    ),
+    UniverseObject(
+        key="activity_organiser", name="Organisator", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_activity_organiser",
+        sql="{view}.organiser_name", format=Format.LABEL, role=Role.ADMIN,
+        description=(
+            "Wie een activiteit trekt, met één rij PER ORGANISATOR. Daarmee kan je "
+            "groeperen op 'activiteiten per organisator', en kan Raakje vertellen "
+            "wie wat organiseert. LET OP: een activiteit met twee organisatoren "
+            "levert twee rijen, dus zet dit object alleen in een rapport waar je "
+            "die opsplitsing wil. Wil je één regel per activiteit, neem dan "
+            "'Organisatoren (samengevoegd)'."
+        ),
+        # Een organisator is een persoon, dus het model krijgt `persoon-23` en niet
+        # de naam. Dat kan hier wél en bij de samengevoegde kolom niet: deze rij
+        # wijst één persoon aan, dus er is een id om het token op te bouwen.
+        ai_exposure=AiExposure.TOKENISED, token_prefix="persoon",
+        entity_sql="{view}.person_id",
     ),
     UniverseObject(
         key="activity_id", name="Activiteitnummer", klass="Activiteiten",

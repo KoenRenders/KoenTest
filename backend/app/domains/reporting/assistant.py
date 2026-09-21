@@ -110,9 +110,25 @@ _TOKEN = re.compile(r"\b(gezin|persoon)-(\d+)\b")
 _LABEL_SQL = {
     "gezin": ("SELECT member_id, head_name FROM reporting.d_member "
               "WHERE tenant_id = :tenant AND member_id = ANY(:ids)"),
-    "persoon": ("SELECT board_member_id, board_member_name "
+    # `persoon` kent MEER dan één bron, en dat is geen slordigheid maar een gevolg
+    # van hoe dit universum met namen omgaat: `d_person` draagt er bewust geen —
+    # een persoonsdimensie zonder naam is de privacyveilige vorm — dus een naam
+    # staat alleen in de weergaven waar een doel hem rechtvaardigde. Tot #1077 was
+    # dat alleen het bestuurslid, en een token voor wie géén bestuurslid is bleef
+    # daardoor als `persoon-90` in het antwoord staan. Dat was een bestaande klacht
+    # van Koen, en #1077 zou ze talrijker gemaakt hebben in plaats van kleiner.
+    #
+    # Eén bron zou beter zijn: een naamkolom op `d_person`. Dat is hier NIET gedaan
+    # omdat het de persoonsdimensie namen zou laten dragen voor élke lezer van de
+    # rapportering, en dat is een privacykeuze en geen opruimwerk. Komt die kolom
+    # er, dan vervangt ze deze UNION.
+    "persoon": ("SELECT DISTINCT board_member_id, board_member_name "
                 "FROM reporting.d_board_member "
-                "WHERE tenant_id = :tenant AND board_member_id = ANY(:ids)"),
+                "WHERE tenant_id = :tenant AND board_member_id = ANY(:ids) "
+                "UNION "
+                "SELECT DISTINCT person_id, organiser_name "
+                "FROM reporting.d_activity_organiser "
+                "WHERE tenant_id = :tenant AND person_id = ANY(:ids)"),
 }
 
 
