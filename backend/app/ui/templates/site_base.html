@@ -116,7 +116,22 @@
        render always carries the right value. Validated as #rrggbb on write AND
        on read (`tenant_site_header_color`), because this is a style attribute. #}
     <nav class="bg-blue-700 text-white shadow-md"{% if site_header_color %} style="background-color: {{ site_header_color }}"{% endif %} x-data="{ open: false }">
-      <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+      {# #1156: mét logo ruilt de balk verticale padding in voor logohoogte.
+
+         De balkhoogte is de INVARIANT — gemeten in een browser: 80 px op een
+         breed scherm, 76 px op een telefoon — en ze staat hier als `--balk`. De
+         padding is de keuze (`--lucht`), en het logo krijgt wat er overblijft:
+         `--balk - 2 × --lucht`. Zo kan de ruil niet uit de pas lopen. Zet de
+         padding anders, dan compenseert het logo en blijft de balk even hoog;
+         een derde getal voor de logohoogte zou dat juist stukmaken.
+
+         Alleen mét logo, want de padding draagt óók de woordmerk-tak, en die is
+         een andere hoogte: gemeten 71 px breed (woordmerk 39 + 2 × 16). Zou de
+         padding daar mee krimpen, dan zakte die balk naar 55 px — een wijziging
+         die dit issue uitdrukkelijk niet vraagt. Zonder logo blijft alles dus
+         precies zoals het was. #}
+      <div class="max-w-7xl mx-auto px-4 flex items-center justify-between
+                  {% if site_logo_url %}[--balk:76px] md:[--balk:80px] [--lucht:8px] py-[var(--lucht)]{% else %}py-4{% endif %}">
         <a href="{{ path_for("/") }}" class="hover:opacity-80">
           {# Woordmerk "RaaK" (huisstijl): kapitale R en K, kleine "aa" opgetrokken naar
              kapitaalhoogte via een grotere fontsize (#605). Radio Canada Big (font-brand).
@@ -138,7 +153,10 @@
              keep it — that is text, not image. No "show tagline" switch: the logo
              is the signal. #}
           {% if site_logo_url %}
-          <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-10 md:h-12 w-auto">
+          {# De hoogte is AFGELEID van de balk hierboven (was `h-10 md:h-12`, dus
+             40 en 48 px): balkhoogte min de padding boven en onder. Dat is de
+             ruil uit #1156 — het logo neemt de ruimte die de padding afstaat. #}
+          <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-[calc(var(--balk)_-_2_*_var(--lucht))] w-auto">
           {% else %}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
           {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
