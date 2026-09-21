@@ -589,39 +589,71 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     return blok if heeft_inhoud else None
 
 
-SOCIALE_CODES: tuple[tuple[str, str], ...] = (
-    ("FACEBOOK", "Facebook"),
-    ("INSTAGRAM", "Instagram"),
-    ("TIKTOK", "TikTok"),
-)
+def _externe_url(waarde: str) -> str | None:
+    """De waarde als absolute http(s)-URL, of ``None`` als ze dat niet is.
+
+    De tweede helft van #1160: een waarde zonder schema is voor de browser een
+    RELATIEF pad, dus ``0470 12 34 56`` in een ``href`` wordt een link naar
+    ``https://<ons domein>/0470 12 34 56``. Dat gold ook voor een echt netwerk
+    met een verkeerd ingevulde waarde, dus de controle hangt aan de link en niet
+    aan de soort. Geen gok naar wat iemand bedoelde: ``www.facebook.com/raak``
+    krijgt er geen ``https://`` voor, want dan raadt de footer een adres.
+    """
+    from urllib.parse import urlsplit
+
+    try:
+        stuk = urlsplit((waarde or "").strip())
+    except ValueError:          # een waarde die niet eens te ontleden valt
+        return None
+    if stuk.scheme in ("http", "https") and stuk.netloc:
+        return waarde.strip()
+    return None
 
 
 def _sociale_links(db, organisatie) -> list[dict]:
-    """De sociale links van de organisatie, in vaste volgorde (#945).
+    """De sociale links van de organisatie, in vaste volgorde (#945, #1160).
 
-    De volgorde komt van :data:`SOCIALE_CODES` en niet uit de databank: een footer
-    waarin de iconen van plaats wisselen omdat iemand een rij bewerkte, ziet er
-    stuk uit. Een code die hier nog niet staat maar wél een rij heeft, komt
-    achteraan mee — zo is een vijfde netwerk zichtbaar zonder codewijziging, wat
-    de hele reden is dat dit een lijst werd.
+    **De bron zegt wat een netwerk is.** `contact_type_codes.is_social_network`
+    draagt die beslissing; dit scherm houdt er geen lijst meer van bij. Tot #1160
+    stond de regel omgekeerd — bekende codes eerst, en *alles wat de module niet
+    kende* achteraan erbij — met een handgeschreven uitzonderingslijst
+    ``{"EMAIL", "PHONE", "WEBSITE"}`` ernaast. Die lijst miste ``MOBILE``, dus het
+    mobiele nummer van de vereniging stond als vierde icoon in de footer van elke
+    publieke pagina. Een achtste contactsoort zou hetzelfde doen.
+
+    De openheid van #945 blijft: een vijfde netwerk is nog altijd één rij in
+    `contact_type_codes` (nu met ``is_social_network = true``) plus één rij in
+    `contact_details` — geen kolom, geen sjabloonregel. Wat verdwijnt is de
+    restcategorie, want "een code die ik niet ken" is geen netwerk maar een
+    contactsoort die dit scherm nog niet kent.
+
+    De volgorde komt van de CODE en niet uit de rij-inhoud: een footer waarin de
+    iconen van plaats wisselen omdat iemand een waarde bewerkte, ziet er stuk uit.
+    Alfabetisch op code is stabiel onder elke bewerking, en het is toevallig ook
+    precies de volgorde die de oude vaste lijst had (FACEBOOK, INSTAGRAM, TIKTOK).
     """
     if organisatie is None:
         return []
-    from app.domains.mdm.api import ContactDetail
+    from app.domains.mdm.api import ContactDetail, ContactTypeCode
 
+    netwerken = {c.code: c.value for c in
+                 db.query(ContactTypeCode)
+                 .filter(ContactTypeCode.is_social_network.is_(True))
+                 .execution_options(include_all_tenants=True).all()}
+    if not netwerken:
+        return []
     rijen = {c.contact_type_code: c.value for c in
              db.query(ContactDetail)
              .filter(ContactDetail.organization_id == organisatie.id,
+                     ContactDetail.contact_type_code.in_(list(netwerken)),
                      ContactDetail.deleted_at.is_(None))
              .execution_options(include_all_tenants=True).all()}
-    bekend = {code for code, _ in SOCIALE_CODES}
-    links = [{"code": code, "label": label, "url": rijen[code]}
-             for code, label in SOCIALE_CODES if rijen.get(code)]
-    # EMAIL/PHONE/WEBSITE horen in het contactblok, niet tussen de iconen.
-    geen_icoon = {"EMAIL", "PHONE", "WEBSITE"}
-    links += [{"code": code, "label": code.title(), "url": waarde}
-              for code, waarde in sorted(rijen.items())
-              if code not in bekend and code not in geen_icoon and waarde]
+    links = []
+    for code in sorted(netwerken):
+        url = _externe_url(rijen.get(code) or "")
+        if url:
+            links.append({"code": code, "label": netwerken[code] or code.title(),
+                          "url": url})
     return links
 
 

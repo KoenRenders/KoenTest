@@ -478,6 +478,11 @@ class ContactTypeCode(Base):
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
+    # #1160: the source says which codes are social networks. The public footer
+    # asks this column instead of keeping a list of its own — that list was a
+    # code short and put the mobile number between the icons. NULL means "not
+    # classified yet" and renders as "not a network"; the suite fails on it.
+    is_social_network = Column(Boolean, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 

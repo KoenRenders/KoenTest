@@ -132,11 +132,16 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     Er wordt hier géén kolom toegevoegd, géén migratie gedraaid en géén
     sjabloonregel geschreven: één rij in `contact_type_codes` en één in
     `contact_details`. Verschijnt de link dan in de footer, dan is de vorm goed.
+
+    #1160 verlegde de weg zonder de belofte te breken: de rij zegt er nu bij
+    dát ze een netwerk is (`is_social_network`), in plaats van dat de footer
+    alles toont wat ze niet herkent. Die restcategorie zette het gsm-nummer van
+    de vereniging tussen de iconen.
     """
     from app.domains.mdm.api import ContactTypeCode
 
     db_session.add(ContactTypeCode(code="MASTODON", language="nl",
-                                   value="Mastodon"))
+                                   value="Mastodon", is_social_network=True))
     db_session.flush()
     _contact(db_session, organisatie, "MASTODON", "https://mastodon.example/@raak")
     db_session.commit()
