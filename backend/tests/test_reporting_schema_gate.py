@@ -32,7 +32,8 @@ from sqlalchemy import text
 # RENAME that left the old name behind: `d_household` became `d_member` in #848,
 # and the gate went red until the list said so.
 EXPECTED_VIEWS = {
-    "d_activity", "d_date", "d_member", "d_membership_status",
+    "d_activity", "d_activity_organiser", "d_date", "d_member",
+    "d_membership_status",
     "d_payment_method", "d_payment_status", "d_person", "d_form",
     "d_board_member", "d_address", "f_forms",
     "f_memberships", "f_payments", "f_registrations", "f_membership_persons",
