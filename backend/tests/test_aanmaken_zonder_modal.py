@@ -22,7 +22,9 @@ pytestmark = pytest.mark.ui_serverrendered
 # Bewust een `id=` en geen `name=`: een `name="email"` staat ook op de bewerkrij van
 # elke gebruiker, en dan toetst de test niets. De id's zijn uniek per formulier.
 SCHERMEN = [
-    ("/admin/leden", "/admin/leden/nieuw", 'id="nl-first"'),
+    # #1110: het aanmaakscherm is één formulier met de gedeelde veldenset, dus
+    # het eerste veld heet m0_first_name.
+    ("/admin/leden", "/admin/leden/nieuw", 'id="m0_first_name"'),
     ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'id="start_date"'),
     ("/admin/formulieren", "/admin/formulieren/nieuw", 'id="f-title"'),
     ("/admin/paginas", "/admin/paginas/nieuw", 'id="slug"'),

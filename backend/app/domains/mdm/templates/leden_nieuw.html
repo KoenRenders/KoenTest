@@ -2,34 +2,44 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Nieuw lid — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
-   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
-   onderhouden. #}
-{{ ui.page_header(_("Nieuw lid"), _("Naam volstaat; adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.")) }}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal.
 
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <form class="space-y-3" hx-post="/admin/leden">
-      {# Golf 6, kop-herziening: alles bovenaan. #}
-      {{ ui.action_bar(cancel_href="/admin/leden") }}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Voornaam"), "nl-first", required=True) }}
-          <input name="first_name" id="nl-first" required class="w-full"></div>
-        <div>{{ ui.label(_("Achternaam"), "nl-last", required=True) }}
-          <input name="last_name" id="nl-last" required class="w-full"></div>
-      </div>
-      {# #681: geboortedatum en geslacht zijn verplicht voor élk lid. Ze staan hier
-         omdat dit scherm anders de ene weg zou zijn waarlangs een lid zónder deze
-         twee in het bestand komt — élke andere ingang dwingt ze af. #}
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Geboortedatum"), "nl-dob", required=True) }}
-          {{ ui.input_control("date_of_birth", id="nl-dob", type="date", required=True, cls="w-full") }}</div>
-        <div>{{ ui.label(_("Geslacht"), "nl-gender", required=True) }}
-          {% call ui.select_control("gender_code", cls="w-full", attrs='id="nl-gender" required') %}
-            <option value="">{{ _("Kies…") }}</option>
-            {% for g in gender_codes %}<option value="{{ g.code }}">{{ g.value }}</option>{% endfor %}
-          {% endcall %}</div>
-      </div>
-      <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
-    </form>
+   Sinds #1110 is het één formulier met één opslaan-actie, in de vorm van het
+   publieke "Word lid": hoofdlid mét e-mail en gsm, het adres, eventueel extra
+   gezinsleden. Daarvóór waren het vier aparte opslag-acties — gezin, dan
+   contactgegevens, dan adres, dan lidmaatschap — en het scherm vroeg e-mail en
+   gsm zelfs niet, terwijl het publieke formulier ze verplicht. Eén schrijfweg
+   (`membership.api.create_family_with_members`), dus één regel voor beide. #}
+{{ ui.page_header(_("Nieuw lid"), _("Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard.")) }}
+{{ ui.error_banner(error) }}
+
+{# Begrensde formulierkolom, zoals het publieke formulier (F18, #913): korte
+   persoonsvelden horen niet over de volle paginabreedte. #}
+<div class="max-w-2xl">
+<form hx-post="/admin/leden" class="space-y-4">
+  {# Golf 6, kop-herziening: het cluster bovenaan. #}
+  {{ ui.action_bar(cancel_href="/admin/leden") }}
+
+  {# Hoofdlid — dezelfde veldenset als publiek (#511), dus e-mail en gsm
+     verplicht en de relatie vast op HOOFDLID. #}
+  <div id="hoofdlid">
+    {% with i = 0 %}{% include "_lid_persoon_rij.html" %}{% endwith %}
+  </div>
+
+  {% call ui.card() %}
+    {% with av = values %}{% include "_leden_adres_velden.html" %}{% endwith %}
+  {% endcall %}
+
+  {# Extra gezinsleden: een rij erbij is enkel een lege vorm, geen opslag — je
+     verliest dus niets van wat je al typte (#1110). #}
+  <div id="extra-personen" class="space-y-4"></div>
+  <button type="button" class="{{ ui.btn_class('secondary') }}"
+          hx-get="/admin/leden/nieuw/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
+          hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length}'>
+    {{ _("+ Gezinslid toevoegen") }}
+  </button>
+
+  <p class="text-xs text-ink-soft">{{ _("Het lidmaatschap voor dit jaar wordt meteen aangemaakt. Een ander jaar voeg je toe op de gezinspagina.") }}</p>
+</form>
 </div>
 {% endblock %}

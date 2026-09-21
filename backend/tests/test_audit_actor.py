@@ -129,16 +129,18 @@ def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_sessi
 def test_nieuw_lid_via_het_beheerscherm_draagt_de_beheerder(client, db_session):
     """Dit was de duidelijkste van de vier: de actor was bekend en verdween."""
     from app.domains.mdm.api import MemberHistory, PersonHistory
+    from tests.conftest import nieuw_lid_velden
 
     csrf = _login(client)
-    resp = client.post("/admin/leden",
-                       data={"first_name": "Nieuw", "last_name": "Lid",
-                             "date_of_birth": "1980-01-01", "gender_code": "M"},
+    resp = client.post("/admin/leden", data=nieuw_lid_velden(db_session),
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204, resp.text[:300]
 
-    for model, actie in ((MemberHistory, "member_created"),
-                         (PersonHistory, "person_created")):
+    # #1110: beide wegen naar een nieuw gezin schrijven sinds de unificatie
+    # dezelfde handeling — `family_registered`. WIE het deed staat in de actor en
+    # de bron, en dat is precies wat deze test bewaakt.
+    for model, actie in ((MemberHistory, "family_registered"),
+                         (PersonHistory, "family_registered")):
         rijen = db_session.query(model).filter(model.action == actie).all()
         assert rijen, f"geen auditregel voor {actie}"
         assert all(r.actor == SEEDED_ADMIN_EMAIL for r in rijen), (
@@ -150,13 +152,15 @@ def test_die_handeling_heet_geen_systeemactie_meer(client, db_session):
     herkenbaar. Een systeemactie is iets wat vanzelf gebeurt; dit niet."""
     from app.domains.mdm.api import MemberHistory
 
+    from tests.conftest import nieuw_lid_velden
+
     csrf = _login(client)
     client.post("/admin/leden",
-                data={"first_name": "Bron", "last_name": "Test",
-                      "date_of_birth": "1980-01-01", "gender_code": "M"},
+                data=nieuw_lid_velden(db_session, m0_first_name="Bron",
+                                      m0_last_name="Test"),
                 headers={"X-CSRF-Token": csrf})
 
     rijen = (db_session.query(MemberHistory)
-             .filter(MemberHistory.action == "member_created").all())
+             .filter(MemberHistory.action == "family_registered").all())
     assert rijen and all(r.source == "admin_manual" for r in rijen), (
         [r.source for r in rijen])

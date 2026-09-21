@@ -142,12 +142,16 @@ def test_statusfilter_scheidt_actief_van_opgezegd(client, db_session):
 def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_session):
     from app.domains.mdm.api import MemberPerson, Person
 
+    from tests.conftest import nieuw_lid_velden
+
     csrf = _login(client)
     resp = client.post("/admin/leden",
-                       # #681: het aanmaakscherm vraagt sinds deze release ook
-                       # geboortedatum en geslacht, en dwingt ze server-side af.
-                       data={"first_name": "Marie", "last_name": "Peeters",
-                             "date_of_birth": "1980-01-01", "gender_code": "F"},
+                       # #681: geboortedatum en geslacht zijn verplicht; sinds
+                       # #1110 verstuurt het scherm één formulier met m0_-velden,
+                       # het adres en de contactgegevens van het hoofdlid.
+                       data=nieuw_lid_velden(db_session, m0_first_name="Marie",
+                                             m0_last_name="Peeters",
+                                             m0_gender_code="F"),
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204
     persoon = db_session.query(Person).filter(Person.last_name == "Peeters").one()

@@ -56,21 +56,11 @@ def persoon_rij(request: Request, db: Session = Depends(get_db)):
 
 
 def _parse_members(form) -> list[dict]:
-    import re
+    """Doorgeefluik naar de gedeelde ontleding (#1110) — het beheerscherm gebruikt
+    dezelfde veldnamen en dus dezelfde functie."""
+    from app.domains.membership.service import parse_member_rows
 
-    # Gat-bestendig (#456): een verwijderd gezinslid laat een gat in de m<i>-
-    # nummering; scan dus álle aanwezige indices i.p.v. te stoppen bij het eerste
-    # ontbrekende.
-    indices = sorted({int(mo.group(1)) for k in form.keys()
-                      if (mo := re.match(r"m(\d+)_", str(k)))})
-    members: list[dict] = []
-    for index in indices:
-        m = {k: (form.get(f"m{index}_{k}") or "").strip() for k in
-             ("first_name", "last_name", "date_of_birth", "gender_code",
-              "email", "phone", "mobile", "relation_type")}
-        if m["first_name"] or m["last_name"]:
-            members.append(m)
-    return members
+    return parse_member_rows(form)
 
 
 @router.post("/lid-worden", response_class=HTMLResponse,

@@ -176,40 +176,98 @@ def leden_lijst(request: Request, db: Session = Depends(get_db),
 def lid_nieuw(request: Request, db: Session = Depends(get_db),
               email: str = Depends(require_admin_ui)):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    from app.domains.mdm.api import list_postal_codes
+
     return templates.TemplateResponse(request, "leden_nieuw.html", {
         "nav_items": NAV,
         "csrf_token": csrf_from_request(request),
+        "postal_codes": list_postal_codes(db),
+        "values": {}, "error": None,
         **_codes(db),
     })
 
 
-@router.post("/admin/leden", dependencies=[Depends(require_csrf)])
-def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui),
-                   first_name: str = Form(""), last_name: str = Form(""),
-                   date_of_birth: str = Form(""),
-                   gender_code: str = Form("")) -> Response:
-    """Nieuw gezin met zijn hoofdlid (#582).
+@router.get("/admin/leden/nieuw/persoon-rij", response_class=HTMLResponse)
+def lid_nieuw_persoon_rij(request: Request, db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui)):
+    """Een lege rij voor een extra gezinslid (#1110).
 
-    Het scherm vraagt naam, geboortedatum en geslacht; adres, contactgegevens en
-    lidmaatschappen vul je aan in de editor waar je meteen op uitkomt — dezelfde
-    vorm als de andere records-lijsten.
-
-    Die twee extra velden kwamen er met #681. Het scherm vroeg enkel een naam
-    (#627), en dat was precies de weg waarlangs een lid zónder geboortedatum en
-    geslacht in het bestand kon komen terwijl élke andere ingang ze afdwingt.
+    Hetzelfde fragment als het publieke formulier, want het zijn dezelfde velden;
+    een eigen admin-route omdat dit scherm achter de beheerdeur hoort te zitten.
+    Er gaat niets naar de databank en er wordt niets vervangen, dus wat je al
+    typte blijft staan.
     """
-    from app.domains.membership.api import MemberCreate, PersonCreate, create_member
+    try:
+        index = max(1, int(request.query_params.get("index", "1")))
+    except ValueError:
+        index = 1
+    return templates.TemplateResponse(request, "_lid_persoon_rij.html", {
+        **_codes(db), "i": index, "values": {}})
 
-    if not first_name.strip() or not last_name.strip():
-        raise HTTPException(status_code=400,
-                            detail=_("Voornaam en achternaam zijn verplicht."))
-    # #713: de beheerder tekent de auditregel. Zonder dit stond een handeling van
-    # dít scherm in de geschiedenis als een systeemactie zonder actor.
-    gezin = create_member(db, MemberCreate(persons=[PersonCreate(
-        first_name=first_name.strip(), last_name=last_name.strip(),
-        date_of_birth=date_of_birth or None, gender_code=gender_code or None,
-        relation_type="HOOFDLID")]), admin=email)
+
+@router.post("/admin/leden", dependencies=[Depends(require_csrf)])
+async def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
+                         email: str = Depends(require_admin_ui)) -> Response:
+    """Nieuw gezin met hoofdlid, adres, contactgegevens en lidmaatschap (#1110).
+
+    Eén formulier, één opslaan-actie, één transactie — in de vorm van het publieke
+    "Word lid" en langs dezelfde schrijfweg. Tot #1110 waren het vier aparte
+    opslag-acties en vroeg dit scherm e-mail en gsm van het hoofdlid niet eens,
+    terwijl het publieke formulier ze verplicht: je kon via de beheerkant dus een
+    lid aanmaken dat publiek geweigerd zou worden. Dezelfde regel op één plek
+    (`FamilyCreate`) betekent dat dat niet meer kan.
+
+    #713: de beheerder tekent de auditregels.
+    """
+    from pydantic import ValidationError
+
+    from app.domains.membership.api import (FamilyCreate, FamilyMemberCreate,
+                                            create_family_by_admin, parse_member_rows)
+    from app.domains.mdm.api import list_postal_codes
+
+    form = await request.form()
+    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+
+    def _fout(melding: str):
+        """Het formulier opnieuw, mét wat er ingevuld stond en de reden.
+
+        De keuzelijsten worden hier opgehaald en niet bovenaan: een mislukte
+        opslag rolt de transactie terug (#1110), en objecten die vóór die rollback
+        geladen zijn, bestaan daarna niet meer. Ze alsnog renderen geeft een
+        harde fout in plaats van de nette foutpagina.
+        """
+        return templates.TemplateResponse(
+            request, "leden_nieuw.html",
+            {"nav_items": NAV, "csrf_token": csrf_from_request(request),
+             "postal_codes": list_postal_codes(db), "values": values,
+             "error": melding, **_codes(db)}, status_code=422)
+
+    rijen = parse_member_rows(form)
+    if not rijen:
+        return _fout(_("Vul minstens het hoofdlid in."))
+    try:
+        data = FamilyCreate(
+            street=(values.get("street") or "").strip(),
+            house_number=(values.get("house_number") or "").strip(),
+            bus_number=(values.get("bus_number") or "").strip() or None,
+            postal_code=(values.get("postal_code") or "").strip(),
+            members=[FamilyMemberCreate(
+                first_name=r["first_name"], last_name=r["last_name"],
+                date_of_birth=r["date_of_birth"] or None,
+                gender_code=r["gender_code"] or None,
+                email=r["email"] or None, phone=r["phone"] or None,
+                mobile=r["mobile"] or None,
+                relation_type=r["relation_type"] or ("HOOFDLID" if i == 0 else "PARTNER"),
+            ) for i, r in enumerate(rijen)],
+        )
+    except ValidationError as exc:
+        return _fout(str(exc.errors()[0].get("msg", _("Ongeldige invoer."))))
+
+    try:
+        gezin = create_family_by_admin(db, data, actor=email)
+    except HTTPException as exc:
+        return _fout(str(exc.detail))
+
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
