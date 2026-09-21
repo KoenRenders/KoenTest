@@ -24,6 +24,8 @@ import hashlib
 import json
 import logging
 import random
+import re
+import unicodedata
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from io import BytesIO
@@ -84,6 +86,14 @@ STATUS_TONES = {STATUS_DRAFT: "yellow", STATUS_FINAL: "green"}
 LAYOUT_LABELS = {LAYOUT_PRINT: "Print (A3/A4)", LAYOUT_FEED: "Instagram (4:5)"}
 
 #: What a version renders per layout: (variant, size code, export kind, page mm, png width).
+#: What a size is called in a file name. The codes are internal ("feed" is
+#: the Instagram rendition); the name someone reads in their downloads folder
+#: says the shape of the thing (Koen, 21 September 2026: "waarom niet iets
+#: zoals bowlen-v1-a4.pdf, en bowlen-v1-portrait.png voor Instagram?").
+FILE_SIZE_LABELS = {"a3": "a3", "a4": "a4", "feed": "portrait"}
+#: The same, for a screen that has a layout in hand rather than a size.
+FILE_LAYOUT_LABELS = {LAYOUT_PRINT: "a3", LAYOUT_FEED: "portrait"}
+
 RENDITIONS = {
     LAYOUT_PRINT: (
         (VARIANT_PDF, "a3", "pdf", None, None),
@@ -303,6 +313,24 @@ def is_stale(db: Session, version: DesignVersion) -> bool:
 
 # ── Content ─────────────────────────────────────────────────────────────────
 
+def file_slug(title: str, fallback: str) -> str:
+    """The activity's name as the first part of a file name.
+
+    A finished poster leaves the application: it is downloaded, mailed and
+    put in a folder next to twenty others. "ontwerp-6-v1-print_a-a4.pdf"
+    names our table and our layout code; "bowlen-v1-a4.pdf" names the thing
+    (Koen, 21 September 2026).
+
+    Accents are folded, everything that is not a letter or a digit becomes a
+    hyphen, and the result is capped so a long title cannot produce a name
+    no file manager will show. A title that survives none of that (a design
+    on an activity without a name yet) keeps the fallback.
+    """
+    plain = unicodedata.normalize("NFKD", title or "").encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "-", plain.lower()).strip("-")[:40].rstrip("-")
+    return slug or fallback
+
+
 def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[ImageBytes]:
     from app.domains.media.api import MediaAsset
 
@@ -481,7 +509,7 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
         raise DesignError(*problems)
 
     files: list[tuple[str, str, str, str, bytes]] = []  # layout, variant, size, content type, bytes
-    slug = f"ontwerp-{design.id}"
+    slug = file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
     for layout, plan in RENDITIONS.items():
         svg = merged[layout].svg
         for variant, size, kind, page, png_w in plan:
@@ -500,7 +528,8 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
     db.flush()
     ext = {"application/pdf": "pdf", "image/png": "png", "image/svg+xml": "svg"}
     for layout, variant, size, ctype, data in files:
-        asset_id = _store_render(db, filename=f"{slug}-v{number}-{layout}-{size}.{ext[ctype]}",
+        asset_id = _store_render(db,
+                                 filename=f"{slug}-v{number}-{FILE_SIZE_LABELS.get(size, size)}.{ext[ctype]}",
                                  content_type=ctype, data=data)
         edited = edited_svg_for(db, design, layout)
         db.add(DesignRendition(design_id=design.id, version_id=version.id, layout_code=layout, variant=variant,
@@ -574,7 +603,9 @@ def upload_edited_svg(db: Session, design: Design, layout: str, raw: bytes) -> l
     if not raw:
         raise DesignError("Leeg bestand.")
     try:
-        asset = add_document(db, kind="design_render", filename=f"ontwerp-{design.id}-{layout}-bewerkt.svg",
+        slug = file_slug(facts_for(db, design).get("title", ""), f"ontwerp-{design.id}")
+        asset = add_document(db, kind="design_render",
+                             filename=f"{slug}-{FILE_LAYOUT_LABELS.get(layout, layout)}-bewerkt.svg",
                              content_type="image/svg+xml", data=raw)
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc

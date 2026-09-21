@@ -57,6 +57,8 @@ from app.domains.designstudio.api import (
     list_designs,
     make_version,
     pick_generation,
+    file_slug,
+    FILE_LAYOUT_LABELS,
     preview_png,
     PREVIEW_LARGE_PX,
     PREVIEW_PX,
@@ -112,6 +114,11 @@ def _short(name: str, limit: int = 22) -> str:
 
 def _csrf(request: Request) -> str:
     return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
+
+
+def _slug(facts: dict, design) -> str:
+    """The download's name: the activity, not our table (#1007)."""
+    return file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
 
 
 def _design_or_404(db: Session, design_id: int):
@@ -363,12 +370,14 @@ def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: st
     if layout not in LAYOUTS:
         raise HTTPException(status_code=404)
     try:
-        merged = merged_for(db, design, layout, facts=facts_for(db, design))
+        facts = facts_for(db, design)
+        merged = merged_for(db, design, layout, facts=facts)
         pdf = render.export(merged.svg, "pdf")
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    name = f"{_slug(facts, design)}-proefdruk-{FILE_LAYOUT_LABELS.get(layout, layout)}.pdf"
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="ontwerp-{design.id}-{layout}.pdf"'})
+                    headers={"Content-Disposition": f'inline; filename="{name}"'})
 
 
 @router.get("/admin/ontwerpen/{design_id}/svg/{layout}")
@@ -380,9 +389,11 @@ def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_d
     design = _design_or_404(db, design_id)
     if layout not in LAYOUTS:
         raise HTTPException(status_code=404)
-    merged = merged_for(db, design, layout, facts=facts_for(db, design))
+    facts = facts_for(db, design)
+    merged = merged_for(db, design, layout, facts=facts)
+    name = f"{_slug(facts, design)}-{FILE_LAYOUT_LABELS.get(layout, layout)}.svg"
     return Response(content=merged.svg.encode("utf-8"), media_type="image/svg+xml",
-                    headers={"Content-Disposition": f'attachment; filename="ontwerp-{design.id}-{layout}.svg"'})
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 async def _form_dict(request: Request) -> dict:
