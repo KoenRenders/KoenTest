@@ -193,6 +193,76 @@ def payload_text(messages: Sequence[dict[str, Any]], *,
     return json.dumps(selected, ensure_ascii=False, default=str)
 
 
+#: Velden waarvan de WAARDE een machinaal etiket is en geen gegeven (#1154).
+#: Vandaag twee: `key` en `name` van een kolom komen uit `universe.py`, en de
+#: `name` van een tool-bericht is de naam van de tool. Ze staan hier bij naam en
+#: niet als "alles behalve de waardevelden": een tool-antwoord dat later een veld
+#: bijkrijgt, hoort gescand te worden en niet stil overgeslagen.
+_ETIKETVELDEN = frozenset({"key", "name"})
+
+
+def _alleen_waarden(node: Any) -> Any:
+    """Dezelfde boom, zonder de etiketten — sleutels weg, kolomtitels weg.
+
+    **Waarom dit bestaat.** Koen kreeg op HDEV de weigering op de vraag waarvoor
+    #1135 gebouwd is, en de enige treffer in de hele payload was de KOLOMTITEL
+    `"Herkomst inschrijver"`. Er lekte niets: de rijen droegen keurig
+    `inschrijving-46`. Maar sinds #1135 staan ook de contactnamen van
+    inschrijvingen in de namenlijst, en op HDEV bevat er een het gewone woord
+    *inschrijver*.
+
+    Dat is geen eigenaardigheid van één testrij maar een klasse: elke achternaam
+    die ook een gewoon woord is — bos, mol, dekker, visser — kan een kolomtitel of
+    een sleutel raken. En het is dezelfde vals-alarmvorm waarom het scannen van de
+    systeemprompt al eens uitgezet is: een controle die alles tegenhoudt beschermt
+    niets en gaat binnen de week uit.
+
+    **Wat blijft staan.** De WAARDEN van de rijen worden onverkort gescand; dat is
+    het kanaal waarlangs een naam kan vertrekken en de reden dat deze wachter
+    bestaat. Een sleutel kan dat per constructie niet: hij komt uit de
+    universum-declaratie en kan geen databankwaarde dragen.
+
+    De boom wordt volledig doorlopen — niets wordt overgeslagen omdat het onbekend
+    is. Dat is de eigenschap van `payload_text` die hier behouden moet blijven:
+    wie een veld bijbouwt, krijgt het gescand.
+    """
+    if isinstance(node, dict):
+        return [_alleen_waarden(waarde) for sleutel, waarde in node.items()
+                if sleutel not in _ETIKETVELDEN]
+    if isinstance(node, list):
+        return [_alleen_waarden(item) for item in node]
+    return node
+
+
+def _naamscan_tekst(messages: Sequence[dict[str, Any]], *,
+                    include_system: bool) -> str:
+    """De tekst waarop de NAAM-controle kijkt: als `payload_text`, maar een
+    tool-resultaat zonder zijn etiketten (#1154).
+
+    Alleen een tool-bericht wordt zo behandeld. Wat de beheerder typt en wat het
+    model terugschrijft blijven onverkort gescand — daar is een woord dat toevallig
+    een naam is, niet te onderscheiden van de naam zelf.
+
+    Laat de inhoud van een tool-bericht zich niet als JSON lezen, dan gaat ze
+    ongewijzigd mee. Liever een vals alarm dan een blinde vlek.
+    """
+    schoon: list[Any] = []
+    for bericht in messages:
+        if not include_system and bericht.get("role") == "system":
+            continue
+        if bericht.get("role") != "tool":
+            schoon.append(bericht)
+            continue
+        inhoud = bericht.get("content")
+        try:
+            ontleed = json.loads(inhoud) if isinstance(inhoud, str) else inhoud
+        except (TypeError, ValueError):
+            schoon.append(bericht)
+            continue
+        schoon.append(_alleen_waarden({**bericht, "content": ontleed}))
+    return json.dumps(schoon, ensure_ascii=False, default=str)
+
+
 def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]:
     """What the guard objects to in this payload. Empty means: send it."""
     found: list[str] = []
@@ -210,7 +280,11 @@ def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]
     if rules.match_names:
         known = rules.names()
         if known:
-            whole = payload_text(
+            # #1154: de etiketten van een tool-resultaat vallen buiten DEZE
+            # controle. De patroon-controles hierboven lezen nog wel de volle
+            # payload — een e-mailadres in een kolomtitel is geen vals alarm maar
+            # een fout die je wil zien.
+            whole = _naamscan_tekst(
                 messages, include_system=rules.scan_prompt_names).lower()
             words = {w for w in _WORD.findall(whole) if len(w) >= 3}
             hit = sorted(words & known)
