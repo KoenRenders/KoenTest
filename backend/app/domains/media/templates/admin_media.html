@@ -20,7 +20,13 @@
        staat. Het sjabloon stelt dat adres niet zelf samen — `filterstand` komt uit
        de route, want de knop die één stuk context liet vallen is precies waarom je
        dezelfde activiteit drie keer moest kiezen. #}
-    {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
+    {# #1138: het anker waarop het lijstfragment deze knop out-of-band bijwerkt.
+       De filterbalk vervangt alléén #me-lijst, en deze knop staat daarbuiten —
+       zonder die bijwerking draagt ze na een chipklik nog de filterstand van bij
+       het LADEN van de pagina, en land je op de verkeerde soort. #}
+    <span id="me-uploadknop">
+      {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
+    </span>
   {% endcall %}
 
 

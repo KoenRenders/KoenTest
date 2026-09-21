@@ -47,10 +47,19 @@
    filterstand in zijn eigen URL. hx-include="unset" is verplicht: de tabs
    staan in #betalingen-lijst en zouden anders diens include-form erven,
    waarvan het oude zicht-veld het nieuwe uit de tab-URL overschrijft. De
-   href is de volwaardige pagina (werkt zonder JS), de hx-get het fragment. #}
+   href is de volwaardige pagina (werkt zonder JS), de hx-get het fragment.
+
+   De tab merkt zich met `X-Raak-Filter`, net als de filterbalk: dan zet de
+   middleware het PAGINA-adres mét zicht in de adresbalk, en stuurt htmx dat
+   daarna bij élk verzoek mee als `HX-Current-URL`. Zonder die kop leefde het
+   zicht alleen in het geswapte fragment — en dan viel het weg bij de eerste
+   mutatie: "bevestig" vanaf het tabblad Openstaand bracht je terug op Alle,
+   omdat de POST geen formuliervelden draagt en de URL het zicht niet kende
+   (Koen, 21 september 2026). Dat de filterstand een mutatie moet overleven,
+   staat al in de docstring van die middleware; de tabs deden alleen niet mee. #}
 {% set _tabitems = [] %}
 {% for z in zichten %}
 {% set _ignore = _tabitems.append({"label": z.label, "href": z.page_url, "active": z.actief, "count": z.count,
-                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset"'}) %}
+                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers=\'{"X-Raak-Filter":"1"}\''}) %}
 {% endfor %}
 {{ ui.tabs(_tabitems) }}
