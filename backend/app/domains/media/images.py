@@ -5,8 +5,9 @@ Bij upload worden afbeeldingen:
 - verkleind tot een redelijke maximale breedte/hoogte (bespaart DB-ruimte);
 - voorzien van een aparte, kleine thumbnail voor galerij-grids.
 
-PNG met transparantie (typisch sponsorlogo's) blijft PNG; al de rest wordt naar
-JPEG geschreven met nette compressie.
+PNG met transparantie blijft PNG, net als de soorten in `LOSSLESS_KINDS`
+(logo's en gerenderde affiches — lijnwerk); al de rest wordt naar JPEG
+geschreven met nette compressie.
 """
 from io import BytesIO
 from typing import Optional
@@ -35,7 +36,27 @@ MAX_FULL_BY_KIND = {"design_image": 4096, "design_render": 4096}
 # een affiche: JPEG zet juist rond letterranden de artefacten neer die je op A3
 # ziet staan. Een foto in een affiche (`design_image`) mag wél JPEG worden —
 # daar kost verliesvrij alleen bytes.
-LOSSLESS_KINDS = frozenset({"design_render"})
+#
+# `sponsor` en `tenant_logo` staan er sinds #1131 bij, om dezelfde reden en met
+# een meting erachter. Een logo is lijnwerk, en het komt meestal al als JPEG van
+# de sponsor binnen: dan was dit een TWEEDE compressie op precies het materiaal
+# waar JPEG het slechtst mee omgaat. Gemeten op Koens MONA-logo (751 × 261, geen
+# herschaling, dus puur de hercodering): 147 KB → 26 KB, kleurafwijkingen tot
+# 82 van 255, en 549 punten die wit horen te zijn en dat niet meer waren. Op de
+# affiche werden dat zichtbare streepjes boven de letters.
+#
+# Een logo blijft dus PNG. Wat dat in bytes kost hangt af van het materiaal, en
+# beide kanten zijn gemeten: lijnwerk wordt KLEINER (47 KB → 7 KB, waar JPEG er
+# 24 KB van maakte), fotografisch materiaal veel groter (189 KB → 642 KB tegen
+# 115 KB als JPEG). Voor een logo is dat de goede ruil — het zijn er weinig, en
+# ze staan op een A3-affiche en in de kopbalk van elke publieke pagina. Een
+# fotoalbum is het omgekeerde geval en blijft dus JPEG; dat verschil bewaakt
+# `test_sponsorlogo_blijft_verliesvrij_1131.py`.
+#
+# Let op wat NIET verandert: ook deze soorten worden heropend en opnieuw
+# gecodeerd. De hercodering is de beveiliging (EXIF en kleurprofiel eruit, een
+# polyglot-bestand geneutraliseerd); alleen het doelformaat verschilt.
+LOSSLESS_KINDS = frozenset({"design_render", "sponsor", "tenant_logo"})
 
 
 ALLOWED_CONTENT_TYPES = {
