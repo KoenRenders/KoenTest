@@ -102,7 +102,16 @@ def _refusal(key: str) -> str:
 # id: nothing about the mapping is stored per conversation, so the same household
 # is `gezin-23` in the first turn and in the tenth, and after a restart.
 
-_TOKEN = re.compile(r"\b(gezin|persoon)-(\d+)\b")
+# De voorvoegsels komen UIT de universe en staan hier niet met de hand (#1135).
+# Een object met een nieuw voorvoegsel toevoegen en deze regex vergeten, levert
+# tokens die het model wel ziet maar die nooit terugvertaald worden — en dat is
+# precies wat er bij `inschrijving` gebeurd zou zijn. Langste eerst, zodat een
+# voorvoegsel dat op een ander eindigt niet half matcht.
+_PREFIXES = sorted(
+    {obj.token_prefix for obj in _TOKENISED.values() if obj.token_prefix},
+    key=len, reverse=True,
+)
+_TOKEN = re.compile(rf"\b({'|'.join(_PREFIXES)})-(\d+)\b")
 
 # Where a token's prefix goes to find its real label back. One tenant-scoped
 # lookup per prefix, against the dimension view — the same view the value came
@@ -128,6 +137,15 @@ _LABEL_SQL = {
     "persoon": ("SELECT person_id, person_name FROM reporting.d_person "
                 "WHERE tenant_id = :tenant AND person_id = ANY(:ids) "
                 "AND person_name <> ''"),
+    # #1135: één opzoeking voor twee bronnen. Die samenvoeging gebeurt in de
+    # WEERGAVE en niet hier — `registrant_name` is al de persoon óf de
+    # contactnaam — zodat deze kant niet hoeft te weten dat er twee zijn.
+    # `DISTINCT` omdat het feit een rij per inschrijvingsREGEL draagt en één
+    # inschrijving er meerdere kan hebben.
+    "inschrijving": ("SELECT DISTINCT registration_id, registrant_name "
+                     "FROM reporting.f_registrations "
+                     "WHERE tenant_id = :tenant AND registration_id = ANY(:ids) "
+                     "AND registrant_name <> ''"),
 }
 
 
@@ -222,7 +240,14 @@ _NAME_SQL = (
     "WHERE tenant_id = :tenant AND partner_name <> '' "
     "UNION ALL "
     "SELECT 'persoon', person_id, person_name FROM reporting.d_person "
-    "WHERE tenant_id = :tenant AND person_name <> ''"
+    "WHERE tenant_id = :tenant AND person_name <> '' "
+    # #1135: de contactnaam van een inschrijving is vrije tekst en wijst geen
+    # persoon aan, dus het token is de INSCHRIJVING. Zo wordt ook een naam die
+    # alleen als inschrijver bestaat vervangen in plaats van geblokkeerd.
+    "UNION ALL "
+    "SELECT DISTINCT 'inschrijving', registration_id, registrant_name "
+    "FROM reporting.f_registrations "
+    "WHERE tenant_id = :tenant AND registrant_name <> ''"
 )
 
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
@@ -247,6 +272,29 @@ def _name_index(db: Session, *, tenant_id: int) -> dict[str, set[str]]:
             if len(deel) >= 3:
                 index.setdefault(deel, set()).add(token)
     return index
+
+
+def scan_names(db: Session) -> set[str]:
+    """De namen waarop de naadwachter een uitgaand bericht van DEZE assistent scant.
+
+    Twee bronnen, en de tweede is #1135: `mdm.person_name_parts` kent iedereen in
+    de ledenadministratie, maar een inschrijving kan gebeuren zonder aanmelding en
+    draagt dan alleen een contactnaam — vrije tekst op de inschrijving zelf. Die
+    stond in geen enkele lijst.
+
+    **Hier en niet in `person_name_parts`.** Dat zou `mdm` laten lezen uit het
+    activiteitendomein, en mdm importeert vandaag uit geen enkel ander domein —
+    die richting omkeren is een laagfout voor één namenlijst. De samenstelling
+    hoort bij de kant die beide nodig heeft.
+
+    Het SPLITSEN gebeurt wel op één plek: `mdm.name_parts` draagt de regel
+    (tussenvoegsels eruit, minstens drie tekens, apostrof eraf) en wordt hier
+    hergebruikt in plaats van nagebouwd.
+    """
+    from app.domains.activities.api import registration_contact_names
+    from app.domains.mdm.api import name_parts, person_name_parts
+
+    return person_name_parts(db) | name_parts(registration_contact_names(db))
 
 
 def scrub_question(db: Session, text: str, *, tenant_id: int) -> str:
@@ -728,7 +776,7 @@ def run_report(db: Session, arguments: dict[str, Any], *,
     except SelectionError as fout:
         # The engine's refusals already name the object and the reason (#680), so
         # they go to the model verbatim — it reads them and tries something else.
-        return {"error": str(fout)}
+        return {"error": str(fout) + _wat_bestaat_er_wel(str(fout), objects)}
 
     zichtbaar = _tokenise_rows(result, result.rows[:max_rows])
     rows = [
@@ -748,6 +796,52 @@ def run_report(db: Session, arguments: dict[str, Any], *,
             "staan hier. Verfijn het filter of groepeer grover."
         )
     return out
+
+
+#: Hoeveel sleutels de hint hoogstens opsomt. Genoeg om een onderwerp te dekken,
+#: weinig genoeg om het antwoord niet te laten verdrinken; de catalogus in de
+#: systeemprompt draagt de volledige lijst al.
+_HINT_MAX = 25
+
+
+def _wat_bestaat_er_wel(melding: str, gevraagd: list[str]) -> str:
+    """Bij een verzonnen sleutel: welke objecten er op ditzelfde onderwerp wél zijn.
+
+    **Waarom dit bestaat.** Koen vroeg "wie is ingeschreven?" en kreeg na dertig
+    seconden een algemene verontschuldiging; in het logboek stonden acht aanroepen
+    naar Mistral, alle acht `ok`. Het model kreeg zijn weigeringen dus wél — het
+    deed precies wat een redelijk model doet. De melding zei dat DEZE sleutel niet
+    bestaat, niet dat er voor de ingeschrevene helemaal géén object was. Dus
+    probeerde het de volgende sleutel. Acht keer.
+
+    **Waarom verrijken en niet begrenzen.** Het issue vroeg om een vangnet aan het
+    einde: een zin die zegt wat er ontbreekt. Maar een strengere vangnetregel
+    versmalt ook de weg naar een echt antwoord, en het eigenlijke gebrek zit
+    eerder: het model wist niet wat er wél was. Dit is dezelfde redenering die de
+    catalogus geweigerde objecten juist wél laat vermelden — *"een model dat ziet
+    dat iets geweigerd wordt, stelt een andere vraag"*. Een object dat helemaal
+    niet bestaat, kan het niet zien; nu leest het het in de weigering.
+
+    Het onderwerp komt uit de sleutels die WEL herkend zijn: vraagt het model om
+    `activity_name` plus iets verzonnens, dan is de weergave van dat eerste de
+    beste aanwijzing van waar het naartoe wil. Herkent er niets, dan blijven de
+    klassen over — grover, maar nog altijd meer dan niets.
+    """
+    if not melding.startswith("Onbekend object"):
+        return ""
+    bekend = [BY_KEY[k] for k in gevraagd if k in BY_KEY]
+    weergaven = {obj.view for obj in bekend}
+    if weergaven:
+        sleutels = sorted(o.key for o in OBJECTS
+                          if o.view in weergaven and o.in_pane)
+        if sleutels:
+            return (" Op dit onderwerp bestaan wél: "
+                    + ", ".join(sleutels[:_HINT_MAX]) + "."
+                    + (" (en meer — zie de catalogus)"
+                       if len(sleutels) > _HINT_MAX else ""))
+    return (" Bestaat er voor dit onderwerp niets, zeg dat dan in plaats van een "
+            "andere sleutel te proberen. De klassen in het universum zijn: "
+            + ", ".join(CLASSES) + ".")
 
 
 def list_values(db: Session, arguments: dict[str, Any], *,

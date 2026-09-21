@@ -47,7 +47,7 @@ def import_commit(db, token: str, admin=None):
 
 
 from app.domains.mdm.service import (  # noqa: F401
-    family_registrations, gezin_tabs, person_name_parts,
+    family_registrations, gezin_tabs, name_parts, person_name_parts,
 )
 from app.domains.mdm.service import (  # noqa: F401
     BOARD_MEETING,
@@ -104,7 +104,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 )
 
 __all__ = [
-    "family_registrations", "gezin_tabs", "person_name_parts",
+    "family_registrations", "gezin_tabs", "name_parts", "person_name_parts",
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
