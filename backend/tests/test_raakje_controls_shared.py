@@ -54,7 +54,8 @@ PARTIAL = DOMAINS / "chatbot" / "templates" / "_raakje_controls.html"
 # §2.11).
 SURFACES = {
     "chatbot/templates/_raakje_widget.html": "on_dark=True",
-    "chatbot/templates/raakje.html": "",
+    # `chatbot/templates/raakje.html` stond hier tot #1120: de publieke pagina is
+    # weg (niemand kwam er), de zwevende bel erboven doet het werk.
     "reporting/templates/admin_rapporten_raakje.html": "",
 }
 # De gedeelde overlay staat buiten `domains/` (het is kit-schil, niet één domein).
@@ -76,7 +77,10 @@ CONTROL_MARKERS = ("data-stt-target", "data-tts-toggle",
 # ── Source: one partial, no copies ───────────────────────────────────────────
 
 def test_every_surface_uses_the_shared_partial():
-    assert len(SURFACES) >= 3, "de lijst Raakje-plekken kromp; deze gate scant niets"
+    # Ondergrens en geen exact getal: de lijst mag krimpen (#1120 haalde de
+    # publieke pagina weg), maar bij nul of één scant deze gate niets meer en
+    # slaagt ze om de verkeerde reden (#678).
+    assert len(SURFACES) >= 2, "de lijst Raakje-plekken kromp; deze gate scant niets"
     bronnen = {relative: (DOMAINS / relative).read_text() for relative in SURFACES}
     bronnen["ui/templates/_raakje_overlay.html"] = OVERLAY.read_text()
     varianten = dict(SURFACES, **{"ui/templates/_raakje_overlay.html": "on_dark=True"})

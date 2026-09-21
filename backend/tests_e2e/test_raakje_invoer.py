@@ -9,8 +9,10 @@ servertest. En de tweede test is er omdat de eerste alleen niets bewijst: zonder
 Shift+Enter zou "Enter verstuurt" ook groen staan wanneer Enter helemaal niets doet
 en de vorm gewoon leeg blijft.
 
-Getoetst op `/raakje` en niet op de widget: die staat achter `CHAT_ENABLED`, dat in
-CI uit staat. Beide schermen dragen dezelfde textarea en hetzelfde toetsgedrag.
+Getoetst op de zwevende bel. Dat stond hier eerst anders — "op `/raakje` en niet op
+de widget, want die staat achter `CHAT_ENABLED`, dat in CI uit staat" — maar die
+vlag staat in de e2e-omgeving inmiddels aan, en sinds #1120 is de pagina weg: de
+bel is de publieke Raakje.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de
 `x-on:keydown.enter`-handler weggehaald → de eerste test valt om (het veld houdt een
@@ -25,7 +27,8 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (BASE, htmx_afgerond,  # noqa: E402
+                                open_de_raakje_bel, pagina_klaar)
 
 
 @pytest.fixture(scope="module")
@@ -38,10 +41,11 @@ def page():
         browser.close()
 
 
+VELD = "#raakje-widget-vraag"
+
+
 def _veld(page):
-    page.goto("/raakje")
-    pagina_klaar(page)
-    return page.locator("#raakje-vraag")
+    return open_de_raakje_bel(page)
 
 
 def test_het_veld_groeit_mee_met_een_lange_vraag(page):
@@ -51,7 +55,7 @@ def test_het_veld_groeit_mee_met_een_lange_vraag(page):
     veld.fill("Ik heb een vrij lange vraag over het lidmaatschap. " * 4)
     # #997: wait for the growth itself; it failing to come is the finding.
     page.wait_for_function(
-        "h => document.querySelector('#raakje-vraag').getBoundingClientRect().height > h",
+        "h => document.querySelector('#raakje-widget-vraag').getBoundingClientRect().height > h",
         arg=hoogte_leeg, timeout=5000)
 
     hoogte_vol = veld.bounding_box()["height"]
@@ -71,7 +75,8 @@ def test_shift_enter_geeft_een_nieuwe_regel(page):
     page.keyboard.type("tweede regel")
 
     assert "\n" in veld.input_value(), "Shift+Enter geeft geen nieuwe regel"
-    assert page.url.endswith("/raakje"), "het formulier is toch verstuurd"
+    assert page.url.rstrip("/").endswith(BASE.rstrip("/")), (
+        "het formulier is toch verstuurd")
 
 
 def test_enter_verstuurt(page):
@@ -84,7 +89,7 @@ def test_enter_verstuurt(page):
 
     assert "\n" not in veld.input_value(), (
         "Enter zette een nieuwe regel in plaats van te versturen")
-    assert page.locator("#raakje-gesprek").inner_text().strip() != "", (
+    assert page.locator("#raakje-widget-gesprek").inner_text().strip() != "", (
         "er is niets verstuurd")
 
 
@@ -94,7 +99,7 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
     """Gemeld: na het stoppen bleef de knop leeg (microfoon → vierkant → niets).
 
     **Niet gereproduceerd** — met een nagebootst native pad gaat de knop netjes heen
-    en terug, op `/raakje` én in de widget. Deze test legt dat vast, zodat de melding
+    en terug. Deze test legt dat vast, zodat de melding
     niet stil terug kan komen; `stt.js` leest de iconen sinds #762 bij elke wissel
     opnieuw uit in plaats van ze bij het laden vast te leggen.
 
@@ -109,8 +114,7 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
           this.stop = function () { if (self.onend) self.onend(); };
         };
     """)
-    page.goto("/raakje")
-    pagina_klaar(page)
+    open_de_raakje_bel(page)
     knop = page.locator("[data-stt-target]").first
 
     def inhoud():

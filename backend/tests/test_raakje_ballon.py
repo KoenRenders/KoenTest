@@ -9,16 +9,19 @@ wijst naar wie het zegt.
 e2e op zetten is meer ceremonie dan bescherming, en de lint-gate op UI-conventies
 kent geen hoeken. Wat wél kan breken bij een herschikking — en wat de functionele
 helft van dit issue is — is dat de welkomsttekst *binnen* de ballon en *binnen* het
-gesprek staat, op **beide** schermen. Staat ze buiten het gesprek, dan schuiven de
-antwoorden er niet onder maar erboven, en dan leest de begroeting weer als
-paginakop.
+gesprek staat. Staat ze buiten het gesprek, dan schuiven de antwoorden er niet
+onder maar erboven, en dan leest de begroeting weer als paginakop.
+
+Dit stond op twee schermen tot #1120: de zwevende bel en de publieke pagina
+`/raakje`, die weg is. De parametrisering blijft staan met één scherm erin —
+komt er een tweede plek met een begroeting, dan hoort ze hier bij.
 
 De maat van het hoekje ligt hier vast om dezelfde reden als de viewbox bij #762:
 `rounded-bl-sm` is 2 px en geen rechte hoek, en een latere "opruiming" naar
 `rounded-bl-none` zou dat stil veranderen. Dít is de hoek die op PROD staat.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de welkomsttekst
-in `raakje.html` weer boven `#raakje-gesprek` gezet → de plaatsingstest valt om;
+in de widget weer boven `#raakje-widget-gesprek` gezet → de plaatsingstest valt om;
 `rounded-bl-sm` uit de macro gehaald → de hoektest valt om.
 """
 import re
@@ -31,7 +34,6 @@ pytestmark = pytest.mark.ui_serverrendered
 CHATBOT = Path(__file__).resolve().parents[1] / "app/domains/chatbot/templates"
 BALLON = (CHATBOT / "_raakje_ballon.html").read_text()
 WIDGET = (CHATBOT / "_raakje_widget.html").read_text()
-PAGINA = (CHATBOT / "raakje.html").read_text()
 ANTWOORD = (CHATBOT / "_raakje_antwoord.html").read_text()
 
 
@@ -42,8 +44,8 @@ def _macro(naam: str) -> str:
 
 # Op naam en niet op inhoud parametriseren: anders zet pytest de hele template in de
 # test-id en is een foutmelding onleesbaar.
-SCHERMEN = {"widget": (WIDGET, "raakje-widget-gesprek"),
-            "pagina": (PAGINA, "raakje-gesprek")}
+SCHERMEN = {"widget": (WIDGET, "raakje-widget-gesprek")}
+assert SCHERMEN, "zonder scherm toetst deze parametrisering niets"
 
 
 @pytest.mark.parametrize("naam", sorted(SCHERMEN))

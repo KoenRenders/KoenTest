@@ -105,6 +105,23 @@ def htmx_stil(page, *, timeout: int = 10_000) -> None:
         "'.htmx-request, .htmx-swapping, .htmx-settling')", timeout=timeout)
 
 
+def open_de_raakje_bel(page, pad: str = "/"):
+    """De zwevende Raakje-bel op een publieke pagina openen (#1120).
+
+    De publieke pagina `/raakje` is weg — niemand kwam er, en niets verwees ernaar.
+    De bel staat op élke publieke pagina en draagt dezelfde bediening, dus de
+    e2e's die vroeger op die pagina maten, meten hier. Het paneel begint dicht;
+    zonder de klik is het veld er wel maar onzichtbaar.
+
+    Geeft het vraagveld terug.
+    """
+    page.goto(pad)
+    pagina_klaar(page)
+    page.get_by_role("button", name="Raakje — vraag het aan onze AI-assistent").click()
+    page.wait_for_selector("#raakje-widget-vraag", state="visible", timeout=5000)
+    return page.locator("#raakje-widget-vraag")
+
+
 def login_met_sessie(page, sessiewaarde: str) -> None:
     """Zet de sessiecookie rechtstreeks.
 

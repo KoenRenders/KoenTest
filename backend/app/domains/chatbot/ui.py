@@ -1,7 +1,8 @@
 """Server-rendered Raakje (chat) en ai-context (fase 4c-2, #404 — §21).
 
-- /raakje: publiek vraag-antwoordscherm (htmx-fragment i.p.v. de React-widget;
-  antwoord komt volledig server-side terug — geen SSE nodig, §20.5-lijn).
+- /raakje/vraag: het publieke vraag-antwoord-eindpunt van de zwevende bel
+  (htmx-fragment; het antwoord komt volledig server-side terug — geen SSE nodig,
+  §20.5-lijn). De pagina /raakje die hier ook op stond is weg (#1120).
 - /admin/ai-context: beheer van wat Raakje weet — notities toevoegen/wissen,
   tekst-override en aan/uit per bron. Hergebruikt de bestaande admin-API.
 """
@@ -34,20 +35,14 @@ router = APIRouter(include_in_schema=False)
 
 # ── Publiek: Raakje ────────────────────────────────────────────────────────────
 
-@router.get("/raakje", response_class=HTMLResponse)
-def raakje_page(request: Request, db: Session = Depends(get_db)):
-    # #808: `/raakje` hangt aan `public_base.html` en NIET aan `site_base.html`,
-    # dus het krijgt `site_context()` niet. Zonder deze twee waarden zou het de enige
-    # publieke pagina zijn die niet meetelt — en dat merk je nooit, want de cijfers
-    # zien er verder normaal uit.
-    from app.kernel.tenant_config import umami_tracking
-
-    umami_src, umami_website_id = umami_tracking(db)
-    return templates.TemplateResponse(request, "raakje.html",
-                                      {"enabled": settings.chat_enabled,
-                                       "stt_mode": settings.stt_mode,
-                                       "umami_src": umami_src,
-                                       "umami_website_id": umami_website_id})
+# #1120: de publieke pagina `/raakje` is weg. Gemeten op PROD: sinds 15 juni 2026
+# 3451 gebeurtenissen in Umami en nul op een pad met `raakje` erin — te verklaren,
+# want niets in de toepassing verwees ernaar. De zwevende bel op élke publieke
+# pagina doet het werk.
+#
+# `POST /raakje/vraag` hieronder BLIJFT: de bel postuleert daarheen. Haal je die
+# mee weg, dan valt Raakje op de hele publieke site stil. Vandaar dat dit hier
+# staat en niet in een commit-bericht.
 
 
 @router.post("/raakje/vraag", response_class=HTMLResponse,

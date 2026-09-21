@@ -1,9 +1,12 @@
-{# Webstatistieken (#176), teruggezet met #808 en over BEIDE publieke schillen.
+{# Webstatistieken (#176), teruggezet met #808.
 
-   Eén include en geen twee kopieën: `site_base.html` (14 templates) en
-   `public_base.html` (alleen `/raakje`) zijn aparte schillen — de tweede erft NIET
-   van de eerste. Vier regels op twee plaatsen lopen uiteen zodra er één wijzigt, en
-   dan is precies één pagina blind zonder dat de cijfers er raar uitzien.
+   Eén include en geen kopie per schil. Er waren er twee — `site_base.html` en
+   `public_base.html`, die NIET van elkaar erven — en precies daarom stond dit in
+   een partial: vier regels op twee plaatsen lopen uiteen zodra er één wijzigt, en
+   dan is één pagina blind zonder dat de cijfers er raar uitzien. Sinds #1120 is
+   `public_base.html` weg met de pagina die er als enige op stond (`/raakje`), dus
+   er rest één publieke schil. Komt er ooit een tweede, dan hoort ze dit te
+   includen én in `PUBLIEKE_PAGINAS` van `test_umami_tracking.py` te staan.
 
    NIET in `admin_base.html`: beheerverkeer is geen bezoek en zou de cijfers
    vervuilen. Er staat een test op dat de beheerschil dit script niet draagt.

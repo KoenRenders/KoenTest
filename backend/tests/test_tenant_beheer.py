@@ -121,8 +121,12 @@ def test_onbekende_tenant_geeft_404(client, db_session):
     assert client.get("/admin/tenants/999999").status_code == 404
 
 
-def test_raakje_heeft_sprekknop(client):
-    resp = client.get("/raakje")
+def test_raakje_heeft_sprekknop(client, monkeypatch):
+    """#1120: gemeten op de publieke schil, want de pagina /raakje is weg — de
+    zwevende bel staat op élke publieke pagina en draagt dezelfde microfoon."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chat_enabled", True)
+    resp = client.get("/")
     assert resp.status_code == 200
-    if "niet beschikbaar" not in resp.text:
-        assert "data-stt-target" in resp.text and "/static/stt.js" in resp.text
+    assert "data-stt-target" in resp.text and "/static/stt.js" in resp.text

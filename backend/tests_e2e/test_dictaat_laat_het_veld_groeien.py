@@ -26,6 +26,10 @@ de kortere tekst wéér volgen. Dat tweede is geen extraatje — het is het bewi
 `onFinal` de gebeurtenis afvuurt. Zonder die tweede aanroep zou het veld op 120 px
 blijven staan met drie woorden erin.
 
+**Sinds #1120 meet de publieke helft op de zwevende bel** in plaats van op de
+pagina `/raakje`, die weg is: dezelfde invoerregel, en wél de plek waar een
+bezoeker hem gebruikt.
+
 **Sinds #1075 ook op de Raakje-overlay van het activiteitenscherm.** Die draagt
 dezelfde microfoon uit hetzelfde partial, maar zit in een `x-show`-dialoog op een
 beheerscherm: een knop die in een verborgen overlay niet bedraad raakt, of een veld dat
@@ -49,10 +53,10 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (BASE, Activiteitdetail, login_met_sessie,  # noqa: E402
-                                pagina_klaar)
+                                open_de_raakje_bel, pagina_klaar)
 from tests_e2e.test_beheer_flows import _admin_email, _ontbreekt  # noqa: E402
 
-PUBLIEK = "#raakje-vraag"
+PUBLIEK = "#raakje-widget-vraag"
 OVERLAY = "#aa-raakje-vraag"
 
 
@@ -92,8 +96,9 @@ def _open(page, veld_selector: str = PUBLIEK):
     veld dat hoog blijft staan.
     """
     if veld_selector == PUBLIEK:
-        page.goto("/raakje")
-        pagina_klaar(page)
+        # #1120: de publieke pagina is weg; de zwevende bel draagt dezelfde
+        # invoerregel en is wat een bezoeker werkelijk gebruikt.
+        open_de_raakje_bel(page)
     else:
         _open_de_overlay(page)
     veld = page.locator(veld_selector)
@@ -211,7 +216,7 @@ def test_het_veld_volgt_ook_de_eindtekst(page):
 
     _stop_zoals_de_app(page)
     page.wait_for_function(
-        "() => document.querySelector('#raakje-vraag').value.length < 100", timeout=10000)
+        f"() => document.querySelector('{PUBLIEK}').value.length < 100", timeout=10000)
 
     _hoogte_wordt(page, "(h, a) => h === a", hoogte_leeg,
                   "het veld blijft hoog terwijl de eindtekst op één regel past")
@@ -227,10 +232,10 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
 
     veld.press("Enter")
     page.wait_for_function(
-        "() => document.querySelector('#raakje-vraag').value === ''", timeout=10000)
+        f"() => document.querySelector('{PUBLIEK}').value === ''", timeout=10000)
     try:
         page.wait_for_function(
-            "() => document.querySelector('#raakje-vraag').style.height === 'auto'",
+            f"() => document.querySelector('{PUBLIEK}').style.height === 'auto'",
             timeout=5000)
     except Exception as fout:
         raise AssertionError("de hoogte wordt na het verzenden niet teruggezet") from fout
