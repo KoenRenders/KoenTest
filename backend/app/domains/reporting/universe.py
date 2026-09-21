@@ -1377,6 +1377,46 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
+    # #1135: de vraag "wie is ingeschreven?" kon het universum niet beantwoorden —
+    # `f_registrations` draagt `person_id`, maar niets ontsloot de ingeschrevene.
+    # Het model bleef daarom gereedschap proberen: acht aanroepen, geen antwoord.
+    UniverseObject(
+        key="registrant", name="Ingeschreven door", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="f_registrations",
+        sql="COALESCE(NULLIF({view}.registrant_name, ''), 'Onbekend')",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS, fact="f_registrations",
+        description=(
+            "Wie er ingeschreven is. Komt uit de gekoppelde persoon als de "
+            "inschrijving er een heeft, en anders uit de contactnaam die de "
+            "inschrijver zelf intypte — dat laatste is het gewone geval, niet de "
+            "uitzondering. Zet 'Herkomst inschrijver' ernaast om te zien welke "
+            "van de twee je voor je hebt."
+        ),
+        # Getokeniseerd op de INSCHRIJVING en niet op de persoon (Koen, 21
+        # september 2026). Een contactnaam is vrije tekst en heeft geen
+        # persoons-id, dus tokeniseren op de persoon zou 98% van de rijen hun
+        # naam ongewijzigd laten meegeven. De inschrijving heeft altijd een id,
+        # dus werkt één tokensoort voor allebei de bronnen.
+        ai_exposure=AiExposure.TOKENISED, token_prefix="inschrijving",
+        entity_sql="{view}.registration_id",
+    ),
+    UniverseObject(
+        key="registrant_source", name="Herkomst inschrijver", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="f_registrations",
+        sql="{view}.registrant_source", format=Format.LABEL,
+        role=Role.ADMIN, fact="f_registrations",
+        description=(
+            "Waar de naam van de ingeschrevene vandaan komt: 'Lid' uit de "
+            "ledenadministratie, 'Contactgegeven' uit wat de inschrijver zelf "
+            "intypte. Zonder deze kolom lijken die twee soorten zekerheid op "
+            "elkaar. Let op: ze beschrijft de herkomst van de NAAM, niet of er "
+            "een koppeling bestaat — wijst een inschrijving naar een intussen "
+            "verwijderde of samengevoegde persoon, dan valt de naam terug op het "
+            "contactgegeven en zegt deze kolom dat ook."
+        ),
+        # Geen naam, wel een van drie vaste woorden: mag ongewijzigd mee.
+        ai_exposure=AiExposure.PLAIN,
+    ),
     UniverseObject(
         key="component", name="Onderdeel", klass="Activiteiten", kind=ObjectKind.DIMENSION,
         view="f_registrations", sql="{view}.component_name", format=Format.LABEL,

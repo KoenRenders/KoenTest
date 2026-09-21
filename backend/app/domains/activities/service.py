@@ -1228,6 +1228,30 @@ def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
     }
 
 
+def registration_contact_names(db) -> list[str]:
+    """De contactnamen op inschrijvingen — vrije tekst, dus geen `Person` (#1135).
+
+    De naadwachter scant elk uitgaand AI-bericht op namen uit de administratie, en
+    die lijst kwam tot nu toe alleen uit `mdm.persons`. Een contactnaam staat hier,
+    op de inschrijving zelf, en werd dus niet herkend.
+
+    Hoe groot dat gat is, hangt van de data af en niet van deze functie: een
+    contactnaam die toevallig gelijk is aan de naam van iemand in de
+    ledenadministratie, was al gedekt. Wat hier bij komt zijn de namen van mensen
+    die alleen als inschrijver bestaan — en op PROD is dat het gewone geval, want
+    van 132 inschrijvingen dragen er 129 alleen een contactnaam.
+
+    Soft-deleted inschrijvingen tellen niet mee: hun naam staat nergens meer op een
+    scherm, dus hij hoort ook niet in een blokkeerlijst.
+    """
+    rijen = (db.query(Registration.contact_name)
+             .filter(Registration.deleted_at.is_(None),
+                     Registration.contact_name.isnot(None),
+                     Registration.contact_name != "")
+             .all())
+    return [rij[0] for rij in rijen]
+
+
 def registration_count_for(db, activity_id: int) -> int:
     """Alleen het aantal (golf 8, #913) — één rij, hoe groot de lijst ook is;
     de query-budget-gate (#651) rekent in opgehaalde rijen."""

@@ -15,7 +15,28 @@
 <nav class="pt-4 text-base md:text-sm">
   <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
 </nav>
-<div class="mt-4 md:flex md:gap-8">
+{# #1143: tekst en affiche vormen samen één blok in het midden.
+
+   Wat Koen als gat zag, was lege linkerkolom: die was `flex-1` en nam dus álle
+   overblijvende ruimte, terwijl de tekst erin stopt bij de leesbreedte. De
+   affiche stond niet te ver naar rechts — ze werd erheen geduwd.
+
+   De drie maten staan hier als variabelen, en de breedte van het blok is hun
+   SOM. Geen vierde getal ernaast: dat zou uit de pas lopen zodra iemand er één
+   aanpast. `--leesbreedte` is wat `max-w-2xl` was en wordt hieronder door de
+   omschrijving gebruikt; `--affiche` door de rechterkolom; `--tussenruimte`
+   hoort gelijk te blijven aan `md:gap-8`.
+
+   Alleen mét affiche. Zonder rechterkolom is er niets om naast te staan, en dan
+   blijft de pagina precies zoals ze was — links uitgelijnd over de volle
+   breedte. Een gecentreerd blok zou daar een tweede kolom suggereren die er
+   niet komt.
+
+   Op mobiel raakt dit niets: `md:flex` begint pas op een breed scherm, en daar
+   staat de affiche al bóven de omschrijving (80% van het bezoek is mobiel). #}
+<div class="mt-4 md:flex md:gap-8
+            [--leesbreedte:42rem] [--tussenruimte:2rem] [--affiche:18rem] lg:[--affiche:20rem]
+            {% if poster_url %}md:mx-auto md:max-w-[calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))]{% endif %}">
   <div class="min-w-0 flex-1">
     <div class="flex gap-3 sm:gap-4">
       {% if a.sort_date %}
@@ -62,7 +83,10 @@
     {% endif %}
 
     {% if a.description %}
-    <div class="mt-5 text-base md:text-sm text-ink whitespace-pre-line max-w-2xl">{{ a.description }}</div>
+    {# De leesbreedte blijft: een regel over de volle schermbreedte leest slecht.
+       Als variabele (was `max-w-2xl`, dezelfde 42rem), zodat het blok hierboven
+       ze kan optellen in plaats van ze over te typen (#1143). #}
+    <div class="mt-5 text-base md:text-sm text-ink whitespace-pre-line max-w-[var(--leesbreedte)]">{{ a.description }}</div>
     {% endif %}
 
     {% if not a.is_cancelled %}
@@ -128,7 +152,9 @@
   </div>
 
   {% if poster_url %}
-  <aside class="hidden md:block md:w-72 lg:w-80 shrink-0">
+  {# De affichekolom leest haar breedte uit dezelfde variabele als het blok
+     hierboven (was `md:w-72 lg:w-80`) — één maat, twee gebruikers (#1143). #}
+  <aside class="hidden md:block md:w-[var(--affiche)] shrink-0">
     <a href="{{ poster_link }}" target="_blank" rel="noopener" class="block">
       <img src="{{ poster_url }}" alt="{{ _('Affiche van %(naam)s', naam=a.name) }}"
            class="w-full rounded-xl border border-line shadow-sm">

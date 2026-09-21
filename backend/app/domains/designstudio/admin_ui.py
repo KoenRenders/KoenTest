@@ -57,6 +57,8 @@ from app.domains.designstudio.api import (
     list_designs,
     make_version,
     pick_generation,
+    file_slug,
+    FILE_LAYOUT_LABELS,
     preview_png,
     PREVIEW_LARGE_PX,
     PREVIEW_PX,
@@ -112,6 +114,11 @@ def _short(name: str, limit: int = 22) -> str:
 
 def _csrf(request: Request) -> str:
     return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
+
+
+def _slug(facts: dict, design) -> str:
+    """The download's name: the activity, not our table (#1007)."""
+    return file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
 
 
 def _design_or_404(db: Session, design_id: int):
@@ -239,7 +246,8 @@ def _typed_over(view: DesignEditorView, values: dict, highlights: list[tuple[str
         view,
         duo_code=values.get("duo_code", view.duo_code), preset=values.get("preset", view.preset),
         tagline=values.get("tagline", view.tagline), subtitle=values.get("subtitle", view.subtitle),
-        explanation_md=values.get("explanation_md", view.explanation_md), explanation_is_own=True,
+        explanation_md=values.get("explanation_md", view.explanation_md),
+        explanation_is_own=bool(values.get("explanation_md", view.explanation_md).strip()),
         highlights=[HighlightRow(icon=i, text=t, emphasis=e) for i, t, e in highlights],
         logo_ids=logo_ids,
         main_image_id=num("main_image_id"), inset_image_id=num("inset_image_id"), third_image_id=num("third_image_id"),
@@ -293,7 +301,8 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         status_tone=STATUS_TONES.get(design.status, "gray"),
         preset=design.preset, preset_options=_preset_options(), duo_code=design.duo_code, duo_options=_duo_options(),
         tagline=design.tagline or "", subtitle=design.subtitle or "",
-        explanation_md=design.explanation_md or facts["description"], explanation_is_own=bool(design.explanation_md),
+        explanation_md=design.explanation_md or "", explanation_is_own=bool(design.explanation_md),
+        explanation_hint=facts["description"],
         highlights=highlights, icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
         main_image_id=design.main_image_id, inset_image_id=design.inset_image_id, third_image_id=design.third_image_id,
         main_focus_x=f"{float(design.main_focus_x):.2f}", main_focus_y=f"{float(design.main_focus_y):.2f}",
@@ -363,12 +372,14 @@ def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: st
     if layout not in LAYOUTS:
         raise HTTPException(status_code=404)
     try:
-        merged = merged_for(db, design, layout, facts=facts_for(db, design))
+        facts = facts_for(db, design)
+        merged = merged_for(db, design, layout, facts=facts)
         pdf = render.export(merged.svg, "pdf")
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    name = f"{_slug(facts, design)}-proefdruk-{FILE_LAYOUT_LABELS.get(layout, layout)}.pdf"
     return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="ontwerp-{design.id}-{layout}.pdf"'})
+                    headers={"Content-Disposition": f'inline; filename="{name}"'})
 
 
 @router.get("/admin/ontwerpen/{design_id}/svg/{layout}")
@@ -380,9 +391,11 @@ def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_d
     design = _design_or_404(db, design_id)
     if layout not in LAYOUTS:
         raise HTTPException(status_code=404)
-    merged = merged_for(db, design, layout, facts=facts_for(db, design))
+    facts = facts_for(db, design)
+    merged = merged_for(db, design, layout, facts=facts)
+    name = f"{_slug(facts, design)}-{FILE_LAYOUT_LABELS.get(layout, layout)}.svg"
     return Response(content=merged.svg.encode("utf-8"), media_type="image/svg+xml",
-                    headers={"Content-Disposition": f'attachment; filename="ontwerp-{design.id}-{layout}.svg"'})
+                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
 
 async def _form_dict(request: Request) -> dict:
