@@ -100,11 +100,15 @@
           <p class="font-semibold">{{ op.label }}</p>
           {% if op.old %}<p class="text-ink-soft line-through">{{ op.old }}</p>{% endif %}
           {% if op.new_html %}<div class="mt-1">{{ op.new_html|safe }}</div>{% endif %}
+          {# Koen, 21 september 2026: met vier markeringen onder elkaar wist hij
+             niet meer welk vinkje bij welke bewering hoorde. Elke markering staat
+             nu in een eigen blokje, met de ZIN erboven waar ze over gaat. #}
           {% for mark in op.marks %}
-          <div class="mt-1 text-xs">
-            <p class="text-brand-danger">{{ ui.icon("x", 12) }} {{ mark.reason }} — {{ _("wordt weggelaten") }}</p>
+          <div class="mt-2 text-xs border-l-2 border-yellow-300 pl-2">
+            <p class="text-ink">«{{ mark.sentence }}»</p>
+            <p class="text-brand-danger mt-0.5">{{ ui.icon("x", 12) }} {{ mark.reason }} — {{ _("wordt weggelaten") }}</p>
             {% if p.status == "open" %}
-            <label class="flex items-center gap-1.5"><input type="checkbox" name="keep" value="{{ mark.id }}"> {{ _("klopt, behouden") }}</label>
+            <label class="flex items-center gap-1.5 mt-0.5"><input type="checkbox" name="keep" value="{{ mark.id }}"> {{ _("klopt, behouden") }}</label>
             {% endif %}
           </div>
           {% endfor %}

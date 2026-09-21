@@ -787,3 +787,55 @@ def test_de_groet_staat_maar_een_keer_onder_een_volledige_brief(db_session, raak
 
     assert html.count("Tot binnenkort!") == 1
     assert "[[afsluiting]]" not in html
+
+
+def test_een_verkeerd_gespelde_markering_wordt_toch_ingevuld(db_session, raakje):
+    """Koen, 20 september 2026: Raakje schreef "[[nam:7]]" en dat kwam
+    letterlijk in de brief terecht, want alleen het exacte woord telde.
+
+    Broken on purpose: `_kind_of` terug naar een vaste woordenlijst in `_MARKER`
+    → de markering blijft letterlijk staan en deze test faalt.
+    """
+    comedy = _activity(db_session, "Comedy Festival")
+    letter = _letter(db_session, activity_ids=[comedy.id])
+    raakje(_draft([f"We genoten van een hilarisch [[nam:{comedy.id}]] in Miloheem."]),
+           _verdict())
+
+    turn = _ask(db_session, letter)
+
+    html = turn.proposal["operations"][0]["html"]
+    assert "<strong>Comedy Festival</strong>" in html
+    assert "[[" not in html, "geen rauwe markering voor de lezer"
+
+
+def test_een_markering_die_niets_betekent_laat_niets_achter(db_session, raakje):
+    letter = _letter(db_session)
+    raakje(_draft(["Een zin.", "[[onzin]]", "Nog een zin."]), _verdict())
+
+    turn = _ask(db_session, letter)
+
+    assert "[[" not in turn.proposal["operations"][0]["html"]
+
+
+def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje,
+                                                      monkeypatch):
+    """Koen, 21 september 2026: met vier vinkjes onder elkaar wist hij niet meer
+    welk vinkje bij welke bewering hoorde.
+
+    Broken on purpose: de regel met `mark.sentence` uit `_nb_raakje.html` → het
+    vinkje staat er weer zonder zijn zin en deze test faalt.
+    """
+    _switch(db_session, monkeypatch, True)  # zonder de schakelaar is er geen paneel
+    letter = _letter(db_session)
+    raakje(_draft(["We verwachten 250 deelnemers.", "Het wordt gezellig."]), _verdict())
+    turn = _ask(db_session, letter)
+    drafting.record(db_session, letter, author_text="schrijf de brief", turn=turn)
+    _login(client)
+
+    scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+
+    zinnen = [m["sentence"] for m in turn.proposal["marks"]]
+    assert zinnen, "de controle hoort hier iets te markeren"
+    for zin in zinnen:
+        assert f"«{zin}»" in scherm, zin
+    assert 'name="keep"' in scherm
