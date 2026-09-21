@@ -549,14 +549,6 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     row_w = qr_left - text_left - 4
 
     rows: list[dict[str, object]] = []
-    if content.deadline_text:
-        # The one line that asks for something (Koen, 20 September 2026):
-        # above the address it points at. White like the rows under it — its
-        # accent-coloured ticket icon carries the emphasis (Koen, 20 Sep, second look).
-        rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": content.deadline_text, "size": BAND_TEXT, "colour": pal["white"]})
-    rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
-                 "text": content.website, "size": BAND_TEXT, "colour": pal["white"]})
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
             # Name, mobile and address on one line while it fits, and over two
@@ -583,6 +575,21 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.association_mobile:
             rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
                          "text": content.association_mobile, "size": BAND_TEXT, "colour": pal["white"]})
+    # Registering closes the band, in the accent colour, under the ways to
+    # reach us rather than above them. The organisers of the bowling read the
+    # old order as "mail one of these to register" — which is exactly what
+    # they wanted to avoid (Koen, 21 September 2026). Two rows, because
+    # "Inschrijven tot en met 30 september via raakmillegem.be" measures
+    # 159 mm against a column of 133.
+    if content.deadline_text:
+        rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
+                     "text": content.deadline_text, "size": BAND_TEXT, "colour": pal["accent"]})
+    if content.website:
+        rows.append({"id": "t-website", "icon": "globe", "bg": pal["accent3"], "fg": pal["white"],
+                     # Without a deadline above it, this row has to say what
+                     # it is for itself.
+                     "text": content.website if content.deadline_text else f"Inschrijven via {content.website}",
+                     "size": BAND_TEXT, "colour": pal["accent"]})
     # The band never gets shorter than the QR block: a sparse poster with one
     # row used to squeeze the code half out of the band.
     band_h: float = max(20 + BAND_ROW_STEP * len(rows), QR_BLOCK + 2)
