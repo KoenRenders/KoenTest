@@ -416,6 +416,9 @@ def deadline_line(iso: str) -> str:
     refused from the day *after* the deadline, so the deadline day itself is
     still open. "Tot 8 november" read as "before the 8th" and was therefore
     not only vaguer but wrong (Koen, 21 September 2026).
+
+    Whether it ends on "via" is not decided here: only the band knows
+    whether an address follows it on the next line (:mod:`blocks`).
     """
     if not iso:
         return ""
