@@ -524,6 +524,17 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # e-mail and gsm only when nobody is a contact person (CR-10 §3.9 — with a
     # contact person the association's own lines stay off the poster; Koen,
     # 20 September 2026); else one row per contact, "Naam · gsm · e-mail".
+    # The band's own geometry does not depend on its rows, and a contact row
+    # needs to know how wide it may be before it is built.
+    lockup_w = 66.0
+    lockup_h = lockup_w * 245 / 491
+    cw, r = lockup_w + 14, 18.0
+    band_x = x0 + cw + 5
+    col_x = band_x + 7
+    text_left = col_x + 8
+    qr_left = width - frame - 2 - QR_BOX - 8
+    row_w = qr_left - text_left - 4
+
     rows: list[dict[str, object]] = []
     if content.deadline_text:
         # The one line that asks for something (Koen, 20 September 2026):
@@ -535,9 +546,23 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                  "text": content.website, "size": BAND_TEXT, "colour": pal["white"]})
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
-            rows.append({"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": " · ".join(part for part in (c.name, c.mobile, c.email) if part),
-                         "size": BAND_TEXT, "colour": pal["white"]})
+            # Name, mobile and address on one line while it fits, and over two
+            # when it does not: "Natascha Furleo · 0123 456 789 ·
+            # furleonatascha@hotmail.com" measures 171 mm against a column of
+            # 133. Shrinking it is what put two sizes in one band; the second
+            # line keeps every row in the one size (Koen, 21 September 2026).
+            parts = [part for part in (c.name, c.mobile, c.email) if part]
+            row = {"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
+                   "text": " · ".join(parts), "size": BAND_TEXT, "colour": pal["white"]}
+            if len(parts) > 1 and richtext.text_width(str(row["text"]), BAND_TEXT) > row_w:
+                row["text"] = " · ".join(parts[:-1])
+                rows.append(row)
+                # The address alone, under the name, with no icon of its own:
+                # it is the same contact, not a second one.
+                rows.append({"id": f"t-contact-{i}-b", "icon": "", "bg": pal["accent"], "fg": pal["ink"],
+                             "text": parts[-1], "size": BAND_TEXT, "colour": pal["white"]})
+            else:
+                rows.append(row)
     else:
         if content.email:
             rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
@@ -550,9 +575,6 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     band_h: float = max(20 + BAND_ROW_STEP * len(rows), QR_BLOCK + 2)
     band_y: float = y1 - band_h - 2
     p.band_y = band_y
-    lockup_w = 66.0
-    lockup_h = lockup_w * 245 / 491
-    cw, r = lockup_w + 14, 18.0
     ch = max(band_h + 2, lockup_h + 7)
     # The paper: the frame's inner rectangle minus the corner tile bottom-left.
     p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
@@ -566,11 +588,6 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # The welcome badge sits above the tile; the left column stops above it.
     welcome_y = tile_top - 14
     left_limit = welcome_y - 2
-    band_x = x0 + cw + 5
-    col_x = band_x + 7
-    text_left = col_x + 8
-    qr_left = width - frame - 2 - QR_BOX - 8
-    row_w = qr_left - text_left - 4
     for row in rows:
         # A long row shrinks a little rather than overflow.
         # Only a row too long for its width drops below the one size.
@@ -620,7 +637,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # comfortable size and the picture paid for it — and the picture
         # ended up a band. Koen, 21 September 2026: "de tekst moest niet
         # zoveel groter, gewoon de ruimte onderaan meer benutten".
-        min_text, max_text = (5.5, 10.0) if feed else (7.2, 11.0)
+        # 5.0 on a feed image is about 18 pixels of a 1080-wide post: small,
+        # but it is what keeps a crowded square inside its edges.
+        min_text, max_text = (5.0, 10.0) if feed else (7.2, 11.0)
         y = top_y - 4
         # When and where above the picture, in the same icon rows the other
         # presets use — date left, place right (Koen, 20 September 2026).
@@ -633,11 +652,15 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         min_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
         if content.main_image:
             hero_top = y
+            space = left_limit - y - 2 * BLOCK_GAP - (10 if content.inset_image else 0)
+            # The picture is never given a height at which it would be shown
+            # whole with white beside it. On a crowded page the text gives
+            # way instead, and if even that is not enough the planner reports
+            # the overflow — it does not turn the hero into a letterboxed
+            # block to make the numbers work.
             frag, y = main_image_block(
                 p, content.main_image, lx, y, full_w,
-                hero_height(content.main_image, full_w,
-                            left_limit - y - min_h - 2 * BLOCK_GAP - (10 if content.inset_image else 0),
-                            cap=hero_cap,
+                hero_height(content.main_image, full_w, space - min_h, cap=hero_cap,
                             floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor)))
             p.full += frag
             if content.inset_image:

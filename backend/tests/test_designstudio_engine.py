@@ -406,20 +406,61 @@ def test_every_row_in_the_band_is_set_in_one_size():
     assert round(ys[2] - ys[1], 1) == BAND_ROW_STEP + 1      # and the last one a millimetre lower
 
 
+def test_a_contact_that_does_not_fit_takes_a_second_line_instead_of_shrinking():
+    """Koen, 21 September 2026: for bowling they leave the mobile numbers off,
+    for other activities they do not — and with one the line no longer fits.
+
+    "Natascha Furleo · 0123 456 789 · furleonatascha@hotmail.com" measures
+    171 mm against a column of 133. It used to shrink to fit, which put two
+    sizes in a band that is meant to have one. Now the address moves to a
+    line of its own, under the name, without an icon: it is the same contact,
+    not a second one.
+
+    Broken on purpose to check this can go red: the wrap removed → the row
+    comes back at 4.4 mm instead of `BAND_TEXT` and the size assert fails.
+    """
+    from app.domains.designstudio.blocks import BAND_TEXT
+
+    def band(svg):
+        return re.findall(r'<text id="(t-contact[^"]*)" x="([0-9.]+)" y="[0-9.]+" font-size="([0-9.]+)"[^>]*>([^<]*)<', svg)
+
+    short = render.merge(_content(contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
+                         layout="print_a")
+    assert [(rid, text) for rid, _x, _size, text in band(short.svg)] == [
+        ("t-contact-0", "An Peeters · an.peeters@gmail.com")]
+
+    long = render.merge(_content(contacts=(Contact("Natascha Furleo", "0123 456 789",
+                                                   "furleonatascha@hotmail.com"),)), layout="print_a")
+    rows = band(long.svg)
+    assert [(rid, text) for rid, _x, _size, text in rows] == [
+        ("t-contact-0", "Natascha Furleo · 0123 456 789"),
+        ("t-contact-0-b", "furleonatascha@hotmail.com")]
+    assert {float(size) for _rid, _x, size, _text in rows} == {BAND_TEXT}   # one size, still
+    assert len({x for _rid, x, _size, _text in rows}) == 1                  # and one column
+    # The second line carries no icon of its own.
+    assert long.svg.count('id="icon-users"') <= short.svg.count('id="icon-users"') + 0
+
+
 def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
     """Koen, 19 September 2026: the e-mail address was missing and the
     contact line floated under the icons. One row per contact, left-aligned
-    under the same icon column, "Naam · gsm · e-mail"; the band grows 6.5 mm
-    per contact and the content limit moves with it."""
+    under the same icon column, "Naam · gsm · e-mail"; the band grows with
+    every contact and the content limit moves with it.
+
+    Since 21 September a line too long for the column takes a second row for
+    its address rather than shrinking — three contacts with a mobile number
+    is exactly that case, so each of them is two rows here.
+    """
     three = tuple(Contact(f"Persoon {i}", f"047{i} 00 00 00", f"persoon{i}@example.com") for i in range(3))
     none = render.merge(_content(contacts=()), layout="print_a")
     with_three = render.merge(_content(contacts=three), layout="print_a")
     for i in range(3):
         assert f'id="t-contact-{i}"' in with_three.svg
-        assert f"Persoon {i} · 047{i} 00 00 00 · persoon{i}@example.com" in with_three.svg
-    assert 't-contact-3' not in with_three.svg and "t-contact-" not in none.svg
+        assert f"Persoon {i} · 047{i} 00 00 00" in with_three.svg
+        assert f"persoon{i}@example.com" in with_three.svg
+    assert 't-contact-3"' not in with_three.svg and "t-contact-" not in none.svg
     # Same x for the website row and every contact row: nothing floats.
-    xs = set(re.findall(r'id="t-(?:website|contact-\d)" x="([0-9.]+)"', with_three.svg))
+    xs = set(re.findall(r'id="t-(?:website|contact-\d(?:-b)?)" x="([0-9.]+)"', with_three.svg))
     assert len(xs) == 1
     assert render.estimate(with_three) == []
 
