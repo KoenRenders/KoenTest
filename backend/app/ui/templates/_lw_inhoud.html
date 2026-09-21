@@ -17,6 +17,15 @@
 {% set _kopcel = "px-3 py-2 font-medium" %}
 <input type="hidden" id="lw-sort" name="sort" value="{{ sort }}" hx-swap-oob="true">
 <input type="hidden" id="lw-richting" name="richting" value="{{ richting }}" hx-swap-oob="true">
+{# #1141: de exportknop staat in de paginakop, buiten dit swap-doel. Zonder deze
+   bijwerking blijft ze op de periode van bij het laden staan — en dan klopt het
+   bestand dat naar Raak Nationaal gaat niet met wat het scherm toont. Alleen op
+   het FRAGMENT: op de volle pagina rendert de kop de knop zelf. #}
+{% if oob_exportknop|default(false) %}
+<span id="lw-exportknop" hx-swap-oob="true">
+  {% include "_lw_exportknop.html" %}
+</span>
+{% endif %}
 <section>
   <h2 class="text-lg font-bold text-blue-700 mb-3">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
   {% if feed_rows %}

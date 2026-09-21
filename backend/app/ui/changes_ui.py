@@ -164,6 +164,11 @@ def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":
         ctx["nav_items"] = NAV
+    else:
+        # #1141: de exportknop staat buiten het swap-doel en reist out-of-band
+        # mee. Alleen hier en niet op de paginaroute: daar rendert de kop hem
+        # zelf, en twee knoppen met dezelfde id overschrijven elkaar.
+        ctx["oob_exportknop"] = True
     return templates.TemplateResponse(request, template, ctx)
 
 

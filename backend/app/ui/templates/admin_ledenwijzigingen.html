@@ -12,9 +12,14 @@
    aparte "Toon"-knop is weg. De export blijft als secundaire actie naast de
    titel. Het zoekveld filtert op actor, want dát is de vrije tekst hier. #}
 {% call ui.page_header(_("Wijzigingen"), _("Audit-logboek van alle wijzigingen; filter op periode, objectgroep of wie ze deed.")) %}
-  {{ ui.btn_secondary(_("Ledenexport (.ods) voor Raak Nationaal"), lead_icon="download",
-                      href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm",
-                        attrs='hx-boost="false"') }}
+  {# #1141: het anker waarop het tabelfragment deze knop out-of-band bijwerkt.
+     De filterbalk vervangt alléén #lw-inhoud, en deze knop staat daarbuiten —
+     zonder die bijwerking draagt ze na een filterwissel nog de periode van bij
+     het LADEN van de pagina, en download je een bestand van dertig dagen
+     terwijl het scherm iets anders toont. #}
+  <span id="lw-exportknop">
+    {% include "_lw_exportknop.html" %}
+  </span>
 {% endcall %}
 
 {% call ui.filter_bar("/admin/ledenwijzigingen", "#lw-inhoud", id="lw-filters") %}
