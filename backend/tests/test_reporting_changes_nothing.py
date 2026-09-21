@@ -159,7 +159,11 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/betalingen",
         # #1007: Design Studio joins Communicatie, after the newsletter.
         "/admin/vergaderingen", "/admin/nieuwsbrieven", "/admin/ontwerpen",
-        "/admin", "/admin/rapporten",
+        # #1117: de beheer-assistent krijgt een eigen regel in Inzicht — `AI · Raakje`,
+        # de assistent zelf, want hij gaat breder dan de rapporten. Dat is een
+        # toevoeging aan deze lijst en geen verschuiving: elk ander item staat waar
+        # het stond.
+        "/admin", "/admin/rapporten", "/admin/rapporten/raakje",
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het
         # twee dingen zijn — een rechtspersoon en een site. De ACCOUNT-organisatie

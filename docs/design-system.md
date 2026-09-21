@@ -53,6 +53,8 @@ change to all four, in one pull request.
 | 16 Sep 2026 | Dense-list tabs slice on derived saldo/kind, never the raw status column; the status select stays the column filter (AND, #669) | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | Row actions stay buttons (size `xs` in dense tables); Cobalt's text links wait for a portal-wide pass | #913 (wave 10, feedback 1) |
 | 16 Sep 2026 | The record AI button ("AI · <record>") exists only where `tenant_admin_chat_enabled` is true; one kernel switch, never a UI-side flag; the overlay uses the public Raakje look | #913 (wave 10), CR-07 §6.3 |
+| 21 Sep 2026 | Every Raakje entry is `AI · <Scherm>` with the `sparkles` icon; `AI · Raakje` (the assistant itself) gets its own item in *Inzicht* | #1117, §2.11 |
+| 21 Sep 2026 | A Raakje overlay never sits inside another form — `filter_bar` renders one, and nesting silently kills the submit button; guarded on the rendered output | #1115, §2.11 |
 | 20 Sep 2026 | **Raakje is one product everywhere**: every appearance carries the same controls from shared partials; the only permitted difference between public and back office is the toolset, guarded by a gate | #1075, §2.11 |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
@@ -586,10 +588,38 @@ reach one even with a forged call. A behaviour that the public Raakje may not
 have (looking up a member) is a toolset decision, taken in the route — never a
 missing button.
 
-Gates: `test_raakje_controls_shared.py` (every surface uses the partials; the
-overlay's controls equal the reporting Raakje's; all four templates that include
-the record header still render), and the dictation e2e on both the public page
-and the overlay.
+**One name, one icon** (#1117, 21 September 2026). Every way in is called
+`AI · <Scherm>` and carries the `sparkles` icon before its label, through
+`lead_icon` on the kit button — never hand-written markup. The suffix says what
+the scope is: `AI · Activiteit` is Raakje *here, about this record*,
+`AI · Betalingen` about this selection, and `AI · Raakje` is the assistant
+itself, with no screen behind it. That last one has its own menu item in
+*Inzicht*, next to Dashboard and Rapporten: it answers about payments, members,
+activities and tasks, so parking it under *Rapporten* would shrink it to one of
+its subjects.
+
+**One modal, one row of controls** (#1115). The record screens show Raakje
+through the shared overlay (`ui/templates/_raakje_overlay.html`); they do not
+build their own. The input row has exactly one difference left, as a parameter:
+the public widget sends with an icon, the back office with the word *Vraag*.
+Everything else — the microphone, the alignment, the growing field — is one
+rendering.
+
+**An overlay never lives inside another form.** `filter_bar` renders a `<form>`,
+and a `<form>` inside a `<form>` is dropped by the browser: the submit button
+then belongs to the outer form and the inner layout classes are gone. That is
+exactly how *Vraag* on Betalingen came to do nothing. A screen that puts a button
+beside its filter bar passes `cls="flex-1 min-w-0"` to the bar and places the
+button next to it.
+
+Gates: `test_raakje_controls_shared.py` (every surface uses the partials, and the
+record screens use the shared overlay), `test_raakje_naam_en_icoon_1117.py` (the
+name and the icon on the rendered button, the menu item, the page), and
+`test_geen_genest_formulier.py` (no `<form>` inside a `<form>` on the rendered
+screens). In the browser: the dictation e2e, and
+`tests_e2e/test_raakje_overlay_op_betalingen.py` (the question is answered, the
+three controls share a bottom edge, two Raakje entries share one read-aloud
+state).
 
 ## 3. Screen types
 

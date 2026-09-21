@@ -29,8 +29,15 @@
    listens itself or our Voxtral proxy does; without a value stt.js falls back to
    the browser.
 
-   `compact` is the widget variant: an icon-only send button and a lower
-   microphone, because the widget is 20rem wide. The behaviour is identical.
+   `icoon_verzenden` is the ONE difference between the surfaces: the public
+   widget sends with a paper-plane icon (it is 20rem wide), the back-office
+   surfaces with the word *Vraag*. That is a deliberate choice and may stay — but
+   as one parameter on one rendering, not as two branches. Until #1115 the two
+   branches also gave the microphone a different alignment, and the overlay
+   inherited the worse one: `py-2` made the button taller than the field it
+   stands next to, so the three controls did not line up. Now every surface gets
+   the alignment the widget already had (`self-end h-[38px]`, the natural height
+   of a one-row textarea).
 
    autogrow=False (#1027): the chat field carries its own growth handler with a
    120 px ceiling and a reset to `auto` after sending; the macro's variant would
@@ -39,7 +46,7 @@
    put a bare `x-data` on the form. Backticks in the JS strings: the Jinja literal
    is in single quotes and the HTML attribute in double, so a third kind of quote
    saves a row of escapes nobody can read later. #}
-{% macro input_row(id, stt_mode, compact=False) -%}
+{% macro input_row(id, stt_mode, icoon_verzenden=False) -%}
 {{ ui.textarea_control("vraag", id=id, rows=1, required=True,
                        placeholder=_("Typ je vraag…"), autogrow=False,
                        cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
@@ -49,16 +56,16 @@
 {# Dictation (#567/#917). The three states travel as kit SVGs on the button
    itself: loose characters render differently per font and OS. #}
 <button type="button" data-stt-target="#{{ id }}" data-stt-mode="{{ stt_mode }}"
-        class="{% if compact %}border border-gray-300 hover:bg-gray-100 px-2 rounded-lg self-end h-[38px]{% else %}bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg{% endif %}"
+        class="bg-white border border-gray-300 hover:bg-gray-100 px-3 rounded-lg self-end h-[38px]"
         title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}"
         data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
         data-icon-connecting='{{ ui.icon("loader") }}'>{{ ui.icon("mic") }}</button>
-{% if compact %}
+{% if icoon_verzenden %}
 {# #631: a symbol-only button needs a readable name — for a screen reader it was
    "➤", on every public page. #}
 {{ ui.btn_primary(ui.icon("send"), type="submit", cls="px-3 self-end", aria_label=_("Versturen")) }}
 {% else %}
-{{ ui.btn_primary(_("Vraag")) }}
+{{ ui.btn_primary(_("Vraag"), cls="self-end") }}
 {% endif %}
 {%- endmacro %}
 

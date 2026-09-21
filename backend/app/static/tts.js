@@ -42,6 +42,17 @@
     window.speechSynthesis.speak(u);
   }
 
+  // #1115: één pagina kan meer dan één Raakje dragen — op de Betalingen-tab van
+  // een activiteit staan er twee (over de activiteit, over de selectie), elk met
+  // hun eigen voorleesknop. De stand is er één (localStorage), dus alle knoppen
+  // horen ze samen te tonen: zonder deze lijst bleef de andere knop het oude
+  // icoon houden tot je de pagina herlaadde.
+  var schilders = [];
+
+  function paintAll() {
+    schilders.forEach(function (schilder) { schilder(); });
+  }
+
   function wireToggle(btn) {
     // #570: de twee standen komen als SVG uit de kit mee op de knop zelf. Losse
     // tekens (🔊/🔇) renderen per lettertype en OS anders; de terugval op de
@@ -54,10 +65,11 @@
       else { btn.textContent = readAloud() ? "🔊" : "🔇"; }
       btn.setAttribute("aria-pressed", readAloud() ? "true" : "false");
     }
+    schilders.push(paint);
     paint();
     btn.addEventListener("click", function () {
       setReadAloud(!readAloud());
-      paint();
+      paintAll();
     });
   }
 

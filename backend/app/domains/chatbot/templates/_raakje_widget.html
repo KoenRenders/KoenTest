@@ -40,9 +40,10 @@
           class="border-t border-gray-200 p-2 flex gap-2 items-end"
           hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'">
       {# Invoerveld, microfoon en verstuurknop uit het gedeelde bedieningsdeel
-         (#1075); `compact` is de widgetvariant: iconknop en lagere microfoon,
-         want het paneel is 20rem breed. Het gedrag is hetzelfde. #}
-      {{ controls.input_row("raakje-widget-vraag", stt_mode, compact=True) }}
+         (#1075). `icoon_verzenden` is het enige verschil met de beheerschermen:
+         hier een verzendpictogram, daar het woord *Vraag* — het paneel is 20rem
+         breed. De microfoon en de uitlijning zijn sinds #1115 overal gelijk. #}
+      {{ controls.input_row("raakje-widget-vraag", stt_mode, icoon_verzenden=True) }}
     </form>
   </div>
 </div>

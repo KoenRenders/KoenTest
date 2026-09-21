@@ -10,12 +10,13 @@ change lands on the surface someone is looking at.
 
 Two halves, and both are needed:
 
-- **Source: one partial, no copies.** Every Raakje template imports
-  `_raakje_controls.html` and calls its macros, and the attributes that make
-  the controls work (`data-stt-target`, `data-tts-toggle`, the growth handler)
-  appear in that one file and nowhere else. The file list is asserted to hold
-  all four surfaces, so a moved template cannot make this scan an empty set and
-  go green (#678).
+- **Source: one partial, no copies.** Every Raakje template reaches the controls
+  through `_raakje_controls.html` — directly, or through the shared overlay
+  (`_raakje_overlay.html`), which since #1115 is the ONE modal for the record
+  screens. The attributes that make the controls work (`data-stt-target`,
+  `data-tts-toggle`, the growth handler) appear in that one partial and nowhere
+  else. Both lists are asserted to be non-empty, so a moved or removed template
+  cannot make this scan an empty set and go green (#678).
 - **Rendered: the overlay equals the reporting Raakje.** Through the real
   routes, with both assistant switches on: the microphone button of the
   activity overlay is byte-for-byte the reporting one, save for the field id;
@@ -48,15 +49,23 @@ pytestmark = pytest.mark.ui_serverrendered
 DOMAINS = Path(__file__).resolve().parents[1] / "app" / "domains"
 PARTIAL = DOMAINS / "chatbot" / "templates" / "_raakje_controls.html"
 
-# Every surface that shows Raakje, and which variant of the toggle it uses. A
-# new surface goes on this list — and inherits the controls by importing the
-# partial, not by copying it (design-system §2.11).
+# De plekken die de bediening ZELF renderen, met de variant van de voorleesknop.
+# Een nieuwe plek erbij? Dan via het partial — niet via een kopie (design-system
+# §2.11).
 SURFACES = {
     "chatbot/templates/_raakje_widget.html": "on_dark=True",
     "chatbot/templates/raakje.html": "",
     "reporting/templates/admin_rapporten_raakje.html": "",
-    "activities/templates/_aa_recordkop.html": "on_dark=True",
 }
+# De gedeelde overlay staat buiten `domains/` (het is kit-schil, niet één domein).
+OVERLAY = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates" / "_raakje_overlay.html"
+
+# De schermen die hun Raakje via die overlay tonen (#1115): zij renderen de
+# bediening niet zelf en horen dat ook niet te doen — één modal, één vorm.
+VIA_OVERLAY = (
+    "activities/templates/_aa_recordkop.html",
+    "payment/templates/_betalingen_scherm.html",
+)
 
 # What only the partial may carry: the hooks the two scripts read, and the
 # growth handler the dictation test depends on (#788).
@@ -67,14 +76,34 @@ CONTROL_MARKERS = ("data-stt-target", "data-tts-toggle",
 # ── Source: one partial, no copies ───────────────────────────────────────────
 
 def test_every_surface_uses_the_shared_partial():
-    assert len(SURFACES) >= 4, "the list of Raakje surfaces shrank; this gate scans nothing"
-    for relative, variant in SURFACES.items():
-        source = (DOMAINS / relative).read_text()
+    assert len(SURFACES) >= 3, "de lijst Raakje-plekken kromp; deze gate scant niets"
+    bronnen = {relative: (DOMAINS / relative).read_text() for relative in SURFACES}
+    bronnen["ui/templates/_raakje_overlay.html"] = OVERLAY.read_text()
+    varianten = dict(SURFACES, **{"ui/templates/_raakje_overlay.html": "on_dark=True"})
+    for relative, source in bronnen.items():
+        variant = varianten[relative]
         assert '{% import "_raakje_controls.html" as controls %}' in source, (
             f"{relative} does not import the shared Raakje controls")
         assert "controls.input_row(" in source, f"{relative} builds its own input row"
         assert f"controls.read_aloud_toggle({variant})" in source, (
             f"{relative} lacks the read-aloud toggle ({variant or 'page variant'})")
+
+
+def test_de_overlayschermen_bouwen_geen_eigen_modal():
+    """#1115: de recordschermen tonen Raakje via de gedeelde overlay.
+
+    De activiteit-recordkop droeg tot dit issue een eigen kopie van diezelfde
+    modal; die liep meteen achter (ze had wél een voorleesknop, de gedeelde niet).
+    Eén modal, dus één plek waar de volgende verbetering landt.
+    """
+    assert VIA_OVERLAY, "de lijst overlay-schermen is leeg; deze gate scant niets"
+    for relative in VIA_OVERLAY:
+        source = (DOMAINS / relative).read_text()
+        assert '{% import "_raakje_overlay.html" as raakje %}' in source, (
+            f"{relative} importeert de gedeelde overlay niet")
+        assert "raakje.overlay(" in source, f"{relative} roept de overlay niet aan"
+        assert "controls." not in source, (
+            f"{relative} bouwt zijn eigen bediening naast de overlay")
 
 
 def test_the_control_markup_lives_in_the_partial_and_nowhere_else():
@@ -130,10 +159,20 @@ def _microphone(html: str, field_id: str) -> str:
     return found[0]
 
 
-def _toggle(html: str) -> str:
+def _toggles(html: str) -> list[str]:
+    """Elke voorleesknop op de pagina.
+
+    Meer dan één is sinds #1115 normaal: de Betalingen-tab van een activiteit
+    draagt twee Raakje's — één over de activiteit, één over de selectie. Ze
+    tonen dezelfde stand; `tts.js` schildert ze samen bij.
+    """
     found = re.findall(r'<button type="button" data-tts-toggle[\s\S]*?</button>', html)
-    assert len(found) == 1, f"expected one read-aloud toggle, found {len(found)}"
-    return found[0]
+    assert found, "geen enkele voorleesknop op de pagina"
+    return found
+
+
+def _toggle(html: str) -> str:
+    return _toggles(html)[0]
 
 
 def _attributes(button: str) -> dict[str, str]:

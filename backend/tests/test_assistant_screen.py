@@ -217,7 +217,7 @@ def test_the_reports_screen_offers_the_way_in(client, db_session, aan):
     login(client, db_session)
     resp = client.get("/admin/rapporten")
     assert PATH in resp.text
-    assert "Vraag het Raakje" in resp.text
+    assert "AI · Raakje" in resp.text
 
 
 # ── Spraak: dezelfde twee knoppen als op de publieke Raakje (#917) ───────────

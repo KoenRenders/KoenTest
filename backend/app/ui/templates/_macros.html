@@ -83,6 +83,10 @@
 {# `thumbs-up` is er sinds #883, voor het duimpje bij een foto. Lucide, zoals de rest
    van deze set. Let op: binnen de `paths`-dict kan geen Jinja-commentaar staan — dat is
    een expressie, geen sjabloontekst. #}
+{# `sparkles` (#1117): het icoon van Raakje. Elke ingang naar de assistent draagt
+   het vóór zijn label — drie sterretjes lezen zonder uitleg als "hier denkt een
+   computer mee", en dat is de verwachting die gezet moet worden vóór iemand klikt.
+   Lucide, zoals de rest van deze set. #}
 {# `link` (#258): de bron-chip op een vergaderpunt wijst naar de activiteit of het
    gezin waarvan het punt komt. Zonder dit pad rendert `icon("link")` een leeg
    SVG-vakje — zichtbaar als een gat naast de tekst, en zo is het opgemerkt. #}
@@ -124,6 +128,7 @@
   "chart-bar": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
   "chart-line": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/>',
   "chart-stacked": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="13" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="15" y="11" width="4" height="6"/><rect x="15" y="7" width="4" height="4"/>',
+  "sparkles": '<path d="M12 3 10.1 8.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3z"/><path d="M5 3v4"/><path d="M3 5h4"/><path d="M19 17v4"/><path d="M17 19h4"/>',
   "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
     maar het oog telt inkt: `square` spant 18 van de 24 eenheden (75%) en `mic` 20
@@ -707,10 +712,15 @@
 
    De `delay:400ms` op de zoek-trigger beperkt de geschiedenis tot één ingang per
    pauze in het typen; elke aanslag apart zou de terugknop onbruikbaar maken. #}
+{# `cls` (#1115): voor een scherm dat iets NAAST de filterbalk zet — een knop die
+   niet in dit formulier hoort. Binnen de balk zou zo'n knop bij dit formulier
+   horen, en dat submit niets (`onsubmit="return false"`); een genest `<form>`
+   gooit de browser zelfs weg. Met `cls="flex-1 min-w-0"` past de balk in een
+   flex-rij naast die knop. #}
 {% macro filter_bar(hx_get, hx_target,
                     trigger="change, keyup changed delay:400ms from:input[type=search]",
-                    id=None) -%}
-<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
+                    id=None, cls="") -%}
+<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 space-y-3{% if cls %} {{ cls }}{% endif %}" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
       hx-swap="innerHTML" hx-trigger="{{ trigger }}"
       hx-headers='{"X-Raak-Filter": "1"}'
       onsubmit="return false">

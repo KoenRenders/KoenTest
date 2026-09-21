@@ -362,6 +362,12 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ("Inzicht", [
         ("/admin", "Dashboard"),
         ("/admin/rapporten", "Rapporten"),
+        # #1117: de beheer-assistent gaat breder dan de rapporten — hij
+        # beantwoordt vragen over betalingen, leden, activiteiten en taken. Hem
+        # onder Rapporten laten wonen verkleint hem tot één van zijn onderwerpen
+        # en je moet er langs de rapportenlijst naartoe. Vandaar een eigen regel,
+        # en vandaar `AI · Raakje`: geen scherm, geen selectie — de assistent zelf.
+        ("/admin/rapporten/raakje", "AI · Raakje"),
     ]),
     ("Systeem", [
         ("/admin/gebruikers", "Gebruikers"),

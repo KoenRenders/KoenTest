@@ -12,19 +12,26 @@
    is precies de duplicatie waar `CLAUDE.md` voor waarschuwt — de tweede loopt
    achter zodra de eerste iets leert.
 
-   `_aa_recordkop.html` draagt vandaag nog zijn eigen kopie: dat bestand is op dit
-   moment van een andere CLI (#1075, mic en voorlezen), en twee sessies in hetzelfde
-   blok is hoe je elkaars werk overschrijft. Zodra dat gemerged is, hoort die kop
-   hierheen te wijzen; tot dan is dit één bron mét een bekende tweede plek, en dat
-   staat hier zodat het geen vergetelheid wordt.
+   Sinds #1115 is dat ook echt één plek: `_aa_recordkop.html` droeg zijn eigen
+   kopie zolang #1075 (mic en voorlezen) nog openstond, en wijst nu hierheen. De
+   voorleesknop uit die kopie staat daarom hieronder in de kop van de modal —
+   zonder dat zou de activiteit-overlay hem verliezen.
 
-   `gesprek_id` moet uniek zijn op de pagina; `historie_id` is dat bewust NIET —
-   het antwoordfragment werkt dat veld out-of-band bij en gebruikt daarvoor het id
-   van de rapporten-Raakje. #}
-{% macro overlay(knop, post_url, opening, stt_mode, gesprek_id="raakje-gesprek",
+   De knop draagt het `sparkles`-icoon vóór zijn label (#1117): elke ingang naar
+   Raakje ziet er hetzelfde uit, en het label zegt waaróver — `AI · Activiteit`,
+   `AI · Betalingen`.
+
+   `prefix` moet uniek zijn op de pagina en draagt béide id's: het gesprek heet
+   `<prefix>-gesprek` en het invoerveld `<prefix>-vraag`. Eén naam, twee afgeleide
+   id's — anders kiest elke plek ze los en heet het veld ergens
+   `…-gesprek-vraag`. `historie_id` is bewust NIET uniek: het antwoordfragment
+   werkt dat veld out-of-band bij en gebruikt daarvoor het id van de
+   rapporten-Raakje. #}
+{% macro overlay(knop, post_url, opening, stt_mode, prefix="raakje",
                  historie_id="rp-raakje-historie") -%}
+{% set gesprek_id = prefix ~ "-gesprek" %}
 <div x-data="{ raakje: false }" class="shrink-0">
-  {{ ui.btn_secondary(knop, size="sm", attrs='@click="raakje = true"') }}
+  {{ ui.btn_secondary(knop, size="sm", lead_icon="sparkles", attrs='@click="raakje = true"') }}
   <div x-show="raakje" x-cloak role="dialog" aria-modal="true" aria-label="{{ _('Raakje') }}"
        class="fixed inset-0 z-50 flex items-center justify-center p-4"
        style="display: none; background: rgba(17,17,17,.5)"
@@ -33,8 +40,14 @@
          @click.outside="raakje = false">
       <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
         <span class="font-semibold">{{ _("Raakje") }}</span>
-        <button type="button" class="hover:opacity-80" @click="raakje = false"
-                aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+        <div class="flex items-center gap-1">
+          {# #1075: dezelfde bediening als elke andere Raakje — de voorleesknop in
+             de kop, de microfoon bij het veld. Beide uit het gedeelde
+             bedieningsdeel, dus deze overlay kan niet uiteenlopen met de rest. #}
+          {{ controls.read_aloud_toggle(on_dark=True) }}
+          <button type="button" class="hover:opacity-80" @click="raakje = false"
+                  aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+        </div>
       </div>
       <div class="p-4 text-sm">
         <div id="{{ gesprek_id }}" class="space-y-3 mb-3 max-h-[50vh] overflow-y-auto">
@@ -46,7 +59,7 @@
               hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
               x-data class="flex gap-2 items-end">
           <input type="hidden" name="historie" id="{{ historie_id }}" value="">
-          {{ controls.input_row(gesprek_id ~ "-vraag", stt_mode) }}
+          {{ controls.input_row(prefix ~ "-vraag", stt_mode) }}
         </form>
         {# Een antwoord duurt 15 tot 30 seconden (CR-07 §4.3): zonder deze regel
            lijkt de overlay stuk. #}
