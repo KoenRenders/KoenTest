@@ -389,7 +389,12 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         highlights=tuple(highlights),
         date_line=date_line, location=(facts["location"] or "").upper(),
         deadline_text=deadline_line(facts["deadline"]),
-        more_info_label="Meer info en inschrijven:",
+        # The heading covers what is under it, and what is under it is the
+        # way to reach us. Registering has its own two lines at the foot of
+        # the band, in the accent colour (Koen, 21 September 2026, after the
+        # organisers of the bowling: "ik wil vermijden dat ze gaan
+        # inschrijven door een mail te sturen naar ons").
+        more_info_label="Meer info:",
         members_only=bool(facts["members_only"]),
         dates_heading=f"DATA IN {year}",
         dates=grid,
@@ -404,12 +409,18 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
 
 
 def deadline_line(iso: str) -> str:
-    """"Inschrijven tot 8 november", or "" when there is no single deadline
-    for the whole activity (#1053: it lives per component)."""
+    """"Inschrijven tot en met 8 november", or "" when there is no single
+    deadline for the whole activity (#1053: it lives per component).
+
+    "Tot en met" because that is what the software does: a registration is
+    refused from the day *after* the deadline, so the deadline day itself is
+    still open. "Tot 8 november" read as "before the 8th" and was therefore
+    not only vaguer but wrong (Koen, 21 September 2026).
+    """
     if not iso:
         return ""
     day = date.fromisoformat(iso)
-    return f"Inschrijven tot {day.day} {MONTHS_NL[day.month - 1].lower()}"
+    return f"Inschrijven tot en met {day.day} {MONTHS_NL[day.month - 1].lower()}"
 
 
 def qr_url(db: Session, key: str = "") -> str:
