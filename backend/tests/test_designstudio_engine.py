@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.designstudio import brand, render, richtext
-from app.domains.designstudio.blocks import fit_size
+from app.domains.designstudio.blocks import fit_size, full_bleed_floor
 from app.domains.designstudio.content import Contact, Highlight, ImageBytes, PosterContent
 
 HERE = Path(__file__).resolve().parent
@@ -300,29 +300,34 @@ def test_the_qr_is_big_enough_to_scan_and_stays_inside_the_band():
 
 def _white_band(svg: str, text: str) -> tuple[float, float]:
     """(size of the body text, millimetres of white between it and the
-    welcome badge) — the two numbers Koen reads off a feed image."""
+    welcome badge) — the two numbers Koen reads off a feed image.
+
+    The badge's baseline sits 8.6 mm under the top of its brush stroke, and
+    that stroke is where the free space ends.
+    """
     m = re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"', svg)
     top, size = float(m.group(1)), float(m.group(2))
     bottom = top - size + richtext.text_height(text, width=259.0, size=size)
-    badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', svg).group(1))
+    badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', svg).group(1)) - 8.6
     return size, badge - bottom
 
 
-def test_the_feed_image_fills_the_square_instead_of_leaving_it_white():
-    """Koen, 21 September 2026: "kan je iets voorzien zodat de ruimte maximaal
-    bezet wordt? Nu heb ik de indruk dat de tekst te klein is en er veel witte
-    ruimte is."
+def test_the_feed_image_fills_the_bottom_without_shrinking_the_picture():
+    """Koen, 21 September 2026, twice.
 
-    The picture and the text share what is left between the fact rows and the
-    welcome badge. The text is promised a comfortable size, the picture takes
-    what remains up to its own proportions, and whatever the picture cannot
-    use the text grows into. So a short description gives a tall picture and a
-    long one a strip — but neither leaves a white band, and neither shrinks
-    the text to unreadable.
+    First: "kan je iets voorzien zodat de ruimte maximaal bezet wordt?" Then,
+    on the answer, which had let the picture pay for it: "de visualisatie van
+    de foto is echt niet OK. De tekst moest niet zoveel groter, gewoon de
+    ruimte onderaan meer benutten, bvb. door de fontsize 1 of 2 pixels te
+    doen groeien."
 
-    Broken on purpose to check this can go red: the picture's share computed
-    from the text at its *smallest* size again (`space - min_h`) → the long
-    text lands at 6.6 mm and the first assert fails.
+    So the picture keeps its own share and stays a picture — cropped over the
+    full width, never a band — and the text fills what is left, measured on
+    the ink rather than on the reserved block around it.
+
+    Broken on purpose to check this can go red: the fitter back on
+    `_richtext_height` (the block, five millimetres larger than the text) →
+    the long text drops a size step and the white band grows past the bar.
     """
     simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
                   date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
@@ -332,21 +337,47 @@ def test_the_feed_image_fills_the_square_instead_of_leaving_it_white():
             "voor één spel waarbij dit met 8 personen ongeveer 1,5 uur duurt.\n"
             "Voor de kleinsten zijn er hulpmiddelen om toch strikes te kunnen gooien!\n"
             "Nadien kan je aan een voordeliger tarief naar de binnenspeeltuin.")
-    heights = []
-    for text in (short, long):
+    for text, ceiling in ((short, True), (long, False)):
         merged = render.merge(_content(**simple, explanation_md=text), layout="feed_portrait")
         size, white = _white_band(merged.svg, text)
-        assert size >= 7.2, f"tekst van {size} mm is te klein om te lezen"
-        # A dozen of those millimetres are the block's own breathing room,
-        # and a size step can add a whole wrapped line, so the bar is not
-        # zero — but on master the short text left 58 mm here.
-        assert white < 30, f"{white:.0f} mm wit tussen de tekst en de badge"
         picture = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
                             r'[^>]*preserveAspectRatio="([^"]+)"', merged.svg)
         assert "slice" in picture.group(3), "de foto staat gebrievenbust in plaats van over de volle breedte"
-        heights.append(float(picture.group(2)))
-    # The short text leaves the picture more room; that is the whole trade.
-    assert heights[0] > heights[1] + 40
+        assert float(picture.group(2)) >= full_bleed_floor(
+            simple["main_image"], 259.0, 120.0, 50.0), "de foto is een strook geworden"
+        if ceiling:
+            assert size == 10.0        # short text: the body stops at its ceiling
+        else:
+            # The long text is as big as it can be: one step more would not
+            # fit in the white that is left. No magic millimetre here — the
+            # measure is the text itself.
+            step = (richtext.text_height(long, width=259.0, size=size + 0.2)
+                    - richtext.text_height(long, width=259.0, size=size))
+            assert step > white, f"nog {white:.0f} mm vrij en de tekst kon {step:.0f} mm groeien"
+
+
+def test_every_row_in_the_band_is_set_in_one_size():
+    """Koen, 21 September 2026: "is de lettergrootte van alles onder 'Meer
+    info en inschrijven' dezelfde? Dat zou wel de bedoeling moeten zijn."
+
+    It was not: the deadline 6.6, the website and the e-mail 6.2, a contact
+    5.6. They are one list of ways to reach us, so they are all set in the
+    smallest of those, with a little more air between them and the last row a
+    millimetre lower.
+
+    Broken on purpose: one row back on 6.2 → the first assert names it.
+    """
+    from app.domains.designstudio.blocks import BAND_ROW_STEP, BAND_TEXT
+
+    merged = render.merge(_content(deadline_text="Inschrijven tot 8 november",
+                                   contacts=(Contact("Voornaam Naam", "0470 00 00 00"),)), layout="print_a")
+    rows = re.findall(r'<text id="t-(deadline|website|contact-0)" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"',
+                      merged.svg)
+    assert len(rows) == 3
+    assert {float(size) for _id, _y, size in rows} == {BAND_TEXT}
+    ys = [float(y) for _id, y, _size in rows]
+    assert round(ys[1] - ys[0], 1) == BAND_ROW_STEP          # the air between two rows
+    assert round(ys[2] - ys[1], 1) == BAND_ROW_STEP + 1      # and the last one a millimetre lower
 
 
 def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_grows():
