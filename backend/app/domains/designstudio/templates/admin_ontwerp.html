@@ -74,9 +74,14 @@
 
       <div class="pt-2">
         {{ ui.label(_("Omschrijving anders"), "ds-explanation") }}
-        {{ ui.textarea_control("explanation_md", id="ds-explanation", value=explanation_md, rows=4, cls="w-full") }}
+        {# Leeg veld = de omschrijving van de activiteit, die als hint in het
+           veld staat. Ze stond er vroeger als waarde in, waardoor leegmaken
+           en bewaren hem gewoon terugzette — en dat leest als een fout
+           (Koen, 21 september 2026). #}
+        {{ ui.textarea_control("explanation_md", id="ds-explanation", value=explanation_md, rows=4, cls="w-full",
+                               placeholder=explanation_hint or _("De activiteit heeft nog geen omschrijving.")) }}
         <p class="text-xs text-ink-soft mt-1">
-          {% if explanation_is_own %}{{ _("Eigen tekst — wijkt af van de omschrijving van de activiteit. Leegmaken = de omschrijving van de activiteit terug.") }}{% else %}{{ _("Dit is de omschrijving van de activiteit; ze volgt de activiteit tot je ze hier aanpast. Alinea's, **vet** en - opsommingen kunnen.") }}{% endif %}
+          {% if explanation_is_own %}{{ _("Eigen tekst — wijkt af van de omschrijving van de activiteit. Leegmaken = de omschrijving van de activiteit terug.") }}{% else %}{{ _("Leeg: de affiche drukt de omschrijving van de activiteit, hierboven in het grijs. Typ hier iets anders om ze te vervangen. Alinea's, **vet** en - opsommingen kunnen.") }}{% endif %}
         </p>
       </div>
 
