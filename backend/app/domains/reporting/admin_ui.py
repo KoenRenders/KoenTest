@@ -89,6 +89,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/rapporten"
+# #1117: de assistent heeft een eigen menuplek; deze pagina markeert die.
+NAV_RAAKJE = "/admin/rapporten/raakje"
 ODS_MEDIA_TYPE = "application/vnd.oasis.opendocument.spreadsheet"
 PER_PAGE = 50
 
@@ -802,7 +804,11 @@ def assistant_page(request: Request, db: Session = Depends(get_db),
     enabled, reason = _assistant_state(db, request)
     view = AssistantView(enabled=enabled, reason=reason, history="[]",
                          stt_mode=settings.stt_mode,
-                         csrf_token=_csrf(request), nav_items=admin_nav(NAV))
+                         csrf_token=_csrf(request),
+                         # #1117: deze pagina heeft sinds dit issue haar eigen
+                         # menu-item (AI · Raakje, groep Inzicht) en markeert dat
+                         # als actief — niet Rapporten, waar ze niet onder hoort.
+                         nav_items=admin_nav(NAV_RAAKJE))
     return templates.TemplateResponse(request, "admin_rapporten_raakje.html",
                                       view.as_context())
 

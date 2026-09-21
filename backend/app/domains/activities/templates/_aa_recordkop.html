@@ -1,6 +1,5 @@
 {% import "_macros.html" as ui %}
-{% import "_raakje_ballon.html" as ballon %}
-{% import "_raakje_controls.html" as controls %}
+{% import "_raakje_overlay.html" as raakje %}
 {# Recordkop van de activiteit (golf 8-feedbackronde, 15 sep 2026): naam +
    status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
    Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
@@ -37,46 +36,16 @@
   <div class="flex items-center gap-2 shrink-0 mt-1">
   {{ ui.btn_secondary(_("Design Studio"), href=designs_href, size="sm") }}
   {% if raakje_admin|default(false) %}
-  <div x-data="{ raakje: false }">
-    {{ ui.btn_secondary(_("AI · Activiteit"), size="sm", attrs='@click="raakje = true"') }}
-    <div x-show="raakje" x-cloak role="dialog" aria-modal="true" aria-label="{{ _('Raakje') }}"
-         class="fixed inset-0 z-50 flex items-center justify-center p-4"
-         style="display: none; background: rgba(17,17,17,.5)"
-         @keydown.escape.window="raakje = false">
-      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" @click.outside="raakje = false">
-        <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
-          <span class="font-semibold">{{ _("Raakje") }}</span>
-          <div class="flex items-center gap-1">
-            {# #1075: same controls as every other Raakje — the read-aloud toggle
-               in the header, the microphone at the field. Both from the shared
-               partial, so this overlay cannot drift from the reporting Raakje. #}
-            {{ controls.read_aloud_toggle(on_dark=True) }}
-            <button type="button" class="hover:opacity-80" @click="raakje = false" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
-          </div>
-        </div>
-        <div class="p-4 text-sm">
-          {# Zelfde ballonnen als de publieke en de rapporten-Raakje (#791):
-             het is dezelfde bot met een andere gereedschapskist. #}
-          <div id="aa-raakje-gesprek" class="space-y-3 mb-3 max-h-[50vh] overflow-y-auto">
-            <div><div class="{{ ballon.van_raakje() }}">{{ _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”. Namen van personen geef ik niet: ik antwoord op groepsniveau.") }}</div></div>
-          </div>
-          {# De geschiedenis reist mee in het formulier en staat niet op de
-             server (CR-07 §10); het antwoordfragment werkt dit veld
-             out-of-band bij, dus het id is dat van de rapporten-Raakje. #}
-          <form hx-post="/admin/rapporten/raakje/activiteit/{{ a.id }}"
-                hx-target="#aa-raakje-gesprek" hx-swap="beforeend"
-                hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
-                x-data class="flex gap-2 items-end">
-            <input type="hidden" name="historie" id="rp-raakje-historie" value="">
-            {{ controls.input_row("aa-raakje-vraag", stt_mode) }}
-          </form>
-          {# Een antwoord duurt 15 tot 30 seconden (CR-07 §4.3): zonder deze
-             regel lijkt de overlay stuk. #}
-          {{ ui.loading(_("Raakje denkt na… dit kan een halve minuut duren.")) }}
-        </div>
-      </div>
-    </div>
-  </div>
+  {# #1115: dezelfde overlay als Betalingen, uit `_raakje_overlay.html`. Deze kop
+     droeg een eigen kopie zolang #1075 hier openstond; die reden is weg, en twee
+     kopieën van dezelfde modal lopen uiteen zodra er één iets leert.
+     Het gesprek loopt via het #975-endpoint: de activiteit zit in het PAD (een
+     formveld kan stil wegvallen, een pad niet) en een uitgeschakelde of vreemde
+     tenant krijgt daar een 404. #}
+  {{ raakje.overlay(_("AI · Activiteit"),
+                    "/admin/rapporten/raakje/activiteit/" ~ a.id,
+                    _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”. Namen van personen geef ik niet: ik antwoord op groepsniveau."),
+                    stt_mode, prefix="aa-raakje") }}
   {% endif %}
   </div>
 </div>

@@ -7,9 +7,13 @@
    met die selectie. #}
 {% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet.")) %}
   {{ ui.btn_primary(_("+ Nieuw rapport"), href="/admin/rapporten/nieuw") }}
-  {# De ingang van de assistent (CR-07 §11): één knop hier, geen eigen menu-item.
-     Wie een vraag over de cijfers heeft, staat op dit scherm. #}
-  {{ ui.btn_secondary(_("Vraag het Raakje"), href="/admin/rapporten/raakje") }}
+  {# De ingang van de assistent. Sinds #1117 heet hij overal hetzelfde: `AI · …`
+     met het sparkles-icoon. Zonder scherm erachter, want deze assistent gaat
+     over de hele catalogus en niet over de rapportenlijst — vandaar `AI · Raakje`
+     en niet `AI · Rapporten`. Hij staat sindsdien óók in het menu (Inzicht);
+     deze knop blijft, want wie hier al staat hoeft niet eerst naar het menu. #}
+  {{ ui.btn_secondary(_("AI · Raakje"), href="/admin/rapporten/raakje",
+                      lead_icon="sparkles") }}
 {% endcall %}
 
 {% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}

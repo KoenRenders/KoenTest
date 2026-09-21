@@ -12,7 +12,14 @@
   {% include "_bt_boven.html" %}
 </div>
 
-{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter") %}
+{# #1115: de Raakje-knop staat NAAST de filterbalk en niet erin. `filter_bar`
+   rendert een `<form>`, en de overlay brengt er zelf een mee: een genest
+   formulier gooit de browser weg, waarna *Vraag* bij de filterbalk hoorde — die
+   `onsubmit="return false"` draagt — en de knop dus niets deed, en de invoerregel
+   haar uitlijning kwijt was. De flex-rij houdt de knop op dezelfde hoogte als
+   voorheen: rechts, op de regel van de filters. #}
+<div class="flex items-start gap-3">
+{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter", cls="flex-1 min-w-0") %}
   {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
      filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
      alleen via "Alle bekijken" in de scope-regel. #}
@@ -46,20 +53,22 @@
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
                         href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ "&zicht=" ~ zicht ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
-    {# #1060: Raakje met de selectie die hierboven staat. De ingang verschijnt
-       alleen als de assistent aanstaat ÉN deze gebruiker hem mag aanspreken —
-       dit scherm laat FINANCE binnen, de assistent niet, en een knop die op een
-       403 uitkomt is erger dan geen knop. De selectie zelf reist niet mee in dit
-       formulier: de route leidt ze server-side af uit dezelfde filterstand die
-       dit scherm leest. #}
-    {% if raakje_scherm %}
-    {{ raakje.overlay(_("AI · Betalingen"),
-                      "/admin/rapporten/raakje/scherm/betalingen",
-                      _("Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over lidgeld en activiteiten?”. Namen van personen geef ik niet: ik antwoord op groepsniveau."),
-                      stt_mode, gesprek_id="bt-raakje-gesprek") }}
-    {% endif %}
   </div>
 {% endcall %}
+  {# #1060: Raakje met de selectie die hierboven staat. De ingang verschijnt
+     alleen als de assistent aanstaat ÉN deze gebruiker hem mag aanspreken —
+     dit scherm laat FINANCE binnen, de assistent niet, en een knop die op een
+     403 uitkomt is erger dan geen knop. De selectie zelf reist niet mee in een
+     formulier: de route leidt ze server-side af uit dezelfde filterstand die
+     dit scherm leest (`filterparams`, via HX-Current-URL) — dat is ook waarom
+     deze knop buiten de filterbalk kan staan zonder iets te verliezen. #}
+  {% if raakje_scherm %}
+  {{ raakje.overlay(_("AI · Betalingen"),
+                    "/admin/rapporten/raakje/scherm/betalingen",
+                    _("Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over lidgeld en activiteiten?”. Namen van personen geef ik niet: ik antwoord op groepsniveau."),
+                    stt_mode, prefix="bt-raakje") }}
+  {% endif %}
+</div>
 
 {# Verversen na een bewerking in het inschrijvingsdetail (#613-4/#617-3). Dat
    fragment swapt enkel zichzelf, dus de kaart erboven bleef op het oude bedrag

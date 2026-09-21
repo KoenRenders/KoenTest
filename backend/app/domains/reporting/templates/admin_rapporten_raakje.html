@@ -2,9 +2,13 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_ballon.html" as ballon %}
 {% import "_raakje_controls.html" as controls %}
-{% block title %}{{ _("Vraag het Raakje — Raak beheer") }}{% endblock %}
+{# #1117: de pagina draagt dezelfde naam als haar ingangen — `AI · Raakje`, de
+   assistent zelf, zonder scherm erachter. De ondertitel blijft woordelijk staan:
+   dáár staat zijn naam, en dat is de zin die zegt wat hij doet én wat hij niet
+   doet. #}
+{% block title %}{{ _("AI · Raakje — Raak beheer") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(_("Vraag het Raakje"), _("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje draait er een echt rapport voor — het verzint geen getallen.")) %}
+{% call ui.page_header(_("AI · Raakje"), _("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje draait er een echt rapport voor — het verzint geen getallen.")) %}
   {% if enabled %}
   {# Voorlezen aan/uit, identiek aan de publieke Raakje (#917): zelfde attribuut,
      zelfde iconen, zelfde script uit de schil. Hij staat in de kop en niet bij het
