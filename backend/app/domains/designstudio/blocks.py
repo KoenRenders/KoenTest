@@ -606,7 +606,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # above it. Only three numbers differ; the shape does not.
         feed = layout == "feed_portrait"
         if feed and content.logos:
-            left_limit -= 22   # the logo strip sits in the flow's way on a feed image
+            # The sponsor strip sits *beside* the welcome badge, not under the
+            # text: it runs from 21 mm above the band to 5 mm above it, and
+            # the column already stops 16 mm above the band. Only those last
+            # five millimetres overlap. Reserving 22 mm for it (which is what
+            # this did) kept a band of white under every text on a design
+            # with a sponsor — Koen, 21 September 2026: "ik zou denken dat de
+            # tekst onder de foto nog één fontgrootte groter kan".
+            left_limit -= 5
         hero_cap, hero_floor, polaroid_w = (120.0, 50.0, 84.0) if feed else (200.0, 60.0, 91.0)
         # The picture takes its own share first and the text fills what is
         # left. Round 20 turned that around — the text was promised a

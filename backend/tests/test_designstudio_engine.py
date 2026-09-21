@@ -356,6 +356,32 @@ def test_the_feed_image_fills_the_bottom_without_shrinking_the_picture():
             assert step > white, f"nog {white:.0f} mm vrij en de tekst kon {step:.0f} mm groeien"
 
 
+def test_a_sponsor_logo_does_not_push_the_text_up(recwarn=None):
+    """Koen, 21 September 2026: "ik zou denken dat de tekst onder de foto nog
+    één fontgrootte groter kan."
+
+    It could: a design with a sponsor logo reserved 22 mm above the welcome
+    badge for a strip that sits *beside* that badge, not under the text. The
+    column already stops above it, so only the last few millimetres overlap.
+
+    Broken on purpose: the reservation back at 22 → the text drops a size on
+    the design with a logo and this test names it.
+    """
+    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
+                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
+                  main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100),
+                  explanation_md="Kom mee bowlen met het hele gezin. Jong en oud zijn welkom.")
+    logo = ImageBytes(PNG_2x2, "image/png", width=600, height=240)
+    bare = render.merge(_content(**simple), layout="feed_portrait")
+    sponsored = render.merge(_content(**simple, logos=(logo,)), layout="feed_portrait")
+    sizes = [_white_band(m.svg, simple["explanation_md"])[0] for m in (bare, sponsored)]
+    assert sizes[1] >= sizes[0] - 0.4, f"met sponsor {sizes[1]} mm, zonder {sizes[0]} mm"
+    # And the strip really is beside the badge, which is why it may.
+    strip = float(re.search(r'<image id="logo-0" x="[0-9.]+" y="([0-9.]+)"', sponsored.svg).group(1))
+    badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', sponsored.svg).group(1)) - 8.6
+    assert abs(strip - badge) < 12, "de logostrook staat niet meer naast de badge"
+
+
 def test_every_row_in_the_band_is_set_in_one_size():
     """Koen, 21 September 2026: "is de lettergrootte van alles onder 'Meer
     info en inschrijven' dezelfde? Dat zou wel de bedoeling moeten zijn."
