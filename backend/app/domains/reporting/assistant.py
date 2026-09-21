@@ -489,10 +489,15 @@ tabellen, geen grafieken. Sluit af met één regel herkomst: 'op basis van: \
 """
 
 
+# De naam staat erbij en het nummer blijft (#1126): het model filtert op het
+# nummer, en zonder de naam kon het niet anders dan "activiteit 77" zeggen — wat de
+# beheerder als enige niet herkent. Bewust GEEN token voor een activiteit: het
+# tokenmechanisme houdt persoonsgegevens bij het model weg, en een activiteitsnaam
+# is dat niet.
 SCOPE_PROMPT = """
-DIT GESPREK GAAT OVER ÉÉN ACTIVITEIT (nummer {activity_id}). Elk rapport en elke \
-opzoeking wordt op de server tot die activiteit beperkt; je hoeft er niet zelf op \
-te filteren. Vragen over andere activiteiten, of over gegevens die niet aan een \
+DIT GESPREK GAAT OVER ÉÉN ACTIVITEIT: {activity_name} (nummer {activity_id}). Elk \
+rapport en elke opzoeking wordt op de server tot die activiteit beperkt; je hoeft \
+er niet zelf op te filteren. Vragen over andere activiteiten, of over gegevens die niet aan een \
 activiteit hangen (lidmaatschappen, formulieren, taken), kan je hier niet \
 beantwoorden — zeg dat dan. Voor de inhoud: `get_activity_detail` met \
 activity_id {activity_id}.
@@ -502,12 +507,22 @@ activity_id {activity_id}.
 def build_system_prompt(scope: Optional["Scope"] = None) -> str:
     """The system prompt, optionally bound to a scope (#975, generalised by #1060).
 
-    Only NUMBERS and our own labels go in, never stored text. The prompt of this pack
-    is exempt from the seam guard's name check (`SCAN_PROMPT_NAMES`) because it is
-    rendered from the declaration and carries no stored value; an activity name is
-    stored content, so it would break that promise. The model gets the name the way
-    it gets everything else — through a tool, whose result IS scanned. That is why
-    `Scope.prompt` is written where the scope is built and not from a database row.
+    Numbers, our own labels — and since #1126 one piece of stored text: the name
+    of the activity or the activity in the screen selection. Dat laatste is een
+    bewuste uitzondering met een waarborg, en de twee horen bij elkaar.
+
+    **Waarom de naam erin moet.** Zonder haar zegt de prompt "activiteit 77", en
+    dat is het enige wat de beheerder niet kan plaatsen; het model kan er ook niets
+    anders van maken dan wat het krijgt.
+
+    **Waarom dat mocht.** Deze prompt is vrijgesteld van de naam-controle van de
+    naadwachter (`SCAN_PROMPT_NAMES`), omdat hij uit de declaratie gerenderd wordt.
+    Een activiteitstitel is opgeslagen tekst en kan een ledennaam dragen
+    ("Wandeling met Jan Peeters"), dus ze gaat eerst door dezelfde naamschoonmaak
+    als de getypte vraag — zie `_activity_label`. Wat overblijft draagt geen
+    ledennaam, en daarmee blijft de vrijstelling waar wat ze belooft.
+
+    Al de rest komt nog steeds via een tool, wiens resultaat WÉL gescand wordt.
     """
     return SYSTEM_PROMPT.format(catalogue=render_catalogue(),
                                 scope=scope.prompt if scope else "")
@@ -750,13 +765,24 @@ class Scope:
         return self.activity_id is not None
 
 
-def scope_for_activity(activity_id: int) -> Scope:
-    """De scope van #975: dit gesprek gaat over één activiteit."""
+def scope_for_activity(db: Session, activity_id: int, *, tenant_id: int) -> Scope:
+    """De scope van #975: dit gesprek gaat over één activiteit.
+
+    De naam wordt hier opgezocht en gaat mee de prompt in (#1126), langs
+    `_activity_label` — zie daar waarom hij eerst door de naamschoonmaak gaat.
+    Vindt de rapporteringsview de activiteit niet — een net aangemaakte activiteit,
+    of een andere tenant — dan blijft het bij het nummer: dat is minder leesbaar,
+    maar het is waar. Liegen over welke activiteit dit is, is erger dan een nummer
+    tonen.
+    """
+    naam = _activity_label(db, tenant_id=tenant_id, activity_id=activity_id)
     return Scope(activity_id=activity_id,
                  facts=ACTIVITY_FACTS,
                  filters=({"object": "activity_id", "operator": "eq",
                            "values": [str(activity_id)]},),
-                 prompt=SCOPE_PROMPT.format(activity_id=activity_id))
+                 prompt=SCOPE_PROMPT.format(
+                     activity_name=f"«{naam}»" if naam else "(naam onbekend)",
+                     activity_id=activity_id))
 
 
 class ScopeNietOverdraagbaar(ValueError):
@@ -795,7 +821,8 @@ dan.
 """
 
 
-def scope_for_payments(stand: dict[str, str]) -> Scope:
+def scope_for_payments(stand: dict[str, str], db: Session, *,
+                       tenant_id: int) -> Scope:
     """De selectie van het betalingenscherm als scope (#1060).
 
     `stand` is de filterstand zoals het scherm zélf hem leest (`ui.filterparams`):
@@ -849,18 +876,26 @@ def scope_for_payments(stand: dict[str, str]) -> Scope:
         raise ScopeNietOverdraagbaar(
             "de contextfilter van dit scherm (per jaar of per onderdeel)")
 
-    activiteit = (stand.get("activiteit") or "").strip()
-    if activiteit.isdigit():
-        filters.append({"object": "activity_id", "operator": "eq",
-                        "values": [activiteit]})
-        beschrijving.append(f"activiteit {activiteit}")
-
     if (stand.get("q") or "").strip():
         raise ScopeNietOverdraagbaar("de zoekterm")
     for sleutel, wat in (("gezin", "de gezinsfilter"),
                          ("inschrijving", "de inschrijvingsfilter")):
         if (stand.get(sleutel) or "").strip():
             raise ScopeNietOverdraagbaar(wat)
+
+    # De activiteit als laatste, ná de weigeringen hierboven (#1126): deze tak
+    # doet een opzoeking in de databank, en die is weggegooid werk zodra de scope
+    # toch niet overdraagbaar blijkt.
+    activiteit = (stand.get("activiteit") or "").strip()
+    if activiteit.isdigit():
+        filters.append({"object": "activity_id", "operator": "eq",
+                        "values": [activiteit]})
+        # De naam erbij, het nummer erbij — zie SCOPE_PROMPT. "activiteit 77" is
+        # het enige wat de beheerder niet kan plaatsen, en het model kon er ook
+        # niets anders van maken dan wat het kreeg.
+        naam = _activity_label(db, tenant_id=tenant_id, activity_id=int(activiteit))
+        beschrijving.append(f"activiteit «{naam}» (nummer {activiteit})" if naam
+                            else f"activiteit {activiteit}")
 
     return Scope(facts=frozenset({"f_payments"}),
                  filters=tuple(filters),
@@ -917,6 +952,31 @@ def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional
         "SELECT activity_name FROM reporting.d_activity "
         "WHERE tenant_id = :t AND activity_id = :a"),
         {"t": tenant_id, "a": activity_id}).scalar()
+
+
+def _activity_label(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
+    """De naam van een activiteit zoals ze de **systeemprompt** in mag (#1126).
+
+    De naam erbij zetten is het hele punt van #1126: "activiteit 77" is het enige
+    wat de beheerder niet kan plaatsen. Maar deze prompt is vrijgesteld van de
+    naam-controle van de naadwachter (`SCAN_PROMPT_NAMES`), en die vrijstelling
+    rust op één aanname: de prompt wordt uit een declaratie gerenderd en draagt
+    geen opgeslagen waarde. Een activiteitsnaam ís opgeslagen waarde, en een
+    activiteit mag "Wandeling met Jan Peeters" heten.
+
+    Daarom door dezelfde schoonmaak als de getypte vraag: een ledennaam in die
+    titel wordt het token van dat gezin (of `[naam]` als hij er meerdere aanwijst).
+    Zo blijft waar wat de vrijstelling belooft — er vertrekt geen ledennaam
+    ongescand — én krijgt het model de titel die de beheerder bedoelt.
+
+    Kost één extra opzoeking van de namenlijst per beurt, naast die van de vraag.
+    Dat is de prijs van de waarborg, en hij staat hier zodat de volgende hem niet
+    voor een vergetelheid houdt.
+    """
+    naam = _activity_name(db, tenant_id=tenant_id, activity_id=activity_id)
+    if not naam:
+        return None
+    return scrub_question(db, naam, tenant_id=tenant_id)
 
 
 def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,

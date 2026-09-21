@@ -76,13 +76,20 @@ def _filters(scope: Scope) -> list[tuple[str, str]]:
 
 # ── De selectie wordt een echte filter ───────────────────────────────────────
 
-def test_het_tabblad_openstaand_reist_mee_als_filter():
+def _scope(db, stand: dict) -> Scope:
+    """#1126: de bouwer zoekt de naam van een activiteit op en heeft daarvoor de
+    databank en de tenant nodig. De tests hieronder geven ze mee zoals de route
+    dat doet."""
+    return scope_for_payments(stand, db, tenant_id=TENANT)
+
+
+def test_het_tabblad_openstaand_reist_mee_als_filter(db_session):
     """De kern: de toolaanroep draagt de scope.
 
     Het zicht *Openstaand* van het scherm wordt `payment_open = Ja` — exact
     dezelfde doorsnede, sinds #1078 het saldo-begrip in het universum bestaat.
     """
-    scope = scope_for_payments({"zicht": "openstaand"})
+    scope = _scope(db_session, {"zicht": "openstaand"})
 
     assert ("payment_open", "Ja") in _filters(scope)
     assert scope.facts == frozenset({"f_payments"})
@@ -92,37 +99,40 @@ def test_het_tabblad_openstaand_reist_mee_als_filter():
     ("betaald", ("payment_status", "Betaald")),
     ("terugbetaald", ("payment_type", "Terugbetaling")),
 ])
-def test_de_andere_tabbladen_ook(zicht, verwacht):
-    assert verwacht in _filters(scope_for_payments({"zicht": zicht}))
+def test_de_andere_tabbladen_ook(db_session, zicht, verwacht):
+    assert verwacht in _filters(_scope(db_session, {"zicht": zicht}))
 
 
-def test_zonder_selectie_blijft_het_bij_het_feit():
+def test_zonder_selectie_blijft_het_bij_het_feit(db_session):
     """Het kale scherm: geen filters, wel de afbakening tot betalingen.
 
     Zonder die afbakening zou Raakje vanaf Betalingen over lidmaatschappen of
     formulieren kunnen antwoorden — dan is het geen schermcontext meer.
     """
-    scope = scope_for_payments({})
+    scope = _scope(db_session, {})
 
     assert scope.filters == ()
     assert scope.facts == frozenset({"f_payments"})
     assert not scope.is_record, "dit is een selectie, geen record"
 
 
-def test_de_statuskeuze_en_de_context_reizen_mee():
-    scope = scope_for_payments({"status": "pending", "context": "membership"})
+def test_de_statuskeuze_en_de_context_reizen_mee(db_session):
+    scope = _scope(db_session, {"status": "pending", "context": "membership"})
 
     assert ("payment_status", "In afwachting") in _filters(scope)
     assert ("payment_payable_type", "Lidgeld") in _filters(scope)
 
 
-def test_de_prompt_noemt_de_selectie_en_geen_opgeslagen_tekst():
+def test_de_prompt_noemt_de_selectie_en_geen_opgeslagen_tekst(db_session):
     """De systeemprompt van dit pakket wordt niet op namen gescand, en die
     vrijstelling is alleen houdbaar zolang er niets uit de databank in komt.
     Alleen onze eigen labels en getallen dus."""
     prompt = build_system_prompt(
-        scope_for_payments({"zicht": "openstaand", "activiteit": "42"}))
+        _scope(db_session, {"zicht": "openstaand", "activiteit": "42"}))
 
+    # Activiteit 42 bestaat hier niet, dus de naamopzoeking vindt niets en het
+    # blijft bij het nummer (#1126). Dat een bestaande activiteit haar NAAM
+    # meekrijgt, staat in test_raakje_noemt_de_activiteit_1126.py.
     assert "openstaand" in prompt and "activiteit 42" in prompt
     assert "BETALINGENSCHERM" in prompt
 
@@ -136,10 +146,10 @@ def test_de_prompt_noemt_de_selectie_en_geen_opgeslagen_tekst():
     ({"context": "year-2026"}, "contextfilter"),
     ({"context": "comp-3"}, "contextfilter"),
 ])
-def test_een_filter_zonder_tegenhanger_weigert_en_zegt_welk(stand, noemt):
+def test_een_filter_zonder_tegenhanger_weigert_en_zegt_welk(db_session, stand, noemt):
     """En het zegt WELK filter in de weg zit — "dit kan niet" is onbruikbaar."""
     with pytest.raises(ScopeNietOverdraagbaar) as fout:
-        scope_for_payments(stand)
+        _scope(db_session, stand)
 
     assert noemt in str(fout.value)
 
