@@ -53,13 +53,17 @@ _METEN = """() => {
   const rij = document.querySelector('form [class*="flex-wrap"]');
   if (!rij) return null;
   const r = rij.getBoundingClientRect();
-  const kinderen = [...rij.children].map(x => {
+  const lijst = [...rij.children];
+  const kinderen = lijst.map(x => {
     const b = x.getBoundingClientRect();
-    return {breedte: Math.round(b.width), hoogte: Math.round(b.height)};
+    return {breedte: Math.round(b.width), hoogte: Math.round(b.height),
+            links: Math.round(b.left - r.left)};
   });
   const hoogste = Math.max(...kinderen.map(k => k.hoogte));
   return {breedte: Math.round(r.width), hoogte: Math.round(r.height),
           hoogste, kinderen,
+          keuzelijstIndex: lijst.findIndex(
+            x => x.tagName === 'SELECT' || x.querySelector('select')),
           heeftKeuzelijst: rij.querySelector('select') !== null};
 }"""
 
@@ -120,13 +124,46 @@ def test_de_filterrij_blijft_een_regel(mediascherm, breedte):
         f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}")
 
 
-def test_op_mobiel_breekt_ze_maar_loopt_ze_niet_over(mediascherm):
-    """Breken mag (80% van het bezoek is mobiel), buiten de rij steken niet.
+@pytest.mark.parametrize("breedte", [1440, 1280])
+def test_de_keuzelijst_staat_rechts_van_de_soortknoppen(mediascherm, breedte):
+    """De vorm die Koen vroeg: de keuzelijst RECHTS van de soort-knoppen.
 
-    Deze test bewaakt de andere kant van de reparatie: een bovengrens die de
-    keuzelijst afkapt mag haar niet breder laten worden dan het scherm.
+    Op zijn afdruk stond ze op een tweede regel, links onder het zoekveld —
+    dat is waar een gewrapte rij haar neerzet, omdat het zoekveld `flex-1` is.
+    Eén regel is dus niet genoeg; de volgorde hoort erbij, zoals op het
+    e-maillog en Betalingen.
+
+    Dat de keuzelijst überhaupt bestaat, ving het vangnet in `_maten` al: met
+    `E2E_SEEDED=1` faalt het met "geen activiteit met media, dus geen
+    keuzelijst in de rij" (gemeten door `{% if kind == ... %}` op `false` te
+    zetten — alle vijf de tests vielen om). Nieuw aan deze test is de PLAATS.
+    """
+    m = _maten(mediascherm, breedte)
+    assert len(m["kinderen"]) == 3, (
+        f"de filterrij hoort drie onderdelen te hebben (zoekveld, soort-knoppen, "
+        f"keuzelijst), gemeten: {m['kinderen']}")
+    assert m["keuzelijstIndex"] == 2, (
+        "de keuzelijst hoort het laatste onderdeel van de rij te zijn, dus "
+        f"rechts van de soort-knoppen — gemeten op plaats {m['keuzelijstIndex']}")
+    links = m["kinderen"][m["keuzelijstIndex"]]["links"]
+    knoppen = m["kinderen"][1]
+    assert links >= knoppen["links"] + knoppen["breedte"], (
+        f"de keuzelijst ({links} px) staat niet rechts van de soort-knoppen "
+        f"(die eindigen op {knoppen['links'] + knoppen['breedte']} px)")
+
+
+def test_op_telefoonbreedte_breekt_ze_wel(mediascherm):
+    """Mobiel blijft breken — dat is hier de norm, en flex-wrap hoort zijn werk
+    te doen. Een reparatie die de rij op 390 px op één regel propt, perst drie
+    onderdelen in 358 px en levert onleesbare controls op.
+
+    De tweede helft bewaakt de andere kant van de bovengrens: afkappen mag de
+    keuzelijst niet breder maken dan de rij zelf.
     """
     m = _maten(mediascherm, 390)
+    assert m["hoogte"] > m["hoogste"] + 4, (
+        f"op 390 px hoort de filterrij te breken, gemeten: hoogte {m['hoogte']} px, "
+        f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}")
     te_breed = [k for k in m["kinderen"] if k["breedte"] > m["breedte"]]
     assert not te_breed, (
         f"op 390 px steekt er iets buiten de filterrij ({m['breedte']} px): "
