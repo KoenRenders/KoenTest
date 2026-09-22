@@ -345,7 +345,33 @@ def list_families(
     query = db.query(Member)
     if q and q.strip():
         # Server-side zoeken over álle leden (niet enkel de geladen pagina): match
-        # op voornaam/achternaam/volledige naam of e-mail van een gezinslid (#233).
+        # op voornaam/achternaam/volledige naam, e-mail of STRAATNAAM van een
+        # gezinslid (#233, straatnaam #1165).
+        #
+        # #1165: alleen de straatnaam, en de zoekterm wordt NIET opgesplitst —
+        # Koen op 22 september 2026: *"Enkel straatnaam is voldoende."* Dus
+        # "Kerkstraat" vindt het gezin en "Kerkstraat 12" hoeft niet te werken.
+        #
+        # **Zacht verwijderde adressen doen niet mee, en dat regelt de GLOBALE
+        # filter** (`app/soft_delete.py`). Dat is hier het hele punt: een
+        # verhuizing wist de oude adresrij niet, ze stempelt hem (vandaar de
+        # PARTIËLE uniciteit op `person_id`, migratie 050), dus zonder dat filter
+        # zou je een gezin terugvinden op de straat waar het vróéger woonde.
+        #
+        # Nagemeten op de uitgevoerde SQL i.p.v. aangenomen — want de vraag was
+        # of `with_loader_criteria` ook een subquery binnen een `IN` bereikt. Dat
+        # doet het: de join komt eruit als
+        # `LEFT OUTER JOIN mdm.addresses ON mdm.addresses.person_id =
+        # mdm.persons.id AND mdm.addresses.deleted_at IS NULL`.
+        #
+        # Daarom hier GEEN eigen `deleted_at`-filter: de twee joins hierboven
+        # (persons, contact_details) leunen op precies dezelfde globale regel, en
+        # één van de drie een eigen kopie geven doet de andere twee lezen als een
+        # vergetelheid. `test_leden_zoeken_op_straat.py` bewaakt het gedrag.
+        #
+        # De join blijft op `person_id`: sinds #924/#945 kan een adres ook aan een
+        # ORGANISATIE hangen (XOR-CHECK in de databank), en die rijen horen niet
+        # in een gezinstreffer. Niet verbreden.
         like = f"%{q.strip()}%"
         match_ids = (
             db.query(MemberPerson.member_id)
@@ -354,11 +380,13 @@ def list_families(
                 ContactDetail.person_id == Person.id,
                 ContactDetail.contact_type_code == "EMAIL",
             ))
+            .outerjoin(Address, Address.person_id == Person.id)
             .filter(or_(
                 func.concat(Person.first_name, " ", Person.last_name).ilike(like),
                 Person.first_name.ilike(like),
                 Person.last_name.ilike(like),
                 ContactDetail.value.ilike(like),
+                Address.street.ilike(like),
             ))
             .distinct()
         )
