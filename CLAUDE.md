@@ -370,6 +370,20 @@ to test it on HDEV; the tracker carries one HDEV-validation checkbox per issue a
 links to those comments. A validation plan kept anywhere else goes stale within a
 release and nobody finds it when it matters.
 
+**Elk release-bericht in de chat noemt de issues die erin zitten** (gevraagd door
+Koen op 21 september 2026). Bij het taggen en bij elke deploy naar UAT of PROD: een
+lijstje van één regel per issue — nummer, korte naam, en in één halve zin wat het
+doet. Niet alleen een link naar de release notes of de tracker.
+
+**Waarom:** zonder die lijst moet Koen in de gesprekken van de andere CLI's gaan
+lezen wat ze gebouwd en overgedragen hebben, en dat is precies het werk dat de
+master-CLI van hem hoort over te nemen. Hij beslist over een UAT- of PROD-deploy;
+die beslissing vraagt dat hij wéét wat er meegaat, op het moment dat hij ze neemt.
+Een lijst die hij eerst moet gaan zoeken, bestaat op dat moment niet.
+
+Dezelfde regel geldt voor de zes metingen na een deploy: ze staan in het bericht,
+niet in een bestand waar hij naartoe moet.
+
 **A validation bug needs three things before anyone starts searching: the screen,
 what Koen expected, and what he saw.** Most of the time spent "analysing" a report
 is spent working out which screen and which element is meant — not on the fix. When
