@@ -57,6 +57,15 @@ from app.i18n import install_jinja_i18n  # noqa: E402
 
 install_jinja_i18n(templates.env)
 
+# CR-12: `{{ code | code_label("meeting_status") }}` and `| tone(...)`. The one
+# way a template turns a code into text, so the Dutch words of a status live in
+# the label table and not in a dictionary inside a screen. Registered here, next
+# to gettext, because the two answer the same question for two kinds of string:
+# `_()` for a sentence, `code_label` for a fact about a code.
+from app.kernel.codes import install_jinja_codes  # noqa: E402
+
+install_jinja_codes(templates.env)
+
 
 # #974: de opmaak zelf staat in `app.i18n.long_date`, zodat een domein dezelfde
 # woorden kan gebruiken zonder de UI-laag te importeren.

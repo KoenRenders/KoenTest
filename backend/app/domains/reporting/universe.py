@@ -28,9 +28,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from app.kernel.codes import TechnicalEnum
 
-class ObjectKind(str, Enum):
+
+class ObjectKind(str, TechnicalEnum):
     """What a user may do with an object.
+
+    `TechnicalEnum` (CR-12 §B4.9): how the engine may use an object — a rule
+    of the engine, never stored in a column and never shown to a reader.
 
     A **dimension** groups and filters. A **measure** aggregates — it always
     carries an aggregate function, and the engine groups by everything else. A
@@ -43,8 +48,11 @@ class ObjectKind(str, Enum):
     DETAIL = "detail"
 
 
-class Format(str, Enum):
+class Format(str, TechnicalEnum):
     """How a value is rendered — by the panel, the export and later the chart.
+
+    `TechnicalEnum` (CR-12 §B4.9): the renderer branches on it; nobody reads
+    it, and it is never stored.
 
     Kept separate from the SQL type on purpose: ``COUNT`` and ``DAYS`` are both
     integers but do not read the same, and ``MONEY`` is the one thing that must
@@ -60,8 +68,11 @@ class Format(str, Enum):
     DATE = "date"
 
 
-class AiExposure(str, Enum):
+class AiExposure(str, TechnicalEnum):
     """Hoe ver een object naar een taalmodel mag reizen (CR-07 §5.1).
+
+    `TechnicalEnum` (CR-12 §B4.9): een classificatie van onze eigen code,
+    nooit opgeslagen en nooit getoond.
 
     **Zonder default, met opzet.** Een vlag die iemand kan vergeten is de verkeerde
     default op een uitgaand AI-kanaal: dan bepaalt een vergetelheid wat er naar Mistral
@@ -84,6 +95,12 @@ class AiExposure(str, Enum):
 
 class Role(str, Enum):
     """Who may put this object in a report.
+
+    **Deliberately not marked `TechnicalEnum` (CR-12).** This one *is* a
+    vocabulary — it is the role list, seen from the reporting side — so it
+    stays on the enum ratchet of `test_codes_gate.py` until phase 2 moves
+    `role_codes` to `auth` and this enum can point at that list instead of
+    keeping a second copy of the same words.
 
     Mirrors the screens (CR-06 §2.5), with money as its own fence: what you cannot
     see on a screen you cannot put in a report. ``MEMBER_DETAILS`` exists for the
