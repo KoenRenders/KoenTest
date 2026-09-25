@@ -6,7 +6,7 @@
 > module that exists and every module that follows.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 25 September 2026 · not assigned to a release
+**Status:** shaped with Koen on 25 September 2026 · Part B development-ready pending Koen's correction of Part A and Q6/Q7 · not assigned to a release
 **Applies to:** every column that carries a fixed vocabulary (status, type,
 kind, method, role, …) in every domain schema; the code tables in `mdm`; the
 label dictionaries in the UI layer; `app/kernel`.
@@ -426,6 +426,54 @@ exemption list, and an exemption list is where a rule dies (#760). The 133
 untyped `db` parameters (#779 count; recounted per domain when migrated) are
 typed as part of each domain's phase.
 
+### B4.9 The kernel API (what phase 0 builds)
+
+`app/kernel/codes.py`, small enough to read in one sitting. Names are the
+contract; the dev CLI chooses the internals.
+
+| Piece | Contract |
+|---|---|
+| `CodeList` | One declaration per list, in the owning domain's `codes.py` and exported through its `api.py`. Fields: `name` (the list's short name, e.g. `payment_status`), `codes` (the ORM class of the code table), `labels` (the ORM class of the label table), `enum` (the `Enum` class or `None`), `derived` (`True` for a list with no storing column, B5.3 note 4). A registry in the kernel collects every declaration at import time; the gates iterate over the registry. |
+| `EnumColumn(enum_cls)` | A `TypeDecorator` over `String` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Raises on an unknown value **on read** only if the code is inactive *and* not in the table; a retired-but-present code reads back as a plain string so history screens still render. |
+| `label(list_name, code, language=None)` | The one label function. `language` defaults to the language part of `current_locale` (`nl_BE` → `nl`); falls back to `nl`; as a last resort returns the code itself and logs once per (list, code). Accepts an `Enum` member or a string. |
+| `labels(list_name, language=None)` | The ordered `(code, label)` pairs of the active codes, by `sort_order` — for select lists and report dimensions. |
+| `reset_label_cache()` | Clears the process cache; used by tests and by the future screen. |
+| Jinja filter `label` | Registered next to `install_jinja_i18n`: `{{ record.status \| label("payment_status") }}`. The *only* way a template turns a code into text. |
+| `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. |
+
+The ratchet baselines live in `backend/tests/codes_baseline.py` as frozen
+Python sets, one per gate, each entry a `schema.table.column`, a `file:line`
+or a `file:name` — the same form as the #780 baseline, so the two gates read
+alike. An entry may only be removed.
+
+### B4.10 What is not a code list (Koen, 25 September 2026)
+
+- **An external party's vocabulary.** Mollie's statuses (`open`, `authorized`,
+  `expired`, `canceled`, …) on `gateway_payments.status` are Mollie's list:
+  Mollie can add a value without our migration, and a FK would make the
+  webhook fail on an unknown status at exactly the wrong moment. Therefore
+  **no code table, no FK, no label**, but a plain `Enum` in the adapter
+  (`providers/mollie.py`) for the statuses the adapter knows, an explicit
+  branch for "unknown" (log, leave the record `pending`, never raise), and
+  `MOLLIE_STATUS_MAP` typed from that enum to our `PaymentStatus`. The rule
+  in B9.1 carries this as its second sentence. `gateway_payments.provider`
+  (`mollie`, later `stripe`) is **our** list — which providers we support,
+  and the code branches on it — and follows the pattern.
+- **Design and brand data with a payload.** The design studio's icons
+  (code → SVG path), colour duos (code → two brand colours), paper sizes and
+  template keys are brand assets that change with the brand guide, not
+  vocabularies a translator maintains. They stay in `brand.py`/`icons.py`.
+  The icon picker's Dutch caption is the one label-shaped thing among them;
+  it moves to the label table only if the design studio ever ships in
+  English (parked, CR-11).
+- **Numbers that are not codes.** The 1–5 rating scale of forms
+  (`RATING_LABELS`) is a Likert scale, not a vocabulary; it is copy and goes
+  through `_()`.
+- **Provenance columns** on history and audit tables (`operation`, `action`,
+  `source`) are free-form and append-only. `operation` alone
+  (`insert`/`update`/`delete`) is a closed list and gets a code+label table
+  **without** a FK (history exemption, F4).
+
 ## B5. Data model
 
 ### B5.1 Entity-relationship diagram
@@ -493,8 +541,8 @@ diagram shows payment because it is phase 1.
   gets its FK.
 - **New, in `payment`:** `payment_status_codes` (+ labels; rows moved from
   `public`), `payment_type_codes` (+ labels). FKs on
-  `payment_records.status/type/method`. `gateway_payments.status/provider`
-  stay out: Mollie's words, mapped by `MOLLIE_STATUS_MAP`.
+  `payment_records.status/type/method`. `gateway_payments.status` stays out
+  (Mollie's words, B4.10); `.provider` is ours and gets its list.
 - **New, per domain, in later phases:** newsletter (subscriber status,
   source, audience, letter status, reply-to, delivery kind/status, role),
   meetings (status, attendance, file kind, section kind), design studio
@@ -510,6 +558,118 @@ diagram shows payment because it is phase 1.
 
 Validation layers: form → Pydantic schemas keep their `Literal[...]` or take
 the enum; meaning → the enum in the service; integrity at rest → the FK.
+
+### B5.3 Catalogue — every list, ready to build
+
+Measured on the branch on 25 September 2026. **Codes are the stored values
+today and do not change** (R8; B4.6 is the one exception). Dutch labels are
+the ones the screens show today; where two existed, the select-list word
+won (#779). **English labels are proposed by the analyst** — Koen corrects
+them here, not in a migration. `Enum` names are English, plain `Enum`;
+members are the codes upper-cased.
+
+Legend — *FK from:* the storing columns that get the foreign key. *Removes:*
+the label dictionaries and constants that disappear. Phase numbers refer to
+B7.
+
+#### Phase 0 — kernel
+
+| List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
+|---|---|---|---|---|---|
+| language | `mdm.language_codes` | `nl` → Nederlands / Dutch · `en` → Engels / English | — | the `language` column of every `_labels` table | — |
+
+#### Phase 1 — payment
+
+| List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
+|---|---|---|---|---|---|
+| payment status | `payment.payment_status_codes` | `pending` → In afwachting / Pending · `paid` → Betaald / Paid · `failed` → Mislukt / Failed · `cancelled` → Geannuleerd / Cancelled | `PaymentStatus` | `payment.payment_records.status` | `payment/exports.py:_STATUS`, `activities/export.py:_RECORD_STATUS_LABELS`, `reporting/assistant.py:_STATUS_LABEL`, the badge dicts in `payment/admin_ui.py` ("Openstaand"/"Vereffend" → derived balance state, B4.4) |
+| payment type | `payment.payment_type_codes` | `charge` → Vordering / Charge · `refund` → Terugbetaling / Refund | `PaymentType` | `payment.payment_records.type` | `payment/exports.py:_TYPE`, `activities/export.py:_RECORD_TYPE_LABELS` |
+| payable type | `payment.payable_type_codes` | `registration` → Inschrijving / Registration · `membership` → Lidmaatschap / Membership | `PayableType` | `payment.payment_records.payable_type` | 25 literal comparisons |
+| payment provider | `payment.payment_provider_codes` | `mollie` → Mollie / Mollie | `PaymentProvider` | `payment.gateway_payments.provider` | `_get_provider` string branch |
+| payment method | `mdm.payment_method_codes` | `online` → Online / Online · `transfer` → Overschrijving / Bank transfer · `cash` → Cash / Cash | `PaymentMethod` (in `mdm`, via `mdm.api`) | `payment.payment_records.method`, `activities.registrations.payment_method` (after B4.6) | `payment/exports.py:_METHOD`, `activities/export.py:_METHOD_LABELS` and `_RECORD_METHOD_LABELS` |
+
+Note 1 — `public.payment_status_codes` is **dropped, not moved**: its rows
+are `PENDING`/`PAID`/`FAILED` in upper case, which is not what the column
+stores; nothing reads them.
+
+#### Phase 2 — mdm split and auth
+
+| List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
+|---|---|---|---|---|---|
+| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` → Onbekend / Unknown · `O` → Onzijdig / Neutral **(retired, note 2)** | — | `mdm.persons.gender_code` (exists) | — |
+| contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | `ContactType` (code branches on `EMAIL`/`MOBILE`, note 3) | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons |
+| relation type | `mdm.relation_type_codes` (split) | `HOOFDLID` → Hoofdlid / Primary member · `PARTNER` → Partner / Partner · `KIND` → (meerderjarig) kind / Adult child | `RelationType` | `mdm.member_persons.relation_type` (exists) | `ui/__init__.py:_RELATIE_LABELS`, 2 template comparisons |
+| legal form | `mdm.legal_form_codes` (split) | `VZW` → vzw / Non-profit association · `FEITELIJKE_VERENIGING` → Feitelijke vereniging / Unincorporated association · `BEDRIJF` → Bedrijf / Company | `LegalForm` (from `str, Enum` to plain) | `mdm.organizations.legal_form` (**new**) | — |
+| organisation type | `mdm.organization_type_codes` | `ACCOUNT` → Rechtspersoon / Legal entity · `UNIT` → Afdeling / Unit · `PLATFORM` → Platform / Platform | `OrganizationType` | `mdm.organizations.org_type` (**new**) | `ui/organisaties_ui.py:SOORT_LABELS`, 2 template comparisons |
+| organisation relation type | `mdm.organization_relation_types` + `_labels` (already the shape) | `BOARD_MEETING` → Bestuursvergadering / Board meeting | — | exists | registers in the `CodeList` registry only |
+| identification scheme | `mdm.identification_schemes` + `_labels` (already the shape) | `KBO` → Ondernemingsnummer / Enterprise number · `VAT` → Btw-nummer / VAT number | — | exists | `en` rows added |
+| role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py`; the `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004/017 wrongly seeded into `role_codes` are dropped (they are relation types) |
+
+Note 2 — gender: migration 001 seeded `O` (nl only), 004 added `X` (en only)
+and `U`. Proposal: `X` active with an `nl` label, `O` retired
+(`is_active = false`, label kept). **Koen decides** (Q6).
+
+Note 3 — `CLAUDE.md` says `contact_type_code = "mobile"`; the stored codes
+are upper case (`MOBILE`). The code compares against both spellings today
+(13× `"mobile"`, 9× `"MOBILE"`). The enum ends that: one spelling, the
+stored one. `CLAUDE.md` is corrected in the same phase.
+
+Note 4 — `MEMBER` and `USER` exist since migration 001 and are excluded from
+every screen (`auth/users.py:216`); no user carries them. Retired, not
+deleted.
+
+#### Phase 3 — the constants domains
+
+| List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
+|---|---|---|---|---|---|
+| subscriber status | `newsletter.subscriber_status_codes` | `pending` → Wacht op bevestiging / Awaiting confirmation · `confirmed` → Bevestigd / Confirmed · `unsubscribed` → Uitgeschreven / Unsubscribed | `SubscriberStatus` | `newsletter.subscribers.status` | `SUBSCRIBER_*` constants, `SUBSCRIBER_LABELS` |
+| subscriber source | `newsletter.subscriber_source_codes` | `public_form` → Formulier / Form · `import` → Import / Import · `admin` → Beheer / Admin | `SubscriberSource` | `newsletter.subscribers.source` | `SOURCE_*`, `SOURCE_LABELS` |
+| audience | `newsletter.audience_codes` | `members` → Leden / Members · `non_members` → Niet-leden / Non-members · `both` → Allebei / Both | `Audience` | `newsletter.newsletters.audience` | `AUDIENCE_*`, `AUDIENCE_LABELS` |
+| letter status | `newsletter.letter_status_codes` | `draft` → Concept / Draft · `sending` → Wordt verstuurd / Sending · `sent` → Verstuurd / Sent | `LetterStatus` | `newsletter.newsletters.status` | `LETTER_*`, `LETTER_STATUS_LABELS` |
+| reply-to mode | `newsletter.reply_to_mode_codes` | `association` → Vereniging / Association · `sender` → Afzender / Sender | `ReplyToMode` | `newsletter.newsletters.reply_to` | `REPLY_TO_*` |
+| delivery kind | `newsletter.delivery_kind_codes` | `member` → Lid / Member · `subscriber` → Abonnee / Subscriber | `DeliveryKind` | `newsletter.deliveries.kind` | `DELIVERY_MEMBER/SUBSCRIBER` |
+| delivery status | `newsletter.delivery_status_codes` | `queued` → In de wachtrij / Queued · `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `DeliveryStatus` | `newsletter.deliveries.status` | `DELIVERY_QUEUED/…`, `DELIVERY_LABELS` |
+| message role | `newsletter.message_role_codes` | `author` → Auteur / Author · `raakje` → Raakje / Raakje | `MessageRole` | `newsletter.drafting_messages.role` | `MESSAGE_*` |
+| meeting status | `meetings.meeting_status_codes` | `agenda` → Agenda / Agenda · `report` → Verslag (bezig) / Report (in progress) · `sent` → Verslag verstuurd / Report sent | `MeetingStatus` | `meetings.meetings.status` | `STATUS_*`, `STATUS_LABELS`, `STATUS_TONES` → tone mapping |
+| section kind | `meetings.section_kind_codes` | `EVALUATION` → Evaluatie voorbije activiteiten / Evaluation of past activities · `UPCOMING` → Volgende activiteiten / Upcoming activities · `MEMBERS` → Leden / Members · `IDEAS` → Programma-ideeën / Programme ideas · `MISC` → Varia / Miscellaneous · `CUSTOM` → Eigen rubriek / Custom section | `SectionKind` | `meetings.meeting_sections.kind` | `SECTION_*`, `SECTION_LABELS`, 6 template comparisons |
+| attendance | `meetings.attendance_codes` | `present` → Aanwezig / Present · `excused` → Verontschuldigd / Excused | `Attendance` | `meetings.meeting_attendances.status` | `ATTENDANCE_*` |
+| file purpose | `meetings.file_purpose_codes` | `attachment` → Bijlage / Attachment · `sent_pdf` → Verstuurd verslag (pdf) / Sent report (PDF) | `FilePurpose` | `meetings.meeting_files.kind` | `FILE_*` |
+| design status | `designstudio.design_status_codes` | `draft` → Ontwerp / Draft · `final` → Definitief / Final | `DesignStatus` | `designstudio.designs.status` | `STATUS_DRAFT/FINAL`, `STATUS_LABELS` |
+| layout | `designstudio.layout_codes` | `print_a` → Print (A3/A4) / Print (A3/A4) · `feed_portrait` → Instagram (4:5) / Instagram (4:5) | `Layout` | `designstudio.design_renditions.layout_code` | `LAYOUT_*`, `LAYOUT_LABELS`, `FILE_LAYOUT_LABELS` |
+| render variant | `designstudio.render_variant_codes` | `pdf` → PDF / PDF · `png` → PNG / PNG · `jpeg` → JPEG / JPEG · `svg` → SVG / SVG · `svg_edited` → Bewerkte SVG / Edited SVG | `RenderVariant` | `designstudio.design_renditions.variant` | `VARIANT_*` |
+| generation status | `designstudio.generation_status_codes` | `requested` → Bezig… / In progress · `fetched` → Klaar / Ready · `picked` → Gekozen / Chosen · `discarded` → Niet gekozen / Not chosen · `refused` → Geweigerd (moderatie) / Refused (moderation) · `failed` → Mislukt / Failed | `GenerationStatus` | `designstudio.image_generations.status` | `GEN_*`, `GENERATION_LABELS` |
+| preset | `designstudio.preset_codes` | `eenvoudig`, `beeld`, `tekst` → the three long captions of `PRESET_LABELS` / English equivalents | `Preset` | `designstudio.designs.preset` | `PRESETS`, `PRESET_LABELS` |
+| inset corner | `designstudio.inset_corner_codes` | `top_left` → Linksboven / Top left · `top_right` → Rechtsboven / Top right · `bottom_left` → Linksonder / Bottom left · `bottom_right` → Rechtsonder / Bottom right | `InsetCorner` | `designstudio.designs.inset_corner` | `INSET_CORNERS`, `CORNER_LABELS` |
+| drawing style | `designstudio.drawing_style_codes` | `lijn` → Lijntekening (zwart-wit) / Line drawing (black and white) · `lijnkleur` → Lijntekening met kleuraccenten / Line drawing with colour accents · `kleur` → Kleurtekening (vlakke kleuren) / Colour drawing (flat colours) | `DrawingStyle` | `designstudio.image_generations.style` | `STYLE_LABELS` |
+
+#### Phase 4 — the remaining domains
+
+| List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
+|---|---|---|---|---|---|
+| task status | `workflow.task_status_codes` | `open` → Open / Open · `done` → Afgehandeld / Done | `TaskStatus` | `workflow.workflow_tasks.status` | 9 literal comparisons, 8 template comparisons |
+| run status | `workflow.run_status_codes` | `running` → Bezig / Running · `done` → Afgerond / Done · `failed` → Mislukt / Failed | `RunStatus` | `workflow.workflow_instances.status` | — |
+| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS` (the category is the part before the dot — a derived attribute, not a second list) |
+| form status | `forms.form_status_codes` | `draft` → Concept / Draft · `open` → Open / Open · `closed` → Gesloten / Closed | `FormStatus` | `forms.forms.status` | `FORM_STATUSES`, `STATUS_TONES` → tone mapping, 3 template comparisons |
+| field type | `forms.field_type_codes` | `text` → Tekst / Text · `textarea` → Tekstvak / Text area · `number` → Getal / Number · `email` → E-mail / E-mail · `select` → Keuzelijst / Dropdown · `radio` → Keuzerondjes / Radio buttons · `checkbox` → Selectievakje / Checkbox · `rating` → Beoordeling / Rating · `info` → Infotekst / Info text · `phone` → Telefoon / Phone | `FieldType` | `forms.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES` |
+| mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
+| e-mail type | `mail.email_type_codes` | `membership_confirmation` → Lidmaatschap / Membership · `activity_confirmation` → Activiteit / Activity · `idea_ack` → Idee (bevestiging) / Idea (acknowledgement) · `idea_board` → Idee (bestuur) / Idea (board) · `magic_link` → Inloglink / Login link · `member_contact_notice` → Contactbericht / Contact notice · `form_confirmation` → Formulier (bevestiging) / Form (confirmation) · `meeting` → Vergadering / Meeting · `newsletter_confirmation` → Nieuwsbrief (bevestiging) / Newsletter (confirmation) · `other` → Overig / Other | `EmailType` | `mail.email_log.email_type` | `EMAIL_TYPES`, `mail/ui.py:_TYPE_LABELS` |
+| asset kind | `media.asset_kind_codes` | `sponsor` → Sponsor / Sponsor · `activity_photo` → Activiteitsfoto / Activity photo · `activity_poster` → Affiche / Poster · `component_info` → Onderdeel-info / Component info · `newsletter_file` → Nieuwsbriefbestand / Newsletter file · `design_image` → Ontwerpbeeld / Design image · `design_render` → Ontwerprender / Design render | `AssetKind` | `media.media_assets.kind` | `STANDAARD_KIND`, `DESIGN_*_KIND`, 9 literal comparisons |
+| AI surface | `chatbot.ai_surface_codes` | `public` → Publiek / Public · `admin` → Beheer / Admin · `designstudio` → Ontwerpstudio / Design studio | `AiSurface` | `chatbot.ai_call_log.surface` | `SURFACE_*`, `SURFACE_LABELS` |
+| AI capability | `chatbot.ai_capability_codes` | `reporting` → Rapporten / Reports · `newsletter_drafting` → Nieuwsbrief / Newsletter · `ocr` → Documenten lezen / Document reading · `dictation` → Dicteren / Dictation · `translate` → Vertalen / Translation · `image` → Beeld / Image | `AiCapability` | `chatbot.ai_call_log.capability` | `CAPABILITY` constants, `CAPABILITY_LABELS` |
+| AI status | `chatbot.ai_status_codes` | `ok` → Gelukt / Succeeded · `blocked` → Tegengehouden / Blocked · `error` → Mislukt / Failed · `moderated` → Geweigerd door de provider / Refused by the provider | `AiStatus` | `chatbot.ai_call_log.status` | `STATUS_LABELS` |
+| AI provider | `chatbot.ai_provider_codes` | the providers in use at build time (`mistral`, `bfl`, …) → their names | `AiProvider` | `chatbot.ai_call_log.provider` | `PROVIDER` constants |
+| registration type | `activities.registration_type_codes` (moved from `public`) | `INDIVIDUAL` → Individueel / Individual · `FAMILY` → Gezin / Family | — (default only; no branch) | `activities.registrations.registration_type`, `activities.activity_sub_registrations.registration_type_code` (both **new**, §8 no longer blocks: same schema) | the router-side validation comment |
+| registration state | `activities.registration_state_codes` (**derived**, note 5) | `open` → Open / Open · `closed` → Afgesloten / Closed · `past` → Voorbij / Past · `cancelled` → Geannuleerd / Cancelled | `RegistrationState` (from `str, Enum` to plain) | none | `activities/service.py:STATUS_LABELS` |
+| export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset | `ExportKind` | `reporting.export_log.kind` | — |
+| history operation | `audit.operation_codes` (no FK, B4.10) | `insert` → Toegevoegd / Added · `update` → Gewijzigd / Changed · `delete` → Verwijderd / Deleted | `Operation` | none (history exemption) | `audit/changes.py:_OPERATION_LABELS` |
+
+Note 5 — a **derived** state (computed, never stored) is still a list with
+labels: it gets a code+label table with no storing column, so its label
+comes from `label()` like every other. The enum is the only consumer.
+
+**Count:** 47 lists (1 + 5 + 8 + 19 + 14). The "~35" of B9.2 was the
+inventory by column; the catalogue is by list and includes the derived and
+the already-shaped ones.
 
 ## B6. Privacy and security — the mechanics
 
@@ -533,6 +693,24 @@ Each phase is a release-sized issue, shippable and revertible on its own.
 
 The order after phase 1 is Koen's call; phases 2–4 are independent of each
 other.
+
+### B7.1 Per phase: issue and "Na de merge"
+
+Each phase becomes one issue when Koen assigns it to a release (the master
+CLI creates it; nothing is created before that). Suggested titles and the
+handoff block CI cannot carry:
+
+| Phase | Issue title | Migration | Env vars | Data | Manual validation |
+|---|---|---|---|---|---|
+| 0 | CR-12 fase 0 — kernel `codes.py`, `mdm.language_codes`, gates als ratchet | one: `language_codes` + labels | none | none | none — gates only |
+| 1 | CR-12 fase 1 — betaaldomein: status, type, payable, provider; betaalwijze naar `mdm` | one: five lists, FKs, B4.6 update, drop `public.payment_status_codes` | none | **B4.6**: `activities.registrations.payment_method` and its history lower-cased; count per value before/after in the migration log | AC2, AC3 on the payment screens and both exports; a Mollie test payment on HDEV still lands as `paid` |
+| 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `O` retired (Q6); `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
+| 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
+| 4 | CR-12 fase 4 — workflow, formulieren, mail, media, chatbot, activiteiten, rapporten | one per domain | none | none | the workflow inbox, a form submission, the AI log screen |
+| 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none | CI only |
+
+Every phase's issue closes with the B9.2 table re-measured, so the ratchet
+lists shrink visibly.
 
 ## B8. Tests
 
@@ -575,7 +753,8 @@ docstring.
 > a foreign key from every column that stores it, a label table per language,
 > and a plain `Enum` in the owning domain wherever Python branches on the
 > value. Labels come from `label()` and nowhere else; templates never compare
-> a code.**
+> a code. An external party's vocabulary gets an `Enum` in its adapter and a
+> mapping to ours — never a code table: it is not our list.**
 
 Lives in `docs/code-style.md` (one paragraph, pointing here) and in the
 architecture document §8 (the `mdm` FK exception). `CLAUDE.md` points to
@@ -589,7 +768,7 @@ the branch on 25 September 2026 (the counting commands are in
 
 | | 25 Sep 2026 | after this CR |
 |---|---|---|
-| lists with a fixed vocabulary | ~35 | ~35, all in the same shape |
+| lists with a fixed vocabulary | 47 (B5.3) | 47, all in the same shape |
 | … kept as code table + FK, split codes/labels (#924 shape) | 2 | all |
 | … kept as code table + FK, one language per code | 4 | 0 |
 | … kept as orphan table in `public`, no FK | 3 | 0 |
@@ -655,6 +834,8 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time lower-casing of `activities.registrations.payment_method` and its history rows, with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
 | 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
+| 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
+| 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
 ## Q&A log
@@ -664,7 +845,10 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q1 | 25 Sep 2026 | Code tables per domain schema or centrally in `mdm`? (Claude) | Koen: by the rule in B4.1 — single domain → domain; master data or cross-domain → `mdm`. |
 | Q2 | 25 Sep 2026 | Management screen for code lists in scope? (Claude) | Koen: no, later. |
 | Q3 | 25 Sep 2026 | Is the trigger the new company/CRM tenant needing a second language, or the clean-up alone? (Claude) | Both, per A1 — foundations before new modules, and Dutch-speaking customers on an English codebase. *To confirm in A1.* |
-| Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | *open* — the shape takes any language; the seed in this CR is `nl` + `en`. |
+| Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
+| Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | *open* |
+| Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | *open* |
+| Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Not until Part A is corrected by Koen and Q6/Q7 are answered; B4.9, B5.3 and B7.1 were added for that purpose (25 Sep). |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
 
 ## Non-goals
@@ -683,8 +867,8 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 - **No `--strict` mypy globally.**
 - **No translation of screen copy.** `_()` and the gettext catalogue are
   #407-T's track; this CR only draws the boundary (B1).
-- **Mollie's vocabulary** (`gateway_payments.status`, `.provider`) and the
-  audit columns (`operation`, `action`, `source`) stay as they are.
+- **Mollie's statuses** (`gateway_payments.status`) get no table (B4.10);
+  `action`/`source` on history tables stay free-form.
 
 ## Relationship to existing work
 
