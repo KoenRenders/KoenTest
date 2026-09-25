@@ -121,6 +121,38 @@ def _person_contacts(person) -> tuple[str, str]:
     return email, mobile
 
 
+def _standaard_aantal(component) -> int:
+    """Het aantal waarmee het inschrijfformulier OPENT (#1172).
+
+    Koen, 25 september 2026: *"Is het trouwens mogelijk om standaard 1 te zetten
+    als er maar één product is?"* Bij het gewone geval — één product — moest
+    iedereen eerst het cijfer op 1 zetten voor het totaal iets anders dan €0,00
+    toonde.
+
+    **Alleen bij precies één product.** Zijn er er meerdere, dan is voorvullen een
+    keuze maken voor de bezoeker: welk product zou je dan aanvinken?
+
+    **En nooit boven het maximum.** Die grens is vandaag een VANGNET en geen
+    levend pad: `ck_activity_products_max_participants_positive` (migratie 040)
+    eist `max_participants > 0 OR IS NULL`, dus een product met maximum 0 krijg je
+    niet eens bewaard. Het issue noemde dat geval; nameten liet zien dat de
+    databank het al uitsluit. De regel blijft staan voor een migratie die de grens
+    ooit loslaat — `test_inschrijf_teller.py` toetst hem rechtstreeks, want via het
+    scherm is hij onbereikbaar.
+
+    Dit is de OPENINGSwaarde en geen overschrijving: het sjabloon gebruikt hem als
+    default van `values.get(...)`, en na een mislukte inschrijving draagt `values`
+    de ingevulde aantallen — ook een bewuste 0 — zodat die blijven staan.
+    """
+    producten = list(component.products or [])
+    if len(producten) != 1:
+        return 0
+    maximum = producten[0].max_participants
+    if maximum is not None and maximum < 1:
+        return 0
+    return 1
+
+
 def _form_ctx(request: Request, db: Session, activity, component, **extra) -> dict:
     person = _session_person(request, db)
     is_member = _is_member(person)
@@ -133,10 +165,23 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
         prefill["contact_email"] = email
     if mobile:
         prefill["phone"] = mobile
+    # #1172: het totaal bij het OPENEN hoort bij het aantal waarmee het formulier
+    # opent. Het stond hier hard op nul, en dat viel niet op zolang dat aantal ook
+    # nul was. Met de voorvulling wél: het veld toonde 1 en het totaal €0,00 —
+    # gevonden door de e2e, niet door de markuptest, want de productprijs staat óók
+    # los in de regel erboven en die las als "het totaal klopt".
+    #
+    # Langs `quote_lines`, dezelfde functie als de herberekening en het opslaan
+    # (§19.3): een tweede rekenwijze hier zou precies de drift zijn die dat pad
+    # moet voorkomen.
+    standaard = _standaard_aantal(component)
+    startbedrag, _regels = quote_lines(
+        component, {p.id: standaard for p in (component.products or [])}, is_member)
     ctx = {
         "activity": activity, "component": component, "is_member": is_member,
-        "person": person, "error": None, "totaal": Decimal("0"), "values": prefill,
+        "person": person, "error": None, "totaal": startbedrag, "values": prefill,
         "heeft_prijs": has_payable_products(component, is_member),
+        "standaard_aantal": standaard,
     }
     ctx.update(extra)
     return ctx
