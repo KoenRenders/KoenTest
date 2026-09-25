@@ -1,5 +1,12 @@
 # Intermediate Architecture Upgrade — v1
 
+> **Het leidende architectuurdocument is [`docs/architecture.md`](architecture.md)**
+> (de referentiearchitectuur, Engels, met statuslabels per bewering en een
+> bewijsindex; afdrukbaar via `scripts/build-doc-pdf.sh`). Dit bestand blijft het
+> interne werkdocument: denkkader, beslisregister en roadmap-detail. Loopt het
+> uiteen met de referentie, dan wint de referentie. (Beslist door Koen op
+> 26 september 2026.)
+
 > Werkdocument. Denkkader voor de tussenstap naar een **modulair, multi-tenant
 > ERP/portaal/CRM**: domeinmodules met een facade + eigen Postgres-schema (en, waar
 > afsplitsbaar, een eigen migratieketen), afgedwongen grenzen, en per-tenant merk-
