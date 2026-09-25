@@ -1,5 +1,18 @@
 # Change Request 04 — Object-Oriented Domain Model
 
+> **Superseded in part by CR-13 (26 September 2026, Koen).** What lives on
+> from this document is the **placement rule** (*Where a rule goes*, below):
+> `CLAUDE.md`, `docs/code-style.md` and #236 cite it as "CR-04", and that
+> reference stays valid. Everything else — the three building blocks, the
+> phasing, the frontend track, the `reg_form_type` strategy, the
+> `Member → Household` rename — is reconsidered from scratch in
+> `docs/change_request_13_oo_foundation.md`, written against the current
+> template (Part A in the business's words, B9 rule and gatekeeper). Measured
+> on 26 September 2026: nothing of the phases below was built (0 attribute
+> validators, no value objects, all six execution issues open), so there is
+> no partial delivery to carry over. Left as written rather than rewritten,
+> for the same reason as `docs/own-organisation-inventory.md`.
+
 **Project:** Web Portal "Raak Millegem"
 **Status:** Proposal / discussion — not scheduled. Phased, each phase independently shippable and revertible.
 **Apply to:** `backend/app/` (models, services, domains) and, as a parallel track, `frontend/src/`.
