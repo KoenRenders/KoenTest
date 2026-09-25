@@ -156,7 +156,12 @@ def create_membership(
 def list_families(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    q: Optional[str] = Query(None, description="Zoek op naam of e-mail van een gezinslid"),
+    # #1169: AFGELEID uit `SEARCHED_FIELDS`, niet overgetypt. Deze omschrijving
+    # beloofde "naam of e-mail" terwijl dezelfde `list_families` sinds #1165 ook
+    # op de straat zoekt — een tweede plek voor hetzelfde feit die stil verouderde.
+    q: Optional[str] = Query(
+        None,
+        description=f"Zoek op {_service.family_search_hint()} van een gezinslid"),
     status: Optional[str] = Query(None, description="actief | opgezegd (lidmaatschap vandaag)"),
     membership_year: Optional[int] = Query(None, description="Enkel gezinnen met een lidmaatschap dat dit jaar dekt"),
     db: Session = Depends(get_db),
