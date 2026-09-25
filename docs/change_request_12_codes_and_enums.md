@@ -439,6 +439,7 @@ contract; the dev CLI chooses the internals.
 | `labels(list_name, language=None)` | The ordered `(code, label)` pairs of the active codes, by `sort_order` — for select lists and report dimensions. |
 | `reset_label_cache()` | Clears the process cache; used by tests and by the future screen. |
 | Jinja filter `label` | Registered next to `install_jinja_i18n`: `{{ record.status \| label("payment_status") }}`. The *only* way a template turns a code into text. |
+| `TechnicalEnum`, `ExternalVocabulary` | Two marker base classes for an `Enum` that is deliberately **not** a code list: a technical distinction never stored or shown (the reporting engine's `Operator`, `Direction`, …), or an external party's vocabulary (Mollie's statuses, B4.10). The reason goes in the docstring; the gate below counts them. Any other `Enum` under `app/` must be in a `CodeList`. |
 | `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. |
 
 The ratchet baselines live in `backend/tests/codes_baseline.py` as frozen
@@ -742,7 +743,8 @@ docstring.
    `payment/service.py`: `comparison-overlap`. Back: green.
 9. **Roles unchanged.** Set of role codes and `test_role_model_gates.py`
    identical across phase 2.
-10. The gates of B9.3, each proven by one violation.
+10. The gates of B9.3, each proven by one violation — for the enum gate: an
+    unmarked `Enum` added to a domain module, red with its `module:Name`.
 
 ## B9. Rule and gatekeeper
 
@@ -778,6 +780,7 @@ the branch on 25 September 2026 (the counting commands are in
 | vocabulary columns without a FK to a code table | 43, rough count (excl. history and audit) | 0 |
 | code tables that can carry two languages | 2 | all |
 | domain enums | 2 (`str, Enum`) | one per branching list, plain `Enum` |
+| enums outside a `CodeList` (marked technical/external) | 6 unmarked (reporting 5, Mollie map 0 — a dict today) | every one marked with its reason; the count is reported, not capped |
 | label dictionaries in Python | 40 | 0 |
 | templates comparing a code to a literal | 25 | 0 |
 | loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | 0 |
@@ -801,6 +804,7 @@ What each gate looks at:
 | FK coverage | every mapped `String` column whose name is in the vocabulary set (`status`, `type`, `kind`, `method`, `role*`, `*_code`, `*_type`, …) on a non-history table without a FK to a `_codes` table | "`payment.payment_records.method` stores a vocabulary but has no FK to a code table — declare a `CodeList` or add it to the ratchet with a reason" |
 | Label coverage | every `_codes` table has a `_labels` table; every active code has an `nl` row | "`mdm.gender_codes`: code `X` has no `nl` label" |
 | Enum = codes | every `CodeList` with an enum: members == active codes | "`PaymentStatus.REFUNDED` has no row in `payment.payment_status_codes`" |
+| Enum without a list | every `Enum` subclass under `app/` (found by walking the modules, not by grep) is registered in a `CodeList` **or** subclasses `TechnicalEnum`/`ExternalVocabulary` | "`newsletter/models.py:FooStatus` is an Enum without a CodeList — declare one (table + labels) or mark it `TechnicalEnum`/`ExternalVocabulary` with the reason" |
 | Tone total | every enum with a tone mapping: every member has a tone | "`PaymentStatus.FAILED` has no badge tone" |
 | No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `label()`" |
 | No template comparisons | `== "…"` / `!= "…"` on a vocabulary attribute in `templates/` | "`admin_betalingen.html:42` compares `record.status` to a literal — expose it on the view-model" |
@@ -810,7 +814,11 @@ For a new module the gate spells out the steps: a new list needs (1) a
 `_codes` table, (2) a `_labels` table with `nl` and `en` rows, (3) a FK from
 each storing column, (4) a `CodeList` declaration, (5) an `Enum` if the code
 branches, (6) `label()` on every screen and export — and fails on the one
-that was forgotten, naming it. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
+that was forgotten, naming it. The entry points are covered from both
+sides: a new **column** without a FK trips the FK gate, a new **Enum**
+without a `CodeList` trips the enum gate, a new **`CodeList`** without
+labels trips the label gate. Whichever of the six a developer starts with,
+the other five are demanded. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
 
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
@@ -850,6 +858,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | *open* |
+| Q9 | 26 Sep 2026 | Does the gate also check that a new Python Enum has a code table? (Koen) | Only half, as first written: the Enum = codes gate saw registered lists only. Added: the enum gate walks every `Enum` under `app/` and demands a `CodeList` or a `TechnicalEnum`/`ExternalVocabulary` marker with a reason (B4.9, B9.3). |
 | Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Not until Part A is corrected by Koen and Q6/Q7 are answered; B4.9, B5.3 and B7.1 were added for that purpose (25 Sep). |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
 
