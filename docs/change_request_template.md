@@ -7,6 +7,10 @@
 > reviewer must be able to read Part A on its own and agree with it before
 > Part B exists. **Part A is written by the business, in its words; the
 > analyst does not fill it in on the business's behalf.**
+>
+> Added 25 September 2026 (Koen, shaping CR-12): **B9 Rule and gatekeeper.** An
+> architectural change request does not only fix something; it fixes a *way of
+> doing it*. B9 names that rule and the gate that keeps future work on it.
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** <shaped with Koen on …> · <on hold / assigned to vX.Y / built>
@@ -159,12 +163,51 @@ Shippable phases, each with what it delivers and its dependencies.
 What the build must prove, each test able to go red; guards proven by
 violation.
 
-## B9. Prototype findings
+## B9. Rule and gatekeeper
+
+An architectural change request fixes a **way of doing things**, not just one
+instance of it. This section makes that explicit, so the decision outlives the
+change and the next development follows it without anyone remembering to ask.
+Three parts; "no gate" is an answer, with the reason.
+
+1. **The rule.** One sentence a reviewer can apply, in the form the decision
+   takes from now on ("a code list is a code table in the owning domain's
+   schema, a label table per language, and an `Enum` only where code branches
+   on the value"). Where it ends up: `CLAUDE.md`, `docs/code-style.md` or the
+   architecture document — name the place.
+
+2. **The reach and the baseline.** Where the rule applies (the whole codebase,
+   or which modules) and **how many places violate it today**, measured on the
+   branch, not recalled. This change request brings that number down — say to
+   what. A number that cannot be counted is an intention, not a rule (CR-04,
+   *Making it checkable*).
+
+3. **The gate.** Which test fails when a new development breaks the rule: what
+   it looks at, what its message says, and the violation it was proven with
+   (B8). Two shapes, chosen by the baseline:
+   - **Ratchet** when the count is not yet zero: a frozen list of today's
+     violations that may only shrink (the #780 pattern). Nothing new may join
+     it; an entry that disappears from the code must leave the list.
+   - **Hard gate** when the count is zero after this change: any violation is
+     red.
+
+   Gates come last, not first (CR-04): a gate with a growing exemption list is
+   a dead rule, and a gate written too early freezes the wrong understanding.
+   Where the rule cannot be checked mechanically, say so and hand it to the
+   judgment layer (the `design-conformiteit-bewaker` agent, review) instead of
+   pretending a grep is a gate.
+
+   The gate is also what makes the rule cheap to follow: for a new case it
+   spells out the steps ("a new code list needs a table, a label row per
+   language, an `Enum` member and a label call") and fails on the one that was
+   forgotten, with the name of the missing piece.
+
+## B10. Prototype findings
 
 What was learnt from prototypes before the build (measurements, refusals,
 things that did not work).
 
-## B10. Decisions log
+## B11. Decisions log
 
 Dated answers from Koen and open proposals awaiting an answer.
 
