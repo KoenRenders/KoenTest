@@ -635,7 +635,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | One allowed cross-schema FK: towards an `mdm` code table (B2.4). `mdm` depends on no other domain, so no cycle; without the FK a list in `mdm` loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time lower-casing of `activities.registrations.payment_method` and its history rows, with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
 | 25 Sep 2026 | Roles move to `mdm` under the placement rule; meaning stays in `auth`. | proposal (Claude) — *open* |
-| 25 Sep 2026 | Badge tones stay in Python, total per enum (B4.5). | proposal (Claude) — *open* |
+| 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
 ## Q&A log
 
