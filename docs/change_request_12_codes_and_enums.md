@@ -230,9 +230,10 @@ what.*
 
 ```mermaid
 flowchart TB
-  subgraph kernel["app/kernel"]
+  subgraph kernel["app/kernel — schema public, prefix kernel_"]
     K["codes.py<br/>CodeList · label() · EnumColumn · Jinja filter"]
     I["i18n.py<br/>current_locale · _()"]
+    KO["kernel_operation_codes<br/>(history operation, no FK)"]
   end
   subgraph mdm["mdm (master data)"]
     M1["gender · contact_type · relation_type · legal_form<br/>(split into codes + labels)"]
@@ -246,8 +247,12 @@ flowchart TB
     P2["PaymentStatus · PaymentType · PaymentMethod<br/>Enum"]
     P3["payment_records<br/>FK status, type, method"]
   end
-  subgraph other["newsletter · meetings · designstudio · workflow · forms · mail · media · chatbot · activities · auth"]
-    O["own lists in own schema<br/>same shape"]
+  subgraph other["one schema per domain, same shape everywhere"]
+    O["newsletter · meetings · designstudio · workflow · mail · media · activities · reporting<br/>schema = package name"]
+    O2["forms → schema form<br/>chatbot → schema ai"]
+  end
+  subgraph pub["public — orphans since migration 001"]
+    X["payment_status_codes · role_codes · registration_type_codes<br/>rows moved to their domain, tables dropped"]
   end
   subgraph ui["UI layer (ui.py / admin_ui.py / templates)"]
     U["view-models: label · tone · booleans<br/>templates: {{ code | label('list') }}"]
@@ -260,6 +265,11 @@ flowchart TB
   P3 -->|FK| P1
   P3 -->|FK, cross-schema by exception| M2
   O --> K
+  O2 --> K
+  KO --> K
+  X -. moves to .-> P1
+  X -. moves to .-> A1
+  X -. moves to .-> O
   M1 --> K
   M2 --> K
   A1 --> K
