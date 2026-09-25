@@ -596,7 +596,7 @@ stores; nothing reads them.
 
 | List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
 |---|---|---|---|---|---|
-| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` → Onbekend / Unknown · `O` → Onzijdig / Neutral **(retired, note 2)** | — | `mdm.persons.gender_code` (exists) | — |
+| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` and `O` **retired (note 2)** | — | `mdm.persons.gender_code` (exists) | — |
 | contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | `ContactType` (code branches on `EMAIL`/`MOBILE`, note 3) | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons |
 | relation type | `mdm.relation_type_codes` (split) | `HOOFDLID` → Hoofdlid / Primary member · `PARTNER` → Partner / Partner · `KIND` → (meerderjarig) kind / Adult child | `RelationType` | `mdm.member_persons.relation_type` (exists) | `ui/__init__.py:_RELATIE_LABELS`, 2 template comparisons |
 | legal form | `mdm.legal_form_codes` (split) | `VZW` → vzw / Non-profit association · `FEITELIJKE_VERENIGING` → Feitelijke vereniging / Unincorporated association · `BEDRIJF` → Bedrijf / Company | `LegalForm` (from `str, Enum` to plain) | `mdm.organizations.legal_form` (**new**) | — |
@@ -606,8 +606,9 @@ stores; nothing reads them.
 | role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py`; the `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004/017 wrongly seeded into `role_codes` are dropped (they are relation types) |
 
 Note 2 — gender: migration 001 seeded `O` (nl only), 004 added `X` (en only)
-and `U`. Proposal: `X` active with an `nl` label, `O` retired
-(`is_active = false`, label kept). **Koen decides** (Q6).
+and `U`. Koen (26 September 2026): the list is `M`, `F`, `X` — nothing else.
+`U` and `O` are retired (`is_active = false`, labels kept so an existing row
+still renders); the migration logs how many persons carry each retired code.
 
 Note 3 — `CLAUDE.md` says `contact_type_code = "mobile"`; the stored codes
 are upper case (`MOBILE`). The code compares against both spellings today
@@ -704,7 +705,7 @@ handoff block CI cannot carry:
 |---|---|---|---|---|---|
 | 0 | CR-12 fase 0 — kernel `codes.py`, `mdm.language_codes`, gates als ratchet | one: `language_codes` + labels | none | none | none — gates only |
 | 1 | CR-12 fase 1 — betaaldomein: status, type, payable, provider; betaalwijze naar `mdm` | one: five lists, FKs, B4.6 update, drop `public.payment_status_codes` | none | **B4.6**: `activities.registrations.payment_method` and its history lower-cased; count per value before/after in the migration log | AC2, AC3 on the payment screens and both exports; a Mollie test payment on HDEV still lands as `paid` |
-| 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `O` retired (Q6); `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
+| 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `U`/`O` retired, count of persons per retired code in the log; `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
 | 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
 | 4 | CR-12 fase 4 — workflow, formulieren, mail, media, chatbot, activiteiten, rapporten | one per domain | none | none | the workflow inbox, a form submission, the AI log screen |
 | 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none | CI only |
@@ -836,6 +837,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
+| 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
 ## Q&A log
@@ -846,7 +848,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q2 | 25 Sep 2026 | Management screen for code lists in scope? (Claude) | Koen: no, later. |
 | Q3 | 25 Sep 2026 | Is the trigger the new company/CRM tenant needing a second language, or the clean-up alone? (Claude) | Both, per A1 — foundations before new modules, and Dutch-speaking customers on an English codebase. *To confirm in A1.* |
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
-| Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | *open* |
+| Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | *open* |
 | Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Not until Part A is corrected by Koen and Q6/Q7 are answered; B4.9, B5.3 and B7.1 were added for that purpose (25 Sep). |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
