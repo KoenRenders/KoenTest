@@ -381,7 +381,7 @@ consumer**, and the gate checks it is total (every member has a tone). The
 code table does not get a `tone` column: that would put a design-system word
 into master data, where a translator has no business changing it.
 
-### B4.6 Payment method: one data fix (proposal — awaiting Koen)
+### B4.6 Payment method: one data fix (Koen, 25 September 2026)
 
 `activities.payment_method` stores `ONLINE`/`TRANSFER`/`CASH`;
 `payment.method` stores `online`/`transfer`/`cash`. One list, two spellings —
@@ -390,7 +390,7 @@ change; here the proposal is the **one exception**: an `UPDATE` that lowers
 the case on `activities.payment_method` (and its history table, which is a
 snapshot of the same value), with a before/after count per value in the
 migration output. The alternative — two code tables for one list — keeps the
-bug and gives it a FK. Koen decides (B11).
+bug and gives it a FK. Koen chose the data fix (B11).
 
 ### B4.7 Templates show, view-models decide
 
@@ -633,7 +633,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
 | 25 Sep 2026 | One allowed cross-schema FK: towards an `mdm` code table (B2.4). `mdm` depends on no other domain, so no cycle; without the FK a list in `mdm` loses its database check. | Koen |
-| 25 Sep 2026 | Payment method: one-time lower-casing of `activities.payment_method` (B4.6). | proposal (Claude) — *open* |
+| 25 Sep 2026 | Payment method: one-time lower-casing of `activities.registrations.payment_method` and its history rows, with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
 | 25 Sep 2026 | Roles move to `mdm` under the placement rule; meaning stays in `auth`. | proposal (Claude) — *open* |
 | 25 Sep 2026 | Badge tones stay in Python, total per enum (B4.5). | proposal (Claude) — *open* |
 
@@ -645,7 +645,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q2 | 25 Sep 2026 | Management screen for code lists in scope? (Claude) | Koen: no, later. |
 | Q3 | 25 Sep 2026 | Is the trigger the new company/CRM tenant needing a second language, or the clean-up alone? (Claude) | Both, per A1 — foundations before new modules, and Dutch-speaking customers on an English codebase. *To confirm in A1.* |
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | *open* — the shape takes any language; the seed in this CR is `nl` + `en`. |
-| Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | *open* |
+| Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
 
 ## Non-goals
 
