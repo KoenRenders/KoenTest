@@ -6,7 +6,7 @@
 > module that exists and every module that follows.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 25 September 2026 · Part B development-ready pending Koen's correction of Part A and Q6/Q7 · not assigned to a release
+**Status:** shaped with Koen on 25 September 2026 · Part A approved and Part B development-ready on 26 September 2026 · not assigned to a release
 **Applies to:** every column that carries a fixed vocabulary (status, type,
 kind, method, role, …) in every domain schema; the code tables in `mdm`; the
 label dictionaries in the UI layer; `app/kernel`.
@@ -15,9 +15,9 @@ label dictionaries in the UI layer; `app/kernel`.
 
 # Part A — The business
 
-> Draft from Koen's words of 25 September 2026, transcribed from speech. **To be
-> corrected by Koen** — the analyst did not add requirements, only ordered what
-> was said.
+> Written from Koen's words of 25 September 2026, transcribed from speech, and
+> **approved by Koen on 26 September 2026** as written. The analyst added no
+> requirements, only ordered what was said.
 
 ## A1. Reason to act
 
@@ -565,8 +565,9 @@ the enum; meaning → the enum in the service; integrity at rest → the FK.
 Measured on the branch on 25 September 2026. **Codes are the stored values
 today and do not change** (R8; B4.6 is the one exception). Dutch labels are
 the ones the screens show today; where two existed, the select-list word
-won (#779). **English labels are proposed by the analyst** — Koen corrects
-them here, not in a migration. `Enum` names are English, plain `Enum`;
+won (#779). The English labels were proposed by the analyst and
+**approved by Koen on 26 September 2026**; a later correction is a label
+row, not a design change. `Enum` names are English, plain `Enum`;
 members are the codes upper-cased.
 
 Legend — *FK from:* the storing columns that get the foreign key. *Removes:*
@@ -846,6 +847,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
+| 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
 ## Q&A log
@@ -857,9 +859,9 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q3 | 25 Sep 2026 | Is the trigger the new company/CRM tenant needing a second language, or the clean-up alone? (Claude) | Both, per A1 — foundations before new modules, and Dutch-speaking customers on an English codebase. *To confirm in A1.* |
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
-| Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | *open* |
+| Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
 | Q9 | 26 Sep 2026 | Does the gate also check that a new Python Enum has a code table? (Koen) | Only half, as first written: the Enum = codes gate saw registered lists only. Added: the enum gate walks every `Enum` under `app/` and demands a `CodeList` or a `TechnicalEnum`/`ExternalVocabulary` marker with a reason (B4.9, B9.3). |
-| Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Not until Part A is corrected by Koen and Q6/Q7 are answered; B4.9, B5.3 and B7.1 were added for that purpose (25 Sep). |
+| Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Since 26 Sep: yes — Part A approved, Q6/Q7 answered, B4.9/B5.3/B7.1 in place. Waiting for a release assignment. |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
 
 ## Non-goals
