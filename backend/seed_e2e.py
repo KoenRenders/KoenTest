@@ -27,6 +27,18 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 MARKER_EMAIL = "e2e-seed@example.com"
+# #1183: een extra gezin voor de LEDENFLOW-afdrukken. Het seed-gezin hierboven heeft
+# een lopend lidmaatschap en toont dus geen vernieuwknop — je kan geen knop
+# fotograferen die er niet staat. Dit gezin staat er NÁÁST in plaats van dat het
+# seed-gezin omgezet wordt: dat gezin wordt door de bestaande e2e's gebruikt en een
+# gewijzigde lidmaatschapstoestand zou die raken.
+#
+# Een DERDE gezin met een lopende overschrijving stond hier ook, voor het scherm met
+# de betaalinstructies. Weggehaald na meting: een openstaande betaling in de gedeelde
+# seed is precies de rij die `test_beheer_flows` als eerste "Bevestig" oppikt. Die
+# test zette hem dan op betaald — waarmee én het scherm verdween én die test iets
+# anders toetste dan bedoeld. Zie de PR van #1183.
+MARKER_EMAIL_VERLOPEN = "e2e-verlopen@example.com"
 SEED_NAAM = "E2E Seed"
 
 
@@ -101,6 +113,27 @@ def main() -> None:
             amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
             method="transfer", status="paid",
             structured_communication="+++000/0000/00097+++"))
+        db.flush()
+
+        # ── Gezin met een VERLOPEN lidmaatschap (#1183) ─────────────────────
+        # Toont de vernieuwknop: `membership_coverage_until` kijkt alleen naar een
+        # `valid_to >= vandaag`, dus een lidmaatschap van vorig jaar levert geen
+        # dekking op en `renewal_available` staat dan onvoorwaardelijk op True —
+        # ook buiten het hernieuwingsvenster. Daarmee is de afdruk deterministisch
+        # in plaats van afhankelijk van de datum waarop iemand hem maakt.
+        vorig = date.today().year - 1
+        verlopen_member = Member()
+        db.add(verlopen_member)
+        db.flush()
+        verlopen_person = Person(first_name="E2E", last_name="Verlopen")
+        db.add(verlopen_person)
+        db.flush()
+        db.add(MemberPerson(member_id=verlopen_member.id,
+                            person_id=verlopen_person.id, relation_type="HOOFDLID"))
+        db.add(ContactDetail(person_id=verlopen_person.id, contact_type_code="EMAIL",
+                             value=MARKER_EMAIL_VERLOPEN, is_primary=True))
+        db.add(Membership(member_id=verlopen_member.id, year=vorig, is_active=True,
+                          valid_from=date(vorig, 1, 1), valid_to=date(vorig, 12, 31)))
         db.flush()
 
         # ── Activiteit met een betalend product ─────────────────────────────

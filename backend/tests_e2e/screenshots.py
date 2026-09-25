@@ -56,6 +56,14 @@ class Screen:
     key: str
     path: str
     admin: bool
+    # Wie kijkt er mee? (#1183) Tot de ledenflow erbij kwam had de tool één
+    # admin-sessie voor de hele reeks — ook op de publieke schermen, waar dat
+    # niet opviel. `/aanmelden` is het scherm VÓÓR je aangemeld bent, en het
+    # gezinsportaal hoort een gewoon lid te tonen en geen beheerder. De rol zit
+    # in de sessiewaarde, niet in de aanmeldfunctie (#718).
+    #   None  → geen cookie
+    #   "admin" | "lid" | "lid-verlopen"
+    sessie: Optional[str] = "admin"
     # Runs after navigation, e.g. to open a modal or click through to a
     # seeded record. Receives the page; raises to signal a missing target.
     action: Optional[Callable] = None
@@ -93,6 +101,28 @@ def _open_register_modal(page) -> None:
     page.wait_for_selector("form >> text=Inschrijven", timeout=5000)
 
 
+def _vraag_de_code(page) -> None:
+    """Van het e-mailveld naar het codescherm — de tweede stap van aanmelden.
+
+    Een vast adres en geen echt lid: de POST antwoordt altijd hetzelfde, of het
+    adres nu gekend is of niet (dat verklapt de route bewust niet), dus het beeld
+    hangt niet af van wie er in de seed staat.
+    """
+    page.fill("#email", "e2e-seed@example.com")
+    page.get_by_role("button", name="Stuur inloginfo").click()
+    page.wait_for_selector("#code", timeout=5000)
+
+
+def _bewerk_eerste_gezinslid(page) -> None:
+    """Klap de bewerkvorm van het eerste gezinslid open."""
+    knop = page.get_by_role("button", name="Bewerken").first
+    knop.wait_for(state="visible", timeout=5000)
+    knop.click()
+    # De veldenset draagt een `id_prefix` per gezinslid (`p<id>-`), dus het
+    # voornaamveld heet `#p<id>-first_name` en niet `#first_name`.
+    page.wait_for_selector("input[id$='-first_name']", timeout=5000)
+
+
 SCREENS: tuple[Screen, ...] = (
     # Public — judged phone-first.
     Screen("public-home", "/", admin=False),
@@ -113,19 +143,65 @@ SCREENS: tuple[Screen, ...] = (
                page, "E2E-formulier", "**/admin/formulieren/*")),
     # The living component kit — review-round material.
     Screen("admin-design-system", "/admin/design-system", admin=True),
+    # Ledenflow (#1183) — het beeldmateriaal voor de publieke uitlegpagina over
+    # aanmelden, je gegevens nakijken en je lidmaatschap verlengen. Telefoon-eerst,
+    # want zo'n pagina wordt vooral op een telefoon gelezen.
+    #
+    # Uit de SEED en niet met de hand: HDEV draagt echte ledenrecords, dus een
+    # afdruk van het gezinsscherm daar zet naam en adres van een echt lid op een
+    # publieke pagina — een lek dat geen grep vindt, want het zit in een afbeelding.
+    Screen("leden-aanmelden", "/aanmelden", admin=False, sessie=None),
+    Screen("leden-aanmelden-code", "/aanmelden", admin=False, sessie=None,
+           action=_vraag_de_code),
+    Screen("leden-gezin", "/leden/gezin", admin=False, sessie="lid"),
+    Screen("leden-gezin-bewerken", "/leden/gezin", admin=False, sessie="lid",
+           action=_bewerk_eerste_gezinslid),
+    # Een toestand die het seed-gezin niet kán tonen, met een eigen gezin: het
+    # lopende lidmaatschap verbergt de vernieuwknop.
+    #
+    # Het scherm met de BETAALINSTRUCTIES (bedrag, IBAN, OGM) ontbreekt bewust. Het
+    # bestaat alleen bij een vernieuwing die al loopt, en zo'n openstaande betaling
+    # in de gedeelde seed is precies de rij die `test_beheer_flows` als eerste
+    # "Bevestig" oppikt — gemeten: die test zette hem op betaald, waarna het scherm
+    # verdween én die test iets anders toetste dan bedoeld. Het was in #1183 een
+    # "als het kan"-punt; dit is de reden dat het niet kan zonder dat elders te
+    # verstoren.
+    Screen("leden-verlengen", "/leden/gezin", admin=False, sessie="lid-verlopen"),
 )
 
 
-def _admin_session_value() -> str:
-    """Mint a session for the seeded admin, exactly as the e2e tests do."""
+def _sessiewaarden() -> dict[str, str]:
+    """Eén sessiewaarde per rol die de reeks nodig heeft (#1183).
+
+    De ledenadressen komen uit `seed_e2e` en niet uit een lijstje hier: één bron,
+    zodat een hernoemd seed-gezin deze tool meteen laat struikelen in plaats van
+    stilletjes een leeg scherm te fotograferen.
+    """
     from app.domains.auth.api import make_session_value
 
-    email = os.environ.get("E2E_ADMIN_EMAIL")
-    if not email:
+    from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN
+
+    admin = os.environ.get("E2E_ADMIN_EMAIL")
+    if not admin:
         from tests.conftest import SEEDED_ADMIN_EMAIL
 
-        email = SEEDED_ADMIN_EMAIL
-    return make_session_value(email)
+        admin = SEEDED_ADMIN_EMAIL
+    return {
+        "admin": make_session_value(admin),
+        "lid": make_session_value(MARKER_EMAIL),
+        "lid-verlopen": make_session_value(MARKER_EMAIL_VERLOPEN),
+    }
+
+
+def _zet_sessie(page, waarde: Optional[str]) -> None:
+    """De cookie voor dit scherm — eerst wissen, dan zetten (#1183).
+
+    Wissen hoort erbij: zonder dat draagt `/aanmelden` nog de sessie van het
+    vorige scherm en fotografeer je een aangemelde bezoeker op het aanmeldscherm.
+    """
+    page.context.clear_cookies()
+    if waarde:
+        login_met_sessie(page, waarde)
 
 
 def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
@@ -171,7 +247,7 @@ def main(argv: list[str]) -> int:
     out_dir = Path(argv[1]) if len(argv) > 1 else Path("screenshots")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    session_value = _admin_session_value()
+    sessies = _sessiewaarden()
     captured: list[Path] = []
     missing: list[str] = []
 
@@ -180,13 +256,16 @@ def main(argv: list[str]) -> int:
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         context = browser.new_context(base_url=BASE, reduced_motion="reduce")
         page = context.new_page()
-        login_met_sessie(page, session_value)
 
         for screen in SCREENS:
+            if screen.sessie is not None and screen.sessie not in sessies:
+                missing.append(f"{screen.key}: onbekende sessie {screen.sessie!r}")
+                continue
             # Primary width first: phone for public, desktop for admin.
             widths = (DESKTOP, PHONE) if screen.admin else (PHONE, DESKTOP)
             for width in widths:
                 try:
+                    _zet_sessie(page, sessies.get(screen.sessie) if screen.sessie else None)
                     captured.append(_capture(page, screen, width, out_dir))
                 except Exception as exc:  # noqa: BLE001 - report, don't die mid-set
                     missing.append(f"{screen.key} @ {width['width']}: {exc}")
