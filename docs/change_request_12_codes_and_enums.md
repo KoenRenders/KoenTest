@@ -93,7 +93,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | R3 | Where the application's behaviour depends on a value, the code uses an enumeration, so the tooling catches a wrong or misspelled value before it runs. | Must | Koen, 25 Sep 2026 | "de best mogelijke manier om in de code zaken af te dwingen" |
 | R4 | The three — code list, enumeration, labels — can never drift apart; a build that misses one fails and names it. | Must | Koen, 25 Sep 2026 | the gatekeeper |
 | R5 | The rule applies to the whole codebase, every module, existing and future. | Must | Koen, 25 Sep 2026 | "doortrekken in alle modules" |
-| R6 | A list that belongs to one domain lives in that domain; a list that is master data, or is used by more than one domain, lives in master data. | Must | Koen, 25 Sep 2026 | "als het niet single-domein is: masterdata" |
+| R6 | A list that belongs to one domain lives in that domain; a list that is master data, or is used by more than one domain, lives in master data — except security vocabulary (roles), which stays with security. | Must | Koen, 25 Sep 2026 | "als het niet single-domein is: masterdata"; roles: "zit dit niet in een security-domein waar we later Keycloak, SAML kunnen aan koppelen?" |
 | R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 Sep 2026 | "dat kan later" — the structure allows it; see Non-goals |
 | R8 | Stored values do not change meaning or spelling; history and exports read as before. | Must | #779 | one exception proposed in B4.6 |
 
@@ -102,7 +102,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | Concern | This change |
 |---|---|
 | **Reporting** — what must be countable afterwards, by whom | The report dimensions of CR-06 (payment method, status, membership status) take code and label from the code tables; the same words appear in reports as on screens. Countable per release: the B9.2 numbers, which may only fall. |
-| **Security** — who may do what; new inputs from outside; secrets | No new inputs: codes and labels enter by migration only. Roles are one of the lists (R6 → master data); their *meaning* (which role may do what) stays in `auth` and `docs/rollen-en-rechten.md`, untouched. |
+| **Security** — who may do what; new inputs from outside; secrets | No new inputs: codes and labels enter by migration only. Roles are one of the lists and stay in `auth` — security vocabulary is not master data; their *meaning* (which role may do what) stays in `auth` and `docs/rollen-en-rechten.md`, untouched. |
 | **Privacy** — personal data | None. Code lists hold no personal data. |
 | **House style / UI norm** | `docs/design-system.md` §2.5 already says "labels come from one place per code list, never from a dict in a screen (#779)"; this change makes it true. Badge tones stay a UI decision (B4.5). |
 | **Multi-tenant** — what differs per unit, what is platform-wide | Code lists and labels are **platform-wide**; the *language* a tenant sees is the tenant's language setting (`language`, default `nl_BE`), which already exists. A tenant does not get its own codes. |
@@ -186,7 +186,8 @@ Alembic, mypy and pytest, already in use.
 | `app/kernel/codes.py` | **new** | `CodeList` declaration, `label()` function, cache, Jinja filter, the mypy-friendly `EnumColumn` type decorator |
 | `app/kernel/tenant_config.py` (`language`) | used | source of the active language; already feeds `current_locale` |
 | `app/i18n.py` | used, unchanged | keeps `_()` for copy; the label filter is registered next to it |
-| `mdm` (`models.py`, migrations) | **changed** | its three single-language code tables split into codes + labels; `legal_form` gets its FK; receives the cross-domain lists (payment method, roles, languages) |
+| `mdm` (`models.py`, migrations) | **changed** | its three single-language code tables split into codes + labels; `legal_form` gets its FK; receives the cross-domain lists (payment method, languages) |
+| `auth` (`models.py`, migrations) | **changed** | `role_codes` moves in from `public`, split into codes + labels; FKs from `user_roles` and `workflow`; the role enum |
 | `payment` | **changed** | first domain migrated: three lists, three enums, 37 comparisons, exports and badges through `label()` |
 | `newsletter`, `meetings`, `designstudio` | **changed** | module constants become code tables + enums |
 | `workflow`, `forms`, `mail`, `media`, `chatbot`, `activities`, `auth`, `reporting` | **changed** | bare string columns get their list, FK and (where branching) enum |
@@ -235,7 +236,10 @@ flowchart TB
   end
   subgraph mdm["mdm (master data)"]
     M1["gender · contact_type · relation_type · legal_form<br/>(split into codes + labels)"]
-    M2["payment_method · role · language<br/>(cross-domain lists, new here)"]
+    M2["payment_method · language<br/>(cross-domain lists, new here)"]
+  end
+  subgraph auth["auth (security)"]
+    A1["role<br/>codes + labels + Enum"]
   end
   subgraph payment["payment"]
     P1["payment_status · payment_type<br/>codes + labels"]
@@ -258,6 +262,7 @@ flowchart TB
   O --> K
   M1 --> K
   M2 --> K
+  A1 --> K
   U --> K
   G -.checks.-> P1
   G -.checks.-> P2
@@ -268,8 +273,9 @@ flowchart TB
 ### B2.4 Impact on the existing architecture
 
 - **§8 "no cross-schema FKs"** gets one named exception: a FK from any schema
-  **to an `mdm` code table**. `mdm` depends on no other domain, so no cycle can
-  arise; every domain already imports `mdm.api`. Without the exception a list
+  **to a code table of a foundation domain** — `mdm`, and `auth` for roles.
+  Neither depends on a business domain (`auth` depends on `mdm` only), so no
+  cycle can arise; every domain already imports `mdm.api`. Without the exception a list
   in `mdm` would lose its database check, which is the point of R1. Recorded
   in the architecture document §8 when this change is built (B4.1).
 - **Import gate** (`tests/test_import_boundaries.py`): domains import
@@ -316,10 +322,20 @@ Consequence: the one allowed cross-schema FK is *towards an `mdm` code table*
 | List | Used by | Goes to |
 |---|---|---|
 | payment method | `activities.payment_method`, `payment.method` | `mdm` |
-| role | `auth.role_code`, `workflow.required_role`, tenant config | `mdm` |
+| role | `auth.role_code`, `workflow.required_role`, tenant config | `auth` — security vocabulary, not master data (see below) |
 | language (the `language` key of every label table) | every label table | `mdm` (a two-row list, `nl`, `en`) |
 | gender, contact type, relation type, legal form, identification scheme, organisation relation type | `mdm` | `mdm` (already) |
 | everything else (payment status/type, newsletter, meetings, design studio, workflow, forms, mail, media, chatbot, activities registration type) | one domain | that domain |
+
+**Refinement (Koen, 25 September 2026): master data describes the world;**
+security vocabulary is not master data. Roles — and later permissions,
+identity providers, the mapping of an external group to an internal role —
+belong to `auth`, the domain that Keycloak or a SAML directory will attach
+to. `auth` therefore counts as a second foundation domain: it depends on
+`mdm` only, and other domains may FK to its code tables. `public.role_codes`
+moves to `auth.role_codes` + `auth.role_labels`, with FKs from
+`auth.user_roles.role_code` and `workflow.required_role`; the role enum lives
+in `auth` and is exported through `auth.api`.
 
 The MDM domain itself — what else belongs to master data and how it is
 governed — is being thought through separately, with an external MDM adviser. This change
@@ -466,7 +482,10 @@ diagram shows payment because it is phase 1.
 ### B5.2 Tables
 
 - **New, in `mdm`:** `language_codes` (+ labels), `payment_method_codes` (+
-  labels), `role_codes` (+ labels; rows moved from `public.role_codes`).
+  labels).
+- **New, in `auth`:** `role_codes` (+ labels; rows moved from
+  `public.role_codes`), FKs from `auth.user_roles.role_code` and
+  `workflow.required_role`.
 - **Split, in `mdm`:** `gender_codes`, `contact_type_codes`,
   `relation_type_codes`, `legal_form_codes` — each becomes `_codes` +
   `_labels`; `contact_type_codes.is_social_network` (#1160) stays on the code
@@ -507,7 +526,7 @@ Each phase is a release-sized issue, shippable and revertible on its own.
 |---|---|---|
 | **0 — kernel + gates as ratchets** | `app/kernel/codes.py`, `mdm.language_codes`, `test_codes_gate.py` with the B9.2 baselines frozen, `docs/code-style.md` paragraph, §8 exception recorded | — |
 | **1 — payment** | status/type in `payment`, method in `mdm`, three enums, FKs, 37 comparisons, exports/badges via `label()`, `public.payment_status_codes` dropped, mypy strict on `payment` | 0 |
-| **2 — mdm split + roles** | the four `mdm` lists split into codes+labels, `legal_form` FK, `role_codes` to `mdm` with FKs from `auth` and `workflow`, `_RELATIE_LABELS` and `SOORT_LABELS` gone | 0 |
+| **2 — mdm split + roles** | the four `mdm` lists split into codes+labels, `legal_form` FK, `role_codes` to `auth` with FKs from `user_roles` and `workflow`, `_RELATIE_LABELS` and `SOORT_LABELS` gone | 0 |
 | **3 — constants domains** | newsletter, meetings, design studio: constants → tables + enums, 20 label dicts gone | 0 |
 | **4 — remaining domains** | workflow, forms, mail, media, chatbot, activities, reporting, `org_type`; `public.registration_type_codes` dropped | 0 |
 | **5 — close** | every ratchet at zero → hard gate; mypy strict on every migrated domain | 1–4 |
@@ -551,7 +570,8 @@ docstring.
 ### B9.1 The rule
 
 > **A fixed vocabulary is a code table in the schema of the domain that owns
-> it — in `mdm` when it is master data or used by more than one domain — with
+> it — in `mdm` when it is master data or used by more than one domain,
+> in `auth` when it is security vocabulary — with
 > a foreign key from every column that stores it, a label table per language,
 > and a plain `Enum` in the owning domain wherever Python branches on the
 > value. Labels come from `label()` and nowhere else; templates never compare
@@ -632,9 +652,9 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Placement: one domain → that domain; master data or two+ domains → `mdm`. MDM itself is thought through separately, with an external MDM adviser. | Koen |
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
-| 25 Sep 2026 | One allowed cross-schema FK: towards an `mdm` code table (B2.4). `mdm` depends on no other domain, so no cycle; without the FK a list in `mdm` loses its database check. | Koen |
+| 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time lower-casing of `activities.registrations.payment_method` and its history rows, with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
-| 25 Sep 2026 | Roles move to `mdm` under the placement rule; meaning stays in `auth`. | proposal (Claude) — *open* |
+| 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
 ## Q&A log
