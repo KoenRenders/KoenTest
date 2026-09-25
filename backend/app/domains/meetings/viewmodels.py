@@ -16,11 +16,11 @@ class MeetingListView(ViewModel):
     """`admin_vergaderingen.html` and its fragment `_vg_lijst.html`."""
 
     meetings: list[Any]
-    # Per meeting id: the badge label and tone of its status. Derived in the
-    # route, because a template that derives state is a second place where the
-    # rule lives (design-system §8.3).
-    status_labels: dict[int, str]
-    status_tones: dict[int, str]
+    # No `status_labels`/`status_tones` here since CR-12: the label of a code is
+    # not derived state, it is the one text that code has, and the template asks
+    # `code_label`/`tone` for it. Deriving it per meeting id in the route was a
+    # dictionary of Dutch words living in a screen — the thing this change
+    # request removes. What the route still derives stays derived.
     dates: dict[int, str]
     circle_size: int
     # Het actieve zoekwoord: de filterbalk leest het terug, zodat het in het veld
@@ -66,8 +66,6 @@ class MeetingDocumentView(ViewModel):
 
     meeting: Any
     title: str
-    status_label: str
-    status_tone: str
     sections: list[Any]
     # The circle, with who is ticked present or excused.
     circle: list[Any]

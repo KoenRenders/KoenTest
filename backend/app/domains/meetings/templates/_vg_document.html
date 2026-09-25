@@ -3,7 +3,8 @@
 
 {% call ui.page_header(title, _("Agenda en verslag zijn hetzelfde document. Wat je tijdens de vergadering typt, staat meteen in het verslag.")) %}
   <div class="flex items-center gap-2 flex-wrap">
-    {{ ui.badge(status_label, status_tone) }}
+    {{ ui.badge(meeting.status | code_label("meeting_status"),
+                meeting.status | tone("meeting_status")) }}
     {% if editable %}{{ ui.btn_secondary(_("Datum, uur, locatie"), href="/admin/vergaderingen/" ~ meeting.id ~ "/bewerken", lead_icon="pencil") }}{% endif %}
     {{ ui.btn_secondary(_("Download PDF"), href="/admin/vergaderingen/" ~ meeting.id ~ "/pdf", attrs='hx-boost="false"', lead_icon="download") }}
     {% if editable %}

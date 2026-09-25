@@ -42,10 +42,21 @@ bereikt nooit een LLM.
 - **Punten verwijzen, ze kopiëren niet.** Naam, datum, locatie en het
   inschrijvingsaantal komen vers uit het activiteitendomein; `sort_key` bestaat
   alleen om in SQL te kunnen sorteren.
-- **Geen cross-schema FK's.** `activity_id`, `member_id` en
-  `noted_steward_person_id` zijn soft-refs: een FK over schema's heen koppelt
-  twee deploys aan elkaar (`test_schema_boundaries`). Een verwijzing die niet
-  meer oplost, toont als vrij punt.
+- **Geen cross-schema FK's, op één benoemde uitzondering na.**
+  `activity_id`, `member_id` en `noted_steward_person_id` zijn soft-refs: een FK
+  over schema's heen koppelt twee deploys aan elkaar
+  (`test_schema_boundaries`). Een verwijzing die niet meer oplost, toont als
+  vrij punt. De uitzondering is
+  `meeting_status_labels.language` → `mdm.language_codes.code` (CR-12 §B2.4):
+  een codetabel van een fundamentdomein mag wél doel zijn, want `mdm` hangt van
+  geen enkel businessdomein af en zonder die FK kan er elke spelling van een
+  taalcode in een labelrij staan.
+- **De status is een codelijst.** `meetings.meeting_status_codes` + `_labels`,
+  met `MeetingStatus` als enum en een FK vanaf `meetings.status` (CR-12 fase 0,
+  de pilotlijst). De drie Nederlandse woorden staan in de labeltabel, niet in
+  een woordenboek in het scherm; de badge haalt ze met het `code_label`-filter.
+  Een vierde status is een rij plus een lid — géén migratie op een
+  CHECK-constraint, want die is bij dezelfde wijziging weggehaald.
 - **Bestanden zijn geen media-assets.** Media serveert publiek; deze bestanden
   gaan door een route achter de beheersessie. Een bijlage van een verstuurde
   vergadering kan niet verwijderd worden, afgeleid uit de verzendmomenten van de

@@ -36,6 +36,7 @@ from app.domains.meetings.api import (
     FILE_SENT_PDF,
     SECTION_UPCOMING,
     MeetingError,
+    MeetingStatus,
     add_file,
     add_item,
     addable_activities,
@@ -312,7 +313,7 @@ def test_versturen_is_een_mail_met_iedereen_in_to(db_session, mailbox, monkeypat
 
     ververst = get_meeting(db_session, meeting.id)
     assert ververst.report_sent_at is not None
-    assert ververst.status == "sent"
+    assert ververst.status == MeetingStatus.SENT
     assert len(files_of(db_session, meeting, purpose=FILE_SENT_PDF)) == 1
 
 
@@ -361,7 +362,7 @@ def test_heropenen_bewaart_de_eerste_pdf_naast_de_tweede(db_session, mailbox,
                       pdf=b"%PDF eerste", pdf_filename="verslag.pdf")
 
     reopen(db_session, meeting)
-    assert meeting.status == "report"
+    assert meeting.status == MeetingStatus.REPORT
 
     send_meeting_mail(db_session, meeting, kind="report", subject="Verslag (verbeterd)",
                       body_html="v2", reply_to="s@example.org",

@@ -22,16 +22,15 @@ from app.domains.meetings.models import (  # noqa: F401
     SECTION_MEMBERS,
     SECTION_MISC,
     SECTION_UPCOMING,
-    STATUS_AGENDA,
-    STATUS_REPORT,
-    STATUS_SENT,
     Meeting,
     MeetingAttendance,
     MeetingExtraRecipient,
     MeetingFile,
     MeetingItem,
     MeetingSection,
+    MeetingStatus,
 )
+from app.domains.meetings.codes import MEETING_STATUS  # noqa: F401
 from app.domains.meetings.service import (  # noqa: F401
     DocumentItem,
     DocumentSection,
@@ -89,8 +88,8 @@ from app.domains.meetings.pdf import (  # noqa: F401
 __all__ = [
     "ATTENDANCE_EXCUSED", "ATTENDANCE_PRESENT", "FILE_ATTACHMENT",
     "FILE_SENT_PDF", "SECTION_CUSTOM", "SECTION_EVALUATION", "SECTION_IDEAS",
-    "SECTION_MEMBERS", "SECTION_MISC", "SECTION_UPCOMING", "STATUS_AGENDA",
-    "STATUS_REPORT", "STATUS_SENT", "Meeting", "MeetingAttendance",
+    "MEETING_STATUS", "SECTION_MEMBERS", "SECTION_MISC", "SECTION_UPCOMING",
+    "Meeting", "MeetingAttendance", "MeetingStatus",
     "MeetingExtraRecipient", "MeetingFile", "MeetingItem", "MeetingSection",
     "DocumentItem", "DocumentSection", "MeetingError", "MemberStanding",
     "Recipients", "add_extra_recipient", "add_file", "add_item", "add_section",
