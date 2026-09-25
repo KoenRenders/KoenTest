@@ -271,6 +271,15 @@ def test_the_search_hint_names_exactly_the_fields_that_are_searched(
     bewezen: *"straatnaam"* uit de suggestie gehaald → faalt op het verschil;
     en *"telefoon"* erbij gezet → faalt óók, met dat woord in de melding.
     """
+    from app.domains.membership.household_service import SEARCHED_FIELDS
+
+    # #1169: de BRON eerst. Beide beloftes hangen hieraan — de API-omschrijving
+    # leidt eruit af, de schermsuggestie wordt ertegen getoetst.
+    assert set(SEARCHED_FIELDS) == set(BEGRIPPEN), (
+        f"SEARCHED_FIELDS zegt {sorted(SEARCHED_FIELDS)} en bewezen doorzoekbaar "
+        f"is {sorted(BEGRIPPEN)}; zet er een probeerwaarde bij die het bewijst, "
+        "of haal het veld uit de bron")
+
     genoemd = _begrippen_uit(_suggestie())
     assert genoemd == set(BEGRIPPEN), (
         f"de suggestie noemt {sorted(genoemd)} en de bewezen velden zijn "
@@ -301,3 +310,56 @@ def test_the_members_screen_carries_the_hint(client, db_session):
 
     html = client.get("/admin/leden").text
     assert _suggestie() in html, "de zoeksuggestie staat niet op /admin/leden"
+
+
+
+def test_the_api_description_makes_the_same_promise(db_session, postcode):
+    """#1169: `GET /families` roept dezelfde `list_families` aan, dus belooft ze
+    hetzelfde — en ze doet dat door af te leiden, niet door over te typen.
+
+    De omschrijving beloofde *"naam of e-mail"* terwijl #1165 de straat aan de
+    `OR` had toegevoegd. Twee plaatsen voor één feit, en de tweede verouderde
+    stil omdat niets haar aan de eerste bond.
+
+    Nu komt ze uit `SEARCHED_FIELDS`. Deze test kijkt daarom niet of de woorden
+    er staan — dat kan met een afleiding haast niet misgaan — maar of de
+    GERENDERDE omschrijving in het OpenAPI-schema precies de bewezen velden
+    noemt. Dat vangt ook een rendering die de lijst stilletjes afkapt.
+
+    Rood bewezen: `family_search_hint()` teruggezet op een vaste string
+    *"naam of e-mail"* → deze test faalt op het ontbrekende `straatnaam`.
+    """
+    from app.main import app
+
+    schema = app.openapi()
+    parameters = schema["paths"]["/api/v1/families"]["get"]["parameters"]
+    q = next(p for p in parameters if p["name"] == "q")
+    omschrijving = q["description"]
+
+    kern = omschrijving.removeprefix("Zoek op ").removesuffix(
+        " van een gezinslid").strip()
+    genoemd = {d.strip() for stuk in kern.split(",") for d in stuk.split(" of ")}
+    assert genoemd == set(BEGRIPPEN), (
+        f"de API-omschrijving noemt {sorted(genoemd)} en de bewezen velden zijn "
+        f"{sorted(BEGRIPPEN)}; volledige tekst: {omschrijving!r}")
+
+
+def test_the_screen_and_the_api_promise_the_same_fields():
+    """De twee beloftes staan op twee plaatsen; deze poort houdt ze gelijk.
+
+    Eén van beide kón niet afgeleid worden: de schermsuggestie moet als één
+    letterlijke string in een `_()`-aanroep staan, anders haalt pybabel er geen
+    msgid meer uit en is ze niet vertaalbaar. Dat is de reden dat hier een poort
+    staat en geen tweede afleiding — `CLAUDE.md` noemt een poort terecht de
+    duurdere oplossing, dus hoort de reden erbij te staan.
+
+    Rood bewezen: één woord uit de schermsuggestie gehaald → faalt met het
+    verschil tussen de twee verzamelingen.
+    """
+    from app.domains.membership.household_service import (SEARCHED_FIELDS,
+                                                          family_search_hint)
+
+    assert _begrippen_uit(_suggestie()) == set(SEARCHED_FIELDS), (
+        "de zoeksuggestie op het scherm en de API beloven niet dezelfde velden")
+    # En de opsomming zelf: komma's, "of" vóór het laatste, geen afsluitende komma.
+    assert family_search_hint() == "naam, straatnaam of e-mail"
