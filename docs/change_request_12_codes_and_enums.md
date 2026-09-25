@@ -116,7 +116,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | AC3 | The payment screens, the exports and the report dimensions show the same word for the same status (no "In afwachting" versus "Openstaand" for one code). | R2, R4 |
 | AC4 | A developer who adds an enum member without a code row, or a code row without a label, gets a red build that names the missing member, row or language. | R4 |
 | AC5 | The release issue shows the B9.2 counts, and every one of them is lower than or equal to the previous release. | R5 |
-| AC6 | Every payment record, registration and history row on HDEV reads with the same value as before the migration (checked by a before/after count per value). | R8 |
+| AC6 | Every payment record, registration and history row on HDEV reads with the same value as before the migration (checked by a before/after count per value, over the whole table — soft-deleted rows included). | R8 |
 
 ---
 
@@ -446,8 +446,11 @@ alternative — two code tables for one list — keeps the bug and gives it a FK
 
 **What the column actually holds** (master CLI, read-only on HDEV, 26
 September 2026 — not the `ONLINE`/`TRANSFER`/`CASH` the export dictionary
-assumes): `ONLINE` 22, `OVERSCHRIJVING` 15, `NULL` 11, `transfer` 1. The
-mapping is therefore:
+assumes): `ONLINE` 22, `OVERSCHRIJVING` 15, `NULL` 11, `transfer` 1 — **the
+whole table, 49 rows**. The laptop master CLI measured 18/14/11/1 with
+`deleted_at IS NULL`: 44 live rows; the five soft-deleted ones are 4×
+`ONLINE` and 1× `OVERSCHRIJVING`. Both are right; only the first one
+matters here. The mapping is therefore:
 
 | stored today | becomes | why |
 |---|---|---|
@@ -465,9 +468,20 @@ fallback — the mapping this CR first copied was already wrong in the code.
 registration by bank transfer fails on the constraint. So the same phase-1
 commit changes the radio values to the codes (`online`, `transfer`), the
 `RegistrationCreate` schema to the enum, and drops the `"online" if … ==
-"ONLINE" else "transfer"` branch at `router.py:920`. A rule for every FK
-this CR adds: **find every writer of the column before the FK goes on** —
-the form, the JSON API, the import — and list them in the phase issue.
+"ONLINE" else "transfer"` branch at `router.py:920`.
+
+**A foreign key holds for every row, soft-deleted ones included.**
+`deleted_at` is a column, not a filter the database knows. An `UPDATE` with
+`WHERE deleted_at IS NULL` would leave five rows untouched and the FK would
+fail on them. So the `UPDATE` in B4.6 has **no** soft-delete filter, and the
+before/after counts (B8 test 7, AC6) are over the whole table. Written out
+because the rest of the codebase filters soft-deleted rows almost
+everywhere — which is exactly why these five are easy to miss.
+
+Two rules for every FK this CR adds, to be listed in the phase issue:
+**find every writer of the column before the FK goes on** — the form, the
+JSON API, the import — and **count every row, the soft-deleted ones too**.
+Those are the two ways a FK on existing data trips.
 
 There is **no history to migrate**: `activities.registration_history` has
 no `payment_method` column (verified 26 September; the column exists in
@@ -858,7 +872,8 @@ docstring.
    real view-model, the `StrictUndefined` environment.
 7. **Values before/after.** For every migrated column, count per value before
    and after the migration is identical (with B4.6 as the one declared
-   exception).
+   exception) — over the **whole table**, soft-deleted rows included; a FK
+   does not know `deleted_at`.
 7b. **The B4.6 guard.** An `ONLINE` row before the migration reads back raw
    as `online`; a `CHEQUE` row makes the migration abort before the FK, with
    the count in the message.
@@ -992,6 +1007,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q13 | 26 Sep 2026 | Master CLI, follow-up: the 22/15/11/1 is the whole table; the laptop measured 18/14/11/1 on live rows — five soft-deleted rows would break the FK if the `UPDATE` filtered on `deleted_at`. | Taken: no soft-delete filter in B4.6, counts over the whole table (B8.7, AC6), and "count every row, soft-deleted too" added as the second general rule for a FK on existing data. |
 | Q12 | 26 Sep 2026 | Master CLI verification after planning (v2.7.0, #1184): `payment_method` holds `OVERSCHRIJVING` (15 rows on HDEV) which B4.6 did not map; "and its history" names a column that does not exist; the catalogue counts 49, not 47; #1173 adds `page_image`. | All four taken: B4.6 mapping and the form-in-the-same-commit rule, history sentence removed, count 49 with the pilot counted once, `page_image` row added. |
 | Q11 | 26 Sep 2026 | External review: is B4.6 guarded enough, does the cache survive a screen, is the FK gate more than a name filter, is the baseline reproducible? (Koen, relaying) | All five taken — see the 26 Sep second-review row in B11. |
 | Q10 | 26 Sep 2026 | Look at the CR again — sensible, any advice? (Koen) | Three corrections and four pieces of advice, all taken — see the 26 Sep review row in B11. |
