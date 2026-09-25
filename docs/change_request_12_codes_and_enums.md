@@ -447,6 +447,17 @@ snapshot of the same value), with a before/after count per value in the
 migration output. The alternative — two code tables for one list — keeps the
 bug and gives it a FK. Koen chose the data fix (B11).
 
+**Guarded, not just logged** (review, 26 September 2026). The migration
+runs the `UPDATE`, then **asserts** that the count of rows still carrying an
+upper-case value is zero, and only then adds the FK; a non-zero count
+aborts the migration with the count in the message. Idempotent on a second
+run (the `UPDATE` matches nothing, the assertion holds, the FK exists). And
+one pytest proves the guard: insert an `ONLINE` row into a pre-migration
+schema, run the migration, read `online` back raw; then insert a value the
+`UPDATE` does not know (`CHEQUE`) and see the migration refuse. This is the
+one place where the document breaks its own rule R8, so it is the one place
+with a guard instead of a log line.
+
 ### B4.7 Templates show, view-models decide
 
 25 templates branch on a literal (`.status == "paid"`). With a plain enum
@@ -778,7 +789,7 @@ handoff block CI cannot carry:
 
 | Phase | Issue title | Migration | Env vars | Data | Manual validation |
 |---|---|---|---|---|---|
-| 0 | CR-12 fase 0 — kernel `codes.py`, `mdm.language_codes`, gates als ratchet | one: `language_codes` + labels | none | none | none — gates only |
+| 0 | CR-12 fase 0 — kernel `codes.py`, `mdm.language_codes`, pilot `meeting_status`, gates als ratchet | two: `language_codes` + labels; the pilot list | none | none; the five reporting enums are marked `TechnicalEnum` and the two `str, Enum` classes (`LegalForm`, `RegistrationState`) go on the enum ratchet until their phase | the meeting screen shows the same three status words as before |
 | 1 | CR-12 fase 1 — betaaldomein: status, type, payable, provider; betaalwijze naar `mdm` | one: five lists, FKs, B4.6 update, drop `public.payment_status_codes` | none | **B4.6**: `activities.registrations.payment_method` and its history lower-cased; count per value before/after in the migration log | AC2, AC3 on the payment screens and both exports; a Mollie test payment on HDEV still lands as `paid` |
 | 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `U`/`O` retired, count of persons per retired code in the log; `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
 | 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
@@ -814,6 +825,9 @@ docstring.
 7. **Values before/after.** For every migrated column, count per value before
    and after the migration is identical (with B4.6 as the one declared
    exception).
+7b. **The B4.6 guard.** An `ONLINE` row before the migration reads back raw
+   as `online`; a `CHEQUE` row makes the migration abort before the FK, with
+   the count in the message.
 8. **mypy in both directions.** Put one comparison back to a literal in
    `payment/service.py`: `comparison-overlap`. Back: green.
 9. **Roles unchanged.** Set of role codes and `test_role_model_gates.py`
@@ -841,8 +855,12 @@ architecture document §8 (the `mdm` FK exception). `CLAUDE.md` points to
 ### B9.2 Reach and baseline
 
 Reach: the whole backend, every domain, existing and future. Measured on
-the branch on 25 September 2026 (the counting commands are in
-`test_codes_gate.py`, so the numbers re-appear per release):
+the branch on 25 September 2026 with `grep`, as a first picture. **The
+baseline that the ratchets freeze in phase 0 is the count as
+`test_codes_gate.py` computes it**, not the numbers below — the gate's
+count is reproducible, the grep is not (the "43, rough count" row is the
+honest name for that). From phase 0 on, the table below is the gate's
+output, re-printed per release:
 
 | | 25 Sep 2026 | after this CR |
 |---|---|---|
@@ -877,7 +895,8 @@ What each gate looks at:
 
 | Gate | Looks at | Message on violation |
 |---|---|---|
-| FK coverage | every mapped `String` column whose name is in the vocabulary set (`status`, `type`, `kind`, `method`, `role*`, `*_code`, `*_type`, …) on a non-history table without a FK to a `_codes` table | "`payment.payment_records.method` stores a vocabulary but has no FK to a code table — declare a `CodeList` or add it to the ratchet with a reason" |
+| FK coverage — registered | every column a `CodeList` names in `fk_from` actually carries the FK to that list's `_codes` table (positive, exact: the registry is the list) |
+| FK coverage — unregistered (heuristic net) | every mapped `String` column whose name is in the vocabulary set (`status`, `type`, `kind`, `method`, `role*`, `*_code`, `*_type`, …) on a non-history table and in no `CodeList` — a **ratchet**, and explicitly only a net: a column called `categorie` escapes it until someone registers it; the review rule for a new `String` column with a default literal is "is this a list?" | "`payment.payment_records.method` stores a vocabulary but has no FK to a code table — declare a `CodeList` or add it to the ratchet with a reason" |
 | Label coverage | every `_codes` table has a `_labels` table; every active code has an `nl` row | "`mdm.gender_codes`: code `X` has no `nl` label" |
 | Enum = codes | every `CodeList` with an enum: members == all codes in the table, active and retired | "`PaymentStatus.REFUNDED` has no row in `payment.payment_status_codes`" |
 | Enum without a list | every `Enum` subclass under `app/` (found by walking the modules, not by grep) is registered in a `CodeList` **or** subclasses `TechnicalEnum`/`ExternalVocabulary` | "`newsletter/models.py:FooStatus` is an Enum without a CodeList — declare one (table + labels) or mark it `TechnicalEnum`/`ExternalVocabulary` with the reason" |
@@ -925,6 +944,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
+| 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
@@ -938,6 +958,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q11 | 26 Sep 2026 | External review: is B4.6 guarded enough, does the cache survive a screen, is the FK gate more than a name filter, is the baseline reproducible? (Koen, relaying) | All five taken — see the 26 Sep second-review row in B11. |
 | Q10 | 26 Sep 2026 | Look at the CR again — sensible, any advice? (Koen) | Three corrections and four pieces of advice, all taken — see the 26 Sep review row in B11. |
 | Q9 | 26 Sep 2026 | Does the gate also check that a new Python Enum has a code table? (Koen) | Only half, as first written: the Enum = codes gate saw registered lists only. Added: the enum gate walks every `Enum` under `app/` and demands a `CodeList` or a `TechnicalEnum`/`ExternalVocabulary` marker with a reason (B4.9, B9.3). |
 | Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Since 26 Sep: yes — Part A approved, Q6/Q7 answered, B4.9/B5.3/B7.1 in place. Waiting for a release assignment. |
@@ -947,8 +968,13 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 
 - **No management screen** for codes or labels (Koen, 25 Sep 2026). The
   tables are shaped so that one can be added later without a schema change:
-  it would edit `_labels` rows and toggle `is_active`, and call
-  `reset_label_cache()`.
+  it would edit `_labels` rows and toggle `is_active`. **What it must solve
+  then, and this CR does not:** the label cache is per process, and the
+  backend runs several Uvicorn workers — `reset_label_cache()` from a screen
+  reaches one worker. The screen needs a cross-worker invalidation (a
+  version stamp in `kernel_tenant_settings` or a `codes_version` table,
+  compared per request, or simply "changes apply on the next deploy"). Noted
+  here so it is not forgotten when the screen is built (review, 26 Sep).
 - **No Postgres `ENUM` type.** The code table is the list; the FK is the check.
 - **No renaming of stored values**, except the single proposed case in B4.6.
 - **No state machine.** Which transitions are allowed between statuses is
