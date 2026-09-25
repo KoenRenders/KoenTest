@@ -478,10 +478,17 @@ before/after counts (B8 test 7, AC6) are over the whole table. Written out
 because the rest of the codebase filters soft-deleted rows almost
 everywhere — which is exactly why these five are easy to miss.
 
-Two rules for every FK this CR adds, to be listed in the phase issue:
+Three rules for every FK this CR adds, to be listed in the phase issue:
 **find every writer of the column before the FK goes on** — the form, the
-JSON API, the import — and **count every row, the soft-deleted ones too**.
-Those are the two ways a FK on existing data trips.
+JSON API, the import; **count every row, the soft-deleted ones too**; and
+**find the CHECK constraint that already says the same thing, and drop it
+after the FK is in place**. The first two are the ways a FK on existing
+data trips; the third is the duplication `CLAUDE.md` names: the pilot list
+(phase 0, PR #1186) had a CHECK on the status column that repeated the new
+FK word for word — left in place, a fourth value would cost a code row *and*
+a constraint migration, and one of the two would fall behind. `form.
+form_fields.field_type` (the CHECK of migration 062, B5.3) is the same case;
+the payment domain is the first place to look.
 
 There is **no history to migrate**: `activities.registration_history` has
 no `payment_method` column (verified 26 September; the column exists in
@@ -884,6 +891,15 @@ docstring.
 10. The gates of B9.3, each proven by one violation — for the enum gate: an
     unmarked `Enum` added to a domain module, red with its `module:Name`.
 
+**The violation must be additive** (learned in phase 0, PR #1186). Proving
+the "English member names" gate by *renaming* a member broke the import of
+`service.py`, the test never ran, and the run came back green — a fourth
+form of a test that proves nothing, next to the three `CLAUDE.md` lists: *it
+does not run*. Adding a wrongly named member made the gate fire. So: prove a
+gate by adding an offender, never by breaking something that exists, and
+check that the test *ran* (its own assertion in the output), not only that
+the suite was red.
+
 ## B9. Rule and gatekeeper
 
 ### B9.1 The rule
@@ -908,27 +924,31 @@ the branch on 25 September 2026 with `grep`, as a first picture. **The
 baseline that the ratchets freeze in phase 0 is the count as
 `test_codes_gate.py` computes it**, not the numbers below — the gate's
 count is reproducible, the grep is not (the "43, rough count" row is the
-honest name for that). From phase 0 on, the table below is the gate's
-output, re-printed per release:
+honest name for that). **Phase 0 has run the gate** (PR #1186, 26
+September): on three of the four counted rows it measures *higher* than the
+grep — the grep found half of the template comparisons. That is the
+confirmation, not a deviation: the gate column is the baseline the ratchets
+froze; the grep column stays as the first picture. From here on the gate's
+output is re-printed per release:
 
-| | 25 Sep 2026 | after this CR |
-|---|---|---|
-| lists with a fixed vocabulary | 49 (B5.3) | 49, all in the same shape |
-| … kept as code table + FK, split codes/labels (#924 shape) | 2 | all |
-| … kept as code table + FK, one language per code | 4 | 0 |
-| … kept as orphan table in `public`, no FK | 3 | 0 |
-| … kept as module constants | 14 (newsletter 6, meetings 3, designstudio 5) | 0 |
-| … kept as a bare string + comment | ~12 | 0 |
-| vocabulary columns without a FK to a code table | 43, rough count (excl. history and audit) | 0 |
-| code tables that can carry two languages | 2 | all |
-| domain enums | 2 (`str, Enum`) | one per branching list, plain `Enum` |
-| enums outside a `CodeList` (marked technical/external) | 6 unmarked (reporting 5, Mollie map 0 — a dict today) | every one marked with its reason; the count is reported, not capped |
-| label dictionaries in Python | 40 | 0 |
-| templates comparing a code to a literal | 25 | 0 |
-| loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | 0 |
-| domains under mypy `strict_equality` (bonus, B4.8) | 0 | all migrated |
-| enum-carrying columns written as `Mapped[]` | 0 of 688 columns | every column in a `CodeList` |
-| languages seeded | `nl` 34 rows, `en` 17 rows | `nl` and `en` for every active code |
+| | grep, 25 Sep 2026 | **gate, phase 0 (26 Sep 2026)** | after this CR |
+|---|---|---|---|
+| lists with a fixed vocabulary | 49 (B5.3) | — | 49, all in the same shape |
+| … kept as code table + FK, split codes/labels (#924 shape) | 2 | — | all |
+| … kept as code table + FK, one language per code | 4 | — | 0 |
+| … kept as orphan table in `public`, no FK | 3 | — | 0 |
+| … kept as module constants | 14 (newsletter 6, meetings 3, designstudio 5) | — | 0 |
+| … kept as a bare string + comment | ~12 | — | 0 |
+| vocabulary columns without a FK to a code table | 43, rough count (excl. history and audit) | **52** | 0 |
+| code tables that can carry two languages | 2 | — | all |
+| domain enums | 2 (`str, Enum`) | — | one per branching list, plain `Enum` |
+| enums outside a `CodeList` (marked technical/external) | 6 unmarked (reporting 5, Mollie map 0 — a dict today) | — | every one marked with its reason; the count is reported, not capped |
+| label dictionaries in Python | 40 | **33** | 0 |
+| templates comparing a code to a literal | 25 | **52** — the grep found half | 0 |
+| loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | **127** | 0 |
+| domains under mypy `strict_equality` (bonus, B4.8) | 0 | — | all migrated |
+| enum-carrying columns written as `Mapped[]` | 0 of 688 columns | — | every column in a `CodeList` |
+| languages seeded | `nl` 34 rows, `en` 17 rows | — | `nl` and `en` for every active code |
 
 ### B9.3 The gate
 
@@ -1007,6 +1027,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q14 | 26 Sep 2026 | Master CLI, after phase 0 (PR #1186): the pilot had a CHECK constraint duplicating the FK; the gate measures 52/33/52/127 against the grep's 43/40/25/92; a destructive violation made a gate test not run and come back green. | Taken: "drop the CHECK after the FK" as the third rule in B4.6; the gate column in B9.2 next to the grep; "the violation must be additive" in B8. |
 | Q13 | 26 Sep 2026 | Master CLI, follow-up: the 22/15/11/1 is the whole table; the laptop measured 18/14/11/1 on live rows — five soft-deleted rows would break the FK if the `UPDATE` filtered on `deleted_at`. | Taken: no soft-delete filter in B4.6, counts over the whole table (B8.7, AC6), and "count every row, soft-deleted too" added as the second general rule for a FK on existing data. |
 | Q12 | 26 Sep 2026 | Master CLI verification after planning (v2.7.0, #1184): `payment_method` holds `OVERSCHRIJVING` (15 rows on HDEV) which B4.6 did not map; "and its history" names a column that does not exist; the catalogue counts 49, not 47; #1173 adds `page_image`. | All four taken: B4.6 mapping and the form-in-the-same-commit rule, history sentence removed, count 49 with the pilot counted once, `page_image` row added. |
 | Q11 | 26 Sep 2026 | External review: is B4.6 guarded enough, does the cache survive a screen, is the FK gate more than a name filter, is the baseline reproducible? (Koen, relaying) | All five taken — see the 26 Sep second-review row in B11. |
