@@ -146,10 +146,13 @@ Decisions that shape it, with the alternatives that lost:
   `identification_schemes`) already have this shape; it is generalised, not
   invented.
 - **Plain `Enum`, not `str, Enum`.** With a `str` subclass, `status == "paid"`
-  stays a valid comparison for mypy and there is no gate; with a plain `Enum`,
-  `strict_equality` flags every comparison against a loose string. The two
-  existing `str, Enum` classes (`LegalForm`, `RegistrationState`) convert when
-  their domain is migrated.
+  stays a valid comparison and silently true; with a plain `Enum` it is
+  silently *false* — which is why the loose-string gate (B9.3) is an AST test
+  and not mypy (B4.8). The two existing `str, Enum` classes (`LegalForm`,
+  `RegistrationState`) convert when their domain is migrated. **Member names
+  are English, values are the stored codes** (B4.3): `RelationType.PRIMARY_MEMBER
+  = "HOOFDLID"` — otherwise every Dutch code becomes a new Dutch identifier
+  and the #780 ratchet goes red.
 - **Labels in the database, not in the gettext catalogue.** `app/i18n.py`
   (`_()`) stays for *sentences* — screen copy, messages. A label of a code is
   *data about a code*: it belongs next to the code, is queryable (reports,
@@ -170,12 +173,14 @@ Alembic, mypy and pytest, already in use.
 | F2 | Every list has a code table with `code`, `sort_order`, `is_active`; retiring a value is `is_active = false`, never a delete, so history rows keep their FK target. | R1, R8 |
 | F3 | Every list has a label table `(code, language, value, description)`; `nl` is mandatory for every active code, `en` is seeded for every list in this change. | R2 |
 | F4 | Every mapped column that stores a list value carries a FK to the code table. History (`*_history`) tables are exempt: append-only snapshots must survive a retired code. | R1, R8 |
-| F5 | A list on which Python branches has a plain `Enum`; a test asserts members == active codes after `alembic upgrade head`. | R3, R4 |
-| F6 | A single `label(list, code)` function, cached per process, using the request's `current_locale`; a Jinja filter of the same name. | R2, R4 |
+| F5 | A list on which Python branches has a plain `Enum`; a test asserts members == **all** codes in the table (active and retired) after `alembic upgrade head`, so a retired code never reads back as a bare string. | R3, R4 |
+| F6 | A single `code_label(list, code)` function, cached per process, using the request's `current_locale`; a Jinja filter of the same name. | R2, R4 |
 | F7 | Templates never compare a code to a literal; the view-model exposes what the template needs (label, tone, a boolean). | R4 |
 | F8 | Language keys in the label table are language codes (`nl`, `en`), not locales (`nl_BE`); the lookup takes the language part of the active locale. | R2 |
 | F9 | Ratchet gates for each count in B9.2, hard gates once zero. | R4, R5 |
-| F10 | mypy `strict_equality` and `disallow_untyped_defs` per migrated domain, via `[[tool.mypy.overrides]]`. | R3 |
+| F10 | Enum-carrying columns are written as `Mapped[Enum]` so mypy knows their type; mypy `strict_equality` and `disallow_untyped_defs` per migrated domain, via `[[tool.mypy.overrides]]` — a bonus check, not the gate (B4.8). | R3 |
+| F11 | One migration helper in the kernel creates a list — both tables, seed rows, FK — from one declarative call, so 47 lists are 47 calls and not 47 hand-written migrations. | R4, R5 |
+| F12 | Background jobs (mail, newsletter, workflow) pass the tenant's language to `code_label()` explicitly; there is no request locale there. | R2 |
 
 ## B2. Architecture
 
@@ -183,12 +188,12 @@ Alembic, mypy and pytest, already in use.
 
 | Component | new / used / changed | Role in this change |
 |---|---|---|
-| `app/kernel/codes.py` | **new** | `CodeList` declaration, `label()` function, cache, Jinja filter, the mypy-friendly `EnumColumn` type decorator |
+| `app/kernel/codes.py` | **new** | `CodeList` declaration, `code_label()` function, cache, Jinja filter, the mypy-friendly `EnumColumn` type decorator |
 | `app/kernel/tenant_config.py` (`language`) | used | source of the active language; already feeds `current_locale` |
 | `app/i18n.py` | used, unchanged | keeps `_()` for copy; the label filter is registered next to it |
 | `mdm` (`models.py`, migrations) | **changed** | its three single-language code tables split into codes + labels; `legal_form` gets its FK; receives the cross-domain lists (payment method, languages) |
 | `auth` (`models.py`, migrations) | **changed** | `role_codes` moves in from `public`, split into codes + labels; FKs from `user_roles` and `workflow`; the role enum |
-| `payment` | **changed** | first domain migrated: three lists, three enums, 37 comparisons, exports and badges through `label()` |
+| `payment` | **changed** | first domain migrated: three lists, three enums, 37 comparisons, exports and badges through `code_label()` |
 | `newsletter`, `meetings`, `designstudio` | **changed** | module constants become code tables + enums |
 | `workflow`, `forms`, `mail`, `media`, `chatbot`, `activities`, `auth`, `reporting` | **changed** | bare string columns get their list, FK and (where branching) enum |
 | `public.payment_status_codes`, `public.role_codes`, `public.registration_type_codes` | **removed** | orphans since migration 001; rows move to their domain, tables dropped |
@@ -213,7 +218,7 @@ flowchart LR
     T1["code table + FK<br/>(<schema>.<list>_codes)"]
     T2["Enum in the owning domain"]
     T3["label() in the kernel<br/>+ label table"]
-    T4["gates (test_codes_gate.py)<br/>+ mypy strict_equality"]
+    T4["gates (test_codes_gate.py)<br/>AST ratchets · Enum = codes · FK · labels"]
     T5["a migration with label rows"]
   end
   S1 --> T1
@@ -382,16 +387,40 @@ The enum stores its `.value` in the column through a `TypeDecorator`
 (`EnumColumn`) — never the member name (`PAID`) and never `str(member)`
 (`PaymentStatus.PAID`). Test 3 in B8 reads the column raw to prove it.
 
+**Member names are English; values are the stored codes, unchanged.**
+`RelationType.PRIMARY_MEMBER = "HOOFDLID"`, `LegalForm.COMPANY = "BEDRIJF"`,
+`DrawingStyle.LINE = "lijn"`. The value is data (R8, `CLAUDE.md`: stored
+values stay Dutch); the name is an identifier and falls under the English
+rule and the #780 ratchet. Where the code is already English the two
+coincide (`PaymentStatus.PAID = "paid"`).
+
+**The enum carries every code in the table, retired ones included.** Only
+the select-list helper (`labels()`) filters on `is_active`. Otherwise a row
+with a retired code would read back as a bare string and
+`person.gender == Gender.X` would be silently false — the failure mode
+nothing catches. Retiring a code therefore never removes a member; it flips
+`is_active` and the member stays, documented as retired in its docstring.
+
 ### B4.4 One label function
 
-`label(list, code)` in `app/kernel/codes.py`: looks up `(code, language)` in
+`code_label(list, code)` in `app/kernel/codes.py` — `code_label`, not `label`,
+because `_macros.html` already has a `label(text, for_id)` macro for form
+fields; a filter and a macro do not collide technically, but a reader
+should not have to know that. It looks up `(code, language)` in
 the label table for `list`, with `language` = the language part of
 `current_locale` (`nl_BE` → `nl`), falling back to `nl`, and — as a last
 resort so a screen never renders blank under `StrictUndefined` — the code
 itself, logged once. Cached per process on first use; `reset_label_cache()`
 exists for tests and for the future screen.
 
-The same function is a Jinja filter: `{{ record.status | label("payment_status") }}`.
+The same function is a Jinja filter: `{{ record.status | code_label("payment_status") }}`.
+
+**Outside a request there is no locale.** Mail, newsletter sending and
+workflow jobs run without the tenant middleware, so `current_locale` would
+fall back to `nl_BE` and an English-speaking tenant would get Dutch labels
+in its e-mail. No gate can see that. The rule for jobs: pass
+`language=tenant_language(db, tenant_id)` explicitly, and the job tests
+assert a label in the tenant's language.
 Where two words used to exist for one code ("Betaald" on the badge,
 "Vereffend" as the *balance* state — #669), the second word is a **different
 concept with its own name** (a derived state on the view-model), not a
@@ -428,13 +457,34 @@ code**. The view-model exposes `status_label`, `status_tone`, `is_paid`
 (whatever the template needs). This is a ratchet gate (B9.3) with the 25 as
 baseline.
 
-### B4.8 mypy strict, per domain
+### B4.8 mypy is a bonus, not the gate (corrected 26 September 2026)
 
-`[[tool.mypy.overrides]]` per migrated domain with `disallow_untyped_defs`,
-`strict_equality`, `warn_return_any`. Not `--strict` globally: that needs an
-exemption list, and an exemption list is where a rule dies (#760). The 133
-untyped `db` parameters (#779 count; recounted per domain when migrated) are
-typed as part of each domain's phase.
+#779 relied on mypy's `strict_equality` to catch `record.status == "paid"`.
+That does not work here: the models use the legacy `Column(...)` style (688
+columns, no `Mapped[]`, no SQLAlchemy mypy plugin), so mypy types every
+column attribute as `Any`, and `Any == "paid"` is never an error. A gate
+built on it would stay green with all 92 comparisons in place — the kind of
+test `CLAUDE.md` forbids.
+
+Two consequences:
+
+- **The loose-string gate is an AST test** (B9.3): it walks the `.py` files,
+  finds comparisons of a vocabulary attribute (`.status`, `.type`, `.kind`,
+  `.method`, … and every `EnumColumn` attribute it can resolve) against a
+  string literal, and ratchets on the baseline of 92. Provable by violation,
+  independent of typing.
+- **Enum-carrying columns are written as `Mapped[PaymentStatus] =
+  mapped_column(EnumColumn(PaymentStatus))`** in the phase that migrates
+  them. That is the SQLAlchemy 2.0 declarative style, which mypy understands
+  without a plugin; then `strict_equality` becomes real for those attributes
+  — a second net, for free. The other 600-odd columns are not rewritten;
+  mixing the two styles in one model is supported.
+
+mypy per domain (`[[tool.mypy.overrides]]` with `disallow_untyped_defs`,
+`strict_equality`, `warn_return_any`) stays as the bonus. Not `--strict`
+globally: that needs an exemption list, and an exemption list is where a
+rule dies (#760). The 133 untyped `db` parameters (#779 count) are typed per
+domain when migrated.
 
 ### B4.9 The kernel API (what phase 0 builds)
 
@@ -444,11 +494,12 @@ contract; the dev CLI chooses the internals.
 | Piece | Contract |
 |---|---|
 | `CodeList` | One declaration per list, in the owning domain's `codes.py` and exported through its `api.py`. Fields: `name` (the list's short name, e.g. `payment_status`), `codes` (the ORM class of the code table), `labels` (the ORM class of the label table), `enum` (the `Enum` class or `None`), `derived` (`True` for a list with no storing column, B5.3 note 4). A registry in the kernel collects every declaration at import time; the gates iterate over the registry. |
-| `EnumColumn(enum_cls)` | A `TypeDecorator` over `String` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Raises on an unknown value **on read** only if the code is inactive *and* not in the table; a retired-but-present code reads back as a plain string so history screens still render. |
-| `label(list_name, code, language=None)` | The one label function. `language` defaults to the language part of `current_locale` (`nl_BE` → `nl`); falls back to `nl`; as a last resort returns the code itself and logs once per (list, code). Accepts an `Enum` member or a string. |
-| `labels(list_name, language=None)` | The ordered `(code, label)` pairs of the active codes, by `sort_order` — for select lists and report dimensions. |
+| `EnumColumn(enum_cls)` | A `TypeDecorator` over `String` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Every code in the table is a member (B4.3), so a read never yields a bare string; a value that is in neither raises on read with the list, column and value in the message — that is corrupt data, not a rendering case. Used as `Mapped[Enum] = mapped_column(EnumColumn(Enum))` (B4.8). |
+| `create_code_list(op, schema, name, codes, labels, fk_from=...)` | The migration helper: creates `<schema>.<name>_codes` and `_labels` in the one shape, upserts the seed rows (`ON CONFLICT DO NOTHING`, idempotent on four environments), adds the FK from each storing column. One call per list; the shape gate then has nothing to argue about. `retire_code(op, schema, name, code)` flips `is_active` and logs the row count that carries it. |
+| `code_label(list_name, code, language=None)` | The one label function. `language` defaults to the language part of `current_locale` (`nl_BE` → `nl`); falls back to `nl`; as a last resort returns the code itself and logs once per (list, code). Accepts an `Enum` member or a string. |
+| `code_labels(list_name, language=None)` | The ordered `(code, label)` pairs of the **active** codes, by `sort_order` — for select lists and report dimensions. |
 | `reset_label_cache()` | Clears the process cache; used by tests and by the future screen. |
-| Jinja filter `label` | Registered next to `install_jinja_i18n`: `{{ record.status \| label("payment_status") }}`. The *only* way a template turns a code into text. |
+| Jinja filter `code_label` | Registered next to `install_jinja_i18n`: `{{ record.status \| code_label("payment_status") }}`. The *only* way a template turns a code into text. |
 | `TechnicalEnum`, `ExternalVocabulary` | Two marker base classes for an `Enum` that is deliberately **not** a code list: a technical distinction never stored or shown (the reporting engine's `Operator`, `Direction`, …), or an external party's vocabulary (Mollie's statuses, B4.10). The reason goes in the docstring; the gate below counts them. Any other `Enum` under `app/` must be in a `CodeList`. |
 | `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. |
 
@@ -578,7 +629,7 @@ the ones the screens show today; where two existed, the select-list word
 won (#779). The English labels were proposed by the analyst and
 **approved by Koen on 26 September 2026**; a later correction is a label
 row, not a design change. `Enum` names are English, plain `Enum`;
-members are the codes upper-cased.
+member names are English (B4.3), member values are the codes as stored.
 
 Schema names are the database schemas, which differ from the package name in
 two places: `forms` → schema `form`, `chatbot` → schema `ai`. The kernel's
@@ -682,7 +733,7 @@ deleted.
 
 Note 5 — a **derived** state (computed, never stored) is still a list with
 labels: it gets a code+label table with no storing column, so its label
-comes from `label()` like every other. The enum is the only consumer.
+comes from `code_label()` like every other. The enum is the only consumer.
 
 **Count:** 47 lists (1 + 5 + 8 + 19 + 14). The "~35" of B9.2 was the
 inventory by column; the catalogue is by list and includes the derived and
@@ -701,8 +752,8 @@ Each phase is a release-sized issue, shippable and revertible on its own.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **0 — kernel + gates as ratchets** | `app/kernel/codes.py`, `mdm.language_codes`, `test_codes_gate.py` with the B9.2 baselines frozen, `docs/code-style.md` paragraph, §8 exception recorded | — |
-| **1 — payment** | status/type in `payment`, method in `mdm`, three enums, FKs, 37 comparisons, exports/badges via `label()`, `public.payment_status_codes` dropped, mypy strict on `payment` | 0 |
+| **0 — kernel + gates as ratchets + pilot** | `app/kernel/codes.py` (B4.9, incl. the migration helper), `mdm.language_codes`, `test_codes_gate.py` with the B9.2 baselines frozen, `docs/code-style.md` paragraph, §8 exception recorded — and **one pilot list end to end**: `meetings.meeting_status` (three codes, one screen, one badge), proving the `EnumColumn` round trip, `Mapped[]` next to `Column()`, the filter and the gates before the money domain is touched | — |
+| **1 — payment** | status/type/payable/provider in `payment`, method in `mdm`, five enums, FKs, 37 comparisons, exports/badges via `code_label()`, `public.payment_status_codes` dropped, mypy strict on `payment` | 0 |
 | **2 — mdm split + roles** | the four `mdm` lists split into codes+labels, `legal_form` FK, `role_codes` to `auth` with FKs from `user_roles` and `workflow`, `_RELATIE_LABELS` and `SOORT_LABELS` gone | 0 |
 | **3 — constants domains** | newsletter, meetings, design studio: constants → tables + enums, 20 label dicts gone | 0 |
 | **4 — remaining domains** | workflow, forms, mail, media, chatbot, activities, reporting, `org_type`; `public.registration_type_codes` dropped | 0 |
@@ -710,6 +761,14 @@ Each phase is a release-sized issue, shippable and revertible on its own.
 
 The order after phase 1 is Koen's call; phases 2–4 are independent of each
 other.
+
+**What the CRM module waits for — and what it does not** (Koen, 26 September
+2026). The foundation a new module needs is phases 0–2: the kernel, the
+money lists, master data and roles. Phases 3–4 migrate internal states of
+existing modules (newsletter, meetings, design studio, workflow, …) and can
+run **alongside** CRM work: a new module follows the pattern from its first
+migration regardless of whether the older modules are done. Only phase 5
+(hard gates) waits for everything.
 
 ### B7.1 Per phase: issue and "Na de merge"
 
@@ -734,18 +793,19 @@ lists shrink visibly.
 Each able to go red; guards proven by violation, the violation noted in the
 docstring.
 
-1. **Enum = active codes**, both directions. Add a member without a row: red,
-   names the member. Add a row without a member: red, names the code.
+1. **Enum = codes**, both directions, retired ones included. Add a member
+   without a row: red, names the member. Add a row without a member: red,
+   names the code. Retire a code: still green — the member stays.
 2. **The FK holds.** Raw `INSERT` of `status = 'payed'` fails on the
    constraint.
 3. **Round trip.** A row written with `PaymentStatus.PAID` reads back raw as
    `paid` — not `PAID`, not `PaymentStatus.PAID`. A pre-migration row reads
    as the member.
-4. **One label per code per language.** For every active code, `label()` in
+4. **One label per code per language.** For every active code, `code_label()` in
    `nl` and `en` returns exactly one non-empty text; the label table has no
    active code without an `nl` row.
 5. **Same words as before.** Snapshot of the label dictionaries at phase 0;
-   each domain's phase asserts `label()` returns the same Dutch text the
+   each domain's phase asserts `code_label()` returns the same Dutch text the
    dictionary did, except where B4.4 deliberately split a concept (listed in
    the test).
 6. **Templates render text.** Every template that shows a code renders the
@@ -770,7 +830,7 @@ docstring.
 > in `auth` when it is security vocabulary — with
 > a foreign key from every column that stores it, a label table per language,
 > and a plain `Enum` in the owning domain wherever Python branches on the
-> value. Labels come from `label()` and nowhere else; templates never compare
+> value. Labels come from `code_label()` and nowhere else; templates never compare
 > a code. An external party's vocabulary gets an `Enum` in its adapter and a
 > mapping to ours — never a code table: it is not our list.**
 
@@ -799,7 +859,8 @@ the branch on 25 September 2026 (the counting commands are in
 | label dictionaries in Python | 40 | 0 |
 | templates comparing a code to a literal | 25 | 0 |
 | loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | 0 |
-| domains under mypy `strict_equality` | 0 | all migrated |
+| domains under mypy `strict_equality` (bonus, B4.8) | 0 | all migrated |
+| enum-carrying columns written as `Mapped[]` | 0 of 688 columns | every column in a `CodeList` |
 | languages seeded | `nl` 34 rows, `en` 17 rows | `nl` and `en` for every active code |
 
 ### B9.3 The gate
@@ -818,17 +879,19 @@ What each gate looks at:
 |---|---|---|
 | FK coverage | every mapped `String` column whose name is in the vocabulary set (`status`, `type`, `kind`, `method`, `role*`, `*_code`, `*_type`, …) on a non-history table without a FK to a `_codes` table | "`payment.payment_records.method` stores a vocabulary but has no FK to a code table — declare a `CodeList` or add it to the ratchet with a reason" |
 | Label coverage | every `_codes` table has a `_labels` table; every active code has an `nl` row | "`mdm.gender_codes`: code `X` has no `nl` label" |
-| Enum = codes | every `CodeList` with an enum: members == active codes | "`PaymentStatus.REFUNDED` has no row in `payment.payment_status_codes`" |
+| Enum = codes | every `CodeList` with an enum: members == all codes in the table, active and retired | "`PaymentStatus.REFUNDED` has no row in `payment.payment_status_codes`" |
 | Enum without a list | every `Enum` subclass under `app/` (found by walking the modules, not by grep) is registered in a `CodeList` **or** subclasses `TechnicalEnum`/`ExternalVocabulary` | "`newsletter/models.py:FooStatus` is an Enum without a CodeList — declare one (table + labels) or mark it `TechnicalEnum`/`ExternalVocabulary` with the reason" |
 | Tone total | every enum with a tone mapping: every member has a tone | "`PaymentStatus.FAILED` has no badge tone" |
-| No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `label()`" |
+| No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `code_label()`" |
 | No template comparisons | `== "…"` / `!= "…"` on a vocabulary attribute in `templates/` | "`admin_betalingen.html:42` compares `record.status` to a literal — expose it on the view-model" |
-| Loose-string comparisons | mypy `strict_equality` per domain (not a pytest) | `comparison-overlap` |
+| Loose-string comparisons | an AST walk over `app/**/*.py`: `==`/`!=`/`in` between a vocabulary attribute and a string literal; ratchet on the 92 (B4.8 — mypy cannot see this with legacy `Column()` models) | "`payment/service.py:212` compares `record.status` to `\"paid\"` — use `PaymentStatus.PAID`" |
+| Enum member names | every member of a `CodeList` enum has an English name (the #780 word list), whatever its value | "`RelationType.HOOFDLID`: member names are English — `PRIMARY_MEMBER = \"HOOFDLID\"`" |
+| Shape | every `_codes`/`_labels` pair has exactly the B4.2 columns and keys — the helper wrote it, the gate proves nobody edited it | "`form.field_type_labels` lacks `description`" |
 
 For a new module the gate spells out the steps: a new list needs (1) a
 `_codes` table, (2) a `_labels` table with `nl` and `en` rows, (3) a FK from
 each storing column, (4) a `CodeList` declaration, (5) an `Enum` if the code
-branches, (6) `label()` on every screen and export — and fails on the one
+branches, (6) `code_label()` on every screen and export — and fails on the one
 that was forgotten, naming it. The entry points are covered from both
 sides: a new **column** without a FK trips the FK gate, a new **Enum**
 without a `CodeList` trips the enum gate, a new **`CodeList`** without
@@ -861,6 +924,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
+| 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
@@ -874,6 +938,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q10 | 26 Sep 2026 | Look at the CR again — sensible, any advice? (Koen) | Three corrections and four pieces of advice, all taken — see the 26 Sep review row in B11. |
 | Q9 | 26 Sep 2026 | Does the gate also check that a new Python Enum has a code table? (Koen) | Only half, as first written: the Enum = codes gate saw registered lists only. Added: the enum gate walks every `Enum` under `app/` and demands a `CodeList` or a `TechnicalEnum`/`ExternalVocabulary` marker with a reason (B4.9, B9.3). |
 | Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Since 26 Sep: yes — Part A approved, Q6/Q7 answered, B4.9/B5.3/B7.1 in place. Waiting for a release assignment. |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
@@ -890,7 +955,10 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
   CR-04 phase 2 (#236); this CR only makes the set of states closed and
   database-anchored so that phase can build on it.
 - **No per-tenant code lists.** Lists are platform-wide; tenants differ in
-  language only.
+  language only. *Designed for, not built:* the company tenant will one day
+  want another word than the association ("Klant" where Raak says "Lid");
+  that is a nullable `tenant_id` on the `_labels` table as an override row,
+  no schema rework.
 - **No `--strict` mypy globally.**
 - **No translation of screen copy.** `_()` and the gettext catalogue are
   #407-T's track; this CR only draws the boundary (B1).
