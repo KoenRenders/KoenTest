@@ -438,23 +438,52 @@ into master data, where a translator has no business changing it.
 
 ### B4.6 Payment method: one data fix (Koen, 25 September 2026)
 
-`activities.payment_method` stores `ONLINE`/`TRANSFER`/`CASH`;
-`payment.method` stores `online`/`transfer`/`cash`. One list, two spellings —
-the duplication `CLAUDE.md` names as the bug. R8 says stored values do not
-change; here the proposal is the **one exception**: an `UPDATE` that lowers
-the case on `activities.payment_method` (and its history table, which is a
-snapshot of the same value), with a before/after count per value in the
-migration output. The alternative — two code tables for one list — keeps the
-bug and gives it a FK. Koen chose the data fix (B11).
+`activities.registrations.payment_method` and `payment.payment_records.method`
+are one list in two spellings — the duplication `CLAUDE.md` names as the bug.
+R8 says stored values do not change; here Koen chose the **one exception**: a
+data fix, with a before/after count per value in the migration output. The
+alternative — two code tables for one list — keeps the bug and gives it a FK.
+
+**What the column actually holds** (master CLI, read-only on HDEV, 26
+September 2026 — not the `ONLINE`/`TRANSFER`/`CASH` the export dictionary
+assumes): `ONLINE` 22, `OVERSCHRIJVING` 15, `NULL` 11, `transfer` 1. The
+mapping is therefore:
+
+| stored today | becomes | why |
+|---|---|---|
+| `ONLINE` | `online` | case |
+| `OVERSCHRIJVING` | `transfer` | the Dutch radio value of the public form (`_inschrijf_form.html:68`), stored verbatim by `router.py:885`; `router.py:920` already maps it to `transfer` for the payment record |
+| `transfer` | `transfer` | already the target spelling (the column is mixed) |
+| `NULL` | `NULL` | a free registration has no method; the FK allows NULL |
+
+The export's `_METHOD_LABELS = {ONLINE, TRANSFER, CASH}` never contained
+`OVERSCHRIJVING`, so those fifteen rows print the raw word today through the
+fallback — the mapping this CR first copied was already wrong in the code.
+
+**The form and the migration ship in one commit.** The public form posts
+`OVERSCHRIJVING`; with the FK in place and the form unchanged, the next
+registration by bank transfer fails on the constraint. So the same phase-1
+commit changes the radio values to the codes (`online`, `transfer`), the
+`RegistrationCreate` schema to the enum, and drops the `"online" if … ==
+"ONLINE" else "transfer"` branch at `router.py:920`. A rule for every FK
+this CR adds: **find every writer of the column before the FK goes on** —
+the form, the JSON API, the import — and list them in the phase issue.
+
+There is **no history to migrate**: `activities.registration_history` has
+no `payment_method` column (verified 26 September; the column exists in
+exactly one place in the schema).
 
 **Guarded, not just logged** (review, 26 September 2026). The migration
-runs the `UPDATE`, then **asserts** that the count of rows still carrying an
-upper-case value is zero, and only then adds the FK; a non-zero count
-aborts the migration with the count in the message. Idempotent on a second
-run (the `UPDATE` matches nothing, the assertion holds, the FK exists). And
-one pytest proves the guard: insert an `ONLINE` row into a pre-migration
-schema, run the migration, read `online` back raw; then insert a value the
-`UPDATE` does not know (`CHEQUE`) and see the migration refuse. This is the
+runs the mapping above, then **asserts** that every non-NULL value is in
+`mdm.payment_method_codes`, and only then adds the FK; a non-zero remainder
+aborts the migration with the values and their counts in the message.
+Idempotent on a second run (the `UPDATE` matches nothing, the assertion
+holds, the FK exists). And one pytest proves the guard: insert an `ONLINE`
+and an `OVERSCHRIJVING` row into a pre-migration schema, run the migration,
+read `online` and `transfer` back raw; then insert a value the mapping does
+not know (`CHEQUE`) and see the migration refuse. The HDEV measurement above
+is exactly what the guard would have caught had the mapping stayed at
+`ONLINE` alone — fifteen real rows, not a hypothetical. This is the
 one place where the document breaks its own rule R8, so it is the one place
 with a guard instead of a log line.
 
@@ -664,7 +693,7 @@ B7.
 | payment type | `payment.payment_type_codes` | `charge` → Vordering / Charge · `refund` → Terugbetaling / Refund | `PaymentType` | `payment.payment_records.type` | `payment/exports.py:_TYPE`, `activities/export.py:_RECORD_TYPE_LABELS` |
 | payable type | `payment.payable_type_codes` | `registration` → Inschrijving / Registration · `membership` → Lidmaatschap / Membership | `PayableType` | `payment.payment_records.payable_type` | 25 literal comparisons |
 | payment provider | `payment.payment_provider_codes` | `mollie` → Mollie / Mollie | `PaymentProvider` | `payment.gateway_payments.provider` | `_get_provider` string branch |
-| payment method | `mdm.payment_method_codes` | `online` → Online / Online · `transfer` → Overschrijving / Bank transfer · `cash` → Cash / Cash | `PaymentMethod` (in `mdm`, via `mdm.api`) | `payment.payment_records.method`, `activities.registrations.payment_method` (after B4.6) | `payment/exports.py:_METHOD`, `activities/export.py:_METHOD_LABELS` and `_RECORD_METHOD_LABELS` |
+| payment method | `mdm.payment_method_codes` | `online` → Online / Online · `transfer` → Overschrijving / Bank transfer · `cash` → Cash / Cash | `PaymentMethod` (in `mdm`, via `mdm.api`) | `payment.payment_records.method`, `activities.registrations.payment_method` (after B4.6; writers: `_inschrijf_form.html:67-68`, `ui.py:207`, `router.py:885`) | `payment/exports.py:_METHOD`, `activities/export.py:_METHOD_LABELS` (which never knew `OVERSCHRIJVING`) and `_RECORD_METHOD_LABELS`, the branch at `router.py:920` |
 
 Note 1 — `public.payment_status_codes` is **dropped, not moved**: its rows
 are `PENDING`/`PAID`/`FAILED` in upper case, which is not what the column
@@ -709,7 +738,7 @@ deleted.
 | delivery kind | `newsletter.delivery_kind_codes` | `member` → Lid / Member · `subscriber` → Abonnee / Subscriber | `DeliveryKind` | `newsletter.deliveries.kind` | `DELIVERY_MEMBER/SUBSCRIBER` |
 | delivery status | `newsletter.delivery_status_codes` | `queued` → In de wachtrij / Queued · `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `DeliveryStatus` | `newsletter.deliveries.status` | `DELIVERY_QUEUED/…`, `DELIVERY_LABELS` |
 | message role | `newsletter.message_role_codes` | `author` → Auteur / Author · `raakje` → Raakje / Raakje | `MessageRole` | `newsletter.drafting_messages.role` | `MESSAGE_*` |
-| meeting status | `meetings.meeting_status_codes` | `agenda` → Agenda / Agenda · `report` → Verslag (bezig) / Report (in progress) · `sent` → Verslag verstuurd / Report sent | `MeetingStatus` | `meetings.meetings.status` | `STATUS_*`, `STATUS_LABELS`, `STATUS_TONES` → tone mapping |
+| meeting status **(built in phase 0 as the pilot; listed here for completeness)** | `meetings.meeting_status_codes` | `agenda` → Agenda / Agenda · `report` → Verslag (bezig) / Report (in progress) · `sent` → Verslag verstuurd / Report sent | `MeetingStatus` | `meetings.meetings.status` | `STATUS_*`, `STATUS_LABELS`, `STATUS_TONES` → tone mapping |
 | section kind | `meetings.section_kind_codes` | `EVALUATION` → Evaluatie voorbije activiteiten / Evaluation of past activities · `UPCOMING` → Volgende activiteiten / Upcoming activities · `MEMBERS` → Leden / Members · `IDEAS` → Programma-ideeën / Programme ideas · `MISC` → Varia / Miscellaneous · `CUSTOM` → Eigen rubriek / Custom section | `SectionKind` | `meetings.meeting_sections.kind` | `SECTION_*`, `SECTION_LABELS`, 6 template comparisons |
 | attendance | `meetings.attendance_codes` | `present` → Aanwezig / Present · `excused` → Verontschuldigd / Excused | `Attendance` | `meetings.meeting_attendances.status` | `ATTENDANCE_*` |
 | file purpose | `meetings.file_purpose_codes` | `attachment` → Bijlage / Attachment · `sent_pdf` → Verstuurd verslag (pdf) / Sent report (PDF) | `FilePurpose` | `meetings.meeting_files.kind` | `FILE_*` |
@@ -732,7 +761,7 @@ deleted.
 | field type | `form.field_type_codes` | `text` → Tekst / Text · `textarea` → Tekstvak / Text area · `number` → Getal / Number · `email` → E-mail / E-mail · `select` → Keuzelijst / Dropdown · `radio` → Keuzerondjes / Radio buttons · `checkbox` → Selectievakje / Checkbox · `rating` → Beoordeling / Rating · `info` → Infotekst / Info text · `phone` → Telefoon / Phone | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES` |
 | mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
 | e-mail type | `mail.email_type_codes` | `membership_confirmation` → Lidmaatschap / Membership · `activity_confirmation` → Activiteit / Activity · `idea_ack` → Idee (bevestiging) / Idea (acknowledgement) · `idea_board` → Idee (bestuur) / Idea (board) · `magic_link` → Inloglink / Login link · `member_contact_notice` → Contactbericht / Contact notice · `form_confirmation` → Formulier (bevestiging) / Form (confirmation) · `meeting` → Vergadering / Meeting · `newsletter_confirmation` → Nieuwsbrief (bevestiging) / Newsletter (confirmation) · `other` → Overig / Other | `EmailType` | `mail.email_log.email_type` | `EMAIL_TYPES`, `mail/ui.py:_TYPE_LABELS` |
-| asset kind | `media.asset_kind_codes` | `sponsor` → Sponsor / Sponsor · `activity_photo` → Activiteitsfoto / Activity photo · `activity_poster` → Affiche / Poster · `component_info` → Onderdeel-info / Component info · `newsletter_file` → Nieuwsbriefbestand / Newsletter file · `design_image` → Ontwerpbeeld / Design image · `design_render` → Ontwerprender / Design render | `AssetKind` | `media.media_assets.kind` | `STANDAARD_KIND`, `DESIGN_*_KIND`, 9 literal comparisons |
+| asset kind | `media.asset_kind_codes` | `sponsor` → Sponsor / Sponsor · `activity_photo` → Activiteitsfoto / Activity photo · `activity_poster` → Affiche / Poster · `component_info` → Onderdeel-info / Component info · `newsletter_file` → Nieuwsbriefbestand / Newsletter file · `design_image` → Ontwerpbeeld / Design image · `design_render` → Ontwerprender / Design render · `page_image` → Pagina-afbeelding / Page image **(added by #1173 in v2.6.0; lands on master before phase 4 — verify the exact code at build)** | `AssetKind` | `media.media_assets.kind` | `STANDAARD_KIND`, `DESIGN_*_KIND`, 9 literal comparisons |
 | AI surface | `ai.ai_surface_codes` | `public` → Publiek / Public · `admin` → Beheer / Admin · `designstudio` → Ontwerpstudio / Design studio | `AiSurface` | `ai.ai_call_log.surface` | `SURFACE_*`, `SURFACE_LABELS` |
 | AI capability | `ai.ai_capability_codes` | `reporting` → Rapporten / Reports · `newsletter_drafting` → Nieuwsbrief / Newsletter · `ocr` → Documenten lezen / Document reading · `dictation` → Dicteren / Dictation · `translate` → Vertalen / Translation · `image` → Beeld / Image | `AiCapability` | `ai.ai_call_log.capability` | `CAPABILITY` constants, `CAPABILITY_LABELS` |
 | AI status | `ai.ai_status_codes` | `ok` → Gelukt / Succeeded · `blocked` → Tegengehouden / Blocked · `error` → Mislukt / Failed · `moderated` → Geweigerd door de provider / Refused by the provider | `AiStatus` | `ai.ai_call_log.status` | `STATUS_LABELS` |
@@ -746,9 +775,14 @@ Note 5 — a **derived** state (computed, never stored) is still a list with
 labels: it gets a code+label table with no storing column, so its label
 comes from `code_label()` like every other. The enum is the only consumer.
 
-**Count:** 47 lists (1 + 5 + 8 + 19 + 14). The "~35" of B9.2 was the
-inventory by column; the catalogue is by list and includes the derived and
-the already-shaped ones.
+**Count:** 49 lists (phase 0: 1 + the pilot, which the phase-3 table also
+shows; phase 1: 5; phase 2: 8; phase 3: 19 including the pilot; phase 4:
+16). Corrected on 26 September after the master CLI recounted: the phase-4
+table has sixteen rows, not fourteen, and the pilot was counted twice. The
+"~35" of B9.2 was the inventory by column; the catalogue is by list and
+includes the derived and the already-shaped ones. **The gate's own count is
+the number that binds** (B9.2), and its first run is checked against this
+49 — a difference is a finding, not a discussion.
 
 ## B6. Privacy and security — the mechanics
 
@@ -790,7 +824,7 @@ handoff block CI cannot carry:
 | Phase | Issue title | Migration | Env vars | Data | Manual validation |
 |---|---|---|---|---|---|
 | 0 | CR-12 fase 0 — kernel `codes.py`, `mdm.language_codes`, pilot `meeting_status`, gates als ratchet | two: `language_codes` + labels; the pilot list | none | none; the five reporting enums are marked `TechnicalEnum` and the two `str, Enum` classes (`LegalForm`, `RegistrationState`) go on the enum ratchet until their phase | the meeting screen shows the same three status words as before |
-| 1 | CR-12 fase 1 — betaaldomein: status, type, payable, provider; betaalwijze naar `mdm` | one: five lists, FKs, B4.6 update, drop `public.payment_status_codes` | none | **B4.6**: `activities.registrations.payment_method` and its history lower-cased; count per value before/after in the migration log | AC2, AC3 on the payment screens and both exports; a Mollie test payment on HDEV still lands as `paid` |
+| 1 | CR-12 fase 1 — betaaldomein: status, type, payable, provider; betaalwijze naar `mdm` | one: five lists, FKs, B4.6 update, drop `public.payment_status_codes` | none | **B4.6**: `activities.registrations.payment_method` mapped `ONLINE`→`online`, `OVERSCHRIJVING`→`transfer` (no history column); count per value before/after in the migration log; the public form's radio values change in the same commit | AC2, AC3 on the payment screens and both exports; a Mollie test payment on HDEV still lands as `paid` |
 | 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `U`/`O` retired, count of persons per retired code in the log; `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
 | 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
 | 4 | CR-12 fase 4 — workflow, formulieren, mail, media, chatbot, activiteiten, rapporten | one per domain | none | none | the workflow inbox, a form submission, the AI log screen |
@@ -864,7 +898,7 @@ output, re-printed per release:
 
 | | 25 Sep 2026 | after this CR |
 |---|---|---|
-| lists with a fixed vocabulary | 47 (B5.3) | 47, all in the same shape |
+| lists with a fixed vocabulary | 49 (B5.3) | 49, all in the same shape |
 | … kept as code table + FK, split codes/labels (#924 shape) | 2 | all |
 | … kept as code table + FK, one language per code | 4 | 0 |
 | … kept as orphan table in `public`, no FK | 3 | 0 |
@@ -938,7 +972,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
 | 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
-| 25 Sep 2026 | Payment method: one-time lower-casing of `activities.registrations.payment_method` and its history rows, with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
+| 25 Sep 2026 | Payment method: one-time data fix on `activities.registrations.payment_method` (mapping in B4.6, corrected 26 Sep after the HDEV measurement: `OVERSCHRIJVING` → `transfer` as well; no history column exists), with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
 | 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
@@ -958,6 +992,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q12 | 26 Sep 2026 | Master CLI verification after planning (v2.7.0, #1184): `payment_method` holds `OVERSCHRIJVING` (15 rows on HDEV) which B4.6 did not map; "and its history" names a column that does not exist; the catalogue counts 49, not 47; #1173 adds `page_image`. | All four taken: B4.6 mapping and the form-in-the-same-commit rule, history sentence removed, count 49 with the pilot counted once, `page_image` row added. |
 | Q11 | 26 Sep 2026 | External review: is B4.6 guarded enough, does the cache survive a screen, is the FK gate more than a name filter, is the baseline reproducible? (Koen, relaying) | All five taken — see the 26 Sep second-review row in B11. |
 | Q10 | 26 Sep 2026 | Look at the CR again — sensible, any advice? (Koen) | Three corrections and four pieces of advice, all taken — see the 26 Sep review row in B11. |
 | Q9 | 26 Sep 2026 | Does the gate also check that a new Python Enum has a code table? (Koen) | Only half, as first written: the Enum = codes gate saw registered lists only. Added: the enum gate walks every `Enum` under `app/` and demands a `CodeList` or a `TechnicalEnum`/`ExternalVocabulary` marker with a reason (B4.9, B9.3). |
