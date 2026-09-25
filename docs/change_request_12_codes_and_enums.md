@@ -632,7 +632,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Placement: one domain → that domain; master data or two+ domains → `mdm`. MDM itself is thought through separately, with an external MDM adviser. | Koen |
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for copy. | proposal (Claude) — *open* |
-| 25 Sep 2026 | One allowed cross-schema FK: towards an `mdm` code table (B2.4). | proposal (Claude) — *open* |
+| 25 Sep 2026 | One allowed cross-schema FK: towards an `mdm` code table (B2.4). `mdm` depends on no other domain, so no cycle; without the FK a list in `mdm` loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time lower-casing of `activities.payment_method` (B4.6). | proposal (Claude) — *open* |
 | 25 Sep 2026 | Roles move to `mdm` under the placement rule; meaning stays in `auth`. | proposal (Claude) — *open* |
 | 25 Sep 2026 | Badge tones stay in Python, total per enum (B4.5). | proposal (Claude) — *open* |
