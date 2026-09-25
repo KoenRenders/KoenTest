@@ -38,20 +38,55 @@ from tests_e2e.schermen import BASE  # noqa: E402
 MIN_RAAKVLAK = 44
 
 
-def _ontbreekt(reden: str) -> None:
-    if os.environ.get("E2E_SEEDED") == "1":
-        pytest.fail(f"e2e-seed geladen maar: {reden}")
-    pytest.skip(reden)
+@pytest.fixture(scope="module")
+def tellerspel():
+    """Een eigen activiteit met PRECIES één betalend product.
+
+    Niet de gedeelde seed, en dat is een les uit CI. De eerste versie klikte de
+    eerste "Inschrijven"-knop op /activiteiten. Lokaal — waar alleen dit bestand
+    draait — was dat de geseede activiteit met een product. In CI draait de hele
+    suite tegen één databank, en `test_golden_flows.py` zet er zijn eigen
+    activiteiten bij; dan is de eerste knop er een van een onderdeel ZONDER
+    producten en wacht de test zich dood op een veld dat nooit komt.
+
+    Zelfde patroon als `seeded_activities` in de golden flows: bouw wat je nodig
+    hebt en selecteer op de `hx-get` van precies dat onderdeel. Eén product is
+    hier bovendien een VOORWAARDE en geen toeval — #1172 gaat er net over.
+    """
+    from datetime import date, timedelta
+    from decimal import Decimal
+
+    import app.models  # noqa: F401  configureert alle mappers
+    from app.database import SessionLocal
+    from app.domains.activities.api import (Activity, ActivityDate,
+                                            ActivityProduct,
+                                            ActivitySubRegistration)
+
+    db = SessionLocal()
+    activiteit = Activity(name="E2E Tellerspel")
+    db.add(activiteit)
+    db.flush()
+    db.add(ActivityDate(activity_id=activiteit.id,
+                        start_date=date.today() + timedelta(days=30)))
+    onderdeel = ActivitySubRegistration(
+        activity_id=activiteit.id, name="Tellerdeelname",
+        price=Decimal("0"), is_free=True)
+    db.add(onderdeel)
+    db.flush()
+    db.add(ActivityProduct(component_id=onderdeel.id, name="Tellerticket",
+                           price=Decimal("10.00"), is_free=False))
+    db.commit()
+    ids = (activiteit.id, onderdeel.id)
+    db.close()
+    return ids
 
 
-def _open_het_formulier(page):
-    """De inschrijfmodal van de geseede activiteit met één betalend product."""
+def _open_het_formulier(page, ids):
+    """De inschrijfmodal van díe activiteit — op de `hx-get`, niet op volgorde."""
+    activiteit_id, onderdeel_id = ids
     page.goto("/activiteiten")
-    page.wait_for_selector("h2")
-    knop = page.get_by_role("button", name="Inschrijven").first
-    if knop.count() == 0:
-        _ontbreekt("geen activiteit met een open inschrijving op /activiteiten")
-    knop.click()
+    page.click(
+        f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
     page.wait_for_selector("input[name^='product_']", timeout=10_000)
 
 
@@ -70,12 +105,12 @@ def _stand(page) -> dict:
     }""")
 
 
-def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee():
+def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee(tellerspel):
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
-        _open_het_formulier(page)
+        _open_het_formulier(page, tellerspel)
 
         # #1172: één product, dus het formulier opent op 1 met de prijs erbij.
         begin = _stand(page)
@@ -122,14 +157,14 @@ def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee():
         browser.close()
 
 
-def test_de_teller_stopt_op_nul():
+def test_de_teller_stopt_op_nul(tellerspel):
     """`−` gaat niet onder `min`. Zonder deze grens zou het veld een negatief
     aantal kunnen dragen dat de server daarna moet afwijzen."""
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": 390, "height": 844})
-        _open_het_formulier(page)
+        _open_het_formulier(page, tellerspel)
 
         minder = page.get_by_role("button", name="Eén minder").first
         for _ in range(3):
