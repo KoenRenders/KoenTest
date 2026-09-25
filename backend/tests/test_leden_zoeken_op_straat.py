@@ -14,6 +14,7 @@ val erin.
 """
 from __future__ import annotations
 
+import re
 from datetime import date
 
 import pytest
@@ -213,3 +214,90 @@ def test_a_family_without_an_address_is_still_found_by_name(db_session, postcode
     assert member.id in _zoek(db_session, "Adresloos"), (
         "een gezin zonder adres verdwijnt uit de zoekresultaten — de join hoort "
         "een OUTER join te zijn")
+
+
+# ── 4. De zoeksuggestie belooft precies wat het veld doet (#1167) ───────────
+#
+# Deze twee tests staan bewust in DIT bestand en niet bij de schermtests: de
+# grijze suggestie is een belofte over de `OR` hierboven. Zet je ze uit elkaar,
+# dan verandert ooit die `OR` en blijft de copy stil achter — en dat is precies
+# wat #1167 kwam repareren nadat #1165 de straatnaam toevoegde.
+
+PLACEHOLDER = re.compile(r"placeholder=_\('([^']+)'\)")
+
+# Per begrip uit de suggestie: een waarde die ALLEEN via die tak te vinden is.
+# Bewust geen overlap tussen de drie — zou het e-mailadres de achternaam
+# bevatten, dan slaagde "e-mail" via de naamtak en bewees hij niets.
+BEGRIPPEN = {
+    "naam": "Vandevelde",
+    "straatnaam": "Populierendreef",
+    "e-mail": "penningmeester@example.com",
+}
+
+
+def _suggestie() -> str:
+    """De grijze tekst in het zoekveld van /admin/leden, uit het sjabloon."""
+    from pathlib import Path
+
+    pad = (Path(__file__).resolve().parents[1] / "app" / "domains" / "mdm"
+           / "templates" / "leden.html")
+    treffers = PLACEHOLDER.findall(pad.read_text())
+    assert len(treffers) == 1, (
+        f"één zoeksuggestie verwacht in leden.html, {len(treffers)} gevonden: "
+        f"{treffers} — de test leest het verkeerde veld of er staan er nu twee")
+    return treffers[0]
+
+
+def _begrippen_uit(suggestie: str) -> set[str]:
+    """De opgesomde velden uit *Zoek op A, B of C…* als losse begrippen."""
+    kern = suggestie.removeprefix("Zoek op ").removesuffix("…").strip()
+    delen = [d.strip() for stuk in kern.split(",") for d in stuk.split(" of ")]
+    return {d for d in delen if d}
+
+
+def test_the_search_hint_names_exactly_the_fields_that_are_searched(
+        db_session, postcode):
+    """Het punt van #1167: de suggestie mag niets beloven wat niet meezoekt.
+
+    De koppeling loopt langs BEGRIPPEN, en die set moet gelijk zijn aan wat er
+    in de suggestie staat. Daardoor breekt deze test in twee richtingen:
+
+    - iemand zet er een veld bij dat niet doorzocht wordt → het begrip zit niet
+      in BEGRIPPEN en de gelijkheid faalt;
+    - iemand voegt een tak aan de `OR` toe en noemt ze in de copy → idem, tot
+      hij hier een waarde bijzet die bewijst dát ze te vinden is.
+
+    Een test die alleen de string vergelijkt zou geen van beide zien. Rood
+    bewezen: *"straatnaam"* uit de suggestie gehaald → faalt op het verschil;
+    en *"telefoon"* erbij gezet → faalt óók, met dat woord in de melding.
+    """
+    genoemd = _begrippen_uit(_suggestie())
+    assert genoemd == set(BEGRIPPEN), (
+        f"de suggestie noemt {sorted(genoemd)} en de bewezen velden zijn "
+        f"{sorted(BEGRIPPEN)}; een suggestie die meer belooft dan het veld doet "
+        "is erger dan een verouderde")
+
+    member, _p = _gezin(db_session, postcode, voornaam="Miet",
+                        achternaam="Vandevelde",
+                        email="penningmeester@example.com",
+                        straat="Populierendreef")
+    db_session.commit()
+
+    for begrip, waarde in BEGRIPPEN.items():
+        assert member.id in _zoek(db_session, waarde), (
+            f"de suggestie noemt {begrip!r}, maar zoeken op {waarde!r} vindt "
+            "het gezin niet")
+
+
+def test_the_members_screen_carries_the_hint(client, db_session):
+    """En de tekst staat ook echt op het scherm, niet alleen in het sjabloon."""
+    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
+                                      make_session_value)
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    waarde = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, waarde)
+    csrf_token_for(waarde)
+
+    html = client.get("/admin/leden").text
+    assert _suggestie() in html, "de zoeksuggestie staat niet op /admin/leden"
