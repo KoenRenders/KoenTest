@@ -23,9 +23,9 @@ from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
                                   make_session_value)
 from app.domains.mdm.api import ContactDetail, Organization, OrganizationPerson, Person
-from app.domains.meetings.api import (FILE_SENT_PDF, attendance_of, document_of,
-                                      extra_recipients_of, files_of, get_meeting,
-                                      sections_of)
+from app.domains.meetings.api import (FILE_SENT_PDF, MeetingStatus, attendance_of,
+                                      document_of, extra_recipients_of, files_of,
+                                      get_meeting, sections_of)
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -205,7 +205,8 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     assert namen[0].startswith("verslag-")
     assert "gemeente.pdf" in namen and "draaiboek.pdf" in namen
     ververst = get_meeting(db_session, meeting.id)
-    assert ververst.report_sent_at is not None and ververst.status == "sent"
+    assert (ververst.report_sent_at is not None
+            and ververst.status == MeetingStatus.SENT)
     assert len(files_of(db_session, meeting, purpose=FILE_SENT_PDF)) == 2
 
     # 11. Een verstuurd verslag ligt vast — tot je het heropent.
@@ -213,7 +214,7 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
                             headers=headers, data={"notes": "<div>nog iets</div>"})
     assert "verstuurd" in geweigerd.text.lower()
     client.post(f"/admin/vergaderingen/{meeting.id}/heropen", headers=headers)
-    assert get_meeting(db_session, meeting.id).status == "report"
+    assert get_meeting(db_session, meeting.id).status == MeetingStatus.REPORT
     client.post(f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}", headers=headers,
                 data={"notes": "<div>correctie achteraf</div>"})
     hersteld = next(i for s in document_of(db_session, meeting) for i in s.items
