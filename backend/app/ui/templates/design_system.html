@@ -185,6 +185,14 @@
       <p class="text-xs text-red-600 mt-1">{{ _("Dit is geen geldig e-mailadres.") }}</p>
     </div>
     <div>
+      {# #1171: de aantal-teller. Hij staat vandaag op één scherm — het publieke
+         inschrijfformulier — en hoort hier omdat de kitpagina uit de ECHTE macro's
+         rendert (#783): wat je hieronder ziet is wat dat scherm toont. #}
+      {{ ui.label(_("Aantal"), "ds-aantal") }}
+      {{ ui.stepper("aantal", id="ds-aantal", value=1, max=5) }}
+      <p class="text-xs text-gray-500 mt-1">{{ _("Een eigen − en + in plaats van de browserpijltjes: iOS Safari toont die bij een getalveld niet. De knoppen vuren zelf een change af, zodat een server-side herberekening meeloopt.") }}</p>
+    </div>
+    <div>
       {# Meegroeien is sinds #1027 de standaard van `textarea_control` (max_px
          zet het plafond); dit eerste vak toont dat zonder één extra argument.
          Het tweede vak toont de expliciete opt-out `autogrow=False`, voor een

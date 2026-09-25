@@ -517,6 +517,53 @@
        {% if aria_label %}aria-label="{{ aria_label }}" {% endif %}class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
 {%- endmacro %}
 
+{# Aantal-teller (#1171): een eigen − en + naast het getal, in plaats van te
+   vertrouwen op wat de browser toont. Een `<input type="number">` toont op iOS
+   Safari NOOIT op-en-neer-pijltjes — op geen enkele iPhone, oud of nieuw. Op een
+   telefoon moest je het veld dus aantikken, de 0 selecteren en een cijfer typen,
+   en 80% van het publieke bezoek is mobiel.
+
+   **De knoppen vuren zelf een `change` af, en dat is de kern van deze macro.**
+   Een waarde die JavaScript zet stuurt géén change-gebeurtenis. Zonder die regel
+   klimt het cijfer wél en blijft een server-side herberekend totaal op €0,00
+   staan — dan bevestigt iemand een inschrijving met een bedrag dat niet op het
+   scherm klopt, en dat is erger dan de frictie die we wegnemen.
+
+   Het getal blijft een echt invoerveld met dezelfde `name`: de server ziet niets
+   anders dan vroeger, en typen of plakken blijft werken. `min` en `max` gelden
+   voor de knoppen én voor het veld, dus `−` stopt op `min` en `+` op `max`.
+
+   44 px per knop (#804) — `h-11 w-11` is precies 2,75rem. Elke knop draagt een
+   `aria-label`: een − of een + is voor een schermlezer geen tekst. Zet je hem op
+   een nieuw scherm, geef dan labels die bij dat scherm passen.
+#}
+{% macro stepper(name, id=None, value=0, min=0, max=99, attrs="",
+                 label_minder=None, label_meer=None) -%}
+{%- set _id = id or name -%}
+<div class="inline-flex items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
+     x-data="{ stap(richting) {
+         const veld = $refs.veld;
+         const nu = Number(veld.value) || 0;
+         const grens = Number(richting < 0 ? veld.min : veld.max);
+         const nieuw = richting < 0 ? Math.max(grens, nu + richting)
+                                    : Math.min(grens, nu + richting);
+         if (nieuw === nu) return;
+         veld.value = nieuw;
+         veld.dispatchEvent(new Event('change', { bubbles: true }));
+     } }">
+  <button type="button" @click="stap(-1)"
+          aria-label="{{ label_minder or _('Eén minder') }}"
+          class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+  <input type="number" name="{{ name }}" id="{{ _id }}" x-ref="veld" value="{{ value }}"
+         min="{{ min }}" max="{{ max }}" inputmode="numeric"
+         class="h-11 w-14 shrink-0 text-center border-x border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+         {{ attrs|safe }}>
+  <button type="button" @click="stap(1)"
+          aria-label="{{ label_meer or _('Eén meer') }}"
+          class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+</div>
+{%- endmacro %}
+
 {# Meegroeiend tekstveld (#788): de attributen die een textarea met zijn inhoud
    laten meegroeien. Als macro en niet per scherm overgetypt — dit stond al op drie
    plaatsen in de chatbot-schermen, en de vergadernotities waren de vierde. `max_px`

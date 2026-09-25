@@ -35,12 +35,22 @@
             {% endif %}
           </span>
         </div>
-        {{ ui.input_control("product_" ~ p.id, id="product-" ~ p.id, type="number",
-                            value=values.get("product_" ~ p.id, 0), cls="w-20 text-center",
-                            attrs='min="0" max="' ~ (p.max_participants or 99) ~ '"'
-                                  ' hx-post="/activiteiten/' ~ activity.id ~ '/inschrijven/' ~ component.id ~ '/totaal"'
-                                  ' hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML"'
-                                  ' hx-trigger="change, keyup delay:300ms"') }}
+        {# #1171: een teller met eigen − en +. iOS Safari toont bij een
+           `type="number"` geen pijltjes, dus op telefoon — 80% van het publieke
+           bezoek — moest je het veld aantikken en een cijfer typen.
+
+           De `hx-*`-attributen blijven op het INVOERVELD staan en verhuizen niet
+           naar de knoppen: de teller vuurt een echte `change` af op het veld, dus
+           de server-side herberekening loopt langs precies dezelfde weg als bij
+           typen. Eén pad, geen tweede. #}
+        {{ ui.stepper("product_" ~ p.id, id="product-" ~ p.id,
+                      value=values.get("product_" ~ p.id, standaard_aantal),
+                      max=(p.max_participants or 99),
+                      label_minder=_("Eén minder") ~ " — " ~ p.name,
+                      label_meer=_("Eén meer") ~ " — " ~ p.name,
+                      attrs='hx-post="/activiteiten/' ~ activity.id ~ '/inschrijven/' ~ component.id ~ '/totaal"'
+                            ' hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML"'
+                            ' hx-trigger="change, keyup delay:300ms"') }}
       </div>
       {% endfor %}
     </div>
