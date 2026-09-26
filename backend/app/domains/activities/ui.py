@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.activities.totals import has_payable_products, quote_lines
+from app.domains.mdm.api import PaymentMethod
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
@@ -204,7 +205,8 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     data = RegistrationCreate(
         contact_name=naam, contact_email=email, phone=gsm,
         team_name=(values.get("team_name") or "").strip() or None,
-        payment_method=(values.get("payment_method") or "ONLINE") if heeft_betaald_deel else None,
+        payment_method=(values.get("payment_method")
+                        or PaymentMethod.ONLINE.value) if heeft_betaald_deel else None,
         component_id=component.id,
         items=[RegistrationItemCreate(product_id=pid, quantity=qty)
                for pid, qty in quantities.items() if qty > 0],

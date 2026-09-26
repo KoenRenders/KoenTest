@@ -33,10 +33,12 @@ from app.schemas.activity import (
     RegistrationItemUpdate,
 )
 from app.domains.mail.api import send_activity_registration_confirmation
+from app.domains.mdm.api import PaymentMethod
 from app.domains.activities.totals import compute_registration_total
 from app.config import settings
 from app.domains.payment.api import (
-    create_payment_record, registration_balance, reconcile_registration_charges,
+    PayableType, create_payment_record, registration_balance,
+    reconcile_registration_charges,
 )
 from app.domains.audit.api import (
     snapshot_registration,
@@ -917,7 +919,11 @@ def register_for_activity(
     checkout_url = None
     payment_record = None
     if data.payment_method and total_amount > 0:
-        method = "online" if data.payment_method == "ONLINE" else "transfer"
+        # CR-12 fase 1: hier stond `"online" if data.payment_method == "ONLINE"
+        # else "transfer"` — een vertaling tussen twee spellingen van één lijst.
+        # Nu het formulier de codes zelf post, is er niets meer te vertalen, en
+        # dat is precies wat de duplicatie wegneemt in plaats van repareert.
+        method = PaymentMethod(data.payment_method)
         from app.kernel.tenant_config import tenant_base_url
 
         redirect_url = f"{tenant_base_url(db)}/betaling/succes?registration={registration.id}"
@@ -925,7 +931,7 @@ def register_for_activity(
         try:
             payment_record = create_payment_record(
                 db=db,
-                payable_type="registration",
+                payable_type=PayableType.REGISTRATION,
                 payable_id=registration.id,
                 amount=total_amount,
                 method=method,
@@ -933,21 +939,21 @@ def register_for_activity(
                 description=description,
                 audit_source="registration",
             )
-            if method == "online" and payment_record.gateway_payment_id:
+            if method == PaymentMethod.ONLINE and payment_record.gateway_payment_id:
                 from app.domains.payment.api import GatewayPayment
                 gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
                 if gp:
                     checkout_url = gp.checkout_url
         except Exception as e:
             logger.error("Betaling aanmaken mislukt voor inschrijving (%s): %s", method, e)
-            if method == "online":
+            if method == PaymentMethod.ONLINE:
                 db.rollback()
                 raise HTTPException(
                     status_code=502,
                     detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
                 )
 
-        if method == "online" and not checkout_url:
+        if method == PaymentMethod.ONLINE and not checkout_url:
             db.rollback()
             raise HTTPException(
                 status_code=502,

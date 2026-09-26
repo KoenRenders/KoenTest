@@ -63,9 +63,15 @@
       {# Onder elkaar en compact, zoals productie (Koen, 19 sep): geen
          min-h-11 — de opgerekte tikregels dreven de keuzes uit elkaar. De
          volle labelregel blijft aanklikbaar. #}
-      <div x-data="{ pm: '{{ values.get('payment_method', 'ONLINE') }}' }">
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="ONLINE" x-model="pm" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="OVERSCHRIJVING" x-model="pm" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      {# CR-12 fase 1: de radiowaarden zijn de codes van `mdm.payment_method_codes`.
+         Ze stonden hier als ONLINE/OVERSCHRIJVING en werden letterlijk opgeslagen,
+         terwijl het betaalrecord ernaast online/transfer bewaarde — één lijst, twee
+         spellingen. Met de FK op de kolom faalt een inschrijving met overschrijving
+         zodra dit formulier niet mee verandert, dus dit hoort in dezelfde commit
+         als de migratie. #}
+      <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
       <p class="text-xs text-ink-soft" x-show="pm === 'ONLINE'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
       <p class="text-xs text-ink-soft" x-show="pm === 'OVERSCHRIJVING'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
       </div>

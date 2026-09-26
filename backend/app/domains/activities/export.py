@@ -12,24 +12,27 @@ from decimal import Decimal
 from typing import Tuple
 
 from app.domains.activities.totals import compute_registration_total
+from app.kernel.codes import code_label
 from app.kernel.ods import build_ods_multi
 from app.i18n import _
 
-_METHOD_LABELS = {"ONLINE": "Online", "TRANSFER": "Overschrijving", "CASH": "Cash"}
-# Betaalrecords gebruiken kleine letters (PaymentRecord.method/status/type).
-_RECORD_METHOD_LABELS = {"online": "Online", "transfer": "Overschrijving", "cash": "Cash"}
-_RECORD_STATUS_LABELS = {
-    "pending": "In afwachting", "paid": "Betaald", "failed": "Mislukt", "cancelled": "Geannuleerd",
-}
-_RECORD_TYPE_LABELS = {"charge": "Vordering", "refund": "Terugbetaling"}
+# CR-12 fase 1: hier stonden vier labelwoordenboeken, waarvan er twee hetzelfde
+# zeiden in twee spellingen — `_METHOD_LABELS` met hoofdletters voor de
+# inschrijving, `_RECORD_METHOD_LABELS` met kleine voor het betaalrecord. Dat
+# was precies de duplicatie die deze fase wegneemt: één lijst, één spelling,
+# één labeltabel. `_METHOD_LABELS` kende `OVERSCHRIJVING` bovendien niet, dus
+# vijftien inschrijvingen drukten hun ruwe woord af via de fallback.
 
 
 def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
     # Lazy import: doorbreekt de kringloop payment.api -> ... -> activities.api -> export.
-    from app.domains.payment.api import get_records_for
+    from app.domains.payment.api import (
+        PayableType, PaymentType, get_records_for,
+    )
+    from app.domains.mdm.api import PaymentMethod
     """(verschuldigd, betaald_online, betaald_offline, terugbetaald, saldo)."""
     due, _extra = compute_registration_total(reg)
-    records = get_records_for(db, "registration", reg.id)
+    records = get_records_for(db, PayableType.REGISTRATION, reg.id)
     paid_online = Decimal("0")
     paid_offline = Decimal("0")
     refunded = Decimal("0")
@@ -37,9 +40,9 @@ def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decima
         if r.amount_paid is None:
             continue
         amt = Decimal(str(r.amount_paid))
-        if r.type == "refund":
+        if r.type == PaymentType.REFUND:
             refunded += -amt  # refund-amount_paid is negatief → terugbetaald positief
-        elif r.method == "online":
+        elif r.method == PaymentMethod.ONLINE:
             paid_online += amt
         else:  # transfer / cash
             paid_offline += amt
@@ -74,9 +77,9 @@ def _payments_sheet(db, registrations) -> dict:
             tot_paid += paid
             rows.append([
                 reg.contact_name or "—",
-                _(_RECORD_TYPE_LABELS.get(r.type, r.type or "")),
-                _(_RECORD_METHOD_LABELS.get(r.method, r.method or "")),
-                _(_RECORD_STATUS_LABELS.get(r.status, r.status or "")),
+                code_label("payment_type", r.type),
+                code_label("payment_method", r.method),
+                code_label("payment_status", r.status),
                 r.structured_communication or "",
                 float(amount),
                 float(paid),
@@ -120,7 +123,7 @@ def build_component_export_ods(db, activity, component) -> bytes:
         for i, v in enumerate([due, online, offline, refunded, saldo]):
             money_totals[i] += v
             row.append(float(v))
-        row.append(_(_METHOD_LABELS.get(reg.payment_method or "", reg.payment_method or "—")))
+        row.append(code_label("payment_method", reg.payment_method) or "—")
         row.append(_status_label(due, saldo))
         row.append(reg.remarks or "")
         rows.append(row)
