@@ -916,8 +916,9 @@ note 5). Corrected on 26 September after the master CLI recounted: the phase-4
 table has sixteen rows, not fourteen, and the pilot was counted twice. The
 "~35" of B9.2 was the inventory by column; the catalogue is by list and
 includes the derived and the already-shaped ones. **The gate's own count is
-the number that binds** (B9.2), and its first run is checked against this
-49 — a difference is a finding, not a discussion.
+the number that binds** (B9.2), and its first run is checked against the
+target in B9.2 — a difference is a finding, not a discussion. The target is
+written in B9.2 only; the gate measures and does not carry it.
 
 ## B6. Privacy and security — the mechanics
 
@@ -1094,7 +1095,7 @@ baseline the ratchets froze.
 
 | Gate row | grep, 25 Sep 2026 | **gate, phase 0** | **gate, phase 1** | after this CR |
 |---|---|---|---|---|
-| lists in the pattern (`CodeList`) — target 50 (49 until the task category joined, 26 Sep) | 2 in the #924 shape | 2 | 7 | 49 |
+| lists in the pattern (`CodeList`, derived ones included) — **target 50** (49 until the task category joined, 26 Sep). The gate does not know the target; it only measures `len(registry())`. The target lives here and nowhere else — twice in one day it had to change in B5.3, here *and* in a string in the gate, which is the signal to remove one place | 2 in the #924 shape | 2 | 7 | 49 |
 | … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, plain `Enum` |
 | enum-carrying columns as `Mapped[]` | 0 of 688 | 1 | 7 | every column in a `CodeList` |
 | vocabulary columns without a FK (ratchet) | 43, rough count | 51 | 45 | 0 |
@@ -1278,6 +1279,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q28 | 26 Sep 2026 | Does the task category count for the gate's "target 49"? (Claude) | Master CLI: yes — a derived list is a `CodeList` and `registry()` has no filter on `derived`. And the target leaves the gate string altogether: it changed twice in one day in three places (B5.3, B9.2, the gate) — the `CLAUDE.md` signal to remove one. The gate measures; B9.2 holds the target. |
 | Q27 | 26 Sep 2026 | Master CLI, phase 4: "no second list" for the task category would drop `CAT_LABELS` and put a raw code on the screen (#630); and a derived list without an enum has no gate covering its completeness. | Taken: the category is a derived list (note 5) with its own row in B5.3; note 5 now says why completeness is a test, not a FK, and distinguishes derived-with-enum (covered by Enum = codes) from derived-without (a test per list); B9.3 names it beside gate 12. Phase 3 CI evidence: run 36224976461 on 05c99f07, 3419 passed, pip-audit clean. |
 | Q26 | 26 Sep 2026 | Master CLI (after the desktop reboot, session `koentest-1e`): gate 12 was built as a guard on Jinja's `finalize` with a coverage counter and strict/repair modes; the exemption staleness rule is built in #1181. | Taken: B9.3 gate 12 rewritten as guard + proof-of-run gate; `install_enum_guard` in B4.9; the repair-on-PROD choice in B11 with its argument; the B9.2 row moved from ratchet to "counted, not capped"; staleness rule marked as built in phase 4 (issue #1181; fulfilled once on `master`). First version of this row said "PR #1181" and "fulfilled" — there is no such PR, and a commit on one disk is not fulfilment; corrected the same day. |
 | Q25 | 26 Sep 2026 | Master CLI, after phase 3: no gate sees an enum member rendered into an HTML attribute — three cases found by e2e, created by the conversion; and phase 3 is image-rollback-safe, unlike 154. | Taken: gate 12 (rendered attributes carry the code) in B9.3 with the reason, test 6b in B8, a B9.2 row from phase 4, the render-side spike in B10; B7 attributes non-revertibility to migration 154, not the release. |
