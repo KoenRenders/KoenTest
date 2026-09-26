@@ -14,7 +14,7 @@
            ZONDER schuine streep: `/platform` opent geen site, want `tenant_lookup`
            filtert op UNIT. Een pad tonen dat niet bestaat, stuurt je zoeken. #}
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {% if u.org_type == "PLATFORM" %}
+          {% if u.id == platform_id %}
           <span class="font-mono text-xs text-ink-soft">{{ u.code }}</span>
           {{ ui.badge(_("platform"), "blue") }}
           {% else %}

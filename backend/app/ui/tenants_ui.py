@@ -133,6 +133,11 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         units = [u for u in units if not u.is_active]
     accounts = list_accounts(db)
     return {"nav_items": admin_nav("/admin/tenants"), "units": units,
+            # #854: the platform is in this list but is no unit; the screen marks
+            # it. Decided here, because a template comparing the member with
+            # "PLATFORM" is always false (CR-12 phase 2).
+            "platform_id": next((u.id for u in units
+                                 if u.org_type is OrganizationType.PLATFORM), None),
             "accounts": accounts, "q": zoek, "status": status,
             "error": None, "opgeslagen": False,
             "csrf_token": csrf_from_request(request)}

@@ -55,7 +55,9 @@ from app.domains.auth.api import (
     require_csrf,
     require_operator_ui,
 )
+from app.domains.mdm.api import ORGANIZATION_TYPE, OrganizationType
 from app.i18n import _
+from app.kernel.codes import code_labels, register_tones
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
@@ -87,8 +89,14 @@ NUMMERGROEP = [
     ("vat_number", "Btw-nummer", "Optioneel."),
 ]
 
-SOORT_LABELS = {"ACCOUNT": "Rechtspersoon", "UNIT": "Afdeling",
-                "PLATFORM": "Platform"}
+# CR-12 phase 2: the words of the organisation kind come from its label table;
+# the dictionary that stood here became its seed. The badge tone stays here,
+# next to the screen that draws it (§B4.5): the legal entity blue, the rest gray.
+register_tones(ORGANIZATION_TYPE.name, {
+    OrganizationType.ACCOUNT: "blue",
+    OrganizationType.UNIT: "gray",
+    OrganizationType.PLATFORM: "gray",
+})
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:
@@ -105,13 +113,13 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
         organisaties = [o for o in organisaties
                         if naald in (o["name"] or "").lower()
                         or naald in (o["code"] or "").lower()]
-    if soort in SOORT_LABELS:
+    soorten = code_labels(ORGANIZATION_TYPE.name, db=db)
+    if soort in dict(soorten):
         organisaties = [o for o in organisaties if o["org_type"] == soort]
 
     return {"nav_items": admin_nav(NAV), "organisaties": organisaties,
             "q": zoek, "org_type": soort,
-            "soort_labels": SOORT_LABELS,
-            "soort_options": list(SOORT_LABELS.items()),
+            "soort_options": soorten,
             "gefilterd": bool(zoek or soort),
             "csrf_token": csrf_from_request(request)}
 
@@ -132,7 +140,6 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
 
     return {"nav_items": admin_nav(NAV), "organisatie": organisatie,
             "organization_id": organization_id,
-            "soort_labels": SOORT_LABELS,
             "heeft_site": heeft_site,
             "velden": organization_details(db, organization_id),
             "adres": organization_address(db, organization_id),
