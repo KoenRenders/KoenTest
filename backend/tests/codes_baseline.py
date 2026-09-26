@@ -56,8 +56,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
     'app/domains/media/templates/_me_lijst.html:kind==sponsor',
-    'app/domains/meetings/templates/_vg_punt.html:kind==activity',
-    'app/domains/meetings/templates/_vg_punt.html:kind==member',
     'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
     'app/domains/newsletter/templates/_nb_raakje.html:kind==insert',
     'app/domains/newsletter/templates/_nb_raakje.html:kind==letter',
@@ -91,7 +89,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/media/service.py:kind==activity_poster',
     'app/domains/media/service.py:kind==component_info',
     'app/domains/media/service.py:kind==tenant_logo',
-    'app/domains/meetings/service.py:kind==member',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',

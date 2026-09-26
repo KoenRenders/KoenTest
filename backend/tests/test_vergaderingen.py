@@ -215,7 +215,7 @@ def test_een_vrij_punt_komt_achteraan_en_draagt_geen_bron(db_session):
 
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     assert sectie.items[-1].label == "Sofie Walk and Run"
-    assert sectie.items[-1].kind == "free"
+    assert not sectie.items[-1].is_activity and not sectie.items[-1].is_member
     assert sectie.items[-1].source_url is None
 
 

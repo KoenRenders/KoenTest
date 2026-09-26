@@ -848,7 +848,12 @@ class DocumentItem:
     meta: str
     # De notities als (ontsmette) HTML uit de WYSIWYG-editor.
     notes: str
-    kind: str                      # "activity" | "member" | "free"
+    # Which kind of point this is, decided where the point is built — from
+    # which source it has (an activity, a member, or neither: a free point).
+    # Stored nowhere; there is no column to put a code in, so it is two
+    # flags rather than a vocabulary (CR-12 phase 4, §B5.3).
+    is_activity: bool
+    is_member: bool
     source_url: Optional[str]      # where the source chip goes
     is_full: bool
     steward_person_id: Optional[int]
@@ -999,7 +1004,7 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
             parts.append(_("%s ingeschreven") % shown)
         return DocumentItem(
             id=item.id, label=activity.name, meta=" · ".join(parts),
-            notes=item.notes or "", kind="activity",
+            notes=item.notes or "", is_activity=True, is_member=False,
             source_url=f"/admin/activiteiten/{activity.id}",
             is_full=bool(capacity and booked >= capacity),
             steward_person_id=None, activity_id=activity.id)
@@ -1009,12 +1014,14 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
         naam = (steward_names or {}).get(item.noted_steward_person_id or 0, "")
         return DocumentItem(
             id=item.id, label=label, meta=address, notes=item.notes or "",
-            kind="member", source_url=f"/admin/leden/gezin/{item.member_id}",
+            is_activity=False, is_member=True,
+            source_url=f"/admin/leden/gezin/{item.member_id}",
             is_full=False, steward_person_id=item.noted_steward_person_id,
             steward_name=naam)
 
     return DocumentItem(id=item.id, label=item.title or _("Punt"), meta="",
-                        notes=item.notes or "", kind="free", source_url=None,
+                        notes=item.notes or "", is_activity=False, is_member=False,
+                        source_url=None,
                         is_full=False, steward_person_id=None)
 
 
@@ -1094,7 +1101,7 @@ def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
             continue
         for section in document_of(db, meeting):
             for item in section.items:
-                if item.kind == "member":
+                if item.is_member:
                     continue
                 points.append(ReportPoint(meeting_id=meeting.id,
                                           meeting_date=meeting.meeting_date,
