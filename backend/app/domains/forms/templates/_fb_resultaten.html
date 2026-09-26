@@ -29,7 +29,7 @@
         <span class="text-xs text-gray-400">{{ f.response_count }} {{ _("antwoorden") }}</span>
       </div>
 
-      {% if f.field_type in ("select", "radio", "checkbox") %}
+      {% if f.kind.is_choice %}
         {% set maxc = (f.options | map(attribute='count') | max) if f.options else 0 %}
         <div class="mt-1">
           {% for o in f.options %}{{ balk(o.label, o.count, maxc) }}{% endfor %}
@@ -45,7 +45,7 @@
         </ul>
         {% endif %}
 
-      {% elif f.field_type == "rating" %}
+      {% elif f.kind.is_rating %}
         <p class="text-sm text-gray-700 mt-1">{{ _("Gemiddelde") }}:
           <strong>{{ f.average if f.average is not none else "—" }}</strong></p>
         {% set maxc = (f.distribution | map(attribute='count') | max) if f.distribution else 0 %}
@@ -53,7 +53,7 @@
           {% for d in f.distribution %}{{ balk(d.label, d.count, maxc) }}{% endfor %}
         </div>
 
-      {% elif f.field_type == "number" %}
+      {% elif f.kind.is_number %}
         <p class="text-sm text-gray-700 mt-1">
           {{ _("Gemiddelde") }}: <strong>{{ f.average if f.average is not none else "—" }}</strong>
           · {{ _("min") }}: {{ f.min if f.min is not none else "—" }}

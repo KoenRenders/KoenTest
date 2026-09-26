@@ -55,20 +55,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
 #: Templates comparing a code to a string literal.
 #: Key: `path/to/template.html:attribute==value`.
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
-    'app/domains/forms/templates/_fb_resultaten.html:field_type==number',
-    'app/domains/forms/templates/_fb_resultaten.html:field_type==rating',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==checkbox',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==email',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==info',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==number',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==phone',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==radio',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==rating',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==select',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==textarea',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==info',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==rating',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==textarea',
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
     'app/domains/media/templates/_me_lijst.html:kind==sponsor',
     'app/domains/meetings/templates/_vg_punt.html:kind==activity',

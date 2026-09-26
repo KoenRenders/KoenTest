@@ -28,6 +28,12 @@ Broken on purpose to check that these tests can go red: `min` renamed to
 over with that one line in its diff. And the print test was red on this branch
 before the adapter fix, which is how the regression was found.
 
+**After the refactor** (the fourteen comparisons became `FieldKind` flags in
+`screenfields.py`) all five snapshots stayed as they were — no snapshot was
+rewritten. Broken on purpose once more: `FieldKind.input_type` made to answer
+"text" for every type → the public form and the edit link fall over on the
+e-mail and phone inputs.
+
 One form carries one field of every type, a choice with an "Anders" option, a
 jump to a second section and a submission that answers every question. Six
 screens render it:

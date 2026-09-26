@@ -30,6 +30,7 @@ from app.domains.forms.models import (FIELD_TYPES, FORM_STATUSES, FieldType, For
                                       FormFieldOption, FormSection,
                                       FormSubmissionAnswer)
 from app.domains.forms.schemas import AnswerIn
+from app.domains.forms.screenfields import BRANCHABLE, CHOICES
 from app.i18n import _
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
@@ -685,8 +686,8 @@ def delete_field(db, form: Form, field_id: int) -> None:
 
 # ── Opties ───────────────────────────────────────────────────────────────────
 
-KEUZEVELDEN = (FieldType.SELECT, FieldType.RADIO, FieldType.CHECKBOX)
-VERTAKBARE_VELDEN = (FieldType.RADIO, FieldType.SELECT)
+KEUZEVELDEN = CHOICES
+VERTAKBARE_VELDEN = BRANCHABLE
 #: The same two as CODES, for what comes from outside: the JSON API receives a
 #: string and converts it only when it goes into the column (§B4.2).
 BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)

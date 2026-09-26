@@ -30,17 +30,17 @@
   {% endif %}
   {% macro afdruk_veld(f) %}
   <div class="veld">
-    {% if f.field_type == "info" %}
+    {% if f.kind.is_info %}
     <div class="info">{{ f.label }}{% if f.help_text %} — {{ f.help_text }}{% endif %}</div>
     {% else %}
     <span class="label">{{ f.label }}{% if f.required %} *{% endif %}</span>
     {% if f.help_text %}<div class="hulp">{{ f.help_text }}</div>{% endif %}
-    {% if f.field_type in ("select", "radio", "checkbox") %}
+    {% if f.kind.is_choice %}
     {% for o in f.options %}<div class="optie">☐ {{ o.label }}{% if o.is_other %} — ____________{% endif %}</div>{% endfor %}
-    {% elif f.field_type == "rating" %}
+    {% elif f.kind.is_rating %}
     <div class="optie">{% for n in range(1, (f.rating_max or 5) + 1) %}☐ {{ n }}  {% endfor %}
       {% if f.rating_low_label or f.rating_high_label %}<span class="hulp">({{ f.rating_low_label or "" }} … {{ f.rating_high_label or "" }})</span>{% endif %}</div>
-    {% elif f.field_type == "textarea" %}
+    {% elif f.kind.is_textarea %}
     <div class="lijn"></div><div class="lijn"></div><div class="lijn"></div>
     {% else %}
     <div class="lijn"></div>

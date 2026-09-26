@@ -139,10 +139,14 @@ def _voorbeeldvelden() -> list:
     """
     from types import SimpleNamespace as N
 
+    from app.domains.forms.api import screen_fields
+
     def optie(i, label, anders=False):
         return N(id=i, label=label, is_other=anders)
 
-    return [
+    # Through the adapter, like the public form: the `veld()` macro reads the
+    # type from `f.kind`, and a plain namespace has none (CR-12 phase 4).
+    return screen_fields([
         N(id=1, field_type="text", label="Naam", required=True, help_text=None,
           options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
         N(id=2, field_type="textarea", label="Opmerking", required=False,
@@ -176,7 +180,7 @@ def _voorbeeldvelden() -> list:
         N(id=10, field_type="info", label="Let op", required=False,
           help_text="Een informatieblok vraagt niets; het vertelt alleen iets.",
           options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
-    ]
+    ])
 
 
 @router.get("/admin/design-system", response_class=HTMLResponse)
