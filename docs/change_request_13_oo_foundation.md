@@ -709,6 +709,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q16 | 27 Sep 2026 | Separate domain objects and repositories — explain; could PostgreSQL be swapped for MariaDB? (Koen) | Both spelled out under Non-goals with their win, price and when they would return. The swap: possible in theory, not in practice, and the obstacle is the migrations, schemas, partial indexes and reporting SQL — not the models; domain objects would protect the one layer that is not the problem. |
 | Q15 | 27 Sep 2026 | How do the werkbank, BPMN and DMN fit with the events, long term? (Koen) | B4.10: events as triggers and done-signals for an orchestrator (BPMN), the werkbank as its human-task list, DMN for policy decisions in the service layer — distinct from the invariants on the objects. Nothing of it in this CR. |
 | Q14 | 27 Sep 2026 | Does the Mollie screen keep working; what if nobody ever pays at Mollie? (Koen) | Unchanged: the redirect is HTTP, not an event; the webhook re-fetch stays. Never paid → record `failed`/`cancelled` via `MOLLIE_STATUS_MAP`, registration stays with an open balance, no clean-up or reminder today. Koen: leave Mollie as it is. |
 | Q13 | 27 Sep 2026 | What happens when an admin reduces or deletes a registration that was (partly) paid, and how do events fit? (Koen) | `reconcile_charges`: paid amounts are the truth, the outstanding is reduced to one post — a new charge if more is due, a pending refund (treasurer confirms) if less; a deletion reconciles to 0 first, records stay. Nobody is told today. With events: `OrderChanged` → payment reconciles → `RefundDue` → workflow task, and mail can subscribe. B4.9. |
@@ -719,13 +720,43 @@ difference between an exemption list and a burn-down.
 ## Non-goals
 
 - **`Member → Household`** (Koen, 27 Sep): not this CR; its own CR if ever.
-- **No full DDD** (R10): no separate domain objects (a second `Registration`
-  with a field-by-field translation to the ORM one — every column twice),
-  no repositories (a layer that repeats what the SQLAlchemy session already
-  is). The model is the object. Domain events are **in** (R12, B4.9) — the
-  existing synchronous dispatcher, applied everywhere a domain causes a
-  consequence in another; not an asynchronous bus, not an outbox (that is
-  ladder step 2 in §5.8, for when a component is extracted).
+- **No separate domain objects** (R10). The pure form keeps a `Registration`
+  that knows nothing of the database next to a `RegistrationRow` that
+  describes the table, with a translation between them — every column
+  twice, every new column in three places, and the relationships
+  (`registration.items`) loaded and kept in sync by hand, which is what
+  SQLAlchemy already does. Its one real win, testability, the rich entity
+  gets too, on one condition: the entity never opens a session (B4.1) — then
+  `Registration(...)` is built in memory and `check()` runs without a
+  database (B8 test 5). Its other claimed win, *"an ORM-free domain lets you
+  replace the database"*, is hollow here, measured 27 September: what ties
+  this codebase to PostgreSQL is not `models.py` but seventeen `CREATE
+  SCHEMA` migrations (one schema per domain), fourteen files with partial
+  unique indexes (`WHERE deleted_at IS NULL` — the soft-delete uniqueness),
+  nine with `ON CONFLICT`, 406 raw `op.execute` calls, 123
+  timezone-aware datetimes, fifteen JSON columns and the reporting engine's
+  SQL. Replacing PostgreSQL would rewrite the migration history, the schema
+  design and reporting, and barely touch the models. **Replacing the
+  database is not a goal, and if it ever became one, the ORM layer is not
+  where it would hurt.** PostgreSQL stays (`CLAUDE.md`; Odoo runs on it
+  alone for the same reasons). If a second storage form ever appears next
+  to it, domain objects can be added per aggregate without undoing the rich
+  entity.
+- **No repositories** (R10). A repository bundles one aggregate's queries
+  in a class (`RegistrationRepository.open_for(activity)`) so the service
+  never touches the session. Its win is the bundling and a swappable
+  in-memory version for tests; its price is a class per aggregate that
+  mostly forwards what the session can do, a method per new question, and
+  a second implementation that can drift from the real one — while this
+  suite draws its proof from running against a real PostgreSQL. The
+  bundling is had more cheaply: the service functions per domain already
+  are where the queries live, and B4.1 keeps them there. When it would
+  change: a second storage form beside PostgreSQL, or several teams building
+  domains without ORM knowledge — neither in sight, and both addable later.
+- **Domain events are in** (R12, B4.9) — the existing synchronous
+  dispatcher, applied everywhere a domain causes a consequence in another;
+  not an asynchronous bus, not an outbox (that is ladder step 2 in §5.8,
+  for when a component is extracted).
 - **No CQRS** (R11, Koen, 27 Sep 2026): no separate write and read models.
   Reports (CR-06) read the tables; two models kept in sync would solve a
   scale problem this platform does not have.
