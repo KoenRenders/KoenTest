@@ -294,6 +294,248 @@ flowchart TB
   sweep), #759 (e2e), #760 (confirmations) and #761 (tiebreakers) stay
   separate — the last two are UI and query hygiene, not a rule's home.
 
+### B2.5 The layers, the screens and the objects — four drawings (Koen, 27 September)
+
+Koen asked for the boundaries to be drawn, not only described: the layers
+(front end, API, back end), how screens are divided over domains, and what
+OO does to the code — so that what is built next is discussed on a picture.
+Measured first, drawn second; every claim below is what the code does on 27
+September 2026.
+
+**What was measured.** The layer gate (`test_layer_gate.py`) has an
+**empty** allowlist: no `ui.py` or `admin_ui.py` imports a model or a
+router, and none touches `db`. A UI route and a JSON route reach the **same
+service function** through the domain's `api.py`
+(`register_for_activity` serves both `POST /api/v1/activities/{id}/register`
+and the htmx form). `/api/v1` is still mounted and used by API keys and one
+image URL; the screens do not use it. Screens follow §4 of the
+architecture document — *a screen belongs to the component whose data it
+shows* — and `app/ui` holds only the two shells, the macros, the view-model
+base and four domain-less admin screens; `app/kernel` knows no HTML.
+
+#### Drawing 1 — the layers (ArchiMate layered view, application layer)
+
+*Reads:* the browser talks to two doors; both doors call the same facade;
+behind the facade nothing knows which door was used.
+
+```mermaid
+flowchart TB
+  subgraph browser["Browser"]
+    H["HTML + htmx + Alpine<br/>(fragments, small client state)"]
+    X["any other client<br/>(a future React screen, an app, a partner)"]
+  end
+  subgraph doors["Presentation — two doors, same rules"]
+    U["UI routes: <domain>/ui.py, admin_ui.py<br/>build a ViewModel · pick a template<br/>(templates/*.html, app/ui shells + macros)"]
+    J["JSON routes: <domain>/router.py under /api/v1<br/>Pydantic in, Pydantic out"]
+  end
+  subgraph facade["Facade — the internal API"]
+    A["<domain>/api.py<br/>the only thing another layer or domain imports"]
+  end
+  subgraph domain["Domain — where meaning lives (this CR)"]
+    S["services: transactions, queries, everything that needs a session"]
+    E["entities (rich ORM models): validators · check() · total() · transitions"]
+    V["value objects: Money · StructuredCommunication · ValidityPeriod"]
+    EV["events: OrderChanged · PaymentReceived · RefundDue (kernel/events.py)"]
+  end
+  DB[("PostgreSQL — constraints at rest")]
+  H --> U
+  X --> J
+  U --> A
+  J --> A
+  A --> S
+  S --> E
+  E --> V
+  S --> EV
+  E --> DB
+  S --> DB
+```
+
+Three rules keep this true, and all three are gated: a UI route imports
+only `api.py` (layer gate, rule 1); a UI route never touches `db` (rule 2);
+the context of a template is a `ViewModel`, a frozen dataclass per screen
+(rule 4 + the template-variables gate). The JSON door is thin by the same
+rule in the other direction: a router validates form (Pydantic) and calls
+the service; it holds no rule (B9.3, *no rule in a router*).
+
+**Is a React front end, an app, or another client still possible?** Yes,
+and this is what makes it so: the rules are in the domain, both doors are
+thin, and `/api/v1` already exists. What it would cost is not architecture
+but coverage: the JSON door is barely used since the React exit, so before
+anything sits on it, its routes are brought level with the UI routes
+(same service calls, same rules — the entrances test of B8 finds the
+gaps). And it is **not** a plan: nothing in this CR builds toward it;
+this CR only keeps the door from rusting shut.
+
+**Is it always the same pattern?** For a full page and for an htmx fragment,
+yes: route → view-model → template, and the fragment gets its own
+view-model because fragments are rendered from several routes. Three
+deliberate deviations, each documented where it lives: the hard
+`HX-Redirect` to Mollie's checkout (an HTTP concern, *Fixed UI decisions*),
+background tasks for mail after a request, and Alpine for state that never
+leaves the browser (a radio's hint) — where gate 8 of CR-12 does not look,
+and a per-form test does.
+
+#### Drawing 2 — domains and their screens (ArchiMate application structure)
+
+*Reads:* every domain owns its own screens, public and admin alike; the
+shell is shared; three cases Koen asked about are named.
+
+```mermaid
+flowchart LR
+  subgraph shell["app/ui — the shell (knows no domain)"]
+    SB["site_base.html · admin_base.html"]
+    MK["_macros.html (UI kit, icons)"]
+    VMB["ViewModel base · site_context · admin_nav"]
+    XC["four domain-less admin screens:<br/>system info · tenants · changes · design system"]
+  end
+  subgraph forms["forms — schema form"]
+    FA["admin_ui.py: the form builder"]
+    FP["ui.py: the public render + submissions"]
+    FT["templates/ (17)"]
+  end
+  subgraph activities["activities"]
+    AA["admin_ui.py: activities, components, registrations"]
+    AP["ui.py: the public list + the registration modal<br/>(_inschrijf_form.html)"]
+  end
+  subgraph membership["membership"]
+    MP["ui.py: /lid-worden and the family portal ('Mijn gezin')<br/>reads persons via mdm.api, dues via payment.api"]
+  end
+  subgraph mdm["mdm"]
+    MA["ui.py: the member list, organisations (admin)"]
+    MAPI["api.py: persons, households, code lists"]
+  end
+  subgraph payment["payment"]
+    PA["ui.py: the payments screen (FINANCE), exports"]
+  end
+  subgraph kernel["app/kernel — knows no HTML"]
+    K["money · events · tenancy · ods · rules registry"]
+  end
+  FA --> SB; FP --> SB; AA --> SB; AP --> SB; MP --> SB; MA --> SB; PA --> SB; XC --> SB
+  FT -.-> MK; AP -.-> MK; MP -.-> MK
+  MP --> MAPI
+  AP -.->|membership.api| MP
+  forms --> K; activities --> K; membership --> K; mdm --> K; payment --> K
+```
+
+The rule, from §4 of the architecture document and unchanged here: **a
+screen lives in the domain whose data it shows, public and admin alike;
+public versus admin is a matter of role, not of domain.** So:
+
+- *The form engine* — the builder (admin) and the public render are both
+  `forms`; `forms` owns 17 templates. Nothing of it is in the shell.
+- *"Mijn gezin"* — is not a master-data screen and not a new one either:
+  it is `membership/ui.py`, because it shows a *membership* (who is in the
+  household, is the year paid, renew). It reads persons through `mdm.api`
+  and dues through `payment.api`; it never queries them itself.
+- *Activity registration* — the public list, the modal and the
+  registration form are `activities/ui.py` and `activities/templates/`;
+  the admin side (`admin_ui.py`) is the same domain. Not the kernel: the
+  kernel has no HTML and no domain.
+- What is shared is *presentation only*: the two shells, the macros, the
+  view-model base. A domain that needs a new primitive extends
+  `_macros.html`, never copies it (architecture document, *Kernel of ui?*).
+
+What this CR changes in drawing 2: nothing about where screens live. It
+changes what the screens *call* — a derived value comes from the entity's
+method through the view-model, instead of being recomputed in the route.
+
+#### Drawing 3 — one aggregate, the four addresses (UML class diagram)
+
+*Reads:* where each rule of `Registration` lives after phase 1, and the one
+thing an entity never does.
+
+```mermaid
+classDiagram
+  class Registration {
+    +contact_name : str
+    +contact_email : str
+    +phone : str
+    +team_name : str
+    +payment_method : Code
+    +items : list~RegistrationItem~
+    +component : ActivitySubRegistration
+    -- one field --
+    +validates(contact_name, phone) not blank
+    +validates(contact_email) well-formed
+    -- several fields, loaded --
+    +check() team name if the component requires it
+    +total() Money
+    +balance() Money
+    -- never --
+    ~no session, no query~
+  }
+  class RegistrationItem {
+    +quantity : int
+    +unit_price : Money
+    +line_total() Money
+  }
+  class ActivityService {
+    <<service — needs a session>>
+    +is_full(component)
+    +already_registered(email)
+    +register(db, data) publishes OrderChanged
+  }
+  class DB {
+    <<constraints at rest>>
+    NOT NULL contact_name, contact_email
+    CHECK quantity > 0
+    CHECK unit_price >= 0
+  }
+  Registration "1" *-- "*" RegistrationItem
+  ActivityService ..> Registration : builds, calls check(), commits
+  Registration ..> DB : mapped on
+```
+
+The four addresses in one picture: **validator** on the attribute (one
+field), **method** on the aggregate (several fields, already loaded),
+**service** for anything that needs other rows, **constraint** for what
+must hold at rest. The dashed line to the service is the boundary of B4.1:
+the service reaches into the entity; the entity never reaches out.
+
+#### Drawing 4 — an order change, with events (UML sequence diagram)
+
+*Reads:* the path of Koen's question in B4.9, after phases 1 and 2. No
+domain calls into another; each publishes what happened. Everything inside
+one transaction.
+
+```mermaid
+sequenceDiagram
+  participant Admin as admin screen<br/>(activities/admin_ui.py)
+  participant AS as activities service
+  participant R as Registration (entity)
+  participant EV as kernel.events
+  participant PH as payment/handlers.py
+  participant PS as payment service
+  participant WH as workflow/handlers.py
+  Admin->>AS: delete order line (db, registration_id, item_id)
+  AS->>R: soft-delete item · total()
+  R-->>AS: new total (no session used)
+  AS->>EV: publish OrderChanged(registration_id, total_due)
+  EV->>PH: OrderChanged
+  PH->>PS: reconcile_charges(db, "registration", id, total_due)
+  PS-->>PH: refund created (pending)
+  PH->>EV: publish RefundDue(record_id, amount)
+  EV->>WH: RefundDue
+  WH->>WH: create task "terugbetaling bevestigen" (as vervroeg_sweep does today)
+  EV-->>AS: all handlers returned
+  AS->>AS: commit — or roll everything back if a handler raised
+  AS-->>Admin: fragment via ViewModel
+```
+
+Compare with today: `activities` calls `payment.api.reconcile_…` itself and
+`payment` calls `workflow.api.vervroeg_sweep` itself — the same steps, with
+each domain knowing the next. After this CR the steps are identical (R13),
+the knowledge is gone, and "what happens after an order change?" is
+answered by reading who subscribes to `OrderChanged`.
+
+**Why these four, and these notations.** ArchiMate's layered and
+application-structure views answer "what is built where and what talks to
+what" (drawings 1 and 2) — the questions a newcomer and Koen ask first.
+UML's class and sequence diagrams answer "what does one object own" and
+"in what order do things happen" (drawings 3 and 4) — the questions a
+developer asks before touching `Registration`. A deployment or ERD view
+adds nothing here: this CR changes no infrastructure and no tables.
+
 ## B3. Cost and operations
 
 - **Env vars / settings:** none.
@@ -691,6 +933,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | The boundaries are drawn, not only described: four diagrams in B2.5 — layers (ArchiMate layered), domains × screens (ArchiMate application structure), one aggregate (UML class), an order change with events (UML sequence). A future React/app client stays possible on `/api/v1` because both doors are thin and the rules sit in the domain; not a plan. | Koen (asked), author (drawn) |
 | 27 Sep 2026 | No functional change in this CR (R13): events and methods reorganise how, never what. Business events → werkbank tasks, tasks closing on later events, BPMN as orchestration and DMN for policy rules are the horizon (B4.10), not scope. | Koen |
 | 27 Sep 2026 | `OrderChanged` is the second event of phase 1: `activities` publishes after any order-line change, `payment` reconciles as a subscriber; the direct `reconcile_registration_charges` call goes. `RefundDue` in phase 2. | Koen |
 | 27 Sep 2026 | Domain events are a Must (R12): a consequence in another domain goes through an event; the object returns what happened, the service publishes (the entity never touches a session). Gate: ratchet on the three direct couplings, hard for new modules. | Koen ("Must, en de service publiceert") |
@@ -716,6 +959,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q17 | 27 Sep 2026 | Draw the layers (front end / API / back end), the domains × screens split, and the OO impact; which ArchiMate/UML diagrams? (Koen) | B2.5: four drawings, with what was measured first (layer gate allowlist empty; UI and JSON routes share the service via `api.py`; `/api/v1` mounted but unused by screens). Form engine, 'Mijn gezin' and activity registration each placed. |
 | Q16 | 27 Sep 2026 | Separate domain objects and repositories — explain; could PostgreSQL be swapped for MariaDB? (Koen) | Both spelled out under Non-goals with their win, price and when they would return. The swap: possible in theory, not in practice, and the obstacle is the migrations, schemas, partial indexes and reporting SQL — not the models; domain objects would protect the one layer that is not the problem. |
 | Q15 | 27 Sep 2026 | How do the werkbank, BPMN and DMN fit with the events, long term? (Koen) | B4.10: events as triggers and done-signals for an orchestrator (BPMN), the werkbank as its human-task list, DMN for policy decisions in the service layer — distinct from the invariants on the objects. Nothing of it in this CR. |
 | Q14 | 27 Sep 2026 | Does the Mollie screen keep working; what if nobody ever pays at Mollie? (Koen) | Unchanged: the redirect is HTTP, not an event; the webhook re-fetch stays. Never paid → record `failed`/`cancelled` via `MOLLIE_STATUS_MAP`, registration stays with an open balance, no clean-up or reminder today. Koen: leave Mollie as it is. |
