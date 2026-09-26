@@ -25,6 +25,9 @@ from app.domains.mdm.models import (  # noqa: F401
     OrganizationPerson,
     OrganizationRelationType,
     OrganizationRelationTypeLabel,
+    PaymentMethod,
+    PaymentMethodCode,
+    PaymentMethodLabel,
     Person,
     PersonHistory,
     PostalCode,
@@ -103,7 +106,12 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     update_tenant_settings,
 )
 
+# CR-12: de codelijsten van dit domein horen bij de publieke schil, zodat een
+# ander domein een FK-doel en een enum via één deur bereikt.
+from app.domains.mdm.codes import LANGUAGE, PAYMENT_METHOD  # noqa: F401,E402
+
 __all__ = [
+    "LANGUAGE",
     "family_registrations", "gezin_tabs", "name_parts", "person_name_parts",
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
@@ -118,6 +126,8 @@ __all__ = [
     "BankAccount", "OrganizationIdentification", "IdentificationScheme",
     "IdentificationSchemeLabel",
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
+    "PaymentMethod", "PaymentMethodCode", "PaymentMethodLabel",
+    "PAYMENT_METHOD",
     "Person", "PersonHistory", "PostalCode", "RelationTypeCode",
     "MergeError", "merge_persons", "resolve", "unmerge_person",
     "tenant_codes", "invalidate_tenant_codes",

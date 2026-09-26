@@ -393,6 +393,53 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
 
 
+class PaymentMethod(Enum):
+    """How money moves: online, by bank transfer, or in cash (CR-12 phase 1).
+
+    In `mdm` and not in `payment`, because two domains store it — a payment
+    record and an activity registration — and a list used by more than one
+    domain is master data by definition (§B4.1). That makes the foreign key
+    from `payment` and from `activities` the allowed cross-schema one.
+
+    Plain `Enum`. Member names are English and so are the values here; the
+    Dutch `OVERSCHRIJVING` the public form used to post is mapped to `transfer`
+    once, by the migration of this phase (§B4.6).
+    """
+
+    ONLINE = "online"
+    TRANSFER = "transfer"
+    CASH = "cash"
+
+
+class PaymentMethodCode(Base):
+    """Which payment methods exist — the target of the foreign keys."""
+
+    __tablename__ = "payment_method_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class PaymentMethodLabel(Base):
+    """The word a screen or an export shows for a payment method, per language."""
+
+    __tablename__ = "payment_method_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.payment_method_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
 class LanguageCode(Base):
     """Which languages a label may be written in (CR-12 phase 0).
 

@@ -217,12 +217,14 @@ def open_renewal_payment(db, member):
     # Lokale imports: service.py houdt zijn modulehoofd vrij van model- en
     # domeinimports (de rest van het bestand doet dat ook zo).
     from app.domains.membership.models import Membership
-    from app.domains.payment.api import PaymentRecord
+    from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus
 
     return (
         db.query(PaymentRecord)
-        .filter(PaymentRecord.payable_type == "membership",
-                PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP,
+                PaymentRecord.status.notin_([PaymentStatus.PAID,
+                                             PaymentStatus.CANCELLED,
+                                             PaymentStatus.FAILED]))
         .join(Membership, Membership.id == PaymentRecord.payable_id)
         .filter(Membership.member_id == member.id)
         .first()
