@@ -602,6 +602,43 @@ Sketched on `Registration` (from the handover), so the shape is concrete:
 already loaded. The service keeps: is the component full, is this e-mail
 already registered, the transaction.
 
+**What always goes into the database — the test, not a judgment per case**
+(Koen, 27 September). The principle "validator *and* constraint" is only a
+rule when it says *which* rules get a constraint. This is the test:
+
+> **If PostgreSQL can say it about one row, PostgreSQL says it. Always.**
+
+Four forms, and no others:
+
+| The rule | The constraint |
+|---|---|
+| a field may not be empty | `NOT NULL` |
+| a value stays within a bound, or two fields of the same row relate (`amount_paid <= amount`, `valid_from <= valid_to`) | `CHECK` |
+| something occurs once | `UNIQUE` (partial, `WHERE deleted_at IS NULL`, under soft delete) |
+| a reference exists | `FOREIGN KEY` |
+
+No weighing per case: the only question is *can the database state this
+about one row?* If yes, the constraint lands in the **same commit** as the
+validator — the validator catches the polite path with a readable message,
+the constraint catches everything else: `query.update()`, an import, a
+script, two requests racing.
+
+What the database deliberately does **not** get, and why:
+
+- **rules over several rows or tables** ("team name if the component
+  requires it", "the component is not full") — a `CHECK` may not look at
+  another table; these stay a method or a service function;
+- **rules that depend on time or context** ("registration is open until
+  the deadline") — the truth changes while the row does not;
+- **policy** (the fee, who gets which task) — DMN territory, later (B4.10),
+  never the database;
+- **no triggers, no stored procedures** — a trigger is a rule with a
+  second home, in a language the suite does not test and mypy does not
+  see. Everything that *computes* computes in Python; the database only
+  *refuses*.
+
+This makes it measurable: gate *validator without constraint* (B9.3).
+
 ### B4.3 Derived values: one owner
 
 `app/kernel/rules.py` holds a registry: derived value → owner method
@@ -867,7 +904,9 @@ look somewhere (#678).
 > **A rule has one home, and every entrance passes through it.** One field →
 > an attribute validator; several fields of one object → a method on that
 > object; other rows or the database → a service function; at rest → a
-> constraint, in the same change as the validator. A derived value is
+> constraint — and if PostgreSQL can say it about one row, it says it:
+> `NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`, in the same change as the
+> validator; never a trigger. A derived value is
 > computed once, on the object that owns the data, and shown everywhere
 > else. An entity never opens a session. A screen, a JSON route and an
 > import never carry a rule of their own. A consequence in another domain
@@ -892,6 +931,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
+| single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
 | untyped `db` parameters | ~200 | — | 0 in migrated domains |
@@ -908,6 +948,7 @@ removed; deleted in phase 4).
 | One entrance rule | every function in `router.py` / `admin_ui.py` / `*import*.py` that writes a mapped class (AST: constructor call, attribute assignment, `db.add`) calls the aggregate's `check()` or a service function registered for it in `kernel/rules.py` | "`activities/router.py:885` writes `Registration` without `Registration.check()`" |
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
+| Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
 | Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on today's four, hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
@@ -947,6 +988,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | What always goes into the database: if PostgreSQL can say it about one row it says it (`NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`), in the same commit as the validator; cross-row, time-dependent and policy rules do not; no triggers or stored procedures. Gate *validator without constraint*. | Koen |
 | 27 Sep 2026 | The household and its persons are master data (`mdm`); the membership is `membership`'s. The household mutations move from `membership/household_router.py` to an `mdm` service in phase 3. | Koen |
 | 27 Sep 2026 | The boundaries are drawn, not only described: four diagrams in B2.5 — layers (ArchiMate layered), domains × screens (ArchiMate application structure), one aggregate (UML class), an order change with events (UML sequence). A future React/app client stays possible on `/api/v1` because both doors are thin and the rules sit in the domain; not a plan. | Koen (asked), author (drawn) |
 | 27 Sep 2026 | No functional change in this CR (R13): events and methods reorganise how, never what. Business events → werkbank tasks, tasks closing on later events, BPMN as orchestration and DMN for policy rules are the horizon (B4.10), not scope. | Koen |
@@ -974,6 +1016,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q19 | 27 Sep 2026 | Is it clearly delineated what always goes into the database as a rule? (Koen) | It was half: the principle stood, the test did not. Now B4.2: one-row rules always, four forms, four exclusions, no triggers; B9.1 one sentence; B9.3 a ninth gate. |
 | Q18 | 27 Sep 2026 | "Mijn gezin": is the household not master data, and the membership perhaps not? (Koen) | Both true: the household is `mdm` data, the membership is `membership` data; the screen composes the two. Finding: the household mutations sit in `membership/household_router.py` and should be an `mdm` service — phase 3; confirmed by Koen the same day. |
 | Q17 | 27 Sep 2026 | Draw the layers (front end / API / back end), the domains × screens split, and the OO impact; which ArchiMate/UML diagrams? (Koen) | B2.5: four drawings, with what was measured first (layer gate allowlist empty; UI and JSON routes share the service via `api.py`; `/api/v1` mounted but unused by screens). Form engine, 'Mijn gezin' and activity registration each placed. |
 | Q16 | 27 Sep 2026 | Separate domain objects and repositories — explain; could PostgreSQL be swapped for MariaDB? (Koen) | Both spelled out under Non-goals with their win, price and when they would return. The swap: possible in theory, not in practice, and the obstacle is the migrations, schemas, partial indexes and reporting SQL — not the models; domain objects would protect the one layer that is not the problem. |
