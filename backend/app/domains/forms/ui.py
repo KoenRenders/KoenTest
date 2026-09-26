@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.limiter import form_submit_limiter
 from app.ui import templates
+from app.domains.forms.api import FieldType
+from app.domains.forms.screenfields import screen_fields
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -92,28 +94,28 @@ def _answers_from_form(form_model, form_data) -> list:
     answers = []
     for field in form_model.fields:
         key = f"f{field.id}"
-        if field.field_type == "info":
+        if field.field_type is FieldType.INFO:
             continue
         # #683: de "Anders"-tekst telt óók als er niets aangevinkt is. Voorheen
         # stond `if option_ids:` vóór het aanmaken van het antwoord, dus werd
         # `{key}_other` nooit gelezen zonder vinkje — het scherm nodigde uit tot
         # typen en gooide het daarna weg. Wélke optie daarbij hoort, beslist de
         # servicelaag; hier wordt alleen het formulier uitgepakt.
-        if field.field_type == "checkbox":
+        if field.field_type is FieldType.CHECKBOX:
             raw = [v for v in form_data.getlist(key) if v]
             option_ids = [int(v) for v in raw if str(v).isdigit()]
             anders = (form_data.get(f"{key}_other") or "").strip() or None
             if option_ids or anders:
                 answers.append(AnswerIn(field_id=field.id, option_ids=option_ids,
                                         other_text=anders))
-        elif field.field_type in ("select", "radio"):
+        elif field.field_type in (FieldType.SELECT, FieldType.RADIO):
             raw = form_data.get(key)
             anders = (form_data.get(f"{key}_other") or "").strip() or None
             gekozen = [int(raw)] if (raw and str(raw).isdigit()) else []
             if gekozen or anders:
                 answers.append(AnswerIn(field_id=field.id, option_ids=gekozen,
                                         other_text=anders))
-        elif field.field_type == "number":
+        elif field.field_type is FieldType.NUMBER:
             raw_num = form_data.get(key)
             num_text = raw_num.strip() if isinstance(raw_num, str) else ""
             if num_text:
@@ -122,7 +124,7 @@ def _answers_from_form(form_model, form_data) -> list:
                                             number=Decimal(num_text.replace(",", "."))))
                 except InvalidOperation:
                     answers.append(AnswerIn(field_id=field.id, text=num_text))
-        elif field.field_type == "rating":
+        elif field.field_type is FieldType.RATING:
             raw = form_data.get(key)
             if raw and str(raw).isdigit():
                 answers.append(AnswerIn(field_id=field.id, rating=int(raw)))
@@ -169,8 +171,9 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
     grouped = []
     for section in sections:
         grouped.append({"section": section,
-                        "fields": [f for f in form_model.fields if f.section_id == section.id]})
-    loose = [f for f in form_model.fields if f.section_id is None]
+                        "fields": screen_fields(
+                            f for f in form_model.fields if f.section_id == section.id)})
+    loose = screen_fields(f for f in form_model.fields if f.section_id is None)
 
     # Stap-per-stap-wizard (#454): enkel bij ≥2 secties en geen losse velden —
     # de branching (sectie- en optie-niveau) wordt vertaald naar stap-indices zodat
@@ -203,7 +206,7 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
                 # controleren. Een `info`-blok is geen vraag.
                 "req": [f.id for f in form_model.fields
                         if f.section_id == section.id and f.required
-                        and f.field_type != "info"],
+                        and f.field_type is not FieldType.INFO],
             })
 
     # #724: openen op de stap van het gemelde veld. De foutweg rendert deze pagina

@@ -2,7 +2,8 @@
 werkbank (sessie-auth, CSRF, sluiten-door-beslissing)."""
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.forms.models import Form, FormSubmission
-from app.domains.workflow.models import WorkflowTask
+from app.domains.workflow.models import TaskStatus, WorkflowTask
+from app.domains.forms.models import FieldType, FormStatus
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 
 
@@ -18,8 +19,8 @@ def _post_bericht(client, naam="Fee", email="fee@example.com", bericht="Meer wan
 
 def test_berichten_form_is_seeded(db_session):
     form = db_session.query(Form).filter(Form.slug == "berichten").one()
-    assert form.status == "open" and form.send_confirmation is True
-    assert form.fields[0].field_type == "textarea"
+    assert form.status is FormStatus.OPEN and form.send_confirmation is True
+    assert form.fields[0].field_type is FieldType.TEXTAREA
 
 
 def test_bericht_creates_submission_and_task(client, db_session):
@@ -32,7 +33,7 @@ def test_bericht_creates_submission_and_task(client, db_session):
     assert sub.submitter_name == "Fee" and sub.answers[0].value_text == "Meer wandelingen!"
 
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
-    assert task.kind == "bericht.behartigen" and task.status == "open"
+    assert task.kind == "bericht.behartigen" and task.status is TaskStatus.OPEN
     assert task.subject_id == str(sub.id) and "Fee" in task.title  # #704: tekst
 
 
@@ -66,7 +67,7 @@ def test_werkbank_lists_and_closes_task(client, db_session):
                        headers={"X-CSRF-Token": csrf})
     assert done.status_code == 200
     db_session.expire_all()
-    assert task.status == "done" and task.done_by == SEEDED_ADMIN_EMAIL
+    assert task.status is TaskStatus.DONE and task.done_by == SEEDED_ADMIN_EMAIL
     assert task.decision == "Doorgegeven aan het bestuur"
 
 
@@ -77,7 +78,7 @@ def test_afhandelen_without_csrf_fails(client, db_session):
     resp = client.post(f"/admin/werkbank/taken/{task.id}/afgehandeld", data={})
     assert resp.status_code == 403
     db_session.expire_all()
-    assert task.status == "open"
+    assert task.status is TaskStatus.OPEN
 
 
 def test_verify_otp_sets_session_cookie(client, db_session, monkeypatch):

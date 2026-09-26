@@ -563,7 +563,7 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         and {b.id for b in node.bases if isinstance(b, ast.Name)}
         & {"TechnicalEnum", "ExternalVocabulary"})
     rows = [
-        ("lists in the pattern (CodeList) — target 49, see §B5.3", len(lists)),
+        ("lists in the pattern (CodeList) — see §B5.3", len(lists)),
         ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
         ("enum-carrying columns written as Mapped[]", _count_mapped_enum_columns()),
         ("vocabulary columns without an FK (ratchet)", len(baseline.FK_MISSING)),

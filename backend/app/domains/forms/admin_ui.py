@@ -19,14 +19,19 @@ from app.domains.auth.api import (
     require_admin_ui, require_csrf,
 )
 from app.domains.forms.api import (
+    FIELD_TYPE,
     FIELD_TYPES,
+    FORM_STATUS,
     FORM_STATUSES,
+    FormStatus,
     deellink_pad,
     delete_submission,
     list_forms,
     list_submissions,
     submission_count,
 )
+from app.domains.forms.screenfields import screen_fields
+from app.kernel.codes import code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
@@ -64,25 +69,28 @@ def _bewerk(bewerking, *args, **kwargs):
 def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
     grouped = [{"section": s,
-                "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: (f.position, f.id))}
+                "fields": screen_fields(
+                    sorted((f for f in form.fields if f.section_id == s.id),
+                           key=lambda f: (f.position, f.id)))}
                for s in sections]
-    loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: (f.position, f.id))
+    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
+                                 key=lambda f: (f.position, f.id)))
     # §2.12: nooit een rauwe DB-waarde op het scherm (#641). De veldtypes zijn
     # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
     # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
     # taal van de tenant volgt (zelfde patroon als de statuslabels bij betalingen).
-    veldtype_labels = {
-        "text": _("Korte tekst"), "textarea": _("Lange tekst"),
-        "number": _("Getal"), "email": _("E-mailadres"),
-        "select": _("Keuzelijst"), "radio": _("Eén keuze"),
-        "checkbox": _("Meerdere keuzes"), "rating": _("Score"),
-        "phone": _("Telefoonnummer"),
-    }
+    # CR-12 fase 4: de woorden komen uit de labeltabel van `field_type`. Het
+    # woordenboek dat hier stond zei "Korte tekst" waar de lijst "Tekst" zegt —
+    # één van de twee moest winnen, en dat is de tabel.
+    veldtype_labels = dict(code_labels(FIELD_TYPE.name, db=db))
     ctx = {
         "form": form, "grouped": grouped, "loose_fields": loose,
-        "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
+        "sections": sections, "field_types": list(veldtype_labels),
+        "statuses": FORM_STATUSES,
+        # `(code, woord)` voor de keuzelijst, plus de code van dit formulier:
+        # het scherm zet een code in een `value=` en vergelijkt codes (§B4.7).
+        "status_options": code_labels(FORM_STATUS.name, db=db),
+        "status": code_of(form.status),
         "field_type_labels": veldtype_labels,
         "submission_count": submission_count(db, form.id),
         # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
@@ -101,14 +109,14 @@ def _builder_response(request: Request, db: Session, form, **extra):
 # ── Lijst + aanmaken ───────────────────────────────────────────────────────────
 
 # Badge-tonen per status, conform §2.4: concept grijs, open groen, gesloten rood.
-# De labels staan bewust NIET hier maar in de route: _() vertaalt naar de taal van
-# de actieve tenant, en op moduleniveau zou die keuze bij import bevriezen.
-STATUS_TONES = {"draft": "gray", "open": "green", "closed": "red"}
-
-
-def _status_labels() -> dict[str, str]:
-    """Eén woordkeuze voor de filterdropdown én de kaart-badges."""
-    return {"draft": _("Concept"), "open": _("Open"), "closed": _("Gesloten")}
+# Een toon is een ontwerpbeslissing en geen vertaling (§B4.5), dus hij blijft
+# hier, bij het scherm dat de badge tekent; de WOORDEN komen sinds CR-12 fase 4
+# uit de labeltabel van `form_status`.
+register_tones(FORM_STATUS.name, {
+    FormStatus.DRAFT: "gray",
+    FormStatus.OPEN: "green",
+    FormStatus.CLOSED: "red",
+})
 
 
 @router.get("/admin/formulieren", response_class=HTMLResponse)
@@ -127,8 +135,11 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
                 else "admin_formulieren.html")
     return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "forms": forms, "q": q, "status": status,
-        "statuses": FORM_STATUSES, "status_labels": _status_labels(),
-        "status_tones": STATUS_TONES, "gefilterd": bool(q.strip() or status),
+        "statuses": FORM_STATUSES,
+        "status_labels": dict(code_labels(FORM_STATUS.name, db=db)),
+        "status_tones": {code: tone(FORM_STATUS.name, code)
+                         for code in FORM_STATUSES},
+        "gefilterd": bool(q.strip() or status),
         # De deellink wordt HIER gekozen en niet in de template (#928): welke van
         # de twee URL's je toont is een regel, en een regel in een sjabloon is een
         # tweede plaats waar hij woont.

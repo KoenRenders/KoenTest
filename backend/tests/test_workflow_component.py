@@ -3,16 +3,27 @@ from decimal import Decimal
 
 import pytest
 
+from tests._taaksoorten import registreer_taaksoort
+
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
-from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance, WorkflowTask
+from app.domains.workflow.models import (
+    RunStatus, WorkflowDefinition, WorkflowInstance, WorkflowTask,
+)
 from app.domains.auth.api import Role
 
 
 def test_definitie_start_advance_complete(db_session):
+    # Een definitie is DATA en mag een taaksoort introduceren (§5.7) — maar
+    # sinds CR-12 fase 4 moet die soort een rij hebben, net als bij een nieuwe
+    # bron. Dat is precies waarom deze lijst geen enum kreeg.
+    een = registreer_taaksoort(db_session, "stap.een", nl="Stap één",
+                               en="Step one", categorie_nl="Stappen")
+    twee = registreer_taaksoort(db_session, "stap.twee", nl="Stap twee",
+                                en="Step two", categorie_nl="Stappen")
     db_session.add(WorkflowDefinition(code="test2stap", name="Test", steps=[
-        {"kind": "stap.een", "title": "Eerst {wie}", "role": "ADMIN"},
-        {"kind": "stap.twee", "title": "Dan FINANCE", "role": "FINANCE"},
+        {"kind": een, "title": "Eerst {wie}", "role": "ADMIN"},
+        {"kind": twee, "title": "Dan FINANCE", "role": "FINANCE"},
     ]))
     db_session.flush()
 
@@ -29,12 +40,12 @@ def test_definitie_start_advance_complete(db_session):
              .order_by(WorkflowTask.id).all())
     assert len(taken) == 2 and taken[1].kind == "stap.twee"
     assert taken[1].required_role == Role.FINANCE
-    assert instance.status == "running" and instance.current_step == 1
+    assert instance.status is RunStatus.RUNNING and instance.current_step == 1
 
     # Afwijzing is óók een beslissing: besluit bewaard, flow eindigt gewoon.
     api.complete_task(db_session, taken[1].id, done_by="f@b", decision="Afgewezen: niet nodig")
     db_session.expire_all()
-    assert instance.status == "done" and instance.done_at is not None
+    assert instance.status is RunStatus.DONE and instance.done_at is not None
     assert taken[1].decision == "Afgewezen: niet nodig"
 
 
@@ -126,6 +137,13 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
+    # CR-12 fase 4: `kind` draagt een foreign key, dus een verzonnen soort komt
+    # er niet meer in. Deze twee registreren zich zoals een nieuwe bron dat
+    # doet — één rij plus haar woorden — en dát is wat de sleutel afdwingt.
+    registreer_taaksoort(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", categorie_nl="Lidmaatschap")
+    registreer_taaksoort(db_session, "membership.renewal", nl="Lid vernieuwen",
+                         en="Renew member", categorie_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
                     subject_type="membership", subject_id=1)
     api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
@@ -161,6 +179,8 @@ def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
+    registreer_taaksoort(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", categorie_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
                     subject_type="membership", subject_id=11)
     api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",
