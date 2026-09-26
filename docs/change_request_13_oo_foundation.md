@@ -209,7 +209,7 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | Component | new / used / changed | Role |
 |---|---|---|
 | `app/kernel/rules.py` | **new** | the derived-value registry (owner per value) and the entrances registry the gates read; nothing else — the rules themselves live on the entities |
-| `app/kernel/events.py`, `kernel/contracts/*` | used | the synchronous in-transaction dispatcher (§5.8, ladder step 1) and the event contracts; new events: `PaymentReceived`, `RegistrationConfirmed` |
+| `app/kernel/events.py`, `kernel/contracts/*` | used | the synchronous in-transaction dispatcher (§5.8, ladder step 1) and the event contracts; new events: `OrderChanged` (phase 1), `PaymentReceived` and `RefundDue` (phase 2), `RegistrationConfirmed` (phase 4) |
 | `mail/handlers.py`, `workflow/handlers.py` | **changed** | subscribe to the new events; the three direct calls into them disappear |
 | `app/kernel/money.py`, `structured_communication.py`, `validity_period.py` | **new** | the value objects (`geld.py` today has one formatting function; `Money` absorbs it) |
 | `activities/models.py` (`Registration`) | **changed** | first aggregate: validators, `check()`, `total()`, `balance()`; `controleer_inschrijfvelden` moves in, is not copied (#757) |
@@ -416,7 +416,10 @@ per domain in `handlers.py`. It is applied in three places (payment, forms,
 mdm publish; mail and workflow subscribe) and bypassed in three:
 `activities/router.py:35` and `membership/register_router.py:52` import
 `mail.api.send_*` directly, `payment/service.py:457,1244` import
-`workflow.api.vervroeg_sweep`. Measured 27 September.
+`workflow.api.vervroeg_sweep`, and `activities/service.py` (`_herbereken`,
+`delete_registration`) calls `payment.api.reconcile_registration_charges`.
+Measured 27 September; the fourth found while walking the order-change
+path with Koen.
 
 The rule (R12): a consequence in another domain goes through an event.
 Reads through `api.py` are untouched — `mdm.api.get_person` is a question,
@@ -436,7 +439,25 @@ payment?" is answered by reading who subscribes to `PaymentReceived` — a
 `grep`, not a search. Handlers run in registration order, synchronously;
 nothing is deferred.
 
-**The gate** (B9.3, ratchet on the three couplings, hard for new modules):
+**Worked on the order-change path** (Koen's question, 27 September). Today
+`activities` calls `payment.api.reconcile_registration_charges` directly
+after an order line changes (`_herbereken`, `delete_registration`), and
+`payment` calls `workflow.api.vervroeg_sweep` after creating a refund. With
+events: `activities` publishes `OrderChanged(registration_id, total_due)`
+and knows nothing of payments; `payment/handlers.py` reconciles — the same
+`reconcile_charges`, unchanged — and, when that yields a refund, publishes
+`RefundDue(record_id, amount)`; `workflow/handlers.py` makes the
+confirmation task; `mail/handlers.py` can tell the member (today nobody
+does — an own issue, but then a ten-line handler instead of a fourth
+coupling). All of it synchronous, in the one transaction: if reconciliation
+fails, the order line stays. The rule "activities must reconcile" does not
+disappear, it moves: from "activities calls payment" to "payment reacts to
+every order change" — stronger, because a new entrance that changes an
+order only has to publish, and the entrances test checks that it does.
+The `activities → payment.api` call is a fourth coupling of the same kind,
+found on this walk-through; it goes in phase 1.
+
+**The gate** (B9.3, ratchet on the four couplings, hard for new modules):
 a domain's command functions — named in its `CONTRACT.md` — are called from
 outside the domain only from a `handlers.py`.
 
@@ -481,8 +502,8 @@ but here that costs little.
 | Phase | Delivers | Depends on |
 |---|---|---|
 | **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
-| **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel) | 0 |
-| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go** | 0, **CR-12 phase 1 on master** |
+| **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
+| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task** | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants) | 0 |
 | **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; `rules_baseline.py` deleted — every gate hard | 1–3 |
 
@@ -491,7 +512,7 @@ but here that costs little.
 | Phase | Issue title | Migration | Env vars | Data | Manual validation |
 |---|---|---|---|---|---|
 | 0 | **#755**, rescoped: CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
-| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV |
+| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
 | 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
 | 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler | none | none | none | a registration on HDEV still gets its confirmation mail; AC7 |
@@ -566,7 +587,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
-| direct calls into another domain's command functions (outside a handler) | 3 | — | 0; hard for new modules from phase 0 |
+| direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
 | untyped `db` parameters | ~200 | — | 0 in migrated domains |
 
@@ -584,7 +605,7 @@ removed; deleted in phase 4).
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
-| Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on today's three, hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
+| Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on today's four, hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
 | Typed | in a migrated domain, every function has `db: Session` and annotated aggregate parameters (mypy `disallow_untyped_defs` per domain, the CR-12 B4.8 setting) | mypy's own message |
 
 Not mechanical, and said so: whether a rule *should* exist, whether two
@@ -621,6 +642,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | `OrderChanged` is the second event of phase 1: `activities` publishes after any order-line change, `payment` reconciles as a subscriber; the direct `reconcile_registration_charges` call goes. `RefundDue` in phase 2. | Koen |
 | 27 Sep 2026 | Domain events are a Must (R12): a consequence in another domain goes through an event; the object returns what happened, the service publishes (the entity never touches a session). Gate: ratchet on the three direct couplings, hard for new modules. | Koen ("Must, en de service publiceert") |
 | 27 Sep 2026 | CQRS is a separate Won't (R11): reporting reads the tables, and that suffices. | Koen |
 | 27 Sep 2026 | #760 (confirmations) and #761 (tiebreakers) are out of this CR — UI and query hygiene, not a rule's home; they stay open as their own issues. #755 and #757 are reused as the phase-0 and phase-1 issues. | Koen |
@@ -644,6 +666,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q13 | 27 Sep 2026 | What happens when an admin reduces or deletes a registration that was (partly) paid, and how do events fit? (Koen) | `reconcile_charges`: paid amounts are the truth, the outstanding is reduced to one post — a new charge if more is due, a pending refund (treasurer confirms) if less; a deletion reconciles to 0 first, records stay. Nobody is told today. With events: `OrderChanged` → payment reconciles → `RefundDue` → workflow task, and mail can subscribe. B4.9. |
 | Q12 | 27 Sep 2026 | Domain events — useful? Must or Should; who publishes? (Koen / Claude) | Koen: Must, and the service publishes. Measured: the dispatcher exists and is bypassed in three places; B4.9. |
 | Q11 | 27 Sep 2026 | Are #236's six execution issues still relevant? (Koen) | #755 and #757 are phases 0 and 1; #758 and #759 were already outside; #760 and #761 taken out on Koen's decision — they were in CR-04's five numbers because of the validation day, not because they are about a rule's home. |
 | Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Koen (27 Sep): one release for all phases, after CR-12 v2.7.0 (phase 2 needs CR-12 phase 1 on master). Assignment is Koen's. |
