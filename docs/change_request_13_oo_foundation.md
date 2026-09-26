@@ -584,6 +584,35 @@ import of `app.db` in `models.py`; the lazy-relationship case is caught by
 the entrances test running the aggregate's methods on a **detached** object
 (a query then raises `DetachedInstanceError`).
 
+**One request, one transaction — the door service owns it** (Koen, 27
+September). There is one session per request (`get_db`), and it runs
+through every domain the request touches: a registration change that
+reconciles a payment and creates a workflow task is *one* transaction over
+three schemas, and PostgreSQL can hold it. The rule that keeps it one:
+
+> **The service at the door — the one the route or the job called — begins
+> the transaction and commits once, at the end. A service it calls, a
+> facade function, an event handler: none of them commits. They `flush`
+> at most.**
+
+Measured on 27 September in the path of B4.9: `delete_registration`
+commits after soft-deleting the order lines, *then* reconciles, then
+commits again; `_herbereken` does the same. Two transactions where one was
+meant — if reconciliation fails, the lines are gone and the balance is
+silently wrong, the very thing `_herbereken`'s docstring set out to
+prevent. In all, 184 `db.commit()` calls sit in `app/domains` (services
+and facades), 13 in routers and UI modules, 3 in the kernel. Events make
+the rule automatic — the dispatcher runs handlers on the same session
+before the commit, so a raising handler rolls the order line back too —
+and the mid-way commits disappear with the couplings. That closes an
+atomicity gap; it changes no behaviour a user sees (R13) and is named as
+such in the phase-1 issue.
+
+Where the rule stops: a domain that becomes its own process (a component
+extracted, another database) has no shared session; then the outbox of
+§5.8 step 2 applies — out of scope here, and the reason a handler gets
+`db` and nothing that reaches the network.
+
 ### B4.2 The four addresses, and the pitfalls each carries
 
 | The rule looks at… | Address | SQLAlchemy pitfall | Covered by (B8) |
@@ -911,7 +940,9 @@ look somewhere (#678).
 > else. An entity never opens a session. A screen, a JSON route and an
 > import never carry a rule of their own. A consequence in another domain
 > goes through a domain event: the object returns what happened, the
-> service publishes it. A domain package has the shape of B4.5.
+> service publishes it. One request is one transaction: the door service
+> commits once; a called service, a facade or a handler never does. A
+> domain package has the shape of B4.5.
 
 Lives in `docs/code-style.md` (created in phase 0) and CR-04 (the placement
 rule, unchanged); `CLAUDE.md` points there.
@@ -931,6 +962,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
+| commits outside the door service (in a handler, in a function another domain reaches through `api.py`, or mid-function) | 184 in domains / 13 in routers+UI / 3 in kernel — offenders unmeasured until the gate | — | 0 |
 | single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
@@ -949,6 +981,7 @@ removed; deleted in phase 4).
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
+| One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) a service function commits at most once and only as its last statement — no writes after a commit; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
 | Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on today's four, hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
@@ -988,6 +1021,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | One request, one transaction: the door service commits once; a called service, facade or handler never. The mid-way commits of `delete_registration` / `_herbereken` go with the couplings; an atomicity gap closed, no visible behaviour changed. Gate *one transaction per request*. | Koen |
 | 27 Sep 2026 | What always goes into the database: if PostgreSQL can say it about one row it says it (`NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`), in the same commit as the validator; cross-row, time-dependent and policy rules do not; no triggers or stored procedures. Gate *validator without constraint*. | Koen |
 | 27 Sep 2026 | The household and its persons are master data (`mdm`); the membership is `membership`'s. The household mutations move from `membership/household_router.py` to an `mdm` service in phase 3. | Koen |
 | 27 Sep 2026 | The boundaries are drawn, not only described: four diagrams in B2.5 — layers (ArchiMate layered), domains × screens (ArchiMate application structure), one aggregate (UML class), an order change with events (UML sequence). A future React/app client stays possible on `/api/v1` because both doors are thin and the rules sit in the domain; not a plan. | Koen (asked), author (drawn) |
@@ -1016,6 +1050,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q20 | 27 Sep 2026 | Do services work across domains — a transaction, for instance? (Koen) | Yes: one session per request through every domain; the door service owns the transaction. Today two paths commit mid-way (two transactions instead of one); events make it one. B4.1, tenth gate. Outbox (step 2) only when a domain becomes its own process — out of scope. |
 | Q19 | 27 Sep 2026 | Is it clearly delineated what always goes into the database as a rule? (Koen) | It was half: the principle stood, the test did not. Now B4.2: one-row rules always, four forms, four exclusions, no triggers; B9.1 one sentence; B9.3 a ninth gate. |
 | Q18 | 27 Sep 2026 | "Mijn gezin": is the household not master data, and the membership perhaps not? (Koen) | Both true: the household is `mdm` data, the membership is `membership` data; the screen composes the two. Finding: the household mutations sit in `membership/household_router.py` and should be an `mdm` service — phase 3; confirmed by Koen the same day. |
 | Q17 | 27 Sep 2026 | Draw the layers (front end / API / back end), the domains × screens split, and the OO impact; which ArchiMate/UML diagrams? (Koen) | B2.5: four drawings, with what was measured first (layer gate allowlist empty; UI and JSON routes share the service via `api.py`; `/api/v1` mounted but unused by screens). Form engine, 'Mijn gezin' and activity registration each placed. |
