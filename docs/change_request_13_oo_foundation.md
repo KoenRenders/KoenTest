@@ -111,6 +111,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
 | R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
 | R10 | Full DDD machinery: separate domain objects, repositories. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R15 | A domain's tests live with the domain (`domains/<c>/tests/`); flows through several domains live in `tests/integration/`; kernel, ui and gate tests stay in `backend/tests/`. The architecture document (§13.1) has said so since July; no domain has a `tests/` folder today. | Must | Koen, 27 Sep 2026 | option (a), in this CR |
 | R14 | A JSON route (`/api/v1`) exists because a machine caller exists, and that caller is named in the domain's `CONTRACT.md`. Routes without a caller are removed in this change. | Must | Koen, 27 Sep 2026 | "wel snoeien als onderdeel van deze change request"; not "everything also via JSON" — that doubles the doors the 8 September pain came through |
 | R13 | This change alters **no functionality**: what the system does for a member, the board or the treasurer is identical before and after. Events and methods reorganise *how*, never *what*. | Must | Koen, 27 Sep 2026 | "we gaan geen functionaliteit toevoegen of veranderen; puur technisch anders organiseren" |
 | R12 | A consequence in another domain after a state change (a mail, a workflow task) goes through a domain event, never through a direct call into that domain; the object says what happened, the service publishes it. | Must | Koen, 27 Sep 2026 | "de betaalcode weet niets van mail"; the dispatcher exists (`kernel/events.py`, §5.8) and is applied in three of six places |
@@ -137,6 +138,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | AC5 | A registration's total and balance read identically on the admin screen, in the export and in the report — from one method. | R3 |
 | AC6 | On HDEV, marking a partially paid record as paid leaves it *partially paid*: the state follows the amounts, not the action (#720). | R1, phase 2 |
 | AC7 | Every gate of B9.3 is hard by the end of the last phase; no ratchet file remains. | R6 |
+| AC10 | `pytest app/domains/payment/tests` runs the payment domain's tests and nothing else; the full suite still runs on every push with the same count; no test file sits in `backend/tests/` that imports exactly one domain. | R15 |
 | AC9 | Every JSON route left under `/api/v1` is named with its caller in its domain's `CONTRACT.md`; a route without one no longer answers. The API-key users, the chatbot and the e2e suite work as before. | R14 |
 | AC8 | The e2e golden flows and the existing suite pass unchanged; every workflow task and every mail that exists today is still created by the same trigger, and nothing new is created. | R13 |
 
@@ -787,13 +789,41 @@ only when the last Dutch reference is gone, which is not this CR's job.
 
 A package under `app/domains/` has: `api.py` (the only thing another domain
 imports), `codes.py` (its lists, CR-12), `CONTRACT.md` (what it promises,
-one screen), `models.py`, a `tests/` counterpart, and no import of another
-domain's internals. That is what 14 of 17 packages already have; the gate
-makes it a property. **Hard from phase 0 for any package created after it**
-(the CRM is the first); the three existing packages that miss a piece are
-on the ratchet and fixed in phase 4. Not a scaffold script — a checklist in
+one screen), `models.py`, a `tests/` folder, and no import of another
+domain's internals. `api.py`, `codes.py` and `CONTRACT.md` are what 14 of
+17 packages already have; **`tests/` none of them has** — measured 27
+September after the first version of this section assumed it, which the
+gate would have turned into seventeen red packages on day one. The gate
+makes the shape a property. **Hard from phase 0 for any package created
+after it** (the CRM is the first); the existing packages are on the
+ratchet and finished in phase 4. Not a scaffold script — a checklist in
 `docs/code-style.md` and a gate that names the missing file; a generator
 would be a second place that knows the shape.
+
+**Where tests live** (Koen, 27 September, R15 — option (a), in this CR).
+The architecture document §13.1 prescribes two levels: `domains/<c>/tests/`
+per component (unit and contract) and `tests/integration/` at repository
+level (the golden flows against the real stack). Reality on 27 September:
+391 test files flat in `backend/tests/`, none in a domain. Of those, 107
+import exactly one domain (they belong to it), 205 import several (flows
+through the stack — integration), 70 import no domain (kernel, `app/ui`,
+the gates). Names are mixed Dutch and English (`test_formulier_*` next to
+`test_forms_*`), so the name does not say what the folder should. The rule:
+
+- a test that exercises one domain lives in that domain's `tests/`;
+- a test that walks through several domains lives in
+  `backend/tests/integration/`;
+- kernel, `app/ui` and gate tests stay in `backend/tests/`;
+- shared fixtures stay in the root `conftest.py`; a domain's own fixtures
+  in its `tests/conftest.py`;
+- `pytest.ini`'s `testpaths` names all three places, so the CI command does
+  not change and the count stays the count.
+
+Moved per phase, as everything else: the tests of the domains a phase
+touches move with it; phase 4 moves the rest. Existing Dutch filenames are
+not renamed (the #780 rule); new tests are English. A test that imports
+exactly one domain and still sits in `backend/tests/` is a gate finding
+(B9.3, *tests with their domain*).
 
 ### B4.6 Gates hard via phases (Koen, 27 September)
 
@@ -965,16 +995,16 @@ would lose less; it would not — corrected the same day.)
 | Phase | Delivers | Depends on |
 |---|---|---|
 | **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the caller of each of the 113 JSON routes measured** (API-key users, chatbot, e2e, templates, nothing) and listed in the phase issue | — |
-| **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
-| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`** | 0, **CR-12 phase 1 on master** |
-| **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
-| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; **JSON routes without a caller removed, the remaining ones named in their `CONTRACT.md`** (R14); `rules_baseline.py` deleted — every gate hard | 1–3 |
+| **1 — `Registration`** + value objects | `activities`' tests move to `activities/tests/` (R15); #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
+| **2 — `PaymentRecord`** | `payment`'s tests move to `payment/tests/`; state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`** | 0, **CR-12 phase 1 on master** |
+| **3 — `Person` / `Member`** | `mdm`'s and `membership`'s tests move; membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
+| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; **JSON routes without a caller removed, the remaining ones named in their `CONTRACT.md`** (R14); **the remaining single-domain tests moved to their domains, the multi-domain ones to `tests/integration/`** (R15); `rules_baseline.py` deleted — every gate hard | 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
 
 | Phase | Issue title | Migration | Env vars | Data | Manual validation |
 |---|---|---|---|---|---|
-| 0 | **#755**, rescoped: CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
+| 0 | **#755**, rescoped: CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules; `pytest.ini` testpaths voor de drie plaatsen | none | none | none | CI only; the numbers in the release issue; the suite count unchanged after the `testpaths` change |
 | 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
 | 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
@@ -1061,7 +1091,8 @@ first picture, the gate's count binds (the CR-12 rule):
 | JSON routes without a named caller | 113 routes, callers unmeasured | — | 0 (removed or named) |
 | single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
-| packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
+| packages missing the module shape | 3 of 17 miss `api.py`/`codes.py`/`CONTRACT.md`; 17 of 17 miss `tests/` | — | 0; hard for new ones from phase 0 |
+| single-domain test files still in `backend/tests/` | 107 (of 391; 205 multi-domain, 70 none) | — | 0 |
 | untyped `db` parameters | ~200 | — | 0 in migrated domains |
 
 ### B9.3 The gate
@@ -1077,6 +1108,7 @@ removed; deleted in phase 4).
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | JSON route with a caller | every route mounted under `/api/v1` appears, with its caller, in its domain's `CONTRACT.md` (a `Callers` section the gate parses) — ratchet on today's 113, hard for new routes | "`POST /api/v1/activities/{id}/register` has no caller in `activities/CONTRACT.md` — name one or remove the route" |
+| Tests with their domain | a file under `backend/tests/` (not `integration/`) whose `from app.domains.<x>` imports name exactly one domain — it belongs in `app/domains/<x>/tests/`; a file under `app/domains/<x>/tests/` that imports another domain's internals is the import gate's business — ratchet on today's 107, hard for new files | "`tests/test_betalingen_export.py` imports only `payment` — move it to `app/domains/payment/tests/`" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
 | No foreign writes | any write to a mapped class of domain B outside `app/domains/B/`: constructor; attribute assignment on an instance; `db.add`/`delete`/`merge` with an instance; `soft_delete(instance)`; `query(B).update()`/`.delete()`; relationship append/remove; raw SQL naming a table in B's schema (AST over the classes each `api.py` exports plus the schema names; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
 | One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) a service function commits at most once and only as its last statement — no writes after a commit; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
@@ -1119,6 +1151,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | Tests live with their domain (§13.1 applied at last): single-domain tests in `domains/<c>/tests/`, multi-domain flows in `tests/integration/`, kernel/ui/gates in `backend/tests/`; moved per phase, in this CR; the module-shape gate's `tests/` requirement — which no domain met — becomes true through it. | Koen ("a, in CR-13") |
 | 27 Sep 2026 | No "everything also via JSON" convention: a JSON route exists for a named machine caller (in `CONTRACT.md`); routes without a caller are pruned **in this CR** (phase 0 measures, phase 4 removes; unknown caller → Koen decides). Gate *JSON route with a caller*. | Koen ("wel snoeien als onderdeel van deze change request") |
 | 27 Sep 2026 | A domain writes another domain's data only through the owner's command function or an event; `api.py` exports classes for typing and reading. Measured: 21 foreign constructions today, nearly all membership→mdm, plus payment's declared membership activation — both become the ordinary pattern (phase 3, phase 2). Gate *no foreign writes*. | Koen (asked), author (rule) |
 | 27 Sep 2026 | One request, one transaction: the door service commits once; a called service, facade or handler never. The mid-way commits of `delete_registration` / `_herbereken` go with the couplings; an atomicity gap closed, no visible behaviour changed. Gate *one transaction per request*. | Koen |
@@ -1150,6 +1183,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q25 | 27 Sep 2026 | Should the test suites be clearly divided by domain? (Koen) | Yes, and the rule exists unapplied (§13.1): 391 flat files, 0 in domains, 107 single-domain. Author's finding: B4.5 required `tests/` without measuring that none has it. Koen: option (a), in this CR — R15, moved per phase, gate *tests with their domain*. |
 | Q24 | 27 Sep 2026 | Does the title still cover the content? (Koen) | No — "OO" is the means for one of seven rules; the subject is domain boundaries. Retitled *Domain boundaries: one home for every rule, write and consequence*; filename unchanged (three references point at it). |
 | Q23 | 27 Sep 2026 | Is the no-foreign-writes rule clear and closed? (Koen) | Clear, not closed: the gate named two write forms of seven; the activation handler's idempotency was not carried over; a missing owner command had no rule. All three added to B4.1 and the gate, plus the read softness stated. |
 | Q22 | 27 Sep 2026 | Is there a convention that everything is also exposed via JSON — or is that pointless, even dangerous? (Koen) | No convention (five post-React domains have none; 113 legacy routes), and it would be dangerous: more doors for the 8 September fault, API-key-reachable surface, double maintenance. Rule R14; pruning in this CR. B2.5, A6. |
