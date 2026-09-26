@@ -141,8 +141,8 @@ def test_an_unclassified_type_stays_out_of_the_footer(db_session, organisatie):
     de footer doet. NULL rendert als "geen netwerk" — dat is precies de default
     die #1160 omdraaide.
     """
-    # CR-12 fase 2: code en label zijn twee rijen. `is_social_network` blijft
-    # NULL, en dat is precies wat deze test wil: niet geclassificeerd.
+    # CR-12 phase 2: code and label are two rows. `is_social_network` stays
+    # NULL, and that is exactly what this test wants: not classified.
     db_session.add(ContactTypeCode(code="SIGNAL", sort_order=81,
                                    is_active=True))
     db_session.add(ContactTypeLabel(code="SIGNAL", language="nl",

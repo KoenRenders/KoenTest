@@ -203,10 +203,10 @@ def main() -> None:
 
         beheerder = db.query(User).order_by(User.id).first()
         if beheerder is not None:
-            # `.value`: sinds CR-12 fase 2 draagt de kolom een `Role`-lid en
-            # geeft de aanroeper codes door. Zonder deze stap is de
-            # vergelijking altijd onwaar en kent de seed dezelfde rol twee
-            # keer toe, wat de unieke index terecht weigert.
+            # `.value`: since CR-12 phase 2 the column carries a `Role` member
+            # and the caller passes codes. Without this step the comparison is
+            # always false and the seed grants the same role twice, which the
+            # unique index rightly refuses.
             bestaande = {r.role_code.value for r in beheerder.roles}
             for rol in ("FINANCE", "OPERATOR"):
                 if rol not in bestaande:

@@ -105,10 +105,10 @@ def test_organizations_account_unit_hierarchy(db_session):
     db_session.add(unit)
     db_session.flush()
     assert unit.parent.id == account.id
-    # CR-12 fase 2: de CHECK-constraint is vervangen door een codelijst met een
-    # foreign key, en de enum weigert de waarde al vóór de databank. De
-    # weigering gebeurt dus eerder en met een betere melding — de naam van de
-    # lijst in plaats van de naam van een constraint.
-    with pytest.raises(ValueError) as fout:
+    # CR-12 phase 2: the CHECK constraint has been replaced by a code list with a
+    # foreign key, and the enum refuses the value before it reaches the
+    # database. So the refusal happens earlier and with a better message — the
+    # name of the list instead of the name of a constraint.
+    with pytest.raises(ValueError) as error:
         Organization(code="fout", name="Fout type", org_type="WRONG")
-    assert "OrganizationType" in str(fout.value)
+    assert "OrganizationType" in str(error.value)

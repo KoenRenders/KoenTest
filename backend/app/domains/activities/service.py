@@ -1531,9 +1531,9 @@ def organisers_for(db, activity_id: int) -> list:
     contacten: dict[tuple[int, str | None], str] = {}
     for detail in (db.query(ContactDetail)
                    .filter(ContactDetail.person_id.in_(person_ids)).all()):
-        # CR-12 fase 2: de `.upper()` was een normalisatie omdat de kolom elke
-        # spelling aanvaardde. De codelijst doet dat nu; `code_of` geeft de
-        # code, of ze nu als lid of als kale code terugkomt.
+        # CR-12 phase 2: the `.upper()` was a normalisation because the column
+        # accepted any spelling. The code list does that now; `code_of` returns
+        # the code, whether it comes back as a member or as a bare code.
         sleutel = (detail.person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value

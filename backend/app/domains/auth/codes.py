@@ -1,4 +1,4 @@
-"""The code list the auth domain owns (CR-12 fase 2).
+"""The code list the auth domain owns (CR-12 phase 2).
 
 One list: the roles. It lives here and not in `mdm` because **master data
 describes the world and security vocabulary does not** (§B4.1, Koen's
@@ -20,10 +20,10 @@ ROLE_CODES = (
              sort_order=30),
     CodeSeed(code="ACCOUNT_ADMIN", nl="Accountbeheerder",
              en="Account administrator", sort_order=40),
-    # Ingetrokken: ze bestaan sinds migratie 001, worden op elk scherm
-    # weggefilterd en niemand draagt ze. Niet verwijderd — een bestaande rij
-    # zou dan een ongeldige verwijzing krijgen, en het lid blijft sowieso
-    # bestaan (§B4.3).
+    # Retired: they have existed since migration 001, are filtered out on
+    # every screen, and nobody holds them. Not deleted — an existing row would
+    # then get an invalid reference, and the member stays in any case
+    # (§B4.3).
     CodeSeed(code="MEMBER", nl="Lid", en="Member", sort_order=90,
              is_active=False),
     CodeSeed(code="USER", nl="Gebruiker", en="User", sort_order=91,
@@ -36,9 +36,9 @@ ROLE = CodeList(
     codes=RoleCode,
     labels=RoleLabel,
     enum=Role,
-    # De tweede kolom is cross-schema, naar een codetabel van een
-    # fundamentdomein — de uitzondering van §B2.4, en de reden dat rollen in
-    # `auth` horen en niet in het domein dat ze toevallig gebruikt.
+    # The second column is cross-schema, towards a code table of a
+    # foundation domain — the exception of §B2.4, and the reason roles belong
+    # in `auth` and not in whichever domain happens to use them.
     fk_from=("auth.user_roles.role_code",
              "workflow.workflow_tasks.required_role"),
 )

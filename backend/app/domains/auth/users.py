@@ -211,16 +211,16 @@ def list_assignable_roles(db):
     via Membership. Ze uit de keuzelijst filteren voorkomt zinloze, verwarrende
     vinkjes, en dus ook zinloze filterchips.
     """
-    # CR-12 fase 2: hier stond `notin_(["USER", "MEMBER"])`. Die twee zijn nu
-    # ingetrokken codes (`is_active = false`), en `code_labels()` geeft per
-    # definitie alleen de actieve — dus de uitzondering is verdwenen doordat de
-    # lijst zelf hem draagt, in plaats van elk scherm dat er opnieuw aan moet
-    # denken. De volgorde komt uit `sort_order`.
+    # CR-12 phase 2: this used to say `notin_(["USER", "MEMBER"])`. Those two
+    # are now retired codes (`is_active = false`), and `code_labels()` by
+    # definition returns only the active ones — so the exception has gone
+    # because the list itself carries it, instead of every screen having to
+    # remember it again. The order comes from `sort_order`.
     from app.domains.auth.models import RoleCode
     from app.kernel.codes import code_labels
 
-    actief = [code for code, _label in code_labels("role")]
-    return (db.query(RoleCode).filter(RoleCode.code.in_(actief))
+    active_codes = [code for code, _label in code_labels("role")]
+    return (db.query(RoleCode).filter(RoleCode.code.in_(active_codes))
             .order_by(RoleCode.sort_order).all())
 
 
@@ -235,10 +235,11 @@ def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
     toont dezelfde rollen als vinkjes, en twee queries op één codetabel zijn twee
     plekken die kunnen uiteenlopen.
 
-    CR-12 fase 2: hier stond dezelfde handmatige samenvouwing per taal als in
-    `legal_form_options`, omdat de codetabel één rij per (code, taal) had. Met
-    de gesplitste vorm is er één rij per code en doet `code_label()` de
-    terugval — taal, dan `nl`, dan de code zelf.
+    CR-12 phase 2: this used to do the same manual per-language collapsing as
+    `legal_form_options`, because the code table had one row per
+    (code, language). With the split shape there is one row per code and
+    `code_label()` does the fallback — language, then `nl`, then the code
+    itself.
     """
     from app.kernel.codes import code_label
 

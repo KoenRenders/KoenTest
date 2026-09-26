@@ -34,10 +34,10 @@ def login(client, db, email=ADMIN_EMAIL, roles=("ADMIN",)) -> str:
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()
-    # `.value`: sinds CR-12 fase 2 draagt de kolom een `Role`-lid, en de
-    # aanroepers geven codes door. Zonder deze stap is de vergelijking
-    # altijd onwaar en probeert de helper dezelfde rol twee keer toe te
-    # kennen — wat de unieke index terecht weigert.
+    # `.value`: since CR-12 phase 2 the column carries a `Role` member, and the
+    # callers pass codes. Without this step the comparison is always false
+    # and the helper tries to assign the same role twice — which the unique
+    # index rightly refuses.
     bestaand = {r.role_code.value for r in user.roles}
     for role in roles:
         if role not in bestaand:

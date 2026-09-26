@@ -83,16 +83,18 @@ def get_user_roles(db: Session, email: str) -> set:
         .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == actief))
         .all()
     )
-    # CR-12 fase 2: de KOLOM draagt sinds deze fase een `Role`-lid, deze functie
-    # geeft de codes terug. Dat is een bewuste grens en geen vergetelheid.
+    # CR-12 phase 2: since this phase the COLUMN carries a `Role` member; this
+    # function returns the codes. That is a deliberate boundary, not an
+    # oversight.
     #
-    # Dit is de autorisatieoppervlakte: negenendertig plaatsen vragen haar
-    # "welke rollen heb ik hier", en die vergelijken met verzamelingen als
-    # `{"ADMIN", "OPERATOR"} & rollen`. Die in dezelfde wijziging omzetten is
-    # precies de halve migratie waar dit CR zelf voor waarschuwt, op de ene
-    # plek waar een halve migratie een rechtenlek is. Wat de codelijst hier
-    # oplevert is dat de waarde gegarandeerd in de lijst staat — de databank
-    # weigert nu een rol die niet bestaat, en dat kon ze vóór deze fase niet.
+    # This is the authorisation surface: thirty-nine places ask it "which roles
+    # do I have here", and compare the answer with sets such as
+    # `{"ADMIN", "OPERATOR"} & rollen`. Converting those in the same change is
+    # exactly the half migration this CR itself warns against, in the one
+    # place where a half migration is a permission leak. What the code list
+    # gains here is that the value is guaranteed to be in the list — the
+    # database now refuses a role that does not exist, which it could not do
+    # before this phase.
     return {r[0].value for r in rows}
 
 
@@ -109,7 +111,7 @@ def get_user_role_rows(db: Session, email: str) -> list:
         .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
         .all()
     )
-    # Codes, om dezelfde reden als in `get_user_roles` hierboven.
+    # Codes, for the same reason as in `get_user_roles` above.
     return [(r[0].value, r[1]) for r in rows]
 
 

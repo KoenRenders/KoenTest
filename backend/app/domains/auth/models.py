@@ -9,31 +9,31 @@ from app.soft_delete import SoftDeleteMixin
 
 
 class Role(Enum):
-    """Wie wat mag (CR-12 fase 2).
+    """Who may do what (CR-12 phase 2).
 
-    **In `auth` en niet in `mdm`** (§B4.1, verfijning van Koen op 25 september
-    2026): masterdata beschrijft de wereld, en beveiligingsvocabulaire doet dat
-    niet. Rollen — en later rechten, identiteitsleveranciers, de afbeelding van
-    een externe groep op een interne rol — horen bij het domein waar Keycloak
-    of een SAML-directory aan vast komt te hangen. Daarmee is `auth` het tweede
-    fundamentdomein: het hangt alleen van `mdm` af, en andere schema's mogen
-    een foreign key naar zijn codetabellen leggen.
+    **In `auth` and not in `mdm`** (§B4.1, Koen's refinement of 25 September
+    2026): master data describes the world, and security vocabulary does not.
+    Roles — and later permissions, identity providers, the mapping of an
+    external group onto an internal role — belong to the domain that Keycloak
+    or a SAML directory will attach to. That makes `auth` the second
+    foundation domain: it depends on `mdm` only, and other schemas may put a
+    foreign key to its code tables.
 
-    **Deze enum beslist niets.** `require_admin_ui` en `require_finance_ui`
-    blijven bepalen wie wat mag; wat hier verandert is uitsluitend de vórm
-    waarin de codes bestaan. Wie welke rol nodig heeft staat in
-    `docs/rollen-en-rechten.md`, en dat document is bij deze wijziging
-    ongewijzigd gebleven.
+    **This enum decides nothing.** `require_admin_ui` and `require_finance_ui`
+    still determine who may do what; the only thing that changes here is the
+    *form* in which the codes exist. Which role is needed for what is in
+    `docs/rollen-en-rechten.md`, and that document was left unchanged by this
+    change.
     """
 
     ADMIN = "ADMIN"
     FINANCE = "FINANCE"
     OPERATOR = "OPERATOR"
     ACCOUNT_ADMIN = "ACCOUNT_ADMIN"
-    #: Ingetrokken sinds CR-12 fase 2. Bestonden sinds migratie 001, werden op
-    #: elk scherm weggefilterd en niemand draagt ze. Het lid blijft, want een
-    #: ingetrokken code houdt haar lid (§B4.3) — anders leest een oude rij
-    #: terug als een kale string.
+    #: Retired since CR-12 phase 2. They existed since migration 001, were
+    #: filtered out on every screen, and nobody holds them. The member stays,
+    #: because a retired code keeps its member (§B4.3) — otherwise an old row
+    #: would read back as a bare string.
     MEMBER = "MEMBER"
     USER = "USER"
 
@@ -69,10 +69,11 @@ class UserRole(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("auth.users.id"), nullable=False)
-    # CR-12 fase 2: wél een FK, want `auth.role_codes` staat sinds deze fase in
-    # hetzelfde schema. De opmerking hierboven klopte voor de oude ligging in
-    # `public`; de geldigheid zat toen alleen in de servicelaag, en dat is één
-    # laag te hoog voor iets waar een rechtencontrole op steunt.
+    # CR-12 phase 2: a FK after all, because since this phase `auth.role_codes`
+    # lives in the same schema. The comment that used to stand here was right
+    # for the old location in `public`; validity was then enforced only in the
+    # service layer, and that is one layer too high for something a
+    # permission check relies on.
     role_code: Mapped[Role] = mapped_column(
         EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
         nullable=False)
@@ -123,11 +124,11 @@ class LoginToken(Base):
 
 
 class RoleCode(Base):
-    """Welke rollen bestaan — het doel van de foreign keys (CR-12 fase 2).
+    """Which roles exist — the target of the foreign keys (CR-12 phase 2).
 
-    Verhuisd uit `public` naar `auth`. De oude tabel sleutelde op
-    (code, taal) met een uniciteit op de code alleen, en liet dus precies één
-    taal toe (#929).
+    Moved from `public` to `auth`. The old table was keyed on
+    (code, language) with a uniqueness constraint on the code alone, and so
+    allowed exactly one language (#929).
     """
 
     __tablename__ = "role_codes"
@@ -141,7 +142,7 @@ class RoleCode(Base):
 
 
 class RoleLabel(Base):
-    """Het woord dat een scherm toont voor een rol, per taal."""
+    """The word a screen shows for a role, per language."""
 
     __tablename__ = "role_labels"
     __table_args__ = {"schema": "auth"}

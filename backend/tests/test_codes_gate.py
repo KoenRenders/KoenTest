@@ -113,11 +113,11 @@ def _template_files() -> list[Path]:
 def collect_enums_without_list() -> dict[str, str]:
     """`Enum` classes with no `CodeList` and no marker → key: message."""
     load_all_models()
-    # Op module én naam, niet op naam alleen. Gemeten in fase 2: zodra
-    # `auth.models.Role` in een CodeList zat, hield deze gate ook
-    # `reporting.universe.Role` voor gedekt — een andere klasse met dezelfde
-    # naam. Een gate die een naam vergelijkt in plaats van een ding, dekt stil
-    # te veel, en dat is erger dan te weinig.
+    # On module and name, not on name alone. Measured in phase 2: as soon as
+    # `auth.models.Role` was in a CodeList, this gate also took
+    # `reporting.universe.Role` as covered — a different class with the same
+    # name. A gate that compares a name instead of a thing silently covers
+    # too much, and that is worse than too little.
     in_a_list = {(lst.enum.__module__, lst.enum.__name__)
                  for lst in registry().values() if lst.enum is not None}
     markers = {TechnicalEnum.__name__, ExternalVocabulary.__name__}
@@ -436,9 +436,9 @@ def test_no_new_loose_string_comparison():
 #: Dutch words that appear, or threaten to appear, as an enum member name. Not
 #: a dictionary: a net, in the spirit of #780. The *value* may be Dutch — that
 #: is stored data — the NAME may not.
-#: "PARTNER" stond hier en is eruit: het is ook een Engels woord, en de
-#: catalogus van §B5.3 geeft `PARTNER` als lidnaam. Een net dat een juist
-#: lid afkeurt, kost meer dan het opbrengt.
+#: "PARTNER" was here and has been taken out: it is an English word too, and
+#: the catalogue of §B5.3 gives `PARTNER` as the member name. A net that
+#: rejects a correct member costs more than it catches.
 DUTCH_WORDS = {
     "HOOFDLID", "KIND", "GEZIN", "LID", "LEDEN", "BEDRIJF",
     "VERENIGING", "FEITELIJKE", "VERSTUURD", "BETAALD", "OPENSTAAND",

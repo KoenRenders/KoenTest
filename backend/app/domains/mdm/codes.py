@@ -81,19 +81,20 @@ PAYMENT_METHOD = CodeList(
 )
 
 
-# ── Fase 2: de masterdata zelf ───────────────────────────────────────────────
+# ── Phase 2: the master data itself ─────────────────────────────────────────
 #
-# Vijf lijsten die al bestonden maar in de oude vorm — één rij per (code, taal),
-# met een uniciteit op de code alleen. Die vorm laat precies één taal toe (#929)
-# en is de reden dat migratie 017 elk Engels label wegvaagde. Twee lijsten
-# hadden de gesplitste vorm al (#924) en worden hier alleen aangemeld.
+# Five lists that already existed but in the old shape — one row per (code,
+# language), with uniqueness on the code alone. That shape allows exactly one
+# language (#929) and is the reason migration 017 wiped out every English
+# label. Two lists already had the split shape (#924) and are only registered
+# here.
 
 GENDER_CODES = (
     CodeSeed(code="M", nl="Man", en="Male", sort_order=10),
     CodeSeed(code="F", nl="Vrouw", en="Female", sort_order=20),
     CodeSeed(code="X", nl="X", en="X", sort_order=30),
-    # Ingetrokken (Koen, 26 september 2026): de lijst is M, F, X en niets meer.
-    # Het label blijft, zodat een bestaande persoon met deze code nog rendert.
+    # Retired (Koen, 26 September 2026): the list is M, F, X and nothing more.
+    # The label stays, so an existing person with this code still renders.
     CodeSeed(code="U", nl="Onbekend", en="Unknown", sort_order=90,
              is_active=False),
 )
@@ -103,9 +104,8 @@ GENDER = CodeList(
     schema="mdm",
     codes=GenderCode,
     labels=GenderLabel,
-    # Geen enum: niets in Python vertakt op een geslachtscode. Het is een
-    # kenmerk dat opgeslagen en getoond wordt, niet een waarde waar een regel
-    # aan hangt (§B4.3).
+    # No enum: nothing in Python branches on a gender code. It is an attribute
+    # that is stored and shown, not a value a rule depends on (§B4.3).
     enum=None,
     fk_from=("mdm.persons.gender_code",),
 )
@@ -120,29 +120,29 @@ CONTACT_TYPE_CODES = (
     CodeSeed(code="TIKTOK", nl="TikTok", en="TikTok", sort_order=70),
 )
 
-#: Welke contactsoorten sociale netwerken zijn (#1160). Een eigenschap ván de
-#: code, dus op de codetabel — niet in een lijstje in de voetnoot. Dit tupel is
-#: alleen het zaadje voor die kolom; de voetnoot leest de kolom.
+#: Which contact types are social networks (#1160). A property of the code,
+#: so on the code table — not in a list in the footer. This set is only the
+#: seed for that column; the footer reads the column.
 SOCIAL_NETWORKS = {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
 
 
 class CONTACT:
-    """De contactsoorten die de code bij naam noemt — codes, geen enum.
+    """The contact types the code names — codes, not an enum.
 
-    **Waarom hier geen enum staat** (Koen, 26 september 2026). §B4.3 vraagt een
-    enum zodra Python op een waarde vertakt, en dat doet ze hier: een e-mailadres
-    en een mobiel nummer worden anders behandeld dan de rest. Maar #1160 maakte
-    de publieke voetnoot data-gedreven — een vijfde sociaal netwerk is één rij
-    in `mdm.contact_type_codes` met `is_social_network = true`, en geen
-    codewijziging. Een enum-kolom zou die rij aan de **schrijfkant** weigeren,
-    en daarmee zou de codelijst precies datgene verliezen waarvoor #1160 hem
-    open zette. De leeskant heeft de enum niet nodig: de voetnoot vraagt de
-    bron wélke codes sociale netwerken zijn.
+    **Why there is no enum here** (Koen, 26 September 2026). §B4.3 asks for an
+    enum as soon as Python branches on a value, and it does here: an e-mail
+    address and a mobile number are treated differently from the rest. But
+    #1160 made the public footer data-driven — a fifth social network is one
+    row in `mdm.contact_type_codes` with `is_social_network = true`, and not a
+    code change. An enum column would reject that row on the **write side**,
+    and the code list would thereby lose exactly what #1160 opened it up for.
+    The read side does not need the enum: the footer asks the source *which*
+    codes are social networks.
 
-    Wat blijft, is dat de code nergens een los stringliteraal gebruikt. Deze
-    constanten zijn dat vangnet: één plek waar de spelling staat, en een typfout
-    is een `AttributeError` bij import in plaats van een vergelijking die stil
-    nooit waar wordt. De foreign key bewaakt de rest.
+    What remains is that the code never uses a bare string literal. These
+    constants are that safety net: one place where the spelling lives, and a
+    typo is an `AttributeError` at import instead of a comparison that is
+    silently never true. The foreign key guards the rest.
     """
 
     EMAIL = Code("EMAIL")
@@ -159,8 +159,8 @@ CONTACT_TYPE = CodeList(
     schema="mdm",
     codes=ContactTypeCode,
     labels=ContactTypeLabel,
-    # Geen enum — zie `CONTACT` hierboven voor de reden en voor wat er in de
-    # plaats komt.
+    # No enum — see `CONTACT` above for the reason and for what takes its
+    # place.
     enum=None,
     fk_from=("mdm.contact_details.contact_type_code",),
     extra_code_columns=("is_social_network",),
@@ -213,9 +213,9 @@ ORGANIZATION_TYPE = CodeList(
     fk_from=("mdm.organizations.org_type",),
 )
 
-#: Deze twee hadden de vorm al (#924); ze worden hier alleen aangemeld, zodat
-#: de poorten ze meenemen. De `en`-rijen van de identificatieschema's ontbraken
-#: en komen er in dezelfde migratie bij.
+#: These two already had the shape (#924); they are only registered here, so
+#: the gates include them. The `en` rows of the identification schemes were
+#: missing and are added in the same migration.
 ORGANIZATION_RELATION_TYPE_CODES = (
     CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting",
              sort_order=10),

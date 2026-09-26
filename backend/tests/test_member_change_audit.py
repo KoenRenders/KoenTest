@@ -39,7 +39,7 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
     contacts = db_session.query(ContactDetailHistory).filter(
         ContactDetailHistory.person_id == person.id).order_by(ContactDetailHistory.id).all()
     assert len(contacts) - before_contacts == 1          # exact één nieuwe rij
-    # History draagt de kale code (§F4): geen FK, dus geen enum-kolom.
+    # History carries the bare code (§F4): no FK, so no enum column.
     assert contacts[-1].contact_type_code == CONTACT.MOBILE
 
     after_persons = db_session.query(PersonHistory).filter(

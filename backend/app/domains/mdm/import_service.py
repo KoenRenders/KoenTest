@@ -470,9 +470,9 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
 
         _meld_onvolledig(row, report, existing)
         changes = _person_field_changes(existing, row)
-        # `code_of`: de kolom draagt sinds CR-12 fase 2 een enum-lid en de
-        # rapportrij een code. Zonder deze stap is elke rij "gewijzigd" en
-        # meldt de import een wijziging die niet gebeurt.
+        # `code_of`: since CR-12 phase 2 the column carries an enum member and
+        # the report row a code. Without this step every row is "changed" and
+        # the import reports a change that does not happen.
         rel_changed = (mp is not None
                        and code_of(mp.relation_type) != row["_relatie"])
         if changes or rel_changed:

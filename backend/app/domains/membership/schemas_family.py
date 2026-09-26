@@ -16,10 +16,10 @@ class FamilyMemberCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    # CR-12 fase 2: form → router (Pydantic). Een onbekend relatietype is nu
-    # een 422 met de naam van het veld in plaats van een rij die pas op de
-    # foreign key struikelt. De JSON blijft identiek: de waarden zíjn de
-    # codes, en Pydantic serialiseert een enum als zijn waarde.
+    # CR-12 phase 2: form → router (Pydantic). An unknown relation type is now
+    # a 422 naming the field, instead of a row that only trips over the
+    # foreign key. The JSON stays identical: the values *are* the codes, and
+    # Pydantic serialises an enum as its value.
     relation_type: RelationType = RelationType.PRIMARY_MEMBER
 
     @property

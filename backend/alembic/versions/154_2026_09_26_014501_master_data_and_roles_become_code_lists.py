@@ -60,34 +60,34 @@ from app.kernel.codes import add_code_fk, create_code_list
 logger = logging.getLogger("alembic.runtime.migration")
 
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick
+# "the next number" at the same time pick the same one; two that get a
+# timestamp cannot collide. The sequence number sits at the front of the
+# FILE NAME, for readability and sorting — alembic does not look at it.
 revision = '154_2026_09_26_014501'
 down_revision = '153_2026_09_26_001941'
 branch_labels = None
 depends_on = None
 
-#: De vier lijsten die de oude vorm hadden: (lijstnaam, codelengte, zaad).
-TE_SPLITSEN = [
+#: The four lists that had the old shape: (list name, code length, seed).
+TO_SPLIT = [
     ("gender", 10, GENDER_CODES),
     ("contact_type", 10, CONTACT_TYPE_CODES),
     ("relation_type", 10, RELATION_TYPE_CODES),
     ("legal_form", 30, LEGAL_FORM_CODES),
 ]
 
-#: De persoonsweergave leest vandaag `gender_codes.value` en
-#: `relation_type_codes.value` met een `language = 'nl'`-filter. Na de splitsing
-#: staan die teksten in de labeltabellen, dus de weergave moet mee — en ze moet
-#: mee vóór de kolommen verdwijnen, anders weigert Postgres de wijziging.
+#: The person view currently reads `gender_codes.value` and
+#: `relation_type_codes.value` with a `language = 'nl'` filter. After the split
+#: those texts live in the label tables, so the view has to follow — and it has
+#: to follow before the columns disappear, or Postgres refuses the change.
 #:
-#: `CREATE OR REPLACE` en geen `DROP`: de kolomlijst blijft identiek, alleen de
-#: joins veranderen. Daarmee blijft `reporting.f_registrations` — dat op deze
-#: weergave staat — onaangeroerd, en blijft ook het commentaar staan dat de
-#: schemapoort van elke weergave eist. Een DROP zou beide meenemen en zou deze
-#: migratie een tweede kopie van twee weergavedefinities geven, precies de
-#: duplicatie die `CLAUDE.md` als de fout benoemt.
+#: `CREATE OR REPLACE` and not `DROP`: the column list stays identical, only the
+#: joins change. That leaves `reporting.f_registrations` — which is built on
+#: this view — untouched, and also keeps the comment that the schema gate
+#: requires on every view. A DROP would take both along and would give this
+#: migration a second copy of two view definitions, exactly the duplication
+#: that `CLAUDE.md` names as the bug.
 D_PERSON = """
 CREATE OR REPLACE VIEW reporting.d_person AS
 SELECT
@@ -129,31 +129,30 @@ WHERE p.deleted_at IS NULL AND p.superseded_by_id IS NULL
 """
 
 
-def _heeft_tabel(schema, naam: str) -> bool:
-    return sa.inspect(op.get_bind()).has_table(naam, schema=schema)
+def _has_table(schema, name: str) -> bool:
+    return sa.inspect(op.get_bind()).has_table(name, schema=schema)
 
 
-def _kolommen(schema: str, tabel: str) -> set:
+def _columns(schema: str, table: str) -> set:
     return {c["name"]
-            for c in sa.inspect(op.get_bind()).get_columns(tabel, schema=schema)}
+            for c in sa.inspect(op.get_bind()).get_columns(table, schema=schema)}
 
 
-def _maak_labeltabel(naam: str, lengte: int, codes) -> None:
-    """De labeltabel naast een bestaande codetabel, gevuld uit de declaratie.
+def _create_label_table(name: str, length: int, codes) -> None:
+    """The label table next to an existing code table, filled from the declaration.
 
-    **De teksten komen uit de declaratie en niet uit de oude tabel**, want dat
-    zijn de door Koen goedgekeurde labels van §B5.3. Eén verschil is echt en
-    het is de moeite het te noemen: de oude tabel schreef
-    `(Meerderjarig) kind` met een hoofdletter, `ui/__init__.py:_RELATIE_LABELS`
-    schreef `(meerderjarig) kind` met een kleine. Twee plaatsen, twee
-    spellingen; het CR koos die van de keuzelijst (#779), en dat is wat een
-    scherm vandaag toont.
+    **The texts come from the declaration and not from the old table**, because
+    those are the labels Koen approved in §B5.3. One difference is real and
+    worth naming: the old table wrote `(Meerderjarig) kind` with a capital,
+    `ui/__init__.py:_RELATIE_LABELS` wrote `(meerderjarig) kind` with a lower
+    case letter. Two places, two spellings; the CR chose the one from the
+    dropdown (#779), and that is what a screen shows today.
     """
     bind = op.get_bind()
-    if not _heeft_tabel("mdm", f"{naam}_labels"):
+    if not _has_table("mdm", f"{name}_labels"):
         op.create_table(
-            f"{naam}_labels",
-            sa.Column("code", sa.String(lengte), primary_key=True),
+            f"{name}_labels",
+            sa.Column("code", sa.String(length), primary_key=True),
             sa.Column("language", sa.String(5), primary_key=True),
             sa.Column("value", sa.String(150), nullable=False),
             sa.Column("description", sa.String(255), nullable=True),
@@ -162,30 +161,29 @@ def _maak_labeltabel(naam: str, lengte: int, codes) -> None:
             sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
                       server_default=sa.func.now()),
             sa.ForeignKeyConstraint(["language"], ["mdm.language_codes.code"],
-                                    name=f"fk_{naam}_labels_language"),
+                                    name=f"fk_{name}_labels_language"),
             schema="mdm",
         )
     for seed in codes:
-        for taal in ("nl", "en"):
+        for language in ("nl", "en"):
             bind.execute(sa.text(
-                f"INSERT INTO mdm.{naam}_labels "
+                f"INSERT INTO mdm.{name}_labels "
                 f"(code, language, value, description, created_at, updated_at) "
                 f"VALUES (:c, :l, :v, :d, now(), now()) "
                 f"ON CONFLICT (code, language) "
                 f"DO UPDATE SET value = EXCLUDED.value"),
-                {"c": seed.code, "l": taal, "v": seed.label(taal),
-                 "d": seed.description(taal)})
+                {"c": seed.code, "l": language, "v": seed.label(language),
+                 "d": seed.description(language)})
 
 
-def _inkomende_fks(naam: str) -> list[tuple[str, str, str, str]]:
-    """(schema, tabel, kolom, constraintnaam) van elke FK naar deze codetabel.
+def _incoming_fks(name: str) -> list[tuple[str, str, str, str]]:
+    """(schema, table, column, constraint name) of every FK to this code table.
 
-    Opgezocht in plaats van opgesomd: de namen verschillen per migratie die ze
-    gelegd heeft (`persons_gender_code_fkey` tegenover
-    `fk_member_persons_relation_type`), en een lijst met de hand is precies
-    waar er één ontbreekt.
+    Looked up rather than listed: the names differ per migration that created
+    them (`persons_gender_code_fkey` versus `fk_member_persons_relation_type`),
+    and a hand-written list is exactly where one goes missing.
     """
-    return [tuple(rij) for rij in op.get_bind().execute(sa.text("""
+    return [tuple(row) for row in op.get_bind().execute(sa.text("""
         SELECT n.nspname, c.relname, a.attname, con.conname
         FROM pg_constraint con
         JOIN pg_class c ON c.oid = con.conrelid
@@ -194,241 +192,237 @@ def _inkomende_fks(naam: str) -> list[tuple[str, str, str, str]]:
                            AND a.attnum = con.conkey[1]
         WHERE con.contype = 'f'
           AND con.confrelid = to_regclass(:doel)
-    """), {"doel": f"mdm.{naam}_codes"}).all()]
+    """), {"doel": f"mdm.{name}_codes"}).all()]
 
 
-def _hervorm_codetabel(naam: str, lengte: int, codes) -> None:
-    """De codetabel naar de vorm van §B4.2, ter plekke.
+def _reshape_code_table(name: str, length: int, codes) -> None:
+    """The code table into the shape of §B4.2, in place.
 
-    Ter plekke en niet droppen-en-opnieuw-maken: er hangen foreign keys aan
+    In place and not drop-and-recreate: foreign keys hang on it
     (`persons.gender_code`, `contact_details.contact_type_code`,
-    `member_persons.relation_type`) en een weergave. Droppen zou die allemaal
-    meenemen, en ze daarna opnieuw aanleggen betekent hun definitie hier
-    overschrijven — een tweede kopie van iets dat elders al staat.
+    `member_persons.relation_type`), and so does a view. Dropping would take
+    all of them along, and recreating them afterwards means rewriting their
+    definition here — a second copy of something that already lives elsewhere.
     """
     bind = op.get_bind()
-    tabel = f"mdm.{naam}_codes"
-    kolommen = _kolommen("mdm", f"{naam}_codes")
-    if "language" in kolommen:
-        # Eén rij per code overhouden. De oude vorm had er één per (code, taal);
-        # welke rij blijft maakt niet uit, want alles behalve `code` verdwijnt.
+    table = f"mdm.{name}_codes"
+    columns = _columns("mdm", f"{name}_codes")
+    if "language" in columns:
+        # Keep one row per code. The old shape had one per (code, language);
+        # which row stays does not matter, because everything but `code` goes.
         bind.execute(sa.text(
-            f"DELETE FROM {tabel} a USING {tabel} b "
+            f"DELETE FROM {table} a USING {table} b "
             f"WHERE a.code = b.code AND a.language > b.language"))
-        for constraint in (f"{naam}_codes_pkey", f"uq_{naam}_codes_code"):
+        for constraint in (f"{name}_codes_pkey", f"uq_{name}_codes_code"):
             bind.execute(sa.text(
-                f"ALTER TABLE {tabel} DROP CONSTRAINT IF EXISTS {constraint}"))
-        for kolom in ("language", "value", "description", "updated_at"):
-            if kolom in kolommen:
-                op.drop_column(f"{naam}_codes", kolom, schema="mdm")
+                f"ALTER TABLE {table} DROP CONSTRAINT IF EXISTS {constraint}"))
+        for column in ("language", "value", "description", "updated_at"):
+            if column in columns:
+                op.drop_column(f"{name}_codes", column, schema="mdm")
         bind.execute(sa.text(
-            f"ALTER TABLE {tabel} ADD CONSTRAINT {naam}_codes_pkey "
+            f"ALTER TABLE {table} ADD CONSTRAINT {name}_codes_pkey "
             f"PRIMARY KEY (code)"))
-    for kolom, type_, default in (("sort_order", sa.Integer(), "0"),
-                                  ("is_active", sa.Boolean(), sa.true())):
-        if kolom not in _kolommen("mdm", f"{naam}_codes"):
-            op.add_column(f"{naam}_codes",
-                          sa.Column(kolom, type_, nullable=False,
+    for column, type_, default in (("sort_order", sa.Integer(), "0"),
+                                   ("is_active", sa.Boolean(), sa.true())):
+        if column not in _columns("mdm", f"{name}_codes"):
+            op.add_column(f"{name}_codes",
+                          sa.Column(column, type_, nullable=False,
                                     server_default=default), schema="mdm")
     for seed in codes:
         bind.execute(sa.text(
-            f"INSERT INTO {tabel} (code, sort_order, is_active, created_at) "
+            f"INSERT INTO {table} (code, sort_order, is_active, created_at) "
             f"VALUES (:c, :s, :a, now()) ON CONFLICT (code) DO UPDATE SET "
             f"sort_order = EXCLUDED.sort_order, is_active = EXCLUDED.is_active"),
             {"c": seed.code, "s": seed.sort_order, "a": seed.is_active})
 
 
-def _sociale_vlag_per_code(bind) -> dict[str, bool]:
-    """`is_social_network` per code, uit de tabel zoals ze nu staat (#1160).
+def _social_flag_per_code(bind) -> dict[str, bool]:
+    """`is_social_network` per code, from the table as it stands now (#1160).
 
-    **Waarom dit meer is dan één SELECT.** `mdm.contact_type_codes` heeft
-    vandaag een samengestelde sleutel `(code, language)`, en `is_social_network`
-    staat op die rij — de vlag is dus per TAAL opgeslagen terwijl ze per CODE
-    betekenis heeft. Met twee taalrijen voor één code zou een woordenboek op
-    code de tweede rij stil over de eerste schrijven, en wélke dat is hangt af
-    van de volgorde die Postgres teruggeeft.
+    **Why this is more than one SELECT.** `mdm.contact_type_codes` currently
+    has a composite key `(code, language)`, and `is_social_network` sits on
+    that row — so the flag is stored per LANGUAGE while it means something per
+    CODE. With two language rows for one code, a dictionary keyed on the code
+    would let the second row silently overwrite the first, and which one that
+    is depends on the order Postgres returns.
 
-    Na deze migratie kan dat niet meer: de labels verhuizen naar de labeltabel
-    en de codetabel houdt één rij per code. Het gat zit precies in de
-    OVERGANG — hier, op het moment dat de oude rijen gelezen worden. Dus wordt
-    er geteld in plaats van aangenomen: bij een tegenstrijdigheid tussen
-    taalrijen breekt de migratie af met de codes in de melding, in plaats van
-    er één te laten winnen. Vindt ze niets, dan staat dát in de log, want
-    "nagekeken en niets gevonden" is een meting en een stille aanname niet.
+    After this migration that can no longer happen: the labels move to the
+    label table and the code table keeps one row per code. The gap is exactly
+    in the TRANSITION — here, at the moment the old rows are read. So this
+    counts instead of assuming: on a conflict between language rows the
+    migration aborts with the codes in the message, instead of letting one of
+    them win. If it finds nothing, THAT goes into the log, because "checked and
+    found nothing" is a measurement and a silent assumption is not.
     """
-    if "is_social_network" not in _kolommen("mdm", "contact_type_codes"):
-        logger.info("154: contact_type_codes heeft nog geen is_social_network; "
-                    "de waarden komen uit de declaratie")
+    if "is_social_network" not in _columns("mdm", "contact_type_codes"):
+        logger.info("154: contact_type_codes has no is_social_network yet; "
+                    "the values come from the declaration")
         return {}
-    rijen = [(r.code, bool(r.is_social_network)) for r in bind.execute(sa.text(
+    rows = [(r.code, bool(r.is_social_network)) for r in bind.execute(sa.text(
         "SELECT code, language, is_social_network "
         "FROM mdm.contact_type_codes ORDER BY code, language")).all()]
-    return vlag_uit_rijen(rijen)
+    return flag_from_rows(rows)
 
 
-def vlag_uit_rijen(rijen: list[tuple[str, bool]]) -> dict[str, bool]:
-    """De telling zelf, los van de databank zodat ze te toetsen is.
+def flag_from_rows(rows: list[tuple[str, bool]]) -> dict[str, bool]:
+    """The count itself, separate from the database so it can be tested.
 
-    Publiek (geen underscore) omdat `tests/test_codes_phase2.py` haar aanroept:
-    een guard die alleen tijdens een echte migratie kan afgaan, is een guard
-    waarvan niemand weet of hij werkt.
+    Public (no underscore) because `tests/test_codes_phase2.py` calls it: a
+    guard that can only fire during a real migration is a guard nobody knows
+    works.
     """
-    vlag: dict[str, bool] = {}
-    tegenstrijdig: dict[str, set[bool]] = {}
-    for code, waarde in rijen:
-        if code in vlag and vlag[code] != waarde:
-            tegenstrijdig.setdefault(code, {vlag[code]}).add(waarde)
-        vlag[code] = vlag.get(code, waarde) or waarde
-    if tegenstrijdig:
-        namen = ", ".join(f"{code} ({sorted(waarden)})"
-                          for code, waarden in sorted(tegenstrijdig.items()))
+    flag: dict[str, bool] = {}
+    conflicting: dict[str, set[bool]] = {}
+    for code, value in rows:
+        if code in flag and flag[code] != value:
+            conflicting.setdefault(code, {flag[code]}).add(value)
+        flag[code] = flag.get(code, value) or value
+    if conflicting:
+        names = ", ".join(f"{code} ({sorted(values)})"
+                          for code, values in sorted(conflicting.items()))
         raise RuntimeError(
-            f"154: is_social_network spreekt zichzelf tegen tussen de taalrijen "
-            f"van {len(tegenstrijdig)} code(s): {namen}. De vlag hoort bij de "
-            f"code en niet bij de taal, dus er is hier geen juiste keuze te "
-            f"maken — zet de rijen gelijk en draai opnieuw.")
-    logger.info("154: is_social_network gelezen voor %d code(s) uit %d rij(en); "
-                "geen tegenstrijdigheid tussen taalrijen", len(vlag), len(rijen))
-    return vlag
+            f"154: is_social_network contradicts itself across the language "
+            f"rows of {len(conflicting)} code(s): {names}. The flag belongs to "
+            f"the code and not to the language, so there is no right choice to "
+            f"make here — make the rows agree and run again.")
+    logger.info("154: is_social_network read for %d code(s) from %d row(s); "
+                "no conflict between language rows", len(flag), len(rows))
+    return flag
 
 
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # ── 1. De twee lijsten die de vorm bijna hadden (#924) ───────────────────
-    for oud, nieuw in (("organization_relation_types",
-                        "organization_relation_type_codes"),
-                       ("identification_schemes", "identification_scheme_codes")):
-        if _heeft_tabel("mdm", oud):
-            op.rename_table(oud, nieuw, schema="mdm")
-        for kolom, type_, default in (("sort_order", sa.Integer(), "0"),
-                                      ("is_active", sa.Boolean(), sa.true())):
-            if kolom not in _kolommen("mdm", nieuw):
-                op.add_column(nieuw, sa.Column(kolom, type_, nullable=False,
-                                               server_default=default),
+    # ── 1. The two lists that almost had the shape (#924) ───────────────────
+    for old, new in (("organization_relation_types",
+                      "organization_relation_type_codes"),
+                     ("identification_schemes", "identification_scheme_codes")):
+        if _has_table("mdm", old):
+            op.rename_table(old, new, schema="mdm")
+        for column, type_, default in (("sort_order", sa.Integer(), "0"),
+                                       ("is_active", sa.Boolean(), sa.true())):
+            if column not in _columns("mdm", new):
+                op.add_column(new, sa.Column(column, type_, nullable=False,
+                                             server_default=default),
                               schema="mdm")
 
-    # De helper vult aan wat ontbreekt: de `en`-labels van de
-    # identificatieschema's, die er nooit geweest zijn.
-    for naam, codes, lengte in (
+    # The helper fills in what is missing: the `en` labels of the
+    # identification schemes, which never existed.
+    for name, codes, length in (
             ("organization_relation_type", ORGANIZATION_RELATION_TYPE_CODES, 30),
             ("identification_scheme", IDENTIFICATION_SCHEME_CODES, 20)):
-        create_code_list(op, schema="mdm", name=naam, codes=codes,
-                         code_length=lengte)
+        create_code_list(op, schema="mdm", name=name, codes=codes,
+                         code_length=length)
         for seed in codes:
             bind.execute(sa.text(
-                f"UPDATE mdm.{naam}_codes SET sort_order = :s WHERE code = :c"),
+                f"UPDATE mdm.{name}_codes SET sort_order = :s WHERE code = :c"),
                 {"s": seed.sort_order, "c": seed.code})
-        # De taal-FK ontbrak op deze twee: ze zijn van vóór de taallijst. Zonder
-        # hem kan er elke spelling van een taalcode in een labelrij staan, en
-        # dat is precies wat de taallijst uitsluit.
-        naam_fk = f"fk_{naam}_labels_language"
-        if naam_fk not in {fk["name"] for fk in sa.inspect(bind).get_foreign_keys(
-                f"{naam}_labels", schema="mdm")}:
-            op.create_foreign_key(naam_fk, f"{naam}_labels", "language_codes",
+        # The language FK was missing on these two: they predate the language
+        # list. Without it a label row can hold any spelling of a language
+        # code, which is exactly what the language list rules out.
+        fk_name = f"fk_{name}_labels_language"
+        if fk_name not in {fk["name"] for fk in sa.inspect(bind).get_foreign_keys(
+                f"{name}_labels", schema="mdm")}:
+            op.create_foreign_key(fk_name, f"{name}_labels", "language_codes",
                                   ["language"], ["code"],
                                   source_schema="mdm", referent_schema="mdm")
 
-    # ── 2. De labeltabellen, vóór de codetabellen ────────────────────────────
-    # In deze volgorde omdat de persoonsweergave hieronder de labeltabellen
-    # nodig heeft, en zij op haar beurt vóór de codekolommen moet wijken.
-    for naam, lengte, codes in TE_SPLITSEN:
-        _maak_labeltabel(naam, lengte, codes)
+    # ── 2. The label tables, before the code tables ─────────────────────────
+    # In this order because the person view below needs the label tables, and
+    # the view in turn has to make way before the code columns go.
+    for name, length, codes in TO_SPLIT:
+        _create_label_table(name, length, codes)
 
-    # ── 3. De weergave gaat over op de labels ────────────────────────────────
+    # ── 3. The view switches over to the labels ─────────────────────────────
     op.execute(D_PERSON)
 
-    # ── 4. Nu pas de codetabellen zelf ───────────────────────────────────────
-    sociaal = _sociale_vlag_per_code(bind)
+    # ── 4. Only now the code tables themselves ──────────────────────────────
+    social = _social_flag_per_code(bind)
 
-    for naam, lengte, codes in TE_SPLITSEN:
-        # De inkomende foreign keys hangen aan de uniciteit die we vervangen,
-        # dus ze gaan er eerst af en daarna weer op — met de wacht van
-        # `add_code_fk`, die eerst telt of de data past.
-        inkomend = _inkomende_fks(naam)
-        for schema, tabel, _kolom, constraint in inkomend:
-            op.drop_constraint(constraint, tabel, schema=schema,
+    for name, length, codes in TO_SPLIT:
+        # The incoming foreign keys depend on the uniqueness we are replacing,
+        # so they come off first and go back on afterwards — with the guard of
+        # `add_code_fk`, which first counts whether the data fits.
+        incoming = _incoming_fks(name)
+        for schema, table, _column, constraint in incoming:
+            op.drop_constraint(constraint, table, schema=schema,
                                type_="foreignkey")
-        _hervorm_codetabel(naam, lengte, codes)
-        op.create_foreign_key(f"fk_{naam}_labels_code", f"{naam}_labels",
-                              f"{naam}_codes", ["code"], ["code"],
+        _reshape_code_table(name, length, codes)
+        op.create_foreign_key(f"fk_{name}_labels_code", f"{name}_labels",
+                              f"{name}_codes", ["code"], ["code"],
                               source_schema="mdm", referent_schema="mdm")
-        for schema, tabel, kolom, _constraint in inkomend:
-            add_code_fk(op, f"{schema}.{tabel}.{kolom}", "mdm", naam)
+        for schema, table, column, _constraint in incoming:
+            add_code_fk(op, f"{schema}.{table}.{column}", "mdm", name)
 
-    if "is_social_network" not in _kolommen("mdm", "contact_type_codes"):
+    if "is_social_network" not in _columns("mdm", "contact_type_codes"):
         op.add_column("contact_type_codes",
                       sa.Column("is_social_network", sa.Boolean(), nullable=True),
                       schema="mdm")
-    # De bewaarde eigenschap terug (#1160), en voor een verse omgeving de
-    # waarde uit de declaratie — zodat beide dezelfde uitkomst krijgen.
+    # Restore the preserved property (#1160), and for a fresh environment the
+    # value from the declaration — so both end up with the same result.
     for seed in CONTACT_TYPE_CODES:
-        waarde = sociaal.get(seed.code, seed.code in SOCIAL_NETWORKS)
+        value = social.get(seed.code, seed.code in SOCIAL_NETWORKS)
         bind.execute(sa.text(
             "UPDATE mdm.contact_type_codes SET is_social_network = :v "
-            "WHERE code = :c"), {"v": bool(waarde), "c": seed.code})
+            "WHERE code = :c"), {"v": bool(value), "c": seed.code})
 
-    # ── 5. Gender: intrekken wat er niet meer bij hoort ──────────────────────
-    # `U` is ingetrokken via zijn CodeSeed. `O` bestaat niet — migratie 004
-    # hernoemde hem naar `X`, anders dan §B5.3 note 2 zegt — maar een omgeving
-    # met oudere geschiedenis kan hem nog dragen, dus dit is tolerant
-    # geschreven in plaats van voorwaardelijk.
-    # `U` wordt ingetrokken door zijn eigen `CodeSeed` (`is_active=False`) —
-    # één bron, en de declaratie is de plek waar een lezer ernaar zoekt. Wat
-    # hier gebeurt is het TELLEN, wat het issue vraagt, plus het ene geval dat
-    # geen zaad heeft: `O`. Die bestaat niet meer (migratie 004 hernoemde hem
-    # naar `X`), maar een omgeving met oudere geschiedenis kan hem nog dragen.
+    # ── 5. Gender: retire what no longer belongs ────────────────────────────
+    # `U` is retired by its own `CodeSeed` (`is_active=False`) — one source,
+    # and the declaration is where a reader looks for it. What happens here is
+    # the COUNTING the issue asks for, plus the one case that has no seed:
+    # `O`. It does not exist — migration 004 renamed it to `X`, contrary to
+    # what §B5.3 note 2 says — but an environment with older history may still
+    # carry it, so this is written tolerantly rather than conditionally.
     for code in ("U", "O"):
-        aantal = bind.execute(sa.text(
+        count = bind.execute(sa.text(
             "SELECT count(*) FROM mdm.persons WHERE gender_code = :c"),
             {"c": code}).scalar_one()
-        bestaat = bind.execute(sa.text(
+        exists = bind.execute(sa.text(
             "SELECT count(*) FROM mdm.gender_codes WHERE code = :c"),
             {"c": code}).scalar_one()
-        print(f"[CR-12 §B5.3 note 2] gender {code!r}: {bestaat} rij in de "
-              f"codetabel, {aantal} perso(o)n(en) dragen hem")
+        print(f"[CR-12 §B5.3 note 2] gender {code!r}: {exists} row(s) in the "
+              f"code table, {count} person(s) carry it")
     bind.execute(sa.text(
         "UPDATE mdm.gender_codes SET is_active = false WHERE code = 'O'"))
 
-    # ── 6. De organisatiesoort, nieuw ────────────────────────────────────────
+    # ── 6. The organisation type, new ───────────────────────────────────────
     create_code_list(op, schema="mdm", name="organization_type",
                      codes=ORGANIZATION_TYPE_CODES,
                      fk_from=("mdm.organizations.org_type",), code_length=20)
-    # Dezelfde reden als bij `ck_payment_records_type` in fase 1: de CHECK zegt
-    # wat de FK zegt, en met hem erbij kost een vierde soort een rij én een
-    # migratie.
+    # Same reason as for `ck_payment_records_type` in phase 1: the CHECK says
+    # what the FK says, and with it in place a fourth type costs a row AND a
+    # migration.
     if "ck_org_type" in {c["name"] for c in sa.inspect(bind).get_check_constraints(
             "organizations", schema="mdm")}:
         op.drop_constraint("ck_org_type", "organizations", schema="mdm",
                            type_="check")
 
-    # ── 7. De rechtsvorm krijgt eindelijk haar FK ────────────────────────────
+    # ── 7. The legal form finally gets its FK ───────────────────────────────
     add_code_fk(op, "mdm.organizations.legal_form", "mdm", "legal_form")
 
-    # ── 8. De rollen naar auth ───────────────────────────────────────────────
-    weg = bind.execute(sa.text(
+    # ── 8. The roles to auth ────────────────────────────────────────────────
+    removed = bind.execute(sa.text(
         "DELETE FROM role_codes WHERE code IN ('HOOFDLID','PARTNER','KIND') "
-        "RETURNING code")).all() if _heeft_tabel(None, "role_codes") else []
-    print(f"[CR-12 §B5.3 note 4] relatietypes in public.role_codes: "
-          f"{len(weg)} verwijderd")
+        "RETURNING code")).all() if _has_table(None, "role_codes") else []
+    print(f"[CR-12 §B5.3 note 4] relation types in public.role_codes: "
+          f"{len(removed)} deleted")
 
     create_code_list(op, schema="auth", name="role", codes=ROLE_CODES,
                      fk_from=("auth.user_roles.role_code",
                               "workflow.workflow_tasks.required_role"),
                      code_length=20)
 
-    if _heeft_tabel(None, "role_codes"):
+    if _has_table(None, "role_codes"):
         op.drop_table("role_codes")
 
 
 def downgrade() -> None:
-    # Schema, niet data. De labels die deze migratie schrijft zijn de
-    # goedgekeurde teksten van §B5.3; teruggaan zet de oude, enkeltalige vorm
-    # terug maar niet de oude Engelse labels, want die waren er niet meer —
-    # migratie 017 had ze al gewist. Dat is precies de reden dat deze migratie
-    # bestaat, dus een "volledige" omkering zou een toestand herstellen die
-    # niemand wil.
+    # Schema, not data. The labels this migration writes are the approved
+    # texts of §B5.3; going back restores the old, single-language shape but
+    # not the old English labels, because those were already gone — migration
+    # 017 had wiped them. That is exactly why this migration exists, so a
+    # "complete" reversal would restore a state nobody wants.
     raise NotImplementedError(
-        "CR-12 fase 2 is niet omkeerbaar zonder de eentalige vorm terug te "
-        "zetten die #929 als fout benoemt. Rol terug naar de tag vóór de "
-        "release en zet de databank terug uit de back-up.")
+        "CR-12 phase 2 cannot be reversed without restoring the single-language "
+        "shape that #929 names as the bug. Roll back to the tag before the "
+        "release and restore the database from the backup.")

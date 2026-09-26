@@ -112,11 +112,11 @@ templates.env.filters["meetwaarde"] = _meetwaarde
 
 # Relatietype leesbaar tonen (#476): ruwe code → label i.p.v. "HOOFDLID".
 #
-# CR-12 fase 2: hier stond een woordenboek met drie Nederlandse woorden. Het
-# label komt nu uit `mdm.relation_type_labels`, dus het scherm en een export
-# tonen hetzelfde woord en een Engelstalige afdeling ziet Engels. Het filter
-# blijft bestaan omdat de sjablonen het bij naam kennen; het is nu één regel
-# rond `code_label`.
+# CR-12 phase 2: this used to be a dictionary of three Dutch words. The label
+# now comes from `mdm.relation_type_labels`, so the screen and an export show
+# the same word and an English-language unit sees English. The filter stays
+# because the templates know it by name; it is now one line around
+# `code_label`.
 def _relatielabel(code) -> str:
     from app.kernel.codes import code_label
 
@@ -577,8 +577,9 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
     # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
     # antwoord geven in plaats van geen.
-    # Gesleuteld op de CODE: de aanroepers hieronder zoeken met "EMAIL" en
-    # "PHONE", en de kolom draagt sinds CR-12 fase 2 het enum-lid.
+    # Keyed on the CODE: the callers below look up with "EMAIL" and "PHONE".
+    # The column holds the plain code (contact types have no enum, see
+    # `mdm.codes.CONTACT`); `code_of` keeps this correct whichever it holds.
     from app.kernel.codes import code_of as _code_of
 
     contacten = {_code_of(c.contact_type_code): c.value for c in
@@ -653,9 +654,9 @@ def _sociale_links(db, organisatie) -> list[dict]:
         return []
     from app.domains.mdm.api import ContactDetail, ContactTypeCode
 
-    # CR-12 fase 2: `is_social_network` staat nog altijd op de codetabel — het
-    # is een eigenschap ván de code (#1160) — maar het woord ernaast komt sinds
-    # de splitsing uit de labeltabel, via `code_label()`.
+    # CR-12 phase 2: `is_social_network` still lives on the code table — it is
+    # a property of the code (#1160) — but since the split the word next to it
+    # comes from the label table, via `code_label()`.
     from app.kernel.codes import code_label, code_of
 
     netwerken = {c.code: code_label("contact_type", c.code) for c in
@@ -664,9 +665,10 @@ def _sociale_links(db, organisatie) -> list[dict]:
                  .execution_options(include_all_tenants=True).all()}
     if not netwerken:
         return []
-    # `code_of`: bij een gedeeltelijke enum leest een code waar niets op
-    # vertakt — een vijfde sociaal netwerk — terug als de code zelf, en de
-    # bekende soorten als hun lid. Eén functie dekt beide.
+    # `code_of`: the column holds the plain code — contact types have no enum,
+    # precisely so that a fifth social network is one row (#1160) — and
+    # `code_of` returns it unchanged. Kept so this reads the same as every
+    # other code lookup.
     rijen = {code_of(c.contact_type_code): c.value for c in
              db.query(ContactDetail)
              .filter(ContactDetail.organization_id == organisatie.id,

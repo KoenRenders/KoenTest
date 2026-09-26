@@ -139,10 +139,10 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     alles toont wat ze niet herkent. Die restcategorie zette het gsm-nummer van
     de vereniging tussen de iconen.
     """
-    # CR-12 fase 2: de lijst is gesplitst, dus een vijfde netwerk is één rij in
-    # de codetabel plus haar label. Dát het nog steeds géén codewijziging is, is
-    # precies wat deze test bewaakt: de lijst heeft geen enum, dus `MASTODON`
-    # is één rij en geen codewijziging (Koen, 26 september 2026).
+    # CR-12 phase 2: the list has been split, so a fifth network is one row in
+    # the code table plus its label. That it is still NOT a code change is
+    # exactly what this test guards: the list has no enum, so `MASTODON` is
+    # one row and no code change (Koen, 26 September 2026).
     from app.domains.mdm.api import ContactTypeCode, ContactTypeLabel
 
     db_session.add(ContactTypeCode(code="MASTODON", sort_order=80,

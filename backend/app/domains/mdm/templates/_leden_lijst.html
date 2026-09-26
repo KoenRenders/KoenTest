@@ -4,11 +4,12 @@
 {% if families %}
 <div class="space-y-3">
   {% for f in families %}
-  {# CR-12 fase 2: hier stond `selectattr("relation_type", "equalto", "HOOFDLID")`.
-     Met een gewone `Enum` op die kolom is die vergelijking stil onwaar, en dan
-     valt de lijst terug op "de eerste persoon" zonder dat iets klaagt. §B4.7
-     zegt het al: een sjabloon vergelijkt geen code. Wie het hoofdlid is, is
-     een regel, en die hoort bij het gezin — `f.primary` komt uit de service. #}
+  {# CR-12 phase 2: this used to be `selectattr("relation_type", "equalto", "HOOFDLID")`.
+     With a plain `Enum` on that column that comparison is silently false, and
+     then the list falls back to "the first person" without anything
+     complaining. §B4.7 already says it: a template does not compare a code.
+     Who the primary member is, is a rule, and it belongs to the household —
+     `f.primary` comes from the service. #}
   {% set primary = f.primary or (f.members | first) %}
   <a href="/admin/leden/gezin/{{ f.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">

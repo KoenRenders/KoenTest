@@ -248,10 +248,11 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     """
     from app.domains.mdm.api import MemberPerson
 
-    # CR-12 fase 2: hier stond `(x or "").strip().upper()` op beide kanten —
-    # een normalisatie die nodig was omdat de kolom elke spelling aanvaardde.
-    # De codelijst doet dat nu: een waarde die er niet in staat, komt er niet
-    # in, en `RelationType(...)` weigert hem hier al met de naam van de lijst.
+    # CR-12 phase 2: this used to apply `(x or "").strip().upper()` on both
+    # sides — a normalisation that was needed because the column accepted any
+    # spelling. The code list does that now: a value that is not in it does
+    # not get in, and `RelationType(...)` already refuses it here with the
+    # name of the list.
     from app.domains.mdm.api import RelationType
 
     try:
