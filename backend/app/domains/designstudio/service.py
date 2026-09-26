@@ -73,7 +73,7 @@ MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AU
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
 # The words for a preset, a status and a layout now come from the label
-# tables of `codes.py` through `code_label()` (CR-12 fase 3); the badge tones
+# tables of `codes.py` through `code_label()` (CR-12 phase 3); the badge tones
 # are registered by the screen that draws them, in `admin_ui.py`.
 
 #: What a version renders per layout: (variant, size code, export kind, page mm, png width).

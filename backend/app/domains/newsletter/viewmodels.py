@@ -93,7 +93,7 @@ class NewsletterArchiveView(ViewModel):
     finished: str
     deliveries: list[Any]
     #: `(code, label)` of the delivery statuses, for the filter. The badge
-    #: per row reads its word and its tone from the filters (CR-12 fase 3).
+    #: per row reads its word and its tone from the filters (CR-12 phase 3).
     delivery_options: list[tuple[str, str]]
     moments: dict[int, str]
     status_filter: str
@@ -128,7 +128,7 @@ class SubscriberListView(ViewModel):
     counts: dict[str, int]
     #: `(code, label)` of the active statuses, for the filter — from the code
     #: list, so the order is the list's and the option value is the code
-    #: (CR-12 fase 3). The badge per row uses the `code_label`/`tone` filters.
+    #: (CR-12 phase 3). The badge per row uses the `code_label`/`tone` filters.
     status_options: list[tuple[str, str]]
     #: Per subscriber id: may this address still be unsubscribed? Derived
     #: here, because a template does not compare codes (§B4.7).

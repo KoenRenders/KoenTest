@@ -48,7 +48,7 @@ MAX_IMPORT_BYTES = 1_000_000
 # A programme or a flyer, not a photo album.
 MAX_ATTACHMENT_BYTES = 10_000_000
 
-# The words of these five lists live in their label tables since CR-12 fase 3
+# The words of these five lists live in their label tables since CR-12 phase 3
 # and are read with `code_label()`. What stays in Python is the **tone** of a
 # badge: a design-system decision, not a translation (§B4.5), registered here
 # next to the screen that draws it. Total by construction and by gate.
@@ -331,10 +331,11 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     from app.domains.meetings.api import long_date, sent_reports
 
     counts = nb.audience_counts(db)
-    # (code, label, aantal, uitleg): het aantal staat op de knop, de uitleg in
-    # de tooltip — de keuze is één regel hoog (Koen, 17 september 2026). De
-    # waarde is de CODE, want ze gaat als radiowaarde het formulier in; het
-    # woord komt uit de labeltabel en staat dus niet twee keer (CR-12 fase 3).
+    # (code, label, count, hint): the count is on the button, the hint in the
+    # tooltip — the choice is one line high (Koen, 17 September 2026). The
+    # value is the CODE, because it goes into the form as the radio value; the
+    # word comes from the label table and so does not appear twice (CR-12
+    # phase 3).
     options = [
         (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count, hint)
         for audience, count, hint in (

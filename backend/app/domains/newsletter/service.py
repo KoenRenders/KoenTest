@@ -100,11 +100,11 @@ def list_subscribers(db: Session, *, query: str = "", status: str = "") -> list[
 
 
 def subscriber_counts(db: Session) -> dict[str, int]:
-    """Aantal abonnees per status, gesleuteld op de CODE.
+    """Number of subscribers per status, keyed by the CODE.
 
-    Op de code en niet op het lid: het sjabloon zoekt op met `counts["confirmed"]`.
-    Een scherm dat een enum-lid als woordenboeksleutel moet aanleveren, is een
-    scherm dat het vocabularium kent — en dat is precies wat dit CR weghaalt.
+    By the code and not by the member: the template looks up `counts["confirmed"]`.
+    A screen that has to supply an enum member as a dictionary key is a screen
+    that knows the vocabulary — and that is exactly what this CR takes away.
     """
     rows = db.query(Subscriber.status, func.count(Subscriber.id)).group_by(
         Subscriber.status)
@@ -484,9 +484,9 @@ def _clean_body(body_html: str) -> str:
 def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: str,
                  audience: Optional[str], preview_text: Optional[str] = None) -> None:
     _refuse_unless_draft(letter)
-    # Omzetten op de grens: het formulier stuurt een code, de kolom draagt het
-    # lid. `Audience(...)` weigert wat er niet in staat, met de naam van de
-    # lijst — dezelfde melding voor elke aanroeper.
+    # Convert on the boundary: the form sends a code, the column carries the
+    # member. `Audience(...)` rejects what is not in it, with the name of the
+    # list — the same message for every caller.
     chosen: Optional[Audience] = None
     if audience:
         try:

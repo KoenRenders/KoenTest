@@ -32,7 +32,7 @@ it back. Measured on 26 September 2026, each on its own:
 | The brand assets stay out | a `CodeList` named `duo` registered in `designstudio/codes.py` | yes |
 | The attendance button turns green | the view boundary back to `attendance_of(...)` straight through | yes — no `bg-green-50`, and `value="Attendance.PRESENT"` |
 
-**Two of the seven are worth a sentence.**
+**Two of the eight are worth a sentence.**
 
 The `sa.Enum` swap fired, but not on the assertion it was written for: the
 foreign key refused the write, because `sa.Enum` stored the member *name*
@@ -148,8 +148,8 @@ def _clean_label_cache():
 
 # ── §B8.5 / AC3 The same Dutch words as before ───────────────────────────────
 
-@pytest.mark.parametrize("lijst", sorted(LABELS_BEFORE_CR12))
-def test_every_screen_shows_the_same_dutch_word_as_before(db_session, lijst):
+@pytest.mark.parametrize("code_list", sorted(LABELS_BEFORE_CR12))
+def test_every_screen_shows_the_same_dutch_word_as_before(db_session, code_list):
     """AC3, and the point of this phase: the source of the word changed, the
     word did not.
 
@@ -157,28 +157,28 @@ def test_every_screen_shows_the_same_dutch_word_as_before(db_session, lijst):
     reports and everybody notices. This compares the label table against the
     dictionaries that stood in the modules on the day they were deleted.
     """
-    for code, before in LABELS_BEFORE_CR12[lijst].items():
-        assert code_label(lijst, code, language="nl", db=db_session) == before, (
-            f"`{lijst}` code {code!r} used to read {before!r}")
+    for code, before in LABELS_BEFORE_CR12[code_list].items():
+        assert code_label(code_list, code, language="nl", db=db_session) == before, (
+            f"`{code_list}` code {code!r} used to read {before!r}")
 
 
-@pytest.mark.parametrize("lijst", sorted(PHASE_3_LISTS))
-def test_every_list_of_this_phase_is_registered_with_both_languages(db_session, lijst):
-    entry = registry()[lijst]
+@pytest.mark.parametrize("code_list", sorted(PHASE_3_LISTS))
+def test_every_list_of_this_phase_is_registered_with_both_languages(db_session, code_list):
+    entry = registry()[code_list]
     for language in ("nl", "en"):
         rows = db_session.execute(
             text(f"SELECT count(*) FROM {entry.labels_table} WHERE language = :l"),
             {"l": language}).scalar_one()
         codes = db_session.execute(
             text(f"SELECT count(*) FROM {entry.codes_table}")).scalar_one()
-        assert rows == codes, f"`{lijst}` has {codes} codes but {rows} `{language}` labels"
+        assert rows == codes, f"`{code_list}` has {codes} codes but {rows} `{language}` labels"
 
 
-@pytest.mark.parametrize("lijst, enum_cls",
+@pytest.mark.parametrize("code_list, enum_cls",
                          sorted((k, v) for k, v in PHASE_3_LISTS.items() if v is not None))
-def test_the_enum_of_every_list_covers_exactly_its_codes(db_session, lijst, enum_cls):
+def test_the_enum_of_every_list_covers_exactly_its_codes(db_session, code_list, enum_cls):
     codes = {row[0] for row in db_session.execute(
-        text(f"SELECT code FROM {registry()[lijst].codes_table}")).all()}
+        text(f"SELECT code FROM {registry()[code_list].codes_table}")).all()}
     assert {m.value for m in enum_cls} == codes
 
 
@@ -227,9 +227,9 @@ NOT_A_CODE = [
 ]
 
 
-@pytest.mark.parametrize("table, column, waarde", NOT_A_CODE)
+@pytest.mark.parametrize("table, column, value", NOT_A_CODE)
 def test_a_value_that_is_not_a_code_never_reaches_the_column(
-        db_session, design, table, column, waarde):  # noqa: F811
+        db_session, design, table, column, value):  # noqa: F811
     """AC1 per domain: the value does not get in, not even by raw SQL.
 
     And it fails **for the right reason**: SQLSTATE 23503 is a foreign-key
@@ -240,9 +240,9 @@ def test_a_value_that_is_not_a_code_never_reaches_the_column(
     with pytest.raises(IntegrityError) as caught:
         db_session.execute(
             text(f"UPDATE {table} SET {column} = :v WHERE id = :i"),
-            {"v": waarde, "i": ids[table]})
+            {"v": value, "i": ids[table]})
     assert caught.value.orig.pgcode == "23503", (
-        f"{table}.{column} refused {waarde!r} with SQLSTATE "
+        f"{table}.{column} refused {value!r} with SQLSTATE "
         f"{caught.value.orig.pgcode}, not with a foreign key (23503)")
     db_session.rollback()
 
@@ -390,16 +390,16 @@ def test_the_attendance_button_comes_back_green_after_one_click(client, db_sessi
 
     sess = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, sess)
-    antwoord = client.post(
+    response = client.post(
         f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
         headers={"X-CSRF-Token": csrf_token_for(sess)},
         data={"person_id": str(person.id), "current": ""})
-    assert antwoord.status_code == 200
-    assert 'name="current" value="present"' in antwoord.text, (
-        "het formulier moet de CODE terugsturen, niet het lid")
-    assert "Attendance." not in antwoord.text
-    assert "bg-green-50" in antwoord.text, (
-        "de knop hoort groen terug te komen na één klik")
+    assert response.status_code == 200
+    assert 'name="current" value="present"' in response.text, (
+        "the form must send back the CODE, not the member")
+    assert "Attendance." not in response.text
+    assert "bg-green-50" in response.text, (
+        "the button should come back green after one click")
 
 
 # ── §B4.10 What deliberately did NOT become a code list ──────────────────────
@@ -447,8 +447,8 @@ def test_the_section_heading_comes_from_the_label_table(db_session):
 
 def test_code_of_gives_the_stored_value_for_every_enum_of_this_phase():
     """History tables and file names take the code, not the member (§F4)."""
-    for lijst, enum_cls in PHASE_3_LISTS.items():
+    for code_list, enum_cls in PHASE_3_LISTS.items():
         if enum_cls is None:
             continue
         for member in enum_cls:
-            assert code_of(member) == member.value, f"{lijst}: {member!r}"
+            assert code_of(member) == member.value, f"{code_list}: {member!r}"

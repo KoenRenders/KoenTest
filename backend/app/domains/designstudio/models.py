@@ -39,13 +39,13 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ── De vocabularia van dit domein (CR-12 fase 3) ─────────────────────────────
+# ── The vocabularies of this domain (CR-12 phase 3) ──────────────────────────
 #
-# Zeven lijsten die moduleconstanten waren. De merkassets zijn er GEEN
-# (§B4.10): de iconen, de kleurduo's, de papierformaten en de templatesleutels
-# hebben een payload — een SVG-pad, twee huisstijlkleuren, een bestandsnaamdeel
-# — en veranderen met de huisstijlgids, niet met een vertaler. Die blijven waar
-# ze staan.
+# Seven lists that used to be module constants. The brand assets are NOT among
+# them (§B4.10): the icons, the colour pairs, the paper sizes and the template
+# keys carry a payload — an SVG path, two house-style colours, a file-name part
+# — and change with the brand guide, not with a translator. They stay where
+# they are.
 
 
 class DesignStatus(Enum):
@@ -54,7 +54,7 @@ class DesignStatus(Enum):
 
 
 class Layout(Enum):
-    """Welke drager een rendering heeft."""
+    """Which medium a rendering is for."""
 
     PRINT_A = "print_a"
     FEED_PORTRAIT = "feed_portrait"
@@ -69,7 +69,7 @@ class RenderVariant(Enum):
 
 
 class GenerationStatus(Enum):
-    """Toestandsmachine van één gegenereerde variant (CR-10 §3.12)."""
+    """State machine of one generated variant (CR-10 §3.12)."""
 
     REQUESTED = "requested"
     FETCHED = "fetched"
@@ -80,10 +80,10 @@ class GenerationStatus(Enum):
 
 
 class Preset(Enum):
-    """Blokkeuzes binnen het ene sjabloon "Affiche" (CR-10 §3.4).
+    """Block choices within the one template "Affiche" (CR-10 §3.4).
 
-    Waarden blijven Nederlands — het is opgeslagen data (§B4.3) — en de namen
-    zijn Engels.
+    The values stay Dutch — they are stored data (§B4.3) — and the names are
+    English.
     """
 
     PICTURE = "beeld"
@@ -92,7 +92,7 @@ class Preset(Enum):
 
 
 class InsetCorner(Enum):
-    """Waar de polaroid op het hoofdbeeld ligt (Koen, 20 september 2026)."""
+    """Where the polaroid sits on the main picture (Koen, 20 September 2026)."""
 
     TOP_LEFT = "top_left"
     TOP_RIGHT = "top_right"
@@ -101,7 +101,7 @@ class InsetCorner(Enum):
 
 
 class DrawingStyle(Enum):
-    """Hoe een gegenereerde tekening eruitziet."""
+    """What a generated drawing looks like."""
 
     LINE = "lijn"
     LINE_COLOUR = "lijnkleur"
@@ -109,7 +109,7 @@ class DrawingStyle(Enum):
 
 
 class DesignStatusCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "design_status_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -121,7 +121,7 @@ class DesignStatusCode(Base):
 
 
 class DesignStatusLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "design_status_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -138,7 +138,7 @@ class DesignStatusLabel(Base):
 
 
 class LayoutCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "layout_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -150,7 +150,7 @@ class LayoutCode(Base):
 
 
 class LayoutLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "layout_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -167,7 +167,7 @@ class LayoutLabel(Base):
 
 
 class RenderVariantCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "render_variant_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -179,7 +179,7 @@ class RenderVariantCode(Base):
 
 
 class RenderVariantLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "render_variant_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -196,7 +196,7 @@ class RenderVariantLabel(Base):
 
 
 class GenerationStatusCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "generation_status_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -208,7 +208,7 @@ class GenerationStatusCode(Base):
 
 
 class GenerationStatusLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "generation_status_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -225,7 +225,7 @@ class GenerationStatusLabel(Base):
 
 
 class PresetCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "preset_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -237,7 +237,7 @@ class PresetCode(Base):
 
 
 class PresetLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "preset_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -254,7 +254,7 @@ class PresetLabel(Base):
 
 
 class InsetCornerCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "inset_corner_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -266,7 +266,7 @@ class InsetCornerCode(Base):
 
 
 class InsetCornerLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "inset_corner_labels"
     __table_args__ = {"schema": "designstudio"}
@@ -283,7 +283,7 @@ class InsetCornerLabel(Base):
 
 
 class DrawingStyleCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "drawing_style_codes"
     __table_args__ = {"schema": "designstudio"}
@@ -295,7 +295,7 @@ class DrawingStyleCode(Base):
 
 
 class DrawingStyleLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "drawing_style_labels"
     __table_args__ = {"schema": "designstudio"}

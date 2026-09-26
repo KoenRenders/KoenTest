@@ -32,16 +32,16 @@ from app.domains.designstudio.codes import (
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick "the
+# next number" at the same time pick the same one; two that are handed a
+# timestamp cannot collide. The sequence number leads the FILE NAME, for
+# reading and sorting — alembic does not look at it.
 revision = '157_2026_09_26_052050'
 down_revision = '156_2026_09_26_050603'
 branch_labels = None
 depends_on = None
 
-LIJSTEN = (
+LISTS = (
     ("design_status", DESIGN_STATUS_CODES, "designstudio.designs.status"),
     ("layout", LAYOUT_CODES, "designstudio.design_renditions.layout_code"),
     ("render_variant", RENDER_VARIANT_CODES,
@@ -53,9 +53,9 @@ LIJSTEN = (
     ("drawing_style", DRAWING_STYLE_CODES, "designstudio.image_generations.style"),
 )
 
-#: Checks die hetzelfde zeggen als een nieuwe foreign key. `ck_design_focus` en
-#: `ck_design_rendition_owner` staan er niet bij: die zeggen iets over twee
-#: kolommen samen, en dat kan een lijst niet.
+#: Checks that say the same as a new foreign key. `ck_design_focus` and
+#: `ck_design_rendition_owner` are not among them: they say something about two
+#: columns together, and a list cannot.
 CHECKS = (("designs", "ck_design_status"),
           ("designs", "ck_design_preset"),
           ("designs", "ck_design_inset_corner"),
@@ -65,22 +65,22 @@ CHECKS = (("designs", "ck_design_status"),
 
 
 def upgrade() -> None:
-    for naam, codes, kolom in LIJSTEN:
-        create_code_list(op, schema="designstudio", name=naam, codes=codes,
-                         fk_from=(kolom,), code_length=20, value_length=200)
+    for name, codes, column in LISTS:
+        create_code_list(op, schema="designstudio", name=name, codes=codes,
+                         fk_from=(column,), code_length=20, value_length=200)
 
-    inspecteur = sa.inspect(op.get_bind())
-    for tabel, constraint in CHECKS:
-        bestaand = {c["name"] for c in inspecteur.get_check_constraints(
-            tabel, schema="designstudio")}
-        if constraint in bestaand:
-            op.drop_constraint(constraint, tabel, schema="designstudio",
+    inspector = sa.inspect(op.get_bind())
+    for table, constraint in CHECKS:
+        existing = {c["name"] for c in inspector.get_check_constraints(
+            table, schema="designstudio")}
+        if constraint in existing:
+            op.drop_constraint(constraint, table, schema="designstudio",
                                type_="check")
 
 
 def downgrade() -> None:
-    # Schema only: geen ontwerpdata geschreven, geen bestaande waarde veranderd.
-    for tabel, constraint, conditie in (
+    # Schema only: no design data written, no existing value changed.
+    for table, constraint, condition in (
             ("designs", "ck_design_status", "status IN ('draft', 'final')"),
             ("designs", "ck_design_preset",
              "preset IN ('beeld', 'tekst', 'eenvoudig')"),
@@ -94,11 +94,11 @@ def downgrade() -> None:
             ("image_generations", "ck_image_generation_status",
              "status IN ('requested', 'fetched', 'picked', 'discarded', "
              "'refused', 'failed')")):
-        op.create_check_constraint(constraint, tabel, conditie,
+        op.create_check_constraint(constraint, table, condition,
                                    schema="designstudio")
-    for naam, _codes, kolom in LIJSTEN:
-        _schema, tabel, kolomnaam = kolom.split(".")
-        op.drop_constraint(f"fk_{tabel}_{kolomnaam}_code", tabel,
+    for name, _codes, column in LISTS:
+        _schema, table, column_name = column.split(".")
+        op.drop_constraint(f"fk_{table}_{column_name}_code", table,
                            schema="designstudio", type_="foreignkey")
-        op.drop_table(f"{naam}_labels", schema="designstudio")
-        op.drop_table(f"{naam}_codes", schema="designstudio")
+        op.drop_table(f"{name}_labels", schema="designstudio")
+        op.drop_table(f"{name}_codes", schema="designstudio")

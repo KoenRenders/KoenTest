@@ -60,7 +60,7 @@ UPCOMING_MONTHS = 3
 def section_label(section: MeetingSection) -> str:
     """The heading of a section: its own title when custom, its kind otherwise.
 
-    The words come from the `section_kind` label table (CR-12 fase 3); the
+    The words come from the `section_kind` label table (CR-12 phase 3); the
     dictionary that held them here is gone.
     """
     if section.kind == SectionKind.CUSTOM:
@@ -490,9 +490,9 @@ def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
     De sleutel is een string (`p12` of `g3`) en geen id: personen en gasten
     worden apart genummerd, dus alleen een id zou de twee door elkaar halen.
 
-    De waarde is het LID sinds CR-12 fase 3, want Python vertakt erop. Het
-    scherm krijgt de code — zie `admin_ui._document_view`, waar dat op de
-    grens gebeurt.
+    The value is the MEMBER since CR-12 phase 3, because Python branches on
+    it. The screen gets the code — see `admin_ui._document_view`, where that
+    happens on the boundary.
     """
     uit = {}
     for row in (db.query(MeetingAttendance)
@@ -871,10 +871,10 @@ class DocumentSection:
     items: list[DocumentItem]
     can_add: bool
 
-    # CR-12 §B4.7: een sjabloon vergelijkt geen code. Deze drie zijn wat de
-    # sjablonen echt wilden weten; ze stonden er als `section.kind == "MEMBERS"`
-    # en werden stil onwaar toen `kind` een enum werd — zonder dat er iets
-    # brak, want een `{% if %}` die niet klopt toont gewoon niets.
+    # CR-12 §B4.7: a template does not compare a code. These three are what
+    # the templates really wanted to know; they read `section.kind == "MEMBERS"`
+    # and silently became false when `kind` became an enum — without anything
+    # breaking, because an `{% if %}` that does not hold simply shows nothing.
     @property
     def is_members(self) -> bool:
         return self.kind is SectionKind.MEMBERS
