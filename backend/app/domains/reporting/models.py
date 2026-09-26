@@ -10,10 +10,13 @@ gains a column tomorrow — and a report that references an object that disappea
 fails loudly, with the object's name, instead of returning a wrong number.
 """
 from datetime import datetime, timezone
+from enum import Enum
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, JSON, String
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -54,6 +57,20 @@ class SavedReport(TenantMixin, SoftDeleteMixin, Base):
         return self.builtin_key is not None
 
 
+class ExportKind(Enum):
+    """What was taken out (CR-12 phase 4).
+
+    `report` is a saved report, `ad-hoc` an unsaved panel, `dataset` a whole
+    dataset. The §B5.3 catalogue had two of the three: `ad-hoc` is written by
+    `admin_ui` for every export that is not a saved report, and a key without
+    it would have refused the most common export there is.
+    """
+
+    REPORT = "report"
+    AD_HOC = "ad-hoc"
+    DATASET = "dataset"
+
+
 class ExportLog(TenantMixin, Base):
     """One row per export — an export is data leaving the system (CR-06 §7.6).
 
@@ -77,8 +94,39 @@ class ExportLog(TenantMixin, Base):
                          index=True)
     actor = Column(String(255), nullable=True)
     # dataset · report · ad-hoc
-    kind = Column(String(20), nullable=False)
+    kind: Mapped[ExportKind] = mapped_column(
+        EnumColumn(ExportKind, length=20),
+        ForeignKey("reporting.export_kind_codes.code"), nullable=False)
     saved_report_id = Column(Integer, nullable=True)
     subject = Column(String(200), nullable=False)
     filters = Column(JSON, nullable=True)
     row_count = Column(Integer, nullable=False, default=0)
+
+
+class ExportKindCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4)."""
+
+    __tablename__ = "export_kind_codes"
+    __table_args__ = {"schema": "reporting"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class ExportKindLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 4)."""
+
+    __tablename__ = "export_kind_labels"
+    __table_args__ = {"schema": "reporting"}
+
+    code = Column(String(20), ForeignKey("reporting.export_kind_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)

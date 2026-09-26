@@ -34,7 +34,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'media.media_assets.thumb_content_type',
     'meetings.meeting_files.content_type',
     'public.kernel_jobs.status',
-    'reporting.export_log.kind',
     'workflow.workflow_instances.definition_code',
     'workflow.workflow_instances.subject_type',
     'workflow.workflow_tasks.subject_type',
@@ -50,7 +49,6 @@ ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
 #: Label dictionaries in Python — the shape this change request removes.
 #: Key: `path/to/file.py:NAME`.
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
-    'app/domains/audit/changes.py:_OPERATION_LABELS',
     'app/domains/chatbot/admin_ui.py:CAPABILITY_LABELS',
     'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
     'app/domains/chatbot/admin_ui.py:SURFACE_LABELS',
