@@ -107,6 +107,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
 | R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
 | R10 | Full DDD machinery: separate domain objects, repositories. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R13 | This change alters **no functionality**: what the system does for a member, the board or the treasurer is identical before and after. Events and methods reorganise *how*, never *what*. | Must | Koen, 27 Sep 2026 | "we gaan geen functionaliteit toevoegen of veranderen; puur technisch anders organiseren" |
 | R12 | A consequence in another domain after a state change (a mail, a workflow task) goes through a domain event, never through a direct call into that domain; the object says what happened, the service publishes it. | Must | Koen, 27 Sep 2026 | "de betaalcode weet niets van mail"; the dispatcher exists (`kernel/events.py`, §5.8) and is applied in three of six places |
 | R11 | CQRS — a separate write model (commands through the domain's rules) and a separate flat read model for reports. | Won't | Koen, 27 Sep 2026 | its win is that reads and writes scale apart, at very large scale; its price is two models kept in sync. Reporting (CR-06) reads the tables directly, and that suffices. |
 
@@ -131,6 +132,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | AC5 | A registration's total and balance read identically on the admin screen, in the export and in the report — from one method. | R3 |
 | AC6 | On HDEV, marking a partially paid record as paid leaves it *partially paid*: the state follows the amounts, not the action (#720). | R1, phase 2 |
 | AC7 | Every gate of B9.3 is hard by the end of the last phase; no ratchet file remains. | R6 |
+| AC8 | The e2e golden flows and the existing suite pass unchanged; every workflow task and every mail that exists today is still created by the same trigger, and nothing new is created. | R13 |
 
 ---
 
@@ -447,9 +449,10 @@ events: `activities` publishes `OrderChanged(registration_id, total_due)`
 and knows nothing of payments; `payment/handlers.py` reconciles — the same
 `reconcile_charges`, unchanged — and, when that yields a refund, publishes
 `RefundDue(record_id, amount)`; `workflow/handlers.py` makes the
-confirmation task; `mail/handlers.py` can tell the member (today nobody
-does — an own issue, but then a ten-line handler instead of a fourth
-coupling). All of it synchronous, in the one transaction: if reconciliation
+confirmation task — **exactly the task `vervroeg_sweep` causes today, no
+other** (R13). That `mail/handlers.py` *could* tell the member is the
+shape of a future change, not part of this one: today nobody does, and
+this CR adds no behaviour. All of it synchronous, in the one transaction: if reconciliation
 fails, the order line stays. The rule "activities must reconcile" does not
 disappear, it moves: from "activities calls payment" to "payment reacts to
 every order change" — stronger, because a new entrance that changes an
@@ -460,6 +463,45 @@ found on this walk-through; it goes in phase 1.
 **The gate** (B9.3, ratchet on the four couplings, hard for new modules):
 a domain's command functions — named in its `CONTRACT.md` — are called from
 outside the domain only from a `handlers.py`.
+
+### B4.10 Outlook, not scope: business events, the werkbank, BPMN and DMN (Koen, 27 September)
+
+Context Koen gave for the event mechanism, recorded so that what this CR
+builds points the right way — **none of it is in this CR** (R13).
+
+**Business events as work for people.** The strongest use of an event is
+not a system reacting but a *person* being asked to: a refund to follow up
+lands in the werkbank as a task; one day, "a registration came in, enter it
+at Raak Nationaal by hand" would too. And the reverse: a task **closes on a
+later business event** — the treasurer books the refund as done, and the
+werkbank item disappears without anyone ticking it. The workflow module
+already does the first half for form submissions (`SubmissionCreated` →
+task); the events this CR introduces (`OrderChanged`, `PaymentReceived`,
+`RefundDue`) are the vocabulary that makes the second half possible later.
+
+**Where BPMN would fit.** The workflow module, grown up, is an
+*orchestrator*: a process that chains system steps from several modules and
+human steps into one flow that either completes or visibly stalls. BPMN is
+the notation for exactly that — a process diagram that is also executable.
+The events of this CR are its triggers and its "done" signals; the werkbank
+is its human-task list. Nothing to build now; the shape to keep is that a
+domain publishes *what happened* and never decides *what should happen
+next* — that decision belongs to the orchestrator.
+
+**Where DMN would fit.** Decision Model and Notation is for *policy* rules:
+decisions with several inputs and a table of outcomes that the board may
+want to change without a deploy — which membership fee applies, who gets
+which task, when a reminder goes. Those are not the rules of this CR. This
+CR's rules are *invariants*: a registration needs a name, a refund cannot
+exceed the charge, a state follows from the amounts. Invariants live on the
+object (B4.2) and never change with policy. A DMN decision, if it comes,
+sits in the service layer as a decision service the orchestrator calls —
+between the invariants below it and the process above it. The two never
+compete for the same rule: an invariant says what *cannot* be, a decision
+says what *should* happen.
+
+**The line for this CR.** Synchronous, in-transaction, no new behaviour.
+Everything above is the reason to get the vocabulary right now.
 
 ## B5. Data model
 
@@ -642,6 +684,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | No functional change in this CR (R13): events and methods reorganise how, never what. Business events → werkbank tasks, tasks closing on later events, BPMN as orchestration and DMN for policy rules are the horizon (B4.10), not scope. | Koen |
 | 27 Sep 2026 | `OrderChanged` is the second event of phase 1: `activities` publishes after any order-line change, `payment` reconciles as a subscriber; the direct `reconcile_registration_charges` call goes. `RefundDue` in phase 2. | Koen |
 | 27 Sep 2026 | Domain events are a Must (R12): a consequence in another domain goes through an event; the object returns what happened, the service publishes (the entity never touches a session). Gate: ratchet on the three direct couplings, hard for new modules. | Koen ("Must, en de service publiceert") |
 | 27 Sep 2026 | CQRS is a separate Won't (R11): reporting reads the tables, and that suffices. | Koen |
@@ -666,6 +709,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q15 | 27 Sep 2026 | How do the werkbank, BPMN and DMN fit with the events, long term? (Koen) | B4.10: events as triggers and done-signals for an orchestrator (BPMN), the werkbank as its human-task list, DMN for policy decisions in the service layer — distinct from the invariants on the objects. Nothing of it in this CR. |
 | Q14 | 27 Sep 2026 | Does the Mollie screen keep working; what if nobody ever pays at Mollie? (Koen) | Unchanged: the redirect is HTTP, not an event; the webhook re-fetch stays. Never paid → record `failed`/`cancelled` via `MOLLIE_STATUS_MAP`, registration stays with an open balance, no clean-up or reminder today. Koen: leave Mollie as it is. |
 | Q13 | 27 Sep 2026 | What happens when an admin reduces or deletes a registration that was (partly) paid, and how do events fit? (Koen) | `reconcile_charges`: paid amounts are the truth, the outstanding is reduced to one post — a new charge if more is due, a pending refund (treasurer confirms) if less; a deletion reconciles to 0 first, records stay. Nobody is told today. With events: `OrderChanged` → payment reconciles → `RefundDue` → workflow task, and mail can subscribe. B4.9. |
 | Q12 | 27 Sep 2026 | Domain events — useful? Must or Should; who publishes? (Koen / Claude) | Koen: Must, and the service publishes. Measured: the dispatcher exists and is bypassed in three places; B4.9. |
