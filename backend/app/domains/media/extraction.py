@@ -24,6 +24,7 @@ import logging
 import re
 import time
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
 import httpx
@@ -98,7 +99,7 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
         document = {"type": "image_url", "image_url": data_uri}
 
     begin = time.monotonic()
-    status, request_id = AiStatus.ERROR, ""
+    status, request_id, pages_charged = AiStatus.ERROR, "", None
     try:
         response = httpx.post(
             MISTRAL_OCR_URL,
@@ -112,22 +113,35 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
         response.raise_for_status()
         data = response.json()
         status, request_id = AiStatus.OK, str(data.get("id") or "")
+        pages_charged = (data.get("usage_info") or {}).get("pages_processed")
     finally:
         _log_ocr(raw, content_type, tenant_id=tenant_id, status=status,
-                 request_id=request_id,
+                 request_id=request_id, pages_charged=pages_charged,
                  duration_ms=int(round((time.monotonic() - begin) * 1000)))
     pages = data.get("pages") or []
     return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
 
 
 def _log_ocr(raw: bytes, content_type: str, *, tenant_id: Optional[int],
-             status: AiStatus, request_id: str, duration_ms: int) -> None:
+             status: AiStatus, request_id: str, duration_ms: int,
+             pages_charged: Optional[int] = None) -> None:
+    """One row in the AI log per OCR call, with its cost when Mistral says it (#1212).
+
+    Mistral charges OCR per page and reports the count in
+    `usage_info.pages_processed` (verified against its API reference on 26
+    September 2026). The cost is that count times `OCR_PRICE_PER_PAGE_USD`. A
+    call whose answer carries no count — a failed one — gets no cost: an
+    estimate would be an invented amount, and the screen would add it up.
+    """
+    cost = (Decimal(str(settings.ocr_price_per_page_usd)) * pages_charged
+            if pages_charged is not None else None)
     try:
         sink_for()(
             surface=AiSurface.ADMIN, capability=AiCapability.OCR, model=settings.ocr_model,
             payload=f"[document: {content_type}, {len(raw)} bytes]",
             provider=AiProvider.MISTRAL, endpoint="ocr", provider_request_id=request_id,
             status=status, duration_ms=duration_ms, tenant_id=tenant_id,
+            cost_amount=cost, cost_currency="USD" if cost is not None else None,
         )
     except Exception:  # pragma: no cover - a log must not break the reading
         logger.exception("Kon de OCR-oproep niet loggen")

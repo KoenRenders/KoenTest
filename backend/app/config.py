@@ -121,6 +121,11 @@ class Settings(BaseSettings):
     # de gratis tekstlaag, geen OCR-call. pdf_text_min_chars = drempel waaronder
     # een PDF-tekstlaag als 'onbruikbaar' geldt en we naar OCR vallen.
     ocr_model: str = "mistral-ocr-latest"
+    # #1212: what one OCR page costs, in USD — Mistral charges OCR per page and
+    # reports the count in `usage_info.pages_processed`. Default from Mistral's
+    # price list as read on 26 September 2026 ($4 per 1000 pages); set it per
+    # host when the price changes.
+    ocr_price_per_page_usd: float = 0.004
     ocr_enabled: bool = True
     pdf_text_min_chars: int = 80
 
