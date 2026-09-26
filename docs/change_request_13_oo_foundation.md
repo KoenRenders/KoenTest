@@ -107,6 +107,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
 | R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
 | R10 | Full DDD machinery: separate domain objects, repositories. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R14 | A JSON route (`/api/v1`) exists because a machine caller exists, and that caller is named in the domain's `CONTRACT.md`. Routes without a caller are removed in this change. | Must | Koen, 27 Sep 2026 | "wel snoeien als onderdeel van deze change request"; not "everything also via JSON" — that doubles the doors the 8 September pain came through |
 | R13 | This change alters **no functionality**: what the system does for a member, the board or the treasurer is identical before and after. Events and methods reorganise *how*, never *what*. | Must | Koen, 27 Sep 2026 | "we gaan geen functionaliteit toevoegen of veranderen; puur technisch anders organiseren" |
 | R12 | A consequence in another domain after a state change (a mail, a workflow task) goes through a domain event, never through a direct call into that domain; the object says what happened, the service publishes it. | Must | Koen, 27 Sep 2026 | "de betaalcode weet niets van mail"; the dispatcher exists (`kernel/events.py`, §5.8) and is applied in three of six places |
 | R11 | CQRS — a separate write model (commands through the domain's rules) and a separate flat read model for reports. | Won't | Koen, 27 Sep 2026 | its win is that reads and writes scale apart, at very large scale; its price is two models kept in sync. Reporting (CR-06) reads the tables directly, and that suffices. |
@@ -116,7 +117,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | Concern | This change |
 |---|---|
 | **Reporting** | The A2 numbers, printed by the gate per release (R7). Nothing changes in the reporting universe. |
-| **Security** | The finding class of 8 September *is* a security class: a rule enforced at one door leaves the others open. R1 closes it. Bulk and import paths are entrances and are covered (B8 test 3). |
+| **Security** | The finding class of 8 September *is* a security class: a rule enforced at one door leaves the others open. R1 closes it. Bulk and import paths are entrances and are covered (B8 test 3). **JSON routes are doors too** (R14): there is no convention that everything is also exposed as JSON, and there must not be one — a JSON route reachable with an API key, with its own auth and no CSRF, is attack surface whether or not anyone calls it. Measured 27 September: 113 JSON routes, the five domains built after the React exit have none; the rest is React's legacy. Every remaining route names its caller; every mutating one runs through the same service as the screen (the entrances test); the ones without a caller go. |
 | **Privacy** | None. No new data. |
 | **House style / UI norm** | Unchanged; strengthened: *templates show, view-models decide* (design-system §8.3) gets the derived values from the object instead of recomputing them. |
 | **Multi-tenant** | Rules are platform-wide; tenant data is untouched. Constraints added at rest (`NOT NULL`, `CHECK`) are checked against the data of every environment before they are applied (B3). |
@@ -132,6 +133,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | AC5 | A registration's total and balance read identically on the admin screen, in the export and in the report — from one method. | R3 |
 | AC6 | On HDEV, marking a partially paid record as paid leaves it *partially paid*: the state follows the amounts, not the action (#720). | R1, phase 2 |
 | AC7 | Every gate of B9.3 is hard by the end of the last phase; no ratchet file remains. | R6 |
+| AC9 | Every JSON route left under `/api/v1` is named with its caller in its domain's `CONTRACT.md`; a route without one no longer answers. The API-key users, the chatbot and the e2e suite work as before. | R14 |
 | AC8 | The e2e golden flows and the existing suite pass unchanged; every workflow task and every mail that exists today is still created by the same trigger, and nothing new is created. | R13 |
 
 ---
@@ -365,6 +367,25 @@ anything sits on it, its routes are brought level with the UI routes
 (same service calls, same rules — the entrances test of B8 finds the
 gaps). And it is **not** a plan: nothing in this CR builds toward it;
 this CR only keeps the door from rusting shut.
+
+**Is everything also available as JSON?** No, and it must not be (Koen, 27
+September, R14). The JSON door is the *machine contract* (architecture
+document §19.4): it exists for a named caller — an API-key user, the
+chatbot, an integration, one day an app. Measured: 113 JSON routes today,
+none in the five domains built after the React exit (`designstudio`,
+`meetings`, `newsletter`, `reporting`, `workflow`), 22 in `activities` and
+23 in `membership` — React's legacy. A convention "everything also via
+JSON" would double the doors the 8 September findings came through (#733:
+the form required a mobile number, the JSON route did not — the less-used
+door is the less-tested one), add attack surface reachable with an API key,
+and cost a second door per screen for callers that do not exist. So: a
+JSON route exists because a caller exists, the caller is named in the
+domain's `CONTRACT.md`, a mutating route runs through the same service as
+the screen, and **routes without a caller are pruned in this change**
+(phase 0 measures the callers, phase 4 removes; a route whose caller is
+unknown stays until Koen decides — pruning a route nobody uses is not a
+functional change under R13, pruning one a partner uses would be). The
+OpenAPI export and drift gate of §19.4 remain unbuilt and out of scope.
 
 **Is it always the same pattern?** For a full page and for an htmx fragment,
 yes: route → view-model → template, and the fragment gets its own
@@ -906,11 +927,11 @@ would lose less; it would not — corrected the same day.)
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
+| **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the caller of each of the 113 JSON routes measured** (API-key users, chatbot, e2e, templates, nothing) and listed in the phase issue | — |
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
 | **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`** | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
-| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; `rules_baseline.py` deleted — every gate hard | 1–3 |
+| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; **JSON routes without a caller removed, the remaining ones named in their `CONTRACT.md`** (R14); `rules_baseline.py` deleted — every gate hard | 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
 
@@ -920,7 +941,7 @@ would lose less; it would not — corrected the same day.)
 | 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
 | 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
-| 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler | none | none | none | a registration on HDEV still gets its confirmation mail; AC7 |
+| 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler; ongebruikte JSON-routes gesnoeid | none | none | the list of removed routes, each with "no caller found in: …" | a registration on HDEV still gets its confirmation mail; the API-key users and the chatbot still work; AC7, AC9 |
 
 ## B8. Tests
 
@@ -1000,6 +1021,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | entities touching a session | 2 | — | 0 |
 | writes to another domain's mapped classes (constructor or attribute assignment outside the owner) | 21 (membership→mdm 19, mdm→membership 1, mdm→auth 1) + payment→membership by assignment | — | 0; hard for new modules from phase 0 |
 | commits outside the door service (in a handler, in a function another domain reaches through `api.py`, or mid-function) | 184 in domains / 13 in routers+UI / 3 in kernel — offenders unmeasured until the gate | — | 0 |
+| JSON routes without a named caller | 113 routes, callers unmeasured | — | 0 (removed or named) |
 | single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
@@ -1017,6 +1039,7 @@ removed; deleted in phase 4).
 | One entrance rule | every function in `router.py` / `admin_ui.py` / `*import*.py` that writes a mapped class (AST: constructor call, attribute assignment, `db.add`) calls the aggregate's `check()` or a service function registered for it in `kernel/rules.py` | "`activities/router.py:885` writes `Registration` without `Registration.check()`" |
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
+| JSON route with a caller | every route mounted under `/api/v1` appears, with its caller, in its domain's `CONTRACT.md` (a `Callers` section the gate parses) — ratchet on today's 113, hard for new routes | "`POST /api/v1/activities/{id}/register` has no caller in `activities/CONTRACT.md` — name one or remove the route" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
 | No foreign writes | a constructor call or attribute assignment on a mapped class of domain B anywhere outside `app/domains/B/` (AST over the classes each `api.py` exports; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
 | One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) a service function commits at most once and only as its last statement — no writes after a commit; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
@@ -1059,6 +1082,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | No "everything also via JSON" convention: a JSON route exists for a named machine caller (in `CONTRACT.md`); routes without a caller are pruned **in this CR** (phase 0 measures, phase 4 removes; unknown caller → Koen decides). Gate *JSON route with a caller*. | Koen ("wel snoeien als onderdeel van deze change request") |
 | 27 Sep 2026 | A domain writes another domain's data only through the owner's command function or an event; `api.py` exports classes for typing and reading. Measured: 21 foreign constructions today, nearly all membership→mdm, plus payment's declared membership activation — both become the ordinary pattern (phase 3, phase 2). Gate *no foreign writes*. | Koen (asked), author (rule) |
 | 27 Sep 2026 | One request, one transaction: the door service commits once; a called service, facade or handler never. The mid-way commits of `delete_registration` / `_herbereken` go with the couplings; an atomicity gap closed, no visible behaviour changed. Gate *one transaction per request*. | Koen |
 | 27 Sep 2026 | What always goes into the database: if PostgreSQL can say it about one row it says it (`NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`), in the same commit as the validator; cross-row, time-dependent and policy rules do not; no triggers or stored procedures. Gate *validator without constraint*. | Koen |
@@ -1089,6 +1113,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q22 | 27 Sep 2026 | Is there a convention that everything is also exposed via JSON — or is that pointless, even dangerous? (Koen) | No convention (five post-React domains have none; 113 legacy routes), and it would be dangerous: more doors for the 8 September fault, API-key-reachable surface, double maintenance. Rule R14; pruning in this CR. B2.5, A6. |
 | Q21 | 27 Sep 2026 | Can one domain write straight into another domain's tables without going through its code? (Koen) | Today yes — `api.py` exports ORM classes and the session is shared; measured 21 sites, almost all `membership` constructing `mdm`'s persons, households and contacts. Validators and constraints still fire (they travel with the class); `check()`, service rules, snapshots and events are bypassed. Rule and eleventh gate in B4.1/B9.3. |
 | Q20 | 27 Sep 2026 | Do services work across domains — a transaction, for instance? (Koen) | Yes: one session per request through every domain; the door service owns the transaction. Today two paths commit mid-way (two transactions instead of one); events make it one. B4.1, tenth gate. Outbox (step 2) only when a domain becomes its own process — out of scope. |
 | Q19 | 27 Sep 2026 | Is it clearly delineated what always goes into the database as a rule? (Koen) | It was half: the principle stood, the test did not. Now B4.2: one-row rules always, four forms, four exclusions, no triggers; B9.1 one sentence; B9.3 a ninth gate. |
