@@ -3,13 +3,14 @@ import pytest
 
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, make_session_value)
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+from app.domains.auth.api import Role
 
 pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client, db):
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
-    if not any(r.role_code == "OPERATOR" for r in user.roles):
+    if not any(r.role_code == Role.OPERATOR for r in user.roles):
         db.add(UserRole(user_id=user.id, role_code="OPERATOR"))
         db.flush()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))

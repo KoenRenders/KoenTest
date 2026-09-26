@@ -725,8 +725,16 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 
 **Key models:**
 - `Member` = household (family unit); has `board_member_id` FK
-- `Person` = individual; linked to Member via `MemberPerson` junction (with `relation_type`: "hoofdlid", "partner", "(meerderjarig) kind")
-- `Person` does NOT have a `mobile` column — mobile is stored as a `ContactDetail` with `contact_type_code = "mobile"`
+- `Person` = individual; linked to Member via `MemberPerson` junction (with `relation_type`:
+  `HOOFDLID`, `PARTNER`, `KIND` — the **stored codes**, upper case. This line listed the Dutch
+  *labels* ("hoofdlid", "(meerderjarig) kind") as if they were the values; corrected with CR-12
+  phase 2, which also gave the column a `RelationType` enum and a foreign key.)
+- `Person` does NOT have a `mobile` column — mobile is stored as a `ContactDetail` with
+  `contact_type_code = "MOBILE"`. **Upper case**, and that is the whole correction (CR-12 phase 2):
+  this line said `"mobile"` and the stored codes have always been upper case. The lower-case
+  `mobile` that appears all over the code is something else — a form field and a view-model
+  attribute — so the two were never two spellings of one thing. Since phase 2 the column carries
+  `ContactType.MOBILE`, so the question does not come up again.
 - `Address` → normalized via `PostalCode` table; always use postal code from the lookup table
 - `Activity` → `ActivitySubRegistration` (2-level); sub-registrations can have their own `price`, `max_participants`, `products` (`reg_form_type` is legacy/ongebruikt sinds de v2.0-unificatie — zie "Activity registration form")
 - `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)

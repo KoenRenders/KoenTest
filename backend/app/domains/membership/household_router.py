@@ -37,6 +37,7 @@ from app.domains.membership.service import (LidgegevensFout,
                                             controleer_geboortedatum_en_geslacht)
 from app.soft_delete import soft_delete
 from app.i18n import _
+from app.domains.mdm.api import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     from app.domains.membership.api import has_valid_membership, membership_coverage_until
 
     member = _member_for(person, db)
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
 
     today = date.today()
 
@@ -265,7 +266,7 @@ def update_person(
 
     # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
     # worden nooit aangeraakt.
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
     nieuw: dict = {}
     for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
         if field not in data:
@@ -319,8 +320,9 @@ def update_person(
                              source="member_self", actor=actor)
 
     # Contactgegevens
-    def _upsert(type_code: str, value: Optional[str]):
-        existing = next((c for c in target.contact_details if c.contact_type_code == type_code), None)
+    def _upsert(type_code, value: Optional[str]):
+        existing = next((c for c in target.contact_details
+                         if c.contact_type_code == type_code), None)
         if value:
             if existing:
                 if existing.value != value:
@@ -359,7 +361,7 @@ def add_person(
     db: Session = Depends(get_db),
 ):
     member = _member_for(person, db)
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
 
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
@@ -421,7 +423,7 @@ def remove_person(
     if target.id == person.id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet uit het gezin verwijderen."))
 
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
 
     mp = next((m for m in target.member_persons if m.member_id == member.id), None)
     if mp:

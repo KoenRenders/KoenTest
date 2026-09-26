@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
+from app.domains.mdm.codes import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -120,15 +121,32 @@ def _uniek_op_code(rijen):
     return uit
 
 
+#: What a dropdown needs: the code and the word next to it. Since CR-12
+#: phase 2 that comes from `code_labels()`, so from the label table and in
+#: `sort_order`. A template that shows this list reads `.code` and `.value`,
+#: as it did from the old rows — hence this small thing instead of a tuple:
+#: the screens did not have to change along.
+class _Choice:
+    __slots__ = ("code", "value")
+
+    def __init__(self, code: str, value: str):
+        self.code = code
+        self.value = value
+
+
+def _choices(list_name: str) -> list:
+    from app.kernel.codes import code_labels
+
+    return [_Choice(code, label) for code, label in code_labels(list_name)]
+
+
 def form_code_lists(db) -> dict:
     """De keuzelijsten die de inschrijf- en ledenformulieren nodig hebben."""
-    from app.domains.mdm.models import GenderCode, PostalCode, RelationTypeCode
+    from app.domains.mdm.models import PostalCode
 
     return {
-        "gender_codes": _uniek_op_code(
-            db.query(GenderCode).order_by(GenderCode.code).all()),
-        "relation_types": _uniek_op_code(
-            db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
+        "gender_codes": _choices("gender"),
+        "relation_types": _choices("relation_type"),
         "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
     }
 
@@ -136,19 +154,15 @@ def form_code_lists(db) -> dict:
 def admin_code_lists(db) -> dict:
     """Geslacht en relatietype voor de beheerformulieren.
 
-    Nederlandstalige rijen als die er zijn, anders alles: de codetabellen zijn
-    per taal gevuld en een lege keuzelijst is erger dan een Engelstalige. Daarna
-    ontdubbelen op code, want dezelfde code bestaat per taal.
+    CR-12 phase 2: this used to say "Dutch rows if there are any, otherwise
+    everything", plus a deduplication on code — both because the old code
+    table had one row per (code, language) and so the code occurred several
+    times. With the split shape that problem no longer exists: `code_labels()`
+    returns one row per active code, in the unit's language and in
+    `sort_order`.
     """
-    from app.domains.mdm.models import GenderCode, RelationTypeCode
-
-    genders = (db.query(GenderCode).filter(GenderCode.language == "nl").all()
-               or db.query(GenderCode).all())
-    relations = (db.query(RelationTypeCode)
-                 .filter(RelationTypeCode.language == "nl").all()
-                 or db.query(RelationTypeCode).all())
-    return {"gender_codes": _uniek_op_code(genders),
-            "relation_types": _uniek_op_code(relations)}
+    return {"gender_codes": _choices("gender"),
+            "relation_types": _choices("relation_type")}
 
 
 def list_persons(db):
@@ -308,7 +322,7 @@ def _email_of(person: Person) -> Optional[str]:
     """The person's e-mail address, or None. `EMAIL` is the code the whole code
     base uses for it (auth, activities, audit all read it this way)."""
     for contact in getattr(person, "contact_details", []) or []:
-        if contact.contact_type_code == "EMAIL" and contact.value:
+        if contact.contact_type_code == CONTACT.EMAIL and contact.value:
             return contact.value
     return None
 
@@ -497,9 +511,10 @@ def _family_registration_ids(db, family_id: int) -> list[int]:
     """De inschrijving-ids van een gezin — via dezelfde payable-verzameling
     als de Betalingen-tab (person_id + e-mail-terugval, family_payables is
     de ene bron voor "hoort deze inschrijving bij dit gezin")."""
-    from app.domains.payment.api import family_payables
+    from app.domains.payment.api import PayableType, family_payables
 
-    return [i for t, i in family_payables(db, family_id) if t == "registration"]
+    return [i for t, i in family_payables(db, family_id)
+            if t == PayableType.REGISTRATION]
 
 
 def family_registration_count(db, family_id: int) -> int:

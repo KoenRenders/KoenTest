@@ -21,6 +21,7 @@ from app.domains.auth.api import (
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
+from app.domains.mdm.api import RelationType
 
 router = APIRouter(include_in_schema=False)
 
@@ -104,7 +105,7 @@ def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
     persons = list_persons(db)
     postal_codes = list_postal_codes(db)
     hoofdlid = next((m for m in family.members
-                     if (m.relation_type or "").upper() == "HOOFDLID"),
+                     if m.relation_type == RelationType.PRIMARY_MEMBER),
                     family.members[0] if family.members else None)
     overige = [m for m in family.members if hoofdlid is None or m.id != hoofdlid.id]
     from datetime import date
@@ -385,7 +386,7 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
 
     family = get_family(db, family_id)
     hoofdlid = next((m for m in family.members
-                     if (m.relation_type or "").upper() == "HOOFDLID"),
+                     if m.relation_type == RelationType.PRIMARY_MEMBER),
                     family.members[0] if family.members else None)
     if hoofdlid is None:
         raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))

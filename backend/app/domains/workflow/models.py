@@ -4,9 +4,12 @@ toestand. De volwaardige workflow-component (definities/instanties, fase 4b
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
+from app.domains.auth.api import Role
+from app.kernel.codes import EnumColumn
 
 
 class WorkflowTask(TenantMixin, Base):
@@ -28,7 +31,13 @@ class WorkflowTask(TenantMixin, Base):
     subject_id = Column(String(36), nullable=False)
     # open | done — taken sluiten door toestand (§20.5).
     status = Column(String(10), nullable=False, default="open", index=True)
-    required_role = Column(String(20), nullable=False, default="ADMIN")
+    # CR-12 phase 2: the same list as `auth.user_roles.role_code`, so the
+    # same shape. The foreign key goes cross-schema to `auth.role_codes` —
+    # the exception of §B2.4, and exactly why roles belong in `auth` and not
+    # in whichever domain happens to use them.
+    required_role: Mapped[Role] = mapped_column(
+        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
+        nullable=False, default=Role.ADMIN)
     # "Een afwijzing is ook een beslissing": het bewaarde besluit bij afhandeling.
     decision = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False,

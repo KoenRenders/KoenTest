@@ -42,6 +42,7 @@ from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for
                                   make_session_value)
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -50,7 +51,7 @@ def _login(client, db, *roles):
     roles = roles or ("FINANCE",)
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for role in roles:
-        if not any(r.role_code == role for r in user.roles):
+        if not any(r.role_code.value == role for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=role))
     db.flush()
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -82,7 +83,7 @@ def test_the_status_route_changes_the_status(client, db_session):
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.refresh(record)
-    assert record.status == "cancelled"
+    assert record.status == PaymentStatus.CANCELLED
     assert record.note == "per mail geannuleerd"
 
 
@@ -156,7 +157,7 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
     assert resp.status_code == 403, f"{pad}: {resp.status_code} — {resp.text[:200]}"
     assert "FINANCE" in resp.text
     db_session.refresh(record)
-    assert record.status == "pending", f"{pad} muteerde ondanks de weigering"
+    assert record.status == PaymentStatus.PENDING, f"{pad} muteerde ondanks de weigering"
 
 
 # ── B. de handmatige Mollie-verversing ───────────────────────────────────────
@@ -188,7 +189,7 @@ def test_the_manual_refresh_takes_its_status_from_mollie(client, db_session,
     assert resp.status_code == 200, resp.text[:300]
     db_session.expire_all()
     assert db_session.query(PaymentRecord).filter(
-        PaymentRecord.id == record.id).one().status == "paid", (
+        PaymentRecord.id == record.id).one().status == PaymentStatus.PAID, (
         "de status is niet toegepast, dus de handmatige tegenhanger van de webhook doet "
         "niets")
 
@@ -238,7 +239,7 @@ def test_a_refund_without_an_amount_is_refused(client, db_session):
 
     assert "Ongeldig bedrag" in resp.text, resp.text[:300]
     assert not db_session.query(PaymentRecord).filter(
-        PaymentRecord.type == "refund", PaymentRecord.payable_id == 7707).all(), (
+        PaymentRecord.type == PaymentType.REFUND, PaymentRecord.payable_id == 7707).all(), (
         "er is een terugbetaling aangemaakt zonder bedrag")
 
 

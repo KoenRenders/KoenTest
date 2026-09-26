@@ -5,6 +5,7 @@ from decimal import Decimal
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import PaymentStatus, PaymentType
 
 
 def _login(client):
@@ -64,7 +65,7 @@ def test_bevestigen_is_finance_only(client, db_session):
                      headers={"X-CSRF-Token": csrf})
     assert ok.status_code == 200
     db_session.expire_all()
-    assert rec.status == "paid" and rec.amount_paid == Decimal("25.00")
+    assert rec.status == PaymentStatus.PAID and rec.amount_paid == Decimal("25.00")
 
 
 def test_refund_via_scherm(client, db_session):
@@ -80,7 +81,7 @@ def test_refund_via_scherm(client, db_session):
     assert resp.status_code == 200
     refund = (db_session.query(PaymentRecord)
               .filter(PaymentRecord.refund_of_id == rec.id).one())
-    assert refund.type == "refund" and refund.amount == Decimal("-10.00")
+    assert refund.type == PaymentType.REFUND and refund.amount == Decimal("-10.00")
 
     # Meer terugbetalen dan netto ontvangen wordt geweigerd. Sinds #723 met een 200
     # en de reden in de lijst i.p.v. een 400: htmx swapt geen 4xx, dus die 400 kwam

@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from app.domains.designstudio.models import Preset
+
 
 @dataclass(frozen=True)
 class ImageBytes:
@@ -42,7 +44,10 @@ class Contact:
 @dataclass(frozen=True)
 class PosterContent:
     duo_code: str
-    preset: str = "beeld"
+    #: Which block layout the poster uses. A caller may hand over the code or
+    #: the member; `__post_init__` makes it the member, so the renderer below
+    #: compares members and never a string (CR-12 §B4.2/§B4.8).
+    preset: Preset = Preset.PICTURE
 
     # Title in one or two lines; the "EN" badge sits between two lines when
     # ``title_joiner`` is set (STAPPEN *en* KLAPPEN).
@@ -85,3 +90,9 @@ class PosterContent:
     # Free-form, for the fingerprint: anything the renderer does not draw but
     # that must still count as "the facts changed" (e.g. the activity id).
     extra: tuple[tuple[str, str], ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        # Coercion on the boundary (CR-12 §B4.2): a test and a route hand over
+        # the code, the service hands over the member. One place turns the one
+        # into the other, so `blocks.py` only ever compares members.
+        object.__setattr__(self, "preset", Preset(self.preset))

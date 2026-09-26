@@ -115,7 +115,7 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
                 data={"contact_name": "Jef", "contact_email": "jef@example.com",
                       "phone": "047", f"product_{product.id}": "1",
-                      "payment_method": "OVERSCHRIJVING"})
+                      "payment_method": "transfer"})
     # Ronde 2 (15 sep): één tabpagina, per onderdeel gegroepeerd — de
     # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")

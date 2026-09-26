@@ -211,10 +211,17 @@ def list_assignable_roles(db):
     via Membership. Ze uit de keuzelijst filteren voorkomt zinloze, verwarrende
     vinkjes, en dus ook zinloze filterchips.
     """
+    # CR-12 phase 2: this used to say `notin_(["USER", "MEMBER"])`. Those two
+    # are now retired codes (`is_active = false`), and `code_labels()` by
+    # definition returns only the active ones — so the exception has gone
+    # because the list itself carries it, instead of every screen having to
+    # remember it again. The order comes from `sort_order`.
     from app.domains.auth.models import RoleCode
+    from app.kernel.codes import code_labels
 
-    return (db.query(RoleCode).filter(RoleCode.code.notin_(["USER", "MEMBER"]))
-            .order_by(RoleCode.code).all())
+    active_codes = [code for code, _label in code_labels("role")]
+    return (db.query(RoleCode).filter(RoleCode.code.in_(active_codes))
+            .order_by(RoleCode.sort_order).all())
 
 
 def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
@@ -228,13 +235,13 @@ def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
     toont dezelfde rollen als vinkjes, en twee queries op één codetabel zijn twee
     plekken die kunnen uiteenlopen.
 
-    Zelfde vorm als `legal_form_options` in mdm, want dezelfde codetabelvorm
-    (code, language, value): één regel per taal, dus per code samenvouwen. Valt
-    terug op nl en daarna op de code zelf — een lege optie is erger dan een
-    onvertaald label.
+    CR-12 phase 2: this used to do the same manual per-language collapsing as
+    `legal_form_options`, because the code table had one row per
+    (code, language). With the split shape there is one row per code and
+    `code_label()` does the fallback — language, then `nl`, then the code
+    itself.
     """
-    per_code: dict[str, dict[str, str]] = {}
-    for rij in rollen:
-        per_code.setdefault(rij.code, {})[rij.language] = rij.value
-    return [(code, labels.get(taal) or labels.get("nl") or code)
-            for code, labels in sorted(per_code.items())]
+    from app.kernel.codes import code_label
+
+    return [(rij.code, code_label("role", rij.code, language=taal))
+            for rij in sorted(rollen, key=lambda r: r.sort_order)]

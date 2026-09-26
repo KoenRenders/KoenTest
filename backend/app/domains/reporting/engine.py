@@ -26,7 +26,6 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from enum import Enum
 
 from app.domains.reporting.universe import (
     BY_KEY,
@@ -42,6 +41,7 @@ from app.domains.reporting.universe import (
     join_order,
     joins_for,
 )
+from app.kernel.codes import TechnicalEnum
 
 
 class SelectionError(ValueError):
@@ -54,8 +54,14 @@ class SelectionError(ValueError):
     """
 
 
-class Operator(str, Enum):
-    """The comparisons a filter may use. Anything else is refused by name."""
+class Operator(str, TechnicalEnum):
+    """The comparisons a filter may use. Anything else is refused by name.
+
+    `TechnicalEnum` (CR-12 §B4.9): a technical distinction, not a vocabulary.
+    It is never stored in a column and never shown to a reader — it names what
+    the engine may do. A code table would give a translator a row to change
+    with no screen to change it on.
+    """
 
     EQ = "eq"
     NE = "ne"
@@ -68,7 +74,9 @@ class Operator(str, Enum):
     CONTAINS = "contains"
 
 
-class Direction(str, Enum):
+class Direction(str, TechnicalEnum):
+    """Sort direction. `TechnicalEnum`: never stored, never shown (§B4.9)."""
+
     ASC = "asc"
     DESC = "desc"
 

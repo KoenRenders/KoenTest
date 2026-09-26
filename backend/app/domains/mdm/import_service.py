@@ -38,6 +38,8 @@ from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import ExternalNumber
 from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
+from app.domains.mdm.codes import CONTACT
+from app.kernel.codes import code_of
 from app.domains.audit.api import (
     snapshot_person,
     snapshot_member,
@@ -54,7 +56,9 @@ LEGACY_SOURCE = "ledenadministratie"
 IMPORT_YEAR = 2026
 
 # Rapportkolom → contacttype.
-_CONTACT_FIELDS = (("EMAIL", "email"), ("PHONE", "telefoon"), ("MOBILE", "gsm"))
+_CONTACT_FIELDS = ((CONTACT.EMAIL, "email"),
+                   (CONTACT.PHONE, "telefoon"),
+                   (CONTACT.MOBILE, "gsm"))
 
 
 @dataclass
@@ -237,7 +241,7 @@ def _apply_person_fields(person: Person, row: dict) -> None:
 
 # ── Contacten ───────────────────────────────────────────────────────────────
 
-def _upsert_contact(db: Session, person: Person, type_code: str, value: str | None,
+def _upsert_contact(db: Session, person: Person, type_code, value: str | None,
                     is_primary: bool, *, apply: bool, actor: str | None = None) -> None:
     """Maak/werk bij/verwijder één contactgegeven; snapshot elke wijziging."""
     existing = next((c for c in person.contact_details
@@ -274,9 +278,9 @@ def _upsert_contact(db: Session, person: Person, type_code: str, value: str | No
 def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool,
                    actor: str | None = None) -> None:
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, "EMAIL", row["email"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, "PHONE", row["telefoon"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, "MOBILE", row["gsm"], not has_phone, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.EMAIL, row["email"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.PHONE, row["telefoon"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────
@@ -466,7 +470,11 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
 
         _meld_onvolledig(row, report, existing)
         changes = _person_field_changes(existing, row)
-        rel_changed = mp is not None and mp.relation_type != row["_relatie"]
+        # `code_of`: since CR-12 phase 2 the column carries an enum member and
+        # the report row a code. Without this step every row is "changed" and
+        # the import reports a change that does not happen.
+        rel_changed = (mp is not None
+                       and code_of(mp.relation_type) != row["_relatie"])
         if changes or rel_changed:
             report.persons_updated += 1
             label = ", ".join(changes) if changes else "—"

@@ -6,6 +6,8 @@ pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 from tests.conftest import seed_postal_code, seed_activity_with_product
+from app.domains.payment.api import PayableType
+from app.domains.payment.api import PaymentStatus
 
 
 def _family_payload(email="lid@example.com", street="Milostraat", postal="2400"):
@@ -84,7 +86,7 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
 
     # Zet het betaalrecord van die inschrijving op 'failed'.
     from app.domains.payment.api import PaymentRecord
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
     rec.status = "failed"
     db_session.flush()
 
@@ -281,7 +283,9 @@ def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, 
     from app.domains.payment.api import GatewayPayment
     gp = GatewayPayment(
         provider="mollie", provider_payment_id="tr_x", amount=Decimal("10.00"),
-        status="pending", checkout_url="https://mollie.test/checkout/tr_x",
+        # GatewayPayment.status stays a bare string: Mollie's list (§B4.10).
+        status=PaymentStatus.PENDING.value,
+        checkout_url="https://mollie.test/checkout/tr_x",
         payment_metadata={},
     )
     db_session.add(gp)

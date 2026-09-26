@@ -32,10 +32,11 @@ from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
 from app.domains.mdm.api import (ContactDetail, Organization, OrganizationPerson,
                                  Person)
 from app.domains.meetings.api import (
-    ATTENDANCE_PRESENT,
-    FILE_SENT_PDF,
-    SECTION_UPCOMING,
+    Attendance,
+    FilePurpose,
     MeetingError,
+    MeetingStatus,
+    SectionKind,
     add_file,
     add_item,
     addable_activities,
@@ -142,8 +143,8 @@ def test_de_agenda_scheidt_evaluatie_van_wat_komt(db_session):
     meeting = create_meeting(db_session, meeting_date=vandaag)
     secties = {s.kind: s for s in document_of(db_session, meeting)}
 
-    evaluatie = [i.label for i in secties["EVALUATION"].items]
-    volgende = [i.label for i in secties["UPCOMING"].items]
+    evaluatie = [i.label for i in secties[SectionKind.EVALUATION].items]
+    volgende = [i.label for i in secties[SectionKind.UPCOMING].items]
 
     assert "Comedy Festival" in evaluatie
     assert "Fotozoektocht" in evaluatie, "een lopende activiteit hoort bij de evaluatie"
@@ -159,14 +160,14 @@ def test_ideeen_gaan_mee_naar_de_volgende_agenda(db_session):
     """Wat onder Programma-ideeën staat, staat op de volgende agenda opnieuw —
     anders is de overdracht weer handwerk."""
     vorige = create_meeting(db_session, meeting_date=date(2026, 9, 3))
-    ideeen = next(s for s in sections_of(db_session, vorige) if s.kind == "IDEAS")
+    ideeen = next(s for s in sections_of(db_session, vorige) if s.kind == SectionKind.IDEAS)
     add_item(db_session, vorige, ideeen, title="Bezoek Molen Ezaart",
              notes="Koen en Wim bekijken het bakhuisje.")
     vorige.report_sent_at = vorige.created_at
     db_session.flush()
 
     volgende = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie = next(s for s in document_of(db_session, volgende) if s.kind == "IDEAS")
+    sectie = next(s for s in document_of(db_session, volgende) if s.kind == SectionKind.IDEAS)
     labels = [i.label for i in sectie.items]
     assert "Bezoek Molen Ezaart" in labels
     assert "bakhuisje" in sectie.items[0].notes
@@ -187,7 +188,7 @@ def test_een_punt_tijdens_de_vergadering_schuift_ertussen(db_session):
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     sectie_model = next(s for s in sections_of(db_session, meeting)
-                        if s.kind == "UPCOMING")
+                        if s.kind == SectionKind.UPCOMING)
     # Haal 'Bowlen' er eerst af, zoals de secretaris zou doen die het punt niet
     # nodig achtte, en voeg het daarna tijdens de vergadering alsnog toe.
     for item in items_of(db_session, sectie_model):
@@ -197,7 +198,7 @@ def test_een_punt_tijdens_de_vergadering_schuift_ertussen(db_session):
 
     add_item(db_session, meeting, sectie_model, activity_id=tussendoor.id)
 
-    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "UPCOMING")
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     labels = [i.label for i in sectie.items]
     assert labels.index("Rumproefavond") < labels.index("Bowlen") < labels.index("Kerstherberg"), \
         "het toegevoegde punt schuift op zijn datum ertussen, niet achteraan"
@@ -209,10 +210,10 @@ def test_een_vrij_punt_komt_achteraan_en_draagt_geen_bron(db_session):
     _activity(db_session, "Rumproefavond", date(2026, 10, 2))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     sectie_model = next(s for s in sections_of(db_session, meeting)
-                        if s.kind == "UPCOMING")
+                        if s.kind == SectionKind.UPCOMING)
     add_item(db_session, meeting, sectie_model, title="Sofie Walk and Run")
 
-    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "UPCOMING")
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     assert sectie.items[-1].label == "Sofie Walk and Run"
     assert sectie.items[-1].kind == "free"
     assert sectie.items[-1].source_url is None
@@ -257,7 +258,7 @@ def test_een_verstuurde_pdf_blijft_altijd_bewaard(db_session, mailbox, monkeypat
                       body_html="Hallo", reply_to="secretaris@example.org",
                       pdf=b"%PDF-1.4 agenda", pdf_filename="agenda.pdf")
 
-    pdf = files_of(db_session, meeting, purpose=FILE_SENT_PDF)[0]
+    pdf = files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)[0]
     with pytest.raises(MeetingError):
         delete_file(db_session, meeting, pdf.id)
 
@@ -312,8 +313,8 @@ def test_versturen_is_een_mail_met_iedereen_in_to(db_session, mailbox, monkeypat
 
     ververst = get_meeting(db_session, meeting.id)
     assert ververst.report_sent_at is not None
-    assert ververst.status == "sent"
-    assert len(files_of(db_session, meeting, purpose=FILE_SENT_PDF)) == 1
+    assert ververst.status == MeetingStatus.SENT
+    assert len(files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)) == 1
 
 
 def test_een_los_adres_gaat_mee_in_dezelfde_mail(db_session, mailbox, monkeypatch):
@@ -361,13 +362,13 @@ def test_heropenen_bewaart_de_eerste_pdf_naast_de_tweede(db_session, mailbox,
                       pdf=b"%PDF eerste", pdf_filename="verslag.pdf")
 
     reopen(db_session, meeting)
-    assert meeting.status == "report"
+    assert meeting.status == MeetingStatus.REPORT
 
     send_meeting_mail(db_session, meeting, kind="report", subject="Verslag (verbeterd)",
                       body_html="v2", reply_to="s@example.org",
                       pdf=b"%PDF tweede", pdf_filename="verslag.pdf")
 
-    bewaard = [f.data for f in files_of(db_session, meeting, purpose=FILE_SENT_PDF)]
+    bewaard = [f.data for f in files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)]
     assert b"%PDF eerste" in bewaard and b"%PDF tweede" in bewaard
 
 
@@ -384,7 +385,7 @@ def test_een_verstuurd_verslag_weigert_wijzigingen(db_session, mailbox, monkeypa
 
     with pytest.raises(MeetingError):
         set_attendance(db_session, meeting, person_id=persoon.id,
-                       status=ATTENDANCE_PRESENT)
+                       status=Attendance.PRESENT)
 
 
 # ── 7. De ledenkop ───────────────────────────────────────────────────────────
@@ -531,7 +532,7 @@ def test_een_genoteerde_wijkmeester_kan_ook_weer_leeg(db_session):
 
     persoon = _person(db_session, "Ivo", "Verwimp")
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MEMBERS")
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
     punt = add_item(db_session, meeting, sectie, title="Gezin Peeters – Van Dael")
 
     set_noted_steward(db_session, meeting, punt.id, persoon.id)
@@ -544,7 +545,7 @@ def test_een_genoteerde_wijkmeester_kan_ook_weer_leeg(db_session):
 def test_een_punt_zonder_activiteit_en_zonder_titel_wordt_geweigerd(db_session):
     """Anders staat er een regel "Punt" in het verslag waar niemand iets aan heeft."""
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.MISC)
     with pytest.raises(MeetingError):
         add_item(db_session, meeting, sectie, title="   ")
 
@@ -572,8 +573,8 @@ def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
             db_session.delete(item)
     db_session.flush()
 
-    evaluatie = next(s for s in sections_of(db_session, meeting) if s.kind == "EVALUATION")
-    volgende = next(s for s in sections_of(db_session, meeting) if s.kind == "UPCOMING")
+    evaluatie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.EVALUATION)
+    volgende = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
 
     onder_evaluatie = [s.activity.name for s in
                        addable_activities(db_session, meeting, section_id=evaluatie.id)]
@@ -748,10 +749,10 @@ def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
                              start_time=time(20, 0), location="Miloheem")
 
     secties = {s.kind: s for s in document_of(db_session, meeting)}
-    assert "Rumproefavond" in [i.label for i in secties["UPCOMING"].items]
+    assert "Rumproefavond" in [i.label for i in secties[SectionKind.UPCOMING].items]
 
     # Typ iets op een punt, zodat we kunnen zien dat het blijft staan.
-    punt = next(i for i in secties["UPCOMING"].items if i.label == "Bowlen")
+    punt = next(i for i in secties[SectionKind.UPCOMING].items if i.label == "Bowlen")
     from app.domains.meetings.api import update_item
     update_item(db_session, meeting, punt.id, notes="Jo heeft het onder controle.")
 
@@ -763,12 +764,12 @@ def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
     assert meeting.location == "Miloheem — zaal 2"
 
     opnieuw = {s.kind: s for s in document_of(db_session, meeting)}
-    evaluatie = [i.label for i in opnieuw["EVALUATION"].items]
-    volgende = [i.label for i in opnieuw["UPCOMING"].items]
+    evaluatie = [i.label for i in opnieuw[SectionKind.EVALUATION].items]
+    volgende = [i.label for i in opnieuw[SectionKind.UPCOMING].items]
     assert "Rumproefavond" in evaluatie, "viel nu vóór de vergadering"
     assert "Rumproefavond" not in volgende
 
-    bowlen = [i for i in opnieuw["UPCOMING"].items if i.label == "Bowlen"]
+    bowlen = [i for i in opnieuw[SectionKind.UPCOMING].items if i.label == "Bowlen"]
     assert len(bowlen) == 1, "geen dubbel punt na het opnieuw samenstellen"
     assert "onder controle" in bowlen[0].notes, "de notitie moet de verschuiving overleven"
 
@@ -816,8 +817,12 @@ def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox
     aanwezigheidslijst — want een gast die wel post krijgt maar niet in het
     verslag staat, is het halve werk.
     """
-    from app.domains.meetings.api import (add_extra_recipient, attendance_of,
-                                          extra_recipients_of, set_attendance)
+    from app.domains.meetings.api import (
+    add_extra_recipient,
+    attendance_of,
+    extra_recipients_of,
+    set_attendance,
+)
 
     monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
                         mailbox, raising=False)
@@ -830,8 +835,8 @@ def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox
     assert gast.name == "Alexander W."
 
     set_attendance(db_session, meeting, guest_id=gast.id,
-                   status=ATTENDANCE_PRESENT)
-    assert attendance_of(db_session, meeting) == {f"g{gast.id}": "present"}
+                   status=Attendance.PRESENT)
+    assert attendance_of(db_session, meeting) == {f"g{gast.id}": Attendance.PRESENT}
 
     send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
                       body_html="Hallo", reply_to="s@example.org",
@@ -852,10 +857,10 @@ def test_een_aanwezigheidsrij_wijst_naar_precies_een_deelnemer(db_session):
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
 
     with pytest.raises(MeetingError):
-        set_attendance(db_session, meeting, status=ATTENDANCE_PRESENT)
+        set_attendance(db_session, meeting, status=Attendance.PRESENT)
     with pytest.raises(MeetingError):
         set_attendance(db_session, meeting, person_id=persoon.id, guest_id=1,
-                       status=ATTENDANCE_PRESENT)
+                       status=Attendance.PRESENT)
 
 
 # ── 19. Het uur in de PDF-kop ────────────────────────────────────────────────
@@ -903,7 +908,7 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     db_session.flush()
 
     meeting = create_meeting(db_session, meeting_date=date.today())
-    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "MEMBERS")
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
     assert sectie.items, "het nieuwe gezin hoort automatisch op de agenda te staan"
     punt = sectie.items[0]
     assert "An Peeters" in punt.label
@@ -974,7 +979,7 @@ def test_de_wijkmeester_staat_op_papier(client, db_session):
     db_session.flush()
 
     meeting = create_meeting(db_session, meeting_date=date.today())
-    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "MEMBERS")
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
     set_noted_steward(db_session, meeting, sectie.items[0].id, wijkmeester.id)
 
     tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
@@ -1000,7 +1005,7 @@ def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
 
     _login(client)
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.MISC)
     from app.domains.meetings.api import update_item
 
     punt = add_item(db_session, meeting, sectie, title="Opmaak")
@@ -1146,7 +1151,7 @@ def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session)
     relatie = _in_circle(db_session, persoon)
     meeting = create_meeting(db_session, meeting_date=date.today())
     set_attendance(db_session, meeting, person_id=persoon.id,
-                   status=ATTENDANCE_PRESENT)
+                   status=Attendance.PRESENT)
 
     end_circle_relation(db_session, relatie.id)
 
@@ -1193,7 +1198,7 @@ def test_de_agenda_kijkt_drie_maanden_vooruit(db_session):
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     upcoming = next(s for s in document_of(db_session, meeting)
-                    if s.kind == SECTION_UPCOMING)
+                    if s.kind == SectionKind.UPCOMING)
     labels = [i.label for i in upcoming.items]
 
     assert "Binnen de horizon" in labels
@@ -1227,13 +1232,13 @@ def test_dezelfde_activiteit_komt_niet_twee_keer_op_de_agenda(db_session):
     activiteit = _activity(db_session, "Bowlen", date(2026, 11, 15))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     sectie = next(s for s in sections_of(db_session, meeting)
-                  if s.kind == SECTION_UPCOMING)
+                  if s.kind == SectionKind.UPCOMING)
 
     with pytest.raises(MeetingError):
         add_item(db_session, meeting, sectie, activity_id=activiteit.id)
 
     getoond = next(s for s in document_of(db_session, meeting)
-                   if s.kind == SECTION_UPCOMING)
+                   if s.kind == SectionKind.UPCOMING)
     assert [i.label for i in getoond.items].count("Bowlen") == 1
 
 

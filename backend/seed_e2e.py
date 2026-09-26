@@ -220,7 +220,7 @@ def main() -> None:
         def _schrijf_in(naam: str) -> int | None:
             data = RegistrationCreate(
                 contact_name=naam, contact_email=MARKER_EMAIL, phone="0470000000",
-                component_id=component.id, payment_method="TRANSFER",
+                component_id=component.id, payment_method="transfer",
                 items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
             )
             resultaat = register_for_activity(activity.id, data, BackgroundTasks(),
@@ -257,7 +257,11 @@ def main() -> None:
 
         beheerder = db.query(User).order_by(User.id).first()
         if beheerder is not None:
-            bestaande = {r.role_code for r in beheerder.roles}
+            # `.value`: since CR-12 phase 2 the column carries a `Role` member
+            # and the caller passes codes. Without this step the comparison is
+            # always false and the seed grants the same role twice, which the
+            # unique index rightly refuses.
+            bestaande = {r.role_code.value for r in beheerder.roles}
             for rol in ("FINANCE", "OPERATOR"):
                 if rol not in bestaande:
                     db.add(UserRole(user_id=beheerder.id, role_code=rol))

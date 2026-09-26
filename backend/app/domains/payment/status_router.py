@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.domains.auth.api import get_finance_or_admin, get_current_finance
 from app.database import get_db
 from app.domains.auth.api import User
-from .models import PaymentRecord
+from .models import PaymentRecord, PaymentStatus
+from app.domains.mdm.api import PaymentMethod
 from .schemas import (
     PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord,
     RefundCreate, RegistrationBalance,
@@ -104,7 +105,7 @@ def refresh_payment_record(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail=_("Payment record not found"))
-    if record.method != "online" or not record.gateway_payment_id:
+    if record.method != PaymentMethod.ONLINE or not record.gateway_payment_id:
         raise HTTPException(
             status_code=400,
             detail=_("Alleen online betalingen kunnen bij Mollie ververst worden."),
@@ -207,7 +208,7 @@ def delete_payment_record(
     #   2) elk record met een betaald/ontvangen bedrag (cash/overschrijving bevestigd,
     #      of een uitgevoerde terugbetaling — amount_paid ≠ 0).
     # Zo'n record corrigeer je via een terugbetaling, niet via verwijderen.
-    if record.method == "online" and record.status == "paid":
+    if record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID:
         raise HTTPException(
             status_code=400,
             detail=_("Een door Mollie betaalde online betaling kan niet verwijderd worden."),

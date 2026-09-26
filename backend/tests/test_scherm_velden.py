@@ -55,6 +55,7 @@ from app.kernel.tenant_config import get_setting
 from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN
 from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
+from app.domains.mdm.api import LegalForm
 
 TENANT = TENANT_VOORBEELD_ID
 
@@ -268,7 +269,7 @@ def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
 
     db_session.refresh(organisatie)
     assert organisatie.name == naam_vooraf
-    assert organisatie.legal_form == "VZW", (
+    assert organisatie.legal_form == LegalForm.NON_PROFIT, (
         "de rechtsvorm is bewaard terwijl de naam geweigerd werd — dan is de "
         "opslag half doorgevoerd")
 

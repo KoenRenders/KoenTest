@@ -29,7 +29,7 @@ def _drie_inschrijvingen(client, db_session):
                     data={"contact_name": naam,
                           "contact_email": "sort@example.com", "phone": "047",
                           f"product_{product.id}": "1",
-                          "payment_method": "OVERSCHRIJVING"})
+                          "payment_method": "transfer"})
     return activity, component
 
 

@@ -24,29 +24,23 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.domains.meetings.codes import SECTION_KIND
 from app.domains.meetings.models import (
-    ATTENDANCE_STATUSES,
+    Attendance,
     CARRY_OVER_SECTIONS,
-    FILE_ATTACHMENT,
-    FILE_SENT_PDF,
-    SECTION_CUSTOM,
-    SECTION_EVALUATION,
-    SECTION_IDEAS,
-    SECTION_MEMBERS,
-    SECTION_MISC,
-    SECTION_UPCOMING,
-    STANDARD_SECTIONS,
-    STATUS_AGENDA,
-    STATUS_REPORT,
-    STATUS_SENT,
+    FilePurpose,
     Meeting,
     MeetingAttendance,
     MeetingExtraRecipient,
     MeetingFile,
     MeetingItem,
     MeetingSection,
+    MeetingStatus,
+    STANDARD_SECTIONS,
+    SectionKind,
 )
 from app.i18n import _
+from app.kernel.codes import code_label
 
 
 class MeetingError(Exception):
@@ -63,20 +57,15 @@ class MeetingError(Exception):
 UPCOMING_MONTHS = 3
 
 
-SECTION_LABELS = {
-    SECTION_EVALUATION: "Evaluatie voorbije activiteiten",
-    SECTION_UPCOMING: "Volgende activiteiten",
-    SECTION_MEMBERS: "Leden",
-    SECTION_IDEAS: "Programma-ideeën",
-    SECTION_MISC: "Varia",
-}
-
-
 def section_label(section: MeetingSection) -> str:
-    """The heading of a section: its own title when custom, its kind otherwise."""
-    if section.kind == SECTION_CUSTOM:
+    """The heading of a section: its own title when custom, its kind otherwise.
+
+    The words come from the `section_kind` label table (CR-12 phase 3); the
+    dictionary that held them here is gone.
+    """
+    if section.kind == SectionKind.CUSTOM:
         return section.title or _("Nieuwe sectie")
-    return _(SECTION_LABELS.get(section.kind, section.kind))
+    return code_label(SECTION_KIND.name, section.kind)
 
 
 # ── Reading ──────────────────────────────────────────────────────────────────
@@ -147,7 +136,7 @@ def create_meeting(db: Session, *, meeting_date: date,
         location = previous.location
 
     meeting = Meeting(meeting_date=meeting_date, start_time=start_time,
-                      location=location, status=STATUS_AGENDA)
+                      location=location, status=MeetingStatus.AGENDA)
     db.add(meeting)
     db.flush()
     _seed_sections(db, meeting)
@@ -183,7 +172,7 @@ def update_meeting(db: Session, meeting: Meeting, *, meeting_date: date,
     return meeting
 
 
-def _seed_sections(db: Session, meeting: Meeting) -> dict[str, MeetingSection]:
+def _seed_sections(db: Session, meeting: Meeting) -> dict[SectionKind, MeetingSection]:
     """The five standard sections, in their fixed order. Misc is last (§3.17)."""
     sections = {}
     for position, kind in enumerate(STANDARD_SECTIONS):
@@ -216,8 +205,8 @@ def generate_agenda(db: Session, meeting: Meeting,
     # wisselt een activiteit van sectie — en wie sectie per sectie opruimt-en-vult,
     # ziet bij de evaluatie het oude punt nog in "volgende" staan, slaat het over,
     # en ruimt het daarna op. Het punt verdwijnt dan helemaal.
-    evaluation = by_kind.get(SECTION_EVALUATION)
-    upcoming = by_kind.get(SECTION_UPCOMING)
+    evaluation = by_kind.get(SectionKind.EVALUATION)
+    upcoming = by_kind.get(SectionKind.UPCOMING)
     for sectie in (evaluation, upcoming):
         if sectie is not None:
             _replace_generated(db, sectie)
@@ -234,7 +223,7 @@ def generate_agenda(db: Session, meeting: Meeting,
                          if span.start <= _horizon(meeting.meeting_date)])
 
     # Members: who joined since the previous meeting.
-    members = by_kind.get(SECTION_MEMBERS)
+    members = by_kind.get(SectionKind.MEMBERS)
     if members is not None:
         _replace_generated(db, members)
         window_end = meeting.meeting_date + timedelta(days=1)
@@ -246,7 +235,7 @@ def generate_agenda(db: Session, meeting: Meeting,
                 noted_steward_person_id=new_member["steward_person_id"]))
 
     # Ideas: carried over from the previous meeting, text and all.
-    ideas = by_kind.get(SECTION_IDEAS)
+    ideas = by_kind.get(SectionKind.IDEAS)
     if ideas is not None and previous is not None:
         _carry_over(db, previous, meeting, by_kind)
 
@@ -340,8 +329,8 @@ def _touch(db: Session, meeting: Meeting) -> None:
     Not a button: taking attendance or typing a note *is* entering the report
     phase (§3.23). A sent meeting stays sent until it is explicitly reopened.
     """
-    if meeting.status == STATUS_AGENDA:
-        meeting.status = STATUS_REPORT
+    if meeting.status == MeetingStatus.AGENDA:
+        meeting.status = MeetingStatus.REPORT
 
 
 def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
@@ -451,9 +440,9 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
     title = (title or "").strip()
     if not title:
         raise MeetingError(_("Geef de sectie een naam."))
-    misc = next((s for s in sections_of(db, meeting) if s.kind == SECTION_MISC), None)
+    misc = next((s for s in sections_of(db, meeting) if s.kind == SectionKind.MISC), None)
     position = (misc.position - 1) if misc is not None else 100
-    section = MeetingSection(meeting_id=meeting.id, kind=SECTION_CUSTOM,
+    section = MeetingSection(meeting_id=meeting.id, kind=SectionKind.CUSTOM,
                              title=title, position=position)
     db.add(section)
     if misc is not None:
@@ -474,7 +463,7 @@ def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = 
     dat zegt zou in de pas moeten blijven met de kring.
     """
     _refuse_when_sent(meeting)
-    if status is not None and status not in ATTENDANCE_STATUSES:
+    if status is not None and status not in tuple(Attendance):
         raise MeetingError(_("Onbekende aanwezigheid."))
     if (person_id is None) == (guest_id is None):
         raise MeetingError(_("Geef één persoon of één gast op."))
@@ -495,11 +484,15 @@ def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = 
     db.commit()
 
 
-def attendance_of(db: Session, meeting: Meeting) -> dict[str, str]:
+def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
     """Per deelnemer: present of excused. Wie er niet in staat, is niet aangevinkt.
 
     De sleutel is een string (`p12` of `g3`) en geen id: personen en gasten
     worden apart genummerd, dus alleen een id zou de twee door elkaar halen.
+
+    The value is the MEMBER since CR-12 phase 3, because Python branches on
+    it. The screen gets the code — see `admin_ui._document_view`, where that
+    happens on the boundary.
     """
     uit = {}
     for row in (db.query(MeetingAttendance)
@@ -513,7 +506,7 @@ def attendance_of(db: Session, meeting: Meeting) -> dict[str, str]:
 
 def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
              data: bytes, on_agenda_mail: bool = True,
-             on_report_mail: bool = True, purpose: str = FILE_ATTACHMENT,
+             on_report_mail: bool = True, purpose: FilePurpose = FilePurpose.ATTACHMENT,
              commit: bool = True) -> MeetingFile:
     """Store an attachment with the meeting (bytes and all, see models.py).
 
@@ -553,7 +546,7 @@ def set_file_mailing(db: Session, meeting: Meeting, file_id: int, *,
     record = db.get(MeetingFile, file_id)
     if record is None or record.meeting_id != meeting.id:
         return
-    if record.purpose == FILE_SENT_PDF:
+    if record.purpose == FilePurpose.SENT_PDF:
         raise MeetingError(_("Een verstuurde PDF verandert niet meer."))
     if mail == "agenda":
         record.on_agenda_mail = not record.on_agenda_mail
@@ -582,7 +575,7 @@ def file_is_sent(meeting: Meeting, record: MeetingFile) -> bool:
     stempel kan dat niet: hij wordt gezet op het moment dat het bestand écht
     meegaat, in dezelfde transactie als de verzending.
     """
-    if record.purpose == FILE_SENT_PDF:
+    if record.purpose == FilePurpose.SENT_PDF:
         return True
     return record.sent_with_agenda_at is not None or record.sent_with_report_at is not None
 
@@ -617,7 +610,7 @@ def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
     record = db.get(MeetingFile, file_id)
     if record is None or record.meeting_id != meeting.id:
         return
-    if record.purpose == FILE_SENT_PDF:
+    if record.purpose == FilePurpose.SENT_PDF:
         raise MeetingError(_("Een verstuurde PDF blijft bewaard."))
     if file_is_sent(meeting, record):
         raise MeetingError(
@@ -627,7 +620,7 @@ def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
 
 
 def files_of(db: Session, meeting: Meeting,
-             purpose: Optional[str] = FILE_ATTACHMENT) -> list[MeetingFile]:
+             purpose: Optional[FilePurpose] = FilePurpose.ATTACHMENT) -> list[MeetingFile]:
     query = db.query(MeetingFile).filter(MeetingFile.meeting_id == meeting.id)
     if purpose is not None:
         query = query.filter(MeetingFile.purpose == purpose)
@@ -760,7 +753,7 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
     # Archiveren en stempelen in ÉÉN commit: anders kan een crash ertussen een
     # bewaarde PDF achterlaten bij een vergadering die "niet verstuurd" heet.
     add_file(db, meeting, filename=pdf_filename, content_type="application/pdf",
-             data=pdf, purpose=FILE_SENT_PDF, commit=False)
+             data=pdf, purpose=FilePurpose.SENT_PDF, commit=False)
     now = datetime.now(timezone.utc)
     # Per bijlage vastleggen dát ze mee was, en met wélke mail. Zonder dit stempel
     # blijft er van een afgesloten vergadering alleen een aanvinkvakje over, en dat
@@ -775,7 +768,7 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
         _touch(db, meeting)
     else:
         meeting.report_sent_at = now
-        meeting.status = STATUS_SENT
+        meeting.status = MeetingStatus.SENT
     db.commit()
 
 
@@ -785,14 +778,14 @@ def reopen(db: Session, meeting: Meeting) -> None:
     The earlier PDF stays archived; resending adds a second one. History never
     loses a version that went out.
     """
-    if meeting.status != STATUS_SENT:
+    if meeting.status != MeetingStatus.SENT:
         return
-    meeting.status = STATUS_REPORT
+    meeting.status = MeetingStatus.REPORT
     db.commit()
 
 
 def _refuse_when_sent(meeting: Meeting) -> None:
-    if meeting.status == STATUS_SENT:
+    if meeting.status == MeetingStatus.SENT:
         raise MeetingError(
             _("Het verslag is verstuurd. Heropen het eerst om nog te wijzigen."))
 
@@ -872,11 +865,27 @@ class DocumentItem:
 @dataclass(frozen=True)
 class DocumentSection:
     id: int
-    kind: str
+    kind: SectionKind
     label: str
     subtitle: str
     items: list[DocumentItem]
     can_add: bool
+
+    # CR-12 §B4.7: a template does not compare a code. These three are what
+    # the templates really wanted to know; they read `section.kind == "MEMBERS"`
+    # and silently became false when `kind` became an enum — without anything
+    # breaking, because an `{% if %}` that does not hold simply shows nothing.
+    @property
+    def is_members(self) -> bool:
+        return self.kind is SectionKind.MEMBERS
+
+    @property
+    def is_custom(self) -> bool:
+        return self.kind is SectionKind.CUSTOM
+
+    @property
+    def is_ideas(self) -> bool:
+        return self.kind is SectionKind.IDEAS
 
 
 def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
@@ -912,20 +921,20 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
         out.append(DocumentSection(
             id=section.id, kind=section.kind, label=section_label(section),
             subtitle=_subtitle_for(section.kind), items=items,
-            can_add=meeting.status != STATUS_SENT))
+            can_add=meeting.status != MeetingStatus.SENT))
     return out
 
 
 def _subtitle_for(kind: str) -> str:
     """One line under a generated heading saying where its content comes from —
     so a board member can tell a query from something somebody typed."""
-    if kind == SECTION_EVALUATION:
+    if kind == SectionKind.EVALUATION:
         return _("Activiteiten sinds de vorige vergadering, lopende inbegrepen.")
-    if kind == SECTION_UPCOMING:
+    if kind == SectionKind.UPCOMING:
         return _("Alles wat gepland staat. Laat weg wat nu niets te bespreken heeft.")
-    if kind == SECTION_MEMBERS:
+    if kind == SectionKind.MEMBERS:
         return _("Nieuwe leden sinds de vorige vergadering, uit het ledenbestand.")
-    if kind == SECTION_IDEAS:
+    if kind == SectionKind.IDEAS:
         return _("Overgenomen van de vorige vergadering.")
     return ""
 
@@ -1066,7 +1075,7 @@ def sent_reports(db: Session, limit: int = 24) -> list[Meeting]:
     """The reports that went out, newest first — what the newsletter composer
     may tick as a whole (Koen, 17 September 2026)."""
     return (db.query(Meeting)
-            .filter(Meeting.status == STATUS_SENT)
+            .filter(Meeting.status == MeetingStatus.SENT)
             .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
             .limit(limit).all())
 
@@ -1119,12 +1128,12 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
     section = db.get(MeetingSection, section_id) if section_id else None
     kind = getattr(section, "kind", None)
 
-    if kind == SECTION_EVALUATION:
+    if kind == SectionKind.EVALUATION:
         # Meest recente eerst: wat je onder evaluatie zoekt, is bijna altijd van
         # de voorbije weken.
         spans = list(reversed(activities_active_between(
             db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date)))
-    elif kind == SECTION_UPCOMING:
+    elif kind == SectionKind.UPCOMING:
         spans = activities_from(db, meeting.meeting_date)
     else:
         spans = list(reversed(activities_active_between(

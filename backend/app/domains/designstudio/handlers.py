@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import Headers, UploadFile
 
 from app.domains.designstudio import imaging
-from app.domains.designstudio.models import GEN_FAILED, GEN_FETCHED, GEN_REFUSED, ImageGeneration
+from app.domains.designstudio.models import GenerationStatus, ImageGeneration
 from app.kernel.jobs import job
 
 logger = logging.getLogger(__name__)
@@ -64,13 +64,13 @@ def generate_image(db: Session, payload: dict) -> None:
         result = client_factory().generate(prompt, width=row.width, height=row.height, seed=row.seed,
                                            reference_png=reference)
     except imaging.ModerationRefused as exc:
-        row.status, row.failure_reason = GEN_REFUSED, str(exc)
+        row.status, row.failure_reason = GenerationStatus.REFUSED, str(exc)
         log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
             provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, status="blocked",
             blocked_reason="moderation", tenant_id=tenant_id)
     except Exception as exc:  # noqa: BLE001 - every failure becomes a named row state
         logger.warning("designstudio: generation %s failed: %s", row.id, exc)
-        row.status, row.failure_reason = GEN_FAILED, str(exc)[:500]
+        row.status, row.failure_reason = GenerationStatus.FAILED, str(exc)[:500]
         log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
             provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, status="error",
             blocked_reason=str(exc)[:200], tenant_id=tenant_id)
@@ -81,7 +81,7 @@ def generate_image(db: Session, payload: dict) -> None:
                                           activity_id=row.design.activity_id))
         row.media_asset_id = stored[0]["id"]
         row.seed = result.seed
-        row.status = GEN_FETCHED
+        row.status = GenerationStatus.FETCHED
         usd = result.credits * imaging.CREDIT_USD
         log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
             provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, provider_request_id=result.provider_request_id,
