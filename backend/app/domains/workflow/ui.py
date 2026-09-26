@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.workflow import api
+from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, TaskStatus
+from app.kernel.codes import code_label, code_labels, code_of
 from app.ui import admin_nav, is_fragment_request, templates
 from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
 
@@ -25,33 +27,29 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     # wie en wanneer allemaal bewaard worden. `api.tasks` staat bewust naast
     # `open_tasks`: die laatste voedt óók de idempotentie van de weesjob en de
     # navigatieteller, en die mogen niet ineens de afgehandelde meetellen.
-    status = status if status in ("open", "done", "all") else "open"
+    status = status if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value,
+                                  "all") else TaskStatus.OPEN.value
     all_tasks = api.tasks(db, roles, status=status)
 
     # Eén gegroepeerde filter (#549), data-gedreven uit de dotted `kind`
     # (bv. "membership.reminder" → categorie "membership", subtype "reminder").
-    def _cat(k: str) -> str:
-        return (k or "").split(".", 1)[0]
+    def _cat(k) -> str:
+        return (code_of(k) or "").split(".", 1)[0]
 
     # §2.12: nooit rauwe codes tonen (#630). `kind` is een intern dotted veld
-    # (payment.webhook_mismatch, …) dat als badge op élke taak stond. Per request
-    # opgebouwd zodat _() de taal van de tenant volgt; een onbekend type valt terug
-    # op iets leesbaars, niet op de code.
-    KIND_LABELS = {
-        "payment.webhook_mismatch": _("Betaling: webhook wijkt af"),
-        "payment.refund_bevestigen": _("Betaling: terugbetaling bevestigen"),
-        "mail.definitief_gefaald": _("E-mail: definitief mislukt"),
-        "kernel.job_gefaald": _("Achtergrondtaak mislukt"),
-    }
-    CAT_LABELS = {
-        "payment": _("Betalingen"), "mail": _("E-mail"), "kernel": _("Systeem"),
-    }
+    # (payment.webhook_mismatch, …) dat als badge op élke taak stond. Sinds
+    # CR-12 fase 4 komen die woorden uit de labeltabel van `task_kind`, en de
+    # categoriekop uit de AFGELEIDE lijst `task_category` — de categorie is het
+    # deel vóór de punt en wordt nergens opgeslagen (§B5.3 noot 5).
+    def _kind_label(k) -> str:
+        return code_label(TASK_KIND.name, k, db=db) or _("Overige taak")
 
-    def _kind_label(k: str) -> str:
-        return KIND_LABELS.get(k or "", _("Overige taak"))
+    def _cat_label(c: str) -> str:
+        return code_label(TASK_CATEGORY.name, c, db=db)
 
-    def _sub(k: str) -> str:
-        return (k or "").split(".", 1)[1] if "." in (k or "") else ""
+    def _sub(k) -> str:
+        code = code_of(k) or ""
+        return code.split(".", 1)[1] if "." in code else ""
 
     cats: dict[str, set] = {}
     for t in all_tasks:
@@ -63,15 +61,15 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     # optgroup met "Alle <cat>" (prefix-match) + de exacte subtypes.
     filter_top = [("", _("Alle taken"))]
     filter_groups = {
-        CAT_LABELS.get(cat, cat): (
-            [(cat, f'{_("Alle")} {CAT_LABELS.get(cat, cat).lower()}')]
+        _cat_label(cat): (
+            [(cat, f'{_("Alle")} {_cat_label(cat).lower()}')]
             + [(f"{cat}.{s}", _kind_label(f"{cat}.{s}")) for s in sorted(subs)]
         )
         for cat, subs in sorted(cats.items())
     }
     # Filter: kind met punt → exact; zonder punt → hele categorie (prefix); leeg → alles.
     if "." in kind:
-        tasks = [t for t in all_tasks if t.kind == kind]
+        tasks = [t for t in all_tasks if code_of(t.kind) == kind]
     elif kind:
         tasks = [t for t in all_tasks if _cat(t.kind) == kind]
     else:
@@ -81,7 +79,9 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     term = q.strip().lower()
     if term:
         tasks = [t for t in tasks
-                 if term in (t.title or "").lower() or term in (t.kind or "").lower()]
+                 if term in (t.title or "").lower()
+                 or term in (code_of(t.kind) or "").lower()
+                 or term in _kind_label(t.kind).lower()]
     return {
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
@@ -92,11 +92,10 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
         "filter_groups": filter_groups,
         "kind": kind,
         "status": status,
-        "status_opties": [("open", _("Open")), ("done", _("Afgehandeld")),
-                          ("all", _("Alle"))],
-        # De template mapt `task.kind` hierlangs i.p.v. de code te tonen (#630).
-        "kind_labels": KIND_LABELS,
-        "kind_fallback": _("Overige taak"),
+        "status_opties": code_labels(TASK_STATUS.name, db=db) + [("all", _("Alle"))],
+        # Per taak-id, afgeleid hier: het scherm vergelijkt geen codes (§B4.7).
+        "kind_labels": {t.id: _kind_label(t.kind) for t in tasks},
+        "afgehandeld": {t.id: t.status is TaskStatus.DONE for t in tasks},
     }
 
 
@@ -216,6 +215,8 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
            "csrf_token": csrf_token_for(raw),
+           # Afgeleid hier, want het scherm vergelijkt geen codes (§B4.7).
+           "afgehandeld": bool(task and task.status is TaskStatus.DONE),
            # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
            "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN
                         if task else False),

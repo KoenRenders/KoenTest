@@ -17,6 +17,12 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.workflow import api
+from app.domains.workflow.api import (
+    KERNEL_JOB_FAILED,
+    MAIL_PERMANENTLY_FAILED,
+    PAYMENT_CONFIRM_REFUND,
+    PAYMENT_WEBHOOK_MISMATCH,
+)
 from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.events import subscribe
 from app.kernel.jobs import enqueue, job
@@ -51,7 +57,7 @@ def _sweep_sources(db: Session) -> list[dict]:
               .filter(PaymentRecord.type == PaymentType.REFUND,
                       PaymentRecord.status == PaymentStatus.PENDING).all()):
         kandidaten.append(dict(
-            kind="payment.refund_bevestigen",
+            kind=PAYMENT_CONFIRM_REFUND,
             title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
             # #704: het record-id, niet het payable — `subject_type` zegt
             # "payment_record" en de waarde hoort dat te zijn.
@@ -66,7 +72,7 @@ def _sweep_sources(db: Session) -> list[dict]:
         if log is None or log.status == "sent":
             continue
         kandidaten.append(dict(
-            kind="mail.definitief_gefaald",
+            kind=MAIL_PERMANENTLY_FAILED,
             title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
             subject_type="email_log", subject_id=str(log.id), role="ADMIN"))
 
@@ -79,7 +85,7 @@ def _sweep_sources(db: Session) -> list[dict]:
                     PaymentRecord.status != PaymentStatus.PAID).all())
     for gp, record in rows:
         kandidaten.append(dict(
-            kind="payment.webhook_mismatch",
+            kind=PAYMENT_WEBHOOK_MISMATCH,
             title=(f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
                    f"record {record.id[:8]}… is {record.status.value}"),
             subject_type="payment_record", subject_id=str(record.id), role="FINANCE"))
@@ -88,7 +94,7 @@ def _sweep_sources(db: Session) -> list[dict]:
     for j in (db.query(KernelJob)
               .filter(KernelJob.status == "failed", KernelJob.name != "mail.retry").all()):
         kandidaten.append(dict(
-            kind="kernel.job_gefaald",
+            kind=KERNEL_JOB_FAILED,
             title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
             subject_type="kernel_job", subject_id=str(j.id), role="ADMIN"))
 

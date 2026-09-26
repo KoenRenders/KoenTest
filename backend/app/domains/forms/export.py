@@ -5,7 +5,7 @@ in één cel samengevoegd. ODS hergebruikt de gedeelde build_ods-helper (#200); 
 cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-injectie
 (#288). Er is bewust geen CSV-export (nooit gevraagd + injectie-gevoelig, #371).
 """
-from app.domains.forms.models import Form, FormSubmission
+from app.domains.forms.models import FieldType, Form, FormSubmission
 from app.kernel.ods import build_ods
 from app.i18n import _
 
@@ -64,7 +64,7 @@ def build_submissions_view(db, form: Form) -> dict:
     for field in form.fields:
         for o in field.options:
             option_label[o.id] = o.label
-    view_fields = [f for f in form.fields if f.field_type != "info"]
+    view_fields = [f for f in form.fields if f.field_type is not FieldType.INFO]
 
     submissions = (
         db.query(FormSubmission)

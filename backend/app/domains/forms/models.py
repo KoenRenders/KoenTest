@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Column,
@@ -11,30 +12,49 @@ from sqlalchemy import (
     Numeric,
     ForeignKey,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
-# Toegestane veldtypes — houd in sync met de CHECK in migratie 062 en met de
-# rendering op de frontend. Bewust geen 'date' (nog niet nodig).
-FIELD_TYPES = (
-    "text",
-    "textarea",
-    "number",
-    "email",
-    "select",
-    "radio",
-    "checkbox",
-    "rating",
-    "info",  # louter informatief tekstblok, geen antwoord (#335)
-    "phone",  # gsm/telefoon met lichte validatie (#344)
-)
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
 
-# Een formulier doorloopt: draft (in opbouw) -> open (publiek invulbaar) ->
-# closed (geen nieuwe/gewijzigde inzendingen meer).
-FORM_STATUSES = ("draft", "open", "closed")
+
+class FieldType(Enum):
+    """Welk soort veld dit is; de rendering en de export vertakken erop.
+
+    CR-12 fase 4: was het tupel `FIELD_TYPES` plus de CHECK van migratie 062.
+    Die CHECK gaat weg — de foreign key zegt hetzelfde. Bewust geen `date`
+    (nog niet nodig).
+    """
+
+    TEXT = "text"
+    TEXTAREA = "textarea"
+    NUMBER = "number"
+    EMAIL = "email"
+    SELECT = "select"
+    RADIO = "radio"
+    CHECKBOX = "checkbox"
+    RATING = "rating"
+    INFO = "info"      # louter informatief tekstblok, geen antwoord (#335)
+    PHONE = "phone"    # gsm/telefoon met lichte validatie (#344)
+
+
+class FormStatus(Enum):
+    """draft (in opbouw) → open (publiek invulbaar) → closed (dicht)."""
+
+    DRAFT = "draft"
+    OPEN = "open"
+    CLOSED = "closed"
+
+
+#: Achterwaartse namen voor wie het tupel verwachtte. Ze leiden af uit de enum,
+#: zodat er één bron is (CLAUDE.md: twee plaatsen voor één feit is de bug).
+FIELD_TYPES = tuple(m.value for m in FieldType)
+FORM_STATUSES = tuple(m.value for m in FormStatus)
 
 # Rating is een vast 5-punts Likert: 1 = zeer slecht ... 5 = zeer goed.
 RATING_MIN = 1
@@ -58,7 +78,10 @@ class Form(TenantMixin, Base):
     description = Column(Text, nullable=True)
     # Niet-raadbare deellink-sleutel; de publieke URL is /formulier/<share_token>.
     share_token = Column(String(64), nullable=False, unique=True, index=True)
-    status = Column(String(20), nullable=False, default="draft")
+    status: Mapped[FormStatus] = mapped_column(
+        EnumColumn(FormStatus, length=20),
+        ForeignKey("form.form_status_codes.code"), nullable=False,
+        default=FormStatus.DRAFT)
     requires_login = Column(Boolean, nullable=False, default=False)
     max_submissions = Column(Integer, nullable=True)
     # Bevestigingsmail na inzending (enkel als er een e-mailadres is).
@@ -129,7 +152,9 @@ class FormField(TenantMixin, Base):
     section_id = Column(
         Integer, ForeignKey("form.form_sections.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    field_type = Column(String(20), nullable=False)
+    field_type: Mapped[FieldType] = mapped_column(
+        EnumColumn(FieldType, length=20),
+        ForeignKey("form.field_type_codes.code"), nullable=False)
     label = Column(String(300), nullable=False)
     help_text = Column(Text, nullable=True)
     required = Column(Boolean, nullable=False, default=False)
@@ -239,3 +264,61 @@ class FormSubmissionAnswer(TenantMixin, Base):
     submission = relationship("FormSubmission", back_populates="answers")
     field = relationship("FormField")
     option = relationship("FormFieldOption")
+
+
+class FormStatusCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4)."""
+
+    __tablename__ = "form_status_codes"
+    __table_args__ = {"schema": "form"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class FormStatusLabel(Base):
+    """The word a screen shows for this code, per language (CR-12 phase 4)."""
+
+    __tablename__ = "form_status_labels"
+    __table_args__ = {"schema": "form"}
+
+    code = Column(String(20), ForeignKey("form.form_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class FieldTypeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4)."""
+
+    __tablename__ = "field_type_codes"
+    __table_args__ = {"schema": "form"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class FieldTypeLabel(Base):
+    """The word a screen shows for this code, per language (CR-12 phase 4)."""
+
+    __tablename__ = "field_type_labels"
+    __table_args__ = {"schema": "form"}
+
+    code = Column(String(20), ForeignKey("form.field_type_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)

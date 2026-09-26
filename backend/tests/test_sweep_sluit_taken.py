@@ -27,7 +27,7 @@ import pytest
 from app.domains.payment.api import PaymentRecord
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
-from app.domains.workflow.models import WorkflowTask
+from app.domains.workflow.models import TaskStatus, WorkflowTask
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -49,7 +49,7 @@ def test_een_taak_zonder_aanleiding_sluit(db_session):
 
     db_session.expire_all()
     vers = db_session.get(WorkflowTask, taak.id)
-    assert vers.status == "done", "de taak bleef open terwijl haar aanleiding weg is"
+    assert vers.status is TaskStatus.DONE, "de taak bleef open terwijl haar aanleiding weg is"
     assert vers.done_by == "systeem", (
         "zonder done_by lijkt de taak in het archief door niemand afgehandeld")
     assert vers.decision and "aanleiding" in vers.decision.lower()
@@ -73,7 +73,7 @@ def test_een_taak_met_aanleiding_blijft_open(db_session):
 
     taken = db_session.query(WorkflowTask).filter(
         WorkflowTask.kind == "payment.refund_bevestigen",
-        WorkflowTask.status == "open").all()
+        WorkflowTask.status == TaskStatus.OPEN).all()
     assert any(str(refund.id) in t.title for t in taken), (
         "de sweep sloot een taak waarvan de aanleiding er nog is")
 
@@ -85,7 +85,7 @@ def test_soorten_van_buiten_de_sweep_blijven_ongemoeid(db_session, kind):
     sweep(db_session, {"once": True})
 
     db_session.expire_all()
-    assert db_session.get(WorkflowTask, taak.id).status == "open", (
+    assert db_session.get(WorkflowTask, taak.id).status is TaskStatus.OPEN, (
         f"{kind} komt niet uit de sweep — die mag hem niet sluiten")
 
 

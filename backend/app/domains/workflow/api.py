@@ -7,7 +7,18 @@ from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from app.domains.workflow.models import WorkflowTask
+from app.domains.workflow.codes import (  # noqa: F401
+    RUN_STATUS, TASK_CATEGORY, TASK_KIND, TASK_STATUS,
+)
+from app.domains.workflow.models import (  # noqa: F401
+    KERNEL_JOB_FAILED,
+    MAIL_PERMANENTLY_FAILED,
+    PAYMENT_CONFIRM_REFUND,
+    PAYMENT_WEBHOOK_MISMATCH,
+    RunStatus,
+    TaskStatus,
+    WorkflowTask,
+)
 
 
 def create_task(db: Session, *, kind: str, title: str, subject_type: str,
@@ -42,7 +53,8 @@ def vervroeg_sweep(db: Session) -> None:
 def open_tasks(db: Session, roles: Sequence[str]) -> list[WorkflowTask]:
     return (
         db.query(WorkflowTask)
-        .filter(WorkflowTask.status == "open", WorkflowTask.required_role.in_(list(roles) or [""]))
+        .filter(WorkflowTask.status == TaskStatus.OPEN,
+                WorkflowTask.required_role.in_(list(roles) or [""]))
         .order_by(WorkflowTask.created_at)
         .all()
     )
@@ -67,9 +79,10 @@ def tasks(db: Session, roles: Sequence[str], *, status: str = "open") -> list[Wo
     """
     vraag = db.query(WorkflowTask).filter(
         WorkflowTask.required_role.in_(list(roles) or [""]))
-    if status in ("open", "done"):
-        vraag = vraag.filter(WorkflowTask.status == status)
-    if status == "done":
+    # Omzetten op de grens (§B4.2): het scherm stuurt een code of "all".
+    if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value):
+        vraag = vraag.filter(WorkflowTask.status == TaskStatus(status))
+    if status == TaskStatus.DONE.value:
         return vraag.order_by(WorkflowTask.done_at.desc().nullslast(),
                               WorkflowTask.created_at.desc()).all()
     return vraag.order_by(WorkflowTask.status,
@@ -79,7 +92,8 @@ def tasks(db: Session, roles: Sequence[str], *, status: str = "open") -> list[Wo
 def open_count(db: Session, roles: Sequence[str]) -> int:
     return (
         db.query(WorkflowTask)
-        .filter(WorkflowTask.status == "open", WorkflowTask.required_role.in_(list(roles) or [""]))
+        .filter(WorkflowTask.status == TaskStatus.OPEN,
+                WorkflowTask.required_role.in_(list(roles) or [""]))
         .count()
     )
 
@@ -95,8 +109,8 @@ def close_task(db: Session, task_id: int, *, done_by: str,
     task = get_task(db, task_id)
     if task is None:
         return None
-    if task.status != "done":
-        task.status = "done"
+    if task.status is not TaskStatus.DONE:
+        task.status = TaskStatus.DONE
         task.done_at = datetime.now(timezone.utc)
         task.done_by = done_by
         task.decision = decision
@@ -144,12 +158,12 @@ def advance(db: Session, instance, *, context: Optional[dict] = None):
     volgende stap → instantie klaar. Idempotent op een al-voltooide instantie."""
     from app.domains.workflow.models import WorkflowDefinition
 
-    if instance.status == "done":
+    if instance.status is RunStatus.DONE:
         return instance
     definition = db.get(WorkflowDefinition, instance.definition_code)
     instance.current_step += 1
     if definition is None or instance.current_step >= len(definition.steps):
-        instance.status = "done"
+        instance.status = RunStatus.DONE
         instance.done_at = datetime.now(timezone.utc)
     else:
         _create_step_task(db, definition, instance, instance.current_step,
