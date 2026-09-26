@@ -238,16 +238,33 @@ def test_html_without_an_attachment_is_returned_unchanged():
 # ── 4. The kind stays in its own lane ────────────────────────────────────────
 
 def test_a_page_image_is_offered_by_the_media_library(client, db_session):
-    """Uploading is the only way in, so the library has to offer the kind."""
+    """Uploading is the only way in, so the library has to offer the kind.
+
+    The filter chip and the upload list carry DIFFERENT labels, and that is a
+    stopgap with an end date rather than a second name. The filter row was
+    already exactly full with three kinds — 1024 of 1024 px, measured for #1138 —
+    and of four labels put through the full e2e only a six-character one clears
+    1280 px ("Paginabeeld" at 11 already fails there). The full name lives on the
+    upload screen, because that is where you say what you are uploading.
+
+    **This test is also the marker for #1194** (v2.7.0), which gives the filter a
+    shape that grows with the number of kinds. Once that lands, the two halves
+    may become one label again and this assert is where you say so.
+    """
     _login(client, db_session)
 
-    html = client.get(f"/admin/media?kind={PAGE_IMAGE_KIND}").text
+    lijst = client.get(f"/admin/media?kind={PAGE_IMAGE_KIND}").text
+    assert ">Pagina<" in lijst, (
+        "de verkorte filterknop staat niet op het mediascherm; met de volle naam "
+        "breekt die rij (#1138/#1194)")
 
-    assert "Pagina-afbeelding" in html, "de soort staat niet in het mediascherm"
     nieuw = client.get("/admin/media/nieuw").text
     assert f'value="{PAGE_IMAGE_KIND}"' in nieuw, (
         "de soort staat niet in de keuzelijst van het uploadscherm, dus ze is "
         "niet op te laden")
+    assert "Pagina-afbeelding" in nieuw, (
+        "de uploadlijst hoort de VOLLE naam te tonen — daar kies je wát je "
+        "oplaadt, en daar is de ruimte er wel")
 
 
 def test_a_page_image_is_not_offered_as_an_activity_photo_or_a_logo(db_session):
