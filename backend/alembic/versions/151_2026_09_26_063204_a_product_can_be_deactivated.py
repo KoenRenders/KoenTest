@@ -29,7 +29,7 @@ import sqlalchemy as sa
 # krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
 # voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
 revision = '151_2026_09_26_063204'
-down_revision = '150_2026_09_21_224043'
+down_revision = '151_2026_09_26_061026'
 branch_labels = None
 depends_on = None
 
