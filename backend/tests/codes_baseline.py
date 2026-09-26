@@ -47,8 +47,6 @@ ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
 #: Label dictionaries in Python — the shape this change request removes.
 #: Key: `path/to/file.py:NAME`.
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
-    'app/domains/cms/render.py:PLACEHOLDER_LABELS',
-    'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
 })
 
 #: Templates comparing a code to a string literal.
@@ -57,11 +55,6 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
     'app/domains/media/templates/_me_lijst.html:kind==sponsor',
     'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==insert',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==letter',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==replace',
-    'app/domains/newsletter/templates/_nb_raakje.html:status==applied',
-    'app/domains/newsletter/templates/_nb_raakje.html:status==open',
 })
 
 #: Loose string comparisons on a vocabulary attribute in `.py`.
@@ -144,6 +137,32 @@ LABELS_NOT_A_VOCABULARY: dict[str, str] = {
     "app/domains/designstudio/service.py:FILE_SIZE_LABELS": (
         "The same, for a size code: `feed` is called `portrait` in a file "
         "name. A translated file name would break the downloads folder."),
+    # Koen, 26 September 2026 (CR-12 note 6): the next two are exempt.
+    "app/domains/cms/render.py:PLACEHOLDER_LABELS": (
+        "The placeholders in CMS page text (`{{membership_price_full}}`) are "
+        "stored inside the text, not in a column, and each one needs code that "
+        "computes its value, so a new row in a table would do nothing. The "
+        "words are help texts with an example, not labels."),
+    "app/domains/reporting/engine.py:SYMBOLIC_LABELS": (
+        "The symbolic filter values (today, this year, the logged-in user) "
+        "live in the JSON of a saved report, not in a column, and each one is "
+        "resolved by its own code when the report runs. That their words do "
+        "not go through `_()` is #1216, not CR-12."),
+}
+
+#: Template comparisons on a value that is not one of our stored codes. Added
+#: with the Raakje proposals (26 September 2026) and proven both ways: an entry
+#: whose comparison does not exist turned the target test red, and dropping
+#: `kind==insert` from here turned the template ratchet red on that line.
+TEMPLATE_COMPARISONS_NOT_A_CODE: dict[str, str] = {
+    # Koen, 26 September 2026 (CR-12 note 6): Raakje's newsletter proposals.
+    **{f"app/domains/newsletter/templates/_nb_raakje.html:{key}": (
+        "A Raakje proposal is a JSON object on a chat message, written by the "
+        "drafting code while the letter is being written; its `kind` and "
+        "`status` are stored in no column, so there is nothing for a foreign "
+        "key to guard and a code list would only add a table.")
+       for key in ("kind==insert", "kind==letter", "kind==replace",
+                   "status==applied", "status==open")},
 }
 
 #: Comparisons the vocabulary net catches that compare no code of ours.
