@@ -79,19 +79,19 @@ def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
     # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
     # taal van de tenant volgt (zelfde patroon als de statuslabels bij betalingen).
-    # CR-12 fase 4: de woorden komen uit de labeltabel van `field_type`. Het
-    # woordenboek dat hier stond zei "Korte tekst" waar de lijst "Tekst" zegt —
-    # één van de twee moest winnen, en dat is de tabel.
-    veldtype_labels = dict(code_labels(FIELD_TYPE.name, db=db))
+    # CR-12 phase 4: the words come from the label table of `field_type`. The
+    # dictionary that stood here is gone; its words became the seed of that
+    # table, so the screen reads the same as before (§B8.5).
+    field_type_labels = dict(code_labels(FIELD_TYPE.name, db=db))
     ctx = {
         "form": form, "grouped": grouped, "loose_fields": loose,
-        "sections": sections, "field_types": list(veldtype_labels),
+        "sections": sections, "field_types": list(field_type_labels),
         "statuses": FORM_STATUSES,
-        # `(code, woord)` voor de keuzelijst, plus de code van dit formulier:
-        # het scherm zet een code in een `value=` en vergelijkt codes (§B4.7).
+        # `(code, word)` for the dropdown, plus this form's code: the screen
+        # puts a code into a `value=` and compares codes (§B4.7).
         "status_options": code_labels(FORM_STATUS.name, db=db),
         "status": code_of(form.status),
-        "field_type_labels": veldtype_labels,
+        "field_type_labels": field_type_labels,
         "submission_count": submission_count(db, form.id),
         # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
         "share_path": deellink_pad(form),
@@ -109,9 +109,9 @@ def _builder_response(request: Request, db: Session, form, **extra):
 # ── Lijst + aanmaken ───────────────────────────────────────────────────────────
 
 # Badge-tonen per status, conform §2.4: concept grijs, open groen, gesloten rood.
-# Een toon is een ontwerpbeslissing en geen vertaling (§B4.5), dus hij blijft
-# hier, bij het scherm dat de badge tekent; de WOORDEN komen sinds CR-12 fase 4
-# uit de labeltabel van `form_status`.
+# A tone is a design decision and not a translation (§B4.5), so it stays here,
+# next to the screen that draws the badge; the WORDS come from the label table
+# of `form_status` since CR-12 phase 4.
 register_tones(FORM_STATUS.name, {
     FormStatus.DRAFT: "gray",
     FormStatus.OPEN: "green",

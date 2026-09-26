@@ -58,11 +58,11 @@ TASK_KIND_CODES = (
     CodeSeed(code="kernel.job_gefaald",
              nl="Achtergrondtaak mislukt",
              en="Background job failed", sort_order=40),
-    # Niet in de cataloog van §B5.3, en dat is een bevinding van deze fase: de
-    # meting zocht `kind="…"` in de code en deze soort komt uit DATA — de
-    # workflowdefinitie `bericht` van migratie 082 zet hem in haar stappen-JSON,
-    # en migratie 074 schreef er rijen mee. Precies het geval waarom deze lijst
-    # geen enum krijgt.
+    # Not in the catalogue of §B5.3, and that is a finding of this phase: the
+    # measurement looked for `kind="…"` in the code, and this kind comes from
+    # DATA — the workflow definition `bericht` of migration 082 puts it in its
+    # steps JSON, and migration 074 wrote rows with it. Exactly the case for
+    # which this list gets no enum.
     CodeSeed(code="bericht.behartigen",
              nl="Bericht behartigen", en="Handle message", sort_order=50),
 )
@@ -70,8 +70,8 @@ TASK_KIND_CODES = (
 TASK_KIND = CodeList(
     name="task_kind", schema="workflow",
     codes=TaskKindCode, labels=TaskKindLabel,
-    # Geen enum — zie de constanten in `models.py`. Een workflowdefinitie is
-    # data en mag een soort introduceren; een enum-kolom zou die rij weigeren.
+    # No enum — see the constants in `models.py`. A workflow definition is
+    # data and may introduce a kind; an enum column would refuse that row.
     enum=None,
     fk_from=("workflow.workflow_tasks.kind",),
 )

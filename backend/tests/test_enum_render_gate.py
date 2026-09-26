@@ -48,11 +48,11 @@ from app.kernel.codes import EnumRendered, install_enum_guard
 from app.ui import templates
 
 
-class Proefstatus(Enum):
+class SampleStatus(Enum):
     OPEN = "open"
 
 
-def _omgeving(*, strict: bool) -> Environment:
+def _environment(*, strict: bool) -> Environment:
     env = Environment(loader=DictLoader({"t.html": '<input value="{{ x }}">'}),
                       autoescape=True)
     install_enum_guard(env, strict=strict)
@@ -63,14 +63,14 @@ def _omgeving(*, strict: bool) -> Environment:
 
 def test_a_member_in_the_output_is_refused():
     """The exact shape of all three real cases: a member into `value=`."""
-    with pytest.raises(EnumRendered, match=r"Proefstatus\.OPEN"):
-        _omgeving(strict=True).get_template("t.html").render(x=Proefstatus.OPEN)
+    with pytest.raises(EnumRendered, match=r"SampleStatus\.OPEN"):
+        _environment(strict=True).get_template("t.html").render(x=SampleStatus.OPEN)
 
 
 def test_the_code_passes_untouched():
     """What a view-model is supposed to hand over."""
-    uit = _omgeving(strict=True).get_template("t.html").render(x="open")
-    assert uit == '<input value="open">'
+    output = _environment(strict=True).get_template("t.html").render(x="open")
+    assert output == '<input value="open">'
 
 
 def test_outside_dev_and_test_it_repairs_instead_of_raising():
@@ -80,8 +80,8 @@ def test_outside_dev_and_test_it_repairs_instead_of_raising():
     carried anyway, so the screen keeps working while the log says what
     happened. A visitor never meets a 500 over a rendering detail.
     """
-    uit = _omgeving(strict=False).get_template("t.html").render(x=Proefstatus.OPEN)
-    assert uit == '<input value="open">'
+    output = _environment(strict=False).get_template("t.html").render(x=SampleStatus.OPEN)
+    assert output == '<input value="open">'
 
 
 def test_a_label_filter_still_renders_its_word(db_session):
@@ -113,12 +113,12 @@ def test_the_guard_is_installed_and_strict_on_both_environments():
     """
     from app.domains.designstudio import render
 
-    for naam, env in (("the shared template environment", templates.env),
+    for name, env in (("the shared template environment", templates.env),
                       ("the poster environment", render._env())):
-        sjabloon = env.from_string('<input value="{{ x }}">')
+        template = env.from_string('<input value="{{ x }}">')
         with pytest.raises(EnumRendered):
-            sjabloon.render(x=Proefstatus.OPEN)
-        assert sjabloon.render(x="open") == '<input value="open">', naam
+            template.render(x=SampleStatus.OPEN)
+        assert template.render(x="open") == '<input value="open">', name
 
 
 def test_the_guard_actually_saw_values_in_this_run():
@@ -128,6 +128,6 @@ def test_the_guard_actually_saw_values_in_this_run():
     own, so this is a floor and not a coverage claim; the number in the
     ratchet table is where the real coverage shows.
     """
-    voor = kernel_codes.rendered_under_the_guard
-    _omgeving(strict=True).get_template("t.html").render(x="open")
-    assert kernel_codes.rendered_under_the_guard > voor
+    before = kernel_codes.rendered_under_the_guard
+    _environment(strict=True).get_template("t.html").render(x="open")
+    assert kernel_codes.rendered_under_the_guard > before

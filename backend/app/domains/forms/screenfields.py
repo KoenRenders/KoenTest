@@ -26,23 +26,23 @@ from app.kernel.codes import code_of
 class ScreenField:
     """A `FormField` with its `field_type` as the stored code."""
 
-    __slots__ = ("_veld",)
+    __slots__ = ("_field",)
 
-    def __init__(self, veld: Any) -> None:
-        object.__setattr__(self, "_veld", veld)
+    def __init__(self, field: Any) -> None:
+        object.__setattr__(self, "_field", field)
 
-    def __getattr__(self, naam: str) -> Any:
-        return getattr(object.__getattribute__(self, "_veld"), naam)
+    def __getattr__(self, name: str) -> Any:
+        return getattr(object.__getattribute__(self, "_field"), name)
 
     @property
     def field_type(self) -> str:
-        return code_of(object.__getattribute__(self, "_veld").field_type) or ""
+        return code_of(object.__getattribute__(self, "_field").field_type) or ""
 
     @property
     def row(self) -> Any:
         """The row itself, for code that needs the member after all."""
-        return object.__getattribute__(self, "_veld")
+        return object.__getattribute__(self, "_field")
 
 
-def screen_fields(velden: Any) -> list[ScreenField]:
-    return [ScreenField(v) for v in velden]
+def screen_fields(fields: Any) -> list[ScreenField]:
+    return [ScreenField(v) for v in fields]

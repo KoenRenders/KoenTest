@@ -16,28 +16,28 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
-def registreer_taaksoort(db: Session, code: str, *, nl: str, en: str | None = None,
-                         categorie_nl: str | None = None) -> str:
+def register_task_kind(db: Session, code: str, *, nl: str, en: str | None = None,
+                       category_nl: str | None = None) -> str:
     """Add one task kind (and its category when missing). Returns the code."""
-    categorie = code.split(".", 1)[0]
-    _rij(db, "task_category", categorie, categorie_nl or categorie.capitalize(),
-         categorie_nl or categorie.capitalize())
-    _rij(db, "task_kind", code, nl, en or nl)
+    category = code.split(".", 1)[0]
+    _row(db, "task_category", category, category_nl or category.capitalize(),
+         category_nl or category.capitalize())
+    _row(db, "task_kind", code, nl, en or nl)
     db.flush()
     return code
 
 
-def _rij(db: Session, lijst: str, code: str, nl: str, en: str) -> None:
-    bestaat = db.execute(
-        text(f"SELECT 1 FROM workflow.{lijst}_codes WHERE code = :c"),
+def _row(db: Session, list_name: str, code: str, nl: str, en: str) -> None:
+    exists = db.execute(
+        text(f"SELECT 1 FROM workflow.{list_name}_codes WHERE code = :c"),
         {"c": code}).first()
-    if bestaat:
+    if exists:
         return
-    db.execute(text(f"INSERT INTO workflow.{lijst}_codes "
+    db.execute(text(f"INSERT INTO workflow.{list_name}_codes "
                     f"(code, sort_order, is_active, created_at) "
                     f"VALUES (:c, 900, true, now())"), {"c": code})
-    for taal, waarde in (("nl", nl), ("en", en)):
-        db.execute(text(f"INSERT INTO workflow.{lijst}_labels "
+    for language, value in (("nl", nl), ("en", en)):
+        db.execute(text(f"INSERT INTO workflow.{list_name}_labels "
                         f"(code, language, value, created_at, updated_at) "
                         f"VALUES (:c, :l, :v, now(), now())"),
-                   {"c": code, "l": taal, "v": waarde})
+                   {"c": code, "l": language, "v": value})

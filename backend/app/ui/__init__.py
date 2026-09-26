@@ -66,13 +66,13 @@ from app.kernel.codes import install_enum_guard, install_jinja_codes  # noqa: E4
 
 install_jinja_codes(templates.env)
 
-# CR-12, de twaalfde poort: geen enkel enum-lid bereikt de uitvoer. Drie keer
-# in deze change request belandde een lid in een `value=`-attribuut — het
-# abonneefilter, de doelgroepkeuze en de aanwezigheidsknop — en geen van de elf
-# poorten kon dat vinden, want een lid dat GERENDERD wordt is geen
-# vergelijking. Dit haakt op `finalize`, dat Jinja voor élke `{{ }}` aanroept,
-# dus elke rendertest in de suite is meteen een detector. Dezelfde streng/mild-
-# grens als `StrictUndefined` hierboven, en om dezelfde reden.
+# CR-12, the twelfth gate: no enum member reaches the output. Three times in
+# this change request a member ended up in a `value=` attribute — the
+# subscriber filter, the audience choice and the attendance button — and none
+# of the eleven gates could find it, because a member that is RENDERED is not a
+# comparison. This hooks `finalize`, which Jinja calls for every `{{ }}`, so
+# every render test in the suite is a detector at once. The same strict/lenient
+# line as `StrictUndefined` above, and for the same reason.
 install_enum_guard(templates.env, strict=settings.app_env in _STRICT_ENVS)
 
 

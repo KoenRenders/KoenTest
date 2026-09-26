@@ -21,44 +21,44 @@ from app.domains.forms.codes import FIELD_TYPE_CODES, FORM_STATUS_CODES
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951).
+# The id is a timestamp, not a sequence number (#951).
 revision = '159_2026_09_26_073514'
 down_revision = '158_2026_09_26_071916'
 branch_labels = None
 depends_on = None
 
-LIJSTEN = (
+LISTS = (
     ("form_status", FORM_STATUS_CODES, 20, "form.forms.status"),
     ("field_type", FIELD_TYPE_CODES, 20, "form.form_fields.field_type"),
 )
 
-#: De CHECK die hetzelfde zegt als de nieuwe foreign key — en die al drie
-#: migraties gekost heeft (062, 063, 065).
+#: The CHECK that says what the new foreign key says — and that has already
+#: cost three migrations (062, 063, 065).
 CHECKS = (("form_fields", "ck_form_fields_type"),)
 
 
 def upgrade() -> None:
-    for naam, codes, lengte, kolom in LIJSTEN:
-        create_code_list(op, schema="form", name=naam, codes=codes,
-                         fk_from=(kolom,), code_length=lengte)
+    for name, codes, length, column in LISTS:
+        create_code_list(op, schema="form", name=name, codes=codes,
+                         fk_from=(column,), code_length=length)
 
-    inspecteur = sa.inspect(op.get_bind())
-    for tabel, constraint in CHECKS:
-        bestaand = {c["name"] for c in
-                    inspecteur.get_check_constraints(tabel, schema="form")}
-        if constraint in bestaand:
-            op.drop_constraint(constraint, tabel, schema="form", type_="check")
+    inspector = sa.inspect(op.get_bind())
+    for table, constraint in CHECKS:
+        existing = {c["name"] for c in
+                    inspector.get_check_constraints(table, schema="form")}
+        if constraint in existing:
+            op.drop_constraint(constraint, table, schema="form", type_="check")
 
 
 def downgrade() -> None:
-    # Alleen schema: deze migratie schreef geen formulierdata.
+    # Schema only: this migration wrote no form data.
     op.create_check_constraint(
         "ck_form_fields_type", "form_fields",
         "field_type IN ('text', 'textarea', 'number', 'email', 'select', "
         "'radio', 'checkbox', 'rating', 'info', 'phone')", schema="form")
-    for naam, _codes, _lengte, kolom in LIJSTEN:
-        _schema, tabel, kolomnaam = kolom.split(".")
-        op.drop_constraint(f"fk_{tabel}_{kolomnaam}_code", tabel,
+    for name, _codes, _length, column in LISTS:
+        _schema, table, column_name = column.split(".")
+        op.drop_constraint(f"fk_{table}_{column_name}_code", table,
                            schema="form", type_="foreignkey")
-        op.drop_table(f"{naam}_labels", schema="form")
-        op.drop_table(f"{naam}_codes", schema="form")
+        op.drop_table(f"{name}_labels", schema="form")
+        op.drop_table(f"{name}_codes", schema="form")

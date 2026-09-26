@@ -30,11 +30,11 @@ FORM_STATUS = CodeList(
     fk_from=("form.forms.status",),
 )
 
-#: De Nederlandse woorden komen LETTERLIJK uit `admin_ui.veldtype_labels`, het
-#: woordenboek dat de form-builder tot nu toe vulde — §B8.5 vraagt dezelfde
-#: woorden als voordien. De cataloog van §B5.3 stelde er andere voor ("Tekst",
-#: "Tekstvak", "Keuzerondjes"); die waren afgeleid van de codenamen en niet van
-#: het scherm. Het scherm wint, en dat is een bevinding voor het CR.
+#: The Dutch words come LITERALLY from `admin_ui.veldtype_labels`, the
+#: dictionary that filled the form builder until now — §B8.5 asks for the same
+#: words as before. The catalogue of §B5.3 proposed others ("Tekst",
+#: "Tekstvak", "Keuzerondjes"); those were derived from the code names, not
+#: from the screen. The screen wins, and that is a finding for the CR.
 FIELD_TYPE_CODES = (
     CodeSeed(code="text", nl="Korte tekst", en="Short text", sort_order=10),
     CodeSeed(code="textarea", nl="Lange tekst", en="Long text", sort_order=20),
@@ -45,8 +45,8 @@ FIELD_TYPE_CODES = (
     CodeSeed(code="checkbox", nl="Meerdere keuzes", en="Several choices",
              sort_order=70),
     CodeSeed(code="rating", nl="Score", en="Score", sort_order=80),
-    # `info` stond niet in dat woordenboek — een infoblok is geen keuze in de
-    # bouwer — dus hier komt het woord wél uit de cataloog.
+    # `info` was not in that dictionary — an info block is not a choice in the
+    # builder — so here the word does come from the catalogue.
     CodeSeed(code="info", nl="Infotekst", en="Info text", sort_order=90),
     CodeSeed(code="phone", nl="Telefoonnummer", en="Phone number", sort_order=100),
 )

@@ -24,11 +24,11 @@ def _now_utc() -> datetime:
 
 
 class FieldType(Enum):
-    """Welk soort veld dit is; de rendering en de export vertakken erop.
+    """What kind of field this is; rendering and export branch on it.
 
-    CR-12 fase 4: was het tupel `FIELD_TYPES` plus de CHECK van migratie 062.
-    Die CHECK gaat weg — de foreign key zegt hetzelfde. Bewust geen `date`
-    (nog niet nodig).
+    CR-12 phase 4: was the tuple `FIELD_TYPES` plus the CHECK of migration 062.
+    That CHECK goes — the foreign key says the same. Deliberately no `date`
+    (not needed yet).
     """
 
     TEXT = "text"
@@ -39,20 +39,20 @@ class FieldType(Enum):
     RADIO = "radio"
     CHECKBOX = "checkbox"
     RATING = "rating"
-    INFO = "info"      # louter informatief tekstblok, geen antwoord (#335)
-    PHONE = "phone"    # gsm/telefoon met lichte validatie (#344)
+    INFO = "info"      # a purely informative text block, no answer (#335)
+    PHONE = "phone"    # mobile/phone with light validation (#344)
 
 
 class FormStatus(Enum):
-    """draft (in opbouw) → open (publiek invulbaar) → closed (dicht)."""
+    """draft (being built) → open (publicly fillable) → closed."""
 
     DRAFT = "draft"
     OPEN = "open"
     CLOSED = "closed"
 
 
-#: Achterwaartse namen voor wie het tupel verwachtte. Ze leiden af uit de enum,
-#: zodat er één bron is (CLAUDE.md: twee plaatsen voor één feit is de bug).
+#: Backward names for whoever expected the tuple. They derive from the enum,
+#: so there is one source (CLAUDE.md: two places for one fact is the bug).
 FIELD_TYPES = tuple(m.value for m in FieldType)
 FORM_STATUSES = tuple(m.value for m in FormStatus)
 

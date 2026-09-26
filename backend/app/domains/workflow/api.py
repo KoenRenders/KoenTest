@@ -79,7 +79,7 @@ def tasks(db: Session, roles: Sequence[str], *, status: str = "open") -> list[Wo
     """
     vraag = db.query(WorkflowTask).filter(
         WorkflowTask.required_role.in_(list(roles) or [""]))
-    # Omzetten op de grens (§B4.2): het scherm stuurt een code of "all".
+    # Convert on the boundary (§B4.2): the screen sends a code or "all".
     if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value):
         vraag = vraag.filter(WorkflowTask.status == TaskStatus(status))
     if status == TaskStatus.DONE.value:
