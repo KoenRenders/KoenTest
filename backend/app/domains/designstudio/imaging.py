@@ -77,7 +77,7 @@ STYLES = {
               "no gradients, no shading, " + _BASE),
 }
 # The Dutch word for a style now comes from the `drawing_style` label table
-# (CR-12 fase 3); what stays here is the prompt fragment, which is a payload
+# (CR-12 phase 3); what stays here is the prompt fragment, which is a payload
 # and not a translation.
 STYLE_SUFFIX = STYLES["lijn"]
 

@@ -43,18 +43,18 @@ def _now_utc() -> datetime:
 
 
 
-# What an erased address becomes in the archive. Geen code en geen lijst:
-# het is de tekst die in de plaats komt van een gewist adres (§B4.10 —
-# "getallen en teksten die geen code zijn").
+# What an erased address becomes in the archive. Not a code and not a list:
+# it is the text that takes the place of an erased address (§B4.10 —
+# "numbers and texts that are not a code").
 ERASED_ADDRESS = "verwijderd adres"
 
 
-# ── De vocabularia van dit domein (CR-12 fase 3) ─────────────────────────────
+# ── The vocabularies of this domain (CR-12 phase 3) ──────────────────────────
 #
-# Acht lijsten die tot nu toe moduleconstanten waren: een tupel met de geldige
-# waarden en, twintig regels verderop in een ander bestand, een woordenboek met
-# de Nederlandse woorden. Nu één vorm — codetabel, labeltabel, enum — en dus
-# één plek waar een nieuwe waarde bijkomt.
+# Eight lists that were module constants until now: a tuple with the valid
+# values and, twenty lines further on in another file, a dictionary with the
+# Dutch words. Now one shape — code table, label table, enum — and therefore
+# one place where a new value is added.
 
 
 class SubscriberStatus(Enum):
@@ -64,7 +64,7 @@ class SubscriberStatus(Enum):
 
 
 class SubscriberSource(Enum):
-    """Waar een inschrijving vandaan komt — bewijs van toestemming."""
+    """Where a subscription comes from — proof of consent."""
 
     PUBLIC_FORM = "public_form"
     IMPORT = "import"
@@ -101,14 +101,14 @@ class DeliveryStatus(Enum):
 
 
 class MessageRole(Enum):
-    """Wie het bericht schreef in het opstelgesprek: de auteur of Raakje."""
+    """Who wrote the message in the drafting conversation: the author or Raakje."""
 
     AUTHOR = "author"
     RAAKJE = "raakje"
 
 
 class SubscriberStatusCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "subscriber_status_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -120,7 +120,7 @@ class SubscriberStatusCode(Base):
 
 
 class SubscriberStatusLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "subscriber_status_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -137,7 +137,7 @@ class SubscriberStatusLabel(Base):
 
 
 class SubscriberSourceCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "subscriber_source_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -149,7 +149,7 @@ class SubscriberSourceCode(Base):
 
 
 class SubscriberSourceLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "subscriber_source_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -166,7 +166,7 @@ class SubscriberSourceLabel(Base):
 
 
 class AudienceCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "audience_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -178,7 +178,7 @@ class AudienceCode(Base):
 
 
 class AudienceLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "audience_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -195,7 +195,7 @@ class AudienceLabel(Base):
 
 
 class LetterStatusCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "letter_status_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -207,7 +207,7 @@ class LetterStatusCode(Base):
 
 
 class LetterStatusLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "letter_status_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -224,7 +224,7 @@ class LetterStatusLabel(Base):
 
 
 class ReplyToModeCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "reply_to_mode_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -236,7 +236,7 @@ class ReplyToModeCode(Base):
 
 
 class ReplyToModeLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "reply_to_mode_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -253,7 +253,7 @@ class ReplyToModeLabel(Base):
 
 
 class DeliveryKindCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "delivery_kind_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -265,7 +265,7 @@ class DeliveryKindCode(Base):
 
 
 class DeliveryKindLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "delivery_kind_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -282,7 +282,7 @@ class DeliveryKindLabel(Base):
 
 
 class DeliveryStatusCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "delivery_status_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -294,7 +294,7 @@ class DeliveryStatusCode(Base):
 
 
 class DeliveryStatusLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "delivery_status_labels"
     __table_args__ = {"schema": "newsletter"}
@@ -311,7 +311,7 @@ class DeliveryStatusLabel(Base):
 
 
 class MessageRoleCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "message_role_codes"
     __table_args__ = {"schema": "newsletter"}
@@ -323,7 +323,7 @@ class MessageRoleCode(Base):
 
 
 class MessageRoleLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "message_role_labels"
     __table_args__ = {"schema": "newsletter"}

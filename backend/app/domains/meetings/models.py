@@ -69,10 +69,10 @@ class MeetingStatus(Enum):
 
 
 class SectionKind(Enum):
-    """De rubrieken van het document (CR-09 §3.17, CR-12 fase 3).
+    """The sections of the document (CR-09 §3.17, CR-12 phase 3).
 
-    `MISC` staat altijd achteraan; een eigen rubriek schuift ervóór. Ledennamen
-    zijn Engels, waarden blijven de opgeslagen hoofdlettercodes (§B4.3).
+    `MISC` always comes last; a custom section slots in before it. Member names
+    are English, values stay the stored upper-case codes (§B4.3).
     """
 
     EVALUATION = "EVALUATION"
@@ -84,14 +84,14 @@ class SectionKind(Enum):
 
 
 class Attendance(Enum):
-    """Aanwezig of verontschuldigd. Niet aangevinkt is géén code maar NULL."""
+    """Present or excused. Not ticked is NOT a code but NULL."""
 
     PRESENT = "present"
     EXCUSED = "excused"
 
 
 class FilePurpose(Enum):
-    """Waarvoor een bestand bij een vergadering hangt."""
+    """Why a file is attached to a meeting."""
 
     ATTACHMENT = "attachment"
     SENT_PDF = "sent_pdf"
@@ -127,10 +127,10 @@ class MeetingStatusLabel(Base):
 
 # The five standard sections, in their fixed order, plus the custom kind.
 # MISC is always last (CR-09 §3.17) — a custom section inserts before it.
-# CR-12 fase 3: de zes constanten zijn de leden van `SectionKind` geworden. De
-# twee tupels blijven, want ze zeggen iets wat de enum niet zegt: wélke
-# rubrieken standaard op een agenda staan, en in welke volgorde. Dat is een
-# regel van dit domein en geen eigenschap van de lijst.
+# CR-12 phase 3: the six constants have become the members of `SectionKind`.
+# The two tuples stay, because they say something the enum does not: WHICH
+# sections are on an agenda by default, and in what order. That is a rule of
+# this domain and not a property of the list.
 STANDARD_SECTIONS = (SectionKind.EVALUATION, SectionKind.UPCOMING,
                      SectionKind.MEMBERS, SectionKind.IDEAS, SectionKind.MISC)
 
@@ -143,7 +143,7 @@ CARRY_OVER_SECTIONS = (SectionKind.IDEAS, SectionKind.MISC)
 
 
 class SectionKindCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "section_kind_codes"
     __table_args__ = {"schema": "meetings"}
@@ -155,7 +155,7 @@ class SectionKindCode(Base):
 
 
 class SectionKindLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "section_kind_labels"
     __table_args__ = {"schema": "meetings"}
@@ -172,7 +172,7 @@ class SectionKindLabel(Base):
 
 
 class AttendanceCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "attendance_codes"
     __table_args__ = {"schema": "meetings"}
@@ -184,7 +184,7 @@ class AttendanceCode(Base):
 
 
 class AttendanceLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "attendance_labels"
     __table_args__ = {"schema": "meetings"}
@@ -201,7 +201,7 @@ class AttendanceLabel(Base):
 
 
 class FilePurposeCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
 
     __tablename__ = "file_purpose_codes"
     __table_args__ = {"schema": "meetings"}
@@ -213,7 +213,7 @@ class FilePurposeCode(Base):
 
 
 class FilePurposeLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+    """The word a screen shows, per language (CR-12 phase 3)."""
 
     __tablename__ = "file_purpose_labels"
     __table_args__ = {"schema": "meetings"}

@@ -28,16 +28,16 @@ from app.domains.newsletter.codes import (
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick "the
+# next number" at the same time pick the same one; two that are handed a
+# timestamp cannot collide. The sequence number leads the FILE NAME, for
+# reading and sorting — alembic does not look at it.
 revision = '156_2026_09_26_050603'
 down_revision = '155_2026_09_26_045108'
 branch_labels = None
 depends_on = None
 
-LIJSTEN = (
+LISTS = (
     ("subscriber_status", SUBSCRIBER_STATUS_CODES, "newsletter.subscribers.status"),
     ("subscriber_source", SUBSCRIBER_SOURCE_CODES, "newsletter.subscribers.source"),
     ("audience", AUDIENCE_CODES, "newsletter.newsletters.audience"),
@@ -48,10 +48,10 @@ LIJSTEN = (
     ("message_role", MESSAGE_ROLE_CODES, "newsletter.drafting_messages.role"),
 )
 
-#: De CHECK-constraints van migratie 129 die hetzelfde zeggen als de nieuwe
-#: foreign keys. `ck_newsletters_audience_when_sending` blijft: die zegt iets
-#: ánders — dat een brief niet zonder doelgroep verstuurd kan worden — en dat
-#: is een regel over twee kolommen samen, geen lijst.
+#: The CHECK constraints from migration 129 that say the same as the new
+#: foreign keys. `ck_newsletters_audience_when_sending` stays: it says something
+#: *else* — that a letter cannot be sent without an audience — and that is a
+#: rule about two columns together, not a list.
 CHECKS = (("subscribers", "ck_newsletter_subscriber_status"),
           ("subscribers", "ck_newsletter_subscriber_source"),
           ("newsletters", "ck_newsletter_audience"),
@@ -62,23 +62,23 @@ CHECKS = (("subscribers", "ck_newsletter_subscriber_status"),
 
 
 def upgrade() -> None:
-    for naam, codes, kolom in LIJSTEN:
-        create_code_list(op, schema="newsletter", name=naam, codes=codes,
-                         fk_from=(kolom,), code_length=20)
+    for name, codes, column in LISTS:
+        create_code_list(op, schema="newsletter", name=name, codes=codes,
+                         fk_from=(column,), code_length=20)
 
-    inspecteur = sa.inspect(op.get_bind())
-    for tabel, constraint in CHECKS:
-        bestaand = {c["name"] for c in inspecteur.get_check_constraints(
-            tabel, schema="newsletter")}
-        if constraint in bestaand:
-            op.drop_constraint(constraint, tabel, schema="newsletter",
+    inspector = sa.inspect(op.get_bind())
+    for table, constraint in CHECKS:
+        existing = {c["name"] for c in inspector.get_check_constraints(
+            table, schema="newsletter")}
+        if constraint in existing:
+            op.drop_constraint(constraint, table, schema="newsletter",
                                type_="check")
 
 
 def downgrade() -> None:
-    # Schema only: geen nieuwsbriefdata geschreven, geen bestaande waarde
-    # veranderd.
-    for tabel, constraint, conditie in (
+    # Schema only: no newsletter data written, no existing value
+    # changed.
+    for table, constraint, condition in (
             ("subscribers", "ck_newsletter_subscriber_status",
              "status IN ('pending', 'confirmed', 'unsubscribed')"),
             ("subscribers", "ck_newsletter_subscriber_source",
@@ -93,10 +93,10 @@ def downgrade() -> None:
              "status IN ('queued', 'sent', 'failed', 'skipped')"),
             ("drafting_messages", "ck_newsletter_message_role",
              "role IN ('author', 'raakje')")):
-        op.create_check_constraint(constraint, tabel, conditie, schema="newsletter")
-    for naam, _codes, kolom in LIJSTEN:
-        _schema, tabel, kolomnaam = kolom.split(".")
-        op.drop_constraint(f"fk_{tabel}_{kolomnaam}_code", tabel,
+        op.create_check_constraint(constraint, table, condition, schema="newsletter")
+    for name, _codes, column in LISTS:
+        _schema, table, column_name = column.split(".")
+        op.drop_constraint(f"fk_{table}_{column_name}_code", table,
                            schema="newsletter", type_="foreignkey")
-        op.drop_table(f"{naam}_labels", schema="newsletter")
-        op.drop_table(f"{naam}_codes", schema="newsletter")
+        op.drop_table(f"{name}_labels", schema="newsletter")
+        op.drop_table(f"{name}_codes", schema="newsletter")

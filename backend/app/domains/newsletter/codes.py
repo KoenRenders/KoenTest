@@ -1,4 +1,4 @@
-"""The code lists the newsletter domain owns (CR-12 fase 3).
+"""The code lists the newsletter domain owns (CR-12 phase 3).
 
 Eight lists, all of them module constants until this phase: a tuple with the
 valid values in `models.py`, and twenty lines further on in another file a

@@ -24,46 +24,46 @@ from app.domains.meetings.codes import (
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick "the
+# next number" at the same time pick the same one; two that are handed a
+# timestamp cannot collide. The sequence number leads the FILE NAME, for
+# reading and sorting — alembic does not look at it.
 revision = '155_2026_09_26_045108'
 down_revision = '154_2026_09_26_014501'
 branch_labels = None
 depends_on = None
 
-LIJSTEN = (
+LISTS = (
     ("section_kind", SECTION_KIND_CODES, 20, "meetings.meeting_sections.kind"),
     ("attendance", ATTENDANCE_CODES, 10, "meetings.meeting_attendances.status"),
     ("file_purpose", FILE_PURPOSE_CODES, 20, "meetings.meeting_files.purpose"),
 )
 
-#: De CHECK-constraints die hetzelfde zeggen als de nieuwe foreign keys.
+#: The CHECK constraints that say the same as the new foreign keys.
 CHECKS = (("meeting_attendances", "ck_meeting_attendances_status"),
           ("meeting_files", "ck_meeting_files_purpose"),
           ("meeting_sections", "ck_meeting_sections_kind"))
 
 
 def upgrade() -> None:
-    for naam, codes, lengte, kolom in LIJSTEN:
-        create_code_list(op, schema="meetings", name=naam, codes=codes,
-                         fk_from=(kolom,), code_length=lengte)
+    for name, codes, length, column in LISTS:
+        create_code_list(op, schema="meetings", name=name, codes=codes,
+                         fk_from=(column,), code_length=length)
 
-    bestaand = {}
-    for tabel, _c in CHECKS:
-        bestaand[tabel] = {c["name"] for c in
+    existing = {}
+    for table, _c in CHECKS:
+        existing[table] = {c["name"] for c in
                            sa.inspect(op.get_bind()).get_check_constraints(
-                               tabel, schema="meetings")}
-    for tabel, constraint in CHECKS:
-        if constraint in bestaand[tabel]:
-            op.drop_constraint(constraint, tabel, schema="meetings", type_="check")
+                               table, schema="meetings")}
+    for table, constraint in CHECKS:
+        if constraint in existing[table]:
+            op.drop_constraint(constraint, table, schema="meetings", type_="check")
 
 
 def downgrade() -> None:
-    # Schema only: deze migratie schreef geen vergaderdata en veranderde geen
-    # bestaande waarde. De kolommen houden wat ze hebben; ze worden alleen niet
-    # meer tegen een lijst gecontroleerd.
+    # Schema only: this migration wrote no meeting data and changed no existing
+    # value. The columns keep what they hold; they are just no longer checked
+    # against a list.
     op.create_check_constraint("ck_meeting_attendances_status",
                                "meeting_attendances",
                                "status IN ('present','excused')", schema="meetings")
@@ -74,9 +74,9 @@ def downgrade() -> None:
         "ck_meeting_sections_kind", "meeting_sections",
         "kind IN ('EVALUATION','UPCOMING','MEMBERS','IDEAS','MISC','CUSTOM')",
         schema="meetings")
-    for naam, _codes, _lengte, kolom in LIJSTEN:
-        _schema, tabel, kolomnaam = kolom.split(".")
-        op.drop_constraint(f"fk_{tabel}_{kolomnaam}_code", tabel,
+    for name, _codes, _length, column in LISTS:
+        _schema, table, column_name = column.split(".")
+        op.drop_constraint(f"fk_{table}_{column_name}_code", table,
                            schema="meetings", type_="foreignkey")
-        op.drop_table(f"{naam}_labels", schema="meetings")
-        op.drop_table(f"{naam}_codes", schema="meetings")
+        op.drop_table(f"{name}_labels", schema="meetings")
+        op.drop_table(f"{name}_codes", schema="meetings")

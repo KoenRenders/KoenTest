@@ -104,19 +104,19 @@ NEXT_ATTENDANCE = {None: Attendance.PRESENT,
                    Attendance.EXCUSED: None}
 
 
-def _volgende_aanwezigheid(huidig: str):
-    """De volgende stand in de cyclus, vanaf wat het formulier meestuurt.
+def _next_attendance(current: str):
+    """The next state in the cycle, from what the form sends along.
 
-    Het formulier stuurt een CODE als string (of niets). Omzetten op de grens,
-    anders zoekt de cyclus met een string in een woordenboek dat op leden
-    sleutelt — dat mist altijd, en dan zet elke klik de aanwezigheid terug op
-    "aanwezig" in plaats van door te tellen.
+    The form sends a CODE as a string (or nothing). Convert on the boundary,
+    otherwise the cycle looks up a string in a dictionary keyed by members —
+    that always misses, and then every click sets the attendance back to
+    "present" instead of moving on.
     """
     try:
-        nu = Attendance(huidig) if huidig else None
+        state = Attendance(current) if current else None
     except ValueError:
-        nu = None
-    return NEXT_ATTENDANCE.get(nu, Attendance.PRESENT)
+        state = None
+    return NEXT_ATTENDANCE.get(state, Attendance.PRESENT)
 
 
 def _csrf(request: Request) -> str:
@@ -367,12 +367,12 @@ def _document_view(request: Request, db: Session, meeting,
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
-        # Codes, geen leden: het sjabloon zet de waarde in een `value=` van
-        # het formulier en vergelijkt haar met een literaal. Omzetten op de
-        # grens (§B4.7) — een lid in een attribuut rendert als
-        # `Attendance.PRESENT` en vergelijkt tegen niets.
-        attendance={sleutel: code_of(stand) or ""
-                    for sleutel, stand in attendance_of(db, meeting).items()},
+        # Codes, not members: the template puts the value in a `value=` of the
+        # form and compares it with a literal. Convert on the boundary
+        # (§B4.7) — a member in an attribute renders as `Attendance.PRESENT`
+        # and compares against nothing.
+        attendance={key: code_of(state) or ""
+                    for key, state in attendance_of(db, meeting).items()},
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
         picker_query=picker_query,
@@ -496,7 +496,7 @@ def attendance_toggle(meeting_id: int, request: Request, db: Session = Depends(g
                       person_id: str = Form(""), guest_id: str = Form(""),
                       current: str = Form("")):
     meeting = _meeting_or_404(db, meeting_id)
-    nxt = _volgende_aanwezigheid(current)
+    nxt = _next_attendance(current)
     try:
         set_attendance(db, meeting,
                        person_id=int(person_id) if person_id else None,

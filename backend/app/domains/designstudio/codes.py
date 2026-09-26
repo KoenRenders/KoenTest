@@ -1,4 +1,4 @@
-"""The code lists the design studio owns (CR-12 fase 3).
+"""The code lists the design studio owns (CR-12 phase 3).
 
 Seven lists that were module constants. **The brand assets are not among
 them** (§B4.10, and the issue names them so it does not happen by accident):
