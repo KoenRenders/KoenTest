@@ -15,7 +15,8 @@ from app.domains.media.svg import SVG_CONTENT_TYPE  # noqa: F401  (#989)
 
 __all__ = [
     "MediaFout", "VALID_KINDS", "UPLOADABLE_KINDS", "DESIGN_KINDS",
-    "DESIGN_IMAGE_KIND", "DESIGN_RENDER_KIND", "DOCUMENT_KINDS", "SVG_CONTENT_TYPE", "add_document",
+    "DESIGN_IMAGE_KIND", "DESIGN_RENDER_KIND", "DOCUMENT_KINDS", "PAGE_IMAGE_KIND",
+    "SVG_CONTENT_TYPE", "add_document",
     "tenant_logo", "activity_ids_with_media", "activity_image_path",
     "activity_photo_covers", "delete_media",
     "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
@@ -32,6 +33,7 @@ __all__ = [
 # leidt uiteindelijk terug naar deze facade. Staat de import bovenaan, dan is
 # `EXTRACTABLE_KINDS` nog niet gebonden wanneer de keten terugkomt. Onderaan wel.
 from app.domains.media.service import (  # noqa: F401
+    PAGE_IMAGE_KIND,
     VALID_KINDS,
     UPLOADABLE_KINDS,
     DESIGN_KINDS,

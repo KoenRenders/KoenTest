@@ -65,8 +65,8 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
     from app.domains.activities.api import activity_options
-    from app.domains.media.api import (VALID_KINDS, activity_ids_with_media,
-                                       list_media)
+    from app.domains.media.api import (PAGE_IMAGE_KIND, VALID_KINDS,
+                                       activity_ids_with_media, list_media)
 
     actief_kind = kind if kind in VALID_KINDS else STANDAARD_KIND
     if activity_id is None:
@@ -117,7 +117,28 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
     # "Sponsors" deed dat niet in een keuzelijst waar je één soort kiest.
     kind_labels = {"sponsor": _("Sponsorlogo"),
                    "activity_photo": _("Activiteitenfoto"),
-                   "tenant_logo": _("Logo van de vereniging")}
+                   "tenant_logo": _("Logo van de vereniging"),
+                   # #1173: an image that goes into the text of a CMS page.
+                   PAGE_IMAGE_KIND: _("Pagina-afbeelding")}
+    # The filter chip reads shorter than the kind itself, and that is a STOPGAP
+    # WITH AN END DATE (#1173) — not a second name for the same thing.
+    #
+    # The filter row on this screen was already exactly full with THREE kinds:
+    # 1024 of 1024 px, measured for #1138, no margin at all. So no fourth chip
+    # fits, whatever we call it. Four labels were put through the full e2e:
+    # "Pagina" (6 characters) clears both 1440 and 1280 px, "Paginabeeld" (11)
+    # fails at 1280, "Pagina-beeld" (12) and "Pagina-afbeelding" (17) fail at
+    # both. There is no "slightly shorter" that solves this.
+    #
+    # The real defect is that the row has no room to grow, and CR-12 phase 4 adds
+    # a NINTH kind. That is #1194, planned for v2.7.0. Whoever cleans this up:
+    # the cleanup is already scheduled, so you do not have to work out whether it
+    # is allowed — drop this dict once #1194 gives the filter a shape that grows.
+    #
+    # The full name stays the single source; this only overrides it where it does
+    # not fit, and only on the chip. The upload screen keeps the full name,
+    # because that is where you say WHAT you are uploading.
+    chip_labels = {PAGE_IMAGE_KIND: _("Pagina")}
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
     # elkaar, dus de buur in de lijst hoort vaak bij een ander album.
@@ -132,6 +153,10 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
             "kies_eerst": kies_eerst,
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
             "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
+            # #1173: the filter chips, where one label is shortened — see
+            # `chip_labels` above and #1194.
+            "kind_chip_options": [(k, chip_labels.get(k) or kind_labels.get(k, k))
+                                  for k in sorted(VALID_KINDS)],
             "activity_id": activity_id, "activiteiten": activiteiten,
             "alle_activiteiten": alle_activiteiten,
             # Waar je stond, als één waarde (#962). Het sjabloon plakt er een pad
