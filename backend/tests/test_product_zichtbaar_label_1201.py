@@ -1,4 +1,4 @@
-"""Het vinkje bij een product zegt wat het doet (#1201).
+"""Eén woord voor één vlag bij een product (#1201, #1209).
 
 Koen bij het valideren van #1191 op HDEV: *"Is 'Publiek boekbaar' het alternatief
 voor actief? Ik vind dat geen goede vertaling."* Twee dingen klopten er niet aan.
@@ -15,6 +15,14 @@ uiteen groeien. Dat is opgelost door ze niet te laten bestaan: label en hint sta
 als `{% set %}` bovenaan het sjabloon, zoals `INTERNE_NOTA_BELOFTE` daar al stond
 om precies dezelfde reden. Een poort die twee kopieën vergelijkt houdt de tweede
 kopie in stand; dit telt dat beide plaatsen uit één bron renderen.
+
+**#1209 heeft het label van #1201 vervangen, en dat was een verbetering.**
+"Op het inschrijfformulier" zei wel precies wáár het product verschijnt, maar het
+sloot niet aan op de badge ernaast. Er stonden drie teksten over deze ene vlag in
+twee woordenschatten — badge *"Inactief"*, label *"Op het inschrijfformulier"*,
+hint *"publiek formulier"* — en de lezer moest die aan één schakelaar koppelen.
+Nu staat *publiek* in alle drie, en de badge komt uit dezelfde `{% set %}` als de
+andere twee. `test_de_drie_teksten_komen_elk_uit_een_bron` is de poort daarop.
 
 **De hint belooft niet meer dan v2.6.0 kan.** Hij zegt *toevoegen aan een
 bestaande inschrijving* en niet *iemand inschrijven*: een `Registration` ontstaat
@@ -44,7 +52,8 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-LABEL = "Op het inschrijfformulier"
+LABEL = "Publiek zichtbaar"
+BADGE = "Niet publiek"
 HINT = ("Uit: het product verdwijnt van het publieke formulier, maar het bestuur "
         "kan het nog toevoegen aan een bestaande inschrijving.")
 # Twee plaatsen: de bewerkrij van het bestaande product en de aanmaakrij eronder.
@@ -115,6 +124,65 @@ def test_de_oude_woorden_zijn_weg(client, db_session, activiteit_met_product):
     met "nergens" uitwissen — zie #1191."""
     html = _scherm(client, activiteit_met_product)
 
-    for woord in ("Publiek boekbaar", "boekbaar"):
+    for woord in ("Publiek boekbaar", "boekbaar", "Inactief"):
         assert woord not in html, (
             f"{woord!r} staat nog op het activiteitscherm")
+
+
+# ── #1209: de badge hoort bij het label en de hint ──────────────────────────
+
+def test_de_badge_verschijnt_alleen_bij_een_product_dat_niet_publiek_is(
+        client, db_session, activiteit_met_product):
+    """Beide kanten, want alleen "de badge staat er" bewijst niets.
+
+    Een badge die er altijd staat, is geen badge; het publieke product hoort er
+    géén te dragen, want dat is de gewone toestand (#1191).
+    """
+    from app.domains.activities.api import ActivityProduct
+
+    html = _scherm(client, activiteit_met_product)
+    assert BADGE not in html, (
+        "een publiek zichtbaar product draagt een 'Niet publiek'-badge")
+
+    product = db_session.query(ActivityProduct).filter(
+        ActivityProduct.name == "aantal deelnemers").one()
+    product.is_active = False
+    db_session.flush()
+
+    html = _scherm(client, activiteit_met_product)
+    assert BADGE in html, (
+        f"een product dat niet publiek staat, draagt geen {BADGE!r}-badge")
+
+
+def test_de_drie_teksten_komen_elk_uit_een_bron(client, db_session,
+                                                activiteit_met_product):
+    """Badge, label en hint staan elk één keer in het sjabloon (#1209).
+
+    Drie teksten over één schakelaar waarvan er twee samen bewegen en één niet,
+    is hoe ze op termijn tegenstrijdig worden — precies wat #1201 voor label en
+    hint oploste en waar de badge toen buiten bleef.
+
+    Toetst de BRON en niet de uitvoer: in de uitvoer hoort het label twee keer te
+    staan (bewerkrij en aanmaakrij), dus daar is "één keer" juist fout. Een losse
+    tweede variant in het sjabloon is wat deze poort moet betrappen.
+
+    Commentaar telt niet mee: de toelichting boven de constanten noemt de oude
+    woorden, en dat hoort ze te mogen.
+    """
+    import re
+    from pathlib import Path
+
+    bron = (Path(__file__).resolve().parents[1]
+            / "app/domains/activities/templates/_aa_detail.html").read_text("utf-8")
+    zonder_commentaar = re.sub(r"\{#.*?#\}", "", bron, flags=re.DOTALL)
+
+    for wat, tekst in (("de badge", BADGE), ("het label", LABEL),
+                       ("de hint", HINT)):
+        aantal = zonder_commentaar.count(tekst)
+        assert aantal == 1, (
+            f"{wat} staat {aantal}× letterlijk in het sjabloon; hij hoort uit één "
+            "`{% set %}` te komen en daarna via de variabele gebruikt te worden")
+    for naam in ("PRODUCT_ZICHTBAAR_LABEL", "PRODUCT_ZICHTBAAR_HINT",
+                 "PRODUCT_NIET_PUBLIEK_BADGE"):
+        assert zonder_commentaar.count(naam) >= 2, (
+            f"{naam} wordt gezet maar nergens gebruikt")

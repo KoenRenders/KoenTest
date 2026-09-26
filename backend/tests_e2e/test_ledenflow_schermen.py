@@ -88,11 +88,19 @@ def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
     test controleert de andere kant — dat wat er op het scherm staat uit de seed
     komt.
 
-    Toetst op de VORM en niet op een lijst echte namen: zo'n lijst zou zelf een
-    ledenlijst in de repo zijn. Elk gezinslid op het portaal heet "E2E …" —
-    ontbreekt dat voorvoegsel, dan staat er iemand anders op het scherm.
+    Toetst op de HERKOMST en niet op een lijst echte namen: zo'n lijst zou zelf een
+    ledenlijst in de repo zijn. Elk gezinslid op het portaal draagt een achternaam
+    die déze seed maakt; staat er een andere, dan komt hij uit de
+    ledenadministratie.
+
+    #1208: dat was een voorvoegselcontrole ("heet het E2E …?") zolang de
+    seed-gezinnen "E2E Seed" en "E2E Verlopen" heetten. Die namen lazen op een
+    publieke uitlegpagina als een foutmelding en zijn Jommeke en Gobelijn geworden,
+    waarmee het gedeelde voorvoegsel verdween. De lijst komt daarom uit
+    `seed_e2e.SEED_ACHTERNAMEN` en niet uit dit bestand — een eigen kopie zou na de
+    volgende hernoeming groen blijven staan zonder nog iets te toetsen.
     """
-    from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN
+    from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN, SEED_ACHTERNAMEN
 
     for email in (MARKER_EMAIL, MARKER_EMAIL_VERLOPEN):
         page = _portaal(browser_page, email)
@@ -110,6 +118,7 @@ def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
             'div.space-y-4 div[x-show="!edit"] > span.font-semibold').all_inner_texts()
         assert namen, f"geen gezinslid op het portaal van {email}"
         for naam in namen:
-            assert naam.strip().startswith("E2E"), (
-                f"{naam!r} is geen seed-naam — dit portaal toont iemand uit de "
-                "ledenadministratie en hoort niet op een publieke pagina")
+            assert any(naam.strip().endswith(a) for a in SEED_ACHTERNAMEN), (
+                f"{naam!r} draagt geen achternaam uit de seed "
+                f"({', '.join(SEED_ACHTERNAMEN)}) — dit portaal toont iemand uit "
+                "de ledenadministratie en hoort niet op een publieke pagina")
