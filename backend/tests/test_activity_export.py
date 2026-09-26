@@ -11,6 +11,7 @@ from app.domains.payment.api import PaymentRecord
 from app.domains.activities.api import Registration, RegistrationItem
 from app.domains.activities.api import ActivityProduct
 from tests.conftest import seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentType
 
 _ODS_MIME = "opendocument.spreadsheet"
 
@@ -74,13 +75,13 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     # Inschrijving: 2 stuks → verschuldigd €36.
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.type == PaymentType.CHARGE,
     ).order_by(PaymentRecord.created_at.desc()).first()
     # Penningmeester boekt de overschrijving (€36) en betaalt €6 terug.
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
@@ -131,11 +132,11 @@ def test_export_second_sheet_payments_and_totals(client, db_session, admin_heade
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.type == PaymentType.CHARGE,
     ).order_by(PaymentRecord.created_at.desc()).first()
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "36.00"}, headers=admin_headers)
@@ -191,7 +192,7 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
     activity_id = comp.activity_id
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
@@ -230,12 +231,12 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
     # Inschrijving A: 2× p1, 1× p2 = 25 ; B: 3× p2 = 15
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "A", "phone": "0470000000", "contact_email": "a@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER",
+        "payment_method": "transfer",
         "items": [{"product_id": p1.id, "quantity": 2}, {"product_id": p2.id, "quantity": 1}],
     })
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "B", "phone": "0470000000", "contact_email": "b@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER",
+        "payment_method": "transfer",
         "items": [{"product_id": p2.id, "quantity": 3}],
     })
 
@@ -255,13 +256,13 @@ def test_export_online_payment_in_online_column(client, db_session, admin_header
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER",
+        "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     reg = db_session.query(Registration).filter(Registration.component_id == comp.id).first()
     # Vervang de betaling door een betaalde online-charge.
     db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
     ).delete()
     db_session.add(PaymentRecord(
         payable_type="registration", payable_id=reg.id, amount=Decimal("18.00"),
@@ -285,12 +286,12 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER", "remarks": "Komt iets later",
+        "payment_method": "transfer", "remarks": "Komt iets later",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "Bo", "phone": "0470000000", "contact_email": "bo@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER",
+        "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
 
@@ -314,7 +315,7 @@ def test_export_includes_email_and_mobile(client, db_session, admin_headers):
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An Janssens", "contact_email": "an@example.com",
-        "phone": "+32470123456", "component_id": comp.id, "payment_method": "TRANSFER",
+        "phone": "+32470123456", "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
 

@@ -44,7 +44,7 @@ def test_inschrijven_online_redirect_naar_mollie(client, db_session, mock_mollie
     resp = client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
                        data={"contact_name": "Roos", "contact_email": "roos@example.com",
                              "phone": "0470000001", f"product_{product.id}": "1",
-                             "payment_method": "ONLINE"})
+                             "payment_method": "online"})
     assert resp.status_code == 200
     assert resp.headers.get("HX-Redirect", "").startswith("https://mollie.test/checkout/")
 

@@ -13,6 +13,8 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from app.domains.mdm.api import PaymentMethod
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 from app.domains.payment.api import (
     aggregate, derived_status, filter_records, group_cards, matches_filter, may_delete,
@@ -21,8 +23,14 @@ from app.domains.payment.api import (
 
 def rec(**kw):
     velden = dict(
-        id="r1", type="charge", status="pending", method="transfer",
-        amount=Decimal("10"), amount_paid=None, payable_type="registration",
+        # CR-12 fase 1: een echt record draagt hier enum-leden, dus deze dubbel
+        # ook. Met strings zou de test slagen terwijl de service in productie
+        # iets anders ziet — een dubbel die makkelijker is dan het origineel
+        # bewijst het origineel niet.
+        id="r1", type=PaymentType.CHARGE, status=PaymentStatus.PENDING,
+        method=PaymentMethod.TRANSFER,
+        amount=Decimal("10"), amount_paid=None,
+        payable_type=PayableType.REGISTRATION,
         payable_id=1, refund_of_id=None, membership_year=None, component_id=None,
         contact_name=None, structured_communication=None, description=None,
         component_name=None, created_at=0,
@@ -34,16 +42,17 @@ def rec(**kw):
 # ── Filter ───────────────────────────────────────────────────────────────────
 
 def test_zonder_filter_valt_er_niets_weg():
-    records = [rec(id="a"), rec(id="b", type="refund")]
+    records = [rec(id="a"), rec(id="b", type=PaymentType.REFUND)]
     assert filter_records(records) == records
 
 
-@pytest.mark.parametrize("status", ["pending", "paid", "failed", "cancelled"])
+@pytest.mark.parametrize("status", [m.value for m in PaymentStatus])
 def test_statusfilter_dekt_ook_mislukt_en_geannuleerd(status):
     """`failed`/`cancelled` bestonden alleen op het scherm; de export liet ze
     stilzwijgend door. Nu gelden ze overal."""
-    passend = rec(id="ja", status=status)
-    ander = rec(id="nee", status="paid" if status != "paid" else "pending")
+    passend = rec(id="ja", status=PaymentStatus(status))
+    ander = rec(id="nee", status=PaymentStatus.PAID if status != "paid"
+                else PaymentStatus.PENDING)
     assert filter_records([passend, ander], status=status) == [passend]
 
 
@@ -61,14 +70,14 @@ def test_onderdeelfilter_eist_een_inschrijving():
     """De export-variant controleerde payable_type, het scherm niet. Een
     lidmaatschapsrecord hoort nooit onder een onderdeelfilter te vallen."""
     inschrijving = rec(id="reg", component_id=7)
-    lidmaatschap = rec(id="lid", payable_type="membership", component_id=7)
+    lidmaatschap = rec(id="lid", payable_type=PayableType.MEMBERSHIP, component_id=7)
     uit = filter_records([inschrijving, lidmaatschap], context="comp-7")
     assert [r.id for r in uit] == ["reg"]
 
 
 def test_jaarfilter_kijkt_naar_het_lidmaatschapsjaar():
-    lid25 = rec(id="25", payable_type="membership", membership_year=2025)
-    lid26 = rec(id="26", payable_type="membership", membership_year=2026)
+    lid25 = rec(id="25", payable_type=PayableType.MEMBERSHIP, membership_year=2025)
+    lid26 = rec(id="26", payable_type=PayableType.MEMBERSHIP, membership_year=2026)
     uit = filter_records([lid25, lid26], context="year-2026")
     assert [r.id for r in uit] == ["26"]
 
@@ -123,14 +132,14 @@ def test_aggregatie_van_niets_is_nul_geen_fout():
 def test_deels_betaald_is_een_afgeleide_toestand():
     """"Deels betaald" bestond alleen in de Jinja-template en was daardoor
     nergens testbaar (#635 punt 9)."""
-    assert derived_status(rec(status="pending", amount_paid=Decimal("4"))) == "partial"
-    assert derived_status(rec(status="pending", amount_paid=None)) == "pending"
-    assert derived_status(rec(status="pending", amount_paid=Decimal("0"))) == "pending"
+    assert derived_status(rec(status=PaymentStatus.PENDING, amount_paid=Decimal("4"))) == "partial"
+    assert derived_status(rec(status=PaymentStatus.PENDING, amount_paid=None)) == "pending"
+    assert derived_status(rec(status=PaymentStatus.PENDING, amount_paid=Decimal("0"))) == "pending"
 
 
 def test_een_openstaande_terugbetaling_heeft_haar_eigen_naam():
-    assert derived_status(rec(type="refund", status="pending")) == "refund_due"
-    assert derived_status(rec(type="refund", status="paid")) == "paid"
+    assert derived_status(rec(type=PaymentType.REFUND, status=PaymentStatus.PENDING)) == "refund_due"
+    assert derived_status(rec(type=PaymentType.REFUND, status=PaymentStatus.PAID)) == "paid"
 
 
 def test_een_onbekende_gatewaystatus_komt_ongewijzigd_terug():
@@ -142,7 +151,7 @@ def test_een_onbekende_gatewaystatus_komt_ongewijzigd_terug():
 # ── Verwijderbaarheid ────────────────────────────────────────────────────────
 
 def test_een_online_betaalde_vordering_is_nooit_verwijderbaar():
-    assert may_delete(rec(method="online", status="paid")) is False
+    assert may_delete(rec(method=PaymentMethod.ONLINE, status=PaymentStatus.PAID)) is False
 
 
 def test_verwijderen_mag_zolang_er_niets_ontvangen_is():
@@ -155,7 +164,7 @@ def test_verwijderen_mag_zolang_er_niets_ontvangen_is():
 
 def test_refunds_hangen_onder_hun_eigen_vordering():
     charge = rec(id="c1", created_at=2)
-    refund = rec(id="r1", type="refund", refund_of_id="c1", created_at=1,
+    refund = rec(id="r1", type=PaymentType.REFUND, refund_of_id="c1", created_at=1,
                  amount=Decimal("3"), amount_paid=Decimal("3"))
     groepen = group_cards([charge, refund])
     assert len(groepen) == 1
@@ -169,7 +178,7 @@ def test_refunds_hangen_onder_hun_eigen_vordering():
 def test_een_wees_refund_verdwijnt_niet_van_het_scherm():
     """Valt de bijhorende vordering buiten het filter, dan hoort de terugbetaling
     nog steeds getoond te worden — anders verdwijnt geld stil."""
-    wees = rec(id="r9", type="refund", refund_of_id="c-onzichtbaar", created_at=1)
+    wees = rec(id="r9", type=PaymentType.REFUND, refund_of_id="c-onzichtbaar", created_at=1)
     groepen = group_cards([wees])
     assert groepen[0]["kaarten"] == [
         {"charge": wees, "refunds": [], "is_context": False, "is_extra": False}]
@@ -193,5 +202,5 @@ def test_een_enkele_vordering_krijgt_geen_totaalregel():
 
 def test_verschillende_payables_blijven_gescheiden():
     a = rec(id="a", payable_id=1, created_at=2)
-    b = rec(id="b", payable_type="membership", payable_id=1, created_at=1)
+    b = rec(id="b", payable_type=PayableType.MEMBERSHIP, payable_id=1, created_at=1)
     assert len(group_cards([a, b])) == 2

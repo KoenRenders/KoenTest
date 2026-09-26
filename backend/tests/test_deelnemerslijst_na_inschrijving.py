@@ -134,7 +134,7 @@ def test_the_paid_path_still_redirects_to_mollie(client, db_session, mock_mollie
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={"contact_name": "Roos", "contact_email": "roos@example.com",
               "phone": "0470000001", f"product_{product.id}": "1",
-              "payment_method": "ONLINE"})
+              "payment_method": "online"})
 
     assert resp.headers.get("HX-Redirect", "").startswith("https://mollie.test/checkout/")
     assert "hx-swap-oob" not in resp.text, (

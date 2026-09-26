@@ -37,6 +37,7 @@ import pytest
 
 from app.domains.payment.api import PaymentRecord
 from app.domains.workflow.models import WorkflowTask
+from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -56,6 +57,7 @@ def _scheduled_sweeps(db):
     from app.kernel.jobs import KernelJob
 
     return (db.query(KernelJob)
+            # Kernel-jobs hebben hun eigen statuslijst; die komt in fase 4.
             .filter(KernelJob.name == SWEEP_JOB, KernelJob.status == "pending")
             .all())
 
@@ -90,7 +92,7 @@ def test_settling_a_refund_brings_the_sweep_forward(db_session):
     registreer_terugbetaling(db_session, charge.id, amount="10.00", actor="test")
     _run_scheduled_sweeps(db_session)
     refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == "refund").one())
+              .filter(PaymentRecord.type == PaymentType.REFUND).one())
     assert _open_refund_task(db_session, refund.id), (
         "no refund task at all — then the rest of this test proves nothing (#678)")
 
@@ -117,7 +119,7 @@ def test_writing_off_a_charge_brings_the_sweep_forward_too(db_session):
     registreer_terugbetaling(db_session, charge.id, amount="5.00", actor="test")
     _run_scheduled_sweeps(db_session)
     refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == "refund",
+              .filter(PaymentRecord.type == PaymentType.REFUND,
                       PaymentRecord.payable_id == 4456).one())
 
     # "Bewerken" writes off the amount through the same confirmation service.
@@ -170,7 +172,7 @@ def test_the_advanced_sweep_schedules_no_successor(db_session):
     registreer_terugbetaling(db_session, charge.id, amount="3.00", actor="test")
     _run_scheduled_sweeps(db_session)
     refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == "refund",
+              .filter(PaymentRecord.type == PaymentType.REFUND,
                       PaymentRecord.payable_id == 4458).one())
 
     bevestig_betaling(db_session, refund.id, amount_paid="-3.00", actor="test")

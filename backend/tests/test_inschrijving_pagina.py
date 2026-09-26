@@ -24,7 +24,7 @@ def _inschrijving(client, db_session, naam="Pagina Proef"):
     client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
                 data={"contact_name": naam, "contact_email": "proef@example.com",
                       "phone": "047", f"product_{product.id}": "1",
-                      "payment_method": "OVERSCHRIJVING"})
+                      "payment_method": "transfer"})
     from app.domains.activities.api import Registration
     reg = (db_session.query(Registration)
            .filter(Registration.contact_name == naam).one())

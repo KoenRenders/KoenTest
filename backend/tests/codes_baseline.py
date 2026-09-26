@@ -23,7 +23,6 @@ has to go.
 #: until someone registers it.
 FK_MISSING: frozenset[str] = frozenset({
     'activities.activity_sub_registrations.registration_type_code',
-    'activities.registrations.payment_method',
     'activities.registrations.registration_type',
     'ai.ai_call_log.provider',
     'ai.ai_call_log.status',
@@ -59,12 +58,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'newsletter.newsletters.status',
     'newsletter.subscribers.source',
     'newsletter.subscribers.status',
-    'payment.gateway_payments.provider',
-    'payment.gateway_payments.status',
-    'payment.payment_records.method',
-    'payment.payment_records.payable_type',
-    'payment.payment_records.status',
-    'payment.payment_records.type',
     'public.kernel_jobs.status',
     'reporting.export_log.kind',
     'workflow.workflow_instances.definition_code',
@@ -88,10 +81,6 @@ ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
 #: Label dictionaries in Python — the shape this change request removes.
 #: Key: `path/to/file.py:NAME`.
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
-    'app/domains/activities/export.py:_METHOD_LABELS',
-    'app/domains/activities/export.py:_RECORD_METHOD_LABELS',
-    'app/domains/activities/export.py:_RECORD_STATUS_LABELS',
-    'app/domains/activities/export.py:_RECORD_TYPE_LABELS',
     'app/domains/audit/changes.py:_OPERATION_LABELS',
     'app/domains/chatbot/admin_ui.py:CAPABILITY_LABELS',
     'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
@@ -115,7 +104,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/newsletter/admin_ui.py:LETTER_STATUS_LABELS',
     'app/domains/newsletter/admin_ui.py:SOURCE_LABELS',
     'app/domains/newsletter/admin_ui.py:SUBSCRIBER_LABELS',
-    'app/domains/reporting/assistant.py:_STATUS_LABEL',
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
     'app/domains/workflow/ui.py:CAT_LABELS',
     'app/domains/workflow/ui.py:KIND_LABELS',
@@ -168,12 +156,6 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/newsletter/templates/_nb_raakje.html:role==author',
     'app/domains/newsletter/templates/_nb_raakje.html:status==applied',
     'app/domains/newsletter/templates/_nb_raakje.html:status==open',
-    'app/domains/payment/templates/_betalingen_lijst.html:method==online',
-    'app/domains/payment/templates/_betalingen_lijst.html:payable_type==registration',
-    'app/domains/payment/templates/_betalingen_lijst.html:status!=paid',
-    'app/domains/payment/templates/_betalingen_lijst.html:status==paid',
-    'app/domains/payment/templates/_betalingen_lijst.html:type!=refund',
-    'app/domains/payment/templates/_betalingen_lijst.html:type==refund',
     'app/domains/workflow/templates/_werkbank_detail.html:status==done',
     'app/domains/workflow/templates/_werkbank_lijst.html:status==done',
     'app/ui/templates/_org_kaarten.html:org_type==ACCOUNT',
@@ -184,12 +166,8 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
 #: Key: `path/to/file.py:attribute==value`.
 LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/activities/admin_ui.py:status==Open',
-    'app/domains/activities/export.py:method==online',
-    'app/domains/activities/export.py:type==refund',
-    'app/domains/activities/models.py:content_type==application/pdf',
     'app/domains/activities/models.py:kind==component_info',
     'app/domains/activities/router.py:contact_type_code==EMAIL',
-    'app/domains/activities/router.py:payment_method==ONLINE',
     'app/domains/activities/ui.py:contact_type_code==EMAIL',
     'app/domains/activities/ui.py:contact_type_code==MOBILE',
     'app/domains/audit/changes.py:contact_type_code==EMAIL',
@@ -228,7 +206,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/forms/ui.py:field_type==number',
     'app/domains/forms/ui.py:field_type==rating',
     'app/domains/mail/handlers.py:status==sent',
-    'app/domains/mail/service.py:payment_method!=FREE',
     'app/domains/mdm/service.py:contact_type_code==EMAIL',
     'app/domains/mdm/tenant_lookup.py:org_type==PLATFORM',
     'app/domains/mdm/tenant_lookup.py:org_type==UNIT',
@@ -255,39 +232,12 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/membership/household_service.py:contact_type_code==PHONE',
     'app/domains/membership/household_service.py:relation_type==HOOFDLID',
     'app/domains/membership/register_router.py:contact_type_code==EMAIL',
-    'app/domains/membership/register_router.py:payable_type==membership',
-    'app/domains/membership/register_router.py:payment_method==online',
     'app/domains/membership/register_router.py:relation_type==HOOFDLID',
-    'app/domains/membership/register_router.py:status in paid',
-    'app/domains/membership/register_router.py:status in pending',
     'app/domains/membership/schemas_family.py:relation_type==HOOFDLID',
-    'app/domains/membership/service.py:payable_type==membership',
-    'app/domains/membership/ui.py:method==transfer',
     'app/domains/newsletter/drafting.py:status!=draft',
-    'app/domains/payment/exports.py:payable_type==membership',
-    'app/domains/payment/exports.py:payable_type==registration',
     'app/domains/payment/exports.py:relation_type==HOOFDLID',
     'app/domains/payment/service.py:contact_type_code==EMAIL',
-    'app/domains/payment/service.py:method in cash',
-    'app/domains/payment/service.py:method in transfer',
-    'app/domains/payment/service.py:method==online',
-    'app/domains/payment/service.py:payable_type!=membership',
-    'app/domains/payment/service.py:payable_type!=registration',
-    'app/domains/payment/service.py:payable_type==membership',
-    'app/domains/payment/service.py:payable_type==registration',
     'app/domains/payment/service.py:relation_type==HOOFDLID',
-    'app/domains/payment/service.py:status==paid',
-    'app/domains/payment/service.py:status==pending',
-    'app/domains/payment/service.py:type!=charge',
-    'app/domains/payment/service.py:type!=refund',
-    'app/domains/payment/service.py:type==charge',
-    'app/domains/payment/service.py:type==refund',
-    'app/domains/payment/status_router.py:method!=online',
-    'app/domains/payment/status_router.py:method==online',
-    'app/domains/payment/status_router.py:status==paid',
-    'app/domains/payment/ui.py:method==GET',
-    'app/domains/payment/ui.py:type!=refund',
-    'app/domains/payment/ui.py:type==refund',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',
@@ -296,12 +246,8 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/workflow/api.py:status!=done',
     'app/domains/workflow/api.py:status==done',
     'app/domains/workflow/api.py:status==open',
-    'app/domains/workflow/handlers.py:status!=paid',
     'app/domains/workflow/handlers.py:status==failed',
-    'app/domains/workflow/handlers.py:status==paid',
-    'app/domains/workflow/handlers.py:status==pending',
     'app/domains/workflow/handlers.py:status==sent',
-    'app/domains/workflow/handlers.py:type==refund',
     'app/domains/workflow/ui.py:subject_type==email_log',
     'app/domains/workflow/ui.py:subject_type==form_submission',
     'app/domains/workflow/ui.py:subject_type==kernel_job',
@@ -311,3 +257,32 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/ui/__init__.py:kind==sponsor',
     'app/ui/tenants_ui.py:org_type==PLATFORM',
 })
+
+# ── Permanent exceptions: not a vocabulary of ours ───────────────────────────
+#
+# These do NOT belong to a ratchet, because a ratchet is a promise to reach
+# zero and these never will. Each one carries its reason on its own line, the
+# way `CLAUDE.md` asks a `# noqa` to. The gate subtracts them before it
+# ratchets and reports their number separately, so the two stay
+# distinguishable: "not cleaned up yet" versus "not ours to clean".
+#
+# Adding an entry here is a decision, not a convenience. The question that
+# settles it: *could this value ever be a row in a code table of ours?* An HTTP
+# method and a MIME type could not — somebody else owns those lists.
+
+#: Columns that look like a vocabulary but get no code table (§B4.10).
+FK_NOT_OUR_LIST: dict[str, str] = {
+    "payment.gateway_payments.status": (
+        "Mollie's own list. Mollie can add a value without our migration, and a "
+        "foreign key would make the webhook fail at exactly the wrong moment. The "
+        "adapter has an ExternalVocabulary enum and maps to our PaymentStatus."),
+}
+
+#: Comparisons the vocabulary net catches that compare no code of ours.
+LOOSE_STRINGS_NOT_A_CODE: dict[str, str] = {
+    "app/domains/payment/ui.py:method==GET": (
+        "`request.method` is the HTTP verb, not a payment method — the net matches "
+        "on the attribute name and cannot tell the two apart."),
+    "app/domains/activities/models.py:content_type==application/pdf": (
+        "A MIME type: IANA's list, not ours."),
+}
