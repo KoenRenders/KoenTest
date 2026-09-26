@@ -34,6 +34,7 @@ its own, with the violation listed here:
 | Enum without a list (ratchet) | `class Proef(Enum)` in `meetings/models.py` | yes |
 | Tones total | removed `MeetingStatus.SENT` from the tone mapping | yes |
 | No label dictionaries (ratchet) | put `STATUS_LABELS = {...}` back in `meetings/admin_ui.py` | yes |
+| … also when annotated (phase 4) | `PROBE_LABELS: dict[str, str] = {...}` in `audit/changes.py` | yes — before this, it did not |
 | No template comparisons (ratchet) | `{% if meeting.status == "sent" %}` in `_vg_document.html` | yes |
 | Loose strings (ratchet) | `meeting.status == "sent"` in `meetings/service.py` | yes |
 | Enum member names English | added member `VERSTUURD = "verstuurd"` | yes — names the member |
@@ -165,9 +166,19 @@ def collect_label_dictionaries() -> dict[str, str]:
             continue
         tree = ast.parse(file.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            # `X_LABELS = {...}` and `X_LABELS: dict[..., str] = {...}` alike.
+            # Only the first used to count: `activities/service.py:STATUS_LABELS`
+            # was annotated, and it sat outside this ratchet for the whole of
+            # CR-12 until phase 4 removed it by hand.
+            if isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            elif isinstance(node, ast.Assign):
+                targets = node.targets
+            else:
                 continue
-            for target in node.targets:
+            if not isinstance(node.value, ast.Dict):
+                continue
+            for target in targets:
                 if not isinstance(target, ast.Name):
                     continue
                 if not re.search(r"LABELS?$", target.id):
