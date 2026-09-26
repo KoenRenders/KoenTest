@@ -220,7 +220,7 @@ def main() -> None:
         def _schrijf_in(naam: str) -> int | None:
             data = RegistrationCreate(
                 contact_name=naam, contact_email=MARKER_EMAIL, phone="0470000000",
-                component_id=component.id, payment_method="TRANSFER",
+                component_id=component.id, payment_method="transfer",
                 items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
             )
             resultaat = register_for_activity(activity.id, data, BackgroundTasks(),

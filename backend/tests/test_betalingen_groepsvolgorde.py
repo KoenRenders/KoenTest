@@ -30,15 +30,18 @@ import pytest
 from app.domains.payment.api import PaymentRecord, get_records_for
 from app.domains.payment.service import group_cards
 from tests._invarianten import assert_saldo_klopt
+from app.domains.payment.api import PaymentType
+from app.domains.mdm.api import PaymentMethod
+from app.domains.payment.api import PayableType, PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
 def _rec(db, payable_id, amount, *, soort="charge", betaald=None, minuten=0,
          refund_of=None):
-    rec = PaymentRecord(payable_type="registration", payable_id=payable_id,
-                        type=soort, amount=Decimal(amount), method="transfer",
-                        status="paid" if betaald else "pending",
+    rec = PaymentRecord(payable_type=PayableType.REGISTRATION, payable_id=payable_id,
+                        type=soort, amount=Decimal(amount), method=PaymentMethod.TRANSFER,
+                        status=PaymentStatus.PAID if betaald else "pending",
                         refund_of_id=refund_of)
     if betaald is not None:
         rec.amount_paid = Decimal(betaald)
@@ -202,7 +205,7 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
     assert "Nog uit te betalen" in met.text
 
     for rec in get_records_for(db_session, "registration", 6830):
-        if rec.type == "refund":
+        if rec.type == PaymentType.REFUND:
             rec.amount_paid = Decimal("-10.00")
             rec.status = "paid"
     db_session.commit()

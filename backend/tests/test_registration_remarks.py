@@ -9,7 +9,7 @@ from tests.conftest import seed_activity_with_product
 def _register(client, activity_id, comp, product, remarks=None, email="an@example.com"):
     payload = {
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": email,
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     }
     if remarks is not None:

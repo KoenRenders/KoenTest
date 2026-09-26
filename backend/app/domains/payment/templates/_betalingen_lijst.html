@@ -39,7 +39,7 @@
        het over; de rest van de tabel blijft horizontaal scrollbaar. #}
     <div class="md:hidden mt-1 flex items-center gap-2">
       {% set _mst = kaart_status.get(k.status) %}
-      {% if _mst %}{{ ui.badge(_mst[0], _mst[1], met_vinkje=(k.status == "paid")) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
+      {% if _mst %}{{ ui.badge(_mst[0], _mst[1], met_vinkje=k.is_settled) }}{% else %}{{ ui.badge(r.status | code_label("payment_status"), "gray") }}{% endif %}
       {% set _msaldo = k.saldo if k.saldo is not none else k.bedrag %}
       <strong class="tabular-nums {{ 'text-orange-700' if _msaldo > 0 else ('text-teal-700' if _msaldo < 0 else 'text-ink-soft') }}">€ {{ _msaldo|geld }}</strong>
     </div>
@@ -55,11 +55,11 @@
        het echte gebruik): als eigen regel maakte ze rijen mét reden 15px
        hoger dan hun betaling — gelijke rijen lezen als één geheel. De volle
        tekst blijft via de tooltip. #}
-    <div class="text-[11px] text-ink-soft truncate max-w-[22rem]"{% if r.note %} title="{{ r.note }}"{% endif %}>{% if r.type == "refund" %}{{ _("Terugbetaling") }} · {% endif %}{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.note %} · {{ r.note }}{% endif %}</div>
+    <div class="text-[11px] text-ink-soft truncate max-w-[22rem]"{% if r.note %} title="{{ r.note }}"{% endif %}>{% if r.is_refund %}{{ _("Terugbetaling") }} · {% endif %}{{ r.method | code_label("payment_method") }}{% if r.note %} · {{ r.note }}{% endif %}</div>
   </td>
   <td class="px-3 py-2 hidden md:table-cell">
     {% set _st = kaart_status.get(k.status) %}
-    {% if _st %}{{ ui.badge(_st[0], _st[1], met_vinkje=(k.status == "paid")) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
+    {% if _st %}{{ ui.badge(_st[0], _st[1], met_vinkje=k.is_settled) }}{% else %}{{ ui.badge(r.status | code_label("payment_status"), "gray") }}{% endif %}
   </td>
   <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
   {# F1 (#996, beslist door Koen op ronde 2): 0 is echt nul — "niets
@@ -84,15 +84,15 @@
        2); "Inschrijving" en niet "Details" (ronde 4): dat las als de details
        van de betaling. "Bevestig" kort — de bevestigingsvraag zegt de rest. #}
     <div class="flex justify-end gap-2 items-center whitespace-nowrap">
-      {% if r.payable_type == "registration" and r.payable_id and not (kind or k.get('is_extra')) %}
+      {% if r.is_registration and r.payable_id and not (kind or k.get('is_extra')) %}
       {{ ui.link_action(_("Inschrijving"), href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
       {% endif %}
       {# #661: de snelkoppeling voor het meest voorkomende geval; de vraag
          blijft per type — op een terugbetaling vertrekt er geld. #}
-      {% if r.status != "paid" %}
-      {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
+      {% if not r.is_paid %}
+      {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.is_refund else _("Als volledig betaald bevestigen?") %}
       {{ ui.link_action(_("Bevestig"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
-      {% elif r.type != "refund" %}
+      {% elif not r.is_refund %}
       {# Kort "Terugbetaling": het volle "Terugbetaling registreren" duwde de
          actiekolom de kaart uit; de uitklaprij eronder benoemt de handeling
          volledig ("Terug te betalen bedrag" + Registreren). #}
@@ -117,20 +117,20 @@
    eigen parameter: `open === 7 = false` is geen JavaScript. #}
 {% macro bewerkvorm(k, vlag, sluit) %}
 {% set rec = k.rec %}
-{% set is_refund = rec.type == "refund" %}
+{% set is_refund = rec.is_refund %}
 <div class="flex flex-wrap gap-2 items-end">
 {# Status verversen is een inhoudsactie op het record en staat links bij de
    velden; het actiecluster staat rechts (Koens ronde 5): [Verwijderen] met
    afstand, dan [Annuleren] [Opslaan] — Opslaan uiterst rechts, zoals het
    A2-cluster op de recordpagina's. De verwijder-guard blijft gelden. #}
-{% if rec.method == "online" %}
+{% if rec.is_online %}
 <div class="mr-3">{{ ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}</div>
 {% endif %}
 <form class="flex flex-wrap gap-2 items-end flex-1"
       {# #769: de twee plekken die `bedrag` vullen moeten DEZELFDE notatie schrijven.
          Hier bij het renderen, en hieronder in de statuskeuze die het veld met het
          volle bedrag vult. #}
-      x-data="{ status: '{{ rec.status }}', bedrag: '{{ (rec.amount_paid|abs)|geld if rec.amount_paid is not none else '' }}' }"
+      x-data="{ status: '{{ rec.status_code }}', bedrag: '{{ (rec.amount_paid|abs)|geld if rec.amount_paid is not none else '' }}' }"
       hx-post="/admin/betalingen/{{ rec.id }}/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
   <div><label class="block text-xs text-gray-500">{{ _("Status") }}</label>
     {% call ui.select_control("status", cls="text-sm", attrs='x-model="status" @change="if (status === \'paid\' && !bedrag) bedrag = \'' ~ (rec.amount|abs)|geld ~ '\'"') %}
@@ -167,7 +167,7 @@
 <tr x-show="open === '{{ r.id }}'" x-cloak style="display: none">
   <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">{{ bewerkvorm(k, "open === '" ~ r.id ~ "'", "open = null") }}</td>
 </tr>
-{% if r.status == "paid" and r.type != "refund" %}
+{% if r.is_paid and not r.is_refund %}
 {# Terugbetaling registreren = een nieuwe refund aanmaken met een terug te
    betalen bedrag; afboeken gebeurt daarna via Bewerken (#617-2b). #}
 <tr x-show="terug === '{{ r.id }}'" x-cloak style="display: none">

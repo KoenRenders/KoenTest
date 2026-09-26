@@ -11,8 +11,20 @@ from app.domains.payment.gateway_service import (  # noqa: F401
 )
 from app.domains.payment.models import (  # noqa: F401
     GatewayPayment,
+    PayableType,
+    PaymentProvider,
     PaymentRecord,
     PaymentRecordHistory,
+    PaymentStatus,
+    PaymentType,
+)
+# CR-12: this domain's code lists belong to the public surface, so another
+# domain reaches an FK target and an enum through one door.
+from app.domains.payment.codes import (  # noqa: F401
+    PAYABLE_TYPE,
+    PAYMENT_PROVIDER,
+    PAYMENT_STATUS,
+    PAYMENT_TYPE,
 )
 from app.domains.payment.service import (  # noqa: F401
     aggregate,
@@ -47,6 +59,8 @@ from app.domains.payment.service import (  # noqa: F401
 )
 
 __all__ = [
+    "PAYABLE_TYPE", "PAYMENT_PROVIDER", "PAYMENT_STATUS", "PAYMENT_TYPE",
+    "PayableType", "PaymentProvider", "PaymentStatus", "PaymentType",
     "GatewayPayment", "PaymentRecord", "PaymentRecordHistory",
     "create_payment", "refresh_payment_status",
     "aggregate", "checkout_url_for", "confirm_manual_payment", "create_payment_record", "create_refund",

@@ -135,7 +135,8 @@ def test_activiteit_inschrijving_met_producten_en_betaling(page, seeded_activiti
     aid, cid, pid = seeded_activities["prod"]
     _open_inschrijfform(page, aid, cid)
     page.fill(f'input[name="product_{pid}"]', "2")
-    page.check('input[name="payment_method"][value="OVERSCHRIJVING"]')
+    # CR-12 phase 1: the radio value is the code, not the Dutch word.
+    page.check('input[name="payment_method"][value="transfer"]')
     page.locator(f"#inschrijf-{aid}-{cid} button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
 

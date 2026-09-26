@@ -497,9 +497,10 @@ def _family_registration_ids(db, family_id: int) -> list[int]:
     """De inschrijving-ids van een gezin — via dezelfde payable-verzameling
     als de Betalingen-tab (person_id + e-mail-terugval, family_payables is
     de ene bron voor "hoort deze inschrijving bij dit gezin")."""
-    from app.domains.payment.api import family_payables
+    from app.domains.payment.api import PayableType, family_payables
 
-    return [i for t, i in family_payables(db, family_id) if t == "registration"]
+    return [i for t, i in family_payables(db, family_id)
+            if t == PayableType.REGISTRATION]
 
 
 def family_registration_count(db, family_id: int) -> int:

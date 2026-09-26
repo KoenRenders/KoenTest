@@ -10,7 +10,7 @@ from tests.conftest import seed_activity_with_product
 def _register(client, activity_id, comp, product, quantity, email):
     payload = {
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": email,
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": quantity}],
     }
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json=payload)

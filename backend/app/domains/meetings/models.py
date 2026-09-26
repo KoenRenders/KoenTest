@@ -19,6 +19,7 @@ Three shapes decide everything here:
   table with an admin-only download route fails closed.
 """
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -32,9 +33,10 @@ from sqlalchemy import (
     Text,
     Time,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -43,13 +45,56 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# Status of the one document. `agenda` → `report` happens implicitly (taking
-# attendance or typing a note is entering the report phase, CR-09 §3.23);
-# `sent` is the only hard moment, and "Heropen verslag" walks it back.
-STATUS_AGENDA = "agenda"
-STATUS_REPORT = "report"
-STATUS_SENT = "sent"
-STATUSES = (STATUS_AGENDA, STATUS_REPORT, STATUS_SENT)
+class MeetingStatus(Enum):
+    """Status of the one document. The pilot list of CR-12 (phase 0).
+
+    `agenda` → `report` happens implicitly (taking attendance or typing a note
+    is entering the report phase, CR-09 §3.23); `sent` is the only hard moment,
+    and "Heropen verslag" walks it back.
+
+    **Plain `Enum`, not `str, Enum`** — deliberately, and this list is where the
+    codebase proves it first. With a `str` subclass, `meeting.status == "sent"`
+    stays a valid comparison that happens to be true, so the old module
+    constants could survive next to the enum and nobody would notice the two
+    drifting apart. Plain, that comparison is silently *false*, which is why the
+    loose-string gate is an AST walk and not a type check (§B4.8).
+
+    Member names are English; the values are the codes as stored, unchanged
+    (§B4.3) — here the two happen to coincide.
+    """
+
+    AGENDA = "agenda"
+    REPORT = "report"
+    SENT = "sent"
+
+
+class MeetingStatusCode(Base):
+    """Which meeting statuses exist — the target of the foreign key."""
+
+    __tablename__ = "meeting_status_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class MeetingStatusLabel(Base):
+    """The word a screen shows for a meeting status, per language."""
+
+    __tablename__ = "meeting_status_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), ForeignKey("meetings.meeting_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 # The five standard sections, in their fixed order, plus the custom kind.
 # MISC is always last (CR-09 §3.17) — a custom section inserts before it.
@@ -87,7 +132,13 @@ class Meeting(TenantMixin, SoftDeleteMixin, Base):
     meeting_date = Column(Date, nullable=False, index=True)
     start_time = Column(Time, nullable=True)
     location = Column(String(255), nullable=True)
-    status = Column(String(10), nullable=False, default=STATUS_AGENDA)
+    # The one `Mapped[]` column in this model, on purpose: SQLAlchemy 2.0
+    # declarative style next to 688 legacy `Column()` attributes, which is
+    # supported and is what lets mypy see this attribute's type at all
+    # (§B4.8). `EnumColumn` stores `member.value`, never the member name.
+    status: Mapped[MeetingStatus] = mapped_column(
+        EnumColumn(MeetingStatus, length=10), nullable=False,
+        default=MeetingStatus.AGENDA)
     # Sending stamps these; they are also the guard the file rules read, so
     # "this meeting has been sent" stays one fact in one place (CR-09 §4).
     agenda_sent_at = Column(DateTime(timezone=True), nullable=True)

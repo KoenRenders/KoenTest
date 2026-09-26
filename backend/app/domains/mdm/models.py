@@ -393,6 +393,95 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
 
 
+class PaymentMethod(Enum):
+    """How money moves: online, by bank transfer, or in cash (CR-12 phase 1).
+
+    In `mdm` and not in `payment`, because two domains store it — a payment
+    record and an activity registration — and a list used by more than one
+    domain is master data by definition (§B4.1). That makes the foreign key
+    from `payment` and from `activities` the allowed cross-schema one.
+
+    Plain `Enum`. Member names are English and so are the values here; the
+    Dutch `OVERSCHRIJVING` the public form used to post is mapped to `transfer`
+    once, by the migration of this phase (§B4.6).
+    """
+
+    ONLINE = "online"
+    TRANSFER = "transfer"
+    CASH = "cash"
+
+
+class PaymentMethodCode(Base):
+    """Which payment methods exist — the target of the foreign keys."""
+
+    __tablename__ = "payment_method_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class PaymentMethodLabel(Base):
+    """The word a screen or an export shows for a payment method, per language."""
+
+    __tablename__ = "payment_method_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.payment_method_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class LanguageCode(Base):
+    """Which languages a label may be written in (CR-12 phase 0).
+
+    The smallest list in the codebase and the one every other list depends on:
+    the ``language`` column of every ``_labels`` table points here, so a typo
+    like ``nl_BE`` or ``NL`` in a label row is refused by the database instead
+    of quietly producing a label nobody ever reads.
+
+    It lives in ``mdm`` because it is used by every domain, which is the
+    definition of master data (§B4.1). That makes it the one named exception to
+    "no cross-schema foreign keys": a label table in any schema points at this
+    one. ``mdm`` depends on no business domain, so no cycle can arise.
+
+    Language **codes**, not locales: ``nl``, not ``nl_BE``. The tenant setting
+    stays a locale (``nl_BE`` decides how a date reads); the label lookup takes
+    the language part of it (§F8).
+    """
+
+    __tablename__ = "language_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LanguageLabel(Base):
+    """The name of a language, in each language (CR-12 phase 0)."""
+
+    __tablename__ = "language_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
 class IdentificationScheme(Base):
     """Welke identificatieschema's bestaan (#945) — de identiteit.
 

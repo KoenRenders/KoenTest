@@ -109,14 +109,14 @@ def _ask(db, letter, instruction="Schrijf de najaarsbrief.", selection="",
 def _sent_meeting_with_point(db, notes, activity=None):
     """A sent meeting report with one point, as the composer may tick it."""
     from app.domains.meetings.api import (
-        SECTION_EVALUATION, STATUS_SENT, add_item, create_meeting, sections_of)
+        SECTION_EVALUATION, MeetingStatus, add_item, create_meeting, sections_of)
 
     meeting = create_meeting(db, meeting_date=date.today() - timedelta(days=10))
     section = next(s for s in sections_of(db, meeting) if s.kind == SECTION_EVALUATION)
     item = add_item(db, meeting, section, title="Vervoer",
                     activity_id=activity.id if activity else None)
     item.notes = notes
-    meeting.status = STATUS_SENT
+    meeting.status = MeetingStatus.SENT
     db.commit()
     return item
 

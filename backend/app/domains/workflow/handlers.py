@@ -39,17 +39,20 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
 def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
     from app.domains.mail.api import EmailLog
-    from app.domains.payment.api import GatewayPayment, PaymentRecord
+    from app.domains.payment.api import (
+        GatewayPayment, PaymentRecord, PaymentStatus, PaymentType,
+    )
     from app.kernel.jobs import KernelJob
 
     kandidaten: list[dict] = []
 
     # 1. Refund-bevestiging (consolidatie): pending refunds wachten op FINANCE.
     for r in (db.query(PaymentRecord)
-              .filter(PaymentRecord.type == "refund", PaymentRecord.status == "pending").all()):
+              .filter(PaymentRecord.type == PaymentType.REFUND,
+                      PaymentRecord.status == PaymentStatus.PENDING).all()):
         kandidaten.append(dict(
             kind="payment.refund_bevestigen",
-            title=f"Refund {r.id} bevestigen ({r.payable_type} #{r.payable_id})",
+            title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
             # #704: het record-id, niet het payable — `subject_type` zegt
             # "payment_record" en de waarde hoort dat te zijn.
             subject_type="payment_record", subject_id=str(r.id), role="FINANCE"))
@@ -70,11 +73,15 @@ def _sweep_sources(db: Session) -> list[dict]:
     # 3. Webhook-mismatch: gateway zegt paid, het grootboek (nog) niet.
     rows = (db.query(GatewayPayment, PaymentRecord)
             .join(PaymentRecord, PaymentRecord.gateway_payment_id == GatewayPayment.id)
-            .filter(GatewayPayment.status == "paid", PaymentRecord.status != "paid").all())
+            # `GatewayPayment.status` carries Mollie's word (§B4.10) and so
+            # stays a string; `PaymentRecord.status` is our list.
+            .filter(GatewayPayment.status == PaymentStatus.PAID.value,
+                    PaymentRecord.status != PaymentStatus.PAID).all())
     for gp, record in rows:
         kandidaten.append(dict(
             kind="payment.webhook_mismatch",
-            title=f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, record {record.id[:8]}… is {record.status}",
+            title=(f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
+                   f"record {record.id[:8]}… is {record.status.value}"),
             subject_type="payment_record", subject_id=str(record.id), role="FINANCE"))
 
     # 4. Definitief gefaalde jobs (behalve mail.retry — bron 2 dekt die met context).

@@ -25,6 +25,7 @@ from app.domains.payment.api import PaymentRecord, get_records_for
 from tests._invarianten import (assert_geen_pending_als_betaald, assert_geen_wezen,
                                 assert_saldo_klopt)
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.payment.api import PaymentType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -119,7 +120,7 @@ def test_P5_uitbetaling_registreren_brengt_de_groep_op_nul(client, db_session):
     charge = _charge(db_session, betaald="30.00", status="paid")
     hdr = _login(client, db_session)
     _post(client, hdr, f"/admin/betalingen/{charge.id}/refund", amount="30.00")
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     html = _post(client, hdr, f"/admin/betalingen/{refund.id}/bewerken",
                  status="paid", amount_paid="-30.00", note="")
@@ -135,7 +136,7 @@ def test_P6_deeluitbetaling_laat_het_restant_zien(client, db_session):
     charge = _charge(db_session, betaald="30.00", status="paid")
     hdr = _login(client, db_session)
     _post(client, hdr, f"/admin/betalingen/{charge.id}/refund", amount="30.00")
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     _post(client, hdr, f"/admin/betalingen/{refund.id}/bewerken",
           status="pending", amount_paid="-10.00", note="")
@@ -152,7 +153,7 @@ def test_P7_twee_terugbetalingen_tellen_allebei_mee(client, db_session):
     _post(client, hdr, f"/admin/betalingen/{charge.id}/refund", amount="10.00")
     html = _post(client, hdr, f"/admin/betalingen/{charge.id}/refund", amount="5.00")
 
-    refunds = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"]
+    refunds = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND]
     assert len(refunds) == 2
     assert "Totaal inschrijving" in html, "de groepstotaalregel hoort er te staan (#617)"
     assert_saldo_klopt(db_session, *PAYABLE, "15.00")
@@ -166,7 +167,7 @@ def test_P8_er_blijven_geen_weesrecords_achter(client, db_session):
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}]})
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]

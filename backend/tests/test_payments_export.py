@@ -11,6 +11,7 @@ from odf.teletype import extractText
 
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentType
 
 _EXPORT = "/api/v1/payment-status/records/export"
 
@@ -45,11 +46,11 @@ def test_payments_export_records_and_totals(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.type == PaymentType.CHARGE,
     ).order_by(PaymentRecord.created_at.desc()).first()
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "36.00"}, headers=admin_headers)
@@ -84,7 +85,7 @@ def test_payments_export_respects_context_filter(client, db_session, admin_heade
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
 

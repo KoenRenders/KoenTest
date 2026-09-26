@@ -32,8 +32,8 @@ from app.domains.meetings.api import (
     ATTENDANCE_EXCUSED,
     ATTENDANCE_PRESENT,
     FILE_SENT_PDF,
-    STATUS_AGENDA,
-    STATUS_SENT,
+    MEETING_STATUS,
+    MeetingStatus,
     MeetingError,
     add_extra_recipient,
     add_file,
@@ -78,6 +78,7 @@ from app.domains.meetings.viewmodels import (
     MeetingNewView, MeetingSendView,
 )
 from app.i18n import _
+from app.kernel.codes import register_tones
 from app.ui import admin_nav, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
@@ -86,9 +87,16 @@ router = APIRouter(include_in_schema=False)
 
 NAV = "/admin/vergaderingen"
 
-STATUS_LABELS = {"agenda": "Agenda", "report": "Verslag (bezig)",
-                 "sent": "Verslag verstuurd"}
-STATUS_TONES = {"agenda": "blue", "report": "yellow", "sent": "green"}
+# The badge tone of a meeting status. A tone is a design-system decision, not a
+# translation — it changes with the house style and not with the language — so
+# it stays in Python, here, next to the screen that draws the badge, and the
+# code table gets no `tone` column where a translator would find one (§B4.5).
+# Total by construction and by gate: every member has one.
+register_tones(MEETING_STATUS.name, {
+    MeetingStatus.AGENDA: "blue",
+    MeetingStatus.REPORT: "yellow",
+    MeetingStatus.SENT: "green",
+})
 
 # Attendance cycles present → excused → not ticked. One click per state, in the
 # order a secretary uses them.
@@ -129,8 +137,6 @@ def _list_view(request: Request, db: Session, error: Optional[str] = None,
                     or zoek in (m.location or "").lower()]
     return MeetingListView(
         meetings=meetings, q=q,
-        status_labels={m.id: _(STATUS_LABELS.get(m.status, m.status)) for m in meetings},
-        status_tones={m.id: STATUS_TONES.get(m.status, "gray") for m in meetings},
         dates={m.id: long_date(m.meeting_date) for m in meetings},
         circle_size=len(organization_circle(db)),
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
@@ -344,8 +350,6 @@ def _document_view(request: Request, db: Session, meeting,
                                             section_id=picker_section_id)
     return MeetingDocumentView(
         meeting=meeting, title=_title(meeting),
-        status_label=_(STATUS_LABELS.get(meeting.status, meeting.status)),
-        status_tone=STATUS_TONES.get(meeting.status, "gray"),
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
@@ -356,7 +360,7 @@ def _document_view(request: Request, db: Session, meeting,
         attachments=[(f, file_is_sent(meeting, f), sent_with_label(f))
                      for f in files_of(db, meeting)],
         sent_pdfs=files_of(db, meeting, purpose=FILE_SENT_PDF),
-        editable=meeting.status != STATUS_SENT,
+        editable=meeting.status != MeetingStatus.SENT,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
 
@@ -369,7 +373,7 @@ def _item_response(request: Request, db: Session, meeting, item_id: int):
     if punt is None:
         return _document_response(request, db, meeting)
     return templates.TemplateResponse(request, "_vg_punt.html", MeetingItemView(
-        item=punt, meeting=meeting, editable=meeting.status != STATUS_SENT,
+        item=punt, meeting=meeting, editable=meeting.status != MeetingStatus.SENT,
         circle=organization_circle(db, on_day=meeting.meeting_date),
         csrf_token=_csrf(request)).as_context())
 
