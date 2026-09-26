@@ -158,11 +158,17 @@ def _onderdeel_gegevens(naam="Onderdeel"):
                            registration_closes_on=None)
 
 
-def _product_gegevens(naam="Product", is_free=False, pay_on_site=False):
+def _product_gegevens(naam="Product", is_free=False, pay_on_site=False,
+                      is_active=True):
     from decimal import Decimal
 
+    # `is_active` hoort sinds #1191 bij het payload dat `add_product` verwacht. Dit
+    # is een STAND-IN voor ProductCreate, dus hij draagt dezelfde velden; hem hier
+    # weglaten en in de service een getattr-vangnet zetten zou de afspraak
+    # verzwakken om een testdubbel te plezieren.
     return SimpleNamespace(name=naam, price=Decimal("10.00"), member_price=None,
                            is_free=is_free, pay_on_site=pay_on_site,
+                           is_active=is_active,
                            max_participants=None, sort_order=0)
 
 
