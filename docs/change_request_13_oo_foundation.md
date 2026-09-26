@@ -13,7 +13,8 @@ screen, import), and the shape a new module takes from its first commit.
 
 # Part A — The business
 
-> From Koen's words of 26 September 2026. **Not yet approved**; A3–A7 open.
+> From Koen's words of 26 and 27 September 2026 and his handover note. **Not
+> yet approved** — Koen is reading it.
 
 ## A1. Reason to act
 
