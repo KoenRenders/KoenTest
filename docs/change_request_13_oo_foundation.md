@@ -57,8 +57,7 @@ where four were known.
 | exception classes | 7 `*Fout` | 7 `*Fout` + **10 `*Error`** | two conventions side by side |
 | domain packages with `CONTRACT.md` / `api.py` | — | 14 / 16 of 17 | the shape exists, unenforced |
 | `required=True` promises in templates | 88 in 25 templates, server side **unmeasurable** | not re-measured (#755) | ? |
-| mutating UI routes that confirm | 2 of 91 | not re-measured (#760) | ? |
-| orderings without a unique tiebreaker | 16 (rough) / 36 (other grep) | not re-measured (#761) | ? |
+| mutating UI routes that confirm / orderings without a tiebreaker | 2 of 91 / ~16–36 | not re-measured | outside this CR (#760, #761 — UI and query hygiene, not a rule's home; Koen, 27 Sep) |
 
 Reading: a lot was built since 10 September (reporting, CR-12, 57
 migrations) and the two typing numbers got **worse**, not better. That is
@@ -89,8 +88,8 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
   it lands here is English; the note itself is not in the repository.
 - CR-04 — the placement rule and the five numbers; kept as the source of the
   rule (banner, 26 September).
-- #236 (OO-tracker) and its six execution issues #755, #757, #758, #759,
-  #760, #761 — all open, none built.
+- #236 (OO-tracker) and its execution issues: #755 and #757 become phases
+  0 and 1 of this CR; #758, #759, #760, #761 stay outside it (Koen, 27 Sep).
 - The validation findings of 8 September 2026: #720, #727, #733, #681.
 - CR-12 — the sibling foundation; its gates are the shape this CR copies.
 
@@ -283,8 +282,9 @@ flowchart TB
   CR-12 B4.8 are reused; typing per domain is shared work between CR-12
   phase 5 and this CR's per-domain phases, done once.
 - **CR-04** keeps the placement rule; this CR is the rest. #236 becomes the
-  pointer to this CR; #755/#757/#760/#761 are absorbed as phases below,
-  #758 (screen sweep) and #759 (e2e) stay separate.
+  pointer to this CR; #755 and #757 are phases 0 and 1 below; #758 (screen
+  sweep), #759 (e2e), #760 (confirmations) and #761 (tiebreakers) stay
+  separate — the last two are UI and query hygiene, not a rule's home.
 
 ## B3. Cost and operations
 
@@ -444,14 +444,14 @@ but here that costs little.
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel) | 0 |
 | **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants) | 0 |
-| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; #760 confirmations and #761 tiebreakers to zero; `rules_baseline.py` deleted — every gate hard | 1–3 |
+| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; `rules_baseline.py` deleted — every gate hard | 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
 
 | Phase | Issue title | Migration | Env vars | Data | Manual validation |
 |---|---|---|---|---|---|
-| 0 | CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
-| 1 | CR-13 fase 1 — `Registration` als aggregaat (#757) + value objects | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV |
+| 0 | **#755**, rescoped: CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
+| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV |
 | 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
 | 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard | none | none | none | CI only; AC7 |
@@ -520,8 +520,6 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
-| mutating UI routes without confirmation | 89 of 91 | — | 0 |
-| orderings without a unique tiebreaker | ~16–36 | — | 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
 | untyped `db` parameters | ~200 | — | 0 in migrated domains |
 
@@ -539,8 +537,6 @@ removed; deleted in phase 4).
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
-| Tiebreaker | every `order_by` ends in a unique column (#761) | "`activities/service.py:210` orders by `date` without a tiebreaker" |
-| Confirmation | every mutating UI route sets a confirmation (#760) | "`forms/admin_ui.py:77` mutates and confirms nothing" |
 | Typed | in a migrated domain, every function has `db: Session` and annotated aggregate parameters (mypy `disallow_untyped_defs` per domain, the CR-12 B4.8 setting) | mypy's own message |
 
 Not mechanical, and said so: whether a rule *should* exist, whether two
@@ -577,6 +573,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | #760 (confirmations) and #761 (tiebreakers) are out of this CR — UI and query hygiene, not a rule's home; they stay open as their own issues. #755 and #757 are reused as the phase-0 and phase-1 issues. | Koen |
 | 27 Sep 2026 | Exceptions: one English class per domain at first touch, the Dutch `*Fout` name kept as alias (option b). | Koen |
 | 27 Sep 2026 | The module shape is a deliverable with a gate; hard for modules created after phase 0. | Koen |
 | 27 Sep 2026 | Gates are hard, reached via phases: each phase deletes its baseline entries; phase 4 deletes the file. No permanent exemption. | Koen ("hard, via fases") |
@@ -597,6 +594,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q11 | 27 Sep 2026 | Are #236's six execution issues still relevant? (Koen) | #755 and #757 are phases 0 and 1; #758 and #759 were already outside; #760 and #761 taken out on Koen's decision — they were in CR-04's five numbers because of the validation day, not because they are about a rule's home. |
 | Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Koen (27 Sep): one release for all phases, after CR-12 v2.7.0 (phase 2 needs CR-12 phase 1 on master). Assignment is Koen's. |
 
 ## Non-goals
@@ -605,7 +603,10 @@ difference between an exemption list and a burn-down.
 - **No full DDD**: no separate domain objects, no repositories, no domain
   events, no CQRS. The model is the object.
 - **No renaming** of existing Dutch identifiers; aliases only (B4.4).
-- **No screen sweep (#758) and no e2e track (#759)** — separate.
+- **No screen sweep (#758), no e2e track (#759), no confirmation sweep
+  (#760), no tiebreaker gate (#761)** — separate issues; the last two are
+  hygiene gates that belong with the UI-conventions gate, not with this
+  rule (Koen, 27 Sep).
 - **No ruff (#781)** — separate; `docs/code-style.md` is created here
   because this CR needs a home for the rule, and #781 fills the rest.
 - **No Alpine gate** — the CR-12 limit (gate 8) applies here too.
@@ -615,7 +616,8 @@ difference between an exemption list and a burn-down.
 
 - **CR-04** — the placement rule lives on there; everything else is here.
 - **#236 (OO-tracker)** — becomes the pointer to this CR once Part A is
-  approved; #755, #757, #760, #761 are phases 0, 1 and 4; #758, #759 stay.
+  approved; #755 and #757 are phases 0 and 1 (the issues are reused, not
+  recreated); #758, #759, #760, #761 stay their own issues.
 - **CR-12** — sibling foundation: closed status sets (phase 2 needs its
   phase 1), `ContactType` constants (phase 3), the AST-ratchet and
   `Mapped[]` conventions, the "counted, not derived" rule for numbers, the
