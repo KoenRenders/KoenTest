@@ -27,7 +27,8 @@ from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
 from app.domains.membership.models import Membership
 from app.domains.membership.service import (LidgegevensFout,
                                             controleer_geboortedatum_en_geslacht)
-from app.domains.membership.schemas_member import (
+from app.domains.membership.schemas_member import (  # noqa: F401
+    EmailAddressResponse,
     AddressUpdate,
     BoardMemberAssign,
     ContactsUpdate,
@@ -54,10 +55,23 @@ from app.soft_delete import soft_delete
 
 
 def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
-    email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    # #1174: het HOOFDadres en daarnaast de volledige lijst. "De eerste rij" gaf
+    # bij twee adressen een willekeurig antwoord — de relatie belooft geen
+    # volgorde — dus kon dezelfde kaart bij twee bezoeken een ander adres tonen.
+    #
+    # Hoofdadres eerst, daarna op id: een lijst die van volgorde wisselt maakt de
+    # knop "maak hoofdadres" onbetrouwbaar om aan te klikken.
+    adressen = sorted((c for c in person.contact_details
+                       if c.contact_type_code == "EMAIL" and c.value),
+                      key=lambda c: (not c.is_primary, c.id or 0))
+    email = next((c.value for c in adressen if c.is_primary),
+                 adressen[0].value if adressen else None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
     mobile = next((c.value for c in person.contact_details if c.contact_type_code == "MOBILE"), None)
     return FamilyMemberResponse(
+        emails=[EmailAddressResponse(id=c.id, value=c.value,
+                                     is_primary=bool(c.is_primary))
+                for c in adressen],
         id=person.id,
         last_name=person.last_name,
         first_name=person.first_name,
@@ -642,22 +656,17 @@ def update_person_contacts(
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
 
+    # #1174: langs de gedeelde regel, niet langs een eigen binnenfunctie. Die
+    # stond hier met exact dezelfde "eerste rij"-fout als de import — dit scherm
+    # kon dus een extra e-mailadres overschrijven of, bij een leeggemaakt veld,
+    # verwijderen. Dat is precies het adres dat de nieuwsbriefverantwoordelijke
+    # net had ingevoerd.
+    from app.domains.mdm.api import upsert_primary_contact
+
     def _upsert_contact(type_code: str, value: Optional[str]):
-        existing = next((c for c in person.contact_details if c.contact_type_code == type_code), None)
-        if value:
-            if existing:
-                if existing.value != value:
-                    existing.value = value
-                    db.flush()
-                    snapshot_contact_detail(db, existing, operation="update", action="contacts_updated", source="admin_update", actor=admin.email)
-            else:
-                contact = ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True)
-                person.contact_details.append(contact)
-                db.flush()
-                snapshot_contact_detail(db, contact, operation="insert", action="contacts_updated", source="admin_update", actor=admin.email)
-        elif existing:
-            snapshot_contact_detail(db, existing, operation="delete", action="contacts_updated", source="admin_update", actor=admin.email)
-            person.contact_details.remove(existing)
+        upsert_primary_contact(db, person, type_code, value,
+                               action="contacts_updated", source="admin_update",
+                               actor=admin.email)
 
     _upsert_contact("EMAIL", data.email)
     _upsert_contact("PHONE", data.phone)

@@ -374,6 +374,51 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
                            toast=True, kop=True, bestuurslid=True)
 
 
+# ── E-mailadressen van één persoon (#1174) ───────────────────────────────────
+#
+# Drie aparte acties en geen veld in het Opslaan-formulier. Een adres toevoegen of
+# weghalen is een deelactie op één rij, net als een persoon toevoegen of een
+# bijlage verwijderen: die krijgen géén bevestigingstoast (#742/#717). Het
+# e-mailVELD in dat formulier blijft wat het was — het hoofdadres — zodat de
+# gewone weg onveranderd is voor wie maar één adres heeft.
+
+@router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def email_toevoegen(family_id: int, person_id: int, request: Request,
+                    db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui),
+                    extra_email: str = Form("")):
+    from app.domains.mdm.api import add_email_address
+
+    add_email_address(db, person_id, extra_email, actor=email)
+    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"])
+
+
+@router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/hoofd",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def email_hoofdadres(family_id: int, person_id: int, contact_id: int,
+                     request: Request, db: Session = Depends(get_db),
+                     email: str = Depends(require_admin_ui)):
+    from app.domains.mdm.api import make_email_primary
+
+    make_email_primary(db, person_id, contact_id, actor=email)
+    # Ook de kop en de bestuurslidlijst: die noemen het adres van de persoon.
+    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"],
+                           kop=True)
+
+
+@router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}/email/{contact_id}/verwijderen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def email_verwijderen(family_id: int, person_id: int, contact_id: int,
+                      request: Request, db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui)):
+    from app.domains.mdm.api import remove_email_address
+
+    remove_email_address(db, person_id, contact_id, actor=email)
+    return _kaart_response(request, db, family_id, kaarten=[f"persoon:{person_id}"],
+                           kop=True)
+
+
 @router.post("/admin/leden/gezin/{family_id}/adres", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db),

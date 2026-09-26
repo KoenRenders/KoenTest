@@ -100,9 +100,15 @@ def test_de_import_verwijdert_geen_extra_adres(db_session, lid_met_twee_adressen
     """Het rapport draagt geen e-mailadres. Vroeger verdween dan "de eerste rij".
 
     Wat er wél gebeurt: het hoofdadres gaat weg — dat is de bestaande regel, het
-    rapport is er de bron van — en het extra adres blijft, als nieuw hoofdadres.
-    Dat laatste is een keuze, zie `_promoveer_oudste`: een lid met adressen op ons
-    scherm dat tóch geen post meer krijgt, is erger en onzichtbaar.
+    rapport is er de bron van — en het extra adres blijft staan, **zonder** dat
+    het hoofdadres wordt.
+
+    Dat laatste is Koens beslissing van 27 september 2026. Het hoofdadres is een
+    HERKOMST — *"dit is het adres dat Raak Nationaal in zijn programma heeft"* —
+    en zelf een ander aanwijzen omdat er toevallig een rij overblijft, verzint
+    die herkomst. Nul hoofdadressen is een geldige toestand. Ik had hier eerst
+    het oudste laten promoveren; dat is eruit, en mijn argument ervoor vervalt
+    omdat geen enkele verzending nog aan het hoofdadres hangt.
 
     Tegenproef: `_upsert_contact` weer op "de eerste rij" laten zoeken → het extra
     adres is dan weg en deze test faalt met alleen `{}` of alleen het hoofdadres.
@@ -112,8 +118,9 @@ def test_de_import_verwijdert_geen_extra_adres(db_session, lid_met_twee_adressen
     na = _adressen(db_session, lid_met_twee_adressen)
     assert EXTRA in na, (
         f"het extra adres is verdwenen bij een import zonder e-mailadres: {na}")
-    assert na == {EXTRA: True}, (
-        f"verwacht: het extra adres blijft en wordt hoofdadres; gekregen: {na}")
+    assert na == {EXTRA: False}, (
+        f"verwacht: het extra adres blijft staan en wordt GEEN hoofdadres; "
+        f"gekregen: {na}")
 
 
 def test_de_import_werkt_het_hoofdadres_bij_en_laat_het_extra_staan(

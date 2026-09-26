@@ -90,6 +90,26 @@ def household_add_person(db, person, data):
     return _impl(data, person=person, db=db)
 
 
+def household_add_email(db, person, person_id: int, email: str):
+    from app.domains.membership.household_router import household_add_email as _impl
+
+    return _impl(person_id, {"email": email}, person=person, db=db)
+
+
+def household_make_email_primary(db, person, person_id: int, contact_id: int):
+    from app.domains.membership.household_router import (
+        household_make_email_primary as _impl)
+
+    return _impl(person_id, contact_id, person=person, db=db)
+
+
+def household_remove_email(db, person, person_id: int, contact_id: int):
+    from app.domains.membership.household_router import (
+        household_remove_email as _impl)
+
+    return _impl(person_id, contact_id, person=person, db=db)
+
+
 def household_remove_person(db, person, person_id: int):
     from app.domains.membership.household_router import remove_person as _impl
 

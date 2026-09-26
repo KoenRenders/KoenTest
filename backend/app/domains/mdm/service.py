@@ -463,6 +463,237 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     return out
 
 
+def _persoon_of_404(db: Session, person_id: int):
+    from app.domains.mdm.models import Person
+
+    person = db.query(Person).filter(Person.id == person_id).one_or_none()
+    if person is None:
+        from fastapi import HTTPException
+
+        from app.i18n import _
+
+        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden"))
+    return person
+
+
+def add_email_address(db: Session, person_id: int, value: str, *,
+                      actor: Optional[str] = None):
+    """Zet er een e-mailadres bij (#1174). Het eerste adres wordt het hoofdadres.
+
+    De nieuwsbriefverantwoordelijke heeft een tiental adressen die het portaal
+    niet kent; dit is de weg om ze binnen te krijgen. Ze tellen mee bij het
+    aanmelden en bij de nieuwsbrief, maar niet als hoofdadres — dat blijft wat
+    Raak Nationaal in zijn programma heeft.
+
+    Dezelfde waarde twee keer bij één persoon is een vergissing en geen tweede
+    geval, dus die wordt stil overgeslagen in plaats van een dubbele rij te maken.
+    Hoofdletterongevoelig vergeleken: een mens typt zijn eigen adres niet twee
+    keer identiek.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.models import ContactDetail
+
+    person = _persoon_of_404(db, person_id)
+    waarde = (value or "").strip()
+    if not waarde:
+        return person
+    bestaand = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    if any((c.value or "").strip().lower() == waarde.lower() for c in bestaand):
+        return person
+
+    rij = ContactDetail(person_id=person.id, contact_type_code="EMAIL",
+                        value=waarde, is_primary=not bestaand)
+    db.add(rij)
+    db.flush()
+    snapshot_contact_detail(db, rij, operation="insert", action="email_added",
+                            source="admin_update", actor=actor)
+    db.commit()
+    db.refresh(person)
+    return person
+
+
+def make_email_primary(db: Session, person_id: int, contact_id: int, *,
+                       actor: Optional[str] = None):
+    """Wijs dit adres aan als hoofdadres; het oude wordt een gewoon adres.
+
+    In één beweging, en het oude wordt EERST teruggezet: de databank staat maar
+    één hoofdadres per persoon toe
+    (`uq_contact_details_one_primary_per_type`, migratie 053, partieel op
+    `is_primary = true AND deleted_at IS NULL`). In de andere volgorde zouden er
+    even twee zijn en weigert de flush.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+
+    person = _persoon_of_404(db, person_id)
+    adressen = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    doel = next((c for c in adressen if c.id == contact_id), None)
+    if doel is None:
+        from fastapi import HTTPException
+
+        from app.i18n import _
+
+        raise HTTPException(status_code=404, detail=_("Adres niet gevonden"))
+    if doel.is_primary:
+        return person
+
+    for rij in adressen:
+        if rij.is_primary:
+            rij.is_primary = False
+            db.flush()
+            snapshot_contact_detail(db, rij, operation="update",
+                                    action="email_demoted", source="admin_update",
+                                    actor=actor)
+    doel.is_primary = True
+    db.flush()
+    snapshot_contact_detail(db, doel, operation="update", action="email_promoted",
+                            source="admin_update", actor=actor)
+    db.commit()
+    db.refresh(person)
+    return person
+
+
+def remove_email_address(db: Session, person_id: int, contact_id: int, *,
+                         actor: Optional[str] = None):
+    """Haal een e-mailadres weg (#1174).
+
+    **Ook het laatste adres mag weg.** Ik had daar eerst een grendel op gezet —
+    zonder adres kan een lid zich niet meer aanmelden — maar dat was een eis die
+    niemand gevraagd had, en Koen kiest op 27 september 2026 uitdrukkelijk de
+    andere kant: *niets aanwijzen, niets weigeren*. Een verkeerd adres moet je
+    kunnen weghalen zonder eerst een ander te moeten verzinnen, en de
+    audit-snapshot bewaart wat er stond.
+
+    **Verwijder je het hoofdadres, dan komt er geen ander voor in de plaats.** Nul
+    hoofdadressen is een geldige toestand — precies wat de databank zegt, want
+    `uq_contact_details_one_primary_per_type` is een unieke index en geen
+    verplichting.
+
+    Het hoofdadres is een HERKOMST en geen voorkeur: het is het adres dat Raak
+    Nationaal in zijn programma heeft (Koen, 27 september 2026). Zelf een ander
+    aanwijzen omdat er toevallig een rij overblijft, zou die herkomst verzinnen.
+    Een beheerder mág er wél een aanduiden — dat is een bewuste handeling, ze
+    wordt geauditeerd, en het nationale programma wordt er met de hand op
+    bijgewerkt.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+
+    person = _persoon_of_404(db, person_id)
+    adressen = sorted((c for c in person.contact_details
+                       if c.contact_type_code == "EMAIL"),
+                      key=lambda c: c.id or 0)
+    doel = next((c for c in adressen if c.id == contact_id), None)
+    if doel is None:
+        from fastapi import HTTPException
+
+        from app.i18n import _
+
+        raise HTTPException(status_code=404, detail=_("Adres niet gevonden"))
+    snapshot_contact_detail(db, doel, operation="delete", action="email_removed",
+                            source="admin_update", actor=actor)
+    person.contact_details.remove(doel)
+    db.flush()
+    db.commit()
+    db.refresh(person)
+    return person
+
+
+def upsert_primary_contact(db: Session, person, type_code: str,
+                           value: Optional[str], *, action: str, source: str,
+                           is_primary: bool = True, apply: bool = True,
+                           actor: Optional[str] = None) -> None:
+    """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
+
+    Deze functie stond twee keer: in `mdm/import_service` voor het
+    Raak-Nationaal-rapport en als binnenfunctie in
+    `membership/household_service.update_person_contacts` voor het beheerscherm.
+    Allebei zochten ze *"de eerste rij van dit type"*, allebei met dezelfde fout —
+    en toen ik die fout in de eerste repareerde, stond ik op het punt hem in de
+    tweede opnieuw te repareren. Dat is het herkenningspunt uit `CLAUDE.md`: de
+    fout is niet dat er één achterliep, de fout is dat het er twee zijn.
+
+    **Waarom "de eerste rij" fout is.** Sinds een lid meerdere e-mailadressen mag
+    hebben, kan die eerste rij een EXTRA adres zijn dat wij verzameld hebben. Het
+    rapport of het formulier overschreef het dan met de hoofdwaarde, of — bij een
+    lege waarde — verwijderde het. Beide stil. De relatie belooft bovendien geen
+    volgorde, dus welke rij "de eerste" is, ligt niet eens vast.
+
+    Het hoofdadres is wat Raak Nationaal kent; de extra adressen zijn van ons. Een
+    niet-primaire rij raakt deze functie nooit aan.
+
+    `apply=False` is de dry-run van de import: alles uitrekenen, niets schrijven.
+    `action` en `source` gaan naar de audit-snapshot, zodat een rij uit een import
+    en een rij uit het beheerscherm in de geschiedenis uit elkaar te houden zijn.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.models import ContactDetail
+
+    van_dit_type = [c for c in person.contact_details
+                    if c.contact_type_code == type_code]
+    hoofd = next((c for c in van_dit_type if c.is_primary), None)
+
+    if value:
+        if hoofd is None:
+            # Geen hoofdcontact, maar misschien staat deze waarde al als EXTRA rij.
+            # Dan die promoveren in plaats van een tweede rij met dezelfde waarde
+            # te maken — anders staat hetzelfde adres twee keer bij één persoon en
+            # mag iemand dat later met de hand opruimen.
+            zelfde = next((c for c in van_dit_type if c.value == value), None)
+            if zelfde is not None:
+                if apply:
+                    zelfde.is_primary = is_primary
+                    db.flush()
+                    snapshot_contact_detail(db, zelfde, operation="update",
+                                            action=action, source=source, actor=actor)
+                return
+            if apply:
+                # `db.add` en NIET `person.contact_details.append`. Appenden vult de
+                # relatie in de sessie, en dan telt ze bij een volgende aanroep als
+                # "geladen" terwijl andere relaties van diezelfde persoon dat niet
+                # zijn. Gemeten: de import zag daarna `person.address` als None
+                # terwijl het adres bestond, en probeerde een tweede adres in te
+                # voegen — `uq_addresses_person_id`. Acht bestaande importtests
+                # vielen erop om. De import deed dit altijd al met `db.add`; die
+                # vorm is hier de veilige.
+                nieuw = ContactDetail(person_id=person.id, contact_type_code=type_code,
+                                      value=value, is_primary=is_primary)
+                db.add(nieuw)
+                db.flush()
+                snapshot_contact_detail(db, nieuw, operation="insert",
+                                        action=action, source=source, actor=actor)
+            return
+        if hoofd.value == value and hoofd.is_primary == is_primary:
+            return
+        if apply:
+            hoofd.value = value
+            hoofd.is_primary = is_primary
+            db.flush()
+            snapshot_contact_detail(db, hoofd, operation="update",
+                                    action=action, source=source, actor=actor)
+        return
+
+    if hoofd is None or not apply:
+        return
+    snapshot_contact_detail(db, hoofd, operation="delete",
+                            action=action, source=source, actor=actor)
+    person.contact_details.remove(hoofd)
+    db.flush()
+    # **Geen promotie.** Er blijft dan géén hoofdcontact over, en dat is een
+    # geldige toestand.
+    #
+    # Ik had hier eerst het oudste overgebleven adres laten promoveren, met het
+    # argument dat een lid anders adressen op het scherm houdt en toch geen post
+    # krijgt. Koen heeft dat teruggedraaid op 27 september 2026, en zijn reden
+    # gaat dieper dan mijn argument: het hoofdadres is geen voorkeur maar een
+    # HERKOMST — *"dit is het adres dat Raak Nationaal in zijn programma heeft"*.
+    # Wie er zelf een aanwijst omdat er toevallig een rij over is, verzint die
+    # herkomst. *"Anders kunnen we dat nooit meer weten. Dan heb ik nog liever
+    # dat een lid geen hoofdadres heeft."*
+    #
+    # Mijn argument vervalt bovendien: geen enkele verzending hangt nog aan het
+    # hoofdadres. De nieuwsbrief gaat naar alle adressen, een bevestiging naar
+    # het adres op het formulier. Een lid zonder hoofdadres krijgt gewoon alles.
+
+
 def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     """Every e-mail address of every person in these households (#984).
 

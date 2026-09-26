@@ -262,6 +262,50 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
                                       _portal_ctx(request, db, person))
 
 
+# ── E-mailadressen, door het lid zelf (#1174) ────────────────────────────────
+#
+# Drie schermacties die het portaal opnieuw renderen, net als de andere
+# bewerkingen hier. De gezinsgrens en de audit zitten in de domeinlaag; dit
+# scherm geeft alleen door wie er klikte.
+
+@router.post("/leden/gezin/personen/{person_id}/email", response_class=HTMLResponse)
+async def gezin_email_toevoegen(person_id: int, request: Request,
+                                db: Session = Depends(get_db)):
+    from app.domains.membership.api import household_add_email
+
+    person = _require_member_csrf(request, db)
+    form = await request.form()
+    waarde = form.get("extra_email")
+    household_add_email(db, person, person_id,
+                        waarde.strip() if isinstance(waarde, str) else "")
+    return templates.TemplateResponse(request, "gezin_portaal.html",
+                                      _portal_ctx(request, db, person))
+
+
+@router.post("/leden/gezin/personen/{person_id}/email/{contact_id}/hoofd",
+             response_class=HTMLResponse)
+def gezin_email_hoofdadres(person_id: int, contact_id: int, request: Request,
+                           db: Session = Depends(get_db)):
+    from app.domains.membership.api import household_make_email_primary
+
+    person = _require_member_csrf(request, db)
+    household_make_email_primary(db, person, person_id, contact_id)
+    return templates.TemplateResponse(request, "gezin_portaal.html",
+                                      _portal_ctx(request, db, person))
+
+
+@router.post("/leden/gezin/personen/{person_id}/email/{contact_id}/verwijderen",
+             response_class=HTMLResponse)
+def gezin_email_verwijderen(person_id: int, contact_id: int, request: Request,
+                            db: Session = Depends(get_db)):
+    from app.domains.membership.api import household_remove_email
+
+    person = _require_member_csrf(request, db)
+    household_remove_email(db, person, person_id, contact_id)
+    return templates.TemplateResponse(request, "gezin_portaal.html",
+                                      _portal_ctx(request, db, person))
+
+
 @router.post("/leden/gezin/personen", response_class=HTMLResponse)
 async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db)):
     from app.domains.membership.api import household_add_person

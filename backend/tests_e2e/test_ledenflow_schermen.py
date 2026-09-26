@@ -104,10 +104,18 @@ def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
 
     for email in (MARKER_EMAIL, MARKER_EMAIL_VERLOPEN):
         page = _portaal(browser_page, email)
-        # De naam staat in een `span.font-semibold` binnen de leesweergave van de
+        # De naam staat in een `span.font-semibold` binnen de LEESweergave van de
         # gezinslidkaart; er is geen kop-element. Gevonden doordat de assertie
         # hieronder een lege lijst betrapte in plaats van vacuüm te slagen.
-        namen = page.locator("div.space-y-4 span.font-semibold").all_inner_texts()
+        #
+        # `div[x-show="!edit"] >` erbij sinds #1174: het adresbeheer in de
+        # bewerkweergave draagt een "hoofdadres"-badge, en de badge-macro gebruikt
+        # óók `font-semibold`. Zonder die grens las deze test die badge als een
+        # naam en viel ze om op tekst die geen naam is. De test deed zijn werk —
+        # hij betrapte onverwachte tekst waar namen gelezen worden — maar hij moet
+        # wel de juiste plek lezen.
+        namen = page.locator(
+            'div.space-y-4 div[x-show="!edit"] > span.font-semibold').all_inner_texts()
         assert namen, f"geen gezinslid op het portaal van {email}"
         for naam in namen:
             assert any(naam.strip().endswith(a) for a in SEED_ACHTERNAMEN), (

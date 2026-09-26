@@ -309,6 +309,27 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
         # Bij een wijziging "oud → nieuw" tonen door de vorige snapshot van ditzelfde
         # contact op te zoeken (#188).
         value_part = _fmt(h.value)
+        # #1174: een verandering van de HOOFDADRES-markering moet hier te lezen
+        # zijn, en niet alleen als "Gewijzigd".
+        #
+        # Deze regels bestaan om met de hand overgetypt te worden in het
+        # Raak Nationaal-programma. Het hoofdadres is precies wat dat programma
+        # bijhoudt, en sinds #1174 mag zowel het bestuur als het lid zelf een
+        # ander adres aanduiden. Zonder deze zin staat er dan `EMAIL: jan@…` met
+        # label "Gewijzigd" en een waarde die niet veranderd is — wie overtypt
+        # ziet dát er iets gebeurde maar niet wát, en de lus staat open zonder
+        # dat iemand het merkt.
+        # De BEDOELING staat in de actie, en dat is betrouwbaarder dan ze achteraf
+        # afleiden: `make_email_primary` schrijft `email_promoted` en
+        # `email_demoted`. Afleiden kan alleen door de vorige snapshot van
+        # dezelfde rij op te zoeken, en die bestaat niet altijd — een rij die
+        # buiten een geauditeerd pad ontstond heeft er geen, en dan bleef de
+        # markering stil weg. Gemeten bij het bouwen van #1174.
+        markering = ""
+        if h.action == "email_promoted":
+            markering = " — is nu het hoofdadres"
+        elif h.action == "email_demoted":
+            markering = " — is niet meer het hoofdadres"
         if h.operation == "update":
             prev = (
                 db.query(ContactDetailHistory)
@@ -321,9 +342,19 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             )
             if prev is not None and prev.value != h.value:
                 value_part = f"{_fmt(prev.value)} → {_fmt(h.value)}"
+            # Terugval voor paden die de bedoeling niet benoemen — de ledenimport
+            # schrijft `contacts_imported` voor élke wijziging.
+            if (not markering and prev is not None
+                    and bool(prev.is_primary) != bool(h.is_primary)):
+                markering = (" — is nu het hoofdadres" if h.is_primary
+                             else " — is niet meer het hoofdadres")
+        elif h.operation == "insert" and h.is_primary:
+            markering = " — hoofdadres"
+        elif h.operation == "delete" and h.is_primary:
+            markering = " — was het hoofdadres"
         rows.append(_row(
             h, entity="Contact", entity_id=h.contact_detail_id,
-            summary=f"{_fmt(h.contact_type_code)}: {value_part}",
+            summary=f"{_fmt(h.contact_type_code)}: {value_part}{markering}",
             subject=subj.fields(person_id=h.person_id),
         ))
 
