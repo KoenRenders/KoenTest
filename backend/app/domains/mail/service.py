@@ -7,6 +7,7 @@ from typing import Optional
 
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
+from app.domains.mail.models import MailStatus
 from app.i18n import _
 from app.kernel.codes import code_label
 
@@ -60,7 +61,7 @@ def _dispatch(
         _send(to_email, subject, body_html, cc, email_type)
 
 
-def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: str, error: Optional[str]) -> Optional[int]:
+def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: MailStatus, error: Optional[str]) -> Optional[int]:
     """Schrijf één rij naar de centrale email_log (#328). Loggen mag het versturen
     nooit breken: alle fouten worden hier opgevangen. Gebruikt een eigen
     SessionLocal omdat _send vaak in een BackgroundTask draait (geen request-sessie).
@@ -179,13 +180,13 @@ def _payment_config() -> tuple:
 
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
     if _mail_mode() == "log_only":
-        _log_email(to_email, subject, body_html, email_type, "logged",
+        _log_email(to_email, subject, body_html, email_type, MailStatus.LOGGED,
                    "demo-tenant: alleen gelogd, niet verstuurd")
         return
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
-        _log_email(to_email, subject, body_html, email_type, "skipped", "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+        _log_email(to_email, subject, body_html, email_type, MailStatus.SKIPPED, "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
         return
 
     msg = MIMEMultipart("alternative")
@@ -204,10 +205,10 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None,
             server.sendmail(gmail_user, recipients, msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
-        log_id = _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        log_id = _log_email(to_email, subject, body_html, email_type, MailStatus.FAILED, str(exc))
         _enqueue_retry(log_id)
         return
-    _log_email(to_email, subject, body_html, email_type, "sent", None)
+    _log_email(to_email, subject, body_html, email_type, MailStatus.SENT, None)
 
 
 class SendingQuotaReached(RuntimeError):
@@ -255,12 +256,12 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
     credentials) or ``failed``.
     """
     if _mail_mode() == "log_only":
-        _log_email(to_email, subject, body_html, email_type, "logged",
+        _log_email(to_email, subject, body_html, email_type, MailStatus.LOGGED,
                    "demo-tenant: alleen gelogd, niet verstuurd")
         return "logged"
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
-        _log_email(to_email, subject, body_html, email_type, "skipped",
+        _log_email(to_email, subject, body_html, email_type, MailStatus.SKIPPED,
                    "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
         return "skipped"
 
@@ -288,9 +289,9 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
             logger.warning("Gmail-dagquotum bereikt bij %s: %s", to_email, exc)
             raise SendingQuotaReached(str(exc)) from exc
         logger.error("Campagnemail naar %s mislukt: %s", to_email, exc)
-        _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        _log_email(to_email, subject, body_html, email_type, MailStatus.FAILED, str(exc))
         return "failed"
-    _log_email(to_email, subject, body_html, email_type, "sent", None)
+    _log_email(to_email, subject, body_html, email_type, MailStatus.SENT, None)
     return "sent"
 
 
@@ -662,7 +663,7 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
 
     if _mail_mode() == "log_only":
         for address in to_emails:
-            _log_email(address, subject, body_html, email_type, "logged",
+            _log_email(address, subject, body_html, email_type, MailStatus.LOGGED,
                        "demo-tenant: alleen gelogd, niet verstuurd")
         return
 
@@ -671,7 +672,7 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
         logger.warning("E-mail niet verstuurd (GMAIL_USER/GMAIL_APP_PASSWORD ontbreekt): %s",
                        subject)
         for address in to_emails:
-            _log_email(address, subject, body_html, email_type, "skipped",
+            _log_email(address, subject, body_html, email_type, MailStatus.SKIPPED,
                        "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
         return
 
@@ -701,7 +702,7 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
     except Exception as exc:
         logger.error("Vergadermail versturen mislukt (%s): %s", joined, exc)
         for address in to_emails:
-            _log_email(address, subject, body_html, email_type, "failed", str(exc))
+            _log_email(address, subject, body_html, email_type, MailStatus.FAILED, str(exc))
         raise
     for address in to_emails:
-        _log_email(address, subject, body_html, email_type, "sent", None)
+        _log_email(address, subject, body_html, email_type, MailStatus.SENT, None)

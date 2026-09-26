@@ -44,7 +44,7 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
 
 def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
-    from app.domains.mail.api import EmailLog
+    from app.domains.mail.api import EmailLog, MailStatus
     from app.domains.payment.api import (
         GatewayPayment, PaymentRecord, PaymentStatus, PaymentType,
     )
@@ -69,7 +69,7 @@ def _sweep_sources(db: Session) -> list[dict]:
                        .filter(KernelJob.name == "mail.retry", KernelJob.status == "failed").all()}
     for log_id in sorted(x for x in failed_mail_jobs if x):
         log = db.get(EmailLog, log_id)
-        if log is None or log.status == "sent":
+        if log is None or log.status is MailStatus.SENT:
             continue
         kandidaten.append(dict(
             kind=MAIL_PERMANENTLY_FAILED,

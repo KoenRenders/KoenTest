@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
-from app.domains.mail.api import (EMAIL_LOG_SORT_KEYS, EMAIL_STATUSES,
-                                  EMAIL_TYPES, delete_email_log, list_email_log)
+from app.domains.mail.api import (EMAIL_LOG_SORT_KEYS, EMAIL_TYPE, MAIL_STATUS,
+                                  MailStatus, delete_email_log, list_email_log)
+from app.kernel.codes import code_labels, register_tones
 from app.i18n import _
 from app.ui import (PER_PAGE_OPTIONS, admin_nav, filterparams, per_page_from,
                     sort_description, templates)
@@ -20,17 +21,16 @@ from app.ui import (PER_PAGE_OPTIONS, admin_nav, filterparams, per_page_from,
 router = APIRouter(include_in_schema=False)
 
 
-_TYPE_LABELS = {
-    "membership_confirmation": "Lidmaatschap",
-    "activity_confirmation": "Activiteit",
-    "idea_ack": "Idee (bevestiging)",
-    "idea_board": "Idee (bestuur)",
-    "magic_link": "Inloglink",
-    "member_contact_notice": "Contactbericht",
-    "form_confirmation": "Formulier (bevestiging)",
-    "other": "Overig",
-}
-_STATUS_LABELS = {"sent": "Verstuurd", "failed": "Mislukt", "skipped": "Overgeslagen"}
+# CR-12 phase 4: the words of the e-mail types and statuses come from their
+# label tables; the two dictionaries that stood here became their seed. The
+# badge tone stays here, next to the screen that draws it (§B4.5): sent green,
+# failed red, the two that did not leave yellow — as before.
+register_tones(MAIL_STATUS.name, {
+    MailStatus.SENT: "green",
+    MailStatus.FAILED: "red",
+    MailStatus.SKIPPED: "yellow",
+    MailStatus.LOGGED: "yellow",
+})
 
 
 def _sorteer_labels() -> dict[str, str]:
@@ -111,10 +111,9 @@ def _ctx(request: Request, db: Session) -> dict:
         "meta_telling": _("%(aantal)s e-mails op deze pagina") % {"aantal": len(rows)},
         "meta_volgorde": sort_description(labels[sort], richting,
                                           is_date=(sort == "datum")),
-        "email_types": EMAIL_TYPES,
-        "email_statuses": EMAIL_STATUSES,
-        "type_labels": _TYPE_LABELS,
-        "status_labels": _STATUS_LABELS,
+        # `(code, word)` for the two filters, in the lists' own order.
+        "type_options": code_labels(EMAIL_TYPE.name, db=db),
+        "status_options": code_labels(MAIL_STATUS.name, db=db),
         "nav_items": admin_nav("/admin/e-maillog"),
     }
 

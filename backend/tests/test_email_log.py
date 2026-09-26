@@ -5,7 +5,7 @@ import pytest
 
 from app.database import SessionLocal
 from app.domains.mail.models import EmailLog
-from app.domains.mail.api import send_form_confirmation, purge_old_email_logs
+from app.domains.mail.api import EmailType, MailStatus, send_form_confirmation, purge_old_email_logs
 
 
 def _logs_for(recipient: str):
@@ -23,8 +23,8 @@ def test_send_without_credentials_logs_skipped():
     send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
-    assert rows[0].email_type == "form_confirmation"
-    assert rows[0].status == "skipped"
+    assert rows[0].email_type is EmailType.FORM_CONFIRMATION
+    assert rows[0].status is MailStatus.SKIPPED
     assert rows[0].body  # volledige inhoud bewaard
 
 
@@ -46,7 +46,7 @@ def test_send_logs_sent(monkeypatch):
     send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
-    assert rows[0].status == "sent"
+    assert rows[0].status is MailStatus.SENT
     assert rows[0].error_message is None
 
 
@@ -65,7 +65,7 @@ def test_send_logs_failed(monkeypatch):
     send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
-    assert rows[0].status == "failed"
+    assert rows[0].status is MailStatus.FAILED
     assert "SMTP down" in (rows[0].error_message or "")
 
 
@@ -118,7 +118,7 @@ def test_retry_job_resends_and_marks_sent(monkeypatch):
     try:
         run_due_jobs(s)
         row = s.get(EmailLog, log_id)
-        assert row.status == "sent" and row.error_message is None
+        assert row.status is MailStatus.SENT and row.error_message is None
         job_row = (s.query(KernelJob).filter(KernelJob.name == "mail.retry")
                    .order_by(KernelJob.id.desc()).first())
         assert job_row.status == "done"
@@ -195,4 +195,4 @@ def test_mail_requested_event_sends_and_logs(db_session):
                           body_html="<p>hallo</p>", email_type="other"), db_session)
     rows = _logs_for(recipient)
     assert len(rows) == 1
-    assert rows[0].subject == "Event-test" and rows[0].status == "skipped"
+    assert rows[0].subject == "Event-test" and rows[0].status is MailStatus.SKIPPED
