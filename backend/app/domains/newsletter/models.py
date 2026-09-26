@@ -15,9 +15,12 @@ Schema ``newsletter``. Three shapes decide everything here:
   skipped when their own row comes up (CR-05 §4).
 """
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Optional
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Column,
     DateTime,
     ForeignKey,
@@ -26,9 +29,10 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -37,46 +41,302 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-SUBSCRIBER_PENDING = "pending"
-SUBSCRIBER_CONFIRMED = "confirmed"
-SUBSCRIBER_UNSUBSCRIBED = "unsubscribed"
-SUBSCRIBER_STATUSES = (SUBSCRIBER_PENDING, SUBSCRIBER_CONFIRMED, SUBSCRIBER_UNSUBSCRIBED)
 
-SOURCE_PUBLIC_FORM = "public_form"
-SOURCE_IMPORT = "import"
-SOURCE_ADMIN = "admin"
-SUBSCRIBER_SOURCES = (SOURCE_PUBLIC_FORM, SOURCE_IMPORT, SOURCE_ADMIN)
 
-AUDIENCE_MEMBERS = "members"
-AUDIENCE_NON_MEMBERS = "non_members"
-AUDIENCE_BOTH = "both"
-AUDIENCES = (AUDIENCE_MEMBERS, AUDIENCE_NON_MEMBERS, AUDIENCE_BOTH)
-
-LETTER_DRAFT = "draft"
-LETTER_SENDING = "sending"
-LETTER_SENT = "sent"
-LETTER_STATUSES = (LETTER_DRAFT, LETTER_SENDING, LETTER_SENT)
-
-REPLY_TO_ASSOCIATION = "association"
-REPLY_TO_SENDER = "sender"
-REPLY_TO_MODES = (REPLY_TO_ASSOCIATION, REPLY_TO_SENDER)
-
-DELIVERY_MEMBER = "member"
-DELIVERY_SUBSCRIBER = "subscriber"
-DELIVERY_KINDS = (DELIVERY_MEMBER, DELIVERY_SUBSCRIBER)
-
-DELIVERY_QUEUED = "queued"
-DELIVERY_SENT = "sent"
-DELIVERY_FAILED = "failed"
-DELIVERY_SKIPPED = "skipped"
-DELIVERY_STATUSES = (DELIVERY_QUEUED, DELIVERY_SENT, DELIVERY_FAILED, DELIVERY_SKIPPED)
-
-# What an erased address becomes in the archive.
+# What an erased address becomes in the archive. Geen code en geen lijst:
+# het is de tekst die in de plaats komt van een gewist adres (§B4.10 —
+# "getallen en teksten die geen code zijn").
 ERASED_ADDRESS = "verwijderd adres"
 
-MESSAGE_AUTHOR = "author"
-MESSAGE_RAAKJE = "raakje"
-MESSAGE_ROLES = (MESSAGE_AUTHOR, MESSAGE_RAAKJE)
+
+# ── De vocabularia van dit domein (CR-12 fase 3) ─────────────────────────────
+#
+# Acht lijsten die tot nu toe moduleconstanten waren: een tupel met de geldige
+# waarden en, twintig regels verderop in een ander bestand, een woordenboek met
+# de Nederlandse woorden. Nu één vorm — codetabel, labeltabel, enum — en dus
+# één plek waar een nieuwe waarde bijkomt.
+
+
+class SubscriberStatus(Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    UNSUBSCRIBED = "unsubscribed"
+
+
+class SubscriberSource(Enum):
+    """Waar een inschrijving vandaan komt — bewijs van toestemming."""
+
+    PUBLIC_FORM = "public_form"
+    IMPORT = "import"
+    ADMIN = "admin"
+
+
+class Audience(Enum):
+    MEMBERS = "members"
+    NON_MEMBERS = "non_members"
+    BOTH = "both"
+
+
+class LetterStatus(Enum):
+    DRAFT = "draft"
+    SENDING = "sending"
+    SENT = "sent"
+
+
+class ReplyToMode(Enum):
+    ASSOCIATION = "association"
+    SENDER = "sender"
+
+
+class DeliveryKind(Enum):
+    MEMBER = "member"
+    SUBSCRIBER = "subscriber"
+
+
+class DeliveryStatus(Enum):
+    QUEUED = "queued"
+    SENT = "sent"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
+class MessageRole(Enum):
+    """Wie het bericht schreef in het opstelgesprek: de auteur of Raakje."""
+
+    AUTHOR = "author"
+    RAAKJE = "raakje"
+
+
+class SubscriberStatusCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "subscriber_status_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class SubscriberStatusLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "subscriber_status_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.subscriber_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class SubscriberSourceCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "subscriber_source_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class SubscriberSourceLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "subscriber_source_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.subscriber_source_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class AudienceCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "audience_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class AudienceLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "audience_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.audience_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class LetterStatusCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "letter_status_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LetterStatusLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "letter_status_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.letter_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class ReplyToModeCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "reply_to_mode_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class ReplyToModeLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "reply_to_mode_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.reply_to_mode_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class DeliveryKindCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "delivery_kind_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class DeliveryKindLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "delivery_kind_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.delivery_kind_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class DeliveryStatusCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "delivery_status_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class DeliveryStatusLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "delivery_status_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.delivery_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class MessageRoleCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "message_role_codes"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class MessageRoleLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "message_role_labels"
+    __table_args__ = {"schema": "newsletter"}
+
+    code = Column(String(20), ForeignKey("newsletter.message_role_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class Subscriber(TenantMixin, Base):
@@ -96,8 +356,13 @@ class Subscriber(TenantMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=True)
-    status = Column(String(20), nullable=False, default=SUBSCRIBER_PENDING)
-    source = Column(String(20), nullable=False)
+    status: Mapped[SubscriberStatus] = mapped_column(
+        EnumColumn(SubscriberStatus, length=20),
+        ForeignKey("newsletter.subscriber_status_codes.code"), nullable=False,
+        default=SubscriberStatus.PENDING)
+    source: Mapped[SubscriberSource] = mapped_column(
+        EnumColumn(SubscriberSource, length=20),
+        ForeignKey("newsletter.subscriber_source_codes.code"), nullable=False)
     consented_at = Column(DateTime(timezone=True), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     unsubscribed_at = Column(DateTime(timezone=True), nullable=True)
@@ -130,8 +395,13 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     preview_text = Column(String(200), nullable=False, default="")
     body_html = Column(Text, nullable=False, default="")
     # Empty in a draft on purpose: there is no default audience (CR-05 §3.2).
-    audience = Column(String(20), nullable=True)
-    status = Column(String(10), nullable=False, default=LETTER_DRAFT)
+    audience: Mapped[Optional[Audience]] = mapped_column(
+        EnumColumn(Audience, length=20),
+        ForeignKey("newsletter.audience_codes.code"), nullable=True)
+    status: Mapped[LetterStatus] = mapped_column(
+        EnumColumn(LetterStatus, length=20),
+        ForeignKey("newsletter.letter_status_codes.code"), nullable=False,
+        default=LetterStatus.DRAFT)
     copied_from_id = Column(Integer, ForeignKey("newsletter.newsletters.id",
                                                 ondelete="SET NULL"),
                             nullable=True)
@@ -143,7 +413,9 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     draft_activity_ids = Column(JSON, nullable=False, default=list)
     draft_meeting_ids = Column(JSON, nullable=False, default=list)
     # Frozen at send time: who sent, where replies go.
-    reply_to_mode = Column(String(20), nullable=True)
+    reply_to_mode: Mapped[Optional[ReplyToMode]] = mapped_column(
+        EnumColumn(ReplyToMode, length=20),
+        ForeignKey("newsletter.reply_to_mode_codes.code"), nullable=True)
     reply_to_address = Column(String(255), nullable=True)
     # The public origin the links in this letter point to, frozen when sending
     # starts. The send runs in a background job, where no request tells which
@@ -181,11 +453,16 @@ class Delivery(TenantMixin, Base):
                            nullable=False, index=True)
     email = Column(String(255), nullable=False)
     # Decides whether an unsubscribe link goes along (CR-05 §3.4).
-    kind = Column(String(20), nullable=False)
+    kind: Mapped[DeliveryKind] = mapped_column(
+        EnumColumn(DeliveryKind, length=20),
+        ForeignKey("newsletter.delivery_kind_codes.code"), nullable=False)
     subscriber_id = Column(Integer, ForeignKey("newsletter.subscribers.id",
                                                ondelete="SET NULL"),
                            nullable=True)
-    status = Column(String(10), nullable=False, default=DELIVERY_QUEUED, index=True)
+    status: Mapped[DeliveryStatus] = mapped_column(
+        EnumColumn(DeliveryStatus, length=20),
+        ForeignKey("newsletter.delivery_status_codes.code"), nullable=False,
+        default=DeliveryStatus.QUEUED, index=True)
     sent_at = Column(DateTime(timezone=True), nullable=True, index=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -208,7 +485,9 @@ class DraftingMessage(TenantMixin, Base):
     newsletter_id = Column(Integer, ForeignKey("newsletter.newsletters.id",
                                                ondelete="CASCADE"),
                            nullable=False, index=True)
-    role = Column(String(10), nullable=False)
+    role: Mapped[MessageRole] = mapped_column(
+        EnumColumn(MessageRole, length=20),
+        ForeignKey("newsletter.message_role_codes.code"), nullable=False)
     text = Column(Text, nullable=False, default="")
     # Raakje's proposal: the operations, the marks, and whether it was applied.
     proposal = Column(JSON, nullable=True)

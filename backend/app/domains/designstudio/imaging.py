@@ -76,8 +76,9 @@ STYLES = {
     "kleur": (" — flat vector illustration with bold black outlines and a limited palette of flat colours, "
               "no gradients, no shading, " + _BASE),
 }
-STYLE_LABELS = {"lijn": "Lijntekening (zwart-wit)", "lijnkleur": "Lijntekening met kleuraccenten",
-                "kleur": "Kleurtekening (vlakke kleuren)"}
+# The Dutch word for a style now comes from the `drawing_style` label table
+# (CR-12 fase 3); what stays here is the prompt fragment, which is a payload
+# and not a translation.
 STYLE_SUFFIX = STYLES["lijn"]
 
 # A scene typed in Dutch is translated before it goes to BFL (the model reads

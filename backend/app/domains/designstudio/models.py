@@ -14,6 +14,7 @@ Schema ``designstudio``. Three shapes decide the tables:
   ``ai_call_log_id`` are soft references (§8, ``test_schema_boundaries``).
 """
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -27,9 +28,10 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -37,39 +39,276 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-STATUS_DRAFT = "draft"
-STATUS_FINAL = "final"
+# ── De vocabularia van dit domein (CR-12 fase 3) ─────────────────────────────
+#
+# Zeven lijsten die moduleconstanten waren. De merkassets zijn er GEEN
+# (§B4.10): de iconen, de kleurduo's, de papierformaten en de templatesleutels
+# hebben een payload — een SVG-pad, twee huisstijlkleuren, een bestandsnaamdeel
+# — en veranderen met de huisstijlgids, niet met een vertaler. Die blijven waar
+# ze staan.
 
-LAYOUT_PRINT = "print_a"
-LAYOUT_FEED = "feed_portrait"
-LAYOUTS = (LAYOUT_PRINT, LAYOUT_FEED)
 
-VARIANT_PDF = "pdf"
-VARIANT_PNG = "png"
-VARIANT_JPEG = "jpeg"
-VARIANT_SVG = "svg"
-VARIANT_SVG_EDITED = "svg_edited"
+class DesignStatus(Enum):
+    DRAFT = "draft"
+    FINAL = "final"
 
-#: State machine of one generated variant (CR-10 §3.12).
-GEN_REQUESTED = "requested"
-GEN_FETCHED = "fetched"
-GEN_PICKED = "picked"
-GEN_DISCARDED = "discarded"
-GEN_REFUSED = "refused"
-GEN_FAILED = "failed"
-GENERATION_STATES = (GEN_REQUESTED, GEN_FETCHED, GEN_PICKED, GEN_DISCARDED, GEN_REFUSED, GEN_FAILED)
 
-#: Presets are block choices within the one template "Affiche" (CR-10 §3.4).
-#: Two, since Koen's HDEV round of 19 September 2026: the four of the CR
-#: (Beeld, Tekstflyer, Illustratie, Reeks) were three times the same flow —
-#: a picture is a picture, and a series is a dates grid that appears by
-#: itself when there is more than one date.
-#: Round 3 adds ``eenvoudig``: one big picture over the full width with a few
-#: highlights under it — the Bowlen poster, half of what the unit makes.
-PRESETS = ("beeld", "tekst", "eenvoudig")
+class Layout(Enum):
+    """Welke drager een rendering heeft."""
 
-#: Where the polaroid lies on the main picture (Koen, 20 September 2026).
-INSET_CORNERS = ("top_left", "top_right", "bottom_left", "bottom_right")
+    PRINT_A = "print_a"
+    FEED_PORTRAIT = "feed_portrait"
+
+
+class RenderVariant(Enum):
+    PDF = "pdf"
+    PNG = "png"
+    JPEG = "jpeg"
+    SVG = "svg"
+    SVG_EDITED = "svg_edited"
+
+
+class GenerationStatus(Enum):
+    """Toestandsmachine van één gegenereerde variant (CR-10 §3.12)."""
+
+    REQUESTED = "requested"
+    FETCHED = "fetched"
+    PICKED = "picked"
+    DISCARDED = "discarded"
+    REFUSED = "refused"
+    FAILED = "failed"
+
+
+class Preset(Enum):
+    """Blokkeuzes binnen het ene sjabloon "Affiche" (CR-10 §3.4).
+
+    Waarden blijven Nederlands — het is opgeslagen data (§B4.3) — en de namen
+    zijn Engels.
+    """
+
+    PICTURE = "beeld"
+    TEXT = "tekst"
+    SIMPLE = "eenvoudig"
+
+
+class InsetCorner(Enum):
+    """Waar de polaroid op het hoofdbeeld ligt (Koen, 20 september 2026)."""
+
+    TOP_LEFT = "top_left"
+    TOP_RIGHT = "top_right"
+    BOTTOM_LEFT = "bottom_left"
+    BOTTOM_RIGHT = "bottom_right"
+
+
+class DrawingStyle(Enum):
+    """Hoe een gegenereerde tekening eruitziet."""
+
+    LINE = "lijn"
+    LINE_COLOUR = "lijnkleur"
+    COLOUR = "kleur"
+
+
+class DesignStatusCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "design_status_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class DesignStatusLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "design_status_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.design_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class LayoutCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "layout_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LayoutLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "layout_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.layout_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class RenderVariantCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "render_variant_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class RenderVariantLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "render_variant_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.render_variant_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class GenerationStatusCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "generation_status_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class GenerationStatusLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "generation_status_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.generation_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class PresetCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "preset_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class PresetLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "preset_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.preset_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class InsetCornerCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "inset_corner_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class InsetCornerLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "inset_corner_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.inset_corner_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class DrawingStyleCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "drawing_style_codes"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class DrawingStyleLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "drawing_style_labels"
+    __table_args__ = {"schema": "designstudio"}
+
+    code = Column(String(20), ForeignKey("designstudio.drawing_style_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(200), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class Design(TenantMixin, Base):
@@ -80,9 +319,15 @@ class Design(TenantMixin, Base):
     activity_id = Column(Integer, nullable=False, index=True)  # soft ref → activities.activities
     template_key = Column(String(40), nullable=False, default="affiche")
     template_version = Column(Integer, nullable=False, default=1)
-    preset = Column(String(20), nullable=False, default="beeld")
+    preset: Mapped[Preset] = mapped_column(
+        EnumColumn(Preset, length=20),
+        ForeignKey("designstudio.preset_codes.code"), nullable=False,
+        default=Preset.PICTURE)
     duo_code = Column(String(60), nullable=False)
-    status = Column(String(10), nullable=False, default=STATUS_DRAFT)
+    status: Mapped[DesignStatus] = mapped_column(
+        EnumColumn(DesignStatus, length=20),
+        ForeignKey("designstudio.design_status_codes.code"), nullable=False,
+        default=DesignStatus.DRAFT)
 
     # Design text — never a copy of a fact. Round 3 (Koen, 19 September 2026)
     # cut it to three: the subtitle bar, the handwritten line and
@@ -99,7 +344,10 @@ class Design(TenantMixin, Base):
     inset_image_id = Column(Integer, nullable=True)
     # Which corner of the main picture the polaroid lies on (Koen, 20 Sep 2026):
     # top_left | top_right | bottom_left | bottom_right.
-    inset_corner = Column(String(12), nullable=False, default="bottom_right")
+    inset_corner: Mapped[InsetCorner] = mapped_column(
+        EnumColumn(InsetCorner, length=20),
+        ForeignKey("designstudio.inset_corner_codes.code"), nullable=False,
+        default=InsetCorner.BOTTOM_RIGHT)
     third_image_id = Column(Integer, nullable=True)
 
     published_version_id = Column(Integer, nullable=True)  # → designstudio.design_versions (set after insert)
@@ -193,8 +441,12 @@ class DesignRendition(TenantMixin, Base):
     id = Column(Integer, primary_key=True)
     design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
     version_id = Column(Integer, ForeignKey("designstudio.design_versions.id", ondelete="CASCADE"), nullable=True, index=True)
-    layout_code = Column(String(20), nullable=False)
-    variant = Column(String(12), nullable=False)
+    layout_code: Mapped[Layout] = mapped_column(
+        EnumColumn(Layout, length=20),
+        ForeignKey("designstudio.layout_codes.code"), nullable=False)
+    variant: Mapped[RenderVariant] = mapped_column(
+        EnumColumn(RenderVariant, length=20),
+        ForeignKey("designstudio.render_variant_codes.code"), nullable=False)
     size_code = Column(String(20), nullable=False, default="")
     media_asset_id = Column(Integer, nullable=False)  # soft ref → media.media_assets (kind design_render)
     # For a hand-edited SVG: the fingerprint of the facts when it was uploaded,
@@ -226,10 +478,16 @@ class ImageGeneration(TenantMixin, Base):
     ai_call_log_id = Column(Integer, nullable=True)  # soft ref → ai.ai_call_log
     seed = Column(Integer, nullable=True)
     scene = Column(Text, nullable=False, default="")        # what was asked, for "wat wil je anders?"
-    style = Column(String(10), nullable=False, default="lijn")  # lijn | kleur
+    style: Mapped[DrawingStyle] = mapped_column(
+        EnumColumn(DrawingStyle, length=20),
+        ForeignKey("designstudio.drawing_style_codes.code"), nullable=False,
+        default=DrawingStyle.LINE)
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
-    status = Column(String(12), nullable=False, default=GEN_REQUESTED)
+    status: Mapped[GenerationStatus] = mapped_column(
+        EnumColumn(GenerationStatus, length=20),
+        ForeignKey("designstudio.generation_status_codes.code"), nullable=False,
+        default=GenerationStatus.REQUESTED)
     failure_reason = Column(Text, nullable=False, default="")
     media_asset_id = Column(Integer, nullable=True)  # the fetched variant (kind design_image)
     reserved_cents = Column(Integer, nullable=False, default=0)  # budget reservation until the cost is known

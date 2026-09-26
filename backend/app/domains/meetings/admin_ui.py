@@ -29,37 +29,34 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.domains.meetings.api import (
-    ATTENDANCE_EXCUSED,
-    ATTENDANCE_PRESENT,
-    FILE_SENT_PDF,
+    Attendance,
+    FilePurpose,
     MEETING_STATUS,
-    MeetingStatus,
     MeetingError,
+    MeetingStatus,
     add_extra_recipient,
     add_file,
     add_item,
     add_section,
     addable_activities,
-    clock,
     attendance_of,
+    clock,
     create_meeting,
     delete_file,
     delete_item,
     document_of,
     extra_recipients_of,
     file_is_sent,
-    mail_signature,
-    sent_with_label,
-    set_mail_signature,
-    files_of,
     filename_for,
+    files_of,
     get_file,
     get_meeting,
     list_meetings,
-    previous_meeting,
     long_date,
+    mail_signature,
     member_standing,
     participants_of,
+    previous_meeting,
     recipients_for,
     remove_extra_recipient,
     render,
@@ -67,8 +64,10 @@ from app.domains.meetings.api import (
     section_label,
     sections_of,
     send_meeting_mail,
+    sent_with_label,
     set_attendance,
     set_file_mailing,
+    set_mail_signature,
     set_noted_steward,
     update_item,
     update_meeting,
@@ -100,9 +99,24 @@ register_tones(MEETING_STATUS.name, {
 
 # Attendance cycles present → excused → not ticked. One click per state, in the
 # order a secretary uses them.
-NEXT_ATTENDANCE = {None: ATTENDANCE_PRESENT, "": ATTENDANCE_PRESENT,
-                   ATTENDANCE_PRESENT: ATTENDANCE_EXCUSED,
-                   ATTENDANCE_EXCUSED: ""}
+NEXT_ATTENDANCE = {None: Attendance.PRESENT,
+                   Attendance.PRESENT: Attendance.EXCUSED,
+                   Attendance.EXCUSED: None}
+
+
+def _volgende_aanwezigheid(huidig: str):
+    """De volgende stand in de cyclus, vanaf wat het formulier meestuurt.
+
+    Het formulier stuurt een CODE als string (of niets). Omzetten op de grens,
+    anders zoekt de cyclus met een string in een woordenboek dat op leden
+    sleutelt — dat mist altijd, en dan zet elke klik de aanwezigheid terug op
+    "aanwezig" in plaats van door te tellen.
+    """
+    try:
+        nu = Attendance(huidig) if huidig else None
+    except ValueError:
+        nu = None
+    return NEXT_ATTENDANCE.get(nu, Attendance.PRESENT)
 
 
 def _csrf(request: Request) -> str:
@@ -359,7 +373,7 @@ def _document_view(request: Request, db: Session, meeting,
         picker_query=picker_query,
         attachments=[(f, file_is_sent(meeting, f), sent_with_label(f))
                      for f in files_of(db, meeting)],
-        sent_pdfs=files_of(db, meeting, purpose=FILE_SENT_PDF),
+        sent_pdfs=files_of(db, meeting, purpose=FilePurpose.SENT_PDF),
         editable=meeting.status != MeetingStatus.SENT,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
@@ -477,7 +491,7 @@ def attendance_toggle(meeting_id: int, request: Request, db: Session = Depends(g
                       person_id: str = Form(""), guest_id: str = Form(""),
                       current: str = Form("")):
     meeting = _meeting_or_404(db, meeting_id)
-    nxt = NEXT_ATTENDANCE.get(current or None, ATTENDANCE_PRESENT)
+    nxt = _volgende_aanwezigheid(current)
     try:
         set_attendance(db, meeting,
                        person_id=int(person_id) if person_id else None,
@@ -666,9 +680,9 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
     # tot de vaste kring hoorde.
     for deelnemer in participants_of(db, meeting):
         naam = f"{deelnemer.name} ({_('gast')})" if deelnemer.is_guest else deelnemer.name
-        if ticked.get(deelnemer.key) == ATTENDANCE_PRESENT:
+        if ticked.get(deelnemer.key) == Attendance.PRESENT:
             present.append(naam)
-        elif ticked.get(deelnemer.key) == ATTENDANCE_EXCUSED:
+        elif ticked.get(deelnemer.key) == Attendance.EXCUSED:
             excused.append(naam)
     return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),

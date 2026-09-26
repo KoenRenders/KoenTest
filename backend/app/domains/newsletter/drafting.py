@@ -48,10 +48,9 @@ from sqlalchemy.orm import Session
 from app.i18n import _
 
 from app.domains.newsletter.models import (
-    LETTER_SENT,
-    MESSAGE_AUTHOR,
-    MESSAGE_RAAKJE,
     DraftingMessage,
+    LetterStatus,
+    MessageRole,
     Newsletter,
 )
 from app.domains.newsletter import service as nb
@@ -266,7 +265,7 @@ def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
     if not letter.audience:
         return []
     earlier = (db.query(Newsletter)
-               .filter(Newsletter.status == LETTER_SENT,
+               .filter(Newsletter.status == LetterStatus.SENT,
                        Newsletter.audience == letter.audience,
                        Newsletter.id != letter.id)
                .order_by(Newsletter.send_finished_at.desc())
@@ -613,7 +612,7 @@ def _provider(db: Session, actor: str):
 def _history(letter: Newsletter, names: set[str]) -> list[dict[str, str]]:
     turns = []
     for message in list(letter.messages)[-HISTORY_TURNS:]:
-        role = "user" if message.role == MESSAGE_AUTHOR else "assistant"
+        role = "user" if message.role == MessageRole.AUTHOR else "assistant"
         turns.append({"role": role, "content": scrub(message.text, names)})
     return turns
 
@@ -653,7 +652,7 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
     from app.config import settings
     from app.domains.chatbot.api import read_tool_specs, run_chat
 
-    if letter.status != "draft":
+    if letter.status is not LetterStatus.DRAFT:
         raise DraftingError(_("Deze nieuwsbrief is al verstuurd."))
     instruction = (instruction or "").strip()
     names = _names(db)
@@ -895,9 +894,9 @@ def dismiss(db: Session, message: DraftingMessage) -> None:
 def record(db: Session, letter: Newsletter, *, author_text: str,
            turn: Optional[Turn] = None, error: str = "") -> DraftingMessage:
     """Store both sides of the turn with the draft."""
-    db.add(DraftingMessage(newsletter_id=letter.id, role=MESSAGE_AUTHOR,
+    db.add(DraftingMessage(newsletter_id=letter.id, role=MessageRole.AUTHOR,
                            text=author_text or _("Schrijf een voorstel.")))
-    answer = DraftingMessage(newsletter_id=letter.id, role=MESSAGE_RAAKJE,
+    answer = DraftingMessage(newsletter_id=letter.id, role=MessageRole.RAAKJE,
                              text=(turn.reply if turn else error) or "",
                              proposal=turn.proposal if turn else None)
     db.add(answer)

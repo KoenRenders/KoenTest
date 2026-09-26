@@ -273,6 +273,7 @@ COLLECTORS = {
 #: work and does not carry a number that can never reach zero.
 PERMANENT = {
     "FK_MISSING": "FK_NOT_OUR_LIST",
+    "LABEL_DICTIONARIES": "LABELS_NOT_A_VOCABULARY",
     "LOOSE_STRINGS": "LOOSE_STRINGS_NOT_A_CODE",
 }
 
@@ -564,8 +565,12 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         ("template comparisons on a code (ratchet)",
          len(baseline.TEMPLATE_COMPARISONS)),
         ("loose string comparisons in .py (ratchet)", len(baseline.LOOSE_STRINGS)),
+        # Derived from PERMANENT and not from a list of names: this row was
+        # written with two dictionaries in it, phase 3 added a third, and the
+        # number silently stayed behind. A table that is measured must be
+        # measured from the same place the gate reads.
         ("permanent exceptions — not our vocabulary (counted, not capped)",
-         len(baseline.FK_NOT_OUR_LIST) + len(baseline.LOOSE_STRINGS_NOT_A_CODE)),
+         sum(len(_permanent(name)) for name in PERMANENT)),
     ]
     if db_session is not None:
         for language in ("nl", "en"):
