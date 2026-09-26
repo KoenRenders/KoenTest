@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import text
 
 from app.domains.activities.api import (Activity, ActivityDate,
                                         ActivitySubRegistration)
@@ -142,21 +143,28 @@ def test_the_label_and_the_registration_rule_never_disagree(
 
     Walked over every state, so a new reason to close that is added to
     `registration_state` without a label fails here instead of rendering a
-    blank badge — `STATUS_LABELS[...]` would raise, and this test is where that
-    shows.
+    blank badge. Since CR-12 phase 4 the label comes from the derived list
+    `registration_state`; the last assertion checks that every member has its
+    row there.
 
     Broken to see it red: `compute_activity_status` given back its own
     past/cancelled/open calculation — the "afgesloten" case then reads "Open".
     """
     from app.domains.activities.router import compute_activity_status
-    from app.domains.activities.service import (STATUS_LABELS, RegistrationState,
-                                                registration_state)
+    from app.domains.activities.api import REGISTRATION_STATE
+    from app.domains.activities.service import RegistrationState, registration_state
+    from app.kernel.codes import code_label
 
     a = _activity(db_session, "Proef", last_day=last_day, closes_on=closes_on,
                   cancelled=cancelled)
     _pin(monkeypatch, instant)
 
     toestand = registration_state(a)
-    assert compute_activity_status(a, 0)["status"] == STATUS_LABELS[toestand]
-    # En elke toestand heeft een label — anders valt dit al bij het opzoeken om.
-    assert set(STATUS_LABELS) == set(RegistrationState)
+    assert compute_activity_status(a, 0)["status"] == code_label(
+        REGISTRATION_STATE.name, toestand, db=db_session)
+    # And every state has a label row — otherwise `code_label` falls back to
+    # the code and the badge reads "closed" instead of "Afgesloten".
+    labelled = {row[0] for row in db_session.execute(text(
+        "SELECT code FROM activities.registration_state_labels "
+        "WHERE language = 'nl'")).all()}
+    assert {m.value for m in RegistrationState} <= labelled

@@ -636,7 +636,8 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
 
     ``base_url`` makes the links absolute: they end up in a mail.
     """
-    from app.domains.activities.api import Activity, activities_from, registration_state
+    from app.domains.activities.api import (Activity, RegistrationState, activities_from,
+                                            registration_state)
 
     wanted = {int(i) for i in (activity_ids or [])}
     if not wanted:
@@ -664,7 +665,7 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
         # participant list for an internal registration or an external list.
         register_url = None
         if components and not is_past and not is_full \
-                and registration_state(activity).value == "open":
+                and registration_state(activity) is RegistrationState.OPEN:
             external = [c.external_register_url for c in components if c.external_register_url]
             register_url = external[0] if len(components) == 1 and external else page
         registrations_url = None

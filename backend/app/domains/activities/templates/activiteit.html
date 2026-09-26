@@ -11,7 +11,6 @@
 {% block content %}
 {# Golf 12 (#913): volwaardige publieke activiteitspagina op het deeladres
    /activiteiten/<slug|nr> — nam de redirect van golf 8 over, geen link breekt. #}
-{% set _status_tone = {"Afgesloten": "gray", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "orange"} %}
 <nav class="pt-4 text-base md:text-sm">
   <a class="text-blue-500 hover:underline" href="{{ path_for(terug) }}">&larr; {{ _("Alle activiteiten") if terug == "/activiteiten" else _("Archief") }}</a>
 </nav>
@@ -48,7 +47,7 @@
       <div class="min-w-0 flex-1">
         <h1 class="text-2xl md:text-3xl font-bold text-ink flex flex-wrap items-center gap-2">
           <span>{{ a.name }}</span>
-          {% if a.status and a.status != "Open" %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
+          {% if a.registration_state and not a.registration_open %}{{ ui.badge(a.registration_state | code_label("registration_state"), a.registration_state | tone("registration_state")) }}{% endif %}
           {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
         </h1>
         <div class="mt-1 text-base md:text-sm text-ink-soft flex items-start gap-1">
@@ -101,7 +100,7 @@
           {% if _multi %}<span class="text-base md:text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
           <div class="flex flex-wrap gap-2 items-center">
           {% if scope != "archived" %}
-          {% if a.registration_state == "closed" %}
+          {% if a.registration_closed %}
           {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
           {% elif c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
@@ -131,7 +130,7 @@
            dan staat ze al als klokregel bovenaan en zou ze hier een tweede keer
            staan. Zelfde voorwaarden als op de kaart. #}
         {% if not a.shared_deadline and c.registration_closes_on
-              and c.registration_state == "open" and not c.is_full %}<div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>{% endif %}
+              and c.registration_open and not c.is_full %}<div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>{% endif %}
         {% if not c.external_register_url and not c.external_registrations_url %}
         <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
         {% endif %}
