@@ -1,7 +1,10 @@
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text, event
-from sqlalchemy.orm import relationship, object_session
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from app.database import Base
+from app.domains.mdm.api import PaymentMethod
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -205,7 +208,11 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     contact_email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     team_name = Column(String(200), nullable=True)
-    payment_method = Column(String(20), nullable=True)
+    # CR-12 fase 1: dezelfde lijst als `payment.payment_records.method`,
+    # dus dezelfde vorm — `mdm.payment_method_codes` met een FK. Nullable:
+    # een gratis inschrijving heeft geen betaalwijze.
+    payment_method: Mapped[Optional[PaymentMethod]] = mapped_column(
+        EnumColumn(PaymentMethod, length=20), nullable=True)
     component_id = Column(Integer, ForeignKey("activities.activity_sub_registrations.id", ondelete="SET NULL"), nullable=True)
     remarks = Column(Text, nullable=True)
 
