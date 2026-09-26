@@ -13,7 +13,7 @@ in de verborgen invoer belandt. Twee beweringen, en de eerste is de belangrijkst
    precies de aanname waar de serverhelft op rust. Klopt ze niet meer, dan faalt
    hier de assert met de werkelijke HTML in de melding.
 2. Na opslaan staat op de gerenderde pagina een `<img>` met die alt — de weg langs
-   `image_alt_from_attachment()` en de sanitisatie, van klik tot publicatie.
+   `image_attributes_from_attachment()` en de sanitisatie, van klik tot publicatie.
 
 **Waarom niet via `insertHTML('<img alt=…>')`, wat het issue voorstelde:** Trix'
 parser maakt van elke `<img>` een bijlage en houdt daarbij alleen src, width en
