@@ -580,9 +580,9 @@ difference between an exemption list and a burn-down.
 | 27 Sep 2026 | Exceptions: one English class per domain at first touch, the Dutch `*Fout` name kept as alias (option b). | Koen |
 | 27 Sep 2026 | The module shape is a deliverable with a gate; hard for modules created after phase 0. | Koen |
 | 27 Sep 2026 | Gates are hard, reached via phases: each phase deletes its baseline entries; phase 4 deletes the file. No permanent exemption. | Koen ("hard, via fases") |
-| 27 Sep 2026 | Rich ORM entity, no repositories; an entity never opens a session (gate). | author, from the handover — Koen to confirm with Part A |
+| 27 Sep 2026 | Rich ORM entity, no repositories; an entity never opens a session (gate). | Koen (confirmed 27 Sep), from his handover |
 | 27 Sep 2026 | All phases in **one release** (like CR-12 in v2.7.0); phase 0 is the first work on the branch so the baseline precedes the rebuild in time. | Koen |
-| 27 Sep 2026 | Validator and constraint in one issue; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | author, from the handover — Koen to confirm with Part A |
+| 27 Sep 2026 | Validator and constraint in one issue; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | Koen (confirmed 27 Sep), from his handover |
 
 ## Q&A log
 
