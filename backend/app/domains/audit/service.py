@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.domains.payment.api import PaymentRecordHistory
+from app.kernel.codes import code_of
 from app.domains.membership.api import MembershipHistory
 from app.domains.activities.api import (
     RegistrationHistory,
@@ -141,15 +142,20 @@ def snapshot_registration_item(db: Session, item, *, operation: str, action: str
 
 def snapshot_payment_record(db: Session, record, *, operation: str, action: str,
                             source: str, actor: Optional[str] = None) -> None:
+    # CR-12 §F4: een history-tabel is append-only en draagt GEEN foreign key —
+    # ze moet een ingetrokken code overleven. Daarom blijven haar kolommen kale
+    # strings en schrijft de snapshot de code, niet het lid. `code_of` doet dat
+    # voor alle vier tegelijk, zodat er geen vijfde plek ontstaat waar iemand
+    # `.value` kan vergeten.
     db.add(PaymentRecordHistory(
         payment_record_id=record.id,
-        payable_type=record.payable_type,
+        payable_type=code_of(record.payable_type),
         payable_id=record.payable_id,
         amount=record.amount,
         amount_paid=record.amount_paid,
-        method=record.method,
-        status=record.status,
-        type=record.type,
+        method=code_of(record.method),
+        status=code_of(record.status),
+        type=code_of(record.type),
         refund_of_id=record.refund_of_id,
         gateway_payment_id=record.gateway_payment_id,
         note=record.note,
