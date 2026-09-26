@@ -1082,6 +1082,19 @@ gate by adding an offender, never by breaking something that exists, and
 check that the test *ran* (its own assertion in the output), not only that
 the suite was red.
 
+**A conversion that touches render paths gets a snapshot of the old output
+first** (learned in phase 4, #1181). The characterisation tests of the form
+screens — which Koen required before the rebuild — found two regressions
+inside the CR-12 stack that no gate and no review had seen: the phase-4
+print view rendered choices, the rating scale and info blocks as an empty
+line; the phase-2 organisation screens carried `org_type` as an enum member
+in plain dicts, so the badge was wrong, the type filter left nothing and a
+link was gone. Gate 12 catches a member *in* the output; it cannot catch a
+*missing or empty* rendering. So, for every phase that converts a stored
+string to an enum on a screen: render the screens on the old code, keep
+the output as a snapshot, and assert the new code renders the same —
+before the conversion, as a test that can go red, not as a review.
+
 ## B9. Rule and gatekeeper
 
 ### B9.1 The rule
@@ -1129,7 +1142,7 @@ baseline the ratchets froze.
 | label dictionaries in Python (ratchet) | 40 | 33 | 28 | 0 |
 | template comparisons on a code (ratchet) | 25 | 52 — the grep found half | 46 | 0 |
 | loose-string comparisons in `.py` (ratchet) | 92 (payment 37) | 125 | 91 | 0 |
-| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | 3 | reported |
+| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` + `TEMPLATE_COMPARISONS_NOT_A_CODE` (the third since phase 4) | — | 3 | 3 | reported |
 | label rows in `nl` / `en` | 34 / 17 (old tables) | 5 / 5 | 17 / 17 | `nl` and `en` for every active code |
 | values rendered under the enum guard (counted, not capped — a coverage measure, gate 12; from phase 4) | — | — | — (the 3 phase-3 cases were found by hand and fixed before the guard existed) | above zero on every run; the count says how much of the suite the guard saw |
 
@@ -1223,8 +1236,11 @@ FK and loose-string gates that are *not our vocabulary* — Mollie's
 before the ratchet, is counted separately in B9.2 (the same "reported, not
 capped" as the marked enums), and **stays after phase 5**. The test for
 which list a hit belongs to: *could this value ever be a row in a code table
-of ours?* An HTTP method cannot. Today: `FK_NOT_OUR_LIST` and
-`LOOSE_STRINGS_NOT_A_CODE` in `codes_baseline.py`. Without this distinction
+of ours?* An HTTP method cannot. Today three, in `codes_baseline.py`:
+`FK_NOT_OUR_LIST`, `LOOSE_STRINGS_NOT_A_CODE` and — since phase 4 —
+`TEMPLATE_COMPARISONS_NOT_A_CODE`, which holds the template comparisons on
+Raakje's drafting modes (technical, note 6); same shape, mandatory reason,
+counted separately, proven red in both directions. Without this distinction
 phase 5 is unreachable by definition — a ratchet that contains Mollie's
 words never gets to zero.
 
@@ -1322,6 +1338,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
 | Q32 | 27 Sep 2026 | Is the AI-lists data question still open? (Koen, via Claude) | No: answered by Koen on 27 September in dev1's session and recorded on #1181 ("Na de merge — Data"); migration 163 built. Note 6 updated. |
 | Q31 | 27 Sep 2026 | Master CLI: note 6 says `SYMBOLIC_LABELS`' words go through `_()`; measured on master they are Dutch literals (engine, export filter header). | Judgment unchanged (technical, exemption); the assumption is now stated as an assumption, with #1216 as the issue that makes it true. |
 | Q30 | 27 Sep 2026 | Master CLI, phase 4: four values live in code or data, not in a tuple (`bericht.behartigen`, `logged`, `ad-hoc`, the field-type words); which of the remaining offenders are lists and which exemptions; and after a migration no old image starts (#1203). | Catalogue rows corrected; note 6 judges the remainder; B3/B7 say recovery is a DB restore for every phase, with #1203 as the reason. |
