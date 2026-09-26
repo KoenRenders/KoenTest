@@ -955,19 +955,39 @@ prints them — the document mirrors the code, not the other way round. The
 grep column is the first picture of 25 September; the gate column is the
 baseline the ratchets froze.
 
-| Gate row | grep, 25 Sep 2026 | **gate, phases 0–1 (26 Sep 2026)** | after this CR |
-|---|---|---|---|
-| lists in the pattern (target 49) | 2 in the #924 shape | phase 0: 3 (language, the pilot, plus the two already shaped) → phase 1: +5 | 49 |
-| … of which with an `Enum` | 2 (`str, Enum`) | — | one per branching list, plain `Enum` |
-| enum-carrying columns as `Mapped[]` | 0 of 688 | 1 (pilot) → phase 1: +5 | every column in a `CodeList` |
-| columns without a FK (ratchet) | 43, rough count | **52** | 0 |
-| enums without a `CodeList` (ratchet) | 6 (reporting 5, `LegalForm`, `RegistrationState`) | — | 0 |
-| enums marked technical/external (counted, not capped) | 0 | 5 (reporting) | reported |
-| label dictionaries (ratchet) | 40 | **33** | 0 |
-| template comparisons (ratchet) | 25 | **52** — the grep found half | 0 |
-| loose-string comparisons (ratchet) | 92 (payment 37) | **127** | 0 |
-| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | reported |
-| label rows per language, `nl` / `en` | `nl` 34, `en` 17 | — | `nl` and `en` for every active code |
+| Gate row | grep, 25 Sep 2026 | **gate, phase 0** | **gate, phase 1** | after this CR |
+|---|---|---|---|---|
+| lists in the pattern (`CodeList`) — target 49 | 2 in the #924 shape | 2 | 7 | 49 |
+| … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, plain `Enum` |
+| enum-carrying columns as `Mapped[]` | 0 of 688 | 1 | 7 | every column in a `CodeList` |
+| vocabulary columns without a FK (ratchet) | 43, rough count | 51 | 45 | 0 |
+| enums without a `CodeList` (ratchet) | 6 | 3 | 3 | 0 |
+| enums marked technical/external (counted, not capped) | 0 | 5 | 6 | reported |
+| label dictionaries in Python (ratchet) | 40 | 33 | 28 | 0 |
+| template comparisons on a code (ratchet) | 25 | 52 — the grep found half | 46 | 0 |
+| loose-string comparisons in `.py` (ratchet) | 92 (payment 37) | 125 | 91 | 0 |
+| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | 3 | reported |
+| label rows in `nl` / `en` | 34 / 17 (old tables) | 5 / 5 | 17 / 17 | `nl` and `en` for every active code |
+
+Gate figures as printed in the closing comment of #1178 (phase 1). Two
+things to know when reading them:
+
+- **The gate column counts *after* subtracting the permanent exceptions**,
+  and the phase-0 column is recomputed on that definition. The CI evidence
+  of phase 0 on #1184 says 52 columns without FK and 127 loose strings;
+  the table says 51 and 125 for the same phase. Both are right: phase 1
+  introduced the exceptions (Mollie's gateway status; an HTTP method and a
+  MIME type), and a column can only be compared across phases when every
+  row carries the same definition. AC5 ("each count lower than or equal to
+  the previous release") is read on this recomputed series — a difference
+  between two sources that stems from a definition change is not a count
+  going up.
+- **Lists and columns are not interchangeable.** Payment delivers five
+  lists but six columns: `payment_method` is stored in two places
+  (`payment_records.method`, `registrations.payment_method`). With the
+  pilot that makes seven `Mapped[]` columns against seven lists by
+  coincidence, not by rule — which is why these figures are measured, never
+  derived.
 
 First picture only (not gate rows): of the 49 lists, on 25 September 4 were
 code tables with one language per code, 3 were orphan tables in `public`,
@@ -1076,6 +1096,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q18 | 26 Sep 2026 | Master CLI: the derived phase-0/1 figures were wrong on two rows; and the phase-0 column is recomputed after the exemptions (52→51, 127→125). | Taken: measured figures per phase in B9.2, one column per phase, with the definition note and the lists-versus-columns note. |
 | Q17 | 26 Sep 2026 | Does the gate print the exemptions as a row? (Claude) | Master CLI: one combined row, mirroring the marked-enums row; B9.2 now lists the gate's rows in the gate's order. The staleness rule for exemptions is not closed in phase 1 — #1179 or #1182. |
 | Q16 | 26 Sep 2026 | Master CLI, after phase 1 (PR #1188): `strict_equality` is silent on an unannotated `record` parameter even with `Mapped[]` on the column; the ratchet needs a second kind of list for hits that are not our vocabulary. | Taken: B4.8 names the two sources of `Any` and makes the annotations phase-5 work; B9.3 defines ratchet vs exemption, the "could this be a row in our code table?" test, and the staleness rule for exemptions; B7.1 phase 5 keeps the exemptions. |
 | Q15 | 26 Sep 2026 | Do the file names, the filter name and the `Mapped[]` column in PR #1186 match B4.9/B4.8? (Claude) | Master CLI: file names exact, filters `code_label` and `tone` via `install_jinja_codes(env)`, pilot column `Mapped[MeetingStatus] = mapped_column(EnumColumn(MeetingStatus, length=10))`. One signature correction taken: `EnumColumn(enum_cls, length)`. The identifiers inside the gate module and the baseline file were Dutch and are being renamed before the merge — the document names files, not those names. |
