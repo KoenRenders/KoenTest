@@ -29,6 +29,8 @@ from typing import Mapping
 
 from app.i18n import _
 from app.domains.mdm.tenant_service import OngeldigeInstelling
+from app.domains.mdm.models import ContactType
+from app.kernel.codes import code_of
 
 # #924: wat de organisatie IS, tegenover wat de site instelt. Twee assen, dus twee
 # functies — maar allebei in de servicelaag: het scherm raakt de sessie niet zelf
@@ -46,14 +48,21 @@ from app.domains.mdm.tenant_service import OngeldigeInstelling
 ORGANISATIEVELDEN: tuple[str, ...] = ("name", "legal_form")
 
 # (veldnaam in het formulier, code in `contact_type_codes`)
-CONTACTVELDEN: tuple[tuple[str, str], ...] = (
-    ("email", "EMAIL"),
-    ("phone", "PHONE"),
-    ("mobile", "MOBILE"),
-    ("website", "WEBSITE"),
-    ("facebook_url", "FACEBOOK"),
-    ("instagram_url", "INSTAGRAM"),
-    ("tiktok_url", "TIKTOK"),
+#
+# CR-12 fase 2: de rechterkolom draagt nu het enum-lid. Dit is precies het
+# tweetal dat §B5.3 note 3 "twee spellingen" noemt — en het is er geen: links
+# staat een VELDNAAM van een formulier (`mobile`), rechts een CODE (`MOBILE`).
+# Twee verschillende dingen die toevallig op elkaar lijken. Met het lid erin is
+# dat niet meer te verwarren, en vergelijkt de lezer hieronder een code met een
+# code in plaats van met een string.
+CONTACTVELDEN: tuple[tuple[str, ContactType], ...] = (
+    ("email", ContactType.EMAIL),
+    ("phone", ContactType.PHONE),
+    ("mobile", ContactType.MOBILE),
+    ("website", ContactType.WEBSITE),
+    ("facebook_url", ContactType.FACEBOOK),
+    ("instagram_url", ContactType.INSTAGRAM),
+    ("tiktok_url", ContactType.TIKTOK),
 )
 
 # (veldnaam in het formulier, schema in `identification_schemes`)
@@ -223,7 +232,9 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
 
     uit = dict(leeg)
     uit["name"] = rij.name or ""
-    uit["legal_form"] = rij.legal_form or ""
+    # De CODE naar het scherm, want de `<option value="...">` draagt de code
+    # en het sjabloon vergelijkt die met de geselecteerde waarde.
+    uit["legal_form"] = code_of(rij.legal_form) or ""
 
     contacten = {c.contact_type_code: c.value for c in
                  db.query(ContactDetail)
@@ -286,14 +297,15 @@ def legal_form_options(db, taal: str = "nl") -> list[tuple[str, str]]:
     Valt terug op de Nederlandse labels wanneer een taal ontbreekt, en daarna op de
     code zelf: een lege dropdown is erger dan een onvertaald label.
     """
-    from app.domains.mdm.models import LegalFormCode
+    # CR-12 fase 2: hier stond een handmatige terugval van taal naar `nl` naar
+    # de code. Precies die drie stappen zitten nu in `code_label()`, dus dit is
+    # één aanroep geworden — en dezelfde terugval als elk ander scherm heeft.
+    from app.kernel.codes import code_labels
 
-    rijen = db.query(LegalFormCode).order_by(LegalFormCode.code).all()
-    per_code: dict[str, dict[str, str]] = {}
-    for rij in rijen:
-        per_code.setdefault(rij.code, {})[rij.language] = rij.value
-    return [(code, labels.get(taal) or labels.get("nl") or code)
-            for code, labels in sorted(per_code.items())]
+    # De sessie mee: dit scherm kan een net toegevoegde rechtsvorm tonen die
+    # nog in de lopende transactie staat, en de cache van de kernel leest
+    # via een eigen sessie die daar per definitie niets van ziet.
+    return code_labels("legal_form", language=taal, db=db)
 
 
 # ── Het adres (#971) ─────────────────────────────────────────────────────────

@@ -46,6 +46,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.i18n import _
 from app.soft_delete import soft_delete
+from app.domains.mdm.api import ContactType, RelationType
 
 # De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
 # trekt via `audit/service.py` de payment- en membership-facades binnen, en die
@@ -54,7 +55,7 @@ from app.soft_delete import soft_delete
 # Binnen een functie gebeurt de import pas bij de aanroep, als alles geladen is.
 
 
-def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
+def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
     # #1174: het HOOFDadres en daarnaast de volledige lijst. "De eerste rij" gaf
     # bij twee adressen een willekeurig antwoord — de relatie belooft geen
     # volgorde — dus kon dezelfde kaart bij twee bezoeken een ander adres tonen.
@@ -62,12 +63,12 @@ def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberRespons
     # Hoofdadres eerst, daarna op id: een lijst die van volgorde wisselt maakt de
     # knop "maak hoofdadres" onbetrouwbaar om aan te klikken.
     adressen = sorted((c for c in person.contact_details
-                       if c.contact_type_code == "EMAIL" and c.value),
+                       if c.contact_type_code == ContactType.EMAIL and c.value),
                       key=lambda c: (not c.is_primary, c.id or 0))
     email = next((c.value for c in adressen if c.is_primary),
                  adressen[0].value if adressen else None)
-    phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
-    mobile = next((c.value for c in person.contact_details if c.contact_type_code == "MOBILE"), None)
+    phone = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.PHONE), None)
+    mobile = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.MOBILE), None)
     return FamilyMemberResponse(
         emails=[EmailAddressResponse(id=c.id, value=c.value,
                                      is_primary=bool(c.is_primary))
@@ -90,7 +91,7 @@ def family_label(family) -> str:
     weergavenaam. Werkt op FamilyResponse én op alles met .members."""
     leden = getattr(family, "members", None) or []
     hoofd = next((p for p in leden
-                  if getattr(p, "relation_type", None) == "HOOFDLID"),
+                  if getattr(p, "relation_type", None) == RelationType.PRIMARY_MEMBER),
                  leden[0] if leden else None)
     if hoofd is None:
         return f"Gezin #{family.id}"
@@ -98,7 +99,7 @@ def family_label(family) -> str:
 
 
 def _build_family_response(m: Member) -> FamilyResponse:
-    primary = next((mp.person for mp in m.member_persons if mp.relation_type == "HOOFDLID"), None)
+    primary = next((mp.person for mp in m.member_persons if mp.relation_type == RelationType.PRIMARY_MEMBER), None)
     address = primary.address if primary else None
     board_member = PersonListItem(
         id=m.board_member.id,
@@ -282,7 +283,7 @@ def create_family_with_members(db: Session, data, *, actor: str, source: str,
                                source=source, actor=actor)
 
         # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
-        if person_data.relation_type == "HOOFDLID":
+        if person_data.relation_type == RelationType.PRIMARY_MEMBER:
             address = Address(person_id=person.id, street=data.street,
                               house_number=data.house_number,
                               bus_number=data.bus_number or None,
@@ -423,7 +424,7 @@ def list_families(
             .join(Person, Person.id == MemberPerson.person_id)
             .outerjoin(ContactDetail, and_(
                 ContactDetail.person_id == Person.id,
-                ContactDetail.contact_type_code == "EMAIL",
+                ContactDetail.contact_type_code == ContactType.EMAIL,
             ))
             .outerjoin(Address, Address.person_id == Person.id)
             .filter(or_(

@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel
+from app.domains.mdm.api import RelationType
 
 
 class PersonCreate(BaseModel):
@@ -13,7 +14,10 @@ class PersonCreate(BaseModel):
     gender_code: Optional[str] = None
     gender: Optional[str] = None  # alias used by public registration form
     is_primary: bool = False
-    relation_type: str = "HOOFDLID"
+    # CR-12 fase 2: form → router (Pydantic). Een onbekend relatietype is
+    # nu een 422 met de veldnaam in plaats van een rij die pas op de
+    # foreign key struikelt.
+    relation_type: RelationType = RelationType.PRIMARY_MEMBER
 
 
 class PersonUpdate(BaseModel):
@@ -90,7 +94,7 @@ class FamilyMemberResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    relation_type: str
+    relation_type: RelationType
     # Álle adressen, hoofdadres eerst en daarna op id (#1174). Het beheerscherm
     # beheert deze lijst; de nieuwsbrief verstuurt ernaar.
     emails: list[EmailAddressResponse] = []
@@ -115,6 +119,19 @@ class FamilyResponse(BaseModel):
     memberships: List[MembershipResponse] = []
     board_member: Optional[PersonListItem] = None
 
+    @property
+    def primary(self) -> Optional[FamilyMemberResponse]:
+        """Het hoofdlid van dit gezin, of None.
+
+        CR-12 §B4.7: dit stond als
+        `selectattr("relation_type", "equalto", "HOOFDLID")` in de ledenlijst.
+        Met een gewone `Enum` op die kolom is zo'n vergelijking stil onwaar en
+        valt het scherm terug op "de eerste persoon" — zonder dat iets klaagt.
+        Wie het hoofdlid is, is een regel; die hoort hier en niet in Jinja.
+        """
+        return next((m for m in self.members
+                     if m.relation_type is RelationType.PRIMARY_MEMBER), None)
+
 
 class AddressUpdate(BaseModel):
     street: Optional[str] = None
@@ -137,7 +154,7 @@ class PersonAddToFamily(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    relation_type: str = "PARTNER"
+    relation_type: RelationType = RelationType.PARTNER
 
 
 class BoardMemberAssign(BaseModel):

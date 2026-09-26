@@ -49,7 +49,7 @@ def snapshot_person(db: Session, person, *, operation: str, action: str,
         last_name=person.last_name,
         first_name=person.first_name,
         date_of_birth=person.date_of_birth,
-        gender_code=person.gender_code,
+        gender_code=code_of(person.gender_code),
         operation=operation, action=action, source=source, actor=actor,
     ))
 
@@ -69,7 +69,7 @@ def snapshot_member_person(db: Session, mp, *, operation: str, action: str,
         member_person_id=mp.id,
         member_id=mp.member_id,
         person_id=mp.person_id,
-        relation_type=mp.relation_type,
+        relation_type=code_of(mp.relation_type),
         operation=operation, action=action, source=source, actor=actor,
     ))
 
@@ -105,7 +105,7 @@ def snapshot_contact_detail(db: Session, contact, *, operation: str, action: str
     db.add(ContactDetailHistory(
         contact_detail_id=contact.id,
         person_id=contact.person_id,
-        contact_type_code=contact.contact_type_code,
+        contact_type_code=code_of(contact.contact_type_code),
         value=contact.value,
         is_primary=contact.is_primary,
         operation=operation, action=action, source=source, actor=actor,

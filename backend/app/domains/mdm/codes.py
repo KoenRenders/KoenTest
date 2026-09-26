@@ -10,11 +10,29 @@ single-language code tables already here (`gender`, `contact_type`,
 `relation_type`, `legal_form`) are split into the codes/labels shape in phase 2.
 """
 from app.domains.mdm.models import (
+    ContactType,
+    ContactTypeCode,
+    ContactTypeLabel,
+    GenderCode,
+    GenderLabel,
+    IdentificationScheme,
+    IdentificationSchemeLabel,
     LanguageCode,
     LanguageLabel,
+    LegalForm,
+    LegalFormCode,
+    LegalFormLabel,
+    OrganizationRelationType,
+    OrganizationRelationTypeLabel,
+    OrganizationType,
+    OrganizationTypeCode,
+    OrganizationTypeLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
+    RelationType,
+    RelationTypeCode,
+    RelationTypeLabel,
 )
 from app.kernel.codes import CodeList, CodeSeed
 
@@ -61,4 +79,145 @@ PAYMENT_METHOD = CodeList(
     # list sits in `mdm` rather than in `payment`.
     fk_from=("payment.payment_records.method",
              "activities.registrations.payment_method"),
+)
+
+
+# ── Fase 2: de masterdata zelf ───────────────────────────────────────────────
+#
+# Vijf lijsten die al bestonden maar in de oude vorm — één rij per (code, taal),
+# met een uniciteit op de code alleen. Die vorm laat precies één taal toe (#929)
+# en is de reden dat migratie 017 elk Engels label wegvaagde. Twee lijsten
+# hadden de gesplitste vorm al (#924) en worden hier alleen aangemeld.
+
+GENDER_CODES = (
+    CodeSeed(code="M", nl="Man", en="Male", sort_order=10),
+    CodeSeed(code="F", nl="Vrouw", en="Female", sort_order=20),
+    CodeSeed(code="X", nl="X", en="X", sort_order=30),
+    # Ingetrokken (Koen, 26 september 2026): de lijst is M, F, X en niets meer.
+    # Het label blijft, zodat een bestaande persoon met deze code nog rendert.
+    CodeSeed(code="U", nl="Onbekend", en="Unknown", sort_order=90,
+             is_active=False),
+)
+
+GENDER = CodeList(
+    name="gender",
+    schema="mdm",
+    codes=GenderCode,
+    labels=GenderLabel,
+    # Geen enum: niets in Python vertakt op een geslachtscode. Het is een
+    # kenmerk dat opgeslagen en getoond wordt, niet een waarde waar een regel
+    # aan hangt (§B4.3).
+    enum=None,
+    fk_from=("mdm.persons.gender_code",),
+)
+
+CONTACT_TYPE_CODES = (
+    CodeSeed(code="EMAIL", nl="E-mail", en="E-mail", sort_order=10),
+    CodeSeed(code="MOBILE", nl="Mobiel", en="Mobile", sort_order=20),
+    CodeSeed(code="PHONE", nl="Telefoon", en="Phone", sort_order=30),
+    CodeSeed(code="WEBSITE", nl="Website", en="Website", sort_order=40),
+    CodeSeed(code="FACEBOOK", nl="Facebook", en="Facebook", sort_order=50),
+    CodeSeed(code="INSTAGRAM", nl="Instagram", en="Instagram", sort_order=60),
+    CodeSeed(code="TIKTOK", nl="TikTok", en="TikTok", sort_order=70),
+)
+
+#: Welke contactsoorten sociale netwerken zijn (#1160). Een eigenschap ván de
+#: code, dus op de codetabel — niet in een lijstje in de voetnoot.
+SOCIAL_NETWORKS = {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
+
+CONTACT_TYPE = CodeList(
+    name="contact_type",
+    schema="mdm",
+    codes=ContactTypeCode,
+    labels=ContactTypeLabel,
+    enum=ContactType,
+    # Zie `enum_is_partial` in de kernel: de enum dekt wat de code onderscheidt
+    # (`EMAIL`, `MOBILE`), de tabel mag meer dragen. #1160 maakte de voetnoot
+    # data-gedreven — een vijfde sociaal netwerk is één rij — en dat blijft zo.
+    enum_is_partial=True,
+    fk_from=("mdm.contact_details.contact_type_code",),
+    extra_code_columns=("is_social_network",),
+)
+
+RELATION_TYPE_CODES = (
+    CodeSeed(code="HOOFDLID", nl="Hoofdlid", en="Primary member", sort_order=10),
+    CodeSeed(code="PARTNER", nl="Partner", en="Partner", sort_order=20),
+    CodeSeed(code="KIND", nl="(meerderjarig) kind", en="Adult child",
+             sort_order=30),
+)
+
+RELATION_TYPE = CodeList(
+    name="relation_type",
+    schema="mdm",
+    codes=RelationTypeCode,
+    labels=RelationTypeLabel,
+    enum=RelationType,
+    fk_from=("mdm.member_persons.relation_type",),
+)
+
+LEGAL_FORM_CODES = (
+    CodeSeed(code="VZW", nl="vzw", en="Non-profit association", sort_order=10),
+    CodeSeed(code="FEITELIJKE_VERENIGING", nl="Feitelijke vereniging",
+             en="Unincorporated association", sort_order=20),
+    CodeSeed(code="BEDRIJF", nl="Bedrijf", en="Company", sort_order=30),
+)
+
+LEGAL_FORM = CodeList(
+    name="legal_form",
+    schema="mdm",
+    codes=LegalFormCode,
+    labels=LegalFormLabel,
+    enum=LegalForm,
+    fk_from=("mdm.organizations.legal_form",),
+)
+
+ORGANIZATION_TYPE_CODES = (
+    CodeSeed(code="ACCOUNT", nl="Rechtspersoon", en="Legal entity", sort_order=10),
+    CodeSeed(code="UNIT", nl="Afdeling", en="Unit", sort_order=20),
+    CodeSeed(code="PLATFORM", nl="Platform", en="Platform", sort_order=30),
+)
+
+ORGANIZATION_TYPE = CodeList(
+    name="organization_type",
+    schema="mdm",
+    codes=OrganizationTypeCode,
+    labels=OrganizationTypeLabel,
+    enum=OrganizationType,
+    fk_from=("mdm.organizations.org_type",),
+)
+
+#: Deze twee hadden de vorm al (#924); ze worden hier alleen aangemeld, zodat
+#: de poorten ze meenemen. De `en`-rijen van de identificatieschema's ontbraken
+#: en komen er in dezelfde migratie bij.
+ORGANIZATION_RELATION_TYPE_CODES = (
+    CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting",
+             sort_order=10),
+)
+
+ORGANIZATION_RELATION_TYPE = CodeList(
+    name="organization_relation_type",
+    schema="mdm",
+    codes=OrganizationRelationType,
+    labels=OrganizationRelationTypeLabel,
+    enum=None,
+    fk_from=("mdm.organization_persons.relation_type",),
+)
+
+IDENTIFICATION_SCHEME_CODES = (
+    CodeSeed(code="KBO", nl="Ondernemingsnummer", en="Enterprise number",
+             sort_order=10,
+             description_nl="Belgisch ondernemingsnummer (KBO)",
+             description_en="Belgian enterprise number (KBO)"),
+    CodeSeed(code="VAT", nl="Btw-nummer", en="VAT number", sort_order=20,
+             description_nl="Btw-identificatienummer",
+             description_en="VAT identification number"),
+)
+
+IDENTIFICATION_SCHEME = CodeList(
+    name="identification_scheme",
+    schema="mdm",
+    codes=IdentificationScheme,
+    labels=IdentificationSchemeLabel,
+    enum=None,
+    fk_from=("mdm.organization_identifications.scheme",),
 )

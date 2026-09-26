@@ -4,6 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, model_validator
+from app.domains.mdm.api import RelationType
 
 class FamilyMemberCreate(BaseModel):
     last_name: str
@@ -15,7 +16,11 @@ class FamilyMemberCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    relation_type: str = "HOOFDLID"
+    # CR-12 fase 2: form → router (Pydantic). Een onbekend relatietype is nu
+    # een 422 met de naam van het veld in plaats van een rij die pas op de
+    # foreign key struikelt. De JSON blijft identiek: de waarden zíjn de
+    # codes, en Pydantic serialiseert een enum als zijn waarde.
+    relation_type: RelationType = RelationType.PRIMARY_MEMBER
 
     @property
     def resolved_gender_code(self) -> Optional[str]:
@@ -34,7 +39,7 @@ class FamilyMemberResponse(BaseModel):
     # maar Pydantic negeerde ze zonder veld, waardoor het admin-bewerkformulier GSM
     # nooit voorgevuld toonde. Nu wél opgenomen (additief, ook voor de JSON-API).
     mobile: Optional[str] = None
-    relation_type: str
+    relation_type: RelationType
 
     model_config = {"from_attributes": True}
 
@@ -50,7 +55,7 @@ class FamilyCreate(BaseModel):
 
     @model_validator(mode="after")
     def _hoofdlid_contactgegevens_verplicht(self):
-        hoofdlid = next((m for m in self.members if m.relation_type == "HOOFDLID"), None)
+        hoofdlid = next((m for m in self.members if m.relation_type == RelationType.PRIMARY_MEMBER), None)
         if hoofdlid is None:
             raise ValueError("Minstens één gezinslid moet het type 'HOOFDLID' hebben.")
         if not hoofdlid.email:

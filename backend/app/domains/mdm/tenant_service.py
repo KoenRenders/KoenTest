@@ -21,6 +21,7 @@ import re
 from typing import Iterable, Mapping
 
 from app.i18n import _
+from app.domains.mdm.models import OrganizationType
 
 _CODE = re.compile(r"[a-z0-9-]+")
 
@@ -185,7 +186,7 @@ def list_units(db, *, alleen_actief: bool = False):
     """De tenants (UNIT-organisaties), op id."""
     from app.domains.mdm.models import Organization
 
-    query = db.query(Organization).filter(Organization.org_type == "UNIT")
+    query = db.query(Organization).filter(Organization.org_type == OrganizationType.UNIT)
     if alleen_actief:
         query = query.filter(Organization.is_active.is_(True))
     return query.order_by(Organization.id).all()
@@ -201,7 +202,7 @@ def platform_org(db):
     from app.domains.mdm.models import Organization
 
     return (db.query(Organization)
-            .filter(Organization.org_type == "PLATFORM")
+            .filter(Organization.org_type == OrganizationType.PLATFORM)
             .order_by(Organization.id).first())
 
 
@@ -223,7 +224,7 @@ def list_accounts(db):
     """De accounts waar een tenant onder kan hangen."""
     from app.domains.mdm.models import Organization
 
-    return (db.query(Organization).filter(Organization.org_type == "ACCOUNT")
+    return (db.query(Organization).filter(Organization.org_type == OrganizationType.ACCOUNT)
             .order_by(Organization.id).all())
 
 

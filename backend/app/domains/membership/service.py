@@ -248,14 +248,23 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     """
     from app.domains.mdm.api import MemberPerson
 
-    gevraagd = (relation_type or "").strip()
-    if not gevraagd or gevraagd.upper() == "HOOFDLID":
+    # CR-12 fase 2: hier stond `(x or "").strip().upper()` op beide kanten —
+    # een normalisatie die nodig was omdat de kolom elke spelling aanvaardde.
+    # De codelijst doet dat nu: een waarde die er niet in staat, komt er niet
+    # in, en `RelationType(...)` weigert hem hier al met de naam van de lijst.
+    from app.domains.mdm.api import RelationType
+
+    try:
+        gevraagd = RelationType((relation_type or "").strip())
+    except ValueError:
+        return False
+    if gevraagd is RelationType.PRIMARY_MEMBER:
         return False
 
     koppeling = (db.query(MemberPerson)
                  .filter(MemberPerson.member_id == family_id,
                          MemberPerson.person_id == person_id).first())
-    if koppeling is None or (koppeling.relation_type or "").upper() == "HOOFDLID":
+    if koppeling is None or koppeling.relation_type is RelationType.PRIMARY_MEMBER:
         return False
 
     koppeling.relation_type = gevraagd

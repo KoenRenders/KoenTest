@@ -54,6 +54,7 @@ from app.config import settings
 from app.limiter import registration_limiter
 from app.i18n import _
 from app.domains.mdm.api import PaymentMethod
+from app.domains.mdm.api import ContactType, RelationType
 
 
 router = APIRouter(tags=["members"])
@@ -340,11 +341,11 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
             db.query(Membership)
             .join(MemberPerson, and_(
                 MemberPerson.member_id == Membership.member_id,
-                MemberPerson.relation_type == "HOOFDLID",
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
             ))
             .join(ContactDetail, and_(
                 ContactDetail.person_id == MemberPerson.person_id,
-                ContactDetail.contact_type_code == "EMAIL",
+                ContactDetail.contact_type_code == ContactType.EMAIL,
                 func.lower(ContactDetail.value) == hoofdlid_email.lower(),
             ))
             .filter(Membership.year == today.year)
