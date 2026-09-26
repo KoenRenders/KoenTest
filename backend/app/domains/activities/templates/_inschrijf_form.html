@@ -72,8 +72,8 @@
       <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
       <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
       <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
-      <p class="text-xs text-ink-soft" x-show="pm === 'ONLINE'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
-      <p class="text-xs text-ink-soft" x-show="pm === 'OVERSCHRIJVING'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
       </div>
     </div>
     {% endif %}
