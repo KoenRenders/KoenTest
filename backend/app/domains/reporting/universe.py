@@ -71,8 +71,8 @@ class Format(str, TechnicalEnum):
 class AiExposure(str, TechnicalEnum):
     """Hoe ver een object naar een taalmodel mag reizen (CR-07 §5.1).
 
-    `TechnicalEnum` (CR-12 §B4.9): een classificatie van onze eigen code,
-    nooit opgeslagen en nooit getoond.
+    `TechnicalEnum` (CR-12 §B4.9): a classification of our own code, never
+    stored and never shown.
 
     **Zonder default, met opzet.** Een vlag die iemand kan vergeten is de verkeerde
     default op een uitgaand AI-kanaal: dan bepaalt een vergetelheid wat er naar Mistral
