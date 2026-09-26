@@ -668,6 +668,39 @@ Applied: the household writes move to `mdm` (phase 3, B2.5); the
 the ordinary pattern. Gate *no foreign writes* (B9.3), ratchet on today's
 21 sites, hard for new modules.
 
+Three things that make this closed rather than merely clear (Koen, 27
+September):
+
+- **Every write form counts, not only the polite one.** A domain can write
+  another's data six ways: constructing the class; assigning an attribute
+  of an instance it read; `db.add`/`db.delete`/`db.merge` with such an
+  instance; `soft_delete(instance)`; a bulk `query(Class).update()` /
+  `.delete()` with no object at all; appending to a relationship
+  (`member.persons.append(...)`); and raw SQL naming a table in another
+  schema. The gate sees all of them, or it is a gate on the polite path
+  only.
+- **The activation handler stays idempotent.** `membership`'s contract
+  says activation after payment is idempotent (#113) because Mollie's
+  webhook can arrive twice. When the activation becomes a handler on
+  `PaymentReceived`, that requirement moves with it: two deliveries of one
+  event give one activation and no double renewal — proven by a test that
+  publishes the same event twice.
+- **A missing command is added by the owner, never worked around.**
+  `mdm.api.create_person` does not exist today — which is why `membership`
+  constructs `Person` itself. The rule therefore reads: where the owner has
+  no command for what a caller needs, the owner adds it (phase 3 adds the
+  `mdm` commands the household portal needs; a new module such as the CRM
+  asks `mdm` for the ones it needs). A domain's commands are listed in its
+  `CONTRACT.md` (B4.5).
+
+One conscious softness, not a gap: **reading** through exported classes
+stays allowed — exports and joins need it (`payment/exports.py` reads
+`Registration` and `Person`). But a *judgment* about another domain's data
+("is this person a member?") comes from the owner's facade
+(`has_valid_membership`), never from a query written elsewhere; that is
+the *one owner per derived value* rule applied across domains, and it is
+said here so that "reads are free" is not read as permission.
+
 ### B4.2 The four addresses, and the pitfalls each carries
 
 | The rule looks at… | Address | SQLAlchemy pitfall | Covered by (B8) |
@@ -1041,7 +1074,7 @@ removed; deleted in phase 4).
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | JSON route with a caller | every route mounted under `/api/v1` appears, with its caller, in its domain's `CONTRACT.md` (a `Callers` section the gate parses) — ratchet on today's 113, hard for new routes | "`POST /api/v1/activities/{id}/register` has no caller in `activities/CONTRACT.md` — name one or remove the route" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
-| No foreign writes | a constructor call or attribute assignment on a mapped class of domain B anywhere outside `app/domains/B/` (AST over the classes each `api.py` exports; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
+| No foreign writes | any write to a mapped class of domain B outside `app/domains/B/`: constructor; attribute assignment on an instance; `db.add`/`delete`/`merge` with an instance; `soft_delete(instance)`; `query(B).update()`/`.delete()`; relationship append/remove; raw SQL naming a table in B's schema (AST over the classes each `api.py` exports plus the schema names; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
 | One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) a service function commits at most once and only as its last statement — no writes after a commit; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
@@ -1113,6 +1146,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q23 | 27 Sep 2026 | Is the no-foreign-writes rule clear and closed? (Koen) | Clear, not closed: the gate named two write forms of seven; the activation handler's idempotency was not carried over; a missing owner command had no rule. All three added to B4.1 and the gate, plus the read softness stated. |
 | Q22 | 27 Sep 2026 | Is there a convention that everything is also exposed via JSON — or is that pointless, even dangerous? (Koen) | No convention (five post-React domains have none; 113 legacy routes), and it would be dangerous: more doors for the 8 September fault, API-key-reachable surface, double maintenance. Rule R14; pruning in this CR. B2.5, A6. |
 | Q21 | 27 Sep 2026 | Can one domain write straight into another domain's tables without going through its code? (Koen) | Today yes — `api.py` exports ORM classes and the session is shared; measured 21 sites, almost all `membership` constructing `mdm`'s persons, households and contacts. Validators and constraints still fire (they travel with the class); `check()`, service rules, snapshots and events are bypassed. Rule and eleventh gate in B4.1/B9.3. |
 | Q20 | 27 Sep 2026 | Do services work across domains — a transaction, for instance? (Koen) | Yes: one session per request through every domain; the door service owns the transaction. Today two paths commit mid-way (two transactions instead of one); events make it one. B4.1, tenth gate. Outbox (step 2) only when a domain becomes its own process — out of scope. |
