@@ -757,9 +757,39 @@ into a release handoff.
 Read the head from the code, every time:
 
 ```bash
-ls backend/alembic/versions/ | sort | tail -1     # from a checkout
 alembic heads                                      # in a running backend container
 ```
+
+**Do not read the head from the file names.** `ls versions/ | sort | tail -1` used
+to stand here, and it stopped being true on 26 September 2026: two branches each
+added a migration on top of the same parent, so the tree now carries two files
+whose name starts with `151_`. Alembic does not care — it keys on the `revision`
+id inside the file, and the chain is sound — but the numeric prefix no longer
+sorts to the head. The trap is that the wrong command still *answers*, and it
+answers plausibly.
+
+From a checkout without a container, derive the head from `revision` and
+`down_revision` **inside** the files: the head is the revision that no other file
+names as its parent. `bin/alembic-heads.py` (outside this repo, next to the other
+local tooling) does exactly that and is what the master CLI runs before every
+push — it also counts the heads, which is the question that actually matters.
+
+**Before you touch a list of allowed values, look for the CHECK constraint.** A
+column can be a plain `String` in the model and still carry a database-level
+`CHECK` that only the migrations mention — so the model tells you nothing and the
+code reads as if any value is fine. Adding a value then fails at runtime, not at
+review time.
+
+This is not hypothetical and it is not rare: `media_assets.kind` caught two
+separate CLIs the same way. Migration 134 (#1005, Design Studio) opens with *"The
+issue expected no migration — `kind` is a string column. Measured while building:
+there is a CHECK on that column."* On 26 September 2026 #1173 walked into the same
+constraint for the same column, after an issue that said no migration was needed;
+the same week, CR-12 phase 0 found the pattern again on a status column.
+
+So: grep the migrations for the constraint before you write the issue, not after
+the `CheckViolation`. Widening it is a migration, and it comes from
+`alembic revision` like any other.
 
 Never modify a migration that has already been merged to master. Always create a new migration
 for schema changes. Make migrations idempotent (check if table/column exists before creating).
