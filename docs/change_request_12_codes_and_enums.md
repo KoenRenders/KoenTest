@@ -773,10 +773,20 @@ about (B4.8), the door through which `== "FACEBOOK"` walks back in, and a
 precedent for 49 lists. Instead: the code branches on a **property of the
 code** where it is one (`is_social_network`, already on the code table —
 #1160's own shape), and on two **named `Code` constants** exposed by the
-`CodeList` (`CONTACT_TYPE.EMAIL`, `CONTACT_TYPE.MOBILE`; `Code` is a
-`NewType` over `str`, so the AST gate accepts a comparison against a
-`CodeList` constant and still rejects a literal). Same rule for every
-open-ended list the code touches in one or two places. `partial=True` is
+`CodeList` (`CONTACT_TYPE.EMAIL`, `CONTACT_TYPE.MOBILE`). Two things to be precise
+about, measured by the master CLI in the gate as built: the AST gate
+(`collect_loose_strings`) fires only when the other side of a comparison is
+a string *literal* (`ast.Constant`, or the elements of a tuple/list/set); an
+attribute such as `CONTACT_TYPE.EMAIL` — like an enum member — is not a
+constant to it, so **no new mechanism is needed** for the gate to accept the
+constants. The `Code` `NewType` over `str` therefore buys *type safety*
+(mypy sees a `Code` compared with a `Code`), not gate compliance. And the
+gate cannot tell a `CodeList` constant from any other named constant
+(`SOMEWHERE.EMAIL` looks the same); a check that the constant comes from the
+registry would be new, and is not built — that shape has not occurred in the
+codebase, and a gate that guards what does not happen is maintenance without
+yield. Same rule for every open-ended list the code touches in one or two
+places. `partial=True` is
 removed from `EnumColumn`; B4.9's invariant — a read never yields a bare
 string — stands.
 
@@ -875,7 +885,12 @@ database restore** — so the DB backup before a UAT/PROD deploy of any CR-12
 phase is the one real net, and its dump is verified for validity *before*
 the deploy, not after. The alternative — expand/contract, new tables beside
 the old for one release, the old dropped the release after — makes every
-phase two releases; that is Koen's trade-off (B11, open).
+phase two releases: **with five phases, nine releases instead of one**, and
+phase 2 (migration 154, already built) would be reworked retroactively.
+Without that price the option reads as free caution, and it is not. Koen's
+trade-off (B11, open); phase 2 does not wait for it — nothing merges before
+his UAT approval anyway, phases 3 and 4 build on this chain, and waiting
+would not save the rework if he chooses expand/contract.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
@@ -1097,6 +1112,12 @@ phase 1 (PR #1188) shipped without it; it lands in #1179 (phase 2) if it
 falls naturally there, otherwise in #1182 (phase 5). Until then the two
 exemption dicts are unchecked for staleness.
 
+**What "0 loose strings" means after phase 5**, so nobody reads more into
+it: zero string *literals* in a comparison with a vocabulary attribute. A
+value bound first (`v = "EMAIL"`) and compared afterwards escapes the gate;
+so does any named constant. That is a known limit, not a reason to change
+the gate — the shape it catches is the one that occurred 127 times.
+
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
 concept or two (B4.4).
@@ -1124,7 +1145,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` retired, not deleted (`O` turned out not to exist — 004 renamed it to `X`). | Koen |
 | 26 Sep 2026 | Contact type gets no enum; `partial=True` on `EnumColumn` is rejected for the pattern (union type); branching goes through `is_social_network` and two named `Code` constants on the `CodeList` (B5.3 note 3). | author, on the master CLI's recommendation — **Koen to confirm** |
-| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; corrected to "shippable on its own; recovery is forward or a DB restore; verify the dump before the deploy". Expand/contract (two releases per phase) is the alternative. | author — **Koen to decide** |
+| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; corrected to "shippable on its own; recovery is forward or a DB restore; verify the dump before the deploy". Expand/contract is the alternative at the price of nine releases instead of one and a retroactive rework of phase 2; phase 2 does not wait for the answer. | author — **Koen to decide** |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
@@ -1140,6 +1161,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q20 | 26 Sep 2026 | Does the gate need a mechanism to accept `CodeList` constants; should #1189 wait for the expand/contract answer? (Claude) | Master CLI: no — the gate only sees literals, so constants pass today; the `NewType` buys type safety, not compliance; the gate cannot tell a registry constant from another one and that check is not built. No — #1189 does not wait; the price of expand/contract (nine releases) goes next to the option. |
 | Q19 | 26 Sep 2026 | Master CLI, after phase 2 (PR #1189): (a) contact types — dev1 built `partial=True`; recommendation: no enum, branch on a property and named constants; (b) B7's "revertible" is untrue for migration 154 (renames + drop, image rollback breaks); (c) gender `O` never existed, `role_codes` holds no relation types, `"mobile"` is a field name not a stored value. | (a) taken as the author's decision, Koen to confirm; (b) B7 corrected, expand/contract left to Koen; (c) notes 2, 3, 4 corrected. |
 | Q18 | 26 Sep 2026 | Master CLI: the derived phase-0/1 figures were wrong on two rows; and the phase-0 column is recomputed after the exemptions (52→51, 127→125). | Taken: measured figures per phase in B9.2, one column per phase, with the definition note and the lists-versus-columns note. |
 | Q17 | 26 Sep 2026 | Does the gate print the exemptions as a row? (Claude) | Master CLI: one combined row, mirroring the marked-enums row; B9.2 now lists the gate's rows in the gate's order. The staleness rule for exemptions is not closed in phase 1 — #1179 or #1182. |
