@@ -869,7 +869,8 @@ dropped; measured on a fresh database in phase 2, there is nothing to drop.
 |---|---|---|---|---|---|
 | task status | `workflow.task_status_codes` | `open` → Open / Open · `done` → Afgehandeld / Done | `TaskStatus` | `workflow.workflow_tasks.status` | 9 literal comparisons, 8 template comparisons |
 | run status | `workflow.run_status_codes` | `running` → Bezig / Running · `done` → Afgerond / Done · `failed` → Mislukt / Failed | `RunStatus` | `workflow.workflow_instances.status` | — |
-| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS` (the category is the part before the dot — a derived attribute, not a second list) |
+| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS`. The **category** (`payment`, `mail`, `kernel` — the part before the dot) is not a second *stored* list, but it is a list with labels: it becomes a **derived list** (note 5) — `workflow.task_category_codes` + labels, no storing column — so that Betalingen / E-mail / Systeem keep coming from `code_label()`; dropping `CAT_LABELS` without that replacement would put the raw `payment` as a group heading on an admin screen, which #630 forbids and `test_geen_rauwe_codes_op_het_scherm.py` already guards. Decided as interpretation by the master CLI (26 Sep); Koen informed. Its completeness needs a test, not a FK — note 5. |
+| task category (**derived**, note 5) | `workflow.task_category_codes` | `payment` → Betalingen / Payments · `mail` → E-mail / E-mail · `kernel` → Systeem / System | — (no enum: nothing branches on it) | none — derived from the part of the task kind before the dot | `workflow/ui.py:CAT_LABELS` |
 | form status | `form.form_status_codes` | `draft` → Concept / Draft · `open` → Open / Open · `closed` → Gesloten / Closed | `FormStatus` | `form.forms.status` | `FORM_STATUSES`, `STATUS_TONES` → tone mapping, 3 template comparisons |
 | field type | `form.field_type_codes` | `text` → Tekst / Text · `textarea` → Tekstvak / Text area · `number` → Getal / Number · `email` → E-mail / E-mail · `select` → Keuzelijst / Dropdown · `radio` → Keuzerondjes / Radio buttons · `checkbox` → Selectievakje / Checkbox · `rating` → Beoordeling / Rating · `info` → Infotekst / Info text · `phone` → Telefoon / Phone | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES` |
 | mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
@@ -884,13 +885,34 @@ dropped; measured on a fresh database in phase 2, there is nothing to drop.
 | export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset | `ExportKind` | `reporting.export_log.kind` | — |
 | history operation | `public.kernel_operation_codes` (kernel, next to `kernel_jobs`; no FK, B4.10) | `insert` → Toegevoegd / Added · `update` → Gewijzigd / Changed · `delete` → Verwijderd / Deleted | `Operation` | none (history exemption) | `audit/changes.py:_OPERATION_LABELS` |
 
-Note 5 — a **derived** state (computed, never stored) is still a list with
+Note 5 — a **derived** list (computed, never stored) is still a list with
 labels: it gets a code+label table with no storing column, so its label
-comes from `code_label()` like every other. The enum is the only consumer.
+comes from `code_label()` like every other. **Its completeness does not
+follow from the schema — it follows from a test, and here is why.** For a
+stored list the FK covers completeness: a value that is not in the code
+table never enters the database. A derived list has no storing column, so
+no FK, and none of the twelve gates catches a missing row: the label gate
+checks that every code *in the table* has a label, not that every derived
+value has a code — the opposite direction. Add a task kind
+`crm.something_new` and the category `crm` has no row; `code_label()` falls
+back to the code, logs once, and a raw word stands on the screen with
+everything green — the same silent failure as gate 12, by another road.
+Two kinds of derived list, therefore:
 
-**Count:** 49 lists (phase 0: 1 + the pilot, which the phase-3 table also
+- **with an enum** (the registration state): the enum is the only source of
+  values, and the *Enum = codes* gate already covers it — dev1 verifies
+  rather than duplicates;
+- **without an enum** (the task category — the only one in this CR): a test
+  per list that enumerates the *source* of the derived values (here: the
+  text before the dot of every task kind) and demands a row for each. Red
+  with the missing code in the message.
+
+That test is part of the phase that creates the derived list.
+
+**Count:** 50 lists (phase 0: 1 + the pilot, which the phase-3 table also
 shows; phase 1: 5; phase 2: 8; phase 3: 19 including the pilot; phase 4:
-16). Corrected on 26 September after the master CLI recounted: the phase-4
+17 — the workflow task category joined on 26 September as a derived list,
+note 5). Corrected on 26 September after the master CLI recounted: the phase-4
 table has sixteen rows, not fourteen, and the pilot was counted twice. The
 "~35" of B9.2 was the inventory by column; the catalogue is by list and
 includes the derived and the already-shaped ones. **The gate's own count is
@@ -1072,7 +1094,7 @@ baseline the ratchets froze.
 
 | Gate row | grep, 25 Sep 2026 | **gate, phase 0** | **gate, phase 1** | after this CR |
 |---|---|---|---|---|
-| lists in the pattern (`CodeList`) — target 49 | 2 in the #924 shape | 2 | 7 | 49 |
+| lists in the pattern (`CodeList`) — target 50 (49 until the task category joined, 26 Sep) | 2 in the #924 shape | 2 | 7 | 49 |
 | … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, plain `Enum` |
 | enum-carrying columns as `Mapped[]` | 0 of 688 | 1 | 7 | every column in a `CodeList` |
 | vocabulary columns without a FK (ratchet) | 43, rough count | 51 | 45 | 0 |
@@ -1197,6 +1219,12 @@ value bound first (`v = "EMAIL"`) and compared afterwards escapes the gate;
 so does any named constant. That is a known limit, not a reason to change
 the gate — the shape it catches is the one that occurred 127 times.
 
+**A derived list without an enum needs a completeness test** (phase 4,
+26 September 2026) — the same kind of blind spot as gate 12: no FK, no
+gate, silent fallback to the raw code. B5.3 note 5 has the rule and the one
+case (the workflow task category). It is a test per list, not a thirteenth
+gate: the source of the derived values is different for each.
+
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
 concept or two (B4.4).
@@ -1250,6 +1278,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q27 | 26 Sep 2026 | Master CLI, phase 4: "no second list" for the task category would drop `CAT_LABELS` and put a raw code on the screen (#630); and a derived list without an enum has no gate covering its completeness. | Taken: the category is a derived list (note 5) with its own row in B5.3; note 5 now says why completeness is a test, not a FK, and distinguishes derived-with-enum (covered by Enum = codes) from derived-without (a test per list); B9.3 names it beside gate 12. Phase 3 CI evidence: run 36224976461 on 05c99f07, 3419 passed, pip-audit clean. |
 | Q26 | 26 Sep 2026 | Master CLI (after the desktop reboot, session `koentest-1e`): gate 12 was built as a guard on Jinja's `finalize` with a coverage counter and strict/repair modes; the exemption staleness rule is built in #1181. | Taken: B9.3 gate 12 rewritten as guard + proof-of-run gate; `install_enum_guard` in B4.9; the repair-on-PROD choice in B11 with its argument; the B9.2 row moved from ratchet to "counted, not capped"; staleness rule marked as built in phase 4 (issue #1181; fulfilled once on `master`). First version of this row said "PR #1181" and "fulfilled" — there is no such PR, and a commit on one disk is not fulfilment; corrected the same day. |
 | Q25 | 26 Sep 2026 | Master CLI, after phase 3: no gate sees an enum member rendered into an HTML attribute — three cases found by e2e, created by the conversion; and phase 3 is image-rollback-safe, unlike 154. | Taken: gate 12 (rendered attributes carry the code) in B9.3 with the reason, test 6b in B8, a B9.2 row from phase 4, the render-side spike in B10; B7 attributes non-revertibility to migration 154, not the release. |
 | Q24 | 26 Sep 2026 | Koen confirmed "geen beheerscherm voor codelijsten" — decision or parking? (master CLI) | Decision, with its consequence written under Non-goals: a label changes by migration; a manual `UPDATE` on one environment is a deviation. With this, everything in CR-12 that was Koen's to decide is decided — the placement rule, labels in label tables, Mollie without a code table, `nl`+`en`, M/F/X, the payment-method data fix, badge tones in Python, no expand/contract, the release-level restore point, no management screen, and (Q22) contact types without an enum. |
