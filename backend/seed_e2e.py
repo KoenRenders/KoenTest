@@ -203,7 +203,11 @@ def main() -> None:
 
         beheerder = db.query(User).order_by(User.id).first()
         if beheerder is not None:
-            bestaande = {r.role_code for r in beheerder.roles}
+            # `.value`: sinds CR-12 fase 2 draagt de kolom een `Role`-lid en
+            # geeft de aanroeper codes door. Zonder deze stap is de
+            # vergelijking altijd onwaar en kent de seed dezelfde rol twee
+            # keer toe, wat de unieke index terecht weigert.
+            bestaande = {r.role_code.value for r in beheerder.roles}
             for rol in ("FINANCE", "OPERATOR"):
                 if rol not in bestaande:
                     db.add(UserRole(user_id=beheerder.id, role_code=rol))
