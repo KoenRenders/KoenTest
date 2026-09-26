@@ -13,6 +13,8 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.i18n import _
+from app.kernel.codes import code_label
+from app.kernel.operations import OPERATION
 from app.kernel.ods import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
@@ -34,7 +36,8 @@ from app.domains.mdm.api import (
     ContactDetailHistory,
 )
 
-_OPERATION_LABELS = {"insert": "Toegevoegd", "update": "Gewijzigd", "delete": "Verwijderd"}
+# The three words of the history operation live in the kernel's label table
+# since CR-12 phase 4; `code_label()` reads them.
 
 
 def _fmt(value) -> str:
@@ -218,7 +221,7 @@ def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str =
         "entity": entity,
         "entity_id": entity_id,
         "operation": h.operation,
-        "operation_label": _(_OPERATION_LABELS.get(h.operation, h.operation)),
+        "operation_label": code_label(OPERATION.name, h.operation),
         "action": h.action,
         "actor": h.actor,
         "summary": summary,

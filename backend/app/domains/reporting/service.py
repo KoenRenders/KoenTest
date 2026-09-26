@@ -34,7 +34,7 @@ from app.domains.reporting.engine import (
     selection_from_dict,
     selection_to_dict,
 )
-from app.domains.reporting.models import ExportLog, SavedReport
+from app.domains.reporting.models import ExportKind, ExportLog, SavedReport
 from app.domains.reporting.universe import (BY_KEY, FACT_BY_KEY, Fact,
                                            UniverseObject, physical_view)
 
@@ -541,7 +541,7 @@ def classes_of(report: SavedReport) -> list[str]:
 
 # ── The export trail (CR-06 §7.6) ────────────────────────────────────────────
 
-def log_export(db: Session, *, tenant_id: int, actor: str | None, kind: str,
+def log_export(db: Session, *, tenant_id: int, actor: str | None, kind: ExportKind,
                subject: str, row_count: int, filters: object = None,
                saved_report_id: int | None = None) -> None:
     """One row per export: who took what out, with which filters, how many rows.
