@@ -60,6 +60,17 @@ def _assert_in_household(person, member):
 def _person_payload(p: Person):
     mp = next((m for m in p.member_persons), None)
     contacts = {c.contact_type_code: c.value for c in p.contact_details}
+    # #1174: álle e-mailadressen, hoofdadres eerst en daarna op id. `contacts`
+    # hierboven houdt per soort één waarde over — goed genoeg voor telefoon en
+    # gsm, maar een lid mag meerdere e-mailadressen hebben en het portaal beheert
+    # die lijst. Dezelfde vorm als `FamilyMemberResponse.emails` in het
+    # beheerscherm, zodat de twee sjablonen hetzelfde lezen.
+    emails = [
+        {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
+        for c in sorted((c for c in p.contact_details
+                         if c.contact_type_code == "EMAIL" and c.value),
+                        key=lambda c: (not c.is_primary, c.id or 0))
+    ]
     address = None
     if p.address:
         a = p.address
@@ -75,6 +86,7 @@ def _person_payload(p: Person):
         }
     return {
         "id": p.id,
+        "emails": emails,
         "first_name": p.first_name,
         "last_name": p.last_name,
         "date_of_birth": p.date_of_birth.isoformat() if p.date_of_birth else None,
@@ -403,6 +415,67 @@ def add_person(
     db.commit()
     db.refresh(new_person)
     return _person_payload(new_person)
+
+
+# ── E-mailadressen van een gezinslid (#1174) ─────────────────────────────────
+#
+# Ook door het LID zelf, niet alleen door het bestuur. Koen, 27 september 2026:
+# *"Wat mij betreft kan een lid dat zelfs in het publieke deel bepalen, dan zien
+# we dat ook in de wijzigingen."* De lus die dat sluit bestaat al — portaal →
+# auditlogboek → de .ods-export van de ledenwijzigingen → met de hand overtypen
+# in het Raak Nationaal-programma.
+#
+# Dezelfde gezinsgrens als elke andere portaalbewerking: `_assert_in_household`.
+# Zonder die controle kon een lid met een persoon-id van iemand anders diens
+# adressen beheren.
+
+def _lid_en_doel(person, person_id: int, db: Session) -> Person:
+    member = _member_for(person, db)
+    target = db.query(Person).filter(Person.id == person_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
+    _assert_in_household(target, member)
+    return target
+
+
+def _actor_van(person) -> str | None:
+    return next((c.value for c in person.contact_details
+                 if c.contact_type_code == "EMAIL"), None)
+
+
+@router.post("/member/household/persons/{person_id}/emails", status_code=201)
+def household_add_email(person_id: int, data: dict,
+                        person=Depends(require_member),
+                        db: Session = Depends(get_db)):
+    from app.domains.mdm.api import add_email_address
+
+    _lid_en_doel(person, person_id, db)
+    add_email_address(db, person_id, (data or {}).get("email") or "",
+                      actor=_actor_van(person))
+    return {"ok": True}
+
+
+@router.post("/member/household/persons/{person_id}/emails/{contact_id}/primary")
+def household_make_email_primary(person_id: int, contact_id: int,
+                                 person=Depends(require_member),
+                                 db: Session = Depends(get_db)):
+    from app.domains.mdm.api import make_email_primary
+
+    _lid_en_doel(person, person_id, db)
+    make_email_primary(db, person_id, contact_id, actor=_actor_van(person))
+    return {"ok": True}
+
+
+@router.delete("/member/household/persons/{person_id}/emails/{contact_id}",
+               status_code=204)
+def household_remove_email(person_id: int, contact_id: int,
+                           person=Depends(require_member),
+                           db: Session = Depends(get_db)):
+    from app.domains.mdm.api import remove_email_address
+
+    _lid_en_doel(person, person_id, db)
+    remove_email_address(db, person_id, contact_id, actor=_actor_van(person))
+    return None
 
 
 @router.delete("/member/household/persons/{person_id}", status_code=204)

@@ -55,6 +55,57 @@
     {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
   </form>
+  {# #1174: de extra e-mailadressen. Een lid mag er meerdere hebben — je meldt je
+     aan met het adres dat jij gebruikt, en de nieuwsbrief gaat naar allemaal —
+     maar precies één is het HOOFDadres: dat wat Raak Nationaal in zijn programma
+     heeft, en dat de ledenimport bijwerkt.
+
+     Buiten het Opslaan-formulier, want dit zijn deelacties op één rij (§2.12,
+     zoals een bijlage verwijderen). Het e-mailveld in het formulier hierboven
+     blijft het hoofdadres bewerken, zodat de gewone weg onveranderd is voor wie
+     er maar één heeft.
+
+     Alleen in bewerkmodus: in leesmodus staat het hoofdadres al bij de
+     contactregels bovenaan, en een tweede lijst met dezelfde adressen eronder
+     maakt de kaart drukker zonder iets toe te voegen. #}
+  <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
+    <p class="text-xs font-medium text-ink-soft">{{ _("E-mailadressen") }}</p>
+    <ul class="mt-1 space-y-1">
+      {% for a in m.emails %}
+      <li class="flex items-center gap-2 text-sm">
+        <span class="inline-flex items-start gap-1 min-w-0 break-all">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ a.value }}</span>
+        {% if a.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}
+        <button type="button" class="{{ ui.btn_class('outline', 'xs') }}"
+                hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email/{{ a.id }}/hoofd"
+                hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML">{{ _("Maak hoofdadres") }}</button>
+        {% endif %}
+        {% if m.emails | length > 1 %}
+        <button type="button" class="ml-auto shrink-0 {{ ui.btn_class('danger', 'xs') }}"
+                aria-label="{{ _('Verwijder') }} {{ a.value }}"
+                hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email/{{ a.id }}/verwijderen"
+                hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML"
+                data-confirm="{{ _('Dit e-mailadres verwijderen?') }}">{{ _("Verwijderen") }}</button>
+        {% endif %}
+      </li>
+      {% else %}
+      <li class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</li>
+      {% endfor %}
+    </ul>
+    {# Een eigen vorm en niet het Opslaan-formulier: genest zou ongeldige HTML
+       zijn, en dit hoort ook niet aan Opslaan te hangen. #}
+    <div class="flex flex-wrap items-end gap-2 mt-2">
+      <div class="flex-1 min-w-[12rem]">
+        {{ ui.label(_("Adres erbij"), "extra-email-" ~ m.id) }}
+        {{ ui.input_control("extra_email", id="extra-email-" ~ m.id, type="email",
+                            placeholder="naam@voorbeeld.be", cls="w-full") }}
+      </div>
+      <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+              hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email"
+              hx-include="#extra-email-{{ m.id }}"
+              hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML">{{ _("Toevoegen") }}</button>
+    </div>
+    <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan dit lid zich aanmelden, en de nieuwsbrief gaat naar allemaal. Bevestigingen gaan naar het adres dat op het inschrijfformulier staat; het hoofdadres is wat Raak Nationaal in zijn programma heeft.") }}</p>
+  </div>
 </div>
 {% endmacro %}
 

@@ -27,7 +27,8 @@ from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
 from app.domains.membership.models import Membership
 from app.domains.membership.service import (LidgegevensFout,
                                             controleer_geboortedatum_en_geslacht)
-from app.domains.membership.schemas_member import (
+from app.domains.membership.schemas_member import (  # noqa: F401
+    EmailAddressResponse,
     AddressUpdate,
     BoardMemberAssign,
     ContactsUpdate,
@@ -54,10 +55,23 @@ from app.soft_delete import soft_delete
 
 
 def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
-    email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    # #1174: het HOOFDadres en daarnaast de volledige lijst. "De eerste rij" gaf
+    # bij twee adressen een willekeurig antwoord — de relatie belooft geen
+    # volgorde — dus kon dezelfde kaart bij twee bezoeken een ander adres tonen.
+    #
+    # Hoofdadres eerst, daarna op id: een lijst die van volgorde wisselt maakt de
+    # knop "maak hoofdadres" onbetrouwbaar om aan te klikken.
+    adressen = sorted((c for c in person.contact_details
+                       if c.contact_type_code == "EMAIL" and c.value),
+                      key=lambda c: (not c.is_primary, c.id or 0))
+    email = next((c.value for c in adressen if c.is_primary),
+                 adressen[0].value if adressen else None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
     mobile = next((c.value for c in person.contact_details if c.contact_type_code == "MOBILE"), None)
     return FamilyMemberResponse(
+        emails=[EmailAddressResponse(id=c.id, value=c.value,
+                                     is_primary=bool(c.is_primary))
+                for c in adressen],
         id=person.id,
         last_name=person.last_name,
         first_name=person.first_name,

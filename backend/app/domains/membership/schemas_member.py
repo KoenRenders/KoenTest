@@ -65,16 +65,35 @@ class MembershipResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class EmailAddressResponse(BaseModel):
+    """Eén e-mailadres van een persoon (#1174).
+
+    Met het rij-id erbij, want het scherm moet er een kúnnen aanwijzen of
+    verwijderen — en twee personen kunnen hetzelfde adres dragen, dus de waarde
+    alleen is geen sleutel.
+    """
+
+    id: int
+    value: str
+    is_primary: bool
+
+
 class FamilyMemberResponse(BaseModel):
     id: int
     last_name: str
     first_name: str
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
+    # Het HOOFDadres (#1174) — het adres dat Raak Nationaal kent. Eén veld, want
+    # elk scherm dat "het e-mailadres" toont bedoelt dit; de rest staat in
+    # `emails`.
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
     relation_type: str
+    # Álle adressen, hoofdadres eerst en daarna op id (#1174). Het beheerscherm
+    # beheert deze lijst; de nieuwsbrief verstuurt ernaar.
+    emails: list[EmailAddressResponse] = []
 
 
 class PersonListItem(BaseModel):
