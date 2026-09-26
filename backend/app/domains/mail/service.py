@@ -8,6 +8,7 @@ from typing import Optional
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.i18n import _
+from app.kernel.codes import code_label
 
 logger = logging.getLogger(__name__)
 
@@ -476,11 +477,20 @@ def send_activity_registration_confirmation(
             if totaal > 0:
                 details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
 
-        if registration.payment_method and registration.payment_method != "FREE":
-            method_labels = {"ONLINE": _("Online (Mollie)"), "CASH": _("Cash"), "TRANSFER": _("Overschrijving")}
+        if registration.payment_method:
+            # CR-12 fase 1. De oude tak vergeleek met "FREE", een waarde die in
+            # deze kolom nooit gestaan heeft: de codes zijn online/transfer/cash
+            # en een gratis inschrijving heeft NULL. Een lege waarde valt nu weg
+            # op de `if`, wat hetzelfde doet en wél waar is.
+            #
+            # Geen expliciete taal (§F12) en dat mag hier: dit bericht wordt
+            # opgebouwd BINNEN het request van de inschrijving, dus
+            # `current_locale` staat op de taal van de afdeling. Pas wanneer een
+            # job deze functie zou aanroepen, moet de taal mee — dan is er geen
+            # request en valt de locale terug op nl_BE zonder dat iets klaagt.
             details.append(
                 f"<li><strong>Betaalmethode:</strong> "
-                f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
+                f"{code_label('payment_method', registration.payment_method)}</li>"
             )
 
         if details:

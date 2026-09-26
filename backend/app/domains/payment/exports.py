@@ -16,12 +16,14 @@ Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de rep
 from decimal import Decimal
 from typing import Optional
 
-from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import PayableType, PaymentRecord
+from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 
-_METHOD = {"online": "Online", "transfer": "Overschrijving", "cash": "Cash"}
-_STATUS = {"pending": "In afwachting", "paid": "Betaald", "failed": "Mislukt", "cancelled": "Geannuleerd"}
-_TYPE = {"charge": "Vordering", "refund": "Terugbetaling"}
+# CR-12 fase 1: hier stonden `_METHOD`, `_STATUS` en `_TYPE` — drie Nederlandse
+# woordenboeken die hetzelfde zeiden als de schermen ernaast, met hun eigen
+# afwijkingen. De labels komen nu uit de labeltabellen, dus de export en het
+# scherm tonen per definitie hetzelfde woord (AC3).
 
 
 def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
@@ -32,7 +34,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
     def q(model):
         return db.query(model).execution_options(include_deleted=True)
 
-    if r.payable_type == "registration":
+    if r.payable_type == PayableType.REGISTRATION:
         from app.domains.activities.api import Registration, Activity
         reg = q(Registration).filter(Registration.id == r.payable_id).first()
         if reg:
@@ -40,7 +42,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
             parts = [reg.contact_name, act.name if act else None]
             label = " — ".join(p for p in parts if p) or f"Inschrijving #{r.payable_id}"
             return label, None, reg.component_id
-    elif r.payable_type == "membership":
+    elif r.payable_type == PayableType.MEMBERSHIP:
         from app.domains.membership.api import Membership
         from app.domains.mdm.api import MemberPerson, Person
         ms = q(Membership).filter(Membership.id == r.payable_id).first()
@@ -57,7 +59,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
                     name = f"{p.first_name} {p.last_name}"
         period = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
         return " — ".join(x for x in (name, period) if x), year, None
-    return f"{r.payable_type} #{r.payable_id}", None, None
+    return f"{r.payable_type.value} #{r.payable_id}", None, None
 
 
 def build_payments_export_ods(db, context: str = "all", status: str = "all",
@@ -78,7 +80,8 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
     scope = (registration_id or "").strip()
     if scope:
         records = [r for r in records
-                   if r.payable_type == "registration" and str(r.payable_id) == scope]
+                   if r.payable_type == PayableType.REGISTRATION
+                   and str(r.payable_id) == scope]
     if payables is not None:
         records = [r for r in records
                    if (r.payable_type, r.payable_id) in payables]
@@ -105,10 +108,10 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
         tot_paid += paid
         rows.append([
             label,
-            "Lidgeld" if r.payable_type == "membership" else "Activiteit",
-            _TYPE.get(r.type, r.type or ""),
-            _METHOD.get(r.method, r.method or ""),
-            _STATUS.get(r.status, r.status or ""),
+            "Lidgeld" if r.payable_type == PayableType.MEMBERSHIP else "Activiteit",
+            code_label("payment_type", r.type),
+            code_label("payment_method", r.method),
+            code_label("payment_status", r.status),
             r.structured_communication or "",
             float(amount),
             float(paid),

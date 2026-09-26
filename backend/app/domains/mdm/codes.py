@@ -5,11 +5,17 @@ master data means (§B4.1). Doubt therefore resolves towards `mdm`: moving a
 list later copies rows and re-points a foreign key, and the stored values do
 not change, so a wrong guess is cheap.
 
-Phase 0 declares one list. `payment_method` joins it in phase 1, and the four
+Phase 0 declared the language list; phase 1 adds the payment method. The four
 single-language code tables already here (`gender`, `contact_type`,
 `relation_type`, `legal_form`) are split into the codes/labels shape in phase 2.
 """
-from app.domains.mdm.models import LanguageCode, LanguageLabel
+from app.domains.mdm.models import (
+    LanguageCode,
+    LanguageLabel,
+    PaymentMethod,
+    PaymentMethodCode,
+    PaymentMethodLabel,
+)
 from app.kernel.codes import CodeList, CodeSeed
 
 #: The two languages every label table is keyed against.
@@ -34,4 +40,25 @@ LANGUAGE = CodeList(
     # walks every registered list and holds that its labels table carries the
     # foreign key to `mdm.language_codes`.
     fk_from=(),
+)
+
+
+PAYMENT_METHOD_CODES = (
+    CodeSeed(code="online", nl="Online", en="Online", sort_order=10),
+    CodeSeed(code="transfer", nl="Overschrijving", en="Bank transfer",
+             sort_order=20),
+    CodeSeed(code="cash", nl="Cash", en="Cash", sort_order=30),
+)
+
+PAYMENT_METHOD = CodeList(
+    name="payment_method",
+    schema="mdm",
+    codes=PaymentMethodCode,
+    labels=PaymentMethodLabel,
+    enum=PaymentMethod,
+    # The two columns that store a payment method, in two different schemas.
+    # This is the cross-schema foreign key §B2.4 allows, and the reason the
+    # list sits in `mdm` rather than in `payment`.
+    fk_from=("payment.payment_records.method",
+             "activities.registrations.payment_method"),
 )

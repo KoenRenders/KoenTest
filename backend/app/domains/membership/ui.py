@@ -15,6 +15,7 @@ from app.database import get_db
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
+from app.domains.mdm.api import PaymentMethod
 
 router = APIRouter(include_in_schema=False)
 
@@ -187,7 +188,7 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     if record is None:
         return leeg
 
-    if record.method == "transfer":
+    if record.method == PaymentMethod.TRANSFER:
         from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
 
         return {**leeg, "renew_transfer": {

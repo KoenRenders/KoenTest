@@ -48,6 +48,7 @@ from app.domains.reporting.api import (
     selection_from_dict,
 )
 from app.domains.reporting.universe import AiExposure
+from app.kernel.codes import code_label
 
 logger = logging.getLogger(__name__)
 
@@ -953,8 +954,18 @@ _ZICHT_FILTER: dict[str, dict[str, Any]] = {
 }
 
 #: De statuskeuzelijst van het scherm draagt codes; het universum draagt labels.
-_STATUS_LABEL = {"pending": "In afwachting", "paid": "Betaald",
-                 "failed": "Mislukt", "cancelled": "Geannuleerd"}
+#: CR-12 fase 1: hier stond een vierde kopie van dezelfde vier woorden, naast
+#: het scherm, de export en het rapportenpaneel. Nu uit de labeltabel, en dat is
+#: precies wat AC3 vraagt — het rapport noemt de status met het woord dat de
+#: penningmeester op zijn scherm ziet.
+def _status_label(code: str) -> str | None:
+    """Het label van een betaalstatus, of None als de code er geen is."""
+    from app.domains.payment.api import PaymentStatus
+
+    try:
+        return code_label("payment_status", PaymentStatus(code))
+    except ValueError:
+        return None
 
 _BETALINGEN_PROMPT = """
 DIT GESPREK GAAT OVER DE SELECTIE OP HET BETALINGENSCHERM: {selectie}. Elk rapport \
@@ -1006,10 +1017,11 @@ def scope_for_payments(stand: dict[str, str], db: Session, *,
     beschrijving.append(f"tabblad '{zicht}'")
 
     status = (stand.get("status") or "all").strip()
-    if status in _STATUS_LABEL:
+    status_label = _status_label(status)
+    if status_label:
         filters.append({"object": "payment_status", "operator": "eq",
-                        "values": [_STATUS_LABEL[status]]})
-        beschrijving.append(f"status '{_STATUS_LABEL[status]}'")
+                        "values": [status_label]})
+        beschrijving.append(f"status '{status_label}'")
 
     context = (stand.get("context") or "all").strip()
     if context == "membership":
