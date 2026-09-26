@@ -27,10 +27,15 @@
    `…-gesprek-vraag`. `historie_id` is bewust NIET uniek: het antwoordfragment
    werkt dat veld out-of-band bij en gebruikt daarvoor het id van de
    rapporten-Raakje. #}
+{#- `wrapper_cls` (#1197): de aanroeper bepaalt hoe deze knop zich in ZIJN rij
+    gedraagt. De overlay weet niet naast wát ze staat — op de activiteit-recordkop
+    naast een titel, op Betalingen naast een filterbalk — en de uitlijning is dus
+    een eigenschap van de plek, niet van de overlay. Leeg gelaten verandert er
+    niets, zodat de andere aanroepers hun huidige gedrag houden. -#}
 {% macro overlay(knop, post_url, opening, stt_mode, prefix="raakje",
-                 historie_id="rp-raakje-historie") -%}
+                 historie_id="rp-raakje-historie", wrapper_cls="") -%}
 {% set gesprek_id = prefix ~ "-gesprek" %}
-<div x-data="{ raakje: false }" class="shrink-0">
+<div x-data="{ raakje: false }" class="shrink-0{% if wrapper_cls %} {{ wrapper_cls }}{% endif %}">
   {{ ui.btn_secondary(knop, size="sm", lead_icon="sparkles", attrs='@click="raakje = true"') }}
   <div x-show="raakje" x-cloak role="dialog" aria-modal="true" aria-label="{{ _('Raakje') }}"
        class="fixed inset-0 z-50 flex items-center justify-center p-4"

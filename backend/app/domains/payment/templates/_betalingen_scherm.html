@@ -18,7 +18,27 @@
    `onsubmit="return false"` draagt — en de knop dus niets deed, en de invoerregel
    haar uitlijning kwijt was. De flex-rij houdt de knop op dezelfde hoogte als
    voorheen: rechts, op de regel van de filters. #}
-<div class="flex items-start gap-3">
+{# #1197 (heropend): `md:items-stretch` erbij, en de knop krijgt hieronder
+   `md:mb-4 md:flex md:items-center`. Samen laten die de wrapper van de knop
+   even hoog worden als het formulier — inclusief diens `mb-4`, want de wrapper
+   draagt dezelfde marge — waarna de knop in die hoogte gecentreerd staat. Het
+   midden van de knop valt zo samen met het midden van de controls-regel, zónder
+   dat er een hoogte in dit sjabloon staat.
+
+   Waarom geen vaste hoogte: een control meet 2,375rem (38 px), en die maat heeft
+   één plek — de basislaag in build-css.sh, met daar de uitdrukkelijke regel dat ze
+   nergens anders hoort. 38 px staat niet op de Tailwind-schaal (h-9 is 36, h-10 is
+   40), dus meegeven zou een tweede bron zijn voor precies het getal dat daar
+   bewaakt wordt. Afleiden uit het formulier kan niet verouderen.
+
+   Gemeten op 1440 px vóór deze wijziging: knop 34 px hoog tegen controls van 38,
+   beide met bovenkant op 395, dus middens 412 tegen 414.
+
+   `md:` en niet onvoorwaardelijk: op 390 px is de knop juist HOGER dan de controls
+   (44 tegen 38, het aanraakvlak van #804), en daar wrapt de filterbalk tot 194 px.
+   Centreren zou de knop dan midden in een blok van drie regels zetten. Onder `md`
+   blijft `items-start` dus staan, en dat is ook de stand die Koen niet gemeld heeft. #}
+<div class="flex items-start md:items-stretch gap-3">
 {% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter", cls="flex-1 min-w-0") %}
   {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
      Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
@@ -87,7 +107,8 @@
   {{ raakje.overlay(_("AI · Betalingen"),
                     "/admin/rapporten/raakje/scherm/betalingen",
                     _("Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over lidgeld en activiteiten?”."),
-                    stt_mode, prefix="bt-raakje") }}
+                    stt_mode, prefix="bt-raakje",
+                    wrapper_cls="md:mb-4 md:flex md:items-center") }}
   {% endif %}
 </div>
 
