@@ -438,8 +438,9 @@ public versus admin is a matter of role, not of domain.** So:
   functions that delegate to the JSON router. By the placement rule they
   belong to `mdm` (the rule looks at `mdm`'s data), with `membership`
   keeping the membership rules and the portal screen calling both facades.
-  **Proposed for phase 3 (`Person`/`Member`)**, Koen to confirm — measured
-  27 September, found while drawing.
+  **Phase 3 (`Person`/`Member`)** — confirmed by Koen, 27 September
+  (*"gezin en personen is mdm"*); measured the same day, found while
+  drawing.
 - *Activity registration* — the public list, the modal and the
   registration form are `activities/ui.py` and `activities/templates/`;
   the admin side (`admin_ui.py`) is the same domain. Not the kernel: the
@@ -808,7 +809,7 @@ would lose less; it would not — corrected the same day.)
 | **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
 | **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task** | 0, **CR-12 phase 1 on master** |
-| **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5, Koen to confirm)** | 0 |
+| **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
 | **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; `rules_baseline.py` deleted — every gate hard | 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
@@ -946,6 +947,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | The household and its persons are master data (`mdm`); the membership is `membership`'s. The household mutations move from `membership/household_router.py` to an `mdm` service in phase 3. | Koen |
 | 27 Sep 2026 | The boundaries are drawn, not only described: four diagrams in B2.5 — layers (ArchiMate layered), domains × screens (ArchiMate application structure), one aggregate (UML class), an order change with events (UML sequence). A future React/app client stays possible on `/api/v1` because both doors are thin and the rules sit in the domain; not a plan. | Koen (asked), author (drawn) |
 | 27 Sep 2026 | No functional change in this CR (R13): events and methods reorganise how, never what. Business events → werkbank tasks, tasks closing on later events, BPMN as orchestration and DMN for policy rules are the horizon (B4.10), not scope. | Koen |
 | 27 Sep 2026 | `OrderChanged` is the second event of phase 1: `activities` publishes after any order-line change, `payment` reconciles as a subscriber; the direct `reconcile_registration_charges` call goes. `RefundDue` in phase 2. | Koen |
@@ -972,7 +974,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
-| Q18 | 27 Sep 2026 | "Mijn gezin": is the household not master data, and the membership perhaps not? (Koen) | Both true: the household is `mdm` data, the membership is `membership` data; the screen composes the two. Finding: the household mutations sit in `membership/household_router.py` and should be an `mdm` service — proposed for phase 3, Koen to confirm. |
+| Q18 | 27 Sep 2026 | "Mijn gezin": is the household not master data, and the membership perhaps not? (Koen) | Both true: the household is `mdm` data, the membership is `membership` data; the screen composes the two. Finding: the household mutations sit in `membership/household_router.py` and should be an `mdm` service — phase 3; confirmed by Koen the same day. |
 | Q17 | 27 Sep 2026 | Draw the layers (front end / API / back end), the domains × screens split, and the OO impact; which ArchiMate/UML diagrams? (Koen) | B2.5: four drawings, with what was measured first (layer gate allowlist empty; UI and JSON routes share the service via `api.py`; `/api/v1` mounted but unused by screens). Form engine, 'Mijn gezin' and activity registration each placed. |
 | Q16 | 27 Sep 2026 | Separate domain objects and repositories — explain; could PostgreSQL be swapped for MariaDB? (Koen) | Both spelled out under Non-goals with their win, price and when they would return. The swap: possible in theory, not in practice, and the obstacle is the migrations, schemas, partial indexes and reporting SQL — not the models; domain objects would protect the one layer that is not the problem. |
 | Q15 | 27 Sep 2026 | How do the werkbank, BPMN and DMN fit with the events, long term? (Koen) | B4.10: events as triggers and done-signals for an orchestrator (BPMN), the werkbank as its human-task list, DMN for policy decisions in the service layer — distinct from the invariants on the objects. Nothing of it in this CR. |
