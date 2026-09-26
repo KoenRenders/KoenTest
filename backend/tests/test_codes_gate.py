@@ -39,6 +39,13 @@ its own, with the violation listed here:
 | Enum member names English | added member `VERSTUURD = "verstuurd"` | yes — names the member |
 | Shape | removed the `description` column from the helper's label table | yes |
 
+**A twelfth came with phase 3**, after three enum members reached an HTML
+attribute and none of the eleven above could see it — a member that is
+*rendered* is not a comparison. It is a guard rather than a sample
+(`install_enum_guard` hooks Jinja's `finalize`), so it lives in
+`tests/test_enum_render_gate.py` with its own proof, and this table carries
+its two numbers.
+
 One measurement had to be redone, and that is worth recording: for "enum member
 names English" I first *renamed* `SENT` to `VERSTUURD`. That broke the import of
 `service.py`, so the test never ran — and a green result that proves nothing is
@@ -55,6 +62,7 @@ from sqlalchemy import String, inspect, text
 
 from app.database import Base
 from app.domains.registry import load_all_models
+from app.kernel import codes as kernel_codes
 from app.kernel.codes import (
     ExternalVocabulary,
     TechnicalEnum,
@@ -571,6 +579,14 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         # measured from the same place the gate reads.
         ("permanent exceptions — not our vocabulary (counted, not capped)",
          sum(len(_permanent(name)) for name in PERMANENT)),
+        # The twelfth gate is a guard and not a sample, so its count is zero by
+        # construction — every member that reaches the output raises. What is
+        # worth reading is the second number: how many values the guard saw in
+        # this run. Zero there would mean it ran nowhere, which reads exactly
+        # like "found nothing" (#678).
+        ("enum members rendered into a template (guard, raises)", 0),
+        ("values the enum guard inspected so far in this run",
+         kernel_codes.rendered_under_the_guard),
     ]
     if db_session is not None:
         for language in ("nl", "en"):
