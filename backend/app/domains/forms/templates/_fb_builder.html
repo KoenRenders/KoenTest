@@ -11,6 +11,7 @@
 {% macro veld_vorm(f, sid, tonen) %}
 {% set _id = (f.id if f else "nieuw") %}
 {% set _type = (f.field_type if f else "text") %}
+{% set _kind = (f.kind if f else new_field_kind) %}
 {% set _slot = (submission_count > 0 and f is not none) %}
 {# #710: TYPE eerst, dan Vraag, dan Verplicht — op één regel, zoals v1.14.
 
@@ -46,13 +47,13 @@
   <div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
   <div class="sm:col-span-4">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
     {{ ui.input_control("help_text", id="fh-" ~ _id, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
-  {% if _type in ("text", "textarea", "email", "phone") %}
+  {% if _kind.has_length_limits %}
   <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ _id) }}{{ ui.input_control("min_length", id="fminl-" ~ _id, value=(f.min_length or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Max. tekens"), "fmaxl-" ~ _id) }}{{ ui.input_control("max_length", id="fmaxl-" ~ _id, value=(f.max_length or "" if f else ""), cls="w-full") }}</div>
-  {% elif _type == "number" %}
+  {% elif _kind.is_number %}
   <div>{{ ui.label(_("Minimum"), "fminv-" ~ _id) }}{{ ui.input_control("min_value", id="fminv-" ~ _id, value=(f.min_value or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ _id) }}{{ ui.input_control("max_value", id="fmaxv-" ~ _id, value=(f.max_value or "" if f else ""), cls="w-full") }}</div>
-  {% elif _type == "rating" %}
+  {% elif _kind.is_rating %}
   <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ _id) }}{{ ui.input_control("rating_max", id="frm-" ~ _id, value=(f.rating_max or 5 if f else 5), cls="w-full") }}</div>
   {# Voorbeeldteksten als placeholder (Koens vraag op het clusterpakket):
      zonder labels betekenen de cijfers van de schaal niets. #}
@@ -98,7 +99,7 @@
                         placeholder=("" if o else _("Nieuwe optie")),
                         cls="grow min-w-32", aria_label=_("Label van de optie")) }}
     <label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" {% if o and o.is_other %}checked{% endif %}> {{ _("Andere…") }}</label>
-    {% if o and f.field_type in ("radio", "select") %}
+    {% if o and f.kind.is_branchable %}
     {# #699: één keuzelijst voor één beslissing. "Einde" stond als los vakje naast
        deze select; samen konden ze een toestand maken die het formulier niet kent,
        en dan won het einde stil.
@@ -149,7 +150,7 @@
     </div>
   </div>
   {{ veld_vorm(f, f.section_id, tonen='edit') }}
-  {% if f.field_type in ("select", "radio", "checkbox") %}
+  {% if f.kind.is_choice %}
   <div class="mt-2 space-y-1">
     {% for o in f.options %}{{ optie_rij(f, o, loop.first, loop.last) }}{% endfor %}
     {# #711: "+ optie" opent een LEGE optierij — dezelfde vorm, niet een tweede.

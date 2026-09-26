@@ -24,7 +24,7 @@
    kaartmarge in, zodat vraag en contactvelden op dezelfde inhoudsrand
    beginnen — en de fout-markering nog altijd niets verschuift. #}
 <div data-veld="{{ key }}" class="border-l-4 border-transparent pl-3 -ml-4">
-  {% if f.field_type == "info" %}
+  {% if f.kind.is_info %}
   <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
     {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
     {% if f.help_text %}<p>{{ f.help_text }}</p>{% endif %}
@@ -32,25 +32,24 @@
   {% else %}
   {{ ui.vraag(f.label, key, required=f.required) }}
   {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
-  {% if f.field_type in ("text", "email", "phone") %}
-  {% set _t = "email" if f.field_type == "email" else ("tel" if f.field_type == "phone" else "text") %}
-  {{ ui.input_control(key, type=_t, value=(val if val is string else ""),
+  {% if f.kind.is_single_line %}
+  {{ ui.input_control(key, type=f.kind.input_type, value=(val if val is string else ""),
                       required=(f.required and not wiz), cls="w-full") }}
-  {% elif f.field_type == "textarea" %}
+  {% elif f.kind.is_textarea %}
   {{ ui.textarea_control(key, rows=4, value=(val if val is string else ""),
                          required=(f.required and not wiz), cls="w-full") }}
-  {% elif f.field_type == "number" %}
+  {% elif f.kind.is_number %}
   {{ ui.input_control(key, value=(val if val is string else ""),
                       required=(f.required and not wiz), cls="w-40",
                       attrs='inputmode="decimal"') }}
-  {% elif f.field_type == "select" %}
+  {% elif f.kind.is_select %}
   {% call ui.select_control(key, cls="w-full", attrs='id="' ~ key ~ '"' ~ (' required' if (f.required and not wiz) else '')) %}
     <option value="">—</option>
     {% for o in f.options %}
     <option value="{{ o.id }}" {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}selected{% endif %}>{{ o.label }}</option>
     {% endfor %}
   {% endcall %}
-  {% elif f.field_type == "radio" %}
+  {% elif f.kind.is_radio %}
   {# #683: typen vinkt aan, en zodra "Anders" niet meer gekozen is, wist het veld
      zichzelf. Het invoerveld stond gewoon aan terwijl de server de tekst zonder
      vinkje weggooide — het scherm nodigde uit tot iets wat het daarna stil
@@ -106,7 +105,7 @@
     </label>
     {% endfor %}
   </div>
-  {% elif f.field_type == "checkbox" %}
+  {% elif f.kind.is_checkbox %}
   {# #683: typen vinkt aan, en zodra "Anders" niet meer gekozen is, wist het veld
      zichzelf. Het invoerveld stond gewoon aan terwijl de server de tekst zonder
      vinkje weggooide — het scherm nodigde uit tot iets wat het daarna stil
@@ -153,7 +152,7 @@
     </label>
     {% endfor %}
   </div>
-  {% elif f.field_type == "rating" %}
+  {% elif f.kind.is_rating %}
   {# F20 (#996): radio en cijfer samen één ruim aanklikbaar label, gelijk
      verdeeld over de breedte — vijf dicht opeengepakte rondjes waren op een
      telefoon moeilijk gericht te raken. Native radio's, 44px-aanraakmaat. #}

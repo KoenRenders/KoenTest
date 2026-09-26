@@ -23,6 +23,7 @@ from app.domains.forms.api import (
     FIELD_TYPES,
     FORM_STATUS,
     FORM_STATUSES,
+    FieldType,
     FormStatus,
     deellink_pad,
     delete_submission,
@@ -30,7 +31,7 @@ from app.domains.forms.api import (
     list_submissions,
     submission_count,
 )
-from app.domains.forms.screenfields import screen_fields
+from app.domains.forms.screenfields import FieldKind, screen_fields
 from app.kernel.codes import code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
@@ -92,6 +93,9 @@ def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
         "status_options": code_labels(FORM_STATUS.name, db=db),
         "status": code_of(form.status),
         "field_type_labels": field_type_labels,
+        # What the "add a question" form shows before a type is chosen: a new
+        # question starts as short text.
+        "new_field_kind": FieldKind(FieldType.TEXT),
         "submission_count": submission_count(db, form.id),
         # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
         "share_path": deellink_pad(form),
@@ -587,7 +591,11 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
     from app.domains.forms.results import compute_results
 
     form = _form_or_404(db, form_id)
-    ctx = {"form": form, "results": compute_results(db, form)}
+    results = compute_results(db, form)
+    # The same dictionary is the JSON API's answer (`router.py`), so the flag the
+    # screen needs goes on a copy of each question, not into `compute_results`.
+    results["fields"] = [dict(f, kind=FieldKind(f["field_type"])) for f in results["fields"]]
+    ctx = {"form": form, "results": results}
     if is_fragment_request(request):
         return templates.TemplateResponse(request, "_fb_resultaten.html", ctx)
     ctx.update({"nav_items": NAV,

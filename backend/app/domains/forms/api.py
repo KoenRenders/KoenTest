@@ -13,6 +13,9 @@ from app.domains.forms.codes import FIELD_TYPE, FORM_STATUS  # noqa: F401
 from app.domains.forms.models import (  # noqa: F401
     FieldType, Form, FormField, FormStatus, FormSubmission,
 )
+# CR-12 phase 4: a field as a screen renders it — the design-system page draws
+# its examples through the same adapter as the public form.
+from app.domains.forms.screenfields import screen_fields  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
