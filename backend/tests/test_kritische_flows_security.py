@@ -99,7 +99,7 @@ def test_webhook_negeert_vervalste_status_en_bedrag(client, db_session, monkeypa
     assert resp.status_code == 200
     db_session.expire_all()
     from app.domains.payment.api import GatewayPayment
-    # Mollie's eigen vocabularium op deze kolom (§B4.10): kale string, geen lid.
+    # Mollie's own vocabulary on this column (§B4.10): a bare string, not a member.
     assert db_session.get(GatewayPayment, gp.id).status == PaymentStatus.PENDING.value
 
 
@@ -165,7 +165,7 @@ def test_create_payment_payload_en_localhost_webhook_skip(monkeypatch):
     assert captured["payload"]["amount"] == {"currency": "EUR", "value": "12.00"}
     assert "webhookUrl" not in captured["payload"]  # localhost overgeslagen
     assert result.provider_payment_id == "tr_live_1"
-    # `PaymentResult` is de adapter-grens: hij draagt onze code als string.
+    # `PaymentResult` is the adapter boundary: it carries our code as a string.
     assert result.status == PaymentStatus.PENDING.value  # 'open' → intern 'pending'
 
 

@@ -23,10 +23,10 @@ from app.domains.payment.api import (
 
 def rec(**kw):
     velden = dict(
-        # CR-12 fase 1: een echt record draagt hier enum-leden, dus deze dubbel
-        # ook. Met strings zou de test slagen terwijl de service in productie
-        # iets anders ziet — een dubbel die makkelijker is dan het origineel
-        # bewijst het origineel niet.
+        # CR-12 phase 1: a real record carries enum members here, so this double
+        # does too. With strings the test would pass while the service sees
+        # something else in production — a double that is easier than the
+        # original proves nothing about the original.
         id="r1", type=PaymentType.CHARGE, status=PaymentStatus.PENDING,
         method=PaymentMethod.TRANSFER,
         amount=Decimal("10"), amount_paid=None,

@@ -41,31 +41,31 @@ def test_betalingen_toont_geen_rauwe_codes(client, db_session):
         assert code not in html, f"rauwe code {code!r} op het scherm"
 
 
-def test_een_onbekende_status_raakt_de_kolom_niet_meer(client, db_session):
-    """Mollie kent ook `open`, `authorized` en `expired`.
+def test_an_unknown_status_no_longer_reaches_the_column(client, db_session):
+    """Mollie also knows `open`, `authorized` and `expired`.
 
-    Tot CR-12 fase 1 vielen die door naar de fallback en toonden ze een Engelse
-    code als badge; deze test bewees toen dat de fallback leesbaar was. Sinds de
-    codelijst is dat niet meer de vraag: `authorized` kán niet meer in
-    `payment_records.status` staan. De enum weigert het in Python en de foreign
-    key weigert het in de databank, en dat is een sterkere belofte dan een nette
+    Until CR-12 phase 1 those fell through to the fallback and showed an English
+    code as a badge; this test then proved that the fallback was readable. Since
+    the code list that is no longer the question: `authorized` can no longer be
+    in `payment_records.status`. The enum rejects it in Python and the foreign
+    key rejects it in the database, and that is a stronger promise than a tidy
     fallback.
 
-    De zorg zelf is niet verdwenen, ze is verhuisd: Mollie's woorden komen binnen
-    op `gateway_payments.status` — bewust zonder codetabel (§B4.10) — en
-    `providers/mollie.py` vertaalt ze naar de onze, met een expliciete tak voor
-    de waarde die het niet kent.
+    The concern itself has not gone away, it has moved: Mollie's words come in
+    on `gateway_payments.status` — deliberately without a code table (§B4.10) —
+    and `providers/mollie.py` translates them into ours, with an explicit branch
+    for the value it does not know.
     """
     from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
     from app.domains.mdm.api import PaymentMethod
 
-    with pytest.raises(ValueError) as fout:
+    with pytest.raises(ValueError) as excinfo:
         PaymentRecord(
             payable_type=PayableType.REGISTRATION, payable_id=9912,
             type=PaymentType.CHARGE, amount=Decimal("10.00"),
             method=PaymentMethod.ONLINE, status="authorized")
-    assert "authorized" in str(fout.value)
-    assert "PaymentStatus" in str(fout.value)
+    assert "authorized" in str(excinfo.value)
+    assert "PaymentStatus" in str(excinfo.value)
 
 
 def test_werkbank_toont_geen_interne_taakcodes(client, db_session):

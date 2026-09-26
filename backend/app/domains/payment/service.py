@@ -106,11 +106,11 @@ def create_payment_record(
     audit_source: str = "system",
     audit_actor: Optional[str] = None,
 ) -> PaymentRecord:
-    # Omzetten op de grens (CR-12 fase 1). Deze functie wordt uit vier domeinen
-    # aangeroepen en uit de tests, met een code of met een lid; binnen de
-    # functie is het altijd een lid, zodat de vergelijkingen hieronder niet van
-    # de aanroeper afhangen. Een onbekende waarde faalt hier, met de naam van de
-    # lijst, in plaats van verderop op de foreign key.
+    # Convert at the boundary (CR-12 phase 1). This function is called from four
+    # domains and from the tests, with a code or with a member; inside the
+    # function it is always a member, so the comparisons below do not depend on
+    # the caller. An unknown value fails here, naming the list, rather than
+    # further down on the foreign key.
     payable_type = PayableType(payable_type)
     method = PaymentMethod(method)
     if method == PaymentMethod.ONLINE:
@@ -120,9 +120,9 @@ def create_payment_record(
             amount=amount,
             description=description or f"{payable_type} #{payable_id}",
             redirect_url=redirect_url or "",
-            # De code en niet het lid: dit gaat als JSON naar de gateway en
-            # komt zo terug in de webhook. Een enum is niet serialiseerbaar,
-            # en het is bovendien hun veld, niet het onze.
+            # The code, not the member: this goes to the gateway as JSON and
+            # comes back that way in the webhook. An enum is not serialisable,
+            # and besides, it is their field, not ours.
             metadata={"payable_type": payable_type.value,
                       "payable_id": payable_id},
         )
@@ -174,9 +174,9 @@ def handle_gateway_update(
     webhooks serialiseren. Een herhaalde 'paid' is een no-op (status ongewijzigd →
     `continue`) en stempelt paid_at/amount_paid niet opnieuw. Een DB-unieke index
     op gateway_payment_id garandeert bovendien max. één record per gateway-betaling."""
-    # De gateway levert een string; zet hem hier om, op de grens. Deed je dat
-    # niet, dan zou `record.status == new_status` hieronder een lid met een
-    # string vergelijken — altijd onwaar, dus élke webhook een stille no-op.
+    # The gateway delivers a string; convert it here, at the boundary. Without
+    # that, `record.status == new_status` below would compare a member with a
+    # string — always false, so *every* webhook a silent no-op.
     new_status = PaymentStatus(new_status)
     records = db.query(PaymentRecord).filter(
         PaymentRecord.gateway_payment_id == gateway_payment_id
@@ -479,11 +479,12 @@ def create_refund(
     return record
 
 
-#: CR-12 fase 1: hier stond een tweede lijst met dezelfde vier waarden als de
-#: enum. Twee plaatsen voor één feit, en de enum is de bron — `PaymentStatus(x)`
-#: weigert wat er niet in staat, met dezelfde boodschap voor elke aanroeper.
+#: CR-12 phase 1: a second list with the same four values as the enum used to
+#: stand here. Two places for one fact, and the enum is the source —
+#: `PaymentStatus(x)` rejects what is not in it, with the same message for
+#: every caller.
 def _as_status(status) -> PaymentStatus:
-    """Een string of een lid naar het lid, met een leesbare weigering."""
+    """A string or a member to the member, with a readable rejection."""
     try:
         return PaymentStatus(status)
     except ValueError:
@@ -799,9 +800,10 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
         if not saldo_open(record):
             return False
     if status in {m.value for m in PaymentStatus}:
-        # `.value`, want `status` komt als string uit de filterbalk. Zonder die
-        # stap vergelijkt dit een lid met een string: altijd onwaar, dus élk
-        # statusfilter zou een lege lijst geven — stil, zonder fout.
+        # `.value`, because `status` arrives from the filter bar as a string.
+        # Without that step this compares a member with a string: always false,
+        # so *every* status filter would give an empty list — silently, without
+        # an error.
         return record.status.value == status
     return True
 
@@ -922,9 +924,9 @@ def derived_status(record) -> str:
         if betaald is not None and _bedrag(betaald) != 0:
             return "partial"
         return "pending"
-    # `code_of` en niet `.value`: een dubbel in een test kan een kale
-    # string dragen, en een onbekende waarde hoort hier ONGEWIJZIGD terug
-    # te komen — dat is wat "onbekende gatewaystatus" betekent.
+    # `code_of` and not `.value`: a test double may carry a bare string, and
+    # an unknown value must come back here UNCHANGED — that is what "unknown
+    # gateway status" means.
     return code_of(record.status) or ""
 
 

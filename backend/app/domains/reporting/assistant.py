@@ -954,12 +954,12 @@ _ZICHT_FILTER: dict[str, dict[str, Any]] = {
 }
 
 #: De statuskeuzelijst van het scherm draagt codes; het universum draagt labels.
-#: CR-12 fase 1: hier stond een vierde kopie van dezelfde vier woorden, naast
-#: het scherm, de export en het rapportenpaneel. Nu uit de labeltabel, en dat is
-#: precies wat AC3 vraagt — het rapport noemt de status met het woord dat de
-#: penningmeester op zijn scherm ziet.
+#: CR-12 phase 1: a fourth copy of the same four words used to live here, next
+#: to the screen, the export and the report panel. Now it comes from the label
+#: table, and that is exactly what AC3 asks — the report names the status with
+#: the word the treasurer sees on his screen.
 def _status_label(code: str) -> str | None:
-    """Het label van een betaalstatus, of None als de code er geen is."""
+    """The label of a payment status, or None if the code is not one."""
     from app.domains.payment.api import PaymentStatus
 
     try:

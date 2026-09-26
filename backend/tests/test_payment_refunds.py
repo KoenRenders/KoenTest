@@ -132,8 +132,8 @@ def test_refund_writes_audit_history(db_session):
     ).all()
     assert len(rows) == 1
     assert rows[0].action == "payment_refunded"
-    # `PaymentRecordHistory.type` is een kale string: een history-tabel draagt
-    # geen FK en moet een ingetrokken code overleven (§F4).
+    # `PaymentRecordHistory.type` is a bare string: a history table carries
+    # no FK and must survive a withdrawn code (§F4).
     assert rows[0].type == PaymentType.REFUND.value
     assert rows[0].amount == Decimal("-5.00")
 

@@ -106,8 +106,8 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     update_tenant_settings,
 )
 
-# CR-12: de codelijsten van dit domein horen bij de publieke schil, zodat een
-# ander domein een FK-doel en een enum via één deur bereikt.
+# CR-12: this domain's code lists belong to the public facade, so that another
+# domain reaches an FK target and an enum through one door.
 from app.domains.mdm.codes import LANGUAGE, PAYMENT_METHOD  # noqa: F401,E402
 
 __all__ = [

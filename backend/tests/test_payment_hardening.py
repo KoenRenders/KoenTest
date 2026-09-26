@@ -71,7 +71,7 @@ def test_matching_amount_marks_paid(db_session, monkeypatch):
     )
 
     refreshed = refresh_payment_status(db_session, gp.id)
-    # `GatewayPayment.status` draagt Mollie's woord, niet het onze (§B4.10).
+    # `GatewayPayment.status` carries Mollie's word, not ours (§B4.10).
     assert refreshed.status == PaymentStatus.PAID.value
 
 

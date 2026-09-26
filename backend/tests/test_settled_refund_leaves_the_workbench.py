@@ -57,7 +57,7 @@ def _scheduled_sweeps(db):
     from app.kernel.jobs import KernelJob
 
     return (db.query(KernelJob)
-            # Kernel-jobs hebben hun eigen statuslijst; die komt in fase 4.
+            # Kernel jobs have their own status list; that comes in phase 4.
             .filter(KernelJob.name == SWEEP_JOB, KernelJob.status == "pending")
             .all())
 

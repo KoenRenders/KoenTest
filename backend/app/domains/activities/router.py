@@ -919,10 +919,11 @@ def register_for_activity(
     checkout_url = None
     payment_record = None
     if data.payment_method and total_amount > 0:
-        # CR-12 fase 1: hier stond `"online" if data.payment_method == "ONLINE"
-        # else "transfer"` — een vertaling tussen twee spellingen van één lijst.
-        # Nu het formulier de codes zelf post, is er niets meer te vertalen, en
-        # dat is precies wat de duplicatie wegneemt in plaats van repareert.
+        # CR-12 phase 1: this used to read `"online" if data.payment_method == "ONLINE"
+        # else "transfer"` — a translation between two spellings of one list.
+        # Now that the form posts the codes itself, there is nothing left to
+        # translate, and that is exactly what removes the duplication instead of
+        # repairing it.
         method = PaymentMethod(data.payment_method)
         from app.kernel.tenant_config import tenant_base_url
 

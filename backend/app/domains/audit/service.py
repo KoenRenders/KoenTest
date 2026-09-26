@@ -142,11 +142,11 @@ def snapshot_registration_item(db: Session, item, *, operation: str, action: str
 
 def snapshot_payment_record(db: Session, record, *, operation: str, action: str,
                             source: str, actor: Optional[str] = None) -> None:
-    # CR-12 §F4: een history-tabel is append-only en draagt GEEN foreign key —
-    # ze moet een ingetrokken code overleven. Daarom blijven haar kolommen kale
-    # strings en schrijft de snapshot de code, niet het lid. `code_of` doet dat
-    # voor alle vier tegelijk, zodat er geen vijfde plek ontstaat waar iemand
-    # `.value` kan vergeten.
+    # CR-12 §F4: a history table is append-only and carries NO foreign key —
+    # it must survive a withdrawn code. That is why its columns stay plain
+    # strings and the snapshot writes the code, not the member. `code_of` does
+    # that for all four at once, so that no fifth place appears where someone
+    # can forget `.value`.
     db.add(PaymentRecordHistory(
         payment_record_id=record.id,
         payable_type=code_of(record.payable_type),

@@ -363,10 +363,10 @@ def _view(request: Request, db: Session, email: str,
             "mag_verwijderen": may_delete(rec),
             # Afgeleide status uit de service — de template leidt niets meer af.
             "status": derived_status(rec),
-            # CR-12 §B4.7: "staat deze kaart vereffend?" stond als
-            # `k.status == "paid"` in de template. Dat is een afgeleide
-            # toestand en geen code, maar de vergelijking hoort hier en niet
-            # daar: één plek waar de regel staat, en toetsbaar.
+            # CR-12 §B4.7: "is this card settled?" used to be
+            # `k.status == "paid"` in the template. That is a derived state
+            # and not a code, but the comparison belongs here and not there:
+            # one place where the rule lives, and testable.
             "is_settled": derived_status(rec) == "paid",
         }
 
@@ -409,14 +409,14 @@ def _view(request: Request, db: Session, email: str,
         # {% set %} in betalingen.html zou daar niet bestaan.
         # §2.12: nooit rauwe DB-waarden op het scherm. Per request opgebouwd, zodat
         # _() de taal van de tenant volgt (#630).
-        # CR-12 fase 1: deze twee kwamen uit twee woordenboeken in dit bestand.
-        # Nu uit de labeltabellen, zodat het scherm, de export en de
-        # rapportdimensie per definitie hetzelfde woord tonen (AC3) en een
-        # Engelstalige afdeling ze allebei in het Engels ziet (AC2).
+        # CR-12 phase 1: these two came from two dictionaries in this file.
+        # Now from the label tables, so the screen, the export and the report
+        # dimension show the same word by definition (AC3) and an
+        # English-language department sees both of them in English (AC2).
         method_labels=dict(code_labels("payment_method")),
-        # De twee filteropties bovenaan zijn géén codes: "alle statussen" en
-        # "openstaand saldo" zijn manieren van kijken, geen waarden die in de
-        # kolom staan. Die blijven dus door `_()` gaan.
+        # The two filter options at the top are *not* codes: "all statuses"
+        # and "outstanding balance" are ways of looking, not values that sit
+        # in the column. So they keep going through `_()`.
         status_labels={
             "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
             **dict(code_labels("payment_status")),
