@@ -76,8 +76,9 @@ of the missing piece.
 
 Managing the lists and their translations through a screen is **not** part of
 this change (Koen, 25 September 2026: *"nu maar geen scherm voorzien om
-codelijsten te beheren, dat kan later"*). Until then, codes and labels are
-added by migration.
+codelijsten te beheren, dat kan later"*; confirmed as a decision on 26
+September: *"geen beheerscherm voor codelijsten"*). Codes and labels are
+added and changed by migration — see the consequence under Non-goals.
 
 ## A4. Supplied material
 
@@ -94,7 +95,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | R4 | The three — code list, enumeration, labels — can never drift apart; a build that misses one fails and names it. | Must | Koen, 25 Sep 2026 | the gatekeeper |
 | R5 | The rule applies to the whole codebase, every module, existing and future. | Must | Koen, 25 Sep 2026 | "doortrekken in alle modules" |
 | R6 | A list that belongs to one domain lives in that domain; a list that is master data, or is used by more than one domain, lives in master data — except security vocabulary (roles), which stays with security. | Must | Koen, 25 Sep 2026 | "als het niet single-domein is: masterdata"; roles: "zit dit niet in een security-domein waar we later Keycloak, SAML kunnen aan koppelen?" |
-| R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 Sep 2026 | "dat kan later" — the structure allows it; see Non-goals |
+| R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 and 26 Sep 2026 | decided, not parked: "geen beheerscherm voor codelijsten"; a label changes by migration — see Non-goals |
 | R8 | Stored values do not change meaning or spelling; history and exports read as before. | Must | #779 | one exception proposed in B4.6 |
 
 ## A6. Non-functional requirements
@@ -159,8 +160,8 @@ Decisions that shape it, with the alternatives that lost:
   CR-06), and a new language is a row for a translator, not a `.po` file for a
   developer. The boundary: **codes → label table; everything else → `_()`**.
 - **Placement by Koen's rule, with one named exception to §8.** See B4.1.
-- **No management screen now** (R7). The tables are designed so that one can
-  be added without changing them.
+- **No management screen** (R7, decided). A label changes by migration; the
+  tables would allow a screen, but none is planned.
 
 Europe First: no new tool, library or service. Everything is SQLAlchemy,
 Alembic, mypy and pytest, already in use.
@@ -1181,6 +1182,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | The CR template gets **B9 Rule and gatekeeper**; every architectural CR names its rule, baseline and gate. | Koen |
 | 25 Sep 2026 | Placement: one domain → that domain; master data or two+ domains → `mdm`. MDM itself is thought through separately, with an external MDM adviser. | Koen |
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
+| 26 Sep 2026 | No management screen for code lists — a decision, not a parking: *"geen beheerscherm voor codelijsten"*. Consequence: a label changes by migration (a release, not an admin action); a manual `UPDATE` on one environment is a deviation, not management — the idempotent seed does not overwrite it and a fresh environment gets the seed value, so two environments drift silently. Price known and accepted. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
 | 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time data fix on `activities.registrations.payment_method` (mapping in B4.6, corrected 26 Sep after the HDEV measurement: `OVERSCHRIJVING` → `transfer` as well; no history column exists), with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
@@ -1205,6 +1207,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q24 | 26 Sep 2026 | Koen confirmed "geen beheerscherm voor codelijsten" — decision or parking? (master CLI) | Decision, with its consequence written under Non-goals: a label changes by migration; a manual `UPDATE` on one environment is a deviation. With this, everything in CR-12 that was Koen's to decide is decided, except the contact-type enum (still "Koen to confirm"). |
 | Q23 | 26 Sep 2026 | Master CLI: `is_social_network` sits on the `(code, language)` row of the unsplit table — per language; a second language row would collide in #1160's dict. | Taken into note 3 as the second reason for the split, with a guard in the phase-2 migration (move the flag to the code row, abort on contradicting flags). Koen accepts the release-level restore point; several tags rejected — B3/B7 now carry his yes. |
 | Q22 | 26 Sep 2026 | Does taking the enum off contact types break the data-driven footer of #1160? (Koen) | No — the reverse: the footer reads rows by `is_social_network`; the risk was a strict enum column refusing a new row on write. Without enum + FK the list stays one-row extensible. Answered by the master CLI; the decision itself still awaits Koen's explicit yes. |
 | Q21 | 26 Sep 2026 | Expand/contract for the remaining phases, or restore as the only way back? (Claude, via the master CLI) | Koen: restore is fine. Expand/contract rejected with its price. All phases in one release (v2.7.0), as Koen decided earlier — the "one phase per PROD deploy" line that briefly stood here was the master CLI's and contradicted that; withdrawn. |
@@ -1225,15 +1228,25 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 
 ## Non-goals
 
-- **No management screen** for codes or labels (Koen, 25 Sep 2026). The
-  tables are shaped so that one can be added later without a schema change:
-  it would edit `_labels` rows and toggle `is_active`. **What it must solve
-  then, and this CR does not:** the label cache is per process, and the
-  backend runs several Uvicorn workers — `reset_label_cache()` from a screen
-  reaches one worker. The screen needs a cross-worker invalidation (a
-  version stamp in `kernel_tenant_settings` or a `codes_version` table,
-  compared per request, or simply "changes apply on the next deploy"). Noted
-  here so it is not forgotten when the screen is built (review, 26 Sep).
+- **No management screen** for codes or labels — **decided** by Koen on 26
+  September 2026 (*"geen beheerscherm voor codelijsten"*), not parked. The
+  consequence, written down so it is not rediscovered as a defect in six
+  months: labels are seeded by the migration through `create_code_list`,
+  idempotently (`ON CONFLICT DO NOTHING`). So **a label changes by
+  migration** — "adjust the description of TikTok" is a release, not an
+  admin action. And **a manual `UPDATE` on one environment is a deviation,
+  not management**: the next seed does not overwrite it, a fresh environment
+  gets the seed value, and the two drift apart without anything reporting
+  it — one fact in two places, the shape this codebase treats as a bug
+  everywhere else. The choice is defensible (labels almost never change; a
+  screen for what almost never happens is maintenance without yield), and
+  its price is named here so whoever pays it later knows it was known.
+  Should a screen ever be wanted after all: the tables allow it without a
+  schema change (edit `_labels` rows, toggle `is_active`), and it would have
+  to solve cross-worker cache invalidation — the label cache is per process
+  and the backend runs several Uvicorn workers, so `reset_label_cache()`
+  from a screen reaches one worker (a version stamp compared per request, or
+  "changes apply on the next deploy").
 - **No Postgres `ENUM` type.** The code table is the list; the FK is the check.
 - **No renaming of stored values**, except the single proposed case in B4.6.
 - **No state machine.** Which transitions are allowed between statuses is
