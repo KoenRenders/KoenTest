@@ -32,7 +32,7 @@ def _activiteit_met_inschrijvingen(client, db_session, namen=("Rec Anna", "Rec B
         client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
                     data={"contact_name": naam, "contact_email": "rec@example.com",
                           "phone": "047", f"product_{product.id}": "1",
-                          "payment_method": "OVERSCHRIJVING"})
+                          "payment_method": "transfer"})
     return activity, component
 
 

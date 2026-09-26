@@ -11,6 +11,7 @@ betaalrecord) **als de bevestigingsmail**:
 """
 from datetime import date, timedelta
 from decimal import Decimal
+from app.domains.payment.api import PayableType
 
 
 def _seed(db, products):
@@ -42,7 +43,7 @@ def _seed(db, products):
     return act, comp, made
 
 
-def _register(client, activity_id, comp_id, items, email, payment_method="ONLINE"):
+def _register(client, activity_id, comp_id, items, email, payment_method="online"):
     body = {
         "contact_name": "Test", "phone": "0470000000", "contact_email": email,
         "component_id": comp_id, "items": items,
@@ -55,7 +56,7 @@ def _register(client, activity_id, comp_id, items, email, payment_method="ONLINE
 def _payment_amount(db):
     """Het bedrag van het (enige) betaalrecord in deze geïsoleerde test, of None."""
     from app.domains.payment.api import PaymentRecord
-    rec = db.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     return rec.amount if rec else None
 
 

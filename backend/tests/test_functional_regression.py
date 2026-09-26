@@ -3,6 +3,7 @@ webhook-idempotentie en de gedeelde totaalberekening."""
 from decimal import Decimal
 
 from tests.conftest import seed_postal_code, seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentStatus
 
 
 def _family_payload(email="happy@example.com"):
@@ -34,7 +35,7 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     assert db_session.query(Member).count() == 1
     assert db_session.query(Person).count() == 2
     assert db_session.query(Membership).count() == 1
-    assert db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").count() == 1
+    assert db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).count() == 1
 
     # Audit-trail meegeschreven met de juiste bron/actie.
     mh = db_session.query(MemberHistory).filter(MemberHistory.action == "family_registered").first()
@@ -89,7 +90,7 @@ def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_header
     assert h is not None
     assert h.source == "admin_manual"
     assert h.actor == "beheerder@example.com"
-    assert h.status == "paid"
+    assert h.status == PaymentStatus.PAID.value  # history: kale string (§F4)
 
 
 def test_webhook_update_idempotent_no_double_credit(client, db_session):
@@ -113,7 +114,7 @@ def test_webhook_update_idempotent_no_double_credit(client, db_session):
     handle_gateway_update(db_session, gateway_payment_id=gp.id, new_status="paid")
     db_session.flush()
 
-    assert rec.status == "paid"
+    assert rec.status == PaymentStatus.PAID
     assert rec.amount_paid == Decimal("35.00")  # toegekend, niet opgeteld
     transitions = db_session.query(PaymentRecordHistory).filter(
         PaymentRecordHistory.payment_record_id == rec.id,
@@ -183,7 +184,7 @@ def test_admin_creates_paid_activity_and_public_registration(client, db_session,
 
     from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration"
+        PaymentRecord.payable_type == PayableType.REGISTRATION
     ).first()
     assert rec is not None
     assert rec.amount == Decimal("7.50")
@@ -197,7 +198,7 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
 
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "Test", "phone": "0470000000", "contact_email": "total@example.com",
-        "payment_method": "ONLINE", "component_id": comp.id,
+        "payment_method": "online", "component_id": comp.id,
         "items": [{"product_id": product.id, "quantity": 3}],
     })
     assert resp.status_code == 200, resp.text
@@ -206,7 +207,7 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     from app.domains.activities.api import compute_registration_total
     from app.domains.activities.api import Registration
 
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     reg = db_session.query(Registration).first()
     total, _lines = compute_registration_total(reg)
     assert total == Decimal("37.50")  # 3 × 12.50

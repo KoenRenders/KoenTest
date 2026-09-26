@@ -23,3 +23,23 @@ no_implicit_optional = true
 module = "sqlalchemy.*"
 follow_imports = "skip"
 follow_imports_for_stubs = true
+
+# CR-12 fase 1 (§B4.8, §F10): mypy strikt per gemigreerd domein, als BONUS en
+# niet als poort. De poort op losse stringvergelijkingen is een AST-wandeling
+# (`tests/test_codes_gate.py`), want met de oude `Column()`-stijl typeert mypy
+# elk kolomattribuut als `Any` en is `Any == "paid"` nooit een fout.
+#
+# Waar een kolom wél als `Mapped[Enum] = mapped_column(EnumColumn(...))`
+# geschreven is, ziet mypy het type zonder plugin, en dan is `strict_equality`
+# een tweede net dat gratis meekomt. Per domein aanzetten zodra het gemigreerd
+# is; niet `--strict` globaal, want dat vraagt een uitzonderingslijst en daar
+# sterft een regel (#760).
+# `warn_return_any` staat hier bewust NIET bij, en dat is een meting en geen
+# smaak: met hem aan meldt mypy achttien keer "Returning Any" op
+# `db.query(...).first()`. Die `Any` komt uit de sqlalchemy-override bovenaan
+# dit bestand (`follow_imports = "skip"`), dus het rapporteert de typering van
+# de ORM en niet die van ons. Ruis die de twee echte bevindingen verbergt is
+# erger dan geen controle — zet hem aan wanneer de ORM-laag wél getypeerd is.
+[[tool.mypy.overrides]]
+module = "app.domains.payment.*"
+strict_equality = true

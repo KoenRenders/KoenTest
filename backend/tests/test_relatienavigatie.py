@@ -35,7 +35,7 @@ def _twee_inschrijvingen(client, db_session):
         client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
                     data={"contact_name": naam, "contact_email": "s@example.com",
                           "phone": "047", f"product_{product.id}": "1",
-                          "payment_method": "OVERSCHRIJVING"})
+                          "payment_method": "transfer"})
     from app.domains.activities.api import Registration
     regs = {r.contact_name: r for r in db_session.query(Registration).filter(
         Registration.contact_name.like("Scope %"))}

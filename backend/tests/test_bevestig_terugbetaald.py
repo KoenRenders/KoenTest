@@ -1,6 +1,6 @@
 """#661 — een openstaande terugbetaling krijgt dezelfde snelkoppeling als een vordering.
 
-"Bevestig betaald" stond achter `r.type != "refund"`, dus een openstaande
+"Bevestig betaald" stond achter `r.type != PaymentType.REFUND`, dus een openstaande
 terugbetaling moest je via Bewerken openen en het bedrag intypen — terwijl dat
 bedrag al bekend is.
 
@@ -20,6 +20,7 @@ from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for,
 from app.domains.payment.api import PaymentRecord
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -64,7 +65,7 @@ def test_bevestigen_zonder_bedrag_boekt_de_volledige_refund_negatief(client, db_
 
     db_session.expire_all()
     vers = db_session.get(PaymentRecord, refund.id)
-    assert vers.status == "paid"
+    assert vers.status == PaymentStatus.PAID
     assert vers.amount_paid == vers.amount, (
         "zonder bedrag hoort de volledige refund geboekt te worden (#199)")
     assert vers.amount_paid < 0, (

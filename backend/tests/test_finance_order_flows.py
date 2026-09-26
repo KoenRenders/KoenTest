@@ -11,6 +11,8 @@ from app.domains.activities.api import ActivityProduct
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from tests.conftest import seed_activity_with_product, seed_postal_code
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
+from app.domains.mdm.api import PaymentMethod
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -24,14 +26,14 @@ def _register(client, db, comp, product, qty=1):
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": qty}],
     })
     assert resp.status_code in (200, 201), resp.text
     reg = db.query(Registration).filter(Registration.component_id == comp.id).order_by(Registration.id.desc()).first()
     charge = db.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.CHARGE,
     ).first()
     return activity_id, reg, charge
 
@@ -45,8 +47,8 @@ def _pay(client, admin_headers, charge_id, amount):
 def _latest_refund(db, reg):
     db.expire_all()
     return db.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND,
     ).order_by(PaymentRecord.created_at.desc()).first()
 
 
@@ -80,12 +82,12 @@ def test_order_lowered_after_payment_creates_pending_refund(client, db_session, 
     # De refund is automatisch aangemaakt: precies één, dus de penningmeester moet
     # hem bevestigen — niet zelf een tweede registreren (#220 / UI-melding).
     refunds = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund").all()
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND).all()
     assert len(refunds) == 1
     refund = refunds[0]
     assert Decimal(str(refund.amount)) == Decimal("-18.00")
-    assert refund.status == "pending" and refund.amount_paid is None
+    assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
     assert refund.refund_of_id == charge.id
 
     # Penningmeester bevestigt de terugstorting → pas nu vereffent het saldo.
@@ -107,8 +109,8 @@ def test_order_decrease_does_not_double_refund(client, db_session, admin_headers
                      json={"quantity": 1}, headers=admin_headers)
     db_session.expire_all()
     refunds = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND,
     ).all()
     assert len(refunds) == 1
 
@@ -132,8 +134,8 @@ def test_order_increased_after_payment_leaves_balance_owed(client, db_session, a
 def _charges(db, reg):
     db.expire_all()
     return db.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.CHARGE,
     ).all()
 
 
@@ -153,8 +155,8 @@ def test_order_increase_creates_supplemental_transfer_charge(client, db_session,
     amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
     assert amounts == [Decimal("16.00"), Decimal("18.00")]
     supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
-    assert supp.method == "transfer"
-    assert supp.status == "pending"
+    assert supp.method == PaymentMethod.TRANSFER
+    assert supp.status == PaymentStatus.PENDING
     assert supp.structured_communication  # OGM aanwezig
 
 
@@ -250,8 +252,8 @@ def test_partial_payment_lower_via_patch_reduces_to_paid(client, db_session, adm
     assert len(charges) == 1
     assert Decimal(str(charges[0].amount)) == Decimal("18.00")  # gekrompen tot het betaalde deel
     refunds = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund").all()
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND).all()
     assert refunds == []
 
 
@@ -274,8 +276,8 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
     assert resp.status_code == 200, resp.text  # geen 500
     db_session.expire_all()
     refunds = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund").all()
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND).all()
     assert sum((Decimal(str(r.amount)) for r in refunds), Decimal("0")) == Decimal("-8.00")
     # Verplichting nog niet uitbetaald → saldo −8; na bevestiging door de penningmeester €0.
     bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
@@ -314,7 +316,7 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
     client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item1.id}",
                  json={"quantity": 1}, headers=admin_headers)
     refund = _latest_refund(db_session, reg)
-    assert refund.status == "pending" and refund.amount_paid is None
+    assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
     _confirm_refund(client, admin_headers, refund.id)
     b = _bal()
     assert Decimal(str(b["total_due"])) == Decimal("18.00")
@@ -342,7 +344,7 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
 
     # Invariant: som van alle records = besteltotaal.
     recs = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id).all()
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id).all()
     assert sum((Decimal(str(r.amount)) for r in recs), Decimal("0")) == Decimal("68.00")
 
 
@@ -394,7 +396,7 @@ def test_full_refund_scenario(client, db_session, admin_headers):
     assert open_charges == []   # geen open post meer
 
     recs = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id).all()
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id).all()
     assert sum((Decimal(str(r.amount)) for r in recs), Decimal("0")) == Decimal("0.00")
 
 
@@ -439,7 +441,7 @@ def test_refund_on_membership_payment(client, db_session, admin_headers):
     member = db_session.query(Member).order_by(Member.id.desc()).first()
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == ms.id,
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP, PaymentRecord.payable_id == ms.id,
     ).first()
     _pay(client, admin_headers, charge.id, str(charge.amount))
 

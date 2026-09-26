@@ -17,6 +17,7 @@ from app.domains.payment.api import (
 from app.domains.payment.api import PaymentRecordHistory
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -41,11 +42,11 @@ def test_refund_creates_negative_record_linked_to_charge(db_session):
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), actor="admin@test")
 
-    assert refund.type == "refund"
+    assert refund.type == PaymentType.REFUND
     assert refund.amount == Decimal("-18.00")
     assert refund.amount_paid == Decimal("-18.00")
     assert refund.refund_of_id == charge.id
-    assert refund.status == "paid"
+    assert refund.status == PaymentStatus.PAID
     # Na een volledige terugbetaling is er netto niets meer ontvangen.
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("0.00")
 
@@ -74,12 +75,12 @@ def test_herbevestigen_na_refund_bewaart_saldo_en_context(db_session):
     # Invarianten intact: saldo coherent (30 ontvangen, 10 terug = 20), en géén
     # record verliest payable_type/payable_id.
     db_session.expire_all()
-    charge = db_session.query(PaymentRecord).filter(PaymentRecord.type == "charge").one()
-    refund = db_session.query(PaymentRecord).filter(PaymentRecord.type == "refund").one()
+    charge = db_session.query(PaymentRecord).filter(PaymentRecord.type == PaymentType.CHARGE).one()
+    refund = db_session.query(PaymentRecord).filter(PaymentRecord.type == PaymentType.REFUND).one()
     assert charge.amount_paid == Decimal("30.00")
     assert net_paid(db_session, "registration", 42) == Decimal("20.00")
     for rec in (charge, refund):
-        assert rec.payable_type == "registration" and rec.payable_id == 42
+        assert rec.payable_type == PayableType.REGISTRATION and rec.payable_id == 42
 
     # Een legitieme herbevestiging op het volledige bedrag (€30) blijft toegestaan
     # en houdt het saldo coherent.
@@ -131,7 +132,9 @@ def test_refund_writes_audit_history(db_session):
     ).all()
     assert len(rows) == 1
     assert rows[0].action == "payment_refunded"
-    assert rows[0].type == "refund"
+    # `PaymentRecordHistory.type` is een kale string: een history-tabel draagt
+    # geen FK en moet een ingetrokken code overleven (§F4).
+    assert rows[0].type == PaymentType.REFUND.value
     assert rows[0].amount == Decimal("-5.00")
 
 
@@ -142,7 +145,7 @@ def test_confirm_pending_refund_books_full_amount(client, db_session, admin_head
     negatieve bedrag; de tekengevoelige validatie blokkeert dit niet (#219)."""
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
-    assert refund.status == "pending" and refund.amount_paid is None
+    assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
     resp = client.patch(f"/api/v1/payment-status/records/{refund.id}",
                         json={"status": "paid"}, headers=admin_headers)
     assert resp.status_code == 200, resp.text
@@ -198,14 +201,14 @@ def test_registration_balance_reflects_charge_and_refund(client, db_session, adm
 
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration",
-        PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION,
+        PaymentRecord.type == PaymentType.CHARGE,
     ).order_by(PaymentRecord.created_at.desc()).first()
     assert charge is not None
     registration_id = charge.payable_id

@@ -8,9 +8,11 @@ refund registreren, opmerking bewaard in de audit) worden hier bewaakt.
 from decimal import Decimal
 
 import pytest
+from app.domains.payment.api import PaymentStatus
 
 from app.domains.payment.api import (
-    PaymentRecord, PaymentRecordHistory, create_refund, edit_payment_record, net_paid,
+    PaymentRecord, PaymentRecordHistory, PaymentStatus, create_refund,
+    edit_payment_record, net_paid,
 )
 
 
@@ -37,7 +39,7 @@ def test_charge_status_paid_leeg_bedrag_boekt_volledig(db_session):
     charge = _seed_charge(db_session, amount="10.00")
     edit_payment_record(db_session, charge.id, status="paid", amount_paid=None,
                         actor="fin@test")
-    assert charge.status == "paid"
+    assert charge.status == PaymentStatus.PAID
     assert charge.amount_paid == Decimal("10.00")
     assert charge.paid_at is not None
 
@@ -71,7 +73,7 @@ def test_refund_registreer_effectieve_uitbetaling(db_session):
     # Effectieve uitbetaling registreren via de unified editor.
     edit_payment_record(db_session, refund.id, status="paid", amount_paid=None,
                         actor="fin@test")
-    assert refund.status == "paid"
+    assert refund.status == PaymentStatus.PAID
     assert refund.amount_paid == Decimal("-10.00")  # volledige refund geboekt
     # Netto ontvangen = 18 charge − 10 refund = 8.
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("8.00")
@@ -114,4 +116,4 @@ def test_niet_paid_status_zonder_paid_boeking(db_session):
     """status→cancelled (geen bedrag) schrijft enkel de status weg (via snapshot)."""
     charge = _seed_charge(db_session, amount="10.00")
     edit_payment_record(db_session, charge.id, status="cancelled", actor="fin@test")
-    assert charge.status == "cancelled"
+    assert charge.status == PaymentStatus.CANCELLED

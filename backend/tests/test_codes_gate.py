@@ -260,9 +260,24 @@ COLLECTORS = {
 }
 
 
+#: Per ratchet, the dict of permanent exceptions that belongs to it. Entries
+#: there are neither a violation nor progress: they are values somebody else
+#: owns. They are counted separately, so a ratchet stays a promise about our own
+#: work and does not carry a number that can never reach zero.
+PERMANENT = {
+    "FK_MISSING": "FK_NOT_OUR_LIST",
+    "LOOSE_STRINGS": "LOOSE_STRINGS_NOT_A_CODE",
+}
+
+
+def _permanent(name: str) -> dict[str, str]:
+    return getattr(baseline, PERMANENT[name], {}) if name in PERMANENT else {}
+
+
 def _ratchet(name: str) -> None:
     """The one shape of every ratchet: nothing new, and nothing left behind."""
-    found = COLLECTORS[name]()
+    found = {k: v for k, v in COLLECTORS[name]().items()
+             if k not in _permanent(name)}
     frozen = getattr(baseline, name)
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
@@ -534,6 +549,8 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         ("template comparisons on a code (ratchet)",
          len(baseline.TEMPLATE_COMPARISONS)),
         ("loose string comparisons in .py (ratchet)", len(baseline.LOOSE_STRINGS)),
+        ("permanent exceptions — not our vocabulary (counted, not capped)",
+         len(baseline.FK_NOT_OUR_LIST) + len(baseline.LOOSE_STRINGS_NOT_A_CODE)),
     ]
     if db_session is not None:
         for language in ("nl", "en"):
@@ -572,7 +589,7 @@ def test_every_ratchet_looks_somewhere(name):
     the frozen entries are still found is the proof that the walk works.
     """
     found = COLLECTORS[name]()
-    frozen = getattr(baseline, name)
-    assert set(found) >= set(frozen), (
+    frozen = set(getattr(baseline, name)) | set(_permanent(name))
+    assert set(found) >= frozen, (
         f"`{name}` finds less than the frozen list — that is either cleanup "
         f"(remove them from the baseline) or a collector that has fallen silent")

@@ -8,8 +8,9 @@ terugbetaling-verplichting aan (geld = financieel feit, verdwijnt niet zomaar).
 from app.domains.activities.api import Registration
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentType
 
-_REG = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com", "payment_method": "TRANSFER"}
+_REG = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com", "payment_method": "transfer"}
 
 
 def _public(client, activity_id, comp_id):
@@ -58,7 +59,7 @@ def test_delete_paid_registration_keeps_charge_and_creates_pending_refund(client
     terugbetaling bij (niet als teruggestort getoond tot de penningmeester bevestigt)."""
     comp, reg = _register(client, db_session)
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.type == "charge",
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.type == PaymentType.CHARGE,
     ).order_by(PaymentRecord.created_at.desc()).first()
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "36.00"}, headers=admin_headers)

@@ -14,6 +14,7 @@ from app.domains.auth.api import create_access_token
 from tests.test_membership_pricing import seed_household
 from tests.test_functional_regression import _family_payload
 from tests.conftest import seed_postal_code
+from app.domains.payment.api import PayableType
 
 
 def _headers(email):
@@ -48,7 +49,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     from app.domains.payment.api import PaymentRecord
     from app.domains.membership.api import Membership
 
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
     assert rec is not None
     ms = db_session.query(Membership).first()
     assert ms.is_active is False  # nog niet betaald
@@ -76,7 +77,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
     from app.domains.payment.api import PaymentRecord
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     assert ms is not None and ms.is_active is False  # pas actief na betaling
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
     assert rec.payable_id == ms.id
 
 
@@ -146,7 +147,7 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     memberships = db_session.query(Membership).filter(Membership.member_id == member.id).all()
     years = [m.year for m in memberships]
     assert len(years) == len(set(years))  # geen duplicaat (member_id, year)
-    rec_count = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").count()
+    rec_count = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).count()
     assert rec_count == 1
 
 
@@ -181,7 +182,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     from app.domains.payment.api import PaymentRecord
     rec = (
         db_session.query(PaymentRecord)
-        .filter(PaymentRecord.payable_type == "membership")
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
         .order_by(PaymentRecord.id.desc())
         .first()
     )
