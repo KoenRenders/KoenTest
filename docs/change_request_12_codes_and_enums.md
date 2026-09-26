@@ -793,6 +793,19 @@ places. `partial=True` is
 removed from `EnumColumn`; B4.9's invariant — a read never yields a bare
 string — stands.
 
+**Why this protects #1160 rather than threatening it** — the question Koen
+asked when he read this note ("geeft dat geen probleem met #1160?"). The
+footer of #1160 touches no enum: it asks the database which types carry
+`is_social_network` and renders the rows. The danger was on the *write*
+side: a strict enum column refuses a code without a member, so adding a
+fifth network as a row would no longer store, and #1160 would be undone
+silently. Without an enum the column stays a string with a FK: the FK
+guarantees the code is in the list, the list stays extensible by one row,
+and what the enum would have bought — no loose strings at the two branches
+on `EMAIL` and `MOBILE` — comes from the named constants. Two readers, two
+reasons: a reader of #1160 needs this one; a reader of B4.8 needs the
+union-type one above.
+
 On the spellings: the stored code has always been `MOBILE`; the lower-case
 `"mobile"` (13×) is a form-field name and a view-model attribute, not a
 stored value — two different things, no inconsistency. `CLAUDE.md`'s
@@ -1176,6 +1189,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q22 | 26 Sep 2026 | Does taking the enum off contact types break the data-driven footer of #1160? (Koen) | No — the reverse: the footer reads rows by `is_social_network`; the risk was a strict enum column refusing a new row on write. Without enum + FK the list stays one-row extensible. Answered by the master CLI; the decision itself still awaits Koen's explicit yes. |
 | Q21 | 26 Sep 2026 | Expand/contract for the remaining phases, or restore as the only way back? (Claude, via the master CLI) | Koen: restore is fine. Expand/contract rejected with its price. All phases in one release (v2.7.0), as Koen decided earlier — the "one phase per PROD deploy" line that briefly stood here was the master CLI's and contradicted that; withdrawn. |
 | Q20 | 26 Sep 2026 | Does the gate need a mechanism to accept `CodeList` constants; should #1189 wait for the expand/contract answer? (Claude) | Master CLI: no — the gate only sees literals, so constants pass today; the `NewType` buys type safety, not compliance; the gate cannot tell a registry constant from another one and that check is not built. No — #1189 does not wait; the price of expand/contract (nine releases) goes next to the option. |
 | Q19 | 26 Sep 2026 | Master CLI, after phase 2 (PR #1189): (a) contact types — dev1 built `partial=True`; recommendation: no enum, branch on a property and named constants; (b) B7's "revertible" is untrue for migration 154 (renames + drop, image rollback breaks); (c) gender `O` never existed, `role_codes` holds no relation types, `"mobile"` is a field name not a stored value. | (a) taken as the author's decision, Koen to confirm; (b) B7 corrected, expand/contract left to Koen; (c) notes 2, 3, 4 corrected. |
