@@ -73,8 +73,8 @@ def _sweep_sources(db: Session) -> list[dict]:
     # 3. Webhook-mismatch: gateway zegt paid, het grootboek (nog) niet.
     rows = (db.query(GatewayPayment, PaymentRecord)
             .join(PaymentRecord, PaymentRecord.gateway_payment_id == GatewayPayment.id)
-            # `GatewayPayment.status` draagt Mollie's woord (§B4.10) en blijft
-            # dus een string; `PaymentRecord.status` is onze lijst.
+            # `GatewayPayment.status` carries Mollie's word (§B4.10) and so
+            # stays a string; `PaymentRecord.status` is our list.
             .filter(GatewayPayment.status == PaymentStatus.PAID.value,
                     PaymentRecord.status != PaymentStatus.PAID).all())
     for gp, record in rows:

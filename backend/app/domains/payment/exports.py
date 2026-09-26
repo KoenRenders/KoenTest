@@ -20,10 +20,10 @@ from app.domains.payment.api import PayableType, PaymentRecord
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
 
-# CR-12 fase 1: hier stonden `_METHOD`, `_STATUS` en `_TYPE` — drie Nederlandse
-# woordenboeken die hetzelfde zeiden als de schermen ernaast, met hun eigen
-# afwijkingen. De labels komen nu uit de labeltabellen, dus de export en het
-# scherm tonen per definitie hetzelfde woord (AC3).
+# CR-12 phase 1: `_METHOD`, `_STATUS` and `_TYPE` used to stand here — three
+# Dutch dictionaries that said the same as the screens next to them, with their
+# own deviations. The labels now come from the label tables, so the export and
+# the screen show the same word by definition (AC3).
 
 
 def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:

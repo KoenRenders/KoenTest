@@ -16,12 +16,12 @@ from app.kernel.codes import code_label
 from app.kernel.ods import build_ods_multi
 from app.i18n import _
 
-# CR-12 fase 1: hier stonden vier labelwoordenboeken, waarvan er twee hetzelfde
-# zeiden in twee spellingen — `_METHOD_LABELS` met hoofdletters voor de
-# inschrijving, `_RECORD_METHOD_LABELS` met kleine voor het betaalrecord. Dat
-# was precies de duplicatie die deze fase wegneemt: één lijst, één spelling,
-# één labeltabel. `_METHOD_LABELS` kende `OVERSCHRIJVING` bovendien niet, dus
-# vijftien inschrijvingen drukten hun ruwe woord af via de fallback.
+# CR-12 phase 1: four label dictionaries used to live here, two of which said
+# the same thing in two spellings — `_METHOD_LABELS` in upper case for the
+# registration, `_RECORD_METHOD_LABELS` in lower case for the payment record.
+# That was exactly the duplication this phase removes: one list, one spelling,
+# one label table. `_METHOD_LABELS` also did not know `OVERSCHRIJVING`, so
+# fifteen registrations printed their raw word via the fallback.
 
 
 def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:

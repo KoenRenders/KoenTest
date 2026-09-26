@@ -6,10 +6,10 @@ from pydantic import BaseModel
 from app.domains.mdm.api import PaymentMethod
 from app.domains.payment.models import PayableType, PaymentStatus, PaymentType
 
-# CR-12 fase 1: form → router (Pydantic). Deze velden dragen nu de enums, dus
-# een onbekende waarde is een 422 met de naam van het veld in plaats van een rij
-# die pas op de foreign key struikelt. De JSON blijft identiek: Pydantic
-# serialiseert een enum als zijn waarde, en de waarden zijn de codes.
+# CR-12 phase 1: form → router (Pydantic). These fields now carry the enums, so
+# an unknown value is a 422 naming the field instead of a row that only trips
+# over the foreign key later. The JSON stays identical: Pydantic serialises an
+# enum as its value, and the values are the codes.
 
 
 class PaymentRecordCreate(BaseModel):
@@ -39,11 +39,11 @@ class PaymentRecordResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
-    # CR-12 §B4.7: een template vergelijkt nooit een code. Deze vier zijn wat
-    # de betalingenlijst echt wil weten; ze stonden er als
-    # `r.status == "paid"` en waren daar niet te testen. Met een gewone `Enum`
-    # zouden ze bovendien stil onwaar geworden zijn — de gevaarlijkste vorm van
-    # deze wijziging, want er gaat niets stuk.
+    # CR-12 §B4.7: a template never compares a code. These four are what the
+    # payments list really wants to know; they used to be there as
+    # `r.status == "paid"` and could not be tested there. With a plain `Enum`
+    # they would moreover have turned silently false — the most dangerous form
+    # of this change, because nothing breaks.
     @property
     def is_paid(self) -> bool:
         return self.status is PaymentStatus.PAID
@@ -62,7 +62,7 @@ class PaymentRecordResponse(BaseModel):
 
     @property
     def status_code(self) -> str:
-        """De ruwe code, voor een `x-data` die er een formulierwaarde van maakt."""
+        """The raw code, for an `x-data` that turns it into a form value."""
         return self.status.value
 
 

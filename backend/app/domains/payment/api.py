@@ -18,8 +18,8 @@ from app.domains.payment.models import (  # noqa: F401
     PaymentStatus,
     PaymentType,
 )
-# CR-12: de codelijsten van dit domein horen bij de publieke schil, zodat een
-# ander domein een FK-doel en een enum via één deur bereikt.
+# CR-12: this domain's code lists belong to the public surface, so another
+# domain reaches an FK target and an enum through one door.
 from app.domains.payment.codes import (  # noqa: F401
     PAYABLE_TYPE,
     PAYMENT_PROVIDER,

@@ -283,7 +283,7 @@ def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, 
     from app.domains.payment.api import GatewayPayment
     gp = GatewayPayment(
         provider="mollie", provider_payment_id="tr_x", amount=Decimal("10.00"),
-        # GatewayPayment.status blijft een kale string: Mollie's lijst (§B4.10).
+        # GatewayPayment.status stays a bare string: Mollie's list (§B4.10).
         status=PaymentStatus.PENDING.value,
         checkout_url="https://mollie.test/checkout/tr_x",
         payment_metadata={},
