@@ -623,7 +623,17 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
             gewijzigd = True
 
     if gewijzigd:
-        db.flush()
+        # **Commit, geen flush** (#1223). De aanroeper heeft zijn eigen wijziging
+        # al vastgelegd vóór deze functie draait, dus na een flush alleen wordt
+        # dit weer weggegooid bij het einde van het verzoek: de rij verschijnt, de
+        # POST vertrekt, de server antwoordt 200 — en er staat niets in de
+        # databank.
+        #
+        # Mijn pytests zagen dat niet: die lezen door DEZELFDE sessie, en daarin
+        # is een geflushte rij gewoon zichtbaar. Alleen een tweede verbinding —
+        # de browser — kent het verschil. Dat is dezelfde vorm als de test die
+        # het onderwerp omzeilt, één laag dieper.
+        db.commit()
 
 
 def make_email_primary(db: Session, person_id: int, contact_id: int, *,

@@ -112,7 +112,6 @@
           {% endcall %}</div>
       </div>
       {% endif %}
-    </form>
     {# #1219: je eigen e-mailadressen, als rijen in dit formulier. Met elk ervan
        kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Precies één kan het
        HOOFDADRES zijn: het adres dat Raak Nationaal in zijn programma heeft — een
@@ -126,7 +125,13 @@
        Dat een lid dit zelf mag, komt in het auditlogboek en in de .ods-export van
        de ledenwijzigingen, waarmee het nationale programma bijgewerkt wordt. #}
     <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
-      <p class="text-xs font-medium text-ink-soft">{{ _("E-mailadressen") }}</p>
+      <div class="flex items-center justify-between gap-2">
+        {{ ui.label(_("E-mailadressen"), "p-emails-" ~ p.id) }}
+        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+                hx-get="/leden/gezin/personen/{{ p.id }}/email-rij"
+                hx-target="#p-emails-{{ p.id }}" hx-swap="beforeend"
+                hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
+      </div>
       <div id="p-emails-{{ p.id }}" class="mt-1 space-y-2">
         {% for a in p.emails %}
           {% with rij = a, index = loop.index0,
@@ -138,12 +143,9 @@
           <p class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</p>
         {% endfor %}
       </div>
-      <button type="button" class="{{ ui.btn_class('secondary', 'sm') }} mt-2"
-              hx-get="/leden/gezin/personen/{{ p.id }}/email-rij"
-              hx-target="#p-emails-{{ p.id }}" hx-swap="beforeend"
-              hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
       <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan.") }}</p>
     </div>
+    </form>
   </div>
   {% endfor %}
 

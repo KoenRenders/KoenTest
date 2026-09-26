@@ -13,9 +13,24 @@
    werkend uit tot iemand hem gebruikt — en zijn verwijderknop haalt alleen het
    veld uit het formulier, zonder verzoek.
 
+   **Dit blok staat ÍN het `<form>` van het lid, en dat is de reparatie van
+   #1223.** Het stond ernaast, zonder enige koppeling, en dan verstuurt de browser
+   deze velden niet met Opslaan: de rij verschijnt, je drukt Opslaan, en er
+   gebeurt niets — precies wat Koen op HDEV zag.
+
+   Nesting en niet `form="<id>"`, al zou dat óók werken. Nagemeten in
+   `static/vendor/htmx.min.js`: bij een formulier loopt htmx over `form.elements`,
+   en daar zitten velden met een `form`-attribuut gewoon in. Twee wegen naar
+   hetzelfde dus — en dan is de nesting de eerlijkste, want die is te zien zonder
+   een attribuut op te zoeken.
+
+   Een genest formulier is hier niet nodig: de twee knoppen hiernaast zijn
+   `type="button"` met hun eigen `hx-post`, dus ze versturen het omhullende
+   formulier niet.
+
    Verwacht: `rij` (dict met id/value/is_primary) of None voor een lege rij,
-   `index` voor de naamgeving van een nieuwe rij, en `basis_url` als voorvoegsel
-   voor de twee acties. #}
+   `index` voor de naamgeving van een nieuwe rij, `basis_url` als voorvoegsel voor
+   de twee acties. #}
 {% import "_macros.html" as ui %}
 {% set _id = rij.id if rij else None %}
 {% set _naam = ("email_existing_" ~ _id) if _id else ("email_new_" ~ index) %}
@@ -42,7 +57,7 @@
     {# Nog niet opgeslagen: geen id, dus geen serveractie. Weghalen is het veld
        uit het formulier halen; er valt nog niets te verwijderen. #}
     <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
-            aria-label="{{ _('Deze regel weghalen') }}"
-            @click="$el.closest('[data-email-rij]').remove()">{{ _("Weghalen") }}</button>
+            aria-label="{{ _('Deze regel verwijderen') }}"
+            @click="$el.closest('[data-email-rij]').remove()">{{ _("Verwijderen") }}</button>
   {% endif %}
 </div>

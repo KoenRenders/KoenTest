@@ -54,33 +54,38 @@
         hx-target="#persoon-{{ m.id }}" hx-swap="outerHTML" style="display: none">
     {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
-  </form>
-  {# #1219: de e-mailadressen als RIJEN in het formulier. Het losse e-mailveld in
-     de veldenset hierboven is weg (`include_email=False`): één veld daar én een
-     lijst hier zou twee plaatsen voor hetzelfde feit zijn.
+    {# #1219: de e-mailadressen als RIJEN in het formulier. Het losse e-mailveld in
+       de veldenset hierboven is weg (`include_email=False`): één veld daar én een
+       lijst hier zou twee plaatsen voor hetzelfde feit zijn.
 
-     Tekst wijzigen gaat mee met Opslaan van het lid; verwijderen en hoofdadres
-     aanduiden blijven eigen knoppen. Alleen in bewerkmodus — in leesmodus staan
-     de adressen al bij de contactregels bovenaan. #}
-  <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
-    <p class="text-xs font-medium text-ink-soft">{{ _("E-mailadressen") }}</p>
-    <div id="emails-{{ m.id }}" class="mt-1 space-y-2">
-      {% for a in m.emails %}
-        {% with rij = a, index = loop.index0,
-                basis_url = "/admin/leden/gezin/" ~ family.id ~ "/persoon/" ~ m.id ~ "/email",
-                doel = "#persoon-" ~ m.id, swap = "outerHTML" %}
-          {% include "_email_rij.html" %}
-        {% endwith %}
-      {% else %}
-        <p class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</p>
-      {% endfor %}
+       Tekst wijzigen gaat mee met Opslaan van het lid; verwijderen en hoofdadres
+       aanduiden blijven eigen knoppen. Alleen in bewerkmodus — in leesmodus staan
+       de adressen al bij de contactregels bovenaan. #}
+    <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
+      {# De knop rechts naast de kop, zoals de secties in `_aa_detail.html`
+         (Koen, 27 sep). De kop op dezelfde maat als de veldlabels ernaast — hij
+         benoemt een groep velden en hoorde niet kleiner te zijn. #}
+      <div class="flex items-center justify-between gap-2">
+        {{ ui.label(_("E-mailadressen"), "emails-" ~ m.id) }}
+        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+                hx-get="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email-rij"
+                hx-target="#emails-{{ m.id }}" hx-swap="beforeend"
+                hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
+      </div>
+      <div id="emails-{{ m.id }}" class="mt-1 space-y-2">
+        {% for a in m.emails %}
+          {% with rij = a, index = loop.index0,
+                  basis_url = "/admin/leden/gezin/" ~ family.id ~ "/persoon/" ~ m.id ~ "/email",
+                  doel = "#persoon-" ~ m.id, swap = "outerHTML" %}
+            {% include "_email_rij.html" %}
+          {% endwith %}
+        {% else %}
+          <p class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</p>
+        {% endfor %}
+      </div>
+      <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan dit lid zich aanmelden, en de nieuwsbrief gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan; het hoofdadres is het adres dat Raak Nationaal in zijn programma heeft.") }}</p>
     </div>
-    <button type="button" class="{{ ui.btn_class('secondary', 'sm') }} mt-2"
-            hx-get="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email-rij"
-            hx-target="#emails-{{ m.id }}" hx-swap="beforeend"
-            hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
-    <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan dit lid zich aanmelden, en de nieuwsbrief gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan; het hoofdadres is het adres dat Raak Nationaal in zijn programma heeft.") }}</p>
-  </div>
+  </form>
 </div>
 {% endmacro %}
 
