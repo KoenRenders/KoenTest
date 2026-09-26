@@ -72,10 +72,29 @@ _TRIX_IMAGE = re.compile(
     re.DOTALL | re.IGNORECASE,
 )
 _HAS_ALT = re.compile(r'\balt\s*=', re.IGNORECASE)
+_HAS_CLASS = re.compile(r'\bclass\s*=', re.IGNORECASE)
+
+# The three sizes a page image can have (#1207). Koen asked for fixed sizes and
+# not a free percentage: with a free number you end up with 37 %, 40 % and 45 %
+# side by side on different pages, looking untidy without anyone seeing why.
+#
+# A WHITELIST and not a pass-through, and that is the security half: the value
+# comes out of admin-written JSON and lands in a `class` attribute, which the
+# allowlist in `_ALLOWED_ATTRS` permits on every tag. Mapping through this dict
+# means an unknown value yields no class at all instead of whatever was typed.
+#
+# "vol" carries no class on purpose: that is the behaviour of every image from
+# before this issue, so an existing page renders exactly as it did.
+IMAGE_SIZES = {"klein": "cms-beeld-klein", "half": "cms-beeld-half", "vol": ""}
 
 
-def _alt_onto_image(match: "re.Match") -> str:
-    """One Trix figure: put the alt from its JSON on the <img> below it."""
+def _attributes_onto_image(match: "re.Match") -> str:
+    """One Trix figure: put what its JSON carries onto the <img> below it.
+
+    Was `_alt_onto_image` until #1207 added the size. Same mechanism, same
+    reason: the editor keeps custom keys in the attachment JSON and drops
+    anything written on the `<img>` itself.
+    """
     attrs = match.group("attrs")
     try:
         data = json.loads(unescape(match.group("json")))
@@ -87,23 +106,33 @@ def _alt_onto_image(match: "re.Match") -> str:
     # become one; those are left exactly as they were before this issue.
     if not str(data.get("contentType") or "").lower().startswith("image"):
         return match.group(0)
-    alt = data.get("alt")
+    extra = []
     # An alt already on the tag wins: somebody typed it in the HTML source panel,
-    # and that is a deliberate choice.
-    if not isinstance(alt, str) or not alt.strip() or _HAS_ALT.search(attrs):
+    # and that is a deliberate choice. Same for a class.
+    alt = data.get("alt")
+    if isinstance(alt, str) and alt.strip() and not _HAS_ALT.search(attrs):
+        extra.append(f'alt="{escape(alt.strip(), quote=True)}"')
+    # #1207: the size travels in the same JSON as the alt, for the same measured
+    # reason — see the block above `_TRIX_IMAGE`.
+    klasse = IMAGE_SIZES.get(str(data.get("size") or "").strip())
+    if klasse and not _HAS_CLASS.search(attrs):
+        extra.append(f'class="{klasse}"')
+    if not extra:
         return match.group(0)
     return (f"{match.group('figure')}{match.group('between')}"
-            f'<img{attrs} alt="{escape(alt.strip(), quote=True)}">')
+            f"<img{attrs} {' '.join(extra)}>")
 
 
-def image_alt_from_attachment(html: Optional[str]) -> Optional[str]:
-    """Lift each Trix image attachment's alt onto the <img> itself (#1173).
+def image_attributes_from_attachment(html: Optional[str]) -> Optional[str]:
+    """Lift a Trix image attachment's alt and size onto the <img> (#1173, #1207).
 
     Runs before sanitisation, which throws away the figure holding the JSON.
+    Renamed from `image_alt_from_attachment` when the size joined the alt: a name
+    that says only "alt" would be a lie about what it does.
     """
     if not html or "data-trix-attachment" not in html:
         return html
-    return _TRIX_IMAGE.sub(_alt_onto_image, html)
+    return _TRIX_IMAGE.sub(_attributes_onto_image, html)
 
 
 def sanitize_cms_html(html: Optional[str]) -> Optional[str]:
@@ -163,4 +192,4 @@ def render_cms_content(content: Optional[str]) -> Optional[str]:
     for code, value in _values().items():
         content = content.replace(f"{{{{{code}}}}}", value)
     # Before sanitisation (#1173): that step removes the figure holding the alt.
-    return sanitize_cms_html(image_alt_from_attachment(content))
+    return sanitize_cms_html(image_attributes_from_attachment(content))

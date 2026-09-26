@@ -21,7 +21,7 @@ reasoned from the API docs.
 
 So the button puts the alt in the attachment JSON, where Trix does keep it
 (measured over two round trips with an edit in between), and
-`image_alt_from_attachment()` lifts it onto the `<img>` just before sanitisation.
+`image_attributes_from_attachment()` lifts it onto the `<img>` just before sanitisation.
 `nh3` then removes the `<figure>` while keeping its children, so the `<img>`
 survives — now with its alt.
 
@@ -34,7 +34,7 @@ quietly irrelevant.
 
 Broken on purpose to check these tests can go red. Five proofs, with what each
 one actually knocked over — not what it was expected to:
-- `image_alt_from_attachment` turned into `return html` → 2 failed
+- `image_attributes_from_attachment` turned into `return html` → 2 failed
   (`..._carries_its_alt`, `..._survives_a_round_trip`). The img-survives test
   stayed green, which is right: it guards the allowlist, not the alt.
 - `"img"` removed from `_ALLOWED_TAGS` → 4 failed. Every test that reads the
@@ -59,7 +59,7 @@ from PIL import Image, ImageDraw
 
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
                                   make_session_value)
-from app.domains.cms.render import image_alt_from_attachment, render_cms_content
+from app.domains.cms.render import image_attributes_from_attachment, render_cms_content
 from app.domains.media.api import MediaAsset, PAGE_IMAGE_KIND
 from app.domains.media.images import process_image
 from tests.conftest import SEEDED_ADMIN_EMAIL
@@ -221,7 +221,7 @@ def test_a_file_attachment_is_not_turned_into_an_image():
         "</figure></div>"
     )
 
-    uit = image_alt_from_attachment(pdf)
+    uit = image_attributes_from_attachment(pdf)
 
     assert 'alt="Verslag"' not in uit, (
         "een bestandsbijlage is als afbeelding behandeld en heeft nu een alt")
@@ -232,7 +232,7 @@ def test_html_without_an_attachment_is_returned_unchanged():
     """The cheap guard in front of the regex may not alter ordinary content."""
     gewoon = '<p>Gewone tekst met een <a href="/lid-worden">link</a>.</p>'
 
-    assert image_alt_from_attachment(gewoon) == gewoon
+    assert image_attributes_from_attachment(gewoon) == gewoon
 
 
 # ── 4. The kind stays in its own lane ────────────────────────────────────────

@@ -33,16 +33,21 @@
   // fragment dat na elke opslag opnieuw geswapt wordt. Een functie op window
   // overleeft die swap; een <script> in het fragment zou bij elke opslag opnieuw
   // uitgevoerd worden (#634).
-  window.insertPageImage = function (image, alt) {
+  window.insertPageImage = function (image, alt, maat) {
     if (!image || !alt || !alt.trim()) { return; }
     // De alt gaat in de attachment-JSON en NIET als `<img alt>`: Trix' parser
     // maakt van elke <img> een attachment en houdt daarbij alleen src, width en
     // height over — een meegegeven alt is weg vóór er iets bewaard wordt (gemeten
-    // in een headless Chromium). `image_alt_from_attachment()` in cms/render.py
+    // in een headless Chromium). `image_attributes_from_attachment()` in cms/render.py
     // tilt hem server-side weer op de <img>, vlak vóór de sanitisatie.
     var editor = document.getElementById("cp-trix").editor;
     editor.insertAttachment(new Trix.Attachment({
       url: image.url, contentType: "image", alt: alt.trim(),
+      size: maat || "vol",
+      // #1207: de maat reist langs dezelfde weg als de alt, en om dezelfde
+      // gemeten reden — een klasse of een width op de <img> gooit de editor bij
+      // het volgende openen weg. De server vertaalt hem naar een klasse via een
+      // whitelist, dus een onbekende waarde levert geen klasse op.
       width: image.width || undefined, height: image.height || undefined
     }));
   };
