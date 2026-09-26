@@ -1,0 +1,971 @@
+<div id="fb-detail">
+<div class="space-y-4" x-data="{ jsonimport: false }">
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
+<div class="flex flex-wrap items-center justify-between gap-2">
+<div class="flex flex-wrap gap-3 items-center ml-auto">
+<a href="/formulier/characterisation-share-token" class="text-xs font-medium text-link hover:underline whitespace-nowrap" target="_blank">Bekijk</a>
+<a href="/admin/formulieren/<FORM>/afdruk" class="text-xs font-medium text-link hover:underline whitespace-nowrap" target="_blank">Afdruk</a>
+<a href="/admin/formulieren/<FORM>/export" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-boost="false">Export</a>
+<a href="/admin/formulieren/<FORM>/json" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-boost="false">JSON</a>
+<button type="button" x-show="!open" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="open = true">Bewerken</button>
+<div x-show="open" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/verwijderen" data-confirm='Formulier "Karakterisering" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-inst" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+<span data-copy-bron="/formulier/characterisation-share-token">Deellink: /formulier/characterisation-share-token</span>
+<button type="button" data-copy="/formulier/characterisation-share-token" aria-label="Deellink kopiëren"
+ class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0 relative z-10"
+ x-data="{ ok: false }"
+ @click.stop.prevent="ok = await raakKopieer($event.currentTarget.dataset.copy); if (ok) setTimeout(() => ok = false, 1500)">
+<span x-show="!ok"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+<span x-show="ok" x-cloak><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+</button>
+<span>· 1 inzendingen</span>
+</p>
+<form id="fb-inst" x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/instellingen" hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="fbt" class="block text-sm font-medium text-gray-700 mb-1">Titel <span class="text-red-600">*</span></label><input type="text" name="title" id="fbt" value="Karakterisering" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fbslug" class="block text-sm font-medium text-gray-700 mb-1">Leesbare link</label>
+<input type="text" name="slug" id="fbslug" placeholder="bv. zomerfeest"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+<p class="text-xs text-gray-500 mt-1">Optioneel. Kleine letters, cijfers, koppeltekens (-) en liggende streepjes (_). Het formulier blijft ook via de tokenlink bereikbaar.</p>
+</div>
+<div><label for="fbs" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="fbs">
+<option value="draft" >Concept</option><option value="open" selected>Open</option><option value="closed" >Gesloten</option>
+</select></div>
+<div><label for="fbm" class="block text-sm font-medium text-gray-700 mb-1">Max. inzendingen</label><input type="text" name="max_submissions" id="fbm"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+<label class="flex items-center gap-2"><input type="checkbox" name="send_confirmation" value="1" > Bevestigingsmail</label>
+<label class="flex items-center gap-2"><input type="checkbox" name="allow_edit" value="1" checked> Wijzigen na indienen</label>
+<label class="flex items-center gap-2"><input type="checkbox" name="is_anonymous" value="1" > Anoniem</label>
+<label class="flex items-center gap-2"><input type="checkbox" name="requires_login" value="1" > Enkel voor aangemelde leden</label>
+</div>
+<div class="sm:col-span-2"><label for="fbd" class="block text-sm font-medium text-gray-700 mb-1">Omschrijving</label><textarea name="description" id="fbd" rows="4"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" >Elk veldtype op elk scherm</textarea></div>
+<div class="sm:col-span-2"><label for="fbc" class="block text-sm font-medium text-gray-700 mb-1">Bevestigingsboodschap</label><textarea name="confirmation_message" id="fbc" rows="4"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" ></textarea></div>
+</form>
+</div>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" x-data="{ sedit: false }">
+<div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
+<span class="font-semibold text-sm">Sectie 1 van 2 · Eerste deel</span>
+<div class="flex items-center gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/secties/<S:one>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/secties/<S:one>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!sedit" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" @click="sedit = !sedit">Bewerken</button>
+</div>
+</div>
+<div class="p-4">
+<form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
+ data-sectievorm
+ hx-post="/admin/formulieren/<FORM>/secties/<S:one>" hx-target="#fb-detail" hx-swap="innerHTML">
+<div class="sm:col-span-2">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/secties/<S:one>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Sectie "Eerste deel" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="sedit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div></div>
+<div><label for="st-<S:one>" class="block text-sm font-medium text-gray-700 mb-1">Titel</label><input type="text" name="title" id="st-<S:one>" value="Eerste deel"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="sn-<S:one>" class="block text-sm font-medium text-gray-700 mb-1">Daarna naar</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="sn-<S:one>">
+<option value="">volgende sectie (lineair)</option>
+<option value="<S:two>" >&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select></div>
+<div class="sm:col-span-2"><label for="sd-<S:one>" class="block text-sm font-medium text-gray-700 mb-1">Omschrijving</label><textarea name="description" id="sd-<S:one>" rows="2"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" ></textarea></div>
+</form>
+<div class="mt-3 space-y-2">
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Korte vraag</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Korte tekst</span></span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">verplicht</span></div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/velden/<F:text>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:text>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:text>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Korte vraag" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:text>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:text>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:text>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:text>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:text>">
+<option value="text" selected>Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:text>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:text>" value="Korte vraag" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" checked> Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:text>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:text>" value="Hulp bij tekst"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-<F:text>" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-<F:text>" value="2"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-<F:text>" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-<F:text>" value="40"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Lange vraag</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Lange tekst</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:textarea>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:textarea>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:textarea>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Lange vraag" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:textarea>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:textarea>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:textarea>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:textarea>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:textarea>">
+<option value="text" >Korte tekst</option><option value="textarea" selected>Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:textarea>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:textarea>" value="Lange vraag" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:textarea>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:textarea>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-<F:textarea>" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-<F:textarea>" value="5"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-<F:textarea>" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-<F:textarea>" value="500"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Getal</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Getal</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:number>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:number>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:number>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Getal" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:number>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:number>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:number>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:number>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:number>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" selected>Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:number>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:number>" value="Getal" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:number>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:number>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminv-<F:number>" class="block text-sm font-medium text-gray-700 mb-1">Minimum</label><input type="text" name="min_value" id="fminv-<F:number>" value="1.00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxv-<F:number>" class="block text-sm font-medium text-gray-700 mb-1">Maximum</label><input type="text" name="max_value" id="fmaxv-<F:number>" value="10.00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Mailadres</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">E-mailadres</span></span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">verplicht</span></div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:email>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:email>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:email>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Mailadres" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:email>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:email>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:email>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:email>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:email>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" selected>E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:email>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:email>" value="Mailadres" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" checked> Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:email>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:email>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-<F:email>" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-<F:email>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-<F:email>" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-<F:email>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Telefoon</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Telefoonnummer</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:phone>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:phone>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:phone>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Telefoon" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:phone>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:phone>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:phone>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:phone>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:phone>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" selected>Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:phone>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:phone>" value="Telefoon" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:phone>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:phone>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-<F:phone>" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-<F:phone>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-<F:phone>" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-<F:phone>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Keuzelijst</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Keuzelijst</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:select>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:select>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:select>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Keuzelijst" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:select>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:select>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:select>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:select>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:select>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" selected>Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:select>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:select>" value="Keuzelijst" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:select>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:select>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+<div class="mt-2 space-y-1">
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:select.a>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:select.a>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:select.a>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Optie A" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" aria-label="Daarna naar" >
+<option value="">gewone volgorde</option>
+<option value="<S:two>" >&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:select.a>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Optie A" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:select.b>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:select.b>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:select.b>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Optie B" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" aria-label="Daarna naar" >
+<option value="">gewone volgorde</option>
+<option value="<S:two>" >&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:select.b>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Optie B" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Optie toevoegen</button>
+<div x-show="nieuw" x-cloak>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:select>/opties"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" placeholder="Nieuwe optie" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Eén keuze</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Eén keuze</span></span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">verplicht</span></div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:radio>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:radio>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:radio>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Eén keuze" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:radio>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:radio>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:radio>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:radio>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:radio>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" selected>Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:radio>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:radio>" value="Eén keuze" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" checked> Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:radio>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:radio>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+<div class="mt-2 space-y-1">
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:radio.ja>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.ja>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:radio.ja>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Ja" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" aria-label="Daarna naar" >
+<option value="">gewone volgorde</option>
+<option value="<S:two>" >&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.ja>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Ja" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.verder>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.verder>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:radio.verder>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Ga verder" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" aria-label="Daarna naar" >
+<option value="">gewone volgorde</option>
+<option value="<S:two>" selected>&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.verder>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Ga verder" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.anders>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:radio.anders>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:radio.anders>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Anders" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" checked> Andere…</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" aria-label="Daarna naar" >
+<option value="">gewone volgorde</option>
+<option value="<S:two>" >&rarr; Tweede deel</option>
+<option value="end" >→ einde</option>
+</select>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:radio.anders>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Anders" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Optie toevoegen</button>
+<div x-show="nieuw" x-cloak>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:radio>/opties"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" placeholder="Nieuwe optie" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Meerdere keuzes</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Meerdere keuzes</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:checkbox>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:checkbox>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:checkbox>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Meerdere keuzes" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:checkbox>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:checkbox>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:checkbox>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:checkbox>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:checkbox>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" selected>Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:checkbox>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:checkbox>" value="Meerdere keuzes" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:checkbox>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:checkbox>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+<div class="mt-2 space-y-1">
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.x>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.x>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.x>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Vink X" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.x>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Vink X" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.y>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.y>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.y>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Vink Y" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.y>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Vink Y" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.anders>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.anders>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.anders>"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" value="Anders" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" checked> Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/opties/<O:checkbox.anders>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Optie "Anders" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+<div x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Optie toevoegen</button>
+<div x-show="nieuw" x-cloak>
+<div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1 mt-1">
+<form class="flex flex-wrap items-center gap-2 grow"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:checkbox>/opties"
+ hx-target="#fb-detail" hx-swap="innerHTML">
+<input type="text" name="label" id="label" placeholder="Nieuwe optie" required
+ aria-label="Label van de optie" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none grow min-w-32" >
+<label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" > Andere…</label>
+<div class="flex flex-wrap items-center justify-end gap-2 ml-auto">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-get="/admin/formulieren/<FORM>" hx-target="#fb-detail" hx-swap="innerHTML">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div>
+</form>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Score</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Score</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:rating>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:rating>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:rating>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Score" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:rating>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:rating>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:rating>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:rating>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" selected>Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:rating>" value="Score" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:rating>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="frm-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Puntenschaal</label><input type="text" name="rating_max" id="frm-<F:rating>" value="4"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="frl-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Label laag</label><input type="text" name="rating_low_label" id="frl-<F:rating>" value="slecht" placeholder="bv. niet graag"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="frh-<F:rating>" class="block text-sm font-medium text-gray-700 mb-1">Label hoog</label><input type="text" name="rating_high_label" id="frh-<F:rating>" value="goed" placeholder="bv. zeer graag"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Ter info</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Infotekst</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/velden/<F:info>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/velden/<F:info>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/<F:info>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Ter info" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-<F:info>" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-<F:info>" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/<F:info>"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-<F:info>" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-<F:info>">
+<option value="text" >Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" selected>Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-<F:info>" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-<F:info>" value="Ter info" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-<F:info>" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-<F:info>" value="Dit is uitleg"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+</div>
+<div class="mt-3" x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Vraag in deze sectie</button>
+<form x-show="nieuw" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<input type="hidden" name="section_id" value="<S:one>">
+<div><label for="ft-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="ft-nieuw">
+<option value="text" selected>Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+</div>
+<div class="sm:col-span-2"><label for="fl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-nieuw" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div class="sm:col-span-4">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div></div>
+</form>
+</div>
+</div>
+</div>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" x-data="{ sedit: false }">
+<div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
+<span class="font-semibold text-sm">Sectie 2 van 2 · Tweede deel</span>
+<div class="flex items-center gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30" hx-post="/admin/formulieren/<FORM>/secties/<S:two>/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/secties/<S:two>/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!sedit" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" @click="sedit = !sedit">Bewerken</button>
+</div>
+</div>
+<div class="p-4">
+<form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
+ data-sectievorm
+ hx-post="/admin/formulieren/<FORM>/secties/<S:two>" hx-target="#fb-detail" hx-swap="innerHTML">
+<div class="sm:col-span-2">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/secties/<S:two>/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Sectie "Tweede deel" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="sedit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div></div>
+<div><label for="st-<S:two>" class="block text-sm font-medium text-gray-700 mb-1">Titel</label><input type="text" name="title" id="st-<S:two>" value="Tweede deel"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="sn-<S:two>" class="block text-sm font-medium text-gray-700 mb-1">Daarna naar</label>
+<select name="bestemming" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="sn-<S:two>">
+<option value="">volgende sectie (lineair)</option>
+<option value="end" >→ einde</option>
+</select></div>
+<div class="sm:col-span-2"><label for="sd-<S:two>" class="block text-sm font-medium text-gray-700 mb-1">Omschrijving</label><textarea name="description" id="sd-<S:two>" rows="2"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" ></textarea></div>
+</form>
+<div class="mt-3 space-y-2">
+<div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
+<div class="flex items-center justify-between gap-2">
+<div class="text-sm" x-show="!edit"><span class="font-medium">Vraag in deel twee</span>
+<span class="ml-1"><span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-blue-100 text-blue-700">Korte tekst</span></span>
+</div>
+<span x-show="edit" x-cloak class="text-sm text-gray-500">Veld bewerken</span>
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center gap-1">
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/velden/970050/verplaats" hx-vals='{"richting":"op"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar boven" title="Naar boven"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></button>
+<button type="button" class="px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30" disabled hx-post="/admin/formulieren/<FORM>/velden/970050/verplaats" hx-vals='{"richting":"neer"}' hx-target="#fb-detail" hx-swap="innerHTML" aria-label="Naar onder" title="Naar onder"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg></button>
+</span>
+<button type="button" x-show="!edit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" @click="edit = true">Bewerken</button>
+<div x-show="edit" x-cloak>
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" hx-post="/admin/formulieren/<FORM>/velden/970050/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" data-confirm='Veld "Vraag in deel twee" definitief verwijderen?'>Verwijderen</button></span>
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="edit = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" form="fb-veld-970050" >Opslaan</button>
+</span>
+</div></div>
+</div>
+</div>
+<form id="fb-veld-970050" x-show="edit" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden/970050"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<div><label for="ft-970050" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full opacity-60 cursor-not-allowed" title="Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken." disabled id="ft-970050">
+<option value="text" selected>Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+<p class="text-xs text-ink-soft mt-1">Er zijn al inzendingen; het type ligt vast.</p></div>
+<div class="sm:col-span-2"><label for="fl-970050" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-970050" value="Vraag in deel twee" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-970050" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-970050"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-970050" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-970050"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-970050" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-970050"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</form>
+</div>
+</div>
+<div class="mt-3" x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Vraag in deze sectie</button>
+<form x-show="nieuw" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<input type="hidden" name="section_id" value="<S:two>">
+<div><label for="ft-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="ft-nieuw">
+<option value="text" selected>Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+</div>
+<div class="sm:col-span-2"><label for="fl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-nieuw" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div class="sm:col-span-4">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div></div>
+</form>
+</div>
+</div>
+</div>
+<div class="flex flex-wrap gap-2">
+<div x-data="{ nieuw: false }">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" @click="nieuw = !nieuw">+ Vraag (zonder sectie)</button>
+<form x-show="nieuw" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+ hx-post="/admin/formulieren/<FORM>/velden"
+ hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
+<input type="hidden" name="section_id" value="">
+<div><label for="ft-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+<select name="field_type" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="ft-nieuw">
+<option value="text" selected>Korte tekst</option><option value="textarea" >Lange tekst</option><option value="number" >Getal</option><option value="email" >E-mailadres</option><option value="select" >Keuzelijst</option><option value="radio" >Eén keuze</option><option value="checkbox" >Meerdere keuzes</option><option value="rating" >Score</option><option value="info" >Infotekst</option><option value="phone" >Telefoonnummer</option>
+</select>
+</div>
+<div class="sm:col-span-2"><label for="fl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Vraag <span class="text-red-600">*</span></label>
+<input type="text" name="label" id="fl-nieuw" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" > Verplicht</label></div>
+<div class="sm:col-span-4"><label for="fh-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Hulptekst</label>
+<input type="text" name="help_text" id="fh-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fminl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Min. tekens</label><input type="text" name="min_length" id="fminl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="fmaxl-nieuw" class="block text-sm font-medium text-gray-700 mb-1">Max. tekens</label><input type="text" name="max_length" id="fmaxl-nieuw"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div class="sm:col-span-4">
+<div class="flex flex-wrap items-center justify-end gap-2">
+<span class="flex gap-2">
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="nieuw = false">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</span>
+</div></div>
+</form>
+</div>
+<form hx-post="/admin/formulieren/<FORM>/secties" hx-target="#fb-detail" hx-swap="innerHTML">
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" >+ Sectie toevoegen</button>
+</form>
+</div>
+<div class="bg-white border border-gray-200 rounded-2xl p-4">
+<h3 class="font-semibold">JSON-import — niet beschikbaar</h3>
+<p class="text-sm text-gray-600 mt-1">1 inzending(en): een import zou de volledige opbouw vervangen en die antwoorden verwijderen, dus hij is hier niet beschikbaar.</p>
+</div>
+</div>
+</div>
