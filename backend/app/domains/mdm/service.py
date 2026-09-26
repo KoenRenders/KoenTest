@@ -305,12 +305,33 @@ class CirclePerson(NamedTuple):
 
 
 def _email_of(person: Person) -> Optional[str]:
-    """The person's e-mail address, or None. `EMAIL` is the code the whole code
-    base uses for it (auth, activities, audit all read it this way)."""
-    for contact in getattr(person, "contact_details", []) or []:
-        if contact.contact_type_code == "EMAIL" and contact.value:
+    """The person's MAIN e-mail address, or None.
+
+    `EMAIL` is the code the whole code base uses for it (auth, activities, audit
+    all read it this way).
+
+    **The primary one, not the first (#1174).** Since a member may hold several
+    addresses, "the first row" is an arbitrary pick — the relationship promises no
+    order — so a screen could show a different address on every load. The main
+    address is the one Raak Nationaal holds, and there is exactly one of it:
+    `uq_contact_details_one_primary_per_type` (migration 053) enforces at most
+    one, partially, `WHERE is_primary = true AND deleted_at IS NULL`.
+
+    The fallback to any address is deliberate: the index guarantees *at most* one
+    primary, not *at least* one. A person whose main address was removed still has
+    a name to show next to, and nothing should render blank over it.
+
+    This is for SHOWING one address. Sending is a different question and has its
+    own answer per kind of mail — a newsletter goes to every address
+    (`email_addresses_of_members`), a confirmation to the address its form
+    carried.
+    """
+    adressen = [c for c in getattr(person, "contact_details", []) or []
+                if c.contact_type_code == "EMAIL" and c.value]
+    for contact in adressen:
+        if contact.is_primary:
             return contact.value
-    return None
+    return adressen[0].value if adressen else None
 
 
 def organization_circle(db: Session, *, relation_type: str = BOARD_MEETING,
@@ -449,6 +470,22 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     not only adults — every person of the household with an address. Lower-case
     and without duplicates, so partners sharing one address get one mail. Sorted,
     so a recipient list is the same list twice.
+
+    **Every address, not the first one (#1174).** A member may hold more than one
+    e-mail address since that issue, and the newsletter goes to all of them —
+    Koen, 26 September 2026: *"nieuwsbrief moet naar beiden"*. You cannot know
+    which mailbox someone reads, and the extra addresses were collected precisely
+    because the portal did not know them. That is the opposite of a confirmation,
+    which goes to the one address its form carried.
+
+    Until #1174 this function called ``_email_of``, which returns the FIRST row —
+    so the docstring above already promised "every address" while the code sent
+    one. With one address per person nobody could tell the difference.
+
+    The de-duplication was here before and now does a second job: twelve
+    addresses on PROD sit with more than one person of the same household (a
+    shared mailbox), so without the set that mailbox gets the letter twice —
+    independent of anyone holding a second address.
     """
     from app.domains.mdm.models import MemberPerson, Person
 
@@ -461,9 +498,9 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
                .all())
     addresses = set()
     for person in persons:
-        email = _email_of(person)
-        if email and email.strip():
-            addresses.add(email.strip().lower())
+        for contact in getattr(person, "contact_details", []) or []:
+            if contact.contact_type_code == "EMAIL" and (contact.value or "").strip():
+                addresses.add(contact.value.strip().lower())
     return sorted(addresses)
 
 

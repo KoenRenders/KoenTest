@@ -109,16 +109,38 @@ def _quantities(form) -> dict[int, int]:
     return out
 
 
-def _person_contacts(person) -> tuple[str, str]:
-    """(e-mail, mobiel) van een person uit zijn ContactDetails, of lege strings."""
-    email = mobile = ""
-    if person is not None:
-        for c in getattr(person, "contact_details", []) or []:
-            if c.contact_type_code == "EMAIL" and not email:
-                email = c.value or ""
-            elif c.contact_type_code == "MOBILE" and not mobile:
-                mobile = c.value or ""
-    return email, mobile
+def _aanmeldadres(request: Request) -> str:
+    """Het e-mailadres waarmee deze bezoeker aangemeld is, of "".
+
+    Uit de sessie en niet uit de contactgegevens van de persoon (#1174). Een lid
+    mag meerdere adressen hebben, en dan is "het eerste e-mailadres van deze
+    persoon" een willekeurige keuze — terwijl er precies één adres is waarvan we
+    zeker weten dat de bezoeker het gebruikt: dat waarmee hij zich net aanmeldde.
+
+    Koen, 26 september 2026: de bevestiging gaat naar het adres op het formulier,
+    en bij een aangemeld lid staat daar het aanmeldadres, *"ook al is dat niet
+    hoofdadres"*. Het hoofdadres stuurt geen enkele verzending aan; het is het
+    adres dat Raak Nationaal kent.
+    """
+    from app.domains.auth.api import SESSION_COOKIE, read_session_value
+
+    return read_session_value(request.cookies.get(SESSION_COOKIE)) or ""
+
+
+def _person_mobile(person) -> str:
+    """Het mobiele nummer van een person uit zijn ContactDetails, of "".
+
+    Was tot #1174 `_person_contacts`, dat ook een e-mailadres teruggaf — "de
+    eerste EMAIL-rij". Die helft is vervallen: het formulier vult nu het
+    aanmeldadres in. Eén nummer overhouden is eerlijker dan een tuple waarvan de
+    ene helft niet meer gebruikt wordt.
+    """
+    if person is None:
+        return ""
+    for c in getattr(person, "contact_details", []) or []:
+        if c.contact_type_code == "MOBILE" and c.value:
+            return c.value
+    return ""
 
 
 def _standaard_aantal(component) -> int:
@@ -159,7 +181,7 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
     # Voorinvullen voor een ingelogd lid (#476): naam vult de template al vanuit
     # person; e-mail + mobiel komen uit de ContactDetails. Op submit overschrijft
     # extra["values"] deze defaults.
-    email, mobile = _person_contacts(person)
+    email, mobile = _aanmeldadres(request), _person_mobile(person)
     prefill: dict = {}
     if email:
         prefill["contact_email"] = email
