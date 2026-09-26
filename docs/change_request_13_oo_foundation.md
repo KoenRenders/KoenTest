@@ -180,8 +180,13 @@ Decisions that shape it, with what lost:
   `Money`, `StructuredCommunication`, `ValidityPeriod`. A domain with a
   Dutch `*Fout` gets, at first touch, one English `*Error` and the Dutch
   name becomes an alias of it — one class, two names, no rename.
-- **Measurement first, in its own release.** The handover's argument holds:
-  measuring and rebuilding in one release undermines the baseline.
+- **Measurement first — in commits, not in releases.** The handover argued
+  for the meter in its own release before any rebuild. Koen decided (27
+  September) that **all phases ship in one release**, as CR-12 does in
+  v2.7.0. The principle survives in a smaller form: phase 0 is the first
+  work on the release branch, its gate run is the baseline, and no rebuild
+  commit precedes it — the measurement is before the rebuild in time, and
+  the release issue shows both numbers.
 
 Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 
@@ -433,12 +438,16 @@ which is how #681 found six. Bulk and import paths are entrances.
 
 ## B7. Phasing
 
-Each phase is a release-sized issue, shippable on its own and — unlike
-CR-12 — revertible by image rollback (constraints only).
+The phases are issues under **one release tracker** (Koen, 27 September:
+"die fases gaan we in één release realiseren"), built in order on one
+branch line; each phase is shippable on its own, and — unlike CR-12 — every
+migration is a constraint, so the whole release is revertible by image
+rollback plus `downgrade()`. The restore point is the release, as in CR-12,
+but here that costs little.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **0 — the meter and the gates** (own release, before any rebuild) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
+| **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel) | 0 |
 | **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants) | 0 |
@@ -579,7 +588,8 @@ difference between an exemption list and a burn-down.
 | 27 Sep 2026 | The module shape is a deliverable with a gate; hard for modules created after phase 0. | Koen |
 | 27 Sep 2026 | Gates are hard, reached via phases: each phase deletes its baseline entries; phase 4 deletes the file. No permanent exemption. | Koen ("hard, via fases") |
 | 27 Sep 2026 | Rich ORM entity, no repositories; an entity never opens a session (gate). | author, from the handover — Koen to confirm with Part A |
-| 27 Sep 2026 | Validator and constraint in one issue; measurement in its own release before the first rebuild; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | author, from the handover — Koen to confirm with Part A |
+| 27 Sep 2026 | All phases in **one release** (like CR-12 in v2.7.0); phase 0 is the first work on the branch so the baseline precedes the rebuild in time. | Koen |
+| 27 Sep 2026 | Validator and constraint in one issue; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | author, from the handover — Koen to confirm with Part A |
 
 ## Q&A log
 
@@ -594,7 +604,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
-| Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Own releases, phase 0 first, after CR-12 v2.7.0; phase 2 waits for CR-12 phase 1 on master. Assignment is Koen's. |
+| Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Koen (27 Sep): one release for all phases, after CR-12 v2.7.0 (phase 2 needs CR-12 phase 1 on master). Assignment is Koen's. |
 
 ## Non-goals
 
