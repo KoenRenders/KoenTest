@@ -920,7 +920,12 @@ database restore** — decided by Koen on 26 September 2026 (*"enkel via
 backup-restore kunnen terugdraaien is prima"*): the DB backup before a
 UAT/PROD deploy of any CR-12 phase is the one real net, and its dump is
 verified for validity *before* the deploy, not after. Migration 154 stays a
-rename; phase 2 is not reworked.
+rename; phase 2 is not reworked. **The property belongs to migration 154,
+not to CR-12**: phase 3 (migrations 155–157) is image-rollback-safe —
+measured: zero renames, the CHECK drops go through a list with an existence
+check, `downgrade()` recreates them. The release as a whole is not
+revertible because one of its migrations is not; the others do not inherit
+that.
 
 **Rejected, with its reason:** expand/contract — new tables beside the old
 for one release, the old dropped the release after. It would have made every
@@ -998,6 +1003,13 @@ docstring.
 6. **Templates render text.** Every template that shows a code renders the
    label, never `PaymentStatus.PAID` or a bare code — rendered through the
    real view-model, the `StrictUndefined` environment.
+6b. **Attributes carry the code** (added after phase 3). Test 6 is about the
+   visible *text*; this is about the *value*: a rendered fragment that puts a
+   code in an attribute (`value=`, `data-*`) holds `confirmed`, never
+   `SubscriberStatus.CONFIRMED`. The render-side twin of test 3 — one proves
+   the row reads back raw as the code, the other that the page writes out
+   the code. Proven by violation: hand a template the member instead of its
+   value and see it fail with template and field.
 7. **Values before/after.** For every migrated column, count per value before
    and after the migration is identical (with B4.6 as the one declared
    exception) — over the **whole table**, soft-deleted rows included; a FK
@@ -1070,6 +1082,7 @@ baseline the ratchets froze.
 | loose-string comparisons in `.py` (ratchet) | 92 (payment 37) | 125 | 91 | 0 |
 | permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | 3 | reported |
 | label rows in `nl` / `en` | 34 / 17 (old tables) | 5 / 5 | 17 / 17 | `nl` and `en` for every active code |
+| rendered attributes carrying a member instead of the code (ratchet, gate 12 — from phase 4) | — | — | — (3 found by hand in phase 3, fixed) | 0 |
 
 Gate figures as printed in the closing comment of #1178 (phase 1). Two
 things to know when reading them:
@@ -1119,6 +1132,7 @@ What each gate looks at:
 | Tone total | every enum with a tone mapping: every member has a tone | "`PaymentStatus.FAILED` has no badge tone" |
 | No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `code_label()`" |
 | No template comparisons | `== "…"` / `!= "…"` on a vocabulary attribute in `templates/` | "`admin_betalingen.html:42` compares `record.status` to a literal — expose it on the view-model" |
+| Rendered attributes carry the code, never the member (**added after phase 3**) | the rendered fragment of every template that puts a code in an HTML attribute (`value=`, `data-*`, `name=`, `href` query): the attribute holds the code, not `<Enum>.<MEMBER>` — a view-model hands a template the *code* for anything that goes into an attribute (B4.7 as a gate) | "`admin_nieuwsbrief.html:184` renders `value=\"Audience.MEMBERS\"` — pass `audience.value`, not the member" |
 | Loose-string comparisons | an AST walk over `app/**/*.py`: `==`/`!=`/`in` between a vocabulary attribute and a string literal; ratchet on the 92 (B4.8 — mypy cannot see this with legacy `Column()` models) | "`payment/service.py:212` compares `record.status` to `\"paid\"` — use `PaymentStatus.PAID`" |
 | Enum member names | every member of a `CodeList` enum has an English name (the #780 word list), whatever its value | "`RelationType.HOOFDLID`: member names are English — `PRIMARY_MEMBER = \"HOOFDLID\"`" |
 | Shape | every `_codes`/`_labels` pair has exactly the B4.2 columns and keys — the helper wrote it, the gate proves nobody edited it | "`form.field_type_labels` lacks `description`" |
@@ -1132,6 +1146,23 @@ sides: a new **column** without a FK trips the FK gate, a new **Enum**
 without a `CodeList` trips the enum gate, a new **`CodeList`** without
 labels trips the label gate. Whichever of the six a developer starts with,
 the other five are demanded. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
+
+**The gap phase 3 exposed** (26 September 2026). None of the first eleven
+gates sees an enum member that is *rendered*: the template gate looks for a
+comparison with a literal, the loose-string gate for a comparison in Python
+— a member written into a `value=` attribute is neither. Phase 3 hit it
+three times (the subscriber filter, the newsletter audience choice, the
+attendance button): Jinja renders the member as `SubscriberStatus.CONFIRMED`,
+the form posts that text, the choice does not stick, and nothing errors —
+the stored state was right all along. And the conversion *created* it: on
+`master` the same `value="{{ value }}"` rendered a module constant, a plain
+string, correctly. It is the render-side twin of the storage round trip
+(B8 test 3, `sa.Enum` storing the member name): wherever a value is not
+compared but *written out*, the output changes silently. Hence the twelfth
+gate above, built before phase 4; if it turns out not to be mechanically
+checkable, that limit is written here as a conscious one, not left as a
+silent gap. Found by an e2e test, not by the pytest suite — which is the
+argument for the gate.
 
 **Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
 A **ratchet** promises zero: it holds today's offenders, may only shrink, is
@@ -1169,10 +1200,18 @@ concept or two (B4.4).
 
 ## B10. Prototype findings
 
-None yet. #779 notes an OGM value-object spike with zero DB fixtures as the
-testability model; the enum/`TypeDecorator` round trip (B8 test 3) is the
-one thing worth a spike before phase 1, because `sa.Enum` stores the member
-*name* by default and that mistake would corrupt data silently.
+#779 notes an OGM value-object spike with zero DB fixtures as the
+testability model; the enum/`TypeDecorator` round trip (B8 test 3) was the
+one thing named worth a spike before phase 1, because `sa.Enum` stores the
+member *name* by default and that mistake would corrupt data silently.
+
+**Learned in phase 3, and it should have stood here from the start:** the
+render side has the same weight. A member that is written into an HTML
+attribute renders as `<Enum>.<MEMBER>` just as silently as `sa.Enum` stores
+it — the storage twin was named, the render twin was not, and phase 3 paid
+for it three times (B9.3, gate 12). A future CR that converts strings to
+enums spikes both sides: read a row back raw, and render a fragment with the
+value in an attribute.
 
 ## B11. Decisions log
 
@@ -1207,6 +1246,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q25 | 26 Sep 2026 | Master CLI, after phase 3: no gate sees an enum member rendered into an HTML attribute — three cases found by e2e, created by the conversion; and phase 3 is image-rollback-safe, unlike 154. | Taken: gate 12 (rendered attributes carry the code) in B9.3 with the reason, test 6b in B8, a B9.2 row from phase 4, the render-side spike in B10; B7 attributes non-revertibility to migration 154, not the release. |
 | Q24 | 26 Sep 2026 | Koen confirmed "geen beheerscherm voor codelijsten" — decision or parking? (master CLI) | Decision, with its consequence written under Non-goals: a label changes by migration; a manual `UPDATE` on one environment is a deviation. With this, everything in CR-12 that was Koen's to decide is decided — the placement rule, labels in label tables, Mollie without a code table, `nl`+`en`, M/F/X, the payment-method data fix, badge tones in Python, no expand/contract, the release-level restore point, no management screen, and (Q22) contact types without an enum. |
 | Q23 | 26 Sep 2026 | Master CLI: `is_social_network` sits on the `(code, language)` row of the unsplit table — per language; a second language row would collide in #1160's dict. | Taken into note 3 as the second reason for the split, with a guard in the phase-2 migration (move the flag to the code row, abort on contradicting flags). Koen accepts the release-level restore point; several tags rejected — B3/B7 now carry his yes. |
 | Q22 | 26 Sep 2026 | Does taking the enum off contact types break the data-driven footer of #1160? (Koen) | No — the reverse: the footer reads rows by `is_social_network`; the risk was a strict enum column refusing a new row on write. Without enum + FK the list stays one-row extensible. Answered by the master CLI; Koen's reply: *"OK, dan is alles goed"* — his objection was the openness of the footer, not the form, and it went away with the explanation. Taken as his yes to the decision; written this way so whoever reopens it knows what worried him and why it stopped. |
