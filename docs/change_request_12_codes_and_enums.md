@@ -316,9 +316,11 @@ flowchart TB
 - **Migrations:** one per domain phase (B7); each moves rows, adds FKs, drops
   the `public` orphans. Idempotent, as every migration here.
 - **Backups:** the DB backup before the UAT/PROD deploy is the **only way
-  back** for v2.7.0 (renames are not image-revertible, B7); all phases ship
-  in that one tag, so the restore point is the whole release — accepted by
-  Koen on 26 September 2026; the dump is verified before the deploy.
+  back** for v2.7.0 — for every phase, not only the rename: an old image
+  does not start against a newer alembic revision (#1203, B7); all phases
+  ship in that one tag, so the restore point is the whole release —
+  accepted by Koen on 26 September 2026; the dump is verified before the
+  deploy.
 - **Limits / kill switch:** none needed — the label cache is a few hundred
   rows per process.
 - **Cache refresh:** labels change only by migration, so a process-level
@@ -869,11 +871,11 @@ dropped; measured on a fresh database in phase 2, there is nothing to drop.
 |---|---|---|---|---|---|
 | task status | `workflow.task_status_codes` | `open` → Open / Open · `done` → Afgehandeld / Done | `TaskStatus` | `workflow.workflow_tasks.status` | 9 literal comparisons, 8 template comparisons |
 | run status | `workflow.run_status_codes` | `running` → Bezig / Running · `done` → Afgerond / Done · `failed` → Mislukt / Failed | `RunStatus` | `workflow.workflow_instances.status` | — |
-| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS`. The **category** (`payment`, `mail`, `kernel` — the part before the dot) is not a second *stored* list, but it is a list with labels: it becomes a **derived list** (note 5) — `workflow.task_category_codes` + labels, no storing column — so that Betalingen / E-mail / Systeem keep coming from `code_label()`; dropping `CAT_LABELS` without that replacement would put the raw `payment` as a group heading on an admin screen, which #630 forbids and `test_geen_rauwe_codes_op_het_scherm.py` already guards. Decided as interpretation by the master CLI (26 Sep); Koen informed. Its completeness needs a test, not a FK — note 5. |
-| task category (**derived**, note 5) | `workflow.task_category_codes` | `payment` → Betalingen / Payments · `mail` → E-mail / E-mail · `kernel` → Systeem / System | — (no enum: nothing branches on it) | none — derived from the part of the task kind before the dot | `workflow/ui.py:CAT_LABELS` |
+| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed · `bericht.behartigen` → Bericht van {afzender} behartigen / Handle a message from {sender} **(from the definition seeded by migration 082, not from a Python tuple — found in phase 4)** | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS`. The **category** (`payment`, `mail`, `kernel` — the part before the dot) is not a second *stored* list, but it is a list with labels: it becomes a **derived list** (note 5) — `workflow.task_category_codes` + labels, no storing column — so that Betalingen / E-mail / Systeem keep coming from `code_label()`; dropping `CAT_LABELS` without that replacement would put the raw `payment` as a group heading on an admin screen, which #630 forbids and `test_geen_rauwe_codes_op_het_scherm.py` already guards. Decided as interpretation by the master CLI (26 Sep); Koen informed. Its completeness needs a test, not a FK — note 5. |
+| task category (**derived**, note 5) | `workflow.task_category_codes` | `payment` → Betalingen / Payments · `mail` → E-mail / E-mail · `kernel` → Systeem / System · `bericht` → Berichten / Messages (phase 4) | — (no enum: nothing branches on it) | none — derived from the part of the task kind before the dot | `workflow/ui.py:CAT_LABELS` |
 | form status | `form.form_status_codes` | `draft` → Concept / Draft · `open` → Open / Open · `closed` → Gesloten / Closed | `FormStatus` | `form.forms.status` | `FORM_STATUSES`, `STATUS_TONES` → tone mapping, 3 template comparisons |
-| field type | `form.field_type_codes` | `text` → Tekst / Text · `textarea` → Tekstvak / Text area · `number` → Getal / Number · `email` → E-mail / E-mail · `select` → Keuzelijst / Dropdown · `radio` → Keuzerondjes / Radio buttons · `checkbox` → Selectievakje / Checkbox · `rating` → Beoordeling / Rating · `info` → Infotekst / Info text · `phone` → Telefoon / Phone | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES` |
-| mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
+| field type | `form.field_type_codes` | **the words the builder shows today** (`forms/admin_ui.py:77`, through `_()` — corrected in phase 4; the first version of this row had other words): `text` → Korte tekst / Short text · `textarea` → Lange tekst / Long text · `number` → Getal / Number · `email` → E-mailadres / E-mail address · `select` → Keuzelijst / Dropdown · `radio` → Eén keuze / Single choice · `checkbox` → Meerdere keuzes / Multiple choice · `rating` → Score / Score · `info` → Infotekst / Info text (not in the builder's dict today) · `phone` → Telefoonnummer / Phone number | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES`, `veldtype_labels` |
+| mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped · `logged` → Gelogd, niet verstuurd / Logged, not sent **(allowed by the CHECK of migration 087 for the demo tenant, never in a Python tuple — so the status filter never offered it; found in phase 4)** | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
 | e-mail type | `mail.email_type_codes` | `membership_confirmation` → Lidmaatschap / Membership · `activity_confirmation` → Activiteit / Activity · `idea_ack` → Idee (bevestiging) / Idea (acknowledgement) · `idea_board` → Idee (bestuur) / Idea (board) · `magic_link` → Inloglink / Login link · `member_contact_notice` → Contactbericht / Contact notice · `form_confirmation` → Formulier (bevestiging) / Form (confirmation) · `meeting` → Vergadering / Meeting · `newsletter_confirmation` → Nieuwsbrief (bevestiging) / Newsletter (confirmation) · `other` → Overig / Other | `EmailType` | `mail.email_log.email_type` | `EMAIL_TYPES`, `mail/ui.py:_TYPE_LABELS` |
 | asset kind | `media.asset_kind_codes` | `sponsor` → Sponsor / Sponsor · `activity_photo` → Activiteitsfoto / Activity photo · `activity_poster` → Affiche / Poster · `component_info` → Onderdeel-info / Component info · `newsletter_file` → Nieuwsbriefbestand / Newsletter file · `design_image` → Ontwerpbeeld / Design image · `design_render` → Ontwerprender / Design render · `page_image` → Pagina-afbeelding / Page image **(added by #1173 in v2.6.0; lands on master before phase 4 — verify the exact code at build)** | `AssetKind` | `media.media_assets.kind` | `STANDAARD_KIND`, `DESIGN_*_KIND`, 9 literal comparisons |
 | AI surface | `ai.ai_surface_codes` | `public` → Publiek / Public · `admin` → Beheer / Admin · `designstudio` → Ontwerpstudio / Design studio | `AiSurface` | `ai.ai_call_log.surface` | `SURFACE_*`, `SURFACE_LABELS` |
@@ -882,7 +884,7 @@ dropped; measured on a fresh database in phase 2, there is nothing to drop.
 | AI provider | `ai.ai_provider_codes` | the providers in use at build time (`mistral`, `bfl`, …) → their names | `AiProvider` | `ai.ai_call_log.provider` | `PROVIDER` constants |
 | registration type | `activities.registration_type_codes` (moved from `public`) | `INDIVIDUAL` → Individueel / Individual · `FAMILY` → Gezin / Family | — (default only; no branch) | `activities.registrations.registration_type`, `activities.activity_sub_registrations.registration_type_code` (both **new**, §8 no longer blocks: same schema) | the router-side validation comment |
 | registration state | `activities.registration_state_codes` (**derived**, note 5) | `open` → Open / Open · `closed` → Afgesloten / Closed · `past` → Voorbij / Past · `cancelled` → Geannuleerd / Cancelled | `RegistrationState` (from `str, Enum` to plain) | none | `activities/service.py:STATUS_LABELS` |
-| export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset | `ExportKind` | `reporting.export_log.kind` | — |
+| export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset · `ad-hoc` → Ad hoc / Ad hoc **(written by `reporting/admin_ui.py:701`, not in any tuple — found in phase 4)** | `ExportKind` | `reporting.export_log.kind` | — |
 | history operation | `public.kernel_operation_codes` (kernel, next to `kernel_jobs`; no FK, B4.10) | `insert` → Toegevoegd / Added · `update` → Gewijzigd / Changed · `delete` → Verwijderd / Deleted | `Operation` | none (history exemption) | `audit/changes.py:_OPERATION_LABELS` |
 
 Note 5 — a **derived** list (computed, never stored) is still a list with
@@ -908,6 +910,21 @@ Two kinds of derived list, therefore:
   with the missing code in the message.
 
 That test is part of the phase that creates the derived list.
+
+Note 6 — **remaining offenders after phase 4, judged** (master CLI's
+question, 27 September; 7 label dictionaries and 26 template comparisons
+belong to vocabularies no phase names). Where they are built is Koen's;
+what they are is this:
+
+| Item | Judgment | Why |
+|---|---|---|
+| `cms/render.py:PLACEHOLDER_LABELS` | **technical — exemption** | the placeholders a CMS text can contain (`membership_price_full`, …) are the renderer's syntax; the caption ("Lidgeld volledig (bv. 35,00)") is help text with an example, a sentence — `_()`, not a code label |
+| `reporting/engine.py:SYMBOLIC_LABELS` | **technical — exemption** | `vandaag`, `dit_jaar`, `ik` are engine tokens, like the five reporting enums already marked `TechnicalEnum`; their words on the report builder go through `_()` |
+| `ui/organisaties_ui.py:SOORT_LABELS` and `org_type` in two templates | **code list — organisation type, phase 2** | already in the catalogue; a leftover of #1179, closes wherever Koen puts it |
+| the form builder's card comparisons on `field_type` | **gate-8 offenders on a listed code list** | field type is phase 4; the comparisons become view-model booleans |
+| Raakje's drafting modes (`letter`, `insert`, `replace`, `newsletter/drafting.py`) | **missed by the catalogue** — a code list *if stored* (`drafting_messages`), technical if it is only a parameter of `ask()` | dev1 checks the column; the catalogue gets the row either way |
+| the meeting item kind (`item.kind == "member"`, `meetings/service.py:1088`) | **not located on a stored column of `meeting_items`** — if it is a view-model attribute, it is a gate-8 case (a boolean on the view-model); if stored, a list | dev1 locates it |
+| the AI lists (surface, capability, status) | code lists, phase 4 — **blocked on Koen's data question** | unchanged |
 
 **Count:** 50 lists (phase 0: 1 + the pilot, which the phase-3 table also
 shows; phase 1: 5; phase 2: 8; phase 3: 19 including the pilot; phase 4:
@@ -944,12 +961,17 @@ database restore** — decided by Koen on 26 September 2026 (*"enkel via
 backup-restore kunnen terugdraaien is prima"*): the DB backup before a
 UAT/PROD deploy of any CR-12 phase is the one real net, and its dump is
 verified for validity *before* the deploy, not after. Migration 154 stays a
-rename; phase 2 is not reworked. **The property belongs to migration 154,
-not to CR-12**: phase 3 (migrations 155–157) is image-rollback-safe —
-measured: zero renames, the CHECK drops go through a list with an existence
-check, `downgrade()` recreates them. The release as a whole is not
-revertible because one of its migrations is not; the others do not inherit
-that.
+rename; phase 2 is not reworked. **Corrected on 27 September (#1203):
+recovery is a DB restore for every phase that carries a migration, not
+only the rename.** The earlier sentence here said phase 3 was
+image-rollback-safe because its migrations are additive. That holds for the
+*schema* and not for *recovery*: after a release with any migration, no old
+image starts at all — `startup.sh` runs `alembic upgrade head`, and alembic
+stops with *"Can't locate revision"* because the old image does not know
+the revision the database is at. Rebuilt and measured by the master CLI on
+#1203. So the rename/additive distinction is a fact about what
+`downgrade()` could do, and irrelevant to how a deploy is undone: Koen's
+decision stands without the nuance that some phases could go back by image.
 
 **Rejected, with its reason:** expand/contract — new tables beside the old
 for one release, the old dropped the release after. It would have made every
@@ -1297,6 +1319,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q30 | 27 Sep 2026 | Master CLI, phase 4: four values live in code or data, not in a tuple (`bericht.behartigen`, `logged`, `ad-hoc`, the field-type words); which of the remaining offenders are lists and which exemptions; and after a migration no old image starts (#1203). | Catalogue rows corrected; note 6 judges the remainder; B3/B7 say recovery is a DB restore for every phase, with #1203 as the reason. |
 | Q29 | 26 Sep 2026 | Master CLI: gate 8 cannot see an Alpine comparison (`x-show="pm === 'ONLINE'"`) on a value bound to a radio — phase 1 broke two payment hints silently. | Taken as a conscious limit in B9.3: gate 8 covers Jinja, not Alpine; Alpine comparisons on a code value are covered per form by a test (14fa594d). |
 | Q28 | 26 Sep 2026 | Does the task category count for the gate's "target 49"? (Claude) | Master CLI: yes — a derived list is a `CodeList` and `registry()` has no filter on `derived`. And the target leaves the gate string altogether: it changed twice in one day in three places (B5.3, B9.2, the gate) — the `CLAUDE.md` signal to remove one. The gate measures; B9.2 holds the target. |
 | Q27 | 26 Sep 2026 | Master CLI, phase 4: "no second list" for the task category would drop `CAT_LABELS` and put a raw code on the screen (#630); and a derived list without an enum has no gate covering its completeness. | Taken: the category is a derived list (note 5) with its own row in B5.3; note 5 now says why completeness is a test, not a FK, and distinguishes derived-with-enum (covered by Enum = codes) from derived-without (a test per list); B9.3 names it beside gate 12. Phase 3 CI evidence: run 36224976461 on 05c99f07, 3419 passed, pip-audit clean. |

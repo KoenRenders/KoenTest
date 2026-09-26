@@ -298,8 +298,11 @@ flowchart TB
 
 - **Env vars / settings:** none.
 - **Migrations:** only constraints (`NOT NULL`, `CHECK`) per aggregate phase;
-  no new tables, no renames — every phase is image-rollback-safe (unlike
-  CR-12's migration 154), and `downgrade()` drops the constraint.
+  no new tables, no renames; `downgrade()` drops the constraint. That does
+  **not** make a phase image-revertible: after any migration no old image
+  starts — `startup.sh` runs `alembic upgrade head` and stops on *"Can't
+  locate revision"* (measured on #1203 for CR-12). Recovery is a DB restore,
+  the dump verified before the deploy, exactly as in CR-12.
 - **Data check before every constraint.** A `NOT NULL` on a column with one
   empty legacy row fails the migration on that environment. Each constraint
   migration counts the offending rows first and **aborts with the count**
@@ -536,10 +539,11 @@ which is how #681 found six. Bulk and import paths are entrances.
 
 The phases are issues under **one release tracker** (Koen, 27 September:
 "die fases gaan we in één release realiseren"), built in order on one
-branch line; each phase is shippable on its own, and — unlike CR-12 — every
-migration is a constraint, so the whole release is revertible by image
-rollback plus `downgrade()`. The restore point is the release, as in CR-12,
-but here that costs little.
+branch line; each phase is shippable on its own. Its migrations are all
+constraints — but that buys no image rollback (B3, #1203): the way back is
+a DB restore, the restore point is the release, as in CR-12. What the
+additive shape does buy is that a restore loses only data written after
+the deploy, never a table.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
