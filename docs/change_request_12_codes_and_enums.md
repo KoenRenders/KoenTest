@@ -314,7 +314,9 @@ flowchart TB
   exists.
 - **Migrations:** one per domain phase (B7); each moves rows, adds FKs, drops
   the `public` orphans. Idempotent, as every migration here.
-- **Backups:** unchanged; the migrations add small tables.
+- **Backups:** the DB backup before each UAT/PROD deploy is the **only way
+  back** for a CR-12 phase (renames are not image-revertible, B7); its dump
+  is verified before the deploy, and phases are deployed one at a time.
 - **Limits / kill switch:** none needed — the label cache is a few hundred
   rows per process.
 - **Cache refresh:** labels change only by migration, so a process-level
@@ -881,16 +883,24 @@ image would start against a schema in which those tables no longer exist
 under their names. That is the normal price of a rename, not a build fault;
 `downgrade()` refuses on purpose (going back would restore the
 one-language shape #929 calls wrong). **The recovery path is forward, or a
-database restore** — so the DB backup before a UAT/PROD deploy of any CR-12
-phase is the one real net, and its dump is verified for validity *before*
-the deploy, not after. The alternative — expand/contract, new tables beside
-the old for one release, the old dropped the release after — makes every
-phase two releases: **with five phases, nine releases instead of one**, and
-phase 2 (migration 154, already built) would be reworked retroactively.
-Without that price the option reads as free caution, and it is not. Koen's
-trade-off (B11, open); phase 2 does not wait for it — nothing merges before
-his UAT approval anyway, phases 3 and 4 build on this chain, and waiting
-would not save the rework if he chooses expand/contract.
+database restore** — decided by Koen on 26 September 2026 (*"enkel via
+backup-restore kunnen terugdraaien is prima"*): the DB backup before a
+UAT/PROD deploy of any CR-12 phase is the one real net, and its dump is
+verified for validity *before* the deploy, not after. Migration 154 stays a
+rename; phase 2 is not reworked.
+
+**Rejected, with its reason:** expand/contract — new tables beside the old
+for one release, the old dropped the release after. It would have made every
+phase two releases, **nine releases instead of one** for five phases, and
+would have reworked phase 2 retroactively. That price, against a net that
+already exists, is why it was not chosen.
+
+**Operational consequence — the phases are not stacked into one PROD
+deploy.** With a restore as the only way back, one release carrying five
+migrations cannot answer "which phase did this" after a restore, and the
+restore throws away the other phases' work too. Each phase goes to PROD as
+its own deploy with its own verified dump; the three steps that make this
+hard at deploy time are on the tracker (#1184).
 
 | Phase | Delivers | Depends on |
 |---|---|---|
@@ -1145,7 +1155,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` retired, not deleted (`O` turned out not to exist — 004 renamed it to `X`). | Koen |
 | 26 Sep 2026 | Contact type gets no enum; `partial=True` on `EnumColumn` is rejected for the pattern (union type); branching goes through `is_social_network` and two named `Code` constants on the `CodeList` (B5.3 note 3). | author, on the master CLI's recommendation — **Koen to confirm** |
-| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; corrected to "shippable on its own; recovery is forward or a DB restore; verify the dump before the deploy". Expand/contract is the alternative at the price of nine releases instead of one and a retroactive rework of phase 2; phase 2 does not wait for the answer. | author — **Koen to decide** |
+| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; the final form is "shippable on its own; recovery is forward or a DB restore, the dump verified before the deploy". **Expand/contract rejected** (nine releases instead of one, retroactive rework of migration 154); phase 2 stays a rename. Consequence: phases go to PROD one deploy at a time, never stacked. | Koen (*"enkel via backup-restore kunnen terugdraaien is prima"*), relayed by the master CLI |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
@@ -1161,6 +1171,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q21 | 26 Sep 2026 | Expand/contract for the remaining phases, or restore as the only way back? (Claude, via the master CLI) | Koen: restore is fine. Expand/contract rejected with its price; phases not stacked into one PROD deploy. |
 | Q20 | 26 Sep 2026 | Does the gate need a mechanism to accept `CodeList` constants; should #1189 wait for the expand/contract answer? (Claude) | Master CLI: no — the gate only sees literals, so constants pass today; the `NewType` buys type safety, not compliance; the gate cannot tell a registry constant from another one and that check is not built. No — #1189 does not wait; the price of expand/contract (nine releases) goes next to the option. |
 | Q19 | 26 Sep 2026 | Master CLI, after phase 2 (PR #1189): (a) contact types — dev1 built `partial=True`; recommendation: no enum, branch on a property and named constants; (b) B7's "revertible" is untrue for migration 154 (renames + drop, image rollback breaks); (c) gender `O` never existed, `role_codes` holds no relation types, `"mobile"` is a field name not a stored value. | (a) taken as the author's decision, Koen to confirm; (b) B7 corrected, expand/contract left to Koen; (c) notes 2, 3, 4 corrected. |
 | Q18 | 26 Sep 2026 | Master CLI: the derived phase-0/1 figures were wrong on two rows; and the phase-0 column is recomputed after the exemptions (52→51, 127→125). | Taken: measured figures per phase in B9.2, one column per phase, with the definition note and the lists-versus-columns note. |
