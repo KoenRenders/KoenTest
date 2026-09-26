@@ -84,6 +84,8 @@ services:
       DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR: ${DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR:-}
       DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR: ${DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR:-}
       BFL_USD_EUR_RATE: ${BFL_USD_EUR_RATE:-}
+      # #1212: the price of one OCR page in USD; the default lives in config.py.
+      OCR_PRICE_PER_PAGE_USD: ${OCR_PRICE_PER_PAGE_USD:-}
       ADMIN_CHAT_MAX_ROWS: ${ADMIN_CHAT_MAX_ROWS:-}
       ADMIN_CHAT_TIMEOUT_SECONDS: ${ADMIN_CHAT_TIMEOUT_SECONDS:-}
       # Lidgeld en inschrijflimieten. Per tenant instelbaar in het beheerscherm;

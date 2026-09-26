@@ -277,6 +277,36 @@ def test_ocr_is_logged_with_its_department(db_session, leeg_logboek, monkeypatch
     assert "png-bytes" not in rij["payload"], "the document itself is not logged"
 
 
+def test_an_ocr_call_is_logged_with_its_cost(db_session, leeg_logboek, monkeypatch):
+    """#1212: Mistral charges OCR per page, and the row must say what it cost.
+
+    Before this, the OCR rows had a count and no amount, so the AI cost screen
+    added them up as nothing. The page count comes from the answer
+    (`usage_info.pages_processed`), the price from `OCR_PRICE_PER_PAGE_USD`.
+
+    Broken on purpose to check that this test can go red: `cost_amount` left
+    out of the call in `_log_ocr` → the row has no amount and the month total
+    has no USD line.
+    """
+    import app.domains.media.extraction as mx
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ocr_price_per_page_usd", 0.004)
+    monkeypatch.setattr(mx.httpx, "post", lambda *a, **k: _Antwoord(
+        {"id": "ocr-2", "pages": [{"markdown": "Een"}, {"markdown": "Twee"}],
+         "usage_info": {"pages_processed": 3, "doc_size_bytes": None}}))
+    mx._ocr_via_mistral(b"pdf-bytes", "application/pdf", tenant_id=TENANT)
+
+    [rij] = _rows(db_session)
+    assert rij["capability"] == "ocr"
+    assert (rij["cost_amount"], rij["cost_currency"]) == (Decimal("0.012000"), "USD")
+
+    start, end = month_period(date.today())
+    [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
+    assert lijn.capability is AiCapability.OCR
+    assert lijn.cost_amounts == {"USD": Decimal("0.012000")}
+
+
 def test_a_failed_ocr_is_logged_too(db_session, leeg_logboek, monkeypatch):
     import app.domains.media.extraction as mx
 
@@ -286,6 +316,9 @@ def test_a_failed_ocr_is_logged_too(db_session, leeg_logboek, monkeypatch):
 
     [rij] = _rows(db_session)
     assert (rij["capability"], rij["status"]) == ("ocr", "error")
+    # #1212: no page count in the answer, so no cost — an estimate would be an
+    # invented amount on the cost screen.
+    assert rij["cost_amount"] is None and rij["cost_currency"] is None
 
 
 def test_a_dictation_session_is_logged(client, db_session, leeg_logboek, monkeypatch):
