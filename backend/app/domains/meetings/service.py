@@ -484,11 +484,15 @@ def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = 
     db.commit()
 
 
-def attendance_of(db: Session, meeting: Meeting) -> dict[str, str]:
+def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
     """Per deelnemer: present of excused. Wie er niet in staat, is niet aangevinkt.
 
     De sleutel is een string (`p12` of `g3`) en geen id: personen en gasten
     worden apart genummerd, dus alleen een id zou de twee door elkaar halen.
+
+    De waarde is het LID sinds CR-12 fase 3, want Python vertakt erop. Het
+    scherm krijgt de code — zie `admin_ui._document_view`, waar dat op de
+    grens gebeurt.
     """
     uit = {}
     for row in (db.query(MeetingAttendance)
