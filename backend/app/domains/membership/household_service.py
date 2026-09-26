@@ -46,7 +46,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.i18n import _
 from app.soft_delete import soft_delete
-from app.domains.mdm.api import ContactType, RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 
 # De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
 # trekt via `audit/service.py` de payment- en membership-facades binnen, en die
@@ -63,12 +63,12 @@ def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
     # Hoofdadres eerst, daarna op id: een lijst die van volgorde wisselt maakt de
     # knop "maak hoofdadres" onbetrouwbaar om aan te klikken.
     adressen = sorted((c for c in person.contact_details
-                       if c.contact_type_code == ContactType.EMAIL and c.value),
+                       if c.contact_type_code == CONTACT.EMAIL and c.value),
                       key=lambda c: (not c.is_primary, c.id or 0))
     email = next((c.value for c in adressen if c.is_primary),
                  adressen[0].value if adressen else None)
-    phone = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.PHONE), None)
-    mobile = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.MOBILE), None)
+    phone = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.PHONE), None)
+    mobile = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.MOBILE), None)
     return FamilyMemberResponse(
         emails=[EmailAddressResponse(id=c.id, value=c.value,
                                      is_primary=bool(c.is_primary))
@@ -424,7 +424,7 @@ def list_families(
             .join(Person, Person.id == MemberPerson.person_id)
             .outerjoin(ContactDetail, and_(
                 ContactDetail.person_id == Person.id,
-                ContactDetail.contact_type_code == ContactType.EMAIL,
+                ContactDetail.contact_type_code == CONTACT.EMAIL,
             ))
             .outerjoin(Address, Address.person_id == Person.id)
             .filter(or_(

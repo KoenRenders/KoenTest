@@ -24,7 +24,7 @@ from app.domains.mdm.api import (
     MemberPersonHistory,
 )
 from tests.conftest import seed_postal_code
-from app.domains.mdm.api import ContactType
+from app.domains.mdm.api import CONTACT
 from app.domains.auth.api import Role
 
 
@@ -101,7 +101,7 @@ def test_existing_member_fields_overwritten(db_session):
     person = db_session.query(Person).join(ExternalNumber).filter(
         ExternalNumber.external_id == "100").one()
     assert person.first_name == "Johan"
-    email = next(c for c in person.contact_details if c.contact_type_code == ContactType.EMAIL)
+    email = next(c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL)
     assert email.value == "nieuw@example.com"
     # Audit: update-snapshot aangemaakt.
     assert db_session.query(PersonHistory).filter_by(

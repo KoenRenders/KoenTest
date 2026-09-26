@@ -38,7 +38,7 @@ from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import ExternalNumber
 from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
-from app.domains.mdm.models import ContactType
+from app.domains.mdm.codes import CONTACT
 from app.kernel.codes import code_of
 from app.domains.audit.api import (
     snapshot_person,
@@ -56,9 +56,9 @@ LEGACY_SOURCE = "ledenadministratie"
 IMPORT_YEAR = 2026
 
 # Rapportkolom → contacttype.
-_CONTACT_FIELDS = ((ContactType.EMAIL, "email"),
-                   (ContactType.PHONE, "telefoon"),
-                   (ContactType.MOBILE, "gsm"))
+_CONTACT_FIELDS = ((CONTACT.EMAIL, "email"),
+                   (CONTACT.PHONE, "telefoon"),
+                   (CONTACT.MOBILE, "gsm"))
 
 
 @dataclass
@@ -260,9 +260,9 @@ def _upsert_contact(db: Session, person: Person, type_code, value: str | None,
 def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool,
                    actor: str | None = None) -> None:
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, ContactType.EMAIL, row["email"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, ContactType.PHONE, row["telefoon"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, ContactType.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.EMAIL, row["email"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.PHONE, row["telefoon"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, CONTACT.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────

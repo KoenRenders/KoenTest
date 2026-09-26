@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
-from app.domains.mdm.models import ContactType
+from app.domains.mdm.codes import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -340,7 +340,7 @@ def _email_of(person: Person) -> Optional[str]:
     carried.
     """
     adressen = [c for c in getattr(person, "contact_details", []) or []
-                if c.contact_type_code == ContactType.EMAIL and c.value]
+                if c.contact_type_code == CONTACT.EMAIL and c.value]
     for contact in adressen:
         if contact.is_primary:
             return contact.value
@@ -764,11 +764,6 @@ def upsert_primary_contact(db: Session, person, type_code: str,
     from app.domains.audit.api import snapshot_contact_detail
     from app.domains.mdm.models import ContactDetail
 
-    # Converted at the border (CR-12 phase 2): callers hand the code over as a
-    # string, the column carries the member. Without this the search below never
-    # finds an existing row and a second one is added — which the unique index
-    # rightly refuses.
-    type_code = ContactType(type_code)
     van_dit_type = [c for c in person.contact_details
                     if c.contact_type_code == type_code]
     hoofd = next((c for c in van_dit_type if c.is_primary), None)

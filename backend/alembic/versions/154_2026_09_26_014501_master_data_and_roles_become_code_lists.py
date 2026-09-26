@@ -39,6 +39,8 @@ foreign key.
 old placement in `public`, and one layer too high for something an authorisation
 check rests on.
 """
+import logging
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -54,6 +56,8 @@ from app.domains.mdm.codes import (
     SOCIAL_NETWORKS,
 )
 from app.kernel.codes import add_code_fk, create_code_list
+
+logger = logging.getLogger("alembic.runtime.migration")
 
 
 # De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
@@ -234,6 +238,60 @@ def _hervorm_codetabel(naam: str, lengte: int, codes) -> None:
             {"c": seed.code, "s": seed.sort_order, "a": seed.is_active})
 
 
+def _sociale_vlag_per_code(bind) -> dict[str, bool]:
+    """`is_social_network` per code, uit de tabel zoals ze nu staat (#1160).
+
+    **Waarom dit meer is dan één SELECT.** `mdm.contact_type_codes` heeft
+    vandaag een samengestelde sleutel `(code, language)`, en `is_social_network`
+    staat op die rij — de vlag is dus per TAAL opgeslagen terwijl ze per CODE
+    betekenis heeft. Met twee taalrijen voor één code zou een woordenboek op
+    code de tweede rij stil over de eerste schrijven, en wélke dat is hangt af
+    van de volgorde die Postgres teruggeeft.
+
+    Na deze migratie kan dat niet meer: de labels verhuizen naar de labeltabel
+    en de codetabel houdt één rij per code. Het gat zit precies in de
+    OVERGANG — hier, op het moment dat de oude rijen gelezen worden. Dus wordt
+    er geteld in plaats van aangenomen: bij een tegenstrijdigheid tussen
+    taalrijen breekt de migratie af met de codes in de melding, in plaats van
+    er één te laten winnen. Vindt ze niets, dan staat dát in de log, want
+    "nagekeken en niets gevonden" is een meting en een stille aanname niet.
+    """
+    if "is_social_network" not in _kolommen("mdm", "contact_type_codes"):
+        logger.info("154: contact_type_codes heeft nog geen is_social_network; "
+                    "de waarden komen uit de declaratie")
+        return {}
+    rijen = [(r.code, bool(r.is_social_network)) for r in bind.execute(sa.text(
+        "SELECT code, language, is_social_network "
+        "FROM mdm.contact_type_codes ORDER BY code, language")).all()]
+    return vlag_uit_rijen(rijen)
+
+
+def vlag_uit_rijen(rijen: list[tuple[str, bool]]) -> dict[str, bool]:
+    """De telling zelf, los van de databank zodat ze te toetsen is.
+
+    Publiek (geen underscore) omdat `tests/test_codes_phase2.py` haar aanroept:
+    een guard die alleen tijdens een echte migratie kan afgaan, is een guard
+    waarvan niemand weet of hij werkt.
+    """
+    vlag: dict[str, bool] = {}
+    tegenstrijdig: dict[str, set[bool]] = {}
+    for code, waarde in rijen:
+        if code in vlag and vlag[code] != waarde:
+            tegenstrijdig.setdefault(code, {vlag[code]}).add(waarde)
+        vlag[code] = vlag.get(code, waarde) or waarde
+    if tegenstrijdig:
+        namen = ", ".join(f"{code} ({sorted(waarden)})"
+                          for code, waarden in sorted(tegenstrijdig.items()))
+        raise RuntimeError(
+            f"154: is_social_network spreekt zichzelf tegen tussen de taalrijen "
+            f"van {len(tegenstrijdig)} code(s): {namen}. De vlag hoort bij de "
+            f"code en niet bij de taal, dus er is hier geen juiste keuze te "
+            f"maken — zet de rijen gelijk en draai opnieuw.")
+    logger.info("154: is_social_network gelezen voor %d code(s) uit %d rij(en); "
+                "geen tegenstrijdigheid tussen taalrijen", len(vlag), len(rijen))
+    return vlag
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
@@ -281,10 +339,7 @@ def upgrade() -> None:
     op.execute(D_PERSON)
 
     # ── 4. Nu pas de codetabellen zelf ───────────────────────────────────────
-    sociaal = {}
-    if "is_social_network" in _kolommen("mdm", "contact_type_codes"):
-        sociaal = {r.code: r.is_social_network for r in bind.execute(sa.text(
-            "SELECT code, is_social_network FROM mdm.contact_type_codes")).all()}
+    sociaal = _sociale_vlag_per_code(bind)
 
     for naam, lengte, codes in TE_SPLITSEN:
         # De inkomende foreign keys hangen aan de uniciteit die we vervangen,

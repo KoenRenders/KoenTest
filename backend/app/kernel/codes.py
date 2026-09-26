@@ -44,7 +44,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, NewType, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.types import String, TypeDecorator
@@ -54,6 +54,16 @@ logger = logging.getLogger(__name__)
 #: The language every active code must have a label in. A screen may render in
 #: another language; it may never render blank because a translation is missing.
 FALLBACK_LANGUAGE = "nl"
+
+#: One code of one list, as the value it is in the database.
+#:
+#: A `NewType` over `str` and not a class: at runtime it *is* the string, so it
+#: compares, stores and renders exactly like the code it is, and mypy still
+#: refuses a bare literal where a `Code` is asked for. It is what a list uses
+#: instead of an `Enum` when Python has to **name** codes but must not **close**
+#: the set — `contact_type` is the one case, because #1160 made a fifth social
+#: network a row rather than a code change (§B4.3).
+Code = NewType("Code", str)
 
 #: The tone a badge falls back to when a list registered none. The gate holds
 #: that a registered mapping is total, so this is for a list with no mapping at
@@ -130,19 +140,6 @@ class CodeList:
     #: A list with no storing column of its own (§B5.3 note 4): the FK gate
     #: expects nothing, the label gate still does.
     derived: bool = False
-    #: The enum covers only the codes the code branches on, not the whole
-    #: table. Declared per list and never the default, because "enum == codes"
-    #: is what makes a retired code read back as a member instead of a bare
-    #: string (§B4.3) — giving that up has to be a decision somebody wrote down.
-    #:
-    #: The case that forced it is `contact_type`. Python branches on `EMAIL`
-    #: and `MOBILE`, so §B4.3 asks for an enum. But #1160 deliberately made the
-    #: public footer grow with a **row**: a fifth social network is data, not
-    #: code. Both cannot hold for the storing column at once — an `EnumColumn`
-    #: would refuse a network that has no member. So this list keeps its enum
-    #: for the branching, keeps its column a plain `String` with the foreign
-    #: key, and says here that the two sets differ on purpose.
-    enum_is_partial: bool = False
     #: Columns on the *code* table beyond the four of §B4.2, because they are
     #: data about the code rather than a label. `is_social_network` on the
     #: contact types is the case that made this necessary (#1160): the public
@@ -231,14 +228,8 @@ class EnumColumn(TypeDecorator):
     cache_ok = True
 
     def __init__(self, enum_cls: type[Enum], length: int | None = None,
-                 partial: bool = False, **kw: Any):
+                 **kw: Any):
         self.enum_cls = enum_cls
-        #: The enum covers only part of the list (see `CodeList.enum_is_partial`).
-        #: A code with no member then reads back as the **code**, not as an
-        #: error: it is a value nothing branches on, and the foreign key already
-        #: guarantees it is in the list. Without this, a list that is meant to
-        #: grow by a row could not grow at all.
-        self.partial = partial
         super().__init__(length=length, **kw)
 
     def process_bind_param(self, value: Any, dialect: Any) -> str | None:
@@ -249,11 +240,6 @@ class EnumColumn(TypeDecorator):
         if isinstance(value, str):
             # A raw code is accepted — a migration or a form may hand one over —
             # but only when it really is a code of this list.
-            if self.partial:
-                try:
-                    return str(self.enum_cls(value).value)
-                except ValueError:
-                    return value
             return str(self.enum_cls(value).value)
         raise TypeError(
             f"{self.enum_cls.__name__}: cannot store {value!r} ({type(value).__name__}); "
@@ -265,8 +251,6 @@ class EnumColumn(TypeDecorator):
         try:
             return self.enum_cls(value)
         except ValueError:
-            if self.partial:
-                return value
             raise ValueError(
                 f"{self.enum_cls.__name__}: the database holds {value!r}, which is "
                 f"not one of {[m.value for m in self.enum_cls]}. A retired code stays "
@@ -274,14 +258,9 @@ class EnumColumn(TypeDecorator):
             ) from None
 
 
-def _coerce_on_assignment(enum_cls: type[Enum], partial: bool) -> Any:
+def _coerce_on_assignment(enum_cls: type[Enum]) -> Any:
     def coerce(target: Any, value: Any, oldvalue: Any, initiator: Any) -> Any:
         if isinstance(value, str):
-            if partial:
-                try:
-                    return enum_cls(value)
-                except ValueError:
-                    return value
             return enum_cls(value)
         return value
     return coerce
@@ -314,8 +293,7 @@ def install_enum_coercion() -> None:
             column = prop.columns[0]
             if isinstance(column.type, EnumColumn):
                 event.listen(getattr(cls, prop.key), "set",
-                             _coerce_on_assignment(column.type.enum_cls,
-                                                   column.type.partial),
+                             _coerce_on_assignment(column.type.enum_cls),
                              retval=True)
 
 

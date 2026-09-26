@@ -17,7 +17,7 @@ from app.domains.mdm.api import (BankAccount, ContactDetail,
                                  OrganizationIdentification, Organization,
                                  Person, PostalCode)
 from app.kernel.tenant_config import _actieve_tenant
-from app.domains.mdm.api import ContactType, OrganizationType
+from app.domains.mdm.api import CONTACT, OrganizationType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -141,8 +141,8 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     """
     # CR-12 fase 2: de lijst is gesplitst, dus een vijfde netwerk is één rij in
     # de codetabel plus haar label. Dát het nog steeds géén codewijziging is, is
-    # precies wat deze test bewaakt: `ContactType` dekt alleen waar de code op
-    # vertakt (`enum_is_partial`), en `MASTODON` hoeft er dus niet in.
+    # precies wat deze test bewaakt: de lijst heeft geen enum, dus `MASTODON`
+    # is één rij en geen codewijziging (Koen, 26 september 2026).
     from app.domains.mdm.api import ContactTypeCode, ContactTypeLabel
 
     db_session.add(ContactTypeCode(code="MASTODON", sort_order=80,
@@ -407,6 +407,6 @@ def test_clearing_a_field_removes_the_row(db_session, organisatie):
     assert organization_details(db_session, organisatie.id)["email"] == ""
     rijen = (db_session.query(ContactDetail)
              .filter(ContactDetail.organization_id == organisatie.id,
-                     ContactDetail.contact_type_code == ContactType.EMAIL)
+                     ContactDetail.contact_type_code == CONTACT.EMAIL)
              .execution_options(include_all_tenants=True).all())
     assert rijen == [], "een leeg veld hoort geen lege rij achter te laten"
