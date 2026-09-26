@@ -38,7 +38,9 @@ class Recorder:
     sends something else.
     """
 
-    name = "recorder"
+    # A stand-in logs as the `mock` provider: the AI log only takes known codes
+    # (CR-12 phase 4), and a fake name would lose the row to the seam's except.
+    name = "mock"
     model = "recorder-1"
 
     def __init__(self, replies=None):

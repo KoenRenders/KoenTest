@@ -33,7 +33,9 @@ BASE = "https://raak.example"
 class ScriptedProvider:
     """Answers in order; keeps every message list it was asked."""
 
-    name = "scripted"
+    # A stand-in logs as the `mock` provider: the AI log only takes known codes
+    # (CR-12 phase 4), and a fake name would lose the row to the seam's except.
+    name = "mock"
     model = "scripted"
 
     def __init__(self, *answers):

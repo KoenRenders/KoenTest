@@ -55,7 +55,7 @@ def test_system_info_links_to_the_cost_screen(client):
 
 def test_the_screen_shows_totals_and_calls_with_who_asked(client, leeg_logboek):
     _oproep(DEFAULT_TENANT_ID)
-    _oproep(DEFAULT_TENANT_ID, provider="bfl", capability="design", model="flux-2-pro",
+    _oproep(DEFAULT_TENANT_ID, provider="bfl", capability="image", model="flux-2-pro",
             cost_credits=4.5, cost_amount=0.045, cost_currency="USD", usage=None)
     _login(client)
     resp = client.get("/admin/info/ai-kosten")

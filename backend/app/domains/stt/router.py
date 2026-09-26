@@ -26,6 +26,7 @@ from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketState
 
 from app.config import settings
+from app.domains.chatbot.api import AiStatus
 from app.domains.stt.guards import DailyAudioBudget, HandshakeRateLimiter, ws_client_ip
 from app.domains.stt.providers import get_stt_provider
 
@@ -88,18 +89,18 @@ def _tenant_of(websocket: WebSocket) -> int:
     return tenant
 
 
-def _log_ai_call(websocket: WebSocket, provider, *, status: str, duration_ms: int,
+def _log_ai_call(websocket: WebSocket, provider, *, status: AiStatus, duration_ms: int,
                  audio_bytes: int, sample_rate: int) -> None:
     """One row in the AI log per dictation session (#978).
 
     The audio is not stored; its size and rate are — that is what the session
     costs, and what the fold-out can honestly say about what left.
     """
-    from app.domains.chatbot.api import sink_for
+    from app.domains.chatbot.api import AiCapability, AiSurface, sink_for
 
     try:
         sink_for()(
-            surface="public", capability="dictation",
+            surface=AiSurface.PUBLIC, capability=AiCapability.DICTATION,
             model=getattr(provider, "model", "") or provider.name,
             payload=f"[audio: {audio_bytes} bytes, {sample_rate} Hz]",
             provider=getattr(provider, "vendor", "") or provider.name,
@@ -290,7 +291,8 @@ async def stt_voxtral(websocket: WebSocket) -> None:
         except Exception:
             pump_task.cancel()
         _log_uitkomst()
-        _log_ai_call(websocket, provider, status="error" if provider_fout else "ok",
+        _log_ai_call(websocket, provider,
+                     status=AiStatus.ERROR if provider_fout else AiStatus.OK,
                      duration_ms=int(round((time.monotonic() - begin) * 1000)),
                      audio_bytes=session_bytes, sample_rate=sample_rate)
         if websocket.application_state == WebSocketState.CONNECTED:

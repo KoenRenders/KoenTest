@@ -1,10 +1,13 @@
 """What phase 4 of CR-12 must prove, so far: the remaining domains (§B8).
 
-Built: workflow, forms, mail, activities, reporting and the history operation.
-Still open, and why: **AI** waits for Koen's decision on two data changes (an
-empty `capability` becomes `chat`, an empty `provider` becomes NULL); **media**
-waits for the rebase onto v2.6.0, whose #1173 changed the very CHECK the media
-list must drop.
+Built: workflow, forms, mail, activities, reporting, the history operation and
+the AI call log. Still open, and why: **media** waits for the rebase onto
+v2.6.0, whose #1173 changed the very CHECK the media list must drop.
+
+The AI log carries the one data change of this phase, decided by Koen on 26
+September 2026: an empty `capability` becomes `chat`, an empty `provider`
+becomes NULL. Counted on UAT and PROD first — 2 empty capabilities on PROD, no
+empty provider anywhere.
 
 Three things carry this phase, each a test below.
 
@@ -29,6 +32,10 @@ The method of the css gate (#652), 26 September 2026:
 | The database refuses a non-code | `fk_email_log_status_code` dropped again at the end of migration 160 | yes — *DID NOT RAISE* |
 | History operations are codes | a `membership_history` row with `operation='upsert'`, inserted before the check | yes — names the table and `upsert` |
 | The dropped checks are gone | `ck_form_fields_type` left out of 159's `CHECKS` | yes |
+| The same words (AI) | the `reporting` seed changed to "Rapportering" | yes — `ai_capability` |
+| Raw codes now have a word (AI) | the `bfl` seed given the word `bfl` | yes |
+| The database refuses a non-code (AI) | `fk_ai_call_log_status_code` dropped at the end of migration 163 | yes — `status`, `misschien` |
+| The AI backfill | `CAPABILITY_BACKFILL` pointed at `'x'` instead of `''` | yes |
 
 **One measurement had to be redone.** The first try at the key violation put
 `None` where the column name of the `mail_status` list stands in migration 160.
@@ -52,7 +59,9 @@ from app.kernel.codes import code_label, reset_label_cache
 #: `workflow/ui.py` (`KIND_LABELS`, `CAT_LABELS`), `forms/admin_ui.py`
 #: (`veldtype_labels`, `_status_labels`), `mail/ui.py` (`_TYPE_LABELS`,
 #: `_STATUS_LABELS`), `activities/service.py` (`STATUS_LABELS`) and
-#: `audit/changes.py` (`_OPERATION_LABELS`).
+#: `audit/changes.py` (`_OPERATION_LABELS`) and `chatbot/admin_ui.py`
+#: (`SURFACE_LABELS`, `CAPABILITY_LABELS` — whose fallback for an empty
+#: capability was "Chat" — and `STATUS_LABELS`).
 LABELS_BEFORE_CR12 = {
     "task_kind": {"payment.webhook_mismatch": "Betaling: webhook wijkt af",
                   "payment.refund_bevestigen": "Betaling: terugbetaling bevestigen",
@@ -74,6 +83,12 @@ LABELS_BEFORE_CR12 = {
                            "cancelled": "Geannuleerd"},
     "kernel_operation": {"insert": "Toegevoegd", "update": "Gewijzigd",
                          "delete": "Verwijderd"},
+    "ai_surface": {"public": "Publiek", "admin": "Beheer"},
+    "ai_capability": {"chat": "Chat", "reporting": "Rapporten",
+                      "newsletter_drafting": "Nieuwsbrief", "ocr": "Documenten lezen",
+                      "dictation": "Dicteren"},
+    "ai_status": {"ok": "Gelukt", "blocked": "Tegengehouden", "error": "Mislukt",
+                  "moderated": "Geweigerd door de provider"},
 }
 
 
@@ -94,12 +109,16 @@ def test_every_screen_shows_the_same_dutch_word_as_before(db_session, code_list)
 
 
 def test_codes_that_reached_the_screen_raw_now_have_a_word(db_session):
-    """Four codes had no entry in their screen's dictionary and were shown as
+    """Codes that had no entry in their screen's dictionary and were shown as
     the code itself. Existing bugs, fixed by this phase — so the test says that
-    they now read as a word, whatever the word."""
+    they now read as a word, whatever the word. `mock` is left out on purpose:
+    its word is the code, it names a stand-in nobody outside development sees."""
     for code_list, code in (("email_type", "meeting"), ("email_type", "newsletter"),
                             ("email_type", "newsletter_confirmation"),
-                            ("mail_status", "logged")):
+                            ("mail_status", "logged"),
+                            ("ai_surface", "designstudio"),
+                            ("ai_capability", "translate"), ("ai_capability", "image"),
+                            ("ai_provider", "mistral"), ("ai_provider", "bfl")):
         assert code_label(code_list, code, language="nl", db=db_session) != code
 
 
@@ -151,6 +170,11 @@ NOT_A_CODE = [
     ("mail.email_log", "status", "verzonden"),
     ("mail.email_log", "email_type", "registration"),
     ("reporting.export_log", "kind", "rapport"),
+    ("ai.ai_call_log", "surface", "extern"),
+    ("ai.ai_call_log", "capability", "design"),
+    ("ai.ai_call_log", "status", "misschien"),
+    ("ai.ai_call_log", "provider", "openai"),
+    ("ai.ai_call_log", "provider", ""),
 ]
 
 
@@ -172,12 +196,16 @@ def test_a_value_that_is_not_a_code_never_reaches_the_column(db_session, table, 
 
 
 def _one_row(db, table: str) -> int:
+    from app.domains.chatbot.models import AiCallLog, AiStatus, AiSurface
     from app.domains.forms.api import Form
     from app.domains.mail.models import EmailLog
     from app.domains.reporting.models import ExportLog
 
     if table == "form.forms":
         row = Form(title="Proef", share_token="phase4-proof-token")
+    elif table == "ai.ai_call_log":
+        row = AiCallLog(tenant_id=2, surface=AiSurface.ADMIN, status=AiStatus.OK,
+                        model="proef", payload="")
     elif table == "mail.email_log":
         row = EmailLog(recipient="phase4@example.com", subject="Proef")
     else:
@@ -228,3 +256,39 @@ def test_the_card_booleans_follow_the_state():
             obj = cls.model_construct(registration_state=state)
             assert (obj.registration_open, obj.registration_closed) == (is_open, is_closed), (
                 cls.__name__, state)
+
+
+# ── The one data change: '' → chat, '' → NULL ───────────────────────────────
+
+def test_the_ai_backfill_turns_empty_into_chat_and_null_and_loses_no_row(db_session):
+    """Migration 163 on rows written the way the old code wrote them.
+
+    The suite migrates an empty database, so the two statements run here, on
+    rows this test writes with the key triggers set aside — the old shape is
+    exactly what the new keys refuse.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    [path] = Path(__file__).resolve().parents[1].glob("alembic/versions/163_*.py")
+    spec = importlib.util.spec_from_file_location("migration_163", path)
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+
+    db_session.execute(text("SET LOCAL session_replication_role = replica"))
+    for capability, provider in (("", "mistral"), ("", ""), ("reporting", "mistral")):
+        db_session.execute(text(
+            "INSERT INTO ai.ai_call_log (tenant_id, surface, capability, actor, model, "
+            "payload, blocked_reason, provider, endpoint, provider_request_id, status) "
+            "VALUES (2, 'public', :c, '', 'proef-163', '', '', :p, '', '', 'ok')"),
+            {"c": capability, "p": provider})
+    db_session.execute(text(migration.CAPABILITY_BACKFILL))
+    db_session.execute(text(migration.PROVIDER_BACKFILL))
+    db_session.execute(text("SET LOCAL session_replication_role = origin"))
+
+    rows = db_session.execute(text(
+        "SELECT capability, provider FROM ai.ai_call_log WHERE model = 'proef-163' "
+        "ORDER BY id")).all()
+    assert [tuple(r) for r in rows] == [
+        ("chat", "mistral"), ("chat", None), ("reporting", "mistral")]
+    db_session.rollback()

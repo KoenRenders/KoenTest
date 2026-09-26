@@ -107,7 +107,9 @@ def test_the_public_dispatcher_refuses_every_admin_tool_by_name(db_session):
 class Forger:
     """A provider that asks for every admin tool, then answers."""
 
-    name = "forger"
+    # A stand-in logs as the `mock` provider: the AI log only takes known codes
+    # (CR-12 phase 4), and a fake name would lose the row to the seam's except.
+    name = "mock"
     model = "forger-1"
 
     def __init__(self, names: list[str]):
