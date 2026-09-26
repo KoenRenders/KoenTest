@@ -378,17 +378,12 @@ def test_every_enum_covers_exactly_its_codes(db_session):
         for value in sorted(in_the_enum - in_the_table):
             errors.append(f"`{lst.enum.__name__}` has a member with value `{value}` "
                           f"and no row in `{lst.codes_table}`")
-        if lst.enum_is_partial:
-            # Declared partial: the enum covers what the code branches on, the
-            # table may hold more. Only the other direction is checked, because
-            # a member without a row is still a member nothing can store.
-            continue
         for code in sorted(in_the_table - in_the_enum):
             errors.append(f"`{lst.codes_table}` has code `{code}` with no member in "
                           f"`{lst.enum.__name__}` — a retired code keeps its member "
-                          f"too. If the table is meant to hold more than the code "
-                          f"branches on, declare `enum_is_partial=True` with the "
-                          f"reason")
+                          f"too. A list that is meant to grow by a row gets no enum "
+                          f"at all and names its codes with `Code` constants, the "
+                          f"way `contact_type` does")
     assert not errors, "\n".join(errors)
 
 

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
-from app.domains.mdm.models import ContactType
+from app.domains.mdm.codes import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +321,7 @@ def _email_of(person: Person) -> Optional[str]:
     """The person's e-mail address, or None. `EMAIL` is the code the whole code
     base uses for it (auth, activities, audit all read it this way)."""
     for contact in getattr(person, "contact_details", []) or []:
-        if contact.contact_type_code == ContactType.EMAIL and contact.value:
+        if contact.contact_type_code == CONTACT.EMAIL and contact.value:
             return contact.value
     return None
 

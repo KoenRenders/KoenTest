@@ -11,7 +11,6 @@ from app.domains.mdm.models import (  # noqa: F401
     BankAccount,
     ContactDetail,
     ContactDetailHistory,
-    ContactType,
     ContactTypeCode,
     ContactTypeLabel,
     ExternalNumber,
@@ -119,7 +118,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
 from app.domains.mdm.codes import (  # noqa: F401,E402
-    CONTACT_TYPE, GENDER, IDENTIFICATION_SCHEME, LANGUAGE, LEGAL_FORM,
+    CONTACT, CONTACT_TYPE, GENDER, IDENTIFICATION_SCHEME, LANGUAGE, LEGAL_FORM,
     ORGANIZATION_RELATION_TYPE, ORGANIZATION_TYPE, PAYMENT_METHOD,
     RELATION_TYPE,
 )
@@ -142,11 +141,12 @@ __all__ = [
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
     "PaymentMethod", "PaymentMethodCode", "PaymentMethodLabel",
     "PAYMENT_METHOD",
-    "ContactType", "ContactTypeLabel", "GenderLabel",
+    "ContactTypeLabel", "GenderLabel",
     "LegalForm", "LegalFormCode", "LegalFormLabel",
     "OrganizationType", "OrganizationTypeCode", "OrganizationTypeLabel",
     "RelationType", "RelationTypeLabel",
-    "GENDER", "CONTACT_TYPE", "RELATION_TYPE", "LEGAL_FORM",
+    "GENDER", "CONTACT", "CONTACT_TYPE",
+    "RELATION_TYPE", "LEGAL_FORM",
     "ORGANIZATION_TYPE", "ORGANIZATION_RELATION_TYPE",
     "IDENTIFICATION_SCHEME",
     "Person", "PersonHistory", "PostalCode", "RelationTypeCode",

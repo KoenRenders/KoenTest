@@ -65,26 +65,6 @@ class OrganizationType(Enum):
     PLATFORM = "PLATFORM"
 
 
-class ContactType(Enum):
-    """De soorten contactgegeven (CR-12 fase 2).
-
-    **Eén spelling, en dat is de opgeslagen.** De codes staan in HOOFDLETTERS
-    in de databank. `CLAUDE.md` schreef `contact_type_code = "mobile"`, in
-    kleine letters, en dat klopt niet — in deze fase is die zin gecorrigeerd.
-    De kleine varianten die in de code voorkomen zijn iets anders: dat zijn
-    veldnamen van formulieren en view-models (`mobile`, `email`, `phone`), geen
-    codes. Die blijven.
-    """
-
-    EMAIL = "EMAIL"
-    MOBILE = "MOBILE"
-    PHONE = "PHONE"
-    WEBSITE = "WEBSITE"
-    FACEBOOK = "FACEBOOK"
-    INSTAGRAM = "INSTAGRAM"
-    TIKTOK = "TIKTOK"
-
-
 class RelationType(Enum):
     """Hoe een persoon bij een gezin hoort (CR-12 fase 2).
 
@@ -304,16 +284,16 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
                              nullable=True)
-    # `partial=True`, anders dan elke andere enum-kolom van deze change
-    # request. `ContactType` dekt wat de code onderscheidt (`EMAIL`, `MOBILE`);
-    # de tabel mag meer dragen, want #1160 maakte de publieke voetnoot
-    # data-gedreven — een vijfde sociaal netwerk is één rij en geen
-    # codewijziging. Een strikte enum-kolom zou zo'n rij weigeren; deze leest
-    # haar terug als de code, en dat is precies goed: het is een waarde waar
-    # niets op vertakt. De foreign key bewaakt dat ze in de lijst staat.
-    contact_type_code: Mapped[ContactType] = mapped_column(
-        EnumColumn(ContactType, length=10, partial=True),
-        ForeignKey("mdm.contact_type_codes.code"), nullable=False)
+    # Geen enum, anders dan bij de andere lijsten van deze change request
+    # (Koen, 26 september 2026). #1160 maakte de publieke voetnoot
+    # data-gedreven: een vijfde sociaal netwerk is één rij en geen
+    # codewijziging. Een enum-kolom zou zo'n rij aan de SCHRIJFKANT weigeren,
+    # en dat is precies wat #1160 wegnam. De code noemt de soorten die ze
+    # onderscheidt met genoemde constanten (`CONTACT.EMAIL`, `CONTACT.MOBILE`
+    # in `codes.py`); de foreign key bewaakt dat de waarde in de lijst staat.
+    contact_type_code = Column(String(10),
+                               ForeignKey("mdm.contact_type_codes.code"),
+                               nullable=False)
     value = Column(String(255), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)

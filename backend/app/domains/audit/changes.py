@@ -17,7 +17,7 @@ from app.kernel.ods import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory
-from app.domains.mdm.api import ContactType, RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 from app.domains.activities.api import (
     RegistrationHistory,
     RegistrationItemHistory,
@@ -152,7 +152,7 @@ class _SubjectResolver:
         cd = (self._q(ContactDetail)
               .filter(ContactDetail.person_id.isnot(None),
                       func.lower(ContactDetail.value) == email.strip().lower(),
-                      ContactDetail.contact_type_code == ContactType.EMAIL).first())
+                      ContactDetail.contact_type_code == CONTACT.EMAIL).first())
         return cd.person_id if cd else None
 
     def fields(self, *, person_id=None, member_id=None) -> dict:

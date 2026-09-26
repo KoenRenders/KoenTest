@@ -45,7 +45,7 @@ from app.domains.membership.schemas_member import (
 )
 from app.i18n import _
 from app.soft_delete import soft_delete
-from app.domains.mdm.api import ContactType, RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 
 # De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
 # trekt via `audit/service.py` de payment- en membership-facades binnen, en die
@@ -55,9 +55,9 @@ from app.domains.mdm.api import ContactType, RelationType
 
 
 def _person_to_schema(person: Person, relation_type) -> FamilyMemberResponse:
-    email = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.EMAIL), None)
-    phone = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.PHONE), None)
-    mobile = next((c.value for c in person.contact_details if c.contact_type_code == ContactType.MOBILE), None)
+    email = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
+    phone = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.PHONE), None)
+    mobile = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.MOBILE), None)
     return FamilyMemberResponse(
         id=person.id,
         last_name=person.last_name,
@@ -410,7 +410,7 @@ def list_families(
             .join(Person, Person.id == MemberPerson.person_id)
             .outerjoin(ContactDetail, and_(
                 ContactDetail.person_id == Person.id,
-                ContactDetail.contact_type_code == ContactType.EMAIL,
+                ContactDetail.contact_type_code == CONTACT.EMAIL,
             ))
             .outerjoin(Address, Address.person_id == Person.id)
             .filter(or_(
@@ -644,8 +644,6 @@ def update_person_contacts(
         raise HTTPException(status_code=404, detail=_("Person not found"))
 
     def _upsert_contact(type_code, value: Optional[str]):
-        # Omzetten op de grens, zie `household_router._upsert`.
-        type_code = ContactType(type_code)
         existing = next((c for c in person.contact_details
                          if c.contact_type_code == type_code), None)
         if value:

@@ -5,7 +5,7 @@ from tests.conftest import (
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, ContactDetail, Person
-from app.domains.mdm.api import ContactType, RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 
 
 def _login(client):
@@ -59,7 +59,7 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     assert db_session.get(Person, person.id).first_name == "Nieuw"
     mails = [c.value for c in db_session.query(ContactDetail)
              .filter(ContactDetail.person_id == person.id,
-                     ContactDetail.contact_type_code == ContactType.EMAIL).all()]
+                     ContactDetail.contact_type_code == CONTACT.EMAIL).all()]
     assert "nieuw@example.com" in mails
 
 

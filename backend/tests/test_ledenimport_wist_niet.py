@@ -26,7 +26,7 @@ import pytest
 from app.domains.mdm.api import Person, PersonHistory
 from app.domains.mdm.import_service import upsert_families
 from tests.conftest import seed_postal_code
-from app.domains.mdm.api import ContactType
+from app.domains.mdm.api import CONTACT
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -188,7 +188,7 @@ def test_een_leeg_gsm_nummer_verwijdert_wel(db_session):
     rij["gsm"] = "0470000000"
     _import(db_session, [rij])
     persoon = _persoon(db_session, "Bel")
-    assert [c for c in persoon.contact_details if c.contact_type_code == ContactType.MOBILE]
+    assert [c for c in persoon.contact_details if c.contact_type_code == CONTACT.MOBILE]
 
     zonder = _row("707", "Bel", "Janssens", "HOOFDLID",
                   geboortedatum=date(1980, 1, 1), geslacht="M",
@@ -198,7 +198,7 @@ def test_een_leeg_gsm_nummer_verwijdert_wel(db_session):
     db_session.expire_all()
     mobiel = (db_session.query(ContactDetail)
               .filter(ContactDetail.person_id == persoon.id,
-                      ContactDetail.contact_type_code == ContactType.MOBILE).all())
+                      ContactDetail.contact_type_code == CONTACT.MOBILE).all())
     assert not mobiel, "een leeg gsm-veld hoort het nummer wél te verwijderen"
     assert _persoon(db_session, "Bel").date_of_birth == date(1980, 1, 1), (
         "maar de geboortedatum blijft")

@@ -10,7 +10,6 @@ single-language code tables already here (`gender`, `contact_type`,
 `relation_type`, `legal_form`) are split into the codes/labels shape in phase 2.
 """
 from app.domains.mdm.models import (
-    ContactType,
     ContactTypeCode,
     ContactTypeLabel,
     GenderCode,
@@ -34,7 +33,7 @@ from app.domains.mdm.models import (
     RelationTypeCode,
     RelationTypeLabel,
 )
-from app.kernel.codes import CodeList, CodeSeed
+from app.kernel.codes import Code, CodeList, CodeSeed
 
 #: The two languages every label table is keyed against.
 LANGUAGE_CODES = (
@@ -122,19 +121,47 @@ CONTACT_TYPE_CODES = (
 )
 
 #: Welke contactsoorten sociale netwerken zijn (#1160). Een eigenschap ván de
-#: code, dus op de codetabel — niet in een lijstje in de voetnoot.
+#: code, dus op de codetabel — niet in een lijstje in de voetnoot. Dit tupel is
+#: alleen het zaadje voor die kolom; de voetnoot leest de kolom.
 SOCIAL_NETWORKS = {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
+
+
+class CONTACT:
+    """De contactsoorten die de code bij naam noemt — codes, geen enum.
+
+    **Waarom hier geen enum staat** (Koen, 26 september 2026). §B4.3 vraagt een
+    enum zodra Python op een waarde vertakt, en dat doet ze hier: een e-mailadres
+    en een mobiel nummer worden anders behandeld dan de rest. Maar #1160 maakte
+    de publieke voetnoot data-gedreven — een vijfde sociaal netwerk is één rij
+    in `mdm.contact_type_codes` met `is_social_network = true`, en geen
+    codewijziging. Een enum-kolom zou die rij aan de **schrijfkant** weigeren,
+    en daarmee zou de codelijst precies datgene verliezen waarvoor #1160 hem
+    open zette. De leeskant heeft de enum niet nodig: de voetnoot vraagt de
+    bron wélke codes sociale netwerken zijn.
+
+    Wat blijft, is dat de code nergens een los stringliteraal gebruikt. Deze
+    constanten zijn dat vangnet: één plek waar de spelling staat, en een typfout
+    is een `AttributeError` bij import in plaats van een vergelijking die stil
+    nooit waar wordt. De foreign key bewaakt de rest.
+    """
+
+    EMAIL = Code("EMAIL")
+    MOBILE = Code("MOBILE")
+    PHONE = Code("PHONE")
+    WEBSITE = Code("WEBSITE")
+    FACEBOOK = Code("FACEBOOK")
+    INSTAGRAM = Code("INSTAGRAM")
+    TIKTOK = Code("TIKTOK")
+
 
 CONTACT_TYPE = CodeList(
     name="contact_type",
     schema="mdm",
     codes=ContactTypeCode,
     labels=ContactTypeLabel,
-    enum=ContactType,
-    # Zie `enum_is_partial` in de kernel: de enum dekt wat de code onderscheidt
-    # (`EMAIL`, `MOBILE`), de tabel mag meer dragen. #1160 maakte de voetnoot
-    # data-gedreven — een vijfde sociaal netwerk is één rij — en dat blijft zo.
-    enum_is_partial=True,
+    # Geen enum — zie `CONTACT` hierboven voor de reden en voor wat er in de
+    # plaats komt.
+    enum=None,
     fk_from=("mdm.contact_details.contact_type_code",),
     extra_code_columns=("is_social_network",),
 )

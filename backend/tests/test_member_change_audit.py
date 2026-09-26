@@ -7,7 +7,7 @@ from datetime import date
 from app.domains.mdm.api import PersonHistory, ContactDetailHistory
 from app.domains.mdm.api import Person
 from tests.conftest import seed_postal_code
-from app.domains.mdm.api import ContactType
+from app.domains.mdm.api import CONTACT
 
 
 def _make_person(client, db):
@@ -40,7 +40,7 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
         ContactDetailHistory.person_id == person.id).order_by(ContactDetailHistory.id).all()
     assert len(contacts) - before_contacts == 1          # exact één nieuwe rij
     # History draagt de kale code (§F4): geen FK, dus geen enum-kolom.
-    assert contacts[-1].contact_type_code == ContactType.MOBILE.value
+    assert contacts[-1].contact_type_code == CONTACT.MOBILE
 
     after_persons = db_session.query(PersonHistory).filter(
         PersonHistory.person_id == person.id).count()

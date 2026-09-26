@@ -54,7 +54,7 @@ from app.config import settings
 from app.limiter import registration_limiter
 from app.i18n import _
 from app.domains.mdm.api import PaymentMethod
-from app.domains.mdm.api import ContactType, RelationType
+from app.domains.mdm.api import CONTACT, RelationType
 
 
 router = APIRouter(tags=["members"])
@@ -345,7 +345,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
             ))
             .join(ContactDetail, and_(
                 ContactDetail.person_id == MemberPerson.person_id,
-                ContactDetail.contact_type_code == ContactType.EMAIL,
+                ContactDetail.contact_type_code == CONTACT.EMAIL,
                 func.lower(ContactDetail.value) == hoofdlid_email.lower(),
             ))
             .filter(Membership.year == today.year)

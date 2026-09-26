@@ -29,8 +29,8 @@ from typing import Mapping
 
 from app.i18n import _
 from app.domains.mdm.tenant_service import OngeldigeInstelling
-from app.domains.mdm.models import ContactType
-from app.kernel.codes import code_of
+from app.domains.mdm.codes import CONTACT
+from app.kernel.codes import Code, code_of
 
 # #924: wat de organisatie IS, tegenover wat de site instelt. Twee assen, dus twee
 # functies — maar allebei in de servicelaag: het scherm raakt de sessie niet zelf
@@ -55,14 +55,14 @@ ORGANISATIEVELDEN: tuple[str, ...] = ("name", "legal_form")
 # Twee verschillende dingen die toevallig op elkaar lijken. Met het lid erin is
 # dat niet meer te verwarren, en vergelijkt de lezer hieronder een code met een
 # code in plaats van met een string.
-CONTACTVELDEN: tuple[tuple[str, ContactType], ...] = (
-    ("email", ContactType.EMAIL),
-    ("phone", ContactType.PHONE),
-    ("mobile", ContactType.MOBILE),
-    ("website", ContactType.WEBSITE),
-    ("facebook_url", ContactType.FACEBOOK),
-    ("instagram_url", ContactType.INSTAGRAM),
-    ("tiktok_url", ContactType.TIKTOK),
+CONTACTVELDEN: tuple[tuple[str, Code], ...] = (
+    ("email", CONTACT.EMAIL),
+    ("phone", CONTACT.PHONE),
+    ("mobile", CONTACT.MOBILE),
+    ("website", CONTACT.WEBSITE),
+    ("facebook_url", CONTACT.FACEBOOK),
+    ("instagram_url", CONTACT.INSTAGRAM),
+    ("tiktok_url", CONTACT.TIKTOK),
 )
 
 # (veldnaam in het formulier, schema in `identification_schemes`)

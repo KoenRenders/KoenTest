@@ -21,9 +21,22 @@ One real violation each, checked, reverted (the #652 method), on 26 September
 | `MEMBER` deleted from the seed instead of retired | yes |
 | `U` left active in its `CodeSeed` | yes — after a correction, see below |
 | `is_social_network` removed from `extra_code_columns` | yes |
+| the `ContactType` enum put back, with an `EnumColumn` on the column | yes |
+| the flag guard fed two `FACEBOOK` rows that disagree | yes |
 | `ck_org_type` left in place by the migration | yes |
 | `LegalForm` put back to `str, Enum` | yes |
 | `workflow.workflow_tasks.required_role` dropped from the migration's `fk_from` | yes — after a correction, see below |
+
+**The contact types were reworked after this phase first shipped** (Koen, 26
+September 2026). The first version gave the list a *partial* enum: the enum
+covered `EMAIL` and `MOBILE`, the table was allowed to hold more, and
+`EnumColumn(partial=True)` read an unknown code back as the code. The
+diagnosis was right — a strict enum column would refuse the fifth social
+network that #1160 turned into a row — but the remedy sat one layer too deep.
+The write side was the problem, so the list now has **no enum at all** and the
+code names the two types it distinguishes with `Code` constants (`CONTACT`).
+`enum_is_partial` and `EnumColumn(partial=)` are gone with it; nothing else
+used them.
 
 **Two of the six needed a correction first, and both are worth recording.**
 
@@ -46,7 +59,6 @@ from sqlalchemy.exc import IntegrityError
 
 from app.domains.auth.api import Role
 from app.domains.mdm.api import (
-    ContactType,
     LegalForm,
     OrganizationType,
     RelationType,
@@ -168,39 +180,55 @@ def test_the_contact_type_keeps_its_own_property(db_session):
     assert netwerken == {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
 
 
-def test_the_contact_type_enum_is_deliberately_partial(db_session):
-    """A fifth social network stays one row, and that had to be declared.
+def test_a_fifth_social_network_is_one_row_and_no_code_change(db_session):
+    """#1160, and the reason this list gets no enum (Koen, 26 September 2026).
 
-    §B4.3 asks for an enum where Python branches, and it does — on `EMAIL` and
-    `MOBILE`. But #1160 deliberately made the footer grow with a **row**. Both
-    cannot hold for a strict enum column: it would refuse a network with no
-    member. So the list declares `enum_is_partial`, the column is tolerant, and
-    an unknown code reads back as the code itself — which is exactly right for
-    a value nothing branches on.
+    §B4.3 asks for an enum where Python branches, and it does branch here — on
+    `EMAIL` and `MOBILE`. But #1160 deliberately made the public footer grow
+    with a **row**: a fifth social network is data. An enum column would refuse
+    that row on the WRITE side, which is exactly what #1160 opened up. So the
+    list keeps its foreign key and no enum, and the code names the two types it
+    distinguishes with the constants of `CONTACT`.
+
+    **Broken on purpose to check this can go red** (26 September 2026): the
+    `ContactType` enum put back on the `CodeList` and an `EnumColumn` on the
+    column. Red on the first assertion — `assert <enum 'ContactType'> is None`
+    — and red as well in `test_organisatie_lijsten.py`, which walks the whole
+    footer for the same promise.
     """
-    from app.domains.mdm.api import ContactDetail, ContactTypeCode, ContactTypeLabel
+    from app.domains.mdm.api import (
+        CONTACT, ContactDetail, ContactTypeCode, ContactTypeLabel, Person,
+    )
 
-    assert registry()["contact_type"].enum_is_partial is True
+    assert registry()["contact_type"].enum is None
+    assert CONTACT.EMAIL == "EMAIL" and CONTACT.MOBILE == "MOBILE"
 
     db_session.add(ContactTypeCode(code="MATRIX", sort_order=95, is_active=True,
                                    is_social_network=True))
     db_session.add(ContactTypeLabel(code="MATRIX", language="nl", value="Matrix"))
     db_session.add(ContactTypeLabel(code="MATRIX", language="en", value="Matrix"))
+    person = Person(first_name="Proef", last_name="Persoon")
+    db_session.add(person)
     db_session.flush()
 
-    detail = ContactDetail(person_id=None, organization_id=None,
-                           contact_type_code="MATRIX", value="@raak:matrix.example")
-    # Zonder persoon of organisatie weigert de XOR-check; alleen de kolom telt.
-    assert detail.contact_type_code == "MATRIX", (
-        "een code zonder lid hoort als code terug te komen, niet als fout")
+    detail = ContactDetail(person_id=person.id, contact_type_code="MATRIX",
+                           value="@raak:matrix.example")
+    db_session.add(detail)
+    db_session.flush()
+    assert detail.contact_type_code == "MATRIX"
+
+    netwerken = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM mdm.contact_type_codes WHERE is_social_network")).all()}
+    assert netwerken == {"FACEBOOK", "INSTAGRAM", "TIKTOK", "MATRIX"}, (
+        "de voetnoot leest de kolom, dus een nieuwe rij volstaat")
 
 
 def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
     """Tolerant is not unguarded: the foreign key still holds.
 
-    `enum_is_partial` loosens the *enum*, not the list. A code that is in no row
-    does not get in, and that is what keeps "a fifth network is a row" from
-    becoming "any string goes".
+    No enum does not mean no guard. A code that is in no row does not get in,
+    and that is what keeps "a fifth network is a row" from becoming "any
+    string goes".
     """
     from app.domains.mdm.api import Person
 
@@ -328,10 +356,68 @@ def test_the_four_new_enum_columns_store_codes(db_session):
     assert tuple(raw) == ("UNIT", "VZW")
 
 
-def test_the_contact_type_enum_names_match_the_stored_codes():
-    assert ContactType.MOBILE.value == "MOBILE", (
-        "de opgeslagen code is HOOFDLETTERS; `CLAUDE.md` schreef 'mobile' en "
-        "dat is in deze fase gecorrigeerd")
+def test_the_contact_type_constants_match_the_stored_codes(db_session):
+    """Every name in `CONTACT` is really a code, and in the right spelling.
+
+    The codes are UPPER CASE in the database; `CLAUDE.md` wrote `'mobile'` and
+    that sentence was corrected in this phase. Without this test the constants
+    would be exactly as fallible as the literals they replace — a name that
+    matches no row compares false forever and nothing says so.
+    """
+    from app.domains.mdm.api import CONTACT
+
+    genoemd = {v for k, v in vars(CONTACT).items() if not k.startswith("_")
+               and isinstance(v, str)}
+    in_de_tabel = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM mdm.contact_type_codes")).all()}
+    assert genoemd <= in_de_tabel, (
+        f"`CONTACT` noemt codes die niet bestaan: {sorted(genoemd - in_de_tabel)}")
+    assert CONTACT.MOBILE == "MOBILE"
+
+
+# ── The migration's own guard (#1179, on the CR session's request) ──────────
+
+def _vlag_uit_rijen():
+    """Import the migration by file, because its name is not an identifier."""
+    import importlib.util
+    from pathlib import Path
+
+    path = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
+            / "154_2026_09_26_014501_master_data_and_roles_become_code_lists.py")
+    spec = importlib.util.spec_from_file_location("migratie_154", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.vlag_uit_rijen
+
+
+def test_the_social_network_flag_survives_one_language_row_per_code():
+    """The shape the flag has today: one `nl` row per code, no conflict.
+
+    `is_social_network` sits on `mdm.contact_type_codes`, whose key is
+    `(code, language)` before this migration — so the flag is stored per
+    LANGUAGE while it means something per CODE.
+    """
+    vlag = _vlag_uit_rijen()([("EMAIL", False), ("FACEBOOK", True),
+                              ("INSTAGRAM", True), ("TIKTOK", True)])
+    assert vlag == {"EMAIL": False, "FACEBOOK": True,
+                    "INSTAGRAM": True, "TIKTOK": True}
+
+
+def test_two_language_rows_that_disagree_stop_the_migration():
+    """The gap is in the TRANSITION, at the moment the old rows are read.
+
+    With an `en` row next to the `nl` one, a dictionary keyed on the code lets
+    the second row quietly overwrite the first, and which one that is depends
+    on the order Postgres returns. Choosing silently is the failure mode; this
+    stops instead, with the codes in the message.
+
+    Today the migration finds nothing, and that is a valid outcome — it is in
+    the log, because "checked and found nothing" is a measurement and a silent
+    assumption is not.
+    """
+    with pytest.raises(RuntimeError, match="spreekt zichzelf tegen"):
+        _vlag_uit_rijen()([("FACEBOOK", True), ("FACEBOOK", False),
+                           ("EMAIL", False)])
 
 
 # ── What may not change ──────────────────────────────────────────────────────
