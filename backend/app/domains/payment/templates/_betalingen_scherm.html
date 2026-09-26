@@ -20,10 +20,6 @@
    voorheen: rechts, op de regel van de filters. #}
 <div class="flex items-start gap-3">
 {% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter", cls="flex-1 min-w-0") %}
-  {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
-     filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
-     alleen via "Alle bekijken" in de scope-regel. #}
-  {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% if scope.get("stil") %}<input type="hidden" name="scope_stil" value="1">{% endif %}{% endif %}
   {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
      Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
   <div class="flex flex-wrap gap-3 items-center">
@@ -54,6 +50,31 @@
                         href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ "&zicht=" ~ zicht ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
+  {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
+     filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
+     alleen via "Alle bekijken" in de scope-regel.
+
+     #1197: deze velden staan ACHTER de controls-regel, en die plaats is de
+     reparatie. `filter_bar` draagt `space-y-3`, en dat is
+     `& > * + * { margin-top: 12px }` — een `display:none`-element levert geen box
+     op maar telt wél als sibling. Stonden ze hiervóór, dan was de controls-regel
+     `* + *` en kreeg ze 12 px mee BINNEN haar eigen formulier, terwijl de
+     Raakje-knop ernaast met `items-start` op de bovenkant van dat formulier lijnt.
+     Gemeten op 1440 px op de Betalingen-tab van een activiteit: knopmidden 473 px
+     tegen zoekveldmidden 487 px, dus 14 px te hoog — 12 van deze marge plus 2 van
+     het hoogteverschil tussen knop (34 px) en veld (38 px).
+
+     Op /admin/betalingen viel het niet op: daar is `scope` leeg, dus geen
+     verborgen velden, dus geen marge. Alleen de tabs met een recordscope
+     (activiteit, gezin, inschrijving) droegen het.
+
+     `items-center` op de buitenste rij is NIET het alternatief: dat centreert de
+     knop tegen het formulier inclusief zijn `mb-4` (38 + 16 = 54) en zet hem dan
+     8 px te laag. Nagemeten, beide kanten.
+
+     Achteraan is even goed voor de werking: de veldvolgorde in een formulier doet
+     niets voor htmx of de serialisatie. #}
+  {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% if scope.get("stil") %}<input type="hidden" name="scope_stil" value="1">{% endif %}{% endif %}
 {% endcall %}
   {# #1060: Raakje met de selectie die hierboven staat. De ingang verschijnt
      alleen als de assistent aanstaat ÉN deze gebruiker hem mag aanspreken —
