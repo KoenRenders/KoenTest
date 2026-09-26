@@ -540,7 +540,20 @@
 {% macro stepper(name, id=None, value=0, min=0, max=99, attrs="",
                  label_minder=None, label_meer=None) -%}
 {%- set _id = id or name -%}
-<div class="inline-flex items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
+{#- #1200: `shrink-0` op de BUITENSTE doos, en dat is punt 1 van dat issue. De
+    drie kinderen hadden het al, de doos niet — dus in een `flex … justify-between`
+    met een lange tekst links kromp ze onder haar eigen inhoud en sneed
+    `overflow-hidden` de laatste knop af. Gemeten op Koens geval (één product
+    "aantal deelnemers", ter plaatse te betalen) vóór de reparatie: doos 111 px
+    breed tegen een inhoud van 144, de `+` van 914 tot 958 in een doos die op 924
+    eindigt, en `elementFromPoint` op het midden van die knop gaf de HTML-root
+    terug in plaats van de knop. Op 390 px stond hij volledig buiten het venster.
+    De knop was dus niet half zichtbaar maar ONKLIKBAAR, precies op de regels
+    waarvoor de teller bestaat.
+
+    De maten: 44 px op een telefoon (#804, de reden dat deze teller er is) en
+    36 px vanaf `md`, met hetzelfde `md:`-onderscheid dat `btn_class` al gebruikt. -#}
+<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
      x-data="{ stap(richting) {
          const veld = $refs.veld;
          const nu = Number(veld.value) || 0;
@@ -553,14 +566,25 @@
      } }">
   <button type="button" @click="stap(-1)"
           aria-label="{{ label_minder or _('Eén minder') }}"
-          class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+          class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
   <input type="number" name="{{ name }}" id="{{ _id }}" x-ref="veld" value="{{ value }}"
          min="{{ min }}" max="{{ max }}" inputmode="numeric"
-         class="h-11 w-14 shrink-0 text-center border-x border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+         {#- `border-0` en niet gewoon `border-x` weglaten (#1200, punt 3): de
+             basislaag in build-css.sh zet op élke `type=number` een volledige
+             `border:1px solid`. Zonder deze utility zou het weghalen van de
+             zijranden dus VIER randen opleveren in plaats van twee — het
+             omgekeerde van wat Koen vroeg. Nagemeten.
+
+             `teller-veld` is geen opmaakklasse maar een haakje: de ingebouwde
+             pijltjes worden erop verborgen (punt 2). Die regel staat in
+             build-css.sh, want een pseudo-element is geen Tailwind-utility, en
+             ze is met opzet NIET globaal — de focuspunten van de Design Studio
+             stappen met 0,05 en hebben hun pijltjes nodig. -#}
+         class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
          {{ attrs|safe }}>
   <button type="button" @click="stap(1)"
           aria-label="{{ label_meer or _('Eén meer') }}"
-          class="h-11 w-11 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+          class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
 </div>
 {%- endmacro %}
 
