@@ -46,17 +46,16 @@ bereikt nooit een LLM.
   `activity_id`, `member_id` en `noted_steward_person_id` zijn soft-refs: een FK
   over schema's heen koppelt twee deploys aan elkaar
   (`test_schema_boundaries`). Een verwijzing die niet meer oplost, toont als
-  vrij punt. De uitzondering is
-  `meeting_status_labels.language` → `mdm.language_codes.code` (CR-12 §B2.4):
-  een codetabel van een fundamentdomein mag wél doel zijn, want `mdm` hangt van
-  geen enkel businessdomein af en zonder die FK kan er elke spelling van een
-  taalcode in een labelrij staan.
-- **De status is een codelijst.** `meetings.meeting_status_codes` + `_labels`,
-  met `MeetingStatus` als enum en een FK vanaf `meetings.status` (CR-12 fase 0,
-  de pilotlijst). De drie Nederlandse woorden staan in de labeltabel, niet in
-  een woordenboek in het scherm; de badge haalt ze met het `code_label`-filter.
-  Een vierde status is een rij plus een lid — géén migratie op een
-  CHECK-constraint, want die is bij dezelfde wijziging weggehaald.
+  vrij punt. The exception is `meeting_status_labels.language` →
+  `mdm.language_codes.code` (CR-12 §B2.4): a code table of a foundation domain
+  may be the target, because `mdm` depends on no business domain, and without
+  that key any spelling of a language code could sit in a label row.
+- **The status is a code list.** `meetings.meeting_status_codes` + `_labels`,
+  with `MeetingStatus` as its enum and a foreign key from `meetings.status`
+  (CR-12 phase 0, the pilot list). The three Dutch words live in the label
+  table, not in a dictionary inside a screen; the badge fetches them with the
+  `code_label` filter. A fourth status is a row plus a member — not a migration
+  on a `CHECK` constraint, because that one was removed in the same change.
 - **Bestanden zijn geen media-assets.** Media serveert publiek; deze bestanden
   gaan door een route achter de beheersessie. Een bijlage van een verstuurde
   vergadering kan niet verwijderd worden, afgeleid uit de verzendmomenten van de

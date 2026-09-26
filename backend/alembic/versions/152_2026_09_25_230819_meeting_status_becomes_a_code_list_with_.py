@@ -51,7 +51,7 @@ def upgrade() -> None:
                      codes=MEETING_STATUS_CODES,
                      fk_from=("meetings.meetings.status",),
                      code_length=10)
-    # Pas ná de FK: tot dat moment is de check de enige bewaking van deze kolom.
+    # Only after the FK: until then the check is the column's only guard.
     op.drop_constraint("ck_meetings_status", "meetings", schema="meetings",
                        type_="check")
 

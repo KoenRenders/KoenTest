@@ -1,27 +1,27 @@
-"""Bevroren lijsten van de overtreders die er vandaag zijn (CR-12 §B9.3).
+"""Frozen lists of the violations that exist today (CR-12 §B9.3).
 
-Het #780-patroon: zolang een telling niet nul is, is de poort een **ratel**. De
-overtreders van vandaag staan hier; een nieuwe is rood, en een die uit de code
-verdwijnt moet hier ook weg of de test is rood. Zo kan de lijst alleen krimpen,
-en is "nog niet opgeruimd" iets anders dan "mag".
+The #780 pattern: while a count is not yet zero, the gate is a **ratchet**.
+Today's offenders are listed here; a new one is red, and one that disappears
+from the code must leave this file or the test is red. The list can only
+shrink, and "not cleaned up yet" stays distinguishable from "allowed".
 
-Fase 5 van CR-12 verwijdert elk van deze verzamelingen samen met de
-uitzonderingslogica in de poort: een ratel op nul wordt een harde poort.
+Phase 5 of CR-12 deletes each of these sets together with the exemption logic
+in the gate: a ratchet at zero becomes a hard gate.
 
-**Waarom hier geen regelnummers staan.** §B9.3 laat `file:line` of `file:name`
-toe. Regelnummers verschuiven bij de eerste niet-verwante bewerking bovenaan het
-bestand, en dan is de ratel elke dag rood om een reden die niets met codes te
-maken heeft — een poort die om de verkeerde reden rood staat, wordt uitgezet.
-Daarom is elke sleutel hier stabiel: een kolomnaam, een klassenaam, of de
-vergelijking zelf. De **melding** noemt wél `file:line`, want daar moet de lezer
-naartoe.
+**Why there are no line numbers here.** §B9.3 allows `file:line` or
+`file:name`. Line numbers shift on the first unrelated edit above the offender,
+and then the ratchet is red every day for a reason that has nothing to do with
+codes — and a gate that goes red for the wrong reason gets switched off. So
+every key here is stable: a column name, a class name, or the comparison
+itself. The **message** does name `file:line`, because that is where the reader
+has to go.
 """
 
-#: Kolommen die een vocabularium opslaan maar (nog) geen FK naar een codetabel
-#: hebben. Sleutel: `schema.tabel.kolom`. Het heuristische net van §B9.3 —
-#: uitdrukkelijk een net en geen bewijs: een kolom die `categorie` heet ontsnapt
-#: eraan tot iemand haar registreert.
-FK_ONTBREEKT: frozenset[str] = frozenset({
+#: Columns that store a vocabulary but carry no foreign key to a code table
+#: yet. Key: `schema.table.column`. This is the heuristic net of §B9.3 —
+#: explicitly a net and not a proof: a column called `categorie` escapes it
+#: until someone registers it.
+FK_MISSING: frozenset[str] = frozenset({
     'activities.activity_sub_registrations.registration_type_code',
     'activities.registrations.payment_method',
     'activities.registrations.registration_type',
@@ -76,18 +76,18 @@ FK_ONTBREEKT: frozenset[str] = frozenset({
     'workflow.workflow_tasks.subject_type',
 })
 
-#: `Enum`-klassen onder `app/` die in geen enkele `CodeList` zitten en ook niet
-#: als `TechnicalEnum`/`ExternalVocabulary` gemarkeerd zijn.
-#: Sleutel: `pad/naar/bestand.py:KlasseNaam`.
-ENUM_ZONDER_LIJST: frozenset[str] = frozenset({
+#: `Enum` classes under `app/` that sit in no `CodeList` and carry no
+#: `TechnicalEnum`/`ExternalVocabulary` marker either.
+#: Key: `path/to/file.py:ClassName`.
+ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
     'app/domains/activities/service.py:RegistrationState',
     'app/domains/mdm/models.py:LegalForm',
     'app/domains/reporting/universe.py:Role',
 })
 
-#: Labelwoordenboeken in Python — de vorm die deze change request wegneemt.
-#: Sleutel: `pad/naar/bestand.py:NAAM`.
-LABELWOORDENBOEKEN: frozenset[str] = frozenset({
+#: Label dictionaries in Python — the shape this change request removes.
+#: Key: `path/to/file.py:NAME`.
+LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/activities/export.py:_METHOD_LABELS',
     'app/domains/activities/export.py:_RECORD_METHOD_LABELS',
     'app/domains/activities/export.py:_RECORD_STATUS_LABELS',
@@ -123,9 +123,9 @@ LABELWOORDENBOEKEN: frozenset[str] = frozenset({
     'app/ui/organisaties_ui.py:SOORT_LABELS',
 })
 
-#: Templates die een code met een letterlijke tekst vergelijken.
-#: Sleutel: `pad/naar/template.html:attribuut==waarde`.
-TEMPLATE_VERGELIJKINGEN: frozenset[str] = frozenset({
+#: Templates comparing a code to a string literal.
+#: Key: `path/to/template.html:attribute==value`.
+TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/activities/templates/_aa_rail.html:registration_state==closed',
     'app/domains/activities/templates/_activiteiten_cards.html:registration_state==closed',
     'app/domains/activities/templates/_activiteiten_cards.html:registration_state==open',
@@ -180,9 +180,9 @@ TEMPLATE_VERGELIJKINGEN: frozenset[str] = frozenset({
     'app/ui/templates/_tn_kaarten.html:org_type==PLATFORM',
 })
 
-#: Losse stringvergelijkingen op een vocabulariumattribuut in `.py`.
-#: Sleutel: `pad/naar/bestand.py:attribuut==waarde`.
-LOSSE_STRINGS: frozenset[str] = frozenset({
+#: Loose string comparisons on a vocabulary attribute in `.py`.
+#: Key: `path/to/file.py:attribute==value`.
+LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/activities/admin_ui.py:status==Open',
     'app/domains/activities/export.py:method==online',
     'app/domains/activities/export.py:type==refund',

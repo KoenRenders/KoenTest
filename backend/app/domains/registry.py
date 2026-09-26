@@ -37,11 +37,11 @@ def load_all_models() -> None:
     for models_file in sorted(_DOMAINS_DIR.glob("*/models.py")):
         importlib.import_module(f"app.domains.{models_file.parent.name}.models")
 
-    # CR-12: de codelijsten horen bij dezelfde lading. De gates itereren over de
-    # registry, dus een lijst die nergens geïmporteerd wordt is een lijst die
-    # nergens gecontroleerd wordt — en dat zou precies de stille vorm zijn die
-    # deze change request wegneemt. Na de modellen, want een declaratie noemt de
-    # twee ORM-klassen van haar tabellen.
+    # CR-12: the code lists belong to the same load. The gates iterate over the
+    # registry, so a list that is never imported is a list that is never
+    # checked — which would be exactly the silent shape this change request
+    # removes. After the models, because a declaration names the two ORM
+    # classes of its tables.
     from app.kernel.codes import load_all_code_lists
 
     load_all_code_lists()

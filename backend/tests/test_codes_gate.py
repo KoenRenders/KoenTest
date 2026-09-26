@@ -1,49 +1,50 @@
-"""De poort op het codepatroon (CR-12 §B9.3) — elf controles, elk rood te krijgen.
+"""The gate on the code pattern (CR-12 §B9.3) — eleven checks, each able to go red.
 
-Eén vaste vorm voor elk vast vocabularium: een codetabel, een labeltabel per
-taal, en een gewone `Enum` waar Python op de waarde vertakt. Deze poort is wat
-die vorm afdwingt voor werk dat nog geschreven moet worden — zonder haar is de
-regel een afspraak die iedereen vergeet zodra het druk wordt.
+One shape for every fixed vocabulary: a code table, a label table per language,
+and a plain `Enum` where Python branches on the value. This gate is what holds
+future work to that shape — without it the rule is an agreement everybody
+forgets the moment it gets busy.
 
-**Twee vormen, en welke het is hangt af van de telling.** Staat er nog werk
-open, dan is de controle een **ratel**: de overtreders van vandaag staan in
-`tests/codes_baseline.py`, een nieuwe is rood, en een verdwenen overtreder moet
-uit de lijst of de test is rood. Is de telling nul, dan is het een **harde
-poort**. Fase 5 van CR-12 haalt de lijsten en de uitzonderingslogica samen weg.
+**Two forms, and which one it is follows from the count.** While work is still
+open the check is a **ratchet**: today's offenders are frozen in
+`tests/codes_baseline.py`, a new one is red, and one that disappears from the
+code must leave the list or the test is red. Once the count is zero it is a
+**hard gate**. Phase 5 of CR-12 removes the lists and the exemption logic
+together.
 
-**Waarom de losse-stringcontrole een AST-wandeling is en geen mypy-regel
-(§B4.8).** #779 rekende op `strict_equality`. Dat werkt hier niet: de modellen
-gebruiken de oude `Column()`-stijl, dus mypy typeert elk kolomattribuut als
-`Any`, en `Any == "paid"` is nooit een fout. Een poort daarop zou groen staan
-met alle tweeënnegentig vergelijkingen erin — precies de soort test die
-`CLAUDE.md` verbiedt.
+**Why the loose-string check is an AST walk and not a mypy rule (§B4.8).**
+#779 relied on `strict_equality`. That does not work here: the models use the
+legacy `Column()` style, so mypy types every column attribute as `Any`, and
+`Any == "paid"` is never an error. A gate built on it would be green with all
+of the comparisons still in place — exactly the kind of test `CLAUDE.md`
+forbids.
 
-## Bewijs dat elke controle rood kán worden
+## Proof that each check can go red
 
-Werkwijze van de css-poort (#652): één overtreding echt maken, kijken of ze
-aanslaat, herstellen. Alle elf zo gemeten op 26 september 2026, elk apart, met
-de overtreding die hier staat:
+The method of the css gate (#652): make one real violation, see whether it
+fires, put it back. All eleven measured that way on 26 September 2026, each on
+its own, with the violation listed here:
 
-| Controle | Overtreding | Sloeg aan |
+| Check | Violation | Fired |
 |---|---|---|
-| FK geregistreerd | `meetings.meetings.location` aan `fk_from` toegevoegd | ja |
-| FK-net (ratel) | kolom `payment_kind = Column(String(20))` op `Meeting` | ja |
-| Labeldekking | de `en`-lus uit de zaai-helper gehaald | ja — `code nl heeft geen en-label` |
-| Enum = codes | lid `MeetingStatus.CANCELLED` zonder rij | ja |
-| Enum zonder lijst (ratel) | `class Proef(Enum)` in `meetings/models.py` | ja |
-| Tonen totaal | `MeetingStatus.SENT` uit de tonenmapping | ja |
-| Geen labelwoordenboeken (ratel) | `STATUS_LABELS = {...}` terug in `meetings/admin_ui.py` | ja |
-| Geen templatevergelijkingen (ratel) | `{% if meeting.status == "sent" %}` in `_vg_document.html` | ja |
-| Losse strings (ratel) | `meeting.status == "sent"` in `meetings/service.py` | ja |
-| Enumleden Engels | lid `VERSTUURD = "verstuurd"` toegevoegd | ja — noemt het lid |
-| Vorm | kolom `description` uit de labeltabel van de helper | ja |
+| FK registered | added `meetings.meetings.location` to `fk_from` | yes |
+| FK net (ratchet) | column `payment_kind = Column(String(20))` on `Meeting` | yes |
+| Label coverage | removed the `en` pass from the seeding helper | yes — `code nl has no en label` |
+| Enum = codes | member `MeetingStatus.CANCELLED` without a row | yes |
+| Enum without a list (ratchet) | `class Proef(Enum)` in `meetings/models.py` | yes |
+| Tones total | removed `MeetingStatus.SENT` from the tone mapping | yes |
+| No label dictionaries (ratchet) | put `STATUS_LABELS = {...}` back in `meetings/admin_ui.py` | yes |
+| No template comparisons (ratchet) | `{% if meeting.status == "sent" %}` in `_vg_document.html` | yes |
+| Loose strings (ratchet) | `meeting.status == "sent"` in `meetings/service.py` | yes |
+| Enum member names English | added member `VERSTUURD = "verstuurd"` | yes — names the member |
+| Shape | removed the `description` column from the helper's label table | yes |
 
-Eén meting is twee keer gedaan en dat is het vermelden waard: bij "enumleden
-Engels" hernoemde ik eerst `SENT` naar `VERSTUURD`. Daardoor viel het importeren
-van `service.py` om en draaide de test niet — een groene uitkomst die niets
-bewijst. De overtreding moet dus **additief** zijn: een lid erbij, niet een lid
-hernoemd. Dezelfde valkuil als een gate die nergens kijkt (#678), alleen dan aan
-de kant van het bewijs.
+One measurement had to be redone, and that is worth recording: for "enum member
+names English" I first *renamed* `SENT` to `VERSTUURD`. That broke the import of
+`service.py`, so the test never ran — and a green result that proves nothing is
+worse than a red one. The violation has to be **additive**: a member added, not
+a member renamed. Same trap as a gate that looks nowhere (#678), only on the
+evidence side of it.
 """
 import ast
 import re
@@ -57,364 +58,361 @@ from app.domains.registry import load_all_models
 from app.kernel.codes import (
     ExternalVocabulary,
     TechnicalEnum,
-    code_label,
     registry,
 )
-from tests import codes_baseline as basis
+from tests import codes_baseline as baseline
 from tests._bestanden import bestanden
 
 BACKEND = Path(__file__).resolve().parents[1]
 APP = BACKEND / "app"
 
-#: Attribuutnamen die een vast vocabularium aanduiden. Het net van §B9.3, en
-#: uitdrukkelijk niet meer dan dat: een kolom die `categorie` heet ontsnapt
-#: eraan tot iemand haar registreert. De reviewregel bij een nieuwe
-#: `String`-kolom met een letterlijke default blijft "is dit een lijst?".
-VOCABULARIUM = {
+#: Attribute names that mark a fixed vocabulary. The net of §B9.3, and
+#: explicitly no more than that: a column called `categorie` escapes it until
+#: someone registers it. The review rule for a new `String` column with a
+#: literal default stays "is this a list?".
+VOCABULARY = {
     "status", "type", "kind", "method", "role", "mode", "state",
     "variant", "layout", "preset", "style", "audience", "provider",
     "purpose", "direction", "format", "gender", "source",
 }
 
-#: Suffixen die hetzelfde aanduiden op een kolomnaam.
-VOCABULARIUM_SUFFIX = ("_status", "_type", "_kind", "_method", "_role",
+#: Suffixes that say the same thing on a column name.
+VOCABULARY_SUFFIXES = ("_status", "_type", "_kind", "_method", "_role",
                        "_code", "_mode", "_state", "_purpose", "_variant")
 
-#: Tabellen waarop de FK-regel niet geldt: history is append-only en moet een
-#: ingetrokken code overleven (§F4), en de code-/labeltabellen zijn zelf de lijst.
-def _is_vrijgesteld(tabel: str) -> bool:
-    return (tabel.endswith("_history") or tabel.endswith("_codes")
-            or tabel.endswith("_labels") or tabel == "alembic_version")
+
+def _is_exempt_table(table: str) -> bool:
+    """History is append-only and must survive a retired code (§F4), and the
+    code/label tables are the list itself."""
+    return (table.endswith("_history") or table.endswith("_codes")
+            or table.endswith("_labels") or table == "alembic_version")
 
 
-def _is_vocabularium(kolomnaam: str) -> bool:
-    return (kolomnaam in VOCABULARIUM
-            or kolomnaam.endswith(VOCABULARIUM_SUFFIX))
+def _is_vocabulary(column_name: str) -> bool:
+    return column_name in VOCABULARY or column_name.endswith(VOCABULARY_SUFFIXES)
 
 
-def _pad(bestand: Path) -> str:
-    return str(bestand.relative_to(BACKEND))
+def _path(file: Path) -> str:
+    return str(file.relative_to(BACKEND))
 
 
-# ── Bronbestanden, altijd via de helper (#678) ───────────────────────────────
+# ── Source files, always through the helper (#678) ───────────────────────────
 
-def _python_bestanden() -> list[Path]:
-    return bestanden(APP.rglob("*.py"), wat="de Python-bestanden onder app/",
+def _python_files() -> list[Path]:
+    return bestanden(APP.rglob("*.py"), wat="the Python files under app/",
                      minstens=100)
 
 
-def _template_bestanden() -> list[Path]:
-    return bestanden(APP.rglob("*.html"), wat="de templates onder app/",
+def _template_files() -> list[Path]:
+    return bestanden(APP.rglob("*.html"), wat="the templates under app/",
                      minstens=50)
 
 
-# ── De verzamelaars (ook los bruikbaar om de ratel-tabel te meten) ───────────
+# ── The collectors (also usable on their own to measure the table) ───────────
 
-def verzamel_enums_zonder_lijst() -> dict[str, str]:
-    """`Enum`-klassen zonder `CodeList` en zonder marker → sleutel: melding."""
+def collect_enums_without_list() -> dict[str, str]:
+    """`Enum` classes with no `CodeList` and no marker → key: message."""
     load_all_models()
-    in_een_lijst = {lijst.enum.__name__ for lijst in registry().values()
-                    if lijst.enum is not None}
+    in_a_list = {lst.enum.__name__ for lst in registry().values()
+                 if lst.enum is not None}
     markers = {TechnicalEnum.__name__, ExternalVocabulary.__name__}
-    uit: dict[str, str] = {}
-    for bestand in _python_bestanden():
-        boom = ast.parse(bestand.read_text(encoding="utf-8"))
-        for node in ast.walk(boom):
+    found: dict[str, str] = {}
+    for file in _python_files():
+        tree = ast.parse(file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
             if not isinstance(node, ast.ClassDef):
                 continue
-            basisnamen = {b.id for b in node.bases if isinstance(b, ast.Name)}
-            basisnamen |= {b.attr for b in node.bases if isinstance(b, ast.Attribute)}
-            if not (basisnamen & {"Enum", "IntEnum", "StrEnum"} | (basisnamen & markers)):
+            bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
+            bases |= {b.attr for b in node.bases if isinstance(b, ast.Attribute)}
+            if not (bases & {"Enum", "IntEnum", "StrEnum"} | (bases & markers)):
                 continue
-            if basisnamen & markers:
+            if bases & markers:
                 continue
             if node.name in markers:
-                # De markerklassen zelf: zij zijn de uitzondering, niet een
-                # geval ervan. Zonder deze regel staat de kernel op zijn
-                # eigen ratel.
+                # The marker classes themselves: they are the exception, not an
+                # instance of it. Without this line the kernel sits on its own
+                # ratchet.
                 continue
-            if node.name in in_een_lijst:
+            if node.name in in_a_list:
                 continue
-            uit[f"{_pad(bestand)}:{node.name}"] = (
-                f"{_pad(bestand)}:{node.lineno} — `{node.name}` is een Enum zonder "
-                f"CodeList. Declareer er een (tabel + labels) of markeer hem als "
-                f"TechnicalEnum/ExternalVocabulary met de reden.")
-    return uit
+            found[f"{_path(file)}:{node.name}"] = (
+                f"{_path(file)}:{node.lineno} — `{node.name}` is an Enum without a "
+                f"CodeList. Declare one (table + labels) or mark it "
+                f"TechnicalEnum/ExternalVocabulary with the reason.")
+    return found
 
 
-def verzamel_labelwoordenboeken() -> dict[str, str]:
-    """Toekenningen als `X_LABELS = {...}` in `app/` → sleutel: melding."""
-    uit: dict[str, str] = {}
-    for bestand in _python_bestanden():
-        if bestand.name == "codes.py" and bestand.parent.name == "kernel":
+def collect_label_dictionaries() -> dict[str, str]:
+    """Assignments like `X_LABELS = {...}` under `app/` → key: message."""
+    found: dict[str, str] = {}
+    for file in _python_files():
+        if file.name == "codes.py" and file.parent.name == "kernel":
             continue
-        boom = ast.parse(bestand.read_text(encoding="utf-8"))
-        for node in ast.walk(boom):
+        tree = ast.parse(file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
             if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
                 continue
-            for doel in node.targets:
-                if not isinstance(doel, ast.Name):
+            for target in node.targets:
+                if not isinstance(target, ast.Name):
                     continue
-                if not re.search(r"LABELS?$", doel.id):
+                if not re.search(r"LABELS?$", target.id):
                     continue
-                uit[f"{_pad(bestand)}:{doel.id}"] = (
-                    f"{_pad(bestand)}:{node.lineno} — `{doel.id}` zet labels in "
-                    f"Python. Gebruik `code_label()` en een labeltabel.")
-    return uit
+                found[f"{_path(file)}:{target.id}"] = (
+                    f"{_path(file)}:{node.lineno} — `{target.id}` puts labels in "
+                    f"Python. Use `code_label()` and a label table.")
+    return found
 
 
-_TEMPLATE_VERGELIJKING = re.compile(
-    r"\.(?P<attr>[a-z_]+)\s*(?P<op>==|!=)\s*(?P<quote>['\"])(?P<waarde>[^'\"]*)(?P=quote)")
+_TEMPLATE_COMPARISON = re.compile(
+    r"\.(?P<attr>[a-z_]+)\s*(?P<op>==|!=)\s*(?P<quote>['\"])(?P<value>[^'\"]*)(?P=quote)")
 
 
-def verzamel_template_vergelijkingen() -> dict[str, str]:
-    """`.status == "paid"` en vrienden in een template → sleutel: melding."""
-    uit: dict[str, str] = {}
-    for bestand in _template_bestanden():
-        for nummer, regel in enumerate(
-                bestand.read_text(encoding="utf-8").splitlines(), start=1):
-            for treffer in _TEMPLATE_VERGELIJKING.finditer(regel):
-                attr = treffer.group("attr")
-                if not _is_vocabularium(attr):
+def collect_template_comparisons() -> dict[str, str]:
+    """`.status == "paid"` and friends in a template → key: message."""
+    found: dict[str, str] = {}
+    for file in _template_files():
+        for number, line in enumerate(
+                file.read_text(encoding="utf-8").splitlines(), start=1):
+            for hit in _TEMPLATE_COMPARISON.finditer(line):
+                attr = hit.group("attr")
+                if not _is_vocabulary(attr):
                     continue
-                vergelijking = f"{attr}{treffer.group('op')}{treffer.group('waarde')}"
-                uit[f"{_pad(bestand)}:{vergelijking}"] = (
-                    f"{_pad(bestand)}:{nummer} — vergelijkt `{attr}` met een "
-                    f"letterlijke waarde. Zet wat het scherm nodig heeft op het "
-                    f"view-model (§B4.7).")
-    return uit
+                comparison = f"{attr}{hit.group('op')}{hit.group('value')}"
+                found[f"{_path(file)}:{comparison}"] = (
+                    f"{_path(file)}:{number} — compares `{attr}` to a literal. "
+                    f"Expose what the screen needs on the view-model (§B4.7).")
+    return found
 
 
-def _string_constanten(node: ast.AST) -> list[str]:
+def _string_constants(node: ast.AST) -> list[str]:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return [node.value]
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
-        uit = []
+        out: list[str] = []
         for element in node.elts:
-            uit.extend(_string_constanten(element))
-        return uit
+            out.extend(_string_constants(element))
+        return out
     return []
 
 
-def verzamel_losse_strings() -> dict[str, str]:
-    """`record.status == "paid"` in `app/**/*.py` → sleutel: melding.
+def collect_loose_strings() -> dict[str, str]:
+    """`record.status == "paid"` in `app/**/*.py` → key: message.
 
-    Een AST-wandeling en geen grep: een grep vindt de tekst, niet de vorm, en
-    hij ziet het verschil niet tussen een vergelijking en een sleutel in een
-    woordenboek.
+    An AST walk and not a grep: a grep finds the text, not the shape, and it
+    cannot tell a comparison from a key in a dictionary.
     """
-    uit: dict[str, str] = {}
-    for bestand in _python_bestanden():
-        if bestand.name == "codes.py" and bestand.parent.name == "kernel":
+    found: dict[str, str] = {}
+    for file in _python_files():
+        if file.name == "codes.py" and file.parent.name == "kernel":
             continue
-        boom = ast.parse(bestand.read_text(encoding="utf-8"))
-        for node in ast.walk(boom):
+        tree = ast.parse(file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
             if not isinstance(node, ast.Compare):
                 continue
-            for operator, rechts in zip(node.ops, node.comparators):
+            for operator, right in zip(node.ops, node.comparators):
                 if not isinstance(operator, (ast.Eq, ast.NotEq, ast.In, ast.NotIn)):
                     continue
-                for attribuut, ander in ((node.left, rechts), (rechts, node.left)):
-                    if not isinstance(attribuut, ast.Attribute):
+                for attribute, other in ((node.left, right), (right, node.left)):
+                    if not isinstance(attribute, ast.Attribute):
                         continue
-                    if not _is_vocabularium(attribuut.attr):
+                    if not _is_vocabulary(attribute.attr):
                         continue
-                    for waarde in _string_constanten(ander):
-                        teken = {ast.Eq: "==", ast.NotEq: "!=",
-                                 ast.In: " in ", ast.NotIn: " not in "}[type(operator)]
-                        vergelijking = f"{attribuut.attr}{teken}{waarde}"
-                        uit[f"{_pad(bestand)}:{vergelijking}"] = (
-                            f"{_pad(bestand)}:{node.lineno} — vergelijkt "
-                            f"`{attribuut.attr}` met {waarde!r}. Gebruik het "
-                            f"Enum-lid van de lijst.")
-    return uit
+                    for value in _string_constants(other):
+                        sign = {ast.Eq: "==", ast.NotEq: "!=",
+                                ast.In: " in ", ast.NotIn: " not in "}[type(operator)]
+                        comparison = f"{attribute.attr}{sign}{value}"
+                        found[f"{_path(file)}:{comparison}"] = (
+                            f"{_path(file)}:{node.lineno} — compares "
+                            f"`{attribute.attr}` to {value!r}. Use the Enum member "
+                            f"of the list.")
+    return found
 
 
-def verzamel_fk_net() -> dict[str, str]:
-    """Kolommen die een vocabularium lijken op te slaan zonder FK → melding."""
+def collect_missing_fks() -> dict[str, str]:
+    """Columns that look like they store a vocabulary but carry no FK."""
     load_all_models()
-    geregistreerd = {kolom for lijst in registry().values() for kolom in lijst.fk_from}
-    uit: dict[str, str] = {}
-    for tabel in Base.metadata.tables.values():
-        schema = tabel.schema or "public"
-        if _is_vrijgesteld(tabel.name):
+    registered = {column for lst in registry().values() for column in lst.fk_from}
+    found: dict[str, str] = {}
+    for table in Base.metadata.tables.values():
+        schema = table.schema or "public"
+        if _is_exempt_table(table.name):
             continue
-        for kolom in tabel.columns:
-            if not isinstance(kolom.type, String):
+        for column in table.columns:
+            if not isinstance(column.type, String):
                 continue
-            if not _is_vocabularium(kolom.name):
+            if not _is_vocabulary(column.name):
                 continue
-            sleutel = f"{schema}.{tabel.name}.{kolom.name}"
-            if sleutel in geregistreerd or kolom.foreign_keys:
+            key = f"{schema}.{table.name}.{column.name}"
+            if key in registered or column.foreign_keys:
                 continue
-            uit[sleutel] = (
-                f"`{sleutel}` bewaart een vocabularium maar heeft geen FK naar een "
-                f"codetabel — declareer een CodeList of zet hem op de ratel met "
-                f"een reden.")
-    return uit
+            found[key] = (
+                f"`{key}` stores a vocabulary but has no FK to a code table — "
+                f"declare a CodeList or add it to the ratchet with a reason.")
+    return found
 
 
-VERZAMELAARS = {
-    "FK_ONTBREEKT": verzamel_fk_net,
-    "ENUM_ZONDER_LIJST": verzamel_enums_zonder_lijst,
-    "LABELWOORDENBOEKEN": verzamel_labelwoordenboeken,
-    "TEMPLATE_VERGELIJKINGEN": verzamel_template_vergelijkingen,
-    "LOSSE_STRINGS": verzamel_losse_strings,
+COLLECTORS = {
+    "FK_MISSING": collect_missing_fks,
+    "ENUM_WITHOUT_LIST": collect_enums_without_list,
+    "LABEL_DICTIONARIES": collect_label_dictionaries,
+    "TEMPLATE_COMPARISONS": collect_template_comparisons,
+    "LOOSE_STRINGS": collect_loose_strings,
 }
 
 
-def _ratel(naam: str) -> None:
-    """De ene vorm van elke ratel: niets nieuws, en niets dat blijft staan."""
-    gevonden = VERZAMELAARS[naam]()
-    bevroren = getattr(basis, naam)
-    nieuw = sorted(set(gevonden) - set(bevroren))
-    verdwenen = sorted(set(bevroren) - set(gevonden))
-    fouten = []
-    if nieuw:
-        fouten.append("Nieuwe overtredingen:\n  " + "\n  ".join(gevonden[k] for k in nieuw))
-    if verdwenen:
-        fouten.append(
-            f"Deze staan nog in `codes_baseline.{naam}` maar bestaan niet meer:\n  "
-            + "\n  ".join(verdwenen)
-            + "\nHaal ze uit de lijst — een ratel die niet krimpt is geen ratel.")
-    assert not fouten, "\n\n".join(fouten)
+def _ratchet(name: str) -> None:
+    """The one shape of every ratchet: nothing new, and nothing left behind."""
+    found = COLLECTORS[name]()
+    frozen = getattr(baseline, name)
+    added = sorted(set(found) - set(frozen))
+    gone = sorted(set(frozen) - set(found))
+    errors = []
+    if added:
+        errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
+    if gone:
+        errors.append(
+            f"These are still in `codes_baseline.{name}` but no longer exist:\n  "
+            + "\n  ".join(gone)
+            + "\nRemove them from the list — a ratchet that does not shrink is no "
+              "ratchet.")
+    assert not errors, "\n\n".join(errors)
 
 
-# ── 1. FK-dekking, geregistreerd (hard) ──────────────────────────────────────
+# ── 1. FK coverage, registered (hard) ────────────────────────────────────────
 
-def test_elke_geregistreerde_kolom_heeft_zijn_fk(db_session):
-    """Wat een `CodeList` in `fk_from` belooft, staat ook echt in de databank.
+def test_every_registered_column_carries_its_fk(db_session):
+    """What a `CodeList` promises in `fk_from` really is in the database.
 
-    Positief en exact: de registry is de lijst, dus hier is geen heuristiek
-    nodig en geen ratel — een belofte zonder FK is gewoon fout.
+    Positive and exact: the registry is the list, so no heuristic is needed
+    here and no ratchet — a promise without a foreign key is simply wrong.
     """
     load_all_models()
-    ontbreekt = []
-    for lijst in registry().values():
-        for kolom in lijst.fk_from:
-            schema, tabel, kolomnaam = kolom.split(".")
-            fks = inspect(db_session.bind).get_foreign_keys(tabel, schema=schema)
-            raak = any(kolomnaam in fk["constrained_columns"]
-                       and fk["referred_table"] == f"{lijst.name}_codes"
-                       for fk in fks)
-            if not raak:
-                ontbreekt.append(
-                    f"`{kolom}` staat in de CodeList `{lijst.name}` maar draagt geen "
-                    f"FK naar `{lijst.codes_table}`")
-    assert not ontbreekt, "\n".join(ontbreekt)
+    missing = []
+    for lst in registry().values():
+        for column in lst.fk_from:
+            schema, table, column_name = column.split(".")
+            fks = inspect(db_session.bind).get_foreign_keys(table, schema=schema)
+            hit = any(column_name in fk["constrained_columns"]
+                      and fk["referred_table"] == f"{lst.name}_codes"
+                      for fk in fks)
+            if not hit:
+                missing.append(
+                    f"`{column}` is in the CodeList `{lst.name}` but carries no FK "
+                    f"to `{lst.codes_table}`")
+    assert not missing, "\n".join(missing)
 
 
-# ── 2. FK-dekking, niet-geregistreerd (ratel) ────────────────────────────────
+# ── 2. FK coverage, unregistered (ratchet) ───────────────────────────────────
 
-def test_geen_nieuwe_vocabulariumkolom_zonder_fk():
-    """Het net: een nieuwe `String`-kolom die een lijst opslaat zonder codetabel."""
-    _ratel("FK_ONTBREEKT")
+def test_no_new_vocabulary_column_without_an_fk():
+    """The net: a new `String` column storing a list without a code table."""
+    _ratchet("FK_MISSING")
 
 
-# ── 3. Labeldekking (hard) ───────────────────────────────────────────────────
+# ── 3. Label coverage (hard) ─────────────────────────────────────────────────
 
-def test_elke_actieve_code_heeft_een_label_in_beide_talen(db_session):
-    """Een scherm mag nooit leeg renderen, en `en` is geen "later".
+def test_every_active_code_has_a_label_in_both_languages(db_session):
+    """A screen may never render blank, and `en` is not a "later".
 
-    Deze change request zaait beide talen voor elke lijst; een poort die `en`
-    optioneel maakt, krijgt `en` nooit.
+    This change request seeds both languages for every list; a gate that makes
+    `en` optional never gets `en`.
     """
     load_all_models()
-    ontbreekt = []
-    for lijst in registry().values():
+    missing = []
+    for lst in registry().values():
         codes = db_session.execute(text(
-            f"SELECT code FROM {lijst.codes_table} WHERE is_active")).scalars().all()
-        assert codes, f"`{lijst.codes_table}` heeft geen enkele actieve code"
-        for taal in ("nl", "en"):
-            aanwezig = set(db_session.execute(text(
-                f"SELECT code FROM {lijst.labels_table} "
-                f"WHERE language = :taal AND value <> ''"),
-                {"taal": taal}).scalars().all())
+            f"SELECT code FROM {lst.codes_table} WHERE is_active")).scalars().all()
+        assert codes, f"`{lst.codes_table}` has no active code at all"
+        for language in ("nl", "en"):
+            present = set(db_session.execute(text(
+                f"SELECT code FROM {lst.labels_table} "
+                f"WHERE language = :language AND value <> ''"),
+                {"language": language}).scalars().all())
             for code in codes:
-                if code not in aanwezig:
-                    ontbreekt.append(
-                        f"`{lijst.codes_table}`: code `{code}` heeft geen "
-                        f"{taal}-label")
-    assert not ontbreekt, "\n".join(ontbreekt)
+                if code not in present:
+                    missing.append(
+                        f"`{lst.codes_table}`: code `{code}` has no "
+                        f"{language} label")
+    assert not missing, "\n".join(missing)
 
 
 # ── 4. Enum = codes (hard) ───────────────────────────────────────────────────
 
-def test_elke_enum_dekt_precies_zijn_codes(db_session):
-    """Beide richtingen, ingetrokken codes meegerekend.
+def test_every_enum_covers_exactly_its_codes(db_session):
+    """Both directions, retired codes included.
 
-    Een ingetrokken code houdt haar lid (§B4.3): zonder lid leest die rij terug
-    als een kale string, en een kale string is ongelijk aan elk lid. Dat is de
-    fout die niemand opmerkt.
+    A retired code keeps its member (§B4.3): without one, that row reads back
+    as a bare string, and a bare string is unequal to every member. That is the
+    mistake nobody notices.
     """
     load_all_models()
-    fouten = []
-    for lijst in registry().values():
-        if lijst.enum is None:
+    errors = []
+    for lst in registry().values():
+        if lst.enum is None:
             continue
-        in_de_tabel = set(db_session.execute(text(
-            f"SELECT code FROM {lijst.codes_table}")).scalars().all())
-        in_de_enum = {lid.value for lid in lijst.enum}
-        for lid in sorted(in_de_enum - in_de_tabel):
-            fouten.append(f"`{lijst.enum.__name__}` heeft lid met waarde `{lid}` "
-                          f"zonder rij in `{lijst.codes_table}`")
-        for code in sorted(in_de_tabel - in_de_enum):
-            fouten.append(f"`{lijst.codes_table}` heeft code `{code}` zonder lid in "
-                          f"`{lijst.enum.__name__}` — ook een ingetrokken code houdt "
-                          f"haar lid")
-    assert not fouten, "\n".join(fouten)
+        in_the_table = set(db_session.execute(text(
+            f"SELECT code FROM {lst.codes_table}")).scalars().all())
+        in_the_enum = {member.value for member in lst.enum}
+        for value in sorted(in_the_enum - in_the_table):
+            errors.append(f"`{lst.enum.__name__}` has a member with value `{value}` "
+                          f"and no row in `{lst.codes_table}`")
+        for code in sorted(in_the_table - in_the_enum):
+            errors.append(f"`{lst.codes_table}` has code `{code}` with no member in "
+                          f"`{lst.enum.__name__}` — a retired code keeps its member "
+                          f"too")
+    assert not errors, "\n".join(errors)
 
 
-# ── 5. Enum zonder lijst (ratel) ─────────────────────────────────────────────
+# ── 5. Enum without a list (ratchet) ─────────────────────────────────────────
 
-def test_geen_nieuwe_enum_zonder_codelijst():
-    """Elke `Enum` onder `app/` hoort in een `CodeList` of draagt zijn reden.
+def test_no_new_enum_without_a_code_list():
+    """Every `Enum` under `app/` belongs to a `CodeList` or carries its reason.
 
-    De uitzondering die géén nul haalt en dat ook niet hoort: een
-    `TechnicalEnum` of `ExternalVocabulary`. Die worden geteld, niet
-    geplafonneerd — zie de ratel-tabel onderaan.
+    The exception that does not reach zero and should not: a `TechnicalEnum` or
+    an `ExternalVocabulary`. Those are counted, not capped — see the ratchet
+    table at the bottom.
     """
-    _ratel("ENUM_ZONDER_LIJST")
+    _ratchet("ENUM_WITHOUT_LIST")
 
 
-# ── 6. Tonen totaal (hard) ───────────────────────────────────────────────────
+# ── 6. Tones total (hard) ────────────────────────────────────────────────────
 
-def test_elke_tonenmapping_is_totaal():
-    """Een badge zonder toon valt terug op grijs, en dat merkt niemand."""
+def test_every_tone_mapping_is_total():
+    """A badge without a tone falls back to grey, and nobody notices."""
     load_all_models()
-    import app.main  # noqa: F401  — laadt de UI-modules die de tonen registreren
+    import app.main  # noqa: F401  — loads the UI modules that register the tones
 
-    fouten = []
-    for lijst in registry().values():
-        if not lijst.tones or lijst.enum is None:
+    errors = []
+    for lst in registry().values():
+        if not lst.tones or lst.enum is None:
             continue
-        for lid in lijst.enum:
-            if lid.value not in lijst.tones:
-                fouten.append(f"`{lijst.enum.__name__}.{lid.name}` heeft geen "
-                              f"badge-toon in de mapping van `{lijst.name}`")
-    assert not fouten, "\n".join(fouten)
+        for member in lst.enum:
+            if member.value not in lst.tones:
+                errors.append(f"`{lst.enum.__name__}.{member.name}` has no badge "
+                              f"tone in the mapping of `{lst.name}`")
+    assert not errors, "\n".join(errors)
 
 
-# ── 7-9. De drie tekstratels ─────────────────────────────────────────────────
+# ── 7-9. The three text ratchets ─────────────────────────────────────────────
 
-def test_geen_nieuw_labelwoordenboek_in_python():
-    _ratel("LABELWOORDENBOEKEN")
-
-
-def test_geen_nieuwe_templatevergelijking_op_een_code():
-    _ratel("TEMPLATE_VERGELIJKINGEN")
+def test_no_new_label_dictionary_in_python():
+    _ratchet("LABEL_DICTIONARIES")
 
 
-def test_geen_nieuwe_losse_stringvergelijking():
-    _ratel("LOSSE_STRINGS")
+def test_no_new_template_comparison_on_a_code():
+    _ratchet("TEMPLATE_COMPARISONS")
 
 
-# ── 10. Enumleden Engels (hard) ──────────────────────────────────────────────
+def test_no_new_loose_string_comparison():
+    _ratchet("LOOSE_STRINGS")
 
-#: Nederlandse woorden die als enumlid voorkomen of dreigen voor te komen. Geen
-#: woordenboek: een net, in de geest van #780. De waarde mág Nederlands zijn —
-#: dat is opgeslagen data — de NAAM niet.
-NEDERLANDSE_WOORDEN = {
+
+# ── 10. Enum member names in English (hard) ──────────────────────────────────
+
+#: Dutch words that appear, or threaten to appear, as an enum member name. Not
+#: a dictionary: a net, in the spirit of #780. The *value* may be Dutch — that
+#: is stored data — the NAME may not.
+DUTCH_WORDS = {
     "HOOFDLID", "PARTNER", "KIND", "GEZIN", "LID", "LEDEN", "BEDRIJF",
     "VERENIGING", "FEITELIJKE", "VERSTUURD", "BETAALD", "OPENSTAAND",
     "VEREFFEND", "GEANNULEERD", "MISLUKT", "AFWACHTING", "VERSLAG",
@@ -423,161 +421,158 @@ NEDERLANDSE_WOORDEN = {
 }
 
 
-def test_enumleden_van_een_codelijst_hebben_engelse_namen():
-    """De waarde is data en blijft, de naam is een identifier en is Engels.
+def test_enum_members_of_a_code_list_have_english_names():
+    """The value is data and stays; the name is an identifier and is English.
 
-    `RelationType.PRIMARY_MEMBER = "HOOFDLID"` — anders wordt elke Nederlandse
-    code een nieuwe Nederlandse identifier en loopt de #780-ratel vol.
+    `RelationType.PRIMARY_MEMBER = "HOOFDLID"` — otherwise every Dutch code
+    becomes a new Dutch identifier and the #780 ratchet fills up.
     """
     load_all_models()
-    fouten = []
-    for lijst in registry().values():
-        if lijst.enum is None:
+    errors = []
+    for lst in registry().values():
+        if lst.enum is None:
             continue
-        for lid in lijst.enum:
-            for woord in lid.name.split("_"):
-                if woord in NEDERLANDSE_WOORDEN:
-                    fouten.append(
-                        f"`{lijst.enum.__name__}.{lid.name}`: ledennamen zijn Engels "
-                        f"— de waarde `{lid.value}` blijft zoals ze opgeslagen is")
-    assert not fouten, "\n".join(fouten)
+        for member in lst.enum:
+            for word in member.name.split("_"):
+                if word in DUTCH_WORDS:
+                    errors.append(
+                        f"`{lst.enum.__name__}.{member.name}`: member names are "
+                        f"English — the value `{member.value}` stays as it is stored")
+    assert not errors, "\n".join(errors)
 
 
-# ── 11. Vorm (hard) ──────────────────────────────────────────────────────────
+# ── 11. Shape (hard) ─────────────────────────────────────────────────────────
 
-CODES_KOLOMMEN = {"code", "sort_order", "is_active", "created_at"}
-LABELS_KOLOMMEN = {"code", "language", "value", "description", "created_at",
-                   "updated_at"}
+CODES_COLUMNS = {"code", "sort_order", "is_active", "created_at"}
+LABELS_COLUMNS = {"code", "language", "value", "description", "created_at",
+                  "updated_at"}
 
 
-def test_elke_lijst_heeft_de_vorm_die_de_helper_schrijft(db_session):
-    """De helper schreef ze; deze poort bewijst dat niemand ze nadien bijstelde.
+def test_every_list_has_the_shape_the_helper_writes(db_session):
+    """The helper wrote them; this gate proves nobody adjusted them afterwards.
 
-    Inclusief de FK van `language` naar `mdm.language_codes`: dat is de reden
-    dat er één taallijst is, en het is de enige plek waar hij per lijst
-    gecontroleerd wordt (`mdm/codes.py` laat `fk_from` daarom leeg).
+    Including the FK from `language` to `mdm.language_codes`: that is the
+    reason there is one language list, and this is the only place it is checked
+    per list (which is why `mdm/codes.py` leaves `fk_from` empty).
     """
     load_all_models()
-    inspecteur = inspect(db_session.bind)
-    fouten = []
-    for lijst in registry().values():
-        for tabel, verwacht in ((f"{lijst.name}_codes", CODES_KOLOMMEN),
-                                (f"{lijst.name}_labels", LABELS_KOLOMMEN)):
-            aanwezig = {k["name"] for k in
-                        inspecteur.get_columns(tabel, schema=lijst.schema)}
-            if aanwezig != verwacht:
-                fouten.append(
-                    f"`{lijst.schema}.{tabel}` heeft kolommen {sorted(aanwezig)}, "
-                    f"verwacht {sorted(verwacht)}")
-        taal_fk = [fk for fk in inspecteur.get_foreign_keys(
-                       f"{lijst.name}_labels", schema=lijst.schema)
-                   if fk["constrained_columns"] == ["language"]]
-        if not taal_fk or taal_fk[0]["referred_table"] != "language_codes":
-            fouten.append(
-                f"`{lijst.labels_table}.language` wijst niet naar "
-                f"`mdm.language_codes` — dan kan er elke spelling in staan")
-    assert not fouten, "\n".join(fouten)
+    inspector = inspect(db_session.bind)
+    errors = []
+    for lst in registry().values():
+        for table, expected in ((f"{lst.name}_codes", CODES_COLUMNS),
+                                (f"{lst.name}_labels", LABELS_COLUMNS)):
+            present = {c["name"] for c in
+                       inspector.get_columns(table, schema=lst.schema)}
+            if present != expected:
+                errors.append(
+                    f"`{lst.schema}.{table}` has columns {sorted(present)}, "
+                    f"expected {sorted(expected)}")
+        language_fk = [fk for fk in inspector.get_foreign_keys(
+                           f"{lst.name}_labels", schema=lst.schema)
+                       if fk["constrained_columns"] == ["language"]]
+        if not language_fk or language_fk[0]["referred_table"] != "language_codes":
+            errors.append(
+                f"`{lst.labels_table}.language` does not point at "
+                f"`mdm.language_codes` — then any spelling can end up in it")
+    assert not errors, "\n".join(errors)
 
 
-# ── De ratel-tabel (AC5) ─────────────────────────────────────────────────────
+# ── The ratchet table (AC5) ──────────────────────────────────────────────────
 
-def _tel_mapped_enum_kolommen() -> int:
-    """Kolommen geschreven als `Mapped[X] = mapped_column(EnumColumn(X))` (§B4.8).
+def _count_mapped_enum_columns() -> int:
+    """Columns written as `Mapped[X] = mapped_column(EnumColumn(X))` (§B4.8).
 
-    Via de AST en niet via een tekstzoekopdracht, en dat is hier geen smaak: de
-    eerste versie telde de letterlijke tekst `mapped_column(EnumColumn` en gaf 0
-    terwijl de enige zo geschreven kolom er gewoon stond — de aanroep liep over
-    twee regels. Een teller die nul geeft omdat de vorm net anders staat, is
-    dezelfde fout als een gate die nergens kijkt (#678), en hij is hier meteen
-    opgetreden.
+    Through the AST and not through a text search, and that is not a matter of
+    taste here: the first version counted the literal text
+    `mapped_column(EnumColumn` and returned 0 while the one column written that
+    way was sitting right there — the call ran over two lines. A counter that
+    returns zero because the shape is slightly different is the same mistake as
+    a gate that looks nowhere (#678), and it happened immediately.
     """
-    aantal = 0
-    for bestand in _python_bestanden():
-        for node in ast.walk(ast.parse(bestand.read_text(encoding="utf-8"))):
+    total = 0
+    for file in _python_files():
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
             if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
                     and node.func.id == "mapped_column"):
                 continue
-            for kind in ast.walk(node):
-                if (isinstance(kind, ast.Call) and isinstance(kind.func, ast.Name)
-                        and kind.func.id == "EnumColumn"):
-                    aantal += 1
+            for child in ast.walk(node):
+                if (isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
+                        and child.func.id == "EnumColumn"):
+                    total += 1
                     break
-    return aantal
+    return total
 
 
-def ratel_tabel(db_session=None) -> list[tuple[str, int]]:
-    """De getallen van §B9.2 zoals de poort ze meet, niet zoals grep ze raadde.
+def ratchet_table(db_session=None) -> list[tuple[str, int]]:
+    """The numbers of §B9.2 as the gate measures them, not as grep guessed them.
 
-    **Wat hier bewust ontbreekt.** §B9.2 opent met "lijsten met een vast
-    vocabularium: 49". Dat getal is een *inventaris* uit §B5.3 — iemand heeft de
-    codebase gelezen en de lijsten geteld, in welke vorm ze ook stonden. Geen
-    poort kan dat namaken: een lijst die vandaag een moduleconstante is of een
-    kale string met een commentaar, is per definitie niet herkenbaar aan een
-    vorm. Wat hier staat is de helft die wél meetbaar is: hoeveel er in het
-    patroon zitten, en hoeveel er nog buiten staan per soort overtreding. De
-    49 blijft de teller waar de 2 hieronder naartoe groeit, en die staat in het
-    document.
+    **What is deliberately absent.** §B9.2 opens with "lists with a fixed
+    vocabulary: 49". That number is an *inventory* from §B5.3 — somebody read
+    the codebase and counted the lists, in whatever shape they were in. No gate
+    can reproduce that: a list that is a module constant today, or a bare string
+    with a comment, is by definition not recognisable by a shape. What is here
+    is the half that *is* measurable: how many are in the pattern, and how many
+    are still outside it per kind of violation. The 49 stays the target the 2
+    below grows towards, and it lives in the document.
     """
     load_all_models()
-    lijsten = registry()
-    technisch = sum(
-        1 for bestand in _python_bestanden()
-        for node in ast.walk(ast.parse(bestand.read_text(encoding="utf-8")))
+    lists = registry()
+    marked = sum(
+        1 for file in _python_files()
+        for node in ast.walk(ast.parse(file.read_text(encoding="utf-8")))
         if isinstance(node, ast.ClassDef)
         and {b.id for b in node.bases if isinstance(b, ast.Name)}
         & {"TechnicalEnum", "ExternalVocabulary"})
-    mapped = _tel_mapped_enum_kolommen()
-    regels = [
-        ("lijsten in het patroon (CodeList) — doel 49, zie §B5.3", len(lijsten)),
-        ("… met een Enum", sum(1 for x in lijsten.values() if x.enum is not None)),
-        ("enum-dragende kolommen als Mapped[]", mapped),
-        ("vocabulariumkolommen zonder FK (ratel)", len(basis.FK_ONTBREEKT)),
-        ("enums zonder CodeList (ratel)", len(basis.ENUM_ZONDER_LIJST)),
-        ("enums gemarkeerd technisch/extern (geteld, niet geplafonneerd)", technisch),
-        ("labelwoordenboeken in Python (ratel)", len(basis.LABELWOORDENBOEKEN)),
-        ("templatevergelijkingen op een code (ratel)",
-         len(basis.TEMPLATE_VERGELIJKINGEN)),
-        ("losse stringvergelijkingen in .py (ratel)", len(basis.LOSSE_STRINGS)),
+    rows = [
+        ("lists in the pattern (CodeList) — target 49, see §B5.3", len(lists)),
+        ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
+        ("enum-carrying columns written as Mapped[]", _count_mapped_enum_columns()),
+        ("vocabulary columns without an FK (ratchet)", len(baseline.FK_MISSING)),
+        ("enums without a CodeList (ratchet)", len(baseline.ENUM_WITHOUT_LIST)),
+        ("enums marked technical/external (counted, not capped)", marked),
+        ("label dictionaries in Python (ratchet)", len(baseline.LABEL_DICTIONARIES)),
+        ("template comparisons on a code (ratchet)",
+         len(baseline.TEMPLATE_COMPARISONS)),
+        ("loose string comparisons in .py (ratchet)", len(baseline.LOOSE_STRINGS)),
     ]
     if db_session is not None:
-        for taal in ("nl", "en"):
-            aantal = sum(db_session.execute(text(
-                f"SELECT count(*) FROM {lijst.labels_table} WHERE language = :taal"),
-                {"taal": taal}).scalar_one() for lijst in lijsten.values())
-            regels.append((f"labelrijen in `{taal}`", aantal))
-    return regels
+        for language in ("nl", "en"):
+            total = sum(db_session.execute(text(
+                f"SELECT count(*) FROM {lst.labels_table} WHERE language = :lang"),
+                {"lang": language}).scalar_one() for lst in lists.values())
+            rows.append((f"label rows in `{language}`", total))
+    return rows
 
 
-def test_de_ratel_tabel_is_meetbaar_en_wordt_afgedrukt(capsys, db_session):
-    """AC5: de tabel komt uit de poort, niet uit het document.
+def test_the_ratchet_table_is_measurable_and_gets_printed(capsys, db_session):
+    """AC5: the table comes out of the gate, not out of the document.
 
-    Draai `pytest -s -k ratel_tabel` en plak de uitvoer in het afsluit-comment
-    van het fase-issue. Elk getal moet lager of gelijk zijn aan dat van de
-    vorige fase — dat is de hele ratel.
+    Run `pytest -s -k ratchet_table` and paste the output into the closing
+    comment of the phase issue. Every number must be lower than or equal to the
+    previous phase's — that is the whole ratchet.
     """
-    regels = ratel_tabel(db_session)
+    rows = ratchet_table(db_session)
     with capsys.disabled():
-        print("\n\n§B9.2 — gemeten door de poort\n")
-        for naam, aantal in regels:
-            print(f"  {aantal:>5}  {naam}")
+        print("\n\n§B9.2 — measured by the gate\n")
+        for name, total in rows:
+            print(f"  {total:>5}  {name}")
         print()
-    assert all(aantal >= 0 for _, aantal in regels)
+    assert all(total >= 0 for _, total in rows)
 
 
-# ── De poort kan zelf rood worden ────────────────────────────────────────────
+# ── The gate can go red itself ───────────────────────────────────────────────
 
-@pytest.mark.parametrize("naam", sorted(VERZAMELAARS))
-def test_elke_ratel_kijkt_ergens_naar(naam):
-    """#678 in het klein: een verzamelaar die niets scant is voor altijd groen.
+@pytest.mark.parametrize("name", sorted(COLLECTORS))
+def test_every_ratchet_looks_somewhere(name):
+    """#678 in miniature: a collector that scans nothing is green forever.
 
-    De verzamelaars gebruiken `bestanden()`, dus een leeg pad valt daar al op.
-    Deze test dekt het geval erna: een verzamelaar die wél bestanden leest maar
-    door een gewijzigde vorm nooit meer iets herkent. Twee van de vijf horen
-    vandaag treffers te hebben; dat ze bestaan is het bewijs dat de wandeling
-    werkt.
+    The collectors go through `bestanden()`, so an empty path is caught there
+    already. This test covers the case after that: a collector that does read
+    files but, because a shape changed, never recognises anything again. That
+    the frozen entries are still found is the proof that the walk works.
     """
-    gevonden = VERZAMELAARS[naam]()
-    bevroren = getattr(basis, naam)
-    assert set(gevonden) >= set(bevroren), (
-        f"`{naam}` vindt minder dan de bevroren lijst — dat is óf opruimwerk "
-        f"(haal ze uit de baseline) óf een verzamelaar die stilgevallen is")
+    found = COLLECTORS[name]()
+    frozen = getattr(baseline, name)
+    assert set(found) >= set(frozen), (
+        f"`{name}` finds less than the frozen list — that is either cleanup "
+        f"(remove them from the baseline) or a collector that has fallen silent")
