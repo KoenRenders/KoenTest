@@ -22,8 +22,9 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.media import svg as svg_mod
 from app.domains.media.models import MediaAsset
 from app.domains.newsletter import service as nb
-from app.domains.newsletter.models import AUDIENCE_NON_MEMBERS, SUBSCRIBER_CONFIRMED, Subscriber
+from app.domains.newsletter.models import Audience, SubscriberStatus, Subscriber
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.newsletter.api import ReplyToMode
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -176,14 +177,14 @@ def test_a_sent_newsletter_shows_the_png_and_not_the_svg(client, db_session, mon
     sent = []
     monkeypatch.setattr("app.domains.mail.api.send_campaign_mail",
                         lambda to, subject, body, **_k: sent.append(body) or "sent")
-    db_session.add(Subscriber(email="lezer@example.org", status=SUBSCRIBER_CONFIRMED,
+    db_session.add(Subscriber(email="lezer@example.org", status=SubscriberStatus.CONFIRMED,
                               source="admin", unsubscribe_token="tok-989"))
     db_session.flush()
     letter = nb.create_newsletter(db_session, created_by="secretaris@example.org")
     nb.update_draft(db_session, letter, subject="Najaar", body_html="<div>Hallo</div>",
-                    audience=AUDIENCE_NON_MEMBERS)
+                    audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="secretaris@example.org",
-                     reply_to_mode=nb.REPLY_TO_MODES[0], base_url="https://raak.example")
+                     reply_to_mode=ReplyToMode.ASSOCIATION, base_url="https://raak.example")
     for _ in range(5):
         if nb.send_batch(db_session, letter.id) in ("done", "paused", "nothing"):
             break

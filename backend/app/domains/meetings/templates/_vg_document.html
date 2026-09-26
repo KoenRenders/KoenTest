@@ -88,12 +88,12 @@
 <div class="bg-surface border border-line rounded-2xl p-5 mb-4">
   <div class="flex items-center gap-3 flex-wrap">
     <h2 class="font-semibold text-blue-700">{{ section.label }}</h2>
-    {% if section.kind == "MEMBERS" %}
+    {% if section.is_members %}
       {{ ui.badge(_("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total), "blue") }}
       {% if standing.renewal_running %}
         {{ ui.badge(_("hernieuwd voor %(jaar)s: %(x)s van %(n)s", jaar=standing.renewal_year, x=standing.renewed, n=standing.to_renew), "yellow") }}
       {% endif %}
-    {% elif section.kind == "CUSTOM" %}
+    {% elif section.is_custom %}
       {{ ui.badge(_("eigen sectie"), "gray") }}
     {% endif %}
   </div>
@@ -165,7 +165,7 @@
 </div>
 
 {# Een eigen sectie komt vóór Varia; Varia is altijd het laatste punt. #}
-{% if section.kind == "IDEAS" and editable %}
+{% if section.is_ideas and editable %}
 <form class="flex items-center gap-2 justify-center mb-4"
       hx-post="/admin/vergaderingen/{{ meeting.id }}/sectie" hx-target="#vg-document" hx-swap="innerHTML">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -27,22 +27,27 @@ from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
 from app.domains.designstudio import render
 from app.domains.designstudio.api import (
+    DESIGN_STATUS,
+    DRAWING_STYLE,
+    DesignError,
+    DesignStatus,
+    GenerationStatus,
     ENABLED_DUOS,
+    FILE_LAYOUT_LABELS,
+    GENERATION_STATUS,
     ICONS,
-    LAYOUT_LABELS,
-    LAYOUTS,
+    INSET_CORNER,
+    ImagingError,
+    LAYOUT,
+    Layout,
     MAX_HIGHLIGHTS,
     MAX_VERSIONS,
-    PRESET_LABELS,
-    PRESETS,
-    STATUS_LABELS,
-    STATUS_TONES,
-    INSET_CORNERS,
-    STYLE_LABELS,
-    STYLES,
-    DesignError,
-    ImagingError,
+    PRESET,
+    PREVIEW_LARGE_PX,
+    PREVIEW_PX,
+    RENDER_VARIANT,
     RenderError,
+    STYLES,
     add_design_image,
     budget,
     check_design,
@@ -50,6 +55,7 @@ from app.domains.designstudio.api import (
     delete_design,
     edited_svg_for,
     facts_for,
+    file_slug,
     fingerprint,
     get_design,
     image_options,
@@ -57,11 +63,7 @@ from app.domains.designstudio.api import (
     list_designs,
     make_version,
     pick_generation,
-    file_slug,
-    FILE_LAYOUT_LABELS,
     preview_png,
-    PREVIEW_LARGE_PX,
-    PREVIEW_PX,
     publish,
     remove_edited_svg,
     request_images,
@@ -82,6 +84,7 @@ from app.domains.designstudio.viewmodels import (
     VersionRow,
 )
 from app.i18n import _
+from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
@@ -96,10 +99,14 @@ DUO_LABELS = {
     "golden_yellow-indigo": "Geel · Paars",
     "indigo-golden_yellow": "Paars · Geel",
 }
-CORNER_LABELS = {"top_left": "Linksboven", "top_right": "Rechtsboven",
-                 "bottom_left": "Linksonder", "bottom_right": "Rechtsonder"}
-GENERATION_LABELS = {"requested": "Bezig…", "fetched": "Klaar", "picked": "Gekozen", "discarded": "Niet gekozen",
-                     "refused": "Geweigerd (moderatie)", "failed": "Mislukt"}
+# The badge tone of a design status. A tone is a design-system decision and
+# not a translation (§B4.5), so it stays in Python, here, next to the screen
+# that draws the badge — and the code table gets no `tone` column where a
+# translator would find one. Total by construction and by gate.
+register_tones(DESIGN_STATUS.name, {
+    DesignStatus.DRAFT: "yellow",
+    DesignStatus.FINAL: "green",
+})
 
 
 def _short(name: str, limit: int = 22) -> str:
@@ -121,6 +128,18 @@ def _slug(facts: dict, design) -> str:
     return file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
 
 
+def _layout_or_404(code: str) -> Layout:
+    """A layout code out of a query string or a form, as the member.
+
+    Coercion on the boundary (§B4.2). A value that is not a code is a 404 and
+    not a 500: it can only come from a hand-made URL.
+    """
+    try:
+        return Layout(code)
+    except ValueError:
+        raise HTTPException(status_code=404) from None
+
+
 def _design_or_404(db: Session, design_id: int):
     design = get_design(db, design_id)
     if design is None:
@@ -139,8 +158,8 @@ def _duo_options() -> list[tuple[str, str]]:
     return [(code, DUO_LABELS.get(code, code)) for code in ENABLED_DUOS]
 
 
-def _preset_options() -> list[tuple[str, str]]:
-    return [(code, PRESET_LABELS[code]) for code in PRESETS]
+def _preset_options(db: Session) -> list[tuple[str, str]]:
+    return code_labels(PRESET.name, db=db)
 
 
 def _redirect(request: Request, target: str):
@@ -169,9 +188,9 @@ def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] 
         published = next((v for v in design.versions if v.id == design.published_version_id), None)
         rows.append(DesignRow(
             id=design.id, activity_id=design.activity_id, activity_name=name,
-            preset_label=PRESET_LABELS.get(design.preset, design.preset),
-            status_label=_(STATUS_LABELS.get(design.status, design.status)),
-            status_tone=STATUS_TONES.get(design.status, "gray"),
+            preset_label=code_label(PRESET.name, design.preset, db=db),
+            status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
+            status_tone=tone(DESIGN_STATUS.name, design.status),
             version_count=len(design.versions), published=published is not None,
             stale=bool(published is not None and activity is not None and is_stale(db, published)),
             updated=design.updated_at.strftime("%d-%m-%Y %H:%M") if design.updated_at else "",
@@ -193,7 +212,7 @@ def _new_view(request: Request, db: Session, *, activity_id: str = "", duo_code:
               preset: str = "beeld", error: Optional[str] = None) -> DesignNewView:
     return DesignNewView(activity_options=_activity_options(db), activity_id=activity_id,
                          duo_options=_duo_options(), duo_code=duo_code or ENABLED_DUOS[0],
-                         preset_options=_preset_options(), preset=preset,
+                         preset_options=_preset_options(db), preset=preset,
                          csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
 
@@ -259,13 +278,15 @@ def _typed_over(view: DesignEditorView, values: dict, highlights: list[tuple[str
 def _editor_view(request: Request, db: Session, design, *, layout: str = "print_a",
                  error: Optional[str] = None, notice: Optional[str] = None,
                  violations: Optional[list[str]] = None, ai_prompt: str = "", ai_style: str = "lijn") -> DesignEditorView:
-    if layout not in LAYOUTS:
-        layout = "print_a"
+    try:
+        chosen = Layout(layout)
+    except ValueError:
+        chosen = Layout.PRINT_A
     facts = facts_for(db, design)
     render_error = None
     if violations is None:
         try:
-            violations = check_design(db, design).get(layout, [])
+            violations = check_design(db, design).get(chosen, [])
         except RenderError as exc:
             violations, render_error = [], str(exc)
     # Short labels: a select shows ~25 characters; a phone's file name does
@@ -281,14 +302,16 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
              for m in sponsor_options(db)]
     versions = []
     for v in sorted(design.versions, key=lambda v: -v.number):
-        files = [{"label": f"{LAYOUT_LABELS.get(r.layout_code, r.layout_code)} · {r.variant.upper()} {r.size_code}".strip(),
+        files = [{"label": f"{code_label(LAYOUT.name, r.layout_code, db=db)} · "
+                           f"{code_label(RENDER_VARIANT.name, r.variant, db=db)} {r.size_code}".strip(),
                   "url": f"/api/v1/media/{r.media_asset_id}"} for r in v.renditions]
         versions.append(VersionRow(id=v.id, number=v.number, created=v.created_at.strftime("%d-%m-%Y %H:%M"),
                                    published=(v.id == design.published_version_id), stale=is_stale(db, v), files=files))
-    generations = [GenerationRow(id=g.id, status=g.status, status_label=_(GENERATION_LABELS.get(g.status, g.status)),
+    generations = [GenerationRow(id=g.id, status=code_of(g.status) or "",
+                                 status_label=code_label(GENERATION_STATUS.name, g.status, db=db),
                                  thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
                                  media_asset_id=g.media_asset_id, failure_reason=g.failure_reason or "",
-                                 scene=g.scene or "", style=g.style or "lijn",
+                                 scene=g.scene or "", style=code_of(g.style) or "lijn",
                                  image_url=f"/api/v1/media/{g.media_asset_id}" if g.media_asset_id else "")
                    for g in sorted(design.generations, key=lambda g: -g.id)[:12]]
     highlights = [HighlightRow(icon=h.icon_code, text=h.text, emphasis=h.emphasis) for h in design.highlights]
@@ -297,31 +320,32 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
     ai = budget(db)
     return DesignEditorView(
         design_id=design.id, activity_id=design.activity_id, activity_name=facts["title"],
-        status=design.status, status_label=_(STATUS_LABELS.get(design.status, design.status)),
-        status_tone=STATUS_TONES.get(design.status, "gray"),
-        preset=design.preset, preset_options=_preset_options(), duo_code=design.duo_code, duo_options=_duo_options(),
+        status=code_of(design.status) or "", status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
+        status_tone=tone(DESIGN_STATUS.name, design.status),
+        preset=code_of(design.preset) or "", preset_options=_preset_options(db),
+        duo_code=design.duo_code, duo_options=_duo_options(),
         tagline=design.tagline or "", subtitle=design.subtitle or "",
         explanation_md=design.explanation_md or "", explanation_is_own=bool(design.explanation_md),
         explanation_hint=facts["description"],
         highlights=highlights, icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
         main_image_id=design.main_image_id, inset_image_id=design.inset_image_id, third_image_id=design.third_image_id,
         main_focus_x=f"{float(design.main_focus_x):.2f}", main_focus_y=f"{float(design.main_focus_y):.2f}",
-        inset_corner=design.inset_corner or "bottom_right",
-        corner_options=[(code, _(CORNER_LABELS[code])) for code in INSET_CORNERS],
+        inset_corner=code_of(design.inset_corner) or "bottom_right",
+        corner_options=code_labels(INSET_CORNER.name, db=db),
         image_options=options, logo_options=logos, logo_ids=[lg.media_asset_id for lg in design.logos],
         facts=_facts_rows(facts), facts_href=f"/admin/activiteiten/{design.activity_id}",
-        preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&v={fingerprint(facts)[:8]}",
-        preview_large_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={layout}&groot=1&v={fingerprint(facts)[:8]}",
-        layout=layout, layout_options=[(code, _(label)) for code, label in LAYOUT_LABELS.items()],
+        preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&v={fingerprint(facts)[:8]}",
+        preview_large_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&groot=1&v={fingerprint(facts)[:8]}",
+        layout=chosen.value, layout_options=code_labels(LAYOUT.name, db=db),
         violations=violations or [], warnings=warnings_for(design, facts), render_error=render_error,
-        edited_layouts=[lc for lc in LAYOUTS if edited_svg_for(db, design, lc) is not None],
+        edited_layouts=[lc.value for lc in Layout if edited_svg_for(db, design, lc) is not None],
         font_links=[("Radio Canada Big", "/static/fonts/RadioCanadaBig-VariableFont_wght.ttf"),
                     ("Caveat", "/static/fonts/Caveat-VariableFont_wght.ttf")],
         versions=versions, published_version_id=design.published_version_id, max_versions=MAX_VERSIONS,
         ai_enabled=ai.enabled, ai_budget_line=ai.line(), generations=generations, ai_prompt=ai_prompt,
-        ai_style=ai_style, style_options=[(code, _(label)) for code, label in STYLE_LABELS.items()],
+        ai_style=ai_style, style_options=code_labels(DRAWING_STYLE.name, db=db),
         style_texts={code: text.lstrip(" —") for code, text in STYLES.items()},
-        ai_pending=any(g.status == "requested" for g in design.generations),
+        ai_pending=any(g.status == GenerationStatus.REQUESTED for g in design.generations),
         csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))
 
 
@@ -348,13 +372,12 @@ def design_variants(request: Request, design_id: int, db: Session = Depends(get_
 def design_preview(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
                    layout: str = "print_a", groot: bool = False):
     design = _design_or_404(db, design_id)
-    if layout not in LAYOUTS:
-        raise HTTPException(status_code=404)
+    chosen = _layout_or_404(layout)
     try:
         # "Groot bekijken" renders at print resolution so a phone camera can
         # read the QR code off the screen (Koen, 20 September 2026). It takes
         # several seconds, which is why the panel's own picture does not.
-        png, _problems = preview_png(db, design, layout,
+        png, _problems = preview_png(db, design, chosen,
                                      width_px=PREVIEW_LARGE_PX if groot else PREVIEW_PX)
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -369,15 +392,14 @@ def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: st
     from app.domains.designstudio.service import merged_for
 
     design = _design_or_404(db, design_id)
-    if layout not in LAYOUTS:
-        raise HTTPException(status_code=404)
+    chosen = _layout_or_404(layout)
     try:
         facts = facts_for(db, design)
-        merged = merged_for(db, design, layout, facts=facts)
+        merged = merged_for(db, design, chosen, facts=facts)
         pdf = render.export(merged.svg, "pdf")
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    name = f"{_slug(facts, design)}-proefdruk-{FILE_LAYOUT_LABELS.get(layout, layout)}.pdf"
+    name = f"{_slug(facts, design)}-proefdruk-{FILE_LAYOUT_LABELS[chosen]}.pdf"
     return Response(content=pdf, media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="{name}"'})
 
@@ -389,11 +411,10 @@ def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_d
     from app.domains.designstudio.service import merged_for
 
     design = _design_or_404(db, design_id)
-    if layout not in LAYOUTS:
-        raise HTTPException(status_code=404)
+    chosen = _layout_or_404(layout)
     facts = facts_for(db, design)
-    merged = merged_for(db, design, layout, facts=facts)
-    name = f"{_slug(facts, design)}-{FILE_LAYOUT_LABELS.get(layout, layout)}.svg"
+    merged = merged_for(db, design, chosen, facts=facts)
+    name = f"{_slug(facts, design)}-{FILE_LAYOUT_LABELS[chosen]}.svg"
     return Response(content=merged.svg.encode("utf-8"), media_type="image/svg+xml",
                     headers={"Content-Disposition": f'attachment; filename="{name}"'})
 
@@ -516,7 +537,7 @@ async def design_svg_upload(request: Request, design_id: int, db: Session = Depe
     design = _design_or_404(db, design_id)
     raw = await file.read()
     try:
-        warnings = upload_edited_svg(db, design, layout, raw)
+        warnings = upload_edited_svg(db, design, _layout_or_404(layout), raw)
     except DesignError as exc:
         return templates.TemplateResponse(request, "admin_ontwerp.html",
                                           _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
@@ -533,7 +554,7 @@ async def design_svg_upload(request: Request, design_id: int, db: Session = Depe
 def design_svg_remove(request: Request, design_id: int, db: Session = Depends(get_db),
                       _email: str = Depends(require_admin_ui), layout: str = Form("print_a")):
     design = _design_or_404(db, design_id)
-    remove_edited_svg(db, design, layout)
+    remove_edited_svg(db, design, _layout_or_404(layout))
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=svgweg")
 
 

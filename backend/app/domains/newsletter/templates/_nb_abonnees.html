@@ -23,11 +23,12 @@
       <td class="px-4 py-3">{{ s.email }}</td>
       <td class="px-4 py-3">{{ s.first_name or "" }}</td>
       <td class="px-4 py-3 text-ink-soft">{{ source_labels[s.id] }}</td>
-      <td class="px-4 py-3">{{ ui.badge(status_labels[s.status], status_tones[s.status]) }}</td>
+      <td class="px-4 py-3">{{ ui.badge(s.status | code_label("subscriber_status"),
+                                        s.status | tone("subscriber_status")) }}</td>
       <td class="px-4 py-3 text-ink-soft">{{ moments[s.id] }}</td>
       <td class="px-4 py-3">
         <div class="flex justify-end gap-2">
-        {% if s.status != "unsubscribed" %}
+        {% if unsubscribable[s.id] %}
           <form hx-post="/admin/nieuwsbrieven/abonnees/{{ s.id }}/uitschrijven" hx-target="#nb-abonnees" hx-swap="innerHTML"
                 data-confirm="{{ _("%(adres)s uitschrijven? Het adres krijgt geen nieuwsbrief meer.", adres=s.email) }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

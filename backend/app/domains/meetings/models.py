@@ -68,6 +68,35 @@ class MeetingStatus(Enum):
     SENT = "sent"
 
 
+class SectionKind(Enum):
+    """De rubrieken van het document (CR-09 §3.17, CR-12 fase 3).
+
+    `MISC` staat altijd achteraan; een eigen rubriek schuift ervóór. Ledennamen
+    zijn Engels, waarden blijven de opgeslagen hoofdlettercodes (§B4.3).
+    """
+
+    EVALUATION = "EVALUATION"
+    UPCOMING = "UPCOMING"
+    MEMBERS = "MEMBERS"
+    IDEAS = "IDEAS"
+    MISC = "MISC"
+    CUSTOM = "CUSTOM"
+
+
+class Attendance(Enum):
+    """Aanwezig of verontschuldigd. Niet aangevinkt is géén code maar NULL."""
+
+    PRESENT = "present"
+    EXCUSED = "excused"
+
+
+class FilePurpose(Enum):
+    """Waarvoor een bestand bij een vergadering hangt."""
+
+    ATTACHMENT = "attachment"
+    SENT_PDF = "sent_pdf"
+
+
 class MeetingStatusCode(Base):
     """Which meeting statuses exist — the target of the foreign key."""
 
@@ -98,28 +127,106 @@ class MeetingStatusLabel(Base):
 
 # The five standard sections, in their fixed order, plus the custom kind.
 # MISC is always last (CR-09 §3.17) — a custom section inserts before it.
-SECTION_EVALUATION = "EVALUATION"
-SECTION_UPCOMING = "UPCOMING"
-SECTION_MEMBERS = "MEMBERS"
-SECTION_IDEAS = "IDEAS"
-SECTION_MISC = "MISC"
-SECTION_CUSTOM = "CUSTOM"
-STANDARD_SECTIONS = (SECTION_EVALUATION, SECTION_UPCOMING, SECTION_MEMBERS,
-                     SECTION_IDEAS, SECTION_MISC)
-SECTION_KINDS = STANDARD_SECTIONS + (SECTION_CUSTOM,)
+# CR-12 fase 3: de zes constanten zijn de leden van `SectionKind` geworden. De
+# twee tupels blijven, want ze zeggen iets wat de enum niet zegt: wélke
+# rubrieken standaard op een agenda staan, en in welke volgorde. Dat is een
+# regel van dit domein en geen eigenschap van de lijst.
+STANDARD_SECTIONS = (SectionKind.EVALUATION, SectionKind.UPCOMING,
+                     SectionKind.MEMBERS, SectionKind.IDEAS, SectionKind.MISC)
 
 # Which sections carry their items over to the next agenda (CR-09 §3.6): only
 # the ideas and the miscellaneous ones. Everything else is regenerated from the
 # activities and the member data, so carrying it over would duplicate it.
-CARRY_OVER_SECTIONS = (SECTION_IDEAS, SECTION_MISC)
+CARRY_OVER_SECTIONS = (SectionKind.IDEAS, SectionKind.MISC)
 
-ATTENDANCE_PRESENT = "present"
-ATTENDANCE_EXCUSED = "excused"
-ATTENDANCE_STATUSES = (ATTENDANCE_PRESENT, ATTENDANCE_EXCUSED)
 
-FILE_ATTACHMENT = "attachment"
-FILE_SENT_PDF = "sent_pdf"
-FILE_PURPOSES = (FILE_ATTACHMENT, FILE_SENT_PDF)
+
+
+class SectionKindCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "section_kind_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class SectionKindLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "section_kind_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), ForeignKey("meetings.section_kind_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class AttendanceCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "attendance_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class AttendanceLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "attendance_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), ForeignKey("meetings.attendance_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class FilePurposeCode(Base):
+    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 3)."""
+
+    __tablename__ = "file_purpose_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class FilePurposeLabel(Base):
+    """Het woord dat een scherm toont, per taal (CR-12 fase 3)."""
+
+    __tablename__ = "file_purpose_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), ForeignKey("meetings.file_purpose_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class Meeting(TenantMixin, SoftDeleteMixin, Base):
@@ -174,7 +281,9 @@ class MeetingSection(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    kind = Column(String(20), nullable=False)
+    kind: Mapped[SectionKind] = mapped_column(
+        EnumColumn(SectionKind, length=20),
+        ForeignKey("meetings.section_kind_codes.code"), nullable=False)
     # Only a custom section carries its own title; a standard one is labelled
     # from its kind, so renaming that label later is one place, not N rows.
     title = Column(String(255), nullable=True)
@@ -254,7 +363,9 @@ class MeetingAttendance(TenantMixin, SoftDeleteMixin, Base):
                       ForeignKey("meetings.meeting_extra_recipients.id",
                                  ondelete="CASCADE"),
                       nullable=True, index=True)
-    status = Column(String(10), nullable=False)
+    status: Mapped[Attendance] = mapped_column(
+        EnumColumn(Attendance, length=10),
+        ForeignKey("meetings.attendance_codes.code"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
                         nullable=False)
@@ -276,7 +387,10 @@ class MeetingFile(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    purpose = Column(String(20), nullable=False, default=FILE_ATTACHMENT)
+    purpose: Mapped[FilePurpose] = mapped_column(
+        EnumColumn(FilePurpose, length=20),
+        ForeignKey("meetings.file_purpose_codes.code"), nullable=False,
+        default=FilePurpose.ATTACHMENT)
     filename = Column(String(255), nullable=False)
     content_type = Column(String(100), nullable=False)
     byte_size = Column(Integer, nullable=True)

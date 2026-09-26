@@ -28,14 +28,8 @@ FK_MISSING: frozenset[str] = frozenset({
     'ai.ai_call_log.status',
     'auth.login_tokens.otp_code',
     'designstudio.design_highlights.icon_code',
-    'designstudio.design_renditions.layout_code',
     'designstudio.design_renditions.size_code',
-    'designstudio.design_renditions.variant',
     'designstudio.designs.duo_code',
-    'designstudio.designs.preset',
-    'designstudio.designs.status',
-    'designstudio.image_generations.status',
-    'designstudio.image_generations.style',
     'form.form_fields.field_type',
     'form.forms.status',
     'mail.email_log.email_type',
@@ -44,18 +38,7 @@ FK_MISSING: frozenset[str] = frozenset({
     'media.media_assets.content_type',
     'media.media_assets.kind',
     'media.media_assets.thumb_content_type',
-    'meetings.meeting_attendances.status',
     'meetings.meeting_files.content_type',
-    'meetings.meeting_files.purpose',
-    'meetings.meeting_sections.kind',
-    'newsletter.deliveries.kind',
-    'newsletter.deliveries.status',
-    'newsletter.drafting_messages.role',
-    'newsletter.newsletters.audience',
-    'newsletter.newsletters.reply_to_mode',
-    'newsletter.newsletters.status',
-    'newsletter.subscribers.source',
-    'newsletter.subscribers.status',
     'public.kernel_jobs.status',
     'reporting.export_log.kind',
     'workflow.workflow_instances.definition_code',
@@ -82,24 +65,9 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
     'app/domains/chatbot/admin_ui.py:SURFACE_LABELS',
     'app/domains/cms/render.py:PLACEHOLDER_LABELS',
-    'app/domains/designstudio/admin_ui.py:CORNER_LABELS',
-    'app/domains/designstudio/admin_ui.py:DUO_LABELS',
-    'app/domains/designstudio/admin_ui.py:GENERATION_LABELS',
-    'app/domains/designstudio/imaging.py:STYLE_LABELS',
-    'app/domains/designstudio/service.py:FILE_LAYOUT_LABELS',
-    'app/domains/designstudio/service.py:FILE_SIZE_LABELS',
-    'app/domains/designstudio/service.py:LAYOUT_LABELS',
-    'app/domains/designstudio/service.py:PRESET_LABELS',
-    'app/domains/designstudio/service.py:STATUS_LABELS',
     'app/domains/forms/models.py:RATING_LABELS',
     'app/domains/mail/ui.py:_STATUS_LABELS',
     'app/domains/mail/ui.py:_TYPE_LABELS',
-    'app/domains/meetings/service.py:SECTION_LABELS',
-    'app/domains/newsletter/admin_ui.py:AUDIENCE_LABELS',
-    'app/domains/newsletter/admin_ui.py:DELIVERY_LABELS',
-    'app/domains/newsletter/admin_ui.py:LETTER_STATUS_LABELS',
-    'app/domains/newsletter/admin_ui.py:SOURCE_LABELS',
-    'app/domains/newsletter/admin_ui.py:SUBSCRIBER_LABELS',
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
     'app/domains/workflow/ui.py:CAT_LABELS',
     'app/domains/workflow/ui.py:KIND_LABELS',
@@ -136,19 +104,12 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/mail/templates/_email_log_lijst.html:status==sent',
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
     'app/domains/media/templates/_me_lijst.html:kind==sponsor',
-    'app/domains/meetings/templates/_vg_document.html:kind==CUSTOM',
-    'app/domains/meetings/templates/_vg_document.html:kind==IDEAS',
-    'app/domains/meetings/templates/_vg_document.html:kind==MEMBERS',
     'app/domains/meetings/templates/_vg_punt.html:kind==activity',
     'app/domains/meetings/templates/_vg_punt.html:kind==member',
-    'app/domains/meetings/templates/meeting_pdf.html:kind!=MEMBERS',
-    'app/domains/meetings/templates/meeting_pdf.html:kind==MEMBERS',
     'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
-    'app/domains/newsletter/templates/_nb_abonnees.html:status!=unsubscribed',
     'app/domains/newsletter/templates/_nb_raakje.html:kind==insert',
     'app/domains/newsletter/templates/_nb_raakje.html:kind==letter',
     'app/domains/newsletter/templates/_nb_raakje.html:kind==replace',
-    'app/domains/newsletter/templates/_nb_raakje.html:role==author',
     'app/domains/newsletter/templates/_nb_raakje.html:status==applied',
     'app/domains/newsletter/templates/_nb_raakje.html:status==open',
     'app/domains/workflow/templates/_werkbank_detail.html:status==done',
@@ -169,12 +130,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/chatbot/info_service.py:kind==activity_poster',
     'app/domains/chatbot/info_service.py:kind==component_info',
     'app/domains/chatbot/router.py:role==user',
-    'app/domains/designstudio/admin_ui.py:status==requested',
-    'app/domains/designstudio/blocks.py:preset!=tekst',
-    'app/domains/designstudio/blocks.py:preset==eenvoudig',
-    'app/domains/designstudio/blocks.py:preset==tekst',
-    'app/domains/designstudio/service.py:content_type==image/svg+xml',
-    'app/domains/designstudio/service.py:status==fetched',
     'app/domains/forms/export.py:field_type!=info',
     'app/domains/forms/router.py:status!=open',
     'app/domains/forms/router.py:status==draft',
@@ -206,7 +161,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/media/service.py:kind==component_info',
     'app/domains/media/service.py:kind==tenant_logo',
     'app/domains/meetings/service.py:kind==member',
-    'app/domains/newsletter/drafting.py:status!=draft',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',
@@ -246,11 +200,31 @@ FK_NOT_OUR_LIST: dict[str, str] = {
         "adapter has an ExternalVocabulary enum and maps to our PaymentStatus."),
 }
 
+#: `*_LABELS` dictionaries whose values are not labels at all (§B4.10). The
+#: question that settles an entry here is the same one: *could a translator
+#: ever own this text?* A file-name fragment and a brand asset's name could
+#: not. Each phase moves its own domain's entries; phase 3 brought these three
+#: out of the ratchet, so the count that is left really is work to do.
+LABELS_NOT_A_VOCABULARY: dict[str, str] = {
+    "app/domains/designstudio/admin_ui.py:DUO_LABELS": (
+        "The colour duos are brand assets with a payload — two house-style "
+        "colours per code — and change with the brand guide, not with a "
+        "translator. They stay in `brand.py` (§B4.10)."),
+    "app/domains/designstudio/service.py:FILE_LAYOUT_LABELS": (
+        "Not a label but a file-name fragment: `bowlen-v1-a3.pdf`. It is part "
+        "of a download's name, which stays the same in every language."),
+    "app/domains/designstudio/service.py:FILE_SIZE_LABELS": (
+        "The same, for a size code: `feed` is called `portrait` in a file "
+        "name. A translated file name would break the downloads folder."),
+}
+
 #: Comparisons the vocabulary net catches that compare no code of ours.
 LOOSE_STRINGS_NOT_A_CODE: dict[str, str] = {
     "app/domains/payment/ui.py:method==GET": (
         "`request.method` is the HTTP verb, not a payment method — the net matches "
         "on the attribute name and cannot tell the two apart."),
     "app/domains/activities/models.py:content_type==application/pdf": (
+        "A MIME type: IANA's list, not ours."),
+    "app/domains/designstudio/service.py:content_type==image/svg+xml": (
         "A MIME type: IANA's list, not ours."),
 }

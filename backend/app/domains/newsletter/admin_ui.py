@@ -34,6 +34,7 @@ from app.domains.newsletter.viewmodels import (
     SubscriberListView,
 )
 from app.i18n import _
+from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
@@ -47,22 +48,26 @@ MAX_IMPORT_BYTES = 1_000_000
 # A programme or a flyer, not a photo album.
 MAX_ATTACHMENT_BYTES = 10_000_000
 
-LETTER_STATUS_LABELS = {nb.LETTER_DRAFT: "Concept", nb.LETTER_SENDING: "Wordt verstuurd",
-                        nb.LETTER_SENT: "Verstuurd"}
-LETTER_STATUS_TONES = {nb.LETTER_DRAFT: "gray", nb.LETTER_SENDING: "blue", nb.LETTER_SENT: "green"}
-AUDIENCE_LABELS = {nb.AUDIENCE_MEMBERS: "Leden", nb.AUDIENCE_NON_MEMBERS: "Niet-leden",
-                   nb.AUDIENCE_BOTH: "Allebei"}
-DELIVERY_LABELS = {nb.DELIVERY_QUEUED: "In de wachtrij", nb.DELIVERY_SENT: "Verstuurd",
-                   nb.DELIVERY_FAILED: "Mislukt", nb.DELIVERY_SKIPPED: "Overgeslagen"}
-DELIVERY_TONES = {nb.DELIVERY_QUEUED: "gray", nb.DELIVERY_SENT: "green",
-                  nb.DELIVERY_FAILED: "yellow", nb.DELIVERY_SKIPPED: "gray"}
-SUBSCRIBER_LABELS = {nb.SUBSCRIBER_CONFIRMED: "Bevestigd",
-                     nb.SUBSCRIBER_PENDING: "Wacht op bevestiging",
-                     nb.SUBSCRIBER_UNSUBSCRIBED: "Uitgeschreven"}
-SUBSCRIBER_TONES = {nb.SUBSCRIBER_CONFIRMED: "green", nb.SUBSCRIBER_PENDING: "yellow",
-                    nb.SUBSCRIBER_UNSUBSCRIBED: "gray"}
-SOURCE_LABELS = {nb.SOURCE_PUBLIC_FORM: "formulier", nb.SOURCE_IMPORT: "import",
-                 nb.SOURCE_ADMIN: "beheer"}
+# The words of these five lists live in their label tables since CR-12 fase 3
+# and are read with `code_label()`. What stays in Python is the **tone** of a
+# badge: a design-system decision, not a translation (§B4.5), registered here
+# next to the screen that draws it. Total by construction and by gate.
+register_tones(nb.LETTER_STATUS.name, {
+    nb.LetterStatus.DRAFT: "gray",
+    nb.LetterStatus.SENDING: "blue",
+    nb.LetterStatus.SENT: "green",
+})
+register_tones(nb.DELIVERY_STATUS.name, {
+    nb.DeliveryStatus.QUEUED: "gray",
+    nb.DeliveryStatus.SENT: "green",
+    nb.DeliveryStatus.FAILED: "yellow",
+    nb.DeliveryStatus.SKIPPED: "gray",
+})
+register_tones(nb.SUBSCRIBER_STATUS.name, {
+    nb.SubscriberStatus.CONFIRMED: "green",
+    nb.SubscriberStatus.PENDING: "yellow",
+    nb.SubscriberStatus.UNSUBSCRIBED: "gray",
+})
 
 
 def _csrf(request: Request) -> str:
@@ -112,20 +117,20 @@ def _list_view(request: Request, db: Session, q: str = "",
                error: Optional[str] = None) -> NewsletterListView:
     letters = nb.list_newsletters(db, query=q)
     progress = {letter.id: nb.progress_of(db, letter) for letter in letters
-                if letter.status != nb.LETTER_DRAFT}
+                if letter.status != nb.LetterStatus.DRAFT}
     moments = {}
     for letter in letters:
-        if letter.status == nb.LETTER_DRAFT:
+        if letter.status == nb.LetterStatus.DRAFT:
             moments[letter.id] = _("laatst bewaard %(m)s") % {"m": _moment(letter.updated_at)}
-        elif letter.status == nb.LETTER_SENDING:
+        elif letter.status == nb.LetterStatus.SENDING:
             moments[letter.id] = _("gestart %(m)s") % {"m": _moment(letter.send_started_at)}
         else:
             moments[letter.id] = _("verstuurd %(m)s") % {"m": _moment(letter.send_finished_at)}
     return NewsletterListView(
         letters=letters, q=q,
-        status_labels={l.id: _(LETTER_STATUS_LABELS[l.status]) for l in letters},
-        status_tones={l.id: LETTER_STATUS_TONES[l.status] for l in letters},
-        audience_labels={l.id: (_(AUDIENCE_LABELS[l.audience]) if l.audience
+        status_labels={l.id: code_label(nb.LETTER_STATUS.name, l.status, db=db) for l in letters},
+        status_tones={l.id: tone(nb.LETTER_STATUS.name, l.status) for l in letters},
+        audience_labels={l.id: (code_label(nb.AUDIENCE.name, l.audience, db=db) if l.audience
                                 else _("nog niet gekozen")) for l in letters},
         progress=progress, moments=moments,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
@@ -158,11 +163,11 @@ def _subscriber_view(request: Request, db: Session, q: str = "", status: str = "
     rows = nb.list_subscribers(db, query=q, status=status)
     return SubscriberListView(
         subscribers=rows, counts=nb.subscriber_counts(db),
-        status_labels={k: _(v) for k, v in SUBSCRIBER_LABELS.items()},
-        status_tones=SUBSCRIBER_TONES,
+        status_options=code_labels(nb.SUBSCRIBER_STATUS.name, db=db),
+        unsubscribable={s.id: s.status is not nb.SubscriberStatus.UNSUBSCRIBED for s in rows},
         source_labels={s.id: (_("import %(d)s") % {"d": nb.short_date(s.imported_at.date())}
-                              if s.source == nb.SOURCE_IMPORT and s.imported_at
-                              else _(SOURCE_LABELS.get(s.source, s.source)))
+                              if s.source == nb.SubscriberSource.IMPORT and s.imported_at
+                              else code_label(nb.SUBSCRIBER_SOURCE.name, s.source, db=db))
                        for s in rows},
         moments={s.id: _moment(s.confirmed_at or s.created_at) for s in rows},
         q=q, status=status, csrf_token=_csrf(request), error=error, notice=notice,
@@ -312,7 +317,7 @@ def _turns(messages: list) -> list[list]:
     """The conversation as turns — a question and its answer — newest first."""
     turns: list[list] = []
     for message in messages:
-        if message.role == nb.MESSAGE_AUTHOR or not turns:
+        if message.role == nb.MessageRole.AUTHOR or not turns:
             turns.append([message])
         else:
             turns[-1].append(message)
@@ -326,17 +331,22 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     from app.domains.meetings.api import long_date, sent_reports
 
     counts = nb.audience_counts(db)
-    # (waarde, label, aantal, uitleg): het aantal staat op de knop, de uitleg in
-    # de tooltip — de keuze is één regel hoog (Koen, 17 september 2026).
+    # (code, label, aantal, uitleg): het aantal staat op de knop, de uitleg in
+    # de tooltip — de keuze is één regel hoog (Koen, 17 september 2026). De
+    # waarde is de CODE, want ze gaat als radiowaarde het formulier in; het
+    # woord komt uit de labeltabel en staat dus niet twee keer (CR-12 fase 3).
     options = [
-        (nb.AUDIENCE_MEMBERS, _("Leden"), str(counts.members),
-         _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
-         % {"j": datetime.now().year}),
-        (nb.AUDIENCE_NON_MEMBERS, _("Niet-leden"), str(counts.non_members),
-         _("Bevestigde abonnees; elke mail heeft een uitschrijflink")),
-        (nb.AUDIENCE_BOTH, _("Allebei"), str(counts.both),
-         _("Samengevoegd; %(d)s adressen stonden op beide lijsten")
-         % {"d": counts.overlap}),
+        (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count, hint)
+        for audience, count, hint in (
+            (nb.Audience.MEMBERS, str(counts.members),
+             _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
+             % {"j": datetime.now().year}),
+            (nb.Audience.NON_MEMBERS, str(counts.non_members),
+             _("Bevestigde abonnees; elke mail heeft een uitschrijflink")),
+            (nb.Audience.BOTH, str(counts.both),
+             _("Samengevoegd; %(d)s adressen stonden op beide lijsten")
+             % {"d": counts.overlap}),
+        )
     ]
     raakje = _raakje_enabled(db)
     past: list = []
@@ -353,10 +363,12 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
                    for m in sent_reports(db)]
     return NewsletterComposeView(
         letter=letter, counts=counts, audience_options=options,
+        audience=code_of(letter.audience) or "",
         saved_at=_moment(letter.updated_at),
         raakje_enabled=raakje, past_activities=past, coming_activities=coming,
         reports=reports, ticked_reports=list(letter.draft_meeting_ids or []),
         turns=_turns(messages),
+        by_author={m.id: m.role is nb.MessageRole.AUTHOR for m in messages},
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
         csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
         apply_html=apply_html, apply_placement=apply_placement, apply_range=apply_range,
@@ -369,16 +381,15 @@ def _archive_view(request: Request, db: Session, letter, status: str = "",
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
         letter=letter,
-        status_label=_(LETTER_STATUS_LABELS[letter.status]),
-        status_tone=LETTER_STATUS_TONES[letter.status],
-        audience_label=_(AUDIENCE_LABELS.get(letter.audience or "", "")),
+        status_label=code_label(nb.LETTER_STATUS.name, letter.status, db=db),
+        status_tone=tone(nb.LETTER_STATUS.name, letter.status),
+        audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
         progress=progress,
         expected=_moment(progress.expected_finish) if progress.expected_finish else "",
         started=_moment(letter.send_started_at),
         finished=_moment(letter.send_finished_at),
         deliveries=deliveries,
-        delivery_labels={k: _(v) for k, v in DELIVERY_LABELS.items()},
-        delivery_tones=DELIVERY_TONES,
+        delivery_options=code_labels(nb.DELIVERY_STATUS.name, db=db),
         moments={d.id: _moment(d.sent_at) for d in deliveries},
         status_filter=status, q=q, csrf_token=_csrf(request), error=error,
         nav_items=admin_nav(NAV))
@@ -389,7 +400,7 @@ def newsletter_screen(newsletter_id: int, request: Request, db: Session = Depend
                       _email: str = Depends(require_admin_ui), status: str = "",
                       q: str = ""):
     letter = _letter_or_404(db, newsletter_id)
-    if letter.status == nb.LETTER_DRAFT:
+    if letter.status == nb.LetterStatus.DRAFT:
         return templates.TemplateResponse(request, "admin_nieuwsbrief.html",
                                           _compose_view(request, db, letter).as_context())
     view = _archive_view(request, db, letter, status=status, q=q)
@@ -510,11 +521,11 @@ def newsletter_preview(newsletter_id: int, db: Session = Depends(get_db),
     """
     letter = _letter_or_404(db, newsletter_id)
     base = _base_url(db)
-    kind = (nb.DELIVERY_SUBSCRIBER
-            if letter.audience in (nb.AUDIENCE_NON_MEMBERS, nb.AUDIENCE_BOTH)
-            else nb.DELIVERY_MEMBER)
+    kind = (nb.DeliveryKind.SUBSCRIBER
+            if letter.audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
+            else nb.DeliveryKind.MEMBER)
     unsubscribe = (f"{base}/nieuwsbrief/uitschrijven/test"
-                   if kind == nb.DELIVERY_SUBSCRIBER else None)
+                   if kind == nb.DeliveryKind.SUBSCRIBER else None)
     return HTMLResponse(nb.render_mail(db, letter, kind=kind,
                                        unsubscribe_url=unsubscribe, base_url=base))
 
@@ -570,7 +581,7 @@ def _send_view(request: Request, db: Session, letter, email: str,
     count = len(nb.recipients_for(db, letter.audience)) if letter.audience else 0
     return NewsletterSendView(
         letter=letter,
-        audience_label=_(AUDIENCE_LABELS.get(letter.audience or "", "")),
+        audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
         recipient_count=count, days=nb.expected_days(db, count) if count else 0,
         blocked=bool(nb.unfilled_placeholders(letter.body_html)),
         daily_cap=tenant_newsletter_daily_cap(db), reply_to_sender=email,
@@ -582,7 +593,7 @@ def _send_view(request: Request, db: Session, letter, email: str,
 def send_screen(newsletter_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
     letter = _letter_or_404(db, newsletter_id)
-    if letter.status != nb.LETTER_DRAFT:
+    if letter.status != nb.LetterStatus.DRAFT:
         return RedirectResponse(f"/admin/nieuwsbrieven/{letter.id}", status_code=303)
     error = None
     if not letter.audience:
@@ -597,7 +608,7 @@ def send_screen(newsletter_id: int, request: Request, db: Session = Depends(get_
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def send_letter(newsletter_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui),
-                reply_to: str = Form(nb.REPLY_TO_ASSOCIATION)):
+                reply_to: str = Form(nb.ReplyToMode.ASSOCIATION)):
     """After a human read it (CR-05 §3.9) — never automatically."""
     letter = _letter_or_404(db, newsletter_id)
     try:

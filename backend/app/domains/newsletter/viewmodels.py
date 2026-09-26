@@ -33,7 +33,11 @@ class NewsletterComposeView(ViewModel):
 
     letter: Any
     counts: Any
+    #: `(code, label, count, hint)` — the code is the radio value, so the
+    #: template never renders an enum member into an attribute.
     audience_options: list[tuple[str, str, str, str]]
+    #: The letter's own audience as a code, to tick the right radio.
+    audience: str
     saved_at: str
     # Raakje (CR-05 §3.15): off when the back-office switch is off.
     raakje_enabled: bool
@@ -45,6 +49,9 @@ class NewsletterComposeView(ViewModel):
     ticked_reports: list[int]
     # The conversation as turns (question, answer), newest turn first.
     turns: list[Any]
+    # Per message id: is this the author's own line, or Raakje's answer? The
+    # screen draws two different bubbles; it does not compare codes (§B4.7).
+    by_author: dict[int, bool]
     # Per Raakje message id: the proposal as the screen shows it.
     proposals: dict[int, Any]
     csrf_token: str
@@ -85,8 +92,9 @@ class NewsletterArchiveView(ViewModel):
     started: str
     finished: str
     deliveries: list[Any]
-    delivery_labels: dict[str, str]
-    delivery_tones: dict[str, str]
+    #: `(code, label)` of the delivery statuses, for the filter. The badge
+    #: per row reads its word and its tone from the filters (CR-12 fase 3).
+    delivery_options: list[tuple[str, str]]
     moments: dict[int, str]
     status_filter: str
     q: str
@@ -118,8 +126,13 @@ class SubscriberListView(ViewModel):
 
     subscribers: list[Any]
     counts: dict[str, int]
-    status_labels: dict[str, str]
-    status_tones: dict[str, str]
+    #: `(code, label)` of the active statuses, for the filter — from the code
+    #: list, so the order is the list's and the option value is the code
+    #: (CR-12 fase 3). The badge per row uses the `code_label`/`tone` filters.
+    status_options: list[tuple[str, str]]
+    #: Per subscriber id: may this address still be unsubscribed? Derived
+    #: here, because a template does not compare codes (§B4.7).
+    unsubscribable: dict[int, bool]
     source_labels: dict[int, str]
     moments: dict[int, str]
     q: str
