@@ -185,8 +185,10 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
     person = _session_person(request, db)
     is_member = _is_member(person)
     # Voorinvullen voor een ingelogd lid (#476): naam vult de template al vanuit
-    # person; e-mail + mobiel komen uit de ContactDetails. Op submit overschrijft
-    # extra["values"] deze defaults.
+    # person, het mobiele nummer komt uit de ContactDetails, en het e-mailadres uit
+    # de SESSIE (#1174) — het adres waarmee hij zich net aanmeldde, want een lid mag
+    # er meerdere hebben en de bevestiging gaat naar wat hier komt te staan. Op
+    # submit overschrijft extra["values"] deze defaults.
     email, mobile = _aanmeldadres(request), _person_mobile(person)
     prefill: dict = {}
     if email:
