@@ -666,6 +666,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q14 | 27 Sep 2026 | Does the Mollie screen keep working; what if nobody ever pays at Mollie? (Koen) | Unchanged: the redirect is HTTP, not an event; the webhook re-fetch stays. Never paid → record `failed`/`cancelled` via `MOLLIE_STATUS_MAP`, registration stays with an open balance, no clean-up or reminder today. Koen: leave Mollie as it is. |
 | Q13 | 27 Sep 2026 | What happens when an admin reduces or deletes a registration that was (partly) paid, and how do events fit? (Koen) | `reconcile_charges`: paid amounts are the truth, the outstanding is reduced to one post — a new charge if more is due, a pending refund (treasurer confirms) if less; a deletion reconciles to 0 first, records stay. Nobody is told today. With events: `OrderChanged` → payment reconciles → `RefundDue` → workflow task, and mail can subscribe. B4.9. |
 | Q12 | 27 Sep 2026 | Domain events — useful? Must or Should; who publishes? (Koen / Claude) | Koen: Must, and the service publishes. Measured: the dispatcher exists and is bypassed in three places; B4.9. |
 | Q11 | 27 Sep 2026 | Are #236's six execution issues still relevant? (Koen) | #755 and #757 are phases 0 and 1; #758 and #759 were already outside; #760 and #761 taken out on Koen's decision — they were in CR-04's five numbers because of the validation day, not because they are about a rule's home. |
@@ -693,6 +694,12 @@ difference between an exemption list and a burn-down.
   because this CR needs a home for the rule, and #781 fills the rest.
 - **No Alpine gate** — the CR-12 limit (gate 8) applies here too.
 - **No query logic on entities**, ever — that is the boundary, not a phase.
+- **Mollie stays as it is** (Koen, 27 Sep): the checkout redirect
+  (`HX-Redirect` to the `checkout_url`) and the webhook's re-fetch are
+  untouched; phase 2 only moves the status decision to `mark_paid()`. A
+  payment never completed at Mollie leaves the registration standing with
+  an open balance, as today; no expiry job, no reminder — a policy question
+  for its own issue, for which `PaymentExpired` would then be the event.
 
 ## Relationship to existing work
 
