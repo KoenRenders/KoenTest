@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.mdm.api import Person, MemberPerson
 from app.domains.mdm.api import ContactDetail
+from app.domains.mdm.api import ContactType, RelationType
 
 
 def find_persons_by_email(db: Session, email: str) -> List[Person]:
@@ -24,7 +25,7 @@ def find_persons_by_email(db: Session, email: str) -> List[Person]:
         db.query(Person)
         .join(ContactDetail, ContactDetail.person_id == Person.id)
         .filter(
-            ContactDetail.contact_type_code == "EMAIL",
+            ContactDetail.contact_type_code == ContactType.EMAIL,
             func.lower(ContactDetail.value) == email.strip().lower(),
         )
         .all()
@@ -62,6 +63,6 @@ def login_person_for_email(db: Session, email: str) -> Optional[Person]:
     if status != "ok":
         return None
     for p in persons:
-        if any(mp.member_id == member_id and mp.relation_type == "HOOFDLID" for mp in p.member_persons):
+        if any(mp.member_id == member_id and mp.relation_type == RelationType.PRIMARY_MEMBER for mp in p.member_persons):
             return p
     return persons[0]

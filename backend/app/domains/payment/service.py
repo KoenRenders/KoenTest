@@ -9,6 +9,7 @@ from app.domains.membership.api import Membership
 from app.domains.mdm.api import MemberPerson, Person
 from app.domains.audit.api import snapshot_payment_record
 from app.kernel.codes import code_of
+from app.domains.mdm.api import ContactType, RelationType
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn
 # meteen toont wat de gateway/admin-refresh meldde i.p.v. een generiek label.
@@ -340,7 +341,7 @@ def family_payables(db: Session, family_id: int) -> set:
         MemberPerson.member_id == family_id).all()]
     emails = [r[0].strip().lower() for r in q(ContactDetail.value).filter(
         ContactDetail.person_id.in_(person_ids or [0]),
-        ContactDetail.contact_type_code == "EMAIL").all() if r[0]]
+        ContactDetail.contact_type_code == ContactType.EMAIL).all() if r[0]]
     voorwaarden = []
     if person_ids:
         voorwaarden.append(Registration.person_id.in_(person_ids))
@@ -1149,7 +1150,7 @@ def enriched_records(db: Session) -> list:
             leden = {m.id for m in _q(Member).filter(Member.id.in_(member_ids)).all()}
             koppels = _q(MemberPerson).filter(
                 MemberPerson.member_id.in_(leden),
-                MemberPerson.relation_type == "HOOFDLID").all()
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER).all()
             personen = {}
             if koppels:
                 personen = {p.id: p for p in _q(Person)

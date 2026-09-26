@@ -30,7 +30,13 @@
         <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
         {# Alle invulbare velden zichtbaar in leesmodus (Koen, 15 sep — de
            golf 8-regel geldt ook hier): het geslacht ontbrak als enige. #}
-        {% set geslacht = gender_codes | selectattr("code", "equalto", m.gender) | map(attribute="value") | first | default(none) %}
+        {# CR-12 fase 2: het label kwam hier uit de KEUZELIJST, en dat brak zodra
+           een code ingetrokken werd — `U` staat niet meer in de dropdown, en dan
+           kon een persoon met die code niet meer renderen. Een keuzelijst zegt
+           wat je mág kiezen; een label zegt hoe een waarde heet. Dat zijn twee
+           vragen, en `code_label` beantwoordt de tweede — ook voor een
+           ingetrokken code, want haar labelrij blijft staan. #}
+        {% set geslacht = m.gender | code_label("gender") %}
         {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth.strftime("%d-%m-%Y") }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}

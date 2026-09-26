@@ -53,6 +53,7 @@ from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 from app.i18n import _
 from app.kernel.clock import belgian_today
+from app.domains.mdm.api import ContactType
 
 router = APIRouter(tags=["activities"])
 
@@ -776,7 +777,7 @@ def _inschrijver(current_member) -> str:
     if current_member is None:
         return PUBLIEKE_ACTOR
     mail = next((c.value for c in getattr(current_member, "contact_details", [])
-                 if c.contact_type_code == "EMAIL"), None)
+                 if c.contact_type_code == ContactType.EMAIL), None)
     return mail or PUBLIEKE_ACTOR
 
 

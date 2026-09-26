@@ -38,6 +38,8 @@ from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import ExternalNumber
 from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
+from app.domains.mdm.models import ContactType
+from app.kernel.codes import code_of
 from app.domains.audit.api import (
     snapshot_person,
     snapshot_member,
@@ -54,7 +56,9 @@ LEGACY_SOURCE = "ledenadministratie"
 IMPORT_YEAR = 2026
 
 # Rapportkolom → contacttype.
-_CONTACT_FIELDS = (("EMAIL", "email"), ("PHONE", "telefoon"), ("MOBILE", "gsm"))
+_CONTACT_FIELDS = ((ContactType.EMAIL, "email"),
+                   (ContactType.PHONE, "telefoon"),
+                   (ContactType.MOBILE, "gsm"))
 
 
 @dataclass
@@ -237,9 +241,14 @@ def _apply_person_fields(person: Person, row: dict) -> None:
 
 # ── Contacten ───────────────────────────────────────────────────────────────
 
-def _upsert_contact(db: Session, person: Person, type_code: str, value: str | None,
+def _upsert_contact(db: Session, person: Person, type_code, value: str | None,
                     is_primary: bool, *, apply: bool, actor: str | None = None) -> None:
     """Maak/werk bij/verwijder één contactgegeven; snapshot elke wijziging."""
+    # Omzetten op de grens (CR-12 fase 2): de aanroepers hier geven de code als
+    # string door, de kolom draagt sinds deze fase het lid. Zonder deze regel
+    # vindt de zoekopdracht hieronder nooit een bestaande rij en probeert de
+    # import een tweede toe te voegen — wat de unieke index terecht weigert.
+    type_code = ContactType(type_code)
     existing = next((c for c in person.contact_details
                      if c.contact_type_code == type_code), None)
     if value:
@@ -274,9 +283,9 @@ def _upsert_contact(db: Session, person: Person, type_code: str, value: str | No
 def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool,
                    actor: str | None = None) -> None:
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, "EMAIL", row["email"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, "PHONE", row["telefoon"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, "MOBILE", row["gsm"], not has_phone, apply=apply, actor=actor)
+    _upsert_contact(db, person, ContactType.EMAIL, row["email"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, ContactType.PHONE, row["telefoon"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, ContactType.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────
@@ -466,7 +475,11 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
 
         _meld_onvolledig(row, report, existing)
         changes = _person_field_changes(existing, row)
-        rel_changed = mp is not None and mp.relation_type != row["_relatie"]
+        # `code_of`: de kolom draagt sinds CR-12 fase 2 een enum-lid en de
+        # rapportrij een code. Zonder deze stap is elke rij "gewijzigd" en
+        # meldt de import een wijziging die niet gebeurt.
+        rel_changed = (mp is not None
+                       and code_of(mp.relation_type) != row["_relatie"])
         if changes or rel_changed:
             report.persons_updated += 1
             label = ", ".join(changes) if changes else "—"

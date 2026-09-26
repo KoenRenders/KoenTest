@@ -11,9 +11,12 @@ from app.domains.mdm.models import (  # noqa: F401
     BankAccount,
     ContactDetail,
     ContactDetailHistory,
+    ContactType,
     ContactTypeCode,
+    ContactTypeLabel,
     ExternalNumber,
     GenderCode,
+    GenderLabel,
     IdentificationScheme,
     IdentificationSchemeLabel,
     Member,
@@ -25,12 +28,19 @@ from app.domains.mdm.models import (  # noqa: F401
     OrganizationPerson,
     OrganizationRelationType,
     OrganizationRelationTypeLabel,
+    OrganizationType,
+    OrganizationTypeCode,
+    OrganizationTypeLabel,
+    LegalForm,
+    LegalFormCode,
+    LegalFormLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
     Person,
     PersonHistory,
     PostalCode,
+    RelationType,
     RelationTypeCode,
 )
 # ── Doorgangen naar de ledenimport ───────────────────────────────────────────
@@ -108,7 +118,11 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
-from app.domains.mdm.codes import LANGUAGE, PAYMENT_METHOD  # noqa: F401,E402
+from app.domains.mdm.codes import (  # noqa: F401,E402
+    CONTACT_TYPE, GENDER, IDENTIFICATION_SCHEME, LANGUAGE, LEGAL_FORM,
+    ORGANIZATION_RELATION_TYPE, ORGANIZATION_TYPE, PAYMENT_METHOD,
+    RELATION_TYPE,
+)
 
 __all__ = [
     "LANGUAGE",
@@ -128,6 +142,13 @@ __all__ = [
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
     "PaymentMethod", "PaymentMethodCode", "PaymentMethodLabel",
     "PAYMENT_METHOD",
+    "ContactType", "ContactTypeLabel", "GenderLabel",
+    "LegalForm", "LegalFormCode", "LegalFormLabel",
+    "OrganizationType", "OrganizationTypeCode", "OrganizationTypeLabel",
+    "RelationType", "RelationTypeLabel",
+    "GENDER", "CONTACT_TYPE", "RELATION_TYPE", "LEGAL_FORM",
+    "ORGANIZATION_TYPE", "ORGANIZATION_RELATION_TYPE",
+    "IDENTIFICATION_SCHEME",
     "Person", "PersonHistory", "PostalCode", "RelationTypeCode",
     "MergeError", "merge_persons", "resolve", "unmerge_person",
     "tenant_codes", "invalidate_tenant_codes",

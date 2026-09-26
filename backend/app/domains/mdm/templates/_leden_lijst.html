@@ -4,7 +4,12 @@
 {% if families %}
 <div class="space-y-3">
   {% for f in families %}
-  {% set primary = (f.members | selectattr("relation_type", "equalto", "HOOFDLID") | list | first) or (f.members | first) %}
+  {# CR-12 fase 2: hier stond `selectattr("relation_type", "equalto", "HOOFDLID")`.
+     Met een gewone `Enum` op die kolom is die vergelijking stil onwaar, en dan
+     valt de lijst terug op "de eerste persoon" zonder dat iets klaagt. §B4.7
+     zegt het al: een sjabloon vergelijkt geen code. Wie het hoofdlid is, is
+     een regel, en die hoort bij het gezin — `f.primary` komt uit de service. #}
+  {% set primary = f.primary or (f.members | first) %}
   <a href="/admin/leden/gezin/{{ f.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
     <div class="flex items-start justify-between gap-3">

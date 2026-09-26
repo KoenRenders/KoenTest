@@ -18,6 +18,8 @@ from enum import Enum
 from typing import NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
+from app.kernel.codes import code_of
+from app.domains.mdm.api import ContactType
 
 from app.domains.activities.models import (ActiviteitFout, Activity, ActivityDate,
                                            ActivitySubRegistration, Registration)
@@ -1526,10 +1528,13 @@ def organisers_for(db, activity_id: int) -> list:
         return []
     person_ids = [r.person_id for r in rijen]
     personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
-    contacten: dict[tuple[int, str], str] = {}
+    contacten: dict[tuple[int, str | None], str] = {}
     for detail in (db.query(ContactDetail)
                    .filter(ContactDetail.person_id.in_(person_ids)).all()):
-        sleutel = (detail.person_id, (detail.contact_type_code or "").upper())
+        # CR-12 fase 2: de `.upper()` was een normalisatie omdat de kolom elke
+        # spelling aanvaardde. De codelijst doet dat nu; `code_of` geeft de
+        # code, of ze nu als lid of als kale code terugkomt.
+        sleutel = (detail.person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value
 
@@ -1541,8 +1546,8 @@ def organisers_for(db, activity_id: int) -> list:
         # ledenwaarde, en PAS DAARNA beslist de vlag of er iets naar buiten gaat.
         # Andersom zou een ingevulde override alsnog lekken terwijl het vinkje uit
         # staat — precies wat dit issue moet voorkomen.
-        email = rij.email_override or contacten.get((rij.person_id, "EMAIL"), "")
-        mobile = rij.mobile_override or contacten.get((rij.person_id, "MOBILE"), "")
+        email = rij.email_override or contacten.get((rij.person_id, ContactType.EMAIL.value), "")
+        mobile = rij.mobile_override or contacten.get((rij.person_id, ContactType.MOBILE.value), "")
         gezien.append(OrganiserView(
             id=rij.id, person_id=rij.person_id, name=naam,
             is_contact=bool(rij.is_contact),

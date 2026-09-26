@@ -11,7 +11,12 @@ from app.domains.auth.member_identity import (  # noqa: F401
     login_person_for_email,
     resolve_household,
 )
-from app.domains.auth.models import ApiKey, LoginToken, User, UserRole  # noqa: F401
+from app.domains.auth.models import (  # noqa: F401
+    ApiKey, LoginToken, Role, RoleCode, RoleLabel, User, UserRole,
+)
+# CR-12 fase 2: de rollenlijst hoort bij de publieke schil van dit domein,
+# zodat `workflow` haar FK-doel en haar enum via één deur bereikt.
+from app.domains.auth.codes import ROLE  # noqa: F401
 from app.domains.auth.service import (  # noqa: F401
     API_KEY_HEADER,
     create_access_token,
@@ -56,7 +61,8 @@ __all__ = [
     "check_otp", "consume_magic_link", "list_assignable_roles", "role_options",
     "start_login",
     "find_persons_by_email", "login_person_for_email", "resolve_household",
-    "ApiKey", "LoginToken", "User", "UserRole",
+    "ApiKey", "LoginToken", "Role", "RoleCode", "RoleLabel", "ROLE",
+    "User", "UserRole",
     "API_KEY_HEADER", "hash_api_key", "require_api_key",
     "create_access_token", "decode_token", "get_current_admin",
     "get_current_finance", "get_current_identity", "get_current_member",

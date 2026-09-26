@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
+from app.domains.mdm.models import ContactType
 
 logger = logging.getLogger(__name__)
 
@@ -120,15 +121,32 @@ def _uniek_op_code(rijen):
     return uit
 
 
+#: Wat een keuzelijst nodig heeft: de code en het woord ernaast. Sinds CR-12
+#: fase 2 komt dat uit `code_labels()`, dus uit de labeltabel en in
+#: `sort_order`. Een sjabloon dat deze lijst toont leest `.code` en `.value`,
+#: zoals het dat van de oude rijen deed — vandaar dit kleine ding in plaats van
+#: een tupel: de schermen hoefden niet mee te veranderen.
+class _Keuze:
+    __slots__ = ("code", "value")
+
+    def __init__(self, code: str, value: str):
+        self.code = code
+        self.value = value
+
+
+def _keuzes(lijst: str) -> list:
+    from app.kernel.codes import code_labels
+
+    return [_Keuze(code, label) for code, label in code_labels(lijst)]
+
+
 def form_code_lists(db) -> dict:
     """De keuzelijsten die de inschrijf- en ledenformulieren nodig hebben."""
-    from app.domains.mdm.models import GenderCode, PostalCode, RelationTypeCode
+    from app.domains.mdm.models import PostalCode
 
     return {
-        "gender_codes": _uniek_op_code(
-            db.query(GenderCode).order_by(GenderCode.code).all()),
-        "relation_types": _uniek_op_code(
-            db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
+        "gender_codes": _keuzes("gender"),
+        "relation_types": _keuzes("relation_type"),
         "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
     }
 
@@ -136,19 +154,14 @@ def form_code_lists(db) -> dict:
 def admin_code_lists(db) -> dict:
     """Geslacht en relatietype voor de beheerformulieren.
 
-    Nederlandstalige rijen als die er zijn, anders alles: de codetabellen zijn
-    per taal gevuld en een lege keuzelijst is erger dan een Engelstalige. Daarna
-    ontdubbelen op code, want dezelfde code bestaat per taal.
+    CR-12 fase 2: hier stond "Nederlandstalige rijen als die er zijn, anders
+    alles", plus een ontdubbeling op code — allebei omdat de oude codetabel één
+    rij per (code, taal) had en de code dus meerdere keren voorkwam. Met de
+    gesplitste vorm bestaat dat probleem niet meer: `code_labels()` geeft één
+    rij per actieve code, in de taal van de afdeling en in `sort_order`.
     """
-    from app.domains.mdm.models import GenderCode, RelationTypeCode
-
-    genders = (db.query(GenderCode).filter(GenderCode.language == "nl").all()
-               or db.query(GenderCode).all())
-    relations = (db.query(RelationTypeCode)
-                 .filter(RelationTypeCode.language == "nl").all()
-                 or db.query(RelationTypeCode).all())
-    return {"gender_codes": _uniek_op_code(genders),
-            "relation_types": _uniek_op_code(relations)}
+    return {"gender_codes": _keuzes("gender"),
+            "relation_types": _keuzes("relation_type")}
 
 
 def list_persons(db):
@@ -308,7 +321,7 @@ def _email_of(person: Person) -> Optional[str]:
     """The person's e-mail address, or None. `EMAIL` is the code the whole code
     base uses for it (auth, activities, audit all read it this way)."""
     for contact in getattr(person, "contact_details", []) or []:
-        if contact.contact_type_code == "EMAIL" and contact.value:
+        if contact.contact_type_code == ContactType.EMAIL and contact.value:
             return contact.value
     return None
 

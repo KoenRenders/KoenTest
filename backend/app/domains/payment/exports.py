@@ -19,6 +19,7 @@ from typing import Optional
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
+from app.domains.mdm.api import RelationType
 
 # CR-12 phase 1: `_METHOD`, `_STATUS` and `_TYPE` used to stand here — three
 # Dutch dictionaries that said the same as the screens next to them, with their
@@ -51,7 +52,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
         if ms:
             mp = q(MemberPerson).filter(
                 MemberPerson.member_id == ms.member_id,
-                MemberPerson.relation_type == "HOOFDLID",
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
             ).first()
             if mp:
                 p = q(Person).filter(Person.id == mp.person_id).first()

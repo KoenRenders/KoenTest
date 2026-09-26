@@ -18,6 +18,7 @@ from app.domains.mdm.api import PaymentMethod
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
+from app.domains.mdm.api import ContactType
 
 router = APIRouter(include_in_schema=False)
 
@@ -115,9 +116,9 @@ def _person_contacts(person) -> tuple[str, str]:
     email = mobile = ""
     if person is not None:
         for c in getattr(person, "contact_details", []) or []:
-            if c.contact_type_code == "EMAIL" and not email:
+            if c.contact_type_code == ContactType.EMAIL and not email:
                 email = c.value or ""
-            elif c.contact_type_code == "MOBILE" and not mobile:
+            elif c.contact_type_code == ContactType.MOBILE and not mobile:
                 mobile = c.value or ""
     return email, mobile
 

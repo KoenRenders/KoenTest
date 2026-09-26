@@ -83,7 +83,17 @@ def get_user_roles(db: Session, email: str) -> set:
         .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == actief))
         .all()
     )
-    return {r[0] for r in rows}
+    # CR-12 fase 2: de KOLOM draagt sinds deze fase een `Role`-lid, deze functie
+    # geeft de codes terug. Dat is een bewuste grens en geen vergetelheid.
+    #
+    # Dit is de autorisatieoppervlakte: negenendertig plaatsen vragen haar
+    # "welke rollen heb ik hier", en die vergelijken met verzamelingen als
+    # `{"ADMIN", "OPERATOR"} & rollen`. Die in dezelfde wijziging omzetten is
+    # precies de halve migratie waar dit CR zelf voor waarschuwt, op de ene
+    # plek waar een halve migratie een rechtenlek is. Wat de codelijst hier
+    # oplevert is dat de waarde gegarandeerd in de lijst staat — de databank
+    # weigert nu een rol die niet bestaat, en dat kon ze vóór deze fase niet.
+    return {r[0].value for r in rows}
 
 
 def get_user_role_rows(db: Session, email: str) -> list:
@@ -99,7 +109,8 @@ def get_user_role_rows(db: Session, email: str) -> list:
         .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
         .all()
     )
-    return [(r[0], r[1]) for r in rows]
+    # Codes, om dezelfde reden als in `get_user_roles` hierboven.
+    return [(r[0].value, r[1]) for r in rows]
 
 
 def get_current_identity(token: str = Depends(oauth2_scheme)) -> str:
