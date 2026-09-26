@@ -22,8 +22,6 @@ has to go.
 #: explicitly a net and not a proof: a column called `categorie` escapes it
 #: until someone registers it.
 FK_MISSING: frozenset[str] = frozenset({
-    'activities.activity_sub_registrations.registration_type_code',
-    'activities.registrations.registration_type',
     'ai.ai_call_log.provider',
     'ai.ai_call_log.status',
     'auth.login_tokens.otp_code',
@@ -46,7 +44,6 @@ FK_MISSING: frozenset[str] = frozenset({
 #: `TechnicalEnum`/`ExternalVocabulary` marker either.
 #: Key: `path/to/file.py:ClassName`.
 ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
-    'app/domains/activities/service.py:RegistrationState',
     'app/domains/reporting/universe.py:Role',
 })
 
@@ -66,13 +63,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
 #: Templates comparing a code to a string literal.
 #: Key: `path/to/template.html:attribute==value`.
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
-    'app/domains/activities/templates/_aa_rail.html:registration_state==closed',
-    'app/domains/activities/templates/_activiteiten_cards.html:registration_state==closed',
-    'app/domains/activities/templates/_activiteiten_cards.html:registration_state==open',
-    'app/domains/activities/templates/_activiteiten_cards.html:status!=Open',
-    'app/domains/activities/templates/activiteit.html:registration_state==closed',
-    'app/domains/activities/templates/activiteit.html:registration_state==open',
-    'app/domains/activities/templates/activiteit.html:status!=Open',
     'app/domains/forms/templates/_fb_resultaten.html:field_type==number',
     'app/domains/forms/templates/_fb_resultaten.html:field_type==rating',
     'app/domains/forms/templates/_formulier_veld.html:field_type==checkbox',

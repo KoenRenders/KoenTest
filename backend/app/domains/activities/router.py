@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.domains.auth.api import get_current_admin, get_current_member
 from app.database import get_db
+from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import ActivityDate, Activity, Registration, RegistrationItem
 from app.domains.auth.api import User
 from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
@@ -880,7 +881,7 @@ def register_for_activity(
     registration = Registration(
         activity_id=activity_id,
         component_id=data.component_id,
-        registration_type="INDIVIDUAL",
+        registration_type=INDIVIDUAL,
         contact_name=data.contact_name,
         contact_email=data.contact_email,
         phone=data.phone,

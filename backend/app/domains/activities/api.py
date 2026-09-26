@@ -7,6 +7,9 @@ uitsluitend hier — server-side, één plek (§19.3).
 # Volgorde bewust: eerst de modellen binden, dan pas de services — zo kan een
 # component dat middenin deze import (indirect) terugverwijst de modelnamen al
 # vinden (zelfde patroon als payment.api).
+from app.domains.activities.codes import (  # noqa: F401
+    INDIVIDUAL, REGISTRATION_STATE, REGISTRATION_TYPE,
+)
 from app.domains.activities.models import (  # noqa: F401
     Activity,
     ActivityDate,
@@ -158,6 +161,7 @@ from app.domains.activities.service import (  # noqa: F401
 
 __all__ = [
     "RegistrationState", "registration_refusal", "registration_state",
+    "INDIVIDUAL", "REGISTRATION_STATE", "REGISTRATION_TYPE",
     "ActivityOption", "activity_options", "get_activity", "get_component",
     "INSCHRIJVING_SORT_VELDEN", "booked_per_component", "get_registration",
     "inschrijving_kop_ctx", "sorteer_inschrijvingen",

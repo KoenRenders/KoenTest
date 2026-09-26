@@ -16,7 +16,7 @@
            hoort bij het onderdeel, dus de rail toont ze alleen wanneer ze voor élk
            onderdeel dezelfde is; verschillen ze, dan staan ze bij de onderdelen. #}
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Inschrijven tot") }}</dt>
-          <dd>{% if rail_deadline %}{{ rail_deadline | langedatum }}{% if a.registration_state == "closed" %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% elif rail_deadline_verschilt %}{{ _("verschilt per onderdeel") }}{% else %}—{% endif %}</dd></div>
+          <dd>{% if rail_deadline %}{{ rail_deadline | langedatum }}{% if a.registration_closed %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% elif rail_deadline_verschilt %}{{ _("verschilt per onderdeel") }}{% else %}—{% endif %}</dd></div>
       </dl>
       {# Deel de activiteit (feedbackronde): de publieke lijst, verankerd op deze
          kaart. Een echte activiteitspagina bestaat nog niet — zie het
