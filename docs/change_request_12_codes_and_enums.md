@@ -316,8 +316,8 @@ flowchart TB
   the `public` orphans. Idempotent, as every migration here.
 - **Backups:** the DB backup before the UAT/PROD deploy is the **only way
   back** for v2.7.0 (renames are not image-revertible, B7); all phases ship
-  in that one tag, so the restore point is the whole release; the dump is
-  verified before the deploy.
+  in that one tag, so the restore point is the whole release — accepted by
+  Koen on 26 September 2026; the dump is verified before the deploy.
 - **Limits / kill switch:** none needed — the label cache is a few hundred
   rows per process.
 - **Cache refresh:** labels change only by migration, so a process-level
@@ -806,6 +806,24 @@ on `EMAIL` and `MOBILE` — comes from the named constants. Two readers, two
 reasons: a reader of #1160 needs this one; a reader of B4.8 needs the
 union-type one above.
 
+**And the split has a second, stronger reason than "the #924 shape"** —
+measured on HDEV by the master CLI. Today `mdm.contact_type_codes` has the
+composite key `(code, language)` and `is_social_network` sits on that same
+row: the flag is *per language*. It works because there is exactly one
+language row per code (seven codes, all `nl`). #1160's footer builds a dict
+keyed on `code`; the moment an `en` row arrives, two rows collide on one key
+and which `value` and which flag wins is undefined — #929's defect, on this
+table. After the split the flag lives on the code table (one row per code)
+and the labels on the label table (one per code per language), which is the
+only shape in which "a fifth network is one row" stays true in two
+languages. **The phase-2 migration must therefore move `is_social_network`
+from the `(code, language)` row to the code row, and check — not assume —
+that no two language rows of one code carry contradicting flags**: log the
+count, abort on a contradiction, the same guard shape as B4.6. Not the case
+today (one language); checked anyway. For precision: `value` is the shown
+word (the footer uses it as `aria-label`; what is visible is the icon, which
+hangs on the code), and `description` is nullable.
+
 On the spellings: the stored code has always been `MOBILE`; the lower-case
 `"mobile"` (13×) is a form-field name and a view-model attribute, not a
 stored value — two different things, no inconsistency. `CLAUDE.md`'s
@@ -909,16 +927,14 @@ phase two releases, **nine releases instead of one** for five phases, and
 would have reworked phase 2 retroactively. That price, against a net that
 already exists, is why it was not chosen.
 
-**One release, one tag, one restore point — a risk to know, not a
-recipe to change.** Koen decided (26 September) that all phases ship in
-v2.7.0, one release; a tag carries all its migrations, so they reach PROD
-together. The restore point is therefore the whole release, not a phase:
-a restore throws away every phase's work, and after it nobody can say which
-phase caused the problem. That is the price of one release, and it is
-Koen's to pay — the document does not split the release on its own
-account. What it does ask: the dump before the PROD deploy is verified for
-validity before the deploy, and the deploy verification (the six lines of
-`CLAUDE.md`) names every `Running upgrade` line of the release.
+**One release, one tag, one restore point — decided.** Koen (26 September
+2026): all phases ship in v2.7.0 as one tag; a restore takes all five
+migrations back together, and he accepts that after a restore nobody can say
+which phase caused the problem. Several tags was proposed and rejected.
+What the document asks in return: the dump before the PROD deploy is
+verified for validity before the deploy, and the deploy verification (the
+six lines of `CLAUDE.md`) names every `Running upgrade` line of the
+release.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
@@ -1173,7 +1189,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
 | 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` retired, not deleted (`O` turned out not to exist — 004 renamed it to `X`). | Koen |
 | 26 Sep 2026 | Contact type gets no enum; `partial=True` on `EnumColumn` is rejected for the pattern (union type); branching goes through `is_social_network` and two named `Code` constants on the `CodeList` (B5.3 note 3). | author, on the master CLI's recommendation — **Koen to confirm** |
-| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; the final form is "shippable on its own; recovery is forward or a DB restore, the dump verified before the deploy". **Expand/contract rejected** (nine releases instead of one, retroactive rework of migration 154); phase 2 stays a rename. All phases ship together in v2.7.0 (one tag); the restore point is the whole release — recorded as a risk, not changed. | Koen (*"enkel via backup-restore kunnen terugdraaien is prima"*), relayed by the master CLI |
+| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; the final form is "shippable on its own; recovery is forward or a DB restore, the dump verified before the deploy". **Expand/contract rejected** (nine releases instead of one, retroactive rework of migration 154); phase 2 stays a rename. All phases ship together in v2.7.0 (one tag); the restore point is the whole release, and that a restore cannot tell which phase caused it is accepted; several tags rejected. | Koen (*"enkel via backup-restore kunnen terugdraaien is prima"*), relayed by the master CLI |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
@@ -1189,6 +1205,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q23 | 26 Sep 2026 | Master CLI: `is_social_network` sits on the `(code, language)` row of the unsplit table — per language; a second language row would collide in #1160's dict. | Taken into note 3 as the second reason for the split, with a guard in the phase-2 migration (move the flag to the code row, abort on contradicting flags). Koen accepts the release-level restore point; several tags rejected — B3/B7 now carry his yes. |
 | Q22 | 26 Sep 2026 | Does taking the enum off contact types break the data-driven footer of #1160? (Koen) | No — the reverse: the footer reads rows by `is_social_network`; the risk was a strict enum column refusing a new row on write. Without enum + FK the list stays one-row extensible. Answered by the master CLI; the decision itself still awaits Koen's explicit yes. |
 | Q21 | 26 Sep 2026 | Expand/contract for the remaining phases, or restore as the only way back? (Claude, via the master CLI) | Koen: restore is fine. Expand/contract rejected with its price. All phases in one release (v2.7.0), as Koen decided earlier — the "one phase per PROD deploy" line that briefly stood here was the master CLI's and contradicted that; withdrawn. |
 | Q20 | 26 Sep 2026 | Does the gate need a mechanism to accept `CodeList` constants; should #1189 wait for the expand/contract answer? (Claude) | Master CLI: no — the gate only sees literals, so constants pass today; the `NewType` buys type safety, not compliance; the gate cannot tell a registry constant from another one and that check is not built. No — #1189 does not wait; the price of expand/contract (nine releases) goes next to the option. |
