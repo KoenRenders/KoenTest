@@ -17,7 +17,7 @@ screen, import), and the shape a new module takes from its first commit.
 
 ## A1. Reason to act
 
-The trigger is the pain of 8 September 2026, not the CRM module. A
+The trigger is the pain of 8 September 2026. A
 validation round that day produced seventeen findings, and four of them —
 #720, #727, #733, #681 — were the same defect: a rule enforced on one
 entrance and not on another. The public form demanded a mobile number; the
