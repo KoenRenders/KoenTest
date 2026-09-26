@@ -33,6 +33,77 @@
   // fragment dat na elke opslag opnieuw geswapt wordt. Een functie op window
   // overleeft die swap; een <script> in het fragment zou bij elke opslag opnieuw
   // uitgevoerd worden (#634).
+  // #1224: een ingevoegde afbeelding moet ook nog te bewerken zijn — maat én
+  // alt-tekst. Beide zitten in de bijlage-gegevens (#1173, #1207) en waren tot nu
+  // toe alleen bij het invoegen te zetten; wijzigen betekende verwijderen en
+  // opnieuw invoegen.
+  //
+  // De knop staat in de werkbalk die de EDITOR ZELF toont zodra je een bijlage
+  // aanklikt, naast zijn Remove-knop. Dat is de plek die Koen zelf vond, en het
+  // scheelt een tweede bedieningsplek voor hetzelfde ding. Gemeten vorm van die
+  // werkbalk:
+  //   div.attachment__toolbar > div.trix-button-row
+  //     > span.trix-button-group--actions > button.trix-button--remove
+  // De werkbalk wordt pas bij het selecteren aangemaakt en daarna weer weggegooid,
+  // dus een MutationObserver hangt de knop erin — één keer per werkbalk.
+  //
+  // Welke bijlage het is, komt uit `composition.editingAttachment`: gemeten geeft
+  // die exact de aangeklikte bijlage mét onze eigen sleutels erin. We houden hem
+  // vast op het moment van klikken, want het dialoogje neemt de focus over.
+  var bewerkteBijlage = null;
+
+  function voegBewerkknopToe(werkbalk) {
+    var groep = werkbalk.querySelector(".trix-button-group--actions");
+    if (!groep || groep.querySelector("[data-raak-beeld-bewerken]")) { return; }
+    var knop = document.createElement("button");
+    knop.type = "button";
+    knop.className = "trix-button";
+    knop.setAttribute("data-raak-beeld-bewerken", "");
+    knop.textContent = "Bewerken";
+    knop.title = "Maat en alternatieve tekst wijzigen";
+    knop.addEventListener("click", function (e) {
+      e.preventDefault();
+      var editor = document.getElementById("cp-trix").editor;
+      bewerkteBijlage = editor.composition.editingAttachment;
+      if (!bewerkteBijlage) { return; }
+      var attrs = bewerkteBijlage.getAttributes();
+      window.dispatchEvent(new CustomEvent("raak-beeld-bewerken", { detail: {
+        url: attrs.url, alt: attrs.alt || "", size: attrs.size || "vol",
+        width: attrs.width || null, height: attrs.height || null,
+      } }));
+    });
+    groep.appendChild(knop);
+  }
+
+  new MutationObserver(function (mutaties) {
+    mutaties.forEach(function (m) {
+      Array.prototype.forEach.call(m.addedNodes, function (node) {
+        if (node.nodeType !== 1) { return; }
+        if (node.classList && node.classList.contains("attachment__toolbar")) {
+          voegBewerkknopToe(node);
+        } else if (node.querySelector) {
+          var wb = node.querySelector(".attachment__toolbar");
+          if (wb) { voegBewerkknopToe(wb); }
+        }
+      });
+    });
+  }).observe(document.body, { childList: true, subtree: true });
+
+  // Bevestigen in bewerkmodus werkt de BESTAANDE bijlage bij. `setAttributes`
+  // doet dat in place — gemeten: één figuur vóór en één erna, met de nieuwe
+  // waarden in de verborgen invoer. Een tweede `insertAttachment` zou er een
+  // afbeelding bij zetten in plaats van deze te wijzigen.
+  window.updatePageImage = function (image, alt, maat) {
+    if (!bewerkteBijlage || !alt || !alt.trim()) { return; }
+    var attrs = bewerkteBijlage.getAttributes();
+    bewerkteBijlage.setAttributes(Object.assign({}, attrs, {
+      url: (image && image.url) || attrs.url,
+      alt: alt.trim(),
+      size: maat || "vol",
+    }));
+    bewerkteBijlage = null;
+  };
+
   window.insertPageImage = function (image, alt, maat) {
     if (!image || !alt || !alt.trim()) { return; }
     // De alt gaat in de attachment-JSON en NIET als `<img alt>`: Trix' parser
