@@ -130,6 +130,26 @@ class CodeList:
     #: A list with no storing column of its own (§B5.3 note 4): the FK gate
     #: expects nothing, the label gate still does.
     derived: bool = False
+    #: The enum covers only the codes the code branches on, not the whole
+    #: table. Declared per list and never the default, because "enum == codes"
+    #: is what makes a retired code read back as a member instead of a bare
+    #: string (§B4.3) — giving that up has to be a decision somebody wrote down.
+    #:
+    #: The case that forced it is `contact_type`. Python branches on `EMAIL`
+    #: and `MOBILE`, so §B4.3 asks for an enum. But #1160 deliberately made the
+    #: public footer grow with a **row**: a fifth social network is data, not
+    #: code. Both cannot hold for the storing column at once — an `EnumColumn`
+    #: would refuse a network that has no member. So this list keeps its enum
+    #: for the branching, keeps its column a plain `String` with the foreign
+    #: key, and says here that the two sets differ on purpose.
+    enum_is_partial: bool = False
+    #: Columns on the *code* table beyond the four of §B4.2, because they are
+    #: data about the code rather than a label. `is_social_network` on the
+    #: contact types is the case that made this necessary (#1160): the public
+    #: footer asks the source which codes are social networks instead of
+    #: keeping a list of its own. Declared here and not tolerated silently, so
+    #: the shape gate still says exactly what a table may contain.
+    extra_code_columns: tuple[str, ...] = ()
     tones: dict[str, str] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
@@ -210,8 +230,15 @@ class EnumColumn(TypeDecorator):
     impl = String
     cache_ok = True
 
-    def __init__(self, enum_cls: type[Enum], length: int | None = None, **kw: Any):
+    def __init__(self, enum_cls: type[Enum], length: int | None = None,
+                 partial: bool = False, **kw: Any):
         self.enum_cls = enum_cls
+        #: The enum covers only part of the list (see `CodeList.enum_is_partial`).
+        #: A code with no member then reads back as the **code**, not as an
+        #: error: it is a value nothing branches on, and the foreign key already
+        #: guarantees it is in the list. Without this, a list that is meant to
+        #: grow by a row could not grow at all.
+        self.partial = partial
         super().__init__(length=length, **kw)
 
     def process_bind_param(self, value: Any, dialect: Any) -> str | None:
@@ -222,6 +249,11 @@ class EnumColumn(TypeDecorator):
         if isinstance(value, str):
             # A raw code is accepted — a migration or a form may hand one over —
             # but only when it really is a code of this list.
+            if self.partial:
+                try:
+                    return str(self.enum_cls(value).value)
+                except ValueError:
+                    return value
             return str(self.enum_cls(value).value)
         raise TypeError(
             f"{self.enum_cls.__name__}: cannot store {value!r} ({type(value).__name__}); "
@@ -233,6 +265,8 @@ class EnumColumn(TypeDecorator):
         try:
             return self.enum_cls(value)
         except ValueError:
+            if self.partial:
+                return value
             raise ValueError(
                 f"{self.enum_cls.__name__}: the database holds {value!r}, which is "
                 f"not one of {[m.value for m in self.enum_cls]}. A retired code stays "
@@ -240,9 +274,14 @@ class EnumColumn(TypeDecorator):
             ) from None
 
 
-def _coerce_on_assignment(enum_cls: type[Enum]) -> Any:
+def _coerce_on_assignment(enum_cls: type[Enum], partial: bool) -> Any:
     def coerce(target: Any, value: Any, oldvalue: Any, initiator: Any) -> Any:
         if isinstance(value, str):
+            if partial:
+                try:
+                    return enum_cls(value)
+                except ValueError:
+                    return value
             return enum_cls(value)
         return value
     return coerce
@@ -275,7 +314,8 @@ def install_enum_coercion() -> None:
             column = prop.columns[0]
             if isinstance(column.type, EnumColumn):
                 event.listen(getattr(cls, prop.key), "set",
-                             _coerce_on_assignment(column.type.enum_cls),
+                             _coerce_on_assignment(column.type.enum_cls,
+                                                   column.type.partial),
                              retval=True)
 
 
@@ -324,14 +364,24 @@ def _language() -> str:
     return (current_locale.get() or FALLBACK_LANGUAGE).replace("-", "_").split("_")[0]
 
 
-def _labels_of(name: str, language: str) -> dict[str, str]:
+def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
+    lst = code_list(name)
+    if db is not None:
+        # Met een meegegeven sessie: lezen door die sessie heen en NIET cachen.
+        # Nodig waar de aanroeper een lijst net gewijzigd heeft en de wijziging
+        # nog in zijn transactie staat — de eigen sessie van de kernel ziet die
+        # per definitie niet. Zo'n aanroeper is zeldzaam (een beheerscherm, een
+        # test); het gewone pad blijft gecached.
+        rows = db.execute(
+            sa.select(lst.labels.code, lst.labels.value)
+            .where(lst.labels.language == language)).all()
+        return {code: value for code, value in rows}
     key = (name, language)
     if key not in _label_cache:
         from app.database import SessionLocal
 
-        lst = code_list(name)
-        with SessionLocal() as db:
-            rows = db.execute(
+        with SessionLocal() as own:
+            rows = own.execute(
                 sa.select(lst.labels.code, lst.labels.value)
                 .where(lst.labels.language == language)
             ).all()
@@ -339,22 +389,23 @@ def _labels_of(name: str, language: str) -> dict[str, str]:
     return _label_cache[key]
 
 
-def _active_of(name: str) -> list[str]:
+def _active_of(name: str, db: Any = None) -> list[str]:
+    lst = code_list(name)
+    query = (sa.select(lst.codes.code)
+             .where(lst.codes.is_active.is_(True))
+             .order_by(lst.codes.sort_order, lst.codes.code))
+    if db is not None:
+        return [row[0] for row in db.execute(query).all()]
     if name not in _active_cache:
         from app.database import SessionLocal
 
-        lst = code_list(name)
-        with SessionLocal() as db:
-            rows = db.execute(
-                sa.select(lst.codes.code)
-                .where(lst.codes.is_active.is_(True))
-                .order_by(lst.codes.sort_order, lst.codes.code)
-            ).all()
-        _active_cache[name] = [row[0] for row in rows]
+        with SessionLocal() as own:
+            _active_cache[name] = [row[0] for row in own.execute(query).all()]
     return _active_cache[name]
 
 
-def code_label(name: str, code: Any, language: str | None = None) -> str:
+def code_label(name: str, code: Any, language: str | None = None,
+               db: Any = None) -> str:
     """The human text of one code, in the active language.
 
     Falls back to `nl`, and then to the code itself so a screen never renders
@@ -370,7 +421,7 @@ def code_label(name: str, code: Any, language: str | None = None) -> str:
     wanted = language or _language()
     stored = _code_of(code)
     for candidate in (wanted, FALLBACK_LANGUAGE):
-        text = _labels_of(name, candidate).get(stored)
+        text = _labels_of(name, candidate, db).get(stored)
         if text:
             return text
     if (name, stored) not in _missing_logged:
@@ -380,13 +431,15 @@ def code_label(name: str, code: Any, language: str | None = None) -> str:
     return stored
 
 
-def code_labels(name: str, language: str | None = None) -> list[tuple[str, str]]:
+def code_labels(name: str, language: str | None = None,
+                db: Any = None) -> list[tuple[str, str]]:
     """The `(code, label)` pairs of the **active** codes, in `sort_order`.
 
     This is what a select list and a report dimension iterate over — the last
     place where a Python list decided in which order a user sees the options.
     """
-    return [(code, code_label(name, code, language)) for code in _active_of(name)]
+    return [(code, code_label(name, code, language, db))
+            for code in _active_of(name, db)]
 
 
 def tone(name: str, code: Any) -> str:
@@ -432,6 +485,7 @@ def create_code_list(
     fk_from: Iterable[str] = (),
     code_length: int = 50,
     value_length: int = 150,
+    extra_columns: Sequence[Any] = (),
 ) -> None:
     """Create one list — both tables, the seed rows and the foreign keys.
 
@@ -464,6 +518,8 @@ def create_code_list(
             sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
                       server_default=sa.func.now()),
+            # Eigenschappen ván de code, geen labels (zie `extra_code_columns`).
+            *extra_columns,
             schema=schema,
         )
     if not _has_table(op, schema, labels_table):

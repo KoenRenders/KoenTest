@@ -113,8 +113,13 @@ def _template_files() -> list[Path]:
 def collect_enums_without_list() -> dict[str, str]:
     """`Enum` classes with no `CodeList` and no marker → key: message."""
     load_all_models()
-    in_a_list = {lst.enum.__name__ for lst in registry().values()
-                 if lst.enum is not None}
+    # Op module én naam, niet op naam alleen. Gemeten in fase 2: zodra
+    # `auth.models.Role` in een CodeList zat, hield deze gate ook
+    # `reporting.universe.Role` voor gedekt — een andere klasse met dezelfde
+    # naam. Een gate die een naam vergelijkt in plaats van een ding, dekt stil
+    # te veel, en dat is erger dan te weinig.
+    in_a_list = {(lst.enum.__module__, lst.enum.__name__)
+                 for lst in registry().values() if lst.enum is not None}
     markers = {TechnicalEnum.__name__, ExternalVocabulary.__name__}
     found: dict[str, str] = {}
     for file in _python_files():
@@ -133,7 +138,9 @@ def collect_enums_without_list() -> dict[str, str]:
                 # instance of it. Without this line the kernel sits on its own
                 # ratchet.
                 continue
-            if node.name in in_a_list:
+            module = (str(file.relative_to(APP.parent))
+                      .removesuffix(".py").replace("/", "."))
+            if (module, node.name) in in_a_list:
                 continue
             found[f"{_path(file)}:{node.name}"] = (
                 f"{_path(file)}:{node.lineno} — `{node.name}` is an Enum without a "
@@ -371,10 +378,17 @@ def test_every_enum_covers_exactly_its_codes(db_session):
         for value in sorted(in_the_enum - in_the_table):
             errors.append(f"`{lst.enum.__name__}` has a member with value `{value}` "
                           f"and no row in `{lst.codes_table}`")
+        if lst.enum_is_partial:
+            # Declared partial: the enum covers what the code branches on, the
+            # table may hold more. Only the other direction is checked, because
+            # a member without a row is still a member nothing can store.
+            continue
         for code in sorted(in_the_table - in_the_enum):
             errors.append(f"`{lst.codes_table}` has code `{code}` with no member in "
                           f"`{lst.enum.__name__}` — a retired code keeps its member "
-                          f"too")
+                          f"too. If the table is meant to hold more than the code "
+                          f"branches on, declare `enum_is_partial=True` with the "
+                          f"reason")
     assert not errors, "\n".join(errors)
 
 
@@ -427,8 +441,11 @@ def test_no_new_loose_string_comparison():
 #: Dutch words that appear, or threaten to appear, as an enum member name. Not
 #: a dictionary: a net, in the spirit of #780. The *value* may be Dutch — that
 #: is stored data — the NAME may not.
+#: "PARTNER" stond hier en is eruit: het is ook een Engels woord, en de
+#: catalogus van §B5.3 geeft `PARTNER` als lidnaam. Een net dat een juist
+#: lid afkeurt, kost meer dan het opbrengt.
 DUTCH_WORDS = {
-    "HOOFDLID", "PARTNER", "KIND", "GEZIN", "LID", "LEDEN", "BEDRIJF",
+    "HOOFDLID", "KIND", "GEZIN", "LID", "LEDEN", "BEDRIJF",
     "VERENIGING", "FEITELIJKE", "VERSTUURD", "BETAALD", "OPENSTAAND",
     "VEREFFEND", "GEANNULEERD", "MISLUKT", "AFWACHTING", "VERSLAG",
     "OVERSCHRIJVING", "CONTANT", "LIJN", "KLEUR", "BEELD", "TEKST",
@@ -474,14 +491,17 @@ def test_every_list_has_the_shape_the_helper_writes(db_session):
     inspector = inspect(db_session.bind)
     errors = []
     for lst in registry().values():
-        for table, expected in ((f"{lst.name}_codes", CODES_COLUMNS),
-                                (f"{lst.name}_labels", LABELS_COLUMNS)):
+        for table, expected in (
+                (f"{lst.name}_codes", CODES_COLUMNS | set(lst.extra_code_columns)),
+                (f"{lst.name}_labels", LABELS_COLUMNS)):
             present = {c["name"] for c in
                        inspector.get_columns(table, schema=lst.schema)}
             if present != expected:
                 errors.append(
                     f"`{lst.schema}.{table}` has columns {sorted(present)}, "
-                    f"expected {sorted(expected)}")
+                    f"expected {sorted(expected)} — an extra column on a code "
+                    f"table is allowed, but it has to be declared in the "
+                    f"CodeList's `extra_code_columns` with the reason")
         language_fk = [fk for fk in inspector.get_foreign_keys(
                            f"{lst.name}_labels", schema=lst.schema)
                        if fk["constrained_columns"] == ["language"]]
@@ -589,7 +609,32 @@ def test_every_ratchet_looks_somewhere(name):
     the frozen entries are still found is the proof that the walk works.
     """
     found = COLLECTORS[name]()
-    frozen = set(getattr(baseline, name)) | set(_permanent(name))
+    frozen = set(getattr(baseline, name))
     assert set(found) >= frozen, (
         f"`{name}` finds less than the frozen list — that is either cleanup "
         f"(remove them from the baseline) or a collector that has fallen silent")
+
+
+@pytest.mark.parametrize("name", sorted(PERMANENT))
+def test_every_permanent_exception_still_has_a_target(name):
+    """An exemption whose target is gone must go too — same rule as a ratchet.
+
+    The ratchets have this rule: an entry that disappears from the code has to
+    leave the list or the test is red. Without the same rule here the two
+    drift, and that asymmetry is how a rule dies quietly. Replace the Mollie
+    adapter and `payment.gateway_payments.status` would stay exempt forever —
+    an exemption with a reason that no longer applies, which is worse than no
+    exemption, because the next reader takes the reason at face value.
+
+    **Proven by violation, 26 September 2026:** added
+    `"payment.payment_records.status"` to `FK_NOT_OUR_LIST`. That column *does*
+    have a foreign key now, so the collector no longer finds it, and the test
+    went red naming the entry and the list. Removed again.
+    """
+    found = set(COLLECTORS[name]())
+    stale = sorted(set(_permanent(name)) - found)
+    assert not stale, (
+        f"`codes_baseline.{PERMANENT[name]}` exempts something that no longer "
+        f"exists:\n  " + "\n  ".join(stale)
+        + f"\nRemove the entry. An exemption outlives the thing it excuses "
+          f"otherwise, and its reason stops being true without anybody noticing.")
