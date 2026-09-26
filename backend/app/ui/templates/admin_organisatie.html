@@ -2,7 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(organisatie.name, soort_labels.get(organisatie.org_type, organisatie.org_type) ~ " · " ~ organisatie.code) %}
+{% call ui.page_header(organisatie.name, organisatie.org_type|code_label("organization_type") ~ " · " ~ organisatie.code) %}
   {% if heeft_site %}
   {# De site van deze organisatie. Niet dezelfde velden: dáár staan mail, Umami,
      taal en lidgeld — de instellingen van de site, niet wat de organisatie IS. #}

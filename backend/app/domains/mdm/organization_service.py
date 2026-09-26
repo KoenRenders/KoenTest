@@ -282,7 +282,9 @@ def organization_options(db) -> list[dict]:
              .order_by(Organization.org_type, Organization.name)
              .execution_options(include_all_tenants=True).all())
     return [{"id": r.id, "code": r.code, "name": r.name,
-             "org_type": r.org_type, "is_active": r.is_active,
+             # The code, not the member: these are plain dicts for a screen,
+             # and a member equals no string it is compared with (CR-12 phase 2).
+             "org_type": code_of(r.org_type), "is_active": r.is_active,
              "legal_form": r.legal_form or ""} for r in rijen]
 
 

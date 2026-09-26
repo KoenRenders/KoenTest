@@ -49,7 +49,6 @@ ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/cms/render.py:PLACEHOLDER_LABELS',
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
-    'app/ui/organisaties_ui.py:SOORT_LABELS',
 })
 
 #: Templates comparing a code to a string literal.
@@ -65,8 +64,6 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/newsletter/templates/_nb_raakje.html:kind==replace',
     'app/domains/newsletter/templates/_nb_raakje.html:status==applied',
     'app/domains/newsletter/templates/_nb_raakje.html:status==open',
-    'app/ui/templates/_org_kaarten.html:org_type==ACCOUNT',
-    'app/ui/templates/_tn_kaarten.html:org_type==PLATFORM',
 })
 
 #: Loose string comparisons on a vocabulary attribute in `.py`.
