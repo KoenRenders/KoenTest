@@ -34,6 +34,7 @@ from app.domains.designstudio import brand, richtext
 from app.domains.designstudio.blocks import Plan, plan_affiche, speckle_pattern
 from app.domains.designstudio.content import PosterContent
 from app.domains.designstudio.icons import icon_svg
+from app.kernel.codes import install_enum_guard
 
 TEMPLATES = Path(__file__).resolve().parent / "templates"
 POSTERS = TEMPLATES / "posters"
@@ -72,6 +73,11 @@ def contract(template_key: str) -> dict:
 @lru_cache(maxsize=1)
 def _env() -> Environment:
     env = Environment(loader=FileSystemLoader(str(POSTERS)), autoescape=True, undefined=StrictUndefined)
+    # De tweede Jinja-omgeving van deze codebase, en dus de tweede plek waar
+    # een enum-lid in de uitvoer zou kunnen belanden (CR-12 §B4.7). Hier altijd
+    # streng: een poster is geen bezoekerspagina, en een verkeerde waarde in een
+    # SVG valt later op dan in een formulier.
+    install_enum_guard(env, strict=True)
     env.globals["speckles"] = speckle_pattern
     env.globals["icon"] = lambda code, fg, bg, x, y, s: icon_svg(code, fg=fg, bg=bg, x=x, y=y, size=s)
     return env

@@ -440,6 +440,65 @@ def install_jinja_codes(env: Any) -> None:
     env.filters["tone"] = lambda code, name: tone(name, code)
 
 
+# ── The twelfth gate: no enum member ever reaches the output ────────────────
+
+#: How many values this process rendered under the guard. The gate reads it, so
+#: "the guard found nothing" can be told apart from "the guard ran nowhere" —
+#: the #678 rule, applied to a guard instead of to a file walk.
+rendered_under_the_guard = 0
+
+
+class EnumRendered(RuntimeError):
+    """An `Enum` member reached a template's output (CR-12 §B4.7)."""
+
+
+def install_enum_guard(env: Any, *, strict: bool) -> None:
+    """Refuse to render an `Enum` member; render its code instead.
+
+    **Why this is a guard and not a gate.** Three times in this change request
+    a member ended up in an HTML attribute: the subscriber filter, the
+    newsletter audience radio and the attendance button. All three rendered as
+    `SubscriberStatus.CONFIRMED` into a `value=`, which then equals no code,
+    matches no option and colours no badge. None of the eleven gates can see
+    it: the template gate looks for a *comparison* with a literal and the
+    loose-string gate for a comparison in Python. A member that is **rendered**
+    is not a comparison, so there was nothing between the mistake and the
+    screen — and the one that was caught, was caught by an e2e flow.
+
+    A gate that renders a handful of screens would sample. This hooks
+    `finalize`, which Jinja calls for **every** `{{ ... }}` in every template,
+    so every render test in the suite becomes a detector and the coverage
+    question disappears. Filters run before it, so
+    `{{ x | code_label("...") }}` hands it a string and passes.
+
+    `strict` follows the `StrictUndefined` policy of `app/ui/__init__.py`: in
+    dev, test and HDEV this raises, so the mistake is a red test. On UAT and
+    PROD it renders the **code** and logs once — a repair rather than a
+    silence, because the code is what the attribute should have held anyway,
+    and a visitor should never meet a 500 over a rendering detail.
+    """
+    global rendered_under_the_guard
+    previous = env.finalize
+
+    def finalize(value: Any) -> Any:
+        global rendered_under_the_guard
+        rendered_under_the_guard += 1
+        if isinstance(value, Enum):
+            naam = f"{type(value).__name__}.{value.name}"
+            if strict:
+                raise EnumRendered(
+                    f"a template rendered {naam}, the enum member. A screen gets "
+                    f"the CODE from its view-model (§B4.7) — `code_of(...)` on "
+                    f"the view boundary — and its word from the `code_label` "
+                    f"filter. Rendered as it is, {naam} lands in the output, "
+                    f"equals no code and matches no option.")
+            logger.warning("template rendered %s; showing its code instead", naam)
+            return _code_of(value)
+        return previous(value) if previous is not None else value
+
+    env.finalize = finalize
+
+
 # ── The migration helper ─────────────────────────────────────────────────────
 
 def _inspector(op: Any) -> Any:
