@@ -342,3 +342,24 @@ def test_the_service_refuses_a_value_that_is_in_no_list(db_session):
         create_payment_record(
             db_session, "registration", 78, Decimal("12.00"), "cheque")
 
+
+def test_the_payment_hint_follows_the_radio_values():
+    """Each payment-method hint must compare against a value a radio can carry.
+
+    Phase 1 changed the radio values from `ONLINE`/`OVERSCHRIJVING` to the codes
+    `online`/`transfer`, but the two Alpine hints under them kept comparing
+    `pm` with the old words — so neither hint ever showed again, and nothing
+    went red. Found while translating this branch, not by a test; hence this one.
+
+    Broken on purpose to check it can go red: one `x-show` back to
+    `pm === 'ONLINE'` → the set difference names `ONLINE`.
+    """
+    import re
+    from pathlib import Path
+
+    source = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
+              / "templates" / "_inschrijf_form.html").read_text(encoding="utf-8")
+    radios = set(re.findall(r'name="payment_method" value="([^"]+)"', source))
+    hints = set(re.findall(r"x-show=\"pm === '([^']+)'\"", source))
+    assert radios and hints, "the form no longer has payment radios or hints"
+    assert hints <= radios, f"hints compare with values no radio carries: {hints - radios}"
