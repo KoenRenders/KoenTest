@@ -1,0 +1,120 @@
+<div data-veld="f<F:text>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:text>" class="block text-base font-semibold text-ink mb-2">Korte vraag <span class="text-red-600">*</span></label>
+<p class="text-xs text-gray-500 mb-1">Hulp bij tekst</p>
+<input type="text" name="f<F:text>" id="f<F:text>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>
+<div data-veld="f<F:textarea>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:textarea>" class="block text-base font-semibold text-ink mb-2">Lange vraag</label>
+<textarea name="f<F:textarea>" id="f<F:textarea>" rows="4"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" ></textarea>
+</div>
+<div data-veld="f<F:number>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:number>" class="block text-base font-semibold text-ink mb-2">Getal</label>
+<input type="text" name="f<F:number>" id="f<F:number>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" inputmode="decimal">
+</div>
+<div data-veld="f<F:email>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:email>" class="block text-base font-semibold text-ink mb-2">Mailadres <span class="text-red-600">*</span></label>
+<input type="email" name="f<F:email>" id="f<F:email>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>
+<div data-veld="f<F:phone>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:phone>" class="block text-base font-semibold text-ink mb-2">Telefoon</label>
+<input type="tel" name="f<F:phone>" id="f<F:phone>"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>
+<div data-veld="f<F:select>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:select>" class="block text-base font-semibold text-ink mb-2">Keuzelijst</label>
+<select name="f<F:select>" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" id="f<F:select>">
+<option value="">—</option>
+<option value="<O:select.a>" >Optie A</option>
+<option value="<O:select.b>" >Optie B</option>
+</select>
+</div>
+<div data-veld="f<F:radio>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:radio>" class="block text-base font-semibold text-ink mb-2">Eén keuze <span class="text-red-600">*</span></label>
+<div class="mt-3" x-data
+ @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.ja>"
+ >
+ Ja
+ </label>
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.verder>"
+ >
+ Ga verder
+ </label>
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="radio" name="f<F:radio>" value="<O:radio.anders>"
+ x-ref="keuze"
+ >
+ Anders <input type="text" name="f<F:radio>_other" id="f<F:radio>_other" placeholder="…"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
+</label>
+</div>
+</div>
+<div data-veld="f<F:checkbox>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:checkbox>" class="block text-base font-semibold text-ink mb-2">Meerdere keuzes</label>
+<div class="mt-3" x-data
+ @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.x>"
+ >
+ Vink X
+ </label>
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.y>"
+ >
+ Vink Y
+ </label>
+<label class="flex flex-wrap items-center gap-2 text-sm py-2 cursor-pointer">
+<input type="checkbox" name="f<F:checkbox>" value="<O:checkbox.anders>"
+ x-ref="keuze"
+ >
+ Anders <input type="text" name="f<F:checkbox>_other" id="f<F:checkbox>_other" placeholder="…"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none flex-1 min-w-0" x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0">
+</label>
+</div>
+</div>
+<div data-veld="f<F:rating>" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f<F:rating>" class="block text-base font-semibold text-ink mb-2">Score</label>
+<div class="flex gap-2 items-center text-sm">
+<span class="text-gray-500 shrink-0">slecht</span>
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<input type="radio" name="f<F:rating>" value="1" >
+<span class="text-xs text-gray-500">1</span>
+</label>
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<input type="radio" name="f<F:rating>" value="2" >
+<span class="text-xs text-gray-500">2</span>
+</label>
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<input type="radio" name="f<F:rating>" value="3" >
+<span class="text-xs text-gray-500">3</span>
+</label>
+<label class="flex-1 min-h-11 flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg border border-line bg-white cursor-pointer hover:bg-gray-50">
+<input type="radio" name="f<F:rating>" value="4" >
+<span class="text-xs text-gray-500">4</span>
+</label>
+<span class="text-gray-500 shrink-0">goed</span>
+</div>
+</div>
+<div data-veld="f<F:info>" class="border-l-4 border-transparent pl-3 -ml-4">
+<div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
+<p class="font-medium mb-1">Ter info</p>
+<p>Dit is uitleg</p>
+</div>
+</div>
+<div data-veld="f970050" class="border-l-4 border-transparent pl-3 -ml-4">
+<label for="f970050" class="block text-base font-semibold text-ink mb-2">Vraag in deel twee</label>
+<input type="text" name="f970050" id="f970050"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
+</div>

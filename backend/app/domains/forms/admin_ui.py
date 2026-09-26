@@ -618,11 +618,16 @@ def formulier_afdruk(form_id: int, request: Request, db: Session = Depends(get_d
                      email: str = Depends(require_admin_ui)):
     form = _form_or_404(db, form_id)
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
+    # Through the adapter like every other screen that renders a field: the print
+    # compares `field_type` with a code, and a member equals none — every choice,
+    # scale and info block printed as an empty line (found by the
+    # characterisation test, CR-12 phase 4).
     grouped = [{"section": s,
-                "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: (f.position, f.id))}
+                "fields": screen_fields(sorted(
+                    (f for f in form.fields if f.section_id == s.id),
+                    key=lambda f: (f.position, f.id)))}
                for s in sections]
-    loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: (f.position, f.id))
+    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
+                                 key=lambda f: (f.position, f.id)))
     return templates.TemplateResponse(request, "formulier_afdruk.html", {
         "form": form, "grouped": grouped, "loose_fields": loose})
