@@ -185,6 +185,27 @@ def main() -> None:
                               content_type="image/png", thumbnail=beeld,
                               thumb_content_type="image/png", width=64, height=64,
                               byte_size=len(beeld), sort_order=0, is_active=True))
+
+        # ── Eén pagina-afbeelding (#1173) ───────────────────────────────────
+        # Zonder haar staat de afbeeldingskiezer in de pagina-editor op zijn lege
+        # toestand en toetst de e2e het invoegen niet — ze zou groen blijven
+        # terwijl er niets te kiezen valt.
+        #
+        # Een ECHTE png en niet de `beeld`-stub hierboven: de test kijkt of de
+        # browser de afbeelding werkelijk laadt (`naturalWidth`), en een stuk
+        # bytes met een png-kop haalt dat niet.
+        from io import BytesIO
+
+        from PIL import Image
+
+        buf = BytesIO()
+        Image.new("RGB", (240, 150), (240, 244, 250)).save(buf, format="PNG")
+        echte_png = buf.getvalue()
+        db.add(MediaAsset(kind="page_image",
+                          title="E2E-schermafdruk aanmelden", data=echte_png,
+                          content_type="image/png", thumbnail=echte_png,
+                          thumb_content_type="image/png", width=240, height=150,
+                          byte_size=len(echte_png), sort_order=0, is_active=True))
         db.commit()
 
         # ── Inschrijving via het echte registratiepad ────────────────────────

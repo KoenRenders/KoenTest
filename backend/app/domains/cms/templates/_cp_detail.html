@@ -26,7 +26,10 @@
          leest de initiële HTML uit de hidden input en schrijft de bewerkte HTML er
          live in terug; het formulier submit `content`. De opgeslagen HTML wordt
          server-side gesanitiseerd (nh3 via render_cms_content) vóór de |safe-render. #}
-      <div x-data="{ src: false }">
+      {# #1173: `picker`/`chosen`/`altText` horen in DEZELFDE x-data als `src`,
+         want de knop staat in de werkbalk en het dialoogje eronder — twee
+         x-data-blokken zouden elkaars keuze niet zien. #}
+      <div x-data="{ src: false, picker: false, chosen: null, altText: '' }">
         {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
            activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
            Trix editor-API; onmousedown houdt de editorfocus vast. #}
@@ -39,6 +42,14 @@
                   onmousedown="event.preventDefault()"
                   onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading3') ? e.deactivateAttribute('heading3') : e.activateAttribute('heading3')"
                   title="{{ _('Kop 3') }}">H3</button>
+          {# #1173: invoegen gebeurt UIT DE BIBLIOTHEEK en niet door te slepen —
+             `admin_base.html` weigert bestanden in de editor met opzet, want dat
+             zou een onbeperkt uploadpad naar een publieke pagina zijn. Wie een
+             nieuwe afbeelding wil, laadt ze eerst op bij Media. #}
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" x-show="!src"
+                  onmousedown="event.preventDefault()"
+                  @click="picker = true; chosen = null; altText = ''"
+                  title="{{ _('Een afbeelding uit de bibliotheek invoegen') }}">{{ _("Afbeelding") }}</button>
           {% if placeholders %}
           <span class="px-1 py-1 text-gray-400" x-show="!src">{{ _("Invoegen:") }}</span>
           {% for ph in placeholders %}
@@ -84,6 +95,50 @@
                                autogrow=False,
                                attrs='x-ref="htmlsrc" x-show="src" x-cloak style="display: none"'
                                      " @input=\"document.getElementById('cp-content-input').value = $refs.htmlsrc.value\"") }}
+        {# #1173: de afbeeldingskiezer. `type="button"` op élke knop hierin, want
+           dit dialoogje staat BINNEN `#cp-form` — een submit-knop zou de pagina
+           opslaan in plaats van de afbeelding in te voegen.
+
+           De alt is verplicht: een uitlegpagina zonder alternatieve tekst is
+           onbruikbaar met een schermlezer. Hij begint op de titel uit de
+           bibliotheek en blijft bewerkbaar; zonder alt blijft Invoegen uit. #}
+        {% call ui.modal("picker", _("Afbeelding invoegen"), max_w="max-w-2xl") %}
+          {% if page_images %}
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {% for beeld in page_images %}
+            <button type="button"
+                    class="block w-full text-left border rounded-lg overflow-hidden hover:border-blue-500"
+                    :class="chosen && chosen.url === '{{ beeld.url }}' ? 'border-blue-700 ring-2 ring-blue-500' : 'border-gray-200'"
+                    data-url="{{ beeld.url }}" data-width="{{ beeld.width or '' }}"
+                    data-height="{{ beeld.height or '' }}" data-title="{{ beeld.title or '' }}"
+                    @click="chosen = { url: $el.dataset.url,
+                                       width: Number($el.dataset.width) || null,
+                                       height: Number($el.dataset.height) || null };
+                            altText = $el.dataset.title">
+              <img src="{{ beeld.thumb_url }}" alt="" class="w-full h-24 object-contain bg-gray-50">
+              <span class="block px-2 py-1 text-xs text-gray-600 truncate">{{ beeld.title or _("Zonder titel") }}</span>
+            </button>
+            {% endfor %}
+          </div>
+          <div class="mt-4">
+            {{ ui.label(_("Alternatieve tekst"), "cp-alt", required=True) }}
+            {{ ui.input_control("", id="cp-alt", cls="w-full", attrs='x-model="altText"') }}
+            <p class="text-xs text-gray-500 mt-1">{{ _("Wat er op de afbeelding te zien is — dit leest een schermlezer voor.") }}</p>
+          </div>
+          <div class="mt-4 flex justify-end gap-2">
+            {{ ui.btn_secondary(_("Annuleren"), attrs='@click="picker = false"') }}
+            {# `disabled:opacity-30` net als de pijltjes in de kit: zonder zichtbare
+               uit-stand leest een knop die niets doet als kapot. #}
+            {{ ui.btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
+                              attrs='@click="insertPageImage(chosen, altText); picker = false"'
+                                    ' :disabled="!chosen || !altText.trim()"') }}
+          </div>
+          {% else %}
+          {{ ui.empty_state(_("Er staan nog geen pagina-afbeeldingen in de bibliotheek."),
+                            action_label=_("Afbeelding opladen"),
+                            action_href="/admin/media/nieuw?kind=page_image") }}
+          {% endif %}
+        {% endcall %}
       </div>
       <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk (incl. H2/H3); of bewerk de HTML-bron. De opgeslagen HTML wordt server-side veilig gesanitiseerd.") }}</p></div>
     <div class="flex flex-wrap items-center gap-5 text-sm">

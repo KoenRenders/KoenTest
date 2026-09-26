@@ -273,6 +273,8 @@
           <span x-show="!ed" class="min-w-0">{{ p.name }} ·
             {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ p.price|geld }}{% if p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}{% endif %}
             {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
+            {# #1191: inactive is the exception, so only that state carries a badge. #}
+            {% if not p.is_active %} {{ ui.badge(_("Inactief"), "gray") }}{% endif %}
           </span>
           <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
           <div class="flex gap-2 ml-auto shrink-0">
@@ -302,6 +304,9 @@
               <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
               <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
             {% endcall %}</div>
+          {# #1191: off = gone from the public form, NOT closed. The board can still
+             put someone on it from here. #}
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if p.is_active %}checked{% endif %}> {{ _("Publiek boekbaar") }}</label>
         </form>
       </div>
       {% endfor %}
@@ -322,6 +327,7 @@
             <option value="gratis">{{ _("Gratis") }}</option>
             <option value="ter_plaatse">{{ _("Ter plaatse") }}</option>
           {% endcall %}</div>
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" checked> {{ _("Publiek boekbaar") }}</label>
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}

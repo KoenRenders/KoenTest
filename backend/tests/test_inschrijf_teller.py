@@ -220,11 +220,13 @@ def test_the_default_quantity_never_exceeds_the_maximum(db_session):
 
     from app.domains.activities.ui import _standaard_aantal
 
-    vol = SimpleNamespace(products=[SimpleNamespace(max_participants=0)])
-    ruim = SimpleNamespace(products=[SimpleNamespace(max_participants=5)])
-    onbeperkt = SimpleNamespace(products=[SimpleNamespace(max_participants=None)])
-    twee = SimpleNamespace(products=[SimpleNamespace(max_participants=5),
-                                     SimpleNamespace(max_participants=5)])
+    # Sinds #1191 neemt `_standaard_aantal` de PRODUCTENLIJST en niet het onderdeel:
+    # het formulier toont enkel de publiek boekbare producten, en dit aantal hoort bij
+    # wat er staat. Wat de guard toetst is ongewijzigd.
+    vol = [SimpleNamespace(max_participants=0)]
+    ruim = [SimpleNamespace(max_participants=5)]
+    onbeperkt = [SimpleNamespace(max_participants=None)]
+    twee = [SimpleNamespace(max_participants=5), SimpleNamespace(max_participants=5)]
 
     assert _standaard_aantal(vol) == 0
     assert _standaard_aantal(ruim) == 1

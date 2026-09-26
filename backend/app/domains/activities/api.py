@@ -154,6 +154,8 @@ from app.domains.activities.service import (  # noqa: F401
     registration_ids_for,
     registrations_for,
     registrations_without_component_count,
+    publicly_bookable_products,
+    check_publicly_bookable,
 )
 
 __all__ = [
@@ -165,6 +167,7 @@ __all__ = [
     "registration_contact_names", "registration_count_for",
     "registration_ids_for", "registrations_for",
     "registrations_without_component_count",
+    "publicly_bookable_products", "check_publicly_bookable",
     "Activity", "ActivityDate", "ActivityDateHistory", "ActivityHistory",
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",

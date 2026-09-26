@@ -842,6 +842,17 @@ def register_for_activity(
                 detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.") % {"max": max_qty},
             )
 
+    # #1191: an inactive product is absent from the form, but this endpoint is an
+    # entrance of its own — the rule therefore lives in the service, next to the
+    # other product rule. The back office keeps booking inactive products.
+    from app.domains.activities.service import (ActiviteitFout as _Fout,
+                                                check_publicly_bookable)
+    try:
+        check_publicly_bookable(
+            activity, [i.product_id for i in data.items if i.quantity > 0])
+    except _Fout as fout:
+        raise HTTPException(status_code=400, detail=str(fout))
+
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
 
     component = next(

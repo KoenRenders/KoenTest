@@ -143,8 +143,14 @@ def _person_mobile(person) -> str:
     return ""
 
 
-def _standaard_aantal(component) -> int:
+def _standaard_aantal(producten) -> int:
     """Het aantal waarmee het inschrijfformulier OPENT (#1172).
+
+    Takes the PRODUCT LIST and not the component, since #1191. The form shows only
+    the publicly bookable products and this quantity belongs to what is on screen:
+    were this function to read `component.products` again, one active product next
+    to one inactive one would count as "several" and the prefill of #1172 would
+    quietly disappear, with nobody connecting that to the flag.
 
     Koen, 25 september 2026: *"Is het trouwens mogelijk om standaard 1 te zetten
     als er maar één product is?"* Bij het gewone geval — één product — moest
@@ -166,7 +172,7 @@ def _standaard_aantal(component) -> int:
     default van `values.get(...)`, en na een mislukte inschrijving draagt `values`
     de ingevulde aantallen — ook een bewuste 0 — zodat die blijven staan.
     """
-    producten = list(component.products or [])
+    producten = list(producten or [])
     if len(producten) != 1:
         return 0
     maximum = producten[0].max_participants
@@ -196,14 +202,20 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
     # Langs `quote_lines`, dezelfde functie als de herberekening en het opslaan
     # (§19.3): een tweede rekenwijze hier zou precies de drift zijn die dat pad
     # moet voorkomen.
-    standaard = _standaard_aantal(component)
+    # #1191: one list, and the form derives everything from it — the rows it
+    # renders, the opening quantity and the opening amount. A second read of
+    # `component.products` beside this is exactly how rows and total drift apart.
+    from app.domains.activities.api import publicly_bookable_products
+
+    producten = publicly_bookable_products(component)
+    standaard = _standaard_aantal(producten)
     startbedrag, _regels = quote_lines(
-        component, {p.id: standaard for p in (component.products or [])}, is_member)
+        component, {p.id: standaard for p in producten}, is_member)
     ctx = {
         "activity": activity, "component": component, "is_member": is_member,
         "person": person, "error": None, "totaal": startbedrag, "values": prefill,
         "heeft_prijs": has_payable_products(component, is_member),
-        "standaard_aantal": standaard,
+        "standaard_aantal": standaard, "producten": producten,
     }
     ctx.update(extra)
     return ctx
@@ -263,7 +275,11 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     if not naam or "@" not in email or not gsm:
         ctx["error"] = "Vul naam, e-mailadres en mobiel nummer in."
         return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
-    if component.products and not any(q > 0 for q in quantities.values()):
+    # #1191: `ctx["producten"]` and not `component.products`. With EVERY product of
+    # this component inactive the form renders no row at all, so this requirement
+    # could not be met — a visitor then read "Selecteer minstens één product" above
+    # an empty list.
+    if ctx["producten"] and not any(q > 0 for q in quantities.values()):
         ctx["error"] = "Selecteer minstens één product."
         return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
 

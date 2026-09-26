@@ -22,7 +22,19 @@ from app.i18n import _
 # Eerste afnemer is de vergader-PDF, die het in zijn kop zet in plaats van een
 # ingetypt woordmerk. Een mediasoort en geen tenant-instelling: een logo is
 # bytes, en die horen waar de andere bytes al staan.
-VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
+# `page_image` (#1173): an image placed in the text of a CMS page. Koen writes a
+# public how-to page — how to join, how to renew, how to check your details — and
+# those need screenshots.
+#
+# Its own kind rather than an activity photo, for two reasons that hang together: it
+# belongs to NO activity (so `activity_id` stays empty), and it is stored LOSSLESSLY
+# because it is usually a screenshot — lettering, which is exactly the material JPEG
+# damages. See `LOSSLESS_KINDS` in images.py for the measurement behind that (#1131).
+#
+# The name follows the other kinds: owner + thing. "page_media" would not say what
+# it is, and the others do.
+PAGE_IMAGE_KIND = "page_image"
+VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo", PAGE_IMAGE_KIND}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
 DOCUMENT_KINDS = {"newsletter_file"}
