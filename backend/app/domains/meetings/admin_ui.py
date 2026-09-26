@@ -77,7 +77,7 @@ from app.domains.meetings.viewmodels import (
     MeetingNewView, MeetingSendView,
 )
 from app.i18n import _
-from app.kernel.codes import register_tones
+from app.kernel.codes import code_of, register_tones
 from app.ui import admin_nav, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
@@ -367,7 +367,12 @@ def _document_view(request: Request, db: Session, meeting,
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
-        attendance=attendance_of(db, meeting),
+        # Codes, geen leden: het sjabloon zet de waarde in een `value=` van
+        # het formulier en vergelijkt haar met een literaal. Omzetten op de
+        # grens (§B4.7) — een lid in een attribuut rendert als
+        # `Attendance.PRESENT` en vergelijkt tegen niets.
+        attendance={sleutel: code_of(stand) or ""
+                    for sleutel, stand in attendance_of(db, meeting).items()},
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
         picker_query=picker_query,

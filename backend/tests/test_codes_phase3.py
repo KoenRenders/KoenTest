@@ -30,6 +30,7 @@ it back. Measured on 26 September 2026, each on its own:
 | A column stores the code | `EnumColumn` on `designs.status` swapped for `sa.Enum(DesignStatus)` | yes |
 | The screen shows a word | the badge back to `{{ s.status.value }}` in `_nb_abonnees.html` | yes — after a correction, see below |
 | The brand assets stay out | a `CodeList` named `duo` registered in `designstudio/codes.py` | yes |
+| The attendance button turns green | the view boundary back to `attendance_of(...)` straight through | yes — no `bg-green-50`, and `value="Attendance.PRESENT"` |
 
 **Two of the seven are worth a sentence.**
 
@@ -360,6 +361,45 @@ def test_the_design_list_shows_the_preset_and_the_status_in_words(client, db_ses
     assert page.status_code == 200
     assert "Ontwerp" in page.text
     assert "Preset." not in page.text and "DesignStatus." not in page.text
+
+
+def test_the_attendance_button_comes_back_green_after_one_click(client, db_session):
+    """A code that reaches a template attribute must be a code, not a member.
+
+    This one was found by the e2e golden flow and **not** by this suite, which
+    is why it is written down here. `attendance_of` returns members since this
+    phase; the meeting document puts the value in
+    `<input name="current" value="{{ state }}">` and compares it to
+    `'present'` for the colour. A member renders as `Attendance.PRESENT` in
+    that attribute and equals no literal, so every click stayed grey and the
+    next click restarted the cycle. The conversion now happens on the view
+    boundary.
+
+    Asserting on the rendered fragment and not on `attendance_of`: the stored
+    state was right the whole time. The screen was not.
+    """
+    from datetime import date
+
+    from app.domains.meetings.api import create_meeting
+    from tests.test_vergadering_routes import _kringlid
+
+    person = _kringlid(db_session, voornaam="Aanwezig", achternaam="Persoon",
+                       email="aanwezig@example.org")
+    meeting = create_meeting(db_session, meeting_date=date(2026, 11, 10))
+    db_session.commit()
+
+    sess = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, sess)
+    antwoord = client.post(
+        f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
+        headers={"X-CSRF-Token": csrf_token_for(sess)},
+        data={"person_id": str(person.id), "current": ""})
+    assert antwoord.status_code == 200
+    assert 'name="current" value="present"' in antwoord.text, (
+        "het formulier moet de CODE terugsturen, niet het lid")
+    assert "Attendance." not in antwoord.text
+    assert "bg-green-50" in antwoord.text, (
+        "de knop hoort groen terug te komen na één klik")
 
 
 # ── §B4.10 What deliberately did NOT become a code list ──────────────────────
