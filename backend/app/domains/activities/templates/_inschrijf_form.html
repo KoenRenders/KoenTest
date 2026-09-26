@@ -22,9 +22,11 @@
     <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
       {{ ui.input_control("team_name", id="team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
     {% endif %}
-    {% if component.products %}
+    {# #1191: `producten` and not `component.products` — the route filters the
+       inactive ones out, and the form is not where that rule lives. #}
+    {% if producten %}
     <div class="space-y-2">
-      {% for p in component.products %}
+      {% for p in producten %}
       <div class="flex items-center justify-between gap-3">
         <div class="text-sm">
           <span class="font-medium">{{ p.name }}</span>

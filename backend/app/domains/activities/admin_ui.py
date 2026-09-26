@@ -564,7 +564,7 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
                       email: str = Depends(require_admin_ui),
                       name: str = Form(...), price: str = Form("0"),
                       member_price: str = Form(""), afrekening: str = Form("betalend"),
-                      max_participants: str = Form("")):
+                      max_participants: str = Form(""), is_active: str = Form("")):
     from app.domains.activities import service
     from app.schemas.activity import ProductCreate
 
@@ -574,6 +574,7 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
         member_price=_decimal(member_price) if member_price.strip() else None,
         is_free=(afrekening == "gratis"),
         pay_on_site=(afrekening == "ter_plaatse"),
+        is_active=bool(is_active),
         max_participants=_opt_int(max_participants))
     try:
         product = service.add_product(db, activity_id, component_id, gegevens,
@@ -620,8 +621,12 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
                       email: str = Depends(require_admin_ui),
                       name: str = Form(...), price: str = Form("0"),
                       member_price: str = Form(""), afrekening: str = Form("betalend"),
-                      max_participants: str = Form("")):
-    """Product bijwerken incl. prijs/ledenprijs (#451)."""
+                      max_participants: str = Form(""), is_active: str = Form("")):
+    """Product bijwerken incl. prijs/ledenprijs (#451) en publieke boekbaarheid (#1191).
+
+    `is_active` arrives as a checkbox: present = on, absent = off. The form always
+    renders it, so its absence here is a real choice and not a missing field.
+    """
     from app.domains.activities import service
     from app.schemas.activity import ProductUpdate
 
@@ -631,6 +636,7 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
         member_price=_decimal(member_price) if member_price.strip() else None,
         is_free=(afrekening == "gratis"),
         pay_on_site=(afrekening == "ter_plaatse"),
+        is_active=bool(is_active),
         max_participants=_opt_int(max_participants),
     ).model_dump(exclude_unset=True)
     try:

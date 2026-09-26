@@ -21,6 +21,7 @@ class ProductCreate(BaseModel):
     member_price: Optional[Decimal] = None
     is_free: bool = True
     pay_on_site: bool = False
+    is_active: bool = True
     max_participants: Optional[int] = None
     sort_order: int = 0
 
@@ -33,6 +34,7 @@ class ProductUpdate(BaseModel):
     member_price: Optional[Decimal] = None
     is_free: Optional[bool] = None
     pay_on_site: Optional[bool] = None
+    is_active: Optional[bool] = None
     max_participants: Optional[int] = None
     sort_order: Optional[int] = None
 
@@ -47,6 +49,7 @@ class ProductResponse(BaseModel):
     member_price: Optional[Decimal] = None
     is_free: bool
     pay_on_site: bool = False
+    is_active: bool = True
     max_participants: Optional[int] = None
     sort_order: int
 
