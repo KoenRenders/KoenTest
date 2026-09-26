@@ -257,7 +257,16 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
             "bus_number": _v("bus_number") or None,
             "postal_code": _v("postal_code"),
         }
+    # #1219: het e-mailveld zit niet meer in de veldenset — de adressen zijn
+    # rijen. Alleen meegeven wat het formulier droeg; anders zou een lege waarde
+    # het hoofdadres verwijderen.
+    if not data["email"]:
+        data.pop("email")
     household_update_person(db, person, person_id, data)
+    # Dezelfde transactie als het lid zelf (#1110).
+    from app.domains.membership.api import household_apply_email_rows
+
+    household_apply_email_rows(db, person, person_id, form)
     return templates.TemplateResponse(request, "gezin_portaal.html",
                                       _portal_ctx(request, db, person))
 
@@ -267,6 +276,23 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
 # Drie schermacties die het portaal opnieuw renderen, net als de andere
 # bewerkingen hier. De gezinsgrens en de audit zitten in de domeinlaag; dit
 # scherm geeft alleen door wie er klikte.
+
+@router.get("/leden/gezin/personen/{person_id}/email-rij",
+            response_class=HTMLResponse)
+def gezin_email_rij(person_id: int, request: Request, index: str = "",
+                    db: Session = Depends(get_db)):
+    """Een lege e-mailrij om onderaan te plakken (#1219).
+
+    Leest de sessie mee zodat een niet-aangemelde bezoeker hier niets ophaalt;
+    er gaat niets naar de databank, dus wat er al getypt staat blijft staan.
+    """
+    _require_member_csrf(request, db)
+    return templates.TemplateResponse(request, "_email_rij.html", {
+        "rij": None, "index": index or "0",
+        "basis_url": f"/leden/gezin/personen/{person_id}/email",
+        "doel": "body", "swap": "innerHTML",
+    })
+
 
 @router.post("/leden/gezin/personen/{person_id}/email", response_class=HTMLResponse)
 async def gezin_email_toevoegen(person_id: int, request: Request,

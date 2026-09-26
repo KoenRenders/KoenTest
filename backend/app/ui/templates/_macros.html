@@ -425,7 +425,12 @@
    Delete/kaart-header blijft per scherm (plaatsing verschilt). #}
 {% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
                        gender_codes=[], relation_types=[], include_relation=True,
-                       hoofdlid=False, require_birth_gender=False) -%}
+                       hoofdlid=False, require_birth_gender=False,
+                       include_email=True) -%}
+{# `include_email=False` (#1219): het scherm zet de e-mailadressen zelf als RIJEN
+   eronder, want een lid mag er meerdere hebben. Eén veld hier én een lijst daar
+   zou twee plaatsen voor hetzelfde feit zijn, en dan is het de vraag welke wint
+   bij het opslaan. GSM en telefoon blijven wél hier: daarvan is er één. #}
 {% set _fn = pv.get('first_name') if pv else (values.get(name_prefix ~ 'first_name') if values else '') %}
 {% set _ln = pv.get('last_name') if pv else (values.get(name_prefix ~ 'last_name') if values else '') %}
 {% set _dob = pv.get('date_of_birth') if pv else (values.get(name_prefix ~ 'date_of_birth') if values else '') %}
@@ -446,8 +451,10 @@
       <option value="">—</option>
       {% for g in gender_codes %}<option value="{{ g.code }}" {% if _gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
     </select></div>
+  {% if include_email %}
   <div>{{ label(_("E-mail"), id_prefix ~ "email", required=hoofdlid) }}
     <input type="email" name="{{ name_prefix }}email" id="{{ id_prefix }}email" {% if hoofdlid %}required{% endif %} value="{{ _email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  {% endif %}
   <div>{{ label(_("GSM"), id_prefix ~ "mobile", required=hoofdlid) }}
     <input type="tel" name="{{ name_prefix }}mobile" id="{{ id_prefix }}mobile" {% if hoofdlid %}required{% endif %} value="{{ _mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Telefoon"), id_prefix ~ "phone") }}

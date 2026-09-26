@@ -501,15 +501,129 @@ def add_email_address(db: Session, person_id: int, value: str, *,
     if any((c.value or "").strip().lower() == waarde.lower() for c in bestaand):
         return person
 
+    # Dezelfde regel als de formulierrijen (#1219): het eerste adres dat een mens
+    # invoert wordt het hoofdadres, tenzij er al een is. Niet "de eerste rij" maar
+    # "er is er nog geen" — de markering is een herkomst en geen positie.
+    wordt_hoofd = not _heeft_hoofdadres(person)
     rij = ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                        value=waarde, is_primary=not bestaand)
+                        value=waarde, is_primary=wordt_hoofd)
     db.add(rij)
     db.flush()
-    snapshot_contact_detail(db, rij, operation="insert", action="email_added",
-                            source="admin_update", actor=actor)
+    snapshot_contact_detail(
+        db, rij, operation="insert",
+        action="email_promoted" if wordt_hoofd else "email_added",
+        source="admin_update", actor=actor)
     db.commit()
     db.refresh(person)
     return person
+
+
+def _heeft_hoofdadres(person) -> bool:
+    """Draagt deze persoon al een hoofd-e-mailadres? (#1219)
+
+    Eén plek, want twee invoerwegen stellen dezelfde vraag: de rijen in het
+    ledenformulier en de losse toevoegknop van de JSON-API.
+    """
+    return any(c.is_primary for c in person.contact_details
+               if c.contact_type_code == "EMAIL")
+
+
+def apply_email_rows(db: Session, person_id: int, formulier, *,
+                     actor: Optional[str] = None) -> None:
+    """Pas de e-mailadres-RIJEN uit een ledenformulier toe (#1219).
+
+    Tot dit issue waren de adressen drie losse acties: toevoegen, hoofdadres
+    maken, verwijderen. Koen vroeg hoe je dan een tikfout in een niet-hoofdadres
+    corrigeert, en het antwoord was *"weggooien en opnieuw toevoegen"* — want er
+    was geen veld om in te typen. Nu zijn het rijen in het formulier, en het
+    opslaan van het lid slaat ook de tekst op. Zelfde vorm als de gezinsleden op
+    *Word lid* en het aanmaakscherm (#1110): één formulier, één opslaan, één
+    transactie.
+
+    Verwijderen en hoofdadres aanduiden blijven eigen knoppen — dat zijn losse
+    beslissingen met een eigen betekenis in het auditspoor, geen tekst.
+
+    Twee soorten veld:
+
+    - ``email_existing_<id>`` — een rij die al bestaat. Wijzigt de tekst, dan
+      volgt de waarde. **Leeg betekent weg**: dat is wat een formulier nu eenmaal
+      zegt, en de knop ernaast blijft de snelle weg. Beide worden geauditeerd.
+    - ``email_new_<n>`` — een rij die de bezoeker zojuist toevoegde. Die heeft nog
+      geen id; een lege laat je gewoon vallen.
+
+    **Het eerste adres dat een MENS invoert wordt wél het hoofdadres**, en dat is
+    geen tegenspraak met #1174. Koen, 26 september 2026: *"Als je maar 1 adres
+    invoert is dat het hoofdadres."* Wie het intypt zegt iets — dít is het adres —
+    en er is niets anders dat het kan zijn. De IMPORT promoveert daarentegen nooit:
+    draagt het rapport geen adres meer, dan blijft er geen hoofdadres over, want
+    daar zou promoveren iets bewéren over wat Raak Nationaal heeft. Twee
+    herkomsten, twee regels.
+
+    Bestaat er al een hoofdadres, dan krijgt een nieuwe rij het niet. En de
+    markering volgt de VOLGORDE niet: staat ze op de tweede rij, dan blijft ze daar
+    na opslaan en herladen. "Het eerste adres" gaat over invoeren, niet over
+    weergeven.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.models import ContactDetail
+
+    person = _persoon_of_404(db, person_id)
+    bestaand = {c.id: c for c in person.contact_details
+                if c.contact_type_code == "EMAIL"}
+
+    def _waarde(sleutel: str) -> str:
+        ruw = formulier.get(sleutel)
+        return ruw.strip() if isinstance(ruw, str) else ""
+
+    gewijzigd = False
+    for sleutel in list(formulier.keys()):
+        if sleutel.startswith("email_existing_"):
+            try:
+                rij_id = int(sleutel.removeprefix("email_existing_"))
+            except ValueError:
+                continue
+            rij = bestaand.get(rij_id)
+            if rij is None:
+                continue          # niet van deze persoon, of net al weggehaald
+            waarde = _waarde(sleutel)
+            if not waarde:
+                snapshot_contact_detail(db, rij, operation="delete",
+                                        action="email_removed",
+                                        source="admin_update", actor=actor)
+                person.contact_details.remove(rij)
+                gewijzigd = True
+            elif waarde != rij.value:
+                rij.value = waarde
+                db.flush()
+                snapshot_contact_detail(db, rij, operation="update",
+                                        action="email_edited",
+                                        source="admin_update", actor=actor)
+                gewijzigd = True
+        elif sleutel.startswith("email_new_"):
+            waarde = _waarde(sleutel)
+            if not waarde:
+                continue
+            # Dezelfde waarde twee keer bij één persoon is een vergissing en geen
+            # tweede geval; hoofdletterongevoelig, want een mens typt zijn eigen
+            # adres niet twee keer identiek.
+            al_er = {(c.value or "").strip().lower()
+                     for c in person.contact_details
+                     if c.contact_type_code == "EMAIL"}
+            if waarde.lower() in al_er:
+                continue
+            wordt_hoofd = not _heeft_hoofdadres(person)
+            rij = ContactDetail(person_id=person.id, contact_type_code="EMAIL",
+                                value=waarde, is_primary=wordt_hoofd)
+            db.add(rij)
+            db.flush()
+            snapshot_contact_detail(
+                db, rij, operation="insert",
+                action="email_promoted" if wordt_hoofd else "email_added",
+                source="admin_update", actor=actor)
+            gewijzigd = True
+
+    if gewijzigd:
+        db.flush()
 
 
 def make_email_primary(db: Session, person_id: int, contact_id: int, *,
