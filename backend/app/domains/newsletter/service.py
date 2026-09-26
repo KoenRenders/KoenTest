@@ -18,35 +18,21 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.i18n import _
+from app.kernel.codes import code_of
 
 from app.domains.newsletter.models import (
-    AUDIENCE_BOTH,
-    AUDIENCE_MEMBERS,
-    AUDIENCE_NON_MEMBERS,
-    AUDIENCES,
-    DELIVERY_FAILED,
-    DELIVERY_MEMBER,
-    DELIVERY_QUEUED,
-    DELIVERY_SENT,
-    DELIVERY_SKIPPED,
-    DELIVERY_SUBSCRIBER,
-    ERASED_ADDRESS,
-    LETTER_DRAFT,
-    LETTER_SENDING,
-    LETTER_SENT,
-    REPLY_TO_ASSOCIATION,
-    REPLY_TO_MODES,
-    REPLY_TO_SENDER,
-    SOURCE_ADMIN,
-    SOURCE_IMPORT,
-    SOURCE_PUBLIC_FORM,
-    SUBSCRIBER_CONFIRMED,
-    SUBSCRIBER_PENDING,
-    SUBSCRIBER_UNSUBSCRIBED,
+    Audience,
     Delivery,
+    DeliveryKind,
+    DeliveryStatus,
     DraftingMessage,
+    ERASED_ADDRESS,
+    LetterStatus,
     Newsletter,
+    ReplyToMode,
     Subscriber,
+    SubscriberSource,
+    SubscriberStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -114,11 +100,17 @@ def list_subscribers(db: Session, *, query: str = "", status: str = "") -> list[
 
 
 def subscriber_counts(db: Session) -> dict[str, int]:
-    rows = db.query(Subscriber.status, func.count(Subscriber.id)).group_by(Subscriber.status)
-    counts = {status: 0 for status in (SUBSCRIBER_PENDING, SUBSCRIBER_CONFIRMED,
-                                       SUBSCRIBER_UNSUBSCRIBED)}
+    """Number of subscribers per status, keyed by the CODE.
+
+    By the code and not by the member: the template looks up `counts["confirmed"]`.
+    A screen that has to supply an enum member as a dictionary key is a screen
+    that knows the vocabulary — and that is exactly what this CR takes away.
+    """
+    rows = db.query(Subscriber.status, func.count(Subscriber.id)).group_by(
+        Subscriber.status)
+    counts = {status.value: 0 for status in SubscriberStatus}
     for status, amount in rows:
-        counts[status] = amount
+        counts[code_of(status) or ""] = amount
     return counts
 
 
@@ -154,15 +146,15 @@ def subscribe_public(db: Session, raw_email: str, first_name: str,
     now = _now()
 
     subscriber = subscriber_by_email(db, email)
-    if subscriber is not None and subscriber.status == SUBSCRIBER_CONFIRMED:
+    if subscriber is not None and subscriber.status == SubscriberStatus.CONFIRMED:
         return
     if subscriber is None:
-        subscriber = Subscriber(email=email, first_name=name, source=SOURCE_PUBLIC_FORM,
-                                status=SUBSCRIBER_PENDING, unsubscribe_token=_token())
+        subscriber = Subscriber(email=email, first_name=name, source=SubscriberSource.PUBLIC_FORM,
+                                status=SubscriberStatus.PENDING, unsubscribe_token=_token())
         db.add(subscriber)
-    elif subscriber.status == SUBSCRIBER_UNSUBSCRIBED:
-        subscriber.status = SUBSCRIBER_PENDING
-        subscriber.source = SOURCE_PUBLIC_FORM
+    elif subscriber.status == SubscriberStatus.UNSUBSCRIBED:
+        subscriber.status = SubscriberStatus.PENDING
+        subscriber.source = SubscriberSource.PUBLIC_FORM
         subscriber.unsubscribed_at = None
     if name:
         subscriber.first_name = name
@@ -201,7 +193,7 @@ def confirm(db: Session, token: str) -> Optional[Subscriber]:
     subscriber = subscriber_by_confirm_token(db, token)
     if subscriber is None:
         return None
-    subscriber.status = SUBSCRIBER_CONFIRMED
+    subscriber.status = SubscriberStatus.CONFIRMED
     subscriber.confirmed_at = _now()
     subscriber.confirm_token = None
     subscriber.unsubscribed_at = None
@@ -214,8 +206,8 @@ def unsubscribe(db: Session, token: str) -> Optional[Subscriber]:
     subscriber = subscriber_by_unsubscribe_token(db, token)
     if subscriber is None:
         return None
-    if subscriber.status != SUBSCRIBER_UNSUBSCRIBED:
-        subscriber.status = SUBSCRIBER_UNSUBSCRIBED
+    if subscriber.status != SubscriberStatus.UNSUBSCRIBED:
+        subscriber.status = SubscriberStatus.UNSUBSCRIBED
         subscriber.unsubscribed_at = _now()
         subscriber.confirm_token = None
         db.commit()
@@ -231,7 +223,7 @@ def resubscribe(db: Session, token: str) -> Optional[Subscriber]:
     subscriber = subscriber_by_unsubscribe_token(db, token)
     if subscriber is None:
         return None
-    subscriber.status = SUBSCRIBER_CONFIRMED
+    subscriber.status = SubscriberStatus.CONFIRMED
     subscriber.unsubscribed_at = None
     subscriber.confirmed_at = _now()
     subscriber.consented_at = _now()
@@ -250,13 +242,13 @@ def add_by_admin(db: Session, raw_email: str, first_name: str = "") -> Subscribe
         raise NewsletterError(_("Dat is geen geldig e-mailadres."))
     existing = subscriber_by_email(db, email)
     if existing is not None:
-        if existing.status == SUBSCRIBER_UNSUBSCRIBED:
+        if existing.status == SubscriberStatus.UNSUBSCRIBED:
             raise NewsletterError(_("Dit adres heeft zich uitgeschreven. Het kan zich "
                                     "alleen zelf opnieuw inschrijven."))
         raise NewsletterError(_("Dit adres staat al op de lijst."))
     now = _now()
     subscriber = Subscriber(email=email, first_name=(first_name or "").strip()[:100] or None,
-                            source=SOURCE_ADMIN, status=SUBSCRIBER_CONFIRMED,
+                            source=SubscriberSource.ADMIN, status=SubscriberStatus.CONFIRMED,
                             consented_at=now, confirmed_at=now,
                             unsubscribe_token=_token())
     db.add(subscriber)
@@ -266,9 +258,9 @@ def add_by_admin(db: Session, raw_email: str, first_name: str = "") -> Subscribe
 
 def unsubscribe_by_admin(db: Session, subscriber_id: int) -> None:
     subscriber = get_subscriber(db, subscriber_id)
-    if subscriber is None or subscriber.status == SUBSCRIBER_UNSUBSCRIBED:
+    if subscriber is None or subscriber.status == SubscriberStatus.UNSUBSCRIBED:
         return
-    subscriber.status = SUBSCRIBER_UNSUBSCRIBED
+    subscriber.status = SubscriberStatus.UNSUBSCRIBED
     subscriber.unsubscribed_at = _now()
     subscriber.confirm_token = None
     db.commit()
@@ -323,7 +315,7 @@ def preview_import(db: Session, text: str) -> ImportPreview:
         status = existing.get(email)
         if status is None:
             preview.new.append(email)
-        elif status == SUBSCRIBER_UNSUBSCRIBED:
+        elif status == SubscriberStatus.UNSUBSCRIBED:
             preview.unsubscribed.append(email)
         else:
             preview.known.append(email)
@@ -340,8 +332,8 @@ def run_import(db: Session, text: str) -> ImportPreview:
     preview = preview_import(db, text)
     now = _now()
     for email in preview.new:
-        db.add(Subscriber(email=email, source=SOURCE_IMPORT,
-                          status=SUBSCRIBER_CONFIRMED, imported_at=now,
+        db.add(Subscriber(email=email, source=SubscriberSource.IMPORT,
+                          status=SubscriberStatus.CONFIRMED, imported_at=now,
                           confirmed_at=now, unsubscribe_token=_token()))
     db.commit()
     return preview
@@ -361,14 +353,14 @@ def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
 
 def confirmed_subscribers(db: Session) -> list[Subscriber]:
     return (db.query(Subscriber)
-            .filter(Subscriber.status == SUBSCRIBER_CONFIRMED)
+            .filter(Subscriber.status == SubscriberStatus.CONFIRMED)
             .order_by(Subscriber.email).all())
 
 
 @dataclass(frozen=True)
 class Recipient:
     email: str
-    kind: str
+    kind: DeliveryKind
     subscriber_id: Optional[int]
 
 
@@ -379,16 +371,16 @@ def recipients_for(db: Session, audience: str) -> list[Recipient]:
     a member: members cannot unsubscribe (CR-05 §3.4), and this letter is also
     their member letter.
     """
-    if audience not in AUDIENCES:
+    if audience not in tuple(Audience):
         raise NewsletterError(_("Kies eerst voor wie deze nieuwsbrief is."))
     out: dict[str, Recipient] = {}
-    if audience in (AUDIENCE_MEMBERS, AUDIENCE_BOTH):
+    if audience in (Audience.MEMBERS, Audience.BOTH):
         for email in member_addresses(db):
-            out[email] = Recipient(email, DELIVERY_MEMBER, None)
-    if audience in (AUDIENCE_NON_MEMBERS, AUDIENCE_BOTH):
+            out[email] = Recipient(email, DeliveryKind.MEMBER, None)
+    if audience in (Audience.NON_MEMBERS, Audience.BOTH):
         for subscriber in confirmed_subscribers(db):
             out.setdefault(subscriber.email,
-                           Recipient(subscriber.email, DELIVERY_SUBSCRIBER, subscriber.id))
+                           Recipient(subscriber.email, DeliveryKind.SUBSCRIBER, subscriber.id))
     return [out[email] for email in sorted(out)]
 
 
@@ -456,7 +448,7 @@ def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int
 
     today = today or date.today()
     previous = (db.query(Newsletter)
-                .filter(Newsletter.status != LETTER_DRAFT,
+                .filter(Newsletter.status != LetterStatus.DRAFT,
                         Newsletter.send_started_at.isnot(None))
                 .order_by(Newsletter.send_started_at.desc()).first())
     since = (previous.send_started_at.date() if previous is not None
@@ -478,7 +470,7 @@ def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
 
 
 def _refuse_unless_draft(letter: Newsletter) -> None:
-    if letter.status != LETTER_DRAFT:
+    if letter.status != LetterStatus.DRAFT:
         raise NewsletterError(_("Deze nieuwsbrief is al verstuurd. Kopieer hem om "
                                 "een nieuwe te maken."))
 
@@ -492,11 +484,18 @@ def _clean_body(body_html: str) -> str:
 def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: str,
                  audience: Optional[str], preview_text: Optional[str] = None) -> None:
     _refuse_unless_draft(letter)
-    if audience and audience not in AUDIENCES:
-        raise NewsletterError(_("Onbekende doelgroep."))
+    # Convert on the boundary: the form sends a code, the column carries the
+    # member. `Audience(...)` rejects what is not in it, with the name of the
+    # list — the same message for every caller.
+    chosen: Optional[Audience] = None
+    if audience:
+        try:
+            chosen = Audience(audience)
+        except ValueError:
+            raise NewsletterError(_("Onbekende doelgroep.")) from None
     letter.subject = (subject or "").strip()[:500]
     letter.body_html = _clean_body(body_html)
-    letter.audience = audience or None
+    letter.audience = chosen
     # None means "not part of this save" (Raakje applying a proposal); an empty
     # string means the author cleared it, and then the letter derives one again.
     if preview_text is not None:
@@ -637,7 +636,8 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
 
     ``base_url`` makes the links absolute: they end up in a mail.
     """
-    from app.domains.activities.api import Activity, activities_from, registration_state
+    from app.domains.activities.api import (Activity, RegistrationState, activities_from,
+                                            registration_state)
 
     wanted = {int(i) for i in (activity_ids or [])}
     if not wanted:
@@ -665,7 +665,7 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
         # participant list for an internal registration or an external list.
         register_url = None
         if components and not is_past and not is_full \
-                and registration_state(activity).value == "open":
+                and registration_state(activity) is RegistrationState.OPEN:
             external = [c.external_register_url for c in components if c.external_register_url]
             register_url = external[0] if len(components) == 1 and external else page
         registrations_url = None
@@ -1126,7 +1126,7 @@ def closing_html(db: Session) -> str:
             f"{esc(_('Het bestuur van %(naam)s') % {'naam': tenant_display_name(db)})}</div>")
 
 
-def render_mail(db: Session, letter: Newsletter, *, kind: str,
+def render_mail(db: Session, letter: Newsletter, *, kind: DeliveryKind,
                 unsubscribe_url: Optional[str], logo_url: Optional[str] = None,
                 base_url: str = "") -> str:
     """The letter as it arrives: a simple frame around the text.
@@ -1145,7 +1145,7 @@ def render_mail(db: Session, letter: Newsletter, *, kind: str,
     footer = [esc(name)]
     if address:
         footer[0] = f"{esc(name)} · {esc(address)}"
-    if kind == DELIVERY_SUBSCRIBER and unsubscribe_url:
+    if kind == DeliveryKind.SUBSCRIBER and unsubscribe_url:
         footer.append(esc(_("Je krijgt deze mail omdat je op de mailinglijst van "
                             "%(naam)s staat.") % {"naam": name}))
         footer.append(f'<a href="{esc(unsubscribe_url)}" style="color:#52607a">'
@@ -1193,14 +1193,14 @@ def _logo_url(db: Session, base_url: str) -> Optional[str]:
     return f"{base_url}/api/v1/media/{asset.id}"
 
 
-def reply_address(mode: str, sender_email: str) -> Optional[str]:
+def reply_address(mode: ReplyToMode, sender_email: str) -> Optional[str]:
     """Where replies go (CR-05 §3.8).
 
     *De vereniging* means the sender address from the tenant configuration —
     the address the mail comes from — so no Reply-To header is needed. *Mezelf*
     sets the admin who sends.
     """
-    if mode == REPLY_TO_SENDER:
+    if mode == ReplyToMode.SENDER:
         return sender_email
     return None
 
@@ -1216,9 +1216,9 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
 
     if not (letter.subject or "").strip():
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
-    kind = (DELIVERY_SUBSCRIBER if letter.audience in (AUDIENCE_NON_MEMBERS, AUDIENCE_BOTH)
-            else DELIVERY_MEMBER)
-    unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DELIVERY_SUBSCRIBER else None
+    kind = (DeliveryKind.SUBSCRIBER if letter.audience in (Audience.NON_MEMBERS, Audience.BOTH)
+            else DeliveryKind.MEMBER)
+    unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DeliveryKind.SUBSCRIBER else None
     body = render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe_url,
                        logo_url=_logo_url(db, base_url), base_url=base_url)
     text = render_text(db, letter, unsubscribe_url=unsubscribe_url, base_url=base_url)
@@ -1280,8 +1280,10 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
     refusal = placeholder_refusal(letter.body_html)
     if refusal:
         raise NewsletterError(refusal)
-    if reply_to_mode not in REPLY_TO_MODES:
-        raise NewsletterError(_("Kies waar antwoorden naartoe gaan."))
+    try:
+        mode = ReplyToMode(reply_to_mode)
+    except ValueError:
+        raise NewsletterError(_("Kies waar antwoorden naartoe gaan.")) from None
     recipients = recipients_for(db, letter.audience)
     if not recipients:
         raise NewsletterError(_("Er is niemand om deze nieuwsbrief naar te sturen."))
@@ -1289,11 +1291,11 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
     for recipient in recipients:
         db.add(Delivery(newsletter_id=letter.id, email=recipient.email,
                         kind=recipient.kind, subscriber_id=recipient.subscriber_id,
-                        status=DELIVERY_QUEUED))
-    letter.status = LETTER_SENDING
+                        status=DeliveryStatus.QUEUED))
+    letter.status = LetterStatus.SENDING
     letter.sent_by = sent_by
-    letter.reply_to_mode = reply_to_mode
-    letter.reply_to_address = reply_address(reply_to_mode, sent_by)
+    letter.reply_to_mode = mode
+    letter.reply_to_address = reply_address(mode, sent_by)
     letter.link_base = base_url.rstrip("/")
     letter.send_started_at = _now()
     # The conversation with Raakje ends here: the letter is the record now.
@@ -1308,7 +1310,7 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
 def sent_in_last_day(db: Session) -> int:
     since = _now() - timedelta(hours=24)
     return (db.query(func.count(Delivery.id))
-            .filter(Delivery.status == DELIVERY_SENT, Delivery.sent_at >= since)
+            .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
             .scalar() or 0)
 
 
@@ -1316,7 +1318,7 @@ def _next_free_moment(db: Session) -> datetime:
     """When the oldest send of the last 24 hours drops out of the window."""
     since = _now() - timedelta(hours=24)
     oldest = (db.query(func.min(Delivery.sent_at))
-              .filter(Delivery.status == DELIVERY_SENT, Delivery.sent_at >= since)
+              .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
               .scalar())
     return (oldest + timedelta(hours=24, minutes=1)) if oldest else _now() + timedelta(minutes=5)
 
@@ -1345,7 +1347,7 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
     letter = db.get(Newsletter, newsletter_id)
-    if letter is None or letter.status != LETTER_SENDING:
+    if letter is None or letter.status != LetterStatus.SENDING:
         return "nothing"
     now = _now()
     if letter.paused_until and letter.paused_until > now:
@@ -1359,17 +1361,17 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
 
     queued = (db.query(Delivery)
               .filter(Delivery.newsletter_id == letter.id,
-                      Delivery.status == DELIVERY_QUEUED)
+                      Delivery.status == DeliveryStatus.QUEUED)
               .order_by(Delivery.id)
               .limit(min(room, batch_size)).all())
     logo_url = _logo_url(db, letter.link_base or "")
     for delivery in queued:
         unsubscribe_url = None
-        if delivery.kind == DELIVERY_SUBSCRIBER:
+        if delivery.kind == DeliveryKind.SUBSCRIBER:
             subscriber = (db.get(Subscriber, delivery.subscriber_id)
                           if delivery.subscriber_id else None)
-            if subscriber is None or subscriber.status != SUBSCRIBER_CONFIRMED:
-                delivery.status = DELIVERY_SKIPPED
+            if subscriber is None or subscriber.status != SubscriberStatus.CONFIRMED:
+                delivery.status = DeliveryStatus.SKIPPED
                 delivery.error = _("uitgeschreven tijdens het versturen")
                 db.commit()
                 continue
@@ -1387,22 +1389,22 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
             _pause(db, letter, _now() + timedelta(hours=24))
             return "paused"
         if outcome in ("sent", "logged"):
-            delivery.status = DELIVERY_SENT
+            delivery.status = DeliveryStatus.SENT
             delivery.sent_at = _now()
             delivery.error = None
         elif outcome == "skipped":
-            delivery.status = DELIVERY_FAILED
+            delivery.status = DeliveryStatus.FAILED
             delivery.error = _("geen mailaccount ingesteld")
         else:
-            delivery.status = DELIVERY_FAILED
+            delivery.status = DeliveryStatus.FAILED
             delivery.error = _("de mailserver weigerde deze mail")
         db.commit()
 
     left = (db.query(func.count(Delivery.id))
             .filter(Delivery.newsletter_id == letter.id,
-                    Delivery.status == DELIVERY_QUEUED).scalar() or 0)
+                    Delivery.status == DeliveryStatus.QUEUED).scalar() or 0)
     if left == 0:
-        letter.status = LETTER_SENT
+        letter.status = LetterStatus.SENT
         letter.send_finished_at = _now()
         db.commit()
         return "done"
@@ -1429,15 +1431,15 @@ def progress_of(db: Session, letter: Newsletter) -> Progress:
     rows = dict(db.query(Delivery.status, func.count(Delivery.id))
                 .filter(Delivery.newsletter_id == letter.id)
                 .group_by(Delivery.status).all())
-    queued = rows.get(DELIVERY_QUEUED, 0)
+    queued = rows.get(DeliveryStatus.QUEUED, 0)
     expected = None
-    if letter.status == LETTER_SENDING and queued:
+    if letter.status == LetterStatus.SENDING and queued:
         days = expected_days(db, queued) - 1
         start = letter.paused_until or _now()
         expected = start + timedelta(days=days)
-    return Progress(total=sum(rows.values()), sent=rows.get(DELIVERY_SENT, 0),
-                    failed=rows.get(DELIVERY_FAILED, 0),
-                    skipped=rows.get(DELIVERY_SKIPPED, 0), queued=queued,
+    return Progress(total=sum(rows.values()), sent=rows.get(DeliveryStatus.SENT, 0),
+                    failed=rows.get(DeliveryStatus.FAILED, 0),
+                    skipped=rows.get(DeliveryStatus.SKIPPED, 0), queued=queued,
                     expected_finish=expected)
 
 

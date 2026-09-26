@@ -2,7 +2,7 @@
 import os
 
 from app.database import SessionLocal
-from app.domains.mail.models import EmailLog
+from app.domains.mail.models import EmailLog, EmailType
 from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 
 
@@ -253,7 +253,7 @@ def test_confirmation_email_logged_when_enabled(client, admin_headers):
         rows = s.query(EmailLog).filter(EmailLog.recipient == recipient).all()
     finally:
         s.close()
-    assert any(r.email_type == "form_confirmation" for r in rows)
+    assert any(r.email_type is EmailType.FORM_CONFIRMATION for r in rows)
 
 
 def _fields_as_update(form):

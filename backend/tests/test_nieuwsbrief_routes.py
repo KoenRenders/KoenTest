@@ -12,18 +12,16 @@ import pytest
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.newsletter.models import (
-    DELIVERY_SENT,
-    LETTER_SENDING,
-    LETTER_SENT,
-    SUBSCRIBER_CONFIRMED,
-    SUBSCRIBER_PENDING,
-    SUBSCRIBER_UNSUBSCRIBED,
     Delivery,
+    DeliveryStatus,
+    LetterStatus,
     Newsletter,
     Subscriber,
+    SubscriberStatus,
 )
 from app.domains.newsletter import service as nb
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.newsletter.api import Audience
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -66,7 +64,7 @@ def _activity(db, name, day, location="Miloheem"):
     return activity
 
 
-def _subscriber(db, email, status=SUBSCRIBER_CONFIRMED):
+def _subscriber(db, email, status=SubscriberStatus.CONFIRMED):
     row = Subscriber(email=email, status=status, source="admin",
                      unsubscribe_token=f"tok-{email}")
     db.add(row)
@@ -120,7 +118,7 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     assert bewaard.status_code == 200
     assert "Bewaard om" in bewaard.text
     db_session.refresh(letter)
-    assert (letter.subject, letter.audience) == ("Het najaar", "non_members")
+    assert (letter.subject, letter.audience) == ("Het najaar", Audience.NON_MEMBERS)
 
     # 5. The test mail goes to the signed-in admin only.
     test = client.post(f"/admin/nieuwsbrieven/{letter.id}/testmail", headers=headers)
@@ -134,12 +132,12 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
                             headers=headers, data={"reply_to": "sender"})
     assert verstuurd.status_code == 204
     db_session.refresh(letter)
-    assert letter.status == LETTER_SENDING
+    assert letter.status == LetterStatus.SENDING
     assert letter.reply_to_address == SEEDED_ADMIN_EMAIL
 
     nb.send_batch(db_session, letter.id)
     db_session.refresh(letter)
-    assert letter.status == LETTER_SENT
+    assert letter.status == LetterStatus.SENT
     assert [m["to"] for m in mailbox][-1] == "piet@example.org"
 
     # 7. The same address now opens the archive, not the editor.
@@ -238,7 +236,7 @@ def test_abonnees_beheren(client, db_session):
 
     client.post(f"/admin/nieuwsbrieven/abonnees/{nora.id}/uitschrijven", headers=headers)
     db_session.refresh(nora)
-    assert nora.status == SUBSCRIBER_UNSUBSCRIBED
+    assert nora.status == SubscriberStatus.UNSUBSCRIBED
 
     gefilterd = client.get("/admin/nieuwsbrieven/abonnees?status=confirmed",
                            headers={"HX-Request": "true", "X-Raak-Filter": "1"})
@@ -250,7 +248,7 @@ def test_abonnees_beheren(client, db_session):
 
 def test_de_import_via_het_scherm(client, db_session):
     headers = _login(client)
-    _subscriber(db_session, "weg@example.org", status=SUBSCRIBER_UNSUBSCRIBED)
+    _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
     inhoud = b"nieuw@example.org\r\nweg@example.org\r\ngeen adres\r\n"
 
     stap2 = client.post("/admin/nieuwsbrieven/abonnees/import", headers=headers,
@@ -265,8 +263,8 @@ def test_de_import_via_het_scherm(client, db_session):
     klaar = client.post("/admin/nieuwsbrieven/abonnees/import/bevestigen", headers=headers,
                         data={"text": tekst.replace("&#13;", "\r")})
     assert klaar.status_code == 204
-    assert nb.subscriber_by_email(db_session, "nieuw@example.org").status == SUBSCRIBER_CONFIRMED
-    assert nb.subscriber_by_email(db_session, "weg@example.org").status == SUBSCRIBER_UNSUBSCRIBED
+    assert nb.subscriber_by_email(db_session, "nieuw@example.org").status == SubscriberStatus.CONFIRMED
+    assert nb.subscriber_by_email(db_session, "weg@example.org").status == SubscriberStatus.UNSUBSCRIBED
 
 
 def test_de_instellingen(client, db_session):
@@ -301,27 +299,27 @@ def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session,
                                                      "first_name": "An"})
     assert "Kijk in je mailbox" in ingeschreven.text
     an = nb.subscriber_by_email(db_session, "an@example.org")
-    assert an.status == SUBSCRIBER_PENDING
+    assert an.status == SubscriberStatus.PENDING
     link = confirmations[0][1]
     pad = link[link.index("/nieuwsbrief/"):]
 
     geopend = client.get(pad)
     assert "Ja, ik wil de nieuwsbrief" in geopend.text
     db_session.refresh(an)
-    assert an.status == SUBSCRIBER_PENDING, "de link openen bevestigt niets"
+    assert an.status == SubscriberStatus.PENDING, "de link openen bevestigt niets"
 
     bevestigd = client.post(pad)
     assert "Je bent ingeschreven" in bevestigd.text
     db_session.refresh(an)
-    assert an.status == SUBSCRIBER_CONFIRMED
+    assert an.status == SubscriberStatus.CONFIRMED
 
     uit = f"/nieuwsbrief/uitschrijven/{an.unsubscribe_token}"
     assert "Uitschrijven" in client.get(uit).text
     db_session.refresh(an)
-    assert an.status == SUBSCRIBER_CONFIRMED, "de link openen schrijft niet uit"
+    assert an.status == SubscriberStatus.CONFIRMED, "de link openen schrijft niet uit"
     assert "Je bent uitgeschreven" in client.post(uit).text
     db_session.refresh(an)
-    assert an.status == SUBSCRIBER_UNSUBSCRIBED
+    assert an.status == SubscriberStatus.UNSUBSCRIBED
 
     opnieuw = client.post(f"/nieuwsbrief/opnieuw/{an.unsubscribe_token}")
     assert "Je bent ingeschreven" in opnieuw.text
@@ -334,7 +332,7 @@ def test_uitschrijven_met_een_klik_vanuit_het_mailprogramma(client, db_session):
                            data={"List-Unsubscribe": "One-Click"})
     assert antwoord.status_code == 200 and antwoord.text == "ok"
     db_session.refresh(piet)
-    assert piet.status == SUBSCRIBER_UNSUBSCRIBED
+    assert piet.status == SubscriberStatus.UNSUBSCRIBED
 
 
 def test_de_testlink_verandert_niets(client, db_session):
@@ -342,7 +340,7 @@ def test_de_testlink_verandert_niets(client, db_session):
     assert "Dit was een testmail" in client.get("/nieuwsbrief/uitschrijven/test").text
     assert "Dit was een testmail" in client.post("/nieuwsbrief/uitschrijven/test").text
     db_session.refresh(piet)
-    assert piet.status == SUBSCRIBER_CONFIRMED
+    assert piet.status == SubscriberStatus.CONFIRMED
 
 
 def test_een_onbekende_link_zegt_dat_ze_niet_meer_werkt(client, db_session):

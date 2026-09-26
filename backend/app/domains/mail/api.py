@@ -5,7 +5,10 @@ Andere componenten importeren mail-functionaliteit uitsluitend via deze module
 ``service.py`` en blijft intern; het EmailLog-model in ``models.py``.
 """
 from app.domains.mail.models import EmailLog  # noqa: F401
-from app.domains.mail.models import EMAIL_STATUSES, EMAIL_TYPES  # noqa: F401
+from app.domains.mail.models import (  # noqa: F401
+    EMAIL_STATUSES, EMAIL_TYPES, EmailType, MailStatus,
+)
+from app.domains.mail.codes import EMAIL_TYPE, MAIL_STATUS  # noqa: F401
 from app.domains.mail.service import (  # noqa: F401
     purge_old_email_logs,
     send_activity_registration_confirmation,
@@ -29,6 +32,7 @@ from app.domains.mail.service import (  # noqa: F401
 __all__ = [
     "email_log_url",
     "EMAIL_LOG_SORT_KEYS", "EMAIL_STATUSES", "EMAIL_TYPES", "delete_email_log",
+    "EMAIL_TYPE", "MAIL_STATUS", "EmailType", "MailStatus",
     "list_email_log",
     "EmailLog",
     "purge_old_email_logs",

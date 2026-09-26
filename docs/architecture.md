@@ -20,7 +20,7 @@ Scope: every claim in this document is traceable to code in the repository; see 
 **The five architectural choices that make it scale to business software**
 
 1. **Domain packages behind facades, one schema each.** Seventeen packages, each with `api.py` as its only public door and its own Postgres schema; two AST-based tests enforce it on every push.
-2. **ERP-style master data.** Never hard-deleted; duplicates merge into a golden record with a survivorship chain; every entity has an append-only history table; other domains reference it by value, without cross-schema foreign keys.
+2. **ERP-style master data.** Never hard-deleted; duplicates merge into a golden record with a survivorship chain; every entity has an append-only history table; other domains reference it by value, without cross-schema foreign keys — with one named exception, the code tables of the two foundation domains (§2.1).
 3. **A ledger, not a payment field.** Every charge and refund is a record with a polymorphic reference to what is paid; one function owns the invariant *sum of records equals amount due*; the Mollie webhook never trusts its own body.
 4. **Row-level multi-tenancy from the kernel.** A `tenant_id` mixin on 63 tables, resolved per request and applied as a global ORM filter no query can forget. A third tenant is configuration, not code.
 5. **Quality as infrastructure, because AI writes most of the code.** Issue-driven changes, four blocking CI jobs, allowlists that must shrink to zero, and the written rule that *a test must be able to go red*.
@@ -41,6 +41,10 @@ Scope: every claim in this document is traceable to code in the repository; see 
 Each principle is followed by where it is enforced. A principle that is only written down is a wish; these are tests.
 
 **2.1 Domain separation with facades.** Every domain owns its models, service, routers, screens and templates. Other code reaches it only through `api.py`. Enforced by `tests/test_import_boundaries.py` (an import linter written as a pytest: kernel never imports domains, cross-domain imports only target `.api`) and `tests/test_schema_boundaries.py` (no foreign keys across schemas). [HDEV]
+
+**The one exception to "no foreign keys across schemas": a code table of a foundation domain** (CR-12 §B2.4, built in v2.7.0). There are two foundation domains — `mdm` for master data and `auth` for security vocabulary — and any schema may point a foreign key at a `<foundation>.<list>_codes` table. Neither depends on a business domain (`auth` depends on `mdm` only), so the exception cannot create a cycle, and every domain already imports `mdm.api`.
+
+It exists because a shared list would otherwise lose the database check that is the reason it is a list at all: the `language` column of every label table points at `mdm.language_codes`, so a stray `nl_BE` or `NL` is refused instead of becoming a label nobody ever reads. The exception is narrow on purpose — only towards a `_codes` table, never towards an ordinary table of those schemas — and `test_schema_boundaries.py` holds that line with its own test.
 
 **2.2 Screens build a view-model and choose a template. Nothing else.** A UI module may not touch the database session, may not import ORM classes or router functions, and passes a typed `ViewModel` to its template. Enforced by `tests/test_layer_gate.py` (AST-based, five rules) and `tests/test_template_variables_gate.py` (a template may not ask for a variable the view-model does not promise). Templates render under `StrictUndefined` in development, test and HDEV, so a typo fails instead of rendering blank. [HDEV]
 
@@ -199,7 +203,7 @@ flowchart TB
 | reporting | reporting | yes | yes | none | admin + assistant | no |
 | stt | none | none | none | WebSocket | none | no |
 
-Rules that hold on master: kernel imports no domain; cross-domain imports target only `.api`; no cross-schema foreign keys; a UI module never touches the session. Two facades still delegate part of their implementation back into a router (`activities`, `forms`), which the layer gate tolerates for services but not for screens. That is honest debt, and it is listed in Chapter 9.
+Rules that hold on master: kernel imports no domain; cross-domain imports target only `.api`; no cross-schema foreign keys except towards a code table of `mdm` or `auth` (§2.1); a UI module never touches the session. Two facades still delegate part of their implementation back into a router (`activities`, `forms`), which the layer gate tolerates for services but not for screens. That is honest debt, and it is listed in Chapter 9.
 
 ## 3.3 Master data and membership
 

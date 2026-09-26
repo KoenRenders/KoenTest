@@ -30,7 +30,13 @@
         <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
         {# Alle invulbare velden zichtbaar in leesmodus (Koen, 15 sep — de
            golf 8-regel geldt ook hier): het geslacht ontbrak als enige. #}
-        {% set geslacht = gender_codes | selectattr("code", "equalto", m.gender) | map(attribute="value") | first | default(none) %}
+        {# CR-12 phase 2: the label came from the DROPDOWN LIST here, and that
+           broke as soon as a code was retired — `U` is no longer in the
+           dropdown, and then a person with that code could no longer render.
+           A dropdown says what you *may* choose; a label says what a value is
+           called. Those are two questions, and `code_label` answers the second
+           — also for a retired code, because its label row stays. #}
+        {% set geslacht = m.gender | code_label("gender") %}
         {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth.strftime("%d-%m-%Y") }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}

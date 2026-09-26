@@ -51,6 +51,10 @@ GATE_BESTANDEN = [
     "test_ui_conventions_gate.py",
     "test_style_guardrails.py",
     "test_import_boundaries.py",
+    # CR-12: the code gate scans `app/**/*.py` and `app/**/*.html`. Two
+    # collections that can quietly fall empty, and the five ratchets under them
+    # would then be green forever.
+    "test_codes_gate.py",
     # Geen `test_`-bestand: de migratiepoort (#951) leest haar bestanden in
     # `_migratieketen.py`, omdat `conftest` diezelfde controle draait vóór
     # `alembic upgrade head`. De glob staat daar, dus daar hoort de niet-leeg-

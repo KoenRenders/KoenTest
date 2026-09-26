@@ -1,7 +1,11 @@
 from datetime import datetime, timezone
+from enum import Enum
+from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text, event
-from sqlalchemy.orm import relationship, object_session
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from app.database import Base
+from app.domains.mdm.api import PaymentMethod
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -22,6 +26,25 @@ def _single_asset(obj, kind, fk_attr):
         .order_by(MediaAsset.id.desc())
         .first()
     )
+
+
+class RegistrationState(Enum):
+    """Whether an activity accepts a NEW registration, and if not, why (#974).
+
+    The reason matters as much as the answer: the refusal message and the badge on
+    the card say different things for "this has passed" and "registrations closed
+    on 1 October", and a caller that only gets a boolean will guess.
+    """
+
+    OPEN = "open"
+    #: No date of the activity lies today or later.
+    PAST = "past"
+    #: The registration deadline has passed.
+    CLOSED = "closed"
+    #: The activity is cancelled. Until #974 only the public card knew this: it
+    #: hid the button, while the server accepted a form that was posted anyway.
+    #: Koen decided on 16 September 2026 that the server refuses too.
+    CANCELLED = "cancelled"
 
 
 class ActiviteitFout(ValueError):
@@ -199,13 +222,20 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     activity_id = Column(Integer, ForeignKey("activities.activities.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    registration_type = Column(String(10), nullable=False)  # idem: geen cross-schema FK (§8)
+    # CR-12 phase 4: the list moved into this schema, so the key is allowed now.
+    registration_type = Column(String(10),
+                               ForeignKey("activities.registration_type_codes.code"),
+                               nullable=False)
 
     contact_name = Column(String(200), nullable=True)
     contact_email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     team_name = Column(String(200), nullable=True)
-    payment_method = Column(String(20), nullable=True)
+    # CR-12 phase 1: the same list as `payment.payment_records.method`,
+    # so the same shape — `mdm.payment_method_codes` with an FK. Nullable:
+    # a free registration has no payment method.
+    payment_method: Mapped[Optional[PaymentMethod]] = mapped_column(
+        EnumColumn(PaymentMethod, length=20), nullable=True)
     component_id = Column(Integer, ForeignKey("activities.activity_sub_registrations.id", ondelete="SET NULL"), nullable=True)
     remarks = Column(Text, nullable=True)
 
@@ -239,7 +269,10 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     external_register_url = Column(String(500), nullable=True)
     external_registrations_url = Column(String(500), nullable=True)
     info_url = Column(String(500), nullable=True)
-    registration_type_code = Column(String(10), nullable=False, default="INDIVIDUAL")  # code gevalideerd in de router-schema's (§8: geen cross-schema FK)
+    # CR-12 phase 4: the list moved into this schema, so the key is allowed now.
+    registration_type_code = Column(String(10),
+                                    ForeignKey("activities.registration_type_codes.code"),
+                                    nullable=False, default="INDIVIDUAL")
     max_participants = Column(Integer, nullable=True)
     # #1053: the last day on which a NEW registration for THIS component is
     # accepted, inclusive, in Belgian time. A date and not a timestamp: what the
@@ -404,12 +437,73 @@ class ProductHistory(TenantMixin, HistoryMixin, Base):
 
 
 class RegistrationTypeCode(Base):
-    """Codetabel (verhuisd uit app/models/codes.py, #444). Public schema."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 4).
+
+    Moved out of `public` in CR-12 phase 4. Until then the two columns that
+    store it carried no foreign key, because §8 forbids one across schemas;
+    in its own schema the key is allowed and both columns get it.
+    """
 
     __tablename__ = "registration_type_codes"
+    __table_args__ = {"schema": "activities"}
+
     code = Column(String(10), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        nullable=False)
+
+
+class RegistrationTypeLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 4)."""
+
+    __tablename__ = "registration_type_labels"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(10), ForeignKey("activities.registration_type_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class RegistrationStateCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4).
+
+    A DERIVED list (§B5.3 note 5): the state is computed by
+    `service.registration_state` and stored nowhere, so no column points here.
+    The table exists so that its words come from `code_label()` like every
+    other code's.
+    """
+
+    __tablename__ = "registration_state_codes"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        nullable=False)
+
+
+class RegistrationStateLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 4)."""
+
+    __tablename__ = "registration_state_labels"
+    __table_args__ = {"schema": "activities"}
+
+    code = Column(String(10), ForeignKey("activities.registration_state_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)

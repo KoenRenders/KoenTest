@@ -53,6 +53,8 @@ from app.domains.mail.api import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
 from app.i18n import _
+from app.domains.mdm.api import PaymentMethod
+from app.domains.mdm.api import CONTACT, RelationType
 
 
 router = APIRouter(tags=["members"])
@@ -339,24 +341,26 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
             db.query(Membership)
             .join(MemberPerson, and_(
                 MemberPerson.member_id == Membership.member_id,
-                MemberPerson.relation_type == "HOOFDLID",
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
             ))
             .join(ContactDetail, and_(
                 ContactDetail.person_id == MemberPerson.person_id,
-                ContactDetail.contact_type_code == "EMAIL",
+                ContactDetail.contact_type_code == CONTACT.EMAIL,
                 func.lower(ContactDetail.value) == hoofdlid_email.lower(),
             ))
             .filter(Membership.year == today.year)
             .all()
         )
         if existing_memberships:
-            from app.domains.payment.api import PaymentRecord
+            from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus
             for ms in existing_memberships:
                 recs = db.query(PaymentRecord).filter(
-                    PaymentRecord.payable_type == "membership",
+                    PaymentRecord.payable_type == PayableType.MEMBERSHIP,
                     PaymentRecord.payable_id == ms.id,
                 ).all()
-                if not recs or any(r.status in ("paid", "pending") for r in recs):
+                if not recs or any(r.status in (PaymentStatus.PAID,
+                                                PaymentStatus.PENDING)
+                                   for r in recs):
                     raise HTTPException(
                         status_code=409,
                         detail=_("Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. "
@@ -395,7 +399,8 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     db.commit()
 
     checkout_url = None
-    if data.payment_method == "online" and payment_record.gateway_payment_id:
+    if data.payment_method == PaymentMethod.ONLINE.value \
+            and payment_record.gateway_payment_id:
         from app.domains.payment.api import GatewayPayment
         gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
         if gp:
@@ -415,5 +420,6 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
         except Exception as e:
             logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)
 
-    status = "pending_payment" if data.payment_method == "online" else "registered"
+    status = ("pending_payment" if data.payment_method == PaymentMethod.ONLINE.value
+              else "registered")
     return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)

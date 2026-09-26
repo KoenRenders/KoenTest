@@ -103,6 +103,21 @@ class ComponentResponse(BaseModel):
     # De kaart rekent niet zelf uit of een deadline voorbij is — dat was precies
     # de duplicatie die #974 wegnam, en ze mag niet per onderdeel terugkomen.
     registration_state: Optional[str] = None
+
+    # CR-12 phase 4: what the card needs, derived here so the template compares
+    # no codes (§B4.7). `registration_state` stays the code, for the API.
+    @property
+    def registration_open(self) -> bool:
+        from app.domains.activities.api import RegistrationState
+
+        return self.registration_state == RegistrationState.OPEN.value
+
+    @property
+    def registration_closed(self) -> bool:
+        from app.domains.activities.api import RegistrationState
+
+        return self.registration_state == RegistrationState.CLOSED.value
+
     # #1051: binnen de laatste week kleurt de regel oranje (attentietint, §1.1).
     deadline_near: bool = False
     products: List[ProductResponse] = []
@@ -194,6 +209,19 @@ class ActivityResponse(BaseModel):
     # each decide "open" is how the deadline would have been forgotten in one.
     registration_state: Optional[str] = None
     sub_registrations: List[ComponentResponse] = []
+
+    # CR-12 phase 4: see `ComponentResponse` — the same two, for the activity.
+    @property
+    def registration_open(self) -> bool:
+        from app.domains.activities.api import RegistrationState
+
+        return self.registration_state == RegistrationState.OPEN.value
+
+    @property
+    def registration_closed(self) -> bool:
+        from app.domains.activities.api import RegistrationState
+
+        return self.registration_state == RegistrationState.CLOSED.value
 
     model_config = {"from_attributes": True}
 

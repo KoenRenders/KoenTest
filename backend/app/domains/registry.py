@@ -21,6 +21,8 @@ from pathlib import Path
 _KERNEL_MODEL_MODULES = (
     "app.kernel.tenant_config",
     "app.kernel.jobs",
+    # CR-12 phase 4: the history operation's code list, next to `kernel_jobs`.
+    "app.kernel.operations",
 )
 
 _DOMAINS_DIR = Path(__file__).resolve().parent
@@ -36,3 +38,12 @@ def load_all_models() -> None:
 
     for models_file in sorted(_DOMAINS_DIR.glob("*/models.py")):
         importlib.import_module(f"app.domains.{models_file.parent.name}.models")
+
+    # CR-12: the code lists belong to the same load. The gates iterate over the
+    # registry, so a list that is never imported is a list that is never
+    # checked — which would be exactly the silent shape this change request
+    # removes. After the models, because a declaration names the two ORM
+    # classes of its tables.
+    from app.kernel.codes import load_all_code_lists
+
+    load_all_code_lists()

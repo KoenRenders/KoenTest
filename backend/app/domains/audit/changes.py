@@ -13,10 +13,13 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.i18n import _
+from app.kernel.codes import code_label
+from app.kernel.operations import OPERATION
 from app.kernel.ods import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory
+from app.domains.mdm.api import CONTACT, RelationType
 from app.domains.activities.api import (
     RegistrationHistory,
     RegistrationItemHistory,
@@ -33,7 +36,8 @@ from app.domains.mdm.api import (
     ContactDetailHistory,
 )
 
-_OPERATION_LABELS = {"insert": "Toegevoegd", "update": "Gewijzigd", "delete": "Verwijderd"}
+# The three words of the history operation live in the kernel's label table
+# since CR-12 phase 4; `code_label()` reads them.
 
 
 def _fmt(value) -> str:
@@ -133,7 +137,7 @@ class _SubjectResolver:
             from app.domains.mdm.api import MemberPerson
             mp = (self._q(MemberPerson)
                   .filter(MemberPerson.member_id == member_id,
-                          MemberPerson.relation_type == "HOOFDLID").first())
+                          MemberPerson.relation_type == RelationType.PRIMARY_MEMBER).first())
             self._head_of_member[member_id] = mp.person_id if mp else None
         return self._head_of_member[member_id]
 
@@ -151,7 +155,7 @@ class _SubjectResolver:
         cd = (self._q(ContactDetail)
               .filter(ContactDetail.person_id.isnot(None),
                       func.lower(ContactDetail.value) == email.strip().lower(),
-                      ContactDetail.contact_type_code == "EMAIL").first())
+                      ContactDetail.contact_type_code == CONTACT.EMAIL).first())
         return cd.person_id if cd else None
 
     def fields(self, *, person_id=None, member_id=None) -> dict:
@@ -217,7 +221,7 @@ def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str =
         "entity": entity,
         "entity_id": entity_id,
         "operation": h.operation,
-        "operation_label": _(_OPERATION_LABELS.get(h.operation, h.operation)),
+        "operation_label": code_label(OPERATION.name, h.operation),
         "action": h.action,
         "actor": h.actor,
         "summary": summary,

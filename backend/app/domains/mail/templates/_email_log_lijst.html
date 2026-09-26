@@ -37,11 +37,9 @@
         <td class="px-3 py-2 max-w-xs truncate" title="{{ row.subject }}">{{ row.subject }}</td>
         {# #523: Type als rustige tekst i.p.v. blauwe pill — kleur reserveren we voor
            de semantische Status (§2.10). #}
-        <td class="px-3 py-2 whitespace-nowrap text-ink-soft">{{ type_labels.get(row.email_type, row.email_type) }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-ink-soft">{{ row.email_type | code_label("email_type") }}</td>
         <td class="px-3 py-2">
-          {% if row.status == "sent" %}{{ ui.badge(status_labels.get("sent", "sent"), "green") }}
-          {% elif row.status == "failed" %}{{ ui.badge(status_labels.get("failed", "failed"), "red") }}
-          {% else %}{{ ui.badge(status_labels.get(row.status, row.status), "yellow") }}{% endif %}
+          {{ ui.badge(row.status | code_label("mail_status"), row.status | tone("mail_status")) }}
           {% if row.error_message %}<span class="block text-[11px] text-ink-soft mt-1">{{ row.error_message }}</span>{% endif %}
         </td>
         <td class="px-3 py-2 text-right whitespace-nowrap w-px" x-data="{ open: false }">
@@ -57,7 +55,7 @@
              verzinnen. De opmaak uit #523 blijft: onderwerp text-lg (dat doet de
              macro), meta text-sm/leading-relaxed. #}
           {% call ui.modal("open", row.subject, max_w="max-w-2xl") %}
-            <p class="text-sm text-gray-500 leading-relaxed -mt-1 mb-3">{{ _("Aan") }}: {{ row.recipient }} · {{ row.created_at.strftime("%d-%m-%Y %H:%M") }} · {{ status_labels.get(row.status, row.status) }}</p>
+            <p class="text-sm text-gray-500 leading-relaxed -mt-1 mb-3">{{ _("Aan") }}: {{ row.recipient }} · {{ row.created_at.strftime("%d-%m-%Y %H:%M") }} · {{ row.status | code_label("mail_status") }}</p>
             {# #523: body "zoals gemaild" — in een gesandboxte iframe (srcdoc) zodat
                ze als eigen document rendert (bullets/indents blijven staan) en
                geïsoleerd is van de admin-CSS/Preflight-reset. sandbox="" blokkeert

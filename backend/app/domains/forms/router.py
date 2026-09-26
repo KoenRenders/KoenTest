@@ -12,6 +12,8 @@ from app.limiter import form_submit_limiter
 from app.config import settings
 from app.database import get_db
 from app.domains.forms.models import (
+    FieldType,
+    FormStatus,
     Form,
     FormSection,
     FormField,
@@ -229,7 +231,7 @@ def export_form(
 def _load_public_form(db: Session, share_token: str) -> Form:
     form = db.query(Form).filter(Form.share_token == share_token).first()
     # Concept-formulieren zijn niet publiek zichtbaar.
-    if not form or form.status == "draft":
+    if not form or form.status is FormStatus.DRAFT:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return form
 
@@ -360,7 +362,7 @@ def update_submission(
     form = db.query(Form).filter(Form.id == submission.form_id).first()
     if not form or not form.allow_edit:
         raise HTTPException(status_code=403, detail=_("Wijzigen is niet toegestaan."))
-    if form.status != "open":
+    if form.status is not FormStatus.OPEN:
         raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
     assert_submitter(form, data.submitter_name, data.submitter_email)
 

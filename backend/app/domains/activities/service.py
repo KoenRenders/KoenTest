@@ -14,32 +14,16 @@ De transactiegrens ligt hier (§635 regel 2): de service commit, het scherm niet
 Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 from datetime import date
-from enum import Enum
 from typing import NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
+from app.kernel.codes import code_label, code_of
+from app.domains.mdm.api import CONTACT
+from app.domains.activities.codes import INDIVIDUAL
 
 from app.domains.activities.models import (ActiviteitFout, Activity, ActivityDate,
-                                           ActivitySubRegistration, Registration)
-
-
-class RegistrationState(str, Enum):
-    """Whether an activity accepts a NEW registration, and if not, why (#974).
-
-    The reason matters as much as the answer: the refusal message and the badge on
-    the card say different things for "this has passed" and "registrations closed
-    on 1 October", and a caller that only gets a boolean will guess.
-    """
-
-    OPEN = "open"
-    #: No date of the activity lies today or later.
-    PAST = "past"
-    #: The registration deadline has passed.
-    CLOSED = "closed"
-    #: The activity is cancelled. Until #974 only the public card knew this: it
-    #: hid the button, while the server accepted a form that was posted anyway.
-    #: Koen decided on 16 September 2026 that the server refuses too.
-    CANCELLED = "cancelled"
+                                           ActivitySubRegistration, Registration,
+                                           RegistrationState)
 
 
 def _effective_end(ad: ActivityDate) -> date:
@@ -183,18 +167,16 @@ def registration_state(activity: Activity, *, component=None,
 #
 # "Afgesloten" for a passed deadline was decided by Koen on 16 September 2026: an
 # activity that no longer takes registrations is not "open", even though it has not
-# taken place yet.
-STATUS_LABELS: dict["RegistrationState", str] = {
-    RegistrationState.OPEN: "Open",
-    RegistrationState.CLOSED: "Afgesloten",
-    RegistrationState.PAST: "Voorbij",
-    RegistrationState.CANCELLED: "Geannuleerd",
-}
+# taken place yet. Since CR-12 phase 4 the four words live in the label table of
+# the DERIVED list `registration_state` (§B5.3 note 5): computed, never stored,
+# and read with `code_label()` like every other code.
 
 
 def status_label(activity: Activity, *, today: Optional[date] = None) -> str:
     """The label for this activity, derived from `registration_state`."""
-    return STATUS_LABELS[registration_state(activity, today=today)]
+    from app.domains.activities.codes import REGISTRATION_STATE
+
+    return code_label(REGISTRATION_STATE.name, registration_state(activity, today=today))
 
 
 def registration_refusal(activity: Activity, *, component=None,
@@ -526,7 +508,7 @@ def add_component(db, activity_id: int, gegevens, *, actor=None):
         registration_closes_on=gegevens.registration_closes_on,
         # Verplichte FK, bewaard voor DB-compatibiliteit; sinds de v2.0-unificatie
         # vertakt er niets meer op dit veld.
-        registration_type_code="INDIVIDUAL",
+        registration_type_code=INDIVIDUAL,
         price=0,
         is_free=True,
     )
@@ -1573,10 +1555,13 @@ def organisers_for(db, activity_id: int) -> list:
         return []
     person_ids = [r.person_id for r in rijen]
     personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
-    contacten: dict[tuple[int, str], str] = {}
+    contacten: dict[tuple[int, str | None], str] = {}
     for detail in (db.query(ContactDetail)
                    .filter(ContactDetail.person_id.in_(person_ids)).all()):
-        sleutel = (detail.person_id, (detail.contact_type_code or "").upper())
+        # CR-12 phase 2: the `.upper()` was a normalisation because the column
+        # accepted any spelling. The code list does that now; `code_of` returns
+        # the code, whether it comes back as a member or as a bare code.
+        sleutel = (detail.person_id, code_of(detail.contact_type_code))
         if detail.value and sleutel not in contacten:
             contacten[sleutel] = detail.value
 
@@ -1588,8 +1573,8 @@ def organisers_for(db, activity_id: int) -> list:
         # ledenwaarde, en PAS DAARNA beslist de vlag of er iets naar buiten gaat.
         # Andersom zou een ingevulde override alsnog lekken terwijl het vinkje uit
         # staat — precies wat dit issue moet voorkomen.
-        email = rij.email_override or contacten.get((rij.person_id, "EMAIL"), "")
-        mobile = rij.mobile_override or contacten.get((rij.person_id, "MOBILE"), "")
+        email = rij.email_override or contacten.get((rij.person_id, CONTACT.EMAIL), "")
+        mobile = rij.mobile_override or contacten.get((rij.person_id, CONTACT.MOBILE), "")
         gezien.append(OrganiserView(
             id=rij.id, person_id=rij.person_id, name=naam,
             is_contact=bool(rij.is_contact),

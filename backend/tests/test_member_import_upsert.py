@@ -24,6 +24,8 @@ from app.domains.mdm.api import (
     MemberPersonHistory,
 )
 from tests.conftest import seed_postal_code
+from app.domains.mdm.api import CONTACT
+from app.domains.auth.api import Role
 
 
 def _row(lidnr, voornaam, naam, relatie, *, email=None, geboortedatum=None,
@@ -99,7 +101,7 @@ def test_existing_member_fields_overwritten(db_session):
     person = db_session.query(Person).join(ExternalNumber).filter(
         ExternalNumber.external_id == "100").one()
     assert person.first_name == "Johan"
-    email = next(c for c in person.contact_details if c.contact_type_code == "EMAIL")
+    email = next(c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL)
     assert email.value == "nieuw@example.com"
     # Audit: update-snapshot aangemaakt.
     assert db_session.query(PersonHistory).filter_by(
@@ -368,7 +370,7 @@ def test_admin_user_created_for_board_member(db_session):
     user = db_session.query(User).filter(User.email == "mon@example.com").first()
     assert user is not None and user.is_active
     roles = db_session.query(UserRole).filter(UserRole.user_id == user.id).all()
-    assert any(r.role_code == "ADMIN" for r in roles)
+    assert any(r.role_code == Role.ADMIN for r in roles)
 
 
 def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
@@ -393,7 +395,7 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
 
     user = db_session.query(User).filter(User.email == "mon@example.com").first()
     assert user is not None and user.is_active
-    assert any(r.role_code == "ADMIN"
+    assert any(r.role_code == Role.ADMIN
                for r in db_session.query(UserRole).filter(UserRole.user_id == user.id))
 
     # Het gezin is aan dat bestuurslid gekoppeld (board_member_id).

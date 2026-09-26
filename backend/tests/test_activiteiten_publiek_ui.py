@@ -120,5 +120,12 @@ def test_volzet_is_oranje_geen_rood():
     """
     inhoud = (TPL / "_activiteiten_cards.html").read_text()
     assert 'ui.badge(_("Volzet"), "orange")' in inhoud
-    assert '"Vol": "orange"' in inhoud
-    assert '"Geannuleerd": "red"' in inhoud      # rood blijft waar het hoort
+    # CR-12 phase 4: the state badge takes its tone from the code, no longer
+    # from a dictionary keyed on the Dutch label inside the template. Its
+    # `"Vol"` key was dead — no state ever read "Vol" — so the orange that
+    # matters is the Volzet badge above. Red stays where it belongs:
+    import app.domains.activities.ui  # noqa: F401  (registers the tones)
+    from app.domains.activities.api import REGISTRATION_STATE, RegistrationState
+    from app.kernel.codes import tone
+
+    assert tone(REGISTRATION_STATE.name, RegistrationState.CANCELLED) == "red"

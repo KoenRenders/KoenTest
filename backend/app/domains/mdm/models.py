@@ -7,19 +7,76 @@ Survivorship (§6): een Person wordt nooit hard verwijderd bij een merge —
 keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 """
 from datetime import datetime, timezone
+from typing import Optional
 
 from enum import Enum
 
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+# ── The vocabularies of this domain (CR-12 phase 2) ─────────────────────────
+#
+# Up front, because the columns below use them in their declaration:
+# `Mapped[LegalForm] = mapped_column(EnumColumn(LegalForm))` is executed at
+# class-definition time, not evaluated lazily.
+
+
+class LegalForm(Enum):
+    """The legal forms the code list knows (#924, pattern of #779).
+
+    The code lives in the database, the label per language in
+    `mdm.legal_form_labels`, and this Enum is where the code comes from in the
+    application. Extensible: a new form is a row plus a member.
+
+    CR-12 phase 2: from `str, Enum` to a plain `Enum`. With the `str` mixin,
+    `organisatie.legal_form == "VZW"` remained a valid comparison that happened
+    to be true; with a plain one it is silently false, and therefore findable.
+    """
+
+    #: Member names English, values unchanged (§B4.3, which gives
+    #: `LegalForm.COMPANY = "BEDRIJF"` literally as its example). The value is
+    #: stored data and stays; the name is an identifier and falls under the
+    #: English rule.
+    NON_PROFIT = "VZW"
+    UNINCORPORATED = "FEITELIJKE_VERENIGING"
+    COMPANY = "BEDRIJF"
+
+
+class OrganizationType(Enum):
+    """What kind of organization this is (CR-12 phase 2).
+
+    `ACCOUNT` is the legal entity that holds the account, `UNIT` a unit,
+    `PLATFORM` the one organization that represents the platform itself (#406).
+    The column had a CHECK constraint with these three values; it goes away with
+    the foreign key, because otherwise a fourth kind costs a row and a migration.
+    """
+
+    ACCOUNT = "ACCOUNT"
+    UNIT = "UNIT"
+    PLATFORM = "PLATFORM"
+
+
+class RelationType(Enum):
+    """How a person belongs to a household (CR-12 phase 2).
+
+    Member names are English, values remain the stored Dutch codes (§B4.3):
+    the value is data and does not change, the name is an identifier and falls
+    under the English rule.
+    """
+
+    PRIMARY_MEMBER = "HOOFDLID"
+    PARTNER = "PARTNER"
+    ADULT_CHILD = "KIND"
 
 
 class Member(TenantMixin, SoftDeleteMixin, Base):
@@ -73,7 +130,10 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     # ondelete RESTRICT: een persoon kan niet hard verdwijnen zolang er
     # gezinskoppelingen aan hangen (DB als laatste vangnet, #97 / migr. 058).
     person_id = Column(Integer, ForeignKey("mdm.persons.id", ondelete="RESTRICT"), nullable=False)
-    relation_type = Column(String(10), ForeignKey("mdm.relation_type_codes.code"), nullable=False, default="HOOFDLID")
+    relation_type: Mapped[RelationType] = mapped_column(
+        EnumColumn(RelationType, length=10),
+        ForeignKey("mdm.relation_type_codes.code"), nullable=False,
+        default=RelationType.PRIMARY_MEMBER)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
@@ -104,7 +164,7 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True)
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
-    relation_type = Column(String(30), ForeignKey("mdm.organization_relation_types.code"),
+    relation_type = Column(String(30), ForeignKey("mdm.organization_relation_type_codes.code"),
                            nullable=False, default="BOARD_MEETING")
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -126,10 +186,19 @@ class OrganizationRelationType(Base):
     is a row, and the foreign key keeps working.
     """
 
-    __tablename__ = "organization_relation_types"
+    # CR-12 phase 2: renamed to the shape of §B4.2 (`<list>_codes`). The
+    # label table was already called `..._labels`; the code table was the only
+    # one outside the pattern, and then every gate has to make an exception
+    # for it.
+    __tablename__ = "organization_relation_type_codes"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(30), primary_key=True)
+    # CR-12 phase 2, same addition as for `identification_schemes`: the shape
+    # of #924 was almost that of §B4.2, but without ordering and without
+    # retirability. Now this list fits the pattern.
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
 
@@ -139,7 +208,7 @@ class OrganizationRelationTypeLabel(Base):
     __tablename__ = "organization_relation_type_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(30), ForeignKey("mdm.organization_relation_types.code"),
+    code = Column(String(30), ForeignKey("mdm.organization_relation_type_codes.code"),
                   primary_key=True)
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
@@ -217,7 +286,16 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
                              nullable=True)
-    contact_type_code = Column(String(10), ForeignKey("mdm.contact_type_codes.code"), nullable=False)
+    # No enum, unlike the other lists of this change request (Koen,
+    # 26 September 2026). #1160 made the public footer data-driven: a fifth
+    # social network is one row and not a code change. An enum column would
+    # reject such a row on the WRITE side, and that is exactly what #1160
+    # removed. The code names the kinds it distinguishes with named constants
+    # (`CONTACT.EMAIL`, `CONTACT.MOBILE` in `codes.py`); the foreign key
+    # guards that the value is in the list.
+    contact_type_code = Column(String(10),
+                               ForeignKey("mdm.contact_type_codes.code"),
+                               nullable=False)
     value = Column(String(255), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -285,7 +363,10 @@ class Organization(SoftDeleteMixin, Base):
     # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
     # Dit is de ROL die de organisatie speelt in het platform; de kolommen
     # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
-    org_type = Column(String(10), nullable=False, default="ACCOUNT")
+    org_type: Mapped[OrganizationType] = mapped_column(
+        EnumColumn(OrganizationType, length=10),
+        ForeignKey("mdm.organization_type_codes.code"), nullable=False,
+        default=OrganizationType.ACCOUNT)
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
@@ -300,7 +381,9 @@ class Organization(SoftDeleteMixin, Base):
     # Geen FK: een verwijzing naar `code` alleen vereist een uniciteit daarop, en
     # die laat maar één taal per code toe — zie de migratie. De geldige waarden
     # staan in `LegalForm` hieronder.
-    legal_form = Column(String(30), nullable=True)
+    legal_form: Mapped[Optional[LegalForm]] = mapped_column(
+        EnumColumn(LegalForm, length=30),
+        ForeignKey("mdm.legal_form_codes.code"), nullable=True)
 
     parent = relationship("Organization", remote_side=[id])
 
@@ -379,7 +462,7 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
                              nullable=False, index=True)
-    scheme = Column(String(20), ForeignKey("mdm.identification_schemes.code"),
+    scheme = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"),
                     nullable=False)
     value = Column(String(50), nullable=False)
     country = Column(String(2), nullable=True)
@@ -391,6 +474,95 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
 
 
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
+
+
+class PaymentMethod(Enum):
+    """How money moves: online, by bank transfer, or in cash (CR-12 phase 1).
+
+    In `mdm` and not in `payment`, because two domains store it — a payment
+    record and an activity registration — and a list used by more than one
+    domain is master data by definition (§B4.1). That makes the foreign key
+    from `payment` and from `activities` the allowed cross-schema one.
+
+    Plain `Enum`. Member names are English and so are the values here; the
+    Dutch `OVERSCHRIJVING` the public form used to post is mapped to `transfer`
+    once, by the migration of this phase (§B4.6).
+    """
+
+    ONLINE = "online"
+    TRANSFER = "transfer"
+    CASH = "cash"
+
+
+class PaymentMethodCode(Base):
+    """Which payment methods exist — the target of the foreign keys."""
+
+    __tablename__ = "payment_method_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class PaymentMethodLabel(Base):
+    """The word a screen or an export shows for a payment method, per language."""
+
+    __tablename__ = "payment_method_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.payment_method_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class LanguageCode(Base):
+    """Which languages a label may be written in (CR-12 phase 0).
+
+    The smallest list in the codebase and the one every other list depends on:
+    the ``language`` column of every ``_labels`` table points here, so a typo
+    like ``nl_BE`` or ``NL`` in a label row is refused by the database instead
+    of quietly producing a label nobody ever reads.
+
+    It lives in ``mdm`` because it is used by every domain, which is the
+    definition of master data (§B4.1). That makes it the one named exception to
+    "no cross-schema foreign keys": a label table in any schema points at this
+    one. ``mdm`` depends on no business domain, so no cycle can arise.
+
+    Language **codes**, not locales: ``nl``, not ``nl_BE``. The tenant setting
+    stays a locale (``nl_BE`` decides how a date reads); the label lookup takes
+    the language part of it (§F8).
+    """
+
+    __tablename__ = "language_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LanguageLabel(Base):
+    """The name of a language, in each language (CR-12 phase 0)."""
+
+    __tablename__ = "language_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class IdentificationScheme(Base):
@@ -409,10 +581,17 @@ class IdentificationScheme(Base):
     niet opnieuw te maken.
     """
 
-    __tablename__ = "identification_schemes"
+    # CR-12 phase 2: renamed to `<list>_codes`, see OrganizationRelationType.
+    __tablename__ = "identification_scheme_codes"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(20), primary_key=True)
+    # CR-12 phase 2: these two were missing. The table already had the split
+    # shape of #924, but not the ordering and retirability that §B4.2 asks for
+    # — and without those two a list cannot fit the pattern and a code cannot
+    # be retired without deleting it.
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
 
@@ -422,7 +601,7 @@ class IdentificationSchemeLabel(Base):
     __tablename__ = "identification_scheme_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(20), ForeignKey("mdm.identification_schemes.code"),
+    code = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"),
                   primary_key=True)
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
@@ -430,72 +609,159 @@ class IdentificationSchemeLabel(Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
-class LegalForm(str, Enum):
-    """De rechtsvormen die de codelijst kent (#924, patroon van #779).
-
-    De code staat in de databank, het label per taal in `mdm.legal_form_codes`, en
-    deze Enum is waar de code in de applicatie vandaan komt. Uitbreidbaar: een
-    nieuwe vorm is een rij in de codelijst plus een lid hier.
-    """
-
-    VZW = "VZW"
-    FEITELIJKE_VERENIGING = "FEITELIJKE_VERENIGING"
-    BEDRIJF = "BEDRIJF"
-
-
 class LegalFormCode(Base):
-    """Rechtsvorm van een organisatie (#924), patroon van #779.
-
-    vzw, feitelijke vereniging, bedrijf — uitbreidbaar. Let op het verschil dat
-    ertoe doet: een **feitelijke vereniging heeft geen rechtspersoonlijkheid**, en
-    dat is precies wat Raak Millegem is. Daarom heet dit veld de rechtsVORM en niet
-    de rechtsPERSOON.
-    """
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
     __tablename__ = "legal_form_codes"
     __table_args__ = {"schema": "mdm"}
+
     code = Column(String(30), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LegalFormLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 2)."""
+
+    __tablename__ = "legal_form_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(30), ForeignKey("mdm.legal_form_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class OrganizationTypeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
+
+    __tablename__ = "organization_type_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class OrganizationTypeLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 2)."""
+
+    __tablename__ = "organization_type_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.organization_type_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class GenderCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
+
     __tablename__ = "gender_codes"
     __table_args__ = {"schema": "mdm"}
+
     code = Column(String(10), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class GenderLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 2)."""
+
+    __tablename__ = "gender_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(10), ForeignKey("mdm.gender_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class ContactTypeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 2).
+
+    Carries one property more than the standard shape, see `is_social_network`.
+    """
+
     __tablename__ = "contact_type_codes"
     __table_args__ = {"schema": "mdm"}
+
     code = Column(String(10), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
-    description = Column(String(255), nullable=True)
-    # #1160: the source says which codes are social networks. The public footer
-    # asks this column instead of keeping a list of its own — that list was a
-    # code short and put the mobile number between the icons. NULL means "not
-    # classified yet" and renders as "not a network"; the suite fails on it.
-    is_social_network = Column(Boolean, nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    # #1160: the source says which codes are social networks. The public
+    # footer asks this column instead of keeping a list of its own — that list
+    # was a code short and put the mobile number between the icons. NULL means
+    # "not classified yet" and renders as "not a network"; the suite fails on
+    # it. A property of the code, not a label, so here and not in the label
+    # table; declared as `extra_code_columns` on the CodeList.
+    is_social_network = Column(Boolean, nullable=True)
+
+
+class ContactTypeLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 2)."""
+
+    __tablename__ = "contact_type_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(10), ForeignKey("mdm.contact_type_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class RelationTypeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
+
     __tablename__ = "relation_type_codes"
     __table_args__ = {"schema": "mdm"}
+
     code = Column(String(10), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class RelationTypeLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 2)."""
+
+    __tablename__ = "relation_type_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(10), ForeignKey("mdm.relation_type_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 # ── History (append-only; geen FK's — overleeft het verdwijnen van de bron) ────

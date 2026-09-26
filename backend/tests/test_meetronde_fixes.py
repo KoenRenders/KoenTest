@@ -41,14 +41,23 @@ def test_F25_kitdemo_tabel_zit_in_een_scrollcontainer(client):
 
 
 def test_F30_conceptbadge_is_grijs():
-    """Concept is een ontwerpstatus, geen openstaande handeling (§2.5)."""
-    from pathlib import Path
+    """Concept is een ontwerpstatus, geen openstaande handeling (§2.5).
 
-    # Sinds F15 draagt de recordkop de statusbadge.
-    bron = (Path(__file__).resolve().parents[1] / "app" / "domains" / "forms"
-            / "templates" / "_fb_recordkop.html").read_text()
-    assert '_("concept"), "gray"' in bron
-    assert '_("concept"), "yellow"' not in bron
+    Since CR-12 phase 4 this tests the TONE and no longer the template text.
+    The badge took its colour from a literal `"gray"` in `_fb_recordkop.html`;
+    since phase 4 it comes from the tone mapping the screen registers. A test
+    that looked for the old line would be red for a reason that has nothing to
+    do with the colour — and could stay green while the colour changes.
+    """
+    from app.domains.forms.api import FORM_STATUS, FormStatus
+    from app.kernel.codes import tone
+
+    # The screen registers the tones on import; this pulls that module in.
+    import app.domains.forms.admin_ui  # noqa: F401
+
+    assert tone(FORM_STATUS.name, FormStatus.DRAFT) == "gray"
+    assert tone(FORM_STATUS.name, FormStatus.OPEN) == "green"
+    assert tone(FORM_STATUS.name, FormStatus.CLOSED) == "red"
 
 
 def test_F34_samenvatting_zonder_adres_en_met_enkelvoud(client, db_session):

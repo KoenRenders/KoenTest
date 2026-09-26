@@ -19,6 +19,7 @@ Three shapes decide everything here:
   table with an admin-only download route fails closed.
 """
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -32,9 +33,10 @@ from sqlalchemy import (
     Text,
     Time,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -43,38 +45,188 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# Status of the one document. `agenda` → `report` happens implicitly (taking
-# attendance or typing a note is entering the report phase, CR-09 §3.23);
-# `sent` is the only hard moment, and "Heropen verslag" walks it back.
-STATUS_AGENDA = "agenda"
-STATUS_REPORT = "report"
-STATUS_SENT = "sent"
-STATUSES = (STATUS_AGENDA, STATUS_REPORT, STATUS_SENT)
+class MeetingStatus(Enum):
+    """Status of the one document. The pilot list of CR-12 (phase 0).
+
+    `agenda` → `report` happens implicitly (taking attendance or typing a note
+    is entering the report phase, CR-09 §3.23); `sent` is the only hard moment,
+    and "Heropen verslag" walks it back.
+
+    **Plain `Enum`, not `str, Enum`** — deliberately, and this list is where the
+    codebase proves it first. With a `str` subclass, `meeting.status == "sent"`
+    stays a valid comparison that happens to be true, so the old module
+    constants could survive next to the enum and nobody would notice the two
+    drifting apart. Plain, that comparison is silently *false*, which is why the
+    loose-string gate is an AST walk and not a type check (§B4.8).
+
+    Member names are English; the values are the codes as stored, unchanged
+    (§B4.3) — here the two happen to coincide.
+    """
+
+    AGENDA = "agenda"
+    REPORT = "report"
+    SENT = "sent"
+
+
+class SectionKind(Enum):
+    """The sections of the document (CR-09 §3.17, CR-12 phase 3).
+
+    `MISC` always comes last; a custom section slots in before it. Member names
+    are English, values stay the stored upper-case codes (§B4.3).
+    """
+
+    EVALUATION = "EVALUATION"
+    UPCOMING = "UPCOMING"
+    MEMBERS = "MEMBERS"
+    IDEAS = "IDEAS"
+    MISC = "MISC"
+    CUSTOM = "CUSTOM"
+
+
+class Attendance(Enum):
+    """Present or excused. Not ticked is NOT a code but NULL."""
+
+    PRESENT = "present"
+    EXCUSED = "excused"
+
+
+class FilePurpose(Enum):
+    """Why a file is attached to a meeting."""
+
+    ATTACHMENT = "attachment"
+    SENT_PDF = "sent_pdf"
+
+
+class MeetingStatusCode(Base):
+    """Which meeting statuses exist — the target of the foreign key."""
+
+    __tablename__ = "meeting_status_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class MeetingStatusLabel(Base):
+    """The word a screen shows for a meeting status, per language."""
+
+    __tablename__ = "meeting_status_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), ForeignKey("meetings.meeting_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 # The five standard sections, in their fixed order, plus the custom kind.
 # MISC is always last (CR-09 §3.17) — a custom section inserts before it.
-SECTION_EVALUATION = "EVALUATION"
-SECTION_UPCOMING = "UPCOMING"
-SECTION_MEMBERS = "MEMBERS"
-SECTION_IDEAS = "IDEAS"
-SECTION_MISC = "MISC"
-SECTION_CUSTOM = "CUSTOM"
-STANDARD_SECTIONS = (SECTION_EVALUATION, SECTION_UPCOMING, SECTION_MEMBERS,
-                     SECTION_IDEAS, SECTION_MISC)
-SECTION_KINDS = STANDARD_SECTIONS + (SECTION_CUSTOM,)
+# CR-12 phase 3: the six constants have become the members of `SectionKind`.
+# The two tuples stay, because they say something the enum does not: WHICH
+# sections are on an agenda by default, and in what order. That is a rule of
+# this domain and not a property of the list.
+STANDARD_SECTIONS = (SectionKind.EVALUATION, SectionKind.UPCOMING,
+                     SectionKind.MEMBERS, SectionKind.IDEAS, SectionKind.MISC)
 
 # Which sections carry their items over to the next agenda (CR-09 §3.6): only
 # the ideas and the miscellaneous ones. Everything else is regenerated from the
 # activities and the member data, so carrying it over would duplicate it.
-CARRY_OVER_SECTIONS = (SECTION_IDEAS, SECTION_MISC)
+CARRY_OVER_SECTIONS = (SectionKind.IDEAS, SectionKind.MISC)
 
-ATTENDANCE_PRESENT = "present"
-ATTENDANCE_EXCUSED = "excused"
-ATTENDANCE_STATUSES = (ATTENDANCE_PRESENT, ATTENDANCE_EXCUSED)
 
-FILE_ATTACHMENT = "attachment"
-FILE_SENT_PDF = "sent_pdf"
-FILE_PURPOSES = (FILE_ATTACHMENT, FILE_SENT_PDF)
+
+
+class SectionKindCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
+
+    __tablename__ = "section_kind_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class SectionKindLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 3)."""
+
+    __tablename__ = "section_kind_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), ForeignKey("meetings.section_kind_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class AttendanceCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
+
+    __tablename__ = "attendance_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class AttendanceLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 3)."""
+
+    __tablename__ = "attendance_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(10), ForeignKey("meetings.attendance_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class FilePurposeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 3)."""
+
+    __tablename__ = "file_purpose_codes"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class FilePurposeLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 3)."""
+
+    __tablename__ = "file_purpose_labels"
+    __table_args__ = {"schema": "meetings"}
+
+    code = Column(String(20), ForeignKey("meetings.file_purpose_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class Meeting(TenantMixin, SoftDeleteMixin, Base):
@@ -87,7 +239,13 @@ class Meeting(TenantMixin, SoftDeleteMixin, Base):
     meeting_date = Column(Date, nullable=False, index=True)
     start_time = Column(Time, nullable=True)
     location = Column(String(255), nullable=True)
-    status = Column(String(10), nullable=False, default=STATUS_AGENDA)
+    # The one `Mapped[]` column in this model, on purpose: SQLAlchemy 2.0
+    # declarative style next to 688 legacy `Column()` attributes, which is
+    # supported and is what lets mypy see this attribute's type at all
+    # (§B4.8). `EnumColumn` stores `member.value`, never the member name.
+    status: Mapped[MeetingStatus] = mapped_column(
+        EnumColumn(MeetingStatus, length=10), nullable=False,
+        default=MeetingStatus.AGENDA)
     # Sending stamps these; they are also the guard the file rules read, so
     # "this meeting has been sent" stays one fact in one place (CR-09 §4).
     agenda_sent_at = Column(DateTime(timezone=True), nullable=True)
@@ -123,7 +281,9 @@ class MeetingSection(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    kind = Column(String(20), nullable=False)
+    kind: Mapped[SectionKind] = mapped_column(
+        EnumColumn(SectionKind, length=20),
+        ForeignKey("meetings.section_kind_codes.code"), nullable=False)
     # Only a custom section carries its own title; a standard one is labelled
     # from its kind, so renaming that label later is one place, not N rows.
     title = Column(String(255), nullable=True)
@@ -203,7 +363,9 @@ class MeetingAttendance(TenantMixin, SoftDeleteMixin, Base):
                       ForeignKey("meetings.meeting_extra_recipients.id",
                                  ondelete="CASCADE"),
                       nullable=True, index=True)
-    status = Column(String(10), nullable=False)
+    status: Mapped[Attendance] = mapped_column(
+        EnumColumn(Attendance, length=10),
+        ForeignKey("meetings.attendance_codes.code"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
                         nullable=False)
@@ -225,7 +387,10 @@ class MeetingFile(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    purpose = Column(String(20), nullable=False, default=FILE_ATTACHMENT)
+    purpose: Mapped[FilePurpose] = mapped_column(
+        EnumColumn(FilePurpose, length=20),
+        ForeignKey("meetings.file_purpose_codes.code"), nullable=False,
+        default=FilePurpose.ATTACHMENT)
     filename = Column(String(255), nullable=False)
     content_type = Column(String(100), nullable=False)
     byte_size = Column(Integer, nullable=True)

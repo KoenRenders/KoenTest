@@ -20,8 +20,8 @@ from app.domains.mdm.api import Person
 from app.domains.newsletter import drafting
 from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import (
-    AUDIENCE_MEMBERS,
-    LETTER_SENT,
+    Audience,
+    LetterStatus,
     Newsletter,
 )
 
@@ -92,7 +92,7 @@ def _activity(db, name, days_ahead=20, price=None, member_price=None):
     return activity
 
 
-def _letter(db, body="", audience=AUDIENCE_MEMBERS, activity_ids=()):
+def _letter(db, body="", audience=Audience.MEMBERS, activity_ids=()):
     letter = nb.create_newsletter(db, created_by="s@example.org")
     nb.update_draft(db, letter, subject="", body_html=body, audience=audience)
     nb.set_draft_sources(db, letter, activity_ids=list(activity_ids), meeting_ids=[])
@@ -109,14 +109,19 @@ def _ask(db, letter, instruction="Schrijf de najaarsbrief.", selection="",
 def _sent_meeting_with_point(db, notes, activity=None):
     """A sent meeting report with one point, as the composer may tick it."""
     from app.domains.meetings.api import (
-        SECTION_EVALUATION, STATUS_SENT, add_item, create_meeting, sections_of)
+    MeetingStatus,
+    SectionKind,
+    add_item,
+    create_meeting,
+    sections_of,
+)
 
     meeting = create_meeting(db, meeting_date=date.today() - timedelta(days=10))
-    section = next(s for s in sections_of(db, meeting) if s.kind == SECTION_EVALUATION)
+    section = next(s for s in sections_of(db, meeting) if s.kind == SectionKind.EVALUATION)
     item = add_item(db, meeting, section, title="Vervoer",
                     activity_id=activity.id if activity else None)
     item.notes = notes
-    meeting.status = STATUS_SENT
+    meeting.status = MeetingStatus.SENT
     db.commit()
     return item
 
@@ -290,8 +295,8 @@ def test_een_prijs_die_alleen_in_een_oude_brief_staat_telt_als_verzonnen(db_sess
     """Example letters are style only (CR-05 §3.16)."""
     old = nb.create_newsletter(db_session, created_by="s@example.org")
     nb.update_draft(db_session, old, subject="Vorig jaar",
-                    body_html="<div>De BBQ kost € 7 dit jaar.</div>", audience=AUDIENCE_MEMBERS)
-    old.status = LETTER_SENT
+                    body_html="<div>De BBQ kost € 7 dit jaar.</div>", audience=Audience.MEMBERS)
+    old.status = LetterStatus.SENT
     db_session.commit()
     bbq = _activity(db_session, "BBQ", price="15")
     letter = _letter(db_session, activity_ids=[bbq.id])
@@ -635,8 +640,8 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
 
     vorige = nb.create_newsletter(db_session, created_by="s@example.org")
     nb.update_draft(db_session, vorige, subject="Vorige", body_html="<div>x</div>",
-                    audience=AUDIENCE_MEMBERS)
-    vorige.status = LETTER_SENT
+                    audience=Audience.MEMBERS)
+    vorige.status = LetterStatus.SENT
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=30)
     db_session.commit()
 

@@ -12,25 +12,20 @@ The ORM classes are exported for other domains' services, not for screens; the
 layer gate holds that line.
 """
 from app.domains.meetings.models import (  # noqa: F401
-    ATTENDANCE_EXCUSED,
-    ATTENDANCE_PRESENT,
-    FILE_ATTACHMENT,
-    FILE_SENT_PDF,
-    SECTION_CUSTOM,
-    SECTION_EVALUATION,
-    SECTION_IDEAS,
-    SECTION_MEMBERS,
-    SECTION_MISC,
-    SECTION_UPCOMING,
-    STATUS_AGENDA,
-    STATUS_REPORT,
-    STATUS_SENT,
+    Attendance,
+    FilePurpose,
     Meeting,
     MeetingAttendance,
     MeetingExtraRecipient,
     MeetingFile,
     MeetingItem,
     MeetingSection,
+    MeetingStatus,
+    SectionKind,
+    STANDARD_SECTIONS,
+)
+from app.domains.meetings.codes import (  # noqa: F401
+    ATTENDANCE, FILE_PURPOSE, MEETING_STATUS, SECTION_KIND,
 )
 from app.domains.meetings.service import (  # noqa: F401
     DocumentItem,
@@ -87,10 +82,9 @@ from app.domains.meetings.pdf import (  # noqa: F401
 )
 
 __all__ = [
-    "ATTENDANCE_EXCUSED", "ATTENDANCE_PRESENT", "FILE_ATTACHMENT",
-    "FILE_SENT_PDF", "SECTION_CUSTOM", "SECTION_EVALUATION", "SECTION_IDEAS",
-    "SECTION_MEMBERS", "SECTION_MISC", "SECTION_UPCOMING", "STATUS_AGENDA",
-    "STATUS_REPORT", "STATUS_SENT", "Meeting", "MeetingAttendance",
+    "ATTENDANCE", "Attendance", "FILE_PURPOSE", "FilePurpose",
+    "SECTION_KIND", "SectionKind", "STANDARD_SECTIONS",
+    "MEETING_STATUS", "Meeting", "MeetingAttendance", "MeetingStatus",
     "MeetingExtraRecipient", "MeetingFile", "MeetingItem", "MeetingSection",
     "DocumentItem", "DocumentSection", "MeetingError", "MemberStanding",
     "Recipients", "add_extra_recipient", "add_file", "add_item", "add_section",

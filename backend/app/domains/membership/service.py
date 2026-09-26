@@ -217,12 +217,14 @@ def open_renewal_payment(db, member):
     # Lokale imports: service.py houdt zijn modulehoofd vrij van model- en
     # domeinimports (de rest van het bestand doet dat ook zo).
     from app.domains.membership.models import Membership
-    from app.domains.payment.api import PaymentRecord
+    from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus
 
     return (
         db.query(PaymentRecord)
-        .filter(PaymentRecord.payable_type == "membership",
-                PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP,
+                PaymentRecord.status.notin_([PaymentStatus.PAID,
+                                             PaymentStatus.CANCELLED,
+                                             PaymentStatus.FAILED]))
         .join(Membership, Membership.id == PaymentRecord.payable_id)
         .filter(Membership.member_id == member.id)
         .first()
@@ -246,14 +248,24 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     """
     from app.domains.mdm.api import MemberPerson
 
-    gevraagd = (relation_type or "").strip()
-    if not gevraagd or gevraagd.upper() == "HOOFDLID":
+    # CR-12 phase 2: this used to apply `(x or "").strip().upper()` on both
+    # sides — a normalisation that was needed because the column accepted any
+    # spelling. The code list does that now: a value that is not in it does
+    # not get in, and `RelationType(...)` already refuses it here with the
+    # name of the list.
+    from app.domains.mdm.api import RelationType
+
+    try:
+        gevraagd = RelationType((relation_type or "").strip())
+    except ValueError:
+        return False
+    if gevraagd is RelationType.PRIMARY_MEMBER:
         return False
 
     koppeling = (db.query(MemberPerson)
                  .filter(MemberPerson.member_id == family_id,
                          MemberPerson.person_id == person_id).first())
-    if koppeling is None or (koppeling.relation_type or "").upper() == "HOOFDLID":
+    if koppeling is None or koppeling.relation_type is RelationType.PRIMARY_MEMBER:
         return False
 
     koppeling.relation_type = gevraagd

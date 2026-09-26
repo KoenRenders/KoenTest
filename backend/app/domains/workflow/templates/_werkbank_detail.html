@@ -38,7 +38,7 @@
      #werkbank-lijst, vanaf de detailpagina een HX-Redirect terug naar de werkbank —
      de taak is daar dan immers weg. Zo hangt het fragment niet meer af van wie
      het opneemt. #}
-  {% if task.status == "done" %}
+  {% if is_done %}
   {# #674: een afgehandelde taak toont haar besluit, niet opnieuw het formulier. #}
   <dl class="space-y-1">
     <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Besluit") }}</dt>

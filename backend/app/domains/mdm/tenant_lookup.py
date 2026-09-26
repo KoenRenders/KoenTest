@@ -9,6 +9,7 @@ draait; ``invalidate_tenant_codes()`` wist de cache na een tenant-mutatie.
 from __future__ import annotations
 
 from app.kernel.tenancy import TENANT_CODES
+from app.domains.mdm.models import OrganizationType
 
 _cache: dict[str, int] | None = None
 
@@ -17,7 +18,7 @@ def _query(db) -> dict[str, int]:
     from app.domains.mdm.models import Organization
 
     rows = (db.query(Organization.code, Organization.id)
-            .filter(Organization.org_type == "UNIT",
+            .filter(Organization.org_type == OrganizationType.UNIT,
                     Organization.is_active == True).all())  # noqa: E712
     return {code.lower(): oid for code, oid in rows}
 
@@ -80,7 +81,7 @@ def _query_platform(db) -> int | None:
     from app.domains.mdm.models import Organization
 
     row = (db.query(Organization.id)
-           .filter(Organization.org_type == "PLATFORM",
+           .filter(Organization.org_type == OrganizationType.PLATFORM,
                    Organization.is_active == True).first())  # noqa: E712
     return row[0] if row else None
 

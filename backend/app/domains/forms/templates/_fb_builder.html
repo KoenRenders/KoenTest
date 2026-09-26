@@ -271,7 +271,7 @@
          de vinkjes → Omschrijving → Bevestigingsboodschap → knoppen. #}
       <div>{{ ui.label(_("Status"), "fbs") }}
         {% call ui.select_control("status", cls="w-full", attrs='id="fbs"') %}
-          {% for s in statuses %}<option value="{{ s }}" {% if form.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
+          {% for s, naam in status_options %}<option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ naam }}</option>{% endfor %}
         {% endcall %}</div>
       <div>{{ ui.label(_("Max. inzendingen"), "fbm") }}{{ ui.input_control("max_submissions", id="fbm", value=(form.max_submissions or ""), cls="w-full") }}</div>
       {# Vier korte labels in twee kolommen op breed; in één volle-breedte kolom

@@ -14,11 +14,26 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.activities.totals import has_payable_products, quote_lines
+from app.domains.mdm.api import PaymentMethod
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
+from app.domains.mdm.api import CONTACT
+from app.domains.activities.api import REGISTRATION_STATE, RegistrationState
+from app.kernel.codes import register_tones
 
 router = APIRouter(include_in_schema=False)
+
+# The badge tone of a registration state, next to the screen that draws it
+# (§B4.5). These were a dictionary keyed on the DUTCH LABEL inside two templates
+# ("Afgesloten": "gray", …), which would have lost every colour the day a unit
+# read the page in English. Keyed on the code now; the colours are the same.
+register_tones(REGISTRATION_STATE.name, {
+    RegistrationState.OPEN: "green",
+    RegistrationState.CLOSED: "gray",
+    RegistrationState.PAST: "gray",
+    RegistrationState.CANCELLED: "red",
+})
 
 
 def _session_person(request: Request, db: Session):
@@ -114,9 +129,9 @@ def _person_contacts(person) -> tuple[str, str]:
     email = mobile = ""
     if person is not None:
         for c in getattr(person, "contact_details", []) or []:
-            if c.contact_type_code == "EMAIL" and not email:
+            if c.contact_type_code == CONTACT.EMAIL and not email:
                 email = c.value or ""
-            elif c.contact_type_code == "MOBILE" and not mobile:
+            elif c.contact_type_code == CONTACT.MOBILE and not mobile:
                 mobile = c.value or ""
     return email, mobile
 
@@ -265,7 +280,8 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     data = RegistrationCreate(
         contact_name=naam, contact_email=email, phone=gsm,
         team_name=(values.get("team_name") or "").strip() or None,
-        payment_method=(values.get("payment_method") or "ONLINE") if heeft_betaald_deel else None,
+        payment_method=(values.get("payment_method")
+                        or PaymentMethod.ONLINE.value) if heeft_betaald_deel else None,
         component_id=component.id,
         items=[RegistrationItemCreate(product_id=pid, quantity=qty)
                for pid, qty in quantities.items() if qty > 0],

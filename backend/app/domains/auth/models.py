@@ -1,8 +1,42 @@
 from datetime import datetime, timezone
+from enum import Enum
+
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.soft_delete import SoftDeleteMixin
+
+
+class Role(Enum):
+    """Who may do what (CR-12 phase 2).
+
+    **In `auth` and not in `mdm`** (§B4.1, Koen's refinement of 25 September
+    2026): master data describes the world, and security vocabulary does not.
+    Roles — and later permissions, identity providers, the mapping of an
+    external group onto an internal role — belong to the domain that Keycloak
+    or a SAML directory will attach to. That makes `auth` the second
+    foundation domain: it depends on `mdm` only, and other schemas may put a
+    foreign key to its code tables.
+
+    **This enum decides nothing.** `require_admin_ui` and `require_finance_ui`
+    still determine who may do what; the only thing that changes here is the
+    *form* in which the codes exist. Which role is needed for what is in
+    `docs/rollen-en-rechten.md`, and that document was left unchanged by this
+    change.
+    """
+
+    ADMIN = "ADMIN"
+    FINANCE = "FINANCE"
+    OPERATOR = "OPERATOR"
+    ACCOUNT_ADMIN = "ACCOUNT_ADMIN"
+    #: Retired since CR-12 phase 2. They existed since migration 001, were
+    #: filtered out on every screen, and nobody holds them. The member stays,
+    #: because a retired code keeps its member (§B4.3) — otherwise an old row
+    #: would read back as a bare string.
+    MEMBER = "MEMBER"
+    USER = "USER"
+
 
 
 class User(SoftDeleteMixin, Base):
@@ -35,9 +69,14 @@ class UserRole(Base):
 
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("auth.users.id"), nullable=False)
-    # Bewust GEEN FK naar public.role_codes of mdm.organizations (§8: geen
-    # cross-schema FK's); geldigheid wordt in de servicelaag afgedwongen.
-    role_code = Column(String(20), nullable=False)
+    # CR-12 phase 2: a FK after all, because since this phase `auth.role_codes`
+    # lives in the same schema. The comment that used to stand here was right
+    # for the old location in `public`; validity was then enforced only in the
+    # service layer, and that is one layer too high for something a
+    # permission check relies on.
+    role_code: Mapped[Role] = mapped_column(
+        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
+        nullable=False)
     tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
@@ -85,12 +124,36 @@ class LoginToken(Base):
 
 
 class RoleCode(Base):
-    """Codetabel (verhuisd uit app/models/codes.py, #444). Public schema."""
+    """Which roles exist — the target of the foreign keys (CR-12 phase 2).
+
+    Moved from `public` to `auth`. The old table was keyed on
+    (code, language) with a uniqueness constraint on the code alone, and so
+    allowed exactly one language (#929).
+    """
 
     __tablename__ = "role_codes"
+    __table_args__ = {"schema": "auth"}
+
     code = Column(String(20), primary_key=True)
-    language = Column(String(5), primary_key=True)
-    value = Column(String(100), nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class RoleLabel(Base):
+    """The word a screen shows for a role, per language."""
+
+    __tablename__ = "role_labels"
+    __table_args__ = {"schema": "auth"}
+
+    code = Column(String(20), ForeignKey("auth.role_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)

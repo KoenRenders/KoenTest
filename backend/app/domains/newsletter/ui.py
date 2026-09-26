@@ -25,6 +25,7 @@ from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import PublicNewsletterView
 from app.limiter import newsletter_signup_limiter
 from app.ui import site_context, templates
+from app.domains.newsletter.api import SubscriberStatus
 
 router = APIRouter(include_in_schema=False)
 
@@ -99,7 +100,7 @@ def unsubscribe_page(token: str, request: Request, db: Session = Depends(get_db)
     subscriber = nb.subscriber_by_unsubscribe_token(db, token)
     if subscriber is None:
         return _page(request, db, "invalid")
-    state = ("unsubscribed" if subscriber.status == nb.SUBSCRIBER_UNSUBSCRIBED
+    state = ("unsubscribed" if subscriber.status == nb.SubscriberStatus.UNSUBSCRIBED
              else "unsubscribe")
     return _page(request, db, state, email=subscriber.email, token=token)
 

@@ -16,6 +16,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.domains.forms.service import assert_submitter, update_settings
+from app.domains.mdm.api import RelationType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -129,7 +130,7 @@ def test_hoofdlid_wordt_nooit_overschreven(db_session):
                  .filter(MemberPerson.member_id == member.id,
                          MemberPerson.person_id == person.id).first())
     assert gewijzigd is False
-    assert koppeling.relation_type == "HOOFDLID"
+    assert koppeling.relation_type == RelationType.PRIMARY_MEMBER
 
 
 def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
@@ -149,7 +150,7 @@ def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
     koppeling = (db_session.query(MemberPerson)
                  .filter(MemberPerson.member_id == member.id,
                          MemberPerson.person_id == kind.id).first())
-    assert koppeling.relation_type == "KIND"
+    assert koppeling.relation_type == RelationType.ADULT_CHILD
 
 
 def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):

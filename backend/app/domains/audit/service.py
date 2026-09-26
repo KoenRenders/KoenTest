@@ -10,6 +10,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.domains.payment.api import PaymentRecordHistory
+from app.kernel.codes import code_of
 from app.domains.membership.api import MembershipHistory
 from app.domains.activities.api import (
     RegistrationHistory,
@@ -48,7 +49,7 @@ def snapshot_person(db: Session, person, *, operation: str, action: str,
         last_name=person.last_name,
         first_name=person.first_name,
         date_of_birth=person.date_of_birth,
-        gender_code=person.gender_code,
+        gender_code=code_of(person.gender_code),
         operation=operation, action=action, source=source, actor=actor,
     ))
 
@@ -68,7 +69,7 @@ def snapshot_member_person(db: Session, mp, *, operation: str, action: str,
         member_person_id=mp.id,
         member_id=mp.member_id,
         person_id=mp.person_id,
-        relation_type=mp.relation_type,
+        relation_type=code_of(mp.relation_type),
         operation=operation, action=action, source=source, actor=actor,
     ))
 
@@ -104,7 +105,7 @@ def snapshot_contact_detail(db: Session, contact, *, operation: str, action: str
     db.add(ContactDetailHistory(
         contact_detail_id=contact.id,
         person_id=contact.person_id,
-        contact_type_code=contact.contact_type_code,
+        contact_type_code=code_of(contact.contact_type_code),
         value=contact.value,
         is_primary=contact.is_primary,
         operation=operation, action=action, source=source, actor=actor,
@@ -141,15 +142,20 @@ def snapshot_registration_item(db: Session, item, *, operation: str, action: str
 
 def snapshot_payment_record(db: Session, record, *, operation: str, action: str,
                             source: str, actor: Optional[str] = None) -> None:
+    # CR-12 §F4: a history table is append-only and carries NO foreign key —
+    # it must survive a withdrawn code. That is why its columns stay plain
+    # strings and the snapshot writes the code, not the member. `code_of` does
+    # that for all four at once, so that no fifth place appears where someone
+    # can forget `.value`.
     db.add(PaymentRecordHistory(
         payment_record_id=record.id,
-        payable_type=record.payable_type,
+        payable_type=code_of(record.payable_type),
         payable_id=record.payable_id,
         amount=record.amount,
         amount_paid=record.amount_paid,
-        method=record.method,
-        status=record.status,
-        type=record.type,
+        method=code_of(record.method),
+        status=code_of(record.status),
+        type=code_of(record.type),
         refund_of_id=record.refund_of_id,
         gateway_payment_id=record.gateway_payment_id,
         note=record.note,

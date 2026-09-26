@@ -32,6 +32,7 @@ from app.domains.auth.api import (
 )
 from app.domains.reporting.api import (
     Direction,
+    ExportKind,
     Filter,
     LAYOUTS,
     SYMBOLIC_ME,
@@ -698,7 +699,7 @@ def report_export(request: Request, db: Session = Depends(get_db),
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     log_export(db, tenant_id=tenant_id, actor=email,
-               kind="report" if bewaard else "ad-hoc", subject=titel,
+               kind=ExportKind.REPORT if bewaard else ExportKind.AD_HOC, subject=titel,
                row_count=aantal,
                filters=selection_to_dict(selection).get("filters"),
                saved_report_id=bewaard.id if bewaard else None)
@@ -724,7 +725,7 @@ def dataset_export(fact_key: str, request: Request,
     except SelectionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    log_export(db, tenant_id=tenant_id, actor=email, kind="dataset",
+    log_export(db, tenant_id=tenant_id, actor=email, kind=ExportKind.DATASET,
                subject=dataset.fact.key, row_count=len(dataset.rows))
     return Response(
         content=content, media_type=ODS_MEDIA_TYPE,

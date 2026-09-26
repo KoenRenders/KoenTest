@@ -1,5 +1,6 @@
 """Fase 5c (#406): pad-prefix-routing + tenant-cookie, platform-landing,
 per-tenant robots/sitemap en de demo-seed."""
+from app.domains.forms.models import FormStatus
 from app.kernel.tenancy import (
     DEFAULT_TENANT_ID,
     TENANT_MILLEGEM_ID,
@@ -82,4 +83,4 @@ def test_demo_seed_aanwezig(client, db_session):
     demo_form = (db_session.query(Form)
                  .execution_options(include_all_tenants=True)
                  .filter(Form.share_token == "demo-formulier").one())
-    assert demo_form.status == "open" and demo_form.tenant_id == TENANT_VOORBEELD_ID
+    assert demo_form.status is FormStatus.OPEN and demo_form.tenant_id == TENANT_VOORBEELD_ID

@@ -40,6 +40,7 @@ import pytest
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, Person, PostalCode
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.mdm.api import RelationType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -78,7 +79,7 @@ def _hoofdlid_id(db, family_id: int) -> int:
     from app.domains.membership.api import get_family
 
     return next(m.id for m in get_family(db, family_id).members
-                if m.relation_type == "HOOFDLID")
+                if m.relation_type == RelationType.PRIMARY_MEMBER)
 
 
 # ── 1. Adres op een nieuw gezin ──────────────────────────────────────────────

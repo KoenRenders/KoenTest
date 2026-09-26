@@ -105,7 +105,10 @@ def test_organizations_account_unit_hierarchy(db_session):
     db_session.add(unit)
     db_session.flush()
     assert unit.parent.id == account.id
-    from sqlalchemy.exc import IntegrityError
-    db_session.add(Organization(code="fout", name="Fout type", org_type="WRONG"))
-    with pytest.raises(IntegrityError):
-        db_session.flush()
+    # CR-12 phase 2: the CHECK constraint has been replaced by a code list with a
+    # foreign key, and the enum refuses the value before it reaches the
+    # database. So the refusal happens earlier and with a better message — the
+    # name of the list instead of the name of a constraint.
+    with pytest.raises(ValueError) as error:
+        Organization(code="fout", name="Fout type", org_type="WRONG")
+    assert "OrganizationType" in str(error.value)

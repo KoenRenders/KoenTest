@@ -11,24 +11,14 @@ import pytest
 from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person
 from app.domains.membership.api import Membership
 from app.domains.newsletter.models import (
-    AUDIENCE_BOTH,
-    AUDIENCE_MEMBERS,
-    AUDIENCE_NON_MEMBERS,
-    DELIVERY_FAILED,
-    DELIVERY_MEMBER,
-    DELIVERY_QUEUED,
-    DELIVERY_SENT,
-    DELIVERY_SKIPPED,
-    DELIVERY_SUBSCRIBER,
-    LETTER_DRAFT,
-    LETTER_SENDING,
-    LETTER_SENT,
-    SOURCE_IMPORT,
-    SUBSCRIBER_CONFIRMED,
-    SUBSCRIBER_PENDING,
-    SUBSCRIBER_UNSUBSCRIBED,
+    Audience,
     Delivery,
+    DeliveryKind,
+    DeliveryStatus,
+    LetterStatus,
     Subscriber,
+    SubscriberSource,
+    SubscriberStatus,
 )
 from app.domains.newsletter import service as nb
 
@@ -104,7 +94,7 @@ def _household(db, *people, year=YEAR):
     return member
 
 
-def _subscriber(db, email, status=SUBSCRIBER_CONFIRMED, source="admin"):
+def _subscriber(db, email, status=SubscriberStatus.CONFIRMED, source="admin"):
     row = Subscriber(email=email, status=status, source=source,
                      unsubscribe_token=f"tok-{email}")
     db.add(row)
@@ -112,7 +102,7 @@ def _subscriber(db, email, status=SUBSCRIBER_CONFIRMED, source="admin"):
     return row
 
 
-def _letter(db, audience=AUDIENCE_MEMBERS, subject="Het najaar",
+def _letter(db, audience=Audience.MEMBERS, subject="Het najaar",
             body="<div>Beste, er komt veel aan.</div>"):
     letter = nb.create_newsletter(db, created_by="secretaris@example.org")
     nb.update_draft(db, letter, subject=subject, body_html=body, audience=audience)
@@ -158,13 +148,13 @@ def test_allebei_voegt_samen_zonder_dubbels(db_session):
     _household(db_session, ("An", "an@example.org", "HOOFDLID"))
     _subscriber(db_session, "an@example.org")
     _subscriber(db_session, "piet@example.org")
-    _subscriber(db_session, "wacht@example.org", status=SUBSCRIBER_PENDING)
-    _subscriber(db_session, "weg@example.org", status=SUBSCRIBER_UNSUBSCRIBED)
+    _subscriber(db_session, "wacht@example.org", status=SubscriberStatus.PENDING)
+    _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
 
-    both = nb.recipients_for(db_session, AUDIENCE_BOTH)
+    both = nb.recipients_for(db_session, Audience.BOTH)
 
     assert [(r.email, r.kind) for r in both] == [
-        ("an@example.org", DELIVERY_MEMBER), ("piet@example.org", DELIVERY_SUBSCRIBER)]
+        ("an@example.org", DeliveryKind.MEMBER), ("piet@example.org", DeliveryKind.SUBSCRIBER)]
     counts = nb.audience_counts(db_session)
     assert (counts.members, counts.non_members, counts.both, counts.overlap) == (1, 2, 2, 1)
 
@@ -188,19 +178,19 @@ def test_zonder_gekozen_doelgroep_vertrekt_er_niets(db_session, mailbox):
     with pytest.raises(nb.NewsletterError):
         nb.start_sending(db_session, letter, sent_by="s@example.org",
                          reply_to_mode="association", base_url=BASE)
-    assert letter.status == LETTER_DRAFT
+    assert letter.status == LetterStatus.DRAFT
     assert db_session.query(Delivery).count() == 0
 
 
 def test_een_kopie_neemt_de_doelgroep_niet_mee(db_session):
     """A copy keeps subject and text and asks the audience again (CR-05 §3.12)."""
-    letter = _letter(db_session, audience=AUDIENCE_BOTH, subject="Zomer")
+    letter = _letter(db_session, audience=Audience.BOTH, subject="Zomer")
     copy = nb.copy_newsletter(db_session, letter, created_by="s@example.org")
 
     assert (copy.subject, copy.body_html) == (letter.subject, letter.body_html)
     assert copy.audience is None
     assert copy.copied_from_id == letter.id
-    assert copy.status == LETTER_DRAFT
+    assert copy.status == LetterStatus.DRAFT
 
 
 # ── 4. Unsubscribe links only for non-members ────────────────────────────────
@@ -214,7 +204,7 @@ def test_alleen_een_niet_lid_krijgt_een_uitschrijflink(db_session, mailbox):
     """
     _household(db_session, ("An", "an@example.org", "HOOFDLID"))
     piet = _subscriber(db_session, "piet@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_BOTH)
+    letter = _letter(db_session, audience=Audience.BOTH)
 
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
@@ -234,17 +224,17 @@ def test_dubbele_bevestiging(db_session, mailbox, confirmations):
     """An unconfirmed address receives nothing; the link confirms exactly one row."""
     nb.subscribe_public(db_session, " Nieuw@Example.org ", "Nora",
                         lambda token: f"{BASE}/nieuwsbrief/bevestigen/{token}")
-    _subscriber(db_session, "ander@example.org", status=SUBSCRIBER_PENDING)
+    _subscriber(db_session, "ander@example.org", status=SubscriberStatus.PENDING)
 
     nieuw = nb.subscriber_by_email(db_session, "nieuw@example.org")
-    assert nieuw.status == SUBSCRIBER_PENDING
+    assert nieuw.status == SubscriberStatus.PENDING
     assert [(to, name) for to, name, _url in confirmations] == [("nieuw@example.org", "Nora")]
-    assert nb.recipients_for(db_session, AUDIENCE_NON_MEMBERS) == []
+    assert nb.recipients_for(db_session, Audience.NON_MEMBERS) == []
 
     token = confirmations[0][2].rsplit("/", 1)[1]
     assert nb.confirm(db_session, token).id == nieuw.id
-    assert nieuw.status == SUBSCRIBER_CONFIRMED
-    assert nb.subscriber_by_email(db_session, "ander@example.org").status == SUBSCRIBER_PENDING
+    assert nieuw.status == SubscriberStatus.CONFIRMED
+    assert nb.subscriber_by_email(db_session, "ander@example.org").status == SubscriberStatus.PENDING
     assert nb.confirm(db_session, token) is None, "een token werkt één keer"
 
 
@@ -269,11 +259,11 @@ def test_een_ongeldig_adres_wordt_geweigerd(db_session, confirmations):
 def test_uitschrijven_en_toch_opnieuw(db_session):
     """The link works without a login, is idempotent, and can be undone."""
     piet = _subscriber(db_session, "piet@example.org")
-    assert nb.unsubscribe(db_session, piet.unsubscribe_token).status == SUBSCRIBER_UNSUBSCRIBED
-    assert nb.unsubscribe(db_session, piet.unsubscribe_token).status == SUBSCRIBER_UNSUBSCRIBED
+    assert nb.unsubscribe(db_session, piet.unsubscribe_token).status == SubscriberStatus.UNSUBSCRIBED
+    assert nb.unsubscribe(db_session, piet.unsubscribe_token).status == SubscriberStatus.UNSUBSCRIBED
     assert nb.unsubscribe(db_session, "onbekend") is None
 
-    assert nb.resubscribe(db_session, piet.unsubscribe_token).status == SUBSCRIBER_CONFIRMED
+    assert nb.resubscribe(db_session, piet.unsubscribe_token).status == SubscriberStatus.CONFIRMED
 
 
 # ── 7. The import ────────────────────────────────────────────────────────────
@@ -286,7 +276,7 @@ def test_de_import_toont_eerst_wat_hij_zal_doen(db_session):
     the last assertion fails.
     """
     _subscriber(db_session, "gekend@example.org")
-    _subscriber(db_session, "weg@example.org", status=SUBSCRIBER_UNSUBSCRIBED)
+    _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
     tekst = "\n".join(["nieuw@example.org", "NIEUW@example.org", "", "gekend@example.org",
                        "weg@example.org", "geen adres", "twee@example.org"])
 
@@ -299,22 +289,22 @@ def test_de_import_toont_eerst_wat_hij_zal_doen(db_session):
 
     nb.run_import(db_session, tekst)
     nieuw = nb.subscriber_by_email(db_session, "nieuw@example.org")
-    assert (nieuw.status, nieuw.source) == (SUBSCRIBER_CONFIRMED, SOURCE_IMPORT)
+    assert (nieuw.status, nieuw.source) == (SubscriberStatus.CONFIRMED, SubscriberSource.IMPORT)
     assert nieuw.imported_at is not None
-    assert nb.subscriber_by_email(db_session, "weg@example.org").status == SUBSCRIBER_UNSUBSCRIBED
+    assert nb.subscriber_by_email(db_session, "weg@example.org").status == SubscriberStatus.UNSUBSCRIBED
 
 
 def test_handmatig_toevoegen_herstelt_geen_uitschrijving(db_session):
-    _subscriber(db_session, "weg@example.org", status=SUBSCRIBER_UNSUBSCRIBED)
+    _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
     with pytest.raises(nb.NewsletterError):
         nb.add_by_admin(db_session, "weg@example.org")
-    assert nb.add_by_admin(db_session, "Nieuw@example.org", "Nora").status == SUBSCRIBER_CONFIRMED
+    assert nb.add_by_admin(db_session, "Nieuw@example.org", "Nora").status == SubscriberStatus.CONFIRMED
 
 
 def test_verwijderen_wist_het_adres_ook_uit_het_archief(db_session, mailbox):
     """The right to erasure: the row goes, the deliveries keep their counts."""
     piet = _subscriber(db_session, "piet@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
     _run_until_done(db_session, letter)
@@ -324,7 +314,7 @@ def test_verwijderen_wist_het_adres_ook_uit_het_archief(db_session, mailbox):
     assert nb.subscriber_by_email(db_session, "piet@example.org") is None
     rows = db_session.query(Delivery).filter(Delivery.newsletter_id == letter.id).all()
     assert len(rows) == 1 and "piet" not in rows[0].email
-    assert rows[0].status == DELIVERY_SENT
+    assert rows[0].status == DeliveryStatus.SENT
 
 
 # ── 8. The queue under a daily cap ───────────────────────────────────────────
@@ -343,7 +333,7 @@ def test_de_wachtrij_blijft_onder_het_dagplafond(db_session, mailbox, monkeypatc
     monkeypatch.setattr("app.kernel.tenant_config.tenant_newsletter_daily_cap",
                         lambda db, tenant_id=None: 30)
     _many_subscribers(db_session, 45)
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
 
@@ -351,7 +341,7 @@ def test_de_wachtrij_blijft_onder_het_dagplafond(db_session, mailbox, monkeypatc
 
     assert outcomes[-1] == "paused"
     assert len(mailbox.sent) == 30
-    assert letter.status == LETTER_SENDING
+    assert letter.status == LetterStatus.SENDING
     assert letter.paused_until is not None
     assert nb.send_batch(db_session, letter.id) == "nothing", "gepauzeerd blijft gepauzeerd"
 
@@ -362,14 +352,14 @@ def test_na_de_pauze_gaat_het_verder_zonder_iemand_twee_keer_te_mailen(db_sessio
     monkeypatch.setattr("app.kernel.tenant_config.tenant_newsletter_daily_cap",
                         lambda db, tenant_id=None: 30)
     _many_subscribers(db_session, 45)
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
     _run_until_done(db_session, letter)
 
     # A day later: yesterday's sends fall out of the window.
     gisteren = datetime.now(timezone.utc) - timedelta(hours=25)
-    for row in db_session.query(Delivery).filter(Delivery.status == DELIVERY_SENT):
+    for row in db_session.query(Delivery).filter(Delivery.status == DeliveryStatus.SENT):
         row.sent_at = gisteren
     letter.paused_until = gisteren
     db_session.commit()
@@ -377,23 +367,23 @@ def test_na_de_pauze_gaat_het_verder_zonder_iemand_twee_keer_te_mailen(db_sessio
     assert _run_until_done(db_session, letter)[-1] == "done"
     assert len(mailbox.sent) == 45
     assert len(set(mailbox.addresses)) == 45
-    assert letter.status == LETTER_SENT
+    assert letter.status == LetterStatus.SENT
 
 
 def test_gmails_quotumfout_pauzeert_en_markeert_niets_als_mislukt(db_session, mailbox):
     """Gmail says the day is full: pause, and nothing counts as failed."""
     _many_subscribers(db_session, 10)
     mailbox.quota_after = 4
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
 
     assert _run_until_done(db_session, letter)[-1] == "paused"
 
     statuses = [d.status for d in db_session.query(Delivery).order_by(Delivery.id)]
-    assert statuses.count(DELIVERY_SENT) == 4
-    assert statuses.count(DELIVERY_QUEUED) == 6
-    assert DELIVERY_FAILED not in statuses
+    assert statuses.count(DeliveryStatus.SENT) == 4
+    assert statuses.count(DeliveryStatus.QUEUED) == 6
+    assert DeliveryStatus.FAILED not in statuses
     assert letter.paused_until > datetime.now(timezone.utc) + timedelta(hours=23)
 
 
@@ -402,7 +392,7 @@ def test_de_job_hervat_na_een_herstart(db_session, mailbox):
     from app.kernel.jobs import KernelJob, run_due_jobs
 
     _many_subscribers(db_session, 25)
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
     assert db_session.query(KernelJob).filter(KernelJob.name == nb.SEND_JOB).count() == 1
@@ -417,13 +407,13 @@ def test_de_job_hervat_na_een_herstart(db_session, mailbox):
     run_due_jobs(db_session, batch=5)
     assert len(mailbox.sent) == 25
     assert len(set(mailbox.addresses)) == 25
-    assert letter.status == LETTER_SENT
+    assert letter.status == LetterStatus.SENT
 
 
 def test_een_mislukte_mail_wordt_mislukt_en_de_rest_gaat_door(db_session, mailbox):
     _many_subscribers(db_session, 3)
     mailbox.answer = "failed"
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
 
@@ -439,7 +429,7 @@ def test_wie_zich_tijdens_het_versturen_uitschrijft_wordt_overgeslagen(db_sessio
     unsubscribed address still receives the letter."""
     _subscriber(db_session, "a@example.org")
     weg = _subscriber(db_session, "b@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS)
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
 
@@ -448,18 +438,18 @@ def test_wie_zich_tijdens_het_versturen_uitschrijft_wordt_overgeslagen(db_sessio
 
     assert mailbox.addresses == ["a@example.org"]
     skipped = db_session.query(Delivery).filter(Delivery.email == "b@example.org").one()
-    assert skipped.status == DELIVERY_SKIPPED
+    assert skipped.status == DeliveryStatus.SKIPPED
 
 
 def test_antwoorden_gaan_naar_de_vereniging_of_naar_mezelf(db_session, mailbox):
     """*De vereniging*: no Reply-To, so replies go to the sender address from the
     tenant configuration. *Mezelf*: the admin who sends (CR-05 §3.8)."""
     _subscriber(db_session, "a@example.org")
-    vereniging = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, subject="Een")
+    vereniging = _letter(db_session, audience=Audience.NON_MEMBERS, subject="Een")
     nb.start_sending(db_session, vereniging, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
     _run_until_done(db_session, vereniging)
-    mezelf = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, subject="Twee")
+    mezelf = _letter(db_session, audience=Audience.NON_MEMBERS, subject="Twee")
     nb.start_sending(db_session, mezelf, sent_by="s@example.org",
                      reply_to_mode="sender", base_url=BASE)
     _run_until_done(db_session, mezelf)
@@ -471,14 +461,14 @@ def test_antwoorden_gaan_naar_de_vereniging_of_naar_mezelf(db_session, mailbox):
 
 def test_de_testmail_gaat_alleen_naar_mezelf(db_session, mailbox):
     _subscriber(db_session, "a@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_BOTH)
+    letter = _letter(db_session, audience=Audience.BOTH)
 
     nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
 
     assert mailbox.addresses == ["s@example.org"]
     assert mailbox.sent[0]["subject"].startswith("[TEST]")
     assert "Uitschrijven" in mailbox.sent[0]["body"], "toont de niet-ledenversie"
-    assert letter.status == LETTER_DRAFT
+    assert letter.status == LetterStatus.DRAFT
     assert db_session.query(Delivery).count() == 0
 
 
@@ -492,7 +482,7 @@ def test_een_plaatshouder_houdt_het_versturen_tegen_en_noemt_de_zin(db_session, 
     """Koen, 17 September 2026. Broken on purpose: the `placeholder_refusal`
     check taken out of `start_sending` → the queue fills and this test fails."""
     _subscriber(db_session, "a@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, body=VERGETEN)
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS, body=VERGETEN)
 
     with pytest.raises(nb.NewsletterError) as refused:
         nb.start_sending(db_session, letter, sent_by="s@example.org",
@@ -501,7 +491,7 @@ def test_een_plaatshouder_houdt_het_versturen_tegen_en_noemt_de_zin(db_session, 
     assert "«Inschrijven kan via [e-mailadres].»" in str(refused.value)
     assert "«Bel [telefoonnummer].»" in str(refused.value)
     assert "Tot dan" not in str(refused.value), "alleen de zinnen met een plaatshouder"
-    assert letter.status == LETTER_DRAFT
+    assert letter.status == LetterStatus.DRAFT
     assert db_session.query(Delivery).count() == 0
 
 
@@ -515,7 +505,7 @@ def test_elke_plaatshouder_telt(placeholder):
 
 
 def test_de_testmail_mag_met_een_plaatshouder(db_session, mailbox):
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS, body=VERGETEN)
+    letter = _letter(db_session, audience=Audience.MEMBERS, body=VERGETEN)
 
     nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
 
@@ -527,13 +517,13 @@ def test_de_testmail_mag_met_een_plaatshouder(db_session, mailbox):
 
 def test_een_verstuurde_brief_is_niet_meer_te_wijzigen(db_session, mailbox):
     _subscriber(db_session, "a@example.org")
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, subject="Zo vertrok hij")
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS, subject="Zo vertrok hij")
     nb.start_sending(db_session, letter, sent_by="s@example.org",
                      reply_to_mode="association", base_url=BASE)
 
     with pytest.raises(nb.NewsletterError):
         nb.update_draft(db_session, letter, subject="Anders", body_html="x",
-                        audience=AUDIENCE_NON_MEMBERS)
+                        audience=Audience.NON_MEMBERS)
     with pytest.raises(nb.NewsletterError):
         nb.delete_draft(db_session, letter)
     assert letter.subject == "Zo vertrok hij"
@@ -772,12 +762,12 @@ def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
     db_session.flush()
     facts = nb.activity_facts(db_session, [activity.id], base_url="https://raak.example")
     kaart = nb.activity_card_html(facts[activity.id])
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS, body=kaart)
+    letter = _letter(db_session, audience=Audience.MEMBERS, body=kaart)
 
     assert f"[[activiteit:{activity.id}|" in letter.body_html, "overleeft de ontsmetting"
     assert "<table" not in letter.body_html, "de brief draagt geen blok"
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None,
                           base_url="https://raak.example")
     assert "Zo vader zo zoon" in mail and "Een avond over vaderschap." in mail
     assert "Schrijf je in!" in mail
@@ -785,10 +775,10 @@ def test_de_brief_draagt_een_verwijzing_en_de_mail_het_blok(db_session):
 
 
 def test_een_verwijzing_naar_een_verdwenen_activiteit_laat_niets_achter(db_session):
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body="<div>[[activiteit:99999|Weggehaalde activiteit]]</div>")
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None,
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None,
                           base_url="https://raak.example")
 
     assert "Weggehaalde activiteit" not in mail
@@ -804,13 +794,13 @@ def test_de_opmaak_komt_er_pas_bij_het_versturen_op(db_session, mailbox):
     """
     vandaag = date.today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=12))
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body=_block(db_session, activity, vandaag))
 
     bewaard = letter.body_html
     assert "style=" not in bewaard, "de ontsmetting laat geen style toe"
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None)
     assert 'class="nb-blok-titel" style="font-size:20px' in mail
     assert "@media only screen and (max-width:480px)" in mail, "op een telefoon onder elkaar"
 
@@ -824,17 +814,17 @@ def test_de_voorbeeldtekst_staat_in_de_mail_en_valt_terug_op_de_eerste_zin(db_se
     Broken on purpose: the fallback in `preview_text_of` removed → the letter
     without a typed line carries nothing and the second half fails.
     """
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body="<div>Beste,</div><div>Het najaar zit vol activiteiten.</div>")
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None)
     assert "Het najaar zit vol activiteiten." in mail
     assert nb.preview_text_of(letter) == "Het najaar zit vol activiteiten."
 
     nb.update_draft(db_session, letter, subject=letter.subject, body_html=letter.body_html,
-                    audience=AUDIENCE_MEMBERS, preview_text="Ontdek ons najaar!")
+                    audience=Audience.MEMBERS, preview_text="Ontdek ons najaar!")
     assert nb.preview_text_of(letter) == "Ontdek ons najaar!"
-    assert "Ontdek ons najaar!" in nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER,
+    assert "Ontdek ons najaar!" in nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER,
                                                   unsubscribe_url=None)
 
 
@@ -848,7 +838,7 @@ def test_de_mail_draagt_ook_een_tekstversie(db_session, mailbox):
     vandaag = date.today()
     activity = _dated_activity(db_session, "Rumproefavond", vandaag + timedelta(days=10))
     facts = nb.activity_facts(db_session, [activity.id], base_url=BASE)
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body=f"<div>Beste,</div><div>{nb.activity_card_html(facts[activity.id])}</div>")
 
     nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
@@ -861,7 +851,7 @@ def test_de_mail_draagt_ook_een_tekstversie(db_session, mailbox):
 
 
 def test_de_tekstversie_van_een_abonnee_draagt_de_uitschrijflink(db_session):
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, body="<div>Dag!</div>")
+    letter = _letter(db_session, audience=Audience.NON_MEMBERS, body="<div>Dag!</div>")
 
     tekst = nb.render_text(db_session, letter, unsubscribe_url=f"{BASE}/nieuwsbrief/uit/tok",
                            base_url=BASE)
@@ -878,10 +868,10 @@ def test_een_kop_krijgt_de_merkkleur_bij_het_versturen(db_session):
     Broken on purpose: the heading branch removed from `with_inline_styles` →
     the heading leaves unstyled and this test fails.
     """
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body="<div>Beste,</div><h1>Dit is onze kalender:</h1><div>…</div>")
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None)
 
     assert 'style="font-size:20px;font-weight:700;line-height:1.3;color:#0051a4' in mail
     assert "<h1>" not in mail, "elke kop draagt opmaak"
@@ -890,10 +880,10 @@ def test_een_kop_krijgt_de_merkkleur_bij_het_versturen(db_session):
 def test_elke_kop_krijgt_ze_en_de_tekstversie_blijft_tekst(db_session):
     """Een brief heeft meer dan één onderwerp; en de opmaak hoort niet in de
     tekstversie te lekken."""
-    letter = _letter(db_session, audience=AUDIENCE_MEMBERS,
+    letter = _letter(db_session, audience=Audience.MEMBERS,
                      body="<h1>Terugblik</h1><div>a</div><h1>Vooruitblik</h1><div>b</div>")
 
-    mail = nb.render_mail(db_session, letter, kind=DELIVERY_MEMBER, unsubscribe_url=None)
+    mail = nb.render_mail(db_session, letter, kind=DeliveryKind.MEMBER, unsubscribe_url=None)
     # Op de kopstijl tellen, niet op de kleur alleen: zonder logo draagt de
     # briefkop diezelfde merkkleur.
     assert mail.count(nb.HEADING_STYLE) == 2

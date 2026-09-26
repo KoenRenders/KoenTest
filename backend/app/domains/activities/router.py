@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.domains.auth.api import get_current_admin, get_current_member
 from app.database import get_db
+from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import ActivityDate, Activity, Registration, RegistrationItem
 from app.domains.auth.api import User
 from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
@@ -33,10 +34,12 @@ from app.schemas.activity import (
     RegistrationItemUpdate,
 )
 from app.domains.mail.api import send_activity_registration_confirmation
+from app.domains.mdm.api import PaymentMethod
 from app.domains.activities.totals import compute_registration_total
 from app.config import settings
 from app.domains.payment.api import (
-    create_payment_record, registration_balance, reconcile_registration_charges,
+    PayableType, create_payment_record, registration_balance,
+    reconcile_registration_charges,
 )
 from app.domains.audit.api import (
     snapshot_registration,
@@ -51,6 +54,7 @@ from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 from app.i18n import _
 from app.kernel.clock import belgian_today
+from app.domains.mdm.api import CONTACT
 
 router = APIRouter(tags=["activities"])
 
@@ -774,7 +778,7 @@ def _inschrijver(current_member) -> str:
     if current_member is None:
         return PUBLIEKE_ACTOR
     mail = next((c.value for c in getattr(current_member, "contact_details", [])
-                 if c.contact_type_code == "EMAIL"), None)
+                 if c.contact_type_code == CONTACT.EMAIL), None)
     return mail or PUBLIEKE_ACTOR
 
 
@@ -888,7 +892,7 @@ def register_for_activity(
     registration = Registration(
         activity_id=activity_id,
         component_id=data.component_id,
-        registration_type="INDIVIDUAL",
+        registration_type=INDIVIDUAL,
         contact_name=data.contact_name,
         contact_email=data.contact_email,
         phone=data.phone,
@@ -928,7 +932,12 @@ def register_for_activity(
     checkout_url = None
     payment_record = None
     if data.payment_method and total_amount > 0:
-        method = "online" if data.payment_method == "ONLINE" else "transfer"
+        # CR-12 phase 1: this used to read `"online" if data.payment_method == "ONLINE"
+        # else "transfer"` — a translation between two spellings of one list.
+        # Now that the form posts the codes itself, there is nothing left to
+        # translate, and that is exactly what removes the duplication instead of
+        # repairing it.
+        method = PaymentMethod(data.payment_method)
         from app.kernel.tenant_config import tenant_base_url
 
         redirect_url = f"{tenant_base_url(db)}/betaling/succes?registration={registration.id}"
@@ -936,7 +945,7 @@ def register_for_activity(
         try:
             payment_record = create_payment_record(
                 db=db,
-                payable_type="registration",
+                payable_type=PayableType.REGISTRATION,
                 payable_id=registration.id,
                 amount=total_amount,
                 method=method,
@@ -944,21 +953,21 @@ def register_for_activity(
                 description=description,
                 audit_source="registration",
             )
-            if method == "online" and payment_record.gateway_payment_id:
+            if method == PaymentMethod.ONLINE and payment_record.gateway_payment_id:
                 from app.domains.payment.api import GatewayPayment
                 gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
                 if gp:
                     checkout_url = gp.checkout_url
         except Exception as e:
             logger.error("Betaling aanmaken mislukt voor inschrijving (%s): %s", method, e)
-            if method == "online":
+            if method == PaymentMethod.ONLINE:
                 db.rollback()
                 raise HTTPException(
                     status_code=502,
                     detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
                 )
 
-        if method == "online" and not checkout_url:
+        if method == PaymentMethod.ONLINE and not checkout_url:
             db.rollback()
             raise HTTPException(
                 status_code=502,

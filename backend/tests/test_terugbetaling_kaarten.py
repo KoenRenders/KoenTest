@@ -18,6 +18,7 @@ from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for
 from app.domains.payment.api import PaymentRecord, get_records_for
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -54,7 +55,7 @@ def test_afboeken_met_een_positief_bedrag(client, db_session):
     charge = _charge(db_session)
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                        data={"status": "paid", "amount_paid": "10.50", "note": ""})
@@ -63,7 +64,7 @@ def test_afboeken_met_een_positief_bedrag(client, db_session):
     db_session.expire_all()
     bijgewerkt = db_session.get(PaymentRecord, refund.id)
     assert bijgewerkt.amount_paid == Decimal("-10.50"), "de server rekent negatief"
-    assert bijgewerkt.status == "paid"
+    assert bijgewerkt.status == PaymentStatus.PAID
     assert_saldo_klopt(db_session, *PAYABLE, "0")
 
 
@@ -71,7 +72,7 @@ def test_te_veel_afboeken_wordt_geweigerd_in_positieve_termen(client, db_session
     charge = _charge(db_session)
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                        data={"status": "pending", "amount_paid": "99.00", "note": ""})
@@ -113,7 +114,7 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
     charge = _charge(db_session)
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     erover = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                          data={"status": "paid", "amount_paid": "10.51", "note": ""})
@@ -139,7 +140,7 @@ def test_nul_blijft_toegestaan(client, db_session):
     charge = _charge(db_session)
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
     resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                        data={"status": "pending", "amount_paid": "0", "note": ""})
@@ -159,8 +160,8 @@ def test_handmatige_refund_start_als_terug_te_betalen(client, db_session):
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr,
                 data={"amount": "10.50", "note": "handmatig"})
 
-    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
-    assert refund.status == "pending"
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
+    assert refund.status == PaymentStatus.PENDING
     assert refund.amount_paid is None, "er is nog niets gestort"
     assert_saldo_klopt(db_session, *PAYABLE, "0")
 
@@ -183,7 +184,7 @@ def test_canoniek_geval_uit_de_v1_14_screenshot(client, db_session):
 
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
-    refunds = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"]
+    refunds = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND]
     assert len(refunds) == 2
 
     # De tweede terugbetaling wordt uitbetaald — met een positief bedrag.
@@ -248,7 +249,7 @@ def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.00"})
     refund = [r for r in get_records_for(db_session, "registration", payable_id)
-              if r.type == "refund"][0]
+              if r.type == PaymentType.REFUND][0]
     refund.amount_paid = Decimal("-5.00")   # pending mét uitbetaald bedrag
     db_session.commit()
 

@@ -17,6 +17,12 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.workflow import api
+from app.domains.workflow.api import (
+    KERNEL_JOB_FAILED,
+    MAIL_PERMANENTLY_FAILED,
+    PAYMENT_CONFIRM_REFUND,
+    PAYMENT_WEBHOOK_MISMATCH,
+)
 from app.kernel.contracts.forms import SubmissionCreated
 from app.kernel.events import subscribe
 from app.kernel.jobs import enqueue, job
@@ -38,18 +44,21 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
 
 def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
-    from app.domains.mail.api import EmailLog
-    from app.domains.payment.api import GatewayPayment, PaymentRecord
+    from app.domains.mail.api import EmailLog, MailStatus
+    from app.domains.payment.api import (
+        GatewayPayment, PaymentRecord, PaymentStatus, PaymentType,
+    )
     from app.kernel.jobs import KernelJob
 
     kandidaten: list[dict] = []
 
     # 1. Refund-bevestiging (consolidatie): pending refunds wachten op FINANCE.
     for r in (db.query(PaymentRecord)
-              .filter(PaymentRecord.type == "refund", PaymentRecord.status == "pending").all()):
+              .filter(PaymentRecord.type == PaymentType.REFUND,
+                      PaymentRecord.status == PaymentStatus.PENDING).all()):
         kandidaten.append(dict(
-            kind="payment.refund_bevestigen",
-            title=f"Refund {r.id} bevestigen ({r.payable_type} #{r.payable_id})",
+            kind=PAYMENT_CONFIRM_REFUND,
+            title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
             # #704: het record-id, niet het payable — `subject_type` zegt
             # "payment_record" en de waarde hoort dat te zijn.
             subject_type="payment_record", subject_id=str(r.id), role="FINANCE"))
@@ -60,28 +69,32 @@ def _sweep_sources(db: Session) -> list[dict]:
                        .filter(KernelJob.name == "mail.retry", KernelJob.status == "failed").all()}
     for log_id in sorted(x for x in failed_mail_jobs if x):
         log = db.get(EmailLog, log_id)
-        if log is None or log.status == "sent":
+        if log is None or log.status is MailStatus.SENT:
             continue
         kandidaten.append(dict(
-            kind="mail.definitief_gefaald",
+            kind=MAIL_PERMANENTLY_FAILED,
             title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
             subject_type="email_log", subject_id=str(log.id), role="ADMIN"))
 
     # 3. Webhook-mismatch: gateway zegt paid, het grootboek (nog) niet.
     rows = (db.query(GatewayPayment, PaymentRecord)
             .join(PaymentRecord, PaymentRecord.gateway_payment_id == GatewayPayment.id)
-            .filter(GatewayPayment.status == "paid", PaymentRecord.status != "paid").all())
+            # `GatewayPayment.status` carries Mollie's word (§B4.10) and so
+            # stays a string; `PaymentRecord.status` is our list.
+            .filter(GatewayPayment.status == PaymentStatus.PAID.value,
+                    PaymentRecord.status != PaymentStatus.PAID).all())
     for gp, record in rows:
         kandidaten.append(dict(
-            kind="payment.webhook_mismatch",
-            title=f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, record {record.id[:8]}… is {record.status}",
+            kind=PAYMENT_WEBHOOK_MISMATCH,
+            title=(f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
+                   f"record {record.id[:8]}… is {record.status.value}"),
             subject_type="payment_record", subject_id=str(record.id), role="FINANCE"))
 
     # 4. Definitief gefaalde jobs (behalve mail.retry — bron 2 dekt die met context).
     for j in (db.query(KernelJob)
               .filter(KernelJob.status == "failed", KernelJob.name != "mail.retry").all()):
         kandidaten.append(dict(
-            kind="kernel.job_gefaald",
+            kind=KERNEL_JOB_FAILED,
             title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
             subject_type="kernel_job", subject_id=str(j.id), role="ADMIN"))
 

@@ -36,7 +36,8 @@ from pathlib import Path
 import pytest
 
 from app.kernel.jobs import KernelJob
-from app.domains.workflow.models import WorkflowTask
+from app.domains.workflow.models import TaskStatus, WorkflowTask
+from app.domains.payment.api import PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -112,7 +113,7 @@ def test_an_existing_task_is_closed_with_a_readable_reason(db_session):
     assert _cleanup(db_session) == 1
 
     db_session.refresh(task)
-    assert task.status == "done" and task.done_by == "systeem"
+    assert task.status is TaskStatus.DONE and task.done_by == "systeem"
     assert "#824" in (task.decision or "") and "#858" in (task.decision or ""), (
         f"the reason does not say why this was removed: {task.decision!r}")
 
@@ -153,6 +154,6 @@ def test_a_task_about_another_job_is_left_alone(db_session):
     _cleanup(db_session)
 
     db_session.refresh(other_task)
-    assert other_task.status == "open", (
+    assert other_task.status is TaskStatus.OPEN, (
         "a task about another failed job was closed as well — the cleanup grabs too wide")
-    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status == "failed"
+    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status == PaymentStatus.FAILED.value  # KernelJob: eigen statuslijst, fase 4

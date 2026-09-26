@@ -8,7 +8,6 @@
    Volzet week in #609 af van v1.14 (rood): design-system §1.1 houdt de tinten uit
    elkaar — oranje = "attention · outstanding", rood = "error · delete". Een volzette
    activiteit werkt prima, ze is alleen vol; dat hoort niet naast Mislukt. #}
-{% set _status_tone = {"Open": "green", "Afgesloten": "gray", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "orange"} %}
 <div class="space-y-6">
   {# Jaargroepering (#476): activiteiten zijn al op datum gesorteerd; toon een
      jaarkop telkens het jaar wisselt. #}
@@ -49,7 +48,7 @@
         {# Golf 11 (eigenaarbevinding 1, #913): "Open" is de normale toestand en
            krijgt geen badge — de inschrijfknop ís het positieve signaal. Badges
            blijven voor wat afwijkt: Vol, Geannuleerd, Voorbij, enkel leden. #}
-        {% if a.status and a.status != "Open" %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
+        {% if a.registration_state and not a.registration_open %}{{ ui.badge(a.registration_state | code_label("registration_state"), a.registration_state | tone("registration_state")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
       {# #810: `items-start` en niet `items-center`. Dat laatste centreert het icoon
@@ -138,7 +137,7 @@
              (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
              deadline verdwijnt ook de externe link: het formulier daarachter kunnen
              we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
-          {% if c.registration_state == "closed" %}
+          {% if c.registration_closed %}
           {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
           {% elif c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
@@ -181,7 +180,7 @@
            en teruggelegd). Delen de onderdelen één datum, dan staat ze al als
            icoonregel bovenaan en zou ze hier een tweede keer staan. #}
         {% if scope != "archived" and not a.shared_deadline and c.registration_closes_on
-              and c.registration_state == "open" and not c.is_full %}
+              and c.registration_open and not c.is_full %}
         <div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>
         {% endif %}
         {% if not c.external_register_url and not c.external_registrations_url %}

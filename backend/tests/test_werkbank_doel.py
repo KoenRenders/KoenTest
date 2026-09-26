@@ -15,6 +15,7 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.workflow.models import TaskStatus
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -81,7 +82,7 @@ def test_afhandelen_vanaf_de_detailpagina_stuurt_terug(client, db_session):
 
     from app.domains.workflow.models import WorkflowTask
     db_session.expire_all()
-    assert db_session.get(WorkflowTask, taak.id).status == "done"
+    assert db_session.get(WorkflowTask, taak.id).status is TaskStatus.DONE
 
 
 def test_afhandelen_vanaf_de_lijst_ververst_de_lijst(client, db_session):

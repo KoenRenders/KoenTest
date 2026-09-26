@@ -29,6 +29,7 @@ from app.domains.reporting.api import (
 )
 from tests._reporting_seed import TENANT_A, seed
 from tests.test_reporting_panel_ui import ADMIN_EMAIL, login
+from app.domains.payment.api import PaymentStatus
 
 # builtin_key -> the key of the one measure the report returns.
 TILE_REPORTS = {
@@ -175,7 +176,7 @@ def test_the_outstanding_tile_uses_the_status_rule(db_session, situation):
     from app.domains.payment.api import PaymentRecord
 
     record = db_session.query(PaymentRecord).filter(
-        PaymentRecord.status == "pending").first()
+        PaymentRecord.status == PaymentStatus.PENDING).first()
     record.amount_paid = D("4.00")
     db_session.commit()
 

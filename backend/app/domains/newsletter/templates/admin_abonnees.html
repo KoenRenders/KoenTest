@@ -12,7 +12,7 @@
   {{ ui.search(value=q, placeholder=_('Zoek op adres of voornaam…'), standalone=False) }}
   {% call ui.select_control("status", aria_label=_("Status")) %}
     <option value="">{{ _("Alle statussen") }}</option>
-    {% for value, label in status_labels.items() %}
+    {% for value, label in status_options %}
     <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
     {% endfor %}
   {% endcall %}

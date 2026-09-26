@@ -3,15 +3,27 @@ from decimal import Decimal
 
 import pytest
 
+from tests._task_kinds import register_task_kind
+
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
-from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance, WorkflowTask
+from app.domains.workflow.models import (
+    RunStatus, WorkflowDefinition, WorkflowInstance, WorkflowTask,
+)
+from app.domains.auth.api import Role
 
 
 def test_definitie_start_advance_complete(db_session):
+    # A definition is DATA and may introduce a task kind (§5.7) — but since
+    # CR-12 phase 4 that kind must have a row, just like a new source. That is
+    # exactly why this list got no enum.
+    step_one = register_task_kind(db_session, "stap.een", nl="Stap één",
+                                  en="Step one", category_nl="Stappen")
+    step_two = register_task_kind(db_session, "stap.twee", nl="Stap twee",
+                                  en="Step two", category_nl="Stappen")
     db_session.add(WorkflowDefinition(code="test2stap", name="Test", steps=[
-        {"kind": "stap.een", "title": "Eerst {wie}", "role": "ADMIN"},
-        {"kind": "stap.twee", "title": "Dan FINANCE", "role": "FINANCE"},
+        {"kind": step_one, "title": "Eerst {wie}", "role": "ADMIN"},
+        {"kind": step_two, "title": "Dan FINANCE", "role": "FINANCE"},
     ]))
     db_session.flush()
 
@@ -27,13 +39,13 @@ def test_definitie_start_advance_complete(db_session):
              .filter(WorkflowTask.instance_id == instance.id)
              .order_by(WorkflowTask.id).all())
     assert len(taken) == 2 and taken[1].kind == "stap.twee"
-    assert taken[1].required_role == "FINANCE"
-    assert instance.status == "running" and instance.current_step == 1
+    assert taken[1].required_role == Role.FINANCE
+    assert instance.status is RunStatus.RUNNING and instance.current_step == 1
 
     # Afwijzing is óók een beslissing: besluit bewaard, flow eindigt gewoon.
     api.complete_task(db_session, taken[1].id, done_by="f@b", decision="Afgewezen: niet nodig")
     db_session.expire_all()
-    assert instance.status == "done" and instance.done_at is not None
+    assert instance.status is RunStatus.DONE and instance.done_at is not None
     assert taken[1].decision == "Afgewezen: niet nodig"
 
 
@@ -125,6 +137,13 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
+    # CR-12 phase 4: `kind` carries a foreign key, so an invented kind no
+    # longer gets in. These two register the way a new source does — one row
+    # plus its words — and that is what the key enforces.
+    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", category_nl="Lidmaatschap")
+    register_task_kind(db_session, "membership.renewal", nl="Lid vernieuwen",
+                         en="Renew member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
                     subject_type="membership", subject_id=1)
     api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
@@ -160,6 +179,8 @@ def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
+    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
                     subject_type="membership", subject_id=11)
     api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",

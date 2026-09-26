@@ -23,7 +23,12 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.designstudio import imaging, render
 from app.domains.designstudio.api import (
     DesignError,
+    DrawingStyle,
+    GenerationStatus,
     ImagingError,
+    Layout,
+    Preset,
+    RenderVariant,
     check_design,
     content_for,
     create_design,
@@ -35,6 +40,7 @@ from app.domains.designstudio.api import (
 )
 from app.domains.designstudio.models import ImageGeneration
 from app.domains.designstudio.service import _title_lines, day_label
+from app.kernel.codes import code_of
 from app.kernel.jobs import KernelJob
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from tests.test_designstudio_engine import PNG_2x2
@@ -182,7 +188,7 @@ def test_only_the_two_presets_exist_and_the_database_agrees(db_session, design):
     with pytest.raises(DesignError, match="opmaak"):
         save_design(db_session, design, {"duo_code": design.duo_code, "preset": "illustratie"}, highlights=[], logo_ids=[])
     save_design(db_session, design, {"duo_code": design.duo_code, "preset": "eenvoudig"}, highlights=[], logo_ids=[])
-    assert design.preset == "eenvoudig"
+    assert design.preset is Preset.SIMPLE
     from sqlalchemy import text
     from sqlalchemy.exc import IntegrityError
 
@@ -308,13 +314,13 @@ def test_saving_twice_with_the_same_highlights_and_logos_works(db_session, desig
     db_session.refresh(design)
     assert [h.text for h in design.highlights] == ["Eerste", "Tweede"]
     assert [lg.media_asset_id for lg in design.logos] == [42, 41]
-    assert design.preset == "tekst"
+    assert design.preset is Preset.TEXT
 
 
 def test_check_design_reports_per_layout_without_inkscape(db_session, design):
     problems = check_design(db_session, design)
-    assert set(problems) == {"print_a", "feed_portrait"}
-    assert problems["print_a"] == []
+    assert set(problems) == {Layout.PRINT_A, Layout.FEED_PORTRAIT}
+    assert problems[Layout.PRINT_A] == []
 
 
 # ── Versions ────────────────────────────────────────────────────────────────
@@ -324,8 +330,10 @@ def test_a_version_is_all_or_nothing_and_ages_with_the_facts(db_session, design,
     version = make_version(db_session, design, created_by="bestuur@example.com")
     assert version.number == 1
     kinds = {(r.layout_code, r.variant, r.size_code) for r in version.renditions}
-    assert {("print_a", "pdf", "a3"), ("print_a", "pdf", "a4"), ("print_a", "png", "a3"), ("print_a", "svg", "a3"),
-            ("feed_portrait", "png", "feed"), ("feed_portrait", "svg", "feed")} <= kinds
+    assert {(Layout.PRINT_A, RenderVariant.PDF, "a3"), (Layout.PRINT_A, RenderVariant.PDF, "a4"),
+            (Layout.PRINT_A, RenderVariant.PNG, "a3"), (Layout.PRINT_A, RenderVariant.SVG, "a3"),
+            (Layout.FEED_PORTRAIT, RenderVariant.PNG, "feed"),
+            (Layout.FEED_PORTRAIT, RenderVariant.SVG, "feed")} <= kinds
     assert not is_stale(db_session, version)
     activity.location = "Kerkplein"
     db_session.flush()
@@ -424,8 +432,8 @@ def test_one_click_reserves_four_variants_and_queues_four_jobs(monkeypatch, db_s
     key = request_images(db_session, design, "two adults and two children walking a forest path",
                          requested_by="bestuur@example.com")
     rows = db_session.query(ImageGeneration).filter(ImageGeneration.request_key == key).all()
-    assert len(rows) == 4 and all(r.status == "requested" and r.reserved_cents > 0 for r in rows)
-    assert all(r.scene.startswith("two adults") and r.style == "lijn" for r in rows)
+    assert len(rows) == 4 and all(r.status is GenerationStatus.REQUESTED and r.reserved_cents > 0 for r in rows)
+    assert all(r.scene.startswith("two adults") and r.style is DrawingStyle.LINE for r in rows)
     jobs = db_session.query(KernelJob).filter(KernelJob.name == "designstudio.generate").all()
     assert len(jobs) == 4 and all(j.payload["prompt"].endswith(imaging.STYLE_SUFFIX) for j in jobs)
     # The reservation counts against the next click.
@@ -457,7 +465,7 @@ def test_design_text_that_shadows_a_fact_is_named_not_blocked(db_session, design
     assert warnings_for(design, facts) == []
     design.explanation_md = "Eigen tekst."
     assert any("wijkt af" in w for w in warnings_for(design, facts))
-    assert check_design(db_session, design)["print_a"] == []  # a warning is not a violation
+    assert check_design(db_session, design)[Layout.PRINT_A] == []  # a warning is not a violation
 
 
 def test_omschrijving_anders_stores_nothing_when_it_equals_the_activity_description(db_session, design, activity):
@@ -465,7 +473,7 @@ def test_omschrijving_anders_stores_nothing_when_it_equals_the_activity_descript
     activity's", stored as NULL so it stays live (Koen, 19 September 2026)."""
     activity.description = "Samen wandelen."
     db_session.flush()
-    form = {"duo_code": design.duo_code, "preset": design.preset, "explanation_md": "Samen wandelen."}
+    form = {"duo_code": design.duo_code, "preset": code_of(design.preset), "explanation_md": "Samen wandelen."}
     save_design(db_session, design, form, highlights=[], logo_ids=[])
     assert design.explanation_md is None
     form["explanation_md"] = "Samen wandelen, en nadien iets drinken."
@@ -499,7 +507,7 @@ def test_an_emptied_description_field_stays_empty_on_the_screen(client, db_sessi
 
     sess = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, sess)
-    data = {"duo_code": design.duo_code, "preset": design.preset, "layout": "print_a",
+    data = {"duo_code": design.duo_code, "preset": code_of(design.preset), "layout": "print_a",
             "explanation_md": ""}
     page = client.post(f"/admin/ontwerpen/{design.id}", data=data,
                        headers={"X-CSRF-Token": csrf_token_for(sess)})

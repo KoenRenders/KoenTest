@@ -42,7 +42,7 @@ def _inschrijving(client, db, *, ploegnaam="A-team 1", vraagt_ploegnaam=True):
     comp.team_name_required = vraagt_ploegnaam
     db.flush()
     payload = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-               "component_id": comp.id, "payment_method": "TRANSFER",
+               "component_id": comp.id, "payment_method": "transfer",
                "items": [{"product_id": product.id, "quantity": 1}]}
     if ploegnaam is not None:
         payload["team_name"] = ploegnaam

@@ -30,7 +30,7 @@ def _login_as(client, db, email: str, roles: tuple[str, ...]):
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()
-    bestaand = {r.role_code for r in user.roles}
+    bestaand = {r.role_code.value for r in user.roles}  # CR-12 phase 2
     for role in roles:
         if role not in bestaand:
             db.add(UserRole(user_id=user.id, role_code=role))
