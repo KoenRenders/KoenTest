@@ -106,7 +106,8 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R7 | The numbers of A2 appear in every release issue and may only move one way. | Must | CR-04, #755 | the meter before the gate |
 | R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
 | R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
-| R10 | Full DDD machinery: separate domain objects, repositories, domain events. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R10 | Full DDD machinery: separate domain objects, repositories. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R12 | A consequence in another domain after a state change (a mail, a workflow task) goes through a domain event, never through a direct call into that domain; the object says what happened, the service publishes it. | Must | Koen, 27 Sep 2026 | "de betaalcode weet niets van mail"; the dispatcher exists (`kernel/events.py`, §5.8) and is applied in three of six places |
 | R11 | CQRS — a separate write model (commands through the domain's rules) and a separate flat read model for reports. | Won't | Koen, 27 Sep 2026 | its win is that reads and writes scale apart, at very large scale; its price is two models kept in sync. Reporting (CR-06) reads the tables directly, and that suffices. |
 
 ## A6. Non-functional requirements
@@ -198,6 +199,8 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | F9 | Per domain, at first touch: one English exception class, Dutch alias, `db: Session` on every function, annotations on the parameters the rules read. | R8, and CR-12 B4.8 |
 | F10 | Value objects map on existing columns (`composite()` / hybrid property); no schema change. | R3 |
 | F11 | `PaymentRecord`'s state is derived from its amounts by guarded transitions; requires the closed status set of CR-12 phase 1. | AC6 |
+| F12 | A transition method on an aggregate returns the event it caused (`mark_paid()` → `PaymentReceived`); the service publishes it after the flush through `kernel.events.publish`; handlers live in `<domain>/handlers.py`; each `CONTRACT.md` lists what the domain publishes and subscribes to. | R12 |
+| F13 | A domain's *command* functions (the ones that do something: `send_*`, `vervroeg_*`, …) are named in its `CONTRACT.md` and are called from outside the domain only by a handler; reads through `api.py` stay as they are. | R12 |
 
 ## B2. Architecture
 
@@ -206,6 +209,8 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | Component | new / used / changed | Role |
 |---|---|---|
 | `app/kernel/rules.py` | **new** | the derived-value registry (owner per value) and the entrances registry the gates read; nothing else — the rules themselves live on the entities |
+| `app/kernel/events.py`, `kernel/contracts/*` | used | the synchronous in-transaction dispatcher (§5.8, ladder step 1) and the event contracts; new events: `PaymentReceived`, `RegistrationConfirmed` |
+| `mail/handlers.py`, `workflow/handlers.py` | **changed** | subscribe to the new events; the three direct calls into them disappear |
 | `app/kernel/money.py`, `structured_communication.py`, `validity_period.py` | **new** | the value objects (`geld.py` today has one formatting function; `Money` absorbs it) |
 | `activities/models.py` (`Registration`) | **changed** | first aggregate: validators, `check()`, `total()`, `balance()`; `controleer_inschrijfvelden` moves in, is not copied (#757) |
 | `payment/models.py` (`PaymentRecord`) | **changed** | second: `mark_paid(amount)`, `cancel()`, state from amounts (phase 2) |
@@ -401,6 +406,40 @@ touches it: `db: Session` everywhere, `record: PaymentRecord` on the
 functions the rules pass through, `Mapped[]` on the columns the rules read.
 Shared with CR-12 phase 5; done once, whichever CR reaches the domain first.
 
+### B4.9 Domain events: the object says what happened, the service publishes (Koen, 27 September)
+
+The twin of "the object can say no": after a transition the object can say
+*what happened*. The mechanism exists — `kernel/events.py`, a synchronous
+dispatcher in the same transaction (a failing handler rolls the source
+back; no "maybe later"), event contracts in `kernel/contracts/`, handlers
+per domain in `handlers.py`. It is applied in three places (payment, forms,
+mdm publish; mail and workflow subscribe) and bypassed in three:
+`activities/router.py:35` and `membership/register_router.py:52` import
+`mail.api.send_*` directly, `payment/service.py:457,1244` import
+`workflow.api.vervroeg_sweep`. Measured 27 September.
+
+The rule (R12): a consequence in another domain goes through an event.
+Reads through `api.py` are untouched — `mdm.api.get_person` is a question,
+not a consequence.
+
+**Who publishes.** Not the entity: `publish()` needs the session, and B4.1
+says an entity never touches one. The transition method **returns** the
+event it caused — `record.mark_paid(amount)` returns `PaymentReceived(...)`
+or raises — and the **service publishes it after the flush**. The entity
+stays testable without a database; the service, which owns the transaction
+anyway, does the one thing that needs it.
+
+**Where the order is readable** (the price Koen named — "the order is no
+longer in one place"): handlers sit in one file per domain, and each
+`CONTRACT.md` lists *publishes* and *subscribes to*. "What happens after a
+payment?" is answered by reading who subscribes to `PaymentReceived` — a
+`grep`, not a search. Handlers run in registration order, synchronously;
+nothing is deferred.
+
+**The gate** (B9.3, ratchet on the three couplings, hard for new modules):
+a domain's command functions — named in its `CONTRACT.md` — are called from
+outside the domain only from a `handlers.py`.
+
 ## B5. Data model
 
 ### B5.1 Entity-relationship diagram
@@ -443,9 +482,9 @@ but here that costs little.
 |---|---|---|
 | **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel) | 0 |
-| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias | 0, **CR-12 phase 1 on master** |
+| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go** | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants) | 0 |
-| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; `rules_baseline.py` deleted — every gate hard | 1–3 |
+| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; `rules_baseline.py` deleted — every gate hard | 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
 
@@ -453,9 +492,9 @@ but here that costs little.
 |---|---|---|---|---|---|
 | 0 | **#755**, rescoped: CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
 | 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV |
-| 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment |
+| 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
-| 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard | none | none | none | CI only; AC7 |
+| 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler | none | none | none | a registration on HDEV still gets its confirmation mail; AC7 |
 
 ## B8. Tests
 
@@ -489,6 +528,11 @@ look somewhere (#678).
    one; remove one `required=True` → the promise count falls (the #755
    requirement).
 10. **The gates of B9.3**, each by an additive violation.
+11. **The event reaches its handler, in the transaction.** `mark_paid` on a
+    record returns `PaymentReceived`; the service publishes; the workflow
+    handler runs before commit; a handler that raises rolls the payment
+    back (the dispatcher's own semantics, proven on this event). And the
+    coupling gate: add a direct `mail.api.send_*` call in a router → red.
 
 ## B9. Rule and gatekeeper
 
@@ -500,8 +544,9 @@ look somewhere (#678).
 > constraint, in the same change as the validator. A derived value is
 > computed once, on the object that owns the data, and shown everywhere
 > else. An entity never opens a session. A screen, a JSON route and an
-> import never carry a rule of their own. A domain package has the shape of
-> B4.5.
+> import never carry a rule of their own. A consequence in another domain
+> goes through a domain event: the object returns what happened, the
+> service publishes it. A domain package has the shape of B4.5.
 
 Lives in `docs/code-style.md` (created in phase 0) and CR-04 (the placement
 rule, unchanged); `CLAUDE.md` points there.
@@ -521,6 +566,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
+| direct calls into another domain's command functions (outside a handler) | 3 | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
 | untyped `db` parameters | ~200 | — | 0 in migrated domains |
 
@@ -538,6 +584,7 @@ removed; deleted in phase 4).
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
+| Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on today's three, hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
 | Typed | in a migrated domain, every function has `db: Session` and annotated aggregate parameters (mypy `disallow_untyped_defs` per domain, the CR-12 B4.8 setting) | mypy's own message |
 
 Not mechanical, and said so: whether a rule *should* exist, whether two
@@ -574,6 +621,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | Domain events are a Must (R12): a consequence in another domain goes through an event; the object returns what happened, the service publishes (the entity never touches a session). Gate: ratchet on the three direct couplings, hard for new modules. | Koen ("Must, en de service publiceert") |
 | 27 Sep 2026 | CQRS is a separate Won't (R11): reporting reads the tables, and that suffices. | Koen |
 | 27 Sep 2026 | #760 (confirmations) and #761 (tiebreakers) are out of this CR — UI and query hygiene, not a rule's home; they stay open as their own issues. #755 and #757 are reused as the phase-0 and phase-1 issues. | Koen |
 | 27 Sep 2026 | Exceptions: one English class per domain at first touch, the Dutch `*Fout` name kept as alias (option b). | Koen |
@@ -596,6 +644,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q12 | 27 Sep 2026 | Domain events — useful? Must or Should; who publishes? (Koen / Claude) | Koen: Must, and the service publishes. Measured: the dispatcher exists and is bypassed in three places; B4.9. |
 | Q11 | 27 Sep 2026 | Are #236's six execution issues still relevant? (Koen) | #755 and #757 are phases 0 and 1; #758 and #759 were already outside; #760 and #761 taken out on Koen's decision — they were in CR-04's five numbers because of the validation day, not because they are about a rule's home. |
 | Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Koen (27 Sep): one release for all phases, after CR-12 v2.7.0 (phase 2 needs CR-12 phase 1 on master). Assignment is Koen's. |
 
@@ -605,8 +654,10 @@ difference between an exemption list and a burn-down.
 - **No full DDD** (R10): no separate domain objects (a second `Registration`
   with a field-by-field translation to the ORM one — every column twice),
   no repositories (a layer that repeats what the SQLAlchemy session already
-  is), no domain events beyond the small `kernel/events.py` that exists.
-  The model is the object.
+  is). The model is the object. Domain events are **in** (R12, B4.9) — the
+  existing synchronous dispatcher, applied everywhere a domain causes a
+  consequence in another; not an asynchronous bus, not an outbox (that is
+  ladder step 2 in §5.8, for when a component is extracted).
 - **No CQRS** (R11, Koen, 27 Sep 2026): no separate write and read models.
   Reports (CR-06) read the tables; two models kept in sync would solve a
   scale problem this platform does not have.
