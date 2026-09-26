@@ -29,11 +29,6 @@ This change is about every rule in every existing module having one place,
 and about every new module getting that shape from day one rather than
 repeating the pattern that produced the four findings.
 
-Decided on 26 September 2026: a fresh change request rather than a rewrite
-of CR-04, because CR-04 predates the template, a third of it is obsolete
-(React track, `reg_form_type` strategy), and nothing of it was built; its
-placement rule is kept as the one thing that lives on.
-
 ## A2. As-is process
 
 Measured on the branch on 27 September 2026 (numbers), and read from the
