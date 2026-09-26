@@ -6,6 +6,27 @@
    veld in de rapportering kwam); twee kopieën betekent dat de volgende bijstelling
    er één vergeet, en een belofte die niet meer klopt is erger dan geen belofte. #}
 {% set INTERNE_NOTA_BELOFTE = _("Alleen het bestuur ziet dit: het komt niet op de website en niet in de nieuwsbrief. In de rapportering kan je het wél opvragen — dat blijft binnen het bestuur.") %}
+{# #1201: hetzelfde argument als hierboven, voor het vinkje bij een product. Het
+   staat op twee plaatsen — de bewerkrij en de aanmaakrij van hetzelfde product —
+   en twee labels voor één vinkje lopen uiteen zodra er één bijgesteld wordt.
+
+   "Publiek boekbaar" is vervallen (Koen, 26 september 2026): *boeken* bestaat
+   nergens anders in deze UI, overal heet het inschrijven. "Actief" is bewust NIET
+   het alternatief, ook al heet de kolom `is_active` — op Media betekent Actief
+   "nergens", terwijl deze vlag betekent "weg van het publieke formulier, maar het
+   bestuur kan er nog bij". Dat onderscheid is de reden dat #1191 bestaat.
+
+   De vorm komt van Media (`_me_lijst.html`, "In de footer"): een kort label dat
+   zegt wáár het ding verschijnt, plus een zin in de tooltip die zegt wat uit
+   betekent.
+
+   De hint noemt *toevoegen aan een bestaande inschrijving* en niet *iemand
+   inschrijven*, want dat laatste kan het bestuur in v2.6.0 nog niet: een
+   `Registration` ontstaat alleen langs de publieke weg. Aanmaken komt met #1192
+   op v2.7.0. Een hint die een handeling belooft die het scherm niet aanbiedt, is
+   erger dan het jargon dat we ermee vervangen. #}
+{% set PRODUCT_ZICHTBAAR_LABEL = _("Op het inschrijfformulier") %}
+{% set PRODUCT_ZICHTBAAR_HINT = _("Uit: het product verdwijnt van het publieke formulier, maar het bestuur kan het nog toevoegen aan een bestaande inschrijving.") %}
 <div class="space-y-4">
   {{ ui.error_banner(error|default(None)) }}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
@@ -305,8 +326,8 @@
               <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
             {% endcall %}</div>
           {# #1191: off = gone from the public form, NOT closed. The board can still
-             put someone on it from here. #}
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if p.is_active %}checked{% endif %}> {{ _("Publiek boekbaar") }}</label>
+             add it to an existing registration from here. Label and hint: #1201. #}
+          <label class="flex items-center gap-2 text-sm" title="{{ PRODUCT_ZICHTBAAR_HINT }}"><input type="checkbox" name="is_active" value="1" {% if p.is_active %}checked{% endif %}> {{ PRODUCT_ZICHTBAAR_LABEL }}</label>
         </form>
       </div>
       {% endfor %}
@@ -327,7 +348,7 @@
             <option value="gratis">{{ _("Gratis") }}</option>
             <option value="ter_plaatse">{{ _("Ter plaatse") }}</option>
           {% endcall %}</div>
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" checked> {{ _("Publiek boekbaar") }}</label>
+        <label class="flex items-center gap-2 text-sm" title="{{ PRODUCT_ZICHTBAAR_HINT }}"><input type="checkbox" name="is_active" value="1" checked> {{ PRODUCT_ZICHTBAAR_LABEL }}</label>
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}
