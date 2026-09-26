@@ -463,6 +463,107 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     return out
 
 
+def upsert_primary_contact(db: Session, person, type_code: str,
+                           value: Optional[str], *, action: str, source: str,
+                           is_primary: bool = True, apply: bool = True,
+                           actor: Optional[str] = None) -> None:
+    """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
+
+    Deze functie stond twee keer: in `mdm/import_service` voor het
+    Raak-Nationaal-rapport en als binnenfunctie in
+    `membership/household_service.update_person_contacts` voor het beheerscherm.
+    Allebei zochten ze *"de eerste rij van dit type"*, allebei met dezelfde fout —
+    en toen ik die fout in de eerste repareerde, stond ik op het punt hem in de
+    tweede opnieuw te repareren. Dat is het herkenningspunt uit `CLAUDE.md`: de
+    fout is niet dat er één achterliep, de fout is dat het er twee zijn.
+
+    **Waarom "de eerste rij" fout is.** Sinds een lid meerdere e-mailadressen mag
+    hebben, kan die eerste rij een EXTRA adres zijn dat wij verzameld hebben. Het
+    rapport of het formulier overschreef het dan met de hoofdwaarde, of — bij een
+    lege waarde — verwijderde het. Beide stil. De relatie belooft bovendien geen
+    volgorde, dus welke rij "de eerste" is, ligt niet eens vast.
+
+    Het hoofdadres is wat Raak Nationaal kent; de extra adressen zijn van ons. Een
+    niet-primaire rij raakt deze functie nooit aan.
+
+    `apply=False` is de dry-run van de import: alles uitrekenen, niets schrijven.
+    `action` en `source` gaan naar de audit-snapshot, zodat een rij uit een import
+    en een rij uit het beheerscherm in de geschiedenis uit elkaar te houden zijn.
+    """
+    from app.domains.audit.api import snapshot_contact_detail
+    from app.domains.mdm.models import ContactDetail
+
+    van_dit_type = [c for c in person.contact_details
+                    if c.contact_type_code == type_code]
+    hoofd = next((c for c in van_dit_type if c.is_primary), None)
+
+    if value:
+        if hoofd is None:
+            # Geen hoofdcontact, maar misschien staat deze waarde al als EXTRA rij.
+            # Dan die promoveren in plaats van een tweede rij met dezelfde waarde
+            # te maken — anders staat hetzelfde adres twee keer bij één persoon en
+            # mag iemand dat later met de hand opruimen.
+            zelfde = next((c for c in van_dit_type if c.value == value), None)
+            if zelfde is not None:
+                if apply:
+                    zelfde.is_primary = is_primary
+                    db.flush()
+                    snapshot_contact_detail(db, zelfde, operation="update",
+                                            action=action, source=source, actor=actor)
+                return
+            if apply:
+                # `db.add` en NIET `person.contact_details.append`. Appenden vult de
+                # relatie in de sessie, en dan telt ze bij een volgende aanroep als
+                # "geladen" terwijl andere relaties van diezelfde persoon dat niet
+                # zijn. Gemeten: de import zag daarna `person.address` als None
+                # terwijl het adres bestond, en probeerde een tweede adres in te
+                # voegen — `uq_addresses_person_id`. Acht bestaande importtests
+                # vielen erop om. De import deed dit altijd al met `db.add`; die
+                # vorm is hier de veilige.
+                nieuw = ContactDetail(person_id=person.id, contact_type_code=type_code,
+                                      value=value, is_primary=is_primary)
+                db.add(nieuw)
+                db.flush()
+                snapshot_contact_detail(db, nieuw, operation="insert",
+                                        action=action, source=source, actor=actor)
+            return
+        if hoofd.value == value and hoofd.is_primary == is_primary:
+            return
+        if apply:
+            hoofd.value = value
+            hoofd.is_primary = is_primary
+            db.flush()
+            snapshot_contact_detail(db, hoofd, operation="update",
+                                    action=action, source=source, actor=actor)
+        return
+
+    if hoofd is None or not apply:
+        return
+    snapshot_contact_detail(db, hoofd, operation="delete",
+                            action=action, source=source, actor=actor)
+    person.contact_details.remove(hoofd)
+    db.flush()
+    # Er hoort ALTIJD precies één hoofdcontact te zijn. Blijven er extra rijen van
+    # dit type over, dan wijst de oudste zich aan.
+    #
+    # Hier botsen twee regels uit #1174, en dit is de gekozen kant: "het hoofdadres
+    # is wat Raak Nationaal heeft" zou zeggen dat er nu géén is, maar dan heeft een
+    # lid wél adressen op ons scherm en krijgt het toch geen post — onzichtbaar, en
+    # erger dan een hoofdadres dat het nationale programma niet kent. Terugdraaien
+    # is dit blok weghalen.
+    #
+    # Op `id` en niet op invoegvolgorde: de relatie garandeert geen volgorde, en
+    # "de oudste" is de enige keuze die bij twee runs hetzelfde oplevert.
+    rest = sorted((c for c in person.contact_details
+                   if c.contact_type_code == type_code and not c.is_primary),
+                  key=lambda c: c.id or 0)
+    if rest:
+        rest[0].is_primary = True
+        db.flush()
+        snapshot_contact_detail(db, rest[0], operation="update",
+                                action=action, source=source, actor=actor)
+
+
 def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     """Every e-mail address of every person in these households (#984).
 

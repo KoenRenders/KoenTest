@@ -57,6 +57,7 @@ from app.domains.mdm.service import (  # noqa: F401
     end_circle_relation,
     new_members_between,
     email_addresses_of_members,
+    upsert_primary_contact,
     organization_circle,
 )
 from app.domains.mdm.service import (  # noqa: E402,F401
@@ -123,5 +124,5 @@ __all__ = [
     "tenant_codes", "invalidate_tenant_codes",
     "BOARD_MEETING", "CirclePerson", "OrganizationPerson",
     "OrganizationRelationType", "OrganizationRelationTypeLabel", "add_to_circle", "create_person_for_circle", "end_circle_relation",
-    "new_members_between", "organization_circle", "email_addresses_of_members",
+    "new_members_between", "organization_circle", "email_addresses_of_members", "upsert_primary_contact",
 ]

@@ -237,95 +237,20 @@ def _apply_person_fields(person: Person, row: dict) -> None:
 
 # ── Contacten ───────────────────────────────────────────────────────────────
 
-def _promoveer_oudste(db: Session, person: Person, type_code: str, *,
-                      actor: str | None = None) -> None:
-    """Wijs het oudste overgebleven contactgegeven van dit type aan als hoofdadres.
-
-    Alleen aangeroepen nadat het hoofdadres verdwenen is. Op `id` en niet op
-    invoegvolgorde: de relatie garandeert geen volgorde, en "de oudste" is de
-    enige keuze die bij twee runs hetzelfde oplevert.
-    """
-    rest = sorted((c for c in person.contact_details
-                   if c.contact_type_code == type_code and not c.is_primary),
-                  key=lambda c: c.id or 0)
-    if not rest:
-        return
-    rest[0].is_primary = True
-    db.flush()
-    snapshot_contact_detail(db, rest[0], operation="update",
-                            action="contacts_imported", source=LEGACY_SOURCE,
-                            actor=actor)
-
-
 def _upsert_contact(db: Session, person: Person, type_code: str, value: str | None,
                     is_primary: bool, *, apply: bool, actor: str | None = None) -> None:
-    """Maak/werk bij/verwijder één contactgegeven; snapshot elke wijziging.
+    """De import-kant van `mdm.service.upsert_primary_contact` (#1174).
 
-    **Werkt op het HOOFDADRES en niet op "de eerste rij" (#1174).** Sinds een lid
-    meerdere e-mailadressen mag hebben, is dat verschil geen detail meer: de
-    eerste rij van dat type kan een EXTRA adres zijn dat wij verzameld hebben en
-    dat Raak Nationaal niet kent. Deze functie draait bij élke ledenimport, dus
-    met de oude regel werd dat extra adres overschreven met de nationale waarde —
-    of, bij een lege cel in het rapport, verwijderd. Allebei stil.
-
-    Het rapport is de bron van het hoofdadres; de extra adressen zijn van ons. Een
-    niet-primaire rij wordt hier dus nooit aangeraakt.
+    Dunne schil: hij vult alleen de audit-herkomst in, zodat een rij uit het
+    Raak-Nationaal-rapport in de geschiedenis te onderscheiden blijft van een rij
+    die iemand op het beheerscherm typte. De regel zelf — het HOOFDcontact en
+    nooit een extra rij — staat op één plek, want ze stond er twee.
     """
-    existing = next((c for c in person.contact_details
-                     if c.contact_type_code == type_code and c.is_primary), None)
-    if value:
-        if existing is None:
-            # Geen hoofdadres, maar misschien staat deze waarde al als EXTRA rij.
-            # Dan die promoveren in plaats van een tweede rij met dezelfde waarde
-            # aan te maken — anders staat hetzelfde adres twee keer bij één
-            # persoon en mag iemand dat later met de hand opruimen.
-            zelfde = next((c for c in person.contact_details
-                           if c.contact_type_code == type_code and c.value == value),
-                          None)
-            if zelfde is not None:
-                if apply:
-                    zelfde.is_primary = is_primary
-                    db.flush()
-                    snapshot_contact_detail(db, zelfde, operation="update",
-                                            action="contacts_imported",
-                                            source=LEGACY_SOURCE, actor=actor)
-                return
-        if existing:
-            if existing.value == value and existing.is_primary == is_primary:
-                return
-            if apply:
-                existing.value = value
-                existing.is_primary = is_primary
-                db.flush()
-                snapshot_contact_detail(db, existing, operation="update",
-                                        action="contacts_imported", source=LEGACY_SOURCE,
-                                        actor=actor)
-        else:
-            if apply:
-                contact = ContactDetail(person_id=person.id, contact_type_code=type_code,
-                                        value=value, is_primary=is_primary)
-                db.add(contact)
-                db.flush()
-                snapshot_contact_detail(db, contact, operation="insert",
-                                        action="contacts_imported", source=LEGACY_SOURCE,
-                                        actor=actor)
-    elif existing:
-        if apply:
-            snapshot_contact_detail(db, existing, operation="delete",
-                                    action="contacts_imported", source=LEGACY_SOURCE,
-                                    actor=actor)
-            person.contact_details.remove(existing)
-            db.flush()
-            # Er hoort ALTIJD precies één hoofdadres te zijn (#1174). Blijven er
-            # extra rijen van dit type over, dan wijst de oudste zich aan.
-            #
-            # Hier botsen twee regels uit het issue, en dit is de gekozen kant:
-            # "het hoofdadres is wat Raak Nationaal heeft" zou zeggen dat er nu
-            # géén hoofdadres is, maar dan heeft een lid wél adressen op ons
-            # scherm en krijgt het toch geen post — onzichtbaar, en erger dan een
-            # hoofdadres dat het nationale programma niet kent. Terugdraaien is
-            # deze `_promoveer`-aanroep weghalen.
-            _promoveer_oudste(db, person, type_code, actor=actor)
+    from app.domains.mdm.service import upsert_primary_contact
+
+    upsert_primary_contact(db, person, type_code, value,
+                           action="contacts_imported", source=LEGACY_SOURCE,
+                           is_primary=is_primary, apply=apply, actor=actor)
 
 
 def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool,

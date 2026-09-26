@@ -642,22 +642,17 @@ def update_person_contacts(
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
 
+    # #1174: langs de gedeelde regel, niet langs een eigen binnenfunctie. Die
+    # stond hier met exact dezelfde "eerste rij"-fout als de import — dit scherm
+    # kon dus een extra e-mailadres overschrijven of, bij een leeggemaakt veld,
+    # verwijderen. Dat is precies het adres dat de nieuwsbriefverantwoordelijke
+    # net had ingevoerd.
+    from app.domains.mdm.api import upsert_primary_contact
+
     def _upsert_contact(type_code: str, value: Optional[str]):
-        existing = next((c for c in person.contact_details if c.contact_type_code == type_code), None)
-        if value:
-            if existing:
-                if existing.value != value:
-                    existing.value = value
-                    db.flush()
-                    snapshot_contact_detail(db, existing, operation="update", action="contacts_updated", source="admin_update", actor=admin.email)
-            else:
-                contact = ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True)
-                person.contact_details.append(contact)
-                db.flush()
-                snapshot_contact_detail(db, contact, operation="insert", action="contacts_updated", source="admin_update", actor=admin.email)
-        elif existing:
-            snapshot_contact_detail(db, existing, operation="delete", action="contacts_updated", source="admin_update", actor=admin.email)
-            person.contact_details.remove(existing)
+        upsert_primary_contact(db, person, type_code, value,
+                               action="contacts_updated", source="admin_update",
+                               actor=admin.email)
 
     _upsert_contact("EMAIL", data.email)
     _upsert_contact("PHONE", data.phone)
