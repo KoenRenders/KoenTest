@@ -108,7 +108,13 @@ def _vraag_de_code(page) -> None:
     adres nu gekend is of niet (dat verklapt de route bewust niet), dus het beeld
     hangt niet af van wie er in de seed staat.
     """
-    page.fill("#email", "e2e-seed@example.com")
+    # Uit de seed en niet als letterlijke tekst (#1208): dit adres verscheen hier
+    # als tweede kopie naast `MARKER_EMAIL`, terwijl de toelichting bij
+    # `_sessiewaarden` hieronder juist zegt dat er één bron is. Een hernoemd
+    # seed-gezin liet deze regel anders een leeg aanmeldscherm fotograferen.
+    from seed_e2e import MARKER_EMAIL
+
+    page.fill("#email", MARKER_EMAIL)
     page.get_by_role("button", name="Stuur inloginfo").click()
     page.wait_for_selector("#code", timeout=5000)
 

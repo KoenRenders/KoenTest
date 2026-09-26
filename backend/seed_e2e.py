@@ -26,7 +26,19 @@ import sys
 from datetime import date, timedelta
 from decimal import Decimal
 
-MARKER_EMAIL = "e2e-seed@example.com"
+# #1208: de namen in deze seed zijn leesbaar, want ze staan op de
+# schermafdrukken voor de PUBLIEKE uitlegpagina (#1183). "E2E Seed" en
+# "e2e-seed@example.com" lazen daar als een foutmelding.
+#
+# Waarom verzonnen en niet een echt gezin: HDEV draagt echte ledenrecords, dus een
+# afdruk van het gezinsscherm daar zet naam, adres en e-mailadres van een echt lid
+# op een publieke pagina — een lek dat geen grep vindt, want het zit in een
+# afbeelding. Daarom komen de beelden uit deze seed, en daarom moet ze leesbaar zijn.
+#
+# De familie Jommeke draagt het gezin met een LOPEND lidmaatschap: drie van de vijf
+# ledenflow-afdrukken tonen dat gezin (`leden-gezin`, `leden-gezin-bewerken` en het
+# aanmeldscherm met zijn adres). `example.com` is het enige domein dat hier mag.
+MARKER_EMAIL = "theofiel.jommeke@example.com"
 # #1183: een extra gezin voor de LEDENFLOW-afdrukken. Het seed-gezin hierboven heeft
 # een lopend lidmaatschap en toont dus geen vernieuwknop — je kan geen knop
 # fotograferen die er niet staat. Dit gezin staat er NÁÁST in plaats van dat het
@@ -38,8 +50,16 @@ MARKER_EMAIL = "e2e-seed@example.com"
 # seed is precies de rij die `test_beheer_flows` als eerste "Bevestig" oppikt. Die
 # test zette hem dan op betaald — waarmee én het scherm verdween én die test iets
 # anders toetste dan bedoeld. Zie de PR van #1183.
-MARKER_EMAIL_VERLOPEN = "e2e-verlopen@example.com"
-SEED_NAAM = "E2E Seed"
+#
+# Een andere naam uit hetzelfde verhaal (#1208), zodat de twee gezinnen op een
+# afdruk uit elkaar te houden zijn: dit is het gezin op `leden-verlengen`.
+MARKER_EMAIL_VERLOPEN = "professor.gobelijn@example.com"
+SEED_NAAM = "Theofiel Jommeke"
+# De achternamen die deze seed maakt (#1208). `test_ledenflow_schermen` leest ze
+# hier en houdt geen eigen lijst: die test bewaakt dat er geen echte ledennaam op
+# een publieke afdruk staat, en een tweede kopie van deze namen zou na de
+# volgende hernoeming stil groen blijven staan terwijl ze niets meer toetst.
+SEED_ACHTERNAMEN = ("Jommeke", "Gobelijn")
 
 
 def _weiger_buiten_dev() -> None:
@@ -94,11 +114,27 @@ def main() -> None:
         member = Member()
         db.add(member)
         db.flush()
-        person = Person(first_name="E2E", last_name="Seed")
+        person = Person(first_name="Theofiel", last_name="Jommeke")
         db.add(person)
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=person.id,
                             relation_type="HOOFDLID"))
+        # #1208: een gezin en niet één persoon. Het gezinsscherm is de afdruk waarop
+        # een lid ziet hoe zijn gegevens erbij staan; met één rij toont hij niet wat
+        # het scherm doet. Partner en kinderen erbij maken die afdruk bruikbaar.
+        #
+        # Waarom Annemieke en Rozemieke en niet "Jommeke Jommeke" als kind: dat
+        # laatste oogt als een invoerfout, en een invoerfout is precies waar dit
+        # issue vanaf wil. De tweeling is even herkenbaar en leest als twee gewone
+        # namen. Jommeke zelf ontbreekt dus in de familie Jommeke; dat is de prijs
+        # en ze is kleiner dan een naam die twee keer hetzelfde zegt.
+        for voornaam, relatie in (("Marie", "PARTNER"),
+                                  ("Annemieke", "KIND"), ("Rozemieke", "KIND")):
+            gezinslid = Person(first_name=voornaam, last_name="Jommeke")
+            db.add(gezinslid)
+            db.flush()
+            db.add(MemberPerson(member_id=member.id, person_id=gezinslid.id,
+                                relation_type=relatie))
         db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
                              value=MARKER_EMAIL, is_primary=True))
         jaar = date.today().year
@@ -125,7 +161,7 @@ def main() -> None:
         verlopen_member = Member()
         db.add(verlopen_member)
         db.flush()
-        verlopen_person = Person(first_name="E2E", last_name="Verlopen")
+        verlopen_person = Person(first_name="Professor", last_name="Gobelijn")
         db.add(verlopen_person)
         db.flush()
         db.add(MemberPerson(member_id=verlopen_member.id,
@@ -237,7 +273,9 @@ def main() -> None:
         # flows om dezelfde: "bevestig betaald" zet de enige pending charge op
         # betaald, waarna de volgende flow er geen meer vindt.
         reg_id = _schrijf_in(SEED_NAAM)
-        tweede_id = _schrijf_in(f"{SEED_NAAM} 2")
+        # #1208: een tweede naam uit hetzelfde gezin en niet "<naam> 2" — die
+        # telling stond op de afdrukken van het betalingenscherm.
+        tweede_id = _schrijf_in("Marie Jommeke")
 
         # ── Eén volledig betaald record, voor de terugbetaal-/editorknoppen ──
         # Ook dit record krijgt een mededeling: de kaarten staan op datum
