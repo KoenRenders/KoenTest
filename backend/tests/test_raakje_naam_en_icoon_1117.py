@@ -43,7 +43,7 @@ ONDERTITEL = ("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje "
 
 def _login(client, db) -> str:
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
-    bestaand = {r.role_code.value for r in user.roles}  # CR-12 fase 2
+    bestaand = {r.role_code.value for r in user.roles}  # CR-12 phase 2
     for rol in ("ADMIN", "OPERATOR", "FINANCE"):
         if rol not in bestaand:
             db.add(UserRole(user_id=user.id, role_code=rol))

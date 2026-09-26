@@ -275,10 +275,10 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
     hele reden om een codelijst te hebben; een tweede opsomming in een sjabloon zou
     een tweede plek voor hetzelfde feit zijn.
     """
-    # CR-12 fase 2: een rij toevoegen is nu twee rijen — de code en haar label —
-    # want de lijst is gesplitst. Dat is wat een tweede taal mogelijk maakt, en
-    # het is precies wat deze test hoort te tonen: de dropdown groeit nog steeds
-    # mee, zonder codewijziging.
+    # CR-12 phase 2: adding a row is now two rows — the code and its label —
+    # because the list has been split. That is what makes a second language
+    # possible, and it is exactly what this test should show: the dropdown
+    # still grows along, without a code change.
     db_session.execute(text(
         "INSERT INTO mdm.legal_form_codes (code, sort_order, is_active, created_at) "
         "VALUES ('STICHTING', 40, true, now())"))
@@ -287,8 +287,8 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
         "(code, language, value, created_at, updated_at) "
         "VALUES ('STICHTING', 'nl', 'Stichting', now(), now())"))
     db_session.flush()
-    # De labelcache leest via een eigen sessie (§B2.4) en ziet deze rijen pas na
-    # een commit; daarna moet hij wél opnieuw lezen.
+    # The label cache reads through its own session (§B2.4) and only sees these
+    # rows after a commit; after that it does have to read again.
     db_session.commit()
     reset_label_cache()
 

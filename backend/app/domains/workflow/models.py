@@ -31,10 +31,10 @@ class WorkflowTask(TenantMixin, Base):
     subject_id = Column(String(36), nullable=False)
     # open | done — taken sluiten door toestand (§20.5).
     status = Column(String(10), nullable=False, default="open", index=True)
-    # CR-12 fase 2: dezelfde lijst als `auth.user_roles.role_code`, dus
-    # dezelfde vorm. De foreign key gaat cross-schema naar `auth.role_codes` —
-    # de uitzondering van §B2.4, en precies waarom rollen in `auth` horen en
-    # niet in het domein dat ze toevallig gebruikt.
+    # CR-12 phase 2: the same list as `auth.user_roles.role_code`, so the
+    # same shape. The foreign key goes cross-schema to `auth.role_codes` —
+    # the exception of §B2.4, and exactly why roles belong in `auth` and not
+    # in whichever domain happens to use them.
     required_role: Mapped[Role] = mapped_column(
         EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
         nullable=False, default=Role.ADMIN)

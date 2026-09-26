@@ -345,11 +345,11 @@ def _language() -> str:
 def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
     lst = code_list(name)
     if db is not None:
-        # Met een meegegeven sessie: lezen door die sessie heen en NIET cachen.
-        # Nodig waar de aanroeper een lijst net gewijzigd heeft en de wijziging
-        # nog in zijn transactie staat — de eigen sessie van de kernel ziet die
-        # per definitie niet. Zo'n aanroeper is zeldzaam (een beheerscherm, een
-        # test); het gewone pad blijft gecached.
+        # With a session passed in: read through that session and do NOT
+        # cache. Needed where the caller has just changed a list and the change
+        # is still in its transaction — the kernel's own session by definition
+        # does not see it. Such a caller is rare (an admin screen, a test); the
+        # normal path stays cached.
         rows = db.execute(
             sa.select(lst.labels.code, lst.labels.value)
             .where(lst.labels.language == language)).all()
@@ -496,7 +496,7 @@ def create_code_list(
             sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
                       server_default=sa.func.now()),
-            # Eigenschappen ván de code, geen labels (zie `extra_code_columns`).
+            # Properties of the code, not labels (see `extra_code_columns`).
             *extra_columns,
             schema=schema,
         )

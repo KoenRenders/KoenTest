@@ -24,40 +24,41 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ── De vocabularia van dit domein (CR-12 fase 2) ────────────────────────────
+# ── The vocabularies of this domain (CR-12 phase 2) ─────────────────────────
 #
-# Vooraan, omdat de kolommen eronder ze in hun declaratie gebruiken:
-# `Mapped[LegalForm] = mapped_column(EnumColumn(LegalForm))` wordt op
-# klasse-definitietijd uitgevoerd, niet luie evaluatie.
+# Up front, because the columns below use them in their declaration:
+# `Mapped[LegalForm] = mapped_column(EnumColumn(LegalForm))` is executed at
+# class-definition time, not evaluated lazily.
 
 
 class LegalForm(Enum):
-    """De rechtsvormen die de codelijst kent (#924, patroon van #779).
+    """The legal forms the code list knows (#924, pattern of #779).
 
-    De code staat in de databank, het label per taal in
-    `mdm.legal_form_labels`, en deze Enum is waar de code in de applicatie
-    vandaan komt. Uitbreidbaar: een nieuwe vorm is een rij plus een lid.
+    The code lives in the database, the label per language in
+    `mdm.legal_form_labels`, and this Enum is where the code comes from in the
+    application. Extensible: a new form is a row plus a member.
 
-    CR-12 fase 2: van `str, Enum` naar een gewone `Enum`. Met de `str`-mengvorm
-    bleef `organisatie.legal_form == "VZW"` een geldige vergelijking die
-    toevallig waar was; gewoon is ze stil onwaar, en dus vindbaar.
+    CR-12 phase 2: from `str, Enum` to a plain `Enum`. With the `str` mixin,
+    `organisatie.legal_form == "VZW"` remained a valid comparison that happened
+    to be true; with a plain one it is silently false, and therefore findable.
     """
 
-    #: Ledennamen Engels, waarden onveranderd (§B4.3, dat `LegalForm.COMPANY =
-    #: "BEDRIJF"` letterlijk als voorbeeld geeft). De waarde is opgeslagen data
-    #: en blijft; de naam is een identifier en valt onder de Engelse regel.
+    #: Member names English, values unchanged (§B4.3, which gives
+    #: `LegalForm.COMPANY = "BEDRIJF"` literally as its example). The value is
+    #: stored data and stays; the name is an identifier and falls under the
+    #: English rule.
     NON_PROFIT = "VZW"
     UNINCORPORATED = "FEITELIJKE_VERENIGING"
     COMPANY = "BEDRIJF"
 
 
 class OrganizationType(Enum):
-    """Wat voor soort organisatie dit is (CR-12 fase 2).
+    """What kind of organization this is (CR-12 phase 2).
 
-    `ACCOUNT` is de rechtspersoon die de rekening draagt, `UNIT` een afdeling,
-    `PLATFORM` de ene organisatie die het platform zelf voorstelt (#406). De
-    kolom had een CHECK-constraint met deze drie waarden; die verdwijnt met de
-    foreign key, want anders kost een vierde soort een rij én een migratie.
+    `ACCOUNT` is the legal entity that holds the account, `UNIT` a unit,
+    `PLATFORM` the one organization that represents the platform itself (#406).
+    The column had a CHECK constraint with these three values; it goes away with
+    the foreign key, because otherwise a fourth kind costs a row and a migration.
     """
 
     ACCOUNT = "ACCOUNT"
@@ -66,11 +67,11 @@ class OrganizationType(Enum):
 
 
 class RelationType(Enum):
-    """Hoe een persoon bij een gezin hoort (CR-12 fase 2).
+    """How a person belongs to a household (CR-12 phase 2).
 
-    Ledennamen zijn Engels, waarden blijven de opgeslagen Nederlandse codes
-    (§B4.3): de waarde is data en verandert niet, de naam is een identifier en
-    valt onder de Engelse regel.
+    Member names are English, values remain the stored Dutch codes (§B4.3):
+    the value is data and does not change, the name is an identifier and falls
+    under the English rule.
     """
 
     PRIMARY_MEMBER = "HOOFDLID"
@@ -185,16 +186,17 @@ class OrganizationRelationType(Base):
     is a row, and the foreign key keeps working.
     """
 
-    # CR-12 fase 2: hernoemd naar de vorm van §B4.2 (`<lijst>_codes`). De
-    # labeltabel heette al `..._labels`; de codetabel viel als enige buiten
-    # het patroon, en dan moet elke poort er een uitzondering voor maken.
+    # CR-12 phase 2: renamed to the shape of §B4.2 (`<list>_codes`). The
+    # label table was already called `..._labels`; the code table was the only
+    # one outside the pattern, and then every gate has to make an exception
+    # for it.
     __tablename__ = "organization_relation_type_codes"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(30), primary_key=True)
-    # CR-12 fase 2, zelfde aanvulling als bij `identification_schemes`: de vorm
-    # van #924 was bijna die van §B4.2, maar zonder volgorde en zonder
-    # intrekbaarheid. Nu kan deze lijst in het patroon.
+    # CR-12 phase 2, same addition as for `identification_schemes`: the shape
+    # of #924 was almost that of §B4.2, but without ordering and without
+    # retirability. Now this list fits the pattern.
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -284,13 +286,13 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
                              nullable=True)
-    # Geen enum, anders dan bij de andere lijsten van deze change request
-    # (Koen, 26 september 2026). #1160 maakte de publieke voetnoot
-    # data-gedreven: een vijfde sociaal netwerk is één rij en geen
-    # codewijziging. Een enum-kolom zou zo'n rij aan de SCHRIJFKANT weigeren,
-    # en dat is precies wat #1160 wegnam. De code noemt de soorten die ze
-    # onderscheidt met genoemde constanten (`CONTACT.EMAIL`, `CONTACT.MOBILE`
-    # in `codes.py`); de foreign key bewaakt dat de waarde in de lijst staat.
+    # No enum, unlike the other lists of this change request (Koen,
+    # 26 September 2026). #1160 made the public footer data-driven: a fifth
+    # social network is one row and not a code change. An enum column would
+    # reject such a row on the WRITE side, and that is exactly what #1160
+    # removed. The code names the kinds it distinguishes with named constants
+    # (`CONTACT.EMAIL`, `CONTACT.MOBILE` in `codes.py`); the foreign key
+    # guards that the value is in the list.
     contact_type_code = Column(String(10),
                                ForeignKey("mdm.contact_type_codes.code"),
                                nullable=False)
@@ -579,15 +581,15 @@ class IdentificationScheme(Base):
     niet opnieuw te maken.
     """
 
-    # CR-12 fase 2: hernoemd naar `<lijst>_codes`, zie OrganizationRelationType.
+    # CR-12 phase 2: renamed to `<list>_codes`, see OrganizationRelationType.
     __tablename__ = "identification_scheme_codes"
     __table_args__ = {"schema": "mdm"}
 
     code = Column(String(20), primary_key=True)
-    # CR-12 fase 2: deze twee ontbraken. De tabel had de gesplitste vorm van
-    # #924 al, maar niet de volgorde en de intrekbaarheid die §B4.2 vraagt — en
-    # zonder die twee kan een lijst niet in het patroon en kan een code niet
-    # ingetrokken worden zonder haar te verwijderen.
+    # CR-12 phase 2: these two were missing. The table already had the split
+    # shape of #924, but not the ordering and retirability that §B4.2 asks for
+    # — and without those two a list cannot fit the pattern and a code cannot
+    # be retired without deleting it.
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -608,7 +610,7 @@ class IdentificationSchemeLabel(Base):
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
 class LegalFormCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 2)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
     __tablename__ = "legal_form_codes"
     __table_args__ = {"schema": "mdm"}
@@ -620,7 +622,7 @@ class LegalFormCode(Base):
 
 
 class LegalFormLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 2)."""
+    """The word a screen shows, per language (CR-12 phase 2)."""
 
     __tablename__ = "legal_form_labels"
     __table_args__ = {"schema": "mdm"}
@@ -637,7 +639,7 @@ class LegalFormLabel(Base):
 
 
 class OrganizationTypeCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 2)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
     __tablename__ = "organization_type_codes"
     __table_args__ = {"schema": "mdm"}
@@ -649,7 +651,7 @@ class OrganizationTypeCode(Base):
 
 
 class OrganizationTypeLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 2)."""
+    """The word a screen shows, per language (CR-12 phase 2)."""
 
     __tablename__ = "organization_type_labels"
     __table_args__ = {"schema": "mdm"}
@@ -666,7 +668,7 @@ class OrganizationTypeLabel(Base):
 
 
 class GenderCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 2)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
     __tablename__ = "gender_codes"
     __table_args__ = {"schema": "mdm"}
@@ -678,7 +680,7 @@ class GenderCode(Base):
 
 
 class GenderLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 2)."""
+    """The word a screen shows, per language (CR-12 phase 2)."""
 
     __tablename__ = "gender_labels"
     __table_args__ = {"schema": "mdm"}
@@ -695,9 +697,9 @@ class GenderLabel(Base):
 
 
 class ContactTypeCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 2).
+    """Which codes exist — the target of the foreign key (CR-12 phase 2).
 
-    Draagt één eigenschap meer dan de standaardvorm, zie `is_social_network`.
+    Carries one property more than the standard shape, see `is_social_network`.
     """
 
     __tablename__ = "contact_type_codes"
@@ -707,16 +709,17 @@ class ContactTypeCode(Base):
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    # #1160: de bron zegt welke codes sociale netwerken zijn. De publieke
-    # voetnoot vraagt deze kolom in plaats van een eigen lijstje bij te houden —
-    # dat lijstje was een code te kort en zette het mobiele nummer tussen de
-    # iconen. Een eigenschap ván de code, geen label, dus hier en niet in de
-    # labeltabel; aangemeld als `extra_code_columns` op de CodeList.
+    # #1160: the source says which codes are social networks. The public
+    # footer asks this column instead of keeping a list of its own — that list
+    # was a code short and put the mobile number between the icons. NULL means
+    # "not classified yet" and renders as "not a network"; the suite fails on
+    # it. A property of the code, not a label, so here and not in the label
+    # table; declared as `extra_code_columns` on the CodeList.
     is_social_network = Column(Boolean, nullable=True)
 
 
 class ContactTypeLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 2)."""
+    """The word a screen shows, per language (CR-12 phase 2)."""
 
     __tablename__ = "contact_type_labels"
     __table_args__ = {"schema": "mdm"}
@@ -733,7 +736,7 @@ class ContactTypeLabel(Base):
 
 
 class RelationTypeCode(Base):
-    """Welke codes bestaan — het doel van de foreign key (CR-12 fase 2)."""
+    """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
 
     __tablename__ = "relation_type_codes"
     __table_args__ = {"schema": "mdm"}
@@ -745,7 +748,7 @@ class RelationTypeCode(Base):
 
 
 class RelationTypeLabel(Base):
-    """Het woord dat een scherm toont, per taal (CR-12 fase 2)."""
+    """The word a screen shows, per language (CR-12 phase 2)."""
 
     __tablename__ = "relation_type_labels"
     __table_args__ = {"schema": "mdm"}

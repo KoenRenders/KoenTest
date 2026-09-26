@@ -272,9 +272,10 @@ def test_the_legal_form_code_list_follows_the_779_pattern(db_session):
     codes = {rij[0] for rij in db_session.execute(text(
         "SELECT DISTINCT code FROM mdm.legal_form_codes"))}
     assert codes == {"VZW", "FEITELIJKE_VERENIGING", "BEDRIJF"}
-    # CR-12 fase 2: de talen staan sinds de splitsing in de labeltabel. Dat is
-    # precies de wijziging die #929 vroeg — de oude vorm sleutelde op
-    # (code, taal) met een uniciteit op de code alleen, en liet dus één taal toe.
+    # CR-12 phase 2: since the split the languages live in the label table. That
+    # is exactly the change #929 asked for — the old shape keyed on
+    # (code, language) with a uniqueness on the code alone, and so allowed one
+    # language.
     talen = {rij[0] for rij in db_session.execute(text(
         "SELECT DISTINCT language FROM mdm.legal_form_labels"))}
     assert {"nl", "en"} <= talen

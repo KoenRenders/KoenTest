@@ -14,8 +14,8 @@ from app.domains.auth.member_identity import (  # noqa: F401
 from app.domains.auth.models import (  # noqa: F401
     ApiKey, LoginToken, Role, RoleCode, RoleLabel, User, UserRole,
 )
-# CR-12 fase 2: de rollenlijst hoort bij de publieke schil van dit domein,
-# zodat `workflow` haar FK-doel en haar enum via één deur bereikt.
+# CR-12 phase 2: the role list belongs to this domain's public surface, so
+# that `workflow` reaches its FK target and its enum through one door.
 from app.domains.auth.codes import ROLE  # noqa: F401
 from app.domains.auth.service import (  # noqa: F401
     API_KEY_HEADER,

@@ -121,12 +121,12 @@ def _uniek_op_code(rijen):
     return uit
 
 
-#: Wat een keuzelijst nodig heeft: de code en het woord ernaast. Sinds CR-12
-#: fase 2 komt dat uit `code_labels()`, dus uit de labeltabel en in
-#: `sort_order`. Een sjabloon dat deze lijst toont leest `.code` en `.value`,
-#: zoals het dat van de oude rijen deed — vandaar dit kleine ding in plaats van
-#: een tupel: de schermen hoefden niet mee te veranderen.
-class _Keuze:
+#: What a dropdown needs: the code and the word next to it. Since CR-12
+#: phase 2 that comes from `code_labels()`, so from the label table and in
+#: `sort_order`. A template that shows this list reads `.code` and `.value`,
+#: as it did from the old rows — hence this small thing instead of a tuple:
+#: the screens did not have to change along.
+class _Choice:
     __slots__ = ("code", "value")
 
     def __init__(self, code: str, value: str):
@@ -134,10 +134,10 @@ class _Keuze:
         self.value = value
 
 
-def _keuzes(lijst: str) -> list:
+def _choices(list_name: str) -> list:
     from app.kernel.codes import code_labels
 
-    return [_Keuze(code, label) for code, label in code_labels(lijst)]
+    return [_Choice(code, label) for code, label in code_labels(list_name)]
 
 
 def form_code_lists(db) -> dict:
@@ -145,8 +145,8 @@ def form_code_lists(db) -> dict:
     from app.domains.mdm.models import PostalCode
 
     return {
-        "gender_codes": _keuzes("gender"),
-        "relation_types": _keuzes("relation_type"),
+        "gender_codes": _choices("gender"),
+        "relation_types": _choices("relation_type"),
         "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
     }
 
@@ -154,14 +154,15 @@ def form_code_lists(db) -> dict:
 def admin_code_lists(db) -> dict:
     """Geslacht en relatietype voor de beheerformulieren.
 
-    CR-12 fase 2: hier stond "Nederlandstalige rijen als die er zijn, anders
-    alles", plus een ontdubbeling op code — allebei omdat de oude codetabel één
-    rij per (code, taal) had en de code dus meerdere keren voorkwam. Met de
-    gesplitste vorm bestaat dat probleem niet meer: `code_labels()` geeft één
-    rij per actieve code, in de taal van de afdeling en in `sort_order`.
+    CR-12 phase 2: this used to say "Dutch rows if there are any, otherwise
+    everything", plus a deduplication on code — both because the old code
+    table had one row per (code, language) and so the code occurred several
+    times. With the split shape that problem no longer exists: `code_labels()`
+    returns one row per active code, in the unit's language and in
+    `sort_order`.
     """
-    return {"gender_codes": _keuzes("gender"),
-            "relation_types": _keuzes("relation_type")}
+    return {"gender_codes": _choices("gender"),
+            "relation_types": _choices("relation_type")}
 
 
 def list_persons(db):

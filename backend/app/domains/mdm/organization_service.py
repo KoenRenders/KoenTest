@@ -49,12 +49,12 @@ ORGANISATIEVELDEN: tuple[str, ...] = ("name", "legal_form")
 
 # (veldnaam in het formulier, code in `contact_type_codes`)
 #
-# CR-12 fase 2: de rechterkolom draagt nu het enum-lid. Dit is precies het
-# tweetal dat §B5.3 note 3 "twee spellingen" noemt — en het is er geen: links
-# staat een VELDNAAM van een formulier (`mobile`), rechts een CODE (`MOBILE`).
-# Twee verschillende dingen die toevallig op elkaar lijken. Met het lid erin is
-# dat niet meer te verwarren, en vergelijkt de lezer hieronder een code met een
-# code in plaats van met een string.
+# CR-12 phase 2: the right-hand column is a named `Code` from `CONTACT`. This
+# is exactly the pair that §B5.3 note 3 calls "two spellings" — and it is not
+# one: on the left is a form FIELD NAME (`mobile`), on the right a CODE
+# (`MOBILE`). Two different things that happen to look alike. With the named
+# constant in place they can no longer be confused, and a misspelt code is an
+# `AttributeError` at import instead of a comparison that is never true.
 CONTACTVELDEN: tuple[tuple[str, Code], ...] = (
     ("email", CONTACT.EMAIL),
     ("phone", CONTACT.PHONE),
@@ -232,8 +232,8 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
 
     uit = dict(leeg)
     uit["name"] = rij.name or ""
-    # De CODE naar het scherm, want de `<option value="...">` draagt de code
-    # en het sjabloon vergelijkt die met de geselecteerde waarde.
+    # The CODE to the screen, because the `<option value="...">` carries the
+    # code and the template compares it with the selected value.
     uit["legal_form"] = code_of(rij.legal_form) or ""
 
     contacten = {c.contact_type_code: c.value for c in
@@ -297,14 +297,15 @@ def legal_form_options(db, taal: str = "nl") -> list[tuple[str, str]]:
     Valt terug op de Nederlandse labels wanneer een taal ontbreekt, en daarna op de
     code zelf: een lege dropdown is erger dan een onvertaald label.
     """
-    # CR-12 fase 2: hier stond een handmatige terugval van taal naar `nl` naar
-    # de code. Precies die drie stappen zitten nu in `code_label()`, dus dit is
-    # één aanroep geworden — en dezelfde terugval als elk ander scherm heeft.
+    # CR-12 phase 2: this used to be a hand-written fallback from language to
+    # `nl` to the code. Exactly those three steps now live in `code_label()`,
+    # so this has become one call — and the same fallback every other screen
+    # has.
     from app.kernel.codes import code_labels
 
-    # De sessie mee: dit scherm kan een net toegevoegde rechtsvorm tonen die
-    # nog in de lopende transactie staat, en de cache van de kernel leest
-    # via een eigen sessie die daar per definitie niets van ziet.
+    # Pass the session along: this screen can show a just-added legal form
+    # that is still in the open transaction, and the kernel's cache reads
+    # through a session of its own that by definition sees none of it.
     return code_labels("legal_form", language=taal, db=db)
 
 
