@@ -16,6 +16,11 @@ Broken on purpose to check that these tests can go red: the comparison in
 `rollback_can_start` inverted (`!=` for `=`) → both tests fall over, the one with
 a migration because the rollback runs, the one without because it stops;
 `$BACKUP_FILE` left out of the stop message → the dump test falls over.
+
+**These tests need a real `git` binary.** CI has one. The `raaktest-runner`
+container does not: run there, every test here fails on the assertion in `_repo`
+("these tests need a real git binary"), which says nothing about `deploy.sh`.
+Run them on a host with git, or in CI.
 """
 import os
 import shutil
