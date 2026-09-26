@@ -26,6 +26,7 @@ import pytest
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
                                   make_session_value)
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
+from app.domains.auth.api import Role
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -41,7 +42,7 @@ def _login(client):
 
 def _operator(db):
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
-    if not any(r.role_code == "OPERATOR" for r in user.roles):
+    if not any(r.role_code == Role.OPERATOR for r in user.roles):
         db.add(UserRole(user_id=user.id, role_code="OPERATOR"))
         db.flush()
 

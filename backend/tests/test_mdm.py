@@ -105,7 +105,10 @@ def test_organizations_account_unit_hierarchy(db_session):
     db_session.add(unit)
     db_session.flush()
     assert unit.parent.id == account.id
-    from sqlalchemy.exc import IntegrityError
-    db_session.add(Organization(code="fout", name="Fout type", org_type="WRONG"))
-    with pytest.raises(IntegrityError):
-        db_session.flush()
+    # CR-12 fase 2: de CHECK-constraint is vervangen door een codelijst met een
+    # foreign key, en de enum weigert de waarde al vóór de databank. De
+    # weigering gebeurt dus eerder en met een betere melding — de naam van de
+    # lijst in plaats van de naam van een constraint.
+    with pytest.raises(ValueError) as fout:
+        Organization(code="fout", name="Fout type", org_type="WRONG")
+    assert "OrganizationType" in str(fout.value)

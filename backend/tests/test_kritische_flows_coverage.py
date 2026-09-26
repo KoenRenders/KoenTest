@@ -3,6 +3,7 @@
 vastnagelen — geen nieuwe invarianten opleggen aan de productiecode.
 """
 from decimal import Decimal
+from app.domains.mdm.api import RelationType
 
 import pytest
 
@@ -173,7 +174,7 @@ def test_admin_update_person_wijzigt_relation_type_niet(client, db_session, admi
     db_session.expire_all()
     from app.domains.mdm.api import MemberPerson
     mp = db_session.query(MemberPerson).filter(MemberPerson.person_id == person.id).first()
-    assert mp.relation_type == "HOOFDLID"
+    assert mp.relation_type == RelationType.PRIMARY_MEMBER
 
 
 def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, admin_headers):
@@ -192,5 +193,5 @@ def test_admin_verwijder_bijkomend_lid_laat_hoofdlid_intact(client, db_session, 
               .filter(MemberPerson.member_id == member.id,
                       MemberPerson.deleted_at.is_(None)).all())
     relaties = {mp.person_id: mp.relation_type for mp in levend}
-    assert relaties.get(hoofdlid.id) == "HOOFDLID"
+    assert relaties.get(hoofdlid.id) == RelationType.PRIMARY_MEMBER
     assert kind.id not in relaties

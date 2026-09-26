@@ -38,7 +38,7 @@ def _login(client, db):
     """OPERATOR erbij: Tenants is OPERATOR-only (#581)."""
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for rol in ("ADMIN", "OPERATOR"):
-        if not any(r.role_code == rol for r in user.roles):
+        if not any(r.role_code.value == rol for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=rol))
     db.flush()
     value = make_session_value(SEEDED_ADMIN_EMAIL)

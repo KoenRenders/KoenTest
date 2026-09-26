@@ -27,7 +27,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'ai.ai_call_log.provider',
     'ai.ai_call_log.status',
     'auth.login_tokens.otp_code',
-    'auth.user_roles.role_code',
     'designstudio.design_highlights.icon_code',
     'designstudio.design_renditions.layout_code',
     'designstudio.design_renditions.size_code',
@@ -42,7 +41,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'mail.email_log.email_type',
     'mail.email_log.status',
     'mdm.external_numbers.source',
-    'mdm.organizations.org_type',
     'media.media_assets.content_type',
     'media.media_assets.kind',
     'media.media_assets.thumb_content_type',
@@ -64,7 +62,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'workflow.workflow_instances.status',
     'workflow.workflow_instances.subject_type',
     'workflow.workflow_tasks.kind',
-    'workflow.workflow_tasks.required_role',
     'workflow.workflow_tasks.status',
     'workflow.workflow_tasks.subject_type',
 })
@@ -74,7 +71,6 @@ FK_MISSING: frozenset[str] = frozenset({
 #: Key: `path/to/file.py:ClassName`.
 ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
     'app/domains/activities/service.py:RegistrationState',
-    'app/domains/mdm/models.py:LegalForm',
     'app/domains/reporting/universe.py:Role',
 })
 
@@ -107,7 +103,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
     'app/domains/workflow/ui.py:CAT_LABELS',
     'app/domains/workflow/ui.py:KIND_LABELS',
-    'app/ui/__init__.py:_RELATIE_LABELS',
     'app/ui/organisaties_ui.py:SOORT_LABELS',
 })
 
@@ -167,17 +162,8 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
 LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/activities/admin_ui.py:status==Open',
     'app/domains/activities/models.py:kind==component_info',
-    'app/domains/activities/router.py:contact_type_code==EMAIL',
-    'app/domains/activities/ui.py:contact_type_code==EMAIL',
-    'app/domains/activities/ui.py:contact_type_code==MOBILE',
-    'app/domains/audit/changes.py:contact_type_code==EMAIL',
-    'app/domains/audit/changes.py:relation_type==HOOFDLID',
-    'app/domains/auth/admin_ui.py:role_code==OPERATOR',
-    'app/domains/auth/member_identity.py:contact_type_code==EMAIL',
-    'app/domains/auth/member_identity.py:relation_type==HOOFDLID',
     'app/domains/auth/router.py:contact_type_code in MOBILE',
     'app/domains/auth/router.py:contact_type_code in PHONE',
-    'app/domains/auth/router.py:contact_type_code==EMAIL',
     'app/domains/auth/users.py:role_code==OPERATOR',
     'app/domains/chatbot/info_service.py:content_type==application/pdf',
     'app/domains/chatbot/info_service.py:kind==activity_poster',
@@ -206,12 +192,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/forms/ui.py:field_type==number',
     'app/domains/forms/ui.py:field_type==rating',
     'app/domains/mail/handlers.py:status==sent',
-    'app/domains/mdm/service.py:contact_type_code==EMAIL',
-    'app/domains/mdm/tenant_lookup.py:org_type==PLATFORM',
-    'app/domains/mdm/tenant_lookup.py:org_type==UNIT',
-    'app/domains/mdm/tenant_service.py:org_type==ACCOUNT',
-    'app/domains/mdm/tenant_service.py:org_type==PLATFORM',
-    'app/domains/mdm/tenant_service.py:org_type==UNIT',
     'app/domains/media/images.py:mode in LA',
     'app/domains/media/images.py:mode in RGBA',
     'app/domains/media/images.py:mode!=RGB',
@@ -226,18 +206,7 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/media/service.py:kind==component_info',
     'app/domains/media/service.py:kind==tenant_logo',
     'app/domains/meetings/service.py:kind==member',
-    'app/domains/membership/household_router.py:contact_type_code==EMAIL',
-    'app/domains/membership/household_service.py:contact_type_code==EMAIL',
-    'app/domains/membership/household_service.py:contact_type_code==MOBILE',
-    'app/domains/membership/household_service.py:contact_type_code==PHONE',
-    'app/domains/membership/household_service.py:relation_type==HOOFDLID',
-    'app/domains/membership/register_router.py:contact_type_code==EMAIL',
-    'app/domains/membership/register_router.py:relation_type==HOOFDLID',
-    'app/domains/membership/schemas_family.py:relation_type==HOOFDLID',
     'app/domains/newsletter/drafting.py:status!=draft',
-    'app/domains/payment/exports.py:relation_type==HOOFDLID',
-    'app/domains/payment/service.py:contact_type_code==EMAIL',
-    'app/domains/payment/service.py:relation_type==HOOFDLID',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',
@@ -255,7 +224,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/kernel/jobs.py:status==pending',
     'app/schemas/chat.py:role!=user',
     'app/ui/__init__.py:kind==sponsor',
-    'app/ui/tenants_ui.py:org_type==PLATFORM',
 })
 
 # ── Permanent exceptions: not a vocabulary of ours ───────────────────────────

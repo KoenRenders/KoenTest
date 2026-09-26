@@ -21,6 +21,7 @@ from tests.conftest import (
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.membership.api import Membership, not_renewed_count, renewal_years
 from app.domains.mdm.api import Member
+from app.domains.mdm.api import RelationType
 
 
 def _login(client):
@@ -157,7 +158,7 @@ def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_sessio
     persoon = db_session.query(Person).filter(Person.last_name == "Peeters").one()
     koppeling = db_session.query(MemberPerson).filter(
         MemberPerson.person_id == persoon.id).one()
-    assert koppeling.relation_type == "HOOFDLID"
+    assert koppeling.relation_type == RelationType.PRIMARY_MEMBER
     assert resp.headers["HX-Redirect"] == f"/admin/leden/gezin/{koppeling.member_id}"
 
 

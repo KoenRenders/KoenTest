@@ -18,6 +18,7 @@ import pytest
 from app.domains.mdm.api import (Address, BankAccount, ContactDetail,
                                  Organization, PostalCode)
 from app.kernel.tenant_config import _actieve_tenant
+from app.domains.mdm.api import ContactType
 
 TENANT = _actieve_tenant(None)
 
@@ -140,7 +141,7 @@ def test_a_tenant_setting_no_longer_wins(client, db_session, organisatie):
 
     db_session.query(ContactDetail).filter(
         ContactDetail.organization_id == organisatie.id,
-        ContactDetail.contact_type_code == "FACEBOOK").delete()
+        ContactDetail.contact_type_code == ContactType.FACEBOOK).delete()
     db_session.commit()
     set_setting(db_session, "facebook_url", "https://facebook.com/oud",
                 tenant_id=TENANT)

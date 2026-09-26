@@ -1,3 +1,4 @@
+from app.domains.mdm.api import OrganizationType
 """Tenant-provisioning (#546 fase 3): OPERATOR maakt een tenant aan; ADMIN mag niet.
 De nieuw aangemaakte UNIT-organization resolvet daarna dynamisch (zonder codewijziging).
 """
@@ -39,7 +40,7 @@ def test_operator_maakt_tenant_aan_en_resolvet(client, db_session):
     db_session.expire_all()
     org = db_session.query(Organization).filter(
         Organization.code == "raakteststad").one()
-    assert org.org_type == "UNIT" and org.is_active is True
+    assert org.org_type == OrganizationType.UNIT and org.is_active is True
     # De dynamische code→id-map bevat de nieuwe tenant → hij resolvet.
     assert tenant_codes(db=db_session).get("raakteststad") == org.id
 
