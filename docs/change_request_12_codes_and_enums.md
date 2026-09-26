@@ -922,8 +922,8 @@ what they are is this:
 | `reporting/engine.py:SYMBOLIC_LABELS` | **technical — exemption** | `vandaag`, `dit_jaar`, `ik` are engine tokens, like the five reporting enums already marked `TechnicalEnum`; their words on the report builder go through `_()` |
 | `ui/organisaties_ui.py:SOORT_LABELS` and `org_type` in two templates | **code list — organisation type, phase 2** | already in the catalogue; a leftover of #1179, closes wherever Koen puts it |
 | the form builder's card comparisons on `field_type` | **gate-8 offenders on a listed code list** | field type is phase 4; the comparisons become view-model booleans |
-| Raakje's drafting modes (`letter`, `insert`, `replace`, `newsletter/drafting.py`) | **missed by the catalogue** — a code list *if stored* (`drafting_messages`), technical if it is only a parameter of `ask()` | dev1 checks the column; the catalogue gets the row either way |
-| the meeting item kind (`item.kind == "member"`, `meetings/service.py:1088`) | **not located on a stored column of `meeting_items`** — if it is a view-model attribute, it is a gate-8 case (a boolean on the view-model); if stored, a list | dev1 locates it |
+| Raakje's drafting modes (`letter`, `insert`, `replace`, `newsletter/drafting.py`) | **technical — exemption** (located by the master CLI, 27 Sep) | `drafting_messages` has no mode column (id, newsletter_id, role, text, proposal JSON, created_at); the mode is a parameter of `ask()` and a form field (`purpose`/`placement`), at most inside the `proposal` JSON where no FK can reach; words via `_()` |
+| the meeting item kind (`item.kind == "member"`, `meetings/service.py:1088`) | **derived attribute — a gate-8 case, no list** (located by the master CLI, 27 Sep) | `meeting_items` has no `kind` column; `kind="member"` is set at `service.py:1003` on the object the service builds, derived from `member_id`; the comparison becomes a view-model boolean (`is_member`), like the field-type card comparisons |
 | the AI lists (surface, capability, status) | code lists, phase 4 — **blocked on Koen's data question** | unchanged |
 
 **Count:** 50 lists (phase 0: 1 + the pilot, which the phase-3 table also
@@ -969,9 +969,12 @@ image-rollback-safe because its migrations are additive. That holds for the
 image starts at all — `startup.sh` runs `alembic upgrade head`, and alembic
 stops with *"Can't locate revision"* because the old image does not know
 the revision the database is at. Rebuilt and measured by the master CLI on
-#1203. So the rename/additive distinction is a fact about what
-`downgrade()` could do, and irrelevant to how a deploy is undone: Koen's
-decision stands without the nuance that some phases could go back by image.
+#1203. So today the rename/additive distinction changes nothing about how a
+deploy is undone: Koen's decision stands without the nuance that some
+phases could go back by image. What the additive shape does keep is the
+**door to an image rollback once #1203 is solved** (say, a startup mode that
+does not migrate): an old app can run on an additively extended schema and
+cannot on a renamed one. Additive keeps that door open; a rename closes it.
 
 **Rejected, with its reason:** expand/contract — new tables beside the old
 for one release, the old dropped the release after. It would have made every

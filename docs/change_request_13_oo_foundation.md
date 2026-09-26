@@ -540,10 +540,13 @@ which is how #681 found six. Bulk and import paths are entrances.
 The phases are issues under **one release tracker** (Koen, 27 September:
 "die fases gaan we in één release realiseren"), built in order on one
 branch line; each phase is shippable on its own. Its migrations are all
-constraints — but that buys no image rollback (B3, #1203): the way back is
-a DB restore, the restore point is the release, as in CR-12. What the
-additive shape does buy is that a restore loses only data written after
-the deploy, never a table.
+constraints — but that buys no image rollback today (B3, #1203): the way
+back is a DB restore, the restore point is the release, as in CR-12, and a
+restore loses everything written after the dump whatever the migration's
+shape. What the additive shape does keep is the door to an image rollback
+once #1203 is solved: an old app can run on an additively extended schema,
+not on a renamed one. (The first version of this sentence claimed a restore
+would lose less; it would not — corrected the same day.)
 
 | Phase | Delivers | Depends on |
 |---|---|---|
