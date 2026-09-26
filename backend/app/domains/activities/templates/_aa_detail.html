@@ -17,15 +17,30 @@
    bestuur kan er nog bij". Dat onderscheid is de reden dat #1191 bestaat.
 
    De vorm komt van Media (`_me_lijst.html`, "In de footer"): een kort label dat
-   zegt wáár het ding verschijnt, plus een zin in de tooltip die zegt wat uit
+   zegt wat er van het ding waar is, plus een zin in de tooltip die zegt wat uit
    betekent.
+
+   #1209: er staan DRIE teksten over deze ene vlag, en ze gebruikten twee
+   woordenschatten — de badge zei "Inactief", het label "Op het inschrijfformulier"
+   en de hint "publiek formulier". De lezer moest die aan één schakelaar koppelen.
+   Nu staat *publiek* in alle drie. Het label van #1201 zei wel precies wáár het
+   product verschijnt, maar het sloot niet aan op de badge ernaast.
+
+   De badge hoort daarom hieronder en niet los bij de productlijst: drie teksten
+   over één schakelaar waarvan er twee samen bewegen en één niet, is hoe ze op
+   termijn tegenstrijdig worden. Dat is dezelfde reden als de twee hierboven.
 
    De hint noemt *toevoegen aan een bestaande inschrijving* en niet *iemand
    inschrijven*, want dat laatste kan het bestuur in v2.6.0 nog niet: een
    `Registration` ontstaat alleen langs de publieke weg. Aanmaken komt met #1192
    op v2.7.0. Een hint die een handeling belooft die het scherm niet aanbiedt, is
    erger dan het jargon dat we ermee vervangen. #}
-{% set PRODUCT_ZICHTBAAR_LABEL = _("Op het inschrijfformulier") %}
+{% set PRODUCT_ZICHTBAAR_LABEL = _("Publiek zichtbaar") %}
+{# De badge verschijnt alleen bij de uitzondering — een product dát publiek staat
+   krijgt er geen, want dat is de gewone toestand (#1191). "Inactief" was
+   bovendien misleidend: op Media betekent Actief "nergens", en deze vlag betekent
+   iets zwakkers. #}
+{% set PRODUCT_NIET_PUBLIEK_BADGE = _("Niet publiek") %}
 {% set PRODUCT_ZICHTBAAR_HINT = _("Uit: het product verdwijnt van het publieke formulier, maar het bestuur kan het nog toevoegen aan een bestaande inschrijving.") %}
 <div class="space-y-4">
   {{ ui.error_banner(error|default(None)) }}
@@ -294,8 +309,10 @@
           <span x-show="!ed" class="min-w-0">{{ p.name }} ·
             {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ p.price|geld }}{% if p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}{% endif %}
             {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
-            {# #1191: inactive is the exception, so only that state carries a badge. #}
-            {% if not p.is_active %} {{ ui.badge(_("Inactief"), "gray") }}{% endif %}
+            {# #1191: inactive is the exception, so only that state carries a badge.
+               #1209: the wording comes from the same {% set %} as the checkbox
+               label and its hint — three texts about one flag. #}
+            {% if not p.is_active %} {{ ui.badge(PRODUCT_NIET_PUBLIEK_BADGE, "gray") }}{% endif %}
           </span>
           <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
           <div class="flex gap-2 ml-auto shrink-0">
