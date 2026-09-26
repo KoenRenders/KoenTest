@@ -47,7 +47,10 @@
      in `tests_e2e/test_mediafilterrij_blijft_een_regel.py`. #}
   <div class="flex flex-wrap gap-3 items-center">
     <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
-    {{ ui.chips("kind", kind_options, kind) }}
+    {# #1173: `kind_chip_options` en niet `kind_options` — op deze rij is één
+       label ingekort omdat ze bij drie soorten al exact vol was (#1138). Het
+       uploadscherm gebruikt wél de volle namen. Zie #1194. #}
+    {{ ui.chips("kind", kind_chip_options, kind) }}
     {% if kind == "activity_photo" and activiteiten %}
     {% call ui.select_control("activity_id", cls="max-w-[14rem] truncate") %}
       <option value="">{{ _("Alle activiteiten") }}</option>

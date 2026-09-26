@@ -56,17 +56,39 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
             "eerste_id": eerste_id, "laatste_id": laatste_id}
 
 
+def _editor_ctx(request: Request, db: Session, page) -> dict:
+    """Everything `_cp_detail.html` needs, built in one place.
+
+    This dict existed twice before #1173 — once for the full page, once for the
+    htmx fragment after a save — and the insert button would have made that a
+    third copy of the same keys. One source; each caller adds only what differs.
+    """
+    from app.domains.cms.api import placeholders
+    from app.domains.media.api import PAGE_IMAGE_KIND, list_media
+
+    return {
+        "p": page,
+        "placeholders": placeholders(),
+        # #1173: the library the insert button offers. Rendered with the screen
+        # rather than fetched when the dialog opens — there is a handful of these,
+        # and `meta()` already carries the thumbnail URL and the dimensions, so a
+        # separate route would only add a second place that builds the same URL.
+        "page_images": [a for a in list_media(db, kind=PAGE_IMAGE_KIND)
+                        if a.get("is_active", True)],
+        "csrf_token": csrf_from_request(request),
+        "error": None,
+    }
+
+
 def _detail_response(request: Request, db: Session, page_id: int, *,
                      toast: bool = False):
-    from app.domains.cms.api import get_page_by_id, placeholders
+    from app.domains.cms.api import get_page_by_id
 
     page = get_page_by_id(db, page_id)
     if page is None:
         return HTMLResponse('<div id="cp-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_cp_detail.html", {
-        "p": page, "placeholders": placeholders(),
-        "csrf_token": csrf_from_request(request), "error": None,
-        "toast_opgeslagen": toast})
+        **_editor_ctx(request, db, page), "toast_opgeslagen": toast})
 
 
 @router.get("/admin/paginas", response_class=HTMLResponse)
@@ -97,14 +119,13 @@ def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
     blijft een htmx-fragment dat in #cp-detail landt."""
     if is_fragment_request(request):
         return _detail_response(request, db, page_id)
-    from app.domains.cms.api import get_page_by_id, placeholders
+    from app.domains.cms.api import get_page_by_id
 
     page = get_page_by_id(db, page_id)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(request, "admin_pagina.html", {
-        "nav_items": NAV, "p": page, "placeholders": placeholders(),
-        "csrf_token": csrf_from_request(request), "error": None})
+        "nav_items": NAV, **_editor_ctx(request, db, page)})
 
 
 @router.post("/admin/paginas", response_class=HTMLResponse,

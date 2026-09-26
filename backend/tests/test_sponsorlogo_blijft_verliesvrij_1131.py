@@ -119,8 +119,14 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     Een lijst die groeit tot ze alles bevat, is geen uitzondering meer. Deze
     assert is de rem: wie er een soort bij zet, leest hier waarom dat een
     afweging is.
+
+    `page_image` is er in #1173 bij gekomen, en hij hoort in dezelfde familie:
+    een schermafdruk op een uitlegpagina is letterwerk, net als een logo. De
+    afweging is dezelfde als hierboven — bytes tegen leesbaarheid — en ze valt
+    dezelfde kant op omdat het er een handvol zijn, geen album.
     """
-    assert LOSSLESS_KINDS == {"design_render", "sponsor", "tenant_logo"}, LOSSLESS_KINDS
+    assert LOSSLESS_KINDS == {"design_render", "sponsor", "tenant_logo",
+                              "page_image"}, LOSSLESS_KINDS
     assert "activity_photo" not in LOSSLESS_KINDS
     assert "design_image" not in LOSSLESS_KINDS, (
         "een foto ín een affiche mag wél JPEG worden (#1011)")
