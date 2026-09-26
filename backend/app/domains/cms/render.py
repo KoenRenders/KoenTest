@@ -9,6 +9,9 @@ bedragen handmatig moet bijwerken.
 Let op: vervanging gebeurt alleen op de PUBLIEKE leesendpoints. De admin-/
 editor-endpoints geven de ruwe codes terug, zodat ze bewerkbaar blijven.
 """
+import json
+import re
+from html import escape, unescape
 from typing import Dict, Optional
 
 import nh3
@@ -38,6 +41,69 @@ _ALLOWED_ATTRS = {
     "img": {"src", "alt", "title", "width", "height"},
     "*": {"class"},
 }
+
+
+# An image saved by the WYSIWYG editor always sits inside a Trix `figure` (#1173),
+# and its `alt` is not on the <img>. That is measured, not assumed: Trix' own parser
+# turns EVERY <img> into an attachment — `case "img": e = {url:
+# t.getAttribute("src"), contentType: "image"}` in trix.min.js — keeping only src,
+# width and height. An `alt` passed to `insertHTML` is therefore gone before
+# anything is saved.
+#
+# What Trix does keep is the JSON in `data-trix-attachment`: custom keys survive
+# every round trip through the editor (measured in a headless Chromium — loaded and
+# re-serialised twice, with an edit in between). So the insert button puts the alt
+# in that JSON, and this function lifts it onto the <img> itself.
+#
+# Why here and not when saving: if the page stored a bare `<img alt="…">`, the
+# editor would drop that alt the next time it opens the page — and it would then
+# vanish silently on the second save. Keeping the figure in the stored document is
+# what makes the alt stable.
+#
+# The figure itself disappears in `sanitize_cms_html`: it is not in the allowlist,
+# and nh3 removes such a tag while keeping its children — so the <img> stays. Only
+# the alt had to be moved onto it.
+_TRIX_IMAGE = re.compile(
+    r'(?P<figure><figure\b[^>]*\bdata-trix-attachment="(?P<json>[^"]*)"[^>]*>)'
+    # Everything up to this figure's first <img>, and never past its end — so a
+    # figure without an <img> cannot swallow the next one.
+    r'(?P<between>(?:(?!<img\b|</figure>).)*)'
+    r'<img\b(?P<attrs>[^>]*?)\s*/?>',
+    re.DOTALL | re.IGNORECASE,
+)
+_HAS_ALT = re.compile(r'\balt\s*=', re.IGNORECASE)
+
+
+def _alt_onto_image(match: "re.Match") -> str:
+    """One Trix figure: put the alt from its JSON on the <img> below it."""
+    attrs = match.group("attrs")
+    try:
+        data = json.loads(unescape(match.group("json")))
+    except (ValueError, TypeError):
+        return match.group(0)
+    if not isinstance(data, dict):
+        return match.group(0)
+    # Image attachments only. A file attachment (a PDF) is not an <img> and must not
+    # become one; those are left exactly as they were before this issue.
+    if not str(data.get("contentType") or "").lower().startswith("image"):
+        return match.group(0)
+    alt = data.get("alt")
+    # An alt already on the tag wins: somebody typed it in the HTML source panel,
+    # and that is a deliberate choice.
+    if not isinstance(alt, str) or not alt.strip() or _HAS_ALT.search(attrs):
+        return match.group(0)
+    return (f"{match.group('figure')}{match.group('between')}"
+            f'<img{attrs} alt="{escape(alt.strip(), quote=True)}">')
+
+
+def image_alt_from_attachment(html: Optional[str]) -> Optional[str]:
+    """Lift each Trix image attachment's alt onto the <img> itself (#1173).
+
+    Runs before sanitisation, which throws away the figure holding the JSON.
+    """
+    if not html or "data-trix-attachment" not in html:
+        return html
+    return _TRIX_IMAGE.sub(_alt_onto_image, html)
 
 
 def sanitize_cms_html(html: Optional[str]) -> Optional[str]:
@@ -96,4 +162,5 @@ def render_cms_content(content: Optional[str]) -> Optional[str]:
         return content
     for code, value in _values().items():
         content = content.replace(f"{{{{{code}}}}}", value)
-    return sanitize_cms_html(content)
+    # Before sanitisation (#1173): that step removes the figure holding the alt.
+    return sanitize_cms_html(image_alt_from_attachment(content))

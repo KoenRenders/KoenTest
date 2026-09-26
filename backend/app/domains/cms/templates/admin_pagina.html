@@ -28,6 +28,24 @@
       Trix.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
     }
   });
+  // #1173: invoegen van een afbeelding uit de bibliotheek. Op `window` en hier in
+  // de schil van dit scherm, want de kiezer zelf staat in `_cp_detail.html` — een
+  // fragment dat na elke opslag opnieuw geswapt wordt. Een functie op window
+  // overleeft die swap; een <script> in het fragment zou bij elke opslag opnieuw
+  // uitgevoerd worden (#634).
+  window.insertPageImage = function (image, alt) {
+    if (!image || !alt || !alt.trim()) { return; }
+    // De alt gaat in de attachment-JSON en NIET als `<img alt>`: Trix' parser
+    // maakt van elke <img> een attachment en houdt daarbij alleen src, width en
+    // height over — een meegegeven alt is weg vóór er iets bewaard wordt (gemeten
+    // in een headless Chromium). `image_alt_from_attachment()` in cms/render.py
+    // tilt hem server-side weer op de <img>, vlak vóór de sanitisatie.
+    var editor = document.getElementById("cp-trix").editor;
+    editor.insertAttachment(new Trix.Attachment({
+      url: image.url, contentType: "image", alt: alt.trim(),
+      width: image.width || undefined, height: image.height || undefined
+    }));
+  };
   }
 </script>
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/paginas">{{ _("‹ Alle pagina's") }}</a></p>

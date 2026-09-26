@@ -65,8 +65,8 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
     from app.domains.activities.api import activity_options
-    from app.domains.media.api import (VALID_KINDS, activity_ids_with_media,
-                                       list_media)
+    from app.domains.media.api import (PAGE_IMAGE_KIND, VALID_KINDS,
+                                       activity_ids_with_media, list_media)
 
     actief_kind = kind if kind in VALID_KINDS else STANDAARD_KIND
     if activity_id is None:
@@ -117,7 +117,9 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
     # "Sponsors" deed dat niet in een keuzelijst waar je één soort kiest.
     kind_labels = {"sponsor": _("Sponsorlogo"),
                    "activity_photo": _("Activiteitenfoto"),
-                   "tenant_logo": _("Logo van de vereniging")}
+                   "tenant_logo": _("Logo van de vereniging"),
+                   # #1173: an image that goes into the text of a CMS page.
+                   PAGE_IMAGE_KIND: _("Pagina-afbeelding")}
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
     # elkaar, dus de buur in de lijst hoort vaak bij een ander album.

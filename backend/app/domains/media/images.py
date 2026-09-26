@@ -56,7 +56,21 @@ MAX_FULL_BY_KIND = {"design_image": 4096, "design_render": 4096}
 # Let op wat NIET verandert: ook deze soorten worden heropend en opnieuw
 # gecodeerd. De hercodering is de beveiliging (EXIF en kleurprofiel eruit, een
 # polyglot-bestand geneutraliseerd); alleen het doelformaat verschilt.
-LOSSLESS_KINDS = frozenset({"design_render", "sponsor", "tenant_logo"})
+# `page_image` joined them in #1173, and it is the purest form of the same
+# reasoning: a screenshot IS lettering. Where a logo has line work that JPEG makes
+# blotchy, a screenshot is mostly small letters on a flat background — the worst
+# possible material for a block compression. And the image sits on a how-to page
+# precisely to be read.
+#
+# What does NOT belong here, measured before it became a rule: a bigger MAX_FULL.
+# Downscaling a 1920 px screenshot to 1600 removes every pure black pixel
+# (89,064 -> 0, all of it intermediate grey), which looks like the real problem. But
+# the page shows the image in a text column of ~800 px, and there the difference
+# between a 1920 and a 1600 px source is 1.71 of 255 on average and 24 at worst —
+# invisible, because the browser performs that same downscale anyway. Displayed at
+# 1600 px the difference is exactly zero. Its own MAX_FULL would cost bytes for
+# something nobody sees.
+LOSSLESS_KINDS = frozenset({"design_render", "sponsor", "tenant_logo", "page_image"})
 
 
 ALLOWED_CONTENT_TYPES = {
