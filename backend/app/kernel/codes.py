@@ -119,10 +119,10 @@ class CodeList:
 
     name: str
     schema: str
-    #: De twee ORM-klassen van de tabellen. `type[Any]` en niet `type`: de
-    #: modellen gebruiken de oude `Column()`-stijl, dus mypy ziet hun kolommen
-    #: hoe dan ook niet (§B4.8). Strakker annoteren zou een precisie suggereren
-    #: die de typechecker hier niet kan waarmaken.
+    #: The two ORM classes of the tables. `type[Any]` and not `type`: the
+    #: models use the legacy `Column()` style, so mypy cannot see their columns
+    #: either way (§B4.8). A tighter annotation would suggest a precision the
+    #: type checker cannot deliver here.
     codes: type[Any]
     labels: type[Any]
     enum: type[Enum] | None = None

@@ -36,10 +36,10 @@ from app.domains.meetings.codes import MEETING_STATUS_CODES
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick "the
+# next number" at the same time pick the same one; two that are handed a
+# timestamp cannot collide. The sequence number leads the FILE NAME, for
+# reading and sorting — alembic does not look at it.
 revision = '152_2026_09_25_230819'
 down_revision = '151_2026_09_25_230812'
 branch_labels = None
