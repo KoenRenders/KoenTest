@@ -1,7 +1,11 @@
-# Change Request 13 — OO foundation: a rule has one home
+# Change Request 13 — Domain boundaries: one home for every rule, write and consequence
 
-> Supersedes CR-04 except its placement rule (see the banner there). Being
-> shaped with Koen; Part A is his, and is not complete yet.
+> Supersedes CR-04 except its placement rule (see the banner there). The
+> filename says *OO foundation*; the subject grew on 27 September 2026 from
+> "a rule has one home" to every kind of home — rules, derived values,
+> consequences, writes, transactions, routes, modules — and the title
+> followed. The filename stays: it is the address in CR-04's banner, in
+> #236 and in the template.
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** shaping started 26 September 2026 · not development-ready · not assigned
@@ -1146,6 +1150,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q24 | 27 Sep 2026 | Does the title still cover the content? (Koen) | No — "OO" is the means for one of seven rules; the subject is domain boundaries. Retitled *Domain boundaries: one home for every rule, write and consequence*; filename unchanged (three references point at it). |
 | Q23 | 27 Sep 2026 | Is the no-foreign-writes rule clear and closed? (Koen) | Clear, not closed: the gate named two write forms of seven; the activation handler's idempotency was not carried over; a missing owner command had no rule. All three added to B4.1 and the gate, plus the read softness stated. |
 | Q22 | 27 Sep 2026 | Is there a convention that everything is also exposed via JSON — or is that pointless, even dangerous? (Koen) | No convention (five post-React domains have none; 113 legacy routes), and it would be dangerous: more doors for the 8 September fault, API-key-reachable surface, double maintenance. Rule R14; pruning in this CR. B2.5, A6. |
 | Q21 | 27 Sep 2026 | Can one domain write straight into another domain's tables without going through its code? (Koen) | Today yes — `api.py` exports ORM classes and the session is shared; measured 21 sites, almost all `membership` constructing `mdm`'s persons, households and contacts. Validators and constraints still fire (they travel with the class); `check()`, service rules, snapshots and events are bypassed. Rule and eleventh gate in B4.1/B9.3. |

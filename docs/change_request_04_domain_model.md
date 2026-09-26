@@ -6,7 +6,8 @@
 > reference stays valid. Everything else — the three building blocks, the
 > phasing, the frontend track, the `reg_form_type` strategy, the
 > `Member → Household` rename — is reconsidered from scratch in
-> `docs/change_request_13_oo_foundation.md`, written against the current
+> `docs/change_request_13_oo_foundation.md` (*Domain boundaries: one home
+> for every rule, write and consequence*), written against the current
 > template (Part A in the business's words, B9 rule and gatekeeper). Measured
 > on 26 September 2026: nothing of the phases below was built (0 attribute
 > validators, no value objects, all six execution issues open), so there is
