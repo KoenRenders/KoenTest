@@ -613,6 +613,40 @@ extracted, another database) has no shared session; then the outbox of
 §5.8 step 2 applies — out of scope here, and the reason a handler gets
 `db` and nothing that reaches the network.
 
+**A domain writes another domain's data only through that domain's
+commands** (Koen's question, 27 September: *"one domain cannot write
+straight into another domain's tables without going through its code —
+can it?"*). Today it can, and does. The import gate stops a domain from
+reaching another's internals, but `api.py` may export ORM classes "for the
+services of other domains" (layer gate, rule 3), and the session is
+shared — so a service that imports `Person` from `mdm.api` can construct
+and save one. Measured 27 September: `membership` constructs `mdm`'s
+`Person` (4×), `MemberPerson` (4×), `Member` (2×), `Address` (2×) and
+`ContactDetail` (7×) itself, in `household_router.py` and
+`household_service.py`; `mdm` constructs one `Membership` and one `User`;
+`payment` sets `Membership.is_active`/`valid_from` in
+`_activate_membership` — the one case a contract declares (membership's
+`CONTRACT.md`: "activation after payment is done by the payment
+component"). `meetings` imports `Person`/`Member` and only reads.
+
+What the rules on the object still catch in that case: validators and
+constraints travel with the class, so even a foreign `Person(...)` runs
+`Person`'s validators and hits `mdm`'s constraints — that is the strength
+of a rule at its address. What is bypassed: the owner's `check()` (must
+be called), its service rules, its history snapshots and its events. So
+the rule, now explicit:
+
+> **`api.py` exports ORM classes for typing and reading. A domain writes
+> another domain's data only through a command function of that domain's
+> facade — or by publishing an event the owner subscribes to. It never
+> constructs or mutates another domain's mapped class.**
+
+Applied: the household writes move to `mdm` (phase 3, B2.5); the
+`Membership` activation after payment becomes a `membership` handler on
+`PaymentReceived` (phase 2) — the contract's declared exception turns into
+the ordinary pattern. Gate *no foreign writes* (B9.3), ratchet on today's
+21 sites, hard for new modules.
+
 ### B4.2 The four addresses, and the pitfalls each carries
 
 | The rule looks at… | Address | SQLAlchemy pitfall | Covered by (B8) |
@@ -874,7 +908,7 @@ would lose less; it would not — corrected the same day.)
 |---|---|---|
 | **0 — the meter and the gates** (first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
 | **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
-| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task** | 0, **CR-12 phase 1 on master** |
+| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it, workflow subscribes — the two `vervroeg_sweep` calls go; reconciliation that creates a refund publishes `RefundDue(record_id, amount)`, workflow makes the confirmation task; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`** | 0, **CR-12 phase 1 on master** |
 | **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
 | **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; `rules_baseline.py` deleted — every gate hard | 1–3 |
 
@@ -940,7 +974,9 @@ look somewhere (#678).
 > else. An entity never opens a session. A screen, a JSON route and an
 > import never carry a rule of their own. A consequence in another domain
 > goes through a domain event: the object returns what happened, the
-> service publishes it. One request is one transaction: the door service
+> service publishes it. A domain never constructs or mutates another
+> domain's mapped class; it calls the owner's command or publishes an
+> event. One request is one transaction: the door service
 > commits once; a called service, a facade or a handler never does. A
 > domain package has the shape of B4.5.
 
@@ -962,6 +998,7 @@ first picture, the gate's count binds (the CR-12 rule):
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
 | entities touching a session | 2 | — | 0 |
+| writes to another domain's mapped classes (constructor or attribute assignment outside the owner) | 21 (membership→mdm 19, mdm→membership 1, mdm→auth 1) + payment→membership by assignment | — | 0; hard for new modules from phase 0 |
 | commits outside the door service (in a handler, in a function another domain reaches through `api.py`, or mid-function) | 184 in domains / 13 in routers+UI / 3 in kernel — offenders unmeasured until the gate | — | 0 |
 | single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | 4 (mail ×2, workflow, payment-reconcile) | — | 0; hard for new modules from phase 0 |
@@ -981,6 +1018,7 @@ removed; deleted in phase 4).
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
+| No foreign writes | a constructor call or attribute assignment on a mapped class of domain B anywhere outside `app/domains/B/` (AST over the classes each `api.py` exports; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
 | One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) a service function commits at most once and only as its last statement — no writes after a commit; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
@@ -1021,6 +1059,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | A domain writes another domain's data only through the owner's command function or an event; `api.py` exports classes for typing and reading. Measured: 21 foreign constructions today, nearly all membership→mdm, plus payment's declared membership activation — both become the ordinary pattern (phase 3, phase 2). Gate *no foreign writes*. | Koen (asked), author (rule) |
 | 27 Sep 2026 | One request, one transaction: the door service commits once; a called service, facade or handler never. The mid-way commits of `delete_registration` / `_herbereken` go with the couplings; an atomicity gap closed, no visible behaviour changed. Gate *one transaction per request*. | Koen |
 | 27 Sep 2026 | What always goes into the database: if PostgreSQL can say it about one row it says it (`NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`), in the same commit as the validator; cross-row, time-dependent and policy rules do not; no triggers or stored procedures. Gate *validator without constraint*. | Koen |
 | 27 Sep 2026 | The household and its persons are master data (`mdm`); the membership is `membership`'s. The household mutations move from `membership/household_router.py` to an `mdm` service in phase 3. | Koen |
@@ -1050,6 +1089,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q21 | 27 Sep 2026 | Can one domain write straight into another domain's tables without going through its code? (Koen) | Today yes — `api.py` exports ORM classes and the session is shared; measured 21 sites, almost all `membership` constructing `mdm`'s persons, households and contacts. Validators and constraints still fire (they travel with the class); `check()`, service rules, snapshots and events are bypassed. Rule and eleventh gate in B4.1/B9.3. |
 | Q20 | 27 Sep 2026 | Do services work across domains — a transaction, for instance? (Koen) | Yes: one session per request through every domain; the door service owns the transaction. Today two paths commit mid-way (two transactions instead of one); events make it one. B4.1, tenth gate. Outbox (step 2) only when a domain becomes its own process — out of scope. |
 | Q19 | 27 Sep 2026 | Is it clearly delineated what always goes into the database as a rule? (Koen) | It was half: the principle stood, the test did not. Now B4.2: one-row rules always, four forms, four exclusions, no triggers; B9.1 one sentence; B9.3 a ninth gate. |
 | Q18 | 27 Sep 2026 | "Mijn gezin": is the household not master data, and the membership perhaps not? (Koen) | Both true: the household is `mdm` data, the membership is `membership` data; the screen composes the two. Finding: the household mutations sit in `membership/household_router.py` and should be an `mdm` service — phase 3; confirmed by Koen the same day. |
