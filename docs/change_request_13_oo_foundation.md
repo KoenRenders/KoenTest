@@ -88,12 +88,11 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 
 ## A4. Supplied material
 
-- `~/nextcloud/development/github/koentest/CR12 OO/oo-domeinmodel-context.md`
-  — Koen's handover from the "Architecturale verbeteringen" session (9–10
-  September, measured again 26 September): the explanation of the OO
-  equivalent, seven SQLAlchemy pitfalls, nine additions to CR-04, five open
-  questions. Not in the repository (it is a handover, in Dutch); what of it
-  lands here is English.
+- Koen's handover note from the "Architecturale verbeteringen" session (9–10
+  September, measured again 26 September), kept in his project folder
+  outside the repository: the explanation of the OO equivalent, seven
+  SQLAlchemy pitfalls, nine additions to CR-04, five open questions. What of
+  it lands here is English; the note itself is not in the repository.
 - CR-04 — the placement rule and the five numbers; kept as the source of the
   rule (banner, 26 September).
 - #236 (OO-tracker) and its six execution issues #755, #757, #758, #759,
