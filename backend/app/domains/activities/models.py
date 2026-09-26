@@ -298,6 +298,18 @@ class ActivityProduct(TenantMixin, SoftDeleteMixin, Base):
     # NIET via het portaal afrekenen. Telt — net als is_free — niet mee in het
     # Mollie-totaal. Sluit is_free uit (een product is betalend, gratis óf ter plaatse).
     pay_on_site = Column(Boolean, default=False, nullable=False, server_default="false")
+    # #1191: off means "gone from the public registration form", NOT "closed".
+    # The board can still book an inactive product from the back office — that is
+    # the whole reason the flag exists (Koen, 26 September 2026): a guest list is
+    # entered on a product no visitor may pick. Deleting the product instead would
+    # keep the line but drop its name from the screen and its column from the
+    # door list, because both read the LIVING products.
+    #
+    # This is the master switch, the role `is_active` already plays on MediaAsset:
+    # off means nowhere on the public side, whatever is_free or pay_on_site say.
+    # Comes last in that order on purpose — a price only matters once the product
+    # can be picked at all.
+    is_active = Column(Boolean, default=True, nullable=False, server_default="true")
     max_participants = Column(Integer, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

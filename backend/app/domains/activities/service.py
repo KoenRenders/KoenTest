@@ -602,6 +602,7 @@ def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None
         member_price=gegevens.member_price,
         is_free=gegevens.is_free,
         pay_on_site=gegevens.pay_on_site,
+        is_active=gegevens.is_active,
         max_participants=gegevens.max_participants,
         sort_order=gegevens.sort_order,
     )
@@ -672,6 +673,52 @@ def _regel(db, registration_id: int, item_id: int):
             .filter(RegistrationItem.id == item_id,
                     RegistrationItem.registration_id == registration_id)
             .first())
+
+
+def publicly_bookable_products(component) -> list:
+    """The products a visitor may pick on the public registration form (#1191).
+
+    One source for everything the form derives from its product list: the rows it
+    renders, the quantity it opens with, the opening total. Reading
+    `component.products` a second time next to this is how the rows and the total
+    drift apart — the duplication rule in CLAUDE.md, applied to one screen.
+
+    An inactive product is left out here and refused by `check_publicly_bookable`;
+    the back office keeps seeing all of them on purpose.
+    """
+    return [p for p in (component.products or []) if p.is_active]
+
+
+def check_publicly_bookable(activity, product_ids) -> None:
+    """Refuse a PUBLIC registration on an inactive product (#1191).
+
+    In the service layer and not in the template. `_inschrijf_form.html` leaves an
+    inactive product out, but that is form and not meaning: POST
+    /activities/{id}/register is an entrance of its own and accepted every product
+    of the activity, exactly the mistake #733 corrected for the mandatory fields.
+
+    Deliberately NOT applied to the back office. `add_order_line` may book an
+    inactive product, because that is the whole point of the flag: the board puts a
+    guest list on a product no visitor may pick. The separation is **structural** —
+    two entrances, two rules — and not an origin argument that a caller can forget.
+    A future shared helper taking `origin="public"|"admin"` would put the public
+    path one missing argument away from accepting an inactive product again.
+
+    Only what is actually booked counts: an item with quantity 0 creates no line,
+    so it is not a booking and not refused.
+    """
+    from app.i18n import _ as vertaal
+
+    # Derived from `publicly_bookable_products` instead of carrying its own
+    # `is_active` filter: a gate that keeps its own copy of what it guards ends up
+    # guarding the copy. With `not p.is_active` written out here, the form could
+    # hide a product this check still accepts, or the other way round — and both
+    # read as green.
+    boekbaar = {p.id for comp in activity.sub_registrations
+                for p in publicly_bookable_products(comp)}
+    if any(product_id not in boekbaar for product_id in product_ids):
+        raise ActiviteitFout(vertaal(
+            "Dit product is niet beschikbaar om online in te schrijven."))
 
 
 def controleer_bestelproduct(db, activity_id: int, registration, product_id: int):
