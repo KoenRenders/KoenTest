@@ -4,7 +4,7 @@ CR-12 phase 4, the forms domain. Two lists that were module tuples: the form
 status and the field type.
 
 **The field type's `CHECK` goes, and it is the clearest case in this change
-request for why.** `ck_form_fields_type` was written by migration 062 and had
+request for why** (the form status's `ck_forms_status` goes with it). `ck_form_fields_type` was written by migration 062 and had
 to be rewritten twice since — migration 063 to add `info`, migration 065 to
 add `phone`. Three migrations for two values that a list would have taken as
 two rows. The foreign key says the same thing and never needs rewriting.
@@ -32,9 +32,12 @@ LISTS = (
     ("field_type", FIELD_TYPE_CODES, 20, "form.form_fields.field_type"),
 )
 
-#: The CHECK that says what the new foreign key says — and that has already
-#: cost three migrations (062, 063, 065).
-CHECKS = (("form_fields", "ck_form_fields_type"),)
+#: The CHECKs that say what the new foreign keys say. The field type's has
+#: already cost three migrations (062, 063, 065); the form status's is from
+#: 062 too, and was missed in the first version of this migration — the
+#: refusal test of phase 4 found it (SQLSTATE 23514 where 23503 belongs).
+CHECKS = (("form_fields", "ck_form_fields_type"),
+          ("forms", "ck_forms_status"))
 
 
 def upgrade() -> None:
@@ -52,6 +55,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     # Schema only: this migration wrote no form data.
+    op.create_check_constraint(
+        "ck_forms_status", "forms", "status IN ('draft', 'open', 'closed')",
+        schema="form")
     op.create_check_constraint(
         "ck_form_fields_type", "form_fields",
         "field_type IN ('text', 'textarea', 'number', 'email', 'select', "
