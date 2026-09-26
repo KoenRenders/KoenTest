@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.domains.mail.models import EmailLog
+from app.domains.mail.models import EmailLog, MailStatus
 from app.domains.mail.service import _dispatch, _env_prefix
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.events import subscribe
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 @job("mail.retry")
 def retry_mail(db: Session, payload: dict) -> None:
     log = db.get(EmailLog, payload.get("email_log_id"))
-    if log is None or log.status == "sent":
+    if log is None or log.status is MailStatus.SENT:
         return  # opgeruimd of intussen alsnog verstuurd — niets te doen
     if not settings.gmail_user or not settings.gmail_app_password:
         return  # zonder credentials heeft opnieuw proberen geen zin
@@ -45,7 +45,7 @@ def retry_mail(db: Session, payload: dict) -> None:
         server.login(settings.gmail_user, settings.gmail_app_password)
         server.sendmail(settings.gmail_user, [log.recipient], msg.as_string())
 
-    log.status = "sent"
+    log.status = MailStatus.SENT
     log.error_message = None
     logger.info("mail.retry: e-mail aan %s alsnog verstuurd (log #%s)", log.recipient, log.id)
 

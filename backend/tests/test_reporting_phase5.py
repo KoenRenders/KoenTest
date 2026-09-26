@@ -67,14 +67,14 @@ def _operations(db, *, tenant=TENANT_A):
     # The mail behind that second task, plus one that was skipped and one that was
     # logged — both of which are normal states and must not read as problems.
     db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
-                    subject="Bevestiging", email_type="registration",
+                    subject="Bevestiging", email_type="activity_confirmation",
                     status="failed", error_message="smtp",
                     created_at=nu - timedelta(days=10)))
     db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
-                    subject="Bevestiging", email_type="registration",
+                    subject="Bevestiging", email_type="activity_confirmation",
                     status="skipped", created_at=nu - timedelta(days=10)))
     db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
-                    subject="Bevestiging", email_type="registration",
+                    subject="Bevestiging", email_type="activity_confirmation",
                     status="logged", created_at=nu - timedelta(days=10)))
     db.commit()
 
