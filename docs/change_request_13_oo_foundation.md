@@ -38,124 +38,548 @@ placement rule is kept as the one thing that lives on.
 
 ## A2. As-is process
 
-*To be measured, not recalled* — the five numbers of CR-04 (attribute
-validators 0, check constraints 1→5, mutating routes that confirm 2 of 91,
-orderings without tiebreaker ~16, `required=True` promises 88 in 25
-templates) are from 8 September; #755 was to turn them into a report and is
-still open. The as-is is re-measured on the branch before Part B is written.
+Measured on the branch on 27 September 2026 (numbers), and read from the
+code (the pattern). The as-is is not a process but its absence: a rule has
+no address.
+
+**The pattern.** After #733, `controleer_inschrijfvelden(...)` existed in the
+service layer — but the registration route had to remember to call it,
+`update_registration_contact` too, and two lines further
+`Registration(contact_name=..., phone=...)` accepted anything. **The object
+cannot say no.** Data in the object, rules in functions beside it, and the
+coupling is discipline. Every new entrance (an import in 2027, an API client
+in 2028) has to bring that discipline again. #681 found six write paths
+where four were known.
+
+**The numbers.**
+
+| | 8–9 Sep 2026 | 27 Sep 2026 | direction |
+|---|---|---|---|
+| attribute validators (`@validates`) | 0 | **0** | — |
+| `CheckConstraint` on models | 1 | 5 (mostly #94 and CR-12) | ↑ |
+| `Enum` classes | 0 | 8, all `str, Enum` | ↑ (CR-12 converts them) |
+| `db` parameters without a type | 133 of 280 | **~200** | ↑ — *drifting the wrong way* |
+| `models.py` touching a session | — | 2 | — |
+| exception classes | 7 `*Fout` | 7 `*Fout` + **10 `*Error`** | two conventions side by side |
+| domain packages with `CONTRACT.md` / `api.py` | — | 14 / 16 of 17 | the shape exists, unenforced |
+| `required=True` promises in templates | 88 in 25 templates, server side **unmeasurable** | not re-measured (#755) | ? |
+| mutating UI routes that confirm | 2 of 91 | not re-measured (#760) | ? |
+| orderings without a unique tiebreaker | 16 (rough) / 36 (other grep) | not re-measured (#761) | ? |
+
+Reading: a lot was built since 10 September (reporting, CR-12, 57
+migrations) and the two typing numbers got **worse**, not better. That is
+CR-04's own argument for "the meter first": without a recurring measurement
+in every release, nobody sees this.
 
 ## A3. To-be process
 
-*Open — to be shaped with Koen (his points 3, 4 and 5 of 25 September):*
+A rule lives with the data it judges and fires by itself. Whoever creates
+or changes a `Registration` — through the public form, the JSON API, the
+admin screen, an import — gets the rule with it without knowing it exists.
+A derived value (a total, a balance, a state) is computed in one place, on
+the object that owns the data, and shown everywhere else. A new module —
+the CRM — has this shape from its first commit, because the build refuses
+any other. And every release shows the numbers of A2, each moved the right
+way.
 
-- derived values (a total, a balance, a state) computed once, as a method on
-  the object that owns the data, instead of on every screen that shows them;
-- whether a **module skeleton** is a deliverable — the shape a new module has
-  from its first commit (`api.py`, `codes.py`, view-models, an aggregate with
-  its rules) — and whether a gate enforces it;
-- how hard that gate may be: ratchet on existing code, hard for new modules.
+The measure over years, in the words of the 26 September handover: *someone
+adds an entrance in 2028 without having read CR-04, and cannot create an
+invalid `Registration`.* Only that counts; the rest is instrumentation.
 
 ## A4. Supplied material
 
-CR-04 (the placement rule and its five numbers), #236 and its six execution
-issues (#755, #757, #758, #759, #760, #761), CR-12 (the code-list pattern
-this builds next to), the validation findings of 8 September 2026.
+- `~/nextcloud/development/github/koentest/CR12 OO/oo-domeinmodel-context.md`
+  — Koen's handover from the "Architecturale verbeteringen" session (9–10
+  September, measured again 26 September): the explanation of the OO
+  equivalent, seven SQLAlchemy pitfalls, nine additions to CR-04, five open
+  questions. Not in the repository (it is a handover, in Dutch); what of it
+  lands here is English.
+- CR-04 — the placement rule and the five numbers; kept as the source of the
+  rule (banner, 26 September).
+- #236 (OO-tracker) and its six execution issues #755, #757, #758, #759,
+  #760, #761 — all open, none built.
+- The validation findings of 8 September 2026: #720, #727, #733, #681.
+- CR-12 — the sibling foundation; its gates are the shape this CR copies.
 
 ## A5. Business requirements
 
-*Open.*
+| # | Requirement | MoSCoW | Source | Comment |
+|---|---|---|---|---|
+| R1 | A rule has one home, and every entrance — form, JSON API, admin screen, import — passes through it. | Must | Koen, 26 Sep 2026 | the 8 September pain |
+| R2 | The object can say no: someone who does not know a rule cannot get around it. | Must | handover, 26 Sep | the measure over years |
+| R3 | A derived value (total, balance, state) is computed once, on the object that owns the data, and only shown elsewhere. | Must | Koen, 27 Sep 2026 | "methodes om aan bepaalde zaken te komen" |
+| R4 | A rule that must hold at rest is a database constraint as well as a validator — in the same change, never split. | Must | handover, 26 Sep | `@validates` fires on assignment, not on absence |
+| R5 | A new module has the required shape from its first commit, and the build enforces it. | Must | Koen, 27 Sep 2026 | the CRM module is the first |
+| R6 | The rules are guarded by gates that are **hard**, reached phase by phase; nothing stays permanently exempt. | Must | Koen, 27 Sep 2026 | "hard, via fases" |
+| R7 | The numbers of A2 appear in every release issue and may only move one way. | Must | CR-04, #755 | the meter before the gate |
+| R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
+| R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
+| R10 | Full DDD machinery: separate domain objects, repositories, domain events, CQRS. | Won't | CR-04, handover | rich ORM entity is the style; see Non-goals |
 
 ## A6. Non-functional requirements
 
-*Open.*
+| Concern | This change |
+|---|---|
+| **Reporting** | The A2 numbers, printed by the gate per release (R7). Nothing changes in the reporting universe. |
+| **Security** | The finding class of 8 September *is* a security class: a rule enforced at one door leaves the others open. R1 closes it. Bulk and import paths are entrances and are covered (B8 test 3). |
+| **Privacy** | None. No new data. |
+| **House style / UI norm** | Unchanged; strengthened: *templates show, view-models decide* (design-system §8.3) gets the derived values from the object instead of recomputing them. |
+| **Multi-tenant** | Rules are platform-wide; tenant data is untouched. Constraints added at rest (`NOT NULL`, `CHECK`) are checked against the data of every environment before they are applied (B3). |
 
 ## A7. Acceptance criteria
 
-*Open.*
+| # | Criterion | Requirement |
+|---|---|---|
+| AC1 | On HDEV, a registration without a mobile number is refused with the same message through the public form, the JSON API and the admin screen — and the import test in the suite. | R1, R2 |
+| AC2 | The release issue shows the A2 numbers, each equal to or better than the previous release. | R7 |
+| AC3 | A domain package added without `api.py`, `codes.py`, `CONTRACT.md` or its tests turns CI red with the missing piece named. | R5, R6 |
+| AC4 | A rule added on `Registration` fires on the JSON API with no change to the router. | R1, R2 |
+| AC5 | A registration's total and balance read identically on the admin screen, in the export and in the report — from one method. | R3 |
+| AC6 | On HDEV, marking a partially paid record as paid leaves it *partially paid*: the state follows the amounts, not the action (#720). | R1, phase 2 |
+| AC7 | Every gate of B9.3 is hard by the end of the last phase; no ratchet file remains. | R6 |
 
 ---
 
 # Part B — The solution
 
-*Part A first; B9 is written ahead of the rest on Koen's request (27
-September 2026: the rule this CR fixes must be guarded on every push from
-the start), as a proposal — the gates marked "depends on" wait for his
-answers to Q3–Q5.*
+## B1. Solution outline
 
-## B9. Rule and gatekeeper (proposal)
+The SQLAlchemy model **is** the domain object — a *rich ORM entity*, the
+pragmatic middle between the anemic model of today and full DDD. Each rule
+gets the address CR-04's placement rule gives it: one field → a validator on
+the attribute; several fields of one object → a method on that object;
+other rows → a service function; at rest → a constraint. One hard boundary
+keeps this alive for years: **an entity never opens a session**. Derived
+values become methods on their owner (`registration.total()`), by
+delegating to today's function first and moving the logic second, so every
+step is revertible. Every aggregate gets an *entrances test* that discovers
+its write paths and demands each passes through its rules. New modules get
+a required shape enforced from the first commit. The gates are built in
+phase 0 as ratchets on existing code and closed **hard, phase by phase**, so
+no exemption list survives.
+
+Decisions that shape it, with what lost:
+
+- **Rich ORM entity, not separate domain objects with repositories.** At
+  hundreds of members, a second object layer doubles the translation work
+  between object and table for no bug it removes. Odoo's model style — the
+  Python ERP this platform is a seed of — is exactly this.
+- **Entity never opens a session.** A method that queries drags persistence
+  into the domain; then the entity is no longer testable without a database
+  and the value-object win is gone. SQLAlchemy makes this treacherous: a
+  lazy relationship *looks* like loaded data and is a hidden query. Hence a
+  gate, not an agreement (B9.3).
+- **Validator and constraint together, in one issue.** `@validates` fires on
+  assignment, not on absence and not on `query.update()`; alone it is a
+  promise. The `NOT NULL`/`CHECK` in the same change or the gap only moves.
+- **Gates hard via phases** (Koen, 27 September), not ratchets that stay:
+  phase 0 freezes today's offenders per gate; each phase deletes the entries
+  of the domains it migrates and turns the gate hard for them; new modules
+  are hard from phase 0. The last phase deletes the ratchet file.
+- **English names; one exception class per domain.** New value objects are
+  `Money`, `StructuredCommunication`, `ValidityPeriod`. A domain with a
+  Dutch `*Fout` gets, at first touch, one English `*Error` and the Dutch
+  name becomes an alias of it — one class, two names, no rename.
+- **Measurement first, in its own release.** The handover's argument holds:
+  measuring and rebuilding in one release undermines the baseline.
+
+Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
+
+### B1.1 Functional analysis
+
+| # | Derived requirement | Traces to |
+|---|---|---|
+| F1 | Each rule on an aggregate is placed by the four-address table (B4.2) and documented in the aggregate's docstring with its address. | R1 |
+| F2 | Each aggregate has an entrances test that discovers its write paths (router, UI route, import, seed, bulk) and asserts each passes through validation. | R1, R2 |
+| F3 | `@validates` for one-field rules; `check()` for cross-field rules, never touching a session; `NOT NULL`/`CHECK` in the same issue. | R1, R4 |
+| F4 | Derived values live in a registry (owner method per value); a second computation of the same value outside the owner is a gate violation. | R3 |
+| F5 | Entities import nothing that yields a session; the gate proves it by violation. | R2 |
+| F6 | A domain package has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests, and imports no other domain's internals; hard for packages created after phase 0. | R5, R6 |
+| F7 | `rules_baseline.py` holds per gate the frozen offenders; a phase removes the entries of its domains and the gate is hard for them; phase 4 deletes the file. | R6 |
+| F8 | The gate prints the A2 numbers; the release issue pastes them. | R7 |
+| F9 | Per domain, at first touch: one English exception class, Dutch alias, `db: Session` on every function, annotations on the parameters the rules read. | R8, and CR-12 B4.8 |
+| F10 | Value objects map on existing columns (`composite()` / hybrid property); no schema change. | R3 |
+| F11 | `PaymentRecord`'s state is derived from its amounts by guarded transitions; requires the closed status set of CR-12 phase 1. | AC6 |
+
+## B2. Architecture
+
+### B2.1 Components
+
+| Component | new / used / changed | Role |
+|---|---|---|
+| `app/kernel/rules.py` | **new** | the derived-value registry (owner per value) and the entrances registry the gates read; nothing else — the rules themselves live on the entities |
+| `app/kernel/money.py`, `structured_communication.py`, `validity_period.py` | **new** | the value objects (`geld.py` today has one formatting function; `Money` absorbs it) |
+| `activities/models.py` (`Registration`) | **changed** | first aggregate: validators, `check()`, `total()`, `balance()`; `controleer_inschrijfvelden` moves in, is not copied (#757) |
+| `payment/models.py` (`PaymentRecord`) | **changed** | second: `mark_paid(amount)`, `cancel()`, state from amounts (phase 2) |
+| `mdm/models.py` (`Person`, `Member`) | **changed** | third: `has_valid_membership(on)`, `age(on)`, `primary_contact(type)` |
+| every `router.py` / `admin_ui.py` / `import_service.py` that writes an aggregate | **changed** | calls the aggregate's rule; loses its inline checks |
+| `backend/tests/test_rules_gate.py`, `rules_baseline.py` | **new** | the gates of B9.3 |
+| `backend/tests/test_<domain>_entrances.py` | **new**, one per aggregate | the entrances test (B8 test 1) |
+| `docs/code-style.md` | **created** (#781 never built it) | the layer rules, the four addresses, the module shape — one screen |
+| `CLAUDE.md` *Validation layers* | **changed** | points to `docs/code-style.md`, stops repeating it |
+
+### B2.2 Application usage
+
+```mermaid
+flowchart LR
+  subgraph Business["A3 — to-be steps"]
+    S1["A value is written, from any entrance"]
+    S2["A screen, export or report shows a derived value"]
+    S3["A developer adds a rule"]
+    S4["A developer adds a module"]
+    S5["A release is cut"]
+  end
+  subgraph Application
+    T1["the aggregate's validators, check(), constraints<br/>— fire on every entrance"]
+    T2["one owner method on the aggregate<br/>(registry in kernel/rules.py)"]
+    T3["the four-address table + the entrances test"]
+    T4["the module-shape gate (hard)"]
+    T5["the gate prints the A2 numbers"]
+  end
+  S1 --> T1
+  S2 --> T2
+  S3 --> T3
+  S4 --> T4
+  S5 --> T5
+```
+
+### B2.3 Application structure
+
+```mermaid
+flowchart TB
+  subgraph kernel["app/kernel"]
+    K1["rules.py — derived-value & entrances registry"]
+    K2["money.py · structured_communication.py · validity_period.py"]
+  end
+  subgraph agg["aggregates (rich ORM entities)"]
+    A1["Registration<br/>@validates · check() · total() · balance()"]
+    A2["PaymentRecord<br/>mark_paid() · cancel() · state from amounts"]
+    A3["Person · Member<br/>has_valid_membership() · age() · primary_contact()"]
+  end
+  subgraph svc["service layer — everything that needs a session"]
+    S["is_full · already_registered · transaction"]
+  end
+  subgraph doors["entrances"]
+    D1["public form"]; D2["JSON API"]; D3["admin screen"]; D4["import / bulk"]
+  end
+  DB[("constraints at rest<br/>NOT NULL · CHECK")]
+  G["tests: test_rules_gate.py · test_*_entrances.py"]
+  D1 --> S; D2 --> S; D3 --> S; D4 --> S
+  S --> A1; S --> A2; S --> A3
+  A1 --> DB; A2 --> DB; A3 --> DB
+  A1 --> K1; A2 --> K1; A1 --> K2; A2 --> K2
+  G -.checks.-> A1; G -.checks.-> A2; G -.checks.-> A3; G -.checks.-> doors
+```
+
+### B2.4 Impact on the existing architecture
+
+- **Layer gate** (`test_layer_gate.py`) already keeps `db` out of `ui.py`;
+  this CR adds the mirror: no session in `models.py`, and no rule in a
+  router (B9.3).
+- **Import gate** (`test_import_boundaries.py`) is extended to the module
+  shape: `api.py` is the only door, `codes.py` exists, `CONTRACT.md` exists.
+- **Template-variables gate**: templates that showed a recomputed total now
+  read `registration.total` from the view-model; the promise list shrinks.
+- **CR-12**: phase 2 here (state machine) needs CR-12 phase 1 (closed
+  status set) — a hard order. The AST-ratchet and `Mapped[]` conventions of
+  CR-12 B4.8 are reused; typing per domain is shared work between CR-12
+  phase 5 and this CR's per-domain phases, done once.
+- **CR-04** keeps the placement rule; this CR is the rest. #236 becomes the
+  pointer to this CR; #755/#757/#760/#761 are absorbed as phases below,
+  #758 (screen sweep) and #759 (e2e) stay separate.
+
+## B3. Cost and operations
+
+- **Env vars / settings:** none.
+- **Migrations:** only constraints (`NOT NULL`, `CHECK`) per aggregate phase;
+  no new tables, no renames — every phase is image-rollback-safe (unlike
+  CR-12's migration 154), and `downgrade()` drops the constraint.
+- **Data check before every constraint.** A `NOT NULL` on a column with one
+  empty legacy row fails the migration on that environment. Each constraint
+  migration counts the offending rows first and **aborts with the count**
+  rather than silently skipping (the CR-12 B4.6 guard shape). #733 measured
+  0 empty rows on PROD for the four registration fields; every other column
+  is measured on HDEV, UAT and PROD before its phase ships, and the numbers
+  go in the phase issue.
+- **Backups:** unchanged.
+- **Kill switch:** none needed; a rule that misfires is a red test before it
+  ships.
+
+## B4. Detailed decisions
+
+### B4.1 Rich ORM entity; an entity never opens a session
+
+The model is the domain object; no repositories, no separate domain layer.
+The one boundary: a method on an entity reads what is already in memory,
+and nothing else. Doubt → service function. SQLAlchemy's trap: a lazy
+relationship in a method (`self.activity.registrations`) is a hidden query
+— the fullness check at `activities/router.py:840` did exactly that on 9
+September. The gate (B9.3) catches `Session`, `db`, `.query(` and the
+import of `app.db` in `models.py`; the lazy-relationship case is caught by
+the entrances test running the aggregate's methods on a **detached** object
+(a query then raises `DetachedInstanceError`).
+
+### B4.2 The four addresses, and the pitfalls each carries
+
+| The rule looks at… | Address | SQLAlchemy pitfall | Covered by (B8) |
+|---|---|---|---|
+| one field | `@validates("field")` | fires on assignment, **not on absence** — `Registration(contact_email=…)` without `contact_name` never runs it | test 2: construct without the field → `NOT NULL` refuses |
+| one field | same | bulk paths (`query.update()`, `bulk_insert_mappings`, Core inserts) bypass the object | test 3: the entrances test finds bulk writers and asserts each validates before |
+| one field | same | does not fire on load — a legacy row with an empty field lives until touched (wanted) | test 4: a legacy row loads without error; the data check in B3 measures it |
+| several fields of one object | `def check(self)` | must never need a session (B4.1) | test 5: detached object |
+| other rows | service function | stays where it is | existing service tests |
+| at rest | `NOT NULL` / `CHECK` | none — the last net | test 2, and the migration's own data check |
+
+Sketched on `Registration` (from the handover), so the shape is concrete:
+`@validates("contact_name", "phone")` strips and refuses blank;
+`check()` refuses a missing team name when `self.component.team_name_required`;
+`total()` sums the items already loaded; `balance()` uses the payment records
+already loaded. The service keeps: is the component full, is this e-mail
+already registered, the transaction.
+
+### B4.3 Derived values: one owner
+
+`app/kernel/rules.py` holds a registry: derived value → owner method
+(`registration.total`, `registration.balance`, `activity.state`,
+`payment_record.state`, `person.age`, `member.active_membership`). The
+registry is what the gate reads to find a second computation (B9.3). The
+first three already exist as free functions (`compute_registration_total`,
+`registration_balance`, `RegistrationState` logic); phase 1 makes each a
+method by **delegation first** — the function stays, the method calls it,
+the tests keep passing — and **move second**, in a separate commit, so the
+diff that moves logic moves only logic.
+
+### B4.4 Exceptions: one English class per domain, Dutch alias (Koen, 27 September)
+
+Seven domains raise a Dutch `*Fout` (`ActiviteitFout`, `BetalingFout`,
+`FormulierFout`, `LidgegevensFout`, `MediaFout`, `TenantFout`, `VeldFout`);
+ten newer ones raise an English `*Error`. At the first touch of a domain in
+this CR: one English class (`ActivityError`), and the Dutch name becomes an
+alias (`ActiviteitFout = ActivityError`) — one class, two names. Existing
+`except ActiviteitFout` keeps working; new rules raise `ActivityError`; the
+#780 ratchet sees one Dutch name fewer, not one more. The alias is removed
+only when the last Dutch reference is gone, which is not this CR's job.
+
+### B4.5 The module shape (Koen, 27 September: yes)
+
+A package under `app/domains/` has: `api.py` (the only thing another domain
+imports), `codes.py` (its lists, CR-12), `CONTRACT.md` (what it promises,
+one screen), `models.py`, a `tests/` counterpart, and no import of another
+domain's internals. That is what 14 of 17 packages already have; the gate
+makes it a property. **Hard from phase 0 for any package created after it**
+(the CRM is the first); the three existing packages that miss a piece are
+on the ratchet and fixed in phase 4. Not a scaffold script — a checklist in
+`docs/code-style.md` and a gate that names the missing file; a generator
+would be a second place that knows the shape.
+
+### B4.6 Gates hard via phases (Koen, 27 September)
+
+Phase 0 builds every gate with a frozen baseline of today's offenders per
+gate (`rules_baseline.py`, the CR-12 form). Each subsequent phase migrates
+one or more aggregates/domains and **removes their entries**; for those
+domains the gate is hard from then on. New modules never enter the
+baseline. Phase 4 removes the last entries and the baseline file: from then
+every gate is hard everywhere. No permanent exemption dict exists in this
+CR — unlike CR-12, which needs one for external vocabularies; a rule's home
+has no external party.
+
+### B4.7 Order of aggregates
+
+`Registration` first (#757; the four 8-September findings sit there), then
+`PaymentRecord` (money; #720 sits there; needs CR-12 phase 1), then
+`Person`/`Member` (membership rules now in `membership.py` loops). The value
+objects (`Money`, `StructuredCommunication`, `ValidityPeriod`) run in
+parallel with phase 1 — independent, no schema, testable without a
+database; `StructuredCommunication.parse/validate` is missing functionality
+today, not a refactor.
+
+### B4.8 Typing is a precondition, not a later phase
+
+The handover measured the untyped `db` parameters growing from 133 to ~200
+in two weeks. A rule on an object only helps mypy if the function reading
+the object is annotated (CR-12 B4.8). So per domain, in the phase that
+touches it: `db: Session` everywhere, `record: PaymentRecord` on the
+functions the rules pass through, `Mapped[]` on the columns the rules read.
+Shared with CR-12 phase 5; done once, whichever CR reaches the domain first.
+
+## B5. Data model
+
+### B5.1 Entity-relationship diagram
+
+No new entities and no new relationships: this CR adds behaviour to the
+tables that exist and constraints on their columns. An ERD would repeat the
+existing schema; omitted on purpose.
+
+### B5.2 Tables
+
+Per phase, the constraints that make a validator hold at rest, each with
+its data check (B3):
+
+| Phase | Table | Constraint |
+|---|---|---|
+| 1 | `activities.registrations` | `NOT NULL` on `contact_name`, `contact_email`; `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
+| 1 | `activities.registration_items` | `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)` |
+| 2 | `payment.payment_records` | `CHECK (amount_paid <= amount)` for charges, `CHECK (amount < 0)` for refunds (CR-12 gives the closed `type` set) |
+| 3 | `mdm.persons`, `mdm.member_persons` | `CHECK (valid_from <= valid_to)` on memberships |
+
+Validation layers: form → Pydantic (unchanged); meaning → the entity's
+validator/`check()` (new home); at rest → the constraints above.
+
+## B6. Privacy and security — the mechanics
+
+Nothing new leaves the system. The entrances test is the security
+mechanism: it *discovers* write paths instead of trusting a list of four,
+which is how #681 found six. Bulk and import paths are entrances.
+
+## B7. Phasing
+
+Each phase is a release-sized issue, shippable on its own and — unlike
+CR-12 — revertible by image rollback (constraints only).
+
+| Phase | Delivers | Depends on |
+|---|---|---|
+| **0 — the meter and the gates** (own release, before any rebuild) | `test_rules_gate.py` + `rules_baseline.py` (every B9.3 gate as ratchet, the module-shape gate hard for new packages), the A2 numbers printed by the gate, `app/kernel/rules.py` registry, `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches | — |
+| **1 — `Registration`** + value objects | #757 by the four addresses; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel) | 0 |
+| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias | 0, **CR-12 phase 1 on master** |
+| **3 — `Person` / `Member`** | membership and age rules on the objects; `primary_contact(type)` (CR-12 gives `ContactType` constants) | 0 |
+| **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; #760 confirmations and #761 tiebreakers to zero; `rules_baseline.py` deleted — every gate hard | 1–3 |
+
+### B7.1 Per phase: issue and "Na de merge"
+
+| Phase | Issue title | Migration | Env vars | Data | Manual validation |
+|---|---|---|---|---|---|
+| 0 | CR-13 fase 0 — de meter en de gates: `test_rules_gate.py`, baseline, module-vorm hard voor nieuwe modules | none | none | none | CI only; the numbers in the release issue |
+| 1 | CR-13 fase 1 — `Registration` als aggregaat (#757) + value objects | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | AC1, AC4, AC5 on HDEV |
+| 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | AC6 on HDEV; a Mollie test payment |
+| 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | the family portal and the member list on HDEV |
+| 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard | none | none | none | CI only; AC7 |
+
+## B8. Tests
+
+All proven by an **additive** violation (CR-12 B8), each ratchet checked to
+look somewhere (#678).
+
+1. **The entrances test, per aggregate.** Discovers — by walking the code,
+   not by a list — every path that writes the aggregate (router, UI route,
+   import, seed, bulk) and asserts each passes through its validators or
+   `check()`. Proof: add a route that writes the aggregate directly → red
+   with the path.
+2. **Absence is caught at rest.** Construct `Registration` without
+   `contact_name`, flush → `IntegrityError`; the validator alone would not
+   have fired.
+3. **Bulk paths.** A `query.update()` that sets a blank `contact_name` is
+   refused by the constraint, and the entrances test lists that call site.
+4. **Legacy rows load.** A row inserted raw with an empty field loads without
+   error and is refused on the next assignment.
+5. **Detached object.** Every entity method runs on a detached instance
+   without raising `DetachedInstanceError` — the proof that none queries.
+6. **Value objects without a database.** `Money` rounding and currency,
+   `StructuredCommunication.parse/validate` (mod-97), `ValidityPeriod.contains`
+   — pure unit tests, exhaustive at the boundaries.
+7. **Transitions.** `mark_paid` on a partially paid record leaves it
+   partially paid; a refund larger than the charge is refused; each illegal
+   transition named.
+8. **One owner.** The total shown by the admin screen, the export and the
+   report for one registration are the same object's method — asserted by
+   mocking the method and seeing all three change.
+9. **The numbers move.** Add one `@validates` → the gate's count rises by
+   one; remove one `required=True` → the promise count falls (the #755
+   requirement).
+10. **The gates of B9.3**, each by an additive violation.
+
+## B9. Rule and gatekeeper
 
 ### B9.1 The rule
 
-> **A rule has one home, and every entrance passes through it.** A rule that
-> looks at one field is an attribute validator; at several fields of one
-> object, a method on that object; at other objects or the database, a
-> service function; integrity at rest, a database constraint (CR-04's
-> placement rule). A derived value (a total, a balance, a state) is computed
-> in one place — the object that owns the data — and shown everywhere else.
-> A screen, a JSON route and an import never carry a rule of their own.
+> **A rule has one home, and every entrance passes through it.** One field →
+> an attribute validator; several fields of one object → a method on that
+> object; other rows or the database → a service function; at rest → a
+> constraint, in the same change as the validator. A derived value is
+> computed once, on the object that owns the data, and shown everywhere
+> else. An entity never opens a session. A screen, a JSON route and an
+> import never carry a rule of their own. A domain package has the shape of
+> B4.5.
 
-Lives in `docs/code-style.md` (the layer paragraph) and CR-04 (the
-placement rule, unchanged); `CLAUDE.md`'s *Validation layers* section
-points there and stops repeating it.
+Lives in `docs/code-style.md` (created in phase 0) and CR-04 (the placement
+rule, unchanged); `CLAUDE.md` points there.
 
 ### B9.2 Reach and baseline
 
-Reach: every aggregate in every domain, and every module that follows.
-The baseline is CR-04's five numbers, taken on 8 September 2026 and to be
-**re-measured by the gate itself** in phase 0 (the #755 report becomes the
-gate's first run — "measured, not recalled", as in CR-12):
+Reach: every aggregate in every domain, and every module that follows. The
+baseline is measured by the gate in phase 0 — the hand numbers of A2 are the
+first picture, the gate's count binds (the CR-12 rule):
 
-| | 8 Sep 2026 (by hand) | gate, phase 0 | after this CR |
+| Gate row | by hand, 8–27 Sep 2026 | gate, phase 0 | after this CR |
 |---|---|---|---|
-| attribute validators (`@validates`) | 0 | — | one per field-level rule |
-| database check constraints | 1 (5 on 26 Sep, #94) | — | every critical invariant |
-| `required=True` promises in templates without a server-side counterpart | 88 promises, counterpart **unmeasurable** | — | 0 |
-| entrances to an aggregate (public form, JSON API, admin, import) that bypass its rules | unmeasured — #720, #727, #733, #681 were four | — | 0 |
-| derived values computed in more than one place (total, balance, state) | unmeasured | — | 0 |
-| mutating UI routes without a confirmation | 2 of 91 | — | all |
-| orderings without a unique tiebreaker | ~16 | — | 0 (#761 may gate at once) |
-| new domain packages missing the module skeleton | — | — | 0 (hard gate for new modules — *depends on Q4*) |
+| attribute validators | 0 | — | one per field-level rule |
+| check constraints on models | 5 | — | every critical invariant |
+| template promises without a server-side counterpart | 88 promises, counterpart unmeasurable | — | 0 |
+| entrances that bypass an aggregate's rules | unmeasured (four found by hand) | — | 0 |
+| derived values computed outside their owner | unmeasured | — | 0 |
+| rules living in a router | unmeasured | — | 0 |
+| entities touching a session | 2 | — | 0 |
+| mutating UI routes without confirmation | 89 of 91 | — | 0 |
+| orderings without a unique tiebreaker | ~16–36 | — | 0 |
+| packages missing the module shape | 3 of 17 | — | 0; hard for new ones from phase 0 |
+| untyped `db` parameters | ~200 | — | 0 in migrated domains |
 
 ### B9.3 The gate
 
-`backend/tests/test_rules_gate.py`, run by `backend-tests.yml` on every push.
-Ratchets while a count is above zero (`rules_baseline.py`, entries may only
-be removed, the same shape as CR-12's `codes_baseline.py`); hard once zero.
-*Depends on Q5 for the split ratchet/hard between existing and new modules.*
+`backend/tests/test_rules_gate.py`, run by `backend-tests.yml` on every push
+and PR. Baselines in `rules_baseline.py` (frozen sets, entries may only be
+removed; deleted in phase 4).
 
 | Gate | Looks at | Message on violation |
 |---|---|---|
-| Promise kept | every `required=True` / `pattern=` / `min=` in a template maps to a validator, a schema field or a constraint on the column the field posts to (the template-variables gate already knows which view-model field a template reads; this walks it back to the column) | "`_inschrijf_form.html:42` promises `mobile` is required; `Registration.mobile` has no validator and no constraint" |
-| One entrance rule | every route that mutates an aggregate (AST: `db.add`/attribute assignment on a mapped class in `router.py`/`admin_ui.py`/`import_service.py`) calls that aggregate's rule method or the service function registered for it — never validates inline | "`activities/router.py:885` writes `Registration` without passing `Registration.check()`" |
-| One owner per derived value | a registry of derived values (`Registration.total`, `.balance`, `Activity.state`, …) with their owner; the AST finds a second computation of the same shape (`sum(... * ...)` over the same relationship, a status decided from `paid_at`/`amount`) outside the owner | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
-| No rule in a router | a `router.py`/`ui.py` function with an `if` on a domain attribute followed by a `raise HTTPException`/`flash` is a rule living at the door (the layer gate already forbids `db` in `ui.py`; this extends it to rules) — ratchet | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
-| Module skeleton (*depends on Q4*) | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, a `tests/` counterpart, and no import of another domain's internals (extends `test_import_boundaries.py`) — **hard for a package created after this CR, ratchet for the existing ones** | "`app/domains/crm/` has no `CONTRACT.md`" |
-| Tiebreaker | every `order_by` ends in a unique column (#761) — may be hard at once | "`activities/service.py:210` orders by `date` without a tiebreaker" |
-| Confirmation | every mutating UI route sets a confirmation (#760) — ratchet from 89 | "`forms/admin_ui.py:77` mutates and confirms nothing" |
+| Promise kept | every `required=True` / `pattern=` / `min=` in a template, walked back through the view-model to the column it posts to (the template-variables gate knows the field): a validator, a schema constraint or a DB constraint must exist | "`_inschrijf_form.html:42` promises `mobile` required; `Registration.mobile` has no validator and no constraint" |
+| One entrance rule | every function in `router.py` / `admin_ui.py` / `*import*.py` that writes a mapped class (AST: constructor call, attribute assignment, `db.add`) calls the aggregate's `check()` or a service function registered for it in `kernel/rules.py` | "`activities/router.py:885` writes `Registration` without `Registration.check()`" |
+| One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
+| No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
+| No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
+| Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
+| Tiebreaker | every `order_by` ends in a unique column (#761) | "`activities/service.py:210` orders by `date` without a tiebreaker" |
+| Confirmation | every mutating UI route sets a confirmation (#760) | "`forms/admin_ui.py:77` mutates and confirms nothing" |
+| Typed | in a migrated domain, every function has `db: Session` and annotated aggregate parameters (mypy `disallow_untyped_defs` per domain, the CR-12 B4.8 setting) | mypy's own message |
 
-Each gate proven by an **additive** violation (CR-12 B8: a destructive one can
-take the suite down and come back green) and each ratchet checked to look
-somewhere (#678). Where a gate cannot be mechanical — whether a rule *should*
-exist, whether two derived values are one concept — it goes to review, and
-B9.3 says so.
+Not mechanical, and said so: whether a rule *should* exist, whether two
+derived values are one concept or two, whether a `check()` is complete.
+Those go to review; the entrances test makes sure review at least sees
+every door.
 
-### B9.4 Why this gate is not "gates come last"
+### B9.4 Hard via phases, and why that is not "gates first"
 
-CR-04 warned against closing a rule with a gate while eighty-five routes
-violate it: the exemption list is where a rule dies. The ratchet answers
-that — the list is frozen, may only shrink, and disappears — and CR-12
-proved the shape on twelve gates in one week. What remains true: a **hard**
-gate on existing code waits until its count is near zero; a hard gate on
-**new** modules (Q5) can start on day one, because there is nothing to
-exempt.
+CR-04 warned that a gate closed while eighty-five routes violate it needs
+an exemption list, and an exemption list is where a rule dies. Koen's
+answer (27 September): **hard, via phases.** Phase 0 freezes the offenders;
+every phase deletes its own entries and is hard from then on; phase 4
+deletes the file. The list exists only while it shrinks, and shrinking is
+the phase's definition of done. New modules are never on it. That is the
+difference between an exemption list and a burn-down.
+
+## B10. Prototype findings
+
+- An OGM value-object spike with a full unit suite and zero DB fixtures
+  exists (CR-04) — the testability model for phase 1.
+- To spike before phase 1: `composite()` versus a hybrid property for
+  `Money` over `Numeric` columns — the one ORM friction CR-04 named and
+  nobody has measured.
+- To spike before phase 2: a `PaymentRecord` transition table on the real
+  status values of CR-12 phase 1, against the 26 September data of HDEV
+  (how many records are partially paid today).
 
 ## B11. Decisions log
 
 | Date | Decision | Who |
 |---|---|---|
 | 26 Sep 2026 | Fresh CR-13 instead of reworking CR-04; CR-04 keeps only the placement rule. | Koen |
-| 26 Sep 2026 | Trigger: the pain of 8 September (a rule enforced on one entrance, not another); therefore broader than the CRM module. | Koen |
-| 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written ahead of the rest of Part B, as a proposal. (Template: B9 now says a rule is fixed only when its gate runs in CI.) | Koen |
+| 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
+| 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
+| 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | Exceptions: one English class per domain at first touch, the Dutch `*Fout` name kept as alias (option b). | Koen |
+| 27 Sep 2026 | The module shape is a deliverable with a gate; hard for modules created after phase 0. | Koen |
+| 27 Sep 2026 | Gates are hard, reached via phases: each phase deletes its baseline entries; phase 4 deletes the file. No permanent exemption. | Koen ("hard, via fases") |
+| 27 Sep 2026 | Rich ORM entity, no repositories; an entity never opens a session (gate). | author, from the handover — Koen to confirm with Part A |
+| 27 Sep 2026 | Validator and constraint in one issue; measurement in its own release before the first rebuild; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | author, from the handover — Koen to confirm with Part A |
 
 ## Q&A log
 
@@ -163,17 +587,37 @@ exempt.
 |---|---|---|---|
 | Q1 | 25 Sep 2026 | Trigger: CRM, or the 8 September pain? (Claude) | Koen (26 Sep): the 8 September pain; broader than CRM. |
 | Q2 | 25 Sep 2026 | A selection from CR-04 or broader? (Claude) | Koen (26 Sep): broader. |
-| Q3 | 25 Sep 2026 | "Methods and lambdas to get at things": derived values once, on the object? (Claude) | *open — to discuss 27 Sep* |
-| Q4 | 25 Sep 2026 | A module skeleton as deliverable, with a gate? (Claude) | *open — to discuss 27 Sep* |
-| Q5 | 25 Sep 2026 | How hard may the gate be: ratchet on existing, hard for new? (Claude) | *open — to discuss 27 Sep* |
+| Q3 | 25 Sep 2026 | "Methods to get at things": derived values once, on the object? (Claude) | Koen (27 Sep), via the handover: yes — rich ORM entity, delegate then move; B4.3. |
+| Q4 | 25 Sep 2026 | A module skeleton as deliverable, with a gate? (Claude) | Koen (27 Sep): yes; B4.5. |
+| Q5 | 25 Sep 2026 | How hard may the gate be? (Claude) | Koen (27 Sep): hard, via phases; B4.6, B9.4. |
+| Q6 | 27 Sep 2026 | `Member → Household` in this CR? (Claude) | Koen: no. |
+| Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
+| Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
+| Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Own releases, phase 0 first, after CR-12 v2.7.0; phase 2 waits for CR-12 phase 1 on master. Assignment is Koen's. |
+
+## Non-goals
+
+- **`Member → Household`** (Koen, 27 Sep): not this CR; its own CR if ever.
+- **No full DDD**: no separate domain objects, no repositories, no domain
+  events, no CQRS. The model is the object.
+- **No renaming** of existing Dutch identifiers; aliases only (B4.4).
+- **No screen sweep (#758) and no e2e track (#759)** — separate.
+- **No ruff (#781)** — separate; `docs/code-style.md` is created here
+  because this CR needs a home for the rule, and #781 fills the rest.
+- **No Alpine gate** — the CR-12 limit (gate 8) applies here too.
+- **No query logic on entities**, ever — that is the boundary, not a phase.
 
 ## Relationship to existing work
 
-- **CR-04** — the placement rule lives on there; everything else is
-  reconsidered here.
+- **CR-04** — the placement rule lives on there; everything else is here.
 - **#236 (OO-tracker)** — becomes the pointer to this CR once Part A is
-  approved; its six execution issues are decided per item here.
-- **CR-12 (codes en enums)** — the sibling foundation change; independent,
-  but its `Mapped[]` columns and enums are what the aggregate methods here
-  will compare against.
-- **#94** — the constraint layer of the placement rule.
+  approved; #755, #757, #760, #761 are phases 0, 1 and 4; #758, #759 stay.
+- **CR-12** — sibling foundation: closed status sets (phase 2 needs its
+  phase 1), `ContactType` constants (phase 3), the AST-ratchet and
+  `Mapped[]` conventions, the "counted, not derived" rule for numbers, the
+  additive-violation rule for gate proofs.
+- **#94** — the constraint layer; each constraint here lands in the phase
+  of its aggregate, not in #94.
+- **#720, #727, #733, #681** — the findings this CR exists for; each is an
+  acceptance criterion or a test above.
