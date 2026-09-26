@@ -105,16 +105,23 @@ export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo onbekend)"
 
 # ── Pre-migratie-backup ──────────────────────────────────────────────────────
 # Alembic draait bij containerstart, dus de dump moet vóór de rebuild. Credentials
-# komen uit de db-container zelf. Expand/contract-regel (architectuurdoc §19.5):
-# binnen een release enkel additieve migraties — anders is de rollback hieronder
-# schijnveiligheid en is deze backup het enige pad terug.
+# komen uit de db-container zelf.
+#
+# For a release that adds a migration, this dump is the ONLY way back (#1203).
+# Additive migrations keep the schema compatible with the previous image, but
+# not alembic's version check: the previous image runs `alembic upgrade head` at
+# startup, does not know the revision the database now carries, and refuses to
+# start. So the rollback below is skipped for such a release, and its stop
+# message names this file.
+BACKUP_FILE=""
 if [ "$BACKUP" = 1 ]; then
   BACKUP_DIR="${BACKUP_DIR:-./backups}"; mkdir -p "$BACKUP_DIR"
   if [ -n "$(dc ps -q db 2>/dev/null)" ]; then
     TS=$(date +%Y%m%d-%H%M%S)
+    BACKUP_FILE="$BACKUP_DIR/pre-deploy-$ENV-$TS.sql.gz"
     dc exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
-      | gzip > "$BACKUP_DIR/pre-deploy-$ENV-$TS.sql.gz"
-    echo "Pre-migratie-backup: $BACKUP_DIR/pre-deploy-$ENV-$TS.sql.gz"
+      | gzip > "$BACKUP_FILE"
+    echo "Pre-migratie-backup: $BACKUP_FILE"
   else
     echo "db-container niet actief — pre-migratie-backup overgeslagen (eerste deploy?)"
   fi
@@ -284,11 +291,68 @@ if [ "$ROLLBACK" != 1 ]; then
   exit 1
 fi
 
+# ── Can the previous release still start? (#1203) ────────────────────────────
+# The alembic head of a ref, read from git: the revisions no other migration names
+# as its `down_revision`. No database needed, so this also answers when the
+# backend is down — which is exactly when the question comes up.
+alembic_head_at() {
+  local ref="$1" revisions downs
+  revisions="$(git grep -h -E '^revision *=' "$ref" -- 'backend/alembic/versions/*.py' 2>/dev/null \
+    | sed -nE "s/^revision *= *['\"]([^'\"]+)['\"].*/\1/p" | sort -u || true)"
+  downs="$(git grep -h -E '^down_revision *=' "$ref" -- 'backend/alembic/versions/*.py' 2>/dev/null \
+    | sed -nE "s/^down_revision *= *['\"]([^'\"]+)['\"].*/\1/p" | sort -u || true)"
+  comm -23 <(printf '%s\n' "$revisions") <(printf '%s\n' "$downs") | grep . || true
+}
+
+# True when the previous ref carries the same alembic head as this one, i.e. this
+# release adds no migration and the previous image can start on this database.
+# Anything else — a new head, or a chain that cannot be read — means no automatic
+# rollback: guessing wrong here takes the environment down instead of leaving the
+# failed release running.
+rollback_can_start() {
+  local prev_head new_head db_revision
+  prev_head="$(alembic_head_at "$DEPLOY_PREV_REF")"
+  new_head="$(alembic_head_at HEAD)"
+  if [ -n "$prev_head" ] && [ "$prev_head" = "$new_head" ]; then
+    echo "No migration in this release (alembic head $new_head on both refs) — the rollback can start."
+    return 0
+  fi
+  db_revision="$(dc exec -T db sh -c \
+    'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "SELECT version_num FROM alembic_version"' \
+    2>/dev/null | tr -d '[:space:]' || true)"
+  echo "!! No automatic rollback (#1203)."
+  if [ -z "$prev_head" ] || [ -z "$new_head" ]; then
+    echo "   The alembic chain could not be read from git for $DEPLOY_PREV_REF or HEAD,"
+    echo "   so it is unknown whether this release adds a migration."
+  else
+    echo "   This release adds a migration: $DEPLOY_PREV_REF ends at $(echo $prev_head),"
+    echo "   ${REF:-HEAD} at $(echo $new_head)."
+    echo "   The previous image runs 'alembic upgrade head' at startup and does not know"
+    echo "   the new revision, so it would not start. The failed release stays up."
+  fi
+  echo "   Database revision now: ${db_revision:-unknown (the db container did not answer)}"
+  if [ -n "$BACKUP_FILE" ]; then
+    echo "   Dump taken just before this deploy: $BACKUP_FILE"
+    echo "   To go back, restore that dump and redeploy the previous release:"
+    echo "     docker compose -f $COMPOSE --env-file $ENVFILE stop backend"
+    echo "     docker compose -f $COMPOSE --env-file $ENVFILE exec -T db sh -c 'dropdb --force -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\" && createdb -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\"'"
+    echo "     gunzip -c $BACKUP_FILE | docker compose -f $COMPOSE --env-file $ENVFILE exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'"
+    echo "     DEPLOY_ROLLBACK=1 ./deploy.sh $ENV $DEPLOY_PREV_REF"
+  else
+    echo "   This deploy took no dump (the db container was not running); see ${BACKUP_DIR:-./backups}."
+  fi
+  return 1
+}
+
 # Smoke en na-controle zijn samen de GATE (#395, #604): faalt er een, dan rollen we
 # één keer automatisch terug
-# naar wat er vóór deze deploy draaide (loop-guard via DEPLOY_ROLLBACK).
+# naar wat er vóór deze deploy draaide (loop-guard via DEPLOY_ROLLBACK) — unless
+# this release adds a migration (#1203), see `rollback_can_start`.
 CUR="$(git describe --tags --always 2>/dev/null || echo '')"
 if [ -z "${DEPLOY_ROLLBACK:-}" ] && [ -n "$DEPLOY_PREV_REF" ] && [ "$DEPLOY_PREV_REF" != "$CUR" ]; then
+  if ! rollback_can_start; then
+    exit 1
+  fi
   echo ">>> Automatische rollback naar $DEPLOY_PREV_REF (eenmalig)."
   DEPLOY_ROLLBACK=1 DEPLOY_REEXEC= exec "$0" "$ENV" "$DEPLOY_PREV_REF"
 fi

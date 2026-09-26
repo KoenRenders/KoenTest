@@ -73,9 +73,13 @@ def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n",
         f'  *"logs backend"*) cat "{tmp_path}/backendlog" ;;\n'
         'esac\nexit 0\n')
     (fakebin / "curl").write_text('#!/bin/sh\nexit 0\n')
+    # `grep` answers one migration for every ref: the same alembic head on both
+    # sides, so these rollback tests keep testing a release WITHOUT a migration.
+    # With one, the rollback is skipped (#1203; test_deploy_rollback_migration.py).
     (fakebin / "git").write_text(
-        '#!/bin/sh\ncase "$1" in describe) echo v0.0.0 ;; rev-parse) echo deadbee ;; esac\n'
-        'exit 0\n')
+        '#!/bin/sh\ncase "$1" in describe) echo v0.0.0 ;; rev-parse) echo deadbee ;;\n'
+        '  grep) case "$*" in *down_revision*) ;; *) echo "revision = \'095\'" ;; esac ;;\n'
+        'esac\nexit 0\n')
     (fakebin / "sleep").write_text('#!/bin/sh\nexit 0\n')
     for f in fakebin.iterdir():
         f.chmod(0o755)
