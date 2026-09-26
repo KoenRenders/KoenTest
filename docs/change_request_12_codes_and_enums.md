@@ -950,24 +950,30 @@ confirmation, not a deviation: the gate column is the baseline the ratchets
 froze; the grep column stays as the first picture. From here on the gate's
 output is re-printed per release:
 
-| | grep, 25 Sep 2026 | **gate, phase 0 (26 Sep 2026)** | after this CR |
+**The rows below are the gate's rows**, in the order `ratchet_table()`
+prints them — the document mirrors the code, not the other way round. The
+grep column is the first picture of 25 September; the gate column is the
+baseline the ratchets froze.
+
+| Gate row | grep, 25 Sep 2026 | **gate, phases 0–1 (26 Sep 2026)** | after this CR |
 |---|---|---|---|
-| lists with a fixed vocabulary | 49 (B5.3) | — | 49, all in the same shape |
-| … kept as code table + FK, split codes/labels (#924 shape) | 2 | — | all |
-| … kept as code table + FK, one language per code | 4 | — | 0 |
-| … kept as orphan table in `public`, no FK | 3 | — | 0 |
-| … kept as module constants | 14 (newsletter 6, meetings 3, designstudio 5) | — | 0 |
-| … kept as a bare string + comment | ~12 | — | 0 |
-| vocabulary columns without a FK to a code table | 43, rough count (excl. history and audit) | **52** | 0 |
-| code tables that can carry two languages | 2 | — | all |
-| domain enums | 2 (`str, Enum`) | — | one per branching list, plain `Enum` |
-| enums outside a `CodeList` (marked technical/external) | 6 unmarked (reporting 5, Mollie map 0 — a dict today) | — | every one marked with its reason; the count is reported, not capped |
-| label dictionaries in Python | 40 | **33** | 0 |
-| templates comparing a code to a literal | 25 | **52** — the grep found half | 0 |
-| loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | **127** | 0 |
-| domains under mypy `strict_equality` (bonus, B4.8) | 0 | — | all migrated |
-| enum-carrying columns written as `Mapped[]` | 0 of 688 columns | — | every column in a `CodeList` |
-| languages seeded | `nl` 34 rows, `en` 17 rows | — | `nl` and `en` for every active code |
+| lists in the pattern (target 49) | 2 in the #924 shape | phase 0: 3 (language, the pilot, plus the two already shaped) → phase 1: +5 | 49 |
+| … of which with an `Enum` | 2 (`str, Enum`) | — | one per branching list, plain `Enum` |
+| enum-carrying columns as `Mapped[]` | 0 of 688 | 1 (pilot) → phase 1: +5 | every column in a `CodeList` |
+| columns without a FK (ratchet) | 43, rough count | **52** | 0 |
+| enums without a `CodeList` (ratchet) | 6 (reporting 5, `LegalForm`, `RegistrationState`) | — | 0 |
+| enums marked technical/external (counted, not capped) | 0 | 5 (reporting) | reported |
+| label dictionaries (ratchet) | 40 | **33** | 0 |
+| template comparisons (ratchet) | 25 | **52** — the grep found half | 0 |
+| loose-string comparisons (ratchet) | 92 (payment 37) | **127** | 0 |
+| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | reported |
+| label rows per language, `nl` / `en` | `nl` 34, `en` 17 | — | `nl` and `en` for every active code |
+
+First picture only (not gate rows): of the 49 lists, on 25 September 4 were
+code tables with one language per code, 3 were orphan tables in `public`,
+14 were module constants (newsletter 6, meetings 3, designstudio 5) and ~12
+were a bare string with a comment. Those shapes disappear per phase; the
+gate counts the result, not the shape.
 
 ### B9.3 The gate
 
@@ -1024,7 +1030,10 @@ An exemption is held to the same staleness rule as a ratchet: **an entry
 whose target no longer exists in the code is red**, exactly like a ratchet
 entry that outlived its offender. Otherwise the second list is a back door
 rather than a distinction — the Mollie adapter could disappear and its
-exemption would stand forever, unnoticed. Being closed in phase 1.
+exemption would stand forever, unnoticed. **A requirement, still open:**
+phase 1 (PR #1188) shipped without it; it lands in #1179 (phase 2) if it
+falls naturally there, otherwise in #1182 (phase 5). Until then the two
+exemption dicts are unchecked for staleness.
 
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
@@ -1067,6 +1076,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q17 | 26 Sep 2026 | Does the gate print the exemptions as a row? (Claude) | Master CLI: one combined row, mirroring the marked-enums row; B9.2 now lists the gate's rows in the gate's order. The staleness rule for exemptions is not closed in phase 1 — #1179 or #1182. |
 | Q16 | 26 Sep 2026 | Master CLI, after phase 1 (PR #1188): `strict_equality` is silent on an unannotated `record` parameter even with `Mapped[]` on the column; the ratchet needs a second kind of list for hits that are not our vocabulary. | Taken: B4.8 names the two sources of `Any` and makes the annotations phase-5 work; B9.3 defines ratchet vs exemption, the "could this be a row in our code table?" test, and the staleness rule for exemptions; B7.1 phase 5 keeps the exemptions. |
 | Q15 | 26 Sep 2026 | Do the file names, the filter name and the `Mapped[]` column in PR #1186 match B4.9/B4.8? (Claude) | Master CLI: file names exact, filters `code_label` and `tone` via `install_jinja_codes(env)`, pilot column `Mapped[MeetingStatus] = mapped_column(EnumColumn(MeetingStatus, length=10))`. One signature correction taken: `EnumColumn(enum_cls, length)`. The identifiers inside the gate module and the baseline file were Dutch and are being renamed before the merge — the document names files, not those names. |
 | Q14 | 26 Sep 2026 | Master CLI, after phase 0 (PR #1186): the pilot had a CHECK constraint duplicating the FK; the gate measures 52/33/52/127 against the grep's 43/40/25/92; a destructive violation made a gate test not run and come back green. | Taken: "drop the CHECK after the FK" as the third rule in B4.6; the gate column in B9.2 next to the grep; "the violation must be additive" in B8. |
