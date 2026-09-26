@@ -1220,6 +1220,24 @@ value bound first (`v = "EMAIL"`) and compared afterwards escapes the gate;
 so does any named constant. That is a known limit, not a reason to change
 the gate — the shape it catches is the one that occurred 127 times.
 
+**Gate 8 covers Jinja, not Alpine** (known limit, phase 1, 26 September
+2026). The template gate looks for a Jinja comparison on a vocabulary
+attribute. A comparison in JavaScript inside an Alpine attribute —
+`x-show="pm === 'ONLINE'"`, `x-if`, `:class` — on a local variable bound to
+a radio through `x-model` is invisible to it: no attribute called `status`
+or `method`, no Jinja `==`. Phase 1 renamed the radio values of the
+registration form to `online`/`transfer`; the two payment hints below them
+still compared with `'ONLINE'` and `'OVERSCHRIJVING'`, so neither hint
+showed any more — silently, all tests green, found by a translation helper
+(fixed in 14fa594d with a test for that one form). It differs from gate 12:
+there a member reaches the output; here the output is right and a
+client-side comparison looks at a value that no longer exists. A general
+gate would have to parse the Alpine expressions and follow the binding to
+the radio — more work than it returns for the few forms that do this. So:
+**a conscious limit, covered per form by a test** in the shape of
+14fa594d (every hint compares with a value the radio can carry), listed in
+the phase issue that touches the form.
+
 **A derived list without an enum needs a completeness test** (phase 4,
 26 September 2026) — the same kind of blind spot as gate 12: no FK, no
 gate, silent fallback to the raw code. B5.3 note 5 has the rule and the one
@@ -1279,6 +1297,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q29 | 26 Sep 2026 | Master CLI: gate 8 cannot see an Alpine comparison (`x-show="pm === 'ONLINE'"`) on a value bound to a radio — phase 1 broke two payment hints silently. | Taken as a conscious limit in B9.3: gate 8 covers Jinja, not Alpine; Alpine comparisons on a code value are covered per form by a test (14fa594d). |
 | Q28 | 26 Sep 2026 | Does the task category count for the gate's "target 49"? (Claude) | Master CLI: yes — a derived list is a `CodeList` and `registry()` has no filter on `derived`. And the target leaves the gate string altogether: it changed twice in one day in three places (B5.3, B9.2, the gate) — the `CLAUDE.md` signal to remove one. The gate measures; B9.2 holds the target. |
 | Q27 | 26 Sep 2026 | Master CLI, phase 4: "no second list" for the task category would drop `CAT_LABELS` and put a raw code on the screen (#630); and a derived list without an enum has no gate covering its completeness. | Taken: the category is a derived list (note 5) with its own row in B5.3; note 5 now says why completeness is a test, not a FK, and distinguishes derived-with-enum (covered by Enum = codes) from derived-without (a test per list); B9.3 names it beside gate 12. Phase 3 CI evidence: run 36224976461 on 05c99f07, 3419 passed, pip-audit clean. |
 | Q26 | 26 Sep 2026 | Master CLI (after the desktop reboot, session `koentest-1e`): gate 12 was built as a guard on Jinja's `finalize` with a coverage counter and strict/repair modes; the exemption staleness rule is built in #1181. | Taken: B9.3 gate 12 rewritten as guard + proof-of-run gate; `install_enum_guard` in B4.9; the repair-on-PROD choice in B11 with its argument; the B9.2 row moved from ratchet to "counted, not capped"; staleness rule marked as built in phase 4 (issue #1181; fulfilled once on `master`). First version of this row said "PR #1181" and "fulfilled" — there is no such PR, and a commit on one disk is not fulfilment; corrected the same day. |
