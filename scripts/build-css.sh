@@ -163,6 +163,22 @@ cat > "$TMP/in.css" << 'CSS'
    omgevingsbanner. `width` loopt tijdens de request naar 80% en verdwijnt erna. */
 #nprogress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--brand-ocean);z-index:70;opacity:0;transition:width .3s ease-out,opacity .2s ease-out;pointer-events:none}
 body.htmx-loading #nprogress{width:80%;opacity:1}
+/* ── De teller verbergt de ingebouwde pijltjes (#1200, punt 2) ──────────────
+   `ui.stepper` bestaat omdat iOS Safari bij een `type="number"` NOOIT pijltjes
+   toont; op een desktopbrowser staan ze er wél, en dan zijn er twee bedieningen
+   voor hetzelfde ding — zichtbaar op Koens HDEV-afdrukken, binnen het getalveld.
+
+   Hier en niet als utility: een pseudo-element is in Tailwind niet uit te
+   drukken. Buiten @layer om dezelfde reden als de htmx-klassen hierboven — de
+   components-laag wordt gesnoeid op wat er in de templates staat, en een
+   pseudo-element-regel zou daar stil wegvallen.
+
+   BEWUST op `.teller-veld` en niet op `input[type=number]`: de focuspunten van de
+   Design Studio stappen met 0,05 en het nieuwsbriefplafond met 1 — daar zijn die
+   pijltjes juist nuttig. Eén scherm repareren mag de andere niet uitkleden. */
+.teller-veld::-webkit-inner-spin-button,
+.teller-veld::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.teller-veld{-moz-appearance:textfield;appearance:textfield}
 /* View Transitions bij gebooste navigatie: kort, anders voelt het traag. */
 @view-transition{navigation:auto}
 ::view-transition-old(root),::view-transition-new(root){animation-duration:120ms}
