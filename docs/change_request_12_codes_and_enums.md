@@ -582,6 +582,7 @@ contract; the dev CLI chooses the internals.
 | Jinja filter `code_label` | Registered next to `install_jinja_i18n`: `{{ record.status \| code_label("payment_status") }}`. The *only* way a template turns a code into text. |
 | `TechnicalEnum`, `ExternalVocabulary` | Two marker base classes for an `Enum` that is deliberately **not** a code list: a technical distinction never stored or shown (the reporting engine's `Operator`, `Direction`, …), or an external party's vocabulary (Mollie's statuses, B4.10). The reason goes in the docstring; the gate below counts them. Any other `Enum` under `app/` must be in a `CodeList`. |
 | `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. Both filters are registered by `install_jinja_codes(env)`, next to `install_jinja_i18n`. |
+| `install_enum_guard(env, *, strict)` | Hooks Jinja's `finalize` so no enum member ever reaches rendered output: strict → raises `EnumRendered` (dev, test, HDEV); non-strict → renders the member's code and logs once (UAT, PROD). Keeps the counter `rendered_under_the_guard` for the gate that proves it ran (B9.3, gate 12). Added after phase 3. |
 
 The ratchet baselines live in `backend/tests/codes_baseline.py` as frozen
 Python sets, one per gate, each entry a `schema.table.column`, a `file:line`
@@ -1082,7 +1083,7 @@ baseline the ratchets froze.
 | loose-string comparisons in `.py` (ratchet) | 92 (payment 37) | 125 | 91 | 0 |
 | permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` | — | 3 | 3 | reported |
 | label rows in `nl` / `en` | 34 / 17 (old tables) | 5 / 5 | 17 / 17 | `nl` and `en` for every active code |
-| rendered attributes carrying a member instead of the code (ratchet, gate 12 — from phase 4) | — | — | — (3 found by hand in phase 3, fixed) | 0 |
+| values rendered under the enum guard (counted, not capped — a coverage measure, gate 12; from phase 4) | — | — | — (the 3 phase-3 cases were found by hand and fixed before the guard existed) | above zero on every run; the count says how much of the suite the guard saw |
 
 Gate figures as printed in the closing comment of #1178 (phase 1). Two
 things to know when reading them:
@@ -1132,7 +1133,7 @@ What each gate looks at:
 | Tone total | every enum with a tone mapping: every member has a tone | "`PaymentStatus.FAILED` has no badge tone" |
 | No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `code_label()`" |
 | No template comparisons | `== "…"` / `!= "…"` on a vocabulary attribute in `templates/` | "`admin_betalingen.html:42` compares `record.status` to a literal — expose it on the view-model" |
-| Rendered attributes carry the code, never the member (**added after phase 3**) | the rendered fragment of every template that puts a code in an HTML attribute (`value=`, `data-*`, `name=`, `href` query): the attribute holds the code, not `<Enum>.<MEMBER>` — a view-model hands a template the *code* for anything that goes into an attribute (B4.7 as a gate) | "`admin_nieuwsbrief.html:184` renders `value=\"Audience.MEMBERS\"` — pass `audience.value`, not the member" |
+| Rendered attributes carry the code, never the member (**added after phase 3; built as a guard, not a gate**) | a **guard in the kernel**, `install_enum_guard(env, strict=...)`, hooked on Jinja's `finalize` — which runs for *every* `{{ … }}` in every template, so every render test in the suite is a detector and coverage is not a question (a gate that renders a handful of screens would have sampled). Filters run first, so `{{ x \| code_label(…) }}` hands the guard a string and passes. In dev/test/HDEV (`strict`, the `StrictUndefined` policy of `app/ui/__init__.py`) an enum member reaching output raises `EnumRendered` → red test; on UAT/PROD it renders the **code** and logs once. Plus a **gate that proves the guard ran**: the counter `rendered_under_the_guard` must be above zero, so "the guard found nothing" is distinguishable from "the guard ran nowhere" (#678's rule, applied to a guard instead of a file walk). `test_enum_render_gate.py` proves it by violation. | "`EnumRendered`: `Audience.MEMBERS` reached the output of `admin_nieuwsbrief.html` — pass the code, not the member" |
 | Loose-string comparisons | an AST walk over `app/**/*.py`: `==`/`!=`/`in` between a vocabulary attribute and a string literal; ratchet on the 92 (B4.8 — mypy cannot see this with legacy `Column()` models) | "`payment/service.py:212` compares `record.status` to `\"paid\"` — use `PaymentStatus.PAID`" |
 | Enum member names | every member of a `CodeList` enum has an English name (the #780 word list), whatever its value | "`RelationType.HOOFDLID`: member names are English — `PRIMARY_MEMBER = \"HOOFDLID\"`" |
 | Shape | every `_codes`/`_labels` pair has exactly the B4.2 columns and keys — the helper wrote it, the gate proves nobody edited it | "`form.field_type_labels` lacks `description`" |
@@ -1183,10 +1184,10 @@ An exemption is held to the same staleness rule as a ratchet: **an entry
 whose target no longer exists in the code is red**, exactly like a ratchet
 entry that outlived its offender. Otherwise the second list is a back door
 rather than a distinction — the Mollie adapter could disappear and its
-exemption would stand forever, unnoticed. **A requirement, still open:**
-phase 1 (PR #1188) shipped without it; it lands in #1179 (phase 2) if it
-falls naturally there, otherwise in #1182 (phase 5). Until then the two
-exemption dicts are unchecked for staleness.
+exemption would stand forever, unnoticed. **Fulfilled in #1181 (phase 4)**:
+`test_every_permanent_exception_still_has_a_target`, next to
+`test_every_ratchet_looks_somewhere` (each ratchet must look at something —
+#678 directly). Phase 1 had shipped without it.
 
 **What "0 loose strings" means after phase 5**, so nobody reads more into
 it: zero string *literals* in a comparison with a vocabulary attribute. A
@@ -1221,6 +1222,7 @@ value in an attribute.
 | 25 Sep 2026 | The CR template gets **B9 Rule and gatekeeper**; every architectural CR names its rule, baseline and gate. | Koen |
 | 25 Sep 2026 | Placement: one domain → that domain; master data or two+ domains → `mdm`. MDM itself is thought through separately, with an external MDM adviser. | Koen |
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
+| 26 Sep 2026 | Gate 12 is a guard: `install_enum_guard` on Jinja's `finalize`. On UAT/PROD it **repairs and logs** (renders the code) instead of refusing. Argument: the code is exactly what the attribute should have carried, so the repair is correct output, and a screen that fails on PROD over a render detail costs more than a logged line — the same trade-off as the log check in `deploy.sh` (#604). Consequence, accepted: on PROD such a fault is visible in the log, not on the screen. Dev/test/HDEV stay strict, so it cannot reach PROD unseen through CI. | master CLI (approved in review of PR #1181), recorded by the author |
 | 26 Sep 2026 | No management screen for code lists — a decision, not a parking: *"geen beheerscherm voor codelijsten"*. Consequence: a label changes by migration (a release, not an admin action); a manual `UPDATE` on one environment is a deviation, not management — the idempotent seed does not overwrite it and a fresh environment gets the seed value, so two environments drift silently. Price known and accepted. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
 | 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
@@ -1246,6 +1248,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q26 | 26 Sep 2026 | Master CLI (after the desktop reboot, session `koentest-1e`): gate 12 was built as a guard on Jinja's `finalize` with a coverage counter and strict/repair modes; the exemption staleness rule is fulfilled in #1181. | Taken: B9.3 gate 12 rewritten as guard + proof-of-run gate; `install_enum_guard` in B4.9; the repair-on-PROD choice in B11 with its argument; the B9.2 row moved from ratchet to "counted, not capped"; staleness rule marked fulfilled with #1181. |
 | Q25 | 26 Sep 2026 | Master CLI, after phase 3: no gate sees an enum member rendered into an HTML attribute — three cases found by e2e, created by the conversion; and phase 3 is image-rollback-safe, unlike 154. | Taken: gate 12 (rendered attributes carry the code) in B9.3 with the reason, test 6b in B8, a B9.2 row from phase 4, the render-side spike in B10; B7 attributes non-revertibility to migration 154, not the release. |
 | Q24 | 26 Sep 2026 | Koen confirmed "geen beheerscherm voor codelijsten" — decision or parking? (master CLI) | Decision, with its consequence written under Non-goals: a label changes by migration; a manual `UPDATE` on one environment is a deviation. With this, everything in CR-12 that was Koen's to decide is decided — the placement rule, labels in label tables, Mollie without a code table, `nl`+`en`, M/F/X, the payment-method data fix, badge tones in Python, no expand/contract, the release-level restore point, no management screen, and (Q22) contact types without an enum. |
 | Q23 | 26 Sep 2026 | Master CLI: `is_social_network` sits on the `(code, language)` row of the unsplit table — per language; a second language row would collide in #1160's dict. | Taken into note 3 as the second reason for the split, with a guard in the phase-2 migration (move the flag to the code row, abort on contradicting flags). Koen accepts the release-level restore point; several tags rejected — B3/B7 now carry his yes. |
