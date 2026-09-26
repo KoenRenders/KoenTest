@@ -1,0 +1,48 @@
+{# Eén e-mailadres als FORMULIERRIJ (#1219).
+
+   Tot dit issue waren de adressen drie losse acties, en bewerken zat er niet
+   bij: een tikfout in een niet-hoofdadres corrigeerde je door weg te gooien en
+   opnieuw toe te voegen. Nu is de tekst een veld dat met het lid meegaat, zoals
+   de gezinsleden op *Word lid* (#1110) — één formulier, één opslaan.
+
+   Verwijderen en hoofdadres aanduiden blijven eigen knoppen: dat zijn losse
+   beslissingen met een eigen betekenis in het auditspoor, geen tekst.
+
+   **Een rij die nog niet opgeslagen is heeft geen id.** Die krijgt dus géén
+   hoofdadres-knop — een knop die een verzoek op een onbestaand id stuurt ziet er
+   werkend uit tot iemand hem gebruikt — en zijn verwijderknop haalt alleen het
+   veld uit het formulier, zonder verzoek.
+
+   Verwacht: `rij` (dict met id/value/is_primary) of None voor een lege rij,
+   `index` voor de naamgeving van een nieuwe rij, en `basis_url` als voorvoegsel
+   voor de twee acties. #}
+{% import "_macros.html" as ui %}
+{% set _id = rij.id if rij else None %}
+{% set _naam = ("email_existing_" ~ _id) if _id else ("email_new_" ~ index) %}
+{% set _veld_id = ("em-" ~ _id) if _id else ("em-nieuw-" ~ index) %}
+<div class="flex flex-wrap items-end gap-2" data-email-rij>
+  <div class="flex-1 min-w-[12rem]">
+    {{ ui.label(_("E-mailadres"), _veld_id) }}
+    {{ ui.input_control(_naam, id=_veld_id, type="email",
+                        value=(rij.value if rij else ""),
+                        placeholder="naam@voorbeeld.be", cls="w-full") }}
+  </div>
+  {% if _id %}
+    {% if rij.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}
+    <button type="button" class="{{ ui.btn_class('outline', 'sm') }}"
+            hx-post="{{ basis_url }}/{{ _id }}/hoofd"
+            hx-target="{{ doel }}" hx-swap="{{ swap }}">{{ _("Maak hoofdadres") }}</button>
+    {% endif %}
+    <button type="button" class="{{ ui.btn_class('danger', 'sm') }}"
+            aria-label="{{ _('Verwijder') }} {{ rij.value }}"
+            hx-post="{{ basis_url }}/{{ _id }}/verwijderen"
+            hx-target="{{ doel }}" hx-swap="{{ swap }}"
+            data-confirm="{{ _('Dit e-mailadres verwijderen?') }}">{{ _("Verwijderen") }}</button>
+  {% else %}
+    {# Nog niet opgeslagen: geen id, dus geen serveractie. Weghalen is het veld
+       uit het formulier halen; er valt nog niets te verwijderen. #}
+    <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+            aria-label="{{ _('Deze regel weghalen') }}"
+            @click="$el.closest('[data-email-rij]').remove()">{{ _("Weghalen") }}</button>
+  {% endif %}
+</div>

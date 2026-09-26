@@ -96,6 +96,13 @@ def household_add_email(db, person, person_id: int, email: str):
     return _impl(person_id, {"email": email}, person=person, db=db)
 
 
+def household_apply_email_rows(db, person, person_id: int, formulier):
+    from app.domains.membership.household_router import (
+        household_apply_email_rows as _impl)
+
+    return _impl(person_id, formulier, person=person, db=db)
+
+
 def household_make_email_primary(db, person, person_id: int, contact_id: int):
     from app.domains.membership.household_router import (
         household_make_email_primary as _impl)

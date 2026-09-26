@@ -85,10 +85,12 @@
       {% set _hoofd = p.relation_type == "HOOFDLID" %}
       {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
          include_relation=False: relatie blijft read-only in de kop (portaal-pariteit). #}
+      {# #1219: `include_email=False` — de adressen staan als rijen hieronder. #}
       {{ ui.person_fields(name_prefix="", id_prefix="p" ~ p.id ~ "-", pv=p,
                           gender_codes=gender_codes, relation_types=relation_types,
                           include_relation=False, hoofdlid=_hoofd,
-                          require_birth_gender=True) }}
+                          require_birth_gender=True,
+                          include_email=False) }}
       {% if p.address %}
       {# Golf 2-nazorg (#913, bevinding Koen 14 sep): op een telefoon wikkelde het
    label "Huisnummer" in zijn smalle kolom en zakte het veld. Mobiel-eerst:
@@ -111,51 +113,36 @@
       </div>
       {% endif %}
     </form>
-    {# #1174: je eigen e-mailadressen. Met elk ervan kan je aanmelden, en de
-       nieuwsbrief gaat naar allemaal. Precies één is het HOOFDADRES: het adres
-       dat Raak Nationaal in zijn programma heeft — een herkomst, geen voorkeur.
+    {# #1219: je eigen e-mailadressen, als rijen in dit formulier. Met elk ervan
+       kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Precies één kan het
+       HOOFDADRES zijn: het adres dat Raak Nationaal in zijn programma heeft — een
+       herkomst, geen voorkeur en geen volgorde.
 
-       Een lid mag dat zelf aanduiden (Koen, 27 september 2026). Dat is geen
-       uitholling van die betekenis: elke wijziging komt in het auditlogboek en
-       staat in de .ods-export van de ledenwijzigingen, waarmee het nationale
-       programma met de hand bijgewerkt wordt. Sinds #1174 zegt die export ook
-       WÁT er veranderde — "is nu het hoofdadres" — en niet enkel dat er iets
-       veranderde.
+       Een tikfout verbeter je door te typen en op te slaan; verwijderen en
+       hoofdadres aanduiden blijven eigen knoppen. Een rij die je net toevoegde
+       heeft nog geen id, dus die draagt geen hoofdadres-knop en zijn "Weghalen"
+       haalt alleen het veld uit het formulier.
 
-       Buiten het Opslaan-formulier: deelacties op één rij. #}
+       Dat een lid dit zelf mag, komt in het auditlogboek en in de .ods-export van
+       de ledenwijzigingen, waarmee het nationale programma bijgewerkt wordt. #}
     <div x-show="edit" x-cloak class="mt-3 border-t border-gray-100 pt-3" style="display: none">
       <p class="text-xs font-medium text-ink-soft">{{ _("E-mailadressen") }}</p>
-      <ul class="mt-1 space-y-1">
+      <div id="p-emails-{{ p.id }}" class="mt-1 space-y-2">
         {% for a in p.emails %}
-        <li class="flex items-center gap-2 text-sm">
-          <span class="inline-flex items-start gap-1 min-w-0 break-all">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ a.value }}</span>
-          {% if a.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}
-          <button type="button" class="{{ ui.btn_class('outline', 'xs') }}"
-                  hx-post="/leden/gezin/personen/{{ p.id }}/email/{{ a.id }}/hoofd"
-                  hx-target="body" hx-swap="innerHTML">{{ _("Maak hoofdadres") }}</button>
-          {% endif %}
-          <button type="button" class="ml-auto shrink-0 {{ ui.btn_class('danger', 'xs') }}"
-                  aria-label="{{ _('Verwijder') }} {{ a.value }}"
-                  hx-post="/leden/gezin/personen/{{ p.id }}/email/{{ a.id }}/verwijderen"
-                  hx-target="body" hx-swap="innerHTML"
-                  data-confirm="{{ _('Dit e-mailadres verwijderen?') }}">{{ _("Verwijderen") }}</button>
-        </li>
+          {% with rij = a, index = loop.index0,
+                  basis_url = "/leden/gezin/personen/" ~ p.id ~ "/email",
+                  doel = "body", swap = "innerHTML" %}
+            {% include "_email_rij.html" %}
+          {% endwith %}
         {% else %}
-        <li class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</li>
+          <p class="text-sm text-ink-soft">{{ _("Nog geen e-mailadres.") }}</p>
         {% endfor %}
-      </ul>
-      <div class="flex flex-wrap items-end gap-2 mt-2">
-        <div class="flex-1 min-w-[12rem]">
-          {{ ui.label(_("Adres erbij"), "pe-" ~ p.id) }}
-          {{ ui.input_control("extra_email", id="pe-" ~ p.id, type="email",
-                              placeholder="naam@voorbeeld.be", cls="w-full") }}
-        </div>
-        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
-                hx-post="/leden/gezin/personen/{{ p.id }}/email"
-                hx-include="#pe-{{ p.id }}"
-                hx-target="body" hx-swap="innerHTML">{{ _("Toevoegen") }}</button>
       </div>
-      <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Het hoofdadres is het adres dat Raak Nationaal in zijn programma heeft.") }}</p>
+      <button type="button" class="{{ ui.btn_class('secondary', 'sm') }} mt-2"
+              hx-get="/leden/gezin/personen/{{ p.id }}/email-rij"
+              hx-target="#p-emails-{{ p.id }}" hx-swap="beforeend"
+              hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
+      <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan.") }}</p>
     </div>
   </div>
   {% endfor %}

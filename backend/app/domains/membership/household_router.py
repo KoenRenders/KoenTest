@@ -455,6 +455,23 @@ def household_add_email(person_id: int, data: dict,
     return {"ok": True}
 
 
+@router.post("/member/household/persons/{person_id}/emails/rows")
+def household_apply_email_rows(person_id: int, formulier,
+                               person=Depends(require_member),
+                               db: Session = Depends(get_db)):
+    """De e-mailrijen uit het portaalformulier toepassen (#1219).
+
+    Dezelfde gezinsgrens als elke andere portaalbewerking: zonder
+    `_assert_in_household` kon een lid met het persoon-id van een vreemde diens
+    adressen bewerken.
+    """
+    from app.domains.mdm.api import apply_email_rows
+
+    _lid_en_doel(person, person_id, db)
+    apply_email_rows(db, person_id, formulier, actor=_actor_van(person))
+    return {"ok": True}
+
+
 @router.post("/member/household/persons/{person_id}/emails/{contact_id}/primary")
 def household_make_email_primary(person_id: int, contact_id: int,
                                  person=Depends(require_member),

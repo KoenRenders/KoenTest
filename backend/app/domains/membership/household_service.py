@@ -668,9 +668,17 @@ def update_person_contacts(
                                action="contacts_updated", source="admin_update",
                                actor=admin.email)
 
-    _upsert_contact("EMAIL", data.email)
-    _upsert_contact("PHONE", data.phone)
-    _upsert_contact("MOBILE", data.mobile)
+    # #1219: een veld dat het formulier NIET meegaf, blijft met rust. Sinds de
+    # e-mailadressen rijen zijn, draagt het ledenformulier van een bestaande
+    # persoon geen `email` meer — en `email=None` betekent hier "verwijder het
+    # hoofdadres". Zonder deze grens wist elke opslag het hoofdadres.
+    gegeven = data.model_fields_set
+    if "email" in gegeven:
+        _upsert_contact("EMAIL", data.email)
+    if "phone" in gegeven:
+        _upsert_contact("PHONE", data.phone)
+    if "mobile" in gegeven:
+        _upsert_contact("MOBILE", data.mobile)
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)

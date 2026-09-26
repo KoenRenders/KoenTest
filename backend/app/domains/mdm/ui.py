@@ -341,13 +341,14 @@ def gezin_inschrijvingen_tab(family_id: int, request: Request,
 
 @router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def persoon_opslaan(family_id: int, person_id: int, request: Request,
-                    db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui),
-                    first_name: str = Form(""), last_name: str = Form(""),
-                    date_of_birth: str = Form(""), gender_code: str = Form(""),
-                    contact_email: str = Form("", alias="email"), phone: str = Form(""),
-                    mobile: str = Form(""), relation_type: str = Form("")):
+async def persoon_opslaan(family_id: int, person_id: int, request: Request,
+                          db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui),
+                          first_name: str = Form(""), last_name: str = Form(""),
+                          date_of_birth: str = Form(""), gender_code: str = Form(""),
+                          contact_email: str = Form("", alias="email"),
+                          phone: str = Form(""), mobile: str = Form(""),
+                          relation_type: str = Form("")):
     from app.domains.membership.api import update_person, update_person_contacts
     from app.domains.membership.api import PersonUpdate
     from app.domains.membership.api import ContactsUpdate
@@ -356,10 +357,19 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
     ), admin=admin_user_by_email(db, email))
-    update_person_contacts(db, person_id, ContactsUpdate(
-        email=contact_email.strip() or None, phone=phone.strip() or None,
-        mobile=mobile.strip() or None,
-    ), admin=admin_user_by_email(db, email))
+    # #1219: het e-mailveld zit niet meer in de veldenset van een BESTAANDE
+    # persoon — de adressen zijn rijen geworden. `email` dus alleen meegeven als
+    # het formulier het droeg: `ContactsUpdate` laat een niet-meegegeven veld met
+    # rust, en een lege waarde zou het hoofdadres verwijderen.
+    contacten: dict = {"phone": phone.strip() or None, "mobile": mobile.strip() or None}
+    if contact_email.strip():
+        contacten["email"] = contact_email.strip()
+    update_person_contacts(db, person_id, ContactsUpdate(**contacten),
+                           admin=admin_user_by_email(db, email))
+    # De adresrijen uit ditzelfde formulier — één opslaan, één transactie (#1110).
+    from app.domains.mdm.api import apply_email_rows
+
+    apply_email_rows(db, person_id, await request.form(), actor=email)
     # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
     # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
     # in de service, met een rauwe query minder in dit scherm.
@@ -381,6 +391,25 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
 # bijlage verwijderen: die krijgen géén bevestigingstoast (#742/#717). Het
 # e-mailVELD in dat formulier blijft wat het was — het hoofdadres — zodat de
 # gewone weg onveranderd is voor wie maar één adres heeft.
+
+@router.get("/admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij",
+            response_class=HTMLResponse)
+def email_rij(family_id: int, person_id: int, request: Request,
+              index: str = "", db: Session = Depends(get_db),
+              email: str = Depends(require_admin_ui)):
+    """Een lege e-mailrij om onderaan te plakken (#1219).
+
+    Zelfde vorm als `/admin/leden/nieuw/persoon-rij` (#1110): niets naar de
+    databank, niets vervangen, dus wat er al getypt staat blijft staan. De rij
+    krijgt nog geen id — pas bij Opslaan van het lid ontstaat er een rij — en
+    draagt daarom geen knop die er een nodig heeft.
+    """
+    return templates.TemplateResponse(request, "_email_rij.html", {
+        "rij": None, "index": index or "0",
+        "basis_url": f"/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
+        "doel": f"#persoon-{person_id}", "swap": "outerHTML",
+    })
+
 
 @router.post("/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])

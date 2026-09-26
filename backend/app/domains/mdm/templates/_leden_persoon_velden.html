@@ -1,7 +1,12 @@
 {# Admin gezinslid-velden via de gedeelde macro (#511). `p` = FamilyMemberResponse
    (edit) of None (toevoegen). We bouwen er een base-keyed person-VM-dict van; let op:
    het schema-attribuut heet `gender` maar de macro/DB gebruikt `gender_code`. De
-   relatie zit nu IN de veldenset (levert #498); een hoofdlid houdt HOOFDLID vast. #}
+   relatie zit nu IN de veldenset (levert #498); een hoofdlid houdt HOOFDLID vast.
+
+   #1219: bij een BESTAANDE persoon staat het e-mailveld er niet in — die kaart
+   zet de adressen zelf als rijen eronder, want een lid mag er meerdere hebben.
+   Bij een NIEUWE persoon blijft het ene veld: er is nog geen rij om te tonen, en
+   het eerste adres dat iemand invoert wordt het hoofdadres. #}
 {% import "_macros.html" as ui %}
 {% set pv = None %}
 {% if p %}{% set pv = {
@@ -12,4 +17,5 @@
 {{ ui.person_fields(name_prefix="", id_prefix=(("lp" ~ p.id ~ "-") if p else "np-"),
                     pv=pv, gender_codes=gender_codes, relation_types=relation_types,
                     include_relation=True, require_birth_gender=True,
-                    hoofdlid=(p is not none and p.relation_type == "HOOFDLID")) }}
+                    hoofdlid=(p is not none and p.relation_type == "HOOFDLID"),
+                    include_email=(p is none)) }}
