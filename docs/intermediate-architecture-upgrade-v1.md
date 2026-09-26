@@ -913,6 +913,15 @@ wordt — geen investering meer waard; de omklap ís de fix.
    (loop-guard). **Voorwaarde**: expand/contract-regel — binnen een release enkel
    additieve migraties (drop/rename pas een release later), anders is rollback
    schijnveiligheid en is de backup het enige pad.
+   > **Corrected (#1203, 27 September 2026).** The premise above does not hold.
+   > Additive migrations keep the *schema* compatible with the previous image,
+   > not alembic's version check: that image runs `alembic upgrade head` at
+   > startup, does not know the revision the database now carries, and does not
+   > start. `deploy.sh` therefore compares the alembic head of the previous and
+   > the new ref (read from git) and skips the automatic rollback for a release
+   > that adds a migration; it stops with the database revision and the
+   > pre-deploy dump to restore. The rollback only covers releases without a
+   > migration; for the others the dump is the only way back.
 2. **CI-gates** (uur): `alembic check` na de migratie-stap; vitest zonder
    `--passWithNoTests`; `npm audit --audit-level=high` blokkerend + pip-audit met
    ignore-lijst daarna blokkerend. Import-linter wacht op Fase 0 (zou nu falen op
