@@ -570,7 +570,7 @@ contract; the dev CLI chooses the internals.
 | Piece | Contract |
 |---|---|
 | `CodeList` | One declaration per list, in the owning domain's `codes.py` and exported through its `api.py`. Fields: `name` (the list's short name, e.g. `payment_status`), `codes` (the ORM class of the code table), `labels` (the ORM class of the label table), `enum` (the `Enum` class or `None`), `derived` (`True` for a list with no storing column, B5.3 note 4). A registry in the kernel collects every declaration at import time; the gates iterate over the registry. |
-| `EnumColumn(enum_cls, length)` | A `TypeDecorator` over `String(length)` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Every code in the table is a member (B4.3), so a read never yields a bare string; a value that is in neither raises on read with the list, column and value in the message — that is corrupt data, not a rendering case. Used as `Mapped[Enum] = mapped_column(EnumColumn(Enum, length=10))` (B4.8; `length` is the column's existing width, kept as is). |
+| `EnumColumn(enum_cls, length)` | A `TypeDecorator` over `String(length)` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Every code in the table is a member (B4.3), so a read never yields a bare string — no `partial` mode (B5.3 note 3: a list the code only touches in a place or two gets no enum, and branches on a property or a named `Code` constant instead); a value that is in neither raises on read with the list, column and value in the message — that is corrupt data, not a rendering case. Used as `Mapped[Enum] = mapped_column(EnumColumn(Enum, length=10))` (B4.8; `length` is the column's existing width, kept as is). |
 | `create_code_list(op, schema, name, codes, labels, fk_from=...)` | The migration helper: creates `<schema>.<name>_codes` and `_labels` in the one shape, upserts the seed rows (`ON CONFLICT DO NOTHING`, idempotent on four environments), adds the FK from each storing column. One call per list; the shape gate then has nothing to argue about. `retire_code(op, schema, name, code)` flips `is_active` and logs the row count that carries it. |
 | `code_label(list_name, code, language=None)` | The one label function. `language` defaults to the language part of `current_locale` (`nl_BE` → `nl`); falls back to `nl`; as a last resort returns the code itself and logs once per (list, code). Accepts an `Enum` member or a string. |
 | `code_labels(list_name, language=None)` | The ordered `(code, label)` pairs of the **active** codes, by `sort_order` — for select lists and report dimensions. |
@@ -743,28 +743,55 @@ stores; nothing reads them.
 
 | List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
 |---|---|---|---|---|---|
-| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` and `O` **retired (note 2)** | — | `mdm.persons.gender_code` (exists) | — |
-| contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | `ContactType` (code branches on `EMAIL`/`MOBILE`, note 3) | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons |
+| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` **retired (note 2)** | — | `mdm.persons.gender_code` (exists) | — |
+| contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | **none** (note 3) — the list is data-driven since #1160: a fifth social network is a row, not code | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons → two named `Code` constants on the `CodeList` (`CONTACT_TYPE.EMAIL`, `.MOBILE`) and the `is_social_network` property |
 | relation type | `mdm.relation_type_codes` (split) | `HOOFDLID` → Hoofdlid / Primary member · `PARTNER` → Partner / Partner · `KIND` → (meerderjarig) kind / Adult child | `RelationType` | `mdm.member_persons.relation_type` (exists) | `ui/__init__.py:_RELATIE_LABELS`, 2 template comparisons |
 | legal form | `mdm.legal_form_codes` (split) | `VZW` → vzw / Non-profit association · `FEITELIJKE_VERENIGING` → Feitelijke vereniging / Unincorporated association · `BEDRIJF` → Bedrijf / Company | `LegalForm` (from `str, Enum` to plain) | `mdm.organizations.legal_form` (**new**) | — |
 | organisation type | `mdm.organization_type_codes` | `ACCOUNT` → Rechtspersoon / Legal entity · `UNIT` → Afdeling / Unit · `PLATFORM` → Platform / Platform | `OrganizationType` | `mdm.organizations.org_type` (**new**) | `ui/organisaties_ui.py:SOORT_LABELS`, 2 template comparisons |
 | organisation relation type | `mdm.organization_relation_types` + `_labels` (already the shape) | `BOARD_MEETING` → Bestuursvergadering / Board meeting | — | exists | registers in the `CodeList` registry only |
 | identification scheme | `mdm.identification_schemes` + `_labels` (already the shape) | `KBO` → Ondernemingsnummer / Enterprise number · `VAT` → Btw-nummer / VAT number | — | exists | `en` rows added |
-| role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py`; the `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004/017 wrongly seeded into `role_codes` are dropped (they are relation types) |
+| role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py` |
 
-Note 2 — gender: migration 001 seeded `O` (nl only), 004 added `X` (en only)
-and `U`. Koen (26 September 2026): the list is `M`, `F`, `X` — nothing else.
-`U` and `O` are retired (`is_active = false`, labels kept so an existing row
-still renders); the migration logs how many persons carry each retired code.
+Note 2 — gender: Koen (26 September 2026): the list is `M`, `F`, `X` —
+nothing else. Only `U` is retired (`is_active = false`, label kept so an
+existing row still renders; the migration logs how many persons carry it).
+`O` does not exist: migration 004 *renamed* `O` to `X` rather than adding
+`X` — measured on a freshly migrated database by the master CLI (phase 2);
+the first version of this note read the two migrations wrongly.
 
-Note 3 — `CLAUDE.md` says `contact_type_code = "mobile"`; the stored codes
-are upper case (`MOBILE`). The code compares against both spellings today
-(13× `"mobile"`, 9× `"MOBILE"`). The enum ends that: one spelling, the
-stored one. `CLAUDE.md` is corrected in the same phase.
+Note 3 — contact type gets **no enum** (decided by the author on 26
+September 2026 on the master CLI's recommendation after phase 2; Koen to
+confirm). The tension: B4.3 asks for an enum where Python branches, and it
+branches on `EMAIL` and `MOBILE` — but #1160 made the public footer
+data-driven on purpose (a fifth social network is a row, no deploy), and a
+strict enum column would refuse that row and silently undo #1160. Dev1's
+first answer was `EnumColumn(..., partial=True)`: the enum covers what the
+code branches on, the table may carry more, an unknown code reads back as
+the code itself. Rejected for the pattern: that makes the column's type a
+union of member and `str` — exactly the value the type checker knows nothing
+about (B4.8), the door through which `== "FACEBOOK"` walks back in, and a
+precedent for 49 lists. Instead: the code branches on a **property of the
+code** where it is one (`is_social_network`, already on the code table —
+#1160's own shape), and on two **named `Code` constants** exposed by the
+`CodeList` (`CONTACT_TYPE.EMAIL`, `CONTACT_TYPE.MOBILE`; `Code` is a
+`NewType` over `str`, so the AST gate accepts a comparison against a
+`CodeList` constant and still rejects a literal). Same rule for every
+open-ended list the code touches in one or two places. `partial=True` is
+removed from `EnumColumn`; B4.9's invariant — a read never yields a bare
+string — stands.
+
+On the spellings: the stored code has always been `MOBILE`; the lower-case
+`"mobile"` (13×) is a form-field name and a view-model attribute, not a
+stored value — two different things, no inconsistency. `CLAUDE.md`'s
+sentence "`contact_type_code = "mobile"`" is still imprecise about the stored
+value and is corrected in the same phase.
 
 Note 4 — `MEMBER` and `USER` exist since migration 001 and are excluded from
 every screen (`auth/users.py:216`); no user carries them. Retired, not
-deleted.
+deleted. The `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004 and 017
+seeded into `role_codes` are **not** there any more: migration 017 (line 70)
+already removes them. The first version of this note said they had to be
+dropped; measured on a fresh database in phase 2, there is nothing to drop.
 
 #### Phase 3 — the constants domains
 
@@ -833,7 +860,22 @@ test asserts the set of role codes is unchanged before and after.
 
 ## B7. Phasing
 
-Each phase is a release-sized issue, shippable and revertible on its own.
+Each phase is a release-sized issue, **shippable on its own**. It is *not*
+revertible by image rollback, and the first version of this sentence said
+it was. Measured in phase 2 (PR #1189, migration 154): the migration renames
+`mdm.organization_relation_types` and `mdm.identification_schemes` to the
+`_codes` shape and drops `public.role_codes`; `master`'s models need those
+three names (`mdm/models.py:107,129,142,382,412,425`, `auth/models.py:90`).
+`deploy.sh`'s rollback restores the *image*, not the database — the old
+image would start against a schema in which those tables no longer exist
+under their names. That is the normal price of a rename, not a build fault;
+`downgrade()` refuses on purpose (going back would restore the
+one-language shape #929 calls wrong). **The recovery path is forward, or a
+database restore** — so the DB backup before a UAT/PROD deploy of any CR-12
+phase is the one real net, and its dump is verified for validity *before*
+the deploy, not after. The alternative — expand/contract, new tables beside
+the old for one release, the old dropped the release after — makes every
+phase two releases; that is Koen's trade-off (B11, open).
 
 | Phase | Delivers | Depends on |
 |---|---|---|
@@ -1080,7 +1122,9 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
-| 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
+| 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` retired, not deleted (`O` turned out not to exist — 004 renamed it to `X`). | Koen |
+| 26 Sep 2026 | Contact type gets no enum; `partial=True` on `EnumColumn` is rejected for the pattern (union type); branching goes through `is_social_network` and two named `Code` constants on the `CodeList` (B5.3 note 3). | author, on the master CLI's recommendation — **Koen to confirm** |
+| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; corrected to "shippable on its own; recovery is forward or a DB restore; verify the dump before the deploy". Expand/contract (two releases per phase) is the alternative. | author — **Koen to decide** |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
@@ -1096,6 +1140,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q19 | 26 Sep 2026 | Master CLI, after phase 2 (PR #1189): (a) contact types — dev1 built `partial=True`; recommendation: no enum, branch on a property and named constants; (b) B7's "revertible" is untrue for migration 154 (renames + drop, image rollback breaks); (c) gender `O` never existed, `role_codes` holds no relation types, `"mobile"` is a field name not a stored value. | (a) taken as the author's decision, Koen to confirm; (b) B7 corrected, expand/contract left to Koen; (c) notes 2, 3, 4 corrected. |
 | Q18 | 26 Sep 2026 | Master CLI: the derived phase-0/1 figures were wrong on two rows; and the phase-0 column is recomputed after the exemptions (52→51, 127→125). | Taken: measured figures per phase in B9.2, one column per phase, with the definition note and the lists-versus-columns note. |
 | Q17 | 26 Sep 2026 | Does the gate print the exemptions as a row? (Claude) | Master CLI: one combined row, mirroring the marked-enums row; B9.2 now lists the gate's rows in the gate's order. The staleness rule for exemptions is not closed in phase 1 — #1179 or #1182. |
 | Q16 | 26 Sep 2026 | Master CLI, after phase 1 (PR #1188): `strict_equality` is silent on an unannotated `record` parameter even with `Mapped[]` on the column; the ratchet needs a second kind of list for hits that are not our vocabulary. | Taken: B4.8 names the two sources of `Any` and makes the annotations phase-5 work; B9.3 defines ratchet vs exemption, the "could this be a row in our code table?" test, and the staleness rule for exemptions; B7.1 phase 5 keeps the exemptions. |
