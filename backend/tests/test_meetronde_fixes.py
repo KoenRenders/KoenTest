@@ -43,16 +43,16 @@ def test_F25_kitdemo_tabel_zit_in_een_scrollcontainer(client):
 def test_F30_conceptbadge_is_grijs():
     """Concept is een ontwerpstatus, geen openstaande handeling (§2.5).
 
-    Toetst sinds CR-12 fase 4 de TOON en niet meer de sjabloontekst. De badge
-    haalde haar kleur uit een letterlijke `"gray"` in `_fb_recordkop.html`;
-    sinds fase 4 komt ze uit de tone-mapping die het scherm registreert. Een
-    test die de oude regel zocht, zou rood staan om een reden die niets met de
-    kleur te maken heeft — en groen kunnen blijven terwijl de kleur verandert.
+    Since CR-12 phase 4 this tests the TONE and no longer the template text.
+    The badge took its colour from a literal `"gray"` in `_fb_recordkop.html`;
+    since phase 4 it comes from the tone mapping the screen registers. A test
+    that looked for the old line would be red for a reason that has nothing to
+    do with the colour — and could stay green while the colour changes.
     """
     from app.domains.forms.api import FORM_STATUS, FormStatus
     from app.kernel.codes import tone
 
-    # Het scherm registreert de tonen bij import; dit haalt die module binnen.
+    # The screen registers the tones on import; this pulls that module in.
     import app.domains.forms.admin_ui  # noqa: F401
 
     assert tone(FORM_STATUS.name, FormStatus.DRAFT) == "gray"

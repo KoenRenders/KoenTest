@@ -73,10 +73,10 @@ def contract(template_key: str) -> dict:
 @lru_cache(maxsize=1)
 def _env() -> Environment:
     env = Environment(loader=FileSystemLoader(str(POSTERS)), autoescape=True, undefined=StrictUndefined)
-    # De tweede Jinja-omgeving van deze codebase, en dus de tweede plek waar
-    # een enum-lid in de uitvoer zou kunnen belanden (CR-12 §B4.7). Hier altijd
-    # streng: een poster is geen bezoekerspagina, en een verkeerde waarde in een
-    # SVG valt later op dan in een formulier.
+    # The second Jinja environment of this codebase, and so the second place
+    # where an enum member could end up in the output (CR-12 §B4.7). Always
+    # strict here: a poster is not a visitor's page, and a wrong value in an SVG
+    # is noticed later than one in a form.
     install_enum_guard(env, strict=True)
     env.globals["speckles"] = speckle_pattern
     env.globals["icon"] = lambda code, fg, bg, x, y, s: icon_svg(code, fg=fg, bg=bg, x=x, y=y, size=s)

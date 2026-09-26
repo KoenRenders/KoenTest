@@ -65,8 +65,8 @@ class WorkflowTask(TenantMixin, Base):
     __table_args__ = {"schema": "workflow"}
 
     id = Column(Integer, primary_key=True)
-    # Taak-type, bv. "payment.webhook_mismatch" — `category.subject` (#549).
-    # Een code en geen enum-lid; zie de constanten bovenaan voor de reden.
+    # Task type, e.g. "payment.webhook_mismatch" — `category.subject` (#549).
+    # A code, not an enum member; see the constants above for the reason.
     kind = Column(String(100), ForeignKey("workflow.task_kind_codes.code"),
                   nullable=False, index=True)
     title = Column(String(300), nullable=False)

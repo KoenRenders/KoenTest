@@ -305,7 +305,7 @@ def validate_definition(data) -> None:
             raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
         for o in f.options:
             has_skip = o.skip_to_section_index is not None or o.skip_to_end
-            if has_skip and f.field_type not in VERTAKBARE_CODES:
+            if has_skip and f.field_type not in BRANCHABLE_CODES:
                 raise HTTPException(
                     status_code=422,
                     detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."),
@@ -626,7 +626,7 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
                 "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
                 "bewaarde antwoorden betekenisloos maken.")
         veld.field_type = nieuw_type
-        if nieuw_type not in VERTAKBARE_CODES:
+        if nieuw_type not in BRANCHABLE_CODES:
             for optie in veld.options:
                 optie.skip_to_section_id = None
                 optie.skip_to_end = False
@@ -687,9 +687,9 @@ def delete_field(db, form: Form, field_id: int) -> None:
 
 KEUZEVELDEN = (FieldType.SELECT, FieldType.RADIO, FieldType.CHECKBOX)
 VERTAKBARE_VELDEN = (FieldType.RADIO, FieldType.SELECT)
-#: Dezelfde twee als CODES, voor wat van buiten komt: de JSON-API krijgt een
-#: string en zet die pas om wanneer ze de kolom in gaat (§B4.2).
-VERTAKBARE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
+#: The same two as CODES, for what comes from outside: the JSON API receives a
+#: string and converts it only when it goes into the column (§B4.2).
+BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
 
 
 def add_option(db, form: Form, field_id: int, *, label: str,

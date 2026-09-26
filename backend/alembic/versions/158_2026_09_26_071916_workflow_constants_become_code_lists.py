@@ -30,34 +30,34 @@ from app.domains.workflow.codes import (
 from app.kernel.codes import create_code_list
 
 
-# De id is een tijdstempel en geen volgnummer (#951).
+# The id is a timestamp, not a sequence number (#951).
 revision = '158_2026_09_26_071916'
 down_revision = '157_2026_09_26_052050'
 branch_labels = None
 depends_on = None
 
-LIJSTEN = (
+LISTS = (
     ("task_status", TASK_STATUS_CODES, 10, "workflow.workflow_tasks.status"),
     ("run_status", RUN_STATUS_CODES, 10, "workflow.workflow_instances.status"),
     ("task_kind", TASK_KIND_CODES, 100, "workflow.workflow_tasks.kind"),
-    # Afgeleid: geen opslagkolom, dus geen foreign key (§B5.3 noot 5).
+    # Derived: no storing column, so no foreign key (§B5.3 note 5).
     ("task_category", TASK_CATEGORY_CODES, 50, None),
 )
 
 
 def upgrade() -> None:
-    for naam, codes, lengte, kolom in LIJSTEN:
-        create_code_list(op, schema="workflow", name=naam, codes=codes,
-                         fk_from=(kolom,) if kolom else (), code_length=lengte)
+    for name, codes, length, column in LISTS:
+        create_code_list(op, schema="workflow", name=name, codes=codes,
+                         fk_from=(column,) if column else (), code_length=length)
 
 
 def downgrade() -> None:
-    # Alleen schema: deze migratie schreef geen taakdata en veranderde geen
-    # bestaande waarde.
-    for naam, _codes, _lengte, kolom in LIJSTEN:
-        if kolom:
-            _schema, tabel, kolomnaam = kolom.split(".")
-            op.drop_constraint(f"fk_{tabel}_{kolomnaam}_code", tabel,
+    # Schema only: this migration wrote no task data and changed no existing
+    # value.
+    for name, _codes, _length, column in LISTS:
+        if column:
+            _schema, table, column_name = column.split(".")
+            op.drop_constraint(f"fk_{table}_{column_name}_code", table,
                                schema="workflow", type_="foreignkey")
-        op.drop_table(f"{naam}_labels", schema="workflow")
-        op.drop_table(f"{naam}_codes", schema="workflow")
+        op.drop_table(f"{name}_labels", schema="workflow")
+        op.drop_table(f"{name}_codes", schema="workflow")

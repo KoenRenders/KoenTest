@@ -3,7 +3,7 @@ from decimal import Decimal
 
 import pytest
 
-from tests._taaksoorten import registreer_taaksoort
+from tests._task_kinds import register_task_kind
 
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
@@ -14,16 +14,16 @@ from app.domains.auth.api import Role
 
 
 def test_definitie_start_advance_complete(db_session):
-    # Een definitie is DATA en mag een taaksoort introduceren (§5.7) — maar
-    # sinds CR-12 fase 4 moet die soort een rij hebben, net als bij een nieuwe
-    # bron. Dat is precies waarom deze lijst geen enum kreeg.
-    een = registreer_taaksoort(db_session, "stap.een", nl="Stap één",
-                               en="Step one", categorie_nl="Stappen")
-    twee = registreer_taaksoort(db_session, "stap.twee", nl="Stap twee",
-                                en="Step two", categorie_nl="Stappen")
+    # A definition is DATA and may introduce a task kind (§5.7) — but since
+    # CR-12 phase 4 that kind must have a row, just like a new source. That is
+    # exactly why this list got no enum.
+    step_one = register_task_kind(db_session, "stap.een", nl="Stap één",
+                                  en="Step one", category_nl="Stappen")
+    step_two = register_task_kind(db_session, "stap.twee", nl="Stap twee",
+                                  en="Step two", category_nl="Stappen")
     db_session.add(WorkflowDefinition(code="test2stap", name="Test", steps=[
-        {"kind": een, "title": "Eerst {wie}", "role": "ADMIN"},
-        {"kind": twee, "title": "Dan FINANCE", "role": "FINANCE"},
+        {"kind": step_one, "title": "Eerst {wie}", "role": "ADMIN"},
+        {"kind": step_two, "title": "Dan FINANCE", "role": "FINANCE"},
     ]))
     db_session.flush()
 
@@ -137,13 +137,13 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
-    # CR-12 fase 4: `kind` draagt een foreign key, dus een verzonnen soort komt
-    # er niet meer in. Deze twee registreren zich zoals een nieuwe bron dat
-    # doet — één rij plus haar woorden — en dát is wat de sleutel afdwingt.
-    registreer_taaksoort(db_session, "membership.reminder", nl="Lid herinneren",
-                         en="Remind member", categorie_nl="Lidmaatschap")
-    registreer_taaksoort(db_session, "membership.renewal", nl="Lid vernieuwen",
-                         en="Renew member", categorie_nl="Lidmaatschap")
+    # CR-12 phase 4: `kind` carries a foreign key, so an invented kind no
+    # longer gets in. These two register the way a new source does — one row
+    # plus its words — and that is what the key enforces.
+    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", category_nl="Lidmaatschap")
+    register_task_kind(db_session, "membership.renewal", nl="Lid vernieuwen",
+                         en="Renew member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
                     subject_type="membership", subject_id=1)
     api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
@@ -179,8 +179,8 @@ def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
-    registreer_taaksoort(db_session, "membership.reminder", nl="Lid herinneren",
-                         en="Remind member", categorie_nl="Lidmaatschap")
+    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
+                         en="Remind member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
                     subject_type="membership", subject_id=11)
     api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",

@@ -36,11 +36,11 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     def _cat(k) -> str:
         return (code_of(k) or "").split(".", 1)[0]
 
-    # §2.12: nooit rauwe codes tonen (#630). `kind` is een intern dotted veld
-    # (payment.webhook_mismatch, …) dat als badge op élke taak stond. Sinds
-    # CR-12 fase 4 komen die woorden uit de labeltabel van `task_kind`, en de
-    # categoriekop uit de AFGELEIDE lijst `task_category` — de categorie is het
-    # deel vóór de punt en wordt nergens opgeslagen (§B5.3 noot 5).
+    # §2.12: never show raw codes (#630). `kind` is an internal dotted field
+    # (payment.webhook_mismatch, …) that stood as a badge on every task. Since
+    # CR-12 phase 4 those words come from the label table of `task_kind`, and
+    # the category heading from the DERIVED list `task_category` — the
+    # category is the part before the dot and is stored nowhere (§B5.3 note 5).
     def _kind_label(k) -> str:
         return code_label(TASK_KIND.name, k, db=db) or _("Overige taak")
 
@@ -93,9 +93,9 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
         "kind": kind,
         "status": status,
         "status_opties": code_labels(TASK_STATUS.name, db=db) + [("all", _("Alle"))],
-        # Per taak-id, afgeleid hier: het scherm vergelijkt geen codes (§B4.7).
+        # Per task id, derived here: the screen compares no codes (§B4.7).
         "kind_labels": {t.id: _kind_label(t.kind) for t in tasks},
-        "afgehandeld": {t.id: t.status is TaskStatus.DONE for t in tasks},
+        "is_done": {t.id: t.status is TaskStatus.DONE for t in tasks},
     }
 
 
@@ -215,8 +215,8 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
            "csrf_token": csrf_token_for(raw),
-           # Afgeleid hier, want het scherm vergelijkt geen codes (§B4.7).
-           "afgehandeld": bool(task and task.status is TaskStatus.DONE),
+           # Derived here, because the screen compares no codes (§B4.7).
+           "is_done": bool(task and task.status is TaskStatus.DONE),
            # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
            "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN
                         if task else False),

@@ -484,15 +484,15 @@ def install_enum_guard(env: Any, *, strict: bool) -> None:
         global rendered_under_the_guard
         rendered_under_the_guard += 1
         if isinstance(value, Enum):
-            naam = f"{type(value).__name__}.{value.name}"
+            member_name = f"{type(value).__name__}.{value.name}"
             if strict:
                 raise EnumRendered(
-                    f"a template rendered {naam}, the enum member. A screen gets "
+                    f"a template rendered {member_name}, the enum member. A screen gets "
                     f"the CODE from its view-model (§B4.7) — `code_of(...)` on "
                     f"the view boundary — and its word from the `code_label` "
-                    f"filter. Rendered as it is, {naam} lands in the output, "
+                    f"filter. Rendered as it is, {member_name} lands in the output, "
                     f"equals no code and matches no option.")
-            logger.warning("template rendered %s; showing its code instead", naam)
+            logger.warning("template rendered %s; showing its code instead", member_name)
             return _code_of(value)
         return previous(value) if previous is not None else value
 
