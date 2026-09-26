@@ -29,7 +29,17 @@
       {# #1173: `picker`/`chosen`/`altText` horen in DEZELFDE x-data als `src`,
          want de knop staat in de werkbalk en het dialoogje eronder — twee
          x-data-blokken zouden elkaars keuze niet zien. #}
-      <div x-data="{ src: false, picker: false, chosen: null, altText: '', maat: 'vol' }">
+      {# #1224: `bewerken` onderscheidt invoegen van wijzigen. De gebeurtenis komt
+         uit de werkbalk die de editor zelf bij een geselecteerde bijlage toont
+         (zie `admin_pagina.html`); die knop kan Alpine niet rechtstreeks
+         aanspreken, dus hij stuurt een event en dit blok vangt het op. #}
+      <div x-data="{ src: false, picker: false, chosen: null, altText: '', maat: 'vol', bewerken: false }"
+           @raak-beeld-bewerken.window="bewerken = true; picker = true;
+                                        chosen = { url: $event.detail.url,
+                                                   width: $event.detail.width,
+                                                   height: $event.detail.height };
+                                        altText = $event.detail.alt;
+                                        maat = $event.detail.size">
         {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
            activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
            Trix editor-API; onmousedown houdt de editorfocus vast. #}
@@ -48,7 +58,7 @@
              nieuwe afbeelding wil, laadt ze eerst op bij Media. #}
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" x-show="!src"
                   onmousedown="event.preventDefault()"
-                  @click="picker = true; chosen = null; altText = ''; maat = 'vol'"
+                  @click="picker = true; bewerken = false; chosen = null; altText = ''; maat = 'vol'"
                   title="{{ _('Een afbeelding uit de bibliotheek invoegen') }}">{{ _("Afbeelding") }}</button>
           {% if placeholders %}
           <span class="px-1 py-1 text-gray-400" x-show="!src">{{ _("Invoegen:") }}</span>
@@ -102,7 +112,11 @@
            De alt is verplicht: een uitlegpagina zonder alternatieve tekst is
            onbruikbaar met een schermlezer. Hij begint op de titel uit de
            bibliotheek en blijft bewerkbaar; zonder alt blijft Invoegen uit. #}
-        {% call ui.modal("picker", _("Afbeelding invoegen"), max_w="max-w-2xl") %}
+        {% call ui.modal("picker", _("Afbeelding"), max_w="max-w-2xl") %}
+          {# De kop zegt wat je aan het doen bent; bij bewerken staat de huidige
+             afbeelding al geselecteerd en zijn alt en maat ingevuld. #}
+          <p class="text-sm text-gray-600 mb-3" x-show="!bewerken">{{ _("Kies een afbeelding uit de bibliotheek.") }}</p>
+          <p class="text-sm text-gray-600 mb-3" x-show="bewerken" x-cloak>{{ _("Wijzig de maat of de alternatieve tekst van deze afbeelding.") }}</p>
           {% if page_images %}
           <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {% for beeld in page_images %}
@@ -149,8 +163,26 @@
             {{ ui.btn_secondary(_("Annuleren"), attrs='@click="picker = false"') }}
             {# `disabled:opacity-30` net als de pijltjes in de kit: zonder zichtbare
                uit-stand leest een knop die niets doet als kapot. #}
+            {# Eén knop voor beide standen: bij bewerken werkt ze de BESTAANDE
+               bijlage bij (`setAttributes`, gemeten: geen tweede afbeelding), bij
+               invoegen zet ze er een nieuwe neer. De alt blijft in béide standen
+               verplicht — `:disabled` staat op dezelfde voorwaarde, zodat
+               bewerken geen weg om die regel heen wordt. #}
+            {# Twee knoppen en geen label-uitdrukking: een `~ _("…")` in een
+               attrs-string maakt de knop stil inert, want `_()` levert Markup en
+               Jinja escapet dan de andere helft (#514/#613/#616, en er staat een
+               poort op). Elk van de twee draagt haar eigen tekst.
+
+               In béide standen staat `:disabled` op dezelfde voorwaarde: de alt
+               blijft verplicht, ook bij bewerken — anders zou wijzigen een weg om
+               die toegankelijkheidsregel heen worden. #}
             {{ ui.btn_primary(_("Invoegen"), type="button", cls="disabled:opacity-30",
-                              attrs='@click="insertPageImage(chosen, altText, maat); picker = false"'
+                              attrs='x-show="!bewerken"'
+                                    ' @click="insertPageImage(chosen, altText, maat); picker = false"'
+                                    ' :disabled="!chosen || !altText.trim()"') }}
+            {{ ui.btn_primary(_("Bijwerken"), type="button", cls="disabled:opacity-30",
+                              attrs='x-show="bewerken" x-cloak'
+                                    ' @click="updatePageImage(chosen, altText, maat); picker = false"'
                                     ' :disabled="!chosen || !altText.trim()"') }}
           </div>
           {% else %}
