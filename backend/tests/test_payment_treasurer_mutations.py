@@ -51,7 +51,7 @@ def _login(client, db, *roles):
     roles = roles or ("FINANCE",)
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for role in roles:
-        if not any(r.role_code == role for r in user.roles):
+        if not any(r.role_code.value == role for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=role))
     db.flush()
     value = make_session_value(SEEDED_ADMIN_EMAIL)

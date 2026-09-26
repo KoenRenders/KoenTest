@@ -1,3 +1,4 @@
+from app.domains.mdm.api import OrganizationType
 """Tenants aanmaken en instellen (#635 G).
 
 Deze regels stonden volledig inline in `app/ui/tenants_ui.py`: de slug-vorm, de
@@ -25,7 +26,7 @@ def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
 
     from app.kernel.tenant_config import get_setting
 
-    assert org.org_type == "UNIT" and org.is_active is True
+    assert org.org_type == OrganizationType.UNIT and org.is_active is True
     # #945: de naam staat één keer, op de organisatie. `create_tenant` schreef hem
     # daarnaast als `display_name`-instelling weg — een tweede bron, aangelegd op
     # het moment van aanmaken, en dat is precies waar er twee uit elkaar gaan lopen.

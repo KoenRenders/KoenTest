@@ -31,6 +31,7 @@ from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
                             seed_postal_code)
 from tests.test_reporting_panel_ui import login
+from app.kernel.codes import reset_label_cache
 
 ACCOUNT_ID = 1          # Raak vzw — de rechtspersoon, géén tenant
 MILLEGEM_ID = 2         # de afdeling die live staat
@@ -274,10 +275,22 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
     hele reden om een codelijst te hebben; een tweede opsomming in een sjabloon zou
     een tweede plek voor hetzelfde feit zijn.
     """
+    # CR-12 fase 2: een rij toevoegen is nu twee rijen — de code en haar label —
+    # want de lijst is gesplitst. Dat is wat een tweede taal mogelijk maakt, en
+    # het is precies wat deze test hoort te tonen: de dropdown groeit nog steeds
+    # mee, zonder codewijziging.
     db_session.execute(text(
-        "INSERT INTO mdm.legal_form_codes (code, language, value) "
-        "VALUES ('STICHTING', 'nl', 'Stichting')"))
+        "INSERT INTO mdm.legal_form_codes (code, sort_order, is_active, created_at) "
+        "VALUES ('STICHTING', 40, true, now())"))
+    db_session.execute(text(
+        "INSERT INTO mdm.legal_form_labels "
+        "(code, language, value, created_at, updated_at) "
+        "VALUES ('STICHTING', 'nl', 'Stichting', now(), now())"))
     db_session.flush()
+    # De labelcache leest via een eigen sessie (§B2.4) en ziet deze rijen pas na
+    # een commit; daarna moet hij wél opnieuw lezen.
+    db_session.commit()
+    reset_label_cache()
 
     _operator(client, db_session)
     html = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text

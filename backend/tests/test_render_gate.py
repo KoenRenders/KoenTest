@@ -39,7 +39,7 @@ def _login(client, db):
     gate precies de knoppen niet die stuk waren."""
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for rol in ("FINANCE", "OPERATOR"):
-        if not any(r.role_code == rol for r in user.roles):
+        if not any(r.role_code.value == rol for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=rol))
     db.flush()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))

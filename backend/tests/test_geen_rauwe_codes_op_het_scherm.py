@@ -21,7 +21,7 @@ RAUW = ("payment.webhook_mismatch", "mail.definitief_gefaald", "kernel.job_gefaa
 def _login(client, db):
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for rol in ("FINANCE", "OPERATOR"):
-        if not any(r.role_code == rol for r in user.roles):
+        if not any(r.role_code.value == rol for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=rol))
     db.flush()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))

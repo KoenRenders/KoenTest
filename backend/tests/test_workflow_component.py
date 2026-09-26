@@ -6,6 +6,7 @@ import pytest
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
 from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance, WorkflowTask
+from app.domains.auth.api import Role
 
 
 def test_definitie_start_advance_complete(db_session):
@@ -27,7 +28,7 @@ def test_definitie_start_advance_complete(db_session):
              .filter(WorkflowTask.instance_id == instance.id)
              .order_by(WorkflowTask.id).all())
     assert len(taken) == 2 and taken[1].kind == "stap.twee"
-    assert taken[1].required_role == "FINANCE"
+    assert taken[1].required_role == Role.FINANCE
     assert instance.status == "running" and instance.current_step == 1
 
     # Afwijzing is óók een beslissing: besluit bewaard, flow eindigt gewoon.

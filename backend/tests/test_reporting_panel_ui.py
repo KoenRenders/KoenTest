@@ -34,7 +34,11 @@ def login(client, db, email=ADMIN_EMAIL, roles=("ADMIN",)) -> str:
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()
-    bestaand = {r.role_code for r in user.roles}
+    # `.value`: sinds CR-12 fase 2 draagt de kolom een `Role`-lid, en de
+    # aanroepers geven codes door. Zonder deze stap is de vergelijking
+    # altijd onwaar en probeert de helper dezelfde rol twee keer toe te
+    # kennen — wat de unieke index terecht weigert.
+    bestaand = {r.role_code.value for r in user.roles}
     for role in roles:
         if role not in bestaand:
             db.add(UserRole(user_id=user.id, role_code=role))
