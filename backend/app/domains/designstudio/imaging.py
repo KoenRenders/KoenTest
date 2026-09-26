@@ -40,15 +40,16 @@ from decimal import Decimal
 import httpx
 
 from app.config import settings
+from app.domains.chatbot.api import AiCapability, AiProvider, AiSurface
 from app.kernel.clock import belgian_today
 
 logger = logging.getLogger(__name__)
 
-PROVIDER = "bfl"
+PROVIDER = AiProvider.BFL
 ENDPOINT = "https://api.eu.bfl.ai/v1/flux-2-pro"
 MODEL = "flux-2-pro"
-SURFACE = "designstudio"
-CAPABILITY = "image"
+SURFACE = AiSurface.DESIGNSTUDIO
+CAPABILITY = AiCapability.IMAGE
 
 #: FLUX.2 [pro] prices per image: 4.5 credits up to 2 MP, 6 with a reference
 #: image (measured in iteration 08; a credit is USD 0.01 at list price).
@@ -107,7 +108,7 @@ def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
     # Through the seam like every other LLM call (test_ai_log_coverage_gate):
     # the guard logs the call — provider, model, cost, duration — under this
     # component's surface and the capability "translate".
-    rules = replace(admin_rules(lambda: set(), capability="translate", scan_prompt_names=False), surface=SURFACE)
+    rules = replace(admin_rules(lambda: set(), capability=AiCapability.TRANSLATE, scan_prompt_names=False), surface=SURFACE)
     provider = GuardedProvider(get_provider(), rules, sink_for(actor))
     if provider.name == "mock":
         return text, False

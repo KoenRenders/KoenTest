@@ -22,7 +22,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from .models import AiCallLog
+from .models import AiCallLog, AiCapability, AiProvider, AiStatus, AiSurface
 
 BELGIUM = ZoneInfo("Europe/Brussels")
 
@@ -39,8 +39,8 @@ def month_period(day: date) -> tuple[datetime, datetime]:
 class CostLine:
     """The calls of one provider and capability in a period."""
 
-    provider: str
-    capability: str
+    provider: Optional[AiProvider]
+    capability: AiCapability
     calls: int
     tokens_prompt: int
     tokens_completion: int
@@ -67,7 +67,7 @@ def cost_per_period(db: Session, *, tenant_id: int, start: datetime,
         .group_by(AiCallLog.provider, AiCallLog.capability, AiCallLog.cost_currency)
         .all()
     )
-    lines: dict[tuple[str, str], dict] = {}
+    lines: dict[tuple[Optional[AiProvider], AiCapability], dict] = {}
     for provider, capability, currency, calls, prompt, completion, credits, amount in rows:
         line = lines.setdefault((provider, capability), {
             "calls": 0, "prompt": 0, "completion": 0, "credits": None, "amounts": {}})
@@ -82,7 +82,10 @@ def cost_per_period(db: Session, *, tenant_id: int, start: datetime,
         CostLine(provider=provider, capability=capability, calls=v["calls"],
                  tokens_prompt=v["prompt"], tokens_completion=v["completion"],
                  cost_credits=v["credits"], cost_amounts=v["amounts"])
-        for (provider, capability), v in sorted(lines.items())
+        # Members do not order; their codes do. No provider sorts first.
+        for (provider, capability), v in sorted(
+            lines.items(),
+            key=lambda item: (item[0][0].value if item[0][0] else "", item[0][1].value))
     ]
 
 
@@ -92,13 +95,13 @@ class CallRow:
 
     id: int
     created_at: datetime
-    surface: str
-    capability: str
+    surface: AiSurface
+    capability: AiCapability
     actor: str
     model: str
-    provider: str
+    provider: Optional[AiProvider]
     endpoint: str
-    status: str
+    status: AiStatus
     duration_ms: Optional[int]
     tokens_prompt: Optional[int]
     tokens_completion: Optional[int]

@@ -27,7 +27,7 @@ import pytest
 from sqlalchemy import text as sql_text
 
 from app.database import SessionLocal
-from app.domains.chatbot.api import (GuardedProvider, SeamBlocked, admin_rules,
+from app.domains.chatbot.api import (AiCapability, AiProvider, GuardedProvider, SeamBlocked, admin_rules,
                                      cost_per_period, list_calls, month_period,
                                      sink_for)
 from app.domains.chatbot.providers import mistral as mistral_mod
@@ -133,14 +133,14 @@ def test_a_failed_call_is_logged_as_an_error(db_session, leeg_logboek, monkeypat
 
 def test_an_unknown_status_is_refused():
     with pytest.raises(ValueError):
-        sink_for()(surface="admin", capability="x", model="m", payload="",
+        sink_for()(surface="admin", capability="reporting", model="m", payload="",
                    status="misschien")
 
 
 # ── Cost: stored, summed, per department ─────────────────────────────────────
 
 def _beeld(tenant_id, **extra):
-    velden = dict(surface="admin", capability="design", model="flux-2-pro",
+    velden = dict(surface="designstudio", capability="image", model="flux-2-pro",
                   payload="[prompt]", provider="bfl", endpoint="/v1/flux-2-pro",
                   cost_credits=4.5, cost_amount=0.045, cost_currency="usd",
                   output_megapixels=1.96, tenant_id=tenant_id)
@@ -157,7 +157,8 @@ def test_a_cost_is_stored_and_summed_for_its_own_department_only(
     start, end = month_period(date.today())
     [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
 
-    assert (lijn.provider, lijn.capability, lijn.calls) == ("bfl", "design", 2)
+    assert (lijn.provider, lijn.capability, lijn.calls) == (
+        AiProvider.BFL, AiCapability.IMAGE, 2)
     assert lijn.cost_credits == Decimal("9.0")
     assert lijn.cost_amounts == {"USD": Decimal("0.090")}
 
@@ -233,6 +234,11 @@ def test_the_migration_labels_the_rows_that_were_there(db_session, leeg_logboek)
     written the way the old code wrote them."""
     eigen = SessionLocal()
     try:
+        # The pre-130 shape — '' for provider and capability — is what migration
+        # 163 made impossible: its foreign keys refuse ''. This session sets the
+        # key triggers aside to write the old rows; the backfill is what is
+        # under test here, not the keys.
+        eigen.execute(sql_text("SET LOCAL session_replication_role = replica"))
         for model, reden in (("mistral-small-latest", ""),
                              ("mistral-medium-latest", "een e-mailadres"),
                              ("recorder-1", "")):

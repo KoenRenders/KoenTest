@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -19,11 +20,14 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import require_admin_ui
-from app.domains.chatbot.api import cost_per_period, list_calls, month_period
+from app.domains.chatbot.api import (AI_CAPABILITY, AI_PROVIDER, AI_STATUS, AI_SURFACE,
+                                     AiCapability, AiProvider, AiStatus, AiSurface,
+                                     cost_per_period, list_calls, month_period)
 from app.domains.chatbot.viewmodels import (AiCallLine, AiCallListView, AiCostLine,
                                             AiCostView)
 from app.i18n import _, current_locale
 from app.kernel.clock import belgian_today
+from app.kernel.codes import code_label, register_tones, tone
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -32,27 +36,25 @@ router = APIRouter(include_in_schema=False)
 PATH = "/admin/info/ai-kosten"
 PER_PAGE = 50
 
-SURFACE_LABELS = {"public": "Publiek", "admin": "Beheer"}
-CAPABILITY_LABELS = {
-    "reporting": "Rapporten",
-    "newsletter_drafting": "Nieuwsbrief",
-    "ocr": "Documenten lezen",
-    "dictation": "Dicteren",
-}
-STATUS_LABELS = {"ok": "Gelukt", "blocked": "Tegengehouden", "error": "Mislukt",
-                 "moderated": "Geweigerd door de provider"}
-STATUS_TONES = {"ok": "green", "blocked": "yellow", "error": "red", "moderated": "yellow"}
+# CR-12 phase 4: the words of surface, capability, status and provider come
+# from their label tables; the dictionaries that stood here became their seed.
+# The badge tone stays here, next to the screen that draws it (§B4.5): a
+# refusal — ours or the provider's — is a warning, not a failure.
+register_tones(AI_STATUS.name, {
+    AiStatus.OK: "green",
+    AiStatus.BLOCKED: "yellow",
+    AiStatus.ERROR: "red",
+    AiStatus.MODERATED: "yellow",
+})
 
 
-def _capability(capability: str) -> str:
-    if capability in CAPABILITY_LABELS:
-        return _(CAPABILITY_LABELS[capability])
-    return capability or _("Chat")
+def _what(surface: AiSurface, capability: AiCapability) -> str:
+    return (f"{code_label(AI_SURFACE.name, surface)} · "
+            f"{code_label(AI_CAPABILITY.name, capability)}")
 
 
-def _what(surface: str, capability: str) -> str:
-    schil = _(SURFACE_LABELS[surface]) if surface in SURFACE_LABELS else surface
-    return f"{schil} · {_capability(capability)}"
+def _provider(provider: Optional[AiProvider]) -> str:
+    return code_label(AI_PROVIDER.name, provider) if provider else "—"
 
 
 def _number(value: Decimal, places: int) -> str:
@@ -95,9 +97,9 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
             what=_what(r.surface, r.capability),
             actor=r.actor or "—",
             model=r.model or "—",
-            provider=r.provider or "—",
-            status_label=_(STATUS_LABELS[r.status]) if r.status in STATUS_LABELS else "—",
-            status_tone=STATUS_TONES.get(r.status, "gray"),
+            provider=_provider(r.provider),
+            status_label=code_label(AI_STATUS.name, r.status),
+            status_tone=tone(AI_STATUS.name, r.status),
             duration=(f"{_number(Decimal(r.duration_ms) / 1000, 1)} s"
                       if r.duration_ms is not None else "—"),
             cost=cost,
@@ -123,8 +125,8 @@ def ai_costs(request: Request, db: Session = Depends(get_db),
     start, end = month_period(eerste)
     totals = [
         AiCostLine(
-            what=_capability(line.capability),
-            provider=line.provider or "—",
+            what=code_label(AI_CAPABILITY.name, line.capability),
+            provider=_provider(line.provider),
             calls=line.calls,
             tokens=_number(Decimal(line.tokens_prompt + line.tokens_completion), 0),
             credits=(_number(line.cost_credits, 2) if line.cost_credits is not None else "—"),

@@ -22,8 +22,6 @@ has to go.
 #: explicitly a net and not a proof: a column called `categorie` escapes it
 #: until someone registers it.
 FK_MISSING: frozenset[str] = frozenset({
-    'ai.ai_call_log.provider',
-    'ai.ai_call_log.status',
     'auth.login_tokens.otp_code',
     'designstudio.design_highlights.icon_code',
     'designstudio.design_renditions.size_code',
@@ -49,9 +47,6 @@ ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
 #: Label dictionaries in Python — the shape this change request removes.
 #: Key: `path/to/file.py:NAME`.
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
-    'app/domains/chatbot/admin_ui.py:CAPABILITY_LABELS',
-    'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
-    'app/domains/chatbot/admin_ui.py:SURFACE_LABELS',
     'app/domains/cms/render.py:PLACEHOLDER_LABELS',
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
     'app/ui/organisaties_ui.py:SOORT_LABELS',

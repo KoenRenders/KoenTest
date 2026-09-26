@@ -24,7 +24,7 @@ from typing import Callable
 
 from app.database import SessionLocal
 
-from .models import AiCallLog
+from .models import AiCallLog, AiCapability, AiProvider, AiStatus, AiSurface
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +33,6 @@ logger = logging.getLogger(__name__)
 # silently, so the fold-out never suggests it is showing everything when it is not.
 MAX_PAYLOAD = 100_000
 _CUT = "\n… [afgekapt: de payload was groter dan het logboek bewaart]"
-
-
-#: The values `status` takes (#978). Empty is not one of them: a row that does
-#: not say how the call went cannot be counted either way.
-STATUSES = ("ok", "blocked", "error", "moderated")
 
 
 def sink_for(actor: str = "") -> Callable[..., None]:
@@ -51,10 +46,12 @@ def sink_for(actor: str = "") -> Callable[..., None]:
     tenant in its context, and the row would otherwise land on the default one.
     """
 
-    def write(*, surface: str, capability: str, model: str, payload: str,
+    def write(*, surface: AiSurface, capability: AiCapability = AiCapability.CHAT,
+              model: str, payload: str,
               blocked_reason: str = "", usage: dict[str, int] | None = None,
-              provider: str = "", endpoint: str = "", provider_request_id: str = "",
-              status: str = "", duration_ms: int | None = None,
+              provider: AiProvider | str | None = None, endpoint: str = "",
+              provider_request_id: str = "",
+              status: AiStatus | None = None, duration_ms: int | None = None,
               cost_credits: Decimal | float | None = None,
               cost_amount: Decimal | float | None = None,
               cost_currency: str | None = None,
@@ -62,22 +59,22 @@ def sink_for(actor: str = "") -> Callable[..., None]:
               tenant_id: int | None = None) -> None:
         text = payload if len(payload) <= MAX_PAYLOAD else payload[:MAX_PAYLOAD] + _CUT
         counts = usage or {}
-        status = status or ("blocked" if blocked_reason else "ok")
-        if status not in STATUSES:
-            raise ValueError(f"onbekende status voor het AI-logboek: {status!r}")
+        status = status or (AiStatus.BLOCKED if blocked_reason else AiStatus.OK)
         rij = AiCallLog(
-            surface=surface,
-            capability=capability or "",
+            # Through the enum, so an unknown code raises here, in the caller's
+            # stack, and not later as a foreign-key error in a session of its own.
+            surface=AiSurface(surface),
+            capability=AiCapability(capability),
             actor=actor or "",
             model=model or "",
             payload=text,
             tokens_prompt=counts.get("prompt"),
             tokens_completion=counts.get("completion"),
             blocked_reason=blocked_reason or "",
-            provider=(provider or "")[:32],
+            provider=AiProvider(provider) if provider else None,
             endpoint=(endpoint or "")[:128],
             provider_request_id=(provider_request_id or "")[:128],
-            status=status,
+            status=AiStatus(status),
             duration_ms=duration_ms,
             cost_credits=_decimal(cost_credits),
             cost_amount=_decimal(cost_amount),

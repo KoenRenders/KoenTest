@@ -31,7 +31,8 @@ import httpx
 from app.config import settings
 from app.database import SessionLocal
 from app.domains.media.models import MediaAsset
-from app.domains.chatbot.api import ChatbotInfo, sink_for
+from app.domains.chatbot.api import (AiCapability, AiProvider, AiStatus, AiSurface,
+                                     ChatbotInfo, sink_for)
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,7 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
         document = {"type": "image_url", "image_url": data_uri}
 
     begin = time.monotonic()
-    status, request_id = "error", ""
+    status, request_id = AiStatus.ERROR, ""
     try:
         response = httpx.post(
             MISTRAL_OCR_URL,
@@ -110,7 +111,7 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
         )
         response.raise_for_status()
         data = response.json()
-        status, request_id = "ok", str(data.get("id") or "")
+        status, request_id = AiStatus.OK, str(data.get("id") or "")
     finally:
         _log_ocr(raw, content_type, tenant_id=tenant_id, status=status,
                  request_id=request_id,
@@ -120,12 +121,12 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
 
 
 def _log_ocr(raw: bytes, content_type: str, *, tenant_id: Optional[int],
-             status: str, request_id: str, duration_ms: int) -> None:
+             status: AiStatus, request_id: str, duration_ms: int) -> None:
     try:
         sink_for()(
-            surface="admin", capability="ocr", model=settings.ocr_model,
+            surface=AiSurface.ADMIN, capability=AiCapability.OCR, model=settings.ocr_model,
             payload=f"[document: {content_type}, {len(raw)} bytes]",
-            provider="mistral", endpoint="ocr", provider_request_id=request_id,
+            provider=AiProvider.MISTRAL, endpoint="ocr", provider_request_id=request_id,
             status=status, duration_ms=duration_ms, tenant_id=tenant_id,
         )
     except Exception:  # pragma: no cover - a log must not break the reading

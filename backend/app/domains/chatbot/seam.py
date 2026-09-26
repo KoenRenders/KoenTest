@@ -70,13 +70,10 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Sequence
 
+from .models import AiCapability, AiStatus, AiSurface
 from .providers.base import AssistantMessage, LLMProvider
 
 logger = logging.getLogger(__name__)
-
-# The two surfaces. A capability pack names one; the guard reads its rules from it.
-SURFACE_PUBLIC = "public"
-SURFACE_ADMIN = "admin"
 
 
 class SeamBlocked(RuntimeError):
@@ -149,8 +146,9 @@ class GuardRules:
     a check it does not run.
     """
 
-    surface: str
-    capability: str = ""
+    # A capability pack names its surface; the guard reads its rules from it.
+    surface: AiSurface
+    capability: AiCapability = AiCapability.CHAT
     match_names: bool = False
     match_email: bool = False
     #: Of het system-bericht meegescand wordt op namen. Standaard aan: wie er niets
@@ -163,11 +161,11 @@ class GuardRules:
 
 def public_rules() -> GuardRules:
     """The public bot: patterns only. Its contact path exists to collect a name."""
-    return GuardRules(surface=SURFACE_PUBLIC, match_names=False,
+    return GuardRules(surface=AiSurface.PUBLIC, match_names=False,
                       match_email=False, message=_PUBLIC_MESSAGE)
 
 
-def admin_rules(names: Callable[[], set[str]], *, capability: str,
+def admin_rules(names: Callable[[], set[str]], *, capability: AiCapability,
                 scan_prompt_names: bool = True) -> GuardRules:
     """The back office: everything on. Nothing here is anybody's own name to give.
 
@@ -175,7 +173,7 @@ def admin_rules(names: Callable[[], set[str]], *, capability: str,
     a declaration rather than from stored content — see the module docstring, and
     prove it with a test before passing it.
     """
-    return GuardRules(surface=SURFACE_ADMIN, capability=capability,
+    return GuardRules(surface=AiSurface.ADMIN, capability=capability,
                       match_names=True, match_email=True,
                       scan_prompt_names=scan_prompt_names, names=names)
 
@@ -335,7 +333,7 @@ class GuardedProvider(LLMProvider):
         except Exception:
             # #978: the payload left, so the call counts — a failed call is
             # still a call the provider may bill.
-            self._log(text, status="error", duration_ms=_ms_since(begin))
+            self._log(text, status=AiStatus.ERROR, duration_ms=_ms_since(begin))
             raise
         self._log(text, usage=getattr(reply, "usage", None),
                   duration_ms=_ms_since(begin),
@@ -343,7 +341,8 @@ class GuardedProvider(LLMProvider):
         return reply
 
     def _log(self, text: str, *, blocked_reason: str = "",
-             usage: Optional[dict[str, int]] = None, status: str = "",
+             usage: Optional[dict[str, int]] = None,
+             status: Optional[AiStatus] = None,
              duration_ms: Optional[int] = None,
              provider_request_id: str = "") -> None:
         if self._sink is None:
@@ -356,10 +355,10 @@ class GuardedProvider(LLMProvider):
                 payload=text,
                 blocked_reason=blocked_reason,
                 usage=usage or {},
-                provider=getattr(self._inner, "name", "") or "",
+                provider=getattr(self._inner, "name", "") or None,
                 endpoint=getattr(self._inner, "endpoint", "") or "",
                 provider_request_id=provider_request_id,
-                status=status or ("blocked" if blocked_reason else "ok"),
+                status=status or (AiStatus.BLOCKED if blocked_reason else AiStatus.OK),
                 duration_ms=duration_ms,
             )
         except Exception:  # pragma: no cover - a log must not break an answer
