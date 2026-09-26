@@ -36,9 +36,7 @@ from app.domains.meetings.models import (
     SECTION_MISC,
     SECTION_UPCOMING,
     STANDARD_SECTIONS,
-    STATUS_AGENDA,
-    STATUS_REPORT,
-    STATUS_SENT,
+    MeetingStatus,
     Meeting,
     MeetingAttendance,
     MeetingExtraRecipient,
@@ -147,7 +145,7 @@ def create_meeting(db: Session, *, meeting_date: date,
         location = previous.location
 
     meeting = Meeting(meeting_date=meeting_date, start_time=start_time,
-                      location=location, status=STATUS_AGENDA)
+                      location=location, status=MeetingStatus.AGENDA)
     db.add(meeting)
     db.flush()
     _seed_sections(db, meeting)
@@ -340,8 +338,8 @@ def _touch(db: Session, meeting: Meeting) -> None:
     Not a button: taking attendance or typing a note *is* entering the report
     phase (§3.23). A sent meeting stays sent until it is explicitly reopened.
     """
-    if meeting.status == STATUS_AGENDA:
-        meeting.status = STATUS_REPORT
+    if meeting.status == MeetingStatus.AGENDA:
+        meeting.status = MeetingStatus.REPORT
 
 
 def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
@@ -775,7 +773,7 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
         _touch(db, meeting)
     else:
         meeting.report_sent_at = now
-        meeting.status = STATUS_SENT
+        meeting.status = MeetingStatus.SENT
     db.commit()
 
 
@@ -785,14 +783,14 @@ def reopen(db: Session, meeting: Meeting) -> None:
     The earlier PDF stays archived; resending adds a second one. History never
     loses a version that went out.
     """
-    if meeting.status != STATUS_SENT:
+    if meeting.status != MeetingStatus.SENT:
         return
-    meeting.status = STATUS_REPORT
+    meeting.status = MeetingStatus.REPORT
     db.commit()
 
 
 def _refuse_when_sent(meeting: Meeting) -> None:
-    if meeting.status == STATUS_SENT:
+    if meeting.status == MeetingStatus.SENT:
         raise MeetingError(
             _("Het verslag is verstuurd. Heropen het eerst om nog te wijzigen."))
 
@@ -912,7 +910,7 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
         out.append(DocumentSection(
             id=section.id, kind=section.kind, label=section_label(section),
             subtitle=_subtitle_for(section.kind), items=items,
-            can_add=meeting.status != STATUS_SENT))
+            can_add=meeting.status != MeetingStatus.SENT))
     return out
 
 
@@ -1066,7 +1064,7 @@ def sent_reports(db: Session, limit: int = 24) -> list[Meeting]:
     """The reports that went out, newest first — what the newsletter composer
     may tick as a whole (Koen, 17 September 2026)."""
     return (db.query(Meeting)
-            .filter(Meeting.status == STATUS_SENT)
+            .filter(Meeting.status == MeetingStatus.SENT)
             .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
             .limit(limit).all())
 

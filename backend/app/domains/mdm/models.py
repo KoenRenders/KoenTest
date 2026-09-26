@@ -393,6 +393,48 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
 
 
+class LanguageCode(Base):
+    """Which languages a label may be written in (CR-12 phase 0).
+
+    The smallest list in the codebase and the one every other list depends on:
+    the ``language`` column of every ``_labels`` table points here, so a typo
+    like ``nl_BE`` or ``NL`` in a label row is refused by the database instead
+    of quietly producing a label nobody ever reads.
+
+    It lives in ``mdm`` because it is used by every domain, which is the
+    definition of master data (§B4.1). That makes it the one named exception to
+    "no cross-schema foreign keys": a label table in any schema points at this
+    one. ``mdm`` depends on no business domain, so no cycle can arise.
+
+    Language **codes**, not locales: ``nl``, not ``nl_BE``. The tenant setting
+    stays a locale (``nl_BE`` decides how a date reads); the label lookup takes
+    the language part of it (§F8).
+    """
+
+    __tablename__ = "language_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class LanguageLabel(Base):
+    """The name of a language, in each language (CR-12 phase 0)."""
+
+    __tablename__ = "language_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
 class IdentificationScheme(Base):
     """Welke identificatieschema's bestaan (#945) — de identiteit.
 

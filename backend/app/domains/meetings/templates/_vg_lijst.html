@@ -9,7 +9,8 @@
      class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
     <div class="flex items-center gap-3 flex-wrap">
       <span class="font-semibold text-ink">{{ dates[meeting.id] }}</span>
-      {{ ui.badge(status_labels[meeting.id], status_tones[meeting.id]) }}
+      {{ ui.badge(meeting.status | code_label("meeting_status"),
+                  meeting.status | tone("meeting_status")) }}
       {% if meeting.location %}<span class="text-sm text-ink-soft">{{ meeting.location }}</span>{% endif %}
       {% if meeting.report_sent_at %}
       <span class="text-sm text-ink-soft ml-auto">{{ _("verslag verstuurd") }}</span>
