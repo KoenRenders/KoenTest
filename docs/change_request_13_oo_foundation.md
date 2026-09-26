@@ -106,7 +106,8 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R7 | The numbers of A2 appear in every release issue and may only move one way. | Must | CR-04, #755 | the meter before the gate |
 | R8 | New names are English; each domain has one exception class, English, with the existing Dutch name kept as an alias. | Must | Koen, 27 Sep 2026 | option (b) |
 | R9 | Renaming `Member → Household`. | Won't | Koen, 27 Sep 2026 | "hoort niet bij deze change request" — its own CR if ever |
-| R10 | Full DDD machinery: separate domain objects, repositories, domain events, CQRS. | Won't | CR-04, handover | rich ORM entity is the style; see Non-goals |
+| R10 | Full DDD machinery: separate domain objects, repositories, domain events. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
+| R11 | CQRS — a separate write model (commands through the domain's rules) and a separate flat read model for reports. | Won't | Koen, 27 Sep 2026 | its win is that reads and writes scale apart, at very large scale; its price is two models kept in sync. Reporting (CR-06) reads the tables directly, and that suffices. |
 
 ## A6. Non-functional requirements
 
@@ -573,6 +574,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | CQRS is a separate Won't (R11): reporting reads the tables, and that suffices. | Koen |
 | 27 Sep 2026 | #760 (confirmations) and #761 (tiebreakers) are out of this CR — UI and query hygiene, not a rule's home; they stay open as their own issues. #755 and #757 are reused as the phase-0 and phase-1 issues. | Koen |
 | 27 Sep 2026 | Exceptions: one English class per domain at first touch, the Dutch `*Fout` name kept as alias (option b). | Koen |
 | 27 Sep 2026 | The module shape is a deliverable with a gate; hard for modules created after phase 0. | Koen |
@@ -600,8 +602,14 @@ difference between an exemption list and a burn-down.
 ## Non-goals
 
 - **`Member → Household`** (Koen, 27 Sep): not this CR; its own CR if ever.
-- **No full DDD**: no separate domain objects, no repositories, no domain
-  events, no CQRS. The model is the object.
+- **No full DDD** (R10): no separate domain objects (a second `Registration`
+  with a field-by-field translation to the ORM one — every column twice),
+  no repositories (a layer that repeats what the SQLAlchemy session already
+  is), no domain events beyond the small `kernel/events.py` that exists.
+  The model is the object.
+- **No CQRS** (R11, Koen, 27 Sep 2026): no separate write and read models.
+  Reports (CR-06) read the tables; two models kept in sync would solve a
+  scale problem this platform does not have.
 - **No renaming** of existing Dutch identifiers; aliases only (B4.4).
 - **No screen sweep (#758), no e2e track (#759), no confirmation sweep
   (#760), no tiebreaker gate (#761)** — separate issues; the last two are
