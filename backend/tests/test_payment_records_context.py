@@ -8,7 +8,7 @@ def test_registration_record_exposes_component(client, db_session, admin_headers
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert resp.status_code in (200, 201), resp.text
@@ -26,7 +26,7 @@ def test_registration_record_exposes_structured_communication(client, db_session
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert resp.status_code in (200, 201), resp.text

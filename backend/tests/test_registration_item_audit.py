@@ -14,6 +14,7 @@ from app.domains.activities.api import ActivityProduct
 from app.domains.activities.api import RegistrationItemHistory
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -27,7 +28,7 @@ def _register(client, db, comp, product, qty=1):
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": qty}],
     })
     assert resp.status_code in (200, 201), resp.text
@@ -81,7 +82,7 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
 
     # Penningmeester bevestigt de overschrijving van €18.
     charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
     ).first()
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "18.00"}, headers=admin_headers)
@@ -101,9 +102,9 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
 
     # Penningmeester bevestigt de terugstorting → nu pas vereffend.
     refund = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund").order_by(PaymentRecord.created_at.desc()).first()
-    assert refund.status == "pending" and refund.amount_paid is None
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == PaymentType.REFUND).order_by(PaymentRecord.created_at.desc()).first()
+    assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
     client.patch(f"/api/v1/payment-status/records/{refund.id}",
                  json={"status": "paid"}, headers=admin_headers)
     bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",

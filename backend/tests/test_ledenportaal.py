@@ -4,6 +4,8 @@ from datetime import date, timedelta
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
 from tests.conftest import create_test_family, seed_postal_code
+from app.domains.payment.api import PayableType
+from app.domains.mdm.api import PaymentMethod
 
 
 def _login_as(client, email):
@@ -100,9 +102,9 @@ def test_vernieuwen_via_overschrijving(db_session):
     result = renew_membership(person=person, db=db_session, payment_method="transfer")
     assert result["checkout_url"] is None and result["payment_method"] == "transfer"
     charge = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.payable_type == "membership")
+              .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
               .order_by(PaymentRecord.id.desc()).first())
-    assert charge is not None and charge.method == "transfer"
+    assert charge is not None and charge.method == PaymentMethod.TRANSFER
     assert charge.structured_communication  # OGM gezet voor de overschrijving
 
 

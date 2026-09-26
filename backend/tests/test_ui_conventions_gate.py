@@ -591,7 +591,12 @@ def test_geen_aanmaak_modal_in_de_admin():
 # ── Rauwe codes en terminologie (#630) ───────────────────────────────────────
 INFINITIEF = re.compile(r'_\("(Verwijder|Annuleer)"\)')
 # Een badge die rechtstreeks een DB-veld toont i.p.v. een gemapt label.
-RAUWE_BADGE = re.compile(r'badge\(\s*[a-z_]+\.(status|kind|method)\b')
+# Since CR-12, `| code_label("<list>")` is exactly the mapping this rule asks
+# for: the code goes through the label table before it reaches the badge.
+# Without this exception the gate would reject the correct solution and block
+# the very pattern it means to enforce.
+RAUWE_BADGE = re.compile(
+    r'badge\(\s*[a-z_]+\.(status|kind|method)\b(?!\s*\|\s*code_label)')
 # Leveranciersnamen die in een knoplabel niets te zoeken hebben.
 LEVERANCIERS = ("Mollie", "Stripe", "Umami", "Mistral", "Voxtral", "Gmail")
 KNOPLABEL = re.compile(r'btn_\w+\(\s*_\("([^"]+)"\)')

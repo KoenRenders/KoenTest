@@ -57,6 +57,15 @@ from app.i18n import install_jinja_i18n  # noqa: E402
 
 install_jinja_i18n(templates.env)
 
+# CR-12: `{{ code | code_label("meeting_status") }}` and `| tone(...)`. The one
+# way a template turns a code into text, so the Dutch words of a status live in
+# the label table and not in a dictionary inside a screen. Registered here, next
+# to gettext, because the two answer the same question for two kinds of string:
+# `_()` for a sentence, `code_label` for a fact about a code.
+from app.kernel.codes import install_jinja_codes  # noqa: E402
+
+install_jinja_codes(templates.env)
+
 
 # #974: de opmaak zelf staat in `app.i18n.long_date`, zodat een domein dezelfde
 # woorden kan gebruiken zonder de UI-laag te importeren.
@@ -102,12 +111,16 @@ templates.env.filters["meetwaarde"] = _meetwaarde
 
 
 # Relatietype leesbaar tonen (#476): ruwe code → label i.p.v. "HOOFDLID".
-_RELATIE_LABELS = {"HOOFDLID": "Hoofdlid", "PARTNER": "Partner",
-                   "KIND": "(meerderjarig) kind"}
-
-
+#
+# CR-12 phase 2: this used to be a dictionary of three Dutch words. The label
+# now comes from `mdm.relation_type_labels`, so the screen and an export show
+# the same word and an English-language unit sees English. The filter stays
+# because the templates know it by name; it is now one line around
+# `code_label`.
 def _relatielabel(code) -> str:
-    return _RELATIE_LABELS.get(code or "", code or "—")
+    from app.kernel.codes import code_label
+
+    return code_label("relation_type", code) or "—"
 
 
 templates.env.filters["relatielabel"] = _relatielabel
@@ -564,7 +577,12 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
     # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
     # antwoord geven in plaats van geen.
-    contacten = {c.contact_type_code: c.value for c in
+    # Keyed on the CODE: the callers below look up with "EMAIL" and "PHONE".
+    # The column holds the plain code (contact types have no enum, see
+    # `mdm.codes.CONTACT`); `code_of` keeps this correct whichever it holds.
+    from app.kernel.codes import code_of as _code_of
+
+    contacten = {_code_of(c.contact_type_code): c.value for c in
                  db.query(ContactDetail)
                  .filter(ContactDetail.organization_id == organisatie.id,
                          ContactDetail.deleted_at.is_(None))
@@ -636,13 +654,22 @@ def _sociale_links(db, organisatie) -> list[dict]:
         return []
     from app.domains.mdm.api import ContactDetail, ContactTypeCode
 
-    netwerken = {c.code: c.value for c in
+    # CR-12 phase 2: `is_social_network` still lives on the code table — it is
+    # a property of the code (#1160) — but since the split the word next to it
+    # comes from the label table, via `code_label()`.
+    from app.kernel.codes import code_label, code_of
+
+    netwerken = {c.code: code_label("contact_type", c.code) for c in
                  db.query(ContactTypeCode)
                  .filter(ContactTypeCode.is_social_network.is_(True))
                  .execution_options(include_all_tenants=True).all()}
     if not netwerken:
         return []
-    rijen = {c.contact_type_code: c.value for c in
+    # `code_of`: the column holds the plain code — contact types have no enum,
+    # precisely so that a fifth social network is one row (#1160) — and
+    # `code_of` returns it unchanged. Kept so this reads the same as every
+    # other code lookup.
+    rijen = {code_of(c.contact_type_code): c.value for c in
              db.query(ContactDetail)
              .filter(ContactDetail.organization_id == organisatie.id,
                      ContactDetail.contact_type_code.in_(list(netwerken)),

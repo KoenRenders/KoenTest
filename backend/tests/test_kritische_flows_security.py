@@ -15,6 +15,7 @@ import pytest
 
 from app.domains.auth.api import create_access_token
 from tests.conftest import create_test_family
+from app.domains.payment.api import PaymentStatus
 
 
 def _member_headers(email: str) -> dict:
@@ -98,7 +99,8 @@ def test_webhook_negeert_vervalste_status_en_bedrag(client, db_session, monkeypa
     assert resp.status_code == 200
     db_session.expire_all()
     from app.domains.payment.api import GatewayPayment
-    assert db_session.get(GatewayPayment, gp.id).status == "pending"
+    # Mollie's own vocabulary on this column (§B4.10): a bare string, not a member.
+    assert db_session.get(GatewayPayment, gp.id).status == PaymentStatus.PENDING.value
 
 
 def test_webhook_onbekende_id_wordt_genegeerd(client, db_session):
@@ -163,7 +165,8 @@ def test_create_payment_payload_en_localhost_webhook_skip(monkeypatch):
     assert captured["payload"]["amount"] == {"currency": "EUR", "value": "12.00"}
     assert "webhookUrl" not in captured["payload"]  # localhost overgeslagen
     assert result.provider_payment_id == "tr_live_1"
-    assert result.status == "pending"  # 'open' → intern 'pending'
+    # `PaymentResult` is the adapter boundary: it carries our code as a string.
+    assert result.status == PaymentStatus.PENDING.value  # 'open' → intern 'pending'
 
 
 def test_create_payment_stuurt_webhook_op_echte_host(monkeypatch):

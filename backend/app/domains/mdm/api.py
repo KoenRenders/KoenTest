@@ -12,8 +12,10 @@ from app.domains.mdm.models import (  # noqa: F401
     ContactDetail,
     ContactDetailHistory,
     ContactTypeCode,
+    ContactTypeLabel,
     ExternalNumber,
     GenderCode,
+    GenderLabel,
     IdentificationScheme,
     IdentificationSchemeLabel,
     Member,
@@ -25,9 +27,19 @@ from app.domains.mdm.models import (  # noqa: F401
     OrganizationPerson,
     OrganizationRelationType,
     OrganizationRelationTypeLabel,
+    OrganizationType,
+    OrganizationTypeCode,
+    OrganizationTypeLabel,
+    LegalForm,
+    LegalFormCode,
+    LegalFormLabel,
+    PaymentMethod,
+    PaymentMethodCode,
+    PaymentMethodLabel,
     Person,
     PersonHistory,
     PostalCode,
+    RelationType,
     RelationTypeCode,
 )
 # ── Doorgangen naar de ledenimport ───────────────────────────────────────────
@@ -103,7 +115,16 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     update_tenant_settings,
 )
 
+# CR-12: this domain's code lists belong to the public facade, so that another
+# domain reaches an FK target and an enum through one door.
+from app.domains.mdm.codes import (  # noqa: F401,E402
+    CONTACT, CONTACT_TYPE, GENDER, IDENTIFICATION_SCHEME, LANGUAGE, LEGAL_FORM,
+    ORGANIZATION_RELATION_TYPE, ORGANIZATION_TYPE, PAYMENT_METHOD,
+    RELATION_TYPE,
+)
+
 __all__ = [
+    "LANGUAGE",
     "family_registrations", "gezin_tabs", "name_parts", "person_name_parts",
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
@@ -118,6 +139,16 @@ __all__ = [
     "BankAccount", "OrganizationIdentification", "IdentificationScheme",
     "IdentificationSchemeLabel",
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
+    "PaymentMethod", "PaymentMethodCode", "PaymentMethodLabel",
+    "PAYMENT_METHOD",
+    "ContactTypeLabel", "GenderLabel",
+    "LegalForm", "LegalFormCode", "LegalFormLabel",
+    "OrganizationType", "OrganizationTypeCode", "OrganizationTypeLabel",
+    "RelationType", "RelationTypeLabel",
+    "GENDER", "CONTACT", "CONTACT_TYPE",
+    "RELATION_TYPE", "LEGAL_FORM",
+    "ORGANIZATION_TYPE", "ORGANIZATION_RELATION_TYPE",
+    "IDENTIFICATION_SCHEME",
     "Person", "PersonHistory", "PostalCode", "RelationTypeCode",
     "MergeError", "merge_persons", "resolve", "unmerge_person",
     "tenant_codes", "invalidate_tenant_codes",

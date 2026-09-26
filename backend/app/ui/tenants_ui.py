@@ -26,6 +26,7 @@ from app.domains.auth.api import (  # noqa: F401
 )
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
+from app.domains.mdm.api import OrganizationType
 
 router = APIRouter(include_in_schema=False)
 
@@ -146,7 +147,7 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     # #854: een platform-tenant krijgt de ledenvelden niet te zien.
     sleutels = [rij for rij in BEKENDE_SLEUTELS
-                if not (unit.org_type == "PLATFORM" and rij[0] in LEDENSLEUTELS)]
+                if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)]
     waarden = {key: get_setting(db, key, tenant_id=tenant_id) or ""
                for key, _label, _hulp in sleutels}
     secrets_gezet = _secrets_gezet(

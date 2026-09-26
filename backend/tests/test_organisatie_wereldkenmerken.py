@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
+from app.domains.mdm.api import LegalForm
 
 from app.domains.mdm.api import (Address, BankAccount, Organization, Person,
                                  PostalCode)
@@ -271,8 +272,12 @@ def test_the_legal_form_code_list_follows_the_779_pattern(db_session):
     codes = {rij[0] for rij in db_session.execute(text(
         "SELECT DISTINCT code FROM mdm.legal_form_codes"))}
     assert codes == {"VZW", "FEITELIJKE_VERENIGING", "BEDRIJF"}
+    # CR-12 phase 2: since the split the languages live in the label table. That
+    # is exactly the change #929 asked for — the old shape keyed on
+    # (code, language) with a uniqueness on the code alone, and so allowed one
+    # language.
     talen = {rij[0] for rij in db_session.execute(text(
-        "SELECT DISTINCT language FROM mdm.legal_form_codes"))}
+        "SELECT DISTINCT language FROM mdm.legal_form_labels"))}
     assert {"nl", "en"} <= talen
 
 
@@ -342,7 +347,7 @@ def test_saving_the_screen_writes_to_the_organisation(client, db_session,
     assert rekening.beneficiary is None, (
         "leeg wordt None en niet de lege string, anders betekent 'leeg' twee "
         "dingen en valt de lezer niet terug op .env")
-    assert organisatie.legal_form == "VZW"
+    assert organisatie.legal_form == LegalForm.NON_PROFIT
 
 
 def test_an_unknown_legal_form_is_not_stored(db_session, organisatie):
@@ -353,4 +358,4 @@ def test_an_unknown_legal_form_is_not_stored(db_session, organisatie):
     db_session.commit()
     update_organization_details(db_session, TENANT, {"legal_form": "VERZONNEN"})
     db_session.refresh(organisatie)
-    assert organisatie.legal_form == "VZW"
+    assert organisatie.legal_form == LegalForm.NON_PROFIT

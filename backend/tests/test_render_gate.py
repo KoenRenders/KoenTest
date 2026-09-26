@@ -39,7 +39,7 @@ def _login(client, db):
     gate precies de knoppen niet die stuk waren."""
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
     for rol in ("FINANCE", "OPERATOR"):
-        if not any(r.role_code == rol for r in user.roles):
+        if not any(r.role_code.value == rol for r in user.roles):
             db.add(UserRole(user_id=user.id, role_code=rol))
     db.flush()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
@@ -62,7 +62,7 @@ def gevulde_admin(client, db_session):
 
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}]})
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]

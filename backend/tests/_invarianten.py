@@ -6,6 +6,7 @@ assertions die net iets anders controleren. De invariant is dezelfde die
 toen #617 en #619 ontstonden.
 """
 from decimal import Decimal
+from app.domains.payment.api import PayableType, PaymentType
 
 
 def assert_saldo_klopt(db, payable_type: str, payable_id: int, verwacht_totaal) -> list:
@@ -25,8 +26,8 @@ def assert_saldo_klopt(db, payable_type: str, payable_id: int, verwacht_totaal) 
         f"voor {payable_type}/{payable_id}"
     )
 
-    open_posten = [r for r in records if r.amount_paid is None and r.type == "charge"]
-    refunds = [r for r in records if r.type == "refund"]
+    open_posten = [r for r in records if r.amount_paid is None and r.type == PaymentType.CHARGE]
+    refunds = [r for r in records if r.type == PaymentType.REFUND]
     assert not (open_posten and refunds), (
         "een openstaande post naast een terugbetaling is nooit een geldige stand"
     )
@@ -82,6 +83,6 @@ def assert_geen_wezen(db) -> None:
     ms_ids = {m for (m,) in db.query(Membership.id)
               .execution_options(include_deleted=True).all()}
     wezen = [r for r in db.query(PaymentRecord).all()
-             if (r.payable_type == "registration" and r.payable_id not in reg_ids)
-             or (r.payable_type == "membership" and r.payable_id not in ms_ids)]
+             if (r.payable_type == PayableType.REGISTRATION and r.payable_id not in reg_ids)
+             or (r.payable_type == PayableType.MEMBERSHIP and r.payable_id not in ms_ids)]
     assert not wezen, f"weesrecords na de mutatie: {[w.id for w in wezen]}"

@@ -37,6 +37,7 @@ import pytest
 
 from app.kernel.jobs import KernelJob
 from app.domains.workflow.models import WorkflowTask
+from app.domains.payment.api import PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -155,4 +156,4 @@ def test_a_task_about_another_job_is_left_alone(db_session):
     db_session.refresh(other_task)
     assert other_task.status == "open", (
         "a task about another failed job was closed as well — the cleanup grabs too wide")
-    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status == "failed"
+    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status == PaymentStatus.FAILED.value  # KernelJob: eigen statuslijst, fase 4

@@ -39,6 +39,8 @@ from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
                                  Person)
 from app.domains.membership.api import Membership
 from tests.conftest import SEEDED_ADMIN_EMAIL, nieuw_lid_velden
+from app.domains.mdm.api import RelationType
+from app.kernel.codes import code_of
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -75,13 +77,13 @@ def test_een_post_maakt_gezin_hoofdlid_adres_en_contactgegevens(client, db_sessi
     persoon = _persoon(db_session, "Nieuw")
     koppeling = db_session.query(MemberPerson).filter(
         MemberPerson.person_id == persoon.id).one()
-    assert koppeling.member_id == gezin and koppeling.relation_type == "HOOFDLID"
+    assert koppeling.member_id == gezin and koppeling.relation_type == RelationType.PRIMARY_MEMBER
 
     adres = db_session.query(Address).filter(Address.person_id == persoon.id).one()
     assert (adres.street, adres.house_number) == ("Nieuwstraat", "7")
     assert adres.postal_code.postal_code == "2400"
 
-    contacten = {c.contact_type_code: c.value for c in
+    contacten = {code_of(c.contact_type_code): c.value for c in
                  db_session.query(ContactDetail).filter(
                      ContactDetail.person_id == persoon.id).all()}
     assert contacten["EMAIL"] == "nieuw@example.com"
@@ -167,7 +169,9 @@ def test_een_gezin_met_twee_extra_leden_komt_in_een_keer_binnen(client, db_sessi
     rollen = {mp.person.first_name: mp.relation_type for mp in
               db_session.query(MemberPerson).filter(
                   MemberPerson.member_id == gezin).all()}
-    assert rollen == {"Nieuw": "HOOFDLID", "Partner": "PARTNER", "Kind": "KIND"}
+    assert rollen == {"Nieuw": RelationType.PRIMARY_MEMBER,
+                      "Partner": RelationType.PARTNER,
+                      "Kind": RelationType.ADULT_CHILD}
 
     # Het adres hangt aan het hoofdlid en aan niemand anders (#125).
     adressen = {a.person.first_name for a in db_session.query(Address).join(Person).all()}

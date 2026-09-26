@@ -3,18 +3,21 @@ from decimal import Decimal, InvalidOperation
 from typing import Optional, Tuple
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
-from .models import PaymentRecord
+from .models import PayableType, PaymentRecord, PaymentStatus, PaymentType
+from app.domains.mdm.api import PaymentMethod
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import MemberPerson, Person
 from app.domains.audit.api import snapshot_payment_record
+from app.kernel.codes import code_of
+from app.domains.mdm.api import CONTACT, RelationType
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn
 # meteen toont wat de gateway/admin-refresh meldde i.p.v. een generiek label.
 _GATEWAY_ACTION = {
-    "paid": "payment_paid",
-    "failed": "payment_failed",
-    "cancelled": "payment_cancelled",
-    "pending": "payment_pending",
+    PaymentStatus.PAID: "payment_paid",
+    PaymentStatus.FAILED: "payment_failed",
+    PaymentStatus.CANCELLED: "payment_cancelled",
+    PaymentStatus.PENDING: "payment_pending",
 }
 
 def _parse_md(md_str: str, year: int) -> date:
@@ -95,23 +98,34 @@ def current_membership_counts(db: Session, today: Optional[date] = None) -> Tupl
 
 def create_payment_record(
     db: Session,
-    payable_type: str,
+    payable_type: PayableType | str,
     payable_id: int,
     amount: Decimal,
-    method: str,
+    method: PaymentMethod | str,
     redirect_url: Optional[str] = None,
     description: Optional[str] = None,
     audit_source: str = "system",
     audit_actor: Optional[str] = None,
 ) -> PaymentRecord:
-    if method == "online":
+    # Convert at the boundary (CR-12 phase 1). This function is called from four
+    # domains and from the tests, with a code or with a member; inside the
+    # function it is always a member, so the comparisons below do not depend on
+    # the caller. An unknown value fails here, naming the list, rather than
+    # further down on the foreign key.
+    payable_type = PayableType(payable_type)
+    method = PaymentMethod(method)
+    if method == PaymentMethod.ONLINE:
         from app.domains.payment.gateway_service import create_payment as gw_create
         gp = gw_create(
             db=db,
             amount=amount,
             description=description or f"{payable_type} #{payable_id}",
             redirect_url=redirect_url or "",
-            metadata={"payable_type": payable_type, "payable_id": payable_id},
+            # The code, not the member: this goes to the gateway as JSON and
+            # comes back that way in the webhook. An enum is not serialisable,
+            # and besides, it is their field, not ours.
+            metadata={"payable_type": payable_type.value,
+                      "payable_id": payable_id},
         )
         record = PaymentRecord(
             payable_type=payable_type,
@@ -127,11 +141,11 @@ def create_payment_record(
             payable_id=payable_id,
             amount=amount,
             method=method,
-            status="pending",
+            status=PaymentStatus.PENDING,
         )
         # Overschrijving: genereer een unieke gestructureerde mededeling (OGM) zodat
         # de inschrijver met referentie betaalt en de penningmeester kan reconciliëren (#157).
-        if method == "transfer":
+        if method == PaymentMethod.TRANSFER:
             from sqlalchemy import text
             from app.domains.payment.structured_communication import generate_structured_communication
             seq = db.execute(text("SELECT nextval('payment_ogm_seq')")).scalar()
@@ -150,7 +164,7 @@ def create_payment_record(
 def handle_gateway_update(
     db: Session,
     gateway_payment_id: str,
-    new_status: str,
+    new_status: PaymentStatus | str,
     source: str = "mollie",
     actor: Optional[str] = None,
 ) -> None:
@@ -161,6 +175,10 @@ def handle_gateway_update(
     webhooks serialiseren. Een herhaalde 'paid' is een no-op (status ongewijzigd →
     `continue`) en stempelt paid_at/amount_paid niet opnieuw. Een DB-unieke index
     op gateway_payment_id garandeert bovendien max. één record per gateway-betaling."""
+    # The gateway delivers a string; convert it here, at the boundary. Without
+    # that, `record.status == new_status` below would compare a member with a
+    # string — always false, so *every* webhook a silent no-op.
+    new_status = PaymentStatus(new_status)
     records = db.query(PaymentRecord).filter(
         PaymentRecord.gateway_payment_id == gateway_payment_id
     ).with_for_update().all()
@@ -168,7 +186,7 @@ def handle_gateway_update(
         if record.status == new_status:
             continue
         record.status = new_status
-        if new_status == "paid" and record.paid_at is None:
+        if new_status == PaymentStatus.PAID and record.paid_at is None:
             record.paid_at = datetime.now(timezone.utc)
             record.amount_paid = record.amount
         snapshot_payment_record(
@@ -180,19 +198,19 @@ def handle_gateway_update(
         # zowel voor een nieuwe gezinsregistratie als voor een vernieuwing vanuit
         # het gezinscherm: beide maken een Membership (is_active=False) met
         # payable_type="membership", payable_id=membership.id.
-        if new_status == "paid" and record.payable_type == "membership":
+        if new_status == PaymentStatus.PAID and record.payable_type == PayableType.MEMBERSHIP:
             _activate_membership(db, record.payable_id, source=source, actor=actor)
         # Kernel-event (§5.8, trede 1): consumenten reageren op de bevestiging
         # zonder dit component te importeren. Binnen dezelfde transactie; de
         # idempotente no-op hierboven voorkomt dubbele publicatie.
-        if new_status == "paid":
+        if new_status == PaymentStatus.PAID:
             from app.kernel.contracts.payment import PaymentSettled
             from app.kernel.events import publish
 
             publish(PaymentSettled(
                 payment_record_id=record.id, payable_type=record.payable_type,
                 payable_id=record.payable_id, amount=str(record.amount),
-                method=record.method,
+                method=record.method.value,
             ), db)
 
 
@@ -239,11 +257,11 @@ def confirm_manual_payment(
     # €10 terug, dan "€20 betaald" → net €10 i.p.v. €20). `create_refund` bewaakt de
     # andere kant al; dit is de omgekeerde weg. Blokkeren i.p.v. stil overschrijven;
     # de penningmeester corrigeert dan via de terugbetaling.
-    if amount_paid is not None and record.type == "charge":
+    if amount_paid is not None and record.type == PaymentType.CHARGE:
         refund_rows = db.query(PaymentRecord.amount_paid).filter(
             PaymentRecord.payable_type == record.payable_type,
             PaymentRecord.payable_id == record.payable_id,
-            PaymentRecord.type == "refund",
+            PaymentRecord.type == PaymentType.REFUND,
         ).all()
         total_refunded = -sum(
             (Decimal(str(r[0])) for r in refund_rows if r[0] is not None), Decimal("0"))
@@ -276,7 +294,7 @@ def confirm_manual_payment(
     # "volledig" juist de meest negatieve waarde. Een vergelijking zonder abs zou het
     # oordeel op élke refund omkeren.
     volledig = abs(_bedrag(geboekt)) >= abs(_bedrag(record.amount))
-    record.status = "paid" if volledig else "pending"
+    record.status = PaymentStatus.PAID if volledig else PaymentStatus.PENDING
     # paid_at blijft ook bij een gedeeltelijke betaling staan: er ís geld ontvangen,
     # en dit veld zegt wanneer. Niets vertakt erop; het gaat mee in de export.
     record.paid_at = datetime.now(timezone.utc)
@@ -299,7 +317,7 @@ def confirm_manual_payment(
     # lidmaatschap terwijl de resterende € 25,00 open bleef staan zonder iets tegen
     # te houden. Dat is het gevolg dat geld en rechten raakt; de badge was maar het
     # zichtbare symptoom.
-    if record.payable_type == "membership" and volledig:
+    if record.payable_type == PayableType.MEMBERSHIP and volledig:
         _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
     return record
 
@@ -323,7 +341,7 @@ def family_payables(db: Session, family_id: int) -> set:
         MemberPerson.member_id == family_id).all()]
     emails = [r[0].strip().lower() for r in q(ContactDetail.value).filter(
         ContactDetail.person_id.in_(person_ids or [0]),
-        ContactDetail.contact_type_code == "EMAIL").all() if r[0]]
+        ContactDetail.contact_type_code == CONTACT.EMAIL).all() if r[0]]
     voorwaarden = []
     if person_ids:
         voorwaarden.append(Registration.person_id.in_(person_ids))
@@ -331,8 +349,8 @@ def family_payables(db: Session, family_id: int) -> set:
         voorwaarden.append(func.lower(Registration.contact_email).in_(emails))
     reg_ids = ([r[0] for r in q(Registration.id).filter(or_(*voorwaarden)).all()]
                if voorwaarden else [])
-    return ({("membership", i) for i in ms_ids}
-            | {("registration", i) for i in reg_ids})
+    return ({(PayableType.MEMBERSHIP, i) for i in ms_ids}
+            | {(PayableType.REGISTRATION, i) for i in reg_ids})
 
 
 def count_records_for_family(db: Session, family_id: int) -> int:
@@ -357,19 +375,21 @@ def count_registration_records_by_activity(db: Session, activity_id: int) -> int
     sub = db.query(Registration.id).filter(
         Registration.activity_id == activity_id)
     return (db.query(PaymentRecord)
-            .filter(PaymentRecord.payable_type == "registration",
+            .filter(PaymentRecord.payable_type == PayableType.REGISTRATION,
                     PaymentRecord.payable_id.in_(sub))
             .count())
 
 
-def get_records_for(db: Session, payable_type: str, payable_id: int) -> list[PaymentRecord]:
+def get_records_for(db: Session, payable_type: PayableType | str,
+                    payable_id: int) -> list[PaymentRecord]:
     return db.query(PaymentRecord).filter(
         PaymentRecord.payable_type == payable_type,
         PaymentRecord.payable_id == payable_id,
     ).all()
 
 
-def net_paid(db: Session, payable_type: str, payable_id: int) -> Decimal:
+def net_paid(db: Session, payable_type: PayableType | str,
+             payable_id: int) -> Decimal:
     """Netto ontvangen bedrag op een payable: som van amount_paid over alle
     records (charges positief, refunds negatief). Een nog niet betaalde charge
     (amount_paid is None) telt als 0."""
@@ -386,7 +406,7 @@ def create_refund(
     amount: Decimal,
     *,
     note: Optional[str] = None,
-    method: str = "transfer",
+    method: PaymentMethod | str = PaymentMethod.TRANSFER,
     actor: Optional[str] = None,
     source: str = "admin_manual",
     settled: bool = True,
@@ -411,7 +431,7 @@ def create_refund(
     charge = db.query(PaymentRecord).filter(PaymentRecord.id == charge_record_id).first()
     if not charge:
         raise ValueError(f"PaymentRecord {charge_record_id} not found")
-    if charge.type != "charge":
+    if charge.type != PaymentType.CHARGE:
         raise ValueError("Een terugbetaling kan enkel een 'charge'-record terugdraaien.")
 
     refund_amount = Decimal(str(amount))
@@ -436,8 +456,8 @@ def create_refund(
         amount=-refund_amount,
         amount_paid=(-refund_amount if settled else None),
         method=method,
-        status=("paid" if settled else "pending"),
-        type="refund",
+        status=(PaymentStatus.PAID if settled else PaymentStatus.PENDING),
+        type=PaymentType.REFUND,
         refund_of_id=charge.id,
         note=note,
         paid_at=(datetime.now(timezone.utc) if settled else None),
@@ -460,7 +480,17 @@ def create_refund(
     return record
 
 
-_EDITABLE_STATUSES = {"pending", "paid", "failed", "cancelled"}
+#: CR-12 phase 1: a second list with the same four values as the enum used to
+#: stand here. Two places for one fact, and the enum is the source —
+#: `PaymentStatus(x)` rejects what is not in it, with the same message for
+#: every caller.
+def _as_status(status) -> PaymentStatus:
+    """A string or a member to the member, with a readable rejection."""
+    try:
+        return PaymentStatus(status)
+    except ValueError:
+        raise ValueError(f"Ongeldige status '{status}'.") from None
+
 
 
 def refresh_record_status(db: Session, record_id: str, actor: Optional[str] = None) -> PaymentRecord:
@@ -482,19 +512,19 @@ def refresh_record_status(db: Session, record_id: str, actor: Optional[str] = No
     return record
 
 
-def set_payment_status(db: Session, record_id: str, status: str,
+def set_payment_status(db: Session, record_id: str,
+                       status: PaymentStatus | str,
                        actor: Optional[str] = None, note: Optional[str] = None) -> PaymentRecord:
     """Vrije status-correctie door de penningmeester (#455). Enkel binnen de
     gekende set; bij 'paid' wordt (als nog niet betaald) paid_at/amount_paid gezet,
     bij elke andere status worden die gewist zodat het bedrag niet meer meetelt in
     het saldo. Alles met een history-snapshot voor de audittrail."""
-    if status not in _EDITABLE_STATUSES:
-        raise ValueError(f"Ongeldige status '{status}'.")
+    wanted = _as_status(status)
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
-    record.status = status
-    if status == "paid":
+    record.status = wanted
+    if wanted is PaymentStatus.PAID:
         if record.paid_at is None:
             record.paid_at = datetime.now(timezone.utc)
         if record.amount_paid is None:
@@ -509,7 +539,8 @@ def set_payment_status(db: Session, record_id: str, status: str,
         db, record, operation="update", action="payment_status_edited",
         source="admin_manual", actor=actor,
     )
-    if status == "paid" and record.payable_type == "membership":
+    if wanted is PaymentStatus.PAID \
+            and record.payable_type == PayableType.MEMBERSHIP:
         _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
     return record
 
@@ -518,7 +549,7 @@ def edit_payment_record(
     db: Session,
     record_id: str,
     *,
-    status: Optional[str] = None,
+    status: PaymentStatus | str | None = None,
     amount_paid: Optional[Decimal] = None,
     note: Optional[str] = None,
     actor: Optional[str] = None,
@@ -548,12 +579,10 @@ def edit_payment_record(
             raise ValueError(
                 f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
             )
-    if status == "paid":
+    if status is not None and _as_status(status) is PaymentStatus.PAID:
         return confirm_manual_payment(db, record_id, note, actor=actor, amount_paid=amount_paid)
     if status is not None:
-        if status not in _EDITABLE_STATUSES:
-            raise ValueError(f"Ongeldige status '{status}'.")
-        record.status = status
+        record.status = _as_status(status)
     if note is not None:
         record.note = note
     if amount_paid is not None:
@@ -603,14 +632,14 @@ def registration_balance(db: Session, registration) -> dict:
     from app.domains.activities.api import compute_registration_total
 
     total_due, _ = compute_registration_total(registration)
-    records = get_records_for(db, "registration", registration.id)
+    records = get_records_for(db, PayableType.REGISTRATION, registration.id)
     total_paid = sum(
         (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
         Decimal("0"),
     )
     total_refunded = -sum(
         (Decimal(str(r.amount_paid)) for r in records
-         if r.type == "refund" and r.amount_paid is not None),
+         if r.type == PaymentType.REFUND and r.amount_paid is not None),
         Decimal("0"),
     )
     return {
@@ -622,7 +651,7 @@ def registration_balance(db: Session, registration) -> dict:
 
 
 def reconcile_charges(
-    db: Session, payable_type: str, payable_id: int, total_due, *,
+    db: Session, payable_type: PayableType | str, payable_id: int, total_due, *,
     audit_actor: Optional[str] = None, source: str = "order-edit",
     refund_note: str = "Automatisch bij bestelverlaging — terugstorting te bevestigen",
 ) -> None:
@@ -672,19 +701,22 @@ def reconcile_charges(
                     db, r, operation="update", action="order_reconciled",
                     source=source, actor=audit_actor,
                 )
-            if r.type == "charge" and Decimal(str(r.amount_paid)) > 0:
+            if r.type == PaymentType.CHARGE and Decimal(str(r.amount_paid)) > 0:
                 paid_charge = r
 
     outstanding = total_due - net_paid
     if outstanding > 0:
         # Eén openstaande charge voor het volledige openstaande bedrag (met OGM).
         create_payment_record(
-            db, payable_type, payable_id, amount=outstanding, method="transfer",
+            db, payable_type, payable_id, amount=outstanding,
+            method=PaymentMethod.TRANSFER,
             audit_source=source, audit_actor=audit_actor,
         )
     elif outstanding < 0 and paid_charge is not None:
         # Te veel ontvangen → één terugbetaling, met de methode van de betaalde charge.
-        method = paid_charge.method if paid_charge.method in ("transfer", "cash") else "transfer"
+        method = (paid_charge.method
+                  if paid_charge.method in (PaymentMethod.TRANSFER, PaymentMethod.CASH)
+                  else PaymentMethod.TRANSFER)
         # Verplichting, geen voldongen feit: de penningmeester bevestigt de
         # effectieve terugstorting (#216). Daarom pending, niet meteen 'paid'.
         create_refund(
@@ -704,7 +736,7 @@ def reconcile_registration_charges(
     """
     from app.domains.activities.api import compute_registration_total
 
-    reconcile_charges(db, "registration", registration.id,
+    reconcile_charges(db, PayableType.REGISTRATION, registration.id,
                       compute_registration_total(registration)[0],
                       audit_actor=audit_actor)
 
@@ -748,15 +780,15 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
         if not any(term in (waarde or "").lower() for waarde in velden):
             return False
 
-    if context == "membership" and record.payable_type != "membership":
+    if context == "membership" and record.payable_type != PayableType.MEMBERSHIP:
         return False
     if context.startswith("year-"):
-        if record.payable_type != "membership" or jaar != int(context[5:]):
+        if record.payable_type != PayableType.MEMBERSHIP or jaar != int(context[5:]):
             return False
     if context.startswith("comp-"):
         # payable_type meecontroleren (kwam uit de export-variant): een
         # component_id hoort per definitie bij een inschrijving.
-        if record.payable_type != "registration" or comp != int(context[5:]):
+        if record.payable_type != PayableType.REGISTRATION or comp != int(context[5:]):
             return False
 
     # #669: "openstaand" is een AFGELEIDE toestand (amount != amount_paid), de
@@ -768,8 +800,12 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
     if openstaand or status == "openstaand":
         if not saldo_open(record):
             return False
-    if status in ("pending", "paid", "failed", "cancelled"):
-        return record.status == status
+    if status in {m.value for m in PaymentStatus}:
+        # `.value`, because `status` arrives from the filter bar as a string.
+        # Without that step this compares a member with a string: always false,
+        # so *every* status filter would give an empty list — silently, without
+        # an error.
+        return record.status.value == status
     return True
 
 
@@ -802,7 +838,7 @@ def matches_zicht(record, zicht: str) -> bool:
     if zicht == "betaald":
         return derived_status(record) == "paid"
     if zicht == "terugbetaald":
-        return getattr(record, "type", None) == "refund"
+        return getattr(record, "type", None) == PaymentType.REFUND
     return True
 
 
@@ -842,7 +878,8 @@ def filter_records(records, *, context: str = "all", status: str = "all", q: str
     scope = (registration_id or "").strip()
     if scope:
         records = [r for r in records
-                   if r.payable_type == "registration" and str(r.payable_id) == scope]
+                   if r.payable_type == PayableType.REGISTRATION
+                   and str(r.payable_id) == scope]
     # Golf 8/9 (#913): recordSCOPES als payable-verzameling — activiteit (alleen
     # inschrijvingen) of gezin (inschrijvingen + lidmaatschappen). De aanroeper
     # lost het record op naar (payable_type, payable_id)-paren via de facades;
@@ -878,23 +915,27 @@ def derived_status(record) -> str:
 
     Waarden: paid · refund_due · partial · pending · failed · cancelled · <rauw>.
     """
-    if record.status == "paid":
+    if record.status == PaymentStatus.PAID:
         return "paid"
-    if getattr(record, "type", None) == "refund" and record.status == "pending":
+    if getattr(record, "type", None) == PaymentType.REFUND \
+            and record.status == PaymentStatus.PENDING:
         return "refund_due"
-    if record.status == "pending":
+    if record.status == PaymentStatus.PENDING:
         betaald = record.amount_paid
         if betaald is not None and _bedrag(betaald) != 0:
             return "partial"
         return "pending"
-    return record.status
+    # `code_of` and not `.value`: a test double may carry a bare string, and
+    # an unknown value must come back here UNCHANGED — that is what "unknown
+    # gateway status" means.
+    return code_of(record.status) or ""
 
 
 def may_delete(record) -> bool:
     """Mag dit record verwijderd worden? Dezelfde regel als de guard in
     status_router (#218/#617-2c), zodat het scherm geen knop toont die de guard
     daarna weigert."""
-    if record.method == "online" and record.status == "paid":
+    if record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID:
         return False
     return record.amount_paid is None or _bedrag(record.amount_paid) == 0
 
@@ -913,7 +954,7 @@ def _is_lege_vordering(record) -> bool:
     geschiedenis van een betaling gooi je niet weg (#190) — en de export toont hem
     nog: dat is de financiële lijst, daar wil je de rij die bestaat.
     """
-    if record.type == "refund":
+    if record.type == PaymentType.REFUND:
         return False
     betaald = record.amount_paid
     return (_bedrag(record.amount) == 0
@@ -933,8 +974,9 @@ def group_cards(records, alle_records=None) -> list[dict]:
     laatste was de fout van #617-2e — een inschrijving met twee charges kreeg twee
     regels die geen van beide de inschrijving telden.
     """
-    charges = [r for r in records if r.type != "refund" and not _is_lege_vordering(r)]
-    refunds = [r for r in records if r.type == "refund"]
+    charges = [r for r in records
+               if r.type != PaymentType.REFUND and not _is_lege_vordering(r)]
+    refunds = [r for r in records if r.type == PaymentType.REFUND]
 
     per_charge: dict = {}
     for r in refunds:
@@ -997,7 +1039,7 @@ def group_cards(records, alle_records=None) -> list[dict]:
         # inschrijving. De template markeert dat verschil dan ook anders dan de
         # refund-nesting.
         echte = [k for k in groep["kaarten"]
-                 if not k["is_context"] and k["charge"].type != "refund"]
+                 if not k["is_context"] and k["charge"].type != PaymentType.REFUND]
         for kaart in sorted(echte, key=lambda k: k["charge"].created_at)[1:]:
             kaart["is_extra"] = True
         # #682: binnen een groep OUDSTE eerst. Hier vertelt de volgorde het verhaal
@@ -1032,7 +1074,7 @@ def _nog_uit_te_betalen(records) -> Decimal:
     """
     openstaand = Decimal("0")
     for r in records:
-        if getattr(r, "type", None) != "refund":
+        if getattr(r, "type", None) != PaymentType.REFUND:
             continue
         rest = abs(_bedrag(r.amount)) - abs(_bedrag(r.amount_paid))
         if rest > 0:
@@ -1072,8 +1114,10 @@ def enriched_records(db: Session) -> list:
                .options(selectinload(PaymentRecord.gateway_payment))
                .order_by(PaymentRecord.created_at.desc()).all())
 
-    reg_ids = {r.payable_id for r in records if r.payable_type == "registration"}
-    ms_ids = {r.payable_id for r in records if r.payable_type == "membership"}
+    reg_ids = {r.payable_id for r in records
+               if r.payable_type == PayableType.REGISTRATION}
+    ms_ids = {r.payable_id for r in records
+              if r.payable_type == PayableType.MEMBERSHIP}
 
     # Registraties mét items en producten in één keer: compute_registration_total
     # loopt over registration.items en elk item over zijn product.
@@ -1106,7 +1150,7 @@ def enriched_records(db: Session) -> list:
             leden = {m.id for m in _q(Member).filter(Member.id.in_(member_ids)).all()}
             koppels = _q(MemberPerson).filter(
                 MemberPerson.member_id.in_(leden),
-                MemberPerson.relation_type == "HOOFDLID").all()
+                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER).all()
             personen = {}
             if koppels:
                 personen = {p.id: p for p in _q(Person)
@@ -1123,7 +1167,7 @@ def enriched_records(db: Session) -> list:
         activity_id = component_id = component_name = membership_year = None
         reg_items: list = []
 
-        if r.payable_type == "registration":
+        if r.payable_type == PayableType.REGISTRATION:
             reg = registraties.get(r.payable_id)
             if reg is not None:
                 contact_name = reg.contact_name
@@ -1140,7 +1184,7 @@ def enriched_records(db: Session) -> list:
                                   "unit_price": float(regel["unit_price"]),
                                   "subtotal": float(regel["subtotal"])}
                                  for regel in regels]
-        elif r.payable_type == "membership":
+        elif r.payable_type == PayableType.MEMBERSHIP:
             # payable_id is de Membership.id (niet de Member.id) — het jaar komt
             # van het lidmaatschap, de naam van het hoofdlid van dat gezin (#141).
             ms = lidmaatschappen.get(r.payable_id)
@@ -1289,7 +1333,7 @@ def bewerk_betaling(db: Session, record_id: str, *, status: str | None = None,
         raise LookupError("Betaling niet gevonden.")
 
     bedrag = _ingetypt_bedrag(amount_paid)
-    if bedrag is not None and record.type == "refund":
+    if bedrag is not None and record.type == PaymentType.REFUND:
         grens = abs(Decimal(str(record.amount)))
         if abs(bedrag) > grens:
             raise BetalingFout(
