@@ -53,7 +53,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
     'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
     'app/domains/chatbot/admin_ui.py:SURFACE_LABELS',
     'app/domains/cms/render.py:PLACEHOLDER_LABELS',
-    'app/domains/forms/models.py:RATING_LABELS',
     'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
     'app/ui/organisaties_ui.py:SOORT_LABELS',
 })
@@ -163,6 +162,10 @@ LABELS_NOT_A_VOCABULARY: dict[str, str] = {
     "app/domains/designstudio/service.py:FILE_LAYOUT_LABELS": (
         "Not a label but a file-name fragment: `bowlen-v1-a3.pdf`. It is part "
         "of a download's name, which stays the same in every language."),
+    "app/domains/forms/models.py:RATING_LABELS": (
+        "The 1-5 rating scale of a form is a Likert scale, not a vocabulary: "
+        "numbers with their words, never stored as codes. §B4.10 keeps it as "
+        "copy behind `_()`."),
     "app/domains/designstudio/service.py:FILE_SIZE_LABELS": (
         "The same, for a size code: `feed` is called `portrait` in a file "
         "name. A translated file name would break the downloads folder."),
