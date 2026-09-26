@@ -1,16 +1,18 @@
 """${message}
 
-Schrijf hier waarom deze migratie bestaat, niet wat ze doet: dat staat
-hieronder al. Wie haar over een jaar leest, zoekt de reden.
+Write here why this migration exists, not what it does: the code below
+already says that. Whoever reads it a year from now is looking for the reason.
 """
 from alembic import op
 import sqlalchemy as sa
 ${imports if imports else ""}
 
-# De id is een tijdstempel en geen volgnummer (#951). Twee CLI's die tegelijk
-# "het volgende nummer" kiezen, kiezen hetzelfde; twee die een tijdstempel
-# krijgen, kunnen niet botsen. Het volgnummer staat vooraan in de BESTANDSNAAM,
-# voor de leesbaarheid en de sortering — alembic kijkt daar niet naar.
+# The id is a timestamp, not a sequence number (#951). Two CLIs that pick "the
+# next number" at the same time pick the same one; two that get a timestamp
+# cannot collide. The number at the front of the FILE NAME is there for
+# readability only — alembic ignores it, and sorting on it does not give the
+# head: two branches can pick the same prefix. The head is what `alembic heads`
+# says.
 revision = ${repr(up_revision)}
 down_revision = ${repr(down_revision)}
 branch_labels = ${repr(branch_labels)}
@@ -22,7 +24,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    # Herstelt deze downgrade ook de DATA, of alleen het schema? Zeg het
-    # hardop. Een halve omkering die zich als een hele voordoet is erger dan een
-    # die eerlijk is over wat ze niet doet.
+    # Does this downgrade restore the DATA too, or only the schema? Say so out
+    # loud. A partial reversal that passes itself off as a whole one is worse
+    # than one that is honest about what it does not do.
     ${downgrades if downgrades else "pass"}
