@@ -547,6 +547,21 @@ globally: that needs an exemption list, and an exemption list is where a
 rule dies (#760). The 133 untyped `db` parameters (#779 count) are typed per
 domain when migrated.
 
+**Measured in phase 1 (PR #1188), and it narrows the bonus further.**
+`Mapped[]` on the column is necessary but not sufficient: `strict_equality`
+fires on `new_status == "paid"` where the variable's type is known, and stays
+silent on `record.status == "paid"` inside a function whose `record`
+parameter is unannotated — mypy then types `record` as `Any`, and the
+column's `Mapped[]` never enters the picture. That is the shape most of the
+127 comparisons had. So there are two sources of `Any`, not one: the legacy
+`Column()` (fixed per column by `Mapped[]`) and the untyped parameter (fixed
+per function by an annotation). The second dominates once the first is
+done. Consequence for phase 5: "mypy strict per migrated domain" only means
+something because `disallow_untyped_defs` is part of it — that flag forces
+`record: PaymentRecord` on every function, and only then does
+`strict_equality` see the column. Phase 5 therefore carries the annotations
+as work, not as a side effect; the AST gate remains the gate throughout.
+
 ### B4.9 The kernel API (what phase 0 builds)
 
 `app/kernel/codes.py`, small enough to read in one sitting. Names are the
@@ -853,7 +868,7 @@ handoff block CI cannot carry:
 | 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `U`/`O` retired, count of persons per retired code in the log; `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
 | 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
 | 4 | CR-12 fase 4 — workflow, formulieren, mail, media, chatbot, activiteiten, rapporten | one per domain | none | none | the workflow inbox, a form submission, the AI log screen |
-| 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none | CI only |
+| 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none; the ratchet sets are deleted, the two exemption dicts stay (B9.3); the per-function annotations that make `strict_equality` bite are work of this phase (B4.8) | CI only |
 
 Every phase's issue closes with the B9.2 table re-measured, so the ratchet
 lists shrink visibly.
@@ -990,6 +1005,27 @@ without a `CodeList` trips the enum gate, a new **`CodeList`** without
 labels trips the label gate. Whichever of the six a developer starts with,
 the other five are demanded. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
 
+**Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
+A **ratchet** promises zero: it holds today's offenders, may only shrink, is
+red when an entry disappears from the code but not from the list, and is
+deleted in phase 5. An **exemption** never reaches zero: it holds hits of the
+FK and loose-string gates that are *not our vocabulary* — Mollie's
+`gateway_payments.status`, `request.method == "GET"`, a MIME type — as
+`dict[str, str]` so that the reason is structurally mandatory, is subtracted
+before the ratchet, is counted separately in B9.2 (the same "reported, not
+capped" as the marked enums), and **stays after phase 5**. The test for
+which list a hit belongs to: *could this value ever be a row in a code table
+of ours?* An HTTP method cannot. Today: `FK_NOT_OUR_LIST` and
+`LOOSE_STRINGS_NOT_A_CODE` in `codes_baseline.py`. Without this distinction
+phase 5 is unreachable by definition — a ratchet that contains Mollie's
+words never gets to zero.
+
+An exemption is held to the same staleness rule as a ratchet: **an entry
+whose target no longer exists in the code is red**, exactly like a ratchet
+entry that outlived its offender. Otherwise the second list is a back door
+rather than a distinction — the Mollie adapter could disappear and its
+exemption would stand forever, unnoticed. Being closed in phase 1.
+
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
 concept or two (B4.4).
@@ -1031,6 +1067,7 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q16 | 26 Sep 2026 | Master CLI, after phase 1 (PR #1188): `strict_equality` is silent on an unannotated `record` parameter even with `Mapped[]` on the column; the ratchet needs a second kind of list for hits that are not our vocabulary. | Taken: B4.8 names the two sources of `Any` and makes the annotations phase-5 work; B9.3 defines ratchet vs exemption, the "could this be a row in our code table?" test, and the staleness rule for exemptions; B7.1 phase 5 keeps the exemptions. |
 | Q15 | 26 Sep 2026 | Do the file names, the filter name and the `Mapped[]` column in PR #1186 match B4.9/B4.8? (Claude) | Master CLI: file names exact, filters `code_label` and `tone` via `install_jinja_codes(env)`, pilot column `Mapped[MeetingStatus] = mapped_column(EnumColumn(MeetingStatus, length=10))`. One signature correction taken: `EnumColumn(enum_cls, length)`. The identifiers inside the gate module and the baseline file were Dutch and are being renamed before the merge — the document names files, not those names. |
 | Q14 | 26 Sep 2026 | Master CLI, after phase 0 (PR #1186): the pilot had a CHECK constraint duplicating the FK; the gate measures 52/33/52/127 against the grep's 43/40/25/92; a destructive violation made a gate test not run and come back green. | Taken: "drop the CHECK after the FK" as the third rule in B4.6; the gate column in B9.2 next to the grep; "the violation must be additive" in B8. |
 | Q13 | 26 Sep 2026 | Master CLI, follow-up: the 22/15/11/1 is the whole table; the laptop measured 18/14/11/1 on live rows — five soft-deleted rows would break the FK if the `UPDATE` filtered on `deleted_at`. | Taken: no soft-delete filter in B4.6, counts over the whole table (B8.7, AC6), and "count every row, soft-deleted too" added as the second general rule for a FK on existing data. |
