@@ -1,21 +1,20 @@
 """Geen cross-schema FK's (#396/#397, §8-handhaving 2): een FK die twee schema's
 koppelt zou onafhankelijk deployen breken én de merge-redirect onmogelijk maken.
 
-**Eén benoemde uitzondering sinds CR-12 (§B2.4):** een FK naar een codetabel van
-een *fundamentdomein*. Dat zijn er twee, `mdm` (masterdata) en `auth`
-(beveiligingsvocabularium). Ze hangen van geen enkel businessdomein af — `auth`
-hangt enkel van `mdm` af — dus er kan geen cyclus ontstaan, en elk domein
-importeert `mdm.api` toch al.
+**One named exception since CR-12 (§B2.4):** a foreign key towards a code table
+of a *foundation domain*. There are two of those, `mdm` (master data) and `auth`
+(security vocabulary). Neither depends on a business domain — `auth` depends on
+`mdm` only — so no cycle can arise, and every domain already imports `mdm.api`.
 
-Zonder die uitzondering zou een lijst die in `mdm` hoort (taal, betaalwijze) haar
-databankcontrole verliezen, en precies die controle is waarom de lijst bestaat:
-een label met taal `nl_BE` of `NL` is anders een rij die niemand ooit leest,
-zonder dat iets klaagt. De uitzondering is smal met opzet: **alleen** naar
-`<fundament>.<lijst>_codes`, nooit naar een gewone tabel van die schema's.
+Without the exception a list that belongs in `mdm` (language, payment method)
+would lose the database check that is the reason the list exists: a label row
+with language `nl_BE` or `NL` would otherwise be a row nobody ever reads, with
+nothing complaining. The exception is narrow on purpose: **only** towards
+`<foundation>.<list>_codes`, never towards an ordinary table of those schemas.
 """
 from sqlalchemy import text
 
-#: De schema's waarvan een codetabel het doel van een cross-schema FK mag zijn.
+#: The schemas whose code tables may be the target of a cross-schema FK.
 FOUNDATION_SCHEMAS = ("mdm", "auth")
 
 
@@ -33,18 +32,18 @@ def test_no_cross_schema_foreign_keys(db_session):
         WHERE tc.constraint_type = 'FOREIGN KEY'
           AND tc.table_schema != ccu.table_schema
     """)).fetchall()
-    verboden = [r for r in rows
-                if not _is_code_table_of_a_foundation(r.ref_schema, r.ref_table)]
-    assert verboden == [], f"Cross-schema FK's gevonden: {verboden}"
+    forbidden = [r for r in rows
+                 if not _is_code_table_of_a_foundation(r.ref_schema, r.ref_table)]
+    assert forbidden == [], f"Cross-schema FK's gevonden: {forbidden}"
 
 
-def test_de_uitzondering_dekt_alleen_codetabellen():
-    """De uitzondering is smal, en dat moet ze blijven.
+def test_the_exception_covers_code_tables_only():
+    """The exception is narrow, and it has to stay narrow.
 
-    Gemeten door overtreding (5 september-werkwijze, #652): een FK naar
-    `mdm.persons` — een gewone tabel van een fundamentdomein — hoort nog altijd
-    verboden te zijn. Zonder deze test zou iemand `_is_code_table_of_a_foundation`
-    kunnen verruimen tot "alles in mdm" en dan bewaakt de poort niets meer.
+    Measured by violation (the #652 method): a foreign key towards `mdm.persons`
+    — an ordinary table of a foundation domain — must still be forbidden.
+    Without this test somebody could widen `_is_code_table_of_a_foundation` to
+    "anything in mdm", and then the gate guards nothing at all.
     """
     assert _is_code_table_of_a_foundation("mdm", "language_codes")
     assert _is_code_table_of_a_foundation("auth", "role_codes")

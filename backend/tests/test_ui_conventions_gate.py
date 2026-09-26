@@ -591,10 +591,10 @@ def test_geen_aanmaak_modal_in_de_admin():
 # ── Rauwe codes en terminologie (#630) ───────────────────────────────────────
 INFINITIEF = re.compile(r'_\("(Verwijder|Annuleer)"\)')
 # Een badge die rechtstreeks een DB-veld toont i.p.v. een gemapt label.
-# Sinds CR-12 is `| code_label("<lijst>")` precies de afbeelding die deze regel
-# vraagt: de code gaat door de labeltabel vóór hij in de badge komt. Zonder die
-# uitzondering zou de poort de juiste oplossing afkeuren en het patroon tegenhouden
-# dat ze zelf bedoelt.
+# Since CR-12, `| code_label("<list>")` is exactly the mapping this rule asks
+# for: the code goes through the label table before it reaches the badge.
+# Without this exception the gate would reject the correct solution and block
+# the very pattern it means to enforce.
 RAUWE_BADGE = re.compile(
     r'badge\(\s*[a-z_]+\.(status|kind|method)\b(?!\s*\|\s*code_label)')
 # Leveranciersnamen die in een knoplabel niets te zoeken hebben.
