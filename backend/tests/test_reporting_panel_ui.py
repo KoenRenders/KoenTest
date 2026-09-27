@@ -34,7 +34,11 @@ def login(client, db, email=ADMIN_EMAIL, roles=("ADMIN",)) -> str:
         user = User(email=email, is_active=True)
         db.add(user)
         db.flush()
-    bestaand = {r.role_code for r in user.roles}
+    # `.value`: since CR-12 phase 2 the column carries a `Role` member, and the
+    # callers pass codes. Without this step the comparison is always false
+    # and the helper tries to assign the same role twice — which the unique
+    # index rightly refuses.
+    bestaand = {r.role_code.value for r in user.roles}
     for role in roles:
         if role not in bestaand:
             db.add(UserRole(user_id=user.id, role_code=role))

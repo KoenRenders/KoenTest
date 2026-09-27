@@ -140,7 +140,7 @@ def test_platform_beheert_rollen_per_werkruimte(client, db_session, platform_hos
                     headers={"X-CSRF-Token": csrf, "host": platform_host})
     assert r.status_code == 200
     db_session.expire_all()
-    paren = {(rij.role_code, rij.tenant_id) for rij in
+    paren = {(rij.role_code.value, rij.tenant_id) for rij in
              db_session.query(UserRole).filter(UserRole.user_id == doel.id)}
     assert paren == {("ADMIN", TENANT_MILLEGEM_ID),
                      ("FINANCE", TENANT_MILLEGEM_ID),
@@ -202,7 +202,7 @@ def test_rollen_vervangen_raakt_andere_werkruimte_niet(client, db_session):
                     headers={"X-CSRF-Token": csrf})
     assert r.status_code == 200
     db_session.expire_all()
-    paren = {(r.role_code, r.tenant_id) for r in
+    paren = {(r.role_code.value, r.tenant_id) for r in
              db_session.query(UserRole).filter(UserRole.user_id == doel.id)}
     assert paren == {("ADMIN", TENANT_MILLEGEM_ID),
                      ("ADMIN", TENANT_VOORBEELD_ID)}
@@ -285,7 +285,7 @@ def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
     m.scope_existing_roles(bind)
     m.copy_seed_roles(bind, [email])
 
-    rijen = {(r.role_code, r.tenant_id) for r in
+    rijen = {(r.role_code.value, r.tenant_id) for r in
              db_session.query(UserRole).filter(UserRole.user_id == u.id)}
     platform = platform_tenant_id(db_session)
     assert platform is not None

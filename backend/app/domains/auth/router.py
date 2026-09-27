@@ -138,7 +138,7 @@ def auth_me(email: str = Depends(get_current_identity), db: Session = Depends(ge
 def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
     member_id = next((mp.member_id for mp in person.member_persons), None)
     email = next(
-        (c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), ""
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), ""
     )
     phone = next(
         (c.value for c in person.contact_details
@@ -173,6 +173,7 @@ from pydantic import BaseModel  # noqa: E402
 
 from app.domains.auth.models import ApiKey  # noqa: E402
 from app.domains.auth.service import get_current_admin, hash_api_key  # noqa: E402
+from app.domains.mdm.api import CONTACT
 
 
 class ApiKeyCreate(BaseModel):

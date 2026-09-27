@@ -85,7 +85,7 @@ def test_bij_de_organisatoren_staat_het_cluster_in_de_kopregel_naast_de_opener()
 
 def _login(client, db, roles=("ADMIN", "OPERATOR")) -> str:
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
-    bestaand = {r.role_code for r in user.roles}
+    bestaand = {r.role_code.value for r in user.roles}  # CR-12 phase 2
     for role in roles:
         if role not in bestaand:
             db.add(UserRole(user_id=user.id, role_code=role))

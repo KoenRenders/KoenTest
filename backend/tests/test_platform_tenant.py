@@ -37,6 +37,7 @@ import pytest
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
                                   make_session_value)
 from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.mdm.api import OrganizationType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -71,7 +72,7 @@ def test_the_migration_created_exactly_one_platform_row(db_session):
     from app.domains.mdm.api import Organization
 
     rows = (db_session.query(Organization)
-            .filter(Organization.org_type == "PLATFORM").all())
+            .filter(Organization.org_type == OrganizationType.PLATFORM).all())
 
     assert len(rows) == 1, f"expected one PLATFORM organization, found {len(rows)}"
     assert rows[0].parent_id is None, (

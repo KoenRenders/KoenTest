@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
+from app.domains.mdm.codes import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -120,15 +121,32 @@ def _uniek_op_code(rijen):
     return uit
 
 
+#: What a dropdown needs: the code and the word next to it. Since CR-12
+#: phase 2 that comes from `code_labels()`, so from the label table and in
+#: `sort_order`. A template that shows this list reads `.code` and `.value`,
+#: as it did from the old rows — hence this small thing instead of a tuple:
+#: the screens did not have to change along.
+class _Choice:
+    __slots__ = ("code", "value")
+
+    def __init__(self, code: str, value: str):
+        self.code = code
+        self.value = value
+
+
+def _choices(list_name: str) -> list:
+    from app.kernel.codes import code_labels
+
+    return [_Choice(code, label) for code, label in code_labels(list_name)]
+
+
 def form_code_lists(db) -> dict:
     """De keuzelijsten die de inschrijf- en ledenformulieren nodig hebben."""
-    from app.domains.mdm.models import GenderCode, PostalCode, RelationTypeCode
+    from app.domains.mdm.models import PostalCode
 
     return {
-        "gender_codes": _uniek_op_code(
-            db.query(GenderCode).order_by(GenderCode.code).all()),
-        "relation_types": _uniek_op_code(
-            db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
+        "gender_codes": _choices("gender"),
+        "relation_types": _choices("relation_type"),
         "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
     }
 
@@ -136,19 +154,15 @@ def form_code_lists(db) -> dict:
 def admin_code_lists(db) -> dict:
     """Geslacht en relatietype voor de beheerformulieren.
 
-    Nederlandstalige rijen als die er zijn, anders alles: de codetabellen zijn
-    per taal gevuld en een lege keuzelijst is erger dan een Engelstalige. Daarna
-    ontdubbelen op code, want dezelfde code bestaat per taal.
+    CR-12 phase 2: this used to say "Dutch rows if there are any, otherwise
+    everything", plus a deduplication on code — both because the old code
+    table had one row per (code, language) and so the code occurred several
+    times. With the split shape that problem no longer exists: `code_labels()`
+    returns one row per active code, in the unit's language and in
+    `sort_order`.
     """
-    from app.domains.mdm.models import GenderCode, RelationTypeCode
-
-    genders = (db.query(GenderCode).filter(GenderCode.language == "nl").all()
-               or db.query(GenderCode).all())
-    relations = (db.query(RelationTypeCode)
-                 .filter(RelationTypeCode.language == "nl").all()
-                 or db.query(RelationTypeCode).all())
-    return {"gender_codes": _uniek_op_code(genders),
-            "relation_types": _uniek_op_code(relations)}
+    return {"gender_codes": _choices("gender"),
+            "relation_types": _choices("relation_type")}
 
 
 def list_persons(db):
@@ -327,7 +341,7 @@ def _email_of(person: Person) -> Optional[str]:
     carried.
     """
     adressen = [c for c in getattr(person, "contact_details", []) or []
-                if c.contact_type_code == "EMAIL" and c.value]
+                if c.contact_type_code == CONTACT.EMAIL and c.value]
     for contact in adressen:
         if contact.is_primary:
             return contact.value
@@ -497,7 +511,7 @@ def add_email_address(db: Session, person_id: int, value: str, *,
     waarde = (value or "").strip()
     if not waarde:
         return person
-    bestaand = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    bestaand = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
     if any((c.value or "").strip().lower() == waarde.lower() for c in bestaand):
         return person
 
@@ -525,7 +539,7 @@ def _heeft_hoofdadres(person) -> bool:
     ledenformulier en de losse toevoegknop van de JSON-API.
     """
     return any(c.is_primary for c in person.contact_details
-               if c.contact_type_code == "EMAIL")
+               if c.contact_type_code == CONTACT.EMAIL)
 
 
 def apply_email_rows(db: Session, person_id: int, formulier, *,
@@ -569,7 +583,7 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
 
     person = _persoon_of_404(db, person_id)
     bestaand = {c.id: c for c in person.contact_details
-                if c.contact_type_code == "EMAIL"}
+                if c.contact_type_code == CONTACT.EMAIL}
 
     def _waarde(sleutel: str) -> str:
         ruw = formulier.get(sleutel)
@@ -608,7 +622,7 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
             # adres niet twee keer identiek.
             al_er = {(c.value or "").strip().lower()
                      for c in person.contact_details
-                     if c.contact_type_code == "EMAIL"}
+                     if c.contact_type_code == CONTACT.EMAIL}
             if waarde.lower() in al_er:
                 continue
             wordt_hoofd = not _heeft_hoofdadres(person)
@@ -649,7 +663,7 @@ def make_email_primary(db: Session, person_id: int, contact_id: int, *,
     from app.domains.audit.api import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
-    adressen = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    adressen = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
     doel = next((c for c in adressen if c.id == contact_id), None)
     if doel is None:
         from fastapi import HTTPException
@@ -703,7 +717,7 @@ def remove_email_address(db: Session, person_id: int, contact_id: int, *,
 
     person = _persoon_of_404(db, person_id)
     adressen = sorted((c for c in person.contact_details
-                       if c.contact_type_code == "EMAIL"),
+                       if c.contact_type_code == CONTACT.EMAIL),
                       key=lambda c: c.id or 0)
     doel = next((c for c in adressen if c.id == contact_id), None)
     if doel is None:
@@ -854,7 +868,7 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     addresses = set()
     for person in persons:
         for contact in getattr(person, "contact_details", []) or []:
-            if contact.contact_type_code == "EMAIL" and (contact.value or "").strip():
+            if contact.contact_type_code == CONTACT.EMAIL and (contact.value or "").strip():
                 addresses.add(contact.value.strip().lower())
     return sorted(addresses)
 

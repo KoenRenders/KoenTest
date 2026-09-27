@@ -5,6 +5,7 @@ from tests.conftest import (
 )
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Address, ContactDetail, Person
+from app.domains.mdm.api import CONTACT, RelationType
 
 
 def _login(client):
@@ -58,7 +59,7 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     assert db_session.get(Person, person.id).first_name == "Nieuw"
     mails = [c.value for c in db_session.query(ContactDetail)
              .filter(ContactDetail.person_id == person.id,
-                     ContactDetail.contact_type_code == "EMAIL").all()]
+                     ContactDetail.contact_type_code == CONTACT.EMAIL).all()]
     assert "nieuw@example.com" in mails
 
 
@@ -80,7 +81,7 @@ def test_persoon_toevoegen_met_relatietype(client, db_session):
     nieuw = db_session.query(Person).filter(Person.first_name == "Partner").one()
     mp = db_session.query(MemberPerson).filter(
         MemberPerson.person_id == nieuw.id).one()
-    assert mp.relation_type == "PARTNER"
+    assert mp.relation_type == RelationType.PARTNER
 
 
 def test_mutatie_zonder_csrf_geweigerd(client, db_session):
@@ -151,7 +152,7 @@ def test_relatietype_bewerken(client, db_session):
     db_session.expire_all()
     assert db_session.query(MemberPerson).filter(
         MemberPerson.member_id == member.id,
-        MemberPerson.person_id == partner.id).one().relation_type == "KIND"
+        MemberPerson.person_id == partner.id).one().relation_type == RelationType.ADULT_CHILD
 
     # Een poging om het hoofdlid te degraderen wordt genegeerd.
     client.post(f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
@@ -162,7 +163,7 @@ def test_relatietype_bewerken(client, db_session):
     db_session.expire_all()
     assert db_session.query(MemberPerson).filter(
         MemberPerson.member_id == member.id,
-        MemberPerson.person_id == hoofd.id).one().relation_type == "HOOFDLID"
+        MemberPerson.person_id == hoofd.id).one().relation_type == RelationType.PRIMARY_MEMBER
 
 
 def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):

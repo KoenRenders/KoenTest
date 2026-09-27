@@ -17,6 +17,7 @@ from app.domains.mdm.api import (BankAccount, ContactDetail,
                                  OrganizationIdentification, Organization,
                                  Person, PostalCode)
 from app.kernel.tenant_config import _actieve_tenant
+from app.domains.mdm.api import CONTACT, OrganizationType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -138,10 +139,16 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     alles toont wat ze niet herkent. Die restcategorie zette het gsm-nummer van
     de vereniging tussen de iconen.
     """
-    from app.domains.mdm.api import ContactTypeCode
+    # CR-12 phase 2: the list has been split, so a fifth network is one row in
+    # the code table plus its label. That it is still NOT a code change is
+    # exactly what this test guards: the list has no enum, so `MASTODON` is
+    # one row and no code change (Koen, 26 September 2026).
+    from app.domains.mdm.api import ContactTypeCode, ContactTypeLabel
 
-    db_session.add(ContactTypeCode(code="MASTODON", language="nl",
-                                   value="Mastodon", is_social_network=True))
+    db_session.add(ContactTypeCode(code="MASTODON", sort_order=80,
+                                   is_active=True, is_social_network=True))
+    db_session.add(ContactTypeLabel(code="MASTODON", language="nl",
+                                    value="Mastodon"))
     db_session.flush()
     _contact(db_session, organisatie, "MASTODON", "https://mastodon.example/@raak")
     db_session.commit()
@@ -270,7 +277,7 @@ def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session,
     from app.kernel.tenancy import current_tenant_id
 
     account = (db_session.query(Organization)
-               .filter(Organization.org_type == "ACCOUNT")
+               .filter(Organization.org_type == OrganizationType.ACCOUNT)
                .execution_options(include_all_tenants=True).first())
     assert account is not None and account.id != organisatie.id
     db_session.add(ContactDetail(tenant_id=account.id, organization_id=account.id,
@@ -400,6 +407,6 @@ def test_clearing_a_field_removes_the_row(db_session, organisatie):
     assert organization_details(db_session, organisatie.id)["email"] == ""
     rijen = (db_session.query(ContactDetail)
              .filter(ContactDetail.organization_id == organisatie.id,
-                     ContactDetail.contact_type_code == "EMAIL")
+                     ContactDetail.contact_type_code == CONTACT.EMAIL)
              .execution_options(include_all_tenants=True).all())
     assert rijen == [], "een leeg veld hoort geen lege rij achter te laten"

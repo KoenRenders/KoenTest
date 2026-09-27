@@ -536,7 +536,11 @@ def main() -> None:
 
         beheerder = db.query(User).order_by(User.id).first()
         if beheerder is not None:
-            bestaande = {r.role_code for r in beheerder.roles}
+            # `.value`: since CR-12 phase 2 the column carries a `Role` member
+            # and the caller passes codes. Without this step the comparison is
+            # always false and the seed grants the same role twice, which the
+            # unique index rightly refuses.
+            bestaande = {r.role_code.value for r in beheerder.roles}
             for rol in ("FINANCE", "OPERATOR"):
                 if rol not in bestaande:
                     db.add(UserRole(user_id=beheerder.id, role_code=rol))

@@ -1,0 +1,437 @@
+"""What phase 2 of CR-12 must prove: master data and roles (§B8).
+
+Eight lists. Five that master data already had in the *old* shape — one row per
+`(code, language)` with a uniqueness on the code alone, which fits exactly one
+language and is the bug of #929. One that is new. Two that were split already
+(#924) but sat outside the naming and lacked `sort_order`/`is_active`. And the
+roles, which move out of `public` into `auth`.
+
+**The test that matters most here is about what did NOT change.** A role list
+is an authorisation surface: if the move changes which codes exist, or which
+user carries which one, a screen quietly opens or closes for somebody. §B6 and
+§B8.9 ask for that explicitly, and it is the first test below.
+
+## Proof that these can go red
+
+One real violation each, checked, reverted (the #652 method), on 26 September
+2026:
+
+| Violation | Fired |
+|---|---|
+| `MEMBER` deleted from the seed instead of retired | yes |
+| `U` left active in its `CodeSeed` | yes — after a correction, see below |
+| `is_social_network` removed from `extra_code_columns` | yes |
+| the `ContactType` enum put back, with an `EnumColumn` on the column | yes |
+| the flag guard fed two `FACEBOOK` rows that disagree | yes |
+| `ck_org_type` left in place by the migration | yes |
+| `LegalForm` put back to `str, Enum` | yes |
+| `workflow.workflow_tasks.required_role` dropped from the migration's `fk_from` | yes — after a correction, see below |
+
+**The contact types were reworked after this phase first shipped** (Koen, 26
+September 2026). The first version gave the list a *partial* enum: the enum
+covered `EMAIL` and `MOBILE`, the table was allowed to hold more, and
+`EnumColumn(partial=True)` read an unknown code back as the code. The
+diagnosis was right — a strict enum column would refuse the fifth social
+network that #1160 turned into a row — but the remedy sat one layer too deep.
+The write side was the problem, so the list now has **no enum at all** and the
+code names the two types it distinguishes with `Code` constants (`CONTACT`).
+`enum_is_partial` and `EnumColumn(partial=)` are gone with it; nothing else
+used them.
+
+**Two of the six needed a correction first, and both are worth recording.**
+
+The gender retirement was expressed *twice*: once in the `CodeSeed`
+(`is_active=False`) and once as an `UPDATE` in the migration. Breaking either
+one alone left the other doing the work, so the test stayed green — a test that
+cannot go red because the thing it guards is duplicated. The migration now only
+counts (which the issue asks for) and handles `O`, which has no seed; the seed
+owns `U`. One source, and then the violation fires.
+
+The workflow foreign key: removing it from the `CodeList` declaration did not
+make the test red, because the migration had already created the key. The
+declaration is what a reviewer changes, the migration is what creates it — so
+the violation has to be in the migration. Same shape as the Mollie case in
+phase 1, and the same lesson: measure the violation where the mechanism is.
+"""
+import pytest
+from sqlalchemy import inspect, text
+from sqlalchemy.exc import IntegrityError
+
+from app.domains.auth.api import Role
+from app.domains.mdm.api import (
+    LegalForm,
+    OrganizationType,
+    RelationType,
+)
+from app.kernel.codes import code_label, code_labels, registry, reset_label_cache
+
+
+@pytest.fixture(autouse=True)
+def _clean_label_cache():
+    reset_label_cache()
+    yield
+    reset_label_cache()
+
+
+# ── §B6 / §B8.9 The roles are unchanged ──────────────────────────────────────
+
+#: The role codes as `public.role_codes` held them before the move, read from a
+#: freshly migrated database on 26 September 2026. This is the "before" of the
+#: before/after that §B8.9 asks for; the "after" is the assertion below.
+ROLE_CODES_BEFORE_THE_MOVE = {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN",
+                              "MEMBER", "USER"}
+
+
+def test_the_set_of_role_codes_is_the_same_after_the_move(db_session):
+    """Identical, to the letter. A role that disappears is a door that closes.
+
+    `MEMBER` and `USER` are **retired**, not deleted: they keep their row, so an
+    existing assignment keeps a valid target and the enum keeps its member. A
+    delete would have been the easy reading of "nobody carries them" and the
+    wrong one.
+    """
+    now = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM auth.role_codes")).all()}
+    assert now == ROLE_CODES_BEFORE_THE_MOVE
+    assert {m.value for m in Role} == ROLE_CODES_BEFORE_THE_MOVE
+
+
+def test_the_retired_roles_are_inactive_but_still_there(db_session):
+    active = {code for code, _ in code_labels("role")}
+    assert active == {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN"}
+    # And their label stays readable, because an existing assignment has to render.
+    assert code_label("role", "MEMBER", language="nl") == "Lid"
+
+
+def test_the_public_orphan_is_gone(db_session):
+    """`public.role_codes` was the last of the three orphans of migration 001."""
+    assert not inspect(db_session.bind).has_table("role_codes", schema="public")
+
+
+def test_a_role_that_is_not_a_code_is_refused(db_session):
+    """The foreign key `auth.user_roles.role_code` never had, and now has.
+
+    The model said "deliberately no FK, validity is enforced in the service
+    layer". That was true for the old placement in `public` — and one layer too
+    high for something an authorisation check rests on.
+    """
+    from app.domains.auth.api import User, UserRole
+
+    user = User(email="rolproef@example.com", is_active=True)
+    db_session.add(user)
+    db_session.flush()
+    with pytest.raises(IntegrityError):
+        db_session.execute(text(
+            "INSERT INTO auth.user_roles (user_id, role_code, created_at) "
+            "VALUES (:u, 'SUPERUSER', now())"), {"u": user.id})
+
+
+def test_the_workflow_role_points_at_the_same_list(db_session):
+    """Cross-schema, and that is the point (§B2.4).
+
+    `workflow.workflow_tasks.required_role` is the same vocabulary as
+    `auth.user_roles.role_code`. Before this phase it was an unconstrained
+    string in another schema — the second place where the role list lived.
+    """
+    fks = inspect(db_session.bind).get_foreign_keys("workflow_tasks",
+                                                    schema="workflow")
+    role_fk = [fk for fk in fks if fk["constrained_columns"] == ["required_role"]]
+    assert role_fk, "required_role has no foreign key"
+    assert role_fk[0]["referred_schema"] == "auth"
+    assert role_fk[0]["referred_table"] == "role_codes"
+
+
+# ── The four lists that had the old shape ────────────────────────────────────
+
+@pytest.mark.parametrize("code_list", ["gender", "contact_type", "relation_type",
+                                       "legal_form"])
+def test_the_split_lists_carry_two_languages(db_session, code_list):
+    """What #929 asked for, per list: a code row and a label row per language.
+
+    The old shape keyed on `(code, language)` with a uniqueness on the code
+    alone. Exactly one language fits in that, and migration 017 proved it by
+    wiping every English label without anybody noticing.
+    """
+    languages = {r[0] for r in db_session.execute(text(
+        f"SELECT DISTINCT language FROM mdm.{code_list}_labels")).all()}
+    assert {"nl", "en"} <= languages
+
+    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
+        f"{code_list}_codes", schema="mdm")}
+    assert "language" not in columns, (
+        "the code table still carries a language — then the split did not happen")
+
+
+def test_the_contact_type_keeps_its_own_property(db_session):
+    """`is_social_network` stays on the CODE table (#1160), not in the labels.
+
+    It is data about the code, not a translation: a translator has no business
+    deciding which contact type is a social network. The shape gate allows it
+    because the `CodeList` declares it, not because an extra column is
+    tolerated silently.
+    """
+    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
+        "contact_type_codes", schema="mdm")}
+    assert "is_social_network" in columns
+    assert registry()["contact_type"].extra_code_columns == ("is_social_network",)
+
+    networks = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM mdm.contact_type_codes WHERE is_social_network")).all()}
+    assert networks == {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
+
+
+def test_a_fifth_social_network_is_one_row_and_no_code_change(db_session):
+    """#1160, and the reason this list gets no enum (Koen, 26 September 2026).
+
+    §B4.3 asks for an enum where Python branches, and it does branch here — on
+    `EMAIL` and `MOBILE`. But #1160 deliberately made the public footer grow
+    with a **row**: a fifth social network is data. An enum column would refuse
+    that row on the WRITE side, which is exactly what #1160 opened up. So the
+    list keeps its foreign key and no enum, and the code names the two types it
+    distinguishes with the constants of `CONTACT`.
+
+    **Broken on purpose to check this can go red** (26 September 2026): the
+    `ContactType` enum put back on the `CodeList` and an `EnumColumn` on the
+    column. Red on the first assertion — `assert <enum 'ContactType'> is None`
+    — and red as well in `test_organisatie_lijsten.py`, which walks the whole
+    footer for the same promise.
+    """
+    from app.domains.mdm.api import (
+        CONTACT, ContactDetail, ContactTypeCode, ContactTypeLabel, Person,
+    )
+
+    assert registry()["contact_type"].enum is None
+    assert CONTACT.EMAIL == "EMAIL" and CONTACT.MOBILE == "MOBILE"
+
+    db_session.add(ContactTypeCode(code="MATRIX", sort_order=95, is_active=True,
+                                   is_social_network=True))
+    db_session.add(ContactTypeLabel(code="MATRIX", language="nl", value="Matrix"))
+    db_session.add(ContactTypeLabel(code="MATRIX", language="en", value="Matrix"))
+    person = Person(first_name="Proef", last_name="Persoon")
+    db_session.add(person)
+    db_session.flush()
+
+    detail = ContactDetail(person_id=person.id, contact_type_code="MATRIX",
+                           value="@raak:matrix.example")
+    db_session.add(detail)
+    db_session.flush()
+    assert detail.contact_type_code == "MATRIX"
+
+    networks = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM mdm.contact_type_codes WHERE is_social_network")).all()}
+    assert networks == {"FACEBOOK", "INSTAGRAM", "TIKTOK", "MATRIX"}, (
+        "the footer reads the column, so a new row is enough")
+
+
+def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
+    """Tolerant is not unguarded: the foreign key still holds.
+
+    No enum does not mean no guard. A code that is in no row does not get in,
+    and that is what keeps "a fifth network is a row" from becoming "any
+    string goes".
+    """
+    from app.domains.mdm.api import Person
+
+    person = Person(first_name="Proef", last_name="Persoon")
+    db_session.add(person)
+    db_session.flush()
+    with pytest.raises(IntegrityError):
+        db_session.execute(text(
+            "INSERT INTO mdm.contact_details "
+            "(person_id, contact_type_code, value, is_primary, created_at, "
+            " updated_at, tenant_id) "
+            "VALUES (:p, 'SEMAFOON', 'x', false, now(), now(), 2)"),
+            {"p": person.id})
+
+
+# ── Gender: what the measurement corrected ───────────────────────────────────
+
+def test_the_gender_list_is_m_f_x_with_u_retired(db_session):
+    """Koen, 26 September 2026: the list is `M`, `F`, `X` and nothing else.
+
+    **`O` does not exist**, and the catalogue says it does. Migration 004
+    *renamed* `O` to `X` (`UPDATE gender_codes SET code = 'X' ... WHERE code =
+    'O'`), so there was never an `O` left to retire. Measured on a freshly
+    migrated database; the migration handles either state so an environment
+    with older history is not left behind.
+    """
+    all_codes = {r[0]: r[1] for r in db_session.execute(text(
+        "SELECT code, is_active FROM mdm.gender_codes")).all()}
+    assert set(all_codes) == {"M", "F", "X", "U"}, (
+        "expected M/F/X plus the retired U — `O` does not exist")
+    assert all_codes["U"] is False
+    assert [code for code, _ in code_labels("gender")] == ["M", "F", "X"]
+
+
+def test_a_retired_gender_still_renders(db_session):
+    """The reason a retirement is not a delete.
+
+    A person carrying `U` must still show a word on screen. That is why the
+    label row stays, and why the members list asks `code_label` instead of
+    looking the label up in the dropdown — the dropdown no longer has it.
+    """
+    assert code_label("gender", "U", language="nl") == "Onbekend"
+
+
+# ── The two lists that were nearly in the pattern (#924) ─────────────────────
+
+@pytest.mark.parametrize("code_list", ["organization_relation_type",
+                                       "identification_scheme"])
+def test_the_924_lists_are_now_fully_in_the_pattern(db_session, code_list):
+    """Renamed to `<list>_codes`, and given the two columns they lacked.
+
+    They had the split of #924 — code table plus label table — but their code
+    tables carried neither `sort_order` nor `is_active`, and their names did not
+    follow the pattern. A list that needs a special case in every gate is not in
+    the pattern; these now are.
+    """
+    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
+        f"{code_list}_codes", schema="mdm")}
+    assert {"code", "sort_order", "is_active", "created_at"} == columns
+
+
+def test_the_identification_schemes_finally_have_english_labels(db_session):
+    """They never had them; the seeding call added them."""
+    assert code_label("identification_scheme", "KBO", language="en") == \
+        "Enterprise number"
+    assert code_label("identification_scheme", "VAT", language="en") == "VAT number"
+
+
+# ── The two new foreign keys on the organisation ─────────────────────────────
+
+def test_the_organisation_type_is_a_list_and_no_longer_a_check(db_session):
+    """`ck_org_type` said what the foreign key says.
+
+    Two places for one fact, and the expensive half is the second: with the
+    check still there a fourth kind of organisation would cost a row *and* a
+    migration, so "a new value is a row" would quietly stop being true.
+    """
+    checks = {c["name"] for c in inspect(db_session.bind).get_check_constraints(
+        "organizations", schema="mdm")}
+    assert "ck_org_type" not in checks
+
+    fks = inspect(db_session.bind).get_foreign_keys("organizations", schema="mdm")
+    on_type = [fk for fk in fks if fk["constrained_columns"] == ["org_type"]]
+    assert on_type and on_type[0]["referred_table"] == "organization_type_codes"
+
+
+def test_the_legal_form_gets_the_key_it_never_had(db_session):
+    fks = inspect(db_session.bind).get_foreign_keys("organizations", schema="mdm")
+    on_form = [fk for fk in fks if fk["constrained_columns"] == ["legal_form"]]
+    assert on_form and on_form[0]["referred_table"] == "legal_form_codes"
+
+
+# ── The enums ────────────────────────────────────────────────────────────────
+
+def test_the_legal_form_is_a_plain_enum_with_english_member_names(db_session):
+    """From `str, Enum` to plain, and `COMPANY = "BEDRIJF"` (§B4.3 literally).
+
+    With the `str` mixin, `organisatie.legal_form == "VZW"` stayed a valid
+    comparison that happened to be true; plain, it is silently false and
+    therefore findable. The values are stored data and did not change.
+    """
+    assert not issubclass(LegalForm, str)
+    assert LegalForm.COMPANY.value == "BEDRIJF"
+    assert {m.value for m in LegalForm} == {"VZW", "FEITELIJKE_VERENIGING",
+                                            "BEDRIJF"}
+
+
+def test_the_relation_type_keeps_its_dutch_values_and_english_names():
+    assert RelationType.PRIMARY_MEMBER.value == "HOOFDLID"
+    assert RelationType.ADULT_CHILD.value == "KIND"
+
+
+def test_the_four_new_enum_columns_store_codes(db_session):
+    """The round trip, on the master data columns."""
+    from app.domains.mdm.api import Organization
+
+    org = Organization(code="proefvorm", name="Proef",
+                       org_type=OrganizationType.UNIT,
+                       legal_form=LegalForm.NON_PROFIT)
+    db_session.add(org)
+    db_session.flush()
+    raw = db_session.execute(text(
+        "SELECT org_type, legal_form FROM mdm.organizations WHERE id = :i"),
+        {"i": org.id}).one()
+    assert tuple(raw) == ("UNIT", "VZW")
+
+
+def test_the_contact_type_constants_match_the_stored_codes(db_session):
+    """Every name in `CONTACT` is really a code, and in the right spelling.
+
+    The codes are UPPER CASE in the database; `CLAUDE.md` wrote `'mobile'` and
+    that sentence was corrected in this phase. Without this test the constants
+    would be exactly as fallible as the literals they replace — a name that
+    matches no row compares false forever and nothing says so.
+    """
+    from app.domains.mdm.api import CONTACT
+
+    named = {v for k, v in vars(CONTACT).items() if not k.startswith("_")
+             and isinstance(v, str)}
+    in_the_table = {r[0] for r in db_session.execute(text(
+        "SELECT code FROM mdm.contact_type_codes")).all()}
+    assert named <= in_the_table, (
+        f"`CONTACT` names codes that do not exist: {sorted(named - in_the_table)}")
+    assert CONTACT.MOBILE == "MOBILE"
+
+
+# ── The migration's own guard (#1179, on the CR session's request) ──────────
+
+def _flag_from_rows():
+    """Import the migration by file, because its name is not an identifier."""
+    import importlib.util
+    from pathlib import Path
+
+    path = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
+            / "154_2026_09_26_014501_master_data_and_roles_become_code_lists.py")
+    spec = importlib.util.spec_from_file_location("migration_154", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.flag_from_rows
+
+
+def test_the_social_network_flag_survives_one_language_row_per_code():
+    """The shape the flag has today: one `nl` row per code, no conflict.
+
+    `is_social_network` sits on `mdm.contact_type_codes`, whose key is
+    `(code, language)` before this migration — so the flag is stored per
+    LANGUAGE while it means something per CODE.
+    """
+    flag = _flag_from_rows()([("EMAIL", False), ("FACEBOOK", True),
+                              ("INSTAGRAM", True), ("TIKTOK", True)])
+    assert flag == {"EMAIL": False, "FACEBOOK": True,
+                    "INSTAGRAM": True, "TIKTOK": True}
+
+
+def test_two_language_rows_that_disagree_stop_the_migration():
+    """The gap is in the TRANSITION, at the moment the old rows are read.
+
+    With an `en` row next to the `nl` one, a dictionary keyed on the code lets
+    the second row quietly overwrite the first, and which one that is depends
+    on the order Postgres returns. Choosing silently is the failure mode; this
+    stops instead, with the codes in the message.
+
+    Today the migration finds nothing, and that is a valid outcome — it is in
+    the log, because "checked and found nothing" is a measurement and a silent
+    assumption is not.
+    """
+    with pytest.raises(RuntimeError, match="contradicts itself"):
+        _flag_from_rows()([("FACEBOOK", True), ("FACEBOOK", False),
+                           ("EMAIL", False)])
+
+
+# ── What may not change ──────────────────────────────────────────────────────
+
+def test_the_roles_document_is_untouched():
+    """`docs/rollen-en-rechten.md` describes who may do what.
+
+    This phase moves where the codes live; it does not touch what a role means.
+    If that document had to change, this phase went further than it should
+    have — so the issue says so, and this test says it too.
+    """
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[2] / "docs" / "rollen-en-rechten.md"
+    content = path.read_text(encoding="utf-8")
+    for role in ("ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN"):
+        assert role in content, f"{role} is no longer in the roles document"

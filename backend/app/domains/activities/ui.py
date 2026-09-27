@@ -18,6 +18,7 @@ from app.domains.mdm.api import PaymentMethod
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
+from app.domains.mdm.api import CONTACT
 
 router = APIRouter(include_in_schema=False)
 
@@ -139,7 +140,7 @@ def _person_mobile(person) -> str:
     if person is None:
         return ""
     for c in getattr(person, "contact_details", []) or []:
-        if c.contact_type_code == "MOBILE" and c.value:
+        if c.contact_type_code == CONTACT.MOBILE and c.value:
             return c.value
     return ""
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 import pytest
 
 from app.domains.mdm.api import (ContactDetail, ContactTypeCode, Organization)
+from app.domains.mdm.api import ContactTypeLabel
 from app.kernel.tenant_config import _actieve_tenant
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -140,7 +141,12 @@ def test_an_unclassified_type_stays_out_of_the_footer(db_session, organisatie):
     de footer doet. NULL rendert als "geen netwerk" — dat is precies de default
     die #1160 omdraaide.
     """
-    db_session.add(ContactTypeCode(code="SIGNAL", language="nl", value="Signal"))
+    # CR-12 phase 2: code and label are two rows. `is_social_network` stays
+    # NULL, and that is exactly what this test wants: not classified.
+    db_session.add(ContactTypeCode(code="SIGNAL", sort_order=81,
+                                   is_active=True))
+    db_session.add(ContactTypeLabel(code="SIGNAL", language="nl",
+                                    value="Signal"))
     db_session.flush()
     _contact(db_session, organisatie, "SIGNAL", "https://signal.example/raak")
     db_session.commit()

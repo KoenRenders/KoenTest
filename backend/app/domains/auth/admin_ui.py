@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    Role,
     admin_user_by_email, csrf_from_request, get_user_roles,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
@@ -91,10 +92,11 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
     for u in users:
         for r in u.roles:
             if r.tenant_id is None:
-                if r.role_code == "OPERATOR":
+                if r.role_code is Role.OPERATOR:
                     operator_van[u.id] = True
             else:
-                rollen_matrix[u.id].setdefault(r.tenant_id, set()).add(r.role_code)
+                rollen_matrix[u.id].setdefault(r.tenant_id, set()).add(
+                    r.role_code.value)
     rollen_hier = {u.id: (set().union(*rollen_matrix[u.id].values())
                           if op_platform and rollen_matrix[u.id]
                           else rollen_matrix[u.id].get(actieve_werkruimte, set()))

@@ -44,7 +44,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Iterable, Sequence
+from typing import Any, Iterable, NewType, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.types import String, TypeDecorator
@@ -54,6 +54,16 @@ logger = logging.getLogger(__name__)
 #: The language every active code must have a label in. A screen may render in
 #: another language; it may never render blank because a translation is missing.
 FALLBACK_LANGUAGE = "nl"
+
+#: One code of one list, as the value it is in the database.
+#:
+#: A `NewType` over `str` and not a class: at runtime it *is* the string, so it
+#: compares, stores and renders exactly like the code it is, and mypy still
+#: refuses a bare literal where a `Code` is asked for. It is what a list uses
+#: instead of an `Enum` when Python has to **name** codes but must not **close**
+#: the set — `contact_type` is the one case, because #1160 made a fifth social
+#: network a row rather than a code change (§B4.3).
+Code = NewType("Code", str)
 
 #: The tone a badge falls back to when a list registered none. The gate holds
 #: that a registered mapping is total, so this is for a list with no mapping at
@@ -130,6 +140,13 @@ class CodeList:
     #: A list with no storing column of its own (§B5.3 note 4): the FK gate
     #: expects nothing, the label gate still does.
     derived: bool = False
+    #: Columns on the *code* table beyond the four of §B4.2, because they are
+    #: data about the code rather than a label. `is_social_network` on the
+    #: contact types is the case that made this necessary (#1160): the public
+    #: footer asks the source which codes are social networks instead of
+    #: keeping a list of its own. Declared here and not tolerated silently, so
+    #: the shape gate still says exactly what a table may contain.
+    extra_code_columns: tuple[str, ...] = ()
     tones: dict[str, str] = field(default_factory=dict, compare=False)
 
     def __post_init__(self) -> None:
@@ -210,7 +227,8 @@ class EnumColumn(TypeDecorator):
     impl = String
     cache_ok = True
 
-    def __init__(self, enum_cls: type[Enum], length: int | None = None, **kw: Any):
+    def __init__(self, enum_cls: type[Enum], length: int | None = None,
+                 **kw: Any):
         self.enum_cls = enum_cls
         super().__init__(length=length, **kw)
 
@@ -324,14 +342,24 @@ def _language() -> str:
     return (current_locale.get() or FALLBACK_LANGUAGE).replace("-", "_").split("_")[0]
 
 
-def _labels_of(name: str, language: str) -> dict[str, str]:
+def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
+    lst = code_list(name)
+    if db is not None:
+        # With a session passed in: read through that session and do NOT
+        # cache. Needed where the caller has just changed a list and the change
+        # is still in its transaction — the kernel's own session by definition
+        # does not see it. Such a caller is rare (an admin screen, a test); the
+        # normal path stays cached.
+        rows = db.execute(
+            sa.select(lst.labels.code, lst.labels.value)
+            .where(lst.labels.language == language)).all()
+        return {code: value for code, value in rows}
     key = (name, language)
     if key not in _label_cache:
         from app.database import SessionLocal
 
-        lst = code_list(name)
-        with SessionLocal() as db:
-            rows = db.execute(
+        with SessionLocal() as own:
+            rows = own.execute(
                 sa.select(lst.labels.code, lst.labels.value)
                 .where(lst.labels.language == language)
             ).all()
@@ -339,22 +367,23 @@ def _labels_of(name: str, language: str) -> dict[str, str]:
     return _label_cache[key]
 
 
-def _active_of(name: str) -> list[str]:
+def _active_of(name: str, db: Any = None) -> list[str]:
+    lst = code_list(name)
+    query = (sa.select(lst.codes.code)
+             .where(lst.codes.is_active.is_(True))
+             .order_by(lst.codes.sort_order, lst.codes.code))
+    if db is not None:
+        return [row[0] for row in db.execute(query).all()]
     if name not in _active_cache:
         from app.database import SessionLocal
 
-        lst = code_list(name)
-        with SessionLocal() as db:
-            rows = db.execute(
-                sa.select(lst.codes.code)
-                .where(lst.codes.is_active.is_(True))
-                .order_by(lst.codes.sort_order, lst.codes.code)
-            ).all()
-        _active_cache[name] = [row[0] for row in rows]
+        with SessionLocal() as own:
+            _active_cache[name] = [row[0] for row in own.execute(query).all()]
     return _active_cache[name]
 
 
-def code_label(name: str, code: Any, language: str | None = None) -> str:
+def code_label(name: str, code: Any, language: str | None = None,
+               db: Any = None) -> str:
     """The human text of one code, in the active language.
 
     Falls back to `nl`, and then to the code itself so a screen never renders
@@ -370,7 +399,7 @@ def code_label(name: str, code: Any, language: str | None = None) -> str:
     wanted = language or _language()
     stored = _code_of(code)
     for candidate in (wanted, FALLBACK_LANGUAGE):
-        text = _labels_of(name, candidate).get(stored)
+        text = _labels_of(name, candidate, db).get(stored)
         if text:
             return text
     if (name, stored) not in _missing_logged:
@@ -380,13 +409,15 @@ def code_label(name: str, code: Any, language: str | None = None) -> str:
     return stored
 
 
-def code_labels(name: str, language: str | None = None) -> list[tuple[str, str]]:
+def code_labels(name: str, language: str | None = None,
+                db: Any = None) -> list[tuple[str, str]]:
     """The `(code, label)` pairs of the **active** codes, in `sort_order`.
 
     This is what a select list and a report dimension iterate over — the last
     place where a Python list decided in which order a user sees the options.
     """
-    return [(code, code_label(name, code, language)) for code in _active_of(name)]
+    return [(code, code_label(name, code, language, db))
+            for code in _active_of(name, db)]
 
 
 def tone(name: str, code: Any) -> str:
@@ -432,6 +463,7 @@ def create_code_list(
     fk_from: Iterable[str] = (),
     code_length: int = 50,
     value_length: int = 150,
+    extra_columns: Sequence[Any] = (),
 ) -> None:
     """Create one list — both tables, the seed rows and the foreign keys.
 
@@ -464,6 +496,8 @@ def create_code_list(
             sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
             sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
                       server_default=sa.func.now()),
+            # Properties of the code, not labels (see `extra_code_columns`).
+            *extra_columns,
             schema=schema,
         )
     if not _has_table(op, schema, labels_table):

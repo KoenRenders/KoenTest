@@ -123,13 +123,27 @@ def test_the_database_refuses_a_status_that_does_not_exist(db_session):
 # ── §B8.4 One label per code per language ────────────────────────────────────
 
 def test_every_active_code_of_every_list_has_nl_and_en(db_session):
-    """Exactly one non-empty text per language, for every list in the registry."""
+    """Exactly one non-empty text per language, for every list in the registry.
+
+    **Not "the label differs from the code".** That was the first version of
+    this test and it was wrong: gender `X` is labelled `X`, and so are
+    `Facebook`, `TikTok` and `Mollie`. A label that happens to equal its code is
+    a real label. What has to hold is that the row exists — otherwise
+    `code_label()` falls back to the code and the screen looks fine while the
+    translation is missing.
+    """
+    from sqlalchemy import text as sql
+
     for lst in registry().values():
         for code, _label in code_labels(lst.name, language="nl"):
             for language in ("nl", "en"):
-                text_for = code_label(lst.name, code, language=language)
-                assert text_for and text_for != code, (
-                    f"`{lst.name}`.`{code}` has no {language} label")
+                rows = db_session.execute(sql(
+                    f"SELECT value FROM {lst.labels_table} "
+                    f"WHERE code = :c AND language = :l"),
+                    {"c": code, "l": language}).scalars().all()
+                assert rows and rows[0], (
+                    f"`{lst.name}`.`{code}` has no {language} label row")
+                assert code_label(lst.name, code, language=language) == rows[0]
 
 
 def test_the_pilot_list_shows_the_same_dutch_words_as_before_cr12(db_session):
