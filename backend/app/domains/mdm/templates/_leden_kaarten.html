@@ -37,7 +37,7 @@
            called. Those are two questions, and `code_label` answers the second
            — also for a retired code, because its label row stays. #}
         {% set geslacht = m.gender | code_label("gender") %}
-        {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth.strftime("%d-%m-%Y") }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
+        {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth|kortedatum }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}
           {% if m.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ m.email }}</span>{% endif %}

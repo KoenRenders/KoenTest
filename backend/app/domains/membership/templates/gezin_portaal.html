@@ -8,7 +8,7 @@
 {# Lidmaatschapsstatus + vernieuwen #}
 {% call ui.card() %}
   {% if valid_until %}
-  <p class="text-sm text-gray-700">✅ {{ _("Lidmaatschap geldig tot") }} <strong>{{ valid_until.strftime("%d-%m-%Y") }}</strong>.</p>
+  <p class="text-sm text-gray-700">✅ {{ _("Lidmaatschap geldig tot") }} <strong>{{ valid_until|kortedatum }}</strong>.</p>
   {% else %}
   <p class="text-sm text-gray-700">{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}</p>
   {% endif %}

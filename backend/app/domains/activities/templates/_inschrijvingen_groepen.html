@@ -22,7 +22,7 @@
         {{ groep.naam }} <span class="text-sm font-normal text-ink-soft">{{ groep.aantal }}</span>
       </button>
       <div class="flex items-center gap-3">
-        {% if groep.datum %}<span class="text-sm text-ink-soft">{{ groep.datum.strftime("%d-%m-%Y") }}</span>{% endif %}
+        {% if groep.datum %}<span class="text-sm text-ink-soft">{{ groep.datum|kortedatum }}</span>{% endif %}
         {% if groep.titel_url %}{{ ui.spronglink(groep.titel_url, _("Open activiteit")) }}{% endif %}
         {% if groep.export_href %}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href=groep.export_href, size="sm", attrs='hx-boost="false"') }}
@@ -44,7 +44,7 @@
         <tbody>
           {% for r in groep.regs %}
           <tr class="border-b border-gray-100">
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ r.registered_at|kortedatum if r.registered_at else "—" }}</td>
             <td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.id }}?terug={{ terug }}">{{ r.contact_name }}</a>{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
             {% if toon_onderdeel %}<td class="px-4 py-2">{{ r.component_name or "—" }}</td>{% endif %}
             <td class="px-4 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>

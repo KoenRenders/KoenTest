@@ -14,7 +14,7 @@
         <span class="font-semibold">{{ task.title }}</span>
         <span class="ml-2">{{ ui.badge(kind_labels[task.id], "blue") }}</span>
         {% if is_done[task.id] %}{{ ui.badge(_("afgehandeld"), "green") }}{% endif %}
-        <span class="ml-2 text-sm text-gray-500">{{ task.created_at.strftime("%d-%m-%Y %H:%M") }}</span>
+        <span class="ml-2 text-sm text-gray-500">{{ task.created_at|short_datetime }}</span>
         {# #674: het besluit stond bewaard maar was nergens te zien. Wie en wanneer
            horen erbij — "afgehandeld" zonder naam is een halve verklaring. #}
         {% if is_done[task.id] %}
@@ -22,7 +22,7 @@
           {% if task.decision %}{{ task.decision }}{% else %}<span class="text-gray-400">{{ _("Geen besluit genoteerd") }}</span>{% endif %}
         </p>
         <p class="text-xs text-gray-500 mt-0.5">
-          {{ _("Afgehandeld door") }} {{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at.strftime("%d-%m-%Y %H:%M") }}{% endif %}
+          {{ _("Afgehandeld door") }} {{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at|short_datetime }}{% endif %}
         </p>
         {% endif %}
       </div>

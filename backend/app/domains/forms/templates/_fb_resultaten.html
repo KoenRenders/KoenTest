@@ -15,7 +15,7 @@
 <div class="mt-2">
   <p class="text-sm text-gray-600 mb-3">
     <strong>{{ results.submission_count }}</strong> {{ _("inzendingen") }}
-    {% if results.last_submission %} · {{ _("laatste") }}: {{ results.last_submission.strftime("%d-%m-%Y %H:%M") }}{% endif %}
+    {% if results.last_submission %} · {{ _("laatste") }}: {{ results.last_submission|short_datetime }}{% endif %}
   </p>
 
   {% if results.submission_count == 0 %}

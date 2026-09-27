@@ -76,7 +76,7 @@ def long_date(d) -> str:
 def short_date(d) -> str:
     """A short numeric date, `30-10-1955` (#1238 point 6).
 
-    Twenty-two places in the templates spell `strftime("%d-%m-%Y")` by hand, so the
+    Twenty-two places in the templates spelled `strftime("%d-%m-%Y")` by hand, so the
     format itself is not new — this is the first place that could not use it. The
     member portal renders its family from a serialised view model, where the date is
     already an ISO **string**: `.strftime` is undefined on it and the screen died under
@@ -86,9 +86,8 @@ def short_date(d) -> str:
     same reason that one lives here: it is the wording of a date, and a domain may need
     it without importing the UI layer.
 
-    The twenty-two hand-written ones are deliberately left alone — they work, and
-    rewriting them is cleanup rather than this fix. This is the single source the next
-    one can reach for.
+    Since #1242 the hand-written ones are gone: every short date in a template or a
+    module comes from here, and a gate keeps a new `strftime("%d-%m-%Y")` out.
     """
     if not d:
         return ""
@@ -100,6 +99,18 @@ def short_date(d) -> str:
         except ValueError:
             return d
     return d.strftime("%d-%m-%Y")
+
+
+def short_datetime(moment) -> str:
+    """A short numeric date with its time, `30-10-2026 14:05` (#1242).
+
+    Built on `short_date`, so the date half has one source. The time is the
+    moment as given: a caller that shows local time converts first, as the AI
+    log does with `astimezone`.
+    """
+    if not moment:
+        return ""
+    return f"{short_date(moment)} {moment.strftime('%H:%M')}"
 
 
 def long_date_no_year(d) -> str:

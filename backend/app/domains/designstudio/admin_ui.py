@@ -83,7 +83,7 @@ from app.domains.designstudio.viewmodels import (
     ImageOption,
     VersionRow,
 )
-from app.i18n import _
+from app.i18n import _, short_datetime
 from app.kernel.codes import code_label, code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 
@@ -193,7 +193,7 @@ def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] 
             status_tone=tone(DESIGN_STATUS.name, design.status),
             version_count=len(design.versions), published=published is not None,
             stale=bool(published is not None and activity is not None and is_stale(db, published)),
-            updated=design.updated_at.strftime("%d-%m-%Y %H:%M") if design.updated_at else "",
+            updated=short_datetime(design.updated_at) if design.updated_at else "",
         ))
     return DesignListView(rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
@@ -305,7 +305,7 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
         files = [{"label": f"{code_label(LAYOUT.name, r.layout_code, db=db)} · "
                            f"{code_label(RENDER_VARIANT.name, r.variant, db=db)} {r.size_code}".strip(),
                   "url": f"/api/v1/media/{r.media_asset_id}"} for r in v.renditions]
-        versions.append(VersionRow(id=v.id, number=v.number, created=v.created_at.strftime("%d-%m-%Y %H:%M"),
+        versions.append(VersionRow(id=v.id, number=v.number, created=short_datetime(v.created_at),
                                    published=(v.id == design.published_version_id), stale=is_stale(db, v), files=files))
     generations = [GenerationRow(id=g.id, status=code_of(g.status) or "",
                                  status_label=code_label(GENERATION_STATUS.name, g.status, db=db),

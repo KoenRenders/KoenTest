@@ -25,7 +25,7 @@ from app.domains.chatbot.api import (AI_CAPABILITY, AI_PROVIDER, AI_STATUS, AI_S
                                      cost_per_period, list_calls, month_period)
 from app.domains.chatbot.viewmodels import (AiCallLine, AiCallListView, AiCostLine,
                                             AiCostView)
-from app.i18n import _, current_locale
+from app.i18n import _, current_locale, short_datetime
 from app.kernel.clock import belgian_today
 from app.kernel.codes import code_label, register_tones, tone
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
@@ -93,7 +93,7 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
         else:
             cost = "—"
         lines.append(AiCallLine(
-            moment=r.created_at.astimezone(brussel).strftime("%d-%m-%Y %H:%M"),
+            moment=short_datetime(r.created_at.astimezone(brussel)),
             what=_what(r.surface, r.capability),
             actor=r.actor or "—",
             model=r.model or "—",

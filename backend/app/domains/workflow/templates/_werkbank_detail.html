@@ -44,7 +44,7 @@
     <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Besluit") }}</dt>
       <dd class="whitespace-pre-wrap">{{ task.decision or _("Geen besluit genoteerd") }}</dd></div>
     <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Afgehandeld door") }}</dt>
-      <dd>{{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at.strftime("%d-%m-%Y %H:%M") }}{% endif %}</dd></div>
+      <dd>{{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at|short_datetime }}{% endif %}</dd></div>
   </dl>
   {% elif signpost %}
   {# #822: no decision field and no "Afgehandeld". The subject has its own screen with

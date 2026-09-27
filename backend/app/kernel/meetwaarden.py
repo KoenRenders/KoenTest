@@ -76,8 +76,9 @@ def _jaar(waarde) -> str:
 
 def _datum(waarde) -> str:
     """Een datum als `12-09-2026`, zoals elke andere beheertabel ze schrijft."""
-    strftime = getattr(waarde, "strftime", None)
-    return strftime("%d-%m-%Y") if strftime else str(waarde)
+    from app.i18n import short_date
+
+    return short_date(waarde) if hasattr(waarde, "strftime") else str(waarde)
 
 
 def _label(waarde) -> str:

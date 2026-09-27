@@ -16,6 +16,7 @@ from app.domains.forms.models import (  # noqa: F401
 # CR-12 phase 4: a field as a screen renders it — the design-system page draws
 # its examples through the same adapter as the public form.
 from app.domains.forms.screenfields import screen_fields  # noqa: F401
+from app.i18n import short_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
     rows: list[tuple[str, str]] = [
         ("Van", sub.submitter_name or "—"),
         ("E-mail", sub.submitter_email or "—"),
-        ("Ontvangen", sub.submitted_at.strftime("%d-%m-%Y %H:%M")),
+        ("Ontvangen", short_datetime(sub.submitted_at)),
     ]
     # Zelfde typedekking als de export (#407-O flatten-drift): ook optie- en
     # rating-antwoorden tonen, met het optielabel i.p.v. een leeg veld.

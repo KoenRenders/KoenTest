@@ -57,7 +57,7 @@
            "Verwijderd" letterlijk als badge-voorbeelden. Zonder rijtint kan de rij
            weer een hover dragen zonder met de statuskleur te vechten. #}
         <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-          <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
+          <td class="px-3 py-2 whitespace-nowrap tabular-nums">{{ r.recorded_at|short_datetime }}</td>
           <td class="px-3 py-2 whitespace-nowrap"{% if r.action %} title="{{ (r.action or '').replace('_', ' ') }}"{% endif %}>{{ ui.badge(r.operation_label, _op_tone.get(r.operation, "gray")) }}</td>
           <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(r.group, "blue") }}</td>
           <td class="px-3 py-2 whitespace-nowrap">{{ r.person_name }}</td>

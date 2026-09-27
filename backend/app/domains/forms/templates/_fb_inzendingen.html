@@ -5,7 +5,7 @@
   <div class="border border-gray-200 rounded-lg p-3 text-sm">
     <div class="flex items-center justify-between">
       <span class="font-medium">{{ r.submission.submitter_name or _("Anoniem") }}
-        <span class="text-gray-500 font-normal">{{ r.submission.submitter_email or "" }} · {{ r.submission.submitted_at.strftime("%d-%m-%Y %H:%M") }}</span></span>
+        <span class="text-gray-500 font-normal">{{ r.submission.submitter_email or "" }} · {{ r.submission.submitted_at|short_datetime }}</span></span>
       {{ ui.btn_danger(_("Verwijderen"), size="md", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/inzendingen/' ~ r.submission.id ~ '/verwijderen" hx-target="#fb-inzendingen" hx-swap="innerHTML"', confirm=_("Inzending definitief verwijderen?")) }}
     </div>
     <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
