@@ -1,12 +1,20 @@
-"""Frozen lists of the violations that exist today (CR-12 §B9.3).
+"""The one ratchet left, and the permanent exemptions (CR-12 §B9.3).
 
 The #780 pattern: while a count is not yet zero, the gate is a **ratchet**.
 Today's offenders are listed here; a new one is red, and one that disappears
 from the code must leave this file or the test is red. The list can only
 shrink, and "not cleaned up yet" stays distinguishable from "allowed".
 
-Phase 5 of CR-12 deletes each of these sets together with the exemption logic
-in the gate: a ratchet at zero becomes a hard gate.
+**Phase 5 (#1182) closed four of the five.** `ENUM_WITHOUT_LIST`,
+`LABEL_DICTIONARIES`, `TEMPLATE_COMPARISONS` and `LOOSE_STRINGS` reached zero
+and are hard gates now: their sets are gone from this file, and so is the code
+that read them. Only `FK_MISSING` is still a ratchet, holding the one column
+that waits for Koen's decision (`mdm.external_numbers.source`: a code list with
+one code, or a provenance column exempt like history). When that is decided,
+the set goes too and the last ratchet is a hard gate.
+
+The exemption dicts below stay (§B9.3): they are not ratchets, they are
+values somebody else owns, and they never reach zero.
 
 **Why there are no line numbers here.** §B9.3 allows `file:line` or
 `file:name`. Line numbers shift on the first unrelated edit above the offender,
@@ -25,26 +33,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'mdm.external_numbers.source',
 })
 
-#: `Enum` classes under `app/` that sit in no `CodeList` and carry no
-#: `TechnicalEnum`/`ExternalVocabulary` marker either.
-#: Key: `path/to/file.py:ClassName`.
-ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
-})
-
-#: Label dictionaries in Python — the shape this change request removes.
-#: Key: `path/to/file.py:NAME`.
-LABEL_DICTIONARIES: frozenset[str] = frozenset({
-})
-
-#: Templates comparing a code to a string literal.
-#: Key: `path/to/template.html:attribute==value`.
-TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
-})
-
-#: Loose string comparisons on a vocabulary attribute in `.py`.
-#: Key: `path/to/file.py:attribute==value`.
-LOOSE_STRINGS: frozenset[str] = frozenset({
-})
 
 # ── Permanent exceptions: not a vocabulary of ours ───────────────────────────
 #
