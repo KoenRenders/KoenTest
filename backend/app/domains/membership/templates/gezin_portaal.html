@@ -12,12 +12,19 @@
   {% else %}
   <p class="text-sm text-gray-700">{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}</p>
   {% endif %}
+  {# #1241: het bedrag door `geld`, dus `20,00` en niet `20.00`. Deze twee plekken
+     drukten de rauwe Decimal af terwijl het filter (#735) al bestaat en elders
+     gebruikt wordt. Het staat op de afdruk van de betaalinstructies, en dat is net
+     het beeld dat een lid moet vertellen wélk bedrag het moet overschrijven — de
+     laatste plek waar je twijfel wil. De tak hieronder (online, nog niet afgerond)
+     staat vandaag op geen enkele afdruk, maar hem overslaan zou de tweede plek zijn
+     die achterblijft. #}
   {% if renew_transfer %}
   {# #497: overschrijving gekozen → betaalinstructies op het scherm. #}
   <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
     <p class="font-medium">{{ _("Vernieuwing geregistreerd — betaal via overschrijving:") }}</p>
     <ul class="mt-1 space-y-0.5">
-      <li>{{ _("Bedrag") }}: <strong>€ {{ renew_transfer.amount }}</strong></li>
+      <li>{{ _("Bedrag") }}: <strong>€ {{ renew_transfer.amount|geld }}</strong></li>
       {% if renew_transfer.iban %}<li>IBAN: <strong>{{ renew_transfer.iban }}</strong></li>{% endif %}
       {% if renew_transfer.beneficiary %}<li>{{ _("Begunstigde") }}: {{ renew_transfer.beneficiary }}</li>{% endif %}
       {% if renew_transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ renew_transfer.ogm }}</strong></li>{% endif %}
@@ -28,7 +35,7 @@
      opnieuw het vernieuwformulier, en daarna de rode melding van de guard. #}
   <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
     <p class="font-medium">{{ _("Je vernieuwing loopt nog — de betaling is nog niet afgerond.") }}</p>
-    <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ renew_online.amount }}</strong></p>
+    <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ renew_online.amount|geld }}</strong></p>
     {% if renew_online.checkout_url %}
     <div class="mt-2">{{ ui.btn_primary(_("Betaling hervatten"), href=renew_online.checkout_url) }}</div>
     {% else %}

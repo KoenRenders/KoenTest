@@ -52,7 +52,11 @@ def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
 
     html = client.get("/leden/gezin").text
     assert "+++123/4567/89012+++" in html
-    assert "35.00" in html
+    # #1241: `35,00` en niet `35.00`. Deze regel legde de Amerikaanse notatie vast die
+    # op de schermafdruk van de betaalinstructies opviel; het `geld`-filter (#735) doet
+    # het bedrag nu zoals overal elders. Wat deze test hier bewaakt — dat het BEDRAG er
+    # staat na een verse GET — verandert daar niet door.
+    assert "35,00" in html
     assert FORMULIER not in html
 
 

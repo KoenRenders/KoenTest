@@ -94,7 +94,11 @@ def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(br
     tekst = page.locator("main").inner_text()
 
     assert BETAALINSTRUCTIE in tekst, f"geen betaalinstructies op het scherm: {tekst!r}"
-    assert "20,00" in tekst or "20.00" in tekst, f"geen bedrag: {tekst!r}"
+    # Met een KOMMA (#1241): op het beeld stond `€ 20.00`, en een punt op een
+    # Belgische betaalinstructie is de laatste plek waar je twijfel wil. De opmaak zelf
+    # staat in `tests/test_bedrag_op_de_vernieuwing_1241.py`; hier telt dat het op het
+    # échte scherm zo aankomt.
+    assert "20,00" in tekst, f"geen bedrag in Belgische notatie: {tekst!r}"
     assert SEED_IBAN in tekst, f"geen rekeningnummer: {tekst!r}"
     assert SEED_BEGUNSTIGDE in tekst, f"geen begunstigde: {tekst!r}"
     assert OVERSCHRIJVING_OGM in tekst, f"geen mededeling: {tekst!r}"
