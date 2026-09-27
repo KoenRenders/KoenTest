@@ -70,11 +70,11 @@
         <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
                 hx-get="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}/email-rij"
                 hx-target="#emails-{{ m.id }}" hx-swap="beforeend"
-                hx-vals='js:{index: Date.now()}'>{{ _("+ E-mailadres") }}</button>
+                hx-vals='js:{index: Date.now(), nummer: 1 + document.querySelectorAll("#emails-{{ m.id }} [data-email-rij]").length}'>{{ _("+ E-mailadres") }}</button>
       </div>
       <div id="emails-{{ m.id }}" class="mt-1 space-y-2">
         {% for a in m.emails %}
-          {% with rij = a, index = loop.index0,
+          {% with rij = a, index = loop.index0, nummer = loop.index,
                   basis_url = "/admin/leden/gezin/" ~ family.id ~ "/persoon/" ~ m.id ~ "/email",
                   doel = "#persoon-" ~ m.id, swap = "outerHTML" %}
             {% include "_email_rij.html" %}

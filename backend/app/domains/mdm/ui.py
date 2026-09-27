@@ -395,7 +395,7 @@ async def persoon_opslaan(family_id: int, person_id: int, request: Request,
 @router.get("/admin/leden/gezin/{family_id}/persoon/{person_id}/email-rij",
             response_class=HTMLResponse)
 def email_rij(family_id: int, person_id: int, request: Request,
-              index: str = "", db: Session = Depends(get_db),
+              index: str = "", nummer: str = "", db: Session = Depends(get_db),
               email: str = Depends(require_admin_ui)):
     """Een lege e-mailrij om onderaan te plakken (#1219).
 
@@ -406,6 +406,7 @@ def email_rij(family_id: int, person_id: int, request: Request,
     """
     return templates.TemplateResponse(request, "_email_rij.html", {
         "rij": None, "index": index or "0",
+        "nummer": nummer or "1",
         "basis_url": f"/admin/leden/gezin/{family_id}/persoon/{person_id}/email",
         "doel": f"#persoon-{person_id}", "swap": "outerHTML",
     })

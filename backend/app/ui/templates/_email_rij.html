@@ -28,19 +28,36 @@
    `type="button"` met hun eigen `hx-post`, dus ze versturen het omhullende
    formulier niet.
 
+   **Geen zichtbaar label per rij (#1229).** De kop zegt al *E-mailadressen*; bij
+   twee adressen stond het woord drie keer op één blok. Het label verdwijnt
+   alleen ZICHTBAAR: het veld draagt een `aria-label`, want zonder toegankelijke
+   naam ruil je een zichtbare herhaling in voor een onbruikbaar formulier. Dat is
+   hetzelfde patroon als `ui.search`.
+
+   Die naam draagt een NUMMER. Drie velden die alle drie "E-mailadres" heten,
+   zijn met een schermlezer niet uit elkaar te houden — dan is het lijstje wel
+   netjes maar niet meer te bedienen.
+
+   **Daarom kan de rij op het midden uitlijnen.** Ze stond op `items-end` omdat
+   de eerste kolom een label bóven het veld droeg; bodem-uitlijning was toen de
+   enige manier om het veld gelijk te krijgen met de knoppen. Een badge is lager
+   dan een invoerveld en heeft eigen binnenmarge, dus die kwam hoger te staan —
+   Koens tweede melding. Zonder label vervalt de reden, en `items-center` zet
+   alles vanzelf gelijk. Eén reparatie voor twee symptomen.
+
    Verwacht: `rij` (dict met id/value/is_primary) of None voor een lege rij,
-   `index` voor de naamgeving van een nieuwe rij, `basis_url` als voorvoegsel voor
-   de twee acties. #}
+   `index` voor de naamgeving van een nieuwe rij, `nummer` voor de toegankelijke
+   naam, en `basis_url` als voorvoegsel voor de twee acties. #}
 {% import "_macros.html" as ui %}
 {% set _id = rij.id if rij else None %}
 {% set _naam = ("email_existing_" ~ _id) if _id else ("email_new_" ~ index) %}
 {% set _veld_id = ("em-" ~ _id) if _id else ("em-nieuw-" ~ index) %}
-<div class="flex flex-wrap items-end gap-2" data-email-rij>
+<div class="flex flex-wrap items-center gap-2" data-email-rij>
   <div class="flex-1 min-w-[12rem]">
-    {{ ui.label(_("E-mailadres"), _veld_id) }}
     {{ ui.input_control(_naam, id=_veld_id, type="email",
                         value=(rij.value if rij else ""),
-                        placeholder="naam@voorbeeld.be", cls="w-full") }}
+                        placeholder="naam@voorbeeld.be", cls="w-full",
+                        aria_label=_("E-mailadres") ~ " " ~ (nummer|default(1))) }}
   </div>
   {% if _id %}
     {% if rij.is_primary %}{{ ui.badge(_("hoofdadres"), "blue") }}{% else %}
