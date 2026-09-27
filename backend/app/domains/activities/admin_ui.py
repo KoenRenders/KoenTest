@@ -1161,6 +1161,112 @@ def _record_rail(db, activiteit) -> dict:
             "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit))}
 
 
+def _new_registration_view(request: Request, db: Session, activiteit, onderdeel_id,
+                           values: dict, error: str | None):
+    """The board's "add a registration" form (#1192), as a view-model."""
+    from app.domains.activities.viewmodels import AdminRegistrationNewView
+    from app.kernel.codes import code_labels
+
+    basis = f"/admin/activiteiten/{activiteit.id}/inschrijvingen"
+    onderdelen = [{"id": c.id, "naam": c.name, "url": f"{basis}/nieuw?onderdeel={c.id}",
+                   "gekozen": c.id == onderdeel_id}
+                  for c in activiteit.sub_registrations]
+    component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
+    producten = [{"id": p.id, "naam": p.name, "prijs": p.price, "actief": p.is_active,
+                  "aantal": values.get(f"product_{p.id}", "0")}
+                 for p in (component.products if component else [])]
+    return AdminRegistrationNewView(
+        a=activiteit, onderdelen=onderdelen,
+        onderdeel_id=component.id if component else None, producten=producten,
+        team_name_required=bool(component and component.team_name_required),
+        values=values, error=error,
+        betaalwijzen=[(c, w) for c, w in code_labels("payment_method", db=db)
+                      if c != "online"],
+        form_url=f"{basis}/nieuw", terug_url=basis,
+        csrf_token=csrf_from_request(request), nav_items=NAV)
+
+
+@router.get("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw",
+            response_class=HTMLResponse)
+def inschrijving_nieuw(activity_id: int, request: Request, onderdeel: int = 0,
+                       db: Session = Depends(get_db),
+                       email: str = Depends(require_admin_ui)):
+    """The board adds a registration (#1192). With one component it is chosen."""
+    from app.domains.activities.api import get_activity
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    if not onderdeel and len(activiteit.sub_registrations) == 1:
+        onderdeel = activiteit.sub_registrations[0].id
+    vm = _new_registration_view(request, db, activiteit, onderdeel or None, {}, None)
+    return templates.TemplateResponse(request, "admin_inschrijving_nieuw.html",
+                                      vm.as_context())
+
+
+@router.post("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def inschrijving_nieuw_opslaan(activity_id: int, request: Request,
+                                     background_tasks: BackgroundTasks,
+                                     db: Session = Depends(get_db),
+                                     email: str = Depends(require_admin_ui)):
+    """Save the board's registration through the ONE implementation (#1192).
+
+    `board_register_for_activity` is `create_registration` with `person_id=None`:
+    the registration does not hang on the board member who sends this form.
+    """
+    from app.domains.activities.api import (board_register_for_activity,
+                                            get_activity, quote_lines)
+    from app.domains.activities.ui import form_quantities, contact_refusal
+    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    form = await request.form()
+    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    onderdeel_id = int(values["onderdeel"]) if values.get("onderdeel", "").isdigit() else None
+    component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
+
+    def refused(message: str) -> HTMLResponse:
+        vm = _new_registration_view(request, db, activiteit, onderdeel_id, values, message)
+        return templates.TemplateResponse(request, "admin_inschrijving_nieuw.html",
+                                          vm.as_context())
+
+    if component is None:
+        return refused(_("Kies een onderdeel."))
+    weigering = contact_refusal(values)
+    if weigering:
+        return refused(weigering)
+    quantities = form_quantities(form)
+    if component.products and not any(q > 0 for q in quantities.values()):
+        return refused(_("Selecteer minstens één product."))
+    totaal, _regels = quote_lines(component, quantities, False)
+    try:
+        data = RegistrationCreate(
+            contact_name=values["contact_name"].strip(),
+            contact_email=values["contact_email"].strip(),
+            phone=values["phone"].strip(),
+            team_name=(values.get("team_name") or "").strip() or None,
+            payment_method=(values.get("payment_method") or None) if totaal > 0 else None,
+            component_id=component.id,
+            items=[RegistrationItemCreate(product_id=pid, quantity=qty)
+                   for pid, qty in quantities.items() if qty > 0],
+            remarks=(values.get("remarks") or "").strip() or None)
+    except ValidationError:
+        # `contact_refusal` checked that there is an address; the schema also
+        # checks that it IS one.
+        return refused(_("Dat e-mailadres is niet geldig."))
+    try:
+        result = board_register_for_activity(db, activity_id, data, background_tasks,
+                                             actor=email)
+    except HTTPException as exc:
+        return refused(str(exc.detail))
+    response = HTMLResponse("")
+    response.headers["HX-Redirect"] = f"/admin/inschrijvingen/{result['id']}"
+    return response
+
+
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen",
             response_class=HTMLResponse)
 def activiteit_inschrijvingen_tab(activity_id: int, request: Request,

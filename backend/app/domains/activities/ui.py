@@ -113,7 +113,24 @@ def _is_member(person) -> bool:
     return has_valid_membership(person)
 
 
-def _quantities(form) -> dict[int, int]:
+def contact_refusal(values) -> str | None:
+    """Why a registration form's contact fields are refused, or None (#1192).
+
+    The same three fields on every way in — Koen: "bestuur moet dezelfde velden
+    invullen" — so one sentence, used by the public form and by the board's
+    "add a registration" screen. The service repeats name and phone
+    (`controleer_inschrijfvelden`) and the schema the e-mail address; this is the
+    screen's own, friendlier, refusal before either is reached.
+    """
+    naam = (values.get("contact_name") or "").strip()
+    email = (values.get("contact_email") or "").strip()
+    gsm = (values.get("phone") or "").strip()
+    if not naam or "@" not in email or not gsm:
+        return "Vul naam, e-mailadres en mobiel nummer in."
+    return None
+
+
+def form_quantities(form) -> dict[int, int]:
     out: dict[int, int] = {}
     for key, value in form.items():
         if key.startswith("product_"):
@@ -262,7 +279,7 @@ async def inschrijf_totaal(activity_id: int, component_id: int, request: Request
     form = await request.form()
     person = _session_person(request, db)
     is_member = _is_member(person)
-    totaal, _regels = quote_lines(component, _quantities(form), is_member)
+    totaal, _regels = quote_lines(component, form_quantities(form), is_member)
     return templates.TemplateResponse(request, "_inschrijf_totaal.html", {
         "totaal": totaal, "is_member": is_member,
         "heeft_prijs": has_payable_products(component, is_member)})
@@ -278,7 +295,7 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
-    quantities = _quantities(form)
+    quantities = form_quantities(form)
     person = _session_person(request, db)
     is_member = _is_member(person)
 
@@ -289,8 +306,9 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     naam = (values.get("contact_name") or "").strip()
     email = (values.get("contact_email") or "").strip()
     gsm = (values.get("phone") or "").strip()
-    if not naam or "@" not in email or not gsm:
-        ctx["error"] = "Vul naam, e-mailadres en mobiel nummer in."
+    weigering = contact_refusal(values)
+    if weigering:
+        ctx["error"] = weigering
         return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
     # #1191: `ctx["producten"]` and not `component.products`. With EVERY product of
     # this component inactive the form renders no row at all, so this requirement

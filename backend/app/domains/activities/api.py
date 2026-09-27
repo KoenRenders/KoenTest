@@ -25,7 +25,7 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItemHistory,
 )
 from app.domains.activities.totals import (  # noqa: F401
-    compute_registration_total, quote_registration)
+    compute_registration_total, quote_lines, quote_registration)
 
 
 # ── Facade-doorgangen naar de registratieflow ────────────────────────────────
@@ -120,6 +120,22 @@ def register_for_activity(db, activity_id: int, data, background_tasks,
 
     return _impl(activity_id, data, background_tasks, db=db,
                  current_member=current_member)
+
+
+def board_register_for_activity(db, activity_id: int, data, background_tasks, *,
+                                actor: str):
+    """The board adds a registration for somebody else (#1192).
+
+    The same implementation as the public way (`router.create_registration`),
+    with `person_id=None` — the registration does not hang on the board member
+    who sends the form — and `board=True`, which lifts the per-address limit and
+    the publicly-bookable rule (see the docstring there). `actor` is the board
+    member's e-mail, for the audit trail only.
+    """
+    from app.domains.activities.router import create_registration
+
+    return create_registration(db, activity_id, data, background_tasks,
+                               person_id=None, actor=actor, board=True)
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 from app.domains.activities.service import (  # noqa: F401

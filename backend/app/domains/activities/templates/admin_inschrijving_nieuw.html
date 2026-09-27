@@ -1,0 +1,67 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ a.name }} — {{ _("Inschrijving toevoegen") }}{% endblock %}
+{% block content %}
+{# #1192: the board adds a registration for somebody else. The same fields as
+   the public form (Koen: "bestuur moet dezelfde velden invullen"), saved through
+   the same implementation; it does NOT hang on the board member who sends it.
+   A list of names on paper is one registration with a quantity, with the names
+   in the remarks, which the door list prints. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ terug_url }}">{{ _("‹ Inschrijvingen") }}</a></p>
+<div id="inschrijving-nieuw">
+{{ ui.page_header(_("Inschrijving toevoegen"), a.name) }}
+{{ ui.error_banner(error) }}
+
+{% if onderdelen|length > 1 %}
+<div class="mb-4">
+  <p class="text-sm font-medium text-gray-700 mb-2">{{ _("Onderdeel") }}</p>
+  <div class="flex flex-wrap gap-2">
+    {% for o in onderdelen %}
+    {% if o.gekozen %}{{ ui.btn_primary(o.naam, type="button", size="sm") }}{% else %}{{ ui.btn_secondary(o.naam, href=o.url, size="sm") }}{% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if onderdeel_id %}
+<form id="inschrijving-nieuw-form" hx-post="{{ form_url }}" hx-target="#inschrijving-nieuw"
+      hx-select="#inschrijving-nieuw" hx-swap="outerHTML"
+      class="grid grid-cols-1 gap-3 max-w-xl">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="onderdeel" value="{{ onderdeel_id }}">
+  <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
+    {{ ui.input_control("contact_name", value=values.get("contact_name", ""), required=True, cls="w-full") }}</div>
+  <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
+    {{ ui.input_control("contact_email", type="email", value=values.get("contact_email", ""), required=True, cls="w-full") }}</div>
+  <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
+    {{ ui.input_control("phone", type="tel", value=values.get("phone", ""), required=True, cls="w-full") }}</div>
+  {% if team_name_required %}
+  <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
+    {{ ui.input_control("team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
+  {% endif %}
+  {% if producten %}
+  <div>
+    <p class="text-sm font-medium text-gray-700 mb-1">{{ _("Producten") }}</p>
+    {% for p in producten %}
+    <div class="flex items-center justify-between gap-3 py-1">
+      <span class="text-sm">{{ p.naam }}{% if not p.actief %} {{ ui.badge(_("niet publiek"), "gray") }}{% endif %}</span>
+      {{ ui.stepper("product_" ~ p.id, id="product-" ~ p.id, value=p.aantal) }}
+    </div>
+    {% endfor %}
+  </div>
+  <div>{{ ui.label(_("Betaalwijze"), "payment_method") }}
+    {% call ui.select_control("payment_method", cls="w-full", attrs='id="payment_method"') %}
+      {% for code, woord in betaalwijzen %}<option value="{{ code }}" {% if values.get("payment_method") == code %}selected{% endif %}>{{ woord }}</option>{% endfor %}
+    {% endcall %}
+    <p class="text-xs text-ink-soft mt-1">{{ _("Enkel van belang bij een betalend product; een gratis inschrijving krijgt geen vordering.") }}</p></div>
+  {% endif %}
+  <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
+    {{ ui.textarea_control("remarks", value=values.get("remarks", ""), rows=3, cls="w-full") }}
+    <p class="text-xs text-ink-soft mt-1">{{ _("Bv. de namen bij een groep: ze staan op de deurlijst.") }}</p></div>
+  {{ ui.action_bar(save_label=_("Inschrijving toevoegen"), form="inschrijving-nieuw-form", cancel_href=terug_url) }}
+</form>
+{% else %}
+{{ ui.empty_state(_("Kies eerst een onderdeel.") if onderdelen else _("Deze activiteit heeft nog geen onderdeel.")) }}
+{% endif %}
+</div>
+{% endblock %}
