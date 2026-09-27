@@ -768,8 +768,10 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
   `contact_type_code = "MOBILE"`. **Upper case**, and that is the whole correction (CR-12 phase 2):
   this line said `"mobile"` and the stored codes have always been upper case. The lower-case
   `mobile` that appears all over the code is something else — a form field and a view-model
-  attribute — so the two were never two spellings of one thing. Since phase 2 the column carries
-  `ContactType.MOBILE`, so the question does not come up again.
+  attribute — so the two were never two spellings of one thing. The column is a plain `String`
+  with a foreign key to `mdm.contact_type_codes`; there is **no `ContactType` enum** (Koen,
+  27 September 2026: a strict enum would refuse a fifth social network and undo #1160). Compare
+  with the named constants `CONTACT.EMAIL` / `CONTACT.MOBILE` from `mdm/codes.py`, never a string.
 - `Address` → normalized via `PostalCode` table; always use postal code from the lookup table
 - `Activity` → `ActivitySubRegistration` (2-level); sub-registrations can have their own `price`, `max_participants`, `products` (`reg_form_type` is legacy/ongebruikt sinds de v2.0-unificatie — zie "Activity registration form")
 - `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
