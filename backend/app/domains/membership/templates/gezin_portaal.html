@@ -94,7 +94,7 @@
     </div>
     <form id="pp-{{ p.id }}" x-show="edit" x-cloak class="space-y-3"
           hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML" style="display: none">
-      {% set _hoofd = p.relation_type == "HOOFDLID" %}
+      {% set _hoofd = p.is_main_member %}
       {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
          include_relation=False: relatie blijft read-only in de kop (portaal-pariteit). #}
       {# #1219: `include_email=False` — de adressen staan als rijen hieronder. #}

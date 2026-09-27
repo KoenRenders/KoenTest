@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import require_member
 from app.database import get_db
-from app.domains.mdm.api import Member, Person, MemberPerson
+from app.domains.mdm.api import Member, Person, MemberPerson, RelationType
 from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import PostalCode
 from app.domains.audit.api import (
@@ -93,6 +93,11 @@ def _person_payload(p: Person):
         "date_of_birth": p.date_of_birth.isoformat() if p.date_of_birth else None,
         "gender_code": p.gender_code,
         "relation_type": mp.relation_type if mp else None,
+        # Decided here and not in the template: `relation_type` is a
+        # `RelationType` member, so the template's `== "HOOFDLID"` was always
+        # false after CR-12 phase 2, and the main member lost the fields that
+        # only a main member has (CR-12 phase 4 residue).
+        "is_main_member": bool(mp and mp.relation_type is RelationType.PRIMARY_MEMBER),
         "address": address,
         "email": contacts.get("EMAIL"),
         "phone": contacts.get("PHONE"),

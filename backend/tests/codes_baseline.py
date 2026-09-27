@@ -51,8 +51,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
 #: Templates comparing a code to a string literal.
 #: Key: `path/to/template.html:attribute==value`.
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
-    'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
-    'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
 })
 
 #: Loose string comparisons on a vocabulary attribute in `.py`.
