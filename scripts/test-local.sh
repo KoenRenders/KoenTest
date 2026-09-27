@@ -66,7 +66,6 @@ case "$DB_NAAM" in
     ;;
 esac
 
-URL="${TEST_DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/${DB_NAAM}}"
 
 # ── Dev-stack en hulpcontainer ───────────────────────────────────────────────
 # De databank draait in het gedeelde dev-project; de suite draait in een eigen,
@@ -76,7 +75,20 @@ URL="${TEST_DATABASE_URL:-postgresql+psycopg2://postgres:postgres@db:5432/${DB_N
 NAAM="raaktest-${slug}"
 NETWERK="dev_internal"
 
-"${COMPOSE[@]}" up -d db >/dev/null
+# `--no-recreate`: the dev project (`name: dev`) is shared by every worktree, and
+# each passes its own path to the compose file. Without the flag compose sees a
+# changed configuration and REPLACES the db container on every run from another
+# worktree — killing the test run that worktree had going. With it, compose only
+# starts the database when it is not running, and leaves a running one alone.
+"${COMPOSE[@]}" up -d --no-recreate db >/dev/null
+
+# The credentials come from the running db container, not from this file: the
+# dev database carries whatever password its volume was initialised with, and a
+# hardcoded `postgres:postgres` fails the moment that is anything else (CLAUDE.md:
+# never hardcode them). Read after `up`, so the container exists.
+DB_USER="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_USER)"
+DB_PASS="$("${COMPOSE[@]}" exec -T db printenv POSTGRES_PASSWORD)"
+URL="${TEST_DATABASE_URL:-postgresql+psycopg2://${DB_USER}:${DB_PASS}@db:5432/${DB_NAAM}}"
 
 if [ "${VERS:-}" = "1" ]; then
   docker rm -f "$NAAM" >/dev/null 2>&1 || true
