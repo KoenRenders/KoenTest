@@ -46,6 +46,8 @@ def _bouw(tmp_path, faal_altijd=False):
     werk = tmp_path / "checkout"
     (werk / "tests").mkdir(parents=True)
     shutil.copy(DEPLOY, werk / "deploy.sh")
+    (werk / "scripts").mkdir()
+    shutil.copy(ROOT / "scripts" / "deploy-summary.sh", werk / "scripts")
     (werk / "deploy.sh").chmod(0o755)
 
     teller = tmp_path / "curl-pogingen"
