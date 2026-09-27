@@ -5,7 +5,9 @@ ruwe inzendingen naar de browser hoeven (schaalt beter, minder PII in de client)
 """
 from sqlalchemy import func
 
+from app.kernel.codes import code_of
 from app.domains.forms.models import (
+    FieldType,
     Form,
     FormSubmission,
     FormSubmissionAnswer,
@@ -31,11 +33,11 @@ def compute_results(db, form: Form) -> dict:
         entry = {
             "field_id": field.id,
             "label": field.label,
-            "field_type": field.field_type,
+            "field_type": code_of(field.field_type),
         }
         ftype = field.field_type
 
-        if ftype in ("select", "radio", "checkbox"):
+        if ftype in (FieldType.SELECT, FieldType.RADIO, FieldType.CHECKBOX):
             counts = dict(
                 db.query(
                     FormSubmissionAnswer.value_option_id, func.count(FormSubmissionAnswer.id)
@@ -77,7 +79,7 @@ def compute_results(db, form: Form) -> dict:
                     .all())
             ]
 
-        elif ftype == "rating":
+        elif ftype is FieldType.RATING:
             rows = (
                 db.query(FormSubmissionAnswer.value_rating, func.count(FormSubmissionAnswer.id))
                 .filter(FormSubmissionAnswer.field_id == field.id)
@@ -108,7 +110,7 @@ def compute_results(db, form: Form) -> dict:
             entry["response_count"] = total
             entry["average"] = round(weighted / total, 2) if total else None
 
-        elif ftype == "number":
+        elif ftype is FieldType.NUMBER:
             agg = (
                 db.query(
                     func.count(FormSubmissionAnswer.id),

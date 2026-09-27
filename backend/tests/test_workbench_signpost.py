@@ -127,7 +127,7 @@ def test_a_mail_task_points_at_the_e_mail_log(client, db_session):
 
     _login(client, db_session)
     log = EmailLog(recipient="someone@example.com", subject="Test",
-                   email_type="generic", status="failed")
+                   email_type="other", status="failed")
     db_session.add(log)
     db_session.flush()
     task = _task(db_session, "mail.definitief_gefaald", "email_log", str(log.id))

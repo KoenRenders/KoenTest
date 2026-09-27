@@ -45,6 +45,8 @@ class StilleProvider(SttProvider):
     """Aanvaardt alles en levert nooit een delta — geval 2."""
 
     name = "stil"
+    # What the AI log records; it only takes known codes (CR-12 phase 4).
+    vendor = "mock"
 
     async def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:
         async for _chunk in audio:
@@ -56,6 +58,7 @@ class WeigerendeProvider(SttProvider):
     """Weigert het formaat — geval 1."""
 
     name = "weigert"
+    vendor = "mock"
 
     async def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:
         async for _chunk in audio:

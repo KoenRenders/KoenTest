@@ -27,7 +27,7 @@ import pytest
 from sqlalchemy import text as sql_text
 
 from app.database import SessionLocal
-from app.domains.chatbot.api import (GuardedProvider, SeamBlocked, admin_rules,
+from app.domains.chatbot.api import (AiCapability, AiProvider, GuardedProvider, SeamBlocked, admin_rules,
                                      cost_per_period, list_calls, month_period,
                                      sink_for)
 from app.domains.chatbot.providers import mistral as mistral_mod
@@ -133,14 +133,14 @@ def test_a_failed_call_is_logged_as_an_error(db_session, leeg_logboek, monkeypat
 
 def test_an_unknown_status_is_refused():
     with pytest.raises(ValueError):
-        sink_for()(surface="admin", capability="x", model="m", payload="",
+        sink_for()(surface="admin", capability="reporting", model="m", payload="",
                    status="misschien")
 
 
 # ── Cost: stored, summed, per department ─────────────────────────────────────
 
 def _beeld(tenant_id, **extra):
-    velden = dict(surface="admin", capability="design", model="flux-2-pro",
+    velden = dict(surface="designstudio", capability="image", model="flux-2-pro",
                   payload="[prompt]", provider="bfl", endpoint="/v1/flux-2-pro",
                   cost_credits=4.5, cost_amount=0.045, cost_currency="usd",
                   output_megapixels=1.96, tenant_id=tenant_id)
@@ -157,7 +157,8 @@ def test_a_cost_is_stored_and_summed_for_its_own_department_only(
     start, end = month_period(date.today())
     [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
 
-    assert (lijn.provider, lijn.capability, lijn.calls) == ("bfl", "design", 2)
+    assert (lijn.provider, lijn.capability, lijn.calls) == (
+        AiProvider.BFL, AiCapability.IMAGE, 2)
     assert lijn.cost_credits == Decimal("9.0")
     assert lijn.cost_amounts == {"USD": Decimal("0.090")}
 
@@ -233,6 +234,11 @@ def test_the_migration_labels_the_rows_that_were_there(db_session, leeg_logboek)
     written the way the old code wrote them."""
     eigen = SessionLocal()
     try:
+        # The pre-130 shape — '' for provider and capability — is what migration
+        # 163 made impossible: its foreign keys refuse ''. This session sets the
+        # key triggers aside to write the old rows; the backfill is what is
+        # under test here, not the keys.
+        eigen.execute(sql_text("SET LOCAL session_replication_role = replica"))
         for model, reden in (("mistral-small-latest", ""),
                              ("mistral-medium-latest", "een e-mailadres"),
                              ("recorder-1", "")):
@@ -271,6 +277,36 @@ def test_ocr_is_logged_with_its_department(db_session, leeg_logboek, monkeypatch
     assert "png-bytes" not in rij["payload"], "the document itself is not logged"
 
 
+def test_an_ocr_call_is_logged_with_its_cost(db_session, leeg_logboek, monkeypatch):
+    """#1212: Mistral charges OCR per page, and the row must say what it cost.
+
+    Before this, the OCR rows had a count and no amount, so the AI cost screen
+    added them up as nothing. The page count comes from the answer
+    (`usage_info.pages_processed`), the price from `OCR_PRICE_PER_PAGE_USD`.
+
+    Broken on purpose to check that this test can go red: `cost_amount` left
+    out of the call in `_log_ocr` → the row has no amount and the month total
+    has no USD line.
+    """
+    import app.domains.media.extraction as mx
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ocr_price_per_page_usd", 0.004)
+    monkeypatch.setattr(mx.httpx, "post", lambda *a, **k: _Antwoord(
+        {"id": "ocr-2", "pages": [{"markdown": "Een"}, {"markdown": "Twee"}],
+         "usage_info": {"pages_processed": 3, "doc_size_bytes": None}}))
+    mx._ocr_via_mistral(b"pdf-bytes", "application/pdf", tenant_id=TENANT)
+
+    [rij] = _rows(db_session)
+    assert rij["capability"] == "ocr"
+    assert (rij["cost_amount"], rij["cost_currency"]) == (Decimal("0.012000"), "USD")
+
+    start, end = month_period(date.today())
+    [lijn] = cost_per_period(db_session, tenant_id=TENANT, start=start, end=end)
+    assert lijn.capability is AiCapability.OCR
+    assert lijn.cost_amounts == {"USD": Decimal("0.012000")}
+
+
 def test_a_failed_ocr_is_logged_too(db_session, leeg_logboek, monkeypatch):
     import app.domains.media.extraction as mx
 
@@ -280,6 +316,9 @@ def test_a_failed_ocr_is_logged_too(db_session, leeg_logboek, monkeypatch):
 
     [rij] = _rows(db_session)
     assert (rij["capability"], rij["status"]) == ("ocr", "error")
+    # #1212: no page count in the answer, so no cost — an estimate would be an
+    # invented amount on the cost screen.
+    assert rij["cost_amount"] is None and rij["cost_currency"] is None
 
 
 def test_a_dictation_session_is_logged(client, db_session, leeg_logboek, monkeypatch):

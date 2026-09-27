@@ -19,14 +19,20 @@ from app.domains.auth.api import (
     require_admin_ui, require_csrf,
 )
 from app.domains.forms.api import (
+    FIELD_TYPE,
     FIELD_TYPES,
+    FORM_STATUS,
     FORM_STATUSES,
+    FieldType,
+    FormStatus,
     deellink_pad,
     delete_submission,
     list_forms,
     list_submissions,
     submission_count,
 )
+from app.domains.forms.screenfields import FieldKind, screen_fields
+from app.kernel.codes import code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
@@ -64,26 +70,32 @@ def _bewerk(bewerking, *args, **kwargs):
 def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
     grouped = [{"section": s,
-                "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: (f.position, f.id))}
+                "fields": screen_fields(
+                    sorted((f for f in form.fields if f.section_id == s.id),
+                           key=lambda f: (f.position, f.id)))}
                for s in sections]
-    loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: (f.position, f.id))
+    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
+                                 key=lambda f: (f.position, f.id)))
     # §2.12: nooit een rauwe DB-waarde op het scherm (#641). De veldtypes zijn
     # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
     # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
     # taal van de tenant volgt (zelfde patroon als de statuslabels bij betalingen).
-    veldtype_labels = {
-        "text": _("Korte tekst"), "textarea": _("Lange tekst"),
-        "number": _("Getal"), "email": _("E-mailadres"),
-        "select": _("Keuzelijst"), "radio": _("Eén keuze"),
-        "checkbox": _("Meerdere keuzes"), "rating": _("Score"),
-        "phone": _("Telefoonnummer"),
-    }
+    # CR-12 phase 4: the words come from the label table of `field_type`. The
+    # dictionary that stood here is gone; its words became the seed of that
+    # table, so the screen reads the same as before (§B8.5).
+    field_type_labels = dict(code_labels(FIELD_TYPE.name, db=db))
     ctx = {
         "form": form, "grouped": grouped, "loose_fields": loose,
-        "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
-        "field_type_labels": veldtype_labels,
+        "sections": sections, "field_types": list(field_type_labels),
+        "statuses": FORM_STATUSES,
+        # `(code, word)` for the dropdown, plus this form's code: the screen
+        # puts a code into a `value=` and compares codes (§B4.7).
+        "status_options": code_labels(FORM_STATUS.name, db=db),
+        "status": code_of(form.status),
+        "field_type_labels": field_type_labels,
+        # What the "add a question" form shows before a type is chosen: a new
+        # question starts as short text.
+        "new_field_kind": FieldKind(FieldType.TEXT),
         "submission_count": submission_count(db, form.id),
         # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
         "share_path": deellink_pad(form),
@@ -101,14 +113,14 @@ def _builder_response(request: Request, db: Session, form, **extra):
 # ── Lijst + aanmaken ───────────────────────────────────────────────────────────
 
 # Badge-tonen per status, conform §2.4: concept grijs, open groen, gesloten rood.
-# De labels staan bewust NIET hier maar in de route: _() vertaalt naar de taal van
-# de actieve tenant, en op moduleniveau zou die keuze bij import bevriezen.
-STATUS_TONES = {"draft": "gray", "open": "green", "closed": "red"}
-
-
-def _status_labels() -> dict[str, str]:
-    """Eén woordkeuze voor de filterdropdown én de kaart-badges."""
-    return {"draft": _("Concept"), "open": _("Open"), "closed": _("Gesloten")}
+# A tone is a design decision and not a translation (§B4.5), so it stays here,
+# next to the screen that draws the badge; the WORDS come from the label table
+# of `form_status` since CR-12 phase 4.
+register_tones(FORM_STATUS.name, {
+    FormStatus.DRAFT: "gray",
+    FormStatus.OPEN: "green",
+    FormStatus.CLOSED: "red",
+})
 
 
 @router.get("/admin/formulieren", response_class=HTMLResponse)
@@ -127,8 +139,11 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
                 else "admin_formulieren.html")
     return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "forms": forms, "q": q, "status": status,
-        "statuses": FORM_STATUSES, "status_labels": _status_labels(),
-        "status_tones": STATUS_TONES, "gefilterd": bool(q.strip() or status),
+        "statuses": FORM_STATUSES,
+        "status_labels": dict(code_labels(FORM_STATUS.name, db=db)),
+        "status_tones": {code: tone(FORM_STATUS.name, code)
+                         for code in FORM_STATUSES},
+        "gefilterd": bool(q.strip() or status),
         # De deellink wordt HIER gekozen en niet in de template (#928): welke van
         # de twee URL's je toont is een regel, en een regel in een sjabloon is een
         # tweede plaats waar hij woont.
@@ -358,15 +373,27 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
                   required: str = Form(""), min_length: str = Form(""),
                   max_length: str = Form(""), min_value: str = Form(""),
                   max_value: str = Form(""), rating_max: str = Form(""),
-                  rating_low_label: str = Form(""), rating_high_label: str = Form("")):
+                  rating_low_label: str = Form(""), rating_high_label: str = Form(""),
+                  section_id: str = Form("")):
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
-    _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
-            help_text=help_text,
-            required=required, min_length=min_length, max_length=max_length,
-            min_value=min_value, max_value=max_value, rating_max=rating_max,
-            rating_low_label=rating_low_label, rating_high_label=rating_high_label)
+    try:
+        _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
+                help_text=help_text, section_id=section_id,
+                required=required, min_length=min_length, max_length=max_length,
+                min_value=min_value, max_value=max_value, rating_max=rating_max,
+                rating_low_label=rating_low_label, rating_high_label=rating_high_label)
+    except HTTPException as exc:
+        if exc.status_code != 422:
+            raise
+        # #1136: a refused edit — a move that would break a jump, above all — has
+        # to SAY what stands in the way, and a 422 only ever reached the screen as
+        # the generic "er ging iets mis" toast (measured at 390 px). So the builder
+        # comes back with the message in its error banner, like the JSON import.
+        # `update_field` checks everything before it changes the row, so there is
+        # nothing half-applied to show.
+        return _builder_response(request, db, form, error=exc.detail)
     return _builder_response(request, db, form)
 
 
@@ -576,7 +603,11 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
     from app.domains.forms.results import compute_results
 
     form = _form_or_404(db, form_id)
-    ctx = {"form": form, "results": compute_results(db, form)}
+    results = compute_results(db, form)
+    # The same dictionary is the JSON API's answer (`router.py`), so the flag the
+    # screen needs goes on a copy of each question, not into `compute_results`.
+    results["fields"] = [dict(f, kind=FieldKind(f["field_type"])) for f in results["fields"]]
+    ctx = {"form": form, "results": results}
     if is_fragment_request(request):
         return templates.TemplateResponse(request, "_fb_resultaten.html", ctx)
     ctx.update({"nav_items": NAV,
@@ -607,11 +638,16 @@ def formulier_afdruk(form_id: int, request: Request, db: Session = Depends(get_d
                      email: str = Depends(require_admin_ui)):
     form = _form_or_404(db, form_id)
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
+    # Through the adapter like every other screen that renders a field: the print
+    # compares `field_type` with a code, and a member equals none — every choice,
+    # scale and info block printed as an empty line (found by the
+    # characterisation test, CR-12 phase 4).
     grouped = [{"section": s,
-                "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: (f.position, f.id))}
+                "fields": screen_fields(sorted(
+                    (f for f in form.fields if f.section_id == s.id),
+                    key=lambda f: (f.position, f.id)))}
                for s in sections]
-    loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: (f.position, f.id))
+    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
+                                 key=lambda f: (f.position, f.id)))
     return templates.TemplateResponse(request, "formulier_afdruk.html", {
         "form": form, "grouped": grouped, "loose_fields": loose})

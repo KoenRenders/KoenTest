@@ -16,7 +16,8 @@
       <div>
         <div class="font-semibold text-ink">{{ f.title }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
+          {{ ui.badge(f.status | code_label("form_status") | lower,
+                      f.status | tone("form_status")) }}
           {# De leesbare link zodra er een slug is, anders de sleutel-URL (#928) —
              gekozen in de route, niet hier. `path_for` zet er de tenant-prefix
              voor wanneer de afdeling via een pad-prefix bereikt wordt: zonder dat

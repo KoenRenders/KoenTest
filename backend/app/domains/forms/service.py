@@ -25,10 +25,12 @@ from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 
-from app.domains.forms.models import (FIELD_TYPES, FORM_STATUSES, Form, FormField,
+from app.kernel.codes import code_of
+from app.domains.forms.models import (FIELD_TYPES, FORM_STATUSES, FieldType, FormStatus, Form, FormField,
                                       FormFieldOption, FormSection,
                                       FormSubmissionAnswer)
 from app.domains.forms.schemas import AnswerIn
+from app.domains.forms.screenfields import BRANCHABLE, CHOICES
 from app.i18n import _
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
@@ -95,7 +97,7 @@ def _traversed_field_ids(form: Form, by_field: Dict[int, AnswerIn]) -> set:
         jump = None  # "end" of een sectie-id
         for f in fields_by_section.get(sid, []):
             traversed.add(f.id)
-            if f.field_type not in ("radio", "select"):
+            if f.field_type not in (FieldType.RADIO, FieldType.SELECT):
                 continue
             ans = by_field.get(f.id)
             if not ans or not ans.option_ids:
@@ -134,7 +136,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
 
     for field in form.fields:
         # 'info'-velden zijn louter tekst: nooit verplicht, nooit een antwoord.
-        if field.field_type == "info":
+        if field.field_type is FieldType.INFO:
             continue
         # Overgeslagen (niet-doorlopen) secties: geen verplichting, geen antwoord.
         if field.id not in traversed:
@@ -169,7 +171,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
         anders_telt = bool(other_text) and bool(other_option_ids)
         if anders_telt and not (set(option_ids) & other_option_ids):
             anders_id = sorted(other_option_ids)[0]
-            option_ids = ([anders_id] if field.field_type in ("radio", "select")
+            option_ids = ([anders_id] if field.field_type in (FieldType.RADIO, FieldType.SELECT)
                           else option_ids + [anders_id])
 
         has_value = (bool(text) or number is not None or bool(option_ids)
@@ -183,14 +185,15 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
 
         ftype = field.field_type
 
-        if ftype in ("text", "textarea", "email", "phone"):
+        if ftype in (FieldType.TEXT, FieldType.TEXTAREA, FieldType.EMAIL,
+                     FieldType.PHONE):
             if field.min_length is not None and len(text) < field.min_length:
                 raise _fail(field, f"minstens {field.min_length} tekens.")
             if field.max_length is not None and len(text) > field.max_length:
                 raise _fail(field, f"hoogstens {field.max_length} tekens.")
-            if ftype == "email" and not _EMAIL_RE.match(text):
+            if ftype is FieldType.EMAIL and not _EMAIL_RE.match(text):
                 raise _fail(field, "geen geldig e-mailadres.")
-            if ftype == "phone":
+            if ftype is FieldType.PHONE:
                 digits = re.sub(r"\D", "", text)
                 if not (8 <= len(digits) <= 15):
                     raise _fail(field, "geen geldig telefoonnummer.")
@@ -202,7 +205,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
                     pass  # ongeldige regex in config → niet blokkeren
             rows.append(FormSubmissionAnswer(field_id=field.id, value_text=text))
 
-        elif ftype == "number":
+        elif ftype is FieldType.NUMBER:
             try:
                 num = Decimal(str(number))
             except (InvalidOperation, TypeError):
@@ -213,7 +216,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
                 raise _fail(field, f"maximaal {field.max_value}.")
             rows.append(FormSubmissionAnswer(field_id=field.id, value_number=num))
 
-        elif ftype in ("select", "radio"):
+        elif ftype in (FieldType.SELECT, FieldType.RADIO):
             if len(option_ids) > 1:
                 raise _fail(field, "kies hoogstens één optie.")
             oid = option_ids[0]
@@ -222,7 +225,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
             txt = other_text if oid in other_option_ids and other_text else None
             rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
 
-        elif ftype == "checkbox":
+        elif ftype is FieldType.CHECKBOX:
             for oid in option_ids:
                 if oid not in option_ids_valid:
                     raise _fail(field, "ongeldige keuze.")
@@ -231,7 +234,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
                 txt = other_text if oid in other_option_ids and other_text else None
                 rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
 
-        elif ftype == "rating":
+        elif ftype is FieldType.RATING:
             if rating is None:
                 raise _fail(field, "ongeldige beoordeling.")
             try:
@@ -251,7 +254,7 @@ def assert_open_for_submission(db, form: Form) -> None:
     is. Gooit HTTPException als indienen niet (meer) mag."""
     from app.domains.forms.models import FormSubmission
 
-    if form.status != "open":
+    if form.status is not FormStatus.OPEN:
         raise HTTPException(status_code=403, detail=_("Dit formulier staat niet open voor inzendingen."))
     if form.max_submissions is not None:
         count = (
@@ -303,7 +306,7 @@ def validate_definition(data) -> None:
             raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
         for o in f.options:
             has_skip = o.skip_to_section_index is not None or o.skip_to_end
-            if has_skip and f.field_type not in ("radio", "select"):
+            if has_skip and f.field_type not in BRANCHABLE_CODES:
                 raise HTTPException(
                     status_code=422,
                     detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."),
@@ -616,22 +619,84 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
         raise FormulierFout("Elk veld heeft een vraag/label nodig.")
 
     nieuw_type = (waarden.get("field_type") or "").strip()
-    if nieuw_type and nieuw_type != veld.field_type:
+    wisselt_type = bool(nieuw_type) and nieuw_type != code_of(veld.field_type)
+    if wisselt_type:
         if nieuw_type not in FIELD_TYPES:
             raise FormulierFout(f"Ongeldig veldtype: {nieuw_type}")
         if submission_count(db, form.id):
             raise FormulierFout(
                 "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
                 "bewaarde antwoorden betekenisloos maken.")
+
+    # #1136: every check before the first change to the row. A refused edit then
+    # leaves nothing half-applied for the screen to show, and needs no rollback.
+    doel_id = str(waarden.get("section_id") or "").strip()
+    doel = None
+    if doel_id.isdigit() and int(doel_id) != veld.section_id:
+        # A type that cannot branch drops its jumps below, so they cannot block.
+        behoudt_sprongen = not wisselt_type or nieuw_type in BRANCHABLE_CODES
+        doel = _check_move(form, veld, int(doel_id), check_jumps=behoudt_sprongen)
+
+    if wisselt_type:
         veld.field_type = nieuw_type
-        if nieuw_type not in VERTAKBARE_VELDEN:
+        if nieuw_type not in BRANCHABLE_CODES:
             for optie in veld.options:
                 optie.skip_to_section_id = None
                 optie.skip_to_end = False
 
     veld.label = label
     _veldwaarden(veld, waarden)
+    if doel is not None:
+        _move_to_section(form, veld, doel)
     db.commit()
+
+
+def _section_name(section: FormSection) -> str:
+    """How the builder names a section: its title, or its number (1-based)."""
+    return section.title or f"Sectie {section.position + 1}"
+
+
+def _check_move(form: Form, veld: FormField, section_id: int, *,
+                check_jumps: bool = True) -> FormSection:
+    """The section a question may move to, or a `FormulierFout` saying why not.
+
+    **A move that breaks a jump is refused** (Koen, 21 September 2026). An
+    option of this question may jump to a later section; in its new place that
+    target has to be later still, the rule `update_option` applies to every
+    jump. A jump that no longer goes forward is only noticed by a visitor who
+    gets stuck, after the form went out. The message names the option and both
+    sections, so the admin knows which jump to change first.
+    """
+    doel = next((s for s in form.sections if s.id == section_id), None)
+    if doel is None:
+        raise FormulierFout("Die sectie hoort niet bij dit formulier.")
+    for optie in (veld.options if check_jumps else ()):
+        sprong = optie.skip_to_section
+        if sprong is not None and sprong.position <= doel.position:
+            raise FormulierFout(
+                f"De optie '{optie.label}' springt naar "
+                f"{_section_name(sprong)}; verplaatst naar {_section_name(doel)} "
+                f"zou die sprong niet meer vooruit gaan. Pas eerst die sprong aan.")
+    return doel
+
+
+def _move_to_section(form: Form, veld: FormField, doel: FormSection) -> None:
+    """Move a question to another section, keeping its id (#1136).
+
+    The id is the point: every stored answer refers to it, so the old detour —
+    delete the question and make it again in the other section — cut those
+    answers loose. The question lands at the bottom of its new section with a
+    position after the last one there; taking its old position along could give
+    two questions the same place (the tie of #1068). `_check_move` has decided
+    that the move is allowed.
+    """
+    oude_broers = [f for f in form.fields
+                   if f.section_id == veld.section_id and f.id != veld.id]
+    nieuwe_broers = [f for f in form.fields if f.section_id == doel.id]
+    veld.section_id = doel.id
+    veld.position = max((f.position for f in nieuwe_broers), default=-1) + 1
+    # The section it left keeps a gap-free order.
+    _hernummer(oude_broers)
 
 
 def move_field(db, form: Form, field_id: int, richting: str) -> None:
@@ -683,8 +748,11 @@ def delete_field(db, form: Form, field_id: int) -> None:
 
 # ── Opties ───────────────────────────────────────────────────────────────────
 
-KEUZEVELDEN = ("select", "radio", "checkbox")
-VERTAKBARE_VELDEN = ("radio", "select")
+KEUZEVELDEN = CHOICES
+VERTAKBARE_VELDEN = BRANCHABLE
+#: The same two as CODES, for what comes from outside: the JSON API receives a
+#: string and converts it only when it goes into the column (§B4.2).
+BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
 
 
 def add_option(db, form: Form, field_id: int, *, label: str,
@@ -970,7 +1038,8 @@ def export_definition(form: Form) -> dict:
 
     def _veld(f) -> dict:
         return {
-            "field_type": f.field_type, "label": f.label, "help_text": f.help_text,
+            "field_type": code_of(f.field_type), "label": f.label,
+            "help_text": f.help_text,
             "required": f.required, "position": f.position,
             "section_index": index_van.get(f.section_id),
             "min_value": f.min_value, "max_value": f.max_value,
@@ -985,7 +1054,7 @@ def export_definition(form: Form) -> dict:
     return {
         "title": form.title,
         "description": form.description,
-        "status": form.status,
+        "status": code_of(form.status),
         "requires_login": form.requires_login,
         "max_submissions": form.max_submissions,
         "send_confirmation": form.send_confirmation,

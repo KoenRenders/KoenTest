@@ -10,6 +10,7 @@ A report is a selection over views, and the only thing another module ever needs
 from this domain is the vocabulary (the universe) and the two entry points that
 run it.
 """
+from app.domains.reporting.codes import EXPORT_KIND  # noqa: F401
 from app.domains.reporting.engine import (  # noqa: F401
     LAYOUTS,
     SYMBOLIC_LABELS,
@@ -35,6 +36,7 @@ from app.domains.reporting.engine import (  # noqa: F401
     selection_from_dict,
     selection_to_dict,
 )
+from app.domains.reporting.models import ExportKind  # noqa: F401
 from app.domains.reporting.exports import (  # noqa: F401
     build_dataset_ods,
     build_pivot_ods,
@@ -126,7 +128,7 @@ __all__ = [
     "delete_report", "dimension_values", "fact_columns", "filter_summary",
     "population_of", "values_from_fact_sql",
     "get_saved_report", "joins_for", "list_saved_reports", "load_dataset",
-    "is_personal", "log_export", "mark_run",
+    "is_personal", "log_export", "mark_run", "EXPORT_KIND", "ExportKind",
     "objects_in_pane_order", "report_filename", "resolve_selection",
     "run_selection", "run_validated", "save_report", "selection_from_dict",
     "selection_of", "selection_to_dict", "update_report", "validate_filter_values",

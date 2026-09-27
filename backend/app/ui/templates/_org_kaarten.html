@@ -11,7 +11,7 @@
       <div>
         <div class="font-semibold text-ink">{{ o.name }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
-          {{ ui.badge(soort_labels.get(o.org_type, o.org_type)|lower, "blue" if o.org_type == "ACCOUNT" else "gray") }}
+          {{ ui.badge(o.org_type|code_label("organization_type")|lower, o.org_type|tone("organization_type")) }}
           <span class="font-mono text-xs">{{ o.code }}</span>
           {% if o.legal_form %}<span>· {{ o.legal_form|lower|replace("_", " ") }}</span>{% endif %}
           {% if not o.is_active %}{{ ui.badge(_("inactief"), "red") }}{% endif %}

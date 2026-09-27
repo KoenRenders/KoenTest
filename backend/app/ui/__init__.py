@@ -62,9 +62,18 @@ install_jinja_i18n(templates.env)
 # the label table and not in a dictionary inside a screen. Registered here, next
 # to gettext, because the two answer the same question for two kinds of string:
 # `_()` for a sentence, `code_label` for a fact about a code.
-from app.kernel.codes import install_jinja_codes  # noqa: E402
+from app.kernel.codes import install_enum_guard, install_jinja_codes  # noqa: E402
 
 install_jinja_codes(templates.env)
+
+# CR-12, the twelfth gate: no enum member reaches the output. Three times in
+# this change request a member ended up in a `value=` attribute — the
+# subscriber filter, the audience choice and the attendance button — and none
+# of the eleven gates could find it, because a member that is RENDERED is not a
+# comparison. This hooks `finalize`, which Jinja calls for every `{{ }}`, so
+# every render test in the suite is a detector at once. The same strict/lenient
+# line as `StrictUndefined` above, and for the same reason.
+install_enum_guard(templates.env, strict=settings.app_env in _STRICT_ENVS)
 
 
 # #974: de opmaak zelf staat in `app.i18n.long_date`, zodat een domein dezelfde

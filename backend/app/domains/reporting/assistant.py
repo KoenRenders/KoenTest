@@ -33,6 +33,7 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.domains.chatbot.api import AiCapability
 from app.domains.reporting.api import (
     BY_KEY,
     CLASSES,
@@ -52,7 +53,7 @@ from app.kernel.codes import code_label
 
 logger = logging.getLogger(__name__)
 
-CAPABILITY = "reporting"
+CAPABILITY = AiCapability.REPORTING
 
 # De system-prompt van dit pakket wordt gerenderd uit `universe.py` — instructietekst
 # plus de catalogus — en kan per constructie geen waarde uit de databank bevatten.

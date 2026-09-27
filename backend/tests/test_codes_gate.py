@@ -34,10 +34,18 @@ its own, with the violation listed here:
 | Enum without a list (ratchet) | `class Proef(Enum)` in `meetings/models.py` | yes |
 | Tones total | removed `MeetingStatus.SENT` from the tone mapping | yes |
 | No label dictionaries (ratchet) | put `STATUS_LABELS = {...}` back in `meetings/admin_ui.py` | yes |
+| … also when annotated (phase 4) | `PROBE_LABELS: dict[str, str] = {...}` in `audit/changes.py` | yes — before this, it did not |
 | No template comparisons (ratchet) | `{% if meeting.status == "sent" %}` in `_vg_document.html` | yes |
 | Loose strings (ratchet) | `meeting.status == "sent"` in `meetings/service.py` | yes |
 | Enum member names English | added member `VERSTUURD = "verstuurd"` | yes — names the member |
 | Shape | removed the `description` column from the helper's label table | yes |
+
+**A twelfth came with phase 3**, after three enum members reached an HTML
+attribute and none of the eleven above could see it — a member that is
+*rendered* is not a comparison. It is a guard rather than a sample
+(`install_enum_guard` hooks Jinja's `finalize`), so it lives in
+`tests/test_enum_render_gate.py` with its own proof, and this table carries
+its two numbers.
 
 One measurement had to be redone, and that is worth recording: for "enum member
 names English" I first *renamed* `SENT` to `VERSTUURD`. That broke the import of
@@ -55,6 +63,7 @@ from sqlalchemy import String, inspect, text
 
 from app.database import Base
 from app.domains.registry import load_all_models
+from app.kernel import codes as kernel_codes
 from app.kernel.codes import (
     ExternalVocabulary,
     TechnicalEnum,
@@ -157,9 +166,19 @@ def collect_label_dictionaries() -> dict[str, str]:
             continue
         tree = ast.parse(file.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
-            if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            # `X_LABELS = {...}` and `X_LABELS: dict[..., str] = {...}` alike.
+            # Only the first used to count: `activities/service.py:STATUS_LABELS`
+            # was annotated, and it sat outside this ratchet for the whole of
+            # CR-12 until phase 4 removed it by hand.
+            if isinstance(node, ast.AnnAssign):
+                targets = [node.target]
+            elif isinstance(node, ast.Assign):
+                targets = node.targets
+            else:
                 continue
-            for target in node.targets:
+            if not isinstance(node.value, ast.Dict):
+                continue
+            for target in targets:
                 if not isinstance(target, ast.Name):
                     continue
                 if not re.search(r"LABELS?$", target.id):
@@ -275,6 +294,7 @@ PERMANENT = {
     "FK_MISSING": "FK_NOT_OUR_LIST",
     "LABEL_DICTIONARIES": "LABELS_NOT_A_VOCABULARY",
     "LOOSE_STRINGS": "LOOSE_STRINGS_NOT_A_CODE",
+    "TEMPLATE_COMPARISONS": "TEMPLATE_COMPARISONS_NOT_A_CODE",
 }
 
 
@@ -555,7 +575,7 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         and {b.id for b in node.bases if isinstance(b, ast.Name)}
         & {"TechnicalEnum", "ExternalVocabulary"})
     rows = [
-        ("lists in the pattern (CodeList) — target 49, see §B5.3", len(lists)),
+        ("lists in the pattern (CodeList) — see §B5.3", len(lists)),
         ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
         ("enum-carrying columns written as Mapped[]", _count_mapped_enum_columns()),
         ("vocabulary columns without an FK (ratchet)", len(baseline.FK_MISSING)),
@@ -571,6 +591,14 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         # measured from the same place the gate reads.
         ("permanent exceptions — not our vocabulary (counted, not capped)",
          sum(len(_permanent(name)) for name in PERMANENT)),
+        # The twelfth gate is a guard and not a sample, so its count is zero by
+        # construction — every member that reaches the output raises. What is
+        # worth reading is the second number: how many values the guard saw in
+        # this run. Zero there would mean it ran nowhere, which reads exactly
+        # like "found nothing" (#678).
+        ("enum members rendered into a template (guard, raises)", 0),
+        ("values the enum guard inspected so far in this run",
+         kernel_codes.rendered_under_the_guard),
     ]
     if db_session is not None:
         for language in ("nl", "en"):

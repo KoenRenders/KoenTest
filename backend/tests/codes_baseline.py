@@ -22,30 +22,18 @@ has to go.
 #: explicitly a net and not a proof: a column called `categorie` escapes it
 #: until someone registers it.
 FK_MISSING: frozenset[str] = frozenset({
-    'activities.activity_sub_registrations.registration_type_code',
-    'activities.registrations.registration_type',
-    'ai.ai_call_log.provider',
-    'ai.ai_call_log.status',
     'auth.login_tokens.otp_code',
     'designstudio.design_highlights.icon_code',
     'designstudio.design_renditions.size_code',
     'designstudio.designs.duo_code',
-    'form.form_fields.field_type',
-    'form.forms.status',
-    'mail.email_log.email_type',
-    'mail.email_log.status',
     'mdm.external_numbers.source',
     'media.media_assets.content_type',
     'media.media_assets.kind',
     'media.media_assets.thumb_content_type',
     'meetings.meeting_files.content_type',
     'public.kernel_jobs.status',
-    'reporting.export_log.kind',
     'workflow.workflow_instances.definition_code',
-    'workflow.workflow_instances.status',
     'workflow.workflow_instances.subject_type',
-    'workflow.workflow_tasks.kind',
-    'workflow.workflow_tasks.status',
     'workflow.workflow_tasks.subject_type',
 })
 
@@ -53,69 +41,20 @@ FK_MISSING: frozenset[str] = frozenset({
 #: `TechnicalEnum`/`ExternalVocabulary` marker either.
 #: Key: `path/to/file.py:ClassName`.
 ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
-    'app/domains/activities/service.py:RegistrationState',
     'app/domains/reporting/universe.py:Role',
 })
 
 #: Label dictionaries in Python — the shape this change request removes.
 #: Key: `path/to/file.py:NAME`.
 LABEL_DICTIONARIES: frozenset[str] = frozenset({
-    'app/domains/audit/changes.py:_OPERATION_LABELS',
-    'app/domains/chatbot/admin_ui.py:CAPABILITY_LABELS',
-    'app/domains/chatbot/admin_ui.py:STATUS_LABELS',
-    'app/domains/chatbot/admin_ui.py:SURFACE_LABELS',
-    'app/domains/cms/render.py:PLACEHOLDER_LABELS',
-    'app/domains/forms/models.py:RATING_LABELS',
-    'app/domains/mail/ui.py:_STATUS_LABELS',
-    'app/domains/mail/ui.py:_TYPE_LABELS',
-    'app/domains/reporting/engine.py:SYMBOLIC_LABELS',
-    'app/domains/workflow/ui.py:CAT_LABELS',
-    'app/domains/workflow/ui.py:KIND_LABELS',
-    'app/ui/organisaties_ui.py:SOORT_LABELS',
 })
 
 #: Templates comparing a code to a string literal.
 #: Key: `path/to/template.html:attribute==value`.
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
-    'app/domains/activities/templates/_aa_rail.html:registration_state==closed',
-    'app/domains/activities/templates/_activiteiten_cards.html:registration_state==closed',
-    'app/domains/activities/templates/_activiteiten_cards.html:registration_state==open',
-    'app/domains/activities/templates/_activiteiten_cards.html:status!=Open',
-    'app/domains/activities/templates/activiteit.html:registration_state==closed',
-    'app/domains/activities/templates/activiteit.html:registration_state==open',
-    'app/domains/activities/templates/activiteit.html:status!=Open',
-    'app/domains/forms/templates/_fb_recordkop.html:status==closed',
-    'app/domains/forms/templates/_fb_recordkop.html:status==open',
-    'app/domains/forms/templates/_fb_resultaten.html:field_type==number',
-    'app/domains/forms/templates/_fb_resultaten.html:field_type==rating',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==checkbox',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==email',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==info',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==number',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==phone',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==radio',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==rating',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==select',
-    'app/domains/forms/templates/_formulier_veld.html:field_type==textarea',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==info',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==rating',
-    'app/domains/forms/templates/formulier_afdruk.html:field_type==textarea',
-    'app/domains/mail/templates/_email_log_lijst.html:status==failed',
-    'app/domains/mail/templates/_email_log_lijst.html:status==sent',
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
     'app/domains/media/templates/_me_lijst.html:kind==sponsor',
-    'app/domains/meetings/templates/_vg_punt.html:kind==activity',
-    'app/domains/meetings/templates/_vg_punt.html:kind==member',
     'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==insert',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==letter',
-    'app/domains/newsletter/templates/_nb_raakje.html:kind==replace',
-    'app/domains/newsletter/templates/_nb_raakje.html:status==applied',
-    'app/domains/newsletter/templates/_nb_raakje.html:status==open',
-    'app/domains/workflow/templates/_werkbank_detail.html:status==done',
-    'app/domains/workflow/templates/_werkbank_lijst.html:status==done',
-    'app/ui/templates/_org_kaarten.html:org_type==ACCOUNT',
-    'app/ui/templates/_tn_kaarten.html:org_type==PLATFORM',
 })
 
 #: Loose string comparisons on a vocabulary attribute in `.py`.
@@ -130,23 +69,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/chatbot/info_service.py:kind==activity_poster',
     'app/domains/chatbot/info_service.py:kind==component_info',
     'app/domains/chatbot/router.py:role==user',
-    'app/domains/forms/export.py:field_type!=info',
-    'app/domains/forms/router.py:status!=open',
-    'app/domains/forms/router.py:status==draft',
-    'app/domains/forms/service.py:field_type in radio',
-    'app/domains/forms/service.py:field_type in select',
-    'app/domains/forms/service.py:field_type not in radio',
-    'app/domains/forms/service.py:field_type not in select',
-    'app/domains/forms/service.py:field_type==info',
-    'app/domains/forms/service.py:status!=open',
-    'app/domains/forms/ui.py:field_type in radio',
-    'app/domains/forms/ui.py:field_type in select',
-    'app/domains/forms/ui.py:field_type!=info',
-    'app/domains/forms/ui.py:field_type==checkbox',
-    'app/domains/forms/ui.py:field_type==info',
-    'app/domains/forms/ui.py:field_type==number',
-    'app/domains/forms/ui.py:field_type==rating',
-    'app/domains/mail/handlers.py:status==sent',
     'app/domains/media/images.py:mode in LA',
     'app/domains/media/images.py:mode in RGBA',
     'app/domains/media/images.py:mode!=RGB',
@@ -160,17 +82,12 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/media/service.py:kind==activity_poster',
     'app/domains/media/service.py:kind==component_info',
     'app/domains/media/service.py:kind==tenant_logo',
-    'app/domains/meetings/service.py:kind==member',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',
     'app/domains/reporting/exports.py:layout!=detail',
     'app/domains/reporting/pivot.py:layout!=pivot',
-    'app/domains/workflow/api.py:status!=done',
-    'app/domains/workflow/api.py:status==done',
-    'app/domains/workflow/api.py:status==open',
     'app/domains/workflow/handlers.py:status==failed',
-    'app/domains/workflow/handlers.py:status==sent',
     'app/domains/workflow/ui.py:subject_type==email_log',
     'app/domains/workflow/ui.py:subject_type==form_submission',
     'app/domains/workflow/ui.py:subject_type==kernel_job',
@@ -213,9 +130,39 @@ LABELS_NOT_A_VOCABULARY: dict[str, str] = {
     "app/domains/designstudio/service.py:FILE_LAYOUT_LABELS": (
         "Not a label but a file-name fragment: `bowlen-v1-a3.pdf`. It is part "
         "of a download's name, which stays the same in every language."),
+    "app/domains/forms/models.py:RATING_LABELS": (
+        "The 1-5 rating scale of a form is a Likert scale, not a vocabulary: "
+        "numbers with their words, never stored as codes. §B4.10 keeps it as "
+        "copy behind `_()`."),
     "app/domains/designstudio/service.py:FILE_SIZE_LABELS": (
         "The same, for a size code: `feed` is called `portrait` in a file "
         "name. A translated file name would break the downloads folder."),
+    # Koen, 26 September 2026 (CR-12 note 6): the next two are exempt.
+    "app/domains/cms/render.py:PLACEHOLDER_LABELS": (
+        "The placeholders in CMS page text (`{{membership_price_full}}`) are "
+        "stored inside the text, not in a column, and each one needs code that "
+        "computes its value, so a new row in a table would do nothing. The "
+        "words are help texts with an example, not labels."),
+    "app/domains/reporting/engine.py:SYMBOLIC_LABELS": (
+        "The symbolic filter values (today, this year, the logged-in user) "
+        "live in the JSON of a saved report, not in a column, and each one is "
+        "resolved by its own code when the report runs. Their words go "
+        "through `_()` (#1216), marked with `N_` in the table."),
+}
+
+#: Template comparisons on a value that is not one of our stored codes. Added
+#: with the Raakje proposals (26 September 2026) and proven both ways: an entry
+#: whose comparison does not exist turned the target test red, and dropping
+#: `kind==insert` from here turned the template ratchet red on that line.
+TEMPLATE_COMPARISONS_NOT_A_CODE: dict[str, str] = {
+    # Koen, 26 September 2026 (CR-12 note 6): Raakje's newsletter proposals.
+    **{f"app/domains/newsletter/templates/_nb_raakje.html:{key}": (
+        "A Raakje proposal is a JSON object on a chat message, written by the "
+        "drafting code while the letter is being written; its `kind` and "
+        "`status` are stored in no column, so there is nothing for a foreign "
+        "key to guard and a code list would only add a table.")
+       for key in ("kind==insert", "kind==letter", "kind==replace",
+                   "status==applied", "status==open")},
 }
 
 #: Comparisons the vocabulary net catches that compare no code of ours.

@@ -267,7 +267,8 @@ def test_een_model_dat_de_weigering_leest_is_na_twee_aanroepen_klaar(db_session)
     class LeestDeWeigering(LLMProvider):
         """Vraagt één keer iets dat niet bestaat, en antwoordt dan met wat het las."""
 
-        name = "nep"
+        # A stand-in logs as the `mock` provider (CR-12 phase 4).
+        name = "mock"
 
         def __init__(self):
             self.aanroepen = 0

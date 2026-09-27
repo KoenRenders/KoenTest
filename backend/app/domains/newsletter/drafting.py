@@ -45,6 +45,7 @@ from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session
 
+from app.domains.chatbot.api import AiCapability
 from app.i18n import _
 
 from app.domains.newsletter.models import (
@@ -57,7 +58,7 @@ from app.domains.newsletter import service as nb
 
 logger = logging.getLogger(__name__)
 
-CAPABILITY = "newsletter_drafting"
+CAPABILITY = AiCapability.NEWSLETTER_DRAFTING
 NAME_PLACEHOLDER = nb.NAME_PLACEHOLDER
 # How many earlier letters to the same audience go along as style examples.
 EXAMPLE_LETTERS = 2

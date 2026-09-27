@@ -859,7 +859,8 @@ def test_dutch_scenes_are_translated_and_logged_english_ones_pass(monkeypatch):
     monkeypatch.setattr(chatbot_api, "sink_for", lambda actor="": (lambda **kw: logged.append(kw)))
     english, translated = imaging.translate_scene("twee volwassenen en twee kinderen op de fiets", actor="x")
     assert translated and english == "two adults and two children on bicycles"
-    assert logged and logged[0]["capability"] == "translate" and logged[0]["surface"] == "designstudio"
+    assert logged and logged[0]["capability"] is chatbot_api.AiCapability.TRANSLATE
+    assert logged[0]["surface"] is chatbot_api.AiSurface.DESIGNSTUDIO
     assert "twee volwassenen" in logged[0]["payload"]
     assert imaging.translate_scene("two adults on bicycles") == ("two adults on bicycles", False)
     assert imaging.looks_dutch("een gezin met twee kinderen op de fiets") and not imaging.looks_dutch("a family on bikes")

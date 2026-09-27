@@ -11,7 +11,7 @@
         {# De bron-chip: hier bewerk je niet, je gaat naar de bron. Het verslag
            kopieert die gegevens niet — het verwijst ernaar (CR-09 §3.20). #}
         <a href="{{ item.source_url }}" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md px-2 py-0.5 hover:bg-blue-100">
-          {{ ui.icon("link", 12) }}{% if item.kind == "activity" %}{{ _("activiteit") }}{% else %}{{ _("lid") }}{% endif %}
+          {{ ui.icon("link", 12) }}{% if item.is_activity %}{{ _("activiteit") }}{% else %}{{ _("lid") }}{% endif %}
         </a>
       {% else %}
         <span class="inline-flex items-center text-xs text-ink-soft bg-surface-2 rounded-md px-2 py-0.5">{{ _("vrij punt") }}</span>
@@ -29,7 +29,7 @@
       {% endif %}
     </div>
 
-    {% if item.kind == "member" %}
+    {% if item.is_member %}
     <form class="mt-2 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
           hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML" hx-trigger="change">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

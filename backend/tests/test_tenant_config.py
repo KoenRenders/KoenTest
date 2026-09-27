@@ -2,7 +2,7 @@
 per-tenant Mollie-key/base-URL en de OPERATOR-platformrol."""
 from app.domains.auth.models import User, UserRole
 from app.domains.auth.service import create_access_token
-from app.domains.mail.models import EmailLog
+from app.domains.mail.models import EmailLog, MailStatus
 from app.kernel.tenancy import TENANT_VOORBEELD_ID, current_tenant_id
 from app.kernel.tenant_config import (
     TenantSetting,
@@ -70,7 +70,7 @@ def test_demo_mails_worden_enkel_gelogd(db_session):
            .execution_options(include_all_tenants=True)
            .filter(EmailLog.recipient == "demo@example.com")
            .order_by(EmailLog.id.desc()).first())
-    assert log is not None and log.status == "logged"
+    assert log is not None and log.status is MailStatus.LOGGED
     assert log.tenant_id == TENANT_VOORBEELD_ID
 
 
