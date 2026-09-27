@@ -1250,6 +1250,19 @@ derived values are one concept or two, whether a `check()` is complete.
 Those go to review; the entrances test makes sure review at least sees
 every door.
 
+**A frozen offender on something whose type changes is suspect, not
+tolerated** (from CR-12 #1268, 27 September). In CR-12 two template
+comparisons on `relation_type`, tolerated in the baseline, went silently
+false the moment phase 2 made the column an enum — a field vanished, two
+required fields stopped being required, and the ratchet stayed green. The
+same shape exists here: a phase that turns a free function into a method, a
+string into a value object, or a plain column into `Mapped[Money]` changes
+what every frozen offender *on that thing* means. Rule for every phase: the
+commit that changes a type walks the baseline entries on that attribute in
+the same commit and fixes or removes them; and `rules_baseline.py` records
+per entry which attribute it is about, so the gate can turn red on its own
+when that attribute's type changed since the freeze.
+
 ### B9.4 Hard via phases, and why that is not "gates first"
 
 CR-04 warned that a gate closed while eighty-five routes violate it needs
@@ -1329,6 +1342,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q32 | 27 Sep 2026 | Master CLI, from CR-12 #1268: a baseline-tolerated comparison on a column that became an enum went silently false; does the same threat exist here? | Yes — every phase changes types (method, value object, `Mapped[Money]`). B9.3: a type-changing commit walks the frozen offenders on that attribute; the baseline records the attribute per entry so the gate can go red on a type change by itself. |
 | Q31 | 27 Sep 2026 | Master CLI: phase 0 split after dev2's estimate (3–5 CLI-days, ~2,000 lines) into 0a (#755: meter, listener, six simple gates, repo side of the callers) and 0c (#1254: six heavy AST gates, PROD access-log side), order 0a → 0b → 0c → 1; the spike counted 50 promises (21 not walkable); PROD's `app.log` does not rotate. | Taken into B7/B7.1, B9.2 and B10. Two gates the split did not name — *one entrance rule* and *one owner per derived value* — placed in 0c by the author and confirmed by the master CLI the same day: eight gates in 0c. |
 | Q30 | 27 Sep 2026 | dev2, spike 1: the #681 rule (birth date and gender required) is a membership rule, not a `Person` rule — `create_person_for_circle` makes persons without them; does it go on `Member`/`MemberPerson` as `check()`, not on `Person`, and is that written down so nobody adds a `NOT NULL`? | Yes: `MemberPerson.check()` in `mdm` (the household link is master data, Koen 27 Sep), fired on flush; explicitly no constraint on `persons.date_of_birth`/`gender_code` (B5.2, B7 phase 3). The import's own copy goes with it. |
 | Q29 | 27 Sep 2026 | desktop-dev2, building phase 0: does the #780 word list exist; is *Typed* a phase-0 ratchet or a per-phase mypy override; ratchet or hard for *tests with their domain*; B8 order. | The seed list is #780 point 4, the full ±35 stems were never written — build it, the gate's count binds. *Typed* is a mypy override switched on per migrated domain, not a pytest gate (B9.3 lists fifteen rows, fourteen are pytest gates). *Tests with their domain* is hard in 0b, no ratchet. B8 11/12 swapped. |
