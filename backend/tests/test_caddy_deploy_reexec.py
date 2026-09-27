@@ -7,7 +7,7 @@ die achter kan lopen. Het `#162`-patroon lost dat op: bijwerken naar master en
 **Waarom dat uitmaakt, preciezer dan "de oude versie beslist":** een `exec` herstart
 het script van boven af, dus alles vóór dat punt doet de nieuwe versie gewoon
 opnieuw. Wat níet goedkomt, is een pad dat vóór de re-exec **afbreekt**. Er staan
-twee `exit 1`-en in dat gebied — "kon niet bepalen welke tag PROD draait" en de
+twee `exit 1`-en in dat gebied — "could not determine which tag PROD runs" en de
 vangrail voor de gemengde toestand (#572) — en een verouderde versie daarvan kan de
 run afbreken zonder dat de update ooit gebeurt, of een geval nog niet kennen en
 gewoon doorlopen.
@@ -44,7 +44,7 @@ SCRIPT = ROOT / "deploy-caddy.sh"
 
 # Deze zin staat in de echte afbreekmelding; de oude versie in de fixture krijgt een
 # andere, zodat de uitvoer verraadt wélke versie besliste.
-NIEUWE_MELDING = "kon niet bepalen welke tag PROD draait"
+NIEUWE_MELDING = "could not determine which tag PROD runs"
 OUDE_MELDING = "OUDE VERSIE besliste"
 
 

@@ -48,6 +48,8 @@ def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n",
     work = tmp_path / "checkout"
     (work / "tests").mkdir(parents=True)
     shutil.copy(DEPLOY, work / "deploy.sh")
+    (work / "scripts").mkdir()
+    shutil.copy(ROOT / "scripts" / "deploy-summary.sh", work / "scripts")
     (work / "deploy.sh").chmod(0o755)
 
     smoke_counter = tmp_path / "smoke-runs"
@@ -108,7 +110,7 @@ def test_a_healthy_deploy_simply_continues(environment, tmp_path):
     done = _run(work, fakebin, environment, tmp_path)
 
     assert done.returncode == 0, done.stdout[-3000:]
-    assert "Migratieketen OK" in done.stdout and "Schone start OK" in done.stdout
+    assert "Migration chain OK" in done.stdout and "Clean start OK" in done.stdout
 
 
 def test_two_heads_roll_uat_back(tmp_path):
@@ -122,7 +124,7 @@ def test_two_heads_roll_uat_back(tmp_path):
 
     assert done.returncode != 0, "a split chain must not count as success"
     assert "2 heads" in done.stdout
-    assert "Automatische rollback naar v0.0.1" in done.stdout
+    assert "Automatic rollback to v0.0.1" in done.stdout
     assert smoke_counter.read_text().count("x") == 2, (
         "the rollback did not re-run the smoke test, or rolled back more than once")
 
@@ -135,7 +137,7 @@ def test_two_heads_do_not_stop_hdev(tmp_path):
 
     assert done.returncode == 0, "HDEV must not fail on this"
     assert "2 heads" in done.stdout, "…but it does have to be in the output"
-    assert "rapporterend op hdev" in done.stdout
+    assert "reporting only on hdev" in done.stdout
 
 
 def test_a_lagging_current_fails(tmp_path):
@@ -146,7 +148,7 @@ def test_a_lagging_current_fails(tmp_path):
     done = _run(work, fakebin, "prod", tmp_path, DEPLOY_PREV_REF="v0.0.1")
 
     assert done.returncode != 0
-    assert "niet gelijk aan" in done.stdout or "en niet [095]" in done.stdout
+    assert "not [095]" in done.stdout
 
 
 def test_a_traceback_at_startup_is_reported_but_does_not_roll_back(tmp_path):
@@ -161,7 +163,7 @@ def test_a_traceback_at_startup_is_reported_but_does_not_roll_back(tmp_path):
     done = _run(work, fakebin, "prod", tmp_path, DEPLOY_PREV_REF="v0.0.1")
 
     assert done.returncode == 0, "LOG_GATE is 0; this must not roll anything back yet"
-    assert "fouten tijdens het opstarten" in done.stdout
+    assert "errors during startup" in done.stdout
     assert "RuntimeError: seed failed" in done.stdout
 
 
@@ -180,7 +182,7 @@ def test_traffic_after_startup_does_not_count(tmp_path):
     done = _run(work, fakebin, "prod", tmp_path, DEPLOY_PREV_REF="v0.0.1")
 
     assert done.returncode == 0
-    assert "Schone start OK" in done.stdout
+    assert "Clean start OK" in done.stdout
     assert "broken request" not in done.stdout, (
         "traffic after 'Uvicorn running' falls inside the startup window")
 
@@ -193,4 +195,4 @@ def test_a_backend_that_never_starts_is_noticed(tmp_path):
 
     done = _run(work, fakebin, "hdev", tmp_path)
 
-    assert "bereikte 'Uvicorn running' niet" in done.stdout
+    assert "never reached 'Uvicorn running'" in done.stdout

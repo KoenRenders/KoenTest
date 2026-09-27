@@ -49,6 +49,12 @@ done
 echo
 echo "${BOLD}Resultaat: ${PASS} OK · ${FAIL} gefaald · ${SKIP} overgeslagen${RESET}"
 
+# Machine-readable counts for the deploy summary block (#1253): deploy.sh reads
+# them instead of the sentence above, so rewording that sentence breaks nothing.
+if [ -n "${SMOKE_RESULT_FILE:-}" ]; then
+  echo "passed=${PASS} failed=${FAIL} skipped=${SKIP}" > "$SMOKE_RESULT_FILE"
+fi
+
 if [ $((FAIL + SKIP)) -gt 0 ]; then
   echo
   echo "${BOLD}${RED}Te behartigen:${RESET}"

@@ -1,46 +1,46 @@
 #!/usr/bin/env bash
-# Past de GEDEELDE Caddy-config toe en herstart de gedeelde Caddy, zodat de
-# wijziging gegarandeerd én blijvend actief is.
-# Draaien uit de caddy/-checkout (bv. /opt/raakmillegem/caddy):
+# Applies the SHARED Caddy config and restarts the shared Caddy, so that the
+# change is guaranteed and durably active.
+# Run from the caddy/ checkout (e.g. /opt/raakmillegem/caddy):
 #
-#   ./deploy-caddy.sh              # elk deel uit de tag van zijn eigen omgeving
-#   ./deploy-caddy.sh v1.15.0      # alles uit één expliciete ref
+#   ./deploy-caddy.sh              # each part from the tag of its own environment
+#   ./deploy-caddy.sh v1.15.0      # everything from one explicit ref
 #
-# LET OP: deze Caddy bedient UAT **en** PROD. Een fout hier legt productie plat.
+# CAUTION: this Caddy serves UAT **and** PROD. A mistake here takes production down.
 #
-# DE CONFIG VOLGT DE RELEASE-TAGS, NIET MASTER. Volgde de proxy master, dan zou
-# een kleine ingreep ongevraagd alle sindsdien gemaakte proxywijzigingen naar
-# productie duwen. Dat gebeurde bijna: master routeert alles naar de backend
-# (React-exit #405) terwijl v1.14.0 nog een aparte frontend-container draait.
+# THE CONFIG FOLLOWS THE RELEASE TAGS, NOT MASTER. If the proxy followed master, a
+# small intervention would push every proxy change made since then to production,
+# unasked. That nearly happened: master routes everything to the backend (React
+# exit #405) while v1.14.0 still runs a separate frontend container.
 #
-# De config is opgesplitst zodat UAT vooruit mag lopen op PROD:
-#   caddy/parts/snippets.caddy    gedeeld -> tag van PROD (conservatief)
-#   caddy/parts/sites-uat.caddy   UAT     -> tag van UAT
-#   caddy/parts/sites-prod.caddy  PROD    -> tag van PROD
-# Het gedeelde deel moet daarom expand/contract-gewijs wijzigen; zie CLAUDE.md,
+# The config is split so that UAT may run ahead of PROD:
+#   caddy/parts/snippets.caddy    shared -> tag of PROD (conservative)
+#   caddy/parts/sites-uat.caddy   UAT    -> tag of UAT
+#   caddy/parts/sites-prod.caddy  PROD   -> tag of PROD
+# The shared part therefore changes by expand/contract; see CLAUDE.md,
 # "Shared Caddy: expand/contract".
 #
-# De TOOLING (dit script, docker-compose.caddy.yml, tests/) komt uit master,
-# zodat een veiligheidsfix niet op een release hoeft te wachten.
+# The TOOLING (this script, docker-compose.caddy.yml, tests/) comes from master,
+# so that a safety fix does not have to wait for a release.
 #
-# Vier vangnetten, in deze volgorde:
-#   1) `caddy validate` op de nieuwe config, VOOR de draaiende proxy geraakt wordt;
-#   2) een rooktest tegen PROD na de recreate;
-#   3) herstel van de vorige config als die rooktest faalt;
-#   4) herstel van de vorige image-digest, voor het geval de Caddy-VERSIE zelf de
-#      storing is — een config-rollback helpt daar niet tegen.
+# Four safety nets, in this order:
+#   1) `caddy validate` on the new config, BEFORE the running proxy is touched;
+#   2) a smoke test against PROD after the recreate;
+#   3) restoring the previous config when that smoke test fails;
+#   4) restoring the previous image digest, in case the Caddy VERSION itself is the
+#      failure — a config rollback does not help against that.
 #
-# Achtergrond (#312/#314): `caddy reload` (admin-API, in-memory) is onbetrouwbaar
-# en overleeft geen herstart. We doen `up -d --force-recreate`, dat de config vers
-# van schijf laadt, zodat compressie (#303) elke herstart overleeft.
+# Background (#312/#314): `caddy reload` (admin API, in memory) is unreliable and
+# does not survive a restart. We do `up -d --force-recreate`, which loads the config
+# fresh from disk, so compression (#303) survives every restart.
 set -euxo pipefail
 
 cd "$(dirname "$0")"
 
 COMPOSE="docker-compose.caddy.yml"
 
-# ── Snapshot van wat er NU draait, vóór welke wijziging dan ook ───────────────
-# Zowel de config als de image-digest. Overleeft de re-exec via export.
+# ── Snapshot of what runs NOW, before any change at all ──────────────────────
+# Both the config and the image digest. Survives the re-exec through export.
 if [ -z "${CADDY_PREV_DIR:-}" ]; then
   CADDY_PREV_DIR="$(mktemp -d /tmp/caddy-prev.XXXXXX)"
   cp caddy/Caddyfile.shared "$CADDY_PREV_DIR/Caddyfile.shared"
@@ -48,9 +48,9 @@ if [ -z "${CADDY_PREV_DIR:-}" ]; then
   cp -a caddy/parts/. "$CADDY_PREV_DIR/parts/" 2>/dev/null || true
   export CADDY_PREV_DIR
 
-  # De image-digest van de draaiende container. RepoDigest is stabiel, ook als de
-  # tag later hergebruikt wordt; bij een lokaal gebouwde image valt het terug op
-  # het image-id. Leeg = er draait nog niets (eerste deploy).
+  # The image digest of the running container. RepoDigest is stable, even if the
+  # tag is reused later; for a locally built image it falls back to the image id.
+  # Empty = nothing runs yet (first deploy).
   CADDY_PREV_IMAGE=""
   _cid="$(docker compose -f "$COMPOSE" ps -q caddy 2>/dev/null || true)"
   if [ -n "$_cid" ]; then
@@ -63,32 +63,32 @@ if [ -z "${CADDY_PREV_DIR:-}" ]; then
   export CADDY_PREV_IMAGE
 fi
 
-# ── Tooling op master, daarna één re-exec (#796, #162-patroon) ───────────────
-# Dit staat VÓÓR elke beslissing, en dat is de hele wijziging van #796.
+# ── Tooling on master, then one re-exec (#796, the #162 pattern) ─────────────
+# This sits BEFORE every decision, and that is the whole change of #796.
 #
-# Waarom het uitmaakt, preciezer dan "de oude versie beslist": een `exec` herstart
-# het script van boven af, dus alles vóór dat punt wordt door de nieuwe versie
-# gewoon opnieuw gedaan. Wat NIET goedkomt, is een pad dat vóór de re-exec
-# **afbreekt**. Hieronder staan twee `exit 1`-en — "kon niet bepalen welke tag PROD
-# draait" en de vangrail voor de gemengde toestand (#572) — en die stonden eerder
-# vóór de update. Een verouderde vangrail kon de run dus afbreken zonder dat de
-# update ooit gebeurde, of erger: een geval nog niet kennen en doorlopen.
+# Why it matters, more precisely than "the old version decides": an `exec` restarts
+# the script from the top, so everything before that point is simply done again by
+# the new version. What does NOT come right is a path that **aborts** before the
+# re-exec. Below are two `exit 1`s — the one for an unknown PROD tag, and the
+# guard rail for the mixed state (#572) — and those used to sit before the
+# update. An outdated guard rail could thus abort the run without the update ever
+# happening, or worse: not know a case yet and carry on.
 #
-# Dat is geen theorie. Bij de v2.0.1-uitrol faalde `raak caddy v2.0.1` met
-# "'encode' ontbreekt in caddy/Caddyfile.shared" terwijl `encode` er wél stond — in
-# caddy/parts/snippets.caddy. De checkout stond op een oudere master en díe versie
-# zocht alleen in Caddyfile.shared. Een tweede aanroep liep gewoon door, want de
-# eerste had de checkout intussen bijgewerkt.
+# That is not theory. During the v2.0.1 rollout `raak caddy v2.0.1` failed with
+# "'encode' ontbreekt in caddy/Caddyfile.shared" while `encode` was there — in
+# caddy/parts/snippets.caddy. The checkout was on an older master, and THAT version
+# only looked in Caddyfile.shared. A second call went straight through, because the
+# first had updated the checkout in the meantime.
 #
-# Toen viel het mee omdat de oude vangrail te STRENG was. De omgekeerde richting is
-# het risico: een oude versie die een geval nog niet kent en gewoon doorloopt — op de
-# gedeelde Caddy die ook PROD bedient.
+# It went well then because the old guard rail was too STRICT. The opposite
+# direction is the risk: an old version that does not know a case yet and carries
+# on — on the shared Caddy that also serves PROD.
 #
-# De snapshot hierboven blijft er wél vóór staan: die legt vast wat er NU draait, en
-# `git reset --hard` overschrijft precies dat. Hij overleeft de re-exec via export.
+# The snapshot above does stay before it: it records what runs NOW, and
+# `git reset --hard` overwrites exactly that. It survives the re-exec through export.
 #
-# Onvoorwaardelijk her-uitvoeren, zonder te kijken óf het script veranderd is: die
-# vergelijking is zelf logica die kan verouderen, en één extra `exec` kost niets.
+# Re-execute unconditionally, without checking WHETHER the script changed: that
+# comparison is itself logic that can go stale, and one extra `exec` costs nothing.
 git fetch --tags --prune origin
 git reset --hard origin/master
 git checkout -B master origin/master
@@ -97,10 +97,10 @@ if [ -z "${CADDY_REEXEC:-}" ]; then
   exec "$0" "$@"
 fi
 
-# ── Welke refs leveren de config? ────────────────────────────────────────────
-# Argument > CADDY_REF > de tag van de betreffende omgeving. Er is BEWUST geen
-# terugval op master: dat is precies de fout die we uitsluiten.
-ref_of() {  # $1 = checkout-map; leeg resultaat = onbekend
+# ── Which refs supply the config? ────────────────────────────────────────────
+# Argument > CADDY_REF > the tag of the environment concerned. There is
+# DELIBERATELY no fallback to master: that is exactly the mistake we rule out.
+ref_of() {  # $1 = checkout folder; empty result = unknown
   [ -d "$1/.git" ] || return 0
   git -C "$1" describe --tags --exact-match 2>/dev/null || true
 }
@@ -109,30 +109,30 @@ EXPLICIT="${1:-${CADDY_REF:-}}"
 if [ -n "$EXPLICIT" ]; then
   PROD_REF="$EXPLICIT"; UAT_REF="$EXPLICIT"
 else
-  # Relatieve paden, zodat er geen serverpaden in deze publieke repo staan.
+  # Relative paths, so no server paths end up in this public repo.
   PROD_REF="$(ref_of "${PROD_CHECKOUT_DIR:-../prod}")"
   UAT_REF="$(ref_of "${UAT_CHECKOUT_DIR:-../uat}")"
 fi
 if [ -z "$PROD_REF" ]; then
-  echo "FOUT: kon niet bepalen welke tag PROD draait." >&2
-  echo "Geef een ref expliciet mee, bv: ./deploy-caddy.sh v1.14.0" >&2
-  echo "(of zet PROD_CHECKOUT_DIR naar de prod-checkout)" >&2
+  echo "ERROR: could not determine which tag PROD runs." >&2
+  echo "Pass a ref explicitly, e.g.: ./deploy-caddy.sh v1.14.0" >&2
+  echo "(or point PROD_CHECKOUT_DIR at the prod checkout)" >&2
   exit 1
 fi
 [ -n "$UAT_REF" ] || UAT_REF="$PROD_REF"
 
-# ── Gemengde toestand afvangen (#572) ────────────────────────────────────────
-# Draait UAT al een tag MET caddy/parts/ terwijl PROD nog op een tag van vóór de
-# splitsing staat, dan valt de code hieronder terug op de monolithische config van
-# PROD — en die bevat óók het UAT-blok, met de oude routing. UAT zou daardoor plat
-# gaan. Dat raden we niet: stoppen en de ref expliciet laten kiezen.
+# ── Catch the mixed state (#572) ─────────────────────────────────────────────
+# If UAT already runs a tag WITH caddy/parts/ while PROD is still on a tag from
+# before the split, the code below falls back to PROD's monolithic config — and that
+# also holds the UAT block, with the old routing. UAT would go down. We do not guess
+# that: stop, and let the ref be chosen explicitly.
 if [ -z "$EXPLICIT" ]; then
   if git cat-file -e "$UAT_REF:caddy/parts/sites-uat.caddy" 2>/dev/null &&
      ! git cat-file -e "$PROD_REF:caddy/parts/sites-prod.caddy" 2>/dev/null; then
-    echo "FOUT: UAT ($UAT_REF) heeft caddy/parts/, PROD ($PROD_REF) nog niet." >&2
-    echo "Automatisch kiezen zou de oude UAT-routing toepassen en UAT platleggen." >&2
-    echo "Geef tijdens de cutover expliciet de tag mee waarvan het PROD-blok nog" >&2
-    echo "backwards compatible is, bv: ./deploy-caddy.sh $UAT_REF" >&2
+    echo "ERROR: UAT ($UAT_REF) has caddy/parts/, PROD ($PROD_REF) does not yet." >&2
+    echo "Choosing automatically would apply the old UAT routing and take UAT down." >&2
+    echo "During the cutover, pass the tag whose PROD block is still backwards" >&2
+    echo "compatible explicitly, e.g.: ./deploy-caddy.sh $UAT_REF" >&2
     exit 1
   fi
 fi
@@ -143,61 +143,61 @@ restore_prev() {
   cp -a "$CADDY_PREV_DIR/parts/." caddy/parts/ 2>/dev/null || true
 }
 
-# ── Config schrijven uit de gekozen refs ─────────────────────────────────────
+# ── Write the config from the chosen refs ────────────────────────────────────
 git show "$PROD_REF:caddy/Caddyfile.shared" > caddy/Caddyfile.shared
 
 if grep -q '^import /etc/caddy/parts/' caddy/Caddyfile.shared; then
-  # Gesplitste config: elk deel uit zijn eigen omgeving.
+  # Split config: each part from its own environment.
   mkdir -p caddy/parts
   git show "$PROD_REF:caddy/parts/snippets.caddy"   > caddy/parts/snippets.caddy
   git show "$PROD_REF:caddy/parts/sites-prod.caddy" > caddy/parts/sites-prod.caddy
-  # Overgangsgeval: draait UAT nog een tag van vóór de splitsing, dan bestaat
-  # dat deel daar niet. Val dan terug op PROD's versie (= het gedrag van vandaag)
-  # i.p.v. halverwege af te breken met een half geschreven config.
+  # Transition case: if UAT still runs a tag from before the split, that part does
+  # not exist there. Fall back to PROD's version then (= today's behaviour) instead
+  # of aborting halfway with a half-written config.
   if git cat-file -e "$UAT_REF:caddy/parts/sites-uat.caddy" 2>/dev/null; then
     git show "$UAT_REF:caddy/parts/sites-uat.caddy" > caddy/parts/sites-uat.caddy
-    echo "Config: gedeeld+PROD uit $PROD_REF, UAT uit $UAT_REF"
+    echo "Config: shared+PROD from $PROD_REF, UAT from $UAT_REF"
   else
     git show "$PROD_REF:caddy/parts/sites-uat.caddy" > caddy/parts/sites-uat.caddy
-    echo "LET OP: $UAT_REF heeft nog geen caddy/parts/ — UAT-deel uit $PROD_REF genomen."
+    echo "CAUTION: $UAT_REF has no caddy/parts/ yet — UAT part taken from $PROD_REF."
   fi
 else
-  # Oude, monolithische config (tags van vóór de splitsing). Dan bevat het ene
-  # bestand óók de UAT-blokken en kan UAT niet apart vooruitlopen.
-  echo "LET OP: $PROD_REF heeft nog de ongesplitste Caddyfile.shared."
-  echo "        UAT en PROD volgen dus allebei $PROD_REF; UAT-first werkt pas"
-  echo "        zodra PROD een tag mét caddy/parts/ draait."
+  # Old, monolithic config (tags from before the split). Then the one file also
+  # holds the UAT blocks, and UAT cannot run ahead separately.
+  echo "CAUTION: $PROD_REF still has the unsplit Caddyfile.shared."
+  echo "         So UAT and PROD both follow $PROD_REF; UAT-first only works"
+  echo "         once PROD runs a tag with caddy/parts/."
 fi
 
-# Veiligheidscheck: de compressie (#303) hoort in de config te staan.
+# Safety check: the compression (#303) belongs in the config.
 if ! grep -rq 'encode' caddy/Caddyfile.shared caddy/parts/ 2>/dev/null; then
-  echo "FOUT: 'encode' ontbreekt in de Caddy-config — NIET toegepast." >&2
+  echo "ERROR: 'encode' is missing from the Caddy config — NOT applied." >&2
   restore_prev
   exit 1
 fi
 
-# ── Platformdomeinen: uit de app-configuratie, niet uit .env.caddy (#866) ────
-# "Dit domein is het platform" stond op twee plaatsen en liep uiteen: op PROD
-# bediende Caddy het subdomein terwijl de app alleen het apex-domein kende, en de
-# landingspagina kwam uit op Raak Millegem. De app-variabele is nu de bron; dit
-# leidt af. Faalt dat, dan stoppen we hier — een leeg siteadres maakt de HELE
-# config ongeldig en dan start de proxy niet.
+# ── Platform domains: from the app configuration, not from .env.caddy (#866) ─
+# "This domain is the platform" lived in two places and drifted apart: on PROD
+# Caddy served the subdomain while the app only knew the apex domain, and the
+# landing page ended up on Raak Millegem. The app variable is now the source; this
+# derives from it. If that fails we stop here — an empty site address makes the
+# WHOLE config invalid, and then the proxy does not start.
 . ./caddy/platform-domains.sh
 
-# ── VANGNET 1 — valideren vóór we de draaiende proxy aanraken ────────────────
-# `run --rm --no-deps` publiceert geen poorten en start niets anders op; de
-# env_file (.env.caddy) wordt wel geladen, zodat de {$DOMAIN}-placeholders
-# ingevuld worden zoals bij een echte start.
+# ── SAFETY NET 1 — validate before we touch the running proxy ────────────────
+# `run --rm --no-deps` publishes no ports and starts nothing else; the env_file
+# (.env.caddy) is loaded, so the {$DOMAIN} placeholders are filled in as on a
+# real start.
 if ! docker compose -f "$COMPOSE" run --rm --no-deps --entrypoint caddy caddy \
      validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
-  echo "!! CONFIG IS ONGELDIG — proxy niet aangeraakt." >&2
+  echo "!! CONFIG IS INVALID — proxy not touched." >&2
   restore_prev
   exit 1
 fi
 
 docker compose -f "$COMPOSE" up -d --force-recreate caddy
 
-# ── VANGNET 2 — rooktest tegen PROD (de gate) ────────────────────────────────
+# ── SAFETY NET 2 — smoke test against PROD (the gate) ────────────────────────
 domain_from_env() {
   sed -nE "s/^$1=[\"']?([^\"']*)[\"']?.*/\1/p" .env.caddy | head -1
 }
@@ -206,34 +206,34 @@ UAT_DOMAIN="$(domain_from_env UAT_DOMAIN)"
 
 if [ -n "$PROD_DOMAIN" ]; then
   if ! BASE="https://$PROD_DOMAIN" ./tests/run-all.sh; then
-    echo "!! ROOKTEST FAALDE op PROD na de Caddy-wijziging." >&2
+    echo "!! SMOKE TEST FAILED on PROD after the Caddy change." >&2
 
-    # VANGNET 3 + 4 — vorige config én vorige image terugzetten.
+    # SAFETY NET 3 + 4 — restore the previous config and the previous image.
     restore_prev
     if [ -n "$CADDY_PREV_IMAGE" ]; then
-      echo ">>> Terug naar de vorige image: $CADDY_PREV_IMAGE"
+      echo ">>> Back to the previous image: $CADDY_PREV_IMAGE"
       CADDY_IMAGE="$CADDY_PREV_IMAGE" docker compose -f "$COMPOSE" up -d --force-recreate caddy
     else
       docker compose -f "$COMPOSE" up -d --force-recreate caddy
     fi
 
-    echo "!! TERUGGEROLD. De config uit $PROD_REF/$UAT_REF is NIET actief." >&2
-    echo "!! LET OP: dit is een RUNTIME-rollback. Stond de storing in een nieuwe" >&2
-    echo "!! Caddy-versie, dan wijst docker-compose.caddy.yml daar nog steeds naar" >&2
-    echo "!! en haalt de volgende deploy hem opnieuw op. Draai de pin terug in git." >&2
-    echo "!! Snapshot van de teruggezette config: $CADDY_PREV_DIR" >&2
+    echo "!! ROLLED BACK. The config from $PROD_REF/$UAT_REF is NOT active." >&2
+    echo "!! CAUTION: this is a RUNTIME rollback. If the failure was in a new Caddy" >&2
+    echo "!! version, docker-compose.caddy.yml still points at it and the next deploy" >&2
+    echo "!! pulls it again. Revert the pin in git." >&2
+    echo "!! Snapshot of the restored config: $CADDY_PREV_DIR" >&2
     exit 1
   fi
-  echo "Rooktest OK op PROD."
+  echo "Smoke test OK on PROD."
 else
-  echo "PROD_DOMAIN onbekend in .env.caddy — rooktest tegen PROD overgeslagen"
+  echo "PROD_DOMAIN unknown in .env.caddy — smoke test against PROD skipped"
 fi
 
-# UAT testen we ook, maar enkel als waarschuwing: een om andere redenen
-# platliggende UAT-stack mag geen goede config terugdraaien.
+# UAT is tested too, but only as a warning: a UAT stack that is down for other
+# reasons must not roll back a good config.
 if [ -n "$UAT_DOMAIN" ]; then
   BASE="https://$UAT_DOMAIN" ./tests/run-all.sh \
-    || echo "LET OP: rooktest tegen UAT faalde. Geen rollback (PROD is de gate) — controleer de UAT-stack."
+    || echo "CAUTION: smoke test against UAT failed. No rollback (PROD is the gate) — check the UAT stack."
 fi
 
-echo "Gedeelde Caddy hercreëerd — PROD-deel uit $PROD_REF, UAT-deel uit $UAT_REF."
+echo "Shared Caddy recreated — PROD part from $PROD_REF, UAT part from $UAT_REF."

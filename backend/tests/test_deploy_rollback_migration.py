@@ -71,6 +71,8 @@ def _build(tmp_path, repo: Path):
     work = tmp_path / "checkout"
     (work / "tests").mkdir(parents=True)
     shutil.copy(DEPLOY, work / "deploy.sh")
+    (work / "scripts").mkdir()
+    shutil.copy(ROOT / "scripts" / "deploy-summary.sh", work / "scripts")
     (work / "deploy.sh").chmod(0o755)
 
     smoke_counter = tmp_path / "smoke-runs"
@@ -124,7 +126,7 @@ def test_a_release_with_a_migration_is_not_rolled_back(environment, tmp_path):
     done, smoke_counter = _deploy(tmp_path, adds_migration=True, environment=environment)
 
     assert done.returncode != 0, "a failed smoke test is still a failed deploy"
-    assert "Automatische rollback" not in done.stdout, done.stdout[-3000:]
+    assert "Automatic rollback" not in done.stdout, done.stdout[-3000:]
     assert "This release adds a migration" in done.stdout
     assert "v0.0.1 ends at a1" in done.stdout and "at b2" in done.stdout
     assert "Database revision now: b2" in done.stdout
@@ -167,6 +169,6 @@ def test_a_release_without_a_migration_still_rolls_back(tmp_path):
     done, smoke_counter = _deploy(tmp_path, adds_migration=False)
 
     assert "No migration in this release (alembic head a1 on both refs)" in done.stdout
-    assert "Automatische rollback naar v0.0.1" in done.stdout, done.stdout[-3000:]
+    assert "Automatic rollback to v0.0.1" in done.stdout, done.stdout[-3000:]
     assert smoke_counter.read_text().count("x") == 2, (
         "the rollback did not re-run the smoke test, or rolled back more than once")
