@@ -230,7 +230,7 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | every `router.py` / `admin_ui.py` / `import_service.py` that writes an aggregate | **changed** | calls the aggregate's rule; loses its inline checks |
 | `backend/tests/test_rules_gate.py`, `rules_baseline.py` | **new** | the gates of B9.3 |
 | `backend/tests/test_<domain>_entrances.py` | **new**, one per aggregate | the entrances test (B8 test 1) |
-| `docs/code-style.md` | **created** (#781 never built it) | the layer rules, the four addresses, the module shape — one screen |
+| `docs/code-style.md` | **extended** — the file exists since CR-12 phase 0 (#1177, 26 Sep: the code-list rule); phase 0a adds the rule of B9.1 | the layer rules, the four addresses, the module shape — one screen |
 | `CLAUDE.md` *Validation layers* | **changed** | points to `docs/code-style.md`, stops repeating it |
 
 ### B2.2 Application usage
@@ -1088,7 +1088,7 @@ would lose less; it would not — corrected the same day.)
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **0a — the meter, the listener and the simple gates** (#755; first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py`, the A2 numbers printed by the gate, `app/kernel/rules.py` (registry + the `before_flush` listener), `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the six simple gates**: *no session on an entity*, *module shape* (hard for new packages), *no commit in a handler* (part (a) of *one transaction*), *no network in a handler*, *JSON route with a caller*, *validator without constraint*; the **repository side** of the JSON-caller measurement (API-key users, chatbot, e2e, templates). Split off from the old phase 0 on 27 September after dev2's estimate: **3 to 5 CLI-days and about 2,000 lines of gate code** for the whole meter — too much for one issue | — |
+| **0a — the meter, the listener and the simple gates** (#755; first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py`, the A2 numbers printed by the gate, `app/kernel/rules.py` (registry + the `before_flush` listener), the B9.1 rule added to `docs/code-style.md` (which CR-12 phase 0 created), `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the six simple gates**: *no session on an entity*, *module shape* (hard for new packages), *no commit in a handler* (part (a) of *one transaction*), *no network in a handler*, *JSON route with a caller*, *validator without constraint*; the **repository side** of the JSON-caller measurement (API-key users, chatbot, e2e, templates). Split off from the old phase 0 on 27 September after dev2's estimate: **3 to 5 CLI-days and about 2,000 lines of gate code** for the whole meter — too much for one issue | — |
 | **0b — the tests move** (#1248; one track, right after 0a) | all 391 test files placed per R15 in one commit series: 107 to their domains, 205 to `tests/integration/`, 70 stay; `testpaths` and root `conftest.py` adjusted; suite count identical before and after; the *tests with their domain* gate built hard here | 0a |
 | **0c — the heavy AST gates** (#1254; before phase 1, so the meter is complete before the first rebuild commit) | *promise kept* (with its spike: 50 promises measured by the spike, not 88 — the 8 September count probably included labels; 21 of the 50 cannot be walked from field name to column and go into the baseline **with a reason each**), *no foreign writes*, *one transaction per request* (parts (b) and (c)), *events, not calls*, *no rule in a router*, *English identifiers* (#780); and *one entrance rule* (its non-ORM discovery walk — the spike dev2 already ran, which found #681's six paths) and *one owner per derived value* — confirmed for 0c by the master CLI (27 Sep): the meter must be complete before the first rebuild commit, or phase 1 claims the `total()`/`balance()` improvement instead of the ratchet measuring it; **eight gates in 0c**; the **PROD access-log side** of the JSON-caller measurement (`app.log` on PROD does not rotate: one file since 10 September, so the window only grows) | 0a, 0b |
 | **1 — `Registration`** + value objects | #757 by the four addresses; the `before_flush` listener live on `Registration`; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
@@ -1100,7 +1100,7 @@ would lose less; it would not — corrected the same day.)
 
 | Phase | Issue title | Migration | Env vars | Data | Failure paths that change (R13) | Manual validation |
 |---|---|---|---|---|---|---|
-| 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
+| 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, de B9.1-regel in `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
 | 0b | **#1248**: CR-13 fase 0b — tests bij hun domein: 391 bestanden geplaatst, `testpaths`, suite-telling gelijk; poort *tests with their domain* hard | none | none | none | none | CI only; the same count before and after |
 | 0c | **#1254**: CR-13 fase 0c — de zware AST-poorten (promise kept, no foreign writes, one transaction, events not calls, no rule in a router, #780; plus one entrance rule en one owner per derived value), de PROD-accesslogkant van de JSON-aanroepers | none | none | none | none | CI only; the full B9.2 table printed for the first time — the baseline of every phase after |
 | 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route now refuses what the form refuses (#733 class) | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
@@ -1192,7 +1192,8 @@ look somewhere (#678).
 > commits once; a called service, a facade or a handler never does. A
 > domain package has the shape of B4.5.
 
-Lives in `docs/code-style.md` (created in phase 0) and CR-04 (the placement
+Lives in `docs/code-style.md` (created by CR-12 phase 0; this rule added in
+phase 0a) and CR-04 (the placement
 rule, unchanged); `CLAUDE.md` points there.
 
 ### B9.2 Reach and baseline
@@ -1399,8 +1400,8 @@ difference between an exemption list and a burn-down.
   (#760), no tiebreaker gate (#761)** — separate issues; the last two are
   hygiene gates that belong with the UI-conventions gate, not with this
   rule (Koen, 27 Sep).
-- **No ruff (#781)** — separate; `docs/code-style.md` is created here
-  because this CR needs a home for the rule, and #781 fills the rest.
+- **No ruff (#781)** — separate; `docs/code-style.md` exists since CR-12
+  phase 0 and gets this CR's rule in phase 0a; #781 adds nothing to it.
 - **No Alpine gate** — the CR-12 limit (gate 8) applies here too.
 - **No query logic on entities**, ever — that is the boundary, not a phase.
 - **Mollie stays as it is** (Koen, 27 Sep): the checkout redirect
