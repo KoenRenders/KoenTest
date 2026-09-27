@@ -158,6 +158,16 @@ system to whom, what is sanitised, what is logged.
 
 Shippable phases, each with what it delivers and its dependencies.
 
+Per phase, next to the "Na de merge" block, one column **failure paths that
+change** (added 27 September 2026, from CR-13). A change that reorganises
+behaviour — where a rule lives, who commits, what a handler does — rarely
+changes what the system does on the happy path, and almost always changes
+what it does when something fails: what rolls back, what is refused, what
+is left half done. Name those per phase, so "no functional change" is a
+claim about the happy path with the failure paths listed beside it, and an
+e2e test that goes red on one of them is expected, not a surprise. "None"
+is an answer.
+
 ## B8. Tests
 
 What the build must prove, each test able to go red; guards proven by

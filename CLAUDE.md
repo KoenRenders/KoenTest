@@ -671,6 +671,23 @@ per commit on GitHub.
   `No known vulnerabilities found`, óf het aantal bevindingen per pakket, en
   vraag Koen expliciet wat ermee moet vóór de release doorgaat. De job zet ze ook
   als `::warning::`-annotatie + job-summary op de runpagina.
+- **Drie vormen kwamen er in de week van CR-12 en CR-13 bij** (26–27 september
+  2026), alle drie uit echte fouten:
+  - **hij draait niet** — een gate bewezen door een lid te *hernoemen* legde de
+    import van `service.py` plat; de test draaide nooit en de run kwam groen terug.
+    Bewijs een gate met een **additieve** overtreding (iets toevoegen), nooit door
+    iets kapot te maken dat bestaat, en controleer dat de test *draaide* (zijn eigen
+    assertie in de uitvoer), niet alleen dat de suite rood was.
+  - **hij ziet een lege weergave niet** — een conversie van string naar enum
+    printte keuzes en infoblokken als lege regel: geen fout, gewoon niets. Poort 12
+    van CR-12 vangt een lid *in* de uitvoer, geen ontbrekende weergave. Raakt een
+    conversie schermen, maak dan vooraf een **snapshot van de uitvoer op de oude
+    code** en eis dat de nieuwe hetzelfde rendert.
+  - **hij laadt stiekem toch** — een "detached object"-test die eerst
+    `registration.items` aanraakt, laadt de relatie en wordt groen terwijl `total()`
+    in productie alsnog een query doet. Bouw het object **zonder één
+    databankrondreis** (kale attributen, relaties met de hand gezet) en roep dan pas
+    de methodes aan.
 - **Release-tracker format — één checkbox per issue.** Elk issue staat als één
   regel `- [ ] #NN (korte omschrijving)`. **NIET** twee checkboxes per issue, en
   de zin **"getest op HDEV door Koen" hoort NERGENS** in een issue of tracker.
