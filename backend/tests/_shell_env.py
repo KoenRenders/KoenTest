@@ -38,6 +38,13 @@ def bare_shell_env(*extra_dirs) -> Environment:
     from app.ui import _werkruimte_naam  # noqa: F401 - zelfde bron, zie boven
 
     env.globals["werkruimte_naam"] = lambda: "Raak Millegem"
+    # #1238: de schillen vragen de banner niet te renderen tijdens een opname van de
+    # schermafdruk-tool. Dit is de ECHTE functie en geen kopie van de regel: buiten een
+    # verzoek vindt ze geen request in de rendercontext en geeft ze False, dus deze
+    # tests zien de banner zoals voorheen.
+    from app.ui import _is_screenshot
+
+    env.globals["is_screenshot"] = _is_screenshot
     # `beheer_account(request)` staat achter `request is defined` in de schil en
     # hoeft hier dus niet.
     return env

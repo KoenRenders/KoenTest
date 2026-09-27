@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, Undefined
-from jinja2 import make_logging_undefined
+from jinja2 import make_logging_undefined, pass_context
 
 from app.config import settings
 
@@ -252,6 +252,40 @@ templates.env.globals["werkruimte_naam"] = _werkruimte_naam
 from app.config import settings as _settings  # noqa: E402
 
 templates.env.globals["omgeving"] = _settings.app_env
+
+
+# Screenshot flag (#1238): the capture tool says only *that* this is a capture; the
+# shell decides for itself not to render the environment banner. One source — the
+# alternative was a style rule injected by the tool, i.e. a second place that knows
+# what that banner looks like and drifts the moment the banner changes.
+#
+# The header can never take the banner off a real test environment, and that is the
+# point of the second condition: only APP_ENV=dev honours it, and `dev` is the only
+# value the tool ever runs against (docker-compose.dev.yml, scripts/e2e-local.sh and
+# the e2e CI job all set it). So HDEV, UAT and PROD keep the banner whatever a caller
+# sends. Together with the tool's own localhost guard that is two locks on the door
+# the banner exists to keep shut.
+#
+# `pass_context` rather than a request parameter: the shells are also rendered bare in
+# the markup tests, where `request` is undefined. Reading it from the render context
+# yields None there instead of an UndefinedError, so the shells can call this without
+# the `request is defined` dance — and the failure direction is the safe one (no
+# request, no flag, banner shown).
+SCREENSHOT_HEADER = "X-Raak-Screenshot"
+
+
+@pass_context
+def _is_screenshot(ctx) -> bool:
+    if _settings.app_env != "dev":
+        return False
+    request = ctx.get("request")
+    headers = getattr(request, "headers", None)
+    if headers is None:
+        return False
+    return headers.get(SCREENSHOT_HEADER) == "1"
+
+
+templates.env.globals["is_screenshot"] = _is_screenshot
 
 
 # Cache-busting voor statische bestanden (#481 voor de CSS, #773 voor de rest).

@@ -49,6 +49,26 @@ html { scroll-behavior: auto !important; }
 """
 
 
+def context_opties() -> dict:
+    """De contextinstellingen van een opname — inclusief de schermafdruk-vlag (#1238).
+
+    De vlag vraagt de schil om de omgevingsbanner niet te renderen: de tool zegt alleen
+    *dát* het een opname is, de schil beslist zelf. Het alternatief was een stijlregel
+    die de tool injecteert, en dat is een tweede plek die weet hoe die balk eruitziet.
+
+    Ze hangt aan de CONTEXT en niet aan de cookies: `_zet_sessie` wist de cookies vóór
+    elk scherm (#1183), dus een cookie was na het eerste scherm weg en de rest van de
+    reeks droeg alsnog de banner.
+
+    Een functie en geen letterlijke dict in `main()`, zodat
+    `tests_e2e/test_schermafdruk_zonder_banner.py` exact meet wat de tool meestuurt in
+    plaats van die waarde na te typen.
+    """
+    from app.ui import SCREENSHOT_HEADER
+
+    return {"reduced_motion": "reduce", "extra_http_headers": {SCREENSHOT_HEADER: "1"}}
+
+
 @dataclass(frozen=True)
 class Screen:
     """One entry of the fixed set."""
@@ -260,7 +280,7 @@ def main(argv: list[str]) -> int:
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        context = browser.new_context(base_url=BASE, reduced_motion="reduce")
+        context = browser.new_context(base_url=BASE, **context_opties())
         page = context.new_page()
 
         for screen in SCREENS:
