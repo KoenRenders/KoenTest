@@ -1226,6 +1226,28 @@ checkable, that limit is written here as a conscious one, not left as a
 silent gap. Found by an e2e test, not by the pytest suite — which is the
 argument for the gate.
 
+**A baseline entry on a column that changed type is not "not yet cleaned
+up" — it is "broken"** (phase 2, found by dev1 as #1268, 27 September).
+`_leden_persoon_velden.html` and `gezin_portaal.html` compared
+`p.relation_type == "HOOFDLID"`; both sat in the `TEMPLATE_COMPARISONS`
+baseline as tolerated offenders. Phase 2 made `relation_type` a
+`RelationType` enum, and from that moment the two comparisons were **always
+false**: the hidden primary-member field vanished from admin and portal,
+and e-mail and mobile were no longer required for the primary member. The
+ratchet stayed green — the entry was in the baseline — and gate 12 saw
+nothing, because a comparison that goes silently false puts no member in
+the output. Two consequences:
+
+- **The gate**: an entry in `TEMPLATE_COMPARISONS` or `LOOSE_STRINGS` whose
+  attribute is now an enum column turns the gate **red, baseline or not**,
+  with the message "this comparison can no longer be true — the column is
+  an enum since phase N". A ratchet that keeps tolerating such an entry
+  covers a fault.
+- **The phase**: whoever converts a column to an enum walks the baseline
+  entries on that column **in the same commit** and either fixes them
+  (view-model boolean) or removes them; the phase issue lists them. That is
+  a row in every "Na de merge" block from phase 2 on.
+
 **Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
 A **ratchet** promises zero: it holds today's offenders, may only shrink, is
 red when an entry disappears from the code but not from the list, and is
@@ -1338,6 +1360,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q34 | 27 Sep 2026 | Master CLI, from #1268 (dev1): two baseline-tolerated template comparisons on `relation_type` went silently false when phase 2 made the column an enum — primary-member field gone, required fields no longer required; ratchet green, gate 12 blind. | B9.3: a baseline entry whose attribute became an enum is red regardless of the baseline; each phase that converts a column walks the entries on it in the same commit. Same rule written into CR-13. |
 | Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
 | Q32 | 27 Sep 2026 | Is the AI-lists data question still open? (Koen, via Claude) | No: answered by Koen on 27 September in dev1's session and recorded on #1181 ("Na de merge — Data"); migration 163 built. Note 6 updated. |
 | Q31 | 27 Sep 2026 | Master CLI: note 6 says `SYMBOLIC_LABELS`' words go through `_()`; measured on master they are Dutch literals (engine, export filter header). | Judgment unchanged (technical, exemption); the assumption is now stated as an assumption, with #1216 as the issue that makes it true. |

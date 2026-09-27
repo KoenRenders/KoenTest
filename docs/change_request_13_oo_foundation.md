@@ -230,7 +230,7 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | every `router.py` / `admin_ui.py` / `import_service.py` that writes an aggregate | **changed** | calls the aggregate's rule; loses its inline checks |
 | `backend/tests/test_rules_gate.py`, `rules_baseline.py` | **new** | the gates of B9.3 |
 | `backend/tests/test_<domain>_entrances.py` | **new**, one per aggregate | the entrances test (B8 test 1) |
-| `docs/code-style.md` | **created** (#781 never built it) | the layer rules, the four addresses, the module shape — one screen |
+| `docs/code-style.md` | **extended** — the file exists since CR-12 phase 0 (#1177, 26 Sep: the code-list rule); phase 0a adds the rule of B9.1 | the layer rules, the four addresses, the module shape — one screen |
 | `CLAUDE.md` *Validation layers* | **changed** | points to `docs/code-style.md`, stops repeating it |
 
 ### B2.2 Application usage
@@ -1088,7 +1088,7 @@ would lose less; it would not — corrected the same day.)
 
 | Phase | Delivers | Depends on |
 |---|---|---|
-| **0a — the meter, the listener and the simple gates** (#755; first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py`, the A2 numbers printed by the gate, `app/kernel/rules.py` (registry + the `before_flush` listener), `docs/code-style.md` created, `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the six simple gates**: *no session on an entity*, *module shape* (hard for new packages), *no commit in a handler* (part (a) of *one transaction*), *no network in a handler*, *JSON route with a caller*, *validator without constraint*; the **repository side** of the JSON-caller measurement (API-key users, chatbot, e2e, templates). Split off from the old phase 0 on 27 September after dev2's estimate: **3 to 5 CLI-days and about 2,000 lines of gate code** for the whole meter — too much for one issue | — |
+| **0a — the meter, the listener and the simple gates** (#755; first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py`, the A2 numbers printed by the gate, `app/kernel/rules.py` (registry + the `before_flush` listener), the B9.1 rule added to `docs/code-style.md` (which CR-12 phase 0 created), `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the six simple gates**: *no session on an entity*, *module shape* (hard for new packages), *no commit in a handler* (part (a) of *one transaction*), *no network in a handler*, *JSON route with a caller*, *validator without constraint*; the **repository side** of the JSON-caller measurement (API-key users, chatbot, e2e, templates). Split off from the old phase 0 on 27 September after dev2's estimate: **3 to 5 CLI-days and about 2,000 lines of gate code** for the whole meter — too much for one issue | — |
 | **0b — the tests move** (#1248; one track, right after 0a) | all 391 test files placed per R15 in one commit series: 107 to their domains, 205 to `tests/integration/`, 70 stay; `testpaths` and root `conftest.py` adjusted; suite count identical before and after; the *tests with their domain* gate built hard here | 0a |
 | **0c — the heavy AST gates** (#1254; before phase 1, so the meter is complete before the first rebuild commit) | *promise kept* (with its spike: 50 promises measured by the spike, not 88 — the 8 September count probably included labels; 21 of the 50 cannot be walked from field name to column and go into the baseline **with a reason each**), *no foreign writes*, *one transaction per request* (parts (b) and (c)), *events, not calls*, *no rule in a router*, *English identifiers* (#780); and *one entrance rule* (its non-ORM discovery walk — the spike dev2 already ran, which found #681's six paths) and *one owner per derived value* — confirmed for 0c by the master CLI (27 Sep): the meter must be complete before the first rebuild commit, or phase 1 claims the `total()`/`balance()` improvement instead of the ratchet measuring it; **eight gates in 0c**; the **PROD access-log side** of the JSON-caller measurement (`app.log` on PROD does not rotate: one file since 10 September, so the window only grows) | 0a, 0b |
 | **1 — `Registration`** + value objects | #757 by the four addresses; the `before_flush` listener live on `Registration`; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
@@ -1100,7 +1100,7 @@ would lose less; it would not — corrected the same day.)
 
 | Phase | Issue title | Migration | Env vars | Data | Failure paths that change (R13) | Manual validation |
 |---|---|---|---|---|---|---|
-| 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
+| 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, de B9.1-regel in `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
 | 0b | **#1248**: CR-13 fase 0b — tests bij hun domein: 391 bestanden geplaatst, `testpaths`, suite-telling gelijk; poort *tests with their domain* hard | none | none | none | none | CI only; the same count before and after |
 | 0c | **#1254**: CR-13 fase 0c — de zware AST-poorten (promise kept, no foreign writes, one transaction, events not calls, no rule in a router, #780; plus one entrance rule en one owner per derived value), de PROD-accesslogkant van de JSON-aanroepers | none | none | none | none | CI only; the full B9.2 table printed for the first time — the baseline of every phase after |
 | 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route now refuses what the form refuses (#733 class) | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
@@ -1192,7 +1192,8 @@ look somewhere (#678).
 > commits once; a called service, a facade or a handler never does. A
 > domain package has the shape of B4.5.
 
-Lives in `docs/code-style.md` (created in phase 0) and CR-04 (the placement
+Lives in `docs/code-style.md` (created by CR-12 phase 0; this rule added in
+phase 0a) and CR-04 (the placement
 rule, unchanged); `CLAUDE.md` points there.
 
 ### B9.2 Reach and baseline
@@ -1248,6 +1249,19 @@ Not mechanical, and said so: whether a rule *should* exist, whether two
 derived values are one concept or two, whether a `check()` is complete.
 Those go to review; the entrances test makes sure review at least sees
 every door.
+
+**A frozen offender on something whose type changes is suspect, not
+tolerated** (from CR-12 #1268, 27 September). In CR-12 two template
+comparisons on `relation_type`, tolerated in the baseline, went silently
+false the moment phase 2 made the column an enum — a field vanished, two
+required fields stopped being required, and the ratchet stayed green. The
+same shape exists here: a phase that turns a free function into a method, a
+string into a value object, or a plain column into `Mapped[Money]` changes
+what every frozen offender *on that thing* means. Rule for every phase: the
+commit that changes a type walks the baseline entries on that attribute in
+the same commit and fixes or removes them; and `rules_baseline.py` records
+per entry which attribute it is about, so the gate can turn red on its own
+when that attribute's type changed since the freeze.
 
 ### B9.4 Hard via phases, and why that is not "gates first"
 
@@ -1328,6 +1342,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q32 | 27 Sep 2026 | Master CLI, from CR-12 #1268: a baseline-tolerated comparison on a column that became an enum went silently false; does the same threat exist here? | Yes — every phase changes types (method, value object, `Mapped[Money]`). B9.3: a type-changing commit walks the frozen offenders on that attribute; the baseline records the attribute per entry so the gate can go red on a type change by itself. |
 | Q31 | 27 Sep 2026 | Master CLI: phase 0 split after dev2's estimate (3–5 CLI-days, ~2,000 lines) into 0a (#755: meter, listener, six simple gates, repo side of the callers) and 0c (#1254: six heavy AST gates, PROD access-log side), order 0a → 0b → 0c → 1; the spike counted 50 promises (21 not walkable); PROD's `app.log` does not rotate. | Taken into B7/B7.1, B9.2 and B10. Two gates the split did not name — *one entrance rule* and *one owner per derived value* — placed in 0c by the author and confirmed by the master CLI the same day: eight gates in 0c. |
 | Q30 | 27 Sep 2026 | dev2, spike 1: the #681 rule (birth date and gender required) is a membership rule, not a `Person` rule — `create_person_for_circle` makes persons without them; does it go on `Member`/`MemberPerson` as `check()`, not on `Person`, and is that written down so nobody adds a `NOT NULL`? | Yes: `MemberPerson.check()` in `mdm` (the household link is master data, Koen 27 Sep), fired on flush; explicitly no constraint on `persons.date_of_birth`/`gender_code` (B5.2, B7 phase 3). The import's own copy goes with it. |
 | Q29 | 27 Sep 2026 | desktop-dev2, building phase 0: does the #780 word list exist; is *Typed* a phase-0 ratchet or a per-phase mypy override; ratchet or hard for *tests with their domain*; B8 order. | The seed list is #780 point 4, the full ±35 stems were never written — build it, the gate's count binds. *Typed* is a mypy override switched on per migrated domain, not a pytest gate (B9.3 lists fifteen rows, fourteen are pytest gates). *Tests with their domain* is hard in 0b, no ratchet. B8 11/12 swapped. |
@@ -1399,8 +1414,8 @@ difference between an exemption list and a burn-down.
   (#760), no tiebreaker gate (#761)** — separate issues; the last two are
   hygiene gates that belong with the UI-conventions gate, not with this
   rule (Koen, 27 Sep).
-- **No ruff (#781)** — separate; `docs/code-style.md` is created here
-  because this CR needs a home for the rule, and #781 fills the rest.
+- **No ruff (#781)** — separate; `docs/code-style.md` exists since CR-12
+  phase 0 and gets this CR's rule in phase 0a; #781 adds nothing to it.
 - **No Alpine gate** — the CR-12 limit (gate 8) applies here too.
 - **No query logic on entities**, ever — that is the boundary, not a phase.
 - **Mollie stays as it is** (Koen, 27 Sep): the checkout redirect

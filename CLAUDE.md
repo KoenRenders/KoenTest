@@ -89,7 +89,9 @@ quotes, line length or import order. Do not argue with the formatter and do
 not silence it with `# noqa` unless the reason stands on the same line.
 
 What ruff cannot decide lives in one short style guide, `docs/code-style.md`
-(English, one screen; **created by CR-13 phase 0**, not by #781): language,
+(English, one screen; created by CR-12 phase 0 on 26 September 2026 with the
+code-list rule, extended by CR-13 phase 0a with the rule's-home section; #781
+adds nothing to it): language,
 where a rule belongs (CR-04, CR-13), layer boundaries, exceptions, typing,
 docstrings and tests. This file points there and does not repeat it.
 
