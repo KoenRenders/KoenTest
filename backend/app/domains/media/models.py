@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from enum import Enum
 
 from sqlalchemy import (
     Column,
@@ -10,14 +11,48 @@ from sqlalchemy import (
     LargeBinary,
     UniqueConstraint,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.kernel.codes import EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
 def _now_utc():
     return datetime.now(timezone.utc)
+
+
+class MediaKind(Enum):
+    """What a stored file is for (CR-12 phase 4).
+
+    Was a free `String(20)` guarded by `ck_media_assets_kind_valid`, the CHECK
+    that migrations 057, 131, 134 and 151 each rebuilt to add a kind — and that a
+    kind added in code without a migration kept tripping over. The foreign key
+    says the same, so the CHECK goes; a new kind is one row in the code list and
+    one member here.
+    """
+
+    SPONSOR = "sponsor"
+    ACTIVITY_PHOTO = "activity_photo"
+    ACTIVITY_POSTER = "activity_poster"
+    COMPONENT_INFO = "component_info"
+    TENANT_LOGO = "tenant_logo"
+    NEWSLETTER_FILE = "newsletter_file"
+    DESIGN_IMAGE = "design_image"
+    DESIGN_RENDER = "design_render"
+    PAGE_IMAGE = "page_image"
+
+
+def as_media_kind(value) -> "MediaKind | None":
+    """A kind as it arrives — a code from a form or a URL, or a member — as a
+    member; None when it is no kind. The one conversion at the border of the
+    media domain, so that everything inside compares members."""
+    if isinstance(value, MediaKind):
+        return value
+    try:
+        return MediaKind(str(value or "").strip())
+    except ValueError:
+        return None
 
 
 class MediaAsset(TenantMixin, Base):
@@ -50,7 +85,9 @@ class MediaAsset(TenantMixin, Base):
     __table_args__ = {"schema": "media"}
 
     id = Column(Integer, primary_key=True, index=True)
-    kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info | newsletter_file | design_image | design_render
+    kind: Mapped[MediaKind] = mapped_column(
+        EnumColumn(MediaKind, length=20), ForeignKey("media.media_kind_codes.code"),
+        nullable=False, index=True)
     activity_id = Column(
         Integer, nullable=True, index=True  # soft-ref naar activities.activities (§8, migr. 081)
     )
@@ -122,3 +159,30 @@ class MediaThumbsUp(TenantMixin, Base):
                       nullable=False, index=True)
     visitor_token = Column(String(64), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class MediaKindCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4)."""
+
+    __tablename__ = "media_kind_codes"
+    __table_args__ = {"schema": "media"}
+
+    code = Column(String(20), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class MediaKindLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 4)."""
+
+    __tablename__ = "media_kind_labels"
+    __table_args__ = {"schema": "media"}
+
+    code = Column(String(20), ForeignKey("media.media_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)

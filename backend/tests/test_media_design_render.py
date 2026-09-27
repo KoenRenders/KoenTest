@@ -28,7 +28,7 @@ Broken to see them red (measured):
 """
 import pytest
 
-from app.domains.media.api import MediaAsset, MediaFout, add_document
+from app.domains.media.api import MediaAsset, MediaFout, MediaKind, add_document
 from app.domains.media.svg import INKSCAPE_NS, SODIPODI_NS
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -97,7 +97,7 @@ def test_a_render_can_be_stored_as_pdf_png_and_svg(db_session):
     assert pdf.content_type == "application/pdf" and pdf.data.startswith(b"%PDF")
     assert png.content_type == "image/png"
     assert svg.content_type == "image/svg+xml"
-    assert all(a.kind == "design_render" for a in (pdf, png, svg))
+    assert all(a.kind is MediaKind.DESIGN_RENDER for a in (pdf, png, svg))
 
 
 def test_a_render_png_keeps_its_print_size(db_session):

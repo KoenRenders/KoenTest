@@ -177,6 +177,13 @@ WHERE "status" IS NOT NULL
   AND "status"::text NOT IN ('failed', 'logged', 'sent', 'skipped')
 GROUP BY "status" ORDER BY row_count DESC;
 
+-- media.media_assets.kind → media.media_kind_codes (9 codes)
+SELECT 'media.media_assets.kind' AS column_name, "kind"::text AS stray_value, count(*) AS row_count
+FROM media.media_assets
+WHERE "kind" IS NOT NULL
+  AND "kind"::text NOT IN ('activity_photo', 'activity_poster', 'component_info', 'design_image', 'design_render', 'newsletter_file', 'page_image', 'sponsor', 'tenant_logo')
+GROUP BY "kind" ORDER BY row_count DESC;
+
 -- meetings.meetings.status → meetings.meeting_status_codes (3 codes)
 SELECT 'meetings.meetings.status' AS column_name, "status"::text AS stray_value, count(*) AS row_count
 FROM meetings.meetings

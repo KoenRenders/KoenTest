@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
+from app.kernel.codes import code_of
 # media wordt per functie geïmporteerd: `media/extraction.py` importeert op
 # modulniveau `ChatbotInfo` uit chatbot.api, dat op zijn beurt deze module laadt.
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
@@ -45,10 +46,12 @@ def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
 
 
 def _document_label(db: Session, asset: "MediaAsset") -> str:
-    if asset.kind == "activity_poster" and asset.activity_id:
+    from app.domains.media.api import MediaKind
+
+    if asset.kind is MediaKind.ACTIVITY_POSTER and asset.activity_id:
         a = db.query(Activity).filter(Activity.id == asset.activity_id).first()
         return f"{a.name} — poster" if a else "poster"
-    if asset.kind == "component_info" and asset.component_id:
+    if asset.kind is MediaKind.COMPONENT_INFO and asset.component_id:
         c = (
             db.query(ActivitySubRegistration)
             .filter(ActivitySubRegistration.id == asset.component_id)
@@ -58,7 +61,7 @@ def _document_label(db: Session, asset: "MediaAsset") -> str:
             an = c.activity.name if c.activity else "activiteit"
             return f"{an} — {c.name} (info)"
         return "reglement"
-    return asset.kind
+    return code_of(asset.kind) or ""
 
 
 def list_chatbot_info(db: Session, _admin=None):
@@ -77,7 +80,7 @@ def list_chatbot_info(db: Session, _admin=None):
     ):
         documents.append({
             "asset_id": asset.id,
-            "kind": asset.kind,
+            "kind": code_of(asset.kind),
             "is_pdf": asset.content_type == "application/pdf",
             "label": _document_label(db, asset),
             "info": _row(rows_by_asset.get(asset.id)),

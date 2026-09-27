@@ -52,6 +52,7 @@ one actually knocked over — not what it was expected to:
 """
 from __future__ import annotations
 
+import re
 from io import BytesIO
 
 import pytest
@@ -247,19 +248,22 @@ def test_a_page_image_is_offered_by_the_media_library(client, db_session):
     1280 px ("Paginabeeld" at 11 already fails there). The full name lives on the
     upload screen, because that is where you say what you are uploading.
 
-    **This test is also the marker for #1194** (v2.7.0), which gives the filter a
-    shape that grows with the number of kinds. Once that lands, the two halves
-    may become one label again and this assert is where you say so.
+    **#1194 ended that stopgap**: the filter is a select list now, which grows
+    with the number of kinds, so the kind carries its one full name in both
+    places. Broken on purpose: the "Pagina" override put back into the filter
+    options → the first assert fails.
     """
     _login(client, db_session)
 
-    lijst = client.get(f"/admin/media?kind={PAGE_IMAGE_KIND}").text
-    assert ">Pagina<" in lijst, (
-        "de verkorte filterknop staat niet op het mediascherm; met de volle naam "
-        "breekt die rij (#1138/#1194)")
+    code = PAGE_IMAGE_KIND.value
+    lijst = client.get(f"/admin/media?kind={code}").text
+    assert re.search(rf'<option value="{code}"[^>]*>\s*Pagina-afbeelding\s*</option>',
+                     lijst), (
+        "the filter list does not offer the kind under its one full name (#1194)")
+    assert ">Pagina<" not in lijst, "the stopgap short label of #1173 came back"
 
     nieuw = client.get("/admin/media/nieuw").text
-    assert f'value="{PAGE_IMAGE_KIND}"' in nieuw, (
+    assert f'value="{code}"' in nieuw, (
         "de soort staat niet in de keuzelijst van het uploadscherm, dus ze is "
         "niet op te laden")
     assert "Pagina-afbeelding" in nieuw, (

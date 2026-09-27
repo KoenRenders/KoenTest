@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.domains.media import service as _service
-from app.domains.media.models import MediaAsset
+from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
 from app.domains.auth.api import User
@@ -45,7 +45,7 @@ _EXT_BY_TYPE = {
 }
 
 
-def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
+def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
     """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
     thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
     if content_type == "application/pdf":
@@ -65,7 +65,7 @@ def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
     return process_image(raw, kind=kind)
 
 
-async def _replace_single_asset(db, file: UploadFile, *, kind: str,
+async def _replace_single_asset(db, file: UploadFile, *, kind: MediaKind | str,
                                 activity_id=None, component_id=None,
                                 title_base: Optional[str] = None) -> MediaAsset:
     """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
@@ -80,7 +80,7 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: str,
     except ImageError as exc:
         raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
 
-    q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
+    q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
     q = q.filter(MediaAsset.activity_id == activity_id) if activity_id is not None \
         else q.filter(MediaAsset.component_id == component_id)
     for old in q.all():
@@ -177,7 +177,7 @@ def list_sponsors(db: Session = Depends(get_db)):
     """Actieve sponsorlogo's voor footer en homepage."""
     rows = (
         db.query(MediaAsset)
-        .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
+        .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True)  # noqa: E712
         .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
         .all()
     )
@@ -195,7 +195,7 @@ def activity_photos_availability(db: Session = Depends(get_db)):
     rows = (
         db.query(MediaAsset.activity_id)
         .filter(
-            MediaAsset.kind == "activity_photo",
+            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
             MediaAsset.is_active == True,  # noqa: E712
             MediaAsset.activity_id.isnot(None),
         )

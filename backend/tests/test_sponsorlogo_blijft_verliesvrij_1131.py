@@ -35,6 +35,7 @@ from io import BytesIO
 import pytest
 from PIL import Image, ImageDraw
 
+from app.domains.media.api import MediaKind
 from app.domains.media.images import LOSSLESS_KINDS, process_image
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -125,10 +126,10 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     afweging is dezelfde als hierboven — bytes tegen leesbaarheid — en ze valt
     dezelfde kant op omdat het er een handvol zijn, geen album.
     """
-    assert LOSSLESS_KINDS == {"design_render", "sponsor", "tenant_logo",
-                              "page_image"}, LOSSLESS_KINDS
-    assert "activity_photo" not in LOSSLESS_KINDS
-    assert "design_image" not in LOSSLESS_KINDS, (
+    assert {k.value for k in LOSSLESS_KINDS} == {"design_render", "sponsor",
+                                                 "tenant_logo", "page_image"}, LOSSLESS_KINDS
+    assert MediaKind.ACTIVITY_PHOTO not in LOSSLESS_KINDS
+    assert MediaKind.DESIGN_IMAGE not in LOSSLESS_KINDS, (
         "een foto ín een affiche mag wél JPEG worden (#1011)")
 
 

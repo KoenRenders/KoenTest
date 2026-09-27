@@ -28,7 +28,7 @@ import pytest
 from PIL import Image
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.media.api import MediaAsset
+from app.domains.media.api import MediaAsset, MediaKind
 from app.domains.media.images import MAX_FULL, MAX_FULL_BY_KIND, ImageError, process_image
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -82,9 +82,9 @@ def test_the_same_source_gives_4096_as_design_and_1600_as_photo():
     ontwerp = process_image(bron, kind="design_image")
     foto = process_image(bron, kind="activity_photo")
 
-    assert max(ontwerp["width"], ontwerp["height"]) == MAX_FULL_BY_KIND["design_image"]
+    assert max(ontwerp["width"], ontwerp["height"]) == MAX_FULL_BY_KIND[MediaKind.DESIGN_IMAGE]
     assert max(foto["width"], foto["height"]) == MAX_FULL
-    assert MAX_FULL_BY_KIND["design_image"] == 4096
+    assert MAX_FULL_BY_KIND[MediaKind.DESIGN_IMAGE] == 4096
 
 
 def test_an_unknown_kind_keeps_the_ordinary_limit():

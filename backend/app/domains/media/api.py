@@ -10,7 +10,9 @@ from app.domains.media.extraction import (  # noqa: F401
     extract_document_text,
     update_media_extracted_text,
 )
-from app.domains.media.models import MediaAsset, MediaThumbsUp  # noqa: F401
+from app.domains.media.models import MediaAsset, MediaKind, MediaThumbsUp, as_media_kind  # noqa: F401
+# CR-12 phase 4: the kind of a file as a code list.
+from app.domains.media.codes import MEDIA_KIND  # noqa: F401
 from app.domains.media.svg import SVG_CONTENT_TYPE  # noqa: F401  (#989)
 
 __all__ = [
@@ -21,7 +23,8 @@ __all__ = [
     "activity_photo_covers", "delete_media",
     "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
     "thumb_counts", "thumbs_of_visitor", "toggle_thumb",
-    "MediaAsset", "MediaThumbsUp", "EXTRACTABLE_KINDS", "extract_document_text",
+    "MediaAsset", "MediaKind", "MediaThumbsUp", "MEDIA_KIND", "as_media_kind",
+    "EXTRACTABLE_KINDS", "extract_document_text",
     "delete_activity_poster", "delete_component_info", "reextract_text",
     "replace_activity_poster", "replace_component_info",
     "update_media_extracted_text",
