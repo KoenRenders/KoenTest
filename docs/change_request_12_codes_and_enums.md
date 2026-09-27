@@ -1248,6 +1248,18 @@ the output. Two consequences:
   (view-model boolean) or removes them; the phase issue lists them. That is
   a row in every "Na de merge" block from phase 2 on.
 
+**Scope of the rule: as long as a ratchet exists** (decided at phase 5,
+dev1's proposal, 27 September). After phase 5 the text gates hold no
+tolerated entries; a new comparison is red in the hard gate anyway, so the
+rule has nothing left to work on. What remains are the permanent exceptions
+(`FK_NOT_OUR_LIST`, `LOOSE_STRINGS_NOT_A_CODE`,
+`TEMPLATE_COMPARISONS_NOT_A_CODE`), which already carry a mandatory reason
+and the staleness rule; they get no extra attribute field — the gate would
+see only the attribute's *name* (B4.8) and would today hit three correct
+exceptions (`request.method`, the chat role `user`, Raakje's JSON). CR-13
+keeps the full rule, including the per-entry attribute in its baseline,
+because its ratchets live through several phases.
+
 **Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
 A **ratchet** promises zero: it holds today's offenders, may only shrink, is
 red when an entry disappears from the code but not from the list, and is
@@ -1360,6 +1372,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q35 | 27 Sep 2026 | Master CLI, at phase 5: does the enum-attribute rule survive the hard gates? | No — it applies while a ratchet exists; after phase 5 the hard gate is the rule, and the permanent exceptions get no extra field (the gate sees only names and would hit three correct exceptions). CR-13 keeps the full rule. |
 | Q34 | 27 Sep 2026 | Master CLI, from #1268 (dev1): two baseline-tolerated template comparisons on `relation_type` went silently false when phase 2 made the column an enum — primary-member field gone, required fields no longer required; ratchet green, gate 12 blind. | B9.3: a baseline entry whose attribute became an enum is red regardless of the baseline; each phase that converts a column walks the entries on it in the same commit. Same rule written into CR-13. |
 | Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
 | Q32 | 27 Sep 2026 | Is the AI-lists data question still open? (Koen, via Claude) | No: answered by Koen on 27 September in dev1's session and recorded on #1181 ("Na de merge — Data"); migration 163 built. Note 6 updated. |
