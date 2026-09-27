@@ -124,6 +124,12 @@
         lijst, waardoor een verversing stil status=pending meekreeg (gevonden
         bij de golf-10-schermafdrukken). #bt-filter serialiseert ook het
         zicht-veld, dat er via het form-attribuut bij hoort. #}
-     hx-include="#bt-filter" hx-swap="innerHTML">
+     hx-include="#bt-filter" hx-swap="innerHTML"
+     {# #1247: the scope travels with every request from inside the list. A record
+        tab (activity, family, registration) forces its scope in the route, not in
+        the page URL, and a mutation posts to its own endpoint — so without this
+        header the list that came back after a confirmation held every payment.
+        `_uitvoeren` reads it; htmx merges it with the CSRF header of the body. #}
+     {% if scope and scope.param_naam in ("activiteit", "gezin", "inschrijving") %}hx-headers='{{ {"X-Betalingen-Scope": scope.param_naam ~ "=" ~ scope.param_waarde ~ ("&scope_stil=1" if scope.get("stil") else "")}|tojson }}'{% endif %}>
   {% include "_betalingen_lijst.html" %}
 </div>
