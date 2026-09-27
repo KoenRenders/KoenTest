@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Raak VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-09-27 07:18+0000\n"
+"POT-Creation-Date: 2026-09-27 13:46+0000\n"
 "PO-Revision-Date: 2026-07-14 00:01+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: nl_BE\n"
@@ -38,8 +38,8 @@ msgstr ""
 
 #: app/domains/activities/admin_ui.py:234
 #: app/domains/activities/admin_ui.py:553
-#: app/domains/activities/admin_ui.py:1177 app/domains/activities/ui.py:100
-#: app/domains/activities/ui.py:288 app/domains/media/router.py:268
+#: app/domains/activities/admin_ui.py:1183 app/domains/activities/ui.py:100
+#: app/domains/activities/ui.py:373 app/domains/media/router.py:268
 #: app/domains/media/ui.py:84 app/domains/payment/ui.py:480
 #: app/domains/reporting/admin_ui.py:844
 msgid "Activiteit niet gevonden"
@@ -72,64 +72,64 @@ msgstr ""
 
 #: app/domains/activities/admin_ui.py:520
 #: app/domains/activities/admin_ui.py:538
-#: app/domains/activities/admin_ui.py:584
-#: app/domains/activities/admin_ui.py:1247 app/domains/activities/router.py:445
+#: app/domains/activities/admin_ui.py:585
+#: app/domains/activities/admin_ui.py:1253 app/domains/activities/router.py:445
 #: app/domains/activities/router.py:459 app/domains/activities/router.py:482
 #: app/domains/activities/router.py:566
 msgid "Component not found"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:596
-#: app/domains/activities/admin_ui.py:642 app/domains/activities/router.py:504
+#: app/domains/activities/admin_ui.py:597
+#: app/domains/activities/admin_ui.py:648 app/domains/activities/router.py:504
 #: app/domains/activities/router.py:519 app/domains/activities/router.py:598
 msgid "Product not found"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:611 app/domains/media/router.py:292
+#: app/domains/activities/admin_ui.py:612 app/domains/media/router.py:292
 msgid "Onderdeel niet gevonden"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:883
-#: app/domains/activities/admin_ui.py:890
-#: app/domains/activities/admin_ui.py:903 app/domains/payment/ui.py:535
+#: app/domains/activities/admin_ui.py:889
+#: app/domains/activities/admin_ui.py:896
+#: app/domains/activities/admin_ui.py:909 app/domains/payment/ui.py:535
 #: app/domains/payment/ui.py:544
 msgid "Inschrijving niet gevonden"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:960
-#: app/domains/activities/admin_ui.py:1032
-#: app/domains/activities/admin_ui.py:1071
-#: app/domains/activities/admin_ui.py:1234 app/domains/activities/router.py:590
+#: app/domains/activities/admin_ui.py:966
+#: app/domains/activities/admin_ui.py:1038
+#: app/domains/activities/admin_ui.py:1077
+#: app/domains/activities/admin_ui.py:1240 app/domains/activities/router.py:590
 #: app/domains/activities/router.py:646 app/domains/activities/router.py:719
 #: app/domains/activities/router.py:742
 #: app/domains/payment/status_router.py:162
 msgid "Registration not found"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1005
-#: app/domains/activities/admin_ui.py:1090
-#: app/domains/activities/admin_ui.py:1104 app/domains/activities/router.py:669
+#: app/domains/activities/admin_ui.py:1011
+#: app/domains/activities/admin_ui.py:1096
+#: app/domains/activities/admin_ui.py:1110 app/domains/activities/router.py:669
 #: app/domains/activities/router.py:687
 msgid "Order line not found"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1020 app/domains/auth/ui.py:42
+#: app/domains/activities/admin_ui.py:1026 app/domains/auth/ui.py:42
 msgid "Vul een geldig e-mailadres in."
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1040
+#: app/domains/activities/admin_ui.py:1046
 msgid "De inschrijving is opgeslagen."
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1063
+#: app/domains/activities/admin_ui.py:1069
 msgid "Kies eerst een product om toe te voegen."
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1197
+#: app/domains/activities/admin_ui.py:1203
 msgid "Zonder onderdeel"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1288 app/domains/chatbot/router.py:50
+#: app/domains/activities/admin_ui.py:1294 app/domains/chatbot/router.py:50
 #: app/domains/chatbot/ui.py:61 app/domains/media/router.py:121
 #: app/domains/media/router.py:151 app/domains/media/router.py:160
 #: app/domains/media/router.py:328 app/domains/media/router.py:345
@@ -138,21 +138,21 @@ msgstr ""
 msgid "Niet gevonden"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1316
-#: app/domains/activities/admin_ui.py:1339
+#: app/domains/activities/admin_ui.py:1322
+#: app/domains/activities/admin_ui.py:1345
 msgid "Organisator niet gevonden"
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:1320
+#: app/domains/activities/admin_ui.py:1326
 msgid ""
 "Zonder contactpersoon tonen de affiches de website, het e-mailadres en "
 "het gsm-nummer van Raak. Bevestig om door te gaan."
 msgstr ""
 
 #: app/domains/activities/export.py:55 app/ui/templates/_lw_inhoud.html:67
-#: app/ui/templates/design_system.html:214
-#: app/ui/templates/design_system.html:320
-#: app/ui/templates/design_system.html:348
+#: app/ui/templates/design_system.html:222
+#: app/ui/templates/design_system.html:328
+#: app/ui/templates/design_system.html:356
 msgid "Open"
 msgstr ""
 
@@ -165,8 +165,8 @@ msgid "Vereffend"
 msgstr ""
 
 #: app/domains/activities/export.py:58
-#: app/domains/activities/templates/_aa_detail.html:302
-#: app/domains/activities/templates/_aa_detail.html:322
+#: app/domains/activities/templates/_aa_detail.html:342
+#: app/domains/activities/templates/_aa_detail.html:365
 msgid "Gratis"
 msgstr ""
 
@@ -174,13 +174,13 @@ msgstr ""
 msgid "Inschrijver"
 msgstr ""
 
-#: app/domains/activities/export.py:66 app/domains/audit/changes.py:417
+#: app/domains/activities/export.py:66 app/domains/audit/changes.py:448
 #: app/domains/forms/templates/_fb_builder.html:32 app/domains/mail/ui.py:44
 msgid "Type"
 msgstr ""
 
 #: app/domains/activities/export.py:66 app/domains/activities/export.py:106
-#: app/domains/activities/templates/_inschrijf_form.html:60
+#: app/domains/activities/templates/_inschrijf_form.html:72
 #: app/domains/membership/templates/lid_worden.html:55
 msgid "Betaalwijze"
 msgstr ""
@@ -195,13 +195,13 @@ msgstr ""
 #: app/domains/newsletter/templates/admin_nieuwsbrief_archief.html:50
 #: app/domains/payment/templates/_betalingen_lijst.html:135
 #: app/domains/payment/templates/_betalingen_lijst.html:208
-#: app/domains/workflow/ui.py:194 app/ui/templates/design_system.html:212
-#: app/ui/templates/design_system.html:342
+#: app/domains/workflow/ui.py:194 app/ui/templates/design_system.html:220
+#: app/ui/templates/design_system.html:350
 msgid "Status"
 msgstr ""
 
 #: app/domains/activities/export.py:66
-#: app/domains/membership/templates/gezin_portaal.html:23
+#: app/domains/membership/templates/gezin_portaal.html:30
 msgid "Mededeling (OGM)"
 msgstr ""
 
@@ -234,7 +234,7 @@ msgstr ""
 #: app/domains/activities/templates/_inschrijving_detail.html:41
 #: app/domains/activities/templates/_inschrijving_detail.html:121
 #: app/domains/reporting/templates/_rp_paneel.html:420
-#: app/ui/templates/_macros.html:1392
+#: app/ui/templates/_macros.html:1470
 msgid "Totaal"
 msgstr ""
 
@@ -243,9 +243,9 @@ msgid "Betalingen en vorderingen"
 msgstr ""
 
 #: app/domains/activities/export.py:103
-#: app/domains/activities/templates/_aa_detail.html:69
-#: app/domains/activities/templates/_aa_detail.html:237
-#: app/domains/activities/templates/_aa_detail.html:290
+#: app/domains/activities/templates/_aa_detail.html:105
+#: app/domains/activities/templates/_aa_detail.html:273
+#: app/domains/activities/templates/_aa_detail.html:330
 #: app/domains/activities/templates/_inschrijf_form.html:14
 #: app/domains/activities/templates/_inschrijving_detail.html:64
 #: app/domains/activities/templates/_inschrijvingen_groepen.html:37
@@ -257,13 +257,13 @@ msgstr ""
 #: app/ui/organisaties_ui.py:194 app/ui/templates/admin_organisatie.html:27
 #: app/ui/templates/admin_tenant_nieuw.html:15
 #: app/ui/templates/design_system.html:178
-#: app/ui/templates/design_system.html:342
+#: app/ui/templates/design_system.html:350
 msgid "Naam"
 msgstr ""
 
 #: app/domains/activities/export.py:103 app/domains/forms/export.py:22
 #: app/domains/mail/templates/_email_log_lijst.html:69
-#: app/ui/templates/_macros.html:449 app/ui/templates/design_system.html:183
+#: app/ui/templates/_macros.html:455 app/ui/templates/design_system.html:183
 msgid "E-mail"
 msgstr ""
 
@@ -289,7 +289,7 @@ msgid "Terugbetaald"
 msgstr ""
 
 #: app/domains/activities/export.py:106
-#: app/domains/activities/templates/_inschrijf_form.html:51
+#: app/domains/activities/templates/_inschrijf_form.html:63
 msgid "Opmerkingen"
 msgstr ""
 
@@ -317,11 +317,11 @@ msgstr ""
 msgid "Ongeldig aantal: kies een waarde tussen 0 en %(max)s."
 msgstr ""
 
-#: app/domains/activities/router.py:878
+#: app/domains/activities/router.py:889
 msgid "Dit onderdeel is volzet. Inschrijven is niet meer mogelijk."
 msgstr ""
 
-#: app/domains/activities/router.py:956 app/domains/activities/router.py:963
+#: app/domains/activities/router.py:967 app/domains/activities/router.py:974
 msgid ""
 "De online betaling kon niet gestart worden. Je inschrijving is niet "
 "bewaard — probeer ze later opnieuw."
@@ -345,55 +345,55 @@ msgstr ""
 msgid "Activity is no longer open for registration"
 msgstr ""
 
-#: app/domains/activities/service.py:1112
-#: app/domains/activities/service.py:1162 app/domains/mdm/service.py:484
+#: app/domains/activities/service.py:1159
+#: app/domains/activities/service.py:1209 app/domains/mdm/service.py:876
 msgid "Overzicht"
 msgstr ""
 
-#: app/domains/activities/service.py:1115
+#: app/domains/activities/service.py:1162
 #: app/domains/activities/templates/admin_activiteit_inschrijvingen.html:3
-#: app/domains/mdm/service.py:487
+#: app/domains/mdm/service.py:879
 #: app/domains/mdm/templates/admin_gezin_inschrijvingen.html:3
-#: app/ui/templates/design_system.html:597
-#: app/ui/templates/design_system.html:617
+#: app/ui/templates/design_system.html:605
+#: app/ui/templates/design_system.html:625
 msgid "Inschrijvingen"
 msgstr ""
 
-#: app/domains/activities/service.py:1121
-#: app/domains/activities/service.py:1167
-#: app/domains/activities/service.py:1196 app/domains/mdm/service.py:493
+#: app/domains/activities/service.py:1168
+#: app/domains/activities/service.py:1214
+#: app/domains/activities/service.py:1243 app/domains/mdm/service.py:885
 #: app/domains/payment/templates/_betalingen_lijst.html:303
 #: app/domains/payment/templates/admin_activiteit_betalingen.html:3
 #: app/domains/payment/templates/admin_gezin_betalingen.html:3
 #: app/domains/payment/templates/admin_inschrijving_betalingen.html:3
 #: app/domains/payment/templates/betalingen.html:11
 #: app/domains/payment/templates/betalingen.html:12
-#: app/ui/templates/admin_info.html:70 app/ui/templates/design_system.html:596
+#: app/ui/templates/admin_info.html:70 app/ui/templates/design_system.html:604
 msgid "Betalingen"
 msgstr ""
 
-#: app/domains/activities/service.py:1200
+#: app/domains/activities/service.py:1247
 #: app/domains/mdm/templates/_leden_recordkop.html:10
 #: app/domains/mdm/templates/_leden_recordkop.html:13
 #: app/domains/mdm/templates/leden_gezin.html:2
 msgid "Gezin"
 msgstr ""
 
-#: app/domains/activities/service.py:1202
+#: app/domains/activities/service.py:1249
 msgid "Terug"
 msgstr ""
 
-#: app/domains/activities/service.py:1570
+#: app/domains/activities/service.py:1617
 #: app/domains/activities/templates/_aa_organisatoren.html:135
 #, python-format
 msgid "Een activiteit heeft hoogstens %(n)s organisatoren."
 msgstr ""
 
-#: app/domains/activities/service.py:1572
+#: app/domains/activities/service.py:1619
 msgid "Die persoon staat er al bij."
 msgstr ""
 
-#: app/domains/activities/service.py:1579
+#: app/domains/activities/service.py:1626
 msgid "Alleen leden kunnen organisator zijn."
 msgstr ""
 
@@ -404,33 +404,47 @@ msgid ""
 "binnen het bestuur."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:20
-#: app/domains/activities/templates/_aa_detail.html:24
+#: app/domains/activities/templates/_aa_detail.html:38
+msgid "Publiek zichtbaar"
+msgstr ""
+
+#: app/domains/activities/templates/_aa_detail.html:43
+msgid "Niet publiek"
+msgstr ""
+
+#: app/domains/activities/templates/_aa_detail.html:44
+msgid ""
+"Uit: het product verdwijnt van het publieke formulier, maar het bestuur "
+"kan het nog toevoegen aan een bestaande inschrijving."
+msgstr ""
+
+#: app/domains/activities/templates/_aa_detail.html:56
+#: app/domains/activities/templates/_aa_detail.html:60
 #: app/domains/designstudio/templates/admin_ontwerp.html:13
 #: app/domains/designstudio/templates/admin_ontwerp_nieuw.html:11
 #: app/domains/media/templates/admin_media_nieuw.html:54
-#: app/domains/payment/ui.py:233 app/ui/templates/design_system.html:428
+#: app/domains/payment/ui.py:233 app/ui/templates/design_system.html:436
 msgid "Activiteit"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:38
-#: app/ui/templates/design_system.html:218
+#: app/domains/activities/templates/_aa_detail.html:74
+#: app/ui/templates/design_system.html:226
 msgid "Affiche"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:38
-#: app/domains/activities/templates/_aa_detail.html:103
+#: app/domains/activities/templates/_aa_detail.html:74
+#: app/domains/activities/templates/_aa_detail.html:139
 msgid "Huidige affiche bekijken"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:39
-#: app/domains/activities/templates/_aa_detail.html:98
+#: app/domains/activities/templates/_aa_detail.html:75
+#: app/domains/activities/templates/_aa_detail.html:134
 #: app/domains/activities/templates/admin_activiteit_nieuw.html:20
 msgid "Poster-URL"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:52
-#: app/domains/activities/templates/_aa_detail.html:81
+#: app/domains/activities/templates/_aa_detail.html:88
+#: app/domains/activities/templates/_aa_detail.html:117
 #: app/domains/designstudio/admin_ui.py:252
 #: app/domains/forms/templates/_fb_builder.html:307
 #: app/domains/forms/templates/_fb_builder.html:348
@@ -438,269 +452,270 @@ msgstr ""
 msgid "Omschrijving"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:53
-#: app/domains/activities/templates/_aa_detail.html:93
+#: app/domains/activities/templates/_aa_detail.html:89
+#: app/domains/activities/templates/_aa_detail.html:129
 msgid "Interne nota"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:60
+#: app/domains/activities/templates/_aa_detail.html:96
 msgid ""
 "Nog niets ingevuld — voeg een omschrijving of een affiche toe via "
 "Bewerken."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:75
+#: app/domains/activities/templates/_aa_detail.html:111
 msgid "Vriendelijke URL"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:76
+#: app/domains/activities/templates/_aa_detail.html:112
 msgid "bv. zomerfeest-2026"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:77
+#: app/domains/activities/templates/_aa_detail.html:113
 msgid ""
 "Optioneel. Leeg = enkel het nummer-adres. Wijzig je dit, dan werken "
 "eerder gedeelde links niet meer."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:78
+#: app/domains/activities/templates/_aa_detail.html:114
 #: app/domains/activities/templates/admin_activiteit_nieuw.html:18
 #: app/domains/meetings/templates/admin_vergadering_nieuw.html:20
 msgid "Locatie"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:83
+#: app/domains/activities/templates/_aa_detail.html:119
 msgid "Twee à drie zinnen die bezoekers lezen."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:84
+#: app/domains/activities/templates/_aa_detail.html:120
 msgid "Optioneel. Staat op de activiteitenpagina en komt mee in de nieuwsbrief."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:95
+#: app/domains/activities/templates/_aa_detail.html:131
 msgid "Afspraken, contacten, wat je jezelf wil herinneren."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:100
+#: app/domains/activities/templates/_aa_detail.html:136
 msgid "of opladen (afbeelding of PDF)"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:105
+#: app/domains/activities/templates/_aa_detail.html:141
 msgid "De opgeladen affiche verwijderen?"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:106
+#: app/domains/activities/templates/_aa_detail.html:142
 msgid "Een opgeladen affiche primeert op de Poster-URL."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:107
+#: app/domains/activities/templates/_aa_detail.html:143
 #: app/domains/activities/templates/admin_activiteit_nieuw.html:43
 msgid "Enkel voor leden"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:108
+#: app/domains/activities/templates/_aa_detail.html:144
 #: app/domains/payment/ui.py:439
 msgid "Geannuleerd"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:116
+#: app/domains/activities/templates/_aa_detail.html:152
 msgid "Datums"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:116
+#: app/domains/activities/templates/_aa_detail.html:152
 msgid "+ Datum"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:126
+#: app/domains/activities/templates/_aa_detail.html:162
 msgid "Datum bewerken"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:131
+#: app/domains/activities/templates/_aa_detail.html:167
 msgid "Datum verwijderen?"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:136
-#: app/domains/activities/templates/_aa_detail.html:150
+#: app/domains/activities/templates/_aa_detail.html:172
+#: app/domains/activities/templates/_aa_detail.html:186
 msgid "Start"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:138
-#: app/domains/activities/templates/_aa_detail.html:152
+#: app/domains/activities/templates/_aa_detail.html:174
+#: app/domains/activities/templates/_aa_detail.html:188
 msgid "Einde"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:140
-#: app/domains/activities/templates/_aa_detail.html:154
+#: app/domains/activities/templates/_aa_detail.html:176
+#: app/domains/activities/templates/_aa_detail.html:190
 #: app/domains/activities/templates/admin_activiteit_nieuw.html:38
 msgid "Beginuur"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:142
-#: app/domains/activities/templates/_aa_detail.html:156
+#: app/domains/activities/templates/_aa_detail.html:178
+#: app/domains/activities/templates/_aa_detail.html:192
 #: app/domains/activities/templates/admin_activiteit_nieuw.html:40
 msgid "Einduur"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:158
-#: app/domains/activities/templates/_aa_detail.html:197
-#: app/domains/activities/templates/_aa_detail.html:325
+#: app/domains/activities/templates/_aa_detail.html:194
+#: app/domains/activities/templates/_aa_detail.html:233
+#: app/domains/activities/templates/_aa_detail.html:369
 #: app/domains/activities/templates/_aa_organisatoren.html:124
 #: app/domains/activities/templates/_inschrijving_detail.html:140
-#: app/domains/mdm/templates/_leden_kaarten.html:106
-#: app/domains/mdm/templates/_leden_kaarten.html:149
+#: app/domains/mdm/templates/_leden_kaarten.html:137
+#: app/domains/mdm/templates/_leden_kaarten.html:180
 #: app/domains/meetings/templates/_vg_document.html:128
 #: app/domains/meetings/templates/_vg_document.html:148
 #: app/domains/meetings/templates/_vg_kring.html:53
-#: app/domains/membership/templates/gezin_portaal.html:126
+#: app/domains/membership/templates/gezin_portaal.html:173
 #: app/domains/newsletter/templates/_nb_abonnees.html:65
 #: app/domains/newsletter/templates/_nb_raakje.html:35
-#: app/ui/templates/design_system.html:571
+#: app/ui/templates/design_system.html:579
 msgid "Toevoegen"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:167
+#: app/domains/activities/templates/_aa_detail.html:203
 msgid "Onderdelen & producten"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:167
+#: app/domains/activities/templates/_aa_detail.html:203
 msgid "+ Onderdeel"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:174
+#: app/domains/activities/templates/_aa_detail.html:210
 msgid "Nieuw onderdeel"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:176
-#: app/domains/activities/templates/_aa_detail.html:239
-#: app/domains/activities/templates/_aa_detail.html:296
-#: app/domains/activities/templates/_aa_detail.html:317
+#: app/domains/activities/templates/_aa_detail.html:212
+#: app/domains/activities/templates/_aa_detail.html:275
+#: app/domains/activities/templates/_aa_detail.html:336
+#: app/domains/activities/templates/_aa_detail.html:360
 msgid "Max"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:181
-#: app/domains/activities/templates/_aa_detail.html:243
+#: app/domains/activities/templates/_aa_detail.html:217
+#: app/domains/activities/templates/_aa_detail.html:279
 #: app/domains/activities/templates/_aa_rail.html:18
 #: app/domains/designstudio/admin_ui.py:248
 msgid "Inschrijven tot"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:183
-#: app/domains/activities/templates/_aa_detail.html:246
+#: app/domains/activities/templates/_aa_detail.html:219
+#: app/domains/activities/templates/_aa_detail.html:282
 msgid "Ploegnaam vereist"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:184
-#: app/domains/activities/templates/_aa_detail.html:247
+#: app/domains/activities/templates/_aa_detail.html:220
+#: app/domains/activities/templates/_aa_detail.html:283
 msgid "Externe inschrijf-URL"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:186
-#: app/domains/activities/templates/_aa_detail.html:249
+#: app/domains/activities/templates/_aa_detail.html:222
+#: app/domains/activities/templates/_aa_detail.html:285
 msgid "Externe inschrijvingen-URL"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:188
-#: app/domains/activities/templates/_aa_detail.html:251
+#: app/domains/activities/templates/_aa_detail.html:224
+#: app/domains/activities/templates/_aa_detail.html:287
 msgid "Externe info-URL"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:193
-#: app/domains/activities/templates/_aa_detail.html:258
+#: app/domains/activities/templates/_aa_detail.html:229
+#: app/domains/activities/templates/_aa_detail.html:294
 msgid "Info-bijlage (afbeelding of PDF)"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:195
-#: app/domains/activities/templates/_aa_detail.html:264
+#: app/domains/activities/templates/_aa_detail.html:231
+#: app/domains/activities/templates/_aa_detail.html:300
 msgid "Een opgeladen bijlage primeert op de externe info-URL."
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:197
+#: app/domains/activities/templates/_aa_detail.html:233
+#: app/domains/cms/templates/_cp_detail.html:163
 #: app/domains/newsletter/templates/_nb_import.html:41
 #: app/domains/payment/templates/_betalingen_lijst.html:149
 #: app/domains/payment/templates/_betalingen_lijst.html:181
-#: app/ui/templates/_macros.html:878 app/ui/templates/_macros.html:968
+#: app/ui/templates/_macros.html:956 app/ui/templates/_macros.html:1046
 #: app/ui/templates/design_system.html:124
-#: app/ui/templates/design_system.html:557
+#: app/ui/templates/design_system.html:565
 msgid "Annuleren"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:206
+#: app/domains/activities/templates/_aa_detail.html:242
 msgid "ploegnaam"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:208
+#: app/domains/activities/templates/_aa_detail.html:244
 msgid "t/m"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:219
+#: app/domains/activities/templates/_aa_detail.html:255
 #: app/domains/activities/templates/_inschrijvingen_groepen.html:38
 #: app/domains/chatbot/templates/_ai_kosten_lijst.html:7
 #: app/domains/chatbot/templates/admin_ai_kosten.html:20
 msgid "Onderdeel"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:228
-#: app/domains/activities/templates/_aa_detail.html:261
+#: app/domains/activities/templates/_aa_detail.html:264
+#: app/domains/activities/templates/_aa_detail.html:297
 msgid "Huidige info-bijlage bekijken"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:263
+#: app/domains/activities/templates/_aa_detail.html:299
 msgid "De opgeladen info-bijlage verwijderen?"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:269
+#: app/domains/activities/templates/_aa_detail.html:305
 #: app/domains/activities/templates/_inschrijvingen_groepen.html:40
 msgid "Producten"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:269
+#: app/domains/activities/templates/_aa_detail.html:305
 msgid "+ Product"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:274
+#: app/domains/activities/templates/_aa_detail.html:310
 msgid "ter plaatse"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:274
-#: app/domains/activities/templates/_inschrijf_form.html:33
+#: app/domains/activities/templates/_aa_detail.html:310
+#: app/domains/activities/templates/_inschrijf_form.html:35
 msgid "gratis"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:277
+#: app/domains/activities/templates/_aa_detail.html:317
 msgid "Product bewerken"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:284
-#: app/domains/activities/templates/_aa_detail.html:311
+#: app/domains/activities/templates/_aa_detail.html:324
+#: app/domains/activities/templates/_aa_detail.html:354
 msgid "Product"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:292
-#: app/domains/activities/templates/_aa_detail.html:313
+#: app/domains/activities/templates/_aa_detail.html:332
+#: app/domains/activities/templates/_aa_detail.html:356
 msgid "Prijs"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:294
-#: app/domains/activities/templates/_aa_detail.html:315
+#: app/domains/activities/templates/_aa_detail.html:334
+#: app/domains/activities/templates/_aa_detail.html:358
 msgid "Ledenprijs"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:299
-#: app/domains/activities/templates/_aa_detail.html:319
+#: app/domains/activities/templates/_aa_detail.html:339
+#: app/domains/activities/templates/_aa_detail.html:362
 msgid "Afrekening"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:301
-#: app/domains/activities/templates/_aa_detail.html:321
+#: app/domains/activities/templates/_aa_detail.html:341
+#: app/domains/activities/templates/_aa_detail.html:364
 msgid "Betalend"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:303
-#: app/domains/activities/templates/_aa_detail.html:323
+#: app/domains/activities/templates/_aa_detail.html:343
+#: app/domains/activities/templates/_aa_detail.html:366
 msgid "Ter plaatse"
 msgstr ""
 
-#: app/domains/activities/templates/_aa_detail.html:334
+#: app/domains/activities/templates/_aa_detail.html:378
 msgid "Nog geen onderdelen. Voeg er een toe om inschrijven mogelijk te maken."
 msgstr ""
 
@@ -727,9 +742,9 @@ msgstr ""
 #: app/domains/cms/templates/_cp_kaarten.html:28
 #: app/domains/forms/templates/_fb_kaarten.html:32
 #: app/domains/mdm/templates/_leden_lijst.html:29
-#: app/ui/templates/_macros.html:1010 app/ui/templates/_macros.html:1012
-#: app/ui/templates/_macros.html:1096 app/ui/templates/_org_kaarten.html:20
-#: app/ui/templates/design_system.html:354
+#: app/ui/templates/_macros.html:1088 app/ui/templates/_macros.html:1090
+#: app/ui/templates/_macros.html:1174 app/ui/templates/_org_kaarten.html:20
+#: app/ui/templates/design_system.html:362
 msgid "Bewerken"
 msgstr ""
 
@@ -891,7 +906,7 @@ msgstr ""
 #: app/domains/activities/templates/_activiteiten_cards.html:143
 #: app/domains/activities/templates/_activiteiten_cards.html:152
 #: app/domains/activities/templates/_inschrijf_form.html:6
-#: app/domains/activities/templates/_inschrijf_form.html:80
+#: app/domains/activities/templates/_inschrijf_form.html:92
 #: app/domains/activities/templates/activiteit.html:106
 #: app/domains/activities/templates/activiteit.html:113
 #: app/domains/newsletter/templates/_nb_publiek.html:24
@@ -902,7 +917,7 @@ msgstr ""
 #: app/domains/activities/templates/activiteit.html:108
 #: app/domains/meetings/templates/_vg_punt.html:9
 #: app/domains/newsletter/service.py:873
-#: app/ui/templates/design_system.html:287
+#: app/ui/templates/design_system.html:295
 msgid "Volzet"
 msgstr ""
 
@@ -928,8 +943,8 @@ msgstr ""
 #: app/domains/chatbot/templates/_raakje_widget.html:18
 #: app/domains/media/templates/fotos_album.html:50
 #: app/domains/newsletter/templates/_nb_kiezer.html:12
-#: app/ui/templates/_macros.html:351 app/ui/templates/_macros.html:1224
-#: app/ui/templates/_raakje_overlay.html:49
+#: app/ui/templates/_macros.html:351 app/ui/templates/_macros.html:1302
+#: app/ui/templates/_raakje_overlay.html:54
 msgid "Sluiten"
 msgstr ""
 
@@ -959,7 +974,7 @@ msgstr ""
 #: app/domains/forms/templates/formulier.html:42
 #: app/domains/newsletter/templates/_nb_abonnees.html:62
 #: app/domains/newsletter/templates/_nb_publiek.html:11
-#: app/ui/templates/admin_profiel.html:11
+#: app/ui/templates/_email_rij.html:74 app/ui/templates/admin_profiel.html:11
 msgid "E-mailadres"
 msgstr ""
 
@@ -973,32 +988,42 @@ msgstr ""
 msgid "Ploegnaam"
 msgstr ""
 
-#: app/domains/activities/templates/_inschrijf_form.html:32
+#: app/domains/activities/templates/_inschrijf_form.html:34
 msgid "ter plaatse te betalen (eigen budget)"
 msgstr ""
 
+#: app/domains/activities/templates/_inschrijf_form.html:51
+#: app/ui/templates/_macros.html:575
+msgid "Eén minder"
+msgstr ""
+
 #: app/domains/activities/templates/_inschrijf_form.html:52
+#: app/ui/templates/_macros.html:593
+msgid "Eén meer"
+msgstr ""
+
+#: app/domains/activities/templates/_inschrijf_form.html:64
 msgid "Eventuele boodschap voor de organisatie…"
 msgstr ""
 
-#: app/domains/activities/templates/_inschrijf_form.html:73
-#: app/domains/membership/templates/gezin_portaal.html:42
+#: app/domains/activities/templates/_inschrijf_form.html:85
+#: app/domains/membership/templates/gezin_portaal.html:49
 #: app/domains/membership/templates/lid_worden.html:59
 msgid "Online betalen"
 msgstr ""
 
-#: app/domains/activities/templates/_inschrijf_form.html:74
+#: app/domains/activities/templates/_inschrijf_form.html:86
 #: app/domains/mail/service.py:404
 #: app/domains/membership/templates/lid_worden.html:60
 msgid "Overschrijving"
 msgstr ""
 
-#: app/domains/activities/templates/_inschrijf_form.html:75
+#: app/domains/activities/templates/_inschrijf_form.html:87
 #: app/domains/membership/templates/lid_worden.html:63
 msgid "Na het versturen ga je meteen naar de beveiligde betaalpagina."
 msgstr ""
 
-#: app/domains/activities/templates/_inschrijf_form.html:76
+#: app/domains/activities/templates/_inschrijf_form.html:88
 #: app/domains/membership/templates/lid_worden.html:64
 msgid "Na het versturen ontvang je de betaalinstructies per e-mail."
 msgstr ""
@@ -1013,7 +1038,7 @@ msgstr ""
 
 #: app/domains/activities/templates/_inschrijving_detail.html:30
 #: app/domains/payment/templates/_betalingen_lijst.html:88
-#: app/ui/templates/design_system.html:371
+#: app/ui/templates/design_system.html:379
 msgid "Inschrijving"
 msgstr ""
 
@@ -1030,24 +1055,26 @@ msgstr ""
 
 #: app/domains/activities/templates/_inschrijving_detail.html:108
 #: app/domains/activities/templates/_inschrijving_detail.html:139
-#: app/ui/templates/design_system.html:432
-#: app/ui/templates/design_system.html:460
+#: app/ui/templates/design_system.html:191
+#: app/ui/templates/design_system.html:440
+#: app/ui/templates/design_system.html:468
 msgid "Aantal"
 msgstr ""
 
 #: app/domains/activities/templates/_inschrijving_detail.html:110
 #: app/domains/forms/templates/_fb_inzendingen.html:9
 #: app/domains/mail/templates/_email_log_lijst.html:69
-#: app/domains/mdm/templates/_leden_kaarten.html:139
+#: app/domains/mdm/templates/_leden_kaarten.html:170
 #: app/domains/mdm/templates/_leden_recordkop.html:13
 #: app/domains/membership/templates/_lid_persoon_rij.html:5
 #: app/domains/newsletter/templates/_nb_abonnees.html:43
 #: app/domains/newsletter/templates/admin_nieuwsbrief.html:138
 #: app/domains/payment/templates/_betalingen_lijst.html:147
-#: app/ui/templates/_macros.html:330 app/ui/templates/_macros.html:966
-#: app/ui/templates/_macros.html:1028 app/ui/templates/_macros.html:1100
+#: app/ui/templates/_email_rij.html:86 app/ui/templates/_email_rij.html:92
+#: app/ui/templates/_macros.html:330 app/ui/templates/_macros.html:1044
+#: app/ui/templates/_macros.html:1106 app/ui/templates/_macros.html:1178
 #: app/ui/templates/design_system.html:126
-#: app/ui/templates/design_system.html:360
+#: app/ui/templates/design_system.html:368
 msgid "Verwijderen"
 msgstr ""
 
@@ -1073,7 +1100,7 @@ msgstr ""
 #: app/domains/chatbot/templates/_ai_kosten_lijst.html:6
 #: app/domains/mail/ui.py:43
 #: app/domains/meetings/templates/admin_vergadering_nieuw.html:11
-#: app/ui/templates/design_system.html:510
+#: app/ui/templates/design_system.html:518
 msgid "Datum"
 msgstr ""
 
@@ -1083,8 +1110,8 @@ msgid "Contact"
 msgstr ""
 
 #: app/domains/activities/templates/_inschrijvingen_groepen.html:52
-#: app/domains/audit/changes.py:418 app/ui/templates/_lw_inhoud.html:49
-#: app/ui/templates/_macros.html:1045
+#: app/domains/audit/changes.py:449 app/ui/templates/_lw_inhoud.html:49
+#: app/ui/templates/_macros.html:1123
 msgid "Details"
 msgstr ""
 
@@ -1093,8 +1120,8 @@ msgid "Nog geen inschrijvingen."
 msgstr ""
 
 #: app/domains/activities/templates/activiteit.html:15
-#: app/domains/media/templates/admin_media.html:53
-#: app/ui/templates/design_system.html:610
+#: app/domains/media/templates/admin_media.html:56
+#: app/ui/templates/design_system.html:618
 msgid "Alle activiteiten"
 msgstr ""
 
@@ -1103,7 +1130,7 @@ msgstr ""
 #: app/domains/activities/templates/activiteiten.html:5
 #: app/domains/activities/templates/activiteiten.html:9
 #: app/domains/activities/templates/admin_activiteiten.html:41
-#: app/ui/templates/site_base.html:181 app/ui/templates/site_base.html:198
+#: app/ui/templates/site_base.html:211 app/ui/templates/site_base.html:228
 msgid "Archief"
 msgstr ""
 
@@ -1117,14 +1144,14 @@ msgstr ""
 #: app/domains/activities/templates/activiteiten.html:5
 #: app/domains/activities/templates/admin_activiteiten.html:11
 #: app/domains/cms/templates/home.html:36
-#: app/ui/templates/design_system.html:278
+#: app/ui/templates/design_system.html:286
 msgid "Activiteiten"
 msgstr ""
 
 #: app/domains/activities/templates/activiteiten.html:7
 #: app/ui/templates/design_system.html:103
-#: app/ui/templates/design_system.html:265
-#: app/ui/templates/design_system.html:295
+#: app/ui/templates/design_system.html:273
+#: app/ui/templates/design_system.html:303
 msgid "Naar de activiteiten"
 msgstr ""
 
@@ -1194,12 +1221,12 @@ msgid "Een kaart opent de activiteit: datums, onderdelen en producten."
 msgstr ""
 
 #: app/domains/activities/templates/admin_activiteiten.html:12
-#: app/ui/templates/design_system.html:279
+#: app/ui/templates/design_system.html:287
 msgid "+ Nieuwe activiteit"
 msgstr ""
 
 #: app/domains/activities/templates/admin_activiteiten.html:29
-#: app/ui/templates/design_system.html:283
+#: app/ui/templates/design_system.html:291
 msgid "Open inschrijvingen"
 msgstr ""
 
@@ -1225,39 +1252,39 @@ msgstr ""
 msgid "Alles"
 msgstr ""
 
-#: app/domains/audit/changes.py:417
+#: app/domains/audit/changes.py:448
 msgid "Tijdstip"
 msgstr ""
 
-#: app/domains/audit/changes.py:417
+#: app/domains/audit/changes.py:448
 msgid "Wat"
 msgstr ""
 
-#: app/domains/audit/changes.py:417
+#: app/domains/audit/changes.py:448
 msgid "ID"
 msgstr ""
 
-#: app/domains/audit/changes.py:417
+#: app/domains/audit/changes.py:448
 msgid "Naam persoon"
 msgstr ""
 
-#: app/domains/audit/changes.py:417
+#: app/domains/audit/changes.py:448
 msgid "Adres hoofdlid"
 msgstr ""
 
-#: app/domains/audit/changes.py:418
+#: app/domains/audit/changes.py:449
 msgid "Externe ID persoon"
 msgstr ""
 
-#: app/domains/audit/changes.py:418
+#: app/domains/audit/changes.py:449
 msgid "Externe ID hoofdlid"
 msgstr ""
 
-#: app/domains/audit/changes.py:418
+#: app/domains/audit/changes.py:449
 msgid "Actie"
 msgstr ""
 
-#: app/domains/audit/changes.py:418
+#: app/domains/audit/changes.py:449
 msgid "Door"
 msgstr ""
 
@@ -1275,7 +1302,7 @@ msgstr ""
 
 #: app/domains/auth/admin_ui.py:132
 #: app/domains/auth/templates/_gu_lijst.html:18
-#: app/domains/mdm/templates/_leden_kaarten.html:137
+#: app/domains/mdm/templates/_leden_kaarten.html:168
 #: app/domains/mdm/templates/leden.html:49
 #: app/domains/media/templates/_me_lijst.html:49
 #: app/ui/templates/admin_tenants.html:26
@@ -1283,7 +1310,7 @@ msgid "Actief"
 msgstr ""
 
 #: app/domains/auth/admin_ui.py:133
-#: app/domains/mdm/templates/_leden_kaarten.html:137
+#: app/domains/mdm/templates/_leden_kaarten.html:168
 #: app/ui/templates/admin_tenants.html:27
 msgid "Inactief"
 msgstr ""
@@ -1392,7 +1419,7 @@ msgstr ""
 
 #: app/domains/auth/templates/_aanmelden_code.html:11
 #: app/domains/auth/templates/aanmelden.html:7
-#: app/ui/templates/site_base.html:189 app/ui/templates/site_base.html:206
+#: app/ui/templates/site_base.html:219 app/ui/templates/site_base.html:236
 msgid "Aanmelden"
 msgstr ""
 
@@ -1476,8 +1503,8 @@ msgstr ""
 msgid "Media-asset niet gevonden"
 msgstr ""
 
-#: app/domains/chatbot/info_router.py:71 app/domains/cms/admin_ui.py:104
-#: app/domains/cms/admin_ui.py:223 app/domains/cms/ui.py:117
+#: app/domains/chatbot/info_router.py:71 app/domains/cms/admin_ui.py:126
+#: app/domains/cms/admin_ui.py:244 app/domains/cms/ui.py:117
 msgid "Pagina niet gevonden"
 msgstr ""
 
@@ -1668,8 +1695,8 @@ msgid "Raakje — vraag het aan onze AI-assistent"
 msgstr ""
 
 #: app/domains/chatbot/templates/_raakje_widget.html:15
-#: app/ui/templates/_raakje_overlay.html:35
-#: app/ui/templates/_raakje_overlay.html:42
+#: app/ui/templates/_raakje_overlay.html:40
+#: app/ui/templates/_raakje_overlay.html:47
 msgid "Raakje"
 msgstr ""
 
@@ -1744,15 +1771,15 @@ msgstr ""
 msgid "Documenten, pagina's en notities die de chatbot als context gebruikt."
 msgstr ""
 
-#: app/domains/cms/admin_ui.py:119
+#: app/domains/cms/admin_ui.py:140
 msgid "Titel en slug zijn verplicht."
 msgstr ""
 
-#: app/domains/cms/admin_ui.py:126
+#: app/domains/cms/admin_ui.py:147
 msgid "Die slug bestaat al."
 msgstr ""
 
-#: app/domains/cms/admin_ui.py:152
+#: app/domains/cms/admin_ui.py:173
 msgid "Ongeldige volgorde."
 msgstr ""
 
@@ -1776,8 +1803,9 @@ msgid "Bekijk"
 msgstr ""
 
 #: app/domains/cms/templates/_cp_detail.html:13
+#: app/domains/media/admin_ui.py:141
 #: app/domains/reporting/templates/_rp_paneel.html:434
-#: app/ui/templates/_macros.html:610
+#: app/ui/templates/_macros.html:688
 msgid "Pagina"
 msgstr ""
 
@@ -1791,40 +1819,108 @@ msgstr ""
 msgid "Inhoud"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:37
+#: app/domains/cms/templates/_cp_detail.html:50
 msgid "Kop 2"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:41
+#: app/domains/cms/templates/_cp_detail.html:54
 msgid "Kop 3"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:43
+#: app/domains/cms/templates/_cp_detail.html:62
+msgid "Een afbeelding uit de bibliotheek invoegen"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:62
+#: app/domains/cms/templates/_cp_detail.html:115
+msgid "Afbeelding"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:64
 msgid "Invoegen:"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:54
+#: app/domains/cms/templates/_cp_detail.html:75
 msgid "Editor"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:88
+#: app/domains/cms/templates/_cp_detail.html:118
+msgid "Kies een afbeelding uit de bibliotheek."
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:119
+msgid "Wijzig de maat of de alternatieve tekst van deze afbeelding."
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:133
+msgid "Zonder titel"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:138
+msgid "Alternatieve tekst"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:140
+msgid "Wat er op de afbeelding te zien is — dit leest een schermlezer voor."
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:151
+msgid "Maat"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:153
+msgid "Klein"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:153
+msgid "Half"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:154
+msgid "Volle breedte"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:160
+msgid ""
+"Op een smal scherm staat elke afbeelding op volle breedte — een halve "
+"kolom is daar te klein om een schermafdruk op te lezen."
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:179
+#: app/domains/newsletter/templates/_nb_kiezer.html:38
+msgid "Invoegen"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:183
+msgid "Bijwerken"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:189
+msgid "Er staan nog geen pagina-afbeeldingen in de bibliotheek."
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:190
+msgid "Afbeelding opladen"
+msgstr ""
+
+#: app/domains/cms/templates/_cp_detail.html:195
 msgid ""
 "Opmaak via de werkbalk (incl. H2/H3); of bewerk de HTML-bron. De "
 "opgeslagen HTML wordt server-side veilig gesanitiseerd."
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:90
+#: app/domains/cms/templates/_cp_detail.html:197
 #: app/domains/cms/templates/admin_paginas.html:22
 #: app/domains/designstudio/templates/_ds_lijst.html:13
 msgid "Gepubliceerd"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:91
+#: app/domains/cms/templates/_cp_detail.html:198
 #: app/domains/cms/templates/admin_paginas.html:22
 msgid "In navigatie"
 msgstr ""
 
-#: app/domains/cms/templates/_cp_detail.html:100
+#: app/domains/cms/templates/_cp_detail.html:207
 msgid "Beschikbare placeholders"
 msgstr ""
 
@@ -1848,7 +1944,7 @@ msgstr ""
 msgid "Nog geen pagina's."
 msgstr ""
 
-#: app/domains/cms/templates/admin_pagina.html:33
+#: app/domains/cms/templates/admin_pagina.html:186
 msgid "‹ Alle pagina's"
 msgstr ""
 
@@ -1960,7 +2056,7 @@ msgstr ""
 
 #: app/domains/cms/templates/home.html:26
 #: app/domains/membership/templates/gezin_portaal.html:5
-#: app/ui/templates/site_base.html:186 app/ui/templates/site_base.html:203
+#: app/ui/templates/site_base.html:216 app/ui/templates/site_base.html:233
 msgid "Mijn gezin"
 msgstr ""
 
@@ -2861,7 +2957,7 @@ msgid "Geen formulieren gevonden."
 msgstr ""
 
 #: app/domains/forms/templates/_fb_kaarten.html:38
-#: app/ui/templates/design_system.html:522
+#: app/ui/templates/design_system.html:530
 msgid "Nog geen formulieren."
 msgstr ""
 
@@ -2942,13 +3038,13 @@ msgid "Formaat (voor AI)"
 msgstr ""
 
 #: app/domains/forms/templates/admin_formulieren.html:19
-#: app/ui/templates/design_system.html:522
+#: app/ui/templates/design_system.html:530
 msgid "+ Nieuw formulier"
 msgstr ""
 
 #: app/domains/forms/templates/admin_formulieren.html:25
 #: app/domains/meetings/templates/_vg_kring.html:39
-#: app/ui/templates/design_system.html:308
+#: app/ui/templates/design_system.html:316
 msgid "Zoek op naam…"
 msgstr ""
 
@@ -3140,7 +3236,7 @@ msgstr ""
 msgid "Bevestiging: %(title)s"
 msgstr ""
 
-#: app/domains/mail/ui.py:43 app/ui/templates/design_system.html:511
+#: app/domains/mail/ui.py:43 app/ui/templates/design_system.html:519
 msgid "Ontvanger"
 msgstr ""
 
@@ -3163,7 +3259,7 @@ msgstr ""
 #: app/domains/mail/templates/_email_log_lijst.html:28
 #: app/domains/newsletter/templates/_nb_abonnees.html:18
 #: app/domains/payment/templates/_betalingen_lijst.html:218
-#: app/ui/templates/design_system.html:343
+#: app/ui/templates/design_system.html:351
 msgid "Acties"
 msgstr ""
 
@@ -3252,6 +3348,14 @@ msgstr ""
 msgid "Kies een postcode uit de lijst."
 msgstr ""
 
+#: app/domains/mdm/service.py:478
+msgid "Persoon niet gevonden"
+msgstr ""
+
+#: app/domains/mdm/service.py:662 app/domains/mdm/service.py:717
+msgid "Adres niet gevonden"
+msgstr ""
+
 #: app/domains/mdm/ui.py:248
 msgid "Vul minstens het hoofdlid in."
 msgstr ""
@@ -3264,33 +3368,33 @@ msgstr ""
 msgid "Gezin niet gevonden"
 msgstr ""
 
-#: app/domains/mdm/ui.py:392
+#: app/domains/mdm/ui.py:467
 msgid "Gezin zonder personen."
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:16
-#: app/domains/membership/templates/gezin_portaal.html:99
+#: app/domains/membership/templates/gezin_portaal.html:113
 #: app/domains/membership/templates/lid_worden.html:24
 #: app/ui/organisaties_ui.py:195 app/ui/templates/admin_organisatie.html:49
 msgid "Straat"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:18
-#: app/domains/membership/templates/gezin_portaal.html:101
+#: app/domains/membership/templates/gezin_portaal.html:115
 #: app/domains/membership/templates/lid_worden.html:26
 #: app/ui/organisaties_ui.py:195 app/ui/templates/admin_organisatie.html:51
 msgid "Huisnummer"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:20
-#: app/domains/membership/templates/gezin_portaal.html:103
+#: app/domains/membership/templates/gezin_portaal.html:117
 #: app/domains/membership/templates/lid_worden.html:28
 #: app/ui/templates/admin_organisatie.html:53
 msgid "Bus"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_adres_velden.html:22
-#: app/domains/membership/templates/gezin_portaal.html:105
+#: app/domains/membership/templates/gezin_portaal.html:119
 #: app/domains/membership/templates/lid_worden.html:30
 #: app/ui/organisaties_ui.py:196 app/ui/templates/admin_organisatie.html:55
 msgid "Postcode"
@@ -3333,7 +3437,7 @@ msgid "Personen verwijderd"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_import_resultaat.html:16
-#: app/domains/mdm/templates/_leden_kaarten.html:133
+#: app/domains/mdm/templates/_leden_kaarten.html:164
 msgid "Lidmaatschappen"
 msgstr ""
 
@@ -3363,7 +3467,7 @@ msgid "Definitief importeren"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:48
-#: app/domains/membership/templates/gezin_portaal.html:76
+#: app/domains/membership/templates/gezin_portaal.html:88
 msgid "bewerken"
 msgstr ""
 
@@ -3372,36 +3476,58 @@ msgid "Persoon"
 msgstr ""
 
 #: app/domains/mdm/templates/_leden_kaarten.html:75
+#: app/domains/membership/templates/gezin_portaal.html:141
+msgid "E-mailadressen"
+msgstr ""
+
+#: app/domains/mdm/templates/_leden_kaarten.html:79
+#: app/domains/membership/templates/gezin_portaal.html:145
+msgid "+ E-mailadres"
+msgstr ""
+
+#: app/domains/mdm/templates/_leden_kaarten.html:89
+#: app/domains/membership/templates/gezin_portaal.html:155
+msgid "Nog geen e-mailadres."
+msgstr ""
+
+#: app/domains/mdm/templates/_leden_kaarten.html:92
+msgid ""
+"Met elk van deze adressen kan dit lid zich aanmelden, en de nieuwsbrief "
+"gaat naar allemaal. Een gewijzigde tekst bewaar je met Opslaan; het "
+"hoofdadres is het adres dat Raak Nationaal in zijn programma heeft."
+msgstr ""
+
+#: app/domains/mdm/templates/_leden_kaarten.html:106
 msgid "Nog geen adres"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:76
+#: app/domains/mdm/templates/_leden_kaarten.html:107
 msgid "Adres bewerken"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:100
+#: app/domains/mdm/templates/_leden_kaarten.html:131
 msgid "+ Persoon toevoegen"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:113
+#: app/domains/mdm/templates/_leden_kaarten.html:144
 msgid "Verantwoordelijk bestuurslid"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:119
+#: app/domains/mdm/templates/_leden_kaarten.html:150
 #: app/ui/templates/admin_organisatie.html:35
 msgid "— Geen —"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:126
+#: app/domains/mdm/templates/_leden_kaarten.html:157
 msgid "Een keuze wordt meteen bewaard."
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:139
+#: app/domains/mdm/templates/_leden_kaarten.html:170
 #: app/ui/templates/admin_info.html:61
 msgid "Lidmaatschap"
 msgstr ""
 
-#: app/domains/mdm/templates/_leden_kaarten.html:145
+#: app/domains/mdm/templates/_leden_kaarten.html:176
 msgid "Jaar toevoegen"
 msgstr ""
 
@@ -3473,7 +3599,7 @@ msgstr ""
 #: app/domains/payment/ui.py:329
 #: app/domains/reporting/templates/_rp_paneel.html:328
 #: app/domains/workflow/ui.py:65 app/domains/workflow/ui.py:95
-#: app/ui/templates/design_system.html:320
+#: app/ui/templates/design_system.html:328
 msgid "Alle"
 msgstr ""
 
@@ -3526,7 +3652,7 @@ msgid "Hoofdlid, adres en eventueel extra gezinsleden — in één keer bewaard.
 msgstr ""
 
 #: app/domains/mdm/templates/leden_nieuw.html:39
-#: app/domains/membership/templates/gezin_portaal.html:118
+#: app/domains/membership/templates/gezin_portaal.html:165
 #: app/domains/membership/templates/lid_worden.html:45
 msgid "+ Gezinslid toevoegen"
 msgstr ""
@@ -3549,33 +3675,37 @@ msgstr ""
 msgid "Logo van de vereniging"
 msgstr ""
 
+#: app/domains/media/admin_ui.py:122
+msgid "Pagina-afbeelding"
+msgstr ""
+
 #: app/domains/media/router.py:76
 #, python-format
 msgid "Niet-ondersteund bestandstype: %(filename)s"
 msgstr ""
 
-#: app/domains/media/service.py:143
+#: app/domains/media/service.py:155
 msgid "Een link moet met http://, https://, mailto:, tel: of / beginnen."
 msgstr ""
 
-#: app/domains/media/service.py:298
+#: app/domains/media/service.py:310
 msgid "Een render wordt door de Design Studio gemaakt en niet opgeladen."
 msgstr ""
 
-#: app/domains/media/service.py:309
+#: app/domains/media/service.py:321
 msgid "Kies eerst een activiteit."
 msgstr ""
 
-#: app/domains/media/service.py:336
+#: app/domains/media/service.py:348
 #, python-format
 msgid "%(bestand)s: een SVG kan alleen als logo van de vereniging."
 msgstr ""
 
-#: app/domains/media/service.py:385
+#: app/domains/media/service.py:397
 msgid "Een SVG kan hier alleen als render van de Design Studio."
 msgstr ""
 
-#: app/domains/media/service.py:387
+#: app/domains/media/service.py:399
 msgid "Dit bestandstype kan niet: kies een PDF of een afbeelding."
 msgstr ""
 
@@ -3692,8 +3822,8 @@ msgstr ""
 msgid "Foto's — Raak Millegem"
 msgstr ""
 
-#: app/domains/media/templates/fotos.html:5 app/ui/templates/site_base.html:180
-#: app/ui/templates/site_base.html:197
+#: app/domains/media/templates/fotos.html:5 app/ui/templates/site_base.html:210
+#: app/ui/templates/site_base.html:227
 msgid "Foto's"
 msgstr ""
 
@@ -4181,12 +4311,12 @@ msgstr ""
 #: app/domains/meetings/templates/_vg_kring.html:77
 #: app/domains/newsletter/templates/_nb_abonnees.html:14
 #: app/domains/newsletter/templates/_nb_abonnees.html:64
-#: app/ui/templates/_macros.html:438
+#: app/ui/templates/_macros.html:443
 msgid "Voornaam"
 msgstr ""
 
 #: app/domains/meetings/templates/_vg_kring.html:78
-#: app/ui/templates/_macros.html:440
+#: app/ui/templates/_macros.html:445
 msgid "Achternaam"
 msgstr ""
 
@@ -4458,65 +4588,66 @@ msgstr ""
 msgid "Geen toegang tot dit gezin."
 msgstr ""
 
-#: app/domains/membership/household_router.py:146
+#: app/domains/membership/household_router.py:158
 msgid "Je hebt al een geldig lidmaatschap."
 msgstr ""
 
-#: app/domains/membership/household_router.py:156
+#: app/domains/membership/household_router.py:168
 msgid "Je vernieuwing loopt nog — rond eerst de openstaande betaling af."
 msgstr ""
 
-#: app/domains/membership/household_router.py:170
+#: app/domains/membership/household_router.py:182
 #, python-format
 msgid "Je hebt je lidmaatschap voor %(year)s al vernieuwd."
 msgstr ""
 
-#: app/domains/membership/household_router.py:223
+#: app/domains/membership/household_router.py:235
 msgid "De online betaling kon niet gestart worden. Probeer het later opnieuw."
 msgstr ""
 
-#: app/domains/membership/household_router.py:264
-#: app/domains/membership/household_router.py:419
+#: app/domains/membership/household_router.py:276
+#: app/domains/membership/household_router.py:438
+#: app/domains/membership/household_router.py:509
 msgid "Persoon niet gevonden."
 msgstr ""
 
-#: app/domains/membership/household_router.py:315
-#: app/domains/membership/household_service.py:236
-#: app/domains/membership/household_service.py:605
-#: app/domains/membership/household_service.py:620
+#: app/domains/membership/household_router.py:327
+#: app/domains/membership/household_service.py:250
+#: app/domains/membership/household_service.py:619
+#: app/domains/membership/household_service.py:634
 #, python-format
 msgid "Onbekende postcode: %(postal_code)s"
 msgstr ""
 
-#: app/domains/membership/household_router.py:369
+#: app/domains/membership/household_router.py:381
 msgid "Voornaam en achternaam zijn verplicht."
 msgstr ""
 
-#: app/domains/membership/household_router.py:424
+#: app/domains/membership/household_router.py:514
 msgid "Je kan jezelf niet uit het gezin verwijderen."
 msgstr ""
 
-#: app/domains/membership/household_service.py:474
-#: app/domains/membership/household_service.py:487
-#: app/domains/membership/household_service.py:519
-#: app/domains/membership/household_service.py:703
-#: app/domains/membership/household_service.py:759
+#: app/domains/membership/household_service.py:488
+#: app/domains/membership/household_service.py:501
+#: app/domains/membership/household_service.py:533
+#: app/domains/membership/household_service.py:719
+#: app/domains/membership/household_service.py:775
 msgid "Family not found"
 msgstr ""
 
-#: app/domains/membership/household_service.py:553
-#: app/domains/membership/household_service.py:591
-#: app/domains/membership/household_service.py:644
-#: app/domains/membership/household_service.py:677
-#: app/domains/membership/household_service.py:763
+#: app/domains/membership/household_service.py:567
+#: app/domains/membership/household_service.py:605
+#: app/domains/membership/household_service.py:658
+#: app/domains/membership/household_service.py:693
+#: app/domains/membership/household_service.py:779
 msgid "Person not found"
 msgstr ""
 
-#: app/domains/membership/household_service.py:602
+#: app/domains/membership/household_service.py:616
 msgid "Straat, huisnummer en postcode zijn verplicht."
 msgstr ""
 
-#: app/domains/membership/household_service.py:743
+#: app/domains/membership/household_service.py:759
 msgid "Membership not found"
 msgstr ""
 
@@ -4541,7 +4672,7 @@ msgid "Hoofdlid"
 msgstr ""
 
 #: app/domains/membership/templates/_lid_persoon_rij.html:4
-#: app/domains/membership/templates/gezin_portaal.html:80
+#: app/domains/membership/templates/gezin_portaal.html:92
 msgid "Gezinslid"
 msgstr ""
 
@@ -4557,46 +4688,52 @@ msgstr ""
 msgid "Je gezin heeft momenteel geen geldig lidmaatschap."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:18
+#: app/domains/membership/templates/gezin_portaal.html:25
 msgid "Vernieuwing geregistreerd — betaal via overschrijving:"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:20
-#: app/domains/membership/templates/gezin_portaal.html:31
+#: app/domains/membership/templates/gezin_portaal.html:27
+#: app/domains/membership/templates/gezin_portaal.html:38
 #: app/domains/payment/templates/_betalingen_lijst.html:178
 #: app/domains/payment/templates/_betalingen_lijst.html:209
-#: app/ui/templates/design_system.html:512
+#: app/ui/templates/design_system.html:520
 msgid "Bedrag"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:22
+#: app/domains/membership/templates/gezin_portaal.html:29
 msgid "Begunstigde"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:30
+#: app/domains/membership/templates/gezin_portaal.html:37
 msgid "Je vernieuwing loopt nog — de betaling is nog niet afgerond."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:33
+#: app/domains/membership/templates/gezin_portaal.html:40
 msgid "Betaling hervatten"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:35
+#: app/domains/membership/templates/gezin_portaal.html:42
 msgid ""
 "Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op "
 "als het lang duurt."
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:43
+#: app/domains/membership/templates/gezin_portaal.html:50
 msgid "Via overschrijving"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:45
+#: app/domains/membership/templates/gezin_portaal.html:52
 msgid "Lidmaatschap vernieuwen"
 msgstr ""
 
-#: app/domains/membership/templates/gezin_portaal.html:49
+#: app/domains/membership/templates/gezin_portaal.html:56
 msgid "Verantwoordelijk bestuurslid:"
+msgstr ""
+
+#: app/domains/membership/templates/gezin_portaal.html:158
+msgid ""
+"Met elk van deze adressen kan je aanmelden, en de nieuwsbrief gaat naar "
+"allemaal. Een gewijzigde tekst bewaar je met Opslaan."
 msgstr ""
 
 #: app/domains/membership/templates/lid_worden.html:3
@@ -5143,10 +5280,6 @@ msgstr ""
 msgid "Kiezen"
 msgstr ""
 
-#: app/domains/newsletter/templates/_nb_kiezer.html:38
-msgid "Invoegen"
-msgstr ""
-
 #: app/domains/newsletter/templates/_nb_kiezer.html:44
 msgid "Geen komende activiteit gevonden."
 msgstr ""
@@ -5204,7 +5337,7 @@ msgid ""
 msgstr ""
 
 #: app/domains/newsletter/templates/_nb_publiek.html:26
-#: app/ui/templates/site_base.html:279
+#: app/ui/templates/site_base.html:309
 msgid "Privacyverklaring"
 msgstr ""
 
@@ -5230,7 +5363,7 @@ msgid ""
 msgstr ""
 
 #: app/domains/newsletter/templates/_nb_publiek.html:34
-#: app/ui/templates/design_system.html:552
+#: app/ui/templates/design_system.html:560
 msgid "Inschrijving bevestigen"
 msgstr ""
 
@@ -5524,7 +5657,7 @@ msgstr ""
 
 #: app/domains/newsletter/templates/admin_nieuwsbrief.html:142
 #: app/domains/reporting/templates/_rp_paneel.html:491
-#: app/ui/templates/design_system.html:357
+#: app/ui/templates/design_system.html:365
 msgid "Kopiëren"
 msgstr ""
 
@@ -5756,7 +5889,7 @@ msgstr ""
 msgid "Voor activiteit:"
 msgstr ""
 
-#: app/domains/payment/ui.py:289 app/ui/templates/design_system.html:599
+#: app/domains/payment/ui.py:289 app/ui/templates/design_system.html:607
 msgid "Voor inschrijving:"
 msgstr ""
 
@@ -5767,7 +5900,7 @@ msgstr ""
 #: app/domains/payment/templates/_bt_boven.html:39
 #: app/domains/payment/ui.py:329 app/domains/payment/ui.py:437
 #: app/ui/templates/design_system.html:159
-#: app/ui/templates/design_system.html:366
+#: app/ui/templates/design_system.html:374
 msgid "Openstaand"
 msgstr ""
 
@@ -5817,12 +5950,12 @@ msgid "Als volledig terugbetaald bevestigen?"
 msgstr ""
 
 #: app/domains/payment/templates/_betalingen_lijst.html:93
-#: app/ui/templates/design_system.html:373
+#: app/ui/templates/design_system.html:381
 msgid "Als volledig betaald bevestigen?"
 msgstr ""
 
 #: app/domains/payment/templates/_betalingen_lijst.html:94
-#: app/ui/templates/design_system.html:372
+#: app/ui/templates/design_system.html:380
 msgid "Bevestig"
 msgstr ""
 
@@ -5847,7 +5980,7 @@ msgid "Deze betaling verwijderen (uit het saldo)?"
 msgstr ""
 
 #: app/domains/payment/templates/_betalingen_lijst.html:150
-#: app/ui/templates/_macros.html:969 app/ui/templates/design_system.html:123
+#: app/ui/templates/_macros.html:1047 app/ui/templates/design_system.html:123
 msgid "Opslaan"
 msgstr ""
 
@@ -5886,7 +6019,7 @@ msgstr ""
 
 #: app/domains/payment/templates/_betalingen_lijst.html:210
 #: app/domains/payment/templates/_bt_boven.html:34
-#: app/ui/templates/design_system.html:476
+#: app/ui/templates/design_system.html:484
 msgid "Ontvangen"
 msgstr ""
 
@@ -5930,19 +6063,19 @@ msgstr ""
 msgid "Netto"
 msgstr ""
 
-#: app/domains/payment/templates/_betalingen_scherm.html:32
+#: app/domains/payment/templates/_betalingen_scherm.html:48
 msgid "Zoek op naam, OGM of omschrijving…"
 msgstr ""
 
-#: app/domains/payment/templates/_betalingen_scherm.html:53
+#: app/domains/payment/templates/_betalingen_scherm.html:69
 msgid "Export (.ods)"
 msgstr ""
 
-#: app/domains/payment/templates/_betalingen_scherm.html:66
+#: app/domains/payment/templates/_betalingen_scherm.html:107
 msgid "AI · Betalingen"
 msgstr ""
 
-#: app/domains/payment/templates/_betalingen_scherm.html:68
+#: app/domains/payment/templates/_betalingen_scherm.html:109
 msgid ""
 "Dag! Ik kijk mee met de selectie die je hier hebt staan — vraag me "
 "bijvoorbeeld “hoeveel staat er open?” of “hoe verdeelt dit zich over "
@@ -6094,7 +6227,7 @@ msgstr ""
 msgid "bevat"
 msgstr ""
 
-#: app/domains/reporting/exports.py:101 app/ui/templates/design_system.html:541
+#: app/domains/reporting/exports.py:101 app/ui/templates/design_system.html:549
 msgid "en"
 msgstr ""
 
@@ -6191,6 +6324,7 @@ msgstr ""
 
 #: app/domains/reporting/templates/_rp_paneel.html:223
 #: app/domains/reporting/templates/_rp_paneel.html:224
+#: app/ui/templates/_email_rij.html:83
 msgid "Verwijder"
 msgstr ""
 
@@ -6366,8 +6500,8 @@ msgid ""
 msgstr ""
 
 #: app/domains/reporting/templates/admin_rapporten_raakje.html:19
-#: app/ui/templates/design_system.html:419
-#: app/ui/templates/design_system.html:449
+#: app/ui/templates/design_system.html:427
+#: app/ui/templates/design_system.html:457
 msgid "Naar de rapporten"
 msgstr ""
 
@@ -6379,7 +6513,7 @@ msgid ""
 msgstr ""
 
 #: app/domains/reporting/templates/admin_rapporten_raakje.html:47
-#: app/ui/templates/_raakje_overlay.html:66
+#: app/ui/templates/_raakje_overlay.html:71
 msgid "Raakje denkt na… dit kan een halve minuut duren."
 msgstr ""
 
@@ -6503,24 +6637,24 @@ msgstr ""
 msgid "te licht voor witte tekst: contrast %(v)s:1, minstens 4,5:1 nodig."
 msgstr ""
 
-#: app/ui/__init__.py:152
+#: app/ui/__init__.py:161
 msgid "definitief verwijderen?"
 msgstr ""
 
-#: app/ui/__init__.py:500 app/ui/templates/design_system.html:332
+#: app/ui/__init__.py:543 app/ui/templates/design_system.html:340
 msgid "nieuwste eerst"
 msgstr ""
 
-#: app/ui/__init__.py:500
+#: app/ui/__init__.py:543
 msgid "oudste eerst"
 msgstr ""
 
-#: app/ui/__init__.py:501
+#: app/ui/__init__.py:544
 #, python-format
 msgid "op %(kolom)s, aflopend"
 msgstr ""
 
-#: app/ui/__init__.py:502
+#: app/ui/__init__.py:545
 #, python-format
 msgid "op %(kolom)s, oplopend"
 msgstr ""
@@ -6571,8 +6705,24 @@ msgstr ""
 
 #: app/ui/templates/_account_menu.html:9 app/ui/templates/admin_base.html:180
 #: app/ui/templates/admin_base.html:209 app/ui/templates/admin_base.html:213
-#: app/ui/templates/site_base.html:187 app/ui/templates/site_base.html:204
+#: app/ui/templates/site_base.html:217 app/ui/templates/site_base.html:234
 msgid "Uitloggen"
+msgstr ""
+
+#: app/ui/templates/_email_rij.html:77
+msgid "hoofdadres"
+msgstr ""
+
+#: app/ui/templates/_email_rij.html:80
+msgid "Maak hoofdadres"
+msgstr ""
+
+#: app/ui/templates/_email_rij.html:86
+msgid "Dit e-mailadres verwijderen?"
+msgstr ""
+
+#: app/ui/templates/_email_rij.html:91
+msgid "Deze regel verwijderen"
 msgstr ""
 
 #: app/ui/templates/_lw_exportknop.html:8
@@ -6603,86 +6753,86 @@ msgstr ""
 msgid "Naar onder"
 msgstr ""
 
-#: app/ui/templates/_macros.html:442
+#: app/ui/templates/_macros.html:447
 msgid "Geboortedatum"
 msgstr ""
 
-#: app/ui/templates/_macros.html:444
+#: app/ui/templates/_macros.html:449
 msgid "Geslacht"
 msgstr ""
 
-#: app/ui/templates/_macros.html:451
+#: app/ui/templates/_macros.html:458
 msgid "GSM"
 msgstr ""
 
-#: app/ui/templates/_macros.html:453
+#: app/ui/templates/_macros.html:460
 msgid "Telefoon"
 msgstr ""
 
-#: app/ui/templates/_macros.html:458
+#: app/ui/templates/_macros.html:465
 msgid "Relatie"
 msgstr ""
 
-#: app/ui/templates/_macros.html:681
+#: app/ui/templates/_macros.html:759
 msgid "Per pagina"
 msgstr ""
 
-#: app/ui/templates/_macros.html:776
+#: app/ui/templates/_macros.html:854
 msgid "Alle bekijken"
 msgstr ""
 
-#: app/ui/templates/_macros.html:834 app/ui/templates/_macros.html:850
+#: app/ui/templates/_macros.html:912 app/ui/templates/_macros.html:928
 msgid "Opgeslagen ✓"
 msgstr ""
 
-#: app/ui/templates/_macros.html:886 app/ui/templates/_macros.html:890
-#: app/ui/templates/design_system.html:558
+#: app/ui/templates/_macros.html:964 app/ui/templates/_macros.html:968
+#: app/ui/templates/design_system.html:566
 msgid "Bevestigen"
 msgstr ""
 
-#: app/ui/templates/_macros.html:1021
+#: app/ui/templates/_macros.html:1099
 msgid "Meer acties"
 msgstr ""
 
-#: app/ui/templates/_macros.html:1287
+#: app/ui/templates/_macros.html:1365
 msgid ""
 "Je wijziging is niet bewaard: de beveiligingscontrole ging niet door. "
 "Herlaad de pagina en probeer opnieuw."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1289
+#: app/ui/templates/_macros.html:1367
 msgid "Je gaat sneller dan de server verwerkt. Wacht even en klik opnieuw."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1291
+#: app/ui/templates/_macros.html:1369
 msgid "Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1297
+#: app/ui/templates/_macros.html:1375
 msgid "Geen verbinding met de server; je wijziging is niet bewaard."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1308
+#: app/ui/templates/_macros.html:1386
 msgid ""
 "Deze actie kon niet uitgevoerd worden. Herlaad de pagina; blijft het fout"
 " gaan, meld het."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1370
+#: app/ui/templates/_macros.html:1448
 msgid ""
 "Deze draaitabel is afgekapt: er zijn meer rijen dan getoond. Filter of "
 "rol een niveau op om alles te zien."
 msgstr ""
 
-#: app/ui/templates/_macros.html:1412
+#: app/ui/templates/_macros.html:1490
 msgid "Subtotaal"
 msgstr ""
 
-#: app/ui/templates/_macros.html:1423
+#: app/ui/templates/_macros.html:1501
 msgid "Toon het niveau eronder voor"
 msgstr ""
 
-#: app/ui/templates/_macros.html:1451
+#: app/ui/templates/_macros.html:1529
 msgid "Eindtotaal"
 msgstr ""
 
@@ -6718,7 +6868,7 @@ msgstr ""
 msgid "Werkruimte"
 msgstr ""
 
-#: app/ui/templates/admin_base.html:162 app/ui/templates/site_base.html:174
+#: app/ui/templates/admin_base.html:162 app/ui/templates/site_base.html:204
 msgid "Menu"
 msgstr ""
 
@@ -6898,7 +7048,7 @@ msgid "Zoek op actor…"
 msgstr ""
 
 #: app/ui/templates/admin_ledenwijzigingen.html:32
-#: app/ui/templates/design_system.html:311
+#: app/ui/templates/design_system.html:319
 msgid "Vanaf"
 msgstr ""
 
@@ -6915,7 +7065,7 @@ msgid "Naar de lijst"
 msgstr ""
 
 #: app/ui/templates/admin_organisatie.html:15
-#: app/ui/templates/design_system.html:536
+#: app/ui/templates/design_system.html:544
 msgid "Opgeslagen."
 msgstr ""
 
@@ -7212,7 +7362,7 @@ msgid "6 · Formuliervelden"
 msgstr ""
 
 #: app/ui/templates/design_system.html:171
-#: app/ui/templates/design_system.html:224
+#: app/ui/templates/design_system.html:232
 msgid "Naar de formulierbouwer"
 msgstr ""
 
@@ -7230,130 +7380,137 @@ msgstr ""
 msgid "Dit is geen geldig e-mailadres."
 msgstr ""
 
-#: app/ui/templates/design_system.html:192
+#: app/ui/templates/design_system.html:193
+msgid ""
+"Een eigen − en + in plaats van de browserpijltjes: iOS Safari toont die "
+"bij een getalveld niet. De knoppen vuren zelf een change af, zodat een "
+"server-side herberekening meeloopt."
+msgstr ""
+
+#: app/ui/templates/design_system.html:200
 msgid "Omschrijving (groeit mee)"
 msgstr ""
 
-#: app/ui/templates/design_system.html:194
+#: app/ui/templates/design_system.html:202
 msgid ""
 "Typ hier meerdere regels.\n"
 "Het vak groeit mee tot het maximum."
 msgstr ""
 
-#: app/ui/templates/design_system.html:198
+#: app/ui/templates/design_system.html:206
 msgid "Notities (vaste hoogte)"
 msgstr ""
 
-#: app/ui/templates/design_system.html:200
+#: app/ui/templates/design_system.html:208
 msgid "Korte toelichting bij de activiteit."
 msgstr ""
 
-#: app/ui/templates/design_system.html:207
+#: app/ui/templates/design_system.html:215
 msgid "Opgemaakte tekst"
 msgstr ""
 
-#: app/ui/templates/design_system.html:209
+#: app/ui/templates/design_system.html:217
 msgid "Klik om te typen…"
 msgstr ""
 
-#: app/ui/templates/design_system.html:214
-#: app/ui/templates/design_system.html:320
+#: app/ui/templates/design_system.html:222
+#: app/ui/templates/design_system.html:328
 msgid "Gesloten"
 msgstr ""
 
-#: app/ui/templates/design_system.html:217
+#: app/ui/templates/design_system.html:225
 msgid "En dit is een vraag op een publiek formulier"
 msgstr ""
 
-#: app/ui/templates/design_system.html:223
+#: app/ui/templates/design_system.html:231
 msgid "6b · Veldsoorten van een formulier"
 msgstr ""
 
-#: app/ui/templates/design_system.html:232
+#: app/ui/templates/design_system.html:240
 msgid ""
 "Alle tien de soorten uit FIELD_TYPES, met de opmaak van het publieke "
 "formulier."
 msgstr ""
 
-#: app/ui/templates/design_system.html:248
+#: app/ui/templates/design_system.html:256
 msgid "7 · Persoonsvelden"
 msgstr ""
 
-#: app/ui/templates/design_system.html:248
+#: app/ui/templates/design_system.html:256
 msgid "Naar de leden"
 msgstr ""
 
-#: app/ui/templates/design_system.html:251
+#: app/ui/templates/design_system.html:259
 msgid "Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde."
 msgstr ""
 
-#: app/ui/templates/design_system.html:258
+#: app/ui/templates/design_system.html:266
 msgid "Vrouw"
 msgstr ""
 
-#: app/ui/templates/design_system.html:259
+#: app/ui/templates/design_system.html:267
 msgid "Man"
 msgstr ""
 
-#: app/ui/templates/design_system.html:260
+#: app/ui/templates/design_system.html:268
 msgid "partner"
 msgstr ""
 
-#: app/ui/templates/design_system.html:261
+#: app/ui/templates/design_system.html:269
 msgid "(meerderjarig) kind"
 msgstr ""
 
-#: app/ui/templates/design_system.html:265
+#: app/ui/templates/design_system.html:273
 msgid "8 · Schermtype: records-lijst"
 msgstr ""
 
-#: app/ui/templates/design_system.html:272
+#: app/ui/templates/design_system.html:280
 msgid ""
 "De volgorde ligt vast: paginakop met de primaire actie, kengetallen, "
 "filterbalk, lijst, pager."
 msgstr ""
 
-#: app/ui/templates/design_system.html:278
+#: app/ui/templates/design_system.html:286
 msgid "Een kaart opent de activiteit."
 msgstr ""
 
-#: app/ui/templates/design_system.html:295
+#: app/ui/templates/design_system.html:303
 msgid "8b · Zoeken, filteren, pagineren"
 msgstr ""
 
-#: app/ui/templates/design_system.html:298
+#: app/ui/templates/design_system.html:306
 msgid ""
 "De vaste volgorde van een records-lijst — §3.2: zoeken, filters, tabel, "
 "pager."
 msgstr ""
 
-#: app/ui/templates/design_system.html:314
+#: app/ui/templates/design_system.html:322
 msgid "Alle jaren"
 msgstr ""
 
-#: app/ui/templates/design_system.html:315
+#: app/ui/templates/design_system.html:323
 msgid "Recent"
 msgstr ""
 
-#: app/ui/templates/design_system.html:332
+#: app/ui/templates/design_system.html:340
 msgid "132 activiteiten"
 msgstr ""
 
-#: app/ui/templates/design_system.html:347
-#: app/ui/templates/design_system.html:361
-#: app/ui/templates/design_system.html:568
+#: app/ui/templates/design_system.html:355
+#: app/ui/templates/design_system.html:369
+#: app/ui/templates/design_system.html:576
 msgid "Voorbeeldactiviteit"
 msgstr ""
 
-#: app/ui/templates/design_system.html:365
+#: app/ui/templates/design_system.html:373
 msgid "Dichte rij (Betalingen-verfijning, #996)"
 msgstr ""
 
-#: app/ui/templates/design_system.html:387
+#: app/ui/templates/design_system.html:395
 msgid "8b · Meetwaarden per soort"
 msgstr ""
 
-#: app/ui/templates/design_system.html:390
+#: app/ui/templates/design_system.html:398
 msgid ""
 "Eén cel per opmaaksoort die de universe declareert (#875). Vóór deze "
 "macro kende het paneel alleen geld en drukte de rest rauw af — een "
@@ -7362,11 +7519,11 @@ msgid ""
 " falen."
 msgstr ""
 
-#: app/ui/templates/design_system.html:408
+#: app/ui/templates/design_system.html:416
 msgid "geen waarde"
 msgstr ""
 
-#: app/ui/templates/design_system.html:414
+#: app/ui/templates/design_system.html:422
 msgid ""
 "Geen waarde is een liggend streepje en niet een nul: niets gemeten is "
 "iets anders dan nul gemeten. Het euroteken hoort bij de geldsoort en niet"
@@ -7374,229 +7531,229 @@ msgid ""
 "bedragen zijn."
 msgstr ""
 
-#: app/ui/templates/design_system.html:419
+#: app/ui/templates/design_system.html:427
 msgid "8c · Draaitabel"
 msgstr ""
 
-#: app/ui/templates/design_system.html:422
+#: app/ui/templates/design_system.html:430
 msgid ""
 "Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal —"
 " §2.9. De cijfers hieronder zijn verzonnen; de vorm is die van het "
 "rapportenscherm."
 msgstr ""
 
-#: app/ui/templates/design_system.html:428
+#: app/ui/templates/design_system.html:436
 msgid "Gemeente"
 msgstr ""
 
-#: app/ui/templates/design_system.html:430
+#: app/ui/templates/design_system.html:438
 msgid "Jaar"
 msgstr ""
 
-#: app/ui/templates/design_system.html:444
+#: app/ui/templates/design_system.html:452
 msgid ""
 "Een lege cel toont een liggend streepje: geen enkele combinatie is niet "
 "hetzelfde als nul. Een subtotaal draagt alleen het label van zijn groep."
 msgstr ""
 
-#: app/ui/templates/design_system.html:449
+#: app/ui/templates/design_system.html:457
 msgid "8d · Grafieken"
 msgstr ""
 
-#: app/ui/templates/design_system.html:452
+#: app/ui/templates/design_system.html:460
 msgid ""
 "Drie soorten — staaf, lijn, gestapelde staaf — als server-gerenderde SVG,"
 " §2.10. Kleuren uit de tokens, schaal van de server, geen bibliotheek. De"
 " cijfers hieronder zijn verzonnen."
 msgstr ""
 
-#: app/ui/templates/design_system.html:456
+#: app/ui/templates/design_system.html:464
 msgid "Aantal per activiteit"
 msgstr ""
 
-#: app/ui/templates/design_system.html:457
+#: app/ui/templates/design_system.html:465
 msgid "Aantal inschrijvingen, per activiteit."
 msgstr ""
 
-#: app/ui/templates/design_system.html:471
+#: app/ui/templates/design_system.html:479
 msgid "Omzet per maand"
 msgstr ""
 
-#: app/ui/templates/design_system.html:472
+#: app/ui/templates/design_system.html:480
 msgid "Gevorderd en ontvangen, per maand."
 msgstr ""
 
-#: app/ui/templates/design_system.html:475
+#: app/ui/templates/design_system.html:483
 msgid "Gevorderd"
 msgstr ""
 
-#: app/ui/templates/design_system.html:485
+#: app/ui/templates/design_system.html:493
 msgid "Inschrijvingen per activiteit per jaar"
 msgstr ""
 
-#: app/ui/templates/design_system.html:486
+#: app/ui/templates/design_system.html:494
 msgid "Aantal inschrijvingen, per activiteit. Gestapeld per jaar."
 msgstr ""
 
-#: app/ui/templates/design_system.html:501
+#: app/ui/templates/design_system.html:509
 msgid ""
 "Elke grafiek heeft een &lt;title&gt; en een &lt;desc&gt;, en per element "
 "een &lt;title&gt; met de waarde. De tabel eronder blijft staan — die is "
 "het echte tekstalternatief."
 msgstr ""
 
-#: app/ui/templates/design_system.html:507
+#: app/ui/templates/design_system.html:515
 msgid "Sorteerbare kolomkoppen"
 msgstr ""
 
-#: app/ui/templates/design_system.html:515
+#: app/ui/templates/design_system.html:523
 msgid "de route bewaakt de whitelist en de tiebreaker (#761)."
 msgstr ""
 
-#: app/ui/templates/design_system.html:518
+#: app/ui/templates/design_system.html:526
 msgid "9 · Leeg en ladend"
 msgstr ""
 
-#: app/ui/templates/design_system.html:520
+#: app/ui/templates/design_system.html:528
 msgid "Nog geen inschrijvingen voor deze activiteit."
 msgstr ""
 
-#: app/ui/templates/design_system.html:523
+#: app/ui/templates/design_system.html:531
 msgid "Geen resultaten gevonden."
 msgstr ""
 
-#: app/ui/templates/design_system.html:524
+#: app/ui/templates/design_system.html:532
 msgid "Bezig met laden…"
 msgstr ""
 
-#: app/ui/templates/design_system.html:528
+#: app/ui/templates/design_system.html:536
 msgid "10 · Meldingen"
 msgstr ""
 
-#: app/ui/templates/design_system.html:531
+#: app/ui/templates/design_system.html:539
 msgid "Eén bevestigingspatroon — §2.7. Een toast bevestigt, een banner legt uit."
 msgstr ""
 
-#: app/ui/templates/design_system.html:533
+#: app/ui/templates/design_system.html:541
 msgid "Dit bedrag is geen getal. Geef een bedrag, bv. 17,50."
 msgstr ""
 
-#: app/ui/templates/design_system.html:534
+#: app/ui/templates/design_system.html:542
 msgid "De wijzigingen zijn opgeslagen."
 msgstr ""
 
-#: app/ui/templates/design_system.html:537
+#: app/ui/templates/design_system.html:545
 msgid "Er ging iets mis."
 msgstr ""
 
-#: app/ui/templates/design_system.html:538
+#: app/ui/templates/design_system.html:546
 msgid "Let op: dit onderdeel is volzet."
 msgstr ""
 
-#: app/ui/templates/design_system.html:541
+#: app/ui/templates/design_system.html:549
 msgid "De schil draagt"
 msgstr ""
 
-#: app/ui/templates/design_system.html:543
+#: app/ui/templates/design_system.html:551
 msgid ""
 "Ze staan hier niet nog eens: twee hosts op één pagina vangen elkaars "
 "toasts op."
 msgstr ""
 
-#: app/ui/templates/design_system.html:548
+#: app/ui/templates/design_system.html:556
 msgid "11 · Modal"
 msgstr ""
 
-#: app/ui/templates/design_system.html:551
+#: app/ui/templates/design_system.html:559
 msgid "Toon de modal"
 msgstr ""
 
-#: app/ui/templates/design_system.html:554
+#: app/ui/templates/design_system.html:562
 msgid ""
 "Een modal is voor read-only detail en bevestigingen — §3.3. Aanmaken "
 "gebeurt op een volledige pagina."
 msgstr ""
 
-#: app/ui/templates/design_system.html:565
+#: app/ui/templates/design_system.html:573
 msgid "12 · Detailscherm"
 msgstr ""
 
-#: app/ui/templates/design_system.html:571
+#: app/ui/templates/design_system.html:579
 msgid "Onderdelen"
 msgstr ""
 
-#: app/ui/templates/design_system.html:572
+#: app/ui/templates/design_system.html:580
 msgid "Wandeling"
 msgstr ""
 
-#: app/ui/templates/design_system.html:580
+#: app/ui/templates/design_system.html:588
 msgid "Toon de deelnemers"
 msgstr ""
 
-#: app/ui/templates/design_system.html:582
+#: app/ui/templates/design_system.html:590
 msgid "Hier laadt het detailfragment."
 msgstr ""
 
-#: app/ui/templates/design_system.html:588
+#: app/ui/templates/design_system.html:596
 msgid "Kopieer het rekeningnummer"
 msgstr ""
 
-#: app/ui/templates/design_system.html:593
+#: app/ui/templates/design_system.html:601
 msgid "12b · Relatienavigatie (P13)"
 msgstr ""
 
-#: app/ui/templates/design_system.html:595
+#: app/ui/templates/design_system.html:603
 msgid ""
 "Relatiebalk onder een recordkop: elke chip opent de gewone lijst van dat "
 "domein in een expliciete recordscope."
 msgstr ""
 
-#: app/ui/templates/design_system.html:598
+#: app/ui/templates/design_system.html:606
 msgid ""
 "De scope-regel op zo'n gescopeerde lijst — zichtbaar, met de expliciete "
 "uitgang. Ze overleeft filterwijzigingen; een onzichtbaar voorfilter is "
 "verboden."
 msgstr ""
 
-#: app/ui/templates/design_system.html:600
+#: app/ui/templates/design_system.html:608
 msgid "Inline verwijzing naar een ander record: de spronglink."
 msgstr ""
 
-#: app/ui/templates/design_system.html:601
+#: app/ui/templates/design_system.html:609
 msgid "Gewijzigd door"
 msgstr ""
 
-#: app/ui/templates/design_system.html:601
+#: app/ui/templates/design_system.html:609
 msgid "Open inschrijving #12"
 msgstr ""
 
-#: app/ui/templates/design_system.html:605
+#: app/ui/templates/design_system.html:613
 msgid "12c · Terug naar de lijst"
 msgstr ""
 
-#: app/ui/templates/design_system.html:608
+#: app/ui/templates/design_system.html:616
 msgid ""
 "Bovenaan een detailscherm, vóór de paginakop. Eén vorm voor alle "
 "schermen: dezelfde tekstgrootte, hetzelfde teken, dezelfde kleur."
 msgstr ""
 
-#: app/ui/templates/design_system.html:614
+#: app/ui/templates/design_system.html:622
 msgid "13 · Tabs"
 msgstr ""
 
-#: app/ui/templates/design_system.html:616
+#: app/ui/templates/design_system.html:624
 msgid "Gegevens"
 msgstr ""
 
-#: app/ui/templates/design_system.html:621
+#: app/ui/templates/design_system.html:629
 msgid "14 · Publieke schil"
 msgstr ""
 
-#: app/ui/templates/design_system.html:621
+#: app/ui/templates/design_system.html:629
 msgid "Naar de publieke activiteiten"
 msgstr ""
 
-#: app/ui/templates/design_system.html:624
+#: app/ui/templates/design_system.html:632
 msgid ""
 "De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar "
 "op een telefoon; de typeschaal is daar de basis (§1.2a)."
@@ -7633,23 +7790,23 @@ msgstr ""
 msgid "Aanmelden als platformbeheerder"
 msgstr ""
 
-#: app/ui/templates/site_base.html:161
+#: app/ui/templates/site_base.html:191
 msgid "Raak"
 msgstr ""
 
-#: app/ui/templates/site_base.html:179 app/ui/templates/site_base.html:196
+#: app/ui/templates/site_base.html:209 app/ui/templates/site_base.html:226
 msgid "Home"
 msgstr ""
 
-#: app/ui/templates/site_base.html:186 app/ui/templates/site_base.html:203
+#: app/ui/templates/site_base.html:216 app/ui/templates/site_base.html:233
 msgid "Admin"
 msgstr ""
 
-#: app/ui/templates/site_base.html:258
+#: app/ui/templates/site_base.html:288
 msgid "Rekeningnummer"
 msgstr ""
 
-#: app/ui/templates/site_base.html:269
+#: app/ui/templates/site_base.html:299
 msgid "Met steun van"
 msgstr ""
 
