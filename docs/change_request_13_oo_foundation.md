@@ -8,7 +8,7 @@
 > #236 and in the template.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen 26–27 September 2026 · Part B reviewed twice (author, external model) and corrected · Part A awaiting Koen's approval · not assigned; comes after CR-12 (v2.7.0)
+**Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready** · not assigned; comes after CR-12 (v2.7.0)
 **Applies to:** the domain layer of every module (`backend/app/domains/*`,
 `app/kernel`), the entrances to each aggregate (public form, JSON API, admin
 screen, import), and the shape a new module takes from its first commit.
@@ -17,8 +17,9 @@ screen, import), and the shape a new module takes from its first commit.
 
 # Part A — The business
 
-> From Koen's words of 26 and 27 September 2026 and his handover note. **Not
-> yet approved** — Koen is reading it.
+> From Koen's words of 26 and 27 September 2026 and his handover note.
+> **Approved by Koen on 27 September 2026** as written, after the review
+> round of the same day.
 
 ## A1. Reason to act
 
@@ -1272,6 +1273,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | Part A approved as written; CR-13 is development-ready. #236 becomes the pointer to this document. | Koen |
 | 27 Sep 2026 | Sequencing: CR-12 goes to PROD with v2.7.0; CR-13 comes later, from `master` with v2.7.0 on it. Scope: CR-13 is about final at fifteen requirements and thirteen gates — grown in one day, each piece a "one home" rule; said consciously, not rolled back; phase 0 gets its own estimate before assignment. | Koen |
 | 27 Sep 2026 | Review decisions (Koen, after the author's and an external model's review): R13 excepts the explicitly named failure paths; `check()` runs on `before_flush` from one kernel listener; reports are the one declared second computation, bound by a parity test; a handler never reaches the network — it enqueues a job, and phase 4 fixes the existing `MailRequested` handler; the tests move in one track (0b) right after phase 0. Plus, without asking: the detached test is built without a round trip, the entrances test is a discovery ratchet with a phase-0 spike, JSON pruning needs the PROD access logs, gate (b) is "no write after a commit", the router gate's baseline carries a reason per entry, phase 0 is estimated on its own, CR-13 starts after v2.7.0. | Koen |
 | 27 Sep 2026 | Tests live with their domain (§13.1 applied at last): single-domain tests in `domains/<c>/tests/`, multi-domain flows in `tests/integration/`, kernel/ui/gates in `backend/tests/`; moved per phase, in this CR; the module-shape gate's `tests/` requirement — which no domain met — becomes true through it. | Koen ("a, in CR-13") |
@@ -1387,8 +1389,7 @@ difference between an exemption list and a burn-down.
 ## Relationship to existing work
 
 - **CR-04** — the placement rule lives on there; everything else is here.
-- **#236 (OO-tracker)** — becomes the pointer to this CR once Part A is
-  approved; #755 and #757 are phases 0 and 1 (the issues are reused, not
+- **#236 (OO-tracker)** — the pointer to this CR since 27 September 2026; #755 and #757 are phases 0 and 1 (the issues are reused, not
   recreated); #758, #759, #760, #761 stay their own issues.
 - **CR-12** — sibling foundation: closed status sets (phase 2 needs its
   phase 1), `ContactType` constants (phase 3), the AST-ratchet and
