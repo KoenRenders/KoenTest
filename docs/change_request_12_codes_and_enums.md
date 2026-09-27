@@ -76,8 +76,9 @@ of the missing piece.
 
 Managing the lists and their translations through a screen is **not** part of
 this change (Koen, 25 September 2026: *"nu maar geen scherm voorzien om
-codelijsten te beheren, dat kan later"*). Until then, codes and labels are
-added by migration.
+codelijsten te beheren, dat kan later"*; confirmed as a decision on 26
+September: *"geen beheerscherm voor codelijsten"*). Codes and labels are
+added and changed by migration — see the consequence under Non-goals.
 
 ## A4. Supplied material
 
@@ -94,7 +95,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | R4 | The three — code list, enumeration, labels — can never drift apart; a build that misses one fails and names it. | Must | Koen, 25 Sep 2026 | the gatekeeper |
 | R5 | The rule applies to the whole codebase, every module, existing and future. | Must | Koen, 25 Sep 2026 | "doortrekken in alle modules" |
 | R6 | A list that belongs to one domain lives in that domain; a list that is master data, or is used by more than one domain, lives in master data — except security vocabulary (roles), which stays with security. | Must | Koen, 25 Sep 2026 | "als het niet single-domein is: masterdata"; roles: "zit dit niet in een security-domein waar we later Keycloak, SAML kunnen aan koppelen?" |
-| R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 Sep 2026 | "dat kan later" — the structure allows it; see Non-goals |
+| R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 and 26 Sep 2026 | decided, not parked: "geen beheerscherm voor codelijsten"; a label changes by migration — see Non-goals |
 | R8 | Stored values do not change meaning or spelling; history and exports read as before. | Must | #779 | one exception proposed in B4.6 |
 
 ## A6. Non-functional requirements
@@ -159,8 +160,8 @@ Decisions that shape it, with the alternatives that lost:
   CR-06), and a new language is a row for a translator, not a `.po` file for a
   developer. The boundary: **codes → label table; everything else → `_()`**.
 - **Placement by Koen's rule, with one named exception to §8.** See B4.1.
-- **No management screen now** (R7). The tables are designed so that one can
-  be added without changing them.
+- **No management screen** (R7, decided). A label changes by migration; the
+  tables would allow a screen, but none is planned.
 
 Europe First: no new tool, library or service. Everything is SQLAlchemy,
 Alembic, mypy and pytest, already in use.
@@ -314,7 +315,12 @@ flowchart TB
   exists.
 - **Migrations:** one per domain phase (B7); each moves rows, adds FKs, drops
   the `public` orphans. Idempotent, as every migration here.
-- **Backups:** unchanged; the migrations add small tables.
+- **Backups:** the DB backup before the UAT/PROD deploy is the **only way
+  back** for v2.7.0 — for every phase, not only the rename: an old image
+  does not start against a newer alembic revision (#1203, B7); all phases
+  ship in that one tag, so the restore point is the whole release —
+  accepted by Koen on 26 September 2026; the dump is verified before the
+  deploy.
 - **Limits / kill switch:** none needed — the label cache is a few hundred
   rows per process.
 - **Cache refresh:** labels change only by migration, so a process-level
@@ -478,10 +484,17 @@ before/after counts (B8 test 7, AC6) are over the whole table. Written out
 because the rest of the codebase filters soft-deleted rows almost
 everywhere — which is exactly why these five are easy to miss.
 
-Two rules for every FK this CR adds, to be listed in the phase issue:
+Three rules for every FK this CR adds, to be listed in the phase issue:
 **find every writer of the column before the FK goes on** — the form, the
-JSON API, the import — and **count every row, the soft-deleted ones too**.
-Those are the two ways a FK on existing data trips.
+JSON API, the import; **count every row, the soft-deleted ones too**; and
+**find the CHECK constraint that already says the same thing, and drop it
+after the FK is in place**. The first two are the ways a FK on existing
+data trips; the third is the duplication `CLAUDE.md` names: the pilot list
+(phase 0, PR #1186) had a CHECK on the status column that repeated the new
+FK word for word — left in place, a fourth value would cost a code row *and*
+a constraint migration, and one of the two would fall behind. `form.
+form_fields.field_type` (the CHECK of migration 062, B5.3) is the same case;
+the payment domain is the first place to look.
 
 There is **no history to migrate**: `activities.registration_history` has
 no `payment_method` column (verified 26 September; the column exists in
@@ -540,6 +553,21 @@ globally: that needs an exemption list, and an exemption list is where a
 rule dies (#760). The 133 untyped `db` parameters (#779 count) are typed per
 domain when migrated.
 
+**Measured in phase 1 (PR #1188), and it narrows the bonus further.**
+`Mapped[]` on the column is necessary but not sufficient: `strict_equality`
+fires on `new_status == "paid"` where the variable's type is known, and stays
+silent on `record.status == "paid"` inside a function whose `record`
+parameter is unannotated — mypy then types `record` as `Any`, and the
+column's `Mapped[]` never enters the picture. That is the shape most of the
+127 comparisons had. So there are two sources of `Any`, not one: the legacy
+`Column()` (fixed per column by `Mapped[]`) and the untyped parameter (fixed
+per function by an annotation). The second dominates once the first is
+done. Consequence for phase 5: "mypy strict per migrated domain" only means
+something because `disallow_untyped_defs` is part of it — that flag forces
+`record: PaymentRecord` on every function, and only then does
+`strict_equality` see the column. Phase 5 therefore carries the annotations
+as work, not as a side effect; the AST gate remains the gate throughout.
+
 ### B4.9 The kernel API (what phase 0 builds)
 
 `app/kernel/codes.py`, small enough to read in one sitting. Names are the
@@ -548,19 +576,24 @@ contract; the dev CLI chooses the internals.
 | Piece | Contract |
 |---|---|
 | `CodeList` | One declaration per list, in the owning domain's `codes.py` and exported through its `api.py`. Fields: `name` (the list's short name, e.g. `payment_status`), `codes` (the ORM class of the code table), `labels` (the ORM class of the label table), `enum` (the `Enum` class or `None`), `derived` (`True` for a list with no storing column, B5.3 note 4). A registry in the kernel collects every declaration at import time; the gates iterate over the registry. |
-| `EnumColumn(enum_cls)` | A `TypeDecorator` over `String` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Every code in the table is a member (B4.3), so a read never yields a bare string; a value that is in neither raises on read with the list, column and value in the message — that is corrupt data, not a rendering case. Used as `Mapped[Enum] = mapped_column(EnumColumn(Enum))` (B4.8). |
+| `EnumColumn(enum_cls, length)` | A `TypeDecorator` over `String(length)` that writes `member.value` and reads the member back. Never the member name, never `str(member)`. Every code in the table is a member (B4.3), so a read never yields a bare string — no `partial` mode (B5.3 note 3: a list the code only touches in a place or two gets no enum, and branches on a property or a named `Code` constant instead); a value that is in neither raises on read with the list, column and value in the message — that is corrupt data, not a rendering case. Used as `Mapped[Enum] = mapped_column(EnumColumn(Enum, length=10))` (B4.8; `length` is the column's existing width, kept as is). |
 | `create_code_list(op, schema, name, codes, labels, fk_from=...)` | The migration helper: creates `<schema>.<name>_codes` and `_labels` in the one shape, upserts the seed rows (`ON CONFLICT DO NOTHING`, idempotent on four environments), adds the FK from each storing column. One call per list; the shape gate then has nothing to argue about. `retire_code(op, schema, name, code)` flips `is_active` and logs the row count that carries it. |
 | `code_label(list_name, code, language=None)` | The one label function. `language` defaults to the language part of `current_locale` (`nl_BE` → `nl`); falls back to `nl`; as a last resort returns the code itself and logs once per (list, code). Accepts an `Enum` member or a string. |
 | `code_labels(list_name, language=None)` | The ordered `(code, label)` pairs of the **active** codes, by `sort_order` — for select lists and report dimensions. |
 | `reset_label_cache()` | Clears the process cache; used by tests and by the future screen. |
 | Jinja filter `code_label` | Registered next to `install_jinja_i18n`: `{{ record.status \| code_label("payment_status") }}`. The *only* way a template turns a code into text. |
 | `TechnicalEnum`, `ExternalVocabulary` | Two marker base classes for an `Enum` that is deliberately **not** a code list: a technical distinction never stored or shown (the reporting engine's `Operator`, `Direction`, …), or an external party's vocabulary (Mollie's statuses, B4.10). The reason goes in the docstring; the gate below counts them. Any other `Enum` under `app/` must be in a `CodeList`. |
-| `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. |
+| `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. Both filters are registered by `install_jinja_codes(env)`, next to `install_jinja_i18n`. |
+| `install_enum_guard(env, *, strict)` | Hooks Jinja's `finalize` so no enum member ever reaches rendered output: strict → raises `EnumRendered` (dev, test, HDEV); non-strict → renders the member's code and logs once (UAT, PROD). Keeps the counter `rendered_under_the_guard` for the gate that proves it ran (B9.3, gate 12). Added after phase 3. |
 
 The ratchet baselines live in `backend/tests/codes_baseline.py` as frozen
 Python sets, one per gate, each entry a `schema.table.column`, a `file:line`
 or a `file:name` — the same form as the #780 baseline, so the two gates read
-alike. An entry may only be removed.
+alike. An entry may only be removed. The gates themselves are
+`backend/tests/test_codes_gate.py`; the functional tests of B8 sit in a
+separate file per phase (phase 0's exists in PR #1186). The document names
+the files, which stay; not the set and function names inside them, which
+were still being brought under the English rule at the time of writing.
 
 ### B4.10 What is not a code list (Koen, 25 September 2026)
 
@@ -717,28 +750,96 @@ stores; nothing reads them.
 
 | List | Schema.table | Codes → nl / en | Enum | FK from | Removes |
 |---|---|---|---|---|---|
-| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` and `O` **retired (note 2)** | — | `mdm.persons.gender_code` (exists) | — |
-| contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | `ContactType` (code branches on `EMAIL`/`MOBILE`, note 3) | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons |
+| gender | `mdm.gender_codes` (split) | `M` → Man / Male · `F` → Vrouw / Female · `X` → X / X · `U` **retired (note 2)** | — | `mdm.persons.gender_code` (exists) | — |
+| contact type | `mdm.contact_type_codes` (split; `is_social_network` stays on the code table) | `EMAIL` → E-mail / E-mail · `MOBILE` → Mobiel / Mobile · `PHONE` → Telefoon / Phone · `WEBSITE` → Website / Website · `FACEBOOK` → Facebook / Facebook · `INSTAGRAM` → Instagram / Instagram · `TIKTOK` → TikTok / TikTok | **none** (note 3) — the list is data-driven since #1160: a fifth social network is a row, not code | `mdm.contact_details.contact_type_code` (exists) | 10 literal comparisons → two named `Code` constants on the `CodeList` (`CONTACT_TYPE.EMAIL`, `.MOBILE`) and the `is_social_network` property |
 | relation type | `mdm.relation_type_codes` (split) | `HOOFDLID` → Hoofdlid / Primary member · `PARTNER` → Partner / Partner · `KIND` → (meerderjarig) kind / Adult child | `RelationType` | `mdm.member_persons.relation_type` (exists) | `ui/__init__.py:_RELATIE_LABELS`, 2 template comparisons |
 | legal form | `mdm.legal_form_codes` (split) | `VZW` → vzw / Non-profit association · `FEITELIJKE_VERENIGING` → Feitelijke vereniging / Unincorporated association · `BEDRIJF` → Bedrijf / Company | `LegalForm` (from `str, Enum` to plain) | `mdm.organizations.legal_form` (**new**) | — |
 | organisation type | `mdm.organization_type_codes` | `ACCOUNT` → Rechtspersoon / Legal entity · `UNIT` → Afdeling / Unit · `PLATFORM` → Platform / Platform | `OrganizationType` | `mdm.organizations.org_type` (**new**) | `ui/organisaties_ui.py:SOORT_LABELS`, 2 template comparisons |
 | organisation relation type | `mdm.organization_relation_types` + `_labels` (already the shape) | `BOARD_MEETING` → Bestuursvergadering / Board meeting | — | exists | registers in the `CodeList` registry only |
 | identification scheme | `mdm.identification_schemes` + `_labels` (already the shape) | `KBO` → Ondernemingsnummer / Enterprise number · `VAT` → Btw-nummer / VAT number | — | exists | `en` rows added |
-| role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py`; the `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004/017 wrongly seeded into `role_codes` are dropped (they are relation types) |
+| role | `auth.role_codes` + `auth.role_labels` (moved from `public`) | `ADMIN` → Beheerder / Administrator · `FINANCE` → Penningmeester / Treasurer · `OPERATOR` → Platformbeheerder / Platform operator · `ACCOUNT_ADMIN` → Accountbeheerder / Account administrator · `MEMBER`, `USER` **(retired, note 4)** | `Role` (in `auth`, via `auth.api`) | `auth.user_roles.role_code` (**new**), `workflow.workflow_tasks.required_role` (**new**) | the `notin_(["USER", "MEMBER"])` filter in `auth/users.py` |
 
-Note 2 — gender: migration 001 seeded `O` (nl only), 004 added `X` (en only)
-and `U`. Koen (26 September 2026): the list is `M`, `F`, `X` — nothing else.
-`U` and `O` are retired (`is_active = false`, labels kept so an existing row
-still renders); the migration logs how many persons carry each retired code.
+Note 2 — gender: Koen (26 September 2026): the list is `M`, `F`, `X` —
+nothing else. Only `U` is retired (`is_active = false`, label kept so an
+existing row still renders; the migration logs how many persons carry it).
+`O` does not exist: migration 004 *renamed* `O` to `X` rather than adding
+`X` — measured on a freshly migrated database by the master CLI (phase 2);
+the first version of this note read the two migrations wrongly.
 
-Note 3 — `CLAUDE.md` says `contact_type_code = "mobile"`; the stored codes
-are upper case (`MOBILE`). The code compares against both spellings today
-(13× `"mobile"`, 9× `"MOBILE"`). The enum ends that: one spelling, the
-stored one. `CLAUDE.md` is corrected in the same phase.
+Note 3 — contact type gets **no enum** (decided by the author on 26
+September 2026 on the master CLI's recommendation after phase 2, confirmed
+by Koen the same day — Q22). The tension: B4.3 asks for an enum where Python branches, and it
+branches on `EMAIL` and `MOBILE` — but #1160 made the public footer
+data-driven on purpose (a fifth social network is a row, no deploy), and a
+strict enum column would refuse that row and silently undo #1160. Dev1's
+first answer was `EnumColumn(..., partial=True)`: the enum covers what the
+code branches on, the table may carry more, an unknown code reads back as
+the code itself. Rejected for the pattern: that makes the column's type a
+union of member and `str` — exactly the value the type checker knows nothing
+about (B4.8), the door through which `== "FACEBOOK"` walks back in, and a
+precedent for 49 lists. Instead: the code branches on a **property of the
+code** where it is one (`is_social_network`, already on the code table —
+#1160's own shape), and on two **named `Code` constants** exposed by the
+`CodeList` (`CONTACT_TYPE.EMAIL`, `CONTACT_TYPE.MOBILE`). Two things to be precise
+about, measured by the master CLI in the gate as built: the AST gate
+(`collect_loose_strings`) fires only when the other side of a comparison is
+a string *literal* (`ast.Constant`, or the elements of a tuple/list/set); an
+attribute such as `CONTACT_TYPE.EMAIL` — like an enum member — is not a
+constant to it, so **no new mechanism is needed** for the gate to accept the
+constants. The `Code` `NewType` over `str` therefore buys *type safety*
+(mypy sees a `Code` compared with a `Code`), not gate compliance. And the
+gate cannot tell a `CodeList` constant from any other named constant
+(`SOMEWHERE.EMAIL` looks the same); a check that the constant comes from the
+registry would be new, and is not built — that shape has not occurred in the
+codebase, and a gate that guards what does not happen is maintenance without
+yield. Same rule for every open-ended list the code touches in one or two
+places. `partial=True` is
+removed from `EnumColumn`; B4.9's invariant — a read never yields a bare
+string — stands.
+
+**Why this protects #1160 rather than threatening it** — the question Koen
+asked when he read this note ("geeft dat geen probleem met #1160?"). The
+footer of #1160 touches no enum: it asks the database which types carry
+`is_social_network` and renders the rows. The danger was on the *write*
+side: a strict enum column refuses a code without a member, so adding a
+fifth network as a row would no longer store, and #1160 would be undone
+silently. Without an enum the column stays a string with a FK: the FK
+guarantees the code is in the list, the list stays extensible by one row,
+and what the enum would have bought — no loose strings at the two branches
+on `EMAIL` and `MOBILE` — comes from the named constants. Two readers, two
+reasons: a reader of #1160 needs this one; a reader of B4.8 needs the
+union-type one above.
+
+**And the split has a second, stronger reason than "the #924 shape"** —
+measured on HDEV by the master CLI. Today `mdm.contact_type_codes` has the
+composite key `(code, language)` and `is_social_network` sits on that same
+row: the flag is *per language*. It works because there is exactly one
+language row per code (seven codes, all `nl`). #1160's footer builds a dict
+keyed on `code`; the moment an `en` row arrives, two rows collide on one key
+and which `value` and which flag wins is undefined — #929's defect, on this
+table. After the split the flag lives on the code table (one row per code)
+and the labels on the label table (one per code per language), which is the
+only shape in which "a fifth network is one row" stays true in two
+languages. **The phase-2 migration must therefore move `is_social_network`
+from the `(code, language)` row to the code row, and check — not assume —
+that no two language rows of one code carry contradicting flags**: log the
+count, abort on a contradiction, the same guard shape as B4.6. Not the case
+today (one language); checked anyway. For precision: `value` is the shown
+word (the footer uses it as `aria-label`; what is visible is the icon, which
+hangs on the code), and `description` is nullable.
+
+On the spellings: the stored code has always been `MOBILE`; the lower-case
+`"mobile"` (13×) is a form-field name and a view-model attribute, not a
+stored value — two different things, no inconsistency. `CLAUDE.md`'s
+sentence "`contact_type_code = "mobile"`" is still imprecise about the stored
+value and is corrected in the same phase.
 
 Note 4 — `MEMBER` and `USER` exist since migration 001 and are excluded from
 every screen (`auth/users.py:216`); no user carries them. Retired, not
-deleted.
+deleted. The `HOOFDLID`/`PARTNER`/`KIND` rows that migrations 004 and 017
+seeded into `role_codes` are **not** there any more: migration 017 (line 70)
+already removes them. The first version of this note said they had to be
+dropped; measured on a fresh database in phase 2, there is nothing to drop.
 
 #### Phase 3 — the constants domains
 
@@ -770,33 +871,71 @@ deleted.
 |---|---|---|---|---|---|
 | task status | `workflow.task_status_codes` | `open` → Open / Open · `done` → Afgehandeld / Done | `TaskStatus` | `workflow.workflow_tasks.status` | 9 literal comparisons, 8 template comparisons |
 | run status | `workflow.run_status_codes` | `running` → Bezig / Running · `done` → Afgerond / Done · `failed` → Mislukt / Failed | `RunStatus` | `workflow.workflow_instances.status` | — |
-| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS` (the category is the part before the dot — a derived attribute, not a second list) |
+| task kind | `workflow.task_kind_codes` | `payment.webhook_mismatch` → Betaling: webhook wijkt af / Payment: webhook mismatch · `payment.refund_bevestigen` → Betaling: terugbetaling bevestigen / Payment: confirm refund · `mail.definitief_gefaald` → E-mail: definitief mislukt / E-mail: permanently failed · `kernel.job_gefaald` → Achtergrondtaak mislukt / Background job failed · `bericht.behartigen` → Bericht van {afzender} behartigen / Handle a message from {sender} **(from the definition seeded by migration 082, not from a Python tuple — found in phase 4)** | `TaskKind` | `workflow.workflow_tasks.kind` | `workflow/ui.py:KIND_LABELS`, `CAT_LABELS`. The **category** (`payment`, `mail`, `kernel` — the part before the dot) is not a second *stored* list, but it is a list with labels: it becomes a **derived list** (note 5) — `workflow.task_category_codes` + labels, no storing column — so that Betalingen / E-mail / Systeem keep coming from `code_label()`; dropping `CAT_LABELS` without that replacement would put the raw `payment` as a group heading on an admin screen, which #630 forbids and `test_geen_rauwe_codes_op_het_scherm.py` already guards. Decided as interpretation by the master CLI (26 Sep); Koen informed. Its completeness needs a test, not a FK — note 5. |
+| task category (**derived**, note 5) | `workflow.task_category_codes` | `payment` → Betalingen / Payments · `mail` → E-mail / E-mail · `kernel` → Systeem / System · `bericht` → Berichten / Messages (phase 4) | — (no enum: nothing branches on it) | none — derived from the part of the task kind before the dot | `workflow/ui.py:CAT_LABELS` |
 | form status | `form.form_status_codes` | `draft` → Concept / Draft · `open` → Open / Open · `closed` → Gesloten / Closed | `FormStatus` | `form.forms.status` | `FORM_STATUSES`, `STATUS_TONES` → tone mapping, 3 template comparisons |
-| field type | `form.field_type_codes` | `text` → Tekst / Text · `textarea` → Tekstvak / Text area · `number` → Getal / Number · `email` → E-mail / E-mail · `select` → Keuzelijst / Dropdown · `radio` → Keuzerondjes / Radio buttons · `checkbox` → Selectievakje / Checkbox · `rating` → Beoordeling / Rating · `info` → Infotekst / Info text · `phone` → Telefoon / Phone | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES` |
-| mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
+| field type | `form.field_type_codes` | **the words the builder shows today** (`forms/admin_ui.py:77`, through `_()` — corrected in phase 4; the first version of this row had other words): `text` → Korte tekst / Short text · `textarea` → Lange tekst / Long text · `number` → Getal / Number · `email` → E-mailadres / E-mail address · `select` → Keuzelijst / Dropdown · `radio` → Eén keuze / Single choice · `checkbox` → Meerdere keuzes / Multiple choice · `rating` → Score / Score · `info` → Infotekst / Info text (not in the builder's dict today) · `phone` → Telefoonnummer / Phone number | `FieldType` | `form.form_fields.field_type` (replaces the CHECK of migration 062) | `FIELD_TYPES`, `veldtype_labels` |
+| mail status | `mail.mail_status_codes` | `sent` → Verstuurd / Sent · `failed` → Mislukt / Failed · `skipped` → Overgeslagen / Skipped · `logged` → Gelogd, niet verstuurd / Logged, not sent **(allowed by the CHECK of migration 087 for the demo tenant, never in a Python tuple — so the status filter never offered it; found in phase 4)** | `MailStatus` | `mail.email_log.status` | `mail/ui.py:_STATUS_LABELS` |
 | e-mail type | `mail.email_type_codes` | `membership_confirmation` → Lidmaatschap / Membership · `activity_confirmation` → Activiteit / Activity · `idea_ack` → Idee (bevestiging) / Idea (acknowledgement) · `idea_board` → Idee (bestuur) / Idea (board) · `magic_link` → Inloglink / Login link · `member_contact_notice` → Contactbericht / Contact notice · `form_confirmation` → Formulier (bevestiging) / Form (confirmation) · `meeting` → Vergadering / Meeting · `newsletter_confirmation` → Nieuwsbrief (bevestiging) / Newsletter (confirmation) · `other` → Overig / Other | `EmailType` | `mail.email_log.email_type` | `EMAIL_TYPES`, `mail/ui.py:_TYPE_LABELS` |
 | asset kind | `media.asset_kind_codes` | `sponsor` → Sponsor / Sponsor · `activity_photo` → Activiteitsfoto / Activity photo · `activity_poster` → Affiche / Poster · `component_info` → Onderdeel-info / Component info · `newsletter_file` → Nieuwsbriefbestand / Newsletter file · `design_image` → Ontwerpbeeld / Design image · `design_render` → Ontwerprender / Design render · `page_image` → Pagina-afbeelding / Page image **(added by #1173 in v2.6.0; lands on master before phase 4 — verify the exact code at build)** | `AssetKind` | `media.media_assets.kind` | `STANDAARD_KIND`, `DESIGN_*_KIND`, 9 literal comparisons |
 | AI surface | `ai.ai_surface_codes` | `public` → Publiek / Public · `admin` → Beheer / Admin · `designstudio` → Ontwerpstudio / Design studio | `AiSurface` | `ai.ai_call_log.surface` | `SURFACE_*`, `SURFACE_LABELS` |
 | AI capability | `ai.ai_capability_codes` | `reporting` → Rapporten / Reports · `newsletter_drafting` → Nieuwsbrief / Newsletter · `ocr` → Documenten lezen / Document reading · `dictation` → Dicteren / Dictation · `translate` → Vertalen / Translation · `image` → Beeld / Image | `AiCapability` | `ai.ai_call_log.capability` | `CAPABILITY` constants, `CAPABILITY_LABELS` |
 | AI status | `ai.ai_status_codes` | `ok` → Gelukt / Succeeded · `blocked` → Tegengehouden / Blocked · `error` → Mislukt / Failed · `moderated` → Geweigerd door de provider / Refused by the provider | `AiStatus` | `ai.ai_call_log.status` | `STATUS_LABELS` |
-| AI provider | `ai.ai_provider_codes` | the providers in use at build time (`mistral`, `bfl`, …) → their names | `AiProvider` | `ai.ai_call_log.provider` | `PROVIDER` constants |
+| AI provider | `ai.ai_provider_codes` | the providers in use at build time (`mistral`, `bfl`, `mock`, …) → their names; `mock` is a code like the others (phase 4) | `AiProvider` | `ai.ai_call_log.provider` | `PROVIDER` constants |
 | registration type | `activities.registration_type_codes` (moved from `public`) | `INDIVIDUAL` → Individueel / Individual · `FAMILY` → Gezin / Family | — (default only; no branch) | `activities.registrations.registration_type`, `activities.activity_sub_registrations.registration_type_code` (both **new**, §8 no longer blocks: same schema) | the router-side validation comment |
 | registration state | `activities.registration_state_codes` (**derived**, note 5) | `open` → Open / Open · `closed` → Afgesloten / Closed · `past` → Voorbij / Past · `cancelled` → Geannuleerd / Cancelled | `RegistrationState` (from `str, Enum` to plain) | none | `activities/service.py:STATUS_LABELS` |
-| export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset | `ExportKind` | `reporting.export_log.kind` | — |
+| export kind | `reporting.export_kind_codes` | `report` → Rapport / Report · `dataset` → Dataset / Dataset · `ad-hoc` → Ad hoc / Ad hoc **(written by `reporting/admin_ui.py:701`, not in any tuple — found in phase 4)** | `ExportKind` | `reporting.export_log.kind` | — |
 | history operation | `public.kernel_operation_codes` (kernel, next to `kernel_jobs`; no FK, B4.10) | `insert` → Toegevoegd / Added · `update` → Gewijzigd / Changed · `delete` → Verwijderd / Deleted | `Operation` | none (history exemption) | `audit/changes.py:_OPERATION_LABELS` |
 
-Note 5 — a **derived** state (computed, never stored) is still a list with
+Note 5 — a **derived** list (computed, never stored) is still a list with
 labels: it gets a code+label table with no storing column, so its label
-comes from `code_label()` like every other. The enum is the only consumer.
+comes from `code_label()` like every other. **Its completeness does not
+follow from the schema — it follows from a test, and here is why.** For a
+stored list the FK covers completeness: a value that is not in the code
+table never enters the database. A derived list has no storing column, so
+no FK, and none of the twelve gates catches a missing row: the label gate
+checks that every code *in the table* has a label, not that every derived
+value has a code — the opposite direction. Add a task kind
+`crm.something_new` and the category `crm` has no row; `code_label()` falls
+back to the code, logs once, and a raw word stands on the screen with
+everything green — the same silent failure as gate 12, by another road.
+Two kinds of derived list, therefore:
 
-**Count:** 49 lists (phase 0: 1 + the pilot, which the phase-3 table also
+- **with an enum** (the registration state): the enum is the only source of
+  values, and the *Enum = codes* gate already covers it — dev1 verifies
+  rather than duplicates;
+- **without an enum** (the task category — the only one in this CR): a test
+  per list that enumerates the *source* of the derived values (here: the
+  text before the dot of every task kind) and demands a row for each. Red
+  with the missing code in the message.
+
+That test is part of the phase that creates the derived list.
+
+Note 6 — **remaining offenders after phase 4, judged** (master CLI's
+question, 27 September; 7 label dictionaries and 26 template comparisons
+belong to vocabularies no phase names). Where they are built is Koen's;
+what they are is this:
+
+| Item | Judgment | Why |
+|---|---|---|
+| `cms/render.py:PLACEHOLDER_LABELS` | **technical — exemption** | the placeholders a CMS text can contain (`membership_price_full`, …) are the renderer's syntax; the caption ("Lidgeld volledig (bv. 35,00)") is help text with an example, a sentence — `_()`, not a code label |
+| `reporting/engine.py:SYMBOLIC_LABELS` | **technical — exemption** | `vandaag`, `dit_jaar`, `ik` are engine tokens, like the five reporting enums already marked `TechnicalEnum`. The exemption *assumes* their words go through `_()` — today they do not: `engine.py:105-109` are Dutch literals and `exports.py:103` uses them directly, as do the operator and connector words of an export's filter header (`exports.py:87-91`). Issue **#1216** makes the assumption true, outside CR-12 and unassigned (master CLI, 27 Sep). |
+| `ui/organisaties_ui.py:SOORT_LABELS` and `org_type` in two templates | **code list — organisation type, phase 2** | already in the catalogue; a leftover of #1179, closes wherever Koen puts it |
+| the form builder's card comparisons on `field_type` | **gate-8 offenders on a listed code list** | field type is phase 4; the comparisons become view-model booleans |
+| Raakje's drafting modes (`letter`, `insert`, `replace`, `newsletter/drafting.py`) | **technical — exemption** (located by the master CLI, 27 Sep) | `drafting_messages` has no mode column (id, newsletter_id, role, text, proposal JSON, created_at); the mode is a parameter of `ask()` and a form field (`purpose`/`placement`), at most inside the `proposal` JSON where no FK can reach; words via `_()` |
+| the meeting item kind (`item.kind == "member"`, `meetings/service.py:1088`) | **derived attribute — a gate-8 case, no list** (located by the master CLI, 27 Sep) | `meeting_items` has no `kind` column; `kind="member"` is set at `service.py:1003` on the object the service builds, derived from `member_id`; the comparison becomes a view-model boolean (`is_member`), like the field-type card comparisons |
+| the AI lists (surface, capability, status, provider) | code lists, phase 4 — **unblocked**: Koen answered the data question on 27 September (*"ja, bouwen en laat UAT en PROD tellen"*) | in `ai.ai_call_log` an empty `capability` becomes the code `chat`, an empty `provider` becomes NULL; new rows get the provider from the service (all six writers pass one); `mock` is an ordinary provider code. Counted read-only beforehand: PROD 2 empty capabilities (the public chat), HDEV 2, UAT 0; no empty or NULL provider, no `mock`, no unknown value anywhere. Built in migration 163 (commit 7032c3b3); recorded on #1181 under "Na de merge — Data", replacing that issue's "Data: geen" |
+
+**Count:** 50 lists (phase 0: 1 + the pilot, which the phase-3 table also
 shows; phase 1: 5; phase 2: 8; phase 3: 19 including the pilot; phase 4:
-16). Corrected on 26 September after the master CLI recounted: the phase-4
+17 — the workflow task category joined on 26 September as a derived list,
+note 5). Corrected on 26 September after the master CLI recounted: the phase-4
 table has sixteen rows, not fourteen, and the pilot was counted twice. The
 "~35" of B9.2 was the inventory by column; the catalogue is by list and
 includes the derived and the already-shaped ones. **The gate's own count is
-the number that binds** (B9.2), and its first run is checked against this
-49 — a difference is a finding, not a discussion.
+the number that binds** (B9.2), and its first run is checked against the
+target in B9.2 — a difference is a finding, not a discussion. The target is
+written in B9.2 only; the gate measures and does not carry it.
 
 ## B6. Privacy and security — the mechanics
 
@@ -807,7 +946,50 @@ test asserts the set of role codes is unchanged before and after.
 
 ## B7. Phasing
 
-Each phase is a release-sized issue, shippable and revertible on its own.
+Each phase is a release-sized issue, **shippable on its own**. It is *not*
+revertible by image rollback, and the first version of this sentence said
+it was. Measured in phase 2 (PR #1189, migration 154): the migration renames
+`mdm.organization_relation_types` and `mdm.identification_schemes` to the
+`_codes` shape and drops `public.role_codes`; `master`'s models need those
+three names (`mdm/models.py:107,129,142,382,412,425`, `auth/models.py:90`).
+`deploy.sh`'s rollback restores the *image*, not the database — the old
+image would start against a schema in which those tables no longer exist
+under their names. That is the normal price of a rename, not a build fault;
+`downgrade()` refuses on purpose (going back would restore the
+one-language shape #929 calls wrong). **The recovery path is forward, or a
+database restore** — decided by Koen on 26 September 2026 (*"enkel via
+backup-restore kunnen terugdraaien is prima"*): the DB backup before a
+UAT/PROD deploy of any CR-12 phase is the one real net, and its dump is
+verified for validity *before* the deploy, not after. Migration 154 stays a
+rename; phase 2 is not reworked. **Corrected on 27 September (#1203):
+recovery is a DB restore for every phase that carries a migration, not
+only the rename.** The earlier sentence here said phase 3 was
+image-rollback-safe because its migrations are additive. That holds for the
+*schema* and not for *recovery*: after a release with any migration, no old
+image starts at all — `startup.sh` runs `alembic upgrade head`, and alembic
+stops with *"Can't locate revision"* because the old image does not know
+the revision the database is at. Rebuilt and measured by the master CLI on
+#1203. So today the rename/additive distinction changes nothing about how a
+deploy is undone: Koen's decision stands without the nuance that some
+phases could go back by image. What the additive shape does keep is the
+**door to an image rollback once #1203 is solved** (say, a startup mode that
+does not migrate): an old app can run on an additively extended schema and
+cannot on a renamed one. Additive keeps that door open; a rename closes it.
+
+**Rejected, with its reason:** expand/contract — new tables beside the old
+for one release, the old dropped the release after. It would have made every
+phase two releases, **nine releases instead of one** for five phases, and
+would have reworked phase 2 retroactively. That price, against a net that
+already exists, is why it was not chosen.
+
+**One release, one tag, one restore point — decided.** Koen (26 September
+2026): all phases ship in v2.7.0 as one tag; a restore takes all five
+migrations back together, and he accepts that after a restore nobody can say
+which phase caused the problem. Several tags was proposed and rejected.
+What the document asks in return: the dump before the PROD deploy is
+verified for validity before the deploy, and the deploy verification (the
+six lines of `CLAUDE.md`) names every `Running upgrade` line of the
+release.
 
 | Phase | Delivers | Depends on |
 |---|---|---|
@@ -842,7 +1024,7 @@ handoff block CI cannot carry:
 | 2 | CR-12 fase 2 — `mdm`-lijsten gesplitst, `legal_form` en `org_type` met FK, rollen naar `auth` | one: splits, moves, new FKs, drop `public.role_codes` | none | gender `U`/`O` retired, count of persons per retired code in the log; `MEMBER`/`USER` retired; wrong role rows dropped | log in as each of the four roles on HDEV; `docs/rollen-en-rechten.md` unchanged |
 | 3 | CR-12 fase 3 — nieuwsbrief, vergaderingen, ontwerpstudio: constanten worden codetabellen | one per domain (three) | none | none | one newsletter send, one meeting agenda→report, one design render on HDEV |
 | 4 | CR-12 fase 4 — workflow, formulieren, mail, media, chatbot, activiteiten, rapporten | one per domain | none | none | the workflow inbox, a form submission, the AI log screen |
-| 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none | CI only |
+| 5 | CR-12 fase 5 — ratchets dicht, mypy strikt per domein | none | none | none; the ratchet sets are deleted, the two exemption dicts stay (B9.3); the per-function annotations that make `strict_equality` bite are work of this phase (B4.8) | CI only |
 
 Every phase's issue closes with the B9.2 table re-measured, so the ratchet
 lists shrink visibly.
@@ -870,6 +1052,13 @@ docstring.
 6. **Templates render text.** Every template that shows a code renders the
    label, never `PaymentStatus.PAID` or a bare code — rendered through the
    real view-model, the `StrictUndefined` environment.
+6b. **Attributes carry the code** (added after phase 3). Test 6 is about the
+   visible *text*; this is about the *value*: a rendered fragment that puts a
+   code in an attribute (`value=`, `data-*`) holds `confirmed`, never
+   `SubscriberStatus.CONFIRMED`. The render-side twin of test 3 — one proves
+   the row reads back raw as the code, the other that the page writes out
+   the code. Proven by violation: hand a template the member instead of its
+   value and see it fail with template and field.
 7. **Values before/after.** For every migrated column, count per value before
    and after the migration is identical (with B4.6 as the one declared
    exception) — over the **whole table**, soft-deleted rows included; a FK
@@ -883,6 +1072,28 @@ docstring.
    identical across phase 2.
 10. The gates of B9.3, each proven by one violation — for the enum gate: an
     unmarked `Enum` added to a domain module, red with its `module:Name`.
+
+**The violation must be additive** (learned in phase 0, PR #1186). Proving
+the "English member names" gate by *renaming* a member broke the import of
+`service.py`, the test never ran, and the run came back green — a fourth
+form of a test that proves nothing, next to the three `CLAUDE.md` lists: *it
+does not run*. Adding a wrongly named member made the gate fire. So: prove a
+gate by adding an offender, never by breaking something that exists, and
+check that the test *ran* (its own assertion in the output), not only that
+the suite was red.
+
+**A conversion that touches render paths gets a snapshot of the old output
+first** (learned in phase 4, #1181). The characterisation tests of the form
+screens — which Koen required before the rebuild — found two regressions
+inside the CR-12 stack that no gate and no review had seen: the phase-4
+print view rendered choices, the rating scale and info blocks as an empty
+line; the phase-2 organisation screens carried `org_type` as an enum member
+in plain dicts, so the badge was wrong, the type filter left nothing and a
+link was gone. Gate 12 catches a member *in* the output; it cannot catch a
+*missing or empty* rendering. So, for every phase that converts a stored
+string to an enum on a screen: render the screens on the old code, keep
+the output as a snapshot, and assert the new code renders the same —
+before the conversion, as a test that can go red, not as a review.
 
 ## B9. Rule and gatekeeper
 
@@ -908,27 +1119,58 @@ the branch on 25 September 2026 with `grep`, as a first picture. **The
 baseline that the ratchets freeze in phase 0 is the count as
 `test_codes_gate.py` computes it**, not the numbers below — the gate's
 count is reproducible, the grep is not (the "43, rough count" row is the
-honest name for that). From phase 0 on, the table below is the gate's
-output, re-printed per release:
+honest name for that). **Phase 0 has run the gate** (PR #1186, 26
+September): on three of the four counted rows it measures *higher* than the
+grep — the grep found half of the template comparisons. That is the
+confirmation, not a deviation: the gate column is the baseline the ratchets
+froze; the grep column stays as the first picture. From here on the gate's
+output is re-printed per release:
 
-| | 25 Sep 2026 | after this CR |
-|---|---|---|
-| lists with a fixed vocabulary | 49 (B5.3) | 49, all in the same shape |
-| … kept as code table + FK, split codes/labels (#924 shape) | 2 | all |
-| … kept as code table + FK, one language per code | 4 | 0 |
-| … kept as orphan table in `public`, no FK | 3 | 0 |
-| … kept as module constants | 14 (newsletter 6, meetings 3, designstudio 5) | 0 |
-| … kept as a bare string + comment | ~12 | 0 |
-| vocabulary columns without a FK to a code table | 43, rough count (excl. history and audit) | 0 |
-| code tables that can carry two languages | 2 | all |
-| domain enums | 2 (`str, Enum`) | one per branching list, plain `Enum` |
-| enums outside a `CodeList` (marked technical/external) | 6 unmarked (reporting 5, Mollie map 0 — a dict today) | every one marked with its reason; the count is reported, not capped |
-| label dictionaries in Python | 40 | 0 |
-| templates comparing a code to a literal | 25 | 0 |
-| loose-string comparisons on vocabulary columns (`.py`) | 92 (payment 37) | 0 |
-| domains under mypy `strict_equality` (bonus, B4.8) | 0 | all migrated |
-| enum-carrying columns written as `Mapped[]` | 0 of 688 columns | every column in a `CodeList` |
-| languages seeded | `nl` 34 rows, `en` 17 rows | `nl` and `en` for every active code |
+**The rows below are the gate's rows**, in the order `ratchet_table()`
+prints them — the document mirrors the code, not the other way round. The
+grep column is the first picture of 25 September; the gate column is the
+baseline the ratchets froze.
+
+| Gate row | grep, 25 Sep 2026 | **gate, phase 0** | **gate, phase 1** | after this CR |
+|---|---|---|---|---|
+| lists in the pattern (`CodeList`, derived ones included) — **target 50** (49 until the task category joined, 26 Sep). The gate does not know the target; it only measures `len(registry())`. The target lives here and nowhere else — twice in one day it had to change in B5.3, here *and* in a string in the gate, which is the signal to remove one place | 2 in the #924 shape | 2 | 7 | 49 |
+| … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, plain `Enum` |
+| enum-carrying columns as `Mapped[]` | 0 of 688 | 1 | 7 | every column in a `CodeList` |
+| vocabulary columns without a FK (ratchet) | 43, rough count | 51 | 45 | 0 |
+| enums without a `CodeList` (ratchet) | 6 | 3 | 3 | 0 |
+| enums marked technical/external (counted, not capped) | 0 | 5 | 6 | reported |
+| label dictionaries in Python (ratchet) | 40 | 33 | 28 | 0 |
+| template comparisons on a code (ratchet) | 25 | 52 — the grep found half | 46 | 0 |
+| loose-string comparisons in `.py` (ratchet) | 92 (payment 37) | 125 | 91 | 0 |
+| permanent exceptions — not our vocabulary (counted, not capped): one combined row, `FK_NOT_OUR_LIST` + `LOOSE_STRINGS_NOT_A_CODE` + `TEMPLATE_COMPARISONS_NOT_A_CODE` (the third since phase 4) | — | 3 | 3 | reported |
+| label rows in `nl` / `en` | 34 / 17 (old tables) | 5 / 5 | 17 / 17 | `nl` and `en` for every active code |
+| values rendered under the enum guard (counted, not capped — a coverage measure, gate 12; from phase 4) | — | — | — (the 3 phase-3 cases were found by hand and fixed before the guard existed) | above zero on every run; the count says how much of the suite the guard saw |
+
+Gate figures as printed in the closing comment of #1178 (phase 1). Two
+things to know when reading them:
+
+- **The gate column counts *after* subtracting the permanent exceptions**,
+  and the phase-0 column is recomputed on that definition. The CI evidence
+  of phase 0 on #1184 says 52 columns without FK and 127 loose strings;
+  the table says 51 and 125 for the same phase. Both are right: phase 1
+  introduced the exceptions (Mollie's gateway status; an HTTP method and a
+  MIME type), and a column can only be compared across phases when every
+  row carries the same definition. AC5 ("each count lower than or equal to
+  the previous release") is read on this recomputed series — a difference
+  between two sources that stems from a definition change is not a count
+  going up.
+- **Lists and columns are not interchangeable.** Payment delivers five
+  lists but six columns: `payment_method` is stored in two places
+  (`payment_records.method`, `registrations.payment_method`). With the
+  pilot that makes seven `Mapped[]` columns against seven lists by
+  coincidence, not by rule — which is why these figures are measured, never
+  derived.
+
+First picture only (not gate rows): of the 49 lists, on 25 September 4 were
+code tables with one language per code, 3 were orphan tables in `public`,
+14 were module constants (newsletter 6, meetings 3, designstudio 5) and ~12
+were a bare string with a comment. Those shapes disappear per phase; the
+gate counts the result, not the shape.
 
 ### B9.3 The gate
 
@@ -952,6 +1194,7 @@ What each gate looks at:
 | Tone total | every enum with a tone mapping: every member has a tone | "`PaymentStatus.FAILED` has no badge tone" |
 | No label dicts | `grep` for `LABELS = {` and `_LABEL = {` in `app/` | "`newsletter/admin_ui.py:50` defines labels in Python — use `code_label()`" |
 | No template comparisons | `== "…"` / `!= "…"` on a vocabulary attribute in `templates/` | "`admin_betalingen.html:42` compares `record.status` to a literal — expose it on the view-model" |
+| Rendered attributes carry the code, never the member (**added after phase 3; built as a guard, not a gate**) | a **guard in the kernel**, `install_enum_guard(env, strict=...)`, hooked on Jinja's `finalize` — which runs for *every* `{{ … }}` in every template, so every render test in the suite is a detector and coverage is not a question (a gate that renders a handful of screens would have sampled). Filters run first, so `{{ x \| code_label(…) }}` hands the guard a string and passes. In dev/test/HDEV (`strict`, the `StrictUndefined` policy of `app/ui/__init__.py`) an enum member reaching output raises `EnumRendered` → red test; on UAT/PROD it renders the **code** and logs once. Plus a **gate that proves the guard ran**: the counter `rendered_under_the_guard` must be above zero, so "the guard found nothing" is distinguishable from "the guard ran nowhere" (#678's rule, applied to a guard instead of a file walk). `test_enum_render_gate.py` proves it by violation. | "`EnumRendered`: `Audience.MEMBERS` reached the output of `admin_nieuwsbrief.html` — pass the code, not the member" |
 | Loose-string comparisons | an AST walk over `app/**/*.py`: `==`/`!=`/`in` between a vocabulary attribute and a string literal; ratchet on the 92 (B4.8 — mypy cannot see this with legacy `Column()` models) | "`payment/service.py:212` compares `record.status` to `\"paid\"` — use `PaymentStatus.PAID`" |
 | Enum member names | every member of a `CodeList` enum has an English name (the #780 word list), whatever its value | "`RelationType.HOOFDLID`: member names are English — `PRIMARY_MEMBER = \"HOOFDLID\"`" |
 | Shape | every `_codes`/`_labels` pair has exactly the B4.2 columns and keys — the helper wrote it, the gate proves nobody edited it | "`form.field_type_labels` lacks `description`" |
@@ -966,16 +1209,100 @@ without a `CodeList` trips the enum gate, a new **`CodeList`** without
 labels trips the label gate. Whichever of the six a developer starts with,
 the other five are demanded. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
 
+**The gap phase 3 exposed** (26 September 2026). None of the first eleven
+gates sees an enum member that is *rendered*: the template gate looks for a
+comparison with a literal, the loose-string gate for a comparison in Python
+— a member written into a `value=` attribute is neither. Phase 3 hit it
+three times (the subscriber filter, the newsletter audience choice, the
+attendance button): Jinja renders the member as `SubscriberStatus.CONFIRMED`,
+the form posts that text, the choice does not stick, and nothing errors —
+the stored state was right all along. And the conversion *created* it: on
+`master` the same `value="{{ value }}"` rendered a module constant, a plain
+string, correctly. It is the render-side twin of the storage round trip
+(B8 test 3, `sa.Enum` storing the member name): wherever a value is not
+compared but *written out*, the output changes silently. Hence the twelfth
+gate above, built before phase 4; if it turns out not to be mechanically
+checkable, that limit is written here as a conscious one, not left as a
+silent gap. Found by an e2e test, not by the pytest suite — which is the
+argument for the gate.
+
+**Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
+A **ratchet** promises zero: it holds today's offenders, may only shrink, is
+red when an entry disappears from the code but not from the list, and is
+deleted in phase 5. An **exemption** never reaches zero: it holds hits of the
+FK and loose-string gates that are *not our vocabulary* — Mollie's
+`gateway_payments.status`, `request.method == "GET"`, a MIME type — as
+`dict[str, str]` so that the reason is structurally mandatory, is subtracted
+before the ratchet, is counted separately in B9.2 (the same "reported, not
+capped" as the marked enums), and **stays after phase 5**. The test for
+which list a hit belongs to: *could this value ever be a row in a code table
+of ours?* An HTTP method cannot. Today three, in `codes_baseline.py`:
+`FK_NOT_OUR_LIST`, `LOOSE_STRINGS_NOT_A_CODE` and — since phase 4 —
+`TEMPLATE_COMPARISONS_NOT_A_CODE`, which holds the template comparisons on
+Raakje's drafting modes (technical, note 6); same shape, mandatory reason,
+counted separately, proven red in both directions. Without this distinction
+phase 5 is unreachable by definition — a ratchet that contains Mollie's
+words never gets to zero.
+
+An exemption is held to the same staleness rule as a ratchet: **an entry
+whose target no longer exists in the code is red**, exactly like a ratchet
+entry that outlived its offender. Otherwise the second list is a back door
+rather than a distinction — the Mollie adapter could disappear and its
+exemption would stand forever, unnoticed. **Built in phase 4 (issue #1181)**
+as `test_every_permanent_exception_still_has_a_target`, next to
+`test_every_ratchet_looks_somewhere` (each ratchet must look at something —
+#678 directly); phase 1 had shipped without it. It is *fulfilled* when that
+branch is on `master` — until then it is a commit on one disk, and the
+distinction is not theoretical on a day the machine was rebooted.
+
+**What "0 loose strings" means after phase 5**, so nobody reads more into
+it: zero string *literals* in a comparison with a vocabulary attribute. A
+value bound first (`v = "EMAIL"`) and compared afterwards escapes the gate;
+so does any named constant. That is a known limit, not a reason to change
+the gate — the shape it catches is the one that occurred 127 times.
+
+**Gate 8 covers Jinja, not Alpine** (known limit, phase 1, 26 September
+2026). The template gate looks for a Jinja comparison on a vocabulary
+attribute. A comparison in JavaScript inside an Alpine attribute —
+`x-show="pm === 'ONLINE'"`, `x-if`, `:class` — on a local variable bound to
+a radio through `x-model` is invisible to it: no attribute called `status`
+or `method`, no Jinja `==`. Phase 1 renamed the radio values of the
+registration form to `online`/`transfer`; the two payment hints below them
+still compared with `'ONLINE'` and `'OVERSCHRIJVING'`, so neither hint
+showed any more — silently, all tests green, found by a translation helper
+(fixed in 14fa594d with a test for that one form). It differs from gate 12:
+there a member reaches the output; here the output is right and a
+client-side comparison looks at a value that no longer exists. A general
+gate would have to parse the Alpine expressions and follow the binding to
+the radio — more work than it returns for the few forms that do this. So:
+**a conscious limit, covered per form by a test** in the shape of
+14fa594d (every hint compares with a value the radio can carry), listed in
+the phase issue that touches the form.
+
+**A derived list without an enum needs a completeness test** (phase 4,
+26 September 2026) — the same kind of blind spot as gate 12: no FK, no
+gate, silent fallback to the raw code. B5.3 note 5 has the rule and the one
+case (the workflow task category). It is a test per list, not a thirteenth
+gate: the source of the derived values is different for each.
+
 What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
 concept or two (B4.4).
 
 ## B10. Prototype findings
 
-None yet. #779 notes an OGM value-object spike with zero DB fixtures as the
-testability model; the enum/`TypeDecorator` round trip (B8 test 3) is the
-one thing worth a spike before phase 1, because `sa.Enum` stores the member
-*name* by default and that mistake would corrupt data silently.
+#779 notes an OGM value-object spike with zero DB fixtures as the
+testability model; the enum/`TypeDecorator` round trip (B8 test 3) was the
+one thing named worth a spike before phase 1, because `sa.Enum` stores the
+member *name* by default and that mistake would corrupt data silently.
+
+**Learned in phase 3, and it should have stood here from the start:** the
+render side has the same weight. A member that is written into an HTML
+attribute renders as `<Enum>.<MEMBER>` just as silently as `sa.Enum` stores
+it — the storage twin was named, the render twin was not, and phase 3 paid
+for it three times (B9.3, gate 12). A future CR that converts strings to
+enums spikes both sides: read a row back raw, and render a fragment with the
+value in an attribute.
 
 ## B11. Decisions log
 
@@ -985,13 +1312,17 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | 25 Sep 2026 | The CR template gets **B9 Rule and gatekeeper**; every architectural CR names its rule, baseline and gate. | Koen |
 | 25 Sep 2026 | Placement: one domain → that domain; master data or two+ domains → `mdm`. MDM itself is thought through separately, with an external MDM adviser. | Koen |
 | 25 Sep 2026 | No management screen for code lists now; later. | Koen |
+| 26 Sep 2026 | Gate 12 is a guard: `install_enum_guard` on Jinja's `finalize`. On UAT/PROD it **repairs and logs** (renders the code) instead of refusing. Argument: the code is exactly what the attribute should have carried, so the repair is correct output, and a screen that fails on PROD over a render detail costs more than a logged line — the same trade-off as the log check in `deploy.sh` (#604). Consequence, accepted: on PROD such a fault is visible in the log, not on the screen. Dev/test/HDEV stay strict, so it cannot reach PROD unseen through CI. Not put to Koen: refusing on PROD would turn a render fault into a 500 on a public page, so repair-and-log is a technical trade-off, not a business one; he is informed and can object — from that moment it is his decision, not before. | decided by the feature CLI (dev1) while building, endorsed by the master CLI in review (issue #1181, branch `feature/dev1-1181`); recorded by the author |
+| 26 Sep 2026 | No management screen for code lists — a decision, not a parking: *"geen beheerscherm voor codelijsten"*. Consequence: a label changes by migration (a release, not an admin action); a manual `UPDATE` on one environment is a deviation, not management — the idempotent seed does not overwrite it and a fresh environment gets the seed value, so two environments drift silently. Price known and accepted. | Koen |
 | 25 Sep 2026 | Labels of codes live in label tables, not in the gettext catalogue; `_()` stays for sentences. The boundary: the name of a code → label table; a sentence on a screen → `_()`. Reasons: a label is data about a code, reports need it in SQL, a new language is rows, not a deploy. | Koen |
 | 25 Sep 2026 | One allowed cross-schema FK: towards a code table of a foundation domain — `mdm`, and `auth` for roles (B2.4). Neither depends on a business domain, so no cycle; without the FK a shared list loses its database check. | Koen |
 | 25 Sep 2026 | Payment method: one-time data fix on `activities.registrations.payment_method` (mapping in B4.6, corrected 26 Sep after the HDEV measurement: `OVERSCHRIJVING` → `transfer` as well; no history column exists), with a count per value before and after; both columns then FK to `mdm.payment_method_codes`. The one exception to R8. | Koen |
 | 25 Sep 2026 | Roles stay in `auth`. Master data describes the world (→ `mdm`); security vocabulary — roles, later permissions, identity providers, group-to-role mapping — belongs to `auth`, the domain Keycloak/SAML will attach to. The cross-schema FK exception covers both foundation domains, `mdm` and `auth`. | Koen |
 | 25 Sep 2026 | Languages in this CR: `nl` and `en` only. The shape takes any language; `fr` is rows later. | Koen |
 | 25 Sep 2026 | Mollie's statuses are not a code list: `Enum` in the adapter, explicit "unknown" branch, mapping to `PaymentStatus`; no table, no FK. `gateway_payments.provider` is ours and follows the pattern (B4.10). | Koen |
-| 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` and `O` retired, not deleted. | Koen |
+| 26 Sep 2026 | Gender list is `M`, `F`, `X`; `U` retired, not deleted (`O` turned out not to exist — 004 renamed it to `X`). | Koen |
+| 26 Sep 2026 | Contact type gets no enum; `partial=True` on `EnumColumn` is rejected for the pattern (union type); branching goes through `is_social_network` and two named `Code` constants on the `CodeList` (B5.3 note 3). | author, on the master CLI's recommendation; **confirmed by Koen on 26 Sep 2026** — his one objection was "geeft dat geen probleem met #1160?", and on the answer (Q22) he said *"OK, dan is alles goed"* |
+| 26 Sep 2026 | B7's "revertible on its own" was untrue for a rename phase; the final form is "shippable on its own; recovery is forward or a DB restore, the dump verified before the deploy". **Expand/contract rejected** (nine releases instead of one, retroactive rework of migration 154); phase 2 stays a rename. All phases ship together in v2.7.0 (one tag); the restore point is the whole release, and that a restore cannot tell which phase caused it is accepted; several tags rejected. | Koen (*"enkel via backup-restore kunnen terugdraaien is prima"*), relayed by the master CLI |
 | 26 Sep 2026 | Review round (Claude, approved by Koen): the mypy gate is hollow with legacy `Column()` models → AST ratchet as the gate, `Mapped[]` on enum columns as bonus (B4.8); enum member names English, values the stored codes (B4.3); the enum carries retired codes too (B4.3); a migration helper per list (B4.9); the filter is `code_label` (B4.4); jobs pass the language explicitly (B4.4); a pilot list in phase 0; phases 3–4 do not block the CRM module (B7). Designed for, not built: a nullable `tenant_id` on `_labels` for a tenant-specific word ("Klant" for "Lid"). | Koen |
 | 26 Sep 2026 | Second review (an external model, relayed by Koen): the B4.6 exception gets a guard (assert zero unmigrated rows before the FK, a migration test); the future screen's cache problem across workers is written into the non-goal; the FK gate becomes positive (registry) with the name heuristic as a ratcheted net; the ratchet baseline is the gate's own count, not the grep; phase 0 marks the reporting enums and ratchets the two existing `str, Enum` classes. | Koen |
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
@@ -1007,6 +1338,26 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
+| Q32 | 27 Sep 2026 | Is the AI-lists data question still open? (Koen, via Claude) | No: answered by Koen on 27 September in dev1's session and recorded on #1181 ("Na de merge — Data"); migration 163 built. Note 6 updated. |
+| Q31 | 27 Sep 2026 | Master CLI: note 6 says `SYMBOLIC_LABELS`' words go through `_()`; measured on master they are Dutch literals (engine, export filter header). | Judgment unchanged (technical, exemption); the assumption is now stated as an assumption, with #1216 as the issue that makes it true. |
+| Q30 | 27 Sep 2026 | Master CLI, phase 4: four values live in code or data, not in a tuple (`bericht.behartigen`, `logged`, `ad-hoc`, the field-type words); which of the remaining offenders are lists and which exemptions; and after a migration no old image starts (#1203). | Catalogue rows corrected; note 6 judges the remainder; B3/B7 say recovery is a DB restore for every phase, with #1203 as the reason. |
+| Q29 | 26 Sep 2026 | Master CLI: gate 8 cannot see an Alpine comparison (`x-show="pm === 'ONLINE'"`) on a value bound to a radio — phase 1 broke two payment hints silently. | Taken as a conscious limit in B9.3: gate 8 covers Jinja, not Alpine; Alpine comparisons on a code value are covered per form by a test (14fa594d). |
+| Q28 | 26 Sep 2026 | Does the task category count for the gate's "target 49"? (Claude) | Master CLI: yes — a derived list is a `CodeList` and `registry()` has no filter on `derived`. And the target leaves the gate string altogether: it changed twice in one day in three places (B5.3, B9.2, the gate) — the `CLAUDE.md` signal to remove one. The gate measures; B9.2 holds the target. |
+| Q27 | 26 Sep 2026 | Master CLI, phase 4: "no second list" for the task category would drop `CAT_LABELS` and put a raw code on the screen (#630); and a derived list without an enum has no gate covering its completeness. | Taken: the category is a derived list (note 5) with its own row in B5.3; note 5 now says why completeness is a test, not a FK, and distinguishes derived-with-enum (covered by Enum = codes) from derived-without (a test per list); B9.3 names it beside gate 12. Phase 3 CI evidence: run 36224976461 on 05c99f07, 3419 passed, pip-audit clean. |
+| Q26 | 26 Sep 2026 | Master CLI (after the desktop reboot, session `koentest-1e`): gate 12 was built as a guard on Jinja's `finalize` with a coverage counter and strict/repair modes; the exemption staleness rule is built in #1181. | Taken: B9.3 gate 12 rewritten as guard + proof-of-run gate; `install_enum_guard` in B4.9; the repair-on-PROD choice in B11 with its argument; the B9.2 row moved from ratchet to "counted, not capped"; staleness rule marked as built in phase 4 (issue #1181; fulfilled once on `master`). First version of this row said "PR #1181" and "fulfilled" — there is no such PR, and a commit on one disk is not fulfilment; corrected the same day. |
+| Q25 | 26 Sep 2026 | Master CLI, after phase 3: no gate sees an enum member rendered into an HTML attribute — three cases found by e2e, created by the conversion; and phase 3 is image-rollback-safe, unlike 154. | Taken: gate 12 (rendered attributes carry the code) in B9.3 with the reason, test 6b in B8, a B9.2 row from phase 4, the render-side spike in B10; B7 attributes non-revertibility to migration 154, not the release. |
+| Q24 | 26 Sep 2026 | Koen confirmed "geen beheerscherm voor codelijsten" — decision or parking? (master CLI) | Decision, with its consequence written under Non-goals: a label changes by migration; a manual `UPDATE` on one environment is a deviation. With this, everything in CR-12 that was Koen's to decide is decided — the placement rule, labels in label tables, Mollie without a code table, `nl`+`en`, M/F/X, the payment-method data fix, badge tones in Python, no expand/contract, the release-level restore point, no management screen, and (Q22) contact types without an enum. |
+| Q23 | 26 Sep 2026 | Master CLI: `is_social_network` sits on the `(code, language)` row of the unsplit table — per language; a second language row would collide in #1160's dict. | Taken into note 3 as the second reason for the split, with a guard in the phase-2 migration (move the flag to the code row, abort on contradicting flags). Koen accepts the release-level restore point; several tags rejected — B3/B7 now carry his yes. |
+| Q22 | 26 Sep 2026 | Does taking the enum off contact types break the data-driven footer of #1160? (Koen) | No — the reverse: the footer reads rows by `is_social_network`; the risk was a strict enum column refusing a new row on write. Without enum + FK the list stays one-row extensible. Answered by the master CLI; Koen's reply: *"OK, dan is alles goed"* — his objection was the openness of the footer, not the form, and it went away with the explanation. Taken as his yes to the decision; written this way so whoever reopens it knows what worried him and why it stopped. |
+| Q21 | 26 Sep 2026 | Expand/contract for the remaining phases, or restore as the only way back? (Claude, via the master CLI) | Koen: restore is fine. Expand/contract rejected with its price. All phases in one release (v2.7.0), as Koen decided earlier — the "one phase per PROD deploy" line that briefly stood here was the master CLI's and contradicted that; withdrawn. |
+| Q20 | 26 Sep 2026 | Does the gate need a mechanism to accept `CodeList` constants; should #1189 wait for the expand/contract answer? (Claude) | Master CLI: no — the gate only sees literals, so constants pass today; the `NewType` buys type safety, not compliance; the gate cannot tell a registry constant from another one and that check is not built. No — #1189 does not wait; the price of expand/contract (nine releases) goes next to the option. |
+| Q19 | 26 Sep 2026 | Master CLI, after phase 2 (PR #1189): (a) contact types — dev1 built `partial=True`; recommendation: no enum, branch on a property and named constants; (b) B7's "revertible" is untrue for migration 154 (renames + drop, image rollback breaks); (c) gender `O` never existed, `role_codes` holds no relation types, `"mobile"` is a field name not a stored value. | (a) taken as the author's decision, confirmed by Koen later that day (Q22); (b) B7 corrected, expand/contract left to Koen; (c) notes 2, 3, 4 corrected. |
+| Q18 | 26 Sep 2026 | Master CLI: the derived phase-0/1 figures were wrong on two rows; and the phase-0 column is recomputed after the exemptions (52→51, 127→125). | Taken: measured figures per phase in B9.2, one column per phase, with the definition note and the lists-versus-columns note. |
+| Q17 | 26 Sep 2026 | Does the gate print the exemptions as a row? (Claude) | Master CLI: one combined row, mirroring the marked-enums row; B9.2 now lists the gate's rows in the gate's order. The staleness rule for exemptions is not closed in phase 1 — #1179 or #1182. |
+| Q16 | 26 Sep 2026 | Master CLI, after phase 1 (PR #1188): `strict_equality` is silent on an unannotated `record` parameter even with `Mapped[]` on the column; the ratchet needs a second kind of list for hits that are not our vocabulary. | Taken: B4.8 names the two sources of `Any` and makes the annotations phase-5 work; B9.3 defines ratchet vs exemption, the "could this be a row in our code table?" test, and the staleness rule for exemptions; B7.1 phase 5 keeps the exemptions. |
+| Q15 | 26 Sep 2026 | Do the file names, the filter name and the `Mapped[]` column in PR #1186 match B4.9/B4.8? (Claude) | Master CLI: file names exact, filters `code_label` and `tone` via `install_jinja_codes(env)`, pilot column `Mapped[MeetingStatus] = mapped_column(EnumColumn(MeetingStatus, length=10))`. One signature correction taken: `EnumColumn(enum_cls, length)`. The identifiers inside the gate module and the baseline file were Dutch and are being renamed before the merge — the document names files, not those names. |
+| Q14 | 26 Sep 2026 | Master CLI, after phase 0 (PR #1186): the pilot had a CHECK constraint duplicating the FK; the gate measures 52/33/52/127 against the grep's 43/40/25/92; a destructive violation made a gate test not run and come back green. | Taken: "drop the CHECK after the FK" as the third rule in B4.6; the gate column in B9.2 next to the grep; "the violation must be additive" in B8. |
 | Q13 | 26 Sep 2026 | Master CLI, follow-up: the 22/15/11/1 is the whole table; the laptop measured 18/14/11/1 on live rows — five soft-deleted rows would break the FK if the `UPDATE` filtered on `deleted_at`. | Taken: no soft-delete filter in B4.6, counts over the whole table (B8.7, AC6), and "count every row, soft-deleted too" added as the second general rule for a FK on existing data. |
 | Q12 | 26 Sep 2026 | Master CLI verification after planning (v2.7.0, #1184): `payment_method` holds `OVERSCHRIJVING` (15 rows on HDEV) which B4.6 did not map; "and its history" names a column that does not exist; the catalogue counts 49, not 47; #1173 adds `page_image`. | All four taken: B4.6 mapping and the form-in-the-same-commit rule, history sentence removed, count 49 with the pilot counted once, `page_image` row added. |
 | Q11 | 26 Sep 2026 | External review: is B4.6 guarded enough, does the cache survive a screen, is the FK gate more than a name filter, is the baseline reproducible? (Koen, relaying) | All five taken — see the 26 Sep second-review row in B11. |
@@ -1017,15 +1368,25 @@ one thing worth a spike before phase 1, because `sa.Enum` stores the member
 
 ## Non-goals
 
-- **No management screen** for codes or labels (Koen, 25 Sep 2026). The
-  tables are shaped so that one can be added later without a schema change:
-  it would edit `_labels` rows and toggle `is_active`. **What it must solve
-  then, and this CR does not:** the label cache is per process, and the
-  backend runs several Uvicorn workers — `reset_label_cache()` from a screen
-  reaches one worker. The screen needs a cross-worker invalidation (a
-  version stamp in `kernel_tenant_settings` or a `codes_version` table,
-  compared per request, or simply "changes apply on the next deploy"). Noted
-  here so it is not forgotten when the screen is built (review, 26 Sep).
+- **No management screen** for codes or labels — **decided** by Koen on 26
+  September 2026 (*"geen beheerscherm voor codelijsten"*), not parked. The
+  consequence, written down so it is not rediscovered as a defect in six
+  months: labels are seeded by the migration through `create_code_list`,
+  idempotently (`ON CONFLICT DO NOTHING`). So **a label changes by
+  migration** — "adjust the description of TikTok" is a release, not an
+  admin action. And **a manual `UPDATE` on one environment is a deviation,
+  not management**: the next seed does not overwrite it, a fresh environment
+  gets the seed value, and the two drift apart without anything reporting
+  it — one fact in two places, the shape this codebase treats as a bug
+  everywhere else. The choice is defensible (labels almost never change; a
+  screen for what almost never happens is maintenance without yield), and
+  its price is named here so whoever pays it later knows it was known.
+  Should a screen ever be wanted after all: the tables allow it without a
+  schema change (edit `_labels` rows, toggle `is_active`), and it would have
+  to solve cross-worker cache invalidation — the label cache is per process
+  and the backend runs several Uvicorn workers, so `reset_label_cache()`
+  from a screen reaches one worker (a version stamp compared per request, or
+  "changes apply on the next deploy").
 - **No Postgres `ENUM` type.** The code table is the list; the FK is the check.
 - **No renaming of stored values**, except the single proposed case in B4.6.
 - **No state machine.** Which transitions are allowed between statuses is

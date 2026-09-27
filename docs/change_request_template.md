@@ -158,6 +158,16 @@ system to whom, what is sanitised, what is logged.
 
 Shippable phases, each with what it delivers and its dependencies.
 
+Per phase, next to the "Na de merge" block, one column **failure paths that
+change** (added 27 September 2026, from CR-13). A change that reorganises
+behaviour — where a rule lives, who commits, what a handler does — rarely
+changes what the system does on the happy path, and almost always changes
+what it does when something fails: what rolls back, what is refused, what
+is left half done. Name those per phase, so "no functional change" is a
+claim about the happy path with the failure paths listed beside it, and an
+e2e test that goes red on one of them is expected, not a surprise. "None"
+is an answer.
+
 ## B8. Tests
 
 What the build must prove, each test able to go red; guards proven by
@@ -169,6 +179,15 @@ An architectural change request fixes a **way of doing things**, not just one
 instance of it. This section makes that explicit, so the decision outlives the
 change and the next development follows it without anyone remembering to ask.
 Three parts; "no gate" is an answer, with the reason.
+
+**A rule is fixed only when its gate runs in CI on every push** (Koen, 27
+September 2026). A rule that lives in a document is a hope; a rule whose test
+goes red on the next pull request is a property of the codebase. So the gate of
+B9.3 is a pytest in `backend/tests/` that `backend-tests.yml` runs on every
+push and PR — not a script someone remembers, not a review checklist. Where
+that is impossible, B9.3 says so and names what catches it instead
+(a review agent, a release step), and that is a weaker guarantee, written
+down as one.
 
 1. **The rule.** One sentence a reviewer can apply, in the form the decision
    takes from now on ("a code list is a code table in the owning domain's
