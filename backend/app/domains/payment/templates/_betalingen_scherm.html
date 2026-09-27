@@ -38,8 +38,15 @@
    (44 tegen 38, het aanraakvlak van #804), en daar wrapt de filterbalk tot 194 px.
    Centreren zou de knop dan midden in een blok van drie regels zetten. Onder `md`
    blijft `items-start` dus staan, en dat is ook de stand die Koen niet gemeld heeft. #}
-<div class="flex items-start md:items-stretch gap-3">
-{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter", cls="flex-1 min-w-0") %}
+{# #1202: shrinking. The form used to carry `min-w-0`, so on a phone it was
+   squeezed to 199 px while the search field inside it kept its 224 px minimum —
+   the field slid 29 px under the button. Now the form keeps its own content as
+   its minimum (no `min-w-0`, so no second copy of the search field's 14rem) and
+   the row may wrap: when form and button do not fit side by side, the button
+   takes its own line. No breakpoint: the content decides, so a longer context
+   list or a narrower screen needs no new number. #}
+<div class="flex flex-wrap items-start md:items-stretch gap-3">
+{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter", cls="flex-1") %}
   {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
      Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
   <div class="flex flex-wrap gap-3 items-center">
