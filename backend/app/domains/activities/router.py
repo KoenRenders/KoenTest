@@ -790,6 +790,45 @@ def register_for_activity(
     db: Session = Depends(get_db),
     current_member=Depends(get_current_member),
 ):
+    """The public way in: the registration hangs on whoever is signed in."""
+    return create_registration(
+        db, activity_id, data, background_tasks,
+        person_id=current_member.id if current_member else None,
+        actor=_inschrijver(current_member))
+
+
+def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
+                        background_tasks: BackgroundTasks, *,
+                        person_id: int | None, actor: str, board: bool = False):
+    """Create one registration: the ONE implementation (#1192).
+
+    Two ways in, one body. The public form and the JSON API go through
+    `register_for_activity`; the board's "add a registration" screen goes through
+    `activities.api.board_register_for_activity`. Two copies of this function
+    would drift apart on exactly the rule that matters within half a year — the
+    duplication rule of CLAUDE.md.
+
+    **Who sends the form is not who the registration is for.** The public way
+    hangs it on the signed-in member; the board registers somebody else, so its
+    way passes `person_id=None` and its own e-mail only as the audit `actor`.
+    Taking the session's person here would make the board member a participant
+    in every report that groups by person.
+
+    `board=True` also lifts two rules that are about the public, not about the
+    registration (#1192, recommended and open for Koen to overrule):
+
+    - **the limit per e-mail address per component** — a brake against a visitor
+      registering over and over, not a rule about what the board may do. The
+      board enters its own contact details for people who have none, so the
+      limit would stop the fourth such registration;
+    - **publicly bookable** (#1191) — the back office keeps booking inactive
+      products, as `check_publicly_bookable`'s own comment already says.
+
+    Everything else holds on both ways: the required fields
+    (`controleer_inschrijfvelden`, Koen: "bestuur moet dezelfde velden
+    invullen"), a closed or cancelled activity, a full component, the quantity
+    limits, and the payment record of a paid product.
+    """
     activity = (
         db.query(Activity)
         .options(selectinload(Activity.dates))
@@ -812,7 +851,7 @@ def register_for_activity(
     if weigering:
         raise HTTPException(status_code=400, detail=weigering)
 
-    if data.contact_email:
+    if data.contact_email and not board:
         existing_count = db.query(Registration).filter(
             Registration.activity_id == activity_id,
             Registration.component_id == data.component_id,
@@ -852,8 +891,9 @@ def register_for_activity(
     from app.domains.activities.service import (ActiviteitFout as _Fout,
                                                 check_publicly_bookable)
     try:
-        check_publicly_bookable(
-            activity, [i.product_id for i in data.items if i.quantity > 0])
+        if not board:
+            check_publicly_bookable(
+                activity, [i.product_id for i in data.items if i.quantity > 0])
     except _Fout as fout:
         raise HTTPException(status_code=400, detail=str(fout))
 
@@ -899,7 +939,7 @@ def register_for_activity(
         team_name=data.team_name,
         payment_method=data.payment_method,
         remarks=data.remarks,
-        person_id=current_member.id if current_member else None,
+        person_id=person_id,
     )
     db.add(registration)
     db.flush()
@@ -922,7 +962,7 @@ def register_for_activity(
             snapshot_registration_item(
                 db, item,
                 operation="insert", action="order_created", source="registration",
-                actor=_inschrijver(current_member),
+                actor=actor,
             )
 
     db.flush()

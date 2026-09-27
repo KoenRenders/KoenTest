@@ -63,6 +63,34 @@ class AdminInschrijvingView(ViewModel):
 
 
 @dataclass(frozen=True, kw_only=True)
+class AdminRegistrationNewView(ViewModel):
+    """`admin_inschrijving_nieuw.html` — the board adds a registration (#1192).
+
+    One activity, one chosen component, and its products with a quantity each.
+    Inactive products are listed too: the back office keeps booking them.
+    """
+
+    a: Any
+    #: The components to choose from: {id, naam, url, gekozen}.
+    onderdelen: list[dict[str, Any]]
+    #: The chosen component's id, or None while none is chosen.
+    onderdeel_id: int | None
+    #: {id, naam, prijs, actief, aantal} for each product of the chosen component.
+    producten: list[dict[str, Any]]
+    team_name_required: bool
+    #: What was typed, for a refused form that comes back filled in.
+    values: dict[str, str]
+    #: `(code, word)` for the payment choice; `online` is not offered, since the
+    #: board cannot pay by Mollie on somebody else's behalf.
+    betaalwijzen: list[tuple[str, str]]
+    error: str | None
+    form_url: str
+    terug_url: str
+    csrf_token: str
+    nav_items: list
+
+
+@dataclass(frozen=True, kw_only=True)
 class AdminActiviteitInschrijvingenView(ViewModel):
     """`admin_activiteit_inschrijvingen.html` — de Inschrijvingen-tab van de
     recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen,
