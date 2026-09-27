@@ -69,11 +69,36 @@ def _uitvoeren(bewerking, request: Request, db: Session, email: str,
         raise HTTPException(status_code=404, detail=str(exc) or _("Betaling niet gevonden."))
     except BetalingFout as exc:
         fout = str(exc)
-    context = _view(request, db, email).as_context()
+    context = _view(request, db, email, **_scope_from_request(request)).as_context()
     context["error"] = fout
     # Fragmentantwoord: band + tabs reizen out-of-band mee (zie de partial).
     context["oob_boven"] = True
     return templates.TemplateResponse(request, "_betalingen_lijst.html", context)
+
+
+def _scope_from_request(request: Request) -> dict:
+    """The scope the list was in when the mutation was sent (#1247).
+
+    `#betalingen-lijst` sends it as `X-Betalingen-Scope` (`activiteit=12`,
+    `gezin=3&scope_stil=1`, …) with every request from inside the list. The
+    record tabs force their scope in the route and not in the page URL, and a
+    mutation posts to its own endpoint, so without this the list came back
+    unscoped: every payment of the association under an activity's tab. One place
+    for all seven mutations, since they all return through `_uitvoeren`.
+    """
+    from urllib.parse import parse_qsl
+
+    raw = dict(parse_qsl(request.headers.get("x-betalingen-scope", "")))
+    scope: dict = {}
+    for field, argument in (("activiteit", "forceer_activiteit"),
+                            ("gezin", "forceer_gezin"),
+                            ("inschrijving", "forceer_inschrijving")):
+        value = (raw.get(field) or "").strip()
+        if value.isdigit():
+            scope[argument] = int(value)
+    if scope and raw.get("scope_stil") == "1":
+        scope["scope_stil"] = True
+    return scope
 
 
 def _activiteit_scope(db: Session, activiteit_id: int):
