@@ -69,7 +69,7 @@ def _person_payload(p: Person):
     emails = [
         {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
         for c in sorted((c for c in p.contact_details
-                         if c.contact_type_code == "EMAIL" and c.value),
+                         if c.contact_type_code == CONTACT.EMAIL and c.value),
                         key=lambda c: (not c.is_primary, c.id or 0))
     ]
     address = None
@@ -442,7 +442,7 @@ def _lid_en_doel(person, person_id: int, db: Session) -> Person:
 
 def _actor_van(person) -> str | None:
     return next((c.value for c in person.contact_details
-                 if c.contact_type_code == "EMAIL"), None)
+                 if c.contact_type_code == CONTACT.EMAIL), None)
 
 
 @router.post("/member/household/persons/{person_id}/emails", status_code=201)

@@ -511,7 +511,7 @@ def add_email_address(db: Session, person_id: int, value: str, *,
     waarde = (value or "").strip()
     if not waarde:
         return person
-    bestaand = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    bestaand = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
     if any((c.value or "").strip().lower() == waarde.lower() for c in bestaand):
         return person
 
@@ -539,7 +539,7 @@ def _heeft_hoofdadres(person) -> bool:
     ledenformulier en de losse toevoegknop van de JSON-API.
     """
     return any(c.is_primary for c in person.contact_details
-               if c.contact_type_code == "EMAIL")
+               if c.contact_type_code == CONTACT.EMAIL)
 
 
 def apply_email_rows(db: Session, person_id: int, formulier, *,
@@ -583,7 +583,7 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
 
     person = _persoon_of_404(db, person_id)
     bestaand = {c.id: c for c in person.contact_details
-                if c.contact_type_code == "EMAIL"}
+                if c.contact_type_code == CONTACT.EMAIL}
 
     def _waarde(sleutel: str) -> str:
         ruw = formulier.get(sleutel)
@@ -622,7 +622,7 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
             # adres niet twee keer identiek.
             al_er = {(c.value or "").strip().lower()
                      for c in person.contact_details
-                     if c.contact_type_code == "EMAIL"}
+                     if c.contact_type_code == CONTACT.EMAIL}
             if waarde.lower() in al_er:
                 continue
             wordt_hoofd = not _heeft_hoofdadres(person)
@@ -663,7 +663,7 @@ def make_email_primary(db: Session, person_id: int, contact_id: int, *,
     from app.domains.audit.api import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
-    adressen = [c for c in person.contact_details if c.contact_type_code == "EMAIL"]
+    adressen = [c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL]
     doel = next((c for c in adressen if c.id == contact_id), None)
     if doel is None:
         from fastapi import HTTPException
@@ -717,7 +717,7 @@ def remove_email_address(db: Session, person_id: int, contact_id: int, *,
 
     person = _persoon_of_404(db, person_id)
     adressen = sorted((c for c in person.contact_details
-                       if c.contact_type_code == "EMAIL"),
+                       if c.contact_type_code == CONTACT.EMAIL),
                       key=lambda c: c.id or 0)
     doel = next((c for c in adressen if c.id == contact_id), None)
     if doel is None:
@@ -868,7 +868,7 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     addresses = set()
     for person in persons:
         for contact in getattr(person, "contact_details", []) or []:
-            if contact.contact_type_code == "EMAIL" and (contact.value or "").strip():
+            if contact.contact_type_code == CONTACT.EMAIL and (contact.value or "").strip():
                 addresses.add(contact.value.strip().lower())
     return sorted(addresses)
 
