@@ -94,8 +94,10 @@ templates.env.filters["datumzonderjaar"] = _datumzonderjaar
 # uitlegpagina. `strftime` kon daar niet: dat portaal rendert uit een geserialiseerd
 # view-model, waarin de datum al een string is.
 from app.i18n import short_date as _short_date  # noqa: E402
+from app.i18n import short_datetime as _short_datetime  # noqa: E402
 
 templates.env.filters["kortedatum"] = _short_date
+templates.env.filters["short_datetime"] = _short_datetime
 
 
 def _maandkort(d) -> str:

@@ -12,7 +12,7 @@
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
           {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
-          <span class="text-sm text-ink-soft">{{ a.sort_date.strftime("%d-%m-%Y") if a.sort_date else "—" }}</span>
+          <span class="text-sm text-ink-soft">{{ a.sort_date|kortedatum if a.sort_date else "—" }}</span>
           {% if a.location %}<span class="text-sm text-ink-soft">· {{ a.location }}</span>{% endif %}
           {% if a.registration_count is not none %}<span class="text-sm text-ink-soft">· {{ a.registration_count }} {{ _("inschrijvingen") }}</span>{% endif %}
         </div>

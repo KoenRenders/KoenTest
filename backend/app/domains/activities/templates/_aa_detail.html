@@ -158,7 +158,7 @@
            Patroon van het adresblok (#639): leesregel weg, korte vervangtekst in
            haar plaats, knop blijft staan. De x-show hoort op de leesregel, NIET op
            het knoppenblok — dat laatste was precies de fout die #639 wegwerkte. #}
-        <span x-show="!edit">{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+        <span x-show="!edit">{{ d.start_date|kortedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date|kortedatum }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
         <span x-show="edit" x-cloak class="text-gray-500">{{ _("Datum bewerken") }}</span>
         <div class="flex gap-2">
           {{ ui.edit_toggle("edit") }}
