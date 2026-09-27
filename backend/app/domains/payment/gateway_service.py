@@ -2,14 +2,15 @@ import logging
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.config import settings
-from .models import GatewayPayment
+from .models import GatewayPayment, PaymentProvider, PaymentStatus
 from .providers.mollie import MollieProvider
 
 logger = logging.getLogger(__name__)
 
 
-def _get_provider(name: str = "mollie", api_key: str | None = None):
-    if name == "mollie":
+def _get_provider(name: PaymentProvider = PaymentProvider.MOLLIE,
+                  api_key: str | None = None):
+    if PaymentProvider(name) is PaymentProvider.MOLLIE:
         return MollieProvider(api_key=api_key)
     raise ValueError(f"Unknown payment provider: {name}")
 
@@ -20,7 +21,7 @@ def create_payment(
     description: str,
     redirect_url: str,
     metadata: dict,
-    provider_name: str = "mollie",
+    provider_name: PaymentProvider = PaymentProvider.MOLLIE,
 ) -> GatewayPayment:
     from app.kernel.tenant_config import get_setting, tenant_mollie_key
 
@@ -68,7 +69,7 @@ def refresh_payment_status(db: Session, gateway_payment_id: str) -> GatewayPayme
     # (gp.amount, EUR). Bij een mismatch markeren we NIET als betaald, maar
     # zetten we een aparte status zodat de penningmeester het nakijkt. Enkel
     # vergelijken als de provider een bedrag teruggaf (anders ongewijzigd gedrag).
-    if new_status == "paid" and details.amount is not None:
+    if PaymentStatus(new_status) is PaymentStatus.PAID and details.amount is not None:
         currency_ok = (details.currency or "EUR") == "EUR"
         amount_ok = Decimal(str(details.amount)) == Decimal(str(gp.amount))
         if not (currency_ok and amount_ok):

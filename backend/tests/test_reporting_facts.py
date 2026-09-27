@@ -33,6 +33,7 @@ from app.domains.reporting.api import (
     run_selection,
 )
 from tests._reporting_seed import EXPECTED, TENANT_A, TENANT_B, seed
+from app.domains.mdm.api import PaymentMethod
 
 @pytest.fixture
 def situation(db_session):
@@ -331,7 +332,7 @@ def test_the_default_order_is_stable_after_an_update(db_session, situation):
               for row in run(db_session, keys).rows]
 
     record = db_session.query(PaymentRecord).filter(
-        PaymentRecord.method == "transfer").first()
+        PaymentRecord.method == PaymentMethod.TRANSFER).first()
     record.note = "aangeraakt"
     db_session.commit()
 

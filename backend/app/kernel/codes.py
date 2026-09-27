@@ -240,8 +240,62 @@ class EnumColumn(TypeDecorator):
             ) from None
 
 
+def _coerce_on_assignment(enum_cls: type[Enum]) -> Any:
+    def coerce(target: Any, value: Any, oldvalue: Any, initiator: Any) -> Any:
+        if isinstance(value, str):
+            return enum_cls(value)
+        return value
+    return coerce
+
+
+def install_enum_coercion() -> None:
+    """Make `record.status = "paid"` store the **member**, not the string.
+
+    Without this, an attribute assigned a raw code keeps that string in memory
+    until the object is refreshed from the database — so `record.status ==
+    PaymentStatus.PAID` is False right after the assignment and True after a
+    reload. A bug that depends on whether something was flushed is the worst
+    kind to find, and it would hit every caller that still passes a code
+    (a form, a migration, a service signature not yet converted).
+
+    `EnumColumn` already accepts a code on the way to the database; this makes
+    the in-memory value agree with it. One listener in the kernel rather than a
+    `@validates` per model: two places that coerce would be two places to
+    forget.
+
+    It does not weaken the loose-string gate — that gate is about
+    *comparisons*, and a comparison against a literal stays wrong.
+    """
+    from sqlalchemy import event
+    from sqlalchemy.orm import Mapper
+
+    @event.listens_for(Mapper, "mapper_configured")
+    def _attach(mapper: Any, cls: Any) -> None:  # pragma: no cover - event hook
+        for prop in mapper.column_attrs:
+            column = prop.columns[0]
+            if isinstance(column.type, EnumColumn):
+                event.listen(getattr(cls, prop.key), "set",
+                             _coerce_on_assignment(column.type.enum_cls),
+                             retval=True)
+
+
+install_enum_coercion()
+
+
+def code_of(value: Any) -> str | None:
+    """The stored code of an enum member, a `CodeSeed` or a plain string.
+
+    What a history table writes (§F4): those are append-only and carry no
+    foreign key, so their columns stay plain strings and must receive the code
+    rather than the member. One function for that, because the alternative is
+    `.value` sprinkled over every snapshot and one of them forgotten.
+    """
+    if value is None:
+        return None
+    return _code_of(value)
+
+
 def _code_of(value: Any) -> str:
-    """The stored code of an enum member, a `CodeSeed` or a plain string."""
     if isinstance(value, Enum):
         return str(value.value)
     if isinstance(value, CodeSeed):

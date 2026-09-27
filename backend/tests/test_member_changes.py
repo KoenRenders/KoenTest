@@ -126,7 +126,7 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
     reg_resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "Gast X", "phone": "0470000000", "contact_email": "gast@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
@@ -159,7 +159,7 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
     reg_resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "Gast Naam", "phone": "0470000000", "contact_email": "lid@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
@@ -201,7 +201,7 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
     reg_resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "Tom", "phone": "0470000000", "contact_email": "tom@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text
@@ -225,7 +225,7 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="2.00")
     reg_resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "Gast Zonderlid", "phone": "0470000000", "contact_email": "gast2@example.com",
-        "component_id": comp.id, "payment_method": "TRANSFER",
+        "component_id": comp.id, "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     assert reg_resp.status_code in (200, 201), reg_resp.text

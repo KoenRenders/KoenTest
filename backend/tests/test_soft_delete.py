@@ -9,6 +9,7 @@ from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member, Person
 from app.domains.auth.api import User
 from tests.conftest import seed_activity_with_product, seed_postal_code
+from app.domains.payment.api import PayableType
 
 
 def _payload(email="lid@example.com"):
@@ -89,7 +90,7 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
         "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER", "items": [{"product_id": product.id, "quantity": 1}],
+        "payment_method": "transfer", "items": [{"product_id": product.id, "quantity": 1}],
     })
     reg = db_session.query(Registration).filter(Registration.activity_id == activity_id).first()
     assert reg is not None
@@ -105,7 +106,7 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
 
     # De betaling blijft een financieel feit (NIET mee soft-deleted).
     pay = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
     ).first()
     assert pay is not None and pay.deleted_at is None
 
@@ -114,7 +115,7 @@ def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
     member = _create_family(client, db_session)
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == ms.id,
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP, PaymentRecord.payable_id == ms.id,
     ).first()
     pid = pay.id
     assert client.delete(f"/api/v1/payment-status/records/{pid}", headers=admin_headers).status_code == 204

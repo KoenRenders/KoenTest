@@ -75,11 +75,17 @@
       {# Onder elkaar en compact, zoals productie (Koen, 19 sep): geen
          min-h-11 — de opgerekte tikregels dreven de keuzes uit elkaar. De
          volle labelregel blijft aanklikbaar. #}
-      <div x-data="{ pm: '{{ values.get('payment_method', 'ONLINE') }}' }">
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="ONLINE" x-model="pm" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="OVERSCHRIJVING" x-model="pm" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
-      <p class="text-xs text-ink-soft" x-show="pm === 'ONLINE'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
-      <p class="text-xs text-ink-soft" x-show="pm === 'OVERSCHRIJVING'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+      {# CR-12 phase 1: the radio values are the codes of `mdm.payment_method_codes`.
+         They used to be ONLINE/OVERSCHRIJVING and were stored verbatim, while the
+         payment record next to it stored online/transfer — one list, two
+         spellings. With the FK on the column, a registration by bank transfer
+         fails as soon as this form does not change along with it, so this belongs
+         in the same commit as the migration. #}
+      <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      <p class="text-xs text-ink-soft" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
       </div>
     </div>
     {% endif %}

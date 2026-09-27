@@ -24,14 +24,15 @@ from types import SimpleNamespace
 import pytest
 
 from app.domains.payment.service import matches_filter
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
 def _rec(**kw):
     """Een record met net genoeg velden voor matches_filter."""
-    basis = dict(payable_type="registration", payable_id=1, type="charge",
-                 status="pending", amount=Decimal("20.00"), amount_paid=None,
+    basis = dict(payable_type=PayableType.REGISTRATION, payable_id=1, type=PaymentType.CHARGE,
+                 status=PaymentStatus.PENDING, amount=Decimal("20.00"), amount_paid=None,
                  contact_name=None, structured_communication=None,
                  description=None, component_name=None,
                  membership_year=None, component_id=None)
@@ -44,16 +45,16 @@ GEVALLEN = [
     ("openstaande vordering",
      _rec(amount=Decimal("20.00"), amount_paid=None), True),
     ("betaalde vordering",
-     _rec(amount=Decimal("20.00"), amount_paid=Decimal("20.00"), status="paid"), False),
+     _rec(amount=Decimal("20.00"), amount_paid=Decimal("20.00"), status=PaymentStatus.PAID), False),
     ("openstaande terugbetaling — de bug van #668",
-     _rec(type="refund", amount=Decimal("-10.00"), amount_paid=None), True),
+     _rec(type=PaymentType.REFUND, amount=Decimal("-10.00"), amount_paid=None), True),
     ("deels uitbetaalde terugbetaling",
-     _rec(type="refund", amount=Decimal("-10.00"), amount_paid=Decimal("-9.00")), True),
+     _rec(type=PaymentType.REFUND, amount=Decimal("-10.00"), amount_paid=Decimal("-9.00")), True),
     ("vereffende terugbetaling — mag NIET matchen, anders is abs() te grof",
-     _rec(type="refund", amount=Decimal("-10.00"), amount_paid=Decimal("-10.00"),
-          status="paid"), False),
+     _rec(type=PaymentType.REFUND, amount=Decimal("-10.00"), amount_paid=Decimal("-10.00"),
+          status=PaymentStatus.PAID), False),
     ("te veel betaalde vordering — was even onzichtbaar",
-     _rec(amount=Decimal("20.00"), amount_paid=Decimal("25.00"), status="paid"), True),
+     _rec(amount=Decimal("20.00"), amount_paid=Decimal("25.00"), status=PaymentStatus.PAID), True),
     ("afrondingsruis is geen openstaand saldo",
      _rec(amount=Decimal("20.00"), amount_paid=Decimal("19.9999")), False),
 ]
@@ -67,7 +68,7 @@ def test_openstaand_kijkt_naar_de_grootte_van_het_saldo(omschrijving, record, ve
 
 def test_de_oude_waarde_blijft_werken():
     """status=openstaand staat in bestaande links en opgeslagen export-URL's."""
-    refund = _rec(type="refund", amount=Decimal("-10.00"), amount_paid=None)
+    refund = _rec(type=PaymentType.REFUND, amount=Decimal("-10.00"), amount_paid=None)
     assert matches_filter(refund, status="openstaand") is True
 
 
@@ -84,13 +85,13 @@ def test_de_twee_predicaten_combineren_met_en():
 
     Kon vroeger niet — je koos óf een status óf openstaand.
     """
-    mislukt_open = _rec(status="failed", amount=Decimal("20.00"), amount_paid=None)
-    mislukt_vereffend = _rec(status="failed", amount=Decimal("20.00"),
+    mislukt_open = _rec(status=PaymentStatus.FAILED, amount=Decimal("20.00"), amount_paid=None)
+    mislukt_vereffend = _rec(status=PaymentStatus.FAILED, amount=Decimal("20.00"),
                              amount_paid=Decimal("20.00"))
-    open_maar_pending = _rec(status="pending", amount=Decimal("20.00"), amount_paid=None)
+    open_maar_pending = _rec(status=PaymentStatus.PENDING, amount=Decimal("20.00"), amount_paid=None)
 
-    assert matches_filter(mislukt_open, status="failed", openstaand=True) is True
-    assert matches_filter(mislukt_vereffend, status="failed", openstaand=True) is False
-    assert matches_filter(open_maar_pending, status="failed", openstaand=True) is False
+    assert matches_filter(mislukt_open, status=PaymentStatus.FAILED.value, openstaand=True) is True
+    assert matches_filter(mislukt_vereffend, status=PaymentStatus.FAILED.value, openstaand=True) is False
+    assert matches_filter(open_maar_pending, status=PaymentStatus.FAILED.value, openstaand=True) is False
     # Zonder de schakelaar blijft de statuskeuze doen wat ze deed.
-    assert matches_filter(mislukt_vereffend, status="failed") is True
+    assert matches_filter(mislukt_vereffend, status=PaymentStatus.FAILED) is True

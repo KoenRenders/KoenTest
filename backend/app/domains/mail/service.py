@@ -8,6 +8,7 @@ from typing import Optional
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
 from app.i18n import _
+from app.kernel.codes import code_label
 
 logger = logging.getLogger(__name__)
 
@@ -476,11 +477,22 @@ def send_activity_registration_confirmation(
             if totaal > 0:
                 details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
 
-        if registration.payment_method and registration.payment_method != "FREE":
-            method_labels = {"ONLINE": _("Online (Mollie)"), "CASH": _("Cash"), "TRANSFER": _("Overschrijving")}
+        if registration.payment_method:
+            # CR-12 phase 1. The old branch compared against "FREE", a value
+            # that has never been in this column: the codes are
+            # online/transfer/cash and a free registration has NULL. An empty
+            # value now drops out at the `if`, which does the same and is
+            # actually true.
+            #
+            # No explicit language (§F12), and that is fine here: this message
+            # is built INSIDE the registration request, so `current_locale` is
+            # set to the language of the branch. Only when a job calls this
+            # function does the language have to be passed along — then there
+            # is no request and the locale falls back to nl_BE without anything
+            # complaining.
             details.append(
                 f"<li><strong>Betaalmethode:</strong> "
-                f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
+                f"{code_label('payment_method', registration.payment_method)}</li>"
             )
 
         if details:

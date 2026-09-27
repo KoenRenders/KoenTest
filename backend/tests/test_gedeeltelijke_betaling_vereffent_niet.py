@@ -42,6 +42,7 @@ from app.domains.payment.api import PaymentRecord
 from app.domains.payment.service import (confirm_manual_payment, create_refund,
                                          derived_status)
 from tests.conftest import create_test_member
+from app.domains.payment.api import PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -74,7 +75,7 @@ def test_gedeeltelijk_bevestigen_laat_de_vordering_openstaan(db_session):
     confirm_manual_payment(db_session, record.id, amount_paid=Decimal("10.00"),
                            actor="test")
 
-    assert record.status == "pending", "een gedeeltelijke betaling vereffent niets"
+    assert record.status == PaymentStatus.PENDING, "een gedeeltelijke betaling vereffent niets"
     assert derived_status(record) == "partial"
     assert record.amount_paid == Decimal("10.00")
 
@@ -87,7 +88,7 @@ def test_volledig_bevestigen_vereffent_wel(db_session):
     confirm_manual_payment(db_session, record.id, amount_paid=Decimal("35.00"),
                            actor="test")
 
-    assert record.status == "paid"
+    assert record.status == PaymentStatus.PAID
     assert derived_status(record) == "paid"
 
 
@@ -99,7 +100,7 @@ def test_bevestigen_zonder_bedrag_boekt_het_volle_bedrag(db_session):
     confirm_manual_payment(db_session, record.id, actor="test")
 
     assert record.amount_paid == Decimal("35.00")
-    assert record.status == "paid"
+    assert record.status == PaymentStatus.PAID
 
 
 # ── Het gevolg dat geld en rechten raakt ─────────────────────────────────────
@@ -155,7 +156,7 @@ def test_een_gedeeltelijk_uitbetaalde_terugbetaling_blijft_openstaan(db_session)
     confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-5.00"),
                            actor="test")
 
-    assert refund.status == "pending", "een deels uitbetaalde terugbetaling is niet af"
+    assert refund.status == PaymentStatus.PENDING, "een deels uitbetaalde terugbetaling is niet af"
     # Bij een refund wint "moet nog uitbetaald worden" van "deels": `derived_status`
     # toetst `type == "refund"` vóór de partial-tak. Dat is bestaand gedrag en het
     # klopt — er staat nog geld open. Waar het hier om gaat is dat ze NIET op "paid"
@@ -175,4 +176,4 @@ def test_een_volledig_uitbetaalde_terugbetaling_is_af(db_session):
     confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-20.00"),
                            actor="test")
 
-    assert refund.status == "paid"
+    assert refund.status == PaymentStatus.PAID

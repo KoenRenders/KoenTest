@@ -56,7 +56,7 @@ def _opzet(db, *, vraagt_ploegnaam=True):
 def _payload(comp, product, **overschrijf):
     basis = {"contact_name": "An Janssens", "contact_email": "an@example.com",
              "phone": "0470000000", "team_name": "A-team",
-             "component_id": comp.id, "payment_method": "TRANSFER",
+             "component_id": comp.id, "payment_method": "transfer",
              "items": [{"product_id": product.id, "quantity": 1}]}
     basis.update(overschrijf)
     return basis

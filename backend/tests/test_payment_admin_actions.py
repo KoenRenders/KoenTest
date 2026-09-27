@@ -13,6 +13,7 @@ from app.domains.payment.api import (
     create_refund, net_paid, set_payment_status, void_payment_record,
 )
 from tests._invarianten import assert_saldo_klopt
+from app.domains.payment.api import PaymentStatus
 
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -41,7 +42,7 @@ def test_set_status_to_pending_clears_paid_and_stops_counting(db_session):
 
     set_payment_status(db_session, charge.id, "pending", actor="admin@test")
     db_session.flush()
-    assert charge.status == "pending"
+    assert charge.status == PaymentStatus.PENDING
     assert charge.amount_paid is None and charge.paid_at is None
     # Geld telt niet meer als ontvangen.
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("0.00")
@@ -54,7 +55,7 @@ def test_set_status_to_paid_sets_amount_paid(db_session):
 
     set_payment_status(db_session, charge.id, "paid", actor="admin@test")
     db_session.flush()
-    assert charge.status == "paid"
+    assert charge.status == PaymentStatus.PAID
     assert charge.amount_paid == Decimal("20.00") and charge.paid_at is not None
     # Gedeelde invariant (#622): het bedrag alleen zegt niets over de hele payable.
     assert_saldo_klopt(db_session, "registration", charge.payable_id, "20.00")

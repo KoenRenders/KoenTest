@@ -12,6 +12,7 @@ from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from app.domains.mdm.api import ExternalNumber
 from tests.conftest import seed_postal_code
+from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 
 def _family_payload(email="lid@example.com"):
@@ -37,7 +38,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP, PaymentRecord.payable_id == membership.id,
     ).first()
     assert pay is not None  # er is een lidmaatschap-betaling
 
@@ -59,7 +60,7 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     # BETAALD bedrag mag nooit stil verdwijnen. Dat toetst
     # test_betaald_lidmaatschap_blijft_als_financieel_feit hieronder.
     openstaand = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership",
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP,
         PaymentRecord.payable_id == membership.id,
         PaymentRecord.deleted_at.is_(None),
     ).first()
@@ -75,7 +76,7 @@ def test_admin_can_delete_payment_record(client, db_session, admin_headers):
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP, PaymentRecord.payable_id == membership.id,
     ).first()
     pay_id = pay.id
 
@@ -121,7 +122,7 @@ def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, adm
     member = _create_family(client, db_session)
     membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     pay = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP, PaymentRecord.payable_id == membership.id,
     ).first()
     pay.amount_paid = pay.amount
     pay.status = "paid"
@@ -130,12 +131,12 @@ def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, adm
     assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
 
     records = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership",
+        PaymentRecord.payable_type == PayableType.MEMBERSHIP,
         PaymentRecord.payable_id == membership.id,
         PaymentRecord.deleted_at.is_(None),
     ).all()
-    betaald = [r for r in records if r.type == "charge"]
-    refunds = [r for r in records if r.type == "refund"]
+    betaald = [r for r in records if r.type == PaymentType.CHARGE]
+    refunds = [r for r in records if r.type == PaymentType.REFUND]
     assert len(betaald) == 1 and betaald[0].amount_paid == pay.amount
-    assert len(refunds) == 1 and refunds[0].status == "pending"
+    assert len(refunds) == 1 and refunds[0].status == PaymentStatus.PENDING
     assert sum((Decimal(str(r.amount)) for r in records), Decimal("0")) == Decimal("0")

@@ -12,6 +12,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from app.domains.auth.api import create_access_token
+from app.domains.payment.api import PayableType
 
 
 def _member_headers(email):
@@ -95,7 +96,7 @@ def test_member_with_valid_membership_gets_member_price(client, db_session):
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     assert rec.amount == Decimal("24.00")  # 2 × ledenprijs 12.00
 
 
@@ -113,7 +114,7 @@ def test_member_without_valid_membership_pays_regular_price(client, db_session):
 
     from app.domains.payment.api import PaymentRecord
     from app.domains.activities.api import Registration
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     assert rec.amount == Decimal("40.00")  # 2 × gewone prijs 20.00
     reg = db_session.query(Registration).first()
     assert reg.person_id is not None  # #112: toch gekoppeld
@@ -130,7 +131,7 @@ def test_inactive_membership_pays_regular_price(client, db_session):
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     assert rec.amount == Decimal("20.00")  # gewone prijs
 
 
@@ -141,7 +142,7 @@ def test_anonymous_registration_regular_price_and_no_person(client, db_session):
 
     from app.domains.payment.api import PaymentRecord
     from app.domains.activities.api import Registration
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.REGISTRATION).first()
     assert rec.amount == Decimal("20.00")
     reg = db_session.query(Registration).first()
     assert reg.person_id is None  # #112: anoniem → geen koppeling

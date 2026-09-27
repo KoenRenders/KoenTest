@@ -93,7 +93,7 @@ def _schrijf_in(client, activity, component, product, *, email, aangemeld_met=No
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
         data={"contact_name": "Deelnemer", "contact_email": email,
               "phone": "0470000000", f"product_{product.id}": "1",
-              "payment_method": "TRANSFER"})
+              "payment_method": "transfer"})
 
 
 def _bevestigingen(verstuurd: list[dict]) -> list[str]:

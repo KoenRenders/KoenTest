@@ -67,7 +67,7 @@ def test_open_krijgt_geen_badge_maar_vol_wel(client, db_session):
     resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
         "contact_name": "An Janssens", "phone": "0470000000",
         "contact_email": "vol@example.com", "component_id": comp.id,
-        "payment_method": "TRANSFER",
+        "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
     assert resp.status_code in (200, 201), resp.text

@@ -11,6 +11,7 @@ import pytest
 from decimal import Decimal
 
 from app.domains.payment.providers.base import PaymentStatusResult
+from app.domains.payment.api import PaymentStatus
 
 
 def _seed_gateway_payment(db, amount="35.00", status="pending"):
@@ -70,7 +71,8 @@ def test_matching_amount_marks_paid(db_session, monkeypatch):
     )
 
     refreshed = refresh_payment_status(db_session, gp.id)
-    assert refreshed.status == "paid"
+    # `GatewayPayment.status` carries Mollie's word, not ours (§B4.10).
+    assert refreshed.status == PaymentStatus.PAID.value
 
 
 def test_gateway_payment_id_is_unique_on_payment_records(db_session):

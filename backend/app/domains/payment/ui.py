@@ -21,7 +21,9 @@ from app.domains.auth.api import (
     require_finance_mutation, require_finance_ui,
 )
 from app.ui import admin_nav, filterparams, templates
+from app.domains.payment.api import PayableType, PaymentType
 from app.i18n import _
+from app.kernel.codes import code_labels
 from app.domains.payment.service import (
     BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
     ververs_betaalstatus, verwijder_betaling, zet_betaalstatus,
@@ -82,7 +84,7 @@ def _activiteit_scope(db: Session, activiteit_id: int):
 
     activiteit = get_activity(db, activiteit_id, include_deleted=True)
     return (activiteit.name if activiteit is not None else None,
-            {("registration", i)
+            {(PayableType.REGISTRATION, i)
              for i in registration_ids_for(db, activiteit_id)})
 
 
@@ -297,8 +299,8 @@ def _view(request: Request, db: Session, email: str,
             "param_naam": "record", "param_waarde": record_id,
         }
 
-    charges = [r for r in zichtbaar if r.type != "refund"]
-    refunds = [r for r in zichtbaar if r.type == "refund"]
+    charges = [r for r in zichtbaar if r.type != PaymentType.REFUND]
+    refunds = [r for r in zichtbaar if r.type == PaymentType.REFUND]
     m_bet, m_ref = aggregate(charges), aggregate(refunds)
     # De KPI-band telt over de zicht-BASIS: de tabs snijden de tabel, niet de
     # kengetallen — anders zegt het tab "Betaald" dat er € 0 openstaat.
@@ -361,6 +363,11 @@ def _view(request: Request, db: Session, email: str,
             "mag_verwijderen": may_delete(rec),
             # Afgeleide status uit de service — de template leidt niets meer af.
             "status": derived_status(rec),
+            # CR-12 §B4.7: "is this card settled?" used to be
+            # `k.status == "paid"` in the template. That is a derived state
+            # and not a code, but the comparison belongs here and not there:
+            # one place where the rule lives, and testable.
+            "is_settled": derived_status(rec) == "paid",
         }
 
     # `records` erbij zodat een gefilterde terugbetaling haar charge als context
@@ -402,14 +409,17 @@ def _view(request: Request, db: Session, email: str,
         # {% set %} in betalingen.html zou daar niet bestaan.
         # §2.12: nooit rauwe DB-waarden op het scherm. Per request opgebouwd, zodat
         # _() de taal van de tenant volgt (#630).
-        method_labels={
-            "online": _("Online"), "transfer": _("Overschrijving"),
-            "cash": _("Contant"),
-        },
+        # CR-12 phase 1: these two came from two dictionaries in this file.
+        # Now from the label tables, so the screen, the export and the report
+        # dimension show the same word by definition (AC3) and an
+        # English-language department sees both of them in English (AC2).
+        method_labels=dict(code_labels("payment_method")),
+        # The two filter options at the top are *not* codes: "all statuses"
+        # and "outstanding balance" are ways of looking, not values that sit
+        # in the column. So they keep going through `_()`.
         status_labels={
             "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
-            "pending": _("In afwachting"), "paid": _("Betaald"),
-            "failed": _("Mislukt"), "cancelled": _("Geannuleerd"),
+            **dict(code_labels("payment_status")),
         },
         # Badge per afgeleide status (service.derived_status). Label + kleur horen
         # bij de weergave en dus hier; wélke status het is, beslist de service —
