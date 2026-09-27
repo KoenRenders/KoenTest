@@ -1,8 +1,8 @@
 """media kind becomes a code list
 
 CR-12 phase 4, the media domain. `media.media_assets.kind` was a free string
-guarded by `ck_media_assets_kind_valid` — the CHECK that migrations 057, 131, 134
-and 151 each had to rebuild to add a kind. It gets its code list, a label table
+guarded by `ck_media_assets_kind_valid` — the CHECK that 040 added and that 057,
+123, 131, 134 and 151 each had to rebuild to add a kind. It gets its code list, a label table
 per language and a foreign key; the CHECK goes, because the key says the same.
 
 The helper counts the rows before it adds the key and aborts naming what does

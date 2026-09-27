@@ -61,7 +61,7 @@ def _document_label(db: Session, asset: "MediaAsset") -> str:
             an = c.activity.name if c.activity else "activiteit"
             return f"{an} — {c.name} (info)"
         return "reglement"
-    return code_of(asset.kind)
+    return code_of(asset.kind) or ""
 
 
 def list_chatbot_info(db: Session, _admin=None):

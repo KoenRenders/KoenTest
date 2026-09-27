@@ -123,7 +123,7 @@ def _resized(img: Image.Image, max_side: int) -> Image.Image:
     return clone
 
 
-def process_image(raw: bytes, *, kind: str = "") -> dict:
+def process_image(raw: bytes, *, kind: MediaKind | str = "") -> dict:
     """Verwerk ruwe bytes tot (full, thumb) + metadata.
 
     Returns een dict met: data, content_type, thumbnail, thumb_content_type,
@@ -147,14 +147,15 @@ def process_image(raw: bytes, *, kind: str = "") -> dict:
         raise ImageError("Geen geldige afbeelding") from exc
 
     img = ImageOps.exif_transpose(img)
-    kind = as_media_kind(kind)
-    keep_alpha = kind in LOSSLESS_KINDS or img.mode in ("RGBA", "LA") or (
+    media_kind = as_media_kind(kind)
+    keep_alpha = media_kind in LOSSLESS_KINDS or img.mode in ("RGBA", "LA") or (
         img.mode == "P" and "transparency" in img.info
     )
     if keep_alpha and img.mode != "RGBA":
         img = img.convert("RGBA")
 
-    full = _resized(img, MAX_FULL_BY_KIND.get(kind, MAX_FULL))
+    full = _resized(img, MAX_FULL if media_kind is None
+                    else MAX_FULL_BY_KIND.get(media_kind, MAX_FULL))
     thumb = _resized(img, MAX_THUMB)
 
     data, content_type = _encode(full, keep_alpha=keep_alpha)

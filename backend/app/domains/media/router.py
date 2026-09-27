@@ -45,7 +45,7 @@ _EXT_BY_TYPE = {
 }
 
 
-def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
+def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = "") -> dict:
     """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
     thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
     if content_type == "application/pdf":
@@ -65,7 +65,7 @@ def _process_document(raw: bytes, content_type: str, *, kind: str = "") -> dict:
     return process_image(raw, kind=kind)
 
 
-async def _replace_single_asset(db, file: UploadFile, *, kind: str,
+async def _replace_single_asset(db, file: UploadFile, *, kind: MediaKind | str,
                                 activity_id=None, component_id=None,
                                 title_base: Optional[str] = None) -> MediaAsset:
     """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —

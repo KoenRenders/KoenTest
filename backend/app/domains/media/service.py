@@ -110,7 +110,7 @@ def list_activity_photos(db, activity_id: int) -> list[dict]:
     return [meta(a) for a in rijen]
 
 
-def list_media(db, *, kind: Optional[str] = None,
+def list_media(db, *, kind: MediaKind | str | None = None,
                activity_id: Optional[int] = None) -> list[dict]:
     query = db.query(MediaAsset)
     if kind:
@@ -130,7 +130,7 @@ def list_media(db, *, kind: Optional[str] = None,
 VEILIGE_SCHEMAS = ("http://", "https://", "mailto:", "tel:")
 
 
-def controleer_link(url, *, kind: str):
+def controleer_link(url, *, kind: MediaKind | str):
     """De doorklik van een sponsorlogo — of None (#707).
 
     Twee regels, en allebei horen ze HIER en niet in het scherm: er zijn twee
@@ -298,7 +298,7 @@ def delete_media(db, asset_id: int) -> None:
     db.commit()
 
 
-async def upload_media(db, *, files: Sequence, kind: str,
+async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
                        activity_id: Optional[int] = None,
                        title: Optional[str] = None,
                        link_url: Optional[str] = None) -> list[dict]:
@@ -312,16 +312,16 @@ async def upload_media(db, *, files: Sequence, kind: str,
     """
     from app.domains.activities.api import Activity
 
-    kind = as_media_kind(kind)
-    if kind == DESIGN_RENDER_KIND:
+    media_kind = as_media_kind(kind)
+    if media_kind == DESIGN_RENDER_KIND:
         raise MediaFout(_("Een render wordt door de Design Studio gemaakt en "
                           "niet opgeladen."))
-    if kind not in UPLOADABLE_KINDS:
+    if media_kind not in UPLOADABLE_KINDS:
         raise MediaFout("Ongeldige 'kind'")
     # #1005: een design-beeld hangt óók aan een activiteit, maar hoeft het niet —
     # de Design Studio maakt eerst het beeld en koppelt het daarna.
-    if kind in (MediaKind.ACTIVITY_PHOTO, DESIGN_IMAGE_KIND):
-        if activity_id is None and kind is MediaKind.ACTIVITY_PHOTO:
+    if media_kind in (MediaKind.ACTIVITY_PHOTO, DESIGN_IMAGE_KIND):
+        if activity_id is None and media_kind is MediaKind.ACTIVITY_PHOTO:
             # #696: v1.14 zei "Kies eerst een activiteit." en dat is wat de
             # gebruiker moet doen; "activity_id vereist" is de naam van een
             # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
@@ -334,14 +334,14 @@ async def upload_media(db, *, files: Sequence, kind: str,
 
     # #707: één plek voor de regel, dus ook op deze ingang. Bij een foto valt de
     # waarde weg; bij een sponsor moet het schema in een href mogen.
-    link_url = controleer_link(link_url, kind=kind)
+    link_url = controleer_link(link_url, kind=media_kind)
 
     if not files:
         raise MediaFout("Geen bestanden")
     if len(files) > MAX_BATCH:
         raise MediaFout(f"Maximaal {MAX_BATCH} bestanden per keer")
 
-    basis = db.query(MediaAsset).filter(MediaAsset.kind == kind)
+    basis = db.query(MediaAsset).filter(MediaAsset.kind == media_kind)
     if activity_id is not None:
         basis = basis.filter(MediaAsset.activity_id == activity_id)
     volgende = basis.count()
@@ -351,18 +351,18 @@ async def upload_media(db, *, files: Sequence, kind: str,
         # #989: SVG only for the association logo, and then cleaned rather than
         # re-encoded (see `media/svg.py`). Every other kind stays raster.
         is_svg = upload.content_type == SVG_CONTENT_TYPE
-        if is_svg and kind is not MediaKind.TENANT_LOGO:
+        if is_svg and media_kind is not MediaKind.TENANT_LOGO:
             raise MediaFout(_("%(bestand)s: een SVG kan alleen als logo van de "
                               "vereniging.") % {"bestand": upload.filename})
         if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
             raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
         rauw = await upload.read()
         try:
-            verwerkt = process_svg(rauw) if is_svg else process_image(rauw, kind=kind)
+            verwerkt = process_svg(rauw) if is_svg else process_image(rauw, kind=media_kind)
         except ImageError as exc:
             raise MediaFout(f"{upload.filename}: {exc}")
 
-        asset = MediaAsset(kind=kind, activity_id=activity_id,
+        asset = MediaAsset(kind=media_kind, activity_id=activity_id,
                            title=title or upload.filename, link_url=link_url,
                            sort_order=volgende + index, is_active=True, **verwerkt)
         db.add(asset)
@@ -374,7 +374,7 @@ async def upload_media(db, *, files: Sequence, kind: str,
     return [meta(a) for a in gemaakt]
 
 
-def add_document(db, *, kind: str, filename: str, content_type: str,
+def add_document(db, *, kind: MediaKind | str, filename: str, content_type: str,
                  data: bytes, activity_id: Optional[int] = None) -> MediaAsset:
     """Store one file another component links to or produced, and return it.
 
@@ -396,21 +396,21 @@ def add_document(db, *, kind: str, filename: str, content_type: str,
     """
     from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
 
-    kind = as_media_kind(kind)
+    media_kind = as_media_kind(kind)
     toegestane_soorten = DOCUMENT_KINDS | {DESIGN_RENDER_KIND}
-    if kind not in toegestane_soorten:
+    if media_kind not in toegestane_soorten:
         raise MediaFout("Ongeldige 'kind'")
     is_svg = content_type == SVG_CONTENT_TYPE
-    if is_svg and kind != DESIGN_RENDER_KIND:
+    if is_svg and media_kind != DESIGN_RENDER_KIND:
         raise MediaFout(_("Een SVG kan hier alleen als render van de Design Studio."))
     if not is_svg and content_type not in DOC_CONTENT_TYPES:
         raise MediaFout(_("Dit bestandstype kan niet: kies een PDF of een afbeelding."))
     try:
         processed = (process_svg(data) if is_svg
-                     else _process_document(data, content_type, kind=kind))
+                     else _process_document(data, content_type, kind=media_kind))
     except ImageError as exc:
         raise MediaFout(f"{filename}: {exc}")
-    asset = MediaAsset(kind=kind, title=(filename or "bestand")[:255], sort_order=0,
+    asset = MediaAsset(kind=media_kind, title=(filename or "bestand")[:255], sort_order=0,
                        activity_id=activity_id, is_active=True, **processed)
     db.add(asset)
     db.commit()
