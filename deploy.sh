@@ -337,6 +337,10 @@ rollback_can_start() {
     echo "     docker compose -f $COMPOSE --env-file $ENVFILE stop backend"
     echo "     docker compose -f $COMPOSE --env-file $ENVFILE exec -T db sh -c 'dropdb --force -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\" && createdb -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\"'"
     echo "     gunzip -c $BACKUP_FILE | docker compose -f $COMPOSE --env-file $ENVFILE exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'"
+    echo "   Stop here if psql reported an error. Before redeploying, check a few row"
+    echo "   counts (e.g. mdm.persons, activities.registrations) against what you expect:"
+    echo "   at startup the previous release seeds every table it finds empty, so after"
+    echo "   the redeploy a half-restored database can no longer be told from a seeded one."
     echo "     DEPLOY_ROLLBACK=1 ./deploy.sh $ENV $DEPLOY_PREV_REF"
   else
     echo "   This deploy took no dump (the db container was not running); see ${BACKUP_DIR:-./backups}."

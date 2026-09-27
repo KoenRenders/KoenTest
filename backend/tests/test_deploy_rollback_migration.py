@@ -141,6 +141,27 @@ def test_the_stop_message_names_the_dump_of_this_deploy(tmp_path):
     assert "DEPLOY_ROLLBACK=1 ./deploy.sh prod v0.0.1" in done.stdout
 
 
+def test_the_stop_message_says_to_stop_on_a_failed_restore_before_redeploying(tmp_path):
+    """A human works through the lines in order. Without this one, a failed psql
+    is followed by the redeploy, and the previous release's startup seeds every
+    empty table with example data — then the row counts measure the seeding, not
+    the restore. So the warning, and the counts, come BEFORE the redeploy line.
+
+    Broken on purpose to check that this test can go red: the four warning lines
+    moved below the `DEPLOY_ROLLBACK=1` line → the order assertion falls over.
+    """
+    done, _ = _deploy(tmp_path, adds_migration=True)
+
+    out = done.stdout
+    warning = out.find("Stop here if psql reported an error")
+    counts = out.find("check a few row")
+    restore = out.find("psql -q -v ON_ERROR_STOP=1")
+    redeploy = out.find("DEPLOY_ROLLBACK=1 ./deploy.sh prod v0.0.1")
+    assert -1 not in (warning, counts, restore, redeploy), out[-3000:]
+    assert restore < warning < counts < redeploy, (
+        "the warning and the row counts belong between the restore and the redeploy")
+
+
 def test_a_release_without_a_migration_still_rolls_back(tmp_path):
     """The counterproof: nothing changes for a release that adds no migration."""
     done, smoke_counter = _deploy(tmp_path, adds_migration=False)
