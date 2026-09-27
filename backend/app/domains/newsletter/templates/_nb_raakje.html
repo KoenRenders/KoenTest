@@ -84,7 +84,7 @@
   <div class="space-y-2 max-h-[32rem] overflow-y-auto mt-3">
     {% for turn in turns %}
     {% for message in turn %}
-    {% if message.role == "author" %}
+    {% if by_author[message.id] %}
     <div class="ml-8 rounded-2xl rounded-br-sm bg-blue-700 text-white text-sm px-3 py-2">{{ message.text }}</div>
     {% else %}
     <div class="mr-4 rounded-2xl rounded-bl-sm border border-line bg-surface-2 text-sm px-3 py-2 space-y-2">

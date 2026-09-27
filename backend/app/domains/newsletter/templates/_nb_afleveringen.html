@@ -11,7 +11,8 @@
   {% for delivery in deliveries %}
     <tr>
       <td class="py-2 pr-3">{{ delivery.email }}</td>
-      <td class="py-2 pr-3">{{ ui.badge(delivery_labels[delivery.status], delivery_tones[delivery.status]) }}</td>
+      <td class="py-2 pr-3">{{ ui.badge(delivery.status | code_label("delivery_status"),
+                                   delivery.status | tone("delivery_status")) }}</td>
       <td class="py-2 pr-3 text-ink-soft">{{ moments[delivery.id] }}</td>
       <td class="py-2 text-ink-soft">{{ delivery.error or "" }}</td>
     </tr>

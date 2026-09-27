@@ -866,9 +866,16 @@ def test_dutch_scenes_are_translated_and_logged_english_ones_pass(monkeypatch):
 
 
 def test_three_styles_and_their_wording():
-    from app.domains.designstudio import imaging
+    """The prompt fragments and the code list describe the same three styles.
 
-    assert set(imaging.STYLES) == {"lijn", "lijnkleur", "kleur"} == set(imaging.STYLE_LABELS)
+    The Dutch words moved to the `drawing_style` label table (CR-12 phase 3);
+    what stays in `imaging` is the prompt fragment. The two must still cover
+    the same codes, or the picker offers a style that has no prompt.
+    """
+    from app.domains.designstudio import imaging
+    from app.domains.designstudio.models import DrawingStyle
+
+    assert set(imaging.STYLES) == {"lijn", "lijnkleur", "kleur"} == {m.value for m in DrawingStyle}
     assert "flat colour accents" in imaging.build_prompt("a family on bicycles", "lijnkleur")
     assert all("realistic proportions" in s and "no cartoon" in s for s in imaging.STYLES.values())
 

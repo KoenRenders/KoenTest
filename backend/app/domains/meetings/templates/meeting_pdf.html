@@ -120,7 +120,7 @@
   </div>
 
   {% for section in sections %}
-  <h2>{{ section.label }}{% if section.kind == "MEMBERS" %} <span class="members-total">({{ _("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total) }}{% if standing.renewal_running %}{{ _("; hernieuwd voor %(jaar)s: %(x)s van %(n)s", jaar=standing.renewal_year, x=standing.renewed, n=standing.to_renew) }}{% endif %})</span>{% endif %}</h2>
+  <h2>{{ section.label }}{% if section.is_members %} <span class="members-total">({{ _("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total) }}{% if standing.renewal_running %}{{ _("; hernieuwd voor %(jaar)s: %(x)s van %(n)s", jaar=standing.renewal_year, x=standing.renewed, n=standing.to_renew) }}{% endif %})</span>{% endif %}</h2>
   {% if not section.items %}
   <p class="empty">{{ _("Geen punten.") }}</p>
   {% endif %}
@@ -130,7 +130,7 @@
        Bolletjes blijven waar ze betekenis hebben — in de opsommingen van de
        verslagtekst zelf. Een gezinsnaam staat in gewone tekst: een lijst van
        volledig vette namen leest als een blok, niet als een lijst. #}
-    <div class="line"><span class="titel">{{ item.label }}</span>{% if item.meta %} <span class="meta">{% if section.kind != "MEMBERS" %}| {% endif %}{{ item.meta }}</span>{% endif %}{% if section.kind == "MEMBERS" %} <span class="meta">({{ _("nieuw lid") }})</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    <div class="line"><span class="titel">{{ item.label }}</span>{% if item.meta %} <span class="meta">{% if not section.is_members %}| {% endif %}{{ item.meta }}</span>{% endif %}{% if section.is_members %} <span class="meta">({{ _("nieuw lid") }})</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
     {# De genoteerde wijkmeester staat als gewone verslagregel onder het lid, in
        dezelfde zwarte tekst als elke andere notulering — het ís genotuleerde
        inhoud, geen administratieve context (Koen, 15 september 2026). #}

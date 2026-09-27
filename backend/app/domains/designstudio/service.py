@@ -35,30 +35,24 @@ from sqlalchemy.orm import Session
 from starlette.datastructures import Headers, UploadFile
 
 from app.domains.designstudio import brand, imaging, render
+from app.domains.designstudio.codes import LAYOUT
 from app.domains.designstudio.content import Contact, Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import ICONS
 from app.domains.designstudio.models import (
-    INSET_CORNERS,
-    GEN_DISCARDED,
-    GEN_PICKED,
-    GEN_REQUESTED,
-    LAYOUT_FEED,
-    LAYOUT_PRINT,
-    LAYOUTS,
-    PRESETS,
-    STATUS_DRAFT,
-    STATUS_FINAL,
-    VARIANT_PDF,
-    VARIANT_PNG,
-    VARIANT_SVG,
-    VARIANT_SVG_EDITED,
     Design,
     DesignHighlight,
     DesignLogo,
     DesignRendition,
+    DesignStatus,
     DesignVersion,
+    GenerationStatus,
     ImageGeneration,
+    InsetCorner,
+    Layout,
+    Preset,
+    RenderVariant,
 )
+from app.kernel.codes import code_label, code_of
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
 
@@ -78,12 +72,9 @@ MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AU
              "SEPTEMBER", "OKTOBER", "NOVEMBER", "DECEMBER")
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
-PRESET_LABELS = {"eenvoudig": "Eenvoudig — één grote foto en de tekst van de activiteit over de volle breedte",
-                 "beeld": "Met beeld — foto of tekening rechts, kernpunten links, omschrijving eronder",
-                 "tekst": "Tekst — geen beeld, kernpunten links, omschrijving rechts"}
-STATUS_LABELS = {STATUS_DRAFT: "Ontwerp", STATUS_FINAL: "Definitief"}
-STATUS_TONES = {STATUS_DRAFT: "yellow", STATUS_FINAL: "green"}
-LAYOUT_LABELS = {LAYOUT_PRINT: "Print (A3/A4)", LAYOUT_FEED: "Instagram (4:5)"}
+# The words for a preset, a status and a layout now come from the label
+# tables of `codes.py` through `code_label()` (CR-12 phase 3); the badge tones
+# are registered by the screen that draws them, in `admin_ui.py`.
 
 #: What a version renders per layout: (variant, size code, export kind, page mm, png width).
 #: What a size is called in a file name. The codes are internal ("feed" is
@@ -92,18 +83,18 @@ LAYOUT_LABELS = {LAYOUT_PRINT: "Print (A3/A4)", LAYOUT_FEED: "Instagram (4:5)"}
 #: zoals bowlen-v1-a4.pdf, en bowlen-v1-portrait.png voor Instagram?").
 FILE_SIZE_LABELS = {"a3": "a3", "a4": "a4", "feed": "portrait"}
 #: The same, for a screen that has a layout in hand rather than a size.
-FILE_LAYOUT_LABELS = {LAYOUT_PRINT: "a3", LAYOUT_FEED: "portrait"}
+FILE_LAYOUT_LABELS = {Layout.PRINT_A: "a3", Layout.FEED_PORTRAIT: "portrait"}
 
 RENDITIONS = {
-    LAYOUT_PRINT: (
-        (VARIANT_PDF, "a3", "pdf", None, None),
-        (VARIANT_PDF, "a4", "pdf", (210, 297), None),
-        (VARIANT_PNG, "a3", "png", None, 1754),
-        (VARIANT_SVG, "a3", None, None, None),
+    Layout.PRINT_A: (
+        (RenderVariant.PDF, "a3", "pdf", None, None),
+        (RenderVariant.PDF, "a4", "pdf", (210, 297), None),
+        (RenderVariant.PNG, "a3", "png", None, 1754),
+        (RenderVariant.SVG, "a3", None, None, None),
     ),
-    LAYOUT_FEED: (
-        (VARIANT_PNG, "feed", "png", None, 1080),
-        (VARIANT_SVG, "feed", None, None, None),
+    Layout.FEED_PORTRAIT: (
+        (RenderVariant.PNG, "feed", "png", None, 1080),
+        (RenderVariant.SVG, "feed", None, None, None),
     ),
 }
 
@@ -119,6 +110,36 @@ class DesignError(ValueError):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _preset(code) -> Preset:
+    """A preset code from a form, as the member the rest of the code uses.
+
+    Coercion on the boundary (CR-12 §B4.2): what comes off an HTML form is a
+    string, what the service works with is the member, and this is the one
+    place the two meet. An unknown value is the screen's error, not a 500.
+    """
+    try:
+        return Preset(code)
+    except ValueError:
+        raise DesignError("Onbekende opmaak.") from None
+
+
+def _layout(code) -> Layout:
+    """A layout, from a code or from a member — whichever the caller holds.
+
+    Same boundary as :func:`_preset`, and every public function of this
+    service that takes a layout runs its argument through it (§B4.2): a route
+    holds the string from a query string, a job holds the member, and neither
+    should have to know which. The rendering engine below (`render.py`,
+    `blocks.py`) keeps working with the **code**: it reads the poster contract
+    from JSON, whose keys are those codes, so the member is converted back
+    with `.value` at that one call.
+    """
+    try:
+        return Layout(code)
+    except ValueError:
+        raise DesignError("Onbekende opmaak.") from None
 
 
 # ── Designs ─────────────────────────────────────────────────────────────────
@@ -147,9 +168,8 @@ def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str =
     brand.split_duo(duo_code)  # raises on an unknown or forbidden duo
     if duo_code not in brand.ENABLED_DUOS:
         raise DesignError("Dit kleurenduo staat niet aan.")
-    if preset not in PRESETS:
-        raise DesignError("Onbekende opmaak.")
-    design = Design(activity_id=activity_id, duo_code=duo_code, preset=preset, created_by=created_by)
+    design = Design(activity_id=activity_id, duo_code=duo_code, preset=_preset(preset),
+                    created_by=created_by)
     db.add(design)
     db.commit()
     return design
@@ -163,8 +183,7 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
     the design exactly as it was and the screen can show what was typed."""
     if form.get("duo_code") not in brand.ENABLED_DUOS:
         raise DesignError("Dit kleurenduo staat niet aan.")
-    if form.get("preset") not in PRESETS:
-        raise DesignError("Onbekende opmaak.")
+    _preset(form.get("preset"))
     if len(highlights) > MAX_HIGHLIGHTS:
         raise DesignError(f"Ten hoogste {MAX_HIGHLIGHTS} kernpunten.")
     if len(logo_ids) > MAX_LOGOS:
@@ -173,13 +192,19 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
     for icon, _line, _emphasis in kept:
         if icon not in ICONS:
             raise DesignError(f"Onbekend icoon: {icon}")
-    if "inset_corner" in form and form["inset_corner"] not in INSET_CORNERS:
-        raise DesignError("Onbekende hoek voor de polaroid.")
+    if "inset_corner" in form:
+        try:
+            InsetCorner(form["inset_corner"])
+        except ValueError:
+            raise DesignError("Onbekende hoek voor de polaroid.") from None
     # Choices keep their last value when the form leaves them empty; free text
-    # becomes NULL so "empty" and "not filled in" stay the same thing.
+    # becomes NULL so "empty" and "not filled in" stay the same thing. The
+    # form may carry a code or a member (§B4.2); `code_of` makes one of the
+    # two, and `EnumColumn` turns the code back into the member on assignment.
     for key in ("duo_code", "preset", "inset_corner"):
-        if (form.get(key) or "").strip():
-            setattr(design, key, form[key].strip())
+        chosen = (code_of(form.get(key)) or "").strip()
+        if chosen:
+            setattr(design, key, chosen)
     for key in ("tagline", "subtitle"):
         if key in form:
             setattr(design, key, (form[key] or "").strip() or None)
@@ -213,7 +238,7 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
                                                  emphasis=bool(emphasis)))
     for i, asset_id in enumerate(logo_ids):
         design.logos.append(DesignLogo(media_asset_id=asset_id, sort_order=i))
-    design.status = STATUS_DRAFT
+    design.status = DesignStatus.DRAFT
     design.updated_at = _now()
     db.commit()
 
@@ -443,10 +468,10 @@ def qr_url(db: Session, key: str = "") -> str:
 
 # ── Preview and check ───────────────────────────────────────────────────────
 
-def edited_svg_for(db: Session, design: Design, layout: str) -> Optional[DesignRendition]:
+def edited_svg_for(db: Session, design: Design, layout) -> Optional[DesignRendition]:
     return (db.query(DesignRendition)
             .filter(DesignRendition.design_id == design.id, DesignRendition.version_id.is_(None),
-                    DesignRendition.layout_code == layout, DesignRendition.variant == VARIANT_SVG_EDITED)
+                    DesignRendition.layout_code == layout, DesignRendition.variant == RenderVariant.SVG_EDITED)
             .first())
 
 
@@ -459,17 +484,18 @@ def _asset_bytes(db: Session, asset_id: int) -> bytes:
     return bytes(asset.data)
 
 
-def merged_for(db: Session, design: Design, layout: str, *, facts: Optional[dict] = None,
+def merged_for(db: Session, design: Design, layout, *, facts: Optional[dict] = None,
                content: Optional[PosterContent] = None) -> render.Merged:
     """The SVG for one layout: the hand-edited one when there is one, else the
     merge. An edited SVG has no boxes to check — the unit took over."""
+    layout = _layout(layout)
     edited = edited_svg_for(db, design, layout)
     if edited is not None:
         svg = _asset_bytes(db, edited.media_asset_id).decode("utf-8")
-        spec = render.contract(design.template_key)["layouts"][layout]
+        spec = render.contract(design.template_key)["layouts"][layout.value]
         return render.Merged(svg=svg, boxes={}, violations=(), width_mm=spec["width_mm"], height_mm=spec["height_mm"])
     content = content or content_for(db, design, facts)
-    return render.merge(content, layout=layout, template_key=design.template_key,
+    return render.merge(content, layout=layout.value, template_key=design.template_key,
                         title=facts["title"] if facts else "Affiche",
                         qr_url=qr_url(db, facts.get("key", "") if facts else ""))
 
@@ -484,7 +510,7 @@ PREVIEW_PX = 1400
 PREVIEW_LARGE_PX = 2400
 
 
-def preview_png(db: Session, design: Design, layout: str, *, width_px: int = PREVIEW_PX) -> tuple[bytes, list[str]]:
+def preview_png(db: Session, design: Design, layout, *, width_px: int = PREVIEW_PX) -> tuple[bytes, list[str]]:
     """The editor's preview: quick check (no Inkscape measurement), then a PNG.
 
     1400 px over an A3 sheet is about 4.7 px per millimetre. It was 700, and
@@ -498,11 +524,11 @@ def preview_png(db: Session, design: Design, layout: str, *, width_px: int = PRE
     return render.export(merged.svg, "png", png_width_px=width_px), problems
 
 
-def check_design(db: Session, design: Design) -> dict[str, list[str]]:
+def check_design(db: Session, design: Design) -> dict[Layout, list[str]]:
     facts = facts_for(db, design)
     content = content_for(db, design, facts)
     return {layout: render.check(merged_for(db, design, layout, facts=facts, content=content), authority=False)
-            for layout in LAYOUTS}
+            for layout in tuple(Layout)}
 
 
 # ── Versions ────────────────────────────────────────────────────────────────
@@ -521,14 +547,15 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
     if facts["cancelled"]:
         raise DesignError("Deze activiteit is geannuleerd; er komt geen affiche van.")
     content = content_for(db, design, facts)
-    merged = {layout: merged_for(db, design, layout, facts=facts, content=content) for layout in LAYOUTS}
+    merged = {layout: merged_for(db, design, layout, facts=facts, content=content) for layout in tuple(Layout)}
     problems: list[str] = []
     for layout, m in merged.items():
-        problems += [f"{LAYOUT_LABELS[layout]}: {p}" for p in render.check(m, authority=True)]
+        problems += [f"{code_label(LAYOUT.name, layout, db=db)}: {p}"
+                     for p in render.check(m, authority=True)]
     if problems:
         raise DesignError(*problems)
 
-    files: list[tuple[str, str, str, str, bytes]] = []  # layout, variant, size, content type, bytes
+    files: list[tuple[Layout, RenderVariant, str, str, bytes]] = []  # layout, variant, size, content type, bytes
     slug = file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
     for layout, plan in RENDITIONS.items():
         svg = merged[layout].svg
@@ -555,7 +582,7 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
         db.add(DesignRendition(design_id=design.id, version_id=version.id, layout_code=layout, variant=variant,
                                size_code=size, media_asset_id=asset_id,
                                facts_fingerprint=edited.facts_fingerprint if edited else None))
-    design.status = STATUS_FINAL
+    design.status = DesignStatus.FINAL
     design.updated_at = _now()
     _prune_versions(db, design)
     db.commit()
@@ -585,7 +612,10 @@ def _prune_versions(db: Session, design: Design) -> None:
                 logger.warning("designstudio: render %s already gone", asset_id)
 
 
-def rendition(version: DesignVersion, layout: str, variant: str, size: str = "") -> Optional[DesignRendition]:
+def rendition(version: DesignVersion, layout, variant, size: str = "") -> Optional[DesignRendition]:
+    # Both arguments may arrive as a code or as a member (§B4.2); the columns
+    # read back as members, so the comparison is between members.
+    layout, variant = _layout(layout), RenderVariant(variant)
     for r in version.renditions:
         if r.layout_code == layout and r.variant == variant and (not size or r.size_code == size):
             return r
@@ -597,7 +627,7 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
     a hand-made poster takes. The confirmation is the screen's job."""
     from app.domains.media.api import replace_activity_poster
 
-    pdf = rendition(version, LAYOUT_PRINT, VARIANT_PDF, "a3")
+    pdf = rendition(version, Layout.PRINT_A, RenderVariant.PDF, "a3")
     if pdf is None:
         raise DesignError("Deze versie heeft geen A3-pdf.")
     data = _asset_bytes(db, pdf.media_asset_id)
@@ -611,15 +641,14 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
 
 # ── Hand-edited SVG ─────────────────────────────────────────────────────────
 
-def upload_edited_svg(db: Session, design: Design, layout: str, raw: bytes) -> list[str]:
+def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[str]:
     """Store through media — which cleans the file with the platform's one
     allowlist (#1011) — check the page size on what came back, replace for
     this layout. Returns the brand warnings — warnings only (§3.6a): a
     hand-made poster may break the guide, knowingly."""
     from app.domains.media.api import MediaFout, add_document, delete_media
 
-    if layout not in LAYOUTS:
-        raise DesignError("Onbekende opmaak.")
+    layout = _layout(layout)
     if not raw:
         raise DesignError("Leeg bestand.")
     try:
@@ -630,7 +659,7 @@ def upload_edited_svg(db: Session, design: Design, layout: str, raw: bytes) -> l
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
     cleaned = bytes(asset.data).decode("utf-8")
-    spec = render.contract(design.template_key)["layouts"][layout]
+    spec = render.contract(design.template_key)["layouts"][layout.value]
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
         delete_media(db, asset.id)
@@ -638,14 +667,14 @@ def upload_edited_svg(db: Session, design: Design, layout: str, raw: bytes) -> l
                           f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm.")
     warnings = brand.check_template(cleaned)
     remove_edited_svg(db, design, layout)
-    db.add(DesignRendition(design_id=design.id, version_id=None, layout_code=layout, variant=VARIANT_SVG_EDITED,
+    db.add(DesignRendition(design_id=design.id, version_id=None, layout_code=layout, variant=RenderVariant.SVG_EDITED,
                            size_code="", media_asset_id=asset.id, facts_fingerprint=fingerprint(facts_for(db, design))))
-    design.status = STATUS_DRAFT
+    design.status = DesignStatus.DRAFT
     db.commit()
     return warnings
 
 
-def remove_edited_svg(db: Session, design: Design, layout: str) -> None:
+def remove_edited_svg(db: Session, design: Design, layout) -> None:
     from app.domains.media.api import delete_media
 
     existing = edited_svg_for(db, design, layout)
@@ -674,7 +703,7 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
     asset_id = rows[0]["id"]
     if slot:
         setattr(design, slot, asset_id)
-        design.status = STATUS_DRAFT
+        design.status = DesignStatus.DRAFT
         design.updated_at = _now()
     db.commit()
     return asset_id
@@ -722,7 +751,7 @@ def reserved_cents(db: Session) -> int:
     from sqlalchemy import func
 
     value = (db.query(func.coalesce(func.sum(ImageGeneration.reserved_cents), 0))
-             .filter(ImageGeneration.status == GEN_REQUESTED).scalar())
+             .filter(ImageGeneration.status == GenerationStatus.REQUESTED).scalar())
     return int(value or 0)
 
 
@@ -744,7 +773,7 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     english_change, _c = imaging.translate_scene(change, actor=requested_by)
     prompt = imaging.build_prompt(english, style, english_change)
     scene = scene.strip() or change.strip()   # kept as typed, so the redo shows Dutch to a Dutch speaker
-    if any(g.status == GEN_REQUESTED for g in design.generations):
+    if any(g.status == GenerationStatus.REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
     per_image = imaging.expected_cost_eur(with_reference=with_reference)
@@ -755,7 +784,7 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     for _ in range(imaging.VARIANTS_PER_CLICK):
         row = ImageGeneration(design_id=design.id, request_key=key, seed=rnd.randint(1, 2**31 - 1),
                               scene=scene.strip()[:600], style=style,
-                              width=1440, height=1248, status=GEN_REQUESTED,
+                              width=1440, height=1248, status=GenerationStatus.REQUESTED,
                               reserved_cents=int((per_image * 100).to_integral_value()),
                               requested_by=requested_by)
         db.add(row)
@@ -796,10 +825,10 @@ def pick_generation(db: Session, design: Design, generation_id: int, *, slot: st
     if slot not in IMAGE_SLOTS:
         raise DesignError("Onbekende plaats voor het beeld.")
     setattr(design, slot, gen.media_asset_id)
-    gen.status = GEN_PICKED
+    gen.status = GenerationStatus.PICKED
     for sibling in design.generations:
-        if sibling.request_key == gen.request_key and sibling.id != gen.id and sibling.status == "fetched":
-            sibling.status = GEN_DISCARDED
-    design.status = STATUS_DRAFT
+        if sibling.request_key == gen.request_key and sibling.id != gen.id and sibling.status is GenerationStatus.FETCHED:
+            sibling.status = GenerationStatus.DISCARDED
+    design.status = DesignStatus.DRAFT
     design.updated_at = _now()
     db.commit()

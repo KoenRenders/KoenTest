@@ -22,6 +22,7 @@ from xml.sax.saxutils import escape
 from app.domains.designstudio import richtext
 from app.domains.designstudio.content import Highlight, ImageBytes, PosterContent
 from app.domains.designstudio.icons import icon_svg
+from app.domains.designstudio.models import Preset
 
 FONT = "Radio Canada Big"
 HAND = "Caveat"
@@ -699,7 +700,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         limit -= 22
         p.logos = logo_strip(p, content.logos, width - frame - 4, band_y - 21, LOGO_H)
 
-    if content.preset == "eenvoudig":
+    if content.preset is Preset.SIMPLE:
         # Koen, 19 September 2026 (evening): one big picture, then the
         # activity's text over the full width, and a smaller "iedereen
         # welkom" low on the page. Since 20 September the feed image is laid
@@ -814,13 +815,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
-        if content.third_image and content.preset != "tekst":
+        if content.third_image and content.preset is not Preset.TEXT:
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 4, 88, angle=3)
             left.append(frag)
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         left.append(frag)
 
-        if content.preset == "tekst":
+        if content.preset is Preset.TEXT:
             if content.dates and len(content.dates) > 1:
                 frag, ry = dates_grid(p, content, rx, ry, rw)
                 right.append(frag)

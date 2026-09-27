@@ -181,7 +181,7 @@
         {% for value, label, count, hint in audience_options %}
         <label title="{{ hint }}"
                class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
-          <input type="radio" name="audience" value="{{ value }}"{% if letter.audience == value %} checked{% endif %}>
+          <input type="radio" name="audience" value="{{ value }}"{% if audience == value %} checked{% endif %}>
           <span class="font-semibold">{{ label }}</span>
           <span class="text-ink-soft">{{ count }}</span>
         </label>
