@@ -1,6 +1,6 @@
 """Zoekveld en filters op ÉÉN regel, op elk lijstscherm (#1079).
 
-`ui.filter_bar` rendert `<form class="mb-4 space-y-3">`, dus **elk direct kind is
+`ui.filter_bar` rendert `<form class="mb-4 flex flex-col gap-3">` (tot #1202 `space-y-3`), dus **elk direct kind is
 een eigen regel**. Het referentiescherm Betalingen heeft precies één kind — de
 flex-rij met het zoekveld én de filters erin; de elf andere hadden er twee en
 stonden daarom op twee regels. Er was niets stuk, ze waren anders opgebouwd.

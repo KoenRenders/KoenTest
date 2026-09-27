@@ -793,12 +793,20 @@
 {# `cls` (#1115): voor een scherm dat iets NAAST de filterbalk zet — een knop die
    niet in dit formulier hoort. Binnen de balk zou zo'n knop bij dit formulier
    horen, en dat submit niets (`onsubmit="return false"`); een genest `<form>`
-   gooit de browser zelfs weg. Met `cls="flex-1 min-w-0"` past de balk in een
-   flex-rij naast die knop. #}
+   gooit de browser zelfs weg. Met `cls="flex-1"` past de balk in een
+   flex-rij naast die knop; zonder `min-w-0`, zodat ze nooit smaller wordt dan
+   haar eigen controls en de rij de knop laat wrappen (#1202).
+
+   #1202: `flex flex-col gap-3` and not `space-y-3`. `space-y` puts a margin on
+   every child after the first, and a hidden input counts as a child — so the
+   sort fields of the e-mail log and the member changes, and the scope fields of
+   an activity's payments tab, gave the row a 12 px margin that leaked out of
+   the form. `gap` only works between boxes that are generated, so a hidden
+   input cannot cause it any more. #}
 {% macro filter_bar(hx_get, hx_target,
                     trigger="change, keyup changed delay:400ms from:input[type=search]",
                     id=None, cls="") -%}
-<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 space-y-3{% if cls %} {{ cls }}{% endif %}" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
+<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 flex flex-col gap-3{% if cls %} {{ cls }}{% endif %}" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
       hx-swap="innerHTML" hx-trigger="{{ trigger }}"
       hx-headers='{"X-Raak-Filter": "1"}'
       onsubmit="return false">
