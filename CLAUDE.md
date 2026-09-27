@@ -346,16 +346,29 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 |---|---|---|---|
 | 1 | Release tracking issue (single source of truth) | CLI | one checkbox per issue; never uncheck Koen's boxes |
 | 2 | Merge gate: every feature branch merged to `master`, CI green | **master CLI executes every merge** (feature CLIs hand over green PRs; the release assignment is the approval, so Koen is not re-asked) | `gh pr merge` |
-| 3 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
-| 4 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
-| 5 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
-| 6 | GitHub Release `vX.Y.Z` on the **HDEV-tested** master commit | CLI | re-check the target commit; the tag is created server-side |
-| 7 | Deploy that tag to UAT | **confirmation required** | `raak deploy uat vX.Y.Z` |
-| 8 | Shared Caddy — only when the release touches `caddy/parts/*` | **confirmation required** | `raak caddy` (one recreate covers UAT + PROD) |
-| 9 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
-| 10 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
-| 11 | Close every implemented issue with a closing comment (what was built + how to test on HDEV) | CLI | the tracker's HDEV checkbox stays for Koen |
-| 12 | Close the tracker once the release runs on PROD | CLI | — |
+| 3 | **Close that issue with a closing comment** (what was built + how to test it on HDEV) — per issue, at its merge, before the next one starts | CLI | the tracker's HDEV checkbox stays for Koen |
+| 4 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
+| 5 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
+| 6 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
+| 7 | Koen validates on HDEV | **Koen** | he reads the closing comments from step 3 to know what to test |
+| 8 | GitHub Release `vX.Y.Z` on the **HDEV-tested** master commit | CLI | re-check the target commit; the tag is created server-side |
+| 9 | Deploy that tag to UAT | **confirmation required** | `raak deploy uat vX.Y.Z` |
+| 10 | Shared Caddy — only when the release touches `caddy/parts/*` | **confirmation required** | `raak caddy` (one recreate covers UAT + PROD) |
+| 11 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
+| 12 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
+| 13 | Close the tracker once the release runs on PROD | CLI | — |
+
+**Step 3 sits where it sits for a reason, and it used to sit at 11.** Koen spotted
+that on 27 September 2026: *"Dan is het te laat."* The closing comment exists to tell
+him **how to test the issue on HDEV**, and he tests on HDEV before the tag, before
+UAT and before PROD. A checklist that closes issues after the PROD deploy hands him
+the instructions for a test he finished three steps earlier.
+
+The rule itself was never wrong — *Release-tracker format* below already says Claude
+closes each issue as soon as CI is green, and it is the merge that carries the
+handover context. Only this table disagreed with it, and a release checklist gets
+copied into every tracker, so the wrong order travelled. One fact, one place: the
+closing comment belongs to the merge, not to the deploy.
 
 `raak` is the laptop-side entry point (see *Deploying a release to UAT / PROD*); it
 needs the `raak` alias in `~/.ssh/config` and hands every verb to `raakctl` on the
