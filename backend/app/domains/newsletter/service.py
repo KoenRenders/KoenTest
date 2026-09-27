@@ -364,7 +364,7 @@ class Recipient:
     subscriber_id: Optional[int]
 
 
-def recipients_for(db: Session, audience: str) -> list[Recipient]:
+def recipients_for(db: Session, audience: Audience) -> list[Recipient]:
     """The recipient list of one audience, deduplicated by address.
 
     In *allebei*, an address that is both a member and a subscriber is sent as

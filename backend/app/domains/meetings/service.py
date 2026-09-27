@@ -455,7 +455,7 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
 
 def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = None,
                    guest_id: Optional[int] = None,
-                   status: Optional[str] = None) -> None:
+                   status: Optional[Attendance] = None) -> None:
     """Tick someone present, excused, or neither — iemand uit de kring of een gast.
 
     `None` als status verwijdert de rij in plaats van een derde toestand te
@@ -930,7 +930,7 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
     return out
 
 
-def _subtitle_for(kind: str) -> str:
+def _subtitle_for(kind: SectionKind) -> str:
     """One line under a generated heading saying where its content comes from —
     so a board member can tell a query from something somebody typed."""
     if kind == SectionKind.EVALUATION:
