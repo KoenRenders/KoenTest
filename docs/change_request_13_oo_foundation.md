@@ -927,6 +927,19 @@ touches it: `db: Session` everywhere, `record: PaymentRecord` on the
 functions the rules pass through, `Mapped[]` on the columns the rules read.
 Shared with CR-12 phase 5; done once, whichever CR reaches the domain first.
 
+**What mypy enforces today: nothing on ORM attributes** (CR-12 #1273, 27
+September). `pyproject.toml` sets `follow_imports = "skip"` for
+`sqlalchemy.*`, so `Mapped` itself is `Any` and `strict_equality` is silent
+on any comparison with a mapped attribute — measured by dev1 on a
+`Mapped[MeetingStatus]` column with an annotated receiver. Whoever counts on
+mypy here to enforce anything counts on `Any`. So in this CR the
+annotations (`db: Session`, `record: PaymentRecord`) are still done — they
+are what makes mypy *able* to see, once the skip goes — but **no gate of
+B9.3 relies on mypy**; the *Typed* row is a mypy override that reports,
+and the AST gates enforce. Dropping the skip for `sqlalchemy.*` is a
+separate decision with its own cost (whatever SQLAlchemy 2.0's typing
+surfaces across 688 legacy columns); it is named here, not taken.
+
 ### B4.9 Domain events: the object says what happened, the service publishes (Koen, 27 September)
 
 The twin of "the object can say no": after a transition the object can say
@@ -1342,6 +1355,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q33 | 27 Sep 2026 | Master CLI, from CR-12 #1273: `follow_imports = "skip"` for `sqlalchemy.*` makes `Mapped` `Any` — mypy enforces nothing on ORM attributes. | B4.8: named as the third source of `Any`; annotations stay as preparation, no gate relies on mypy; dropping the skip is a separate decision. |
 | Q32 | 27 Sep 2026 | Master CLI, from CR-12 #1268: a baseline-tolerated comparison on a column that became an enum went silently false; does the same threat exist here? | Yes — every phase changes types (method, value object, `Mapped[Money]`). B9.3: a type-changing commit walks the frozen offenders on that attribute; the baseline records the attribute per entry so the gate can go red on a type change by itself. |
 | Q31 | 27 Sep 2026 | Master CLI: phase 0 split after dev2's estimate (3–5 CLI-days, ~2,000 lines) into 0a (#755: meter, listener, six simple gates, repo side of the callers) and 0c (#1254: six heavy AST gates, PROD access-log side), order 0a → 0b → 0c → 1; the spike counted 50 promises (21 not walkable); PROD's `app.log` does not rotate. | Taken into B7/B7.1, B9.2 and B10. Two gates the split did not name — *one entrance rule* and *one owner per derived value* — placed in 0c by the author and confirmed by the master CLI the same day: eight gates in 0c. |
 | Q30 | 27 Sep 2026 | dev2, spike 1: the #681 rule (birth date and gender required) is a membership rule, not a `Person` rule — `create_person_for_circle` makes persons without them; does it go on `Member`/`MemberPerson` as `check()`, not on `Person`, and is that written down so nobody adds a `NOT NULL`? | Yes: `MemberPerson.check()` in `mdm` (the household link is master data, Koen 27 Sep), fired on flush; explicitly no constraint on `persons.date_of_birth`/`gender_code` (B5.2, B7 phase 3). The import's own copy goes with it. |

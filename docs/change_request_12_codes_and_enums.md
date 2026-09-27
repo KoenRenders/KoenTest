@@ -568,6 +568,21 @@ something because `disallow_untyped_defs` is part of it — that flag forces
 `strict_equality` see the column. Phase 5 therefore carries the annotations
 as work, not as a side effect; the AST gate remains the gate throughout.
 
+**Measured in phase 5 (#1273), and it removes the bonus for now.**
+`strict_equality` does not catch `meeting.status == "sent"` even on a column
+declared `Mapped[MeetingStatus]` with an annotated receiver — dev1 tried, and
+mypy stayed silent. The cause is `follow_imports = "skip"` for
+`sqlalchemy.*` in `pyproject.toml`: with the import skipped, `Mapped` itself
+is `Any`, and every comparison with it is valid to mypy. So there are three
+sources of `Any`, not two: the legacy `Column()`, the untyped parameter, and
+the skipped SQLAlchemy import — and the third defeats the fix for the first
+two. The promise that `Mapped[]` plus annotations makes `strict_equality`
+bite is **false as long as the skip exists**; dev1 wrote that next to the
+override in `pyproject.toml`. What it would take: drop the skip for
+`sqlalchemy.*` (follow the SQLAlchemy 2.0 typing) and absorb whatever that
+surfaces — a separate decision, not this CR's. For CR-12 nothing changes:
+the AST gate is the gate, and it works.
+
 ### B4.9 The kernel API (what phase 0 builds)
 
 `app/kernel/codes.py`, small enough to read in one sitting. Names are the
@@ -1372,6 +1387,7 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q36 | 27 Sep 2026 | Master CLI, from #1273 (dev1): `strict_equality` stays silent even on `Mapped[MeetingStatus]` — `follow_imports = "skip"` for `sqlalchemy.*` makes `Mapped` itself `Any`. | B4.8: a third source of `Any`; the mypy bonus is off until the skip goes, which is a separate decision; the AST gate is the gate. Same measurement written into CR-13 B4.8. |
 | Q35 | 27 Sep 2026 | Master CLI, at phase 5: does the enum-attribute rule survive the hard gates? | No — it applies while a ratchet exists; after phase 5 the hard gate is the rule, and the permanent exceptions get no extra field (the gate sees only names and would hit three correct exceptions). CR-13 keeps the full rule. |
 | Q34 | 27 Sep 2026 | Master CLI, from #1268 (dev1): two baseline-tolerated template comparisons on `relation_type` went silently false when phase 2 made the column an enum — primary-member field gone, required fields no longer required; ratchet green, gate 12 blind. | B9.3: a baseline entry whose attribute became an enum is red regardless of the baseline; each phase that converts a column walks the entries on it in the same commit. Same rule written into CR-13. |
 | Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
