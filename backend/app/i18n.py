@@ -61,6 +61,35 @@ def long_date(d) -> str:
     return format_date(d, format="full", locale=current_locale.get())
 
 
+def short_date(d) -> str:
+    """A short numeric date, `30-10-1955` (#1238 point 6).
+
+    Twenty-two places in the templates spell `strftime("%d-%m-%Y")` by hand, so the
+    format itself is not new — this is the first place that could not use it. The
+    member portal renders its family from a serialised view model, where the date is
+    already an ISO **string**: `.strftime` is undefined on it and the screen died under
+    StrictUndefined. Measured, not assumed — that is how this function came to exist.
+
+    So it takes either form, and returns "" for nothing. Next to `long_date` for the
+    same reason that one lives here: it is the wording of a date, and a domain may need
+    it without importing the UI layer.
+
+    The twenty-two hand-written ones are deliberately left alone — they work, and
+    rewriting them is cleanup rather than this fix. This is the single source the next
+    one can reach for.
+    """
+    if not d:
+        return ""
+    if isinstance(d, str):
+        from datetime import date as _Date
+
+        try:
+            d = _Date.fromisoformat(d[:10])
+        except ValueError:
+            return d
+    return d.strftime("%d-%m-%Y")
+
+
 def long_date_no_year(d) -> str:
     """The same long date without the year, e.g. 'zondag 8 november' (#1051).
 

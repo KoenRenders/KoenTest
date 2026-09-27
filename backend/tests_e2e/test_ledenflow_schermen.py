@@ -166,6 +166,28 @@ def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
     assert all(geslachten), f"een gezinslid heeft geen geslacht: {geslachten!r}"
 
 
+def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
+    """#1238 punt 6, gezien door Koen op de afdruk.
+
+    Het ledenportaal drukte de geboortedatum kaal af (`1955-10-30`) terwijl het
+    invoerveld tien pixels verderop `30-10-1955` toont en de ledenkaart in de
+    beheerkant dezelfde gegevens al Belgisch toont. Eén scherm van de drie week af, en
+    het is net het scherm dat naar een publieke uitlegpagina gaat.
+
+    Getoetst op de gezaaide datum en niet op een patroon: `30-10-1955` en `1955-10-30`
+    bestaan allebei uit dezelfde cijfers, dus alleen de volledige string onderscheidt
+    ze. Rood te maken door `.strftime("%d-%m-%Y")` uit `gezin_portaal.html` te halen.
+    """
+    from seed_e2e import JOMMEKE_GEBOORTE, MARKER_EMAIL
+
+    page = _portaal(browser_page, MARKER_EMAIL)
+    tekst = page.locator('div.space-y-4 div[x-show="!edit"]').first.inner_text()
+    assert JOMMEKE_GEBOORTE.strftime("%d-%m-%Y") in tekst, (
+        f"de geboortedatum staat niet Belgisch op de kaart: {tekst!r}")
+    assert JOMMEKE_GEBOORTE.isoformat() not in tekst, (
+        f"de geboortedatum staat er nog in ISO-vorm bij: {tekst!r}")
+
+
 def test_de_voettekst_toont_geen_plaatshouders(browser_page):
     """#1238 punt 4: «Naam van de vereniging» hoort niet op een publieke afdruk.
 

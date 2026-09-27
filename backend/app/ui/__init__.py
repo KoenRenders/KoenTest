@@ -70,6 +70,15 @@ from app.i18n import long_date_no_year as _datumzonderjaar  # noqa: E402
 
 templates.env.filters["datumzonderjaar"] = _datumzonderjaar
 
+# #1238 punt 6: de korte, Belgische datum. Het ledenportaal was het enige scherm dat
+# een geboortedatum kaal afdrukte (`1955-10-30`), tien pixels naast een invoerveld dat
+# `30-10-1955` toont — en dat scherm gaat als schermafdruk naar een publieke
+# uitlegpagina. `strftime` kon daar niet: dat portaal rendert uit een geserialiseerd
+# view-model, waarin de datum al een string is.
+from app.i18n import short_date as _short_date  # noqa: E402
+
+templates.env.filters["kortedatum"] = _short_date
+
 
 def _maandkort(d) -> str:
     """Korte Nederlandse maand voor het datumblok op activiteitenkaarten

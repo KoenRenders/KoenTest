@@ -59,7 +59,12 @@
       <div x-show="!edit">
         <span class="font-semibold">{{ p.first_name }} {{ p.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
-        {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth }}</p>{% endif %}
+        {# #1238 punt 6: Belgisch en niet ISO. Dit was het enige scherm dat de
+           geboortedatum kaal afdrukte — de regel erboven doet `%d-%m-%Y`, de
+           ledenkaart in de beheerkant ook, en op de schermafdruk voor de publieke
+           uitlegpagina stond `1955-10-30` tien pixels naast een invoerveld dat
+           `30-10-1955` toont. #}
+        {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth|kortedatum }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji; een emoji bracht zijn eigen regelhoogte
              mee. #810: `items-start` + `mt-0.5` in plaats van `items-center` — een
