@@ -65,6 +65,15 @@ TASK_KIND_CODES = (
     # which this list gets no enum.
     CodeSeed(code="bericht.behartigen",
              nl="Bericht behartigen", en="Handle message", sort_order=50),
+    # Retired: #824 removed the orphan-payment mechanism that created this kind,
+    # but done tasks of it are still stored — 11 on HDEV, measured on 27
+    # September 2026, when migration 158 refused to put its key on them. Kept
+    # inactive with a label, like gender `U`: the old rows stay valid and still
+    # render, and nothing offers the kind any more. The screen never had a word
+    # for it (it fell back to "Overige taak"), so the words are new.
+    CodeSeed(code="payment.wees_record",
+             nl="Betaling: weesrecord", en="Payment: orphan record", sort_order=90,
+             is_active=False),
 )
 
 TASK_KIND = CodeList(
