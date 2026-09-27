@@ -61,6 +61,51 @@ SEED_NAAM = "Theofiel Jommeke"
 # volgende hernoeming stil groen blijven staan terwijl ze niets meer toetst.
 SEED_ACHTERNAMEN = ("Jommeke", "Gobelijn")
 
+# #1238 punt 3: de gegevens van het voorbeeldgezin, alle vier verzonnen of uit de
+# strip. Deze repo is publiek, dus een echt gsm-nummer of een echt adres hoort er
+# niet in; een striphuis en een nummer van enkel nullen kunnen van niemand zijn.
+#
+# 30 oktober 1955 is de dag waarop Jommeke voor het eerst verscheen (Koen,
+# 27 september 2026): een knipoog die niemand stoort en die het voorbeeldgezin
+# consistent houdt met zijn bron.
+JOMMEKE_GEBOORTE = date(1955, 10, 30)
+JOMMEKE_STRAAT = "Hemelstraat"
+JOMMEKE_HUISNUMMER = "12"
+PARTNER_EMAIL = "marie.jommeke@example.com"
+HOOFDLID_GSM = "0470 00 00 01"
+PARTNER_GSM = "0470 00 00 02"
+
+# #1238 punt 4: de voettekst van de afdrukomgeving. Zonder deze regels staat op elk
+# beeld de zaai-inhoud van migratie 027 — «Naam van de vereniging» · «straat en
+# nummer», «postcode en gemeente» — en dat leest op een uitlegpagina als een
+# onafgewerkte site. De waarden zijn verzonnen op één na: de vereniging heet zoals ze
+# heet, en Millegem is een gehucht van Mol, dus 2400 Mol klopt met het gezin
+# hierboven. Het adres en het e-mailadres zijn dat NIET; een echt adres van de
+# vereniging hoort niet in een publieke repo, en `example.com` is het domein dat
+# daarvoor bestaat.
+#
+# Bewust GEEN rekeningnummer: de placeholder van 027 draagt er een, maar een
+# verzonnen IBAN die er echt uitziet is precies het soort getal dat later iemands
+# rekening blijkt te zijn. Wat op deze beelden niets doet, zaaien we niet.
+VOETTEKST_HTML = (
+    "<p>Raak Millegem · Dorpsstraat 1, 2400 Mol</p>"
+    "<p>\U0001F4E7 info@example.com</p>"
+)
+
+
+def _adres(db, Address, person_id: int, postal_code_id: int) -> None:
+    """Eén adres voor elk gezinslid (#1238 punt 3).
+
+    Elk lid krijgt zijn EIGEN rij en niet één rij voor het gezin: zo modelleert
+    `mdm.addresses` het (één adres per persoon, partieel uniek op `person_id`), en het
+    gezinsscherm leest het per lid. Zonder rij vallen de leesweergave én het
+    bewerkformulier weg — beide hangen aan dezelfde `{% if p.address %}`, en dat is
+    waarom het op de afdrukken geen UI-gat was maar ontbrekende data.
+    """
+    db.add(Address(person_id=person_id, street=JOMMEKE_STRAAT,
+                   house_number=JOMMEKE_HUISNUMMER, postal_code_id=postal_code_id))
+
+
 
 def _weiger_buiten_dev() -> None:
     from app.config import settings
@@ -85,7 +130,9 @@ def main() -> None:
     )
     from app.domains.cms.api import CmsPage
     from app.domains.forms.api import Form, FormField
-    from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, PostalCode
+    from app.domains.mdm.api import (
+        Address, ContactDetail, Member, MemberPerson, Person, PostalCode,
+    )
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
@@ -98,23 +145,55 @@ def main() -> None:
         from app.kernel.tenant_config import set_setting
 
         set_setting(db, "admin_chat_enabled", "1")
+        # #1238 punt 5, gevonden door Koen: het gezinsscherm toonde op de afdrukken een
+        # andere toestand dan de echte site. De vernieuwknop hangt aan
+        # `renewal_available()`, en die vraagt bij een gedekt lid of het campagnevenster
+        # open is — `membership_renewal_start_md`, waar leeg "dicht" betekent. Op de
+        # tenant van de echte site staat er een datum, in de afdrukomgeving stond niets,
+        # dus net het blok waar een uitlegpagina over verlengen om gaat ontbrak.
+        #
+        # `01-01` en niet de datum van de echte site: het venster opent op
+        # `today >= date(today.year, maand, dag)`, dus elke andere datum laat de knop
+        # een deel van het jaar weer verdwijnen — met `09-17` zou de reeks van januari
+        # tot half september opnieuw het verkeerde scherm fotograferen. Een afdruk mag
+        # niet van de dag afhangen waarop iemand hem maakt.
+        set_setting(db, "membership_renewal_start_md", "01-01")
+        # #1238 punt 4: de voettekst. Vóór de markercontrole, zodat een tweede run op
+        # een bestaande databank haar ook herstelt — dit is inhoud van de OMGEVING en
+        # geen rij van het voorbeeldgezin.
+        from app.domains.cms.api import CmsPage as _CmsPage
+
+        voet = db.query(_CmsPage).filter(_CmsPage.slug == "site-footer").first()
+        if voet is not None:
+            voet.content = VOETTEKST_HTML
         db.commit()
 
+        vandaag = date.today()
         bestaat = (db.query(ContactDetail)
                    .filter(ContactDetail.value == MARKER_EMAIL).first())
         if bestaat is not None:
             print("seed_e2e: data staat er al (marker gevonden) — niets gedaan")
             return
 
-        if db.query(PostalCode).filter(PostalCode.postal_code == "2400").first() is None:
-            db.add(PostalCode(postal_code="2400", municipality="Mol"))
+        # #1238 punt 3: het voorbeeldgezin woont op Hemelstraat 12, 2400 Mol — waar
+        # Jommeke in de strip woont, en Millegem is een gehucht van Mol, dus het adres
+        # past bij de vereniging zonder van iemand te zijn. De postcode moet uit DEZE
+        # tabel komen: het postcodeveld in het gezinsformulier is een keuzelijst die
+        # hieruit gevuld wordt, dus een adres met een postcode die er niet in staat is
+        # op het scherm niet te kiezen (`docs/postal_codes_seed.csv` regel 109 draagt
+        # 2400 Mol, en die lijst is de bron).
+        postcode = db.query(PostalCode).filter(PostalCode.postal_code == "2400").first()
+        if postcode is None:
+            postcode = PostalCode(postal_code="2400", municipality="Mol")
+            db.add(postcode)
             db.flush()
 
         # ── Gezin met hoofdlid en een lopend lidmaatschap ────────────────────
         member = Member()
         db.add(member)
         db.flush()
-        person = Person(first_name="Theofiel", last_name="Jommeke")
+        person = Person(first_name="Theofiel", last_name="Jommeke",
+                        date_of_birth=JOMMEKE_GEBOORTE, gender_code="M")
         db.add(person)
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=person.id,
@@ -128,16 +207,40 @@ def main() -> None:
         # issue vanaf wil. De tweeling is even herkenbaar en leest als twee gewone
         # namen. Jommeke zelf ontbreekt dus in de familie Jommeke; dat is de prijs
         # en ze is kleiner dan een naam die twee keer hetzelfde zegt.
-        for voornaam, relatie in (("Marie", "PARTNER"),
-                                  ("Annemieke", "KIND"), ("Rozemieke", "KIND")):
-            gezinslid = Person(first_name=voornaam, last_name="Jommeke")
+        #
+        # #1238 punt 3: geboortedatum en geslacht horen er BIJ. Op de afdrukken
+        # stonden die velden leeg mét een sterretje, en een half ingevuld formulier is
+        # precies het tegenovergestelde van wat een uitlegpagina wil tonen.
+        #
+        # De verdeling van de CONTACTGEGEVENS is die van Koen (27 september 2026): de
+        # ouders dragen e-mail en gsm, de meerderjarige kinderen niet. Dat is geen
+        # luiheid maar het geval dat een lezer herkent — en het scherm toont zo ook
+        # hoe een gezinslid zónder eigen contactgegevens eruitziet, wat op die pagina
+        # even nuttig is.
+        kinderen_geboorte = (date(vandaag.year - 22, 6, 15),
+                             date(vandaag.year - 20, 3, 9))
+        for voornaam, relatie, geboorte, geslacht in (
+                ("Marie", "PARTNER", JOMMEKE_GEBOORTE, "F"),
+                ("Annemieke", "KIND", kinderen_geboorte[0], "F"),
+                ("Rozemieke", "KIND", kinderen_geboorte[1], "F")):
+            gezinslid = Person(first_name=voornaam, last_name="Jommeke",
+                               date_of_birth=geboorte, gender_code=geslacht)
             db.add(gezinslid)
             db.flush()
             db.add(MemberPerson(member_id=member.id, person_id=gezinslid.id,
                                 relation_type=relatie))
+            _adres(db, Address, gezinslid.id, postcode.id)
+            if relatie == "PARTNER":
+                db.add(ContactDetail(person_id=gezinslid.id, contact_type_code="EMAIL",
+                                     value=PARTNER_EMAIL, is_primary=True))
+                db.add(ContactDetail(person_id=gezinslid.id, contact_type_code="MOBILE",
+                                     value=PARTNER_GSM, is_primary=True))
+        _adres(db, Address, person.id, postcode.id)
         db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
                              value=MARKER_EMAIL, is_primary=True))
-        jaar = date.today().year
+        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE",
+                             value=HOOFDLID_GSM, is_primary=True))
+        jaar = vandaag.year
         membership = Membership(member_id=member.id, year=jaar, is_active=True,
                                 valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31))
         db.add(membership)

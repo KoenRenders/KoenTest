@@ -92,7 +92,7 @@
   {# Zie site_base: de banner is sticky (#610) en de zijbalk start eronder. Op PROD
      geen banner, dus md:top-0 + md:h-screen. Beide varianten letterlijk in de
      template, anders genereert Tailwind de klassen niet. #}
-  {% set env_bar = omgeving and omgeving != 'prod' %}
+  {% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
   {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
   {# #718: de out-of-band navigatie hoort ALLEEN bij een gebooste navigatie.
      Daar swapt htmx via HX-Reselect enkel `#main`, dus zonder deze truc bleef de

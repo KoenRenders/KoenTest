@@ -53,30 +53,160 @@ def _portaal(page, email: str):
     return page
 
 
+def _zet_venster(waarde):
+    """Zet `membership_renewal_start_md` in de databank van de afdrukomgeving.
+
+    Kan van buiten het serverproces: `tenant_config` cachet niets, het leest de
+    instelling bij elk verzoek opnieuw (nagegaan tijdens het bouwen van #1238 — er
+    staat geen enkele cache in dat bestand). Vandaar dat deze test het venster echt
+    open en dicht kan doen tussen twee paginaweergaven.
+    """
+    from app.database import SessionLocal
+    from app.domains.registry import load_all_models
+    from app.kernel.tenant_config import set_setting
+
+    load_all_models()
+    db = SessionLocal()
+    try:
+        set_setting(db, "membership_renewal_start_md", waarde)
+        db.commit()
+    finally:
+        db.close()
+
+
 def test_de_drie_ledentoestanden_tonen_elk_iets_anders(browser_page):
-    """De kern van #1183, en de reden dat er twee gezinnen bijgekomen zijn.
+    """De kern van #1183, uitgebreid met punt 5 van #1238 (gevonden door Koen).
 
-    Drie portalen naast elkaar:
+    Drie toestanden naast elkaar, want "de knop staat er" bewijst pas iets als je ook
+    ziet wanneer hij er níét staat:
 
-    - het seed-gezin (lidmaatschap loopt) → **geen** vernieuwknop;
-    - het verlopen gezin → **wel** een vernieuwknop.
+    - het seed-gezin, lidmaatschap loopt, **venster open** → wél een vernieuwknop.
+      Dat is wat een lid op de echte site ziet: daar staat
+      `membership_renewal_start_md` gezet, en de afdrukomgeving heeft het nu ook;
+    - hetzelfde gezin met het **venster dicht** → geen knop. Dit is precies de
+      tegenproef die #1238 vraagt: ze bewijst dat de knop aan díé instelling hangt en
+      niet aan iets anders;
+    - het verlopen gezin, ook met het venster dicht → tóch een knop. Zonder dekking
+      staat `renewal_available` onvoorwaardelijk op True, en dat is een andere tak dan
+      de eerste twee.
 
-    Twee toestanden naast elkaar, want "de knop staat er bij het verlopen gezin"
-    bewijst pas iets als je ook ziet dat hij er níét staat bij het gezin dat in
-    orde is.
-
-    Tegenproef, letterlijk de proef die het issue vraagt: het lidmaatschap van het
-    verlopen gezin op het LOPENDE jaar gezet → de vernieuwknop verdwijnt en deze
-    test faalt op de tweede assertie. Daarmee is bewezen dat de afdruk niet
-    toevallig goed staat.
+    Tegenproef op de derde: het lidmaatschap van het verlopen gezin op het LOPENDE jaar
+    gezet → die knop verdwijnt.
     """
     from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN
 
     page = _portaal(browser_page, MARKER_EMAIL)
-    expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
-
-    page = _portaal(browser_page, MARKER_EMAIL_VERLOPEN)
     expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+
+    # Het venster dicht doen en weer openzetten: een `finally`, want elke andere e2e
+    # die na deze draait leest dezelfde instelling.
+    _zet_venster(None)
+    try:
+        page = _portaal(browser_page, MARKER_EMAIL)
+        expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
+
+        page = _portaal(browser_page, MARKER_EMAIL_VERLOPEN)
+        expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+    finally:
+        _zet_venster("01-01")
+
+    page = _portaal(browser_page, MARKER_EMAIL)
+    expect(page.get_by_role("button", name=VERLENGKNOP)).to_be_visible()
+
+
+def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
+    """#1238 punt 3: geen lege verplichte velden op een publieke uitlegpagina.
+
+    Op de afgeleverde reeks stonden geboortedatum, geslacht en gsm leeg — alle drie met
+    een sterretje — en er stond geen adres, niet in de leesweergave en ook niet in het
+    bewerkformulier, want die twee hangen aan dezelfde `{% if p.address %}`. Dat leest
+    als een half ingevuld formulier.
+
+    De verdeling is die van Koen: de ouders dragen e-mail en gsm, de meerderjarige
+    kinderen niet. Die tweede helft is even belangrijk als de eerste — het scherm toont
+    dan ook hoe een gezinslid zonder eigen contactgegevens eruitziet — dus deze test
+    toetst ze beide en niet alleen "alles gevuld".
+
+    Rood te maken door één van de velden uit `seed_e2e` weg te laten.
+    """
+    from seed_e2e import HOOFDLID_GSM, JOMMEKE_STRAAT, MARKER_EMAIL, PARTNER_GSM
+
+    page = _portaal(browser_page, MARKER_EMAIL)
+    kaarten = page.locator('div.space-y-4 div[x-show="!edit"]')
+    teksten = kaarten.all_inner_texts()
+    assert len(teksten) == 4, f"verwacht vier gezinsleden, gezien: {len(teksten)}"
+
+    for tekst in teksten:
+        assert "°" in tekst, f"geen geboortedatum op de kaart: {tekst!r}"
+        assert JOMMEKE_STRAAT in tekst, f"geen adres op de kaart: {tekst!r}"
+
+    ouders = [t for t in teksten if "Theofiel" in t or "Marie" in t]
+    kinderen = [t for t in teksten if "Annemieke" in t or "Rozemieke" in t]
+    assert len(ouders) == 2 and len(kinderen) == 2, (
+        f"de vier kaarten zijn niet twee ouders en twee kinderen: {teksten!r}")
+
+    for tekst, gsm in zip(sorted(ouders), (PARTNER_GSM, HOOFDLID_GSM)):
+        assert "@" in tekst, f"de ouder mist een e-mailadres: {tekst!r}"
+        assert gsm in tekst, f"de ouder mist zijn gsm-nummer: {tekst!r}"
+    for tekst in kinderen:
+        assert "@" not in tekst, (
+            f"een meerderjarig kind draagt een e-mailadres: {tekst!r} — de verdeling "
+            "van Koen geeft die alleen aan de ouders")
+
+    # Geslacht staat niet in de leesweergave; het bewerkformulier toont het, en dat is
+    # het scherm van de afdruk `leden-gezin-bewerken`. Via JavaScript gelezen omdat die
+    # formulieren dichtgeklapt zijn.
+    #
+    # Binnen `form[id^="pp-"]` en niet over de hele pagina: het portaal draagt onderaan
+    # ook een LEEG formulier om een gezinslid toe te voegen, en dat leverde een vijfde,
+    # lege keuzelijst — gemeten toen deze assertie er vijf vond.
+    geslachten = page.locator("form[id^='pp-'] select[id$='-gender_code']").evaluate_all(
+        "els => els.map(e => e.value)")
+    assert len(geslachten) == 4, f"vier keuzelijsten verwacht, gezien: {geslachten!r}"
+    assert all(geslachten), f"een gezinslid heeft geen geslacht: {geslachten!r}"
+
+
+def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
+    """#1238 punt 6, gezien door Koen op de afdruk.
+
+    Het ledenportaal drukte de geboortedatum kaal af (`1955-10-30`) terwijl het
+    invoerveld tien pixels verderop `30-10-1955` toont en de ledenkaart in de
+    beheerkant dezelfde gegevens al Belgisch toont. Eén scherm van de drie week af, en
+    het is net het scherm dat naar een publieke uitlegpagina gaat.
+
+    Getoetst op de gezaaide datum en niet op een patroon: `30-10-1955` en `1955-10-30`
+    bestaan allebei uit dezelfde cijfers, dus alleen de volledige string onderscheidt
+    ze. Rood te maken door `.strftime("%d-%m-%Y")` uit `gezin_portaal.html` te halen.
+    """
+    from seed_e2e import JOMMEKE_GEBOORTE, MARKER_EMAIL
+
+    page = _portaal(browser_page, MARKER_EMAIL)
+    tekst = page.locator('div.space-y-4 div[x-show="!edit"]').first.inner_text()
+    assert JOMMEKE_GEBOORTE.strftime("%d-%m-%Y") in tekst, (
+        f"de geboortedatum staat niet Belgisch op de kaart: {tekst!r}")
+    assert JOMMEKE_GEBOORTE.isoformat() not in tekst, (
+        f"de geboortedatum staat er nog in ISO-vorm bij: {tekst!r}")
+
+
+def test_de_voettekst_toont_geen_plaatshouders(browser_page):
+    """#1238 punt 4: «Naam van de vereniging» hoort niet op een publieke afdruk.
+
+    Dat is de zaai-inhoud van migratie 027, die op een testomgeving nooit ingevuld
+    raakt. Ze staat onderaan élk beeld van de reeks, dus ze staat ook onderaan elke
+    afbeelding op de uitlegpagina.
+
+    Getoetst op het teken zelf en niet op de volledige zin: de plaatshouders zijn de
+    enige plek waar deze site dubbele aanhalingstekens zo gebruikt, en zo faalt de test
+    ook als er een andere plaatshouder bijkomt. Rood te maken door
+    `VOETTEKST_HTML` uit de seed te halen.
+    """
+    browser_page.context.clear_cookies()
+    browser_page.goto("/")
+    browser_page.wait_for_selector("footer", timeout=5000)
+    voet = browser_page.locator("footer").inner_text()
+    for teken in ("\u00ab", "\u00bb"):
+        assert teken not in voet, (
+            f"de voettekst draagt nog een plaatshouder: {voet!r}")
 
 
 def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):

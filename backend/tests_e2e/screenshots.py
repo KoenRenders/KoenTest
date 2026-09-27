@@ -49,6 +49,65 @@ html { scroll-behavior: auto !important; }
 """
 
 
+# #1238 punt 2: één taal voor de hele opname. Ze moet op TWEE plaatsen landen en dat is
+# gemeten, niet geredeneerd — zie `launch_opties` en `context_opties` hieronder.
+TAAL = "nl-BE"
+
+
+def launch_opties() -> dict:
+    """De taal van het BROWSERPROCES (#1238 punt 2).
+
+    Hier staat de helft van de reparatie die niet vanzelf spreekt. Een native
+    `<input type="date">` laat Chromium de veldvolgorde kiezen, en Chromium neemt die
+    NIET uit de taal van de context maar uit de taal van zijn eigen proces.
+
+    Gemeten op 27 september 2026, met de pijltoets op het geboortedatumveld — die
+    verhoogt het eerste segment, dus ze zegt welk segment vooraan staat:
+
+    | opzet | 1955-10-30 + ArrowUp |
+    |---|---|
+    | kaal | 1955-**11**-30 — de maand staat vooraan |
+    | `locale="nl-BE"` op de context | 1955-**11**-30 — onveranderd |
+    | `--lang=nl` / `--lang=nl-BE` als argument | 1955-**11**-30 — onveranderd |
+    | `LANG=nl_BE.UTF-8` op het proces | 1955-10-**31** — de dag staat vooraan |
+
+    De context-locale alleen zou dus een reparatie zijn die het veld nooit bereikt: op
+    de afdruk stond nog `10/30/1955` terwijl `navigator.language` keurig `nl-BE` zei.
+
+    `os.environ` wordt meegenomen: Playwright VERVANGT de omgeving van het
+    browserproces met wat hier staat, dus zonder die samenvoeging verliest de browser
+    ook `PATH` en `HOME`.
+    """
+    return {"env": {**os.environ, "LANG": TAAL.replace("-", "_") + ".UTF-8"}}
+
+
+def context_opties() -> dict:
+    """De contextinstellingen van een opname — inclusief de schermafdruk-vlag (#1238).
+
+    De vlag vraagt de schil om de omgevingsbanner niet te renderen: de tool zegt alleen
+    *dát* het een opname is, de schil beslist zelf. Het alternatief was een stijlregel
+    die de tool injecteert, en dat is een tweede plek die weet hoe die balk eruitziet.
+
+    Ze hangt aan de CONTEXT en niet aan de cookies: `_zet_sessie` wist de cookies vóór
+    elk scherm (#1183), dus een cookie was na het eerste scherm weg en de rest van de
+    reeks droeg alsnog de banner.
+
+    `locale` (#1238 punt 2) is de tweede helft van de taal: ze zet
+    `navigator.language`, de `Accept-Language`-header en de standaardtaal van `Intl` —
+    alles wat de PAGINA zelf gebruikt om te formatteren. De veldvolgorde van een
+    datumveld komt daar niet uit; die staat in `launch_opties`.
+
+    Een functie en geen letterlijke dict in `main()`, zodat
+    `tests_e2e/test_schermafdruk_zonder_banner.py` en
+    `tests_e2e/test_schermafdruk_datumvolgorde.py` exact meten wat de tool meestuurt in
+    plaats van die waarden na te typen.
+    """
+    from app.ui import SCREENSHOT_HEADER
+
+    return {"reduced_motion": "reduce", "locale": TAAL,
+            "extra_http_headers": {SCREENSHOT_HEADER: "1"}}
+
+
 @dataclass(frozen=True)
 class Screen:
     """One entry of the fixed set."""
@@ -259,8 +318,11 @@ def main(argv: list[str]) -> int:
 
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
-        browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        context = browser.new_context(base_url=BASE, reduced_motion="reduce")
+        opstart = dict(launch_opties())
+        if exe:
+            opstart["executable_path"] = exe
+        browser = pw.chromium.launch(**opstart)
+        context = browser.new_context(base_url=BASE, **context_opties())
         page = context.new_page()
 
         for screen in SCREENS:

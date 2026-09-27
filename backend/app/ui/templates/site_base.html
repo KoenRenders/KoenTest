@@ -115,7 +115,7 @@
      sticky, en het element eronder start op de bannerhoogte. Op PROD is er geen
      banner, dus daar weer top-0 — anders scrolt de inhoud door een gat van 24px.
      Beide klassen staan letterlijk in de template, anders genereert Tailwind ze niet. #}
-  {% set env_bar = omgeving and omgeving != 'prod' %}
+  {% set env_bar = omgeving and omgeving != 'prod' and not is_screenshot() %}
   {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
   {# `request is defined` omdat site_base ook los gerenderd wordt (zonder
      FastAPI-context) in test_footer_branding; dan markeert er simpelweg niets. #}
