@@ -23,8 +23,12 @@ E2E_SEED=1 in de omgeving staat. Deze data hoort nooit op HDEV, UAT of PROD.
 """
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
+
+from app.domains.payment.structured_communication import (
+    generate_structured_communication,
+)
 
 # #1208: de namen in deze seed zijn leesbaar, want ze staan op de
 # schermafdrukken voor de PUBLIEKE uitlegpagina (#1183). "E2E Seed" en
@@ -59,7 +63,30 @@ SEED_NAAM = "Theofiel Jommeke"
 # hier en houdt geen eigen lijst: die test bewaakt dat er geen echte ledennaam op
 # een publieke afdruk staat, en een tweede kopie van deze namen zou na de
 # volgende hernoeming stil groen blijven staan terwijl ze niets meer toetst.
-SEED_ACHTERNAMEN = ("Jommeke", "Gobelijn")
+# #1241: twee gezinnen erbij voor de verlengflow, elk voor één toestand die een
+# ander gezin niet kán tonen. Eigen gezinnen en geen gedeelde toestand — zie de
+# toelichting bij die blokken verderop; het is dezelfde reden waarom het gezin met
+# het verlopen lidmaatschap er destijds apart bij kwam.
+MARKER_EMAIL_VERNIEUWD = "filiberke.kwak@example.com"
+MARKER_EMAIL_OVERSCHRIJVING = "anatool.boemel@example.com"
+SEED_ACHTERNAMEN = ("Jommeke", "Gobelijn", "Kwak", "Boemel")
+
+# #1241: het rekeningnummer op de afdruk van de overschrijving.
+#
+# LAAT HET CONTROLEGETAL `00` STAAN — het is geen tikfout en het hoort niet
+# "gerepareerd" te worden. Een IBAN draagt na de landcode twee controlecijfers die
+# per ISO 7064 mod-97-10 tussen 02 en 98 liggen; `00` is dus aantoonbaar van
+# niemand. Dat is precies wat we willen op een beeld dat naar een publieke pagina
+# gaat: het rendert als een echt rekeningnummer — juiste lengte, juiste groepering,
+# dus een lid ziet wáár het nummer staat — zonder dat we een getal publiceren dat
+# later iemands rekening blijkt te zijn.
+# De twee mededelingen van de verlenggezinnen. Hier en niet in de test: een tweede
+# kopie in `test_verlengflow_schermen` zou na een gewijzigd basisnummer stil groen
+# blijven staan terwijl ze een rij toetst die niet meer bestaat.
+VERNIEUWD_OGM = generate_structured_communication(303)
+OVERSCHRIJVING_OGM = generate_structured_communication(404)
+SEED_IBAN = "BE00 1234 5678 9012"
+SEED_BEGUNSTIGDE = "Raak Millegem"
 
 # #1238 punt 3: de gegevens van het voorbeeldgezin, alle vier verzonnen of uit de
 # strip. Deze repo is publiek, dus een echt gsm-nummer of een echt adres hoort er
@@ -158,6 +185,19 @@ def main() -> None:
         # tot half september opnieuw het verkeerde scherm fotograferen. Een afdruk mag
         # niet van de dag afhangen waarop iemand hem maakt.
         set_setting(db, "membership_renewal_start_md", "01-01")
+        # #1241: een rekening voor de organisatie van deze omgeving. Zonder haar toont
+        # de afdruk van de overschrijving geen rekeningnummer en geen begunstigde: die
+        # twee komen sinds migratie 119 uit de organisatie-entiteit (`bank_accounts`)
+        # met de .env als vangnet, en de afdrukomgeving heeft geen van beide — de
+        # sjabloon verbergt een lege waarde, dus het beeld zou juist het nummer missen
+        # dat het moet aanwijzen.
+        from app.domains.mdm.api import BankAccount
+        from app.kernel.tenancy import DEFAULT_TENANT_ID
+
+        if db.query(BankAccount).filter(
+                BankAccount.organization_id == DEFAULT_TENANT_ID).first() is None:
+            db.add(BankAccount(organization_id=DEFAULT_TENANT_ID, iban=SEED_IBAN,
+                               beneficiary=SEED_BEGUNSTIGDE, sort_order=0))
         # #1238 punt 4: de voettekst. Vóór de markercontrole, zodat een tweede run op
         # een bestaande databank haar ook herstelt — dit is inhoud van de OMGEVING en
         # geen rij van het voorbeeldgezin.
@@ -273,6 +313,104 @@ def main() -> None:
                              value=MARKER_EMAIL_VERLOPEN, is_primary=True))
         db.add(Membership(member_id=verlopen_member.id, year=vorig, is_active=True,
                           valid_from=date(vorig, 1, 1), valid_to=date(vorig, 12, 31)))
+        db.flush()
+
+        # ── Gezin dat ONLINE VERNIEUWD heeft (#1241, afdruk 2) ──────────────
+        # Wat een lid ziet nadat de betaling gelukt is: de dekking loopt door tot eind
+        # volgend jaar en het vernieuwblok is wég. Dat laatste is geen toeval maar de
+        # regel uit #496 — `renewal_available()` verbergt de knop zodra de dekking het
+        # volgende jaar bereikt, zodat een tweede poging niet op een 409 "al vernieuwd"
+        # botst.
+        #
+        # Geseed en niet door Mollie gedraaid: Mollie is vanuit een lokale
+        # afdrukomgeving niet bereikbaar en er is geen mock-provider. Dat is hier geen
+        # tekortkoming, want wat een lid ná de betaling ziet ís gewoon zijn
+        # gezinsscherm met een langere dekking — een eindtoestand, exact te seeden.
+        volgend = vandaag.year + 1
+        vernieuwd_member = Member()
+        db.add(vernieuwd_member)
+        db.flush()
+        vernieuwd_person = Person(first_name="Filiberke", last_name="Kwak",
+                                  date_of_birth=date(vandaag.year - 30, 5, 4),
+                                  gender_code="M")
+        db.add(vernieuwd_person)
+        db.flush()
+        db.add(MemberPerson(member_id=vernieuwd_member.id,
+                            person_id=vernieuwd_person.id, relation_type="HOOFDLID"))
+        db.add(ContactDetail(person_id=vernieuwd_person.id, contact_type_code="EMAIL",
+                             value=MARKER_EMAIL_VERNIEUWD, is_primary=True))
+        _adres(db, Address, vernieuwd_person.id, postcode.id)
+        # Twee lidmaatschappen, zoals een echt vernieuwd gezin ze heeft: het lopende
+        # jaar en het jaar dat net betaald is.
+        db.add(Membership(member_id=vernieuwd_member.id, year=jaar, is_active=True,
+                          valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
+        vernieuwing = Membership(member_id=vernieuwd_member.id, year=volgend,
+                                 is_active=True, valid_from=date(volgend, 1, 1),
+                                 valid_to=date(volgend, 12, 31))
+        db.add(vernieuwing)
+        db.flush()
+        db.add(PaymentRecord(
+            payable_type="membership", payable_id=vernieuwing.id, type="charge",
+            amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
+            method="online", status="paid",
+            structured_communication=VERNIEUWD_OGM))
+        db.flush()
+
+        # ── Gezin met een LOPENDE OVERSCHRIJVING (#1241, afdruk 3) ───────────
+        # De betaalinstructies (bedrag, IBAN, begunstigde, mededeling) verschijnen
+        # alleen bij een vernieuwing die al loopt: `open_renewal_payment` zoekt een
+        # membership-betaling van dit gezin die niet betaald, geannuleerd of mislukt
+        # is, en `_lopende_vernieuwing` toont dan `renew_transfer`.
+        #
+        # EIGEN GEZIN, en dat is de kern van dit issue. Zo'n openstaande betaling aan
+        # het gedeelde seed-gezin hangen is precies wat #1183 al gemeten heeft: het is
+        # de rij die `test_beheer_flows` als eerste "Bevestig" oppikt, en die test zette
+        # hem dan op betaald — waarmee én deze afdruk verdween én die test iets anders
+        # toetste dan zijn naam belooft.
+        #
+        # `created_at` een maand terug, en de reden is preciezer dan ze lijkt. Het
+        # betalingenscherm sorteert `created_at.desc()` (payment/service.py), dus de
+        # JONGSTE rij komt bovenaan en wordt de eerste "Bevestig"-rij.
+        #
+        # Gemeten, en het verraste me: ZONDER deze regel staat die rij er ook niet
+        # vooraan — de inschrijvingsbetalingen ontstaan verderop in dit bestand en zijn
+        # dus jonger. De bescherming zou dan uit de VOLGORDE VAN DE BLOKKEN hier komen,
+        # en die verschuift zodra iemand dit bestand herschikt, zonder dat er iets
+        # zichtbaar breekt. Met een expliciete datum hangt ze er niet meer van af.
+        #
+        # Een openstaande overschrijving die al even loopt is bovendien het
+        # realistische geval. `test_verlengflow_schermen` bewaakt de uitkomst: gezet op
+        # morgen komt deze rij wél vooraan en valt die test om.
+        overschrijving_member = Member()
+        db.add(overschrijving_member)
+        db.flush()
+        overschrijving_person = Person(first_name="Anatool", last_name="Boemel",
+                                       date_of_birth=date(vandaag.year - 45, 11, 21),
+                                       gender_code="M")
+        db.add(overschrijving_person)
+        db.flush()
+        db.add(MemberPerson(member_id=overschrijving_member.id,
+                            person_id=overschrijving_person.id,
+                            relation_type="HOOFDLID"))
+        db.add(ContactDetail(person_id=overschrijving_person.id,
+                             contact_type_code="EMAIL",
+                             value=MARKER_EMAIL_OVERSCHRIJVING, is_primary=True))
+        _adres(db, Address, overschrijving_person.id, postcode.id)
+        db.add(Membership(member_id=overschrijving_member.id, year=jaar,
+                          is_active=True, valid_from=date(jaar, 1, 1),
+                          valid_to=date(jaar, 12, 31)))
+        # Het lidmaatschap van de LOPENDE vernieuwing staat nog op niet-actief; zo
+        # maakt de vernieuwroute het ook aan, en pas de betaling activeert het.
+        loopt = Membership(member_id=overschrijving_member.id, year=volgend,
+                           is_active=False, valid_from=date(volgend, 1, 1),
+                           valid_to=date(volgend, 12, 31))
+        db.add(loopt)
+        db.flush()
+        db.add(PaymentRecord(
+            payable_type="membership", payable_id=loopt.id, type="charge",
+            amount=Decimal("20.00"), method="transfer", status="pending",
+            created_at=datetime.now(timezone.utc) - timedelta(days=30),
+            structured_communication=OVERSCHRIJVING_OGM))
         db.flush()
 
         # ── Activiteit met een betalend product ─────────────────────────────

@@ -121,7 +121,7 @@ class Screen:
     # gezinsportaal hoort een gewoon lid te tonen en geen beheerder. De rol zit
     # in de sessiewaarde, niet in de aanmeldfunctie (#718).
     #   None  → geen cookie
-    #   "admin" | "lid" | "lid-verlopen"
+    #   "admin" | "lid" | "lid-verlopen" | "lid-vernieuwd" | "lid-overschrijving"
     sessie: Optional[str] = "admin"
     # Runs after navigation, e.g. to open a modal or click through to a
     # seeded record. Receives the page; raises to signal a missing target.
@@ -232,6 +232,18 @@ SCREENS: tuple[Screen, ...] = (
     # "als het kan"-punt; dit is de reden dat het niet kan zonder dat elders te
     # verstoren.
     Screen("leden-verlengen", "/leden/gezin", admin=False, sessie="lid-verlopen"),
+    # Verlengflow (#1241): twee toestanden die een ander gezin niet kán tonen, elk met
+    # een eigen gezin in de seed.
+    #
+    # "Je kan verlengen" heeft GEEN eigen ingang: sinds #1238 punt 5 staat het
+    # hernieuwingsvenster open in deze omgeving, dus `leden-gezin` hierboven ís dat
+    # scherm. Een tweede afdruk die hetzelfde toont met een ander gezin erop zou een
+    # tweede plek voor één feit zijn — en lopen die twee ooit uit elkaar, dan weet
+    # niemand welke de uitlegpagina hoort te gebruiken.
+    Screen("leden-verlengen-online-gelukt", "/leden/gezin", admin=False,
+           sessie="lid-vernieuwd"),
+    Screen("leden-verlengen-overschrijving", "/leden/gezin", admin=False,
+           sessie="lid-overschrijving"),
 )
 
 
@@ -244,7 +256,10 @@ def _sessiewaarden() -> dict[str, str]:
     """
     from app.domains.auth.api import make_session_value
 
-    from seed_e2e import MARKER_EMAIL, MARKER_EMAIL_VERLOPEN
+    from seed_e2e import (
+        MARKER_EMAIL, MARKER_EMAIL_OVERSCHRIJVING, MARKER_EMAIL_VERLOPEN,
+        MARKER_EMAIL_VERNIEUWD,
+    )
 
     admin = os.environ.get("E2E_ADMIN_EMAIL")
     if not admin:
@@ -255,6 +270,8 @@ def _sessiewaarden() -> dict[str, str]:
         "admin": make_session_value(admin),
         "lid": make_session_value(MARKER_EMAIL),
         "lid-verlopen": make_session_value(MARKER_EMAIL_VERLOPEN),
+        "lid-vernieuwd": make_session_value(MARKER_EMAIL_VERNIEUWD),
+        "lid-overschrijving": make_session_value(MARKER_EMAIL_OVERSCHRIJVING),
     }
 
 
