@@ -12,6 +12,15 @@ code must leave the list or the test is red. Once the count is zero it is a
 **hard gate**. Phase 5 of CR-12 removes the lists and the exemption logic
 together.
 
+**Phase 5 (#1182, 27 September 2026).** Four of the five ratchets reached zero
+and are hard now: enums without a list, label dictionaries, template
+comparisons and loose strings. Their frozen sets are gone from
+`codes_baseline.py`, and `_hard()` has no "left behind" half because nothing
+is left. `FK_MISSING` is the one ratchet still open, on one column that waits
+for Koen. With the frozen lists gone, a hard gate proves it still looks
+somewhere through its exemptions (`test_every_hard_gate_looks_somewhere`) or,
+for the enum gate, by counting the enum classes it recognised.
+
 **Why the loose-string check is an AST walk and not a mypy rule (§B4.8).**
 #779 relied on `strict_equality`. That does not work here: the models use the
 legacy `Column()` style, so mypy types every column attribute as `Any`, and
@@ -39,6 +48,18 @@ its own, with the violation listed here:
 | Loose strings (ratchet) | `meeting.status == "sent"` in `meetings/service.py` | yes |
 | Enum member names English | added member `VERSTUURD = "verstuurd"` | yes — names the member |
 | Shape | removed the `description` column from the helper's label table | yes |
+
+**Phase 5, the four gates at zero, proven again as hard gates** — each by an
+*added* violation, 27 September 2026:
+
+| Hard gate | Violation added | Fired |
+|---|---|---|
+| Enum without a list | `class Proef(Enum)` at the end of `meetings/models.py` | yes — only this test |
+| No label dictionaries | `PROBE_LABELS = {"a": "b"}` at the end of `audit/changes.py` | yes — only this test |
+| No template comparisons | `{% if meeting.status == "sent" %}` at the end of `_vg_document.html` | yes — only this test |
+| No loose strings | `meeting.status == "sent"` in a function added to `meetings/service.py` | yes — only this test |
+| A hard gate looks somewhere | the template pattern's operators changed to `===`/`!==` | yes — the walk test and the shelf-life test lost the exemptions; the gate itself fired too, because the altered pattern caught Alpine's `!==` |
+| The enum gate looks somewhere | the walk counting only the marker classes | yes — only this test |
 
 **A twelfth came with phase 3**, after three enum members reached an HTML
 attribute and none of the eleven above could see it — a member that is
@@ -119,8 +140,13 @@ def _template_files() -> list[Path]:
 
 # ── The collectors (also usable on their own to measure the table) ───────────
 
-def collect_enums_without_list() -> dict[str, str]:
-    """`Enum` classes with no `CodeList` and no marker → key: message."""
+def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
+    """`Enum` classes with no `CodeList` and no marker → key: message.
+
+    `seen` collects every enum class the walk recognised, marked or not, so a
+    hard gate can prove it looked somewhere (#678): with nothing left to find,
+    an empty result would otherwise read the same as a walk that broke.
+    """
     load_all_models()
     # On module and name, not on name alone. Measured in phase 2: as soon as
     # `auth.models.Role` was in a CodeList, this gate also took
@@ -140,6 +166,8 @@ def collect_enums_without_list() -> dict[str, str]:
             bases |= {b.attr for b in node.bases if isinstance(b, ast.Attribute)}
             if not (bases & {"Enum", "IntEnum", "StrEnum"} | (bases & markers)):
                 continue
+            if seen is not None and node.name not in markers:
+                seen.append(f"{_path(file)}:{node.name}")
             if bases & markers:
                 continue
             if node.name in markers:
@@ -286,7 +314,12 @@ COLLECTORS = {
 }
 
 
-#: Per ratchet, the dict of permanent exceptions that belongs to it. Entries
+#: Phase 5 (#1182): what is still a ratchet, and what reached zero and is hard.
+RATCHETS = ("FK_MISSING",)
+HARD = ("ENUM_WITHOUT_LIST", "LABEL_DICTIONARIES", "TEMPLATE_COMPARISONS",
+        "LOOSE_STRINGS")
+
+#: Per gate, the dict of permanent exceptions that belongs to it. Entries
 #: there are neither a violation nor progress: they are values somebody else
 #: owns. They are counted separately, so a ratchet stays a promise about our own
 #: work and does not carry a number that can never reach zero.
@@ -302,10 +335,36 @@ def _permanent(name: str) -> dict[str, str]:
     return getattr(baseline, PERMANENT[name], {}) if name in PERMANENT else {}
 
 
+def _violations(name: str) -> dict[str, str]:
+    return {k: v for k, v in COLLECTORS[name]().items() if k not in _permanent(name)}
+
+
+def _hard(name: str) -> None:
+    """A gate at zero: every hit that is not a permanent exemption is red.
+
+    No frozen list and no "nothing left behind" half: there is nothing left to
+    leave behind. That is the difference that matters after #1268 — two
+    comparisons sat on a ratchet as tolerated old work, CR-12 phase 2 made the
+    attribute an enum, and they broke while the ratchet stayed green. A hard
+    gate has no tolerated entries for that to happen to.
+
+    **This IS the #1268 rule for CR-12, not an omission of it.** §B9.3 asks
+    that a remaining entry on an attribute that has become an enum turns the
+    gate red. After phase 5 no text gate has remaining entries — only
+    exemptions, and those already carry a mandatory reason and the shelf-life
+    rule (`test_every_permanent_exception_still_has_a_target`). A gate cannot
+    type-check, so a rule on the attribute's *name* would flag exemptions that
+    are right: `request.method`, the chat API's `role`, a Raakje proposal's
+    `kind` all share a name with an enum column. Decided with the master CLI,
+    27 September 2026.
+    """
+    found = _violations(name)
+    assert not found, "\n".join(found[k] for k in sorted(found))
+
+
 def _ratchet(name: str) -> None:
     """The one shape of every ratchet: nothing new, and nothing left behind."""
-    found = {k: v for k, v in COLLECTORS[name]().items()
-             if k not in _permanent(name)}
+    found = _violations(name)
     frozen = getattr(baseline, name)
     added = sorted(set(found) - set(frozen))
     gone = sorted(set(frozen) - set(found))
@@ -408,7 +467,7 @@ def test_every_enum_covers_exactly_its_codes(db_session):
     assert not errors, "\n".join(errors)
 
 
-# ── 5. Enum without a list (ratchet) ─────────────────────────────────────────
+# ── 5. Enum without a list (hard since phase 5) ────────────────────────────────────
 
 def test_no_new_enum_without_a_code_list():
     """Every `Enum` under `app/` belongs to a `CodeList` or carries its reason.
@@ -417,7 +476,7 @@ def test_no_new_enum_without_a_code_list():
     an `ExternalVocabulary`. Those are counted, not capped — see the ratchet
     table at the bottom.
     """
-    _ratchet("ENUM_WITHOUT_LIST")
+    _hard("ENUM_WITHOUT_LIST")
 
 
 # ── 6. Tones total (hard) ────────────────────────────────────────────────────
@@ -438,18 +497,18 @@ def test_every_tone_mapping_is_total():
     assert not errors, "\n".join(errors)
 
 
-# ── 7-9. The three text ratchets ─────────────────────────────────────────────
+# ── 7-9. The three text gates (hard since phase 5) ───────────────────────────
 
-def test_no_new_label_dictionary_in_python():
-    _ratchet("LABEL_DICTIONARIES")
-
-
-def test_no_new_template_comparison_on_a_code():
-    _ratchet("TEMPLATE_COMPARISONS")
+def test_no_label_dictionary_in_python():
+    _hard("LABEL_DICTIONARIES")
 
 
-def test_no_new_loose_string_comparison():
-    _ratchet("LOOSE_STRINGS")
+def test_no_template_comparison_on_a_code():
+    _hard("TEMPLATE_COMPARISONS")
+
+
+def test_no_loose_string_comparison():
+    _hard("LOOSE_STRINGS")
 
 
 # ── 10. Enum member names in English (hard) ──────────────────────────────────
@@ -579,12 +638,15 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
         ("enum-carrying columns written as Mapped[]", _count_mapped_enum_columns()),
         ("vocabulary columns without an FK (ratchet)", len(baseline.FK_MISSING)),
-        ("enums without a CodeList (ratchet)", len(baseline.ENUM_WITHOUT_LIST)),
+        # Phase 5: the four below are hard gates. Their number is measured, not
+        # read from a frozen list — it is zero because the gate is green, and a
+        # number above zero here comes with a red gate beside it.
+        ("enums without a CodeList (hard)", len(_violations("ENUM_WITHOUT_LIST"))),
         ("enums marked technical/external (counted, not capped)", marked),
-        ("label dictionaries in Python (ratchet)", len(baseline.LABEL_DICTIONARIES)),
-        ("template comparisons on a code (ratchet)",
-         len(baseline.TEMPLATE_COMPARISONS)),
-        ("loose string comparisons in .py (ratchet)", len(baseline.LOOSE_STRINGS)),
+        ("label dictionaries in Python (hard)", len(_violations("LABEL_DICTIONARIES"))),
+        ("template comparisons on a code (hard)",
+         len(_violations("TEMPLATE_COMPARISONS"))),
+        ("loose string comparisons in .py (hard)", len(_violations("LOOSE_STRINGS"))),
         # Derived from PERMANENT and not from a list of names: this row was
         # written with two dictionaries in it, phase 3 added a third, and the
         # number silently stayed behind. A table that is measured must be
@@ -627,7 +689,7 @@ def test_the_ratchet_table_is_measurable_and_gets_printed(capsys, db_session):
 
 # ── The gate can go red itself ───────────────────────────────────────────────
 
-@pytest.mark.parametrize("name", sorted(COLLECTORS))
+@pytest.mark.parametrize("name", RATCHETS)
 def test_every_ratchet_looks_somewhere(name):
     """#678 in miniature: a collector that scans nothing is green forever.
 
@@ -641,6 +703,32 @@ def test_every_ratchet_looks_somewhere(name):
     assert set(found) >= frozen, (
         f"`{name}` finds less than the frozen list — that is either cleanup "
         f"(remove them from the baseline) or a collector that has fallen silent")
+
+
+@pytest.mark.parametrize("name", [n for n in HARD if n in PERMANENT])
+def test_every_hard_gate_looks_somewhere(name):
+    """#678 again, for a gate at zero: "found nothing" must not be the same as
+    "looked nowhere". With the frozen list gone, the proof is the exemptions —
+    a text gate that still finds each of them is still reading the right files
+    in the right way."""
+    found = set(COLLECTORS[name]())
+    exempt = set(_permanent(name))
+    assert exempt, f"`{name}` has no exemption left to prove its walk with"
+    assert found >= exempt, (
+        f"`{name}` no longer finds its own exemptions — the collector has fallen "
+        f"silent: {sorted(exempt - found)}")
+
+
+def test_the_enum_gate_looks_somewhere():
+    """The enum gate has no exemption dict, so it proves its walk by counting
+    the enum classes it recognised: at least one per `CodeList` with an enum."""
+    seen: list[str] = []
+    collect_enums_without_list(seen)
+    load_all_models()
+    in_lists = sum(1 for lst in registry().values() if lst.enum is not None)
+    assert len(seen) >= in_lists > 10, (
+        f"the enum walk recognised {len(seen)} enum classes, fewer than the "
+        f"{in_lists} code lists with an enum — it has fallen silent")
 
 
 @pytest.mark.parametrize("name", sorted(PERMANENT))

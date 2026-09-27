@@ -40,6 +40,28 @@ follow_imports_for_stubs = true
 # dit bestand (`follow_imports = "skip"`), dus het rapporteert de typering van
 # de ORM en niet die van ons. Ruis die de twee echte bevindingen verbergt is
 # erger dan geen controle — zet hem aan wanneer de ORM-laag wél getypeerd is.
+# CR-12 phase 5 (#1182): every domain that owns a code list, plus the kernel
+# lists and `membership`, which reads `mdm`'s relation type the most. One
+# override for all of them rather than one per domain: the rule is the same
+# everywhere, and a list of seventeen copies is how one falls behind.
+#
+# **What it catches, measured on 27 September 2026 — and what it does not.**
+# Switched on, it found eight comparisons between a parameter typed `str` and
+# an enum member (`set_attendance`, `_subtitle_for`, `recipients_for`). All
+# eight were wrong annotations: every caller already passed a member, so none
+# was a live bug, but each would have become one the day a caller passed the
+# code. It does NOT catch `meeting.status == "sent"` on a column, even one
+# written `Mapped[MeetingStatus]`: tried, and mypy stayed silent. The
+# `follow_imports = "skip"` on `sqlalchemy.*` above makes `Mapped` itself
+# `Any`. So on columns the AST gate (`test_codes_gate.py`) stays the net, and
+# this override is the bonus the change request promised, for typed code.
 [[tool.mypy.overrides]]
-module = "app.domains.payment.*"
+module = [
+    "app.domains.activities.*", "app.domains.auth.*", "app.domains.chatbot.*",
+    "app.domains.designstudio.*", "app.domains.forms.*", "app.domains.mail.*",
+    "app.domains.mdm.*", "app.domains.media.*", "app.domains.meetings.*",
+    "app.domains.membership.*", "app.domains.newsletter.*",
+    "app.domains.payment.*", "app.domains.reporting.*", "app.domains.workflow.*",
+    "app.kernel.jobs", "app.kernel.operations",
+]
 strict_equality = true
