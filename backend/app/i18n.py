@@ -37,6 +37,18 @@ def _(text: str) -> str:
     return _translations(current_locale.get()).gettext(text)
 
 
+def N_(text: str) -> str:
+    """Mark a text for the catalogue without translating it now (#1216).
+
+    For a text that sits in a module-level table, such as `SYMBOLIC_LABELS`:
+    `_()` there would run once, at import, in whatever language is active then.
+    `N_()` returns the text unchanged, so the caller translates it with `_()`
+    when it is shown; pybabel extracts `N_` by default, so the text still
+    reaches `messages.pot`.
+    """
+    return text
+
+
 def install_jinja_i18n(env) -> None:
     """Hang gettext aan de Jinja-omgeving zodat templates ``{{ _("...") }}``
     kunnen gebruiken; volgt dezelfde actieve taal als de Python-kant."""

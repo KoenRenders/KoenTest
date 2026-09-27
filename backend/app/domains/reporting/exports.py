@@ -25,6 +25,7 @@ from app.domains.reporting.engine import (
     BY_KEY, SYMBOLIC_LABELS, Selection, build_detail_query,
 )
 from app.domains.reporting.service import Dataset, ReportResult, load_dataset
+from app.i18n import _
 from app.kernel.ods import build_ods, build_ods_multi
 
 logger = logging.getLogger(__name__)
@@ -85,22 +86,26 @@ def filter_summary(selection: Selection) -> list[str]:
     travels without saying what was filtered gets read as "everything", and that
     is how a board ends up discussing the wrong number.
     """
+    # #1216: every word of the header goes through `_()`, so it reaches the
+    # catalogue. The object names (`obj.name`) do not yet: they come from the
+    # universe, which carries every report name — a question of its own.
     woorden = {
-        "eq": "is", "ne": "is niet", "in": "is een van", "lt": "is kleiner dan",
-        "lte": "is hoogstens", "gt": "is groter dan", "gte": "is minstens",
-        "between": "ligt tussen", "contains": "bevat",
+        "eq": _("is"), "ne": _("is niet"), "in": _("is een van"),
+        "lt": _("is kleiner dan"), "lte": _("is hoogstens"), "gt": _("is groter dan"),
+        "gte": _("is minstens"), "between": _("ligt tussen"), "contains": _("bevat"),
     }
     regels = []
     for flt in selection.filters:
         obj = BY_KEY.get(flt.object_key)
         naam = obj.name if obj else flt.object_key
-        waarden = " en ".join(flt.values) if flt.operator.value == "between" \
+        waarden = f" {_('en')} ".join(flt.values) if flt.operator.value == "between" \
             else ", ".join(flt.values)
         if flt.symbolic:
             # Both, and in this order: what it means and what that was at the
             # moment of export. A sheet that says only "dit jaar" cannot be
             # checked a year later; one that says only "2026" hides that it moves.
-            label = SYMBOLIC_LABELS.get(flt.symbolic, flt.symbolic)
+            label = (_(SYMBOLIC_LABELS[flt.symbolic]) if flt.symbolic in SYMBOLIC_LABELS
+                     else flt.symbolic)
             waarden = f"{label} ({waarden})" if waarden else label
         regels.append(f"{naam} {woorden.get(flt.operator.value, flt.operator.value)} "
                       f"{waarden}")

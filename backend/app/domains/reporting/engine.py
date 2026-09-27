@@ -41,6 +41,7 @@ from app.domains.reporting.universe import (
     join_order,
     joins_for,
 )
+from app.i18n import N_
 from app.kernel.codes import TechnicalEnum
 
 
@@ -110,10 +111,12 @@ SYMBOLIC_VALUES = (SYMBOLIC_TODAY, SYMBOLIC_THIS_YEAR, SYMBOLIC_ME)
 
 # What each one reads as, for the line a report shows above itself and for the
 # header of its export. A reader has to be able to see that a number moved.
+# #1216: marked with `N_` for the catalogue; the caller translates with `_()`
+# when it shows the word, because this table is built once, at import.
 SYMBOLIC_LABELS = {
-    SYMBOLIC_TODAY: "vandaag",
-    SYMBOLIC_THIS_YEAR: "dit jaar",
-    SYMBOLIC_ME: "de aangemelde gebruiker",
+    SYMBOLIC_TODAY: N_("vandaag"),
+    SYMBOLIC_THIS_YEAR: N_("dit jaar"),
+    SYMBOLIC_ME: N_("de aangemelde gebruiker"),
 }
 
 
