@@ -99,6 +99,13 @@ class FamilyMemberResponse(BaseModel):
     # beheert deze lijst; de nieuwsbrief verstuurt ernaar.
     emails: list[EmailAddressResponse] = []
 
+    @property
+    def is_main_member(self) -> bool:
+        """Decided here and not in the template (CR-12 phase 4 residue): the
+        template compared `relation_type` with "HOOFDLID", and a `RelationType`
+        member never equals that string."""
+        return self.relation_type is RelationType.PRIMARY_MEMBER
+
 
 class PersonListItem(BaseModel):
     id: int
