@@ -1048,11 +1048,21 @@ its data check (B3):
 |---|---|---|
 | 1 | `activities.registrations` | `NOT NULL` **and** `CHECK (col <> '')` on `contact_name`, `contact_email`, `phone` — "not blank" is two constraints, `NOT NULL` alone lets `''` through a bulk path (AC1 names the mobile number, so `phone` is in); `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
 | 1 | `activities.registration_items` | `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)` |
-| 2 | `payment.payment_records` | `CHECK (amount_paid <= amount)` for charges, `CHECK (amount < 0)` for refunds (CR-12 gives the closed `type` set) |
-| 3 | `membership.memberships` | `CHECK (valid_from <= valid_to)`; `mdm.persons`: `NOT NULL` + `CHECK (<> '')` on `first_name`, `last_name` if the validators of phase 3 say so |
+| 1 | `activities.activity_sub_registrations`, `activities.activity_products` | `CHECK (price >= 0)`, `CHECK (member_price IS NULL OR member_price >= 0)`, `CHECK (max_participants IS NULL OR max_participants > 0)` — #94 phase 3 and 5, same schema, same migration; each with its data check |
+| 2 | `payment.payment_records` | the sign rule that respects refunds (#94 phase 2, #83): `CHECK ((type = 'charge' AND amount > 0) OR (type = 'refund' AND amount < 0))`; `CHECK (amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) OR (type = 'refund' AND amount_paid BETWEEN amount AND 0))` (CR-12 gives the closed `type` set) |
+| 3 | `membership.memberships` | `CHECK (valid_from <= valid_to)`; `mdm.persons`: `NOT NULL` + `CHECK (<> '')` on `first_name`, `last_name` if the validators of phase 3 say so; `mdm.contact_details`: partial unique — one `is_primary` per `(person_id, contact_type_code)` `WHERE deleted_at IS NULL` (#94 phase 5) |
 
 Validation layers: form → Pydantic (unchanged); meaning → the entity's
 validator/`check()` (new home); at rest → the constraints above.
+
+**Relation to #94 (DB-level integrity).** #94's phase 1 landed in 2026
+(migrations 033/053). Its phase 2 enum `CHECK`s are superseded by CR-12's
+foreign keys to the code tables (a FK is the check; `gateway_payments.status`
+deliberately gets none — Mollie's vocabulary, CR-12 B4.10); its sign rule
+and its phases 3 and 5 are the rows above, placed by the B4.2 test. What
+#94 keeps as its own scope is **phase 4 — the `ondelete` decisions**
+(`member_persons.person_id`, `registration_items.product_id`): behavioural,
+decided per FK, not a rule's home — outside this CR.
 
 ## B6. Privacy and security — the mechanics
 
@@ -1273,6 +1283,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | #94's remaining constraints (payment sign rule, component/product prices, `max_participants`, one primary contact) are placed in B5.2 by the B4.2 test; #94 keeps only its phase 4 (`ondelete`) and stays open for that. | author, on Koen's question |
 | 27 Sep 2026 | Part A approved as written; CR-13 is development-ready. #236 becomes the pointer to this document. | Koen |
 | 27 Sep 2026 | Sequencing: CR-12 goes to PROD with v2.7.0; CR-13 comes later, from `master` with v2.7.0 on it. Scope: CR-13 is about final at fifteen requirements and thirteen gates — grown in one day, each piece a "one home" rule; said consciously, not rolled back; phase 0 gets its own estimate before assignment. | Koen |
 | 27 Sep 2026 | Review decisions (Koen, after the author's and an external model's review): R13 excepts the explicitly named failure paths; `check()` runs on `before_flush` from one kernel listener; reports are the one declared second computation, bound by a parity test; a handler never reaches the network — it enqueues a job, and phase 4 fixes the existing `MailRequested` handler; the tests move in one track (0b) right after phase 0. Plus, without asking: the detached test is built without a round trip, the entrances test is a discovery ratchet with a phase-0 spike, JSON pruning needs the PROD access logs, gate (b) is "no write after a commit", the router gate's baseline carries a reason per entry, phase 0 is estimated on its own, CR-13 starts after v2.7.0. | Koen |
