@@ -885,6 +885,27 @@ playwright-python in `backend/tests_e2e/` (aparte CI-job).
 - **Judgment → the `design-conformiteit-bewaker` agent** (`.claude/agents/`),
   read-only and on request. It ranks findings with `file:line` and a suggested issue
   title; it changes nothing and opens no issues. Run it before a UI batch and after.
+- **The eye → the master CLI, at the merge gate** (decided by Koen, 27 September
+  2026). Before merging a UI PR, the master CLI **looks at the rendered screen at
+  390 px** — the screens the PR touches, not all of them; `tests_e2e/screenshots.py`
+  renders them against a seeded local backend. And a handover of a UI change
+  **without a measurement taken from the rendered DOM goes back**: the two positions
+  that must line up, the count of elements that must appear once, the two numbers of
+  a box and its content. "Tests green" is not a handover.
+
+**Why this is a rule and not a good intention.** In v2.6.0, six of the twenty-four
+issues reached Koen broken, and every one of them was visible by looking at the
+screen once: a clipped `+`, a field that did not submit, a badge out of line, a
+button that did not read as a button. None was deep logic, and CI was green for all
+six. A test that posts straight to the route never passes through the browser; a
+test reading through the same session cannot tell `flush` from `commit`; a gate that
+reads templates cannot see a button created in JavaScript.
+
+After #1197 this file already said "look at the rendered screen before handover", and
+two more of those six still slipped past — because nothing fails when you skip a good
+intention. What makes it hold is the place: the merge is the one point every change
+passes through, and it belongs to the master CLI. Both master CLIs work this way as
+of 27 September 2026.
 
 **Parity with v1.14 — check, don't guess, and use the tag.** The old React frontend
 is still in the history: `git show v1.14.0:frontend/src/app/admin/betalingen/page.tsx`
