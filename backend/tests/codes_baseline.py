@@ -146,8 +146,8 @@ LABELS_NOT_A_VOCABULARY: dict[str, str] = {
     "app/domains/reporting/engine.py:SYMBOLIC_LABELS": (
         "The symbolic filter values (today, this year, the logged-in user) "
         "live in the JSON of a saved report, not in a column, and each one is "
-        "resolved by its own code when the report runs. That their words do "
-        "not go through `_()` is #1216, not CR-12."),
+        "resolved by its own code when the report runs. Their words go "
+        "through `_()` (#1216), marked with `N_` in the table."),
 }
 
 #: Template comparisons on a value that is not one of our stored codes. Added
