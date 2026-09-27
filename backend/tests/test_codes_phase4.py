@@ -292,3 +292,30 @@ def test_the_ai_backfill_turns_empty_into_chat_and_null_and_loses_no_row(db_sess
     assert [tuple(r) for r in rows] == [
         ("chat", "mistral"), ("chat", None), ("reporting", "mistral")]
     db_session.rollback()
+
+
+# ── A retired kind that old rows still carry ─────────────────────────────────
+
+def test_a_done_task_of_the_retired_orphan_kind_stays_valid_and_readable(db_session):
+    """HDEV, 27 September 2026: migration 158 refused its key on 11 done tasks of
+    kind `payment.wees_record`, a kind #824 stopped creating. The kind is now a
+    retired code (inactive, with a label), like gender `U`: such a task can still
+    be stored, it renders as a word, and the kind is offered nowhere.
+
+    Broken on purpose to check that this test can go red: the `payment.wees_record`
+    seed removed from `TASK_KIND_CODES` → the insert fails on the foreign key
+    (23503), which is the error HDEV hit in the migration.
+    """
+    from app.domains.workflow.models import TaskStatus, WorkflowTask
+    from app.kernel.codes import code_labels
+
+    task = WorkflowTask(kind="payment.wees_record", title="Oud weesrecord",
+                        subject_type="payment_record", subject_id="1",
+                        status=TaskStatus.DONE)
+    db_session.add(task)
+    db_session.flush()
+
+    assert code_label("task_kind", "payment.wees_record", language="nl",
+                      db=db_session) == "Betaling: weesrecord"
+    assert "payment.wees_record" not in dict(code_labels("task_kind", db=db_session)), (
+        "a retired kind is not offered")
