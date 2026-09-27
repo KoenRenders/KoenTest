@@ -190,7 +190,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/activities/models.py:kind==component_info',
     'app/domains/activities/router.py:contact_type_code==EMAIL',
     'app/domains/activities/router.py:payment_method==ONLINE',
-    'app/domains/activities/ui.py:contact_type_code==EMAIL',
     'app/domains/activities/ui.py:contact_type_code==MOBILE',
     'app/domains/audit/changes.py:contact_type_code==EMAIL',
     'app/domains/audit/changes.py:relation_type==HOOFDLID',
