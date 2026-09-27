@@ -27,7 +27,7 @@ def test_definitie_start_advance_complete(db_session):
     ]))
     db_session.flush()
 
-    instance = api.start(db_session, "test2stap", subject_type="x", subject_id=1,
+    instance = api.start(db_session, "test2stap", subject_type="form_submission", subject_id=1,
                          context={"wie": "Koen"})
     taak1 = (db_session.query(WorkflowTask)
              .filter(WorkflowTask.instance_id == instance.id).one())
@@ -51,7 +51,7 @@ def test_definitie_start_advance_complete(db_session):
 
 def test_onbekende_definitie_faalt_luid(db_session):
     with pytest.raises(ValueError):
-        api.start(db_session, "bestaat-niet", subject_type="x", subject_id=1)
+        api.start(db_session, "bestaat-niet", subject_type="form_submission", subject_id=1)
 
 
 def test_bericht_start_via_definitie(client, db_session):
@@ -145,9 +145,9 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     register_task_kind(db_session, "membership.renewal", nl="Lid vernieuwen",
                          en="Renew member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
-                    subject_type="membership", subject_id=1)
+                    subject_type="form_submission", subject_id=1)
     api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
-                    subject_type="membership", subject_id=2)
+                    subject_type="form_submission", subject_id=2)
     api.create_task(db_session, kind="bericht.behartigen", title="Bericht Cara",
                     subject_type="form_submission", subject_id=3)
     db_session.commit()
@@ -182,7 +182,7 @@ def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
                          en="Remind member", category_nl="Lidmaatschap")
     api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
-                    subject_type="membership", subject_id=11)
+                    subject_type="form_submission", subject_id=11)
     api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",
                     subject_type="form_submission", subject_id=12)
     db_session.commit()

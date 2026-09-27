@@ -26,7 +26,6 @@ object's name, instead of turning a report into a 500 in front of a user.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
 
 from app.kernel.codes import TechnicalEnum
 
@@ -93,14 +92,16 @@ class AiExposure(str, TechnicalEnum):
     NONE = "none"
 
 
-class Role(str, Enum):
+class Role(str, TechnicalEnum):
     """Who may put this object in a report.
 
-    **Deliberately not marked `TechnicalEnum` (CR-12).** This one *is* a
-    vocabulary — it is the role list, seen from the reporting side — so it
-    stays on the enum ratchet of `test_codes_gate.py` until phase 2 moves
-    `role_codes` to `auth` and this enum can point at that list instead of
-    keeping a second copy of the same words.
+    **`TechnicalEnum` (CR-12 §B4.9), and not the role list** (CR-12 phase 4
+    residue, 27 September 2026). This docstring used to promise that the enum
+    would point at `auth`'s role list once that list moved there. It moved, and
+    the promise does not hold: this is an access fence *per report object*,
+    never stored and never shown, and ``MEMBER_DETAILS`` is a fence that no
+    role in `auth` is called. Replacing it with `auth.models.Role` would drop
+    that fence from every object that declares it.
 
     Mirrors the screens (CR-06 §2.5), with money as its own fence: what you cannot
     see on a screen you cannot put in a report. ``MEMBER_DETAILS`` exists for the

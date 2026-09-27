@@ -106,7 +106,10 @@ def _kpi(activities: list) -> dict:
     """
     onderdelen = [c for a in activities for c in a.sub_registrations]
     return {
-        "kpi_open": sum(1 for a in activities if a.status == "Open"),
+        # The state and not `status`: that is the label, a translatable word, so
+        # comparing it with "Open" counted only while the word happened to be
+        # "Open" (CR-12 phase 4 residue).
+        "kpi_open": sum(1 for a in activities if a.registration_open),
         "kpi_vol": sum(1 for c in onderdelen if getattr(c, "is_full", False)),
         "kpi_onderdelen": len(onderdelen),
     }

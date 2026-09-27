@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.reporting.chart import chart_data
 from app.domains.reporting.engine import (
-    BY_KEY, SYMBOLIC_LABELS, Selection, build_detail_query,
+    BY_KEY, SYMBOLIC_LABELS, Layout, Selection, build_detail_query,
 )
 from app.domains.reporting.service import Dataset, ReportResult, load_dataset
 from app.i18n import _
@@ -152,7 +152,7 @@ def build_report_ods(db: Session, result: ReportResult, selection: Selection, *,
         {"name": title[:31] or "Rapport", "headers": headers, "rows": rows,
          "intro_rows": intro, "bold_last_row": bool(result.totals)},
     ]
-    if selection.layout != "detail":
+    if selection.layout != Layout.DETAIL:
         # Sheet 2 is the rows behind an aggregate. A listing IS those rows, so a
         # second sheet would be the same table twice — and a spreadsheet with a
         # duplicate invites somebody to add the two together.

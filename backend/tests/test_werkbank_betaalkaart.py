@@ -32,6 +32,7 @@ import pytest
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
                                   make_session_value)
 from app.domains.payment.api import PaymentRecord
+from app.domains.workflow.api import SubjectType
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -86,7 +87,7 @@ def test_een_refundtaak_verwijst_naar_het_record(client, db_session):
 
     _sweep(db_session)
     taak = next(t for t in _taken(db_session, "payment.refund_bevestigen"))
-    assert taak.subject_type == "payment_record"
+    assert taak.subject_type is SubjectType.PAYMENT_RECORD
     assert taak.subject_id == str(refund.id), (
         "de taak wijst naar het payable in plaats van naar het record")
 

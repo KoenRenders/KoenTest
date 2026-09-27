@@ -418,7 +418,7 @@ def _start_kernel_jobs() -> None:
     """Start de kernel-jobs scheduler (#396) — het achtergrondwerk-primitief
     (§5.8). In tests uitgeschakeld via JOBS_ENABLED=false."""
     if settings.jobs_enabled:
-        from app.kernel.jobs import KernelJob, enqueue, start_scheduler
+        from app.kernel.jobs import JobStatus, KernelJob, enqueue, start_scheduler
 
         start_scheduler()
         # #824: the orphan-record reconciliation (#401) used to be scheduled here too.
@@ -431,7 +431,7 @@ def _start_kernel_jobs() -> None:
         try:
             sweep_pending = (db.query(KernelJob)
                              .filter(KernelJob.name == "workflow.sweep",
-                                     KernelJob.status.in_(["pending", "running"]))
+                                     KernelJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]))
                              .count())
             if not sweep_pending:
                 enqueue(db, "workflow.sweep", {})

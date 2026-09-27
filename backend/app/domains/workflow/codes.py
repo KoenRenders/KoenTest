@@ -12,6 +12,9 @@ from app.domains.workflow.models import (
     RunStatus,
     RunStatusCode,
     RunStatusLabel,
+    SubjectType,
+    SubjectTypeCode,
+    SubjectTypeLabel,
     TaskCategoryCode,
     TaskCategoryLabel,
     TaskKindCode,
@@ -99,4 +102,19 @@ TASK_CATEGORY = CodeList(
     name="task_category", schema="workflow",
     codes=TaskCategoryCode, labels=TaskCategoryLabel, enum=None,
     derived=True,
+)
+
+SUBJECT_TYPE_CODES = (
+    CodeSeed(code="payment_record", nl="Betaling", en="Payment", sort_order=10),
+    CodeSeed(code="email_log", nl="E-mail", en="E-mail", sort_order=20),
+    CodeSeed(code="form_submission", nl="Formulierinzending", en="Form submission",
+             sort_order=30),
+    CodeSeed(code="kernel_job", nl="Achtergrondtaak", en="Background job", sort_order=40),
+)
+
+SUBJECT_TYPE = CodeList(
+    name="subject_type", schema="workflow",
+    codes=SubjectTypeCode, labels=SubjectTypeLabel, enum=SubjectType,
+    fk_from=("workflow.workflow_tasks.subject_type",
+             "workflow.workflow_instances.subject_type"),
 )

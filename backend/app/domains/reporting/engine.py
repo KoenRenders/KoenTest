@@ -169,7 +169,25 @@ class Selection:
 # is the odd one out and deliberately so: every other layout aggregates, and this
 # one lists the rows of the fact as they are. It exists because the four exports
 # this application already has are listings, not summaries (#841 point 4).
-LAYOUTS = ("table", "pivot", "bar", "line", "stacked", "detail")
+class Layout(str, TechnicalEnum):
+    """The shape of a report.
+
+    `TechnicalEnum` (CR-12 §B4.9), like `Operator` and `Direction`: the engine
+    and the panel branch on it, it lives inside the selection JSON of a saved
+    report and never in a column, and the reader sees the panel's own words for
+    it, never the code. A `str` enum, so a selection read from JSON compares
+    equal without a conversion.
+    """
+
+    TABLE = "table"
+    PIVOT = "pivot"
+    BAR = "bar"
+    LINE = "line"
+    STACKED = "stacked"
+    DETAIL = "detail"
+
+
+LAYOUTS = tuple(layout.value for layout in Layout)
 
 # A crosstab wider than this is not a report (CR-06 §5.2). The message names the
 # dimension, because "too many columns" without saying which one leaves the user
@@ -604,7 +622,7 @@ def build_query(selection: Selection, *, tenant_id: int,
 
     objects = [_object(key) for key in selection.object_keys]
 
-    if selection.layout == "detail":
+    if selection.layout == Layout.DETAIL:
         return _build_detail_list(selection, objects, tenant_id=tenant_id,
                                   with_entities=with_entities)
 

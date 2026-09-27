@@ -29,6 +29,20 @@ class TaskStatus(Enum):
     DONE = "done"
 
 
+class SubjectType(Enum):
+    """What a task or a run is about (CR-12 phase 4 residue).
+
+    A closed list: our own handlers write these four, and the workbench branches
+    on them to find the way to the subject. Unlike a task kind, a workflow
+    definition cannot introduce one — the caller of `start` names it in code.
+    """
+
+    PAYMENT_RECORD = "payment_record"
+    EMAIL_LOG = "email_log"
+    FORM_SUBMISSION = "form_submission"
+    KERNEL_JOB = "kernel_job"
+
+
 class RunStatus(Enum):
     """One running instance of a definition (phase 4b, #403)."""
 
@@ -77,7 +91,9 @@ class WorkflowTask(TenantMixin, Base):
     # dit een `Integer` was, paste `PaymentRecord.id` (UUID in String(36)) er niet
     # in, en vulden de betaaltaken er `payable_id` in terwijl `subject_type`
     # "payment_record" zei — het type zei iets wat de waarde niet was.
-    subject_type = Column(String(50), nullable=False)
+    subject_type: Mapped[SubjectType] = mapped_column(
+        EnumColumn(SubjectType, length=50),
+        ForeignKey("workflow.subject_type_codes.code"), nullable=False)
     subject_id = Column(String(36), nullable=False)
     status: Mapped[TaskStatus] = mapped_column(
         EnumColumn(TaskStatus, length=10),
@@ -123,8 +139,13 @@ class WorkflowInstance(TenantMixin, Base):
     __table_args__ = {"schema": "workflow"}
 
     id = Column(Integer, primary_key=True)
-    definition_code = Column(String(50), nullable=False, index=True)
-    subject_type = Column(String(50), nullable=False)
+    # CR-12 phase 4 residue: the definition this run follows. Its table already
+    # exists — the code is the primary key there — so this is a key, not a list.
+    definition_code = Column(String(50), ForeignKey("workflow.workflow_definitions.code"),
+                             nullable=False, index=True)
+    subject_type: Mapped[SubjectType] = mapped_column(
+        EnumColumn(SubjectType, length=50),
+        ForeignKey("workflow.subject_type_codes.code"), nullable=False)
     # Tekst, net als bij de taak (#704): een instantie geeft dit door aan de taak
     # van elke stap, dus twee vormen voor hetzelfde begrip lopen daar samen.
     subject_id = Column(String(36), nullable=False)
@@ -157,6 +178,35 @@ class TaskStatusLabel(Base):
     __table_args__ = {"schema": "workflow"}
 
     code = Column(String(10), ForeignKey("workflow.task_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+class SubjectTypeCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4 residue)."""
+
+    __tablename__ = "subject_type_codes"
+    __table_args__ = {"schema": "workflow"}
+
+    code = Column(String(50), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class SubjectTypeLabel(Base):
+    """The word a screen shows for this code, per language."""
+
+    __tablename__ = "subject_type_labels"
+    __table_args__ = {"schema": "workflow"}
+
+    code = Column(String(50), ForeignKey("workflow.subject_type_codes.code"),
                   primary_key=True)
     language = Column(String(5), ForeignKey("mdm.language_codes.code"),
                       primary_key=True)

@@ -23,16 +23,77 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 from typing import Callable, Optional
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, JSON
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal
+from app.kernel.codes import CodeList, CodeSeed, EnumColumn, code_of
 
 logger = logging.getLogger(__name__)
 
 _handlers: dict[str, Callable[[Session, dict], None]] = {}
+
+
+class JobStatus(Enum):
+    """Where a background job stands (CR-12 phase 4 residue).
+
+    A closed list: the scheduler below writes all four, and the workbench turns
+    a `FAILED` job into a task. So it gets a code table, labels and a foreign
+    key, in `public` next to `kernel_jobs`, like the history operation.
+    """
+
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    FAILED = "failed"
+
+
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class KernelJobStatusCode(Base):
+    """Which codes exist — the target of the foreign key (CR-12 phase 4 residue)."""
+
+    __tablename__ = "kernel_job_status_codes"
+
+    code = Column(String(10), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class KernelJobStatusLabel(Base):
+    """The word a screen shows for this code, per language."""
+
+    __tablename__ = "kernel_job_status_labels"
+
+    code = Column(String(10), ForeignKey("kernel_job_status_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
+
+
+JOB_STATUS_CODES = (
+    CodeSeed(code="pending", nl="In de wachtrij", en="Queued", sort_order=10),
+    CodeSeed(code="running", nl="Bezig", en="Running", sort_order=20),
+    CodeSeed(code="done", nl="Afgerond", en="Done", sort_order=30),
+    CodeSeed(code="failed", nl="Mislukt", en="Failed", sort_order=40),
+)
+
+JOB_STATUS = CodeList(
+    name="kernel_job_status", schema="public",
+    codes=KernelJobStatusCode, labels=KernelJobStatusLabel, enum=JobStatus,
+    fk_from=("public.kernel_jobs.status",),
+)
 
 
 class KernelJob(Base):
@@ -41,8 +102,9 @@ class KernelJob(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False, index=True)
     payload = Column(JSON, nullable=False, default=dict)
-    # pending | running | done | failed
-    status = Column(String(10), nullable=False, default="pending", index=True)
+    status = Column(EnumColumn(JobStatus, length=10),
+                    ForeignKey("kernel_job_status_codes.code"),
+                    nullable=False, default=JobStatus.PENDING, index=True)
     run_at = Column(DateTime(timezone=True), nullable=False, index=True)
     attempts = Column(Integer, nullable=False, default=0)
     max_attempts = Column(Integer, nullable=False, default=5)
@@ -89,7 +151,7 @@ def job_details(db: Session, job_id: str) -> Optional[dict]:
         return None
     if job is None:
         return None
-    return {"name": job.name, "status": job.status, "attempts": job.attempts,
+    return {"name": job.name, "status": code_of(job.status), "attempts": job.attempts,
             "max_attempts": job.max_attempts, "last_error": job.last_error}
 
 
@@ -102,14 +164,14 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
     while processed < batch:
         entry = (
             db.query(KernelJob)
-            .filter(KernelJob.status == "pending", KernelJob.run_at <= now)
+            .filter(KernelJob.status == JobStatus.PENDING, KernelJob.run_at <= now)
             .order_by(KernelJob.run_at)
             .with_for_update(skip_locked=True)
             .first()
         )
         if entry is None:
             break
-        entry.status = "running"
+        entry.status = JobStatus.RUNNING
         entry.attempts += 1
         db.commit()
 
@@ -124,7 +186,7 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
             handler(db, dict(entry.payload or {}))
             if savepoint.is_active:
                 savepoint.commit()
-            entry.status = "done"
+            entry.status = JobStatus.DONE
             entry.last_error = None
             db.commit()
         except Exception as exc:  # noqa: BLE001 — falen hoort bij het primitief
@@ -132,11 +194,11 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
                 savepoint.rollback()
             entry.last_error = f"{type(exc).__name__}: {exc}"
             if entry.attempts >= entry.max_attempts:
-                entry.status = "failed"
+                entry.status = JobStatus.FAILED
                 logger.error("job %s (#%s) definitief GEFAALD na %d pogingen: %s",
                              entry.name, entry.id, entry.attempts, entry.last_error)
             else:
-                entry.status = "pending"
+                entry.status = JobStatus.PENDING
                 backoff = timedelta(seconds=30 * (2 ** (entry.attempts - 1)))
                 entry.run_at = datetime.now(timezone.utc) + backoff
                 logger.warning("job %s (#%s) faalde (poging %d/%d), retry over %s: %s",

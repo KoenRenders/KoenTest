@@ -142,7 +142,7 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
     )
     phone = next(
         (c.value for c in person.contact_details
-         if c.contact_type_code in ("MOBILE", "PHONE")),
+         if c.contact_type_code in (CONTACT.MOBILE, CONTACT.PHONE)),
         None,
     )
     from app.domains.membership.api import renewal_available as _renewal_available

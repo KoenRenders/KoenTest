@@ -35,9 +35,8 @@ from pathlib import Path
 
 import pytest
 
-from app.kernel.jobs import KernelJob
+from app.kernel.jobs import JobStatus, KernelJob
 from app.domains.workflow.models import TaskStatus, WorkflowTask
-from app.domains.payment.api import PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -86,7 +85,7 @@ def test_a_waiting_row_is_gone_and_the_history_is_untouched(db_session):
 
     remaining = (db_session.query(KernelJob)
                  .filter(KernelJob.name == JOB_NAME).all())
-    assert [j.status for j in remaining] == ["done"] * 3, (
+    assert [j.status for j in remaining] == [JobStatus.DONE] * 3, (
         "either the waiting row survived, or the history was taken along — those 58 "
         "successful runs are a report and there is nothing wrong with them")
     assert {j.id for j in remaining} == {j.id for j in history}
@@ -156,4 +155,4 @@ def test_a_task_about_another_job_is_left_alone(db_session):
     db_session.refresh(other_task)
     assert other_task.status is TaskStatus.OPEN, (
         "a task about another failed job was closed as well — the cleanup grabs too wide")
-    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status == PaymentStatus.FAILED.value  # KernelJob: eigen statuslijst, fase 4
+    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status is JobStatus.FAILED

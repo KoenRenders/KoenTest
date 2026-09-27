@@ -22,25 +22,13 @@ has to go.
 #: explicitly a net and not a proof: a column called `categorie` escapes it
 #: until someone registers it.
 FK_MISSING: frozenset[str] = frozenset({
-    'auth.login_tokens.otp_code',
-    'designstudio.design_highlights.icon_code',
-    'designstudio.design_renditions.size_code',
-    'designstudio.designs.duo_code',
     'mdm.external_numbers.source',
-    'media.media_assets.content_type',
-    'media.media_assets.thumb_content_type',
-    'meetings.meeting_files.content_type',
-    'public.kernel_jobs.status',
-    'workflow.workflow_instances.definition_code',
-    'workflow.workflow_instances.subject_type',
-    'workflow.workflow_tasks.subject_type',
 })
 
 #: `Enum` classes under `app/` that sit in no `CodeList` and carry no
 #: `TechnicalEnum`/`ExternalVocabulary` marker either.
 #: Key: `path/to/file.py:ClassName`.
 ENUM_WITHOUT_LIST: frozenset[str] = frozenset({
-    'app/domains/reporting/universe.py:Role',
 })
 
 #: Label dictionaries in Python — the shape this change request removes.
@@ -56,33 +44,6 @@ TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
 #: Loose string comparisons on a vocabulary attribute in `.py`.
 #: Key: `path/to/file.py:attribute==value`.
 LOOSE_STRINGS: frozenset[str] = frozenset({
-    'app/domains/activities/admin_ui.py:status==Open',
-    'app/domains/activities/models.py:kind==component_info',
-    'app/domains/auth/router.py:contact_type_code in MOBILE',
-    'app/domains/auth/router.py:contact_type_code in PHONE',
-    'app/domains/auth/users.py:role_code==OPERATOR',
-    'app/domains/chatbot/info_service.py:content_type==application/pdf',
-    'app/domains/chatbot/router.py:role==user',
-    'app/domains/media/images.py:mode in LA',
-    'app/domains/media/images.py:mode in RGBA',
-    'app/domains/media/images.py:mode!=RGB',
-    'app/domains/media/images.py:mode!=RGBA',
-    'app/domains/media/images.py:mode==P',
-    'app/domains/media/pdf.py:mode!=RGB',
-    'app/domains/media/service.py:content_type==application/pdf',
-    'app/domains/reporting/admin_ui.py:layout==pivot',
-    'app/domains/reporting/chart.py:format==money',
-    'app/domains/reporting/engine.py:layout==detail',
-    'app/domains/reporting/exports.py:layout!=detail',
-    'app/domains/reporting/pivot.py:layout!=pivot',
-    'app/domains/workflow/handlers.py:status==failed',
-    'app/domains/workflow/ui.py:subject_type==email_log',
-    'app/domains/workflow/ui.py:subject_type==form_submission',
-    'app/domains/workflow/ui.py:subject_type==kernel_job',
-    'app/domains/workflow/ui.py:subject_type==payment_record',
-    'app/kernel/jobs.py:status==pending',
-    'app/schemas/chat.py:role!=user',
-    'app/ui/__init__.py:kind==sponsor',
 })
 
 # ── Permanent exceptions: not a vocabulary of ours ───────────────────────────
@@ -97,12 +58,32 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
 # settles it: *could this value ever be a row in a code table of ours?* An HTTP
 # method and a MIME type could not — somebody else owns those lists.
 
+_MIME_TYPE = "A MIME type: IANA's list, not ours (§B4.10)."
+
 #: Columns that look like a vocabulary but get no code table (§B4.10).
 FK_NOT_OUR_LIST: dict[str, str] = {
     "payment.gateway_payments.status": (
         "Mollie's own list. Mollie can add a value without our migration, and a "
         "foreign key would make the webhook fail at exactly the wrong moment. The "
         "adapter has an ExternalVocabulary enum and maps to our PaymentStatus."),
+    # CR-12 phase 4 residue (27 September 2026).
+    "media.media_assets.content_type": _MIME_TYPE,
+    "media.media_assets.thumb_content_type": _MIME_TYPE,
+    "meetings.meeting_files.content_type": _MIME_TYPE,
+    "designstudio.designs.duo_code": (
+        "A colour duo is a brand asset with a payload — two house-style colours "
+        "per code — and changes with the brand guide. It stays in `brand.py` "
+        "(§B4.10, design and brand data)."),
+    "designstudio.design_highlights.icon_code": (
+        "An icon code maps to an SVG path in `icons.py`: brand data with a "
+        "payload, not a vocabulary (§B4.10)."),
+    "designstudio.design_renditions.size_code": (
+        "A paper size is design data with a payload (dimensions) in `brand.py` "
+        "(§B4.10)."),
+    "auth.login_tokens.otp_code": (
+        "Not a vocabulary: the SHA-256 hash of a one-time login code (#395). The "
+        "net matches on the `_code` suffix and cannot tell a code list from a "
+        "secret."),
 }
 
 #: `*_LABELS` dictionaries whose values are not labels at all (§B4.10). The
@@ -162,4 +143,20 @@ LOOSE_STRINGS_NOT_A_CODE: dict[str, str] = {
         "A MIME type: IANA's list, not ours."),
     "app/domains/designstudio/service.py:content_type==image/svg+xml": (
         "A MIME type: IANA's list, not ours."),
+    # CR-12 phase 4 residue (27 September 2026).
+    "app/domains/media/service.py:content_type==application/pdf": (
+        "A MIME type: IANA's list, not ours."),
+    "app/domains/chatbot/info_service.py:content_type==application/pdf": (
+        "A MIME type: IANA's list, not ours."),
+    **{f"app/domains/media/{key}": (
+        "A Pillow image mode (`RGB`, `RGBA`, `LA`, `P`): the imaging library's "
+        "vocabulary, not ours (§B4.10).")
+       for key in ("images.py:mode in LA", "images.py:mode in RGBA",
+                   "images.py:mode!=RGB", "images.py:mode!=RGBA",
+                   "images.py:mode==P", "pdf.py:mode!=RGB")},
+    "app/domains/chatbot/router.py:role==user": (
+        "The role of a chat message (`user`/`assistant`/`system`) is the "
+        "chat-completions API's vocabulary, not ours (§B4.10)."),
+    "app/schemas/chat.py:role!=user": (
+        "The same chat-message role, validated on the way in."),
 }

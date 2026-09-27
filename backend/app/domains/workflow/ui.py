@@ -8,7 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.workflow import api
-from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, TaskStatus
+from app.domains.workflow.api import (TASK_CATEGORY, TASK_KIND, TASK_STATUS, SubjectType,
+                                      TaskStatus)
 from app.kernel.codes import code_label, code_labels, code_of
 from app.ui import admin_nav, is_fragment_request, templates
 from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
@@ -146,7 +147,7 @@ def werkbank_lijst(request: Request, db: Session = Depends(get_db),
 # (`_kernel_job_rows`), and that IS the way to the subject here. So do not add a link
 # "for consistency": the point is a way to the thing, not a link as a shape. If you
 # want a real screen for it, that is new scope.
-SUBJECTS_WITH_OWN_SCREEN = {"payment_record"}
+SUBJECTS_WITH_OWN_SCREEN = {SubjectType.PAYMENT_RECORD}
 
 
 def _subject_url(db, task) -> str | None:
@@ -163,13 +164,13 @@ def _subject_url(db, task) -> str | None:
     """
     if not task or not task.subject_id:
         return None
-    if task.subject_type == "payment_record":
+    if task.subject_type is SubjectType.PAYMENT_RECORD:
         return f"/admin/betalingen?record={task.subject_id}"
-    if task.subject_type == "email_log":
+    if task.subject_type is SubjectType.EMAIL_LOG:
         from app.domains.mail.api import email_log_url
 
         return email_log_url(db, task.subject_id)
-    if task.subject_type == "form_submission":
+    if task.subject_type is SubjectType.FORM_SUBMISSION:
         from app.domains.forms.api import submission_url
 
         return submission_url(db, task.subject_id)
@@ -202,13 +203,13 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
     """Fragment (htmx) én deep-link (volle pagina zonder HX-Request, §20.5)."""
     task = api.get_task(db, task_id)
     detail_rows: list[tuple[str, str]] = []
-    if task and task.subject_type == "form_submission":
+    if task and task.subject_type is SubjectType.FORM_SUBMISSION:
         from app.domains.forms.api import submission_view
 
         # #704: `subject_id` is sinds die wijziging tekst; `submission_view`
         # verwacht een getal. Dit is de plek die anders stil zou breken.
         detail_rows = submission_view(db, int(task.subject_id))
-    elif task and task.subject_type == "kernel_job":
+    elif task and task.subject_type is SubjectType.KERNEL_JOB:
         detail_rows = _kernel_job_rows(db, task)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     template = ("_werkbank_detail.html" if is_fragment_request(request)
