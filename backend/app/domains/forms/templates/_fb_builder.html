@@ -45,6 +45,16 @@
   <div class="sm:col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
     {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
   <div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
+  {# #1136: a question moves to another section and keeps its id — and with it
+     every stored answer. Only on an existing question, and only when there is
+     somewhere to go. A move that would make one of its jumps go backwards is
+     refused by the service, with the option and both sections in the message. #}
+  {% if f and sections|length > 1 %}
+  <div class="sm:col-span-4">{{ ui.label(_("Sectie"), "fs-" ~ _id) }}
+    {% call ui.select_control("section_id", cls="w-full", attrs='id="fs-' ~ _id ~ '"') %}
+      {% for s in sections %}<option value="{{ s.id }}" {% if s.id == f.section_id %}selected{% endif %}>{{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endfor %}
+    {% endcall %}</div>
+  {% endif %}
   <div class="sm:col-span-4">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
     {{ ui.input_control("help_text", id="fh-" ~ _id, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
   {% if _kind.has_length_limits %}

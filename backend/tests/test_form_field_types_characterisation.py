@@ -28,6 +28,12 @@ Broken on purpose to check that these tests can go red: `min` renamed to
 over with that one line in its diff. And the print test was red on this branch
 before the adapter fix, which is how the regression was found.
 
+**#1136 added one thing to the builder, on purpose:** a **Sectie** list in
+the edit form of every existing question (eleven here), with its own section
+selected. The builder snapshot was rewritten for that and nothing else — the
+diff against the previous snapshot had additions only, all eleven of them that
+list. The other four snapshots did not change.
+
 **After the refactor** (the fourteen comparisons became `FieldKind` flags in
 `screenfields.py`) all five snapshots stayed as they were — no snapshot was
 rewritten. Broken on purpose once more: `FieldKind.input_type` made to answer

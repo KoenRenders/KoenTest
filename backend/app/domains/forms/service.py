@@ -634,7 +634,50 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
 
     veld.label = label
     _veldwaarden(veld, waarden)
+    doel = str(waarden.get("section_id") or "").strip()
+    if doel.isdigit() and int(doel) != veld.section_id:
+        _move_to_section(form, veld, int(doel))
     db.commit()
+
+
+def _section_name(section: FormSection) -> str:
+    """How the builder names a section: its title, or its number (1-based)."""
+    return section.title or f"Sectie {section.position + 1}"
+
+
+def _move_to_section(form: Form, veld: FormField, section_id: int) -> None:
+    """Move a question to another section, keeping its id (#1136).
+
+    The id is the point: every stored answer refers to it, so the old detour —
+    delete the question and make it again in the other section — cut those
+    answers loose. The question lands at the bottom of its new section with a
+    position after the last one there; taking its old position along could give
+    two questions the same place (the tie of #1068).
+
+    **A move that breaks a jump is refused** (Koen, 21 September 2026). An
+    option of this question may jump to a later section; in its new place that
+    target has to be later still, the rule `update_option` applies to every
+    jump. A jump that no longer goes forward is only noticed by a visitor who
+    gets stuck, after the form went out. The message names the option and both
+    sections, so the admin knows which jump to change first.
+    """
+    doel = next((s for s in form.sections if s.id == section_id), None)
+    if doel is None:
+        raise FormulierFout("Die sectie hoort niet bij dit formulier.")
+    for optie in veld.options:
+        sprong = optie.skip_to_section
+        if sprong is not None and sprong.position <= doel.position:
+            raise FormulierFout(
+                f"De optie '{optie.label}' springt naar "
+                f"{_section_name(sprong)}; verplaatst naar {_section_name(doel)} "
+                f"zou die sprong niet meer vooruit gaan. Pas eerst die sprong aan.")
+    oude_broers = [f for f in form.fields
+                   if f.section_id == veld.section_id and f.id != veld.id]
+    nieuwe_broers = [f for f in form.fields if f.section_id == doel.id]
+    veld.section_id = doel.id
+    veld.position = max((f.position for f in nieuwe_broers), default=-1) + 1
+    # The section it left keeps a gap-free order.
+    _hernummer(oude_broers)
 
 
 def move_field(db, form: Form, field_id: int, richting: str) -> None:

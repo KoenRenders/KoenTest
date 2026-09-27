@@ -373,12 +373,13 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
                   required: str = Form(""), min_length: str = Form(""),
                   max_length: str = Form(""), min_value: str = Form(""),
                   max_value: str = Form(""), rating_max: str = Form(""),
-                  rating_low_label: str = Form(""), rating_high_label: str = Form("")):
+                  rating_low_label: str = Form(""), rating_high_label: str = Form(""),
+                  section_id: str = Form("")):
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
     _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
-            help_text=help_text,
+            help_text=help_text, section_id=section_id,
             required=required, min_length=min_length, max_length=max_length,
             min_value=min_value, max_value=max_value, rating_max=rating_max,
             rating_low_label=rating_low_label, rating_high_label=rating_high_label)
