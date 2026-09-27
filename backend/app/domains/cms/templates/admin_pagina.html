@@ -11,6 +11,44 @@
 <style>
   /* De bijlage-knop en het blokkeren van bestanden staan in de beheerschil, naast
      waar Trix geladen wordt (#939): daar geldt het voor élke editor. */
+
+  /* #1230-1: de bewerkknop leest als een knop. Een EIGEN achtergrond en niet de
+     kleur van de foto eronder — de werkbalk zweeft over het beeld en dat beeld
+     kan licht of donker zijn. Dezelfde hoogte (20 px) en hetzelfde wit als het
+     verwijderkruisje ernaast, zodat de twee als één bediening lezen; de breedte
+     verschilt omdat er een woord in staat en geen symbool.
+
+     Tekst en geen pictogram, met opzet: een potlood zou een `aria-label` nodig
+     hebben én de icoondefinitie uit de kit een tweede keer in JavaScript zetten.
+     "Bewerken" zegt het zelf. */
+  .attachment__toolbar .raak-beeld-bewerken {
+    background-color: var(--surface);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 0 8px;
+    margin-left: 4px;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgb(var(--c-ink) / .25);
+  }
+  .attachment__toolbar .raak-beeld-bewerken:hover { background-color: var(--surface-2); }
+
+  /* #1230-2: de maat is ook IN DE EDITOR te zien. Ze wordt pas bij het tonen van
+     de pagina op de <img> gezet, dus daarvoor stond elke afbeelding hier op volle
+     breedte: je koos klein en zag groot.
+
+     Gelezen uit de bijlage-gegevens zelf, met een attribuutselector — dezelfde
+     opgeslagen waarde als de publieke weergave, dus er kan geen tweede,
+     soepelere vertaling naast ontstaan. Een onbekende maat matcht niets en
+     levert dus geen opmaak op, net als de whitelist server-side.
+     `test_beeldmaat_in_de_editor_1230.py` bewaakt dat deze regels en
+     `IMAGE_SIZES` niet uit elkaar lopen.
+
+     Het is een BENADERING en geen belofte: de tekstkolom van de editor is niet
+     die van de publieke pagina, dus "half" is hier niet dezelfde pixelbreedte.
+     Het doel is dat je het verschil ziet tussen klein, half en vol. */
+
+  trix-editor figure.attachment[data-trix-attachment*='"size":"klein"'] { max-width: 33%; }
+  trix-editor figure.attachment[data-trix-attachment*='"size":"half"'] { max-width: 50%; }
 </style>
 <script>
   // Eenmalig registreren (#634): onder hx-boost wordt dit blok opnieuw uitgevoerd
@@ -51,13 +89,20 @@
   // die exact de aangeklikte bijlage mét onze eigen sleutels erin. We houden hem
   // vast op het moment van klikken, want het dialoogje neemt de focus over.
   var bewerkteBijlage = null;
+  var bewerkteFiguur = null;
 
   function voegBewerkknopToe(werkbalk) {
     var groep = werkbalk.querySelector(".trix-button-group--actions");
     if (!groep || groep.querySelector("[data-raak-beeld-bewerken]")) { return; }
     var knop = document.createElement("button");
     knop.type = "button";
-    knop.className = "trix-button";
+    // #1230: `trix-button` alléén is de ALGEMENE knopklasse van de editor — geen
+    // achtergrond, geen vorm. Het verwijderkruisje ernaast draagt daarnaast zijn
+    // eigen modifier, en dáár komt de witte cirkel vandaan die hem leesbaar maakt
+    // boven een foto. Gemeten vóór de reparatie: kruisje 20x20 met
+    // `background-color: rgb(255,255,255)` en `border-radius: 50%`, onze knop
+    // 73x20 met `rgba(0, 0, 0, 0)` — dus kale tekst over het beeld.
+    knop.className = "trix-button raak-beeld-bewerken";
     knop.setAttribute("data-raak-beeld-bewerken", "");
     knop.textContent = "Bewerken";
     knop.title = "Maat en alternatieve tekst wijzigen";
@@ -65,6 +110,13 @@
       e.preventDefault();
       var editor = document.getElementById("cp-trix").editor;
       bewerkteBijlage = editor.composition.editingAttachment;
+      // #1230-2: ook de FIGUUR onthouden. De editor ververst het
+      // `data-trix-attachment` van een al gerenderde figuur niet na een
+      // `setAttributes` — gemeten: model en verborgen invoer stonden op "klein",
+      // het DOM-attribuut nog op "half". De opmaakregels hieronder lezen juist
+      // dat attribuut, dus zonder deze verwijzing zie je je wijziging pas na een
+      // herlaadbeurt.
+      bewerkteFiguur = knop.closest("figure[data-trix-attachment]");
       if (!bewerkteBijlage) { return; }
       var attrs = bewerkteBijlage.getAttributes();
       window.dispatchEvent(new CustomEvent("raak-beeld-bewerken", { detail: {
@@ -96,12 +148,19 @@
   window.updatePageImage = function (image, alt, maat) {
     if (!bewerkteBijlage || !alt || !alt.trim()) { return; }
     var attrs = bewerkteBijlage.getAttributes();
-    bewerkteBijlage.setAttributes(Object.assign({}, attrs, {
+    var nieuw = Object.assign({}, attrs, {
       url: (image && image.url) || attrs.url,
       alt: alt.trim(),
       size: maat || "vol",
-    }));
+    });
+    bewerkteBijlage.setAttributes(nieuw);
+    // De weergave in de editor volgt het attribuut, en dat ververst de editor
+    // niet zelf (zie hierboven). Het model is nu de bron; dit zet het beeld erop.
+    if (bewerkteFiguur) {
+      bewerkteFiguur.setAttribute("data-trix-attachment", JSON.stringify(nieuw));
+    }
     bewerkteBijlage = null;
+    bewerkteFiguur = null;
   };
 
   window.insertPageImage = function (image, alt, maat) {
