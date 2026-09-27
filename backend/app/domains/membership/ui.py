@@ -280,7 +280,7 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
 @router.get("/leden/gezin/personen/{person_id}/email-rij",
             response_class=HTMLResponse)
 def gezin_email_rij(person_id: int, request: Request, index: str = "",
-                    db: Session = Depends(get_db)):
+                    nummer: str = "", db: Session = Depends(get_db)):
     """Een lege e-mailrij om onderaan te plakken (#1219).
 
     Leest de sessie mee zodat een niet-aangemelde bezoeker hier niets ophaalt;
@@ -289,6 +289,7 @@ def gezin_email_rij(person_id: int, request: Request, index: str = "",
     _require_member_csrf(request, db)
     return templates.TemplateResponse(request, "_email_rij.html", {
         "rij": None, "index": index or "0",
+        "nummer": nummer or "1",
         "basis_url": f"/leden/gezin/personen/{person_id}/email",
         "doel": "body", "swap": "innerHTML",
     })
