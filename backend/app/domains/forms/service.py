@@ -619,13 +619,25 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
         raise FormulierFout("Elk veld heeft een vraag/label nodig.")
 
     nieuw_type = (waarden.get("field_type") or "").strip()
-    if nieuw_type and nieuw_type != code_of(veld.field_type):
+    wisselt_type = bool(nieuw_type) and nieuw_type != code_of(veld.field_type)
+    if wisselt_type:
         if nieuw_type not in FIELD_TYPES:
             raise FormulierFout(f"Ongeldig veldtype: {nieuw_type}")
         if submission_count(db, form.id):
             raise FormulierFout(
                 "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
                 "bewaarde antwoorden betekenisloos maken.")
+
+    # #1136: every check before the first change to the row. A refused edit then
+    # leaves nothing half-applied for the screen to show, and needs no rollback.
+    doel_id = str(waarden.get("section_id") or "").strip()
+    doel = None
+    if doel_id.isdigit() and int(doel_id) != veld.section_id:
+        # A type that cannot branch drops its jumps below, so they cannot block.
+        behoudt_sprongen = not wisselt_type or nieuw_type in BRANCHABLE_CODES
+        doel = _check_move(form, veld, int(doel_id), check_jumps=behoudt_sprongen)
+
+    if wisselt_type:
         veld.field_type = nieuw_type
         if nieuw_type not in BRANCHABLE_CODES:
             for optie in veld.options:
@@ -634,9 +646,8 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
 
     veld.label = label
     _veldwaarden(veld, waarden)
-    doel = str(waarden.get("section_id") or "").strip()
-    if doel.isdigit() and int(doel) != veld.section_id:
-        _move_to_section(form, veld, int(doel))
+    if doel is not None:
+        _move_to_section(form, veld, doel)
     db.commit()
 
 
@@ -645,14 +656,9 @@ def _section_name(section: FormSection) -> str:
     return section.title or f"Sectie {section.position + 1}"
 
 
-def _move_to_section(form: Form, veld: FormField, section_id: int) -> None:
-    """Move a question to another section, keeping its id (#1136).
-
-    The id is the point: every stored answer refers to it, so the old detour —
-    delete the question and make it again in the other section — cut those
-    answers loose. The question lands at the bottom of its new section with a
-    position after the last one there; taking its old position along could give
-    two questions the same place (the tie of #1068).
+def _check_move(form: Form, veld: FormField, section_id: int, *,
+                check_jumps: bool = True) -> FormSection:
+    """The section a question may move to, or a `FormulierFout` saying why not.
 
     **A move that breaks a jump is refused** (Koen, 21 September 2026). An
     option of this question may jump to a later section; in its new place that
@@ -664,13 +670,26 @@ def _move_to_section(form: Form, veld: FormField, section_id: int) -> None:
     doel = next((s for s in form.sections if s.id == section_id), None)
     if doel is None:
         raise FormulierFout("Die sectie hoort niet bij dit formulier.")
-    for optie in veld.options:
+    for optie in (veld.options if check_jumps else ()):
         sprong = optie.skip_to_section
         if sprong is not None and sprong.position <= doel.position:
             raise FormulierFout(
                 f"De optie '{optie.label}' springt naar "
                 f"{_section_name(sprong)}; verplaatst naar {_section_name(doel)} "
                 f"zou die sprong niet meer vooruit gaan. Pas eerst die sprong aan.")
+    return doel
+
+
+def _move_to_section(form: Form, veld: FormField, doel: FormSection) -> None:
+    """Move a question to another section, keeping its id (#1136).
+
+    The id is the point: every stored answer refers to it, so the old detour —
+    delete the question and make it again in the other section — cut those
+    answers loose. The question lands at the bottom of its new section with a
+    position after the last one there; taking its old position along could give
+    two questions the same place (the tie of #1068). `_check_move` has decided
+    that the move is allowed.
+    """
     oude_broers = [f for f in form.fields
                    if f.section_id == veld.section_id and f.id != veld.id]
     nieuwe_broers = [f for f in form.fields if f.section_id == doel.id]

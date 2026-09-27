@@ -10,14 +10,18 @@ The four tests the issue asks for, through the real route:
 1. the question keeps its id, and the stored answer still points at it;
 2. it lands at the bottom of the new section, on a position nobody else has;
 3. a move that would make one of its jumps go backwards is refused, and the
-   message names the option and both sections;
+   builder's error banner names the option and both sections;
 4. a move that touches no jump simply works.
 
 Broken on purpose to check that these tests can go red: the jump check in
-`_move_to_section` removed → test 3 falls over (the move goes through and the
-jump now points backwards); the position line removed (the question keeps its
-old position) → test 2 falls over on the tie.
+`_check_move` removed → test 3 falls over (the move goes through and the jump
+now points backwards); the position line removed (the question keeps its old
+position) → test 2 falls over on the tie; the move check placed after
+`veld.label = label` in `update_field` → test 3 falls over on the label, which
+the refused edit had already put on the row.
 """
+import re
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -113,12 +117,18 @@ def test_a_move_that_breaks_a_jump_is_refused_by_name(client, db_session, form):
     db_session.flush()
     csrf = _login(client)
 
-    resp = _move(client, csrf, f, fields["keuze"], sections[2])
+    resp = _move(client, csrf, f, fields["keuze"], sections[2], label="Nieuw label")
 
-    assert resp.status_code == 422
-    assert "Naar twee" in resp.text and "Tweede" in resp.text and "Derde" in resp.text
-    db_session.expire_all()
-    assert db_session.get(FormField, fields["keuze"].id).section_id == sections[0].id
+    # The message is on the screen, in the builder's error banner — not only in
+    # a response body the generic error toast never shows (measured at 390 px).
+    banner = re.search(r'role="alert"[^>]*>(.*?)</div>', resp.text, re.S)
+    assert resp.status_code == 200 and banner, resp.text[:2000]
+    assert all(w in banner.group(1) for w in ("Naar twee", "Tweede", "Derde")), banner.group(1)
+    # Nothing of the refused edit is applied — not the move, and not the label
+    # that came along in the same save, which the screen would otherwise show.
+    assert "Nieuw label" not in resp.text
+    veld = db_session.get(FormField, fields["keuze"].id)
+    assert (veld.section_id, veld.label) == (sections[0].id, "Vraag keuze")
 
 
 def test_a_move_that_touches_no_jump_works(client, db_session, form):

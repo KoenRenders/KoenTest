@@ -378,11 +378,22 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
-    _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
-            help_text=help_text, section_id=section_id,
-            required=required, min_length=min_length, max_length=max_length,
-            min_value=min_value, max_value=max_value, rating_max=rating_max,
-            rating_low_label=rating_low_label, rating_high_label=rating_high_label)
+    try:
+        _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
+                help_text=help_text, section_id=section_id,
+                required=required, min_length=min_length, max_length=max_length,
+                min_value=min_value, max_value=max_value, rating_max=rating_max,
+                rating_low_label=rating_low_label, rating_high_label=rating_high_label)
+    except HTTPException as exc:
+        if exc.status_code != 422:
+            raise
+        # #1136: a refused edit — a move that would break a jump, above all — has
+        # to SAY what stands in the way, and a 422 only ever reached the screen as
+        # the generic "er ging iets mis" toast (measured at 390 px). So the builder
+        # comes back with the message in its error banner, like the JSON import.
+        # `update_field` checks everything before it changes the row, so there is
+        # nothing half-applied to show.
+        return _builder_response(request, db, form, error=exc.detail)
     return _builder_response(request, db, form)
 
 

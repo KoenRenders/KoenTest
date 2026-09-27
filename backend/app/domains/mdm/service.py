@@ -110,17 +110,6 @@ def unmerge_person(db: Session, source_id: int, actor: Optional[str] = None) -> 
 
 # ── Codelijsten voor formulieren (#635 I) ────────────────────────────────────
 
-def _uniek_op_code(rijen):
-    """Eén rij per code. De codetabellen zijn tenant-gescheiden, dus dezelfde code
-    kan meermaals voorkomen; een keuzelijst met dubbels is verwarrend."""
-    gezien, uit = set(), []
-    for rij in rijen:
-        if rij.code not in gezien:
-            gezien.add(rij.code)
-            uit.append(rij)
-    return uit
-
-
 #: What a dropdown needs: the code and the word next to it. Since CR-12
 #: phase 2 that comes from `code_labels()`, so from the label table and in
 #: `sort_order`. A template that shows this list reads `.code` and `.value`,
