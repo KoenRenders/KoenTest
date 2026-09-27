@@ -105,6 +105,7 @@ from app.domains.mdm.organization_service import (  # noqa: F401
     organization_address,
     organization_details,
     organization_options,
+    save_organization,
     update_organization_address,
     update_organization_details,
 )
@@ -134,7 +135,7 @@ __all__ = [
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
-    "organization_details", "update_organization_details",
+    "organization_details", "update_organization_details", "save_organization",
     "organization_address", "update_organization_address",
     "organization_options", "legal_form_options",
     "ALLE_ORGANISATIEVELDEN",

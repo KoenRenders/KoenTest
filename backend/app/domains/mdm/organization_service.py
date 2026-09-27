@@ -116,7 +116,33 @@ def _zet_lijstrij(db, model, filters: dict, kolom: str, waarde: str | None,
         setattr(rij, kolom, waarde)
 
 
+def save_organization(db, organization_id: int, form: Mapping) -> None:
+    """The whole organisation form in ONE transaction: details and address (#1244).
+
+    The screen saves two things with one button, and they were two transactions:
+    `update_organization_details` committed, `update_organization_address` only
+    flushed. `get_db` does not commit, and closing a session rolls back what is
+    open — so every address change was lost after the request, while the screen,
+    rendered from that same session, showed it as saved. And had the address been
+    refused, the name was already committed: half a form saved.
+
+    Now both write, and this commits once, after both succeeded. A refusal from
+    either raises before that commit, so nothing of a refused form is committed:
+    the request's session closes with the partial writes still open, and closing
+    rolls them back.
+    """
+    _write_organization_details(db, organization_id, form)
+    update_organization_address(db, organization_id, form)
+    db.commit()
+
+
 def update_organization_details(db, organization_id: int, form: Mapping) -> None:
+    """The details on their own, committed. The screen uses `save_organization`."""
+    _write_organization_details(db, organization_id, form)
+    db.commit()
+
+
+def _write_organization_details(db, organization_id: int, form: Mapping) -> None:
     """De wereld-kenmerken van de organisatie bewaren (#924, herzien in #945).
 
     Deze velden verdwenen bij de eerste twee omschakelingen uit de
@@ -178,7 +204,6 @@ def update_organization_details(db, organization_id: int, form: Mapping) -> None
             standaard={"country": "BE"})
 
     _bewaar_rekening(db, organization_id, form)
-    db.commit()
 
 
 def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:

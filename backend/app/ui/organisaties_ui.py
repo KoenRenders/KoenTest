@@ -175,15 +175,13 @@ def organisatie_editor(organization_id: int, request: Request,
 async def organisatie_opslaan(organization_id: int, request: Request,
                               db: Session = Depends(get_db),
                               email: str = Depends(require_admin_ui)):
-    from app.domains.mdm.api import (OngeldigeInstelling,
-                                     update_organization_address,
-                                     update_organization_details)
+    from app.domains.mdm.api import OngeldigeInstelling, save_organization
 
     require_operator_ui(db, email)
     form = await request.form()
     try:
-        update_organization_details(db, organization_id, form)
-        update_organization_address(db, organization_id, form)
+        # #1244: one transaction for the whole form — see `save_organization`.
+        save_organization(db, organization_id, form)
     except OngeldigeInstelling as fout:
         # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
         # betekenen dat één tikfout het hele scherm leegveegt, en dan is de melding
