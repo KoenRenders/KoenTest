@@ -38,6 +38,7 @@ The method of the css gate (#652), 26 September 2026:
 | The AI backfill | `CAPABILITY_BACKFILL` pointed at `'x'` instead of `''` | yes |
 | The same words (media) | the `page_image` seed back to the chip's stopgap "Pagina" | yes — `media_kind` |
 | The database refuses a non-code (media) | `fk_media_assets_kind_code` dropped at the end of migration 164 | yes — *DID NOT RAISE* |
+| The database refuses a non-code (residue) | `fk_kernel_jobs_status_code`, `fk_workflow_tasks_subject_type_code` and the `definition_code` key each dropped at the end of migration 165, one at a time | yes — each time *DID NOT RAISE* on its own column |
 | The dropped checks are gone (media) | the `DROP CONSTRAINT ck_media_assets_kind_valid` left out of 164 | yes — and the refusal test with it, the CHECK answering first |
 
 **One measurement had to be redone.** The first try at the key violation put
@@ -183,6 +184,11 @@ NOT_A_CODE = [
     ("ai.ai_call_log", "provider", "openai"),
     ("ai.ai_call_log", "provider", ""),
     ("media.media_assets", "kind", "foto"),
+    # The phase 4 residue, 27 September 2026.
+    ("public.kernel_jobs", "status", "klaar"),
+    ("workflow.workflow_tasks", "subject_type", "membership"),
+    ("workflow.workflow_instances", "subject_type", "membership"),
+    ("workflow.workflow_instances", "definition_code", "bestaat-niet"),
 ]
 
 
@@ -219,6 +225,25 @@ def _one_row(db, table: str) -> int:
         row = MediaAsset(kind=MediaKind.SPONSOR, data=b"x", content_type="image/png")
     elif table == "mail.email_log":
         row = EmailLog(recipient="phase4@example.com", subject="Proef")
+    elif table == "public.kernel_jobs":
+        from datetime import datetime, timezone
+
+        from app.kernel.jobs import KernelJob
+
+        row = KernelJob(name="phase4.proof", run_at=datetime.now(timezone.utc))
+    elif table == "workflow.workflow_tasks":
+        from app.domains.workflow.api import KERNEL_JOB_FAILED, SubjectType, WorkflowTask
+
+        row = WorkflowTask(kind=KERNEL_JOB_FAILED, title="Proef",
+                           subject_type=SubjectType.KERNEL_JOB, subject_id="1")
+    elif table == "workflow.workflow_instances":
+        from app.domains.workflow.api import SubjectType
+        from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance
+
+        db.add(WorkflowDefinition(tenant_id=2, code="phase4-proof", name="Proef", steps=[]))
+        db.flush()
+        row = WorkflowInstance(tenant_id=2, definition_code="phase4-proof",
+                               subject_type=SubjectType.FORM_SUBMISSION, subject_id="1")
     else:
         row = ExportLog(tenant_id=2, kind="report", subject="Proef", row_count=0)
     db.add(row)
@@ -331,3 +356,34 @@ def test_a_done_task_of_the_retired_orphan_kind_stays_valid_and_readable(db_sess
                       db=db_session) == "Betaling: weesrecord"
     assert "payment.wees_record" not in dict(code_labels("task_kind", db=db_session)), (
         "a retired kind is not offered")
+
+
+# ── The phase 4 residue: a KPI that compared a label ─────────────────────────
+
+def test_open_activities_are_counted_by_state_not_by_their_word(client, db_session, monkeypatch):
+    """The dashboard counted an activity as open when its status LABEL read
+    "Open". The label is a translatable word from the label table, so another
+    word — a renamed label, a third language — counted zero open activities.
+
+    Broken on purpose: `_kpi` set back to `a.status == "Open"` → this test
+    failed with 0 open activities under the word "Ouvert".
+    """
+    import re
+
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from app.domains.activities import service
+    from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
+    seed_activity_with_product(db_session)
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+
+    def open_count() -> int:
+        html = client.get("/admin/activiteiten").text
+        found = re.search(r'Open inschrijvingen</div>\s*<div[^>]*>(\d+)</div>', html)
+        assert found, "the KPI 'Open inschrijvingen' is not on the page"
+        return int(found.group(1))
+
+    in_dutch = open_count()
+    assert in_dutch >= 1, "the seeded open activity is not counted at all"
+    monkeypatch.setattr(service, "status_label", lambda activity, today=None: "Ouvert")
+    assert open_count() == in_dutch, "the count followed the word instead of the state"

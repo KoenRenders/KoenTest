@@ -35,6 +35,7 @@ from app.domains.reporting.api import (
     ExportKind,
     Filter,
     LAYOUTS,
+    Layout,
     SYMBOLIC_ME,
     SYMBOLIC_THIS_YEAR,
     SYMBOLIC_TODAY,
@@ -428,7 +429,7 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
         "pivot_column": selection.pivot_column,
         # A saved pivot without a column axis was saved that way on purpose — the
         # report of #850 is exactly that — so reopening it must not refill the axis.
-        "no_column": selection.layout == "pivot" and not selection.pivot_column,
+        "no_column": selection.layout == Layout.PIVOT and not selection.pivot_column,
         # Folding is a viewing preference, not part of a report: opening a saved
         # one shows every class, the way a first visit does.
         "closed": [],
@@ -479,7 +480,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
                 # rows to lay themselves out, and half a crosstab has subtotals
                 # that do not add up.
                 gedraaid = build_pivot(db, selection, tenant_id=tenant_id)
-                if selection.layout == "pivot":
+                if selection.layout == Layout.PIVOT:
                     pivot = gedraaid.as_context()
                 else:
                     # A chart reads THIS result — never a second query (CR-06 §6).

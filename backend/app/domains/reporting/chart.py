@@ -24,6 +24,7 @@ from decimal import Decimal
 from typing import Any
 
 from app.domains.reporting.engine import SelectionError
+from app.domains.reporting.universe import Format
 from app.domains.reporting.pivot import Pivot
 
 CHART_LAYOUTS = ("bar", "line", "stacked")
@@ -139,7 +140,7 @@ def build_chart(pivot: Pivot, kind: str, *, title: str = "") -> Chart:
 
     rijen = [r for r in pivot.rows if not r.is_subtotal]
     x_labels = [" · ".join(str(label) for label in r.labels) for r in rijen]
-    geld = bool(pivot.measures) and pivot.measures[0].format == "money"
+    geld = bool(pivot.measures) and pivot.measures[0].format == Format.MONEY
 
     if kind == "stacked":
         if not pivot.column_values:

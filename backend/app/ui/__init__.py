@@ -745,7 +745,7 @@ def site_context(db, request=None) -> dict:
 
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
-    from app.domains.media.api import MediaAsset
+    from app.domains.media.api import MediaAsset, MediaKind
     from app.domains.mdm.api import Organization
     from app.kernel.tenant_config import _actieve_tenant
 
@@ -774,7 +774,7 @@ def site_context(db, request=None) -> dict:
     # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
     # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
     sponsors = (db.query(MediaAsset)
-                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True,  # noqa: E712
+                .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True,  # noqa: E712
                         MediaAsset.show_in_footer == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import (get_setting, tenant_display_name,

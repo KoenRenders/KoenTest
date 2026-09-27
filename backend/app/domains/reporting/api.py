@@ -13,6 +13,7 @@ run it.
 from app.domains.reporting.codes import EXPORT_KIND  # noqa: F401
 from app.domains.reporting.engine import (  # noqa: F401
     LAYOUTS,
+    Layout,
     SYMBOLIC_LABELS,
     SYMBOLIC_ME,
     SYMBOLIC_THIS_YEAR,
@@ -110,7 +111,7 @@ from app.domains.reporting.universe import (  # noqa: F401
 __all__ = [
     "BY_KEY", "CHART_LAYOUTS", "CLASSES", "DIMENSIONS", "FACTS", "JOINS",
     "HIERARCHIES", "HIERARCHY_OF",
-    "LAYOUTS", "SERIES_COLORS",
+    "LAYOUTS", "Layout", "SERIES_COLORS",
     "SYMBOLIC_LABELS", "SYMBOLIC_ME",
     "SYMBOLIC_THIS_YEAR", "SYMBOLIC_TODAY", "SYMBOLIC_VALUES",
     "MAX_PIVOT_COLUMNS", "MAX_ROWS", "OBJECTS", "OFFER_LIMIT",

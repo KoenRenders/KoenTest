@@ -148,6 +148,13 @@ WHERE "inset_corner" IS NOT NULL
   AND "inset_corner"::text NOT IN ('bottom_left', 'bottom_right', 'top_left', 'top_right')
 GROUP BY "inset_corner" ORDER BY row_count DESC;
 
+-- public.kernel_jobs.status → public.kernel_job_status_codes (4 codes)
+SELECT 'public.kernel_jobs.status' AS column_name, "status"::text AS stray_value, count(*) AS row_count
+FROM public.kernel_jobs
+WHERE "status" IS NOT NULL
+  AND "status"::text NOT IN ('done', 'failed', 'pending', 'running')
+GROUP BY "status" ORDER BY row_count DESC;
+
 -- designstudio.design_renditions.layout_code → designstudio.layout_codes (2 codes)
 SELECT 'designstudio.design_renditions.layout_code' AS column_name, "layout_code"::text AS stray_value, count(*) AS row_count
 FROM designstudio.design_renditions
@@ -330,6 +337,20 @@ WHERE "kind" IS NOT NULL
   AND "kind"::text NOT IN ('CUSTOM', 'EVALUATION', 'IDEAS', 'MEMBERS', 'MISC', 'UPCOMING')
 GROUP BY "kind" ORDER BY row_count DESC;
 
+-- workflow.workflow_tasks.subject_type → workflow.subject_type_codes (4 codes)
+SELECT 'workflow.workflow_tasks.subject_type' AS column_name, "subject_type"::text AS stray_value, count(*) AS row_count
+FROM workflow.workflow_tasks
+WHERE "subject_type" IS NOT NULL
+  AND "subject_type"::text NOT IN ('email_log', 'form_submission', 'kernel_job', 'payment_record')
+GROUP BY "subject_type" ORDER BY row_count DESC;
+
+-- workflow.workflow_instances.subject_type → workflow.subject_type_codes (4 codes)
+SELECT 'workflow.workflow_instances.subject_type' AS column_name, "subject_type"::text AS stray_value, count(*) AS row_count
+FROM workflow.workflow_instances
+WHERE "subject_type" IS NOT NULL
+  AND "subject_type"::text NOT IN ('email_log', 'form_submission', 'kernel_job', 'payment_record')
+GROUP BY "subject_type" ORDER BY row_count DESC;
+
 -- newsletter.subscribers.source → newsletter.subscriber_source_codes (3 codes)
 SELECT 'newsletter.subscribers.source' AS column_name, "source"::text AS stray_value, count(*) AS row_count
 FROM newsletter.subscribers
@@ -358,3 +379,9 @@ WHERE "status" IS NOT NULL
   AND "status"::text NOT IN ('done', 'open')
 GROUP BY "status" ORDER BY row_count DESC;
 
+-- workflow.workflow_instances.definition_code → workflow.workflow_definitions.code
+-- (not a code list: the definitions table is its own target, migration 165)
+SELECT 'workflow.workflow_instances.definition_code' AS column_name, definition_code::text AS stray_value, count(*) AS row_count
+FROM workflow.workflow_instances
+WHERE definition_code NOT IN (SELECT code FROM workflow.workflow_definitions)
+GROUP BY definition_code ORDER BY row_count DESC;

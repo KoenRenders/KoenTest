@@ -7,7 +7,7 @@ import pytest
 
 from app.kernel import events
 from app.kernel.events import KernelEvent, publish, subscribe
-from app.kernel.jobs import KernelJob, _handlers, enqueue, job, run_due_jobs
+from app.kernel.jobs import JobStatus, KernelJob, _handlers, enqueue, job, run_due_jobs
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ def test_job_runs_and_completes(db_session):
     assert run_due_jobs(db_session) == 1
     assert done == [42]
     entry = db_session.query(KernelJob).filter(KernelJob.name == "test.ok").one()
-    assert entry.status == "done" and entry.attempts == 1
+    assert entry.status is JobStatus.DONE and entry.attempts == 1
 
 
 def test_job_failure_retries_with_backoff_then_fails(db_session):
@@ -78,7 +78,7 @@ def test_job_failure_retries_with_backoff_then_fails(db_session):
 
     run_due_jobs(db_session)
     entry = db_session.query(KernelJob).filter(KernelJob.name == "test.fail").one()
-    assert entry.status == "pending" and entry.attempts == 1
+    assert entry.status is JobStatus.PENDING and entry.attempts == 1
     assert "kapot" in entry.last_error
     assert entry.run_at > datetime.now(timezone.utc)  # backoff gepland
 
@@ -87,7 +87,7 @@ def test_job_failure_retries_with_backoff_then_fails(db_session):
     db_session.commit()
     run_due_jobs(db_session)
     db_session.expire_all()
-    assert entry.status == "failed" and entry.attempts == 2
+    assert entry.status is JobStatus.FAILED and entry.attempts == 2
 
 
 def test_job_without_handler_fails_loud(db_session):
@@ -95,7 +95,7 @@ def test_job_without_handler_fails_loud(db_session):
     db_session.commit()
     run_due_jobs(db_session)
     entry = db_session.query(KernelJob).filter(KernelJob.name == "test.onbekend").one()
-    assert entry.status == "failed"
+    assert entry.status is JobStatus.FAILED
     assert "geen handler" in entry.last_error
 
 

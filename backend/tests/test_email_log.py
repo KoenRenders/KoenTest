@@ -6,6 +6,7 @@ import pytest
 from app.database import SessionLocal
 from app.domains.mail.models import EmailLog
 from app.domains.mail.api import EmailType, MailStatus, send_form_confirmation, purge_old_email_logs
+from app.kernel.jobs import JobStatus
 
 
 def _logs_for(recipient: str):
@@ -85,7 +86,7 @@ def test_failed_send_enqueues_retry_job(monkeypatch):
     s = SessionLocal()
     try:
         jobs = (s.query(KernelJob).filter(KernelJob.name == "mail.retry").all())
-        assert any(j.payload.get("email_log_id") == log_id and j.status == "pending"
+        assert any(j.payload.get("email_log_id") == log_id and j.status is JobStatus.PENDING
                    for j in jobs)
     finally:
         s.close()
@@ -121,7 +122,7 @@ def test_retry_job_resends_and_marks_sent(monkeypatch):
         assert row.status is MailStatus.SENT and row.error_message is None
         job_row = (s.query(KernelJob).filter(KernelJob.name == "mail.retry")
                    .order_by(KernelJob.id.desc()).first())
-        assert job_row.status == "done"
+        assert job_row.status is JobStatus.DONE
     finally:
         s.close()
 

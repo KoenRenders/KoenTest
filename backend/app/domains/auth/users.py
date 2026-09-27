@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.domains.auth.service import get_current_admin
 from app.database import get_db
-from app.domains.auth.models import User, UserRole
+from app.domains.auth.models import Role, User, UserRole
 from app.i18n import _
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -107,7 +107,7 @@ def set_roles_for_workspaces(db: Session, user_id: int,
     mag_operator = bool(actor_roles and "OPERATOR" in actor_roles)
     platform_rij = (db.query(UserRole)
                     .filter(UserRole.user_id == user_id,
-                            UserRole.role_code == "OPERATOR",
+                            UserRole.role_code == Role.OPERATOR,
                             UserRole.tenant_id.is_(None)).first())
     if operator != (platform_rij is not None) and not mag_operator:
         raise HTTPException(

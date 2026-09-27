@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.domains.reporting.engine import (
     MAX_PIVOT_COLUMNS,
     Column,
+    Layout,
     Selection,
     SelectionError,
     build_member_count_query,
@@ -152,7 +153,7 @@ def _label(value: Any) -> str:
 
 def check_column_cap(db: Session, selection: Selection, *, tenant_id: int) -> None:
     """Refuse a column dimension that is too wide, before the wide query runs."""
-    if selection.layout != "pivot" or not selection.pivot_column:
+    if selection.layout != Layout.PIVOT or not selection.pivot_column:
         return
     sql, params = build_member_count_query(selection, selection.pivot_column,
                                            tenant_id=tenant_id)

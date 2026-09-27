@@ -296,10 +296,10 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
         sess = object_session(self)
         if sess is None or self.id is None:
             return None
-        from app.domains.media.api import MediaAsset
+        from app.domains.media.api import MediaAsset, MediaKind
         return (
             sess.query(MediaAsset)
-            .filter(MediaAsset.kind == "component_info", MediaAsset.component_id == self.id)
+            .filter(MediaAsset.kind == MediaKind.COMPONENT_INFO, MediaAsset.component_id == self.id)
             .order_by(MediaAsset.id.desc())
             .first()
         )

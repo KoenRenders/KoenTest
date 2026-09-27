@@ -8,7 +8,7 @@ from typing import Optional, Sequence
 from sqlalchemy.orm import Session
 
 from app.domains.workflow.codes import (  # noqa: F401
-    RUN_STATUS, TASK_CATEGORY, TASK_KIND, TASK_STATUS,
+    RUN_STATUS, SUBJECT_TYPE, TASK_CATEGORY, TASK_KIND, TASK_STATUS,
 )
 from app.domains.workflow.models import (  # noqa: F401
     KERNEL_JOB_FAILED,
@@ -16,12 +16,13 @@ from app.domains.workflow.models import (  # noqa: F401
     PAYMENT_CONFIRM_REFUND,
     PAYMENT_WEBHOOK_MISMATCH,
     RunStatus,
+    SubjectType,
     TaskStatus,
     WorkflowTask,
 )
 
 
-def create_task(db: Session, *, kind: str, title: str, subject_type: str,
+def create_task(db: Session, *, kind: str, title: str, subject_type: SubjectType | str,
                 subject_id: str, required_role: str = "ADMIN") -> WorkflowTask:
     task = WorkflowTask(kind=kind, title=title, subject_type=subject_type,
                         subject_id=subject_id, required_role=required_role)
@@ -119,7 +120,7 @@ def close_task(db: Session, task_id: int, *, done_by: str,
 
 # ── Definities + instanties (fase 4b, #403) ────────────────────────────────────
 
-def start(db: Session, definition_code: str, *, subject_type: str,
+def start(db: Session, definition_code: str, *, subject_type: SubjectType | str,
           subject_id: str, context: Optional[dict] = None):
     """Start een workflow-instantie en maak de taak van de eerste stap.
     ``context`` vult de titel-template van de stap (str.format)."""

@@ -48,7 +48,7 @@ def _sweep_sources(db: Session) -> list[dict]:
     from app.domains.payment.api import (
         GatewayPayment, PaymentRecord, PaymentStatus, PaymentType,
     )
-    from app.kernel.jobs import KernelJob
+    from app.kernel.jobs import JobStatus, KernelJob
 
     kandidaten: list[dict] = []
 
@@ -66,7 +66,7 @@ def _sweep_sources(db: Session) -> list[dict]:
     # 2. Definitief gefaalde mails (na de mail.retry-pogingen).
     failed_mail_jobs = {j.payload.get("email_log_id")
                        for j in db.query(KernelJob)
-                       .filter(KernelJob.name == "mail.retry", KernelJob.status == "failed").all()}
+                       .filter(KernelJob.name == "mail.retry", KernelJob.status == JobStatus.FAILED).all()}
     for log_id in sorted(x for x in failed_mail_jobs if x):
         log = db.get(EmailLog, log_id)
         if log is None or log.status is MailStatus.SENT:
@@ -92,7 +92,7 @@ def _sweep_sources(db: Session) -> list[dict]:
 
     # 4. Definitief gefaalde jobs (behalve mail.retry — bron 2 dekt die met context).
     for j in (db.query(KernelJob)
-              .filter(KernelJob.status == "failed", KernelJob.name != "mail.retry").all()):
+              .filter(KernelJob.status == JobStatus.FAILED, KernelJob.name != "mail.retry").all()):
         kandidaten.append(dict(
             kind=KERNEL_JOB_FAILED,
             title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
