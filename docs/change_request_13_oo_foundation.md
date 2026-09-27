@@ -8,7 +8,7 @@
 > #236 and in the template.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaping started 26 September 2026 · not development-ready · not assigned
+**Status:** shaped with Koen 26–27 September 2026 · Part B reviewed twice (author, external model) and corrected · Part A awaiting Koen's approval · not assigned; comes after CR-12 (v2.7.0)
 **Applies to:** the domain layer of every module (`backend/app/domains/*`,
 `app/kernel`), the entrances to each aggregate (public form, JSON API, admin
 screen, import), and the shape a new module takes from its first commit.
@@ -300,6 +300,8 @@ flowchart TB
   branch starts from `master` with v2.7.0 (all of CR-12) on it; so for every
   domain CR-12 comes first and CR-13 second, and the typing work CR-12
   phase 5 leaves undone is CR-13's per-domain work — no "whoever is first".
+  In Koen's words (27 Sep): *"CR-12 brengen we met v2.7.0 naar PROD, CR-13
+  doen we later."*
 - **CR-04** keeps the placement rule; this CR is the rest. #236 becomes the
   pointer to this CR; #755 and #757 are phases 0 and 1 below; #758 (screen
   sweep), #759 (e2e), #760 (confirmations) and #761 (tiebreakers) stay
@@ -1270,6 +1272,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 27 Sep 2026 | Sequencing: CR-12 goes to PROD with v2.7.0; CR-13 comes later, from `master` with v2.7.0 on it. Scope: CR-13 is about final at fifteen requirements and thirteen gates — grown in one day, each piece a "one home" rule; said consciously, not rolled back; phase 0 gets its own estimate before assignment. | Koen |
 | 27 Sep 2026 | Review decisions (Koen, after the author's and an external model's review): R13 excepts the explicitly named failure paths; `check()` runs on `before_flush` from one kernel listener; reports are the one declared second computation, bound by a parity test; a handler never reaches the network — it enqueues a job, and phase 4 fixes the existing `MailRequested` handler; the tests move in one track (0b) right after phase 0. Plus, without asking: the detached test is built without a round trip, the entrances test is a discovery ratchet with a phase-0 spike, JSON pruning needs the PROD access logs, gate (b) is "no write after a commit", the router gate's baseline carries a reason per entry, phase 0 is estimated on its own, CR-13 starts after v2.7.0. | Koen |
 | 27 Sep 2026 | Tests live with their domain (§13.1 applied at last): single-domain tests in `domains/<c>/tests/`, multi-domain flows in `tests/integration/`, kernel/ui/gates in `backend/tests/`; moved per phase, in this CR; the module-shape gate's `tests/` requirement — which no domain met — becomes true through it. | Koen ("a, in CR-13") |
 | 27 Sep 2026 | No "everything also via JSON" convention: a JSON route exists for a named machine caller (in `CONTRACT.md`); routes without a caller are pruned **in this CR** (phase 0 measures, phase 4 removes; unknown caller → Koen decides). Gate *JSON route with a caller*. | Koen ("wel snoeien als onderdeel van deze change request") |
