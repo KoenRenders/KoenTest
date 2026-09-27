@@ -14,6 +14,8 @@ from typing import Optional
 
 from PIL import Image, ImageOps
 
+from app.domains.media.models import MediaKind, as_media_kind
+
 MAX_FULL = 1600       # langste zijde van het "volledige" beeld
 MAX_THUMB = 400       # langste zijde van de thumbnail
 JPEG_QUALITY = 82
@@ -30,7 +32,7 @@ JPEG_QUALITY = 82
 # `design_render` staat er ook op (#1011): dat is de gerenderde affiche zelf.
 # Ze terugbrengen tot 1600 px zou het beeld vernietigen waarvoor 4096 px net is
 # toegestaan.
-MAX_FULL_BY_KIND = {"design_image": 4096, "design_render": 4096}
+MAX_FULL_BY_KIND = {MediaKind.DESIGN_IMAGE: 4096, MediaKind.DESIGN_RENDER: 4096}
 
 # Soorten die verliesvrij blijven (#1011). Een render is een drukklaar beeld van
 # een affiche: JPEG zet juist rond letterranden de artefacten neer die je op A3
@@ -70,7 +72,8 @@ MAX_FULL_BY_KIND = {"design_image": 4096, "design_render": 4096}
 # invisible, because the browser performs that same downscale anyway. Displayed at
 # 1600 px the difference is exactly zero. Its own MAX_FULL would cost bytes for
 # something nobody sees.
-LOSSLESS_KINDS = frozenset({"design_render", "sponsor", "tenant_logo", "page_image"})
+LOSSLESS_KINDS = frozenset({MediaKind.DESIGN_RENDER, MediaKind.SPONSOR, MediaKind.TENANT_LOGO,
+                            MediaKind.PAGE_IMAGE})
 
 
 ALLOWED_CONTENT_TYPES = {
@@ -144,6 +147,7 @@ def process_image(raw: bytes, *, kind: str = "") -> dict:
         raise ImageError("Geen geldige afbeelding") from exc
 
     img = ImageOps.exif_transpose(img)
+    kind = as_media_kind(kind)
     keep_alpha = kind in LOSSLESS_KINDS or img.mode in ("RGBA", "LA") or (
         img.mode == "P" and "transparency" in img.info
     )

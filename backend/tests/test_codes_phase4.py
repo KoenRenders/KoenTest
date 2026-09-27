@@ -1,8 +1,8 @@
 """What phase 4 of CR-12 must prove, so far: the remaining domains (§B8).
 
-Built: workflow, forms, mail, activities, reporting, the history operation and
-the AI call log. Still open, and why: **media** waits for the rebase onto
-v2.6.0, whose #1173 changed the very CHECK the media list must drop.
+Built: workflow, forms, mail, activities, reporting, the history operation,
+the AI call log and — last, after the rebase onto v2.6.0 whose #1173 changed its
+CHECK — the media kind (#1181).
 
 The AI log carries the one data change of this phase, decided by Koen on 26
 September 2026: an empty `capability` becomes `chat`, an empty `provider`
@@ -36,6 +36,9 @@ The method of the css gate (#652), 26 September 2026:
 | Raw codes now have a word (AI) | the `bfl` seed given the word `bfl` | yes |
 | The database refuses a non-code (AI) | `fk_ai_call_log_status_code` dropped at the end of migration 163 | yes — `status`, `misschien` |
 | The AI backfill | `CAPABILITY_BACKFILL` pointed at `'x'` instead of `''` | yes |
+| The same words (media) | the `page_image` seed back to the chip's stopgap "Pagina" | yes — `media_kind` |
+| The database refuses a non-code (media) | `fk_media_assets_kind_code` dropped at the end of migration 164 | yes — *DID NOT RAISE* |
+| The dropped checks are gone (media) | the `DROP CONSTRAINT ck_media_assets_kind_valid` left out of 164 | yes — and the refusal test with it, the CHECK answering first |
 
 **One measurement had to be redone.** The first try at the key violation put
 `None` where the column name of the `mail_status` list stands in migration 160.
@@ -61,7 +64,8 @@ from app.kernel.codes import code_label, reset_label_cache
 #: `_STATUS_LABELS`), `activities/service.py` (`STATUS_LABELS`) and
 #: `audit/changes.py` (`_OPERATION_LABELS`) and `chatbot/admin_ui.py`
 #: (`SURFACE_LABELS`, `CAPABILITY_LABELS` — whose fallback for an empty
-#: capability was "Chat" — and `STATUS_LABELS`).
+#: capability was "Chat" — and `STATUS_LABELS`) and `media/admin_ui.py`
+#: (`kind_labels`; the chip's stopgap "Pagina" of #1173 is not a word to keep).
 LABELS_BEFORE_CR12 = {
     "task_kind": {"payment.webhook_mismatch": "Betaling: webhook wijkt af",
                   "payment.refund_bevestigen": "Betaling: terugbetaling bevestigen",
@@ -89,6 +93,9 @@ LABELS_BEFORE_CR12 = {
                       "dictation": "Dicteren"},
     "ai_status": {"ok": "Gelukt", "blocked": "Tegengehouden", "error": "Mislukt",
                   "moderated": "Geweigerd door de provider"},
+    "media_kind": {"sponsor": "Sponsorlogo", "activity_photo": "Activiteitenfoto",
+                   "tenant_logo": "Logo van de vereniging",
+                   "page_image": "Pagina-afbeelding"},
 }
 
 
@@ -175,6 +182,7 @@ NOT_A_CODE = [
     ("ai.ai_call_log", "status", "misschien"),
     ("ai.ai_call_log", "provider", "openai"),
     ("ai.ai_call_log", "provider", ""),
+    ("media.media_assets", "kind", "foto"),
 ]
 
 
@@ -199,6 +207,7 @@ def _one_row(db, table: str) -> int:
     from app.domains.chatbot.models import AiCallLog, AiStatus, AiSurface
     from app.domains.forms.api import Form
     from app.domains.mail.models import EmailLog
+    from app.domains.media.api import MediaAsset, MediaKind
     from app.domains.reporting.models import ExportLog
 
     if table == "form.forms":
@@ -206,6 +215,8 @@ def _one_row(db, table: str) -> int:
     elif table == "ai.ai_call_log":
         row = AiCallLog(tenant_id=2, surface=AiSurface.ADMIN, status=AiStatus.OK,
                         model="proef", payload="")
+    elif table == "media.media_assets":
+        row = MediaAsset(kind=MediaKind.SPONSOR, data=b"x", content_type="image/png")
     elif table == "mail.email_log":
         row = EmailLog(recipient="phase4@example.com", subject="Proef")
     else:
@@ -236,6 +247,7 @@ def test_both_registration_type_columns_carry_the_moved_key(db_session):
     ("form", "form_fields", "ck_form_fields_type"),
     ("form", "forms", "ck_forms_status"),
     ("mail", "email_log", "ck_email_log_status"),
+    ("media", "media_assets", "ck_media_assets_kind_valid"),
 ])
 def test_a_check_that_says_what_the_foreign_key_says_is_gone(db_session, schema, table, constraint):
     names = {c["name"] for c in inspect(db_session.bind).get_check_constraints(

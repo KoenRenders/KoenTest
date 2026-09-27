@@ -18,7 +18,6 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, is_fragment_request, templates
-from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -32,7 +31,7 @@ NAV = admin_nav("/admin/media")
 # `_lijst_ctx`. "+ Uploaden" geeft de huidige filterstand door in de URL, dus
 # verander je alleen het uploadscherm, dan overschrijft de lijst hem meteen weer en
 # lijkt de wijziging niet te werken.
-STANDAARD_KIND = "activity_photo"
+STANDAARD_KIND = "activity_photo"  # the code; see MediaKind.ACTIVITY_PHOTO
 
 
 def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> str:
@@ -54,10 +53,12 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
     """
     from urllib.parse import urlencode
 
+    from app.domains.media.api import MediaKind
+
     params: list[tuple[str, str]] = [("kind", kind)]
     if q:
         params.append(("q", q))
-    if activity_id and kind == "activity_photo":
+    if activity_id and kind == MediaKind.ACTIVITY_PHOTO.value:
         params.append(("activity_id", str(activity_id)))
     return urlencode(params)
 
@@ -65,10 +66,11 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
     from app.domains.activities.api import activity_options
-    from app.domains.media.api import (PAGE_IMAGE_KIND, VALID_KINDS,
+    from app.domains.media.api import (MEDIA_KIND, VALID_KINDS, MediaKind,
                                        activity_ids_with_media, list_media)
+    from app.kernel.codes import code_labels
 
-    actief_kind = kind if kind in VALID_KINDS else STANDAARD_KIND
+    actief_kind = kind if kind in {k.value for k in VALID_KINDS} else STANDAARD_KIND
     if activity_id is None:
         # GET: het filter staat in de querystring. Bij een mutatie (POST) geeft de
         # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
@@ -101,7 +103,7 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
     #
     # ALLEEN voor deze soort: sponsors en component-info hangen niet aan een activiteit,
     # en daar is de volle lijst juist de bedoeling.
-    kies_eerst = actief_kind == "activity_photo" and activity_id is None
+    kies_eerst = actief_kind == MediaKind.ACTIVITY_PHOTO.value and activity_id is None
     assets = [] if kies_eerst else list_media(db, kind=actief_kind,
                                               activity_id=activity_id)
     # Vrij zoeken op titel (C1, #588). Media zonder titel valt weg zodra er
@@ -111,34 +113,13 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
         # admin_list_media levert lichte metadata-dicts (_meta), geen ORM-objecten.
         assets = [a for a in assets if term in (a.get("title") or "").lower()]
 
-    # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
-    # Enkelvoud, want dezelfde labels voeden nu zowel het filter op de lijst als de
-    # keuzelijst bij het uploaden (#258). "Sponsorlogo" leest in beide goed;
-    # "Sponsors" deed dat niet in een keuzelijst waar je één soort kiest.
-    kind_labels = {"sponsor": _("Sponsorlogo"),
-                   "activity_photo": _("Activiteitenfoto"),
-                   "tenant_logo": _("Logo van de vereniging"),
-                   # #1173: an image that goes into the text of a CMS page.
-                   PAGE_IMAGE_KIND: _("Pagina-afbeelding")}
-    # The filter chip reads shorter than the kind itself, and that is a STOPGAP
-    # WITH AN END DATE (#1173) — not a second name for the same thing.
-    #
-    # The filter row on this screen was already exactly full with THREE kinds:
-    # 1024 of 1024 px, measured for #1138, no margin at all. So no fourth chip
-    # fits, whatever we call it. Four labels were put through the full e2e:
-    # "Pagina" (6 characters) clears both 1440 and 1280 px, "Paginabeeld" (11)
-    # fails at 1280, "Pagina-beeld" (12) and "Pagina-afbeelding" (17) fail at
-    # both. There is no "slightly shorter" that solves this.
-    #
-    # The real defect is that the row has no room to grow, and CR-12 phase 4 adds
-    # a NINTH kind. That is #1194, planned for v2.7.0. Whoever cleans this up:
-    # the cleanup is already scheduled, so you do not have to work out whether it
-    # is allowed — drop this dict once #1194 gives the filter a shape that grows.
-    #
-    # The full name stays the single source; this only overrides it where it does
-    # not fit, and only on the chip. The upload screen keeps the full name,
-    # because that is where you say WHAT you are uploading.
-    chip_labels = {PAGE_IMAGE_KIND: _("Pagina")}
+    # CR-12 phase 4: the words of the kinds come from the label table of
+    # `media_kind`, one name per kind. The short chip label "Pagina" of #1173 is
+    # gone with #1194: the filter is a list now, so the row no longer runs out of
+    # room and the kind carries its one name again. Order: the label table's.
+    toonbaar = {k.value for k in VALID_KINDS}
+    kind_options = [(k, w) for k, w in code_labels(MEDIA_KIND.name)
+                    if k in toonbaar]
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
     # elkaar, dus de buur in de lijst hoort vaak bij een ander album.
@@ -148,15 +129,13 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
         for positie, asset in enumerate(groep):
             asset["is_first"] = positie == 0
             asset["is_last"] = positie == len(groep) - 1
+            asset["is_sponsor"] = asset["kind"] == MediaKind.SPONSOR.value
 
     return {"assets": assets, "q": q, "gefilterd": bool(term or activity_id),
             "kies_eerst": kies_eerst,
-            "kind": actief_kind, "kinds": sorted(VALID_KINDS),
-            "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
-            # #1173: the filter chips, where one label is shortened — see
-            # `chip_labels` above and #1194.
-            "kind_chip_options": [(k, chip_labels.get(k) or kind_labels.get(k, k))
-                                  for k in sorted(VALID_KINDS)],
+            "kind": actief_kind, "kind_options": kind_options,
+            # Decided here, so the templates compare no code with a literal.
+            "is_activity_photo": actief_kind == MediaKind.ACTIVITY_PHOTO.value,
             "activity_id": activity_id, "activiteiten": activiteiten,
             "alle_activiteiten": alle_activiteiten,
             # Waar je stond, als één waarde (#962). Het sjabloon plakt er een pad

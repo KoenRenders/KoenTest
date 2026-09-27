@@ -31,7 +31,7 @@ import httpx
 
 from app.config import settings
 from app.database import SessionLocal
-from app.domains.media.models import MediaAsset
+from app.domains.media.models import MediaAsset, MediaKind
 from app.domains.chatbot.api import (AiCapability, AiProvider, AiStatus, AiSurface,
                                      ChatbotInfo, sink_for)
 
@@ -40,7 +40,7 @@ logger = logging.getLogger(__name__)
 MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
 
 # Soorten media waarvan we tekst extraheren (documenten, geen sponsor/foto).
-EXTRACTABLE_KINDS = {"activity_poster", "component_info"}
+EXTRACTABLE_KINDS = {MediaKind.ACTIVITY_POSTER, MediaKind.COMPONENT_INFO}
 
 # Opkuis-patronen (#240). Mistral OCR zet per gedetecteerde figuur een
 # markdown-image-referentie in de tekst (``![img-0.jpeg](img-0.jpeg)``) — ruis

@@ -34,6 +34,18 @@ kind 38 px"; de derde omdat de ongebonden keuzelijst dan 399 px meet in een
 rij van 358 px en er dus buiten steekt. Dat laatste had ik niet verwacht en
 het is een tweede reden voor de bovengrens: zonder haar loopt het scherm op
 mobiel horizontaal over.
+
+**#1194, 27 september 2026: the kind chips became a select list.** CR-12 phase 4
+gives media nine kinds, and the row was already full with three; #1173 had to
+shorten the fourth to "Pagina". A list grows with the kinds, so every kind keeps
+its one name. The shape of the row stays: search field, kind list, activity
+list — the activity list still last. What changed in the measurement is that the
+row now holds TWO selects, so it looks for the activity list by its name.
+
+Broken on purpose for #1194: the kind list given `min-w-[40rem]` and the css
+rebuilt → the one-line and the order tests fail at 1440 and 1280 px, and the
+phone test finds the list sticking out of the row. (`min-w-[30rem]` still fitted
+on one line at 1280 px; only the phone test caught that one.)
 """
 import os
 import sys
@@ -63,8 +75,14 @@ _METEN = """() => {
   return {breedte: Math.round(r.width), hoogte: Math.round(r.height),
           hoogste, kinderen,
           keuzelijstIndex: lijst.findIndex(
-            x => x.tagName === 'SELECT' || x.querySelector('select')),
-          heeftKeuzelijst: rij.querySelector('select') !== null};
+            x => x.matches('select[name="activity_id"]')
+                 || x.querySelector('select[name="activity_id"]')),
+          soortIndex: lijst.findIndex(
+            x => x.matches('select[name="kind"]')
+                 || x.querySelector('select[name="kind"]')),
+          soorten: [...rij.querySelectorAll('select[name="kind"] option')]
+            .map(o => o.textContent.trim()),
+          heeftKeuzelijst: rij.querySelector('select[name="activity_id"]') !== null};
 }"""
 
 
@@ -128,6 +146,8 @@ def test_de_filterrij_blijft_een_regel(mediascherm, breedte):
 def test_de_keuzelijst_staat_rechts_van_de_soortknoppen(mediascherm, breedte):
     """De vorm die Koen vroeg: de keuzelijst RECHTS van de soort-knoppen.
 
+    Since #1194 the kind is a list itself; the activity list stays to its right.
+
     Op zijn afdruk stond ze op een tweede regel, links onder het zoekveld —
     dat is waar een gewrapte rij haar neerzet, omdat het zoekveld `flex-1` is.
     Eén regel is dus niet genoeg; de volgorde hoort erbij, zoals op het
@@ -140,8 +160,9 @@ def test_de_keuzelijst_staat_rechts_van_de_soortknoppen(mediascherm, breedte):
     """
     m = _maten(mediascherm, breedte)
     assert len(m["kinderen"]) == 3, (
-        f"de filterrij hoort drie onderdelen te hebben (zoekveld, soort-knoppen, "
+        f"de filterrij hoort drie onderdelen te hebben (zoekveld, soortlijst, "
         f"keuzelijst), gemeten: {m['kinderen']}")
+    assert m["soortIndex"] == 1, f"the kind list is not second: {m['soortIndex']}"
     assert m["keuzelijstIndex"] == 2, (
         "de keuzelijst hoort het laatste onderdeel van de rij te zijn, dus "
         f"rechts van de soort-knoppen — gemeten op plaats {m['keuzelijstIndex']}")
@@ -168,3 +189,16 @@ def test_op_telefoonbreedte_breekt_ze_wel(mediascherm):
     assert not te_breed, (
         f"op 390 px steekt er iets buiten de filterrij ({m['breedte']} px): "
         f"{te_breed}")
+
+
+def test_every_kind_has_its_one_name_in_the_list(mediascherm):
+    """#1194: one name per kind, and the stopgap "Pagina" of #1173 is gone.
+
+    Broken on purpose: the "Pagina" override put back into the kind options →
+    this test fails on the name, and so does the render test in
+    `tests/test_page_image_1173.py`.
+    """
+    m = _maten(mediascherm, 1440)
+    assert "Pagina-afbeelding" in m["soorten"], m["soorten"]
+    assert "Pagina" not in m["soorten"], m["soorten"]
+    assert len(m["soorten"]) == len(set(m["soorten"])), m["soorten"]

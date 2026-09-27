@@ -15,7 +15,8 @@ from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_
 from app.domains.media.pdf import (PDF_CONTENT_TYPE, PNG_CONTENT_TYPE,
                                     first_page_png)
 from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
-from app.domains.media.models import MediaAsset
+from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
+from app.kernel.codes import code_of
 from app.i18n import _
 
 # `tenant_logo` (#258): het logo van de vereniging zelf — één per tenant.
@@ -33,18 +34,19 @@ from app.i18n import _
 #
 # The name follows the other kinds: owner + thing. "page_media" would not say what
 # it is, and the others do.
-PAGE_IMAGE_KIND = "page_image"
-VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo", PAGE_IMAGE_KIND}
+PAGE_IMAGE_KIND = MediaKind.PAGE_IMAGE
+VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOGO,
+               PAGE_IMAGE_KIND}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
-DOCUMENT_KINDS = {"newsletter_file"}
+DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE}
 # The Design Studio (CR-10 §3.11, #1005). `design_image` is the picture that goes
 # INTO a poster and is uploaded like any other image — re-encoded, only to 4096 px
 # instead of 1600. `design_render` is the rendered poster, produced by the studio
 # itself (Inkscape); it never arrives through an upload, and the upload refuses it
 # by name so the reason is readable instead of "unknown kind".
-DESIGN_IMAGE_KIND = "design_image"
-DESIGN_RENDER_KIND = "design_render"
+DESIGN_IMAGE_KIND = MediaKind.DESIGN_IMAGE
+DESIGN_RENDER_KIND = MediaKind.DESIGN_RENDER
 DESIGN_KINDS = {DESIGN_IMAGE_KIND, DESIGN_RENDER_KIND}
 # What may come in through the upload endpoint. The library screen still offers
 # only VALID_KINDS — a design image belongs to its activity, not to the library.
@@ -61,7 +63,8 @@ def meta(asset: MediaAsset) -> dict:
     """Lichte metadata-respons (zonder de blobs)."""
     return {
         "id": asset.id,
-        "kind": asset.kind,
+        # The code: this dict is what a screen and the JSON API get (CR-12).
+        "kind": code_of(asset.kind),
         "activity_id": asset.activity_id,
         "component_id": asset.component_id,
         "title": asset.title,
@@ -88,7 +91,7 @@ def activity_photo_covers(db) -> list[dict]:
     activiteit de eerste foto (laagste sort_order, dan id).
     """
     rijen = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == "activity_photo",
+             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
                      MediaAsset.is_active.is_(True),
                      MediaAsset.activity_id.isnot(None))
              .order_by(MediaAsset.activity_id, MediaAsset.sort_order.asc(),
@@ -100,7 +103,7 @@ def activity_photo_covers(db) -> list[dict]:
 
 def list_activity_photos(db, activity_id: int) -> list[dict]:
     rijen = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == "activity_photo",
+             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
                      MediaAsset.activity_id == activity_id,
                      MediaAsset.is_active.is_(True))
              .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc()).all())
@@ -111,7 +114,10 @@ def list_media(db, *, kind: Optional[str] = None,
                activity_id: Optional[int] = None) -> list[dict]:
     query = db.query(MediaAsset)
     if kind:
-        query = query.filter(MediaAsset.kind == kind)
+        soort = as_media_kind(kind)
+        if soort is None:
+            return []
+        query = query.filter(MediaAsset.kind == soort)
     if activity_id is not None:
         query = query.filter(MediaAsset.activity_id == activity_id)
     rijen = query.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()
@@ -146,7 +152,7 @@ def controleer_link(url, *, kind: str):
     waarde = (url or "").strip()
     if not waarde:
         return None
-    if kind != "sponsor":
+    if as_media_kind(kind) is not MediaKind.SPONSOR:
         return None
     if waarde.startswith("/"):
         return waarde
@@ -306,6 +312,7 @@ async def upload_media(db, *, files: Sequence, kind: str,
     """
     from app.domains.activities.api import Activity
 
+    kind = as_media_kind(kind)
     if kind == DESIGN_RENDER_KIND:
         raise MediaFout(_("Een render wordt door de Design Studio gemaakt en "
                           "niet opgeladen."))
@@ -313,8 +320,8 @@ async def upload_media(db, *, files: Sequence, kind: str,
         raise MediaFout("Ongeldige 'kind'")
     # #1005: een design-beeld hangt óók aan een activiteit, maar hoeft het niet —
     # de Design Studio maakt eerst het beeld en koppelt het daarna.
-    if kind in ("activity_photo", DESIGN_IMAGE_KIND):
-        if activity_id is None and kind == "activity_photo":
+    if kind in (MediaKind.ACTIVITY_PHOTO, DESIGN_IMAGE_KIND):
+        if activity_id is None and kind is MediaKind.ACTIVITY_PHOTO:
             # #696: v1.14 zei "Kies eerst een activiteit." en dat is wat de
             # gebruiker moet doen; "activity_id vereist" is de naam van een
             # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
@@ -344,7 +351,7 @@ async def upload_media(db, *, files: Sequence, kind: str,
         # #989: SVG only for the association logo, and then cleaned rather than
         # re-encoded (see `media/svg.py`). Every other kind stays raster.
         is_svg = upload.content_type == SVG_CONTENT_TYPE
-        if is_svg and kind != "tenant_logo":
+        if is_svg and kind is not MediaKind.TENANT_LOGO:
             raise MediaFout(_("%(bestand)s: een SVG kan alleen als logo van de "
                               "vereniging.") % {"bestand": upload.filename})
         if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
@@ -389,6 +396,7 @@ def add_document(db, *, kind: str, filename: str, content_type: str,
     """
     from app.domains.media.router import DOC_CONTENT_TYPES, _process_document
 
+    kind = as_media_kind(kind)
     toegestane_soorten = DOCUMENT_KINDS | {DESIGN_RENDER_KIND}
     if kind not in toegestane_soorten:
         raise MediaFout("Ongeldige 'kind'")
@@ -442,7 +450,7 @@ async def replace_activity_poster(db, activity_id: int, file, background_tasks):
     if activity is None:
         raise LookupError("Activiteit niet gevonden")
     asset = await _replace_single_asset(
-        db, file, kind="activity_poster", activity_id=activity_id,
+        db, file, kind=MediaKind.ACTIVITY_POSTER, activity_id=activity_id,
         title_base=f"{activity.name} - poster")
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
@@ -451,7 +459,7 @@ async def replace_activity_poster(db, activity_id: int, file, background_tasks):
 def delete_activity_poster(db, activity_id: int) -> None:
     """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
     for asset in (db.query(MediaAsset)
-                  .filter(MediaAsset.kind == "activity_poster",
+                  .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER,
                           MediaAsset.activity_id == activity_id).all()):
         db.delete(asset)
     db.commit()
@@ -488,7 +496,7 @@ async def replace_component_info(db, component_id: int, file, background_tasks):
         raise LookupError("Onderdeel niet gevonden")
     activiteit_naam = component.activity.name if component.activity else "activiteit"
     asset = await _replace_single_asset(
-        db, file, kind="component_info", component_id=component_id,
+        db, file, kind=MediaKind.COMPONENT_INFO, component_id=component_id,
         title_base=f"{activiteit_naam} - {component.name} - info")
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
@@ -496,7 +504,7 @@ async def replace_component_info(db, component_id: int, file, background_tasks):
 
 def delete_component_info(db, component_id: int) -> None:
     for asset in (db.query(MediaAsset)
-                  .filter(MediaAsset.kind == "component_info",
+                  .filter(MediaAsset.kind == MediaKind.COMPONENT_INFO,
                           MediaAsset.component_id == component_id).all()):
         db.delete(asset)
     db.commit()
@@ -516,7 +524,7 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
     has a usable picture is knowledge of this domain.
     """
     poster = (db.query(MediaAsset)
-              .filter(MediaAsset.kind == "activity_poster",
+              .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER,
                       MediaAsset.activity_id == activity_id)
               .order_by(MediaAsset.id.desc()).first())
     if poster is not None:
@@ -530,7 +538,7 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
             return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
         return f"/api/v1/media/{poster.id}"
     cover = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == "activity_photo",
+             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
                      MediaAsset.is_active.is_(True),
                      MediaAsset.activity_id == activity_id)
              .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc()).first())
@@ -546,6 +554,6 @@ def tenant_logo(db):
     de bytes nodig.
     """
     return (db.query(MediaAsset)
-            .filter(MediaAsset.kind == "tenant_logo")
+            .filter(MediaAsset.kind == MediaKind.TENANT_LOGO)
             .order_by(MediaAsset.id.desc())
             .first())

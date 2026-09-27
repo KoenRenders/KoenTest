@@ -727,7 +727,7 @@ def test_elke_mediasoort_staat_in_de_keuzelijst_bij_uploaden(client, db_session)
 
     _login(client)
     html = client.get("/admin/media/nieuw").text
-    ontbreekt = [k for k in VALID_KINDS if f'value="{k}"' not in html]
+    ontbreekt = [k.value for k in VALID_KINDS if f'value="{k.value}"' not in html]
     assert not ontbreekt, f"niet te kiezen bij het uploaden: {sorted(ontbreekt)}"
 
 

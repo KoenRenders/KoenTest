@@ -28,7 +28,6 @@ FK_MISSING: frozenset[str] = frozenset({
     'designstudio.designs.duo_code',
     'mdm.external_numbers.source',
     'media.media_assets.content_type',
-    'media.media_assets.kind',
     'media.media_assets.thumb_content_type',
     'meetings.meeting_files.content_type',
     'public.kernel_jobs.status',
@@ -53,7 +52,6 @@ LABEL_DICTIONARIES: frozenset[str] = frozenset({
 #: Key: `path/to/template.html:attribute==value`.
 TEMPLATE_COMPARISONS: frozenset[str] = frozenset({
     'app/domains/mdm/templates/_leden_persoon_velden.html:relation_type==HOOFDLID',
-    'app/domains/media/templates/_me_lijst.html:kind==sponsor',
     'app/domains/membership/templates/gezin_portaal.html:relation_type==HOOFDLID',
 })
 
@@ -66,8 +64,6 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/auth/router.py:contact_type_code in PHONE',
     'app/domains/auth/users.py:role_code==OPERATOR',
     'app/domains/chatbot/info_service.py:content_type==application/pdf',
-    'app/domains/chatbot/info_service.py:kind==activity_poster',
-    'app/domains/chatbot/info_service.py:kind==component_info',
     'app/domains/chatbot/router.py:role==user',
     'app/domains/media/images.py:mode in LA',
     'app/domains/media/images.py:mode in RGBA',
@@ -75,13 +71,7 @@ LOOSE_STRINGS: frozenset[str] = frozenset({
     'app/domains/media/images.py:mode!=RGBA',
     'app/domains/media/images.py:mode==P',
     'app/domains/media/pdf.py:mode!=RGB',
-    'app/domains/media/router.py:kind==activity_photo',
-    'app/domains/media/router.py:kind==sponsor',
     'app/domains/media/service.py:content_type==application/pdf',
-    'app/domains/media/service.py:kind==activity_photo',
-    'app/domains/media/service.py:kind==activity_poster',
-    'app/domains/media/service.py:kind==component_info',
-    'app/domains/media/service.py:kind==tenant_logo',
     'app/domains/reporting/admin_ui.py:layout==pivot',
     'app/domains/reporting/chart.py:format==money',
     'app/domains/reporting/engine.py:layout==detail',
