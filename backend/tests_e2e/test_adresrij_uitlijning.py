@@ -32,24 +32,59 @@ from tests_e2e.schermen import BASE, login_met_sessie  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def kaart():
-    """Een ledenkaart in bewerkmodus, met twee e-mailadressen."""
+def browser():
+    """Eén browser voor dit bestand.
+
+    Eén `sync_playwright()` en niet twee: de synchrone API laat zich niet
+    nesten, en twee fixtures die er elk een openen geven *"Sync API inside the
+    asyncio loop"*. De twee schermbreedtes hieronder zijn dus twee PAGINA'S op
+    dezelfde browser.
+    """
+    with sync_playwright() as pw:
+        exe = os.environ.get("E2E_CHROMIUM_PATH")
+        b = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
+        yield b
+        b.close()
+
+
+def _kaart_in_bewerkmodus(browser, breedte: int):
+    """Een ledenkaart in bewerkmodus met twee e-mailrijen, op deze breedte."""
     from app.domains.auth.api import make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     email = os.environ.get("E2E_ADMIN_EMAIL") or SEEDED_ADMIN_EMAIL
-    with sync_playwright() as pw:
-        exe = os.environ.get("E2E_CHROMIUM_PATH")
-        browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
-        page = browser.new_page(base_url=BASE, viewport={"width": 1440, "height": 900})
-        login_met_sessie(page, make_session_value(email))
-        page.goto("/admin/leden")
-        page.goto(page.locator('a[href^="/admin/leden/gezin/"]').first.get_attribute("href"))
-        page.get_by_role("button", name="Bewerken").first.click()
-        page.get_by_role("button", name="+ E-mailadres").first.click()
-        page.locator("[data-email-rij]").first.wait_for(state="visible", timeout=5_000)
-        yield page
-        browser.close()
+    page = browser.new_page(base_url=BASE, viewport={"width": breedte, "height": 900})
+    login_met_sessie(page, make_session_value(email))
+    page.goto("/admin/leden")
+    page.goto(page.locator('a[href^="/admin/leden/gezin/"]').first.get_attribute("href"))
+    page.get_by_role("button", name="Bewerken").first.click()
+    page.locator("[data-email-rij]").first.wait_for(state="visible", timeout=5_000)
+    aantal = page.locator("[data-email-rij]").count()
+    page.get_by_role("button", name="+ E-mailadres").first.click()
+    # Wachten op de TWEEDE rij en niet op de eerste: die bestond al, dus die
+    # wachtvoorwaarde was meteen waar en de meting liep vóór de nieuwe rij er was.
+    page.wait_for_function(
+        "n => document.querySelectorAll('[data-email-rij]').length > n",
+        arg=aantal, timeout=5_000)
+    return page
+
+
+@pytest.fixture(scope="module")
+def kaart(browser):
+    """Het beheerscherm op desktopbreedte — zo wordt het beoordeeld (CR-08)."""
+    return _kaart_in_bewerkmodus(browser, 1440)
+
+
+@pytest.fixture(scope="module")
+def kaart_telefoon(browser):
+    """Dezelfde kaart op 390 px.
+
+    Een eigen breedte en niet de desktopfixture: op 1440 px past een rij op één
+    regel, en dan meet de groeperingstest niets. Dat is precies wat er gebeurde
+    toen ze de brede fixture leende — ze sloeg af met "geen enkele rij wrapt",
+    en dat was terecht.
+    """
+    return _kaart_in_bewerkmodus(browser, 390)
 
 
 def test_het_label_staat_niet_op_elke_rij(kaart):
@@ -109,3 +144,77 @@ def test_veld_badge_en_knoppen_staan_op_een_lijn(kaart):
     waarden = {m["midden"] for m in middens}
     assert len(waarden) == 1, (
         f"de elementen van de rij staan niet op één lijn: {middens}")
+
+
+def test_twee_rijen_staan_verder_uit_elkaar_dan_hun_eigen_regels(kaart_telefoon):
+    """Op telefoonbreedte wrapt een rij; dan moet de groepering kloppen.
+
+    Veld boven, knoppen eronder — en als de afstand tússen twee rijen niet
+    duidelijk groter is dan die binnen één rij, staat de rode *Verwijderen* van
+    de ene rij vlak boven het VELD van de volgende. Dat is een verwijderactie bij
+    het verkeerde adres, en op het GEZINSPORTAAL — dat ditzelfde fragment
+    gebruikt — is 390 px geen randgeval maar de gewone breedte.
+
+    Het label dat tot #1229 boven elk veld stond, wás die scheiding. Deze PR
+    haalde het weg: winst op desktop, verlies op een telefoon. Dit zet dat recht.
+
+    **Gemeten op 390 px: 12 px tussen twee rijen, 4 px binnen een rij.** Vóór deze
+    regel was het 8 tegenover 8 — even ver, dus geen groepering.
+
+    Twee dingen die ik onderweg fout had en die deze test vormgeven:
+
+    - **Op `top` groeperen deugt niet.** Met `items-center` staat een lage badge
+      op dezelfde regel als een hoger veld, maar met een andere `top`. Dat gaf
+      drie "regels" en een binnenafstand van −29 px, en dan slaagt de vergelijking
+      zonder iets te toetsen. De clustering gaat nu op OVERLAP van de verticale
+      bereiken.
+    - **Niet elke rij wrapt.** Een rij zonder badge past op 390 px wél op één
+      regel. De test zoekt dus de eerste rij die écht wrapt, in plaats van aan te
+      nemen dat de eerste dat doet.
+
+    En de klasse is niet de meting: `space-y-*` rekent een sibling met
+    `display:none` gewoon mee, dus de marge kan in de DOM staan en niet op het
+    scherm — de werkelijke oorzaak van #1197.
+
+    Tegenproef: `gap-y-1` terug naar `gap-2` → binnen wordt 8 px en de verhouding
+    zakt naar 12 tegen 8; de assertie op het dubbele valt dan om.
+    """
+    maten = kaart_telefoon.evaluate("""() => {
+      const rijen = [...document.querySelectorAll('[data-email-rij]')]
+        .filter(r => r.offsetParent !== null);
+      if (rijen.length < 2) return null;
+      const doos = r => r.getBoundingClientRect();
+      const tussen = Math.round(doos(rijen[1]).top - doos(rijen[0]).bottom);
+
+      // Kinderen clusteren tot visuele REGELS via overlappende verticale
+      // bereiken — niet via hun `top`. Zie de docstring.
+      const groepeer = (rij) => {
+        const k = [...rij.children].map(x => x.getBoundingClientRect())
+          .sort((a, b) => a.top - b.top);
+        const g = [];
+        for (const x of k) {
+          const l = g[g.length - 1];
+          if (l && x.top < l.onder) l.onder = Math.max(l.onder, x.bottom);
+          else g.push({boven: x.top, onder: x.bottom});
+        }
+        return g;
+      };
+      const per = rijen.map(groepeer);
+      const gewrapt = per.findIndex(g => g.length > 1);
+      const binnen = gewrapt >= 0
+        ? Math.round(per[gewrapt][1].boven - per[gewrapt][0].onder) : null;
+      return {tussen, binnen, gewrapt, regels_per_rij: per.map(g => g.length)};
+    }""")
+    assert maten, "minder dan twee zichtbare rijen — niets om te groeperen"
+    assert maten["gewrapt"] >= 0, (
+        f"geen enkele rij wrapt op deze breedte, dus deze test meet de "
+        f"groepering niet: {maten}")
+    assert maten["binnen"] is not None and maten["binnen"] >= 0, (
+        f"onzinnige binnenafstand ({maten['binnen']}) — dan toetst de vergelijking "
+        f"hieronder niets: {maten}")
+    assert maten["tussen"] >= 12, (
+        f"te weinig ruimte tussen twee rijen: {maten['tussen']} px")
+    assert maten["tussen"] >= 2 * maten["binnen"], (
+        f"het gat tussen twee rijen ({maten['tussen']} px) is niet duidelijk "
+        f"groter dan dat binnen een rij ({maten['binnen']} px) — dan hoort de "
+        "verwijderknop visueel bij de verkeerde rij")

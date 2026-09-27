@@ -45,6 +45,20 @@
    Koens tweede melding. Zonder label vervalt de reden, en `items-center` zet
    alles vanzelf gelijk. Eén reparatie voor twee symptomen.
 
+   **Op telefoonbreedte wrapt deze rij naar twee regels** — veld boven, knoppen
+   eronder — en dan moet de afstand TUSSEN twee rijen duidelijk groter zijn dan
+   die binnen één rij. Anders staat de rode Verwijderen van de ene rij vlak boven
+   het veld van de volgende, en dat is een verwijderactie bij het verkeerde
+   adres. Het label dat hier tot #1229 stond, wás die scheiding; zonder label
+   moet de ruimte het doen. Twee getallen, allebei gemeten op 390 px: **12 px
+   tussen twee rijen** (`space-y-3` op de container) tegenover **4 px tussen de
+   twee regels van één rij** (`gap-y-1` hier). Met `space-y-2` en `gap-2` was dat
+   8 tegenover 8 — even ver, dus geen groepering.
+
+   Dat weegt het zwaarst op het GEZINSPORTAAL, dat ditzelfde fragment gebruikt:
+   een beheerscherm beoordeel je desktop-eerst (CR-08), maar op het portaal is
+   390 px de gewone breedte en zit een lid dat het scherm één keer per jaar ziet.
+
    Verwacht: `rij` (dict met id/value/is_primary) of None voor een lege rij,
    `index` voor de naamgeving van een nieuwe rij, `nummer` voor de toegankelijke
    naam, en `basis_url` als voorvoegsel voor de twee acties. #}
@@ -52,7 +66,7 @@
 {% set _id = rij.id if rij else None %}
 {% set _naam = ("email_existing_" ~ _id) if _id else ("email_new_" ~ index) %}
 {% set _veld_id = ("em-" ~ _id) if _id else ("em-nieuw-" ~ index) %}
-<div class="flex flex-wrap items-center gap-2" data-email-rij>
+<div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-email-rij>
   <div class="flex-1 min-w-[12rem]">
     {{ ui.input_control(_naam, id=_veld_id, type="email",
                         value=(rij.value if rij else ""),

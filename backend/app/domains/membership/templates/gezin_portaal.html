@@ -132,7 +132,7 @@
                 hx-target="#p-emails-{{ p.id }}" hx-swap="beforeend"
                 hx-vals='js:{index: Date.now(), nummer: 1 + document.querySelectorAll("#p-emails-{{ p.id }} [data-email-rij]").length}'>{{ _("+ E-mailadres") }}</button>
       </div>
-      <div id="p-emails-{{ p.id }}" class="mt-1 space-y-2">
+      <div id="p-emails-{{ p.id }}" class="mt-1 space-y-3">
         {% for a in p.emails %}
           {% with rij = a, index = loop.index0, nummer = loop.index,
                   basis_url = "/leden/gezin/personen/" ~ p.id ~ "/email",
