@@ -1236,6 +1236,35 @@ async def inschrijving_nieuw_totaal(activity_id: int, request: Request,
                                       total_context(channel, component, form))
 
 
+@router.post("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw/prijzen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def inschrijving_nieuw_prijzen(activity_id: int, request: Request,
+                                     db: Session = Depends(get_db),
+                                     email: str = Depends(require_admin_ui)):
+    """The board's price block after the e-mail address changed (#1284).
+
+    Koen: the product rows follow the typed member address, not only the total.
+    Rows and total come back together, from the same `form_context` as the page,
+    with the quantities that were entered — the address field itself is not
+    part of the swap, so it keeps its focus."""
+    from app.domains.activities.api import (board_channel, form_context, form_quantities,
+                                            get_activity)
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    form = await request.form()
+    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    _onderdeel_id, component = _board_component(activiteit, values)
+    if component is None:
+        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
+    channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+    return templates.TemplateResponse(
+        request, "_inschrijf_prijsblok.html",
+        form_context(channel, activiteit, component, values=values,
+                     quantities=form_quantities(form)))
+
+
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 async def inschrijving_nieuw_opslaan(activity_id: int, request: Request,

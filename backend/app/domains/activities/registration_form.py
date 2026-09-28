@@ -45,9 +45,10 @@ class Channel:
     #: Where the form posts, and where it asks for a recalculated total.
     form_url: str
     total_url: str
-    #: Recalculate the total when the e-mail address changes — the board's
-    #: member price follows the typed address; the public one does not.
-    total_on_email: bool = False
+    #: Where the price block (rows and total) is refreshed when the e-mail
+    #: address changes — the board's member price follows the typed address
+    #: (#1284, Koen: "ja"). None on the public form: it prices by the session.
+    prices_url: str | None = None
 
 
 def public_channel(db: Session, activity, component, session_email: str) -> Channel:
@@ -66,7 +67,7 @@ def board_channel(db: Session, activity, component, typed_email: str) -> Channel
     base = f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw"
     return Channel(backoffice=True,
                    person=login_person_for_email(db, typed) if "@" in typed else None,
-                   form_url=base, total_url=f"{base}/totaal", total_on_email=True)
+                   form_url=base, total_url=f"{base}/totaal", prices_url=f"{base}/prijzen")
 
 
 def is_member(person) -> bool:
@@ -155,7 +156,7 @@ def form_context(channel: Channel, activity, component, *, values: dict | None =
         "values": values or {}, "heeft_prijs": has_payable_products(component, member),
         "standaard_aantal": opening, "producten": products,
         "form_url": channel.form_url, "totaal_url": channel.total_url,
-        "totaal_bij_email": channel.total_on_email,
+        "prijzen_url": channel.prices_url,
     }
 
 
