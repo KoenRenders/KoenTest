@@ -218,7 +218,7 @@ def test_the_default_quantity_never_exceeds_the_maximum(db_session):
     """
     from types import SimpleNamespace
 
-    from app.domains.activities.ui import _standaard_aantal
+    from app.domains.activities.api import opening_quantity as _standaard_aantal
 
     # Sinds #1191 neemt `_standaard_aantal` de PRODUCTENLIJST en niet het onderdeel:
     # het formulier toont enkel de publiek boekbare producten, en dit aantal hoort bij

@@ -123,19 +123,36 @@ def register_for_activity(db, activity_id: int, data, background_tasks,
 
 
 def board_register_for_activity(db, activity_id: int, data, background_tasks, *,
-                                actor: str):
-    """The board adds a registration for somebody else (#1192).
+                                actor: str, person_id: int | None):
+    """The board adds a registration for somebody else (#1192, #1284).
 
-    The same implementation as the public way (`router.create_registration`),
-    with `person_id=None` — the registration does not hang on the board member
-    who sends the form — and `board=True`, which lifts the per-address limit and
-    the publicly-bookable rule (see the docstring there). `actor` is the board
-    member's e-mail, for the audit trail only.
+    The same implementation as the public way (`router.create_registration`).
+    `person_id` is the person found by the e-mail address typed into the form —
+    never the board member who sends it; `actor` is the board member's e-mail,
+    for the audit trail only. The back office may book products that are not
+    publicly bookable, and Mollie returns the board to the registration in the
+    back office instead of the public page.
     """
     from app.domains.activities.router import create_registration
 
     return create_registration(db, activity_id, data, background_tasks,
-                               person_id=None, actor=actor, board=True)
+                               person_id=person_id, actor=actor,
+                               backoffice_products=True,
+                               return_path="/admin/inschrijvingen/{registration_id}")
+from app.domains.activities.registration_form import (  # noqa: F401
+    Channel,
+    Outcome,
+    OutcomeKind,
+    board_channel,
+    contact_refusal,
+    form_context,
+    form_quantities,
+    is_member,
+    opening_quantity,
+    public_channel,
+    submit,
+    total_context,
+)
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 from app.domains.activities.service import (  # noqa: F401
@@ -178,6 +195,9 @@ from app.domains.activities.service import (  # noqa: F401
 )
 
 __all__ = [
+    "Channel", "Outcome", "OutcomeKind", "board_channel", "contact_refusal", "form_context",
+    "form_quantities", "is_member", "opening_quantity", "public_channel", "submit",
+    "total_context",
     "RegistrationState", "registration_refusal", "registration_state",
     "INDIVIDUAL", "REGISTRATION_STATE", "REGISTRATION_TYPE",
     "ActivityOption", "activity_options", "get_activity", "get_component",

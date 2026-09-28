@@ -1164,29 +1164,37 @@ def _record_rail(db, activiteit) -> dict:
             "rail_deadline_verschilt": samen is None and bool(open_deadlines(activiteit))}
 
 
-def _new_registration_view(request: Request, db: Session, activiteit, onderdeel_id,
-                           values: dict, error: str | None):
-    """The board's "add a registration" form (#1192), as a view-model."""
-    from app.domains.activities.viewmodels import AdminRegistrationNewView
-    from app.kernel.codes import code_labels
+def _board_form_page(request: Request, db: Session, activiteit, onderdeel_id, *,
+                     values: dict | None = None, error: str | None = None,
+                     form_ctx: dict | None = None) -> dict:
+    """The board's "add a registration" page (#1192, #1284): the one registration
+    form (`activities.api.form_context`, the board's channel) inside a back-office
+    page with the component buttons above it. `form_ctx` is a form that came
+    back refused from `submit`, with its values and its message."""
+    from app.domains.activities.api import board_channel, form_context
 
+    values = values or {}
     basis = f"/admin/activiteiten/{activiteit.id}/inschrijvingen"
     onderdelen = [{"id": c.id, "naam": c.name, "url": f"{basis}/nieuw?onderdeel={c.id}",
                    "gekozen": c.id == onderdeel_id}
                   for c in activiteit.sub_registrations]
     component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
-    producten = [{"id": p.id, "naam": p.name, "prijs": p.price, "actief": p.is_active,
-                  "aantal": values.get(f"product_{p.id}", "0")}
-                 for p in (component.products if component else [])]
-    return AdminRegistrationNewView(
-        a=activiteit, onderdelen=onderdelen,
-        onderdeel_id=component.id if component else None, producten=producten,
-        team_name_required=bool(component and component.team_name_required),
-        values=values, error=error,
-        betaalwijzen=[(c, w) for c, w in code_labels("payment_method", db=db)
-                      if c != "online"],
-        form_url=f"{basis}/nieuw", terug_url=basis,
-        csrf_token=csrf_from_request(request), nav_items=NAV)
+    ctx: dict = {"error": error}
+    if form_ctx is not None:
+        ctx = form_ctx
+    elif component is not None:
+        channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+        ctx = form_context(channel, activiteit, component, values=values, error=error)
+    ctx.update(a=activiteit, onderdelen=onderdelen,
+               onderdeel_id=component.id if component else None,
+               terug_url=basis, csrf_token=csrf_from_request(request), nav_items=NAV)
+    return ctx
+
+
+def _board_component(activiteit, values) -> tuple[int | None, object]:
+    onderdeel_id = int(values["onderdeel"]) if str(values.get("onderdeel", "")).isdigit() else None
+    return onderdeel_id, next((c for c in activiteit.sub_registrations
+                               if c.id == onderdeel_id), None)
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw",
@@ -1202,9 +1210,30 @@ def inschrijving_nieuw(activity_id: int, request: Request, onderdeel: int = 0,
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     if not onderdeel and len(activiteit.sub_registrations) == 1:
         onderdeel = activiteit.sub_registrations[0].id
-    vm = _new_registration_view(request, db, activiteit, onderdeel or None, {}, None)
     return templates.TemplateResponse(request, "admin_inschrijving_nieuw.html",
-                                      vm.as_context())
+                                      _board_form_page(request, db, activiteit, onderdeel or None))
+
+
+@router.post("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw/totaal",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def inschrijving_nieuw_totaal(activity_id: int, request: Request,
+                                    db: Session = Depends(get_db),
+                                    email: str = Depends(require_admin_ui)):
+    """The board's recalculation (#1284): the public one's `total_context`, priced
+    by the person of the TYPED e-mail address."""
+    from app.domains.activities.api import board_channel, get_activity, total_context
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    form = await request.form()
+    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    _onderdeel_id, component = _board_component(activiteit, values)
+    if component is None:
+        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
+    channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+    return templates.TemplateResponse(request, "_inschrijf_totaal.html",
+                                      total_context(channel, component, form))
 
 
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/nieuw",
@@ -1213,60 +1242,34 @@ async def inschrijving_nieuw_opslaan(activity_id: int, request: Request,
                                      background_tasks: BackgroundTasks,
                                      db: Session = Depends(get_db),
                                      email: str = Depends(require_admin_ui)):
-    """Save the board's registration through the ONE implementation (#1192).
-
-    `board_register_for_activity` is `create_registration` with `person_id=None`:
-    the registration does not hang on the board member who sends this form.
-    """
-    from app.domains.activities.api import (board_register_for_activity,
-                                            get_activity, quote_lines)
-    from app.domains.activities.ui import form_quantities, contact_refusal
-    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+    """The board's channel of the one form (#1284): the processing is shared with
+    the public form (`activities.api.submit`); what differs is where it lands —
+    Mollie, or the registration in the back office (Koen: "de terugroutering")."""
+    from app.domains.activities.api import OutcomeKind, board_channel, get_activity, submit
 
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    onderdeel_id = int(values["onderdeel"]) if values.get("onderdeel", "").isdigit() else None
-    component = next((c for c in activiteit.sub_registrations if c.id == onderdeel_id), None)
-
-    def refused(message: str) -> HTMLResponse:
-        vm = _new_registration_view(request, db, activiteit, onderdeel_id, values, message)
-        return templates.TemplateResponse(request, "admin_inschrijving_nieuw.html",
-                                          vm.as_context())
-
+    onderdeel_id, component = _board_component(activiteit, values)
     if component is None:
-        return refused(_("Kies een onderdeel."))
-    weigering = contact_refusal(values)
-    if weigering:
-        return refused(weigering)
-    quantities = form_quantities(form)
-    if component.products and not any(q > 0 for q in quantities.values()):
-        return refused(_("Selecteer minstens één product."))
-    totaal, _regels = quote_lines(component, quantities, False)
-    try:
-        data = RegistrationCreate(
-            contact_name=values["contact_name"].strip(),
-            contact_email=values["contact_email"].strip(),
-            phone=values["phone"].strip(),
-            team_name=(values.get("team_name") or "").strip() or None,
-            payment_method=(values.get("payment_method") or None) if totaal > 0 else None,
-            component_id=component.id,
-            items=[RegistrationItemCreate(product_id=pid, quantity=qty)
-                   for pid, qty in quantities.items() if qty > 0],
-            remarks=(values.get("remarks") or "").strip() or None)
-    except ValidationError:
-        # `contact_refusal` checked that there is an address; the schema also
-        # checks that it IS one.
-        return refused(_("Dat e-mailadres is niet geldig."))
-    try:
-        result = board_register_for_activity(db, activity_id, data, background_tasks,
-                                             actor=email)
-    except HTTPException as exc:
-        return refused(str(exc.detail))
+        return templates.TemplateResponse(
+            request, "admin_inschrijving_nieuw.html",
+            _board_form_page(request, db, activiteit, onderdeel_id, values=values,
+                             error=_("Kies een onderdeel.")))
+    channel = board_channel(db, activiteit, component, values.get("contact_email", ""))
+    outcome = submit(db, channel, activiteit, component, form, background_tasks, actor=email)
+    if outcome.kind is OutcomeKind.REFUSED:
+        return templates.TemplateResponse(
+            request, "admin_inschrijving_nieuw.html",
+            _board_form_page(request, db, activiteit, onderdeel_id,
+                             form_ctx=outcome.context))
     response = HTMLResponse("")
-    response.headers["HX-Redirect"] = f"/admin/inschrijvingen/{result['id']}"
+    # Vaste UI-beslissing: harde redirect naar Mollie; zonder betaling naar de
+    # inschrijving in het beheer.
+    response.headers["HX-Redirect"] = (outcome.checkout_url if outcome.kind is OutcomeKind.CHECKOUT
+                                       else f"/admin/inschrijvingen/{outcome.registration_id}")
     return response
 
 

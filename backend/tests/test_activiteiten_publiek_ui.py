@@ -17,7 +17,9 @@ TPL = Path(__file__).resolve().parents[1] / "app" / "domains" / "activities" / "
 
 
 def test_inschrijf_form_is_smalle_modal_body():
-    inhoud = (TPL / "_inschrijf_form.html").read_text()
+    inhoud = ((TPL / "_inschrijf_form.html").read_text()
+              # #1284: the fields moved into their own template, shared with the board.
+              + (TPL / "_inschrijf_velden.html").read_text())
     # Geen breed inline getint blok meer; gestapelde velden i.p.v. 3 kolommen.
     assert "bg-blue-50" not in inhoud
     assert "sm:grid-cols-3" not in inhoud and "grid-cols-1" in inhoud
@@ -107,7 +109,9 @@ def test_heeft_prijs_volgt_de_prijsberekening():
 
 def test_betaalwijze_volgt_dezelfde_voorwaarde_als_het_totaal():
     """Bijvangst (#607): geen betaalkeuze bij een onderdeel zonder betalend deel."""
-    inhoud = (TPL / "_inschrijf_form.html").read_text()
+    inhoud = ((TPL / "_inschrijf_form.html").read_text()
+              # #1284: the fields moved into their own template, shared with the board.
+              + (TPL / "_inschrijf_velden.html").read_text())
     assert "{% if heeft_prijs %}" in inhoud
     assert "Betaalwijze (bij betalend deel)" not in inhoud
 
