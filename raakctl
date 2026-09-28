@@ -9,6 +9,11 @@
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
 #   raakctl services <env>               which services this env can log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
+#   raakctl restore-test <env> [dump]    restore exercise on a throwaway database
+#                                        (newest dump, or a file name from
+#                                        backups/; --list shows them). No
+#                                        --confirm, also on PROD: it only writes
+#                                        a throwaway database and drops it
 #   raakctl psql <env> [-c SQL]          database session, READ-ONLY by default
 #                                        (-f FILE, --db NAME, --write [--confirm])
 #   raakctl up <env>                     start a stopped stack (no build, no git)
@@ -156,6 +161,68 @@ cmd_backup() {
   mv "$out.tmp" "$out"
   echo "Backup: $out ($(du -h "$out" | cut -f1), $(gzip -dc "$out" | wc -l) lines of SQL)"
   echo "Copy it off the server with:  scp raak:$out ."
+}
+
+cmd_restore_test() {
+  # #1288: the restore exercise before every tag (scripts/restore-test.sh, #1232)
+  # as a verb, so it runs without a shell on the host. It runs the script of THIS
+  # environment's checkout, against that checkout's backups/.
+  #
+  # No --confirm, on any environment: the exercise writes only into a throwaway
+  # database (`restore_test`) and drops it on every exit. Asking for a confirmation
+  # that protects nothing teaches people to type it without reading.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift
+  case "$env" in hdev|uat|prod) ;; *) die "restore-test works on hdev, uat or prod — not on '$env'" ;; esac
+  local d; d="$(checkout "$env")"
+  local dir="$d/backups"
+
+  if [ "${1:-}" = "--list" ]; then
+    # Newest first, with time and size, so a dump from before a release can be
+    # picked by name without a shell.
+    local f found=0
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      found=1
+      printf '%s  %8s  %s\n' "$(date -r "$f" '+%Y-%m-%d %H:%M')" \
+        "$(du -h "$f" | cut -f1)" "$(basename "$f")"
+    done < <(ls -1t "$dir"/*.sql.gz 2>/dev/null || true)
+    [ "$found" = 1 ] || echo "no dumps in backups/ of $env"
+    return 0
+  fi
+
+  local dump=""
+  if [ -n "${1:-}" ]; then
+    # A FILE NAME within backups/, nothing else: no directory part, no `..`, no
+    # absolute path. The exercise restores whatever it is given, so the verb
+    # decides what it may be given.
+    case "$1" in
+      */*|*..*) die "give a file name from backups/ of $env, not a path: '$1' (see: raakctl restore-test $env --list)" ;;
+    esac
+    [ -f "$dir/$1" ] || die "no dump '$1' in backups/ of $env (see: raakctl restore-test $env --list)"
+    dump="$dir/$1"
+  fi
+
+  local log; log="$(mktemp)"
+  local start rc
+  start=$(date +%s)
+  set +e
+  ( cd "$d" && BACKUP_DIR="$dir" ./scripts/restore-test.sh "$env" ${dump:+"$dump"} ) 2>&1 | tee "$log"
+  rc=${PIPESTATUS[0]}
+  set -e
+
+  # The fixed summary the master CLI copies into the release tracker verbatim.
+  echo
+  echo "== restore-test summary =="
+  echo "environment=$env"
+  local used
+  used="$(sed -n 's/^== Restore-oefening met: \(.*\) ==$/\1/p' "$log" | xargs -r basename)"
+  echo "dump=${used:-none}"
+  echo "duration=$(( $(date +%s) - start ))s"
+  # The count rows of the script's psql table: `name | value`.
+  sed -n 's/^ *\(alembic_version\|[a-z_]*\.[a-z_]*\) *| *\(.*[^ ]\) *$/\1=\2/p' "$log"
+  if [ "$rc" -eq 0 ]; then echo "result=ok"; else echo "result=failed"; fi
+  rm -f "$log"
+  return "$rc"
 }
 
 cmd_psql() {
@@ -349,7 +416,8 @@ menu() {
     echo "   2) logs of one service           6) deploy UAT (tag)"
     echo "   3) full diagnostics              7) deploy PROD (tag)"
     echo "   4) apply shared Caddy            8) manual backup"
-    echo "   9) database session (read-only)  q) quit"
+    echo "   9) database session (read-only)  r) restore exercise"
+    echo "   q) quit"
     echo "  (fetch the report from step 3 onto your laptop with: raak fetch <env>)"
     read -rp "  choice: " k
     case "$k" in
@@ -374,6 +442,9 @@ menu() {
       # typed out.
       9) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
          cmd_psql "$e" ;;
+      # #1288: the newest dump of the chosen environment, on a throwaway database.
+      r|R) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         cmd_restore_test "$e" || true ;;
       q|Q) return 0 ;;
       *) echo "  unknown choice" ;;
     esac
@@ -390,6 +461,7 @@ case "$verb" in
   services) cmd_services "$@" ;;
   backup)   cmd_backup "$@" ;;
   psql)     cmd_psql "$@" ;;
+  restore-test) cmd_restore_test "$@" ;;
   up)       cmd_up "$@" ;;
   stop)     cmd_stop "$@" ;;
   restart)  cmd_restart "$@" ;;
