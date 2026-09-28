@@ -1,0 +1,92 @@
+{% import "_macros.html" as ui %}
+{# The fields of the one registration form (#1284): the public modal
+   (`_inschrijf_form.html`) and the board's page (`admin_inschrijving_nieuw.html`)
+   both include this, inside their own <form>. What differs per channel comes in
+   through the context (`registration_form.form_context`): the URLs, the
+   products, whose member price, and whether the e-mail address recalculates. #}
+    <div class="grid grid-cols-1 gap-3">
+      <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
+        {{ ui.input_control("contact_name", id="contact_name", value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else ""), required=True, cls="w-full") }}</div>
+      <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
+        {# #1284: on the board's form the member price follows the TYPED address,
+           so the total is recalculated when it changes. The public form prices by
+           the signed-in person and never by what is typed here. #}
+        {{ ui.input_control("contact_email", id="contact_email", type="email", value=values.get("contact_email", ""), required=True, cls="w-full",
+                            attrs=('hx-post="' ~ totaal_url ~ '" hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if totaal_bij_email else "") }}</div>
+      <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
+        {{ ui.input_control("phone", id="phone", type="tel", value=values.get("phone", ""), required=True, cls="w-full") }}</div>
+    </div>
+    {% if component.team_name_required %}
+    <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
+      {{ ui.input_control("team_name", id="team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
+    {% endif %}
+    {# #1191: `producten` and not `component.products` — the channel decides which
+       products the form shows (`registration_form.form_products`). #}
+    {% if producten %}
+    <div class="space-y-2">
+      {% for p in producten %}
+      <div class="flex items-center justify-between gap-3">
+        <div class="text-sm">
+          <span class="font-medium">{{ p.name }}</span>
+          {# #1284: only the board's form lists a product that is not publicly
+             bookable, and it says so. #}
+          {% if not p.is_active %}{{ ui.badge(_("niet publiek"), "gray") }}{% endif %}
+          <span class="ml-2 text-gray-500">
+            {% if p.pay_on_site %}{{ _("ter plaatse te betalen (eigen budget)") }}
+            {% elif p.is_free or p.price == 0 %}{{ _("gratis") }}
+            {% else %}€{{ p.price|geld }}{% if is_member and p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}
+            {% endif %}
+          </span>
+        </div>
+        {# #1171: een teller met eigen − en +. iOS Safari toont bij een
+           `type="number"` geen pijltjes, dus op telefoon — 80% van het publieke
+           bezoek — moest je het veld aantikken en een cijfer typen.
+
+           De `hx-*`-attributen blijven op het INVOERVELD staan en verhuizen niet
+           naar de knoppen: de teller vuurt een echte `change` af op het veld, dus
+           de server-side herberekening loopt langs precies dezelfde weg als bij
+           typen. Eén pad, geen tweede. #}
+        {{ ui.stepper("product_" ~ p.id, id="product-" ~ p.id,
+                      value=values.get("product_" ~ p.id, standaard_aantal),
+                      max=(p.max_participants or 99),
+                      label_minder=_("Eén minder") ~ " — " ~ p.name,
+                      label_meer=_("Eén meer") ~ " — " ~ p.name,
+                      attrs='hx-post="' ~ totaal_url ~ '"'
+                            ' hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML"'
+                            ' hx-trigger="change, keyup delay:300ms"') }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div id="totaal-{{ component.id }}">
+      {% include "_inschrijf_totaal.html" %}
+    </div>
+    <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
+      {{ ui.textarea_control("remarks", id="remarks", rows=2, value=values.get("remarks", ""), placeholder=_("Eventuele boodschap voor de organisatie…"), cls="w-full") }}</div>
+    {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
+       `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
+       ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt
+       nu of er iets te betalen is, dus het label heeft geen "(bij betalend deel)"
+       meer nodig. #}
+    {% if heeft_prijs %}
+    <div>
+      {{ ui.label(_("Betaalwijze"), "payment_method") }}
+      {# F21 (#996): de volle labelregel is aanklikbaar (44px) en de keuze
+         benoemt haar gevolg — zelfde uitleg als op Word-lid. #}
+      {# Onder elkaar en compact, zoals productie (Koen, 19 sep): geen
+         min-h-11 — de opgerekte tikregels dreven de keuzes uit elkaar. De
+         volle labelregel blijft aanklikbaar. #}
+      {# CR-12 phase 1: the radio values are the codes of `mdm.payment_method_codes`.
+         They used to be ONLINE/OVERSCHRIJVING and were stored verbatim, while the
+         payment record next to it stored online/transfer — one list, two
+         spellings. With the FK on the column, a registration by bank transfer
+         fails as soon as this form does not change along with it, so this belongs
+         in the same commit as the migration. #}
+      <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      <p class="text-xs text-ink-soft" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+      </div>
+    </div>
+    {% endif %}

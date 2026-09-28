@@ -362,7 +362,9 @@ def test_the_payment_hint_follows_the_radio_values():
     from pathlib import Path
 
     source = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
-              / "templates" / "_inschrijf_form.html").read_text(encoding="utf-8")
+              / "templates" / "_inschrijf_velden.html").read_text(encoding="utf-8")
+    # #1284: the fields — payment choice included — moved to `_inschrijf_velden.html`,
+    # shared by the public form and the board's.
     radios = set(re.findall(r'name="payment_method" value="([^"]+)"', source))
     hints = set(re.findall(r"x-show=\"pm === '([^']+)'\"", source))
     assert radios and hints, "the form no longer has payment radios or hints"

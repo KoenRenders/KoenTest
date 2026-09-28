@@ -13,11 +13,12 @@ The five checks the issue asks for:
 3. **the registration does not hang on the board member who sends the form** —
    the sharpest edge: taken from the session, every board registration would make
    the board member a participant in every report that groups by person;
-4. the limit per e-mail address per component does NOT apply to the board
-   (recommended in #1192: it is a brake against the public, and the board enters
-   its own contact details for people who have none) — a choice, pinned here;
+4. the limit per e-mail address per component applies to the board too. #1192
+   lifted it for the board; Koen put it back in #1284 ("zodat het 100% gelijk
+   is aan het publieke"), so this test now pins the opposite of its first
+   version;
 5. there is ONE implementation: the board route goes through
-   `create_registration`.
+   `create_registration`, with the board's two differences and nothing else.
 
 Broken on purpose to check that these tests can go red:
 - the board route calling the public `register_for_activity` with the signed-in
@@ -25,8 +26,9 @@ Broken on purpose to check that these tests can go red:
 - `contact_refusal` taken out of the board route → test 2 falls over: a missing
   phone number is then refused by the service with another message, a missing
   e-mail address by the schema;
-- `board=True` changed to `board=False` in `board_register_for_activity` → test 4
-  falls over on the fourth registration;
+- the limit check in `create_registration` skipped for the back office again
+  (`if data.contact_email and not backoffice_products`) → test 4 falls over: the
+  registration past the limit is saved (#1284). Measured 28 September 2026.
 - the board route creating the `Registration` itself instead of calling the
   facade → test 5 falls over (the spy sees no call).
 """
@@ -110,13 +112,21 @@ def test_the_registration_does_not_hang_on_the_board_member(client, db_session,
         f"sent the form (person {board['person_id']})")
 
 
-def test_the_limit_per_address_does_not_stop_the_board(client, db_session, board,
-                                                       activity):
-    for _ in range(4):
+def test_the_limit_per_address_holds_for_the_board_too(client, db_session, board,
+                                                        activity):
+    """#1284: the tenant's limit, with the public form's message. The way out is
+    the public one: one registration with a quantity, the names in the remarks."""
+    from app.kernel.tenant_config import tenant_max_registrations_per_email
+
+    limit = tenant_max_registrations_per_email(db_session)
+    for _ in range(limit):
         resp = _add(client, board, activity)
         assert resp.headers.get("HX-Redirect"), resp.text[:400]
+    refused = _add(client, board, activity)
 
-    assert len(_registrations(db_session, activity)) == 4
+    assert refused.headers.get("HX-Redirect") is None
+    assert "inschrijvingen met dit e-mailadres" in refused.text, refused.text[:400]
+    assert len(_registrations(db_session, activity)) == limit
 
 
 def test_the_board_route_uses_the_one_implementation(client, db_session, board,
@@ -134,4 +144,6 @@ def test_the_board_route_uses_the_one_implementation(client, db_session, board,
     _add(client, board, activity)
 
     assert len(calls) == 1, "the board route did not go through create_registration"
-    assert calls[0]["person_id"] is None and calls[0]["board"] is True
+    assert calls[0]["person_id"] is None
+    assert calls[0]["backoffice_products"] is True
+    assert calls[0]["return_path"] == "/admin/inschrijvingen/{registration_id}"
