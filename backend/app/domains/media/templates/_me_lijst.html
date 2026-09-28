@@ -30,7 +30,13 @@
       {{ ui.input_control("title", id="me-title-" ~ a.id, value=a.title or "", placeholder=_("Titel"), cls="w-full") }}
       {# #707: alleen bij een sponsor; de soort van dit asset ligt vast. #}
       {% if a.is_sponsor %}{{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}{% endif %}
-      <div class="flex items-center gap-4">
+      {# #1265: `flex-wrap`, so Volgorde, Actief and the dimensions take a second
+         line on a phone instead of pushing the card — and the page — to 403 px.
+         `gap-x-4` keeps the 16 px of the one-line desktop row; `gap-y-2` is the
+         space between the lines. Measured: `min-w-0` on the column beside the
+         thumbnail (the other half of #1236) is not needed here — once this row
+         may wrap, its narrowest width is its widest item, and that fits. #}
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
         {# #882: pijltjes en geen nummerveld. Een nummer laat de gebruiker een toestand
            invoeren die intern consistent moet zijn en die niets bewaakt: twee foto's
            met hetzelfde nummer, gaten in de reeks, en alles herzien om er één vooraan
