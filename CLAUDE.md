@@ -563,6 +563,25 @@ a false rollback on PROD over a single `ERROR` line costs more than a missed war
 On HDEV both are reporting only. The flags are `KETEN_GATE`/`LOG_GATE` in the
 per-environment config block of `deploy.sh`.
 
+**Since #1203 (v2.7.0) that rollback no longer fires for a release that adds a
+migration.** It could not have worked: the previous image runs `alembic upgrade
+head` at startup and does not know the new revision, so the rollback produced a
+backend that would not start — a failed release that stays up is better than one
+that is down. The deploy now stops instead and prints the recovery steps: stop the
+backend, drop and recreate the database, restore the pre-migration dump with
+`psql -v ON_ERROR_STOP=1`, and redeploy the previous tag.
+
+Two things follow. **Check the dump, do not assume it** — `raak restore-test <env>`
+(#1288) restores it into a throwaway database so you know the real recovery time and
+that the dump is readable. And **stop if the restore did not finish cleanly**: the
+backend seeds empty tables at startup (postal codes, activities, CMS pages, and
+more), so a half restore followed by a start does not leave an empty environment but
+one with example data — which looks like it worked.
+
+Until v2.7.0 the rollback did fire on such a release, so `DEPLOY_ROLLBACK=1` had to
+be set by hand to suppress it. **That is no longer needed for tags from v2.7.0
+onward**; only an older tag still carries the old behaviour.
+
 That does not remove the report: the deploy checks a subset, and it checks it once.
 Still report all six lines after every deploy — the commit, the smoke result and the
 expected `Running upgrade` lines are yours to verify, and "the script said nothing"
