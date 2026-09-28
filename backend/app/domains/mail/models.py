@@ -1,11 +1,10 @@
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -13,7 +12,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class EmailType(Enum):
+class EmailType(CodeEnum):
     """Which mail flow sent a message (CR-12 phase 4).
 
     Was the tuple `EMAIL_TYPES`. The meeting mails (#258) share one type for
@@ -38,7 +37,7 @@ class EmailType(Enum):
     OTHER = "other"
 
 
-class MailStatus(Enum):
+class MailStatus(CodeEnum):
     """What happened to one outgoing mail (CR-12 phase 4).
 
     `sent` = SMTP accepted it; `failed` = an exception while sending;

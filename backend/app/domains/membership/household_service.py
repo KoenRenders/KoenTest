@@ -301,9 +301,18 @@ def create_family_with_members(db: Session, data, *, actor: str, source: str,
             contacts.append(ContactDetail(person_id=person.id, contact_type_code="MOBILE",
                                           value=person_data.mobile,
                                           is_primary=not person_data.phone))
-        if person_data.email:
-            contacts.append(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                                          value=person_data.email, is_primary=True))
+        # #1246: every address typed, in order; the first is the primary one
+        # (Koen, 28 September 2026: "het eerste adres wordt het hoofdadres"). The
+        # same address twice is a slip, not a second address — case-insensitive,
+        # as on the family portal (#1219).
+        seen: set[str] = set()
+        for address_value in [person_data.email, *person_data.extra_emails]:
+            if not address_value or address_value.lower() in seen:
+                continue
+            seen.add(address_value.lower())
+            contacts.append(ContactDetail(person_id=person.id,
+                                          contact_type_code=CONTACT.EMAIL,
+                                          value=address_value, is_primary=len(seen) == 1))
         for contact in contacts:
             db.add(contact)
         if contacts:

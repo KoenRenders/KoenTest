@@ -9,6 +9,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ _("Admin — Raak") }}{% endblock %}</title>
   <meta name="robots" content="noindex">
+  {# #1245: the RaaK icon, cut from the house-style logo (see main.favicon). #}
+  <link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="{{ statisch('apple-touch-icon.png') }}">
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
   <style>
     [x-cloak]{display:none!important}

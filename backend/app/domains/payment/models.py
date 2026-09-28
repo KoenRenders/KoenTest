@@ -1,13 +1,12 @@
 import uuid as uuid_lib
 from datetime import datetime, timezone
-from enum import Enum
 from sqlalchemy import (
     JSON, Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -18,7 +17,7 @@ def _now_utc() -> datetime:
 
 # ── The vocabularies of this domain (CR-12 phase 1) ──────────────────────────
 #
-# Plain `Enum`, never `str, Enum`: with a `str` subclass `record.status ==
+# `CodeEnum`, never `str, Enum`: with a `str` subclass `record.status ==
 # "paid"` stays a valid comparison that happens to be true, so a stale literal
 # survives unnoticed. Plain, it is silently false — which is why the migration
 # of this phase had to replace every one of them at once rather than one at a
@@ -26,7 +25,7 @@ def _now_utc() -> datetime:
 # stored today (§B4.3, R8).
 
 
-class PaymentStatus(Enum):
+class PaymentStatus(CodeEnum):
     """Where a payment record stands. Four codes, unchanged since #83."""
 
     PENDING = "pending"
@@ -35,7 +34,7 @@ class PaymentStatus(Enum):
     CANCELLED = "cancelled"
 
 
-class PaymentType(Enum):
+class PaymentType(CodeEnum):
     """A claim or its reversal (#83).
 
     `charge` is money owed, `refund` is money going back — a separate record
@@ -46,7 +45,7 @@ class PaymentType(Enum):
     REFUND = "refund"
 
 
-class PayableType(Enum):
+class PayableType(CodeEnum):
     """What the money is *for*: the polymorphic half of the ledger.
 
     The pair (`payable_type`, `payable_id`) is how a payment record points at a
@@ -58,7 +57,7 @@ class PayableType(Enum):
     MEMBERSHIP = "membership"
 
 
-class PaymentProvider(Enum):
+class PaymentProvider(CodeEnum):
     """Which payment service providers we support.
 
     Ours, not theirs — which is the whole distinction of §B4.10. *Which*

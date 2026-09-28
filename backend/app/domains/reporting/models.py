@@ -10,13 +10,12 @@ gains a column tomorrow — and a report that references an object that disappea
 fails loudly, with the object's name, instead of returning a wrong number.
 """
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -57,7 +56,7 @@ class SavedReport(TenantMixin, SoftDeleteMixin, Base):
         return self.builtin_key is not None
 
 
-class ExportKind(Enum):
+class ExportKind(CodeEnum):
     """What was taken out (CR-12 phase 4).
 
     `report` is a saved report, `ad-hoc` an unsaved panel, `dataset` a whole

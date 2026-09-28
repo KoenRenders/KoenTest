@@ -23,21 +23,20 @@ import logging
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from typing import Callable, Optional
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal
-from app.kernel.codes import CodeList, CodeSeed, EnumColumn, code_of
+from app.kernel.codes import CodeEnum, CodeList, CodeSeed, EnumColumn, code_of
 
 logger = logging.getLogger(__name__)
 
 _handlers: dict[str, Callable[[Session, dict], None]] = {}
 
 
-class JobStatus(Enum):
+class JobStatus(CodeEnum):
     """Where a background job stands (CR-12 phase 4 residue).
 
     A closed list: the scheduler below writes all four, and the workbench turns

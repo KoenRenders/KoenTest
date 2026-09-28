@@ -2,7 +2,6 @@
 toestand. De volwaardige workflow-component (definities/instanties, fase 4b
 #403) groeit hieruit; het taakcontract (één vorm, veel bronnen) ligt hier vast."""
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import (
     Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text,
@@ -12,7 +11,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
 from app.domains.auth.api import Role
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 
 
 def _now_utc() -> datetime:
@@ -22,14 +21,14 @@ def _now_utc() -> datetime:
 # ── The vocabularies this domain owns (CR-12 phase 4) ───────────────────────
 
 
-class TaskStatus(Enum):
+class TaskStatus(CodeEnum):
     """A task closes by state (§20.5), so the code branches on this."""
 
     OPEN = "open"
     DONE = "done"
 
 
-class SubjectType(Enum):
+class SubjectType(CodeEnum):
     """What a task or a run is about (CR-12 phase 4 residue).
 
     A closed list: our own handlers write these four, and the workbench branches
@@ -43,7 +42,7 @@ class SubjectType(Enum):
     KERNEL_JOB = "kernel_job"
 
 
-class RunStatus(Enum):
+class RunStatus(CodeEnum):
     """One running instance of a definition (phase 4b, #403)."""
 
     RUNNING = "running"

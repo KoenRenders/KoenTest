@@ -28,7 +28,11 @@ def create_payment(
     # Per-tenant Mollie-key en webhook-origin (fase 5b, #406); .env als default.
     provider = _get_provider(provider_name, api_key=tenant_mollie_key(db))
     webhook_base = (get_setting(db, "base_url") or settings.public_url).rstrip("/")
-    webhook_url = f"{webhook_base}/api/v1/payment-gateway/webhooks/{provider_name}"
+    # The code, not the member (#1279): since #1178 `provider_name` is a
+    # `PaymentProvider` member, and a plain Enum in an f-string reads
+    # `PaymentProvider.MOLLIE` — a webhook URL Mollie called and got a 404 on.
+    webhook_url = (f"{webhook_base}/api/v1/payment-gateway/webhooks/"
+                   f"{PaymentProvider(provider_name).value}")
 
     result = provider.create_payment(
         amount=amount,

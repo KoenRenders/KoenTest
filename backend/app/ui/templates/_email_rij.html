@@ -61,16 +61,30 @@
 
    Verwacht: `rij` (dict met id/value/is_primary) of None voor een lege rij,
    `index` voor de naamgeving van een nieuwe rij, `nummer` voor de toegankelijke
-   naam, en `basis_url` als voorvoegsel voor de twee acties. #}
+   naam, en `basis_url` als voorvoegsel voor de twee acties.
+
+   Optional, for the public *Word lid* form (#1246), where no row has an id yet
+   because the family does not exist: `name_prefix` prefixes the field name
+   (`m0_`), `first` marks the row that becomes the primary address — it keeps the
+   plain `<prefix>email` name and id that field always had (tests and the label
+   point at them), shows the "hoofdadres" label and has no remove
+   button, since the first address typed is the primary one (Koen, 28 September
+   2026) — and `required` makes that field required. All three default to the
+   portal's behaviour. #}
 {% import "_macros.html" as ui %}
 {% set _id = rij.id if rij else None %}
-{% set _naam = ("email_existing_" ~ _id) if _id else ("email_new_" ~ index) %}
-{% set _veld_id = ("em-" ~ _id) if _id else ("em-nieuw-" ~ index) %}
+{% set _prefix = name_prefix|default("") %}
+{% set _first = first|default(false) %}
+{% set _naam = ("email_existing_" ~ _id) if _id
+   else (_prefix ~ "email") if _first else (_prefix ~ "email_new_" ~ index) %}
+{% set _veld_id = ("em-" ~ _id) if _id else (_prefix ~ "email") if _first
+   else ("em-" ~ _prefix ~ "nieuw-" ~ index) %}
 <div class="flex flex-wrap items-center gap-x-2 gap-y-1" data-email-rij>
   <div class="flex-1 min-w-[12rem]">
     {{ ui.input_control(_naam, id=_veld_id, type="email",
                         value=(rij.value if rij else ""),
                         placeholder="naam@voorbeeld.be", cls="w-full",
+                        required=required|default(false),
                         aria_label=_("E-mailadres") ~ " " ~ (nummer|default(1))) }}
   </div>
   {% if _id %}
@@ -84,6 +98,8 @@
             hx-post="{{ basis_url }}/{{ _id }}/verwijderen"
             hx-target="{{ doel }}" hx-swap="{{ swap }}"
             data-confirm="{{ _('Dit e-mailadres verwijderen?') }}">{{ _("Verwijderen") }}</button>
+  {% elif _first %}
+    {{ ui.badge(_("hoofdadres"), "blue") }}
   {% else %}
     {# Nog niet opgeslagen: geen id, dus geen serveractie. Weghalen is het veld
        uit het formulier halen; er valt nog niets te verwijderen. #}
