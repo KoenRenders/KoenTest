@@ -27,6 +27,9 @@ Broken on purpose (28 September 2026), one violation at a time:
 | the board returns from Mollie to the public page | Mollie returns each channel to its own page [board] |
 | a field added to the board page only | both channels render the same fields |
 | the board shown only publicly bookable products | a back-office product is offered to the board only |
+| the board's price refresh ignoring the typed address | the board rows follow the typed member address |
+| the board's price refresh not carrying the quantities | the same test, on "the entered quantity was lost" |
+| the public channel given a price refresh too | only the board refreshes prices on the address |
 """
 import re
 from datetime import date
@@ -284,3 +287,43 @@ def test_the_public_form_never_prices_by_the_typed_address(client, db_session, p
     _landed("public", resp, reg)
     assert reg.person_id is None
     assert _charged(db_session, reg) == Decimal("10.00")
+
+
+# ── Koen's answer: the board's rows follow the typed member address ──────────
+
+def _board_prices(client, act, email: str, quantity: int) -> str:
+    activity, component, product = act
+    value = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, value)
+    return client.post(
+        f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/prijzen",
+        data={"onderdeel": str(component.id), "contact_email": email,
+              f"product_{product.id}": str(quantity)},
+        headers={"X-CSRF-Token": csrf_token_for(value)}).text
+
+
+def test_the_board_rows_follow_the_typed_member_address(client, db_session, paid, member):
+    """Rows and total come back together, as the public form shows them to a
+    signed-in member — and with the quantity that was entered, not the opening
+    one: the block is swapped, the fields around it are not."""
+    product = paid[2]
+    for_member = _board_prices(client, paid, MEMBER, 2)
+    assert "€10,00 / leden €6,00" in for_member, for_member[:600]
+    assert "€12,00" in for_member and "ledenprijs" in for_member
+    assert re.search(rf'name="product_{product.id}"[^>]*value="2"', for_member), (
+        "the entered quantity was lost in the refresh")
+    assert 'name="contact_email"' not in for_member, "the address field is part of the swap"
+
+    for_guest = _board_prices(client, paid, OTHER, 2)
+    assert "/ leden" not in for_guest and "€20,00" in for_guest
+
+
+def test_only_the_board_refreshes_prices_on_the_address(client, db_session, paid):
+    activity, component, _product = paid
+    client.cookies.clear()
+    public = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}").text
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+    board = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw").text
+    assert "/prijzen" not in public
+    assert f'hx-post="/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/prijzen"' in board
+    assert f'hx-target="#prijsblok-{component.id}"' in board

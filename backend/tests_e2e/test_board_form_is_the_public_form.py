@@ -18,6 +18,10 @@ Proven red on the old code (28 September 2026): the same test against a server
 built from `origin/master` before #1284 failed at both widths on the board, with
 "no price on the product row: 'Testproduct − +'" — the product name and a
 stepper, nothing else. That is the screen Koen reported.
+
+The member-row check (Koen's answer, #1284 reopened) was proven red the same way:
+against `origin/master` at c4f1ffe7 the row stayed "Testproduct €10,00" after a
+member's address was typed — only the total followed it.
 """
 import os
 import re
@@ -101,6 +105,10 @@ _MEASURE = """(productId) => {
 }"""
 
 
+_ROW = """(pid) => document.querySelector('input[name="product_' + pid + '"]')
+  .closest('.flex').innerText.split('\\n')[0]"""
+
+
 def _open_public(page, setup):
     page.goto("/activiteiten")
     page.click(f'button[hx-get="/activiteiten/{setup["activity"]}/inschrijven/{setup["component"]}"]')
@@ -147,12 +155,20 @@ def test_both_channels_show_prices_a_live_total_and_online(browser, setup, width
         _open_board(board, setup)
         _check(board, setup, f"board @{width}")
         assert "€20,00" in _set_quantity(board, setup, 2)
-        # The board's member price follows the TYPED address.
+        # The board's member price follows the TYPED address — rows and total,
+        # the entered quantity kept, and the address field keeps its focus
+        # (Koen, #1284: "ja, de productregel volgt het ingetypte ledenadres").
+        row_before = board.evaluate(_ROW, setup["product"])
         board.fill("#contact_email", setup["member"])
         board.locator("#contact_email").dispatch_event("change")
         htmx_stil(board)
         total = board.locator('[id^="totaal-"]').inner_text().strip()
         assert "€12,00" in total and "ledenprijs" in total, total
+        row_after = board.evaluate(_ROW, setup["product"])
+        assert "/ leden €6,00" not in row_before and "€10,00 / leden €6,00" in row_after, (
+            row_before, row_after)
+        assert board.locator(f'input[name="product_{setup["product"]}"]').input_value() == "2"
+        assert board.evaluate("document.activeElement && document.activeElement.id") == "contact_email"
         _check(board, setup, f"board @{width}, member")
     finally:
         context.close()
