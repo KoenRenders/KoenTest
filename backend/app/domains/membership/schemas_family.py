@@ -14,6 +14,10 @@ class FamilyMemberCreate(BaseModel):
     gender_code: Optional[str] = None
     gender: Optional[str] = None
     email: Optional[EmailStr] = None
+    # #1246: further addresses of this person. `email` is the primary one — at a
+    # first registration the first address typed is the primary address (Koen,
+    # 28 September 2026); these are stored beside it, not as primary.
+    extra_emails: List[EmailStr] = []
     phone: Optional[str] = None
     mobile: Optional[str] = None
     # CR-12 phase 2: form → router (Pydantic). An unknown relation type is now

@@ -10,5 +10,42 @@
   {{ ui.person_fields(name_prefix="m" ~ i ~ "_", id_prefix="m" ~ i ~ "_",
                       values=values, gender_codes=gender_codes,
                       relation_types=relation_types, hoofdlid=(i == 0),
-                      require_birth_gender=True) }}
+                      require_birth_gender=True, include_email=False) }}
+  {# #1246: the e-mail addresses as ROWS, the same fragment as the family portal
+     (#1219) — a member may have several, and each one logs in. The first row is
+     the primary address: at a first registration the first address typed is the
+     primary one (Koen, 28 September 2026), so it carries the "hoofdadres" label
+     and has no remove button. It keeps the plain `m<i>_email` name, which is what
+     the JSON API and the admin create screen already send; the extra rows are
+     `m<i>_email_new_<n>`.
+
+     A row without an id is passed as `{"id": none, "value": …}` so the typed
+     address survives a validation error. The extra rows come back from `values`. Their index
+     is `Date.now()` (13 digits), so `dictsort` puts them in the order they were
+     added. #}
+  {% set _prefix = "m" ~ i ~ "_" %}
+  <div>
+    <div class="flex items-center justify-between gap-2">
+      {{ ui.label(_("E-mailadressen"), _prefix ~ "email", required=(i == 0)) }}
+      <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+              hx-get="/lid-worden/email-rij" hx-target="#emails-{{ i }}" hx-swap="beforeend"
+              hx-vals='js:{member: {{ i }}, index: Date.now(), nummer: 1 + document.querySelectorAll("#emails-{{ i }} [data-email-rij]").length}'>{{ _("+ E-mailadres") }}</button>
+    </div>
+    <div id="emails-{{ i }}" class="mt-1 space-y-3">
+      {% with rij = {"id": none, "value": values.get(_prefix ~ "email", "")},
+              index = 0, nummer = 1, name_prefix = _prefix, first = true,
+              required = (i == 0), basis_url = "", doel = "", swap = "" %}
+        {% include "_email_rij.html" %}
+      {% endwith %}
+      {% for key, value in values|dictsort if key.startswith(_prefix ~ "email_new_") and value %}
+        {% with rij = {"id": none, "value": value},
+                index = key[(_prefix ~ "email_new_")|length:], nummer = loop.index + 1,
+                name_prefix = _prefix, first = false, required = false,
+                basis_url = "", doel = "", swap = "" %}
+          {% include "_email_rij.html" %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+    <p class="text-xs text-ink-soft mt-1">{{ _("Met elk van deze adressen kan je aanmelden. Het eerste is je hoofdadres.") }}</p>
+  </div>
 </div>
