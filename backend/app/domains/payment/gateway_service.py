@@ -8,11 +8,34 @@ from .providers.mollie import MollieProvider
 logger = logging.getLogger(__name__)
 
 
+class StubRefused(RuntimeError):
+    """The stub payment provider was asked for where it may not exist (#1274)."""
+
+
 def _get_provider(name: PaymentProvider = PaymentProvider.MOLLIE,
                   api_key: str | None = None):
-    if PaymentProvider(name) is PaymentProvider.MOLLIE:
+    """The provider object for a stored or chosen provider name.
+
+    Runs for every real payment and every status re-fetch, so the brake on the
+    stub sits **inside the stub's branch** and nowhere else: a check in front of
+    the whole function would be one typo away from refusing Mollie itself.
+    """
+    provider = PaymentProvider(name)
+    if provider is PaymentProvider.MOLLIE:
         return MollieProvider(api_key=api_key)
+    if provider is PaymentProvider.STUB:
+        if not settings.payment_stub_allowed:
+            raise StubRefused(
+                f"The stub payment provider does not exist in APP_ENV={settings.app_env}.")
+        from .providers.stub import StubProvider
+
+        return StubProvider(api_key=api_key)
     raise ValueError(f"Unknown payment provider: {name}")
+
+
+def configured_provider() -> PaymentProvider:
+    """The provider new online payments go to — `settings.payment_provider`."""
+    return PaymentProvider(settings.payment_provider)
 
 
 def create_payment(
@@ -21,10 +44,11 @@ def create_payment(
     description: str,
     redirect_url: str,
     metadata: dict,
-    provider_name: PaymentProvider = PaymentProvider.MOLLIE,
+    provider_name: PaymentProvider | None = None,
 ) -> GatewayPayment:
     from app.kernel.tenant_config import get_setting, tenant_mollie_key
 
+    provider_name = provider_name or configured_provider()
     # Per-tenant Mollie-key en webhook-origin (fase 5b, #406); .env als default.
     provider = _get_provider(provider_name, api_key=tenant_mollie_key(db))
     webhook_base = (get_setting(db, "base_url") or settings.public_url).rstrip("/")

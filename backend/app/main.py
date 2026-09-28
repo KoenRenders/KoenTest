@@ -57,6 +57,7 @@ from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de 
 from app.domains.newsletter.handlers import send_newsletter  # noqa: F401 - registreert de newsletter.send-job (#984)
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.ui import router as payment_ui_router
+from app.domains.payment.stub_router import include_stub_routes
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
 from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
 from app.domains.designstudio.handlers import generate_image  # noqa: F401 - registers the designstudio.generate job (#1007)
@@ -184,6 +185,9 @@ def favicon() -> FileResponse:
                         headers={"Cache-Control": "public, max-age=86400"})
 
 
+# #1274: the stub payment provider's pretend checkout page and webhook — only in
+# development and the tests. Elsewhere these routes are never registered.
+include_stub_routes(app, allowed=settings.payment_stub_allowed)
 # LAATSTE: publieke site-kern — bevat de /{slug}-catch-all (#405)
 app.include_router(cms_public_ui_router)
 

@@ -74,6 +74,12 @@ PAYABLE_TYPE = CodeList(
 
 PAYMENT_PROVIDER_CODES = (
     CodeSeed(code="mollie", nl="Mollie", en="Mollie", sort_order=10),
+    # #1274: seeded retired. The row has to exist — the foreign key on
+    # `gateway_payments.provider` would refuse a stub payment in development
+    # otherwise — but on every environment, PROD included, it is not an active
+    # code, so no list ever offers it. The real brake is in the code.
+    CodeSeed(code="stub", nl="Testbetaling (enkel ontwikkeling)",
+             en="Test payment (development only)", sort_order=90, is_active=False),
 )
 
 PAYMENT_PROVIDER = CodeList(

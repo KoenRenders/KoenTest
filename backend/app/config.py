@@ -15,6 +15,12 @@ WEAK_SECRET_KEYS = {
 }
 
 
+#: #1274: the only environments where the stub payment provider may be chosen,
+#: and where its pretend checkout page and webhook exist at all. Not `hdev`:
+#: HDEV is where Koen validates, and it runs the real Mollie test mode.
+PAYMENT_STUB_ENVIRONMENTS = ("dev", "test")
+
+
 class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/raakmillegem"
     secret_key: str
@@ -33,6 +39,13 @@ class Settings(BaseSettings):
     email_log_retention_days: int = 365
 
     mollie_api_key: Optional[str] = None
+
+    # #1274: which payment provider new online payments go to. `mollie` in every
+    # real environment. `stub` is a stand-in that plays the provider's part
+    # without money, for the e2e tests of the payment chain — and it is refused
+    # outside `PAYMENT_STUB_ENVIRONMENTS`, at start-up (below) and again at the
+    # moment a provider is chosen (`payment/gateway_service._get_provider`).
+    payment_provider: str = "mollie"
 
     # Chatbot 'Raakje' (#205). LLM-provider zit achter een swapbaar laagje.
     # chat_llm_provider: 'auto' (Mistral zodra er een key staat, anders mock),
@@ -265,10 +278,22 @@ class Settings(BaseSettings):
         token = str(v).split()[0] if str(v).strip() else ""
         return token or None
 
+    @property
+    def payment_stub_allowed(self) -> bool:
+        """The one place that says where the stub payment provider may exist."""
+        return self.app_env in PAYMENT_STUB_ENVIRONMENTS
+
     @model_validator(mode="after")
     def _enforce_secure_config(self):
         # Strenge controles enkel in de echte omgevingen (uat/prod).
         # dev/hdev/build mogen losser zijn voor lokaal werk en build-checks.
+        # #1274: a stub payment provider marks registrations paid without money.
+        # Anywhere but development and the tests, it must not start at all.
+        if self.payment_provider == "stub" and not self.payment_stub_allowed:
+            raise ValueError(
+                f"PAYMENT_PROVIDER=stub mag niet in APP_ENV={self.app_env}: de stub "
+                "markeert betalingen als betaald zonder geld. Enkel in "
+                f"{', '.join(PAYMENT_STUB_ENVIRONMENTS)}.")
         if self.app_env in ("uat", "prod"):
             if self.secret_key in WEAK_SECRET_KEYS or len(self.secret_key) < 32:
                 raise ValueError(
