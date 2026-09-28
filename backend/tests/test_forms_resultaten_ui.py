@@ -6,7 +6,7 @@ import json
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from tests.test_forms import _create_form, _field_id, _option_id
+from tests.integration.test_forms import _create_form, _field_id, _option_id
 
 
 def _login(client):

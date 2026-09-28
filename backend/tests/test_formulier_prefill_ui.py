@@ -4,7 +4,7 @@ en e-mail al ingevuld (zonder een reeds getypte waarde te overschrijven)."""
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import create_test_family
-from tests.test_forms import _create_form
+from tests.integration.test_forms import _create_form
 
 
 def test_form_prefilled_for_logged_in_member(client, admin_headers, db_session):
