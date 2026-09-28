@@ -305,6 +305,12 @@ def parse_member_rows(form) -> list[dict]:
         rij = {k: (form.get(f"m{index}_{k}") or "").strip() for k in
                ("first_name", "last_name", "date_of_birth", "gender_code",
                 "email", "phone", "mobile", "relation_type")}
+        # #1246: the extra e-mail rows of Word lid, in the order they were added.
+        # `email` stays the first row — the primary address.
+        rij["extra_emails"] = [
+            value.strip() for key, value in form.items()
+            if key.startswith(f"m{index}_email_new_") and isinstance(value, str)
+            and value.strip()]
         if rij["first_name"] or rij["last_name"]:
             rijen.append(rij)
     return rijen

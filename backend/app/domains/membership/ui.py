@@ -56,6 +56,27 @@ def persoon_rij(request: Request, db: Session = Depends(get_db)):
         **_codes(db), "i": index, "values": {}})
 
 
+@router.get("/lid-worden/email-rij", response_class=HTMLResponse)
+def email_row(request: Request):
+    """One extra e-mail row for member `member` of the Word lid form (#1246).
+
+    The same fragment as the family portal (#1219). A row added here is never the
+    first one, so it is never the primary address and can be removed again; the
+    family does not exist yet, so the row has no id and no server actions.
+    """
+    def _int(name: str, default: int, minimum: int) -> int:
+        try:
+            return max(minimum, int(request.query_params.get(name, default)))
+        except ValueError:
+            return default
+
+    from app.domains.membership.viewmodels import EmailRowView
+
+    view = EmailRowView(index=_int("index", 1, 1), nummer=_int("nummer", 2, 2),
+                        name_prefix=f"m{_int('member', 0, 0)}_")
+    return templates.TemplateResponse(request, "_email_rij.html", view.as_context())
+
+
 def _parse_members(form) -> list[dict]:
     """Doorgeefluik naar de gedeelde ontleding (#1110) — het beheerscherm gebruikt
     dezelfde veldnamen en dus dezelfde functie."""
@@ -99,8 +120,8 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
                 first_name=m["first_name"], last_name=m["last_name"],
                 date_of_birth=m["date_of_birth"] or None,
                 gender_code=m["gender_code"] or None,
-                email=m["email"] or None, phone=m["phone"] or None,
-                mobile=m["mobile"] or None,
+                email=m["email"] or None, extra_emails=m["extra_emails"],
+                phone=m["phone"] or None, mobile=m["mobile"] or None,
                 relation_type=m["relation_type"] or ("HOOFDLID" if not members.index(m) else "PARTNER"),
             ) for m in members],
         )
