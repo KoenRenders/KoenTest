@@ -32,12 +32,12 @@ Broken on purpose to check that these tests can go red:
 - `platform_tenant` dropped from the middleware call (back to the pre-#854 fallback) →
   the resolution tests and the mail test fall over, the tenant-host test stays green.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import OrganizationType
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -71,18 +71,23 @@ def test_the_migration_created_exactly_one_platform_row(db_session):
     """The floor under everything below: without this row the rest is vacuous (#678)."""
     from app.domains.mdm.api import Organization
 
-    rows = (db_session.query(Organization)
-            .filter(Organization.org_type == OrganizationType.PLATFORM).all())
+    rows = (
+        db_session.query(Organization)
+        .filter(Organization.org_type == OrganizationType.PLATFORM)
+        .all()
+    )
 
     assert len(rows) == 1, f"expected one PLATFORM organization, found {len(rows)}"
     assert rows[0].parent_id is None, (
         "the platform hangs under an account; row 1 is the customer and the platform "
-        "is not that customer")
+        "is not that customer"
+    )
 
 
 @pytest.mark.parametrize("path", ["/aanmelden", "/activiteiten"])
-def test_a_platform_host_resolves_to_the_platform_on_every_path(client, db_session,
-                                                                platform_host, path):
+def test_a_platform_host_resolves_to_the_platform_on_every_path(
+    client, db_session, platform_host, path
+):
     """#853: every path, not only `/`. `/aanmelden` is the screen Koen reported.
 
     `/` is deliberately NOT in this list — that is the landing page, and it names the
@@ -94,10 +99,10 @@ def test_a_platform_host_resolves_to_the_platform_on_every_path(client, db_sessi
     resp = client.get(path, headers={"host": platform_host})
 
     assert resp.status_code == 200, resp.text[:200]
-    assert "Digital Platform" in resp.text, (
-        "the platform host does not show the platform name")
+    assert "Digital Platform" in resp.text, "the platform host does not show the platform name"
     assert "Raak Millegem" not in resp.text, (
-        "the shell of an afdeling on a platform host — that is #853")
+        "the shell of an afdeling on a platform host — that is #853"
+    )
     assert platform_tenant_id(db=db_session) is not None
 
 
@@ -112,7 +117,8 @@ def test_the_landing_page_still_lists_the_afdelingen(client, db_session, platfor
 
 
 def test_the_login_mail_from_a_platform_host_carries_the_platform_name(
-        client, db_session, platform_host, monkeypatch):
+    client, db_session, platform_host, monkeypatch
+):
     """The name reaches the mail along a different road than the shell, so this is the
     test that goes red again soonest.
 
@@ -133,15 +139,17 @@ def test_the_login_mail_from_a_platform_host_carries_the_platform_name(
 
     # A KNOWN address: `start_login` stays silent for an unknown one — deliberately,
     # so the screen never reveals who has an account.
-    resp = client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL},
-                       headers={"host": platform_host})
+    resp = client.post(
+        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+    )
 
     assert resp.status_code == 200
     assert verstuurd, "no mail was sent at all"
     assert "Digital Platform" in verstuurd["subject"], verstuurd["subject"]
     assert "Raak Millegem" not in verstuurd["subject"]
     assert "Raak Millegem" not in verstuurd["html"], (
-        "the signature still carries the name of an afdeling")
+        "the signature still carries the name of an afdeling"
+    )
 
 
 def test_the_tenant_list_survives_the_global_filter(client, db_session, platform_host):
@@ -158,10 +166,11 @@ def test_the_tenant_list_survives_the_global_filter(client, db_session, platform
     for name in ("Raak Millegem", "Raak Voorbeeldafdeling"):
         assert name in resp.text, (
             f"{name} is missing from the tenant list while the platform is the active "
-            f"tenant — the global filter is shrinking the one screen that must see all")
+            f"tenant — the global filter is shrinking the one screen that must see all"
+        )
     assert "Digital Platform" in resp.text, (
-        "the platform itself is not configurable, while it carries settings like any "
-        "tenant")
+        "the platform itself is not configurable, while it carries settings like any tenant"
+    )
 
 
 def test_the_platform_is_not_reachable_as_a_path_prefix(client, db_session):
@@ -172,11 +181,11 @@ def test_the_platform_is_not_reachable_as_a_path_prefix(client, db_session):
     codes = tenant_codes(db=db_session)
 
     assert "platform" not in codes, (
-        "the platform is in the code→id map, so /platform/… would open a site")
+        "the platform is in the code→id map, so /platform/… would open a site"
+    )
 
 
-def test_the_platform_settings_page_offers_no_membership_fields(client, db_session,
-                                                                platform_host):
+def test_the_platform_settings_page_offers_no_membership_fields(client, db_session, platform_host):
     """A platform has no members, so no membership fee. Offer the field and somebody
     eventually fills it in, and then a value sits there that nobody can explain."""
     from app.domains.mdm.api import platform_tenant_id

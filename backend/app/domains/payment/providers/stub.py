@@ -16,6 +16,7 @@ recorded a payment, so a webhook that arrives before that must still see *open*.
 The state lives in this process. That is enough for what it is for: the test
 server runs one worker, and `pytest` runs in one process.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -54,17 +55,21 @@ class StubProvider(BaseProvider):
         # A real provider needs the tenant's key; the stub has no account.
         self._api_key = api_key
 
-    def create_payment(self, amount: Decimal, description: str, redirect_url: str,
-                       webhook_url: str, metadata: dict) -> PaymentResult:
+    def create_payment(
+        self, amount: Decimal, description: str, redirect_url: str, webhook_url: str, metadata: dict
+    ) -> PaymentResult:
         payment_id = f"stub_{secrets.token_hex(8)}"
-        PAYMENTS[payment_id] = StubPayment(amount=Decimal(str(amount)),
-                                           redirect_url=redirect_url,
-                                           webhook_url=webhook_url)
-        return PaymentResult(provider_payment_id=payment_id,
-                             checkout_url=f"{CHECKOUT_PATH}/{payment_id}",
-                             status=PaymentStatus.PENDING.value)
+        PAYMENTS[payment_id] = StubPayment(
+            amount=Decimal(str(amount)), redirect_url=redirect_url, webhook_url=webhook_url
+        )
+        return PaymentResult(
+            provider_payment_id=payment_id,
+            checkout_url=f"{CHECKOUT_PATH}/{payment_id}",
+            status=PaymentStatus.PENDING.value,
+        )
 
     def get_payment_details(self, provider_payment_id: str) -> PaymentStatusResult:
         payment = PAYMENTS[provider_payment_id]
-        return PaymentStatusResult(status=payment.status.value, amount=payment.amount,
-                                   currency="EUR")
+        return PaymentStatusResult(
+            status=payment.status.value, amount=payment.amount, currency="EUR"
+        )

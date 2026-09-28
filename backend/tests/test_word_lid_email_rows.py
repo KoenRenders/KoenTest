@@ -23,6 +23,7 @@ Broken on purpose to check these tests can go red (run, then restored):
     two-address test fails with only the primary stored, and the login test
     with "the second address does not log in".
 """
+
 from __future__ import annotations
 
 import re
@@ -36,11 +37,16 @@ pytestmark = pytest.mark.ui_serverrendered
 
 def _form(email: str, *extra: str, **overrides) -> dict:
     data = {
-        "m0_first_name": "Rij", "m0_last_name": "Proef-1246",
-        "m0_date_of_birth": "1985-05-05", "m0_gender_code": "F",
-        "m0_mobile": "0470000001", "m0_relation_type": "HOOFDLID",
+        "m0_first_name": "Rij",
+        "m0_last_name": "Proef-1246",
+        "m0_date_of_birth": "1985-05-05",
+        "m0_gender_code": "F",
+        "m0_mobile": "0470000001",
+        "m0_relation_type": "HOOFDLID",
         "m0_email": email,
-        "street": "Proefstraat", "house_number": "1", "postal_code": "",
+        "street": "Proefstraat",
+        "house_number": "1",
+        "postal_code": "",
         "payment_method": "transfer",
     }
     for n, address in enumerate(extra, start=1):
@@ -64,12 +70,14 @@ def postal_code(db_session):
 def _addresses(db, email: str) -> dict[str, bool]:
     """The e-mail rows of the person who owns `email`, as {value: is_primary}."""
     db.expire_all()
-    person_id = (db.query(ContactDetail.person_id)
-                 .filter(ContactDetail.value == email).scalar())
+    person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == email).scalar()
     assert person_id, f"no person was stored with {email}"
     person = db.get(Person, person_id)
-    return {c.value: bool(c.is_primary) for c in person.contact_details
-            if c.contact_type_code == "EMAIL"}
+    return {
+        c.value: bool(c.is_primary)
+        for c in person.contact_details
+        if c.contact_type_code == "EMAIL"
+    }
 
 
 def test_the_form_draws_rows_and_one_primary_field(client):
@@ -80,7 +88,7 @@ def test_the_form_draws_rows_and_one_primary_field(client):
     start = html.find('id="m0_email"')
     assert start != -1, "the first e-mail row is not on the page"
     end = html.find("data-email-rij", start)
-    first_row = html[start:end if end != -1 else start + 2000]
+    first_row = html[start : end if end != -1 else start + 2000]
     assert "hoofdadres" in first_row, "the first row carries no primary label"
     assert "Verwijderen" not in first_row, "the primary row must not be removable"
 
@@ -124,8 +132,7 @@ def test_the_second_address_logs_in(client, db_session, postal_code):
     first, second = "rij.login1-1246@example.com", "rij.login2-1246@example.com"
     client.post("/lid-worden", data=_form(first, second, postal_code=postal_code))
     db_session.expire_all()
-    owner = (db_session.query(ContactDetail.person_id)
-             .filter(ContactDetail.value == first).scalar())
+    owner = db_session.query(ContactDetail.person_id).filter(ContactDetail.value == first).scalar()
     person = login_person_for_email(db_session, second)
     assert person is not None, "the second address does not log in"
     assert getattr(person, "id", person) == owner

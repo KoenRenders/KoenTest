@@ -6,6 +6,7 @@ Invarianten:
   Mollie-key, Gmail-app-password) — bescherming tegen per-ongeluk lekken;
 - Mollie wordt enkel als modus-label getoond, nooit de sleutel zelf.
 """
+
 import json
 
 from app.config import settings

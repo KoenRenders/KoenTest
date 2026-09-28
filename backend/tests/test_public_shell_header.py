@@ -2,6 +2,7 @@
 volledige SiteShell (site_base) met header/nav tonen — anders zit de bezoeker in
 een navigatietrap (geen weg terug naar de homepage). We checken dat de nav-links
 aanwezig zijn op elke betrokken publieke pagina."""
+
 import pytest
 
 # Een link die ALLEEN in de SiteShell-header staat (site_base.html), niet in de
@@ -9,12 +10,15 @@ import pytest
 NAV_MARKER = 'href="/fotos"'
 
 
-@pytest.mark.parametrize("path", [
-    "/activiteiten",
-    "/activiteiten/archief",
-    "/berichten",
-    "/aanmelden",
-])
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/activiteiten",
+        "/activiteiten/archief",
+        "/berichten",
+        "/aanmelden",
+    ],
+)
 def test_public_page_has_site_header(client, path):
     resp = client.get(path)
     assert resp.status_code == 200, resp.text
@@ -31,6 +35,7 @@ def test_archief_redirect_lands_on_page_with_header(client):
 
 # ── Footer + aanmelden (HDEV-testbevindingen 17 juli) ──────────────────────────
 
+
 def test_footer_sociale_links_zijn_iconen(client, db_session):
     """#491/#519: mét een Facebook-URL is de sociale link in de footer een icoon
     (inline SVG), geen platte tekst. Zonder waarde geen (kapotte lege) link — er is
@@ -46,16 +51,23 @@ def test_footer_sociale_links_zijn_iconen(client, db_session):
     from app.kernel.tenant_config import _actieve_tenant
 
     # De tenant die de schil werkelijk gebruikt: de UNIT, niet het ACCOUNT.
-    organisatie = (db_session.query(Organization)
-                   .filter(Organization.id == _actieve_tenant(None))
-                   .execution_options(include_all_tenants=True).one())
+    organisatie = (
+        db_session.query(Organization)
+        .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
     # #945: een sociale link is een rij in `contact_details`, geen kolom.
     from app.domains.mdm.api import ContactDetail
 
-    db_session.add(ContactDetail(tenant_id=organisatie.id,
-                                 organization_id=organisatie.id,
-                                 contact_type_code="FACEBOOK",
-                                 value="https://www.facebook.com/raakvoorbeeld"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=organisatie.id,
+            organization_id=organisatie.id,
+            contact_type_code="FACEBOOK",
+            value="https://www.facebook.com/raakvoorbeeld",
+        )
+    )
     db_session.commit()
     html = client.get("/aanmelden").text
     assert 'aria-label="Facebook"' in html

@@ -21,6 +21,7 @@ of a submitted form. A `Channel` carries what differs, and nothing else does:
 the member price by typing a member's address; its person comes from the
 session. The board's does, because the board member is not the one registering.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -28,10 +29,9 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.kernel.codes import TechnicalEnum
-
 from app.domains.activities.service import publicly_bookable_products
 from app.domains.activities.totals import has_payable_products, quote_lines
+from app.kernel.codes import TechnicalEnum
 
 
 @dataclass(frozen=True)
@@ -55,9 +55,12 @@ def public_channel(db: Session, activity, component, session_email: str) -> Chan
     from app.domains.auth.api import login_person_for_email
 
     base = f"/activiteiten/{activity.id}/inschrijven/{component.id}"
-    return Channel(backoffice=False,
-                   person=login_person_for_email(db, session_email) if session_email else None,
-                   form_url=base, total_url=f"{base}/totaal")
+    return Channel(
+        backoffice=False,
+        person=login_person_for_email(db, session_email) if session_email else None,
+        form_url=base,
+        total_url=f"{base}/totaal",
+    )
 
 
 def board_channel(db: Session, activity, component, typed_email: str) -> Channel:
@@ -65,9 +68,13 @@ def board_channel(db: Session, activity, component, typed_email: str) -> Channel
 
     typed = (typed_email or "").strip()
     base = f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw"
-    return Channel(backoffice=True,
-                   person=login_person_for_email(db, typed) if "@" in typed else None,
-                   form_url=base, total_url=f"{base}/totaal", prices_url=f"{base}/prijzen")
+    return Channel(
+        backoffice=True,
+        person=login_person_for_email(db, typed) if "@" in typed else None,
+        form_url=base,
+        total_url=f"{base}/totaal",
+        prices_url=f"{base}/prijzen",
+    )
 
 
 def is_member(person) -> bool:
@@ -134,9 +141,15 @@ def form_products(component, channel: Channel) -> list:
     return publicly_bookable_products(component)
 
 
-def form_context(channel: Channel, activity, component, *, values: dict | None = None,
-                 quantities: dict[int, int] | None = None,
-                 error: str | None = None) -> dict:
+def form_context(
+    channel: Channel,
+    activity,
+    component,
+    *,
+    values: dict | None = None,
+    quantities: dict[int, int] | None = None,
+    error: str | None = None,
+) -> dict:
     """The one context of the form's fields, for either channel.
 
     Rows, opening quantity and total come from one product list, through
@@ -151,11 +164,18 @@ def form_context(channel: Channel, activity, component, *, values: dict | None =
         quantities = {p.id: opening for p in products}
     total, _lines = quote_lines(component, quantities, member)
     return {
-        "activity": activity, "component": component, "is_member": member,
-        "person": channel.person, "error": error, "totaal": total,
-        "values": values or {}, "heeft_prijs": has_payable_products(component, member),
-        "standaard_aantal": opening, "producten": products,
-        "form_url": channel.form_url, "totaal_url": channel.total_url,
+        "activity": activity,
+        "component": component,
+        "is_member": member,
+        "person": channel.person,
+        "error": error,
+        "totaal": total,
+        "values": values or {},
+        "heeft_prijs": has_payable_products(component, member),
+        "standaard_aantal": opening,
+        "producten": products,
+        "form_url": channel.form_url,
+        "totaal_url": channel.total_url,
         "prijzen_url": channel.prices_url,
     }
 
@@ -164,8 +184,11 @@ def total_context(channel: Channel, component, form) -> dict:
     """What `_inschrijf_totaal.html` needs after a change (§19.3 — no drift)."""
     member = is_member(channel.person)
     total, _lines = quote_lines(component, form_quantities(form), member)
-    return {"totaal": total, "is_member": member,
-            "heeft_prijs": has_payable_products(component, member)}
+    return {
+        "totaal": total,
+        "is_member": member,
+        "heeft_prijs": has_payable_products(component, member),
+    }
 
 
 class OutcomeKind(TechnicalEnum):
@@ -190,8 +213,9 @@ class Outcome:
     name: str = ""
 
 
-def submit(db: Session, channel: Channel, activity, component, form, background_tasks, *,
-           actor: str = "") -> Outcome:
+def submit(
+    db: Session, channel: Channel, activity, component, form, background_tasks, *, actor: str = ""
+) -> Outcome:
     """Process one submitted form — the same steps for both channels.
 
     `actor` is the board member's address, for the audit trail; the public way
@@ -226,34 +250,46 @@ def submit(db: Session, channel: Channel, activity, component, form, background_
             contact_email=values.get("contact_email", "").strip(),
             phone=values.get("phone", "").strip(),
             team_name=(values.get("team_name") or "").strip() or None,
-            payment_method=((values.get("payment_method") or PaymentMethod.ONLINE.value)
-                            if ctx["totaal"] > 0 else None),
+            payment_method=(
+                (values.get("payment_method") or PaymentMethod.ONLINE.value)
+                if ctx["totaal"] > 0
+                else None
+            ),
             component_id=component.id,
-            items=[RegistrationItemCreate(product_id=pid, quantity=qty)
-                   for pid, qty in quantities.items() if qty > 0],
-            remarks=(values.get("remarks") or "").strip() or None)
+            items=[
+                RegistrationItemCreate(product_id=pid, quantity=qty)
+                for pid, qty in quantities.items()
+                if qty > 0
+            ],
+            remarks=(values.get("remarks") or "").strip() or None,
+        )
     except ValidationError:
         # `contact_refusal` checked that there is an address; the schema checks
         # that it IS one.
         return refused("Dat e-mailadres is niet geldig.")
 
-    from app.domains.activities.api import (board_register_for_activity,
-                                            register_for_activity)
+    from app.domains.activities.api import board_register_for_activity, register_for_activity
 
     try:
         if channel.backoffice:
             person_id = channel.person.id if channel.person is not None else None
-            result = board_register_for_activity(db, activity.id, data, background_tasks,
-                                                 actor=actor, person_id=person_id)
+            result = board_register_for_activity(
+                db, activity.id, data, background_tasks, actor=actor, person_id=person_id
+            )
         else:
-            result = register_for_activity(db, activity.id, data, background_tasks,
-                                           current_member=channel.person)
+            result = register_for_activity(
+                db, activity.id, data, background_tasks, current_member=channel.person
+            )
     except HTTPException as exc:
         return refused(str(exc.detail))
 
     registration_id = result.get("id")
     checkout_url = result.get("checkout_url") or ""
     if checkout_url:
-        return Outcome(kind=OutcomeKind.CHECKOUT, checkout_url=checkout_url,
-                       registration_id=registration_id, name=name)
+        return Outcome(
+            kind=OutcomeKind.CHECKOUT,
+            checkout_url=checkout_url,
+            registration_id=registration_id,
+            name=name,
+        )
     return Outcome(kind=OutcomeKind.DONE, registration_id=registration_id, name=name)

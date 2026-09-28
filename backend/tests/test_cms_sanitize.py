@@ -2,6 +2,7 @@
 server-side vervanger van de oude DOMPurify. Enkel de door de editor geproduceerde
 tags/attributen blijven; scripts, event-handlers en javascript:-URL's verdwijnen.
 """
+
 from app.domains.cms.api import sanitize_cms_html
 
 
@@ -22,8 +23,10 @@ def test_blocks_javascript_url_but_keeps_safe_link():
 
 
 def test_keeps_editor_formatting():
-    ok = ("<h2>Titel</h2><p><strong>vet</strong> <em>schuin</em></p>"
-          "<ul><li>een</li><li>twee</li></ul><blockquote>citaat</blockquote>")
+    ok = (
+        "<h2>Titel</h2><p><strong>vet</strong> <em>schuin</em></p>"
+        "<ul><li>een</li><li>twee</li></ul><blockquote>citaat</blockquote>"
+    )
     clean = sanitize_cms_html(ok)
     for tag in ("<h2>", "<strong>", "<em>", "<ul>", "<li>", "<blockquote>"):
         assert tag in clean
@@ -34,13 +37,24 @@ def test_trix_output_tags_survive_sanitisation():
     <pre>, <ul>/<li> — die moeten de sanitisatie overleven (geen inhoudsverlies bij
     de editor-omschakeling van execCommand naar Trix), terwijl een script nog steeds
     sneuvelt."""
-    trix = ('<h1>Kop</h1><div>Regel met <strong>vet</strong> en <em>schuin</em>.</div>'
-            '<ul><li>een</li><li>twee</li></ul><blockquote>citaat</blockquote>'
-            '<pre>code</pre><a href="https://raakmillegem.be">link</a>'
-            '<script>evil()</script>')
+    trix = (
+        "<h1>Kop</h1><div>Regel met <strong>vet</strong> en <em>schuin</em>.</div>"
+        "<ul><li>een</li><li>twee</li></ul><blockquote>citaat</blockquote>"
+        '<pre>code</pre><a href="https://raakmillegem.be">link</a>'
+        "<script>evil()</script>"
+    )
     clean = sanitize_cms_html(trix)
-    for tag in ("<h1>", "<div>", "<strong>", "<em>", "<ul>", "<li>",
-                "<blockquote>", "<pre>", 'href="https://raakmillegem.be"'):
+    for tag in (
+        "<h1>",
+        "<div>",
+        "<strong>",
+        "<em>",
+        "<ul>",
+        "<li>",
+        "<blockquote>",
+        "<pre>",
+        'href="https://raakmillegem.be"',
+    ):
         assert tag in clean, tag
     assert "<script>" not in clean and "evil()" not in clean
 
@@ -53,8 +67,7 @@ def test_none_and_empty_passthrough():
 def test_h2_h3_en_bron_sanitisatie():
     """#555: H2/H3-koppen overleven de sanitisatie; een <script> uit de HTML-bron
     wordt gestript (de sanitisatie geldt ongeacht editor- of bron-invoer)."""
-    dirty = ("<h2>Kop twee</h2><h3>Kop drie</h3><p>ok</p>"
-             "<script>alert(1)</script>")
+    dirty = "<h2>Kop twee</h2><h3>Kop drie</h3><p>ok</p><script>alert(1)</script>"
     clean = sanitize_cms_html(dirty)
     assert "<h2>" in clean and "<h3>" in clean
     assert "<script>" not in clean and "alert(1)" not in clean

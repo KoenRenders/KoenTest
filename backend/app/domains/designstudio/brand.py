@@ -10,6 +10,7 @@ renders them today.
 Three duos are enabled for the picker (Koen, 16 September 2026 — the ones the
 unit uses today); enabling another is a one-line change in ``ENABLED_DUOS``.
 """
+
 from __future__ import annotations
 
 import re
@@ -26,7 +27,8 @@ class Colour:
 
 
 COLOURS: dict[str, Colour] = {
-    c.code: c for c in (
+    c.code: c
+    for c in (
         Colour("golden_yellow", "Golden Yellow", "#ffce00", (0, 18, 100, 0), "Yellow 012"),
         Colour("pumpkin_orange", "Pumpkin Orange", "#f16532", (0, 75, 89, 0), "1645"),
         Colour("cool_green", "Cool Green", "#3aba9b", (70, 0, 51, 0), "3255"),
@@ -64,7 +66,7 @@ ENABLED_DUOS: tuple[str, ...] = (
     "dark_green-golden_yellow",
     "ocean_blue-golden_yellow",
     "golden_yellow-indigo",
-    "indigo-golden_yellow",     # the reverse — purple tile, yellow accent (Koen, 19 Sep 2026)
+    "indigo-golden_yellow",  # the reverse — purple tile, yellow accent (Koen, 19 Sep 2026)
 )
 
 #: The guide's general rule: at most four or five colours per design. Counted
@@ -86,8 +88,9 @@ def split_duo(code: str) -> tuple[str, str]:
     return tile, accent
 
 
-def palette_for(duo_code: str,
-                accents: tuple[str, str, str] = ("hot_pink", "cool_green", "watermelon_red")) -> dict[str, str]:
+def palette_for(
+    duo_code: str, accents: tuple[str, str, str] = ("hot_pink", "cool_green", "watermelon_red")
+) -> dict[str, str]:
     """The named colours a template may use for one design: the duo plus three
     accents and white — five brand colours, the guide's maximum. Templates take
     colours from this mapping only."""

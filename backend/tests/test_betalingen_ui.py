@@ -1,11 +1,11 @@
 """Fase 3b (#401): server-rendered betalingen-scherm — matrix, FINANCE-refunds,
 bevestigen en export (sessie + CSRF)."""
+
 from decimal import Decimal
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
-from app.domains.payment.api import PaymentRecord
-from app.domains.payment.api import PaymentStatus, PaymentType
+from app.domains.payment.api import PaymentRecord, PaymentStatus, PaymentType
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -22,8 +22,13 @@ def _make_finance(db):
 
 
 def _record(db, amount="25.00", status="pending", payable_id=1):
-    rec = PaymentRecord(payable_type="membership", payable_id=payable_id,
-                        amount=Decimal(amount), method="transfer", status=status)
+    rec = PaymentRecord(
+        payable_type="membership",
+        payable_id=payable_id,
+        amount=Decimal(amount),
+        method="transfer",
+        status=status,
+    )
     db.add(rec)
     db.flush()
     return rec
@@ -54,15 +59,13 @@ def test_bevestigen_is_finance_only(client, db_session):
     value = make_session_value("alleen-admin@example.com")
     client.cookies.set(SESSION_COOKIE, value)
     csrf = csrf_token_for(value)
-    resp = client.post(f"/admin/betalingen/{rec.id}/bevestigen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/betalingen/{rec.id}/bevestigen", headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 403
 
     # Met FINANCE (de geseede beheerder) lukt het wel.
     _make_finance(db_session)
     csrf = _login(client)
-    ok = client.post(f"/admin/betalingen/{rec.id}/bevestigen",
-                     headers={"X-CSRF-Token": csrf})
+    ok = client.post(f"/admin/betalingen/{rec.id}/bevestigen", headers={"X-CSRF-Token": csrf})
     assert ok.status_code == 200
     db_session.expire_all()
     assert rec.status == PaymentStatus.PAID and rec.amount_paid == Decimal("25.00")
@@ -75,12 +78,13 @@ def test_refund_via_scherm(client, db_session):
     _make_finance(db_session)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/betalingen/{rec.id}/refund",
-                       data={"amount": "10,00", "note": "Deels terug"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/betalingen/{rec.id}/refund",
+        data={"amount": "10,00", "note": "Deels terug"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
-    refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.refund_of_id == rec.id).one())
+    refund = db_session.query(PaymentRecord).filter(PaymentRecord.refund_of_id == rec.id).one()
     assert refund.type == PaymentType.REFUND and refund.amount == Decimal("-10.00")
 
     # Meer terugbetalen dan netto ontvangen wordt geweigerd. Sinds #723 met een 200
@@ -88,15 +92,17 @@ def test_refund_via_scherm(client, db_session):
     # bij de gebruiker aan als "Er ging iets mis". De inhoudelijke controle op die
     # melding staat in test_betaling_fout_toont_de_reden.py.
     rec_id = rec.id
-    fout = client.post(f"/admin/betalingen/{rec_id}/refund",
-                       data={"amount": "1000"},
-                       headers={"X-CSRF-Token": csrf})
+    fout = client.post(
+        f"/admin/betalingen/{rec_id}/refund",
+        data={"amount": "1000"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert fout.status_code == 200
     assert "terugbetalen" in fout.text
     db_session.expire_all()
-    assert not db_session.query(PaymentRecord).filter(
-        PaymentRecord.amount == Decimal("-1000")).all(), (
-        "de geweigerde terugbetaling is toch aangemaakt")
+    assert (
+        not db_session.query(PaymentRecord).filter(PaymentRecord.amount == Decimal("-1000")).all()
+    ), "de geweigerde terugbetaling is toch aangemaakt"
 
 
 def test_export_downloads_ods(client, db_session):
@@ -118,8 +124,7 @@ def test_geneste_refund_heeft_bewerken_editor(client, db_session):
     charge.amount_paid = Decimal("30.00")
     db_session.flush()
     # Nog-niet-uitbetaalde terugbetaling (pending) genest onder de charge.
-    refund = create_refund(db_session, charge.id, Decimal("10.00"),
-                           actor="fin@test", settled=False)
+    refund = create_refund(db_session, charge.id, Decimal("10.00"), actor="fin@test", settled=False)
     db_session.commit()
 
     _login(client)
@@ -135,17 +140,26 @@ def _registratie_record(db, naam: str, amount: str, ogm: str, status="pending"):
     registratie (status_router). Op het record zetten doet dus niets — dan zoek je
     naar iets wat de lijst nooit rendert.
     """
-    from tests.conftest import seed_activity_with_product
     from app.domains.activities.api import Registration
+    from tests.conftest import seed_activity_with_product
 
     activity, comp, _product = seed_activity_with_product(db, price=amount)
-    reg = Registration(activity_id=activity.id, component_id=comp.id,
-                       registration_type="INDIVIDUAL", contact_name=naam)
+    reg = Registration(
+        activity_id=activity.id,
+        component_id=comp.id,
+        registration_type="INDIVIDUAL",
+        contact_name=naam,
+    )
     db.add(reg)
     db.flush()
-    rec = PaymentRecord(payable_type="registration", payable_id=reg.id,
-                        amount=Decimal(amount), method="transfer", status=status,
-                        structured_communication=ogm)
+    rec = PaymentRecord(
+        payable_type="registration",
+        payable_id=reg.id,
+        amount=Decimal(amount),
+        method="transfer",
+        status=status,
+        structured_communication=ogm,
+    )
     db.add(rec)
     db.flush()
     return rec
@@ -168,15 +182,12 @@ def test_betalingen_zoekt_op_naam_ogm_en_omschrijving(client, db_session):
 
 def test_betalingen_zoek_werkt_binnen_het_statusfilter(client, db_session):
     """De zoekterm mag geen records terugtoveren die het filter net uitsloot."""
-    _registratie_record(db_session, "Cara Claes", "25.00", "+++111/1111/11111+++",
-                        status="paid")
-    _registratie_record(db_session, "Cara Claes", "30.00", "+++222/2222/22222+++",
-                        status="pending")
+    _registratie_record(db_session, "Cara Claes", "25.00", "+++111/1111/11111+++", status="paid")
+    _registratie_record(db_session, "Cara Claes", "30.00", "+++222/2222/22222+++", status="pending")
     db_session.commit()
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst",
-                      params={"q": "cara", "status": "paid"}).text
+    html = client.get("/admin/betalingen/lijst", params={"q": "cara", "status": "paid"}).text
     assert "25,00" in html and "30,00" not in html
 
 
@@ -199,8 +210,8 @@ def test_netto_rij_telt_negatieve_refunds_op(client, db_session):
     rec.amount_paid = Decimal("18.00")
     db_session.flush()
     from app.domains.payment.api import create_refund
-    create_refund(db_session, rec.id, amount="9.00", settled=True,
-                  actor="tester@example.com")
+
+    create_refund(db_session, rec.id, amount="9.00", settled=True, actor="tester@example.com")
     db_session.commit()
     _make_finance(db_session)
     _login(client)

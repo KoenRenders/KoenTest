@@ -6,23 +6,25 @@
 - /admin/ai-context: beheer van wat Raakje weet — notities toevoegen/wissen,
   tekst-override en aan/uit per bron. Hergebruikt de bestaande admin-API.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
 from app.domains.auth.api import (
-    admin_user_by_email, csrf_from_request,
-    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE,
+    csrf_token_for,
+    require_admin_ui,
+    require_csrf,
 )
+from app.domains.chatbot.render import render_answer_markdown
+from app.i18n import _
 from app.limiter import chat_limiter
 from app.ui import admin_nav, templates
-from app.i18n import _
-from app.domains.chatbot.render import render_answer_markdown
 
 # Raakje-antwoord: markdown → gesaneerde HTML (#566). Het domein registreert zijn
 # eigen Jinja-filter op de gedeelde template-omgeving (de UI-schil mag niet in een
@@ -45,51 +47,61 @@ router = APIRouter(include_in_schema=False)
 # staat en niet in een commit-bericht.
 
 
-@router.post("/raakje/vraag", response_class=HTMLResponse,
-             dependencies=[Depends(chat_limiter)])
-def raakje_vraag(request: Request, db: Session = Depends(get_db),
-                 vraag: str = Form("")):
-    from app.domains.chatbot.context import build_system_prompt
-    from app.domains.chatbot.providers import get_provider
+@router.post("/raakje/vraag", response_class=HTMLResponse, dependencies=[Depends(chat_limiter)])
+def raakje_vraag(request: Request, db: Session = Depends(get_db), vraag: str = Form("")):
     from app.domains.chatbot.api import chat_char_budget
-    from app.domains.chatbot.service import run_public_chat
-    from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
+    from app.domains.chatbot.context import build_system_prompt
     from app.domains.chatbot.logbook import sink_for
+    from app.domains.chatbot.providers import get_provider
+    from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
+    from app.domains.chatbot.service import run_public_chat
 
     vraag = vraag.strip()
     if not settings.chat_enabled:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     if not vraag:
-        return templates.TemplateResponse(request, "_raakje_antwoord.html",
-                                          {"vraag": vraag, "antwoord": None,
-                                           "error": _("Typ eerst een vraag.")})
+        return templates.TemplateResponse(
+            request,
+            "_raakje_antwoord.html",
+            {"vraag": vraag, "antwoord": None, "error": _("Typ eerst een vraag.")},
+        )
     chat_char_budget.charge(request, len(vraag))
-    messages = [{"role": "system", "content": build_system_prompt(db)},
-                {"role": "user", "content": vraag}]
+    messages = [
+        {"role": "system", "content": build_system_prompt(db)},
+        {"role": "user", "content": vraag},
+    ]
     # Elke uitgaande oproep passeert de naadwachter en het logboek — ook de
     # publieke (CR-07 §5.8/§6.4). De publieke bot krijgt de patroon-controles en
     # niet de naam-/e-mailcontrole: zijn contactpad bestaat net om een naam en een
     # e-mailadres te ontvangen.
     provider = GuardedProvider(get_provider(), public_rules(), sink_for())
     try:
-        antwoord = run_public_chat(db, messages, provider,
-                                   max_rounds=settings.chat_max_tool_rounds)
+        antwoord = run_public_chat(db, messages, provider, max_rounds=settings.chat_max_tool_rounds)
     except SeamBlocked as geblokkeerd:
         # De logregel staat al — het logboek schrijft in zijn eigen sessie, juist
         # omdat deze beurt op een foutpad eindigt.
-        return templates.TemplateResponse(request, "_raakje_antwoord.html",
-                                          {"vraag": vraag, "antwoord": None,
-                                           "error": str(geblokkeerd)})
+        return templates.TemplateResponse(
+            request,
+            "_raakje_antwoord.html",
+            {"vraag": vraag, "antwoord": None, "error": str(geblokkeerd)},
+        )
     except Exception:
-        return templates.TemplateResponse(request, "_raakje_antwoord.html",
-                                          {"vraag": vraag, "antwoord": None,
-                                           "error": _("Sorry, er ging iets mis. Probeer later opnieuw.")})
-    return templates.TemplateResponse(request, "_raakje_antwoord.html",
-                                      {"vraag": vraag, "antwoord": antwoord,
-                                       "error": None})
+        return templates.TemplateResponse(
+            request,
+            "_raakje_antwoord.html",
+            {
+                "vraag": vraag,
+                "antwoord": None,
+                "error": _("Sorry, er ging iets mis. Probeer later opnieuw."),
+            },
+        )
+    return templates.TemplateResponse(
+        request, "_raakje_antwoord.html", {"vraag": vraag, "antwoord": antwoord, "error": None}
+    )
 
 
 # ── Admin: ai-context ──────────────────────────────────────────────────────────
+
 
 def _context_ctx(request: Request, db: Session, email: str) -> dict:
     from app.domains.chatbot.api import list_chatbot_info
@@ -102,42 +114,62 @@ def _context_ctx(request: Request, db: Session, email: str) -> dict:
 
 
 @router.get("/admin/ai-context", response_class=HTMLResponse)
-def ai_context_page(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "ai_context.html", {
-        "nav_items": admin_nav("/admin/ai-context"), **_context_ctx(request, db, email)})
+def ai_context_page(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    return templates.TemplateResponse(
+        request,
+        "ai_context.html",
+        {"nav_items": admin_nav("/admin/ai-context"), **_context_ctx(request, db, email)},
+    )
 
 
 @router.get("/admin/ai-context/lijst", response_class=HTMLResponse)
-def ai_context_lijst(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+def ai_context_lijst(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
 
 
-@router.post("/admin/ai-context/notities", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def notitie_toevoegen(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui),
-                      title: str = Form(""), text_addition: str = Form("")):
+@router.post(
+    "/admin/ai-context/notities", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def notitie_toevoegen(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+    text_addition: str = Form(""),
+):
     from app.domains.chatbot.api import create_note
     from app.schemas.chatbot_info import NoteCreate
 
     if not title.strip() or not text_addition.strip():
         raise HTTPException(status_code=400, detail=_("Titel en tekst zijn verplicht."))
-    create_note(db, NoteCreate(title=title.strip(),
-                               text_addition=text_addition.strip(),
-                               is_active=True))
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+    create_note(
+        db, NoteCreate(title=title.strip(), text_addition=text_addition.strip(), is_active=True)
+    )
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
 
 
-@router.post("/admin/ai-context/{row_id}/bewerken", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
-                 email: str = Depends(require_admin_ui),
-                 title: str = Form(""), text_override: str = Form(""),
-                 text_addition: str = Form("")):
+@router.post(
+    "/admin/ai-context/{row_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def rij_bewerken(
+    row_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+    text_override: str = Form(""),
+    text_addition: str = Form(""),
+):
     from app.domains.chatbot.api import get_row, update_row
     from app.schemas.chatbot_info import ChatbotInfoEdit
 
@@ -145,22 +177,34 @@ def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
         ci = get_row(db, row_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    update_row(db, row_id, ChatbotInfoEdit(
-        title=title.strip() or None,
-        text_override=text_override.strip() or None,
-        text_addition=text_addition.strip() or None,
-        is_active=ci.is_active, sort_order=ci.sort_order,
-    ))
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+    update_row(
+        db,
+        row_id,
+        ChatbotInfoEdit(
+            title=title.strip() or None,
+            text_override=text_override.strip() or None,
+            text_addition=text_addition.strip() or None,
+            is_active=ci.is_active,
+            sort_order=ci.sort_order,
+        ),
+    )
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
 
 
-@router.post("/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def document_opnieuw_lezen(asset_id: int, request: Request,
-                           background_tasks: BackgroundTasks,
-                           db: Session = Depends(get_db),
-                           email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def document_opnieuw_lezen(
+    asset_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
     op de achtergrond; override/aanvulling blijven staan."""
     from app.domains.media.api import reextract_text
@@ -169,33 +213,50 @@ def document_opnieuw_lezen(asset_id: int, request: Request,
         reextract_text(db, asset_id, background_tasks)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
 
 
-@router.post("/admin/ai-context/{row_id}/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def rij_verwijderen(row_id: int, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/ai-context/{row_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def rij_verwijderen(
+    row_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.chatbot.api import delete_row
 
     try:
         delete_row(db, row_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )
 
 
-@router.post("/admin/ai-context/{row_id}/toggle", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def rij_toggle(row_id: int, request: Request, db: Session = Depends(get_db),
-               email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/ai-context/{row_id}/toggle",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def rij_toggle(
+    row_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.chatbot.api import toggle_row
 
     try:
         toggle_row(db, row_id)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    return templates.TemplateResponse(request, "_ai_context_lijst.html",
-                                      _context_ctx(request, db, email))
+    return templates.TemplateResponse(
+        request, "_ai_context_lijst.html", _context_ctx(request, db, email)
+    )

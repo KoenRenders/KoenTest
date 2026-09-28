@@ -9,15 +9,17 @@ De invariant die telt: **guard en scherm zijn het altijd eens**. Beide stellen n
 dezelfde vraag via `open_renewal_payment()`.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 from datetime import date
 from decimal import Decimal
+
+import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.membership.api import Membership, open_renewal_payment
 from app.domains.payment.api import GatewayPayment, PaymentRecord
 from tests.conftest import create_test_family
+
+pytestmark = pytest.mark.ui_serverrendered
 
 FORMULIER = "Lidmaatschap vernieuwen"
 
@@ -31,14 +33,24 @@ def _login_as(client, email):
 def _openstaande_vernieuwing(db, member, method="transfer", gateway_payment_id=None):
     """Een niet-betaalde vernieuwing, zoals de renew-flow ze achterlaat."""
     jaar = date.today().year + 1
-    ms = Membership(member_id=member.id, year=jaar, is_active=False,
-                    valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31))
+    ms = Membership(
+        member_id=member.id,
+        year=jaar,
+        is_active=False,
+        valid_from=date(jaar, 1, 1),
+        valid_to=date(jaar, 12, 31),
+    )
     db.add(ms)
     db.flush()
-    rec = PaymentRecord(payable_type="membership", payable_id=ms.id,
-                        amount=Decimal("35.00"), method=method, status="pending",
-                        structured_communication="+++123/4567/89012+++",
-                        gateway_payment_id=gateway_payment_id)
+    rec = PaymentRecord(
+        payable_type="membership",
+        payable_id=ms.id,
+        amount=Decimal("35.00"),
+        method=method,
+        status="pending",
+        structured_communication="+++123/4567/89012+++",
+        gateway_payment_id=gateway_payment_id,
+    )
     db.add(rec)
     db.commit()
     return ms, rec
@@ -63,12 +75,16 @@ def test_overschrijving_toont_instructies_bij_een_verse_get(client, db_session):
 def test_afgebroken_online_betaling_toont_hervatknop(client, db_session):
     """#618-3: even doodlopend als de overschrijving, dus ook afgevangen."""
     member, _person = create_test_family(db_session, email="online@example.com")
-    gw = GatewayPayment(amount=Decimal("35.00"), currency="EUR", status="open",
-                        provider="mollie", checkout_url="https://betaal.example/hervat")
+    gw = GatewayPayment(
+        amount=Decimal("35.00"),
+        currency="EUR",
+        status="open",
+        provider="mollie",
+        checkout_url="https://betaal.example/hervat",
+    )
     db_session.add(gw)
     db_session.flush()
-    _openstaande_vernieuwing(db_session, member, method="online",
-                             gateway_payment_id=gw.id)
+    _openstaande_vernieuwing(db_session, member, method="online", gateway_payment_id=gw.id)
     _login_as(client, "online@example.com")
 
     html = client.get("/leden/gezin").text

@@ -7,6 +7,7 @@ the row's state, and the AI-log line with the real cost, which releases the
 reservation. ``max_attempts`` is one: a failed generation is a named failure
 on the screen, not a retry that spends again.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -61,33 +62,67 @@ def generate_image(db: Session, payload: dict) -> None:
         reference = bytes(asset.data) if asset is not None else None
 
     try:
-        result = client_factory().generate(prompt, width=row.width, height=row.height, seed=row.seed,
-                                           reference_png=reference)
+        result = client_factory().generate(
+            prompt, width=row.width, height=row.height, seed=row.seed, reference_png=reference
+        )
     except imaging.ModerationRefused as exc:
         row.status, row.failure_reason = GenerationStatus.REFUSED, str(exc)
-        log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
-            provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, status=AiStatus.BLOCKED,
-            blocked_reason="moderation", tenant_id=tenant_id)
+        log(
+            surface=imaging.SURFACE,
+            capability=imaging.CAPABILITY,
+            model=imaging.MODEL,
+            payload=prompt,
+            provider=imaging.PROVIDER,
+            endpoint=imaging.ENDPOINT,
+            status=AiStatus.BLOCKED,
+            blocked_reason="moderation",
+            tenant_id=tenant_id,
+        )
     except Exception as exc:  # noqa: BLE001 - every failure becomes a named row state
         logger.warning("designstudio: generation %s failed: %s", row.id, exc)
         row.status, row.failure_reason = GenerationStatus.FAILED, str(exc)[:500]
-        log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
-            provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, status=AiStatus.ERROR,
-            blocked_reason=str(exc)[:200], tenant_id=tenant_id)
+        log(
+            surface=imaging.SURFACE,
+            capability=imaging.CAPABILITY,
+            model=imaging.MODEL,
+            payload=prompt,
+            provider=imaging.PROVIDER,
+            endpoint=imaging.ENDPOINT,
+            status=AiStatus.ERROR,
+            blocked_reason=str(exc)[:200],
+            tenant_id=tenant_id,
+        )
     else:
-        upload = UploadFile(file=BytesIO(whiten(result.image)), filename=f"ai-{row.id}.png",
-                            headers=Headers({"content-type": "image/png"}))
-        stored = asyncio.run(upload_media(db, files=[upload], kind="design_image",
-                                          activity_id=row.design.activity_id))
+        upload = UploadFile(
+            file=BytesIO(whiten(result.image)),
+            filename=f"ai-{row.id}.png",
+            headers=Headers({"content-type": "image/png"}),
+        )
+        stored = asyncio.run(
+            upload_media(
+                db, files=[upload], kind="design_image", activity_id=row.design.activity_id
+            )
+        )
         row.media_asset_id = stored[0]["id"]
         row.seed = result.seed
         row.status = GenerationStatus.FETCHED
         usd = result.credits * imaging.CREDIT_USD
-        log(surface=imaging.SURFACE, capability=imaging.CAPABILITY, model=imaging.MODEL, payload=prompt,
-            provider=imaging.PROVIDER, endpoint=imaging.ENDPOINT, provider_request_id=result.provider_request_id,
-            status=AiStatus.OK, duration_ms=result.duration_ms, cost_credits=result.credits, cost_amount=usd,
-            cost_currency="USD", output_megapixels=round(row.width * row.height / 1_000_000, 2),
-            tenant_id=tenant_id)
+        log(
+            surface=imaging.SURFACE,
+            capability=imaging.CAPABILITY,
+            model=imaging.MODEL,
+            payload=prompt,
+            provider=imaging.PROVIDER,
+            endpoint=imaging.ENDPOINT,
+            provider_request_id=result.provider_request_id,
+            status=AiStatus.OK,
+            duration_ms=result.duration_ms,
+            cost_credits=result.credits,
+            cost_amount=usd,
+            cost_currency="USD",
+            output_megapixels=round(row.width * row.height / 1_000_000, 2),
+            tenant_id=tenant_id,
+        )
     row.reserved_cents = 0
     row.finished_at = imaging.utc_now()
     db.flush()

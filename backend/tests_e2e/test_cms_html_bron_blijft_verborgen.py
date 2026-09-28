@@ -26,6 +26,7 @@ toggle gesloopt is in plaats van gerepareerd, en dan is de HTML-bron onbereikbaa
 toesloeg — in plaats van 800 ms. Gemeten: `style="display: none"` weg van
 `#cp-htmlsrc` → de eerste test valt om.
 """
+
 import os
 import sys
 
@@ -73,9 +74,11 @@ def test_de_html_bron_blijft_verborgen_na_opslaan(admin_page):
     scherm.opslaan()
 
     assert not scherm.htmlbron().is_visible(), (
-        "de HTML-bron staat als tweede, leeg invoervak onder de editor")
+        "de HTML-bron staat als tweede, leeg invoervak onder de editor"
+    )
     assert scherm.editorinhoud() == inhoud_voor, (
-        "de inhoud van de editor is bij het opslaan veranderd")
+        "de inhoud van de editor is bij het opslaan veranderd"
+    )
 
 
 def test_de_html_bron_gaat_daarna_nog_steeds_open(admin_page):
@@ -87,5 +90,4 @@ def test_de_html_bron_gaat_daarna_nog_steeds_open(admin_page):
     scherm.opslaan()
     scherm.toon_html_bron()
 
-    expect(scherm.htmlbron(),
-           "de HTML-bron is na het opslaan niet meer te openen").to_be_visible()
+    expect(scherm.htmlbron(), "de HTML-bron is na het opslaan niet meer te openen").to_be_visible()

@@ -6,12 +6,13 @@ overleeft filterwijzigingen via een hidden field en de server hercontroleert
 het id. Een onzichtbaar voorfilter is precies wat het patroon verbiedt — het
 bestaande `?record=` (#704) krijgt daarom dezelfde zichtbare regel.
 """
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
+import pytest
+
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.auth.api import User, UserRole
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -30,15 +31,25 @@ def _make_finance(db):
 def _twee_inschrijvingen(client, db_session):
     """Twee inschrijvingen met elk een betaalrecord, via het echte publieke pad."""
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     for naam in ("Scope Anna", "Scope Bert"):
-        client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                    data={"contact_name": naam, "contact_email": "s@example.com",
-                          "phone": "047", f"product_{product.id}": "1",
-                          "payment_method": "transfer"})
+        client.post(
+            f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+            data={
+                "contact_name": naam,
+                "contact_email": "s@example.com",
+                "phone": "047",
+                f"product_{product.id}": "1",
+                "payment_method": "transfer",
+            },
+        )
     from app.domains.activities.api import Registration
-    regs = {r.contact_name: r for r in db_session.query(Registration).filter(
-        Registration.contact_name.like("Scope %"))}
+
+    regs = {
+        r.contact_name: r
+        for r in db_session.query(Registration).filter(Registration.contact_name.like("Scope %"))
+    }
     return regs["Scope Anna"], regs["Scope Bert"]
 
 
@@ -92,6 +103,7 @@ def test_record_deeplink_krijgt_dezelfde_zichtbaarheid(client, db_session):
     db_session.commit()
     _login(client)
     from app.domains.payment.api import get_records_for
+
     rec = get_records_for(db_session, "registration", anna.id)[0]
     html = client.get(f"/admin/betalingen?record={rec.id}").text
     assert "Eén betaling uitgelicht" in html and "Alle bekijken" in html
@@ -111,6 +123,7 @@ def test_export_draagt_de_scope_mee(client, db_session):
     # .ods is een zip; de celinhoud zit in content.xml — Anna's OGM erin, Berts niet.
     import io
     import zipfile
+
     inhoud = zipfile.ZipFile(io.BytesIO(export.content)).read("content.xml").decode()
     assert "Scope Anna" in inhoud and "Scope Bert" not in inhoud
 
@@ -148,8 +161,9 @@ def _actieve_nav(html: str) -> set:
     uit admin_base.html)."""
     import re
 
-    return {m.group(1) for m in re.finditer(
-        r'<a[^>]*href="(/admin/[^"?]*)"[^>]*font-semibold', html)}
+    return {
+        m.group(1) for m in re.finditer(r'<a[^>]*href="(/admin/[^"?]*)"[^>]*font-semibold', html)
+    }
 
 
 def test_wijzigingen_object_springt_naar_de_inschrijving(client, db_session):
@@ -160,9 +174,14 @@ def test_wijzigingen_object_springt_naar_de_inschrijving(client, db_session):
     anna, bert = _twee_inschrijvingen(client, db_session)
     # Expliciet een audit-rij zaaien, zoals test_wijzigingen_scherm: zo toetst
     # dit de spronglink en niet óf het publieke pad toevallig snapshot.
-    snapshot_registration(db_session, anna, operation="insert",
-                          action="registration_created", source="test",
-                          actor="tester@example.com")
+    snapshot_registration(
+        db_session,
+        anna,
+        operation="insert",
+        action="registration_created",
+        source="test",
+        actor="tester@example.com",
+    )
     db_session.commit()
     _login(client)
     html = client.get("/admin/ledenwijzigingen?since=2000-01-01").text

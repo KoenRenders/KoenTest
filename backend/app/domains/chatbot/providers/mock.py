@@ -15,6 +15,7 @@ sessie met een echte rekening. De mock kiest objecten op trefwoord, roept
 ``run_report`` aan en zet het resultaat om in een leesbaar antwoord. Dat is geen
 taalbegrip en doet ook niet alsof: het is genoeg om het pad te laten lopen.
 """
+
 from __future__ import annotations
 
 import json
@@ -90,8 +91,11 @@ def _format_tool_result(name: str, content: str) -> Optional[str]:
         if data.get("error"):
             return f"Dat lukt niet: {data['error']}"
         waarden = data.get("values") or []
-        return ("Mogelijke waarden: " + ", ".join(waarden)) if waarden \
+        return (
+            ("Mogelijke waarden: " + ", ".join(waarden))
+            if waarden
             else (data.get("note") or "Geen waarden.")
+        )
     return None
 
 
@@ -99,10 +103,14 @@ def _format_tool_result(name: str, content: str) -> Optional[str]:
 # slimmere mock zou een model nabootsen, en dan test je de imitatie.
 _REPORT_RECIPES: tuple[tuple[tuple[str, ...], list[str]], ...] = (
     (("gemeente", "waar", "woon"), ["member_municipality", "member_total_count"]),
-    (("betal", "omzet", "geld", "openstaand"),
-     ["payment_status", "payment_amount", "payment_amount_paid"]),
-    (("activiteit", "inschrijving", "deelnem"),
-     ["activity", "registration_count", "registration_quantity"]),
+    (
+        ("betal", "omzet", "geld", "openstaand"),
+        ["payment_status", "payment_amount", "payment_amount_paid"],
+    ),
+    (
+        ("activiteit", "inschrijving", "deelnem"),
+        ["activity", "registration_count", "registration_quantity"],
+    ),
     (("naam", "hoofdlid", "wie"), ["member_head_name"]),  # de weigering, met opzet
 )
 
@@ -165,8 +173,11 @@ class MockProvider(LLMProvider):
             objects = _report_objects(text)
             if objects:
                 return AssistantMessage(
-                    tool_calls=[ToolCall(id="mock-report-1", name="run_report",
-                                         arguments={"objects": objects})]
+                    tool_calls=[
+                        ToolCall(
+                            id="mock-report-1", name="run_report", arguments={"objects": objects}
+                        )
+                    ]
                 )
             return AssistantMessage(
                 content=(
@@ -179,9 +190,7 @@ class MockProvider(LLMProvider):
             trigger in text for trigger in _ACTIVITY_TRIGGERS
         ):
             return AssistantMessage(
-                tool_calls=[
-                    ToolCall(id="mock-call-1", name="get_activities", arguments={})
-                ]
+                tool_calls=[ToolCall(id="mock-call-1", name="get_activities", arguments={})]
             )
 
         return AssistantMessage(

@@ -12,6 +12,7 @@ with language `nl_BE` or `NL` would otherwise be a row nobody ever reads, with
 nothing complaining. The exception is narrow on purpose: **only** towards
 `<foundation>.<list>_codes`, never towards an ordinary table of those schemas.
 """
+
 from sqlalchemy import text
 
 #: The schemas whose code tables may be the target of a cross-schema FK.
@@ -23,7 +24,8 @@ def _is_code_table_of_a_foundation(ref_schema: str, ref_table: str) -> bool:
 
 
 def test_no_cross_schema_foreign_keys(db_session):
-    rows = db_session.execute(text("""
+    rows = db_session.execute(
+        text("""
         SELECT tc.table_schema, tc.table_name, ccu.table_schema AS ref_schema, ccu.table_name AS ref_table
         FROM information_schema.table_constraints tc
         JOIN information_schema.constraint_column_usage ccu
@@ -31,9 +33,9 @@ def test_no_cross_schema_foreign_keys(db_session):
          AND tc.constraint_schema = ccu.constraint_schema
         WHERE tc.constraint_type = 'FOREIGN KEY'
           AND tc.table_schema != ccu.table_schema
-    """)).fetchall()
-    forbidden = [r for r in rows
-                 if not _is_code_table_of_a_foundation(r.ref_schema, r.ref_table)]
+    """)
+    ).fetchall()
+    forbidden = [r for r in rows if not _is_code_table_of_a_foundation(r.ref_schema, r.ref_table)]
     assert forbidden == [], f"Cross-schema FK's gevonden: {forbidden}"
 
 

@@ -12,19 +12,31 @@ def _create(client, admin_headers, payload):
 
 def _multi_section_payload():
     return {
-        "title": "Wizard test", "status": "open", "is_anonymous": True,
+        "title": "Wizard test",
+        "status": "open",
+        "is_anonymous": True,
         "sections": [
             {"title": "Stap 1", "position": 0, "next_is_end": False},
             {"title": "Stap 2", "position": 1, "next_is_end": True},
         ],
         "fields": [
-            {"field_type": "radio", "label": "Kies", "position": 0, "section_index": 0,
-             "options": [
-                 {"label": "Verder", "position": 0},
-                 {"label": "Meteen klaar", "position": 1, "skip_to_end": True},
-             ]},
-            {"field_type": "text", "label": "Naam2", "required": True,
-             "position": 1, "section_index": 1},
+            {
+                "field_type": "radio",
+                "label": "Kies",
+                "position": 0,
+                "section_index": 0,
+                "options": [
+                    {"label": "Verder", "position": 0},
+                    {"label": "Meteen klaar", "position": 1, "skip_to_end": True},
+                ],
+            },
+            {
+                "field_type": "text",
+                "label": "Naam2",
+                "required": True,
+                "position": 1,
+                "section_index": 1,
+            },
         ],
     }
 
@@ -49,16 +61,25 @@ def test_wizard_drops_native_required_on_section_fields(client, admin_headers):
     field_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam2")
     marker = f'name="f{field_id}"'
     assert marker in html
-    snippet = html[html.index(marker): html.index(marker) + 200]
+    snippet = html[html.index(marker) : html.index(marker) + 200]
     assert "required" not in snippet
 
 
 def test_no_wizard_for_single_section(client, admin_headers):
     payload = {
-        "title": "Enkele sectie", "status": "open", "is_anonymous": True,
+        "title": "Enkele sectie",
+        "status": "open",
+        "is_anonymous": True,
         "sections": [{"title": "Alles", "position": 0, "next_is_end": True}],
-        "fields": [{"field_type": "text", "label": "Naam", "required": True,
-                    "position": 0, "section_index": 0}],
+        "fields": [
+            {
+                "field_type": "text",
+                "label": "Naam",
+                "required": True,
+                "position": 0,
+                "section_index": 0,
+            }
+        ],
     }
     form = _create(client, admin_headers, payload)
     html = client.get(f"/formulier/{form['share_token']}").text
@@ -66,5 +87,5 @@ def test_no_wizard_for_single_section(client, admin_headers):
     # Zonder wizard behoudt het enige veld zijn native required.
     field_id = form["fields"][0]["id"]
     marker = f'name="f{field_id}"'
-    snippet = html[html.index(marker): html.index(marker) + 200]
+    snippet = html[html.index(marker) : html.index(marker) + 200]
     assert "required" in snippet

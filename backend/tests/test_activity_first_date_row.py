@@ -32,10 +32,10 @@ away again in `activiteit_aanmaken` → the first test falls over; removed the m
 → all three entrances of the second test fall over (and THAT is the proof that they do
 not each carry their own check).
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -72,9 +72,17 @@ def test_creating_keeps_the_complete_first_row(client, db_session):
 
     headers = _login(client, db_session)
 
-    resp = client.post("/admin/activiteiten", headers=headers, data={
-        "name": "Test activity", "start_date": "2026-09-20",
-        "end_date": "2026-09-21", "start_time": "19:30", "end_time": "23:00"})
+    resp = client.post(
+        "/admin/activiteiten",
+        headers=headers,
+        data={
+            "name": "Test activity",
+            "start_date": "2026-09-20",
+            "end_date": "2026-09-21",
+            "start_time": "19:30",
+            "end_time": "23:00",
+        },
+    )
 
     assert resp.status_code == 204, resp.text
     row = _latest_activity(db_session).dates[0]
@@ -88,9 +96,17 @@ def test_the_times_may_stay_empty(client, db_session):
     """Only the start date is required, exactly as in the editor."""
     headers = _login(client, db_session)
 
-    resp = client.post("/admin/activiteiten", headers=headers, data={
-        "name": "Start date only", "start_date": "2026-09-20",
-        "end_date": "", "start_time": "", "end_time": ""})
+    resp = client.post(
+        "/admin/activiteiten",
+        headers=headers,
+        data={
+            "name": "Start date only",
+            "start_date": "2026-09-20",
+            "end_date": "",
+            "start_time": "",
+            "end_time": "",
+        },
+    )
 
     assert resp.status_code == 204, resp.text
     row = _latest_activity(db_session).dates[0]
@@ -98,8 +114,11 @@ def test_the_times_may_stay_empty(client, db_session):
 
 
 def _create_activity(client, db, headers):
-    client.post("/admin/activiteiten", headers=headers,
-                data={"name": "To be edited", "start_date": "2026-09-20"})
+    client.post(
+        "/admin/activiteiten",
+        headers=headers,
+        data={"name": "To be edited", "start_date": "2026-09-20"},
+    )
     return _latest_activity(db)
 
 
@@ -112,14 +131,14 @@ REVERSED = {"start_date": "2026-09-20", "end_date": "2026-09-18"}
 
 
 def _post_create(client, db, headers):
-    return client.post("/admin/activiteiten", headers=headers,
-                       data={"name": "Reversed", **REVERSED})
+    return client.post(
+        "/admin/activiteiten", headers=headers, data={"name": "Reversed", **REVERSED}
+    )
 
 
 def _post_add_date(client, db, headers):
     activity = _create_activity(client, db, headers)
-    return client.post(f"/admin/activiteiten/{activity.id}/datums",
-                       headers=headers, data=REVERSED)
+    return client.post(f"/admin/activiteiten/{activity.id}/datums", headers=headers, data=REVERSED)
 
 
 def _post_edit_date(client, db, headers):
@@ -128,8 +147,11 @@ def _post_edit_date(client, db, headers):
     return client.post(path, headers=headers, data=REVERSED)
 
 
-@pytest.mark.parametrize("entrance", [_post_create, _post_add_date, _post_edit_date],
-                         ids=["create", "add date", "edit date"])
+@pytest.mark.parametrize(
+    "entrance",
+    [_post_create, _post_add_date, _post_edit_date],
+    ids=["create", "add date", "edit date"],
+)
 def test_an_end_date_before_the_start_date_is_refused_everywhere(client, db_session, entrance):
     """The core: the rule sits on the object, so every entrance inherits it.
 
@@ -142,15 +164,23 @@ def test_an_end_date_before_the_start_date_is_refused_everywhere(client, db_sess
 
     assert resp.status_code == 422, f"{resp.status_code} — {resp.text[:200]}"
     assert "einddatum ligt vóór de begindatum" in resp.text, (
-        f"refused for a reason other than the coherence rule: {resp.text[:200]}")
+        f"refused for a reason other than the coherence rule: {resp.text[:200]}"
+    )
 
 
 def test_an_end_time_before_the_start_time_on_the_same_day_is_refused(client, db_session):
     headers = _login(client, db_session)
 
-    resp = client.post("/admin/activiteiten", headers=headers, data={
-        "name": "Backwards", "start_date": "2026-09-20",
-        "start_time": "22:00", "end_time": "19:00"})
+    resp = client.post(
+        "/admin/activiteiten",
+        headers=headers,
+        data={
+            "name": "Backwards",
+            "start_date": "2026-09-20",
+            "start_time": "22:00",
+            "end_time": "19:00",
+        },
+    )
 
     assert resp.status_code == 422, resp.text
     assert "einduur ligt niet na het beginuur" in resp.text
@@ -164,9 +194,17 @@ def test_a_night_across_two_days_is_allowed(client, db_session):
 
     headers = _login(client, db_session)
 
-    resp = client.post("/admin/activiteiten", headers=headers, data={
-        "name": "Party", "start_date": "2026-09-20", "end_date": "2026-09-21",
-        "start_time": "20:00", "end_time": "02:00"})
+    resp = client.post(
+        "/admin/activiteiten",
+        headers=headers,
+        data={
+            "name": "Party",
+            "start_date": "2026-09-20",
+            "end_date": "2026-09-21",
+            "start_time": "20:00",
+            "end_time": "02:00",
+        },
+    )
 
     assert resp.status_code == 204, resp.text
     assert _latest_activity(db_session).dates[0].end_time == time(2, 0)
@@ -175,9 +213,14 @@ def test_a_night_across_two_days_is_allowed(client, db_session):
 def test_the_json_api_inherits_the_same_rule(client, admin_headers):
     """The fourth entrance. A rule that only knows the screens is not a rule on the
     object — and this route is exactly how #720/#727/#733 came about."""
-    resp = client.post("/api/v1/activities", headers=admin_headers, json={
-        "name": "Through the API", "dates": [
-            {"start_date": "2026-09-20", "end_date": "2026-09-18"}]})
+    resp = client.post(
+        "/api/v1/activities",
+        headers=admin_headers,
+        json={
+            "name": "Through the API",
+            "dates": [{"start_date": "2026-09-20", "end_date": "2026-09-18"}],
+        },
+    )
 
     assert resp.status_code == 422, resp.text
     assert "einddatum ligt vóór de begindatum" in resp.text

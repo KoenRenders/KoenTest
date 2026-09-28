@@ -24,6 +24,7 @@ Contract naar de route: elke ``TranscriptionStreamTextDelta`` → een ``partial`
 ``TranscriptEvent`` met de incrementele tekst; ``TranscriptionStreamDone`` → een
 ``final`` met de volledige (samengevoegde) transcriptie.
 """
+
 from __future__ import annotations
 
 import logging
@@ -39,8 +40,9 @@ class VoxtralRealtimeProvider(SttProvider):
     vendor = "mistral"
     endpoint = "audio.realtime.transcribe_stream"
 
-    def __init__(self, api_key: str, model: str, base_url: str, sample_rate: int,
-                 language: str = ""):
+    def __init__(
+        self, api_key: str, model: str, base_url: str, sample_rate: int, language: str = ""
+    ):
         self._api_key = api_key
         self._model = model
         self.model = model
@@ -80,9 +82,13 @@ class VoxtralRealtimeProvider(SttProvider):
             )
             if self._language:
                 try:
-                    return client.audio.realtime.transcribe_stream(language=self._language, **kwargs)
+                    return client.audio.realtime.transcribe_stream(
+                        language=self._language, **kwargs
+                    )
                 except TypeError:
-                    logger.info("Voxtral: language-parameter niet ondersteund door de SDK; autodetectie.")
+                    logger.info(
+                        "Voxtral: language-parameter niet ondersteund door de SDK; autodetectie."
+                    )
             return client.audio.realtime.transcribe_stream(**kwargs)
 
         full: list[str] = []
@@ -94,7 +100,5 @@ class VoxtralRealtimeProvider(SttProvider):
                 yield TranscriptEvent(text="".join(full), is_final=True)
                 break
             elif isinstance(event, RealtimeTranscriptionError):
-                raise RuntimeError(
-                    f"Voxtral realtime fout: {getattr(event, 'error', event)}"
-                )
+                raise RuntimeError(f"Voxtral realtime fout: {getattr(event, 'error', event)}")
             # RealtimeTranscriptionSessionCreated / UnknownRealtimeEvent → negeren

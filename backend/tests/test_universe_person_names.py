@@ -36,6 +36,7 @@ opdracht die de kolom maakt.
   test. Een kapotmaak-proef op déze suite hoort dus in de MIGRATIE te gebeuren, niet
   in de databank.
 """
+
 from __future__ import annotations
 
 import re
@@ -61,14 +62,18 @@ _DIM_PER_SLEUTEL = {d.key: d for d in DIMENSIONS}
 
 def _naamkolommen(db) -> set[tuple[str, str]]:
     """(weergave, kolom) voor elke kolom die als persoonsnaam gemarkeerd is."""
-    rows = db.execute(text(
-        "SELECT c.relname, a.attname "
-        "FROM pg_description d "
-        "JOIN pg_class c ON c.oid = d.objoid "
-        "JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = d.objsubid "
-        "WHERE n.nspname = 'reporting' AND d.objsubid > 0 "
-        "  AND d.description LIKE :markering"), {"markering": f"{MARKERING}%"})
+    rows = db.execute(
+        text(
+            "SELECT c.relname, a.attname "
+            "FROM pg_description d "
+            "JOIN pg_class c ON c.oid = d.objoid "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = d.objsubid "
+            "WHERE n.nspname = 'reporting' AND d.objsubid > 0 "
+            "  AND d.description LIKE :markering"
+        ),
+        {"markering": f"{MARKERING}%"},
+    )
     return {(row[0], row[1]) for row in rows}
 
 
@@ -93,10 +98,12 @@ def test_de_poort_vindt_de_markeringen(db_session):
 
     assert gevonden, (
         f"geen enkele kolom in schema 'reporting' draagt de markering "
-        f"'{MARKERING}'. Draaide migratie 148, of heet het markeerwoord anders?")
+        f"'{MARKERING}'. Draaide migratie 148, of heet het markeerwoord anders?"
+    )
     assert ("d_person", "first_name") in gevonden, (
         "de voornaam op d_person is niet gemarkeerd — dat is de kolom waar #1132 "
-        f"om draait; gevonden: {sorted(gevonden)}")
+        f"om draait; gevonden: {sorted(gevonden)}"
+    )
 
 
 def test_elke_bekende_naamkolom_is_gemarkeerd(db_session):
@@ -107,9 +114,11 @@ def test_elke_bekende_naamkolom_is_gemarkeerd(db_session):
     zwakst waar ze het langst bestaat.
     """
     verwacht = {
-        ("d_person", "first_name"), ("d_person", "last_name"),
+        ("d_person", "first_name"),
+        ("d_person", "last_name"),
         ("d_person", "person_name"),
-        ("d_member", "head_name"), ("d_member", "partner_name"),
+        ("d_member", "head_name"),
+        ("d_member", "partner_name"),
         ("d_board_member", "board_member_name"),
         ("d_activity_organiser", "organiser_name"),
         ("f_payments", "payable_label"),
@@ -117,8 +126,8 @@ def test_elke_bekende_naamkolom_is_gemarkeerd(db_session):
     ontbreekt = verwacht - _naamkolommen(db_session)
 
     assert not ontbreekt, (
-        f"deze kolommen dragen een persoonsnaam maar geen markering: "
-        f"{sorted(ontbreekt)}")
+        f"deze kolommen dragen een persoonsnaam maar geen markering: {sorted(ontbreekt)}"
+    )
 
 
 def test_geen_enkel_object_leest_plain_uit_een_naamkolom(db_session):
@@ -136,15 +145,17 @@ def test_geen_enkel_object_leest_plain_uit_een_naamkolom(db_session):
         if obj.ai_exposure is not AiExposure.PLAIN:
             continue
         weergave = _bronweergave(obj)
-        raak = sorted(kolom for kolom in _KOLOM.findall(obj.sql)
-                      if (weergave, kolom) in naamkolommen)
+        raak = sorted(
+            kolom for kolom in _KOLOM.findall(obj.sql) if (weergave, kolom) in naamkolommen
+        )
         if raak:
             fout.append(f"{obj.key} leest {weergave}.{','.join(raak)}")
 
     assert not fout, (
         "deze objecten lezen uit een kolom met een persoonsnaam en declareren "
         "PLAIN — zet ze op TOKENISED (met een token_prefix en een entiteit-id) of "
-        f"op NONE:\n  " + "\n  ".join(fout))
+        "op NONE:\n  " + "\n  ".join(fout)
+    )
 
 
 def test_de_poort_kijkt_naar_echte_objecten(db_session):

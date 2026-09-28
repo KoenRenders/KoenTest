@@ -9,9 +9,10 @@ from the universe on every run, so a report saved today keeps working when a vie
 gains a column tomorrow — and a report that references an object that disappeared
 fails loudly, with the object's name, instead of returning a wrong number.
 """
+
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
+from sqlalchemy import JSON, BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -48,8 +49,9 @@ class SavedReport(TenantMixin, SoftDeleteMixin, Base):
     builtin_key = Column(String(60), nullable=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     @property
     def is_builtin(self) -> bool:
@@ -89,13 +91,14 @@ class ExportLog(TenantMixin, Base):
     __table_args__ = {"schema": "reporting"}
 
     id = Column(BigInteger, primary_key=True, index=True)
-    exported_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False,
-                         index=True)
+    exported_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
     actor = Column(String(255), nullable=True)
     # dataset · report · ad-hoc
     kind: Mapped[ExportKind] = mapped_column(
         EnumColumn(ExportKind, length=20),
-        ForeignKey("reporting.export_kind_codes.code"), nullable=False)
+        ForeignKey("reporting.export_kind_codes.code"),
+        nullable=False,
+    )
     saved_report_id = Column(Integer, nullable=True)
     subject = Column(String(200), nullable=False)
     filters = Column(JSON, nullable=True)
@@ -120,12 +123,11 @@ class ExportKindLabel(Base):
     __tablename__ = "export_kind_labels"
     __table_args__ = {"schema": "reporting"}
 
-    code = Column(String(20), ForeignKey("reporting.export_kind_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("reporting.export_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

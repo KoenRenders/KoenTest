@@ -6,6 +6,7 @@ drift in CI (net als de laaggrens-tests uit #396), zodat consistentie een
 structureel gegeven is en niet pas op HDEV opvalt. Dof-blauw als *hover*-tint
 (`hover:bg-blue-800`) blijft toegestaan — enkel rust-koppen/-achtergronden niet.
 """
+
 import re
 from pathlib import Path
 
@@ -16,17 +17,22 @@ from tests._bestanden import bestanden
 # in plaats van dat elk bestand het opnieuw moet bedenken.
 _TEMPLATES = bestanden(
     (Path(__file__).resolve().parent.parent / "app").rglob("templates/**/*.html"),
-    wat="alle Jinja-templates onder app/", minstens=50,
+    wat="alle Jinja-templates onder app/",
+    minstens=50,
 )
 
 
 def test_koppen_gebruiken_geen_text_blue_800():
     """Koppen/tekst horen de Ocean-token `text-blue-700` te gebruiken."""
-    overtreders = [str(p.relative_to(p.parents[3]))
-                   for p in _TEMPLATES if "text-blue-800" in p.read_text(encoding="utf-8")]
+    overtreders = [
+        str(p.relative_to(p.parents[3]))
+        for p in _TEMPLATES
+        if "text-blue-800" in p.read_text(encoding="utf-8")
+    ]
     assert not overtreders, (
         "Gebruik de Ocean-token 'text-blue-700' (#0051a4) i.p.v. 'text-blue-800'. "
-        "Overtreders: " + ", ".join(overtreders))
+        "Overtreders: " + ", ".join(overtreders)
+    )
 
 
 def test_bg_blue_800_enkel_als_variant():
@@ -41,4 +47,5 @@ def test_bg_blue_800_enkel_als_variant():
                 break
     assert not overtreders, (
         "bg-blue-800 mag enkel als hover/focus-variant; een rust-achtergrond hoort "
-        "bg-blue-700 (Ocean). Overtreders: " + ", ".join(overtreders))
+        "bg-blue-700 (Ocean). Overtreders: " + ", ".join(overtreders)
+    )

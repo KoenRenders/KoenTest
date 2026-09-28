@@ -15,6 +15,7 @@ bewees deze flow niets. Een golden flow die zichzelf overslaat wanneer de data
 niet klopt, dekt het geval af waarvoor hij bestaat — dus maakt hij nu zelf aan
 wat hij nodig heeft, en faalt hij als dat niet lukt.
 """
+
 import os
 import re
 import sys
@@ -100,11 +101,25 @@ def test_een_vergadering_aanmaken_en_notuleren(admin_page):
     # Varia als laatste daarvan. Niet "de laatste h2 op de pagina": Aanwezigheid
     # en Bijlagen zijn ook koppen, en die staan er bewust omheen.
     koppen = [k.strip() for k in page.locator("#vg-document h2").all_text_contents()]
-    secties = [k for k in koppen if k in ("Evaluatie voorbije activiteiten",
-                                          "Volgende activiteiten", "Leden",
-                                          "Programma-ideeën", "Varia")]
-    assert secties == ["Evaluatie voorbije activiteiten", "Volgende activiteiten",
-                       "Leden", "Programma-ideeën", "Varia"], koppen
+    secties = [
+        k
+        for k in koppen
+        if k
+        in (
+            "Evaluatie voorbije activiteiten",
+            "Volgende activiteiten",
+            "Leden",
+            "Programma-ideeën",
+            "Varia",
+        )
+    ]
+    assert secties == [
+        "Evaluatie voorbije activiteiten",
+        "Volgende activiteiten",
+        "Leden",
+        "Programma-ideeën",
+        "Varia",
+    ], koppen
 
     # Aanwezigheid: één klik, en de knop komt als 'aanwezig' terug uit de swap.
     knoppen = page.locator("#vg-document form[hx-post*='aanwezigheid'] button")
@@ -121,7 +136,8 @@ def test_een_vergadering_aanmaken_en_notuleren(admin_page):
     knoppen.first.click()
     aangevinkt = page.locator("#vg-document form[hx-post*='aanwezigheid'] button").first
     expect(aangevinkt, f"'{naam}' kleurde niet als aanwezig na de swap").to_have_class(
-        re.compile(r"\bbg-green-50\b"))
+        re.compile(r"\bbg-green-50\b")
+    )
 
 
 def test_een_notitie_overleeft_de_swap(admin_page):
@@ -138,7 +154,8 @@ def test_een_notitie_overleeft_de_swap(admin_page):
     editors = page.locator("#vg-document trix-editor")
     assert editors.count() > 0, (
         "geen enkel punt met een notitie-editor op een verse agenda — de seed "
-        "hoort minstens één activiteit te leveren")
+        "hoort minstens één activiteit te leveren"
+    )
 
     editor = editors.first
     editor.click()
@@ -157,5 +174,6 @@ def test_een_notitie_overleeft_de_swap(admin_page):
     page.goto(url)
     page.wait_for_selector("#vg-document")
     bewaard = page.locator("#vg-document input[name=notes]").first
-    assert "300 tickets" in (bewaard.get_attribute("value") or ""), \
+    assert "300 tickets" in (bewaard.get_attribute("value") or ""), (
         "de notitie is niet bewaard: na een herlaad staat ze er niet meer"
+    )

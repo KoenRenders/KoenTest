@@ -39,6 +39,7 @@ voorheen — python-markdown deed het net zo — en houdt nh3 de ENIGE XSS-grens
 Twee plekken die allebei half saneren is moeilijker te beoordelen dan één die het
 helemaal doet.
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -53,11 +54,28 @@ _ALLOWED_TAGS = {
     # 'hr' hoort hier NIET (#794) — zie de opmerking bovenaan. 'br' blijft: het model
     # kan er zelf een zetten met twee spaties op het regeleinde, en dat is dan een
     # bedoelde breuk.
-    "p", "br", "span",
-    "strong", "b", "em", "i", "u", "s",
-    "ul", "ol", "li",
-    "a", "code", "pre", "blockquote",
-    "h1", "h2", "h3", "h4", "h5", "h6",
+    "p",
+    "br",
+    "span",
+    "strong",
+    "b",
+    "em",
+    "i",
+    "u",
+    "s",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "code",
+    "pre",
+    "blockquote",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
 }
 _ALLOWED_ATTRS = {"a": {"href", "title"}, "*": {"class"}}
 

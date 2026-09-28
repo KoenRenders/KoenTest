@@ -32,6 +32,7 @@ Broken on purpose, each restored after:
   - `stt_mode` dropped from `record_kop_ctx` → the tab test fails with the
     StrictUndefined error, on Inschrijvingen and on Betalingen.
 """
+
 from __future__ import annotations
 
 import re
@@ -70,11 +71,15 @@ VIA_OVERLAY = (
 
 # What only the partial may carry: the hooks the two scripts read, and the
 # growth handler the dictation test depends on (#788).
-CONTROL_MARKERS = ("data-stt-target", "data-tts-toggle",
-                   "$el.style.height = Math.min($el.scrollHeight, 120)")
+CONTROL_MARKERS = (
+    "data-stt-target",
+    "data-tts-toggle",
+    "$el.style.height = Math.min($el.scrollHeight, 120)",
+)
 
 
 # ── Source: one partial, no copies ───────────────────────────────────────────
+
 
 def test_every_surface_uses_the_shared_partial():
     # Ondergrens en geen exact getal: de lijst mag krimpen (#1120 haalde de
@@ -87,10 +92,12 @@ def test_every_surface_uses_the_shared_partial():
     for relative, source in bronnen.items():
         variant = varianten[relative]
         assert '{% import "_raakje_controls.html" as controls %}' in source, (
-            f"{relative} does not import the shared Raakje controls")
+            f"{relative} does not import the shared Raakje controls"
+        )
         assert "controls.input_row(" in source, f"{relative} builds its own input row"
         assert f"controls.read_aloud_toggle({variant})" in source, (
-            f"{relative} lacks the read-aloud toggle ({variant or 'page variant'})")
+            f"{relative} lacks the read-aloud toggle ({variant or 'page variant'})"
+        )
 
 
 def test_de_overlayschermen_bouwen_geen_eigen_modal():
@@ -104,10 +111,10 @@ def test_de_overlayschermen_bouwen_geen_eigen_modal():
     for relative in VIA_OVERLAY:
         source = (DOMAINS / relative).read_text()
         assert '{% import "_raakje_overlay.html" as raakje %}' in source, (
-            f"{relative} importeert de gedeelde overlay niet")
+            f"{relative} importeert de gedeelde overlay niet"
+        )
         assert "raakje.overlay(" in source, f"{relative} roept de overlay niet aan"
-        assert "controls." not in source, (
-            f"{relative} bouwt zijn eigen bediening naast de overlay")
+        assert "controls." not in source, f"{relative} bouwt zijn eigen bediening naast de overlay"
 
 
 def test_the_control_markup_lives_in_the_partial_and_nowhere_else():
@@ -125,11 +132,12 @@ def test_the_control_markup_lives_in_the_partial_and_nowhere_else():
                 copies.append(f"{template.relative_to(DOMAINS)}: {marker}")
     assert not copies, (
         "Raakje controls copied outside _raakje_controls.html — call "
-        "controls.input_row / controls.read_aloud_toggle instead:\n  "
-        + "\n  ".join(copies))
+        "controls.input_row / controls.read_aloud_toggle instead:\n  " + "\n  ".join(copies)
+    )
 
 
 # ── Rendered: the overlay equals the reporting Raakje ───────────────────────
+
 
 @pytest.fixture
 def assistant_on(db_session, monkeypatch):
@@ -158,7 +166,8 @@ def _login(client):
 def _microphone(html: str, field_id: str) -> str:
     """The whole microphone button, as rendered, for one field."""
     found = re.findall(
-        rf'<button type="button" data-stt-target="#{field_id}"[\s\S]*?</button>', html)
+        rf'<button type="button" data-stt-target="#{field_id}"[\s\S]*?</button>', html
+    )
     assert len(found) == 1, f"expected one microphone for #{field_id}, found {len(found)}"
     return found[0]
 
@@ -193,8 +202,7 @@ def _attributes(button: str) -> dict[str, str]:
     return attrs
 
 
-def test_the_overlay_microphone_is_the_reporting_one(client, db_session, assistant_on,
-                                                     activity):
+def test_the_overlay_microphone_is_the_reporting_one(client, db_session, assistant_on, activity):
     _login(client)
     overlay = client.get(f"/admin/activiteiten/{activity.id}")
     reporting = client.get("/admin/rapporten/raakje")
@@ -204,13 +212,15 @@ def test_the_overlay_microphone_is_the_reporting_one(client, db_session, assista
     mic_reporting = _microphone(reporting.text, "rp-raakje-vraag")
     assert mic_overlay.replace("aa-raakje-vraag", "rp-raakje-vraag") == mic_reporting, (
         "the overlay's microphone differs from the reporting Raakje's:\n"
-        f"{mic_overlay}\n---\n{mic_reporting}")
+        f"{mic_overlay}\n---\n{mic_reporting}"
+    )
     # Same speech path, from the same configuration value.
     assert 'data-stt-mode="' in mic_overlay
 
 
 def test_the_overlay_read_aloud_toggle_reads_like_the_reporting_one(
-        client, db_session, assistant_on, activity):
+    client, db_session, assistant_on, activity
+):
     """The class differs by design (white on a blue header); everything tts.js
     reads — the hook, the two icons, the accessible name — is the same."""
     _login(client)
@@ -225,7 +235,8 @@ def test_the_overlay_read_aloud_toggle_reads_like_the_reporting_one(
 
 
 def test_without_the_assistant_the_overlay_and_its_controls_are_absent(
-        client, db_session, activity):
+    client, db_session, activity
+):
     """The negative that gives the positive tests their meaning: the controls
     come with the overlay, and the overlay comes with the kernel switch."""
     _login(client)
@@ -236,7 +247,8 @@ def test_without_the_assistant_the_overlay_and_its_controls_are_absent(
 
 @pytest.mark.parametrize("tab", ["inschrijvingen", "betalingen"])
 def test_the_other_tabs_render_the_overlay_with_its_microphone(
-        client, db_session, assistant_on, activity, tab):
+    client, db_session, assistant_on, activity, tab
+):
     """Four templates include the record header (#1070). A context key missing
     on one of them is not a blank spot but a StrictUndefined error."""
     _login(client)

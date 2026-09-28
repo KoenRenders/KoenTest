@@ -15,15 +15,19 @@ Broken to see them red (measured):
   fails with the injected text on the home page;
 - the `style` removed from the <nav> in `site_base.html` → the colour test fails.
 """
+
 import re
 
 import pytest
 
-from app.domains.auth.api import (
-    SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.kernel.tenancy import DEFAULT_TENANT_ID
-from app.kernel.tenant_config import (SITE_HEADER_COLOR_KEY, contrast_with_white,
-                                      get_setting, set_setting)
+from app.kernel.tenant_config import (
+    SITE_HEADER_COLOR_KEY,
+    contrast_with_white,
+    get_setting,
+    set_setting,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -42,9 +46,11 @@ def _operator(client, db_session, email="op-kopkleur@example.com"):
 
 
 def _opslaan(client, csrf, kleur):
-    return client.post(f"/admin/tenants/{DEFAULT_TENANT_ID}",
-                       data={SITE_HEADER_COLOR_KEY: kleur},
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        f"/admin/tenants/{DEFAULT_TENANT_ID}",
+        data={SITE_HEADER_COLOR_KEY: kleur},
+        headers={"X-CSRF-Token": csrf},
+    )
 
 
 def _opgeslagen(db_session):
@@ -72,8 +78,9 @@ def test_a_colour_covers_the_header_and_its_mobile_menu(client, db_session):
 
     client.cookies.clear()
     nav = _nav(client.get("/").text)
-    assert nav.startswith('<nav class="bg-blue-700 text-white shadow-md" '
-                          'style="background-color: #005d29"')
+    assert nav.startswith(
+        '<nav class="bg-blue-700 text-white shadow-md" style="background-color: #005d29"'
+    )
     assert 'id="site-nav-mobiel"' in nav, "the mobile menu sits inside the coloured nav"
     assert 'id="site-nav-breed"' in nav
 
@@ -87,16 +94,19 @@ def test_an_empty_value_goes_back_to_the_shell_colour(client, db_session):
     assert KAAL_NAV in client.get("/").text
 
 
-@pytest.mark.parametrize("kleur", [
-    "red; background:url(x)",
-    "#005d29; background:url(https://evil.example/x)",
-    '#005d29" onmouseover="alert(1)',
-    "005d29",
-    "#05d",
-    "#005d2g",
-    "rgb(0, 93, 41)",
-    "var(--c-brand-green)",
-])
+@pytest.mark.parametrize(
+    "kleur",
+    [
+        "red; background:url(x)",
+        "#005d29; background:url(https://evil.example/x)",
+        '#005d29" onmouseover="alert(1)',
+        "005d29",
+        "#05d",
+        "#005d2g",
+        "rgb(0, 93, 41)",
+        "var(--c-brand-green)",
+    ],
+)
 def test_anything_but_rrggbb_is_refused_and_never_stored(client, db_session, kleur):
     csrf = _operator(client, db_session)
     _opslaan(client, csrf, "#005d29")
@@ -123,11 +133,11 @@ def test_the_contrast_boundary_is_aa():
     assert round(contrast_with_white("#005d29"), 2) == 8.08
 
 
-def test_a_bad_value_that_reached_the_table_another_way_never_reaches_a_page(
-        client, db_session):
+def test_a_bad_value_that_reached_the_table_another_way_never_reaches_a_page(client, db_session):
     """The second line: an import or a hand-made row does not pass the form."""
-    set_setting(db_session, SITE_HEADER_COLOR_KEY, "red;background:url(x)",
-                tenant_id=DEFAULT_TENANT_ID)
+    set_setting(
+        db_session, SITE_HEADER_COLOR_KEY, "red;background:url(x)", tenant_id=DEFAULT_TENANT_ID
+    )
     db_session.flush()
 
     html = client.get("/").text

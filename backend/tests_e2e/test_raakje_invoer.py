@@ -19,6 +19,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de
 nieuwe regel in plaats van te versturen); de `x-on:input`-handler weggehaald → de
 groeitest valt om.
 """
+
 import os
 import sys
 
@@ -27,8 +28,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, htmx_afgerond,  # noqa: E402
-                                open_de_raakje_bel, pagina_klaar)
+from tests_e2e.schermen import BASE, htmx_afgerond, open_de_raakje_bel  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -56,14 +56,17 @@ def test_het_veld_groeit_mee_met_een_lange_vraag(page):
     # #997: wait for the growth itself; it failing to come is the finding.
     page.wait_for_function(
         "h => document.querySelector('#raakje-widget-vraag').getBoundingClientRect().height > h",
-        arg=hoogte_leeg, timeout=5000)
+        arg=hoogte_leeg,
+        timeout=5000,
+    )
 
     hoogte_vol = veld.bounding_box()["height"]
     assert hoogte_vol > hoogte_leeg, (
-        "het veld groeit niet mee — een langere vraag verdwijnt dan uit beeld")
+        "het veld groeit niet mee — een langere vraag verdwijnt dan uit beeld"
+    )
     assert hoogte_vol <= 130, (
-        f"het veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort het te "
-        "scrollen")
+        f"het veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort het te scrollen"
+    )
 
 
 def test_shift_enter_geeft_een_nieuwe_regel(page):
@@ -75,8 +78,7 @@ def test_shift_enter_geeft_een_nieuwe_regel(page):
     page.keyboard.type("tweede regel")
 
     assert "\n" in veld.input_value(), "Shift+Enter geeft geen nieuwe regel"
-    assert page.url.rstrip("/").endswith(BASE.rstrip("/")), (
-        "het formulier is toch verstuurd")
+    assert page.url.rstrip("/").endswith(BASE.rstrip("/")), "het formulier is toch verstuurd"
 
 
 def test_enter_verstuurt(page):
@@ -87,13 +89,14 @@ def test_enter_verstuurt(page):
     with htmx_afgerond(page):
         page.keyboard.press("Enter")
 
-    assert "\n" not in veld.input_value(), (
-        "Enter zette een nieuwe regel in plaats van te versturen")
+    assert "\n" not in veld.input_value(), "Enter zette een nieuwe regel in plaats van te versturen"
     assert page.locator("#raakje-widget-gesprek").inner_text().strip() != "", (
-        "er is niets verstuurd")
+        "er is niets verstuurd"
+    )
 
 
 # ── #762: de knop keert terug naar de microfoon ──────────────────────────────
+
 
 def test_de_microfoonknop_keert_terug_na_stoppen(page):
     """Gemeld: na het stoppen bleef de knop leeg (microfoon → vierkant → niets).
@@ -125,8 +128,10 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
 
     # #997: each click must CHANGE the button; wait for that change instead of a
     # fixed time. A timeout here is the finding the messages describe.
-    wordt = "([el, r, gelijk]) => { const h = el.innerHTML.trim(); " \
-            "return gelijk ? h === r : (h !== '' && h !== r); }"
+    wordt = (
+        "([el, r, gelijk]) => { const h = el.innerHTML.trim(); "
+        "return gelijk ? h === r : (h !== '' && h !== r); }"
+    )
     knop.click()
     try:
         page.wait_for_function(wordt, arg=[knop.element_handle(), rust, False], timeout=5000)
@@ -139,4 +144,5 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
     except Exception as fout:
         raise AssertionError(
             "de knop keert niet terug naar de microfoon — ze blijft leeg of op het "
-            "vierkantje staan (#762)") from fout
+            "vierkantje staan (#762)"
+        ) from fout

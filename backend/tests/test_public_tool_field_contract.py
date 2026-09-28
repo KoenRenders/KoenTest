@@ -26,6 +26,7 @@ Broken on purpose, each restored after:
     never-emitted half fails, so a field cannot disappear from the code while its
     permission stays behind.
 """
+
 import json
 from datetime import date, time, timedelta
 
@@ -68,7 +69,10 @@ def _seeded_activity(db):
     db.flush()
     db.add(
         ActivityProduct(
-            component_id=component.id, name="Pannenkoek", price=2, member_price=1,
+            component_id=component.id,
+            name="Pannenkoek",
+            price=2,
+            member_price=1,
             is_free=False,
         )
     )
@@ -94,7 +98,7 @@ def _scenarios(db):
         ("get_activities", {}),
         ("get_activities", {"when": "past"}),
         ("get_activity_detail", {"activity_id": activity.id}),
-        ("get_activity_detail", {"activity_id": 999_999}),          # de weigering
+        ("get_activity_detail", {"activity_id": 999_999}),  # de weigering
         ("submit_idea", {"name": "T", "content": "c", "email": "t@example.org"}),
         ("submit_idea", {"name": "", "content": "c", "email": ""}),  # de foutvorm
     ]
@@ -147,7 +151,8 @@ def test_the_contract_declares_no_field_that_is_never_emitted(db_session):
 
     assert not stale, (
         "het contract geeft toestemming voor velden die geen enkele tool-tak nog "
-        "uitstuurt:\n  " + "\n  ".join(stale)
+        "uitstuurt:\n  "
+        + "\n  ".join(stale)
         + "\n\nHaal ze weg. Een achtergebleven regel is geen documentatie maar een "
         "openstaande deur voor de dag dat iemand de naam hergebruikt."
     )

@@ -11,6 +11,7 @@ build-time import check (`check_imports.py`) then breaks the Docker build when t
 Pango/Cairo system packages are missing, instead of the first PDF failing in
 production months later.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -23,10 +24,21 @@ from app.i18n import _
 
 # Dutch month names — the PDF is read by board members, so it follows the UI
 # language, not the server locale (which is C in the container).
-MONTHS = ("januari", "februari", "maart", "april", "mei", "juni", "juli",
-          "augustus", "september", "oktober", "november", "december")
-WEEKDAYS = ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag",
-            "zaterdag", "zondag")
+MONTHS = (
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+)
+WEEKDAYS = ("maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag")
 
 
 def long_date(day: date | None) -> str:

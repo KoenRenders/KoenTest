@@ -9,15 +9,15 @@ bestanden er in één keer mogen, en waar de volgende `sort_order` vandaan komt.
 Fouten komen naar buiten als `MediaFout` (invoer) of `LookupError` (niet
 gevonden); de route vertaalt die naar een statuscode.
 """
+
 from typing import Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
-from app.domains.media.pdf import (PDF_CONTENT_TYPE, PNG_CONTENT_TYPE,
-                                    first_page_png)
-from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
-from app.kernel.codes import code_of
+from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
+from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.i18n import _
+from app.kernel.codes import code_of
 
 # `tenant_logo` (#258): het logo van de vereniging zelf — één per tenant.
 # Eerste afnemer is de vergader-PDF, die het in zijn kop zet in plaats van een
@@ -35,8 +35,7 @@ from app.i18n import _
 # The name follows the other kinds: owner + thing. "page_media" would not say what
 # it is, and the others do.
 PAGE_IMAGE_KIND = MediaKind.PAGE_IMAGE
-VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOGO,
-               PAGE_IMAGE_KIND}
+VALID_KINDS = {MediaKind.SPONSOR, MediaKind.ACTIVITY_PHOTO, MediaKind.TENANT_LOGO, PAGE_IMAGE_KIND}
 # Files that another component links to from a text — not part of the media
 # library screen, which is why they are not in VALID_KINDS (#984).
 DOCUMENT_KINDS = {MediaKind.NEWSLETTER_FILE}
@@ -90,28 +89,39 @@ def activity_photo_covers(db) -> list[dict]:
     tonen i.p.v. een placeholder-icoon. DISTINCT ON (activity_id) pakt per
     activiteit de eerste foto (laagste sort_order, dan id).
     """
-    rijen = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
-                     MediaAsset.is_active.is_(True),
-                     MediaAsset.activity_id.isnot(None))
-             .order_by(MediaAsset.activity_id, MediaAsset.sort_order.asc(),
-                       MediaAsset.id.asc())
-             .distinct(MediaAsset.activity_id).all())
-    return [{"activity_id": a.activity_id, "thumb_url": f"/api/v1/media/{a.id}/thumb"}
-            for a in rijen]
+    rijen = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
+            MediaAsset.is_active.is_(True),
+            MediaAsset.activity_id.isnot(None),
+        )
+        .order_by(MediaAsset.activity_id, MediaAsset.sort_order.asc(), MediaAsset.id.asc())
+        .distinct(MediaAsset.activity_id)
+        .all()
+    )
+    return [
+        {"activity_id": a.activity_id, "thumb_url": f"/api/v1/media/{a.id}/thumb"} for a in rijen
+    ]
 
 
 def list_activity_photos(db, activity_id: int) -> list[dict]:
-    rijen = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
-                     MediaAsset.activity_id == activity_id,
-                     MediaAsset.is_active.is_(True))
-             .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc()).all())
+    rijen = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
+            MediaAsset.activity_id == activity_id,
+            MediaAsset.is_active.is_(True),
+        )
+        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
+        .all()
+    )
     return [meta(a) for a in rijen]
 
 
-def list_media(db, *, kind: MediaKind | str | None = None,
-               activity_id: Optional[int] = None) -> list[dict]:
+def list_media(
+    db, *, kind: MediaKind | str | None = None, activity_id: Optional[int] = None
+) -> list[dict]:
     query = db.query(MediaAsset)
     if kind:
         soort = as_media_kind(kind)
@@ -157,8 +167,7 @@ def controleer_link(url, *, kind: MediaKind | str):
     if waarde.startswith("/"):
         return waarde
     if not waarde.lower().startswith(VEILIGE_SCHEMAS):
-        raise MediaFout(_(
-            "Een link moet met http://, https://, mailto:, tel: of / beginnen."))
+        raise MediaFout(_("Een link moet met http://, https://, mailto:, tel: of / beginnen."))
     return waarde
 
 
@@ -169,8 +178,7 @@ def update_media(db, asset_id: int, payload: dict) -> dict:
     if "link_url" in payload:
         # #707: dezelfde regel als bij het uploaden. De soort van het bestaande
         # asset beslist, niet wat het formulier meestuurt.
-        payload = {**payload, "link_url": controleer_link(payload["link_url"],
-                                                          kind=asset.kind)}
+        payload = {**payload, "link_url": controleer_link(payload["link_url"], kind=asset.kind)}
     for veld in ("title", "link_url", "sort_order", "is_active", "show_in_footer"):
         if veld in payload:
             setattr(asset, veld, payload[veld])
@@ -187,9 +195,12 @@ def thumb_counts(db, asset_ids) -> dict[int, int]:
 
     if not asset_ids:
         return {}
-    rijen = (db.query(MediaThumbsUp.asset_id, func.count(MediaThumbsUp.id))
-             .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)))
-             .group_by(MediaThumbsUp.asset_id).all())
+    rijen = (
+        db.query(MediaThumbsUp.asset_id, func.count(MediaThumbsUp.id))
+        .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)))
+        .group_by(MediaThumbsUp.asset_id)
+        .all()
+    )
     return {asset_id: aantal for asset_id, aantal in rijen}
 
 
@@ -204,9 +215,11 @@ def thumbs_of_visitor(db, asset_ids, token: str | None) -> set[int]:
 
     if not token or not asset_ids:
         return set()
-    rijen = (db.query(MediaThumbsUp.asset_id)
-             .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)),
-                     MediaThumbsUp.visitor_token == token).all())
+    rijen = (
+        db.query(MediaThumbsUp.asset_id)
+        .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)), MediaThumbsUp.visitor_token == token)
+        .all()
+    )
     return {rij[0] for rij in rijen}
 
 
@@ -230,9 +243,11 @@ def toggle_thumb(db, asset_id: int, token: str) -> tuple[int, bool]:
     if asset is None:
         raise LookupError("Niet gevonden")
 
-    bestaand = (db.query(MediaThumbsUp)
-                .filter(MediaThumbsUp.asset_id == asset_id,
-                        MediaThumbsUp.visitor_token == token).first())
+    bestaand = (
+        db.query(MediaThumbsUp)
+        .filter(MediaThumbsUp.asset_id == asset_id, MediaThumbsUp.visitor_token == token)
+        .first()
+    )
     if bestaand is not None:
         db.delete(bestaand)
         db.commit()
@@ -252,8 +267,10 @@ def _thumb_total(db, asset_id: int) -> int:
 
     from app.domains.media.models import MediaThumbsUp
 
-    return (db.query(func.count(MediaThumbsUp.id))
-            .filter(MediaThumbsUp.asset_id == asset_id).scalar() or 0)
+    return (
+        db.query(func.count(MediaThumbsUp.id)).filter(MediaThumbsUp.asset_id == asset_id).scalar()
+        or 0
+    )
 
 
 def move_media(db, asset_id: int, richting: str) -> None:
@@ -281,11 +298,15 @@ def move_media(db, asset_id: int, richting: str) -> None:
         raise LookupError("Niet gevonden")
     # `== None` wordt door SQLAlchemy een IS NULL, dus dit dekt ook een sponsor
     # (activity_id en component_id leeg) zonder aparte tak.
-    groep = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == asset.kind,
-                     MediaAsset.activity_id == asset.activity_id,
-                     MediaAsset.component_id == asset.component_id)
-             .all())
+    groep = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == asset.kind,
+            MediaAsset.activity_id == asset.activity_id,
+            MediaAsset.component_id == asset.component_id,
+        )
+        .all()
+    )
     move_sibling(groep, asset_id, richting)
     db.commit()
 
@@ -298,10 +319,15 @@ def delete_media(db, asset_id: int) -> None:
     db.commit()
 
 
-async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
-                       activity_id: Optional[int] = None,
-                       title: Optional[str] = None,
-                       link_url: Optional[str] = None) -> list[dict]:
+async def upload_media(
+    db,
+    *,
+    files: Sequence,
+    kind: MediaKind | str,
+    activity_id: Optional[int] = None,
+    title: Optional[str] = None,
+    link_url: Optional[str] = None,
+) -> list[dict]:
     """Verwerk en bewaar een reeks geüploade afbeeldingen.
 
     Async omdat een `UploadFile` async gelezen wordt; verder gewone servicecode.
@@ -314,8 +340,7 @@ async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
 
     media_kind = as_media_kind(kind)
     if media_kind == DESIGN_RENDER_KIND:
-        raise MediaFout(_("Een render wordt door de Design Studio gemaakt en "
-                          "niet opgeladen."))
+        raise MediaFout(_("Een render wordt door de Design Studio gemaakt en niet opgeladen."))
     if media_kind not in UPLOADABLE_KINDS:
         raise MediaFout("Ongeldige 'kind'")
     # #1005: een design-beeld hangt óók aan een activiteit, maar hoeft het niet —
@@ -326,11 +351,13 @@ async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
             # gebruiker moet doen; "activity_id vereist" is de naam van een
             # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
             raise MediaFout(_("Kies eerst een activiteit."))
-        if (activity_id is not None
-                and not db.query(Activity).filter(Activity.id == activity_id).first()):
+        if (
+            activity_id is not None
+            and not db.query(Activity).filter(Activity.id == activity_id).first()
+        ):
             raise LookupError("Activiteit niet gevonden")
     else:
-        activity_id = None      # sponsors hangen niet aan een activiteit
+        activity_id = None  # sponsors hangen niet aan een activiteit
 
     # #707: één plek voor de regel, dus ook op deze ingang. Bij een foto valt de
     # waarde weg; bij een sponsor moet het schema in een href mogen.
@@ -352,8 +379,10 @@ async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
         # re-encoded (see `media/svg.py`). Every other kind stays raster.
         is_svg = upload.content_type == SVG_CONTENT_TYPE
         if is_svg and media_kind is not MediaKind.TENANT_LOGO:
-            raise MediaFout(_("%(bestand)s: een SVG kan alleen als logo van de "
-                              "vereniging.") % {"bestand": upload.filename})
+            raise MediaFout(
+                _("%(bestand)s: een SVG kan alleen als logo van de vereniging.")
+                % {"bestand": upload.filename}
+            )
         if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
             raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
         rauw = await upload.read()
@@ -362,9 +391,15 @@ async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
         except ImageError as exc:
             raise MediaFout(f"{upload.filename}: {exc}")
 
-        asset = MediaAsset(kind=media_kind, activity_id=activity_id,
-                           title=title or upload.filename, link_url=link_url,
-                           sort_order=volgende + index, is_active=True, **verwerkt)
+        asset = MediaAsset(
+            kind=media_kind,
+            activity_id=activity_id,
+            title=title or upload.filename,
+            link_url=link_url,
+            sort_order=volgende + index,
+            is_active=True,
+            **verwerkt,
+        )
         db.add(asset)
         gemaakt.append(asset)
 
@@ -374,8 +409,15 @@ async def upload_media(db, *, files: Sequence, kind: MediaKind | str,
     return [meta(a) for a in gemaakt]
 
 
-def add_document(db, *, kind: MediaKind | str, filename: str, content_type: str,
-                 data: bytes, activity_id: Optional[int] = None) -> MediaAsset:
+def add_document(
+    db,
+    *,
+    kind: MediaKind | str,
+    filename: str,
+    content_type: str,
+    data: bytes,
+    activity_id: Optional[int] = None,
+) -> MediaAsset:
     """Store one file another component links to or produced, and return it.
 
     Public like every media asset: it is served at `/api/v1/media/{id}` under its
@@ -406,12 +448,19 @@ def add_document(db, *, kind: MediaKind | str, filename: str, content_type: str,
     if not is_svg and content_type not in DOC_CONTENT_TYPES:
         raise MediaFout(_("Dit bestandstype kan niet: kies een PDF of een afbeelding."))
     try:
-        processed = (process_svg(data) if is_svg
-                     else _process_document(data, content_type, kind=media_kind))
+        processed = (
+            process_svg(data) if is_svg else _process_document(data, content_type, kind=media_kind)
+        )
     except ImageError as exc:
         raise MediaFout(f"{filename}: {exc}")
-    asset = MediaAsset(kind=media_kind, title=(filename or "bestand")[:255], sort_order=0,
-                       activity_id=activity_id, is_active=True, **processed)
+    asset = MediaAsset(
+        kind=media_kind,
+        title=(filename or "bestand")[:255],
+        sort_order=0,
+        activity_id=activity_id,
+        is_active=True,
+        **processed,
+    )
     db.add(asset)
     db.commit()
     db.refresh(asset)
@@ -425,8 +474,12 @@ def activity_ids_with_media(db) -> set[int]:
     de upload-keuzelijst juist álle activiteiten toont (#476). Twee lijsten met
     twee bedoelingen.
     """
-    return {rij[0] for rij in db.query(MediaAsset.activity_id)
-            .filter(MediaAsset.activity_id.isnot(None)).distinct()}
+    return {
+        rij[0]
+        for rij in db.query(MediaAsset.activity_id)
+        .filter(MediaAsset.activity_id.isnot(None))
+        .distinct()
+    }
 
 
 # ── Affiches, onderdeel-info en hertekstextractie (#635 I) ───────────────────
@@ -434,6 +487,7 @@ def activity_ids_with_media(db) -> set[int]:
 # beheerschermen geïmporteerd. Ze dragen domeinregels: een affiche vervangt de
 # vorige (er is er één per activiteit), verwijderen neemt de geëxtraheerde tekst
 # vanzelf mee, en hertekstextractie mag alleen op een leesbaar documenttype.
+
 
 async def replace_activity_poster(db, activity_id: int, file, background_tasks):
     """Vervang de affiche van een activiteit.
@@ -450,17 +504,23 @@ async def replace_activity_poster(db, activity_id: int, file, background_tasks):
     if activity is None:
         raise LookupError("Activiteit niet gevonden")
     asset = await _replace_single_asset(
-        db, file, kind=MediaKind.ACTIVITY_POSTER, activity_id=activity_id,
-        title_base=f"{activity.name} - poster")
+        db,
+        file,
+        kind=MediaKind.ACTIVITY_POSTER,
+        activity_id=activity_id,
+        title_base=f"{activity.name} - poster",
+    )
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
 
 
 def delete_activity_poster(db, activity_id: int) -> None:
     """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
-    for asset in (db.query(MediaAsset)
-                  .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER,
-                          MediaAsset.activity_id == activity_id).all()):
+    for asset in (
+        db.query(MediaAsset)
+        .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER, MediaAsset.activity_id == activity_id)
+        .all()
+    ):
         db.delete(asset)
     db.commit()
 
@@ -471,8 +531,7 @@ def reextract_text(db, asset_id: int, background_tasks) -> dict:
     Draait op de achtergrond en raakt enkel `extracted_text` aan — een handmatige
     override of aanvulling in de AI-context blijft staan.
     """
-    from app.domains.media.extraction import (EXTRACTABLE_KINDS,
-                                              update_media_extracted_text)
+    from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None or asset.kind not in EXTRACTABLE_KINDS:
@@ -496,16 +555,24 @@ async def replace_component_info(db, component_id: int, file, background_tasks):
         raise LookupError("Onderdeel niet gevonden")
     activiteit_naam = component.activity.name if component.activity else "activiteit"
     asset = await _replace_single_asset(
-        db, file, kind=MediaKind.COMPONENT_INFO, component_id=component_id,
-        title_base=f"{activiteit_naam} - {component.name} - info")
+        db,
+        file,
+        kind=MediaKind.COMPONENT_INFO,
+        component_id=component_id,
+        title_base=f"{activiteit_naam} - {component.name} - info",
+    )
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
 
 
 def delete_component_info(db, component_id: int) -> None:
-    for asset in (db.query(MediaAsset)
-                  .filter(MediaAsset.kind == MediaKind.COMPONENT_INFO,
-                          MediaAsset.component_id == component_id).all()):
+    for asset in (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == MediaKind.COMPONENT_INFO, MediaAsset.component_id == component_id
+        )
+        .all()
+    ):
         db.delete(asset)
     db.commit()
 
@@ -523,10 +590,12 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
     show a broken image. Media decides this, not the newsletter: whether a file
     has a usable picture is knowledge of this domain.
     """
-    poster = (db.query(MediaAsset)
-              .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER,
-                      MediaAsset.activity_id == activity_id)
-              .order_by(MediaAsset.id.desc()).first())
+    poster = (
+        db.query(MediaAsset)
+        .filter(MediaAsset.kind == MediaKind.ACTIVITY_POSTER, MediaAsset.activity_id == activity_id)
+        .order_by(MediaAsset.id.desc())
+        .first()
+    )
     if poster is not None:
         if poster.content_type == PDF_CONTENT_TYPE:
             if poster.thumbnail is None:
@@ -537,11 +606,16 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
                     db.commit()
             return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
         return f"/api/v1/media/{poster.id}"
-    cover = (db.query(MediaAsset)
-             .filter(MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
-                     MediaAsset.is_active.is_(True),
-                     MediaAsset.activity_id == activity_id)
-             .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc()).first())
+    cover = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == MediaKind.ACTIVITY_PHOTO,
+            MediaAsset.is_active.is_(True),
+            MediaAsset.activity_id == activity_id,
+        )
+        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
+        .first()
+    )
     return f"/api/v1/media/{cover.id}/thumb" if cover is not None else None
 
 
@@ -553,7 +627,9 @@ def tenant_logo(db):
     een URL, want de eerste afnemer is een PDF — die kan niets ophalen en heeft
     de bytes nodig.
     """
-    return (db.query(MediaAsset)
-            .filter(MediaAsset.kind == MediaKind.TENANT_LOGO)
-            .order_by(MediaAsset.id.desc())
-            .first())
+    return (
+        db.query(MediaAsset)
+        .filter(MediaAsset.kind == MediaKind.TENANT_LOGO)
+        .order_by(MediaAsset.id.desc())
+        .first()
+    )

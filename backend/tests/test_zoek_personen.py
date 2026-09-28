@@ -20,6 +20,7 @@ still returns the two namesakes in insertion order here, so this data cannot
 prove it. The assertion stays because it pins the intended order (#761) — it is
 a promise, not a proof.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -37,8 +38,7 @@ def _person(db, voornaam, achternaam, *, lid=False):
         gezin = Member()
         db.add(gezin)
         db.flush()
-        db.add(MemberPerson(member_id=gezin.id, person_id=person.id,
-                            relation_type="HOOFDLID"))
+        db.add(MemberPerson(member_id=gezin.id, person_id=person.id, relation_type="HOOFDLID"))
         db.flush()
     return person
 
@@ -59,6 +59,7 @@ def _namen(rijen):
 
 # ── De zoekfunctie zelf ──────────────────────────────────────────────────────
 
+
 def test_a_query_matches_first_and_last_name_anywhere(db_session, mensen):
     gevonden = _namen(search_persons(db_session, "jan"))
 
@@ -73,19 +74,18 @@ def test_the_order_is_deterministic(db_session, mensen):
 
     gevonden = search_persons(db_session, "anna zelfde")
     assert [p.id for p in gevonden] == sorted([eerste.id, tweede.id]), (
-        "twee naamgenoten kwamen in een andere volgorde dan op id terug")
+        "twee naamgenoten kwamen in een andere volgorde dan op id terug"
+    )
 
 
 def test_members_only_leaves_out_who_is_in_no_household(db_session, mensen):
     assert "Jana Ondersteuner" in _namen(search_persons(db_session, "jan"))
-    assert "Jana Ondersteuner" not in _namen(
-        search_persons(db_session, "jan", members_only=True))
+    assert "Jana Ondersteuner" not in _namen(search_persons(db_session, "jan", members_only=True))
     assert "Jan Peeters" in _namen(search_persons(db_session, "jan", members_only=True))
 
 
 def test_exclude_ids_and_limit(db_session, mensen):
-    zonder = _namen(search_persons(db_session, "jan",
-                                   exclude_ids=[mensen["jan"].id]))
+    zonder = _namen(search_persons(db_session, "jan", exclude_ids=[mensen["jan"].id]))
     assert "Jan Peeters" not in zonder and "Marjan Vermeir" in zonder
 
     for i in range(20):
@@ -103,11 +103,13 @@ def test_a_like_character_is_searched_for_and_not_interpreted(db_session, mensen
     _person(db_session, "Jo", "100% Zeker")
 
     assert _namen(search_persons(db_session, "%")) == ["Jo 100% Zeker"], (
-        "'%' werkte als jokerteken; dan komt iedereen terug")
+        "'%' werkte als jokerteken; dan komt iedereen terug"
+    )
     assert _namen(search_persons(db_session, "_")) == [], "'_' matchte elk teken"
 
 
 # ── Via de route van de vergaderkring ────────────────────────────────────────
+
 
 def _login(client):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -116,8 +118,7 @@ def _login(client):
 
 
 def _kring(client, q):
-    resp = client.get("/admin/vergaderingen/kring", params={"q": q},
-                      headers={"HX-Request": "true"})
+    resp = client.get("/admin/vergaderingen/kring", params={"q": q}, headers={"HX-Request": "true"})
     assert resp.status_code == 200
     return resp.text
 

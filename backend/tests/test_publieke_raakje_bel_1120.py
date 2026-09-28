@@ -21,6 +21,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 `POST /raakje/vraag` uit `chatbot/ui.py` gehaald → de beltest valt om met 405 op
 de bestemming die de bel zelf noemt; `GET /raakje` teruggezet → de 404-test.
 """
+
 from __future__ import annotations
 
 import re
@@ -88,5 +89,5 @@ def test_niets_verwijst_nog_naar_de_verdwenen_pagina(client):
             if re.search(r'href="/raakje"|hx-get="/raakje"', regel):
                 fouten.append(f"{sjabloon.relative_to(app)}:{nr}")
     assert not fouten, (
-        "deze sjablonen wijzen nog naar de verdwenen pagina /raakje:\n  "
-        + "\n  ".join(fouten))
+        "deze sjablonen wijzen nog naar de verdwenen pagina /raakje:\n  " + "\n  ".join(fouten)
+    )

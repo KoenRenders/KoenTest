@@ -19,6 +19,7 @@ both typing tests fall over, and the checkbox unticking test with them (the
 box never got ticked, so there was nothing to untick). Measured on 26
 September 2026 against a local server.
 """
+
 import os
 import sys
 
@@ -46,13 +47,13 @@ def anders_formulier():
     db.flush()
     ids = {}
     for position, kind in enumerate(("radio", "checkbox")):
-        field = FormField(form_id=form.id, field_type=kind, label=f"Vraag {kind}",
-                          position=position)
+        field = FormField(
+            form_id=form.id, field_type=kind, label=f"Vraag {kind}", position=position
+        )
         db.add(field)
         db.flush()
         db.add(FormFieldOption(field_id=field.id, label="Gewoon", position=0))
-        db.add(FormFieldOption(field_id=field.id, label="Anders", position=1,
-                               is_other=True))
+        db.add(FormFieldOption(field_id=field.id, label="Anders", position=1, is_other=True))
         ids[kind] = field.id
     db.commit()
     db.close()
@@ -75,8 +76,7 @@ def _open(page, token):
 
 
 def _option(page, field_id, label):
-    return page.locator(f'[data-veld="f{field_id}"] label', has_text=label).locator(
-        "input").first
+    return page.locator(f'[data-veld="f{field_id}"] label', has_text=label).locator("input").first
 
 
 @pytest.mark.parametrize("kind", ["radio", "checkbox"])

@@ -34,14 +34,18 @@ elk één keer gedraaid; tussen haakjes wat er werkelijk omviel:
 - de `{% if raakje_scherm %}` altijd waar (*geen knop* én *wie de assistent niet
   mag*).
 """
+
 from __future__ import annotations
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.reporting.assistant import (Scope, ScopeNietOverdraagbaar,
-                                             build_system_prompt,
-                                             scope_for_payments)
+from app.domains.reporting.assistant import (
+    Scope,
+    ScopeNietOverdraagbaar,
+    build_system_prompt,
+    scope_for_payments,
+)
 from tests._assistant_seed import TENANT, seed
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -76,6 +80,7 @@ def _filters(scope: Scope) -> list[tuple[str, str]]:
 
 # ── De selectie wordt een echte filter ───────────────────────────────────────
 
+
 def _scope(db, stand: dict) -> Scope:
     """#1126: de bouwer zoekt de naam van een activiteit op en heeft daarvoor de
     databank en de tenant nodig. De tests hieronder geven ze mee zoals de route
@@ -95,10 +100,13 @@ def test_het_tabblad_openstaand_reist_mee_als_filter(db_session):
     assert scope.facts == frozenset({"f_payments"})
 
 
-@pytest.mark.parametrize("zicht,verwacht", [
-    ("betaald", ("payment_status", "Betaald")),
-    ("terugbetaald", ("payment_type", "Terugbetaling")),
-])
+@pytest.mark.parametrize(
+    "zicht,verwacht",
+    [
+        ("betaald", ("payment_status", "Betaald")),
+        ("terugbetaald", ("payment_type", "Terugbetaling")),
+    ],
+)
 def test_de_andere_tabbladen_ook(db_session, zicht, verwacht):
     assert verwacht in _filters(_scope(db_session, {"zicht": zicht}))
 
@@ -127,8 +135,7 @@ def test_de_prompt_noemt_de_selectie_en_geen_opgeslagen_tekst(db_session):
     """De systeemprompt van dit pakket wordt niet op namen gescand, en die
     vrijstelling is alleen houdbaar zolang er niets uit de databank in komt.
     Alleen onze eigen labels en getallen dus."""
-    prompt = build_system_prompt(
-        _scope(db_session, {"zicht": "openstaand", "activiteit": "42"}))
+    prompt = build_system_prompt(_scope(db_session, {"zicht": "openstaand", "activiteit": "42"}))
 
     # Activiteit 42 bestaat hier niet, dus de naamopzoeking vindt niets en het
     # blijft bij het nummer (#1126). Dat een bestaande activiteit haar NAAM
@@ -139,13 +146,17 @@ def test_de_prompt_noemt_de_selectie_en_geen_opgeslagen_tekst(db_session):
 
 # ── Overdragen of weigeren ───────────────────────────────────────────────────
 
-@pytest.mark.parametrize("stand,noemt", [
-    ({"q": "janssens"}, "zoekterm"),
-    ({"gezin": "7"}, "gezinsfilter"),
-    ({"inschrijving": "9"}, "inschrijvingsfilter"),
-    ({"context": "year-2026"}, "contextfilter"),
-    ({"context": "comp-3"}, "contextfilter"),
-])
+
+@pytest.mark.parametrize(
+    "stand,noemt",
+    [
+        ({"q": "janssens"}, "zoekterm"),
+        ({"gezin": "7"}, "gezinsfilter"),
+        ({"inschrijving": "9"}, "inschrijvingsfilter"),
+        ({"context": "year-2026"}, "contextfilter"),
+        ({"context": "comp-3"}, "contextfilter"),
+    ],
+)
 def test_een_filter_zonder_tegenhanger_weigert_en_zegt_welk(db_session, stand, noemt):
     """En het zegt WELK filter in de weg zit — "dit kan niet" is onbruikbaar."""
     with pytest.raises(ScopeNietOverdraagbaar) as fout:
@@ -155,7 +166,8 @@ def test_een_filter_zonder_tegenhanger_weigert_en_zegt_welk(db_session, stand, n
 
 
 def test_de_route_weigert_leesbaar_in_plaats_van_ruimer_te_antwoorden(
-        client, db_session, situatie, aan):
+    client, db_session, situatie, aan
+):
     """Het gedrag dat het stille verbreden tegenhoudt.
 
     Zonder deze weigering zou Raakje naast een op naam gefilterde lijst een totaal
@@ -164,9 +176,10 @@ def test_de_route_weigert_leesbaar_in_plaats_van_ruimer_te_antwoorden(
     kop = _login(client)
 
     antwoord = client.post(
-        PAD, data={"vraag": "hoeveel staat er open?", "historie": "[]"},
-        headers={**kop, "HX-Current-URL":
-                 "http://testserver/admin/betalingen?q=janssens"})
+        PAD,
+        data={"vraag": "hoeveel staat er open?", "historie": "[]"},
+        headers={**kop, "HX-Current-URL": "http://testserver/admin/betalingen?q=janssens"},
+    )
 
     assert antwoord.status_code == 200
     assert "zoekterm" in antwoord.text
@@ -175,8 +188,8 @@ def test_de_route_weigert_leesbaar_in_plaats_van_ruimer_te_antwoorden(
 
 # ── Waar de scope vandaan komt ───────────────────────────────────────────────
 
-def test_een_vervalst_formulierveld_verandert_de_scope_niet(client, db_session,
-                                                             situatie, aan):
+
+def test_een_vervalst_formulierveld_verandert_de_scope_niet(client, db_session, situatie, aan):
     """Toets 2 van het issue: de scope wordt server-side herleid.
 
     Het formulier draagt alleen de vraag en de geschiedenis. Zet er een `zicht`
@@ -189,9 +202,15 @@ def test_een_vervalst_formulierveld_verandert_de_scope_niet(client, db_session,
 
     antwoord = client.post(
         PAD,
-        data={"vraag": "hoeveel betalingen?", "historie": "[]",
-              "zicht": "terugbetaald", "activiteit": "999", "q": "janssens"},
-        headers={**kop, "HX-Current-URL": "http://testserver/admin/betalingen"})
+        data={
+            "vraag": "hoeveel betalingen?",
+            "historie": "[]",
+            "zicht": "terugbetaald",
+            "activiteit": "999",
+            "q": "janssens",
+        },
+        headers={**kop, "HX-Current-URL": "http://testserver/admin/betalingen"},
+    )
 
     # De zoekterm in het formulier zou de scope onoverdraagbaar maken als ze
     # gelezen werd; ze wordt genegeerd, dus het antwoord komt er gewoon.
@@ -204,13 +223,15 @@ def test_een_onbekend_scherm_bestaat_niet(client, db_session, situatie, aan):
     geen code uit."""
     kop = _login(client)
 
-    antwoord = client.post("/admin/rapporten/raakje/scherm/geheim",
-                           data={"vraag": "?", "historie": "[]"}, headers=kop)
+    antwoord = client.post(
+        "/admin/rapporten/raakje/scherm/geheim", data={"vraag": "?", "historie": "[]"}, headers=kop
+    )
 
     assert antwoord.status_code == 404
 
 
 # ── De ingang op het scherm ──────────────────────────────────────────────────
+
 
 def test_de_ingang_staat_op_het_betalingenscherm(client, db_session, situatie, aan):
     """De knop verschijnt, en hij wijst naar de schermroute."""
@@ -231,8 +252,7 @@ def test_zonder_de_schakelaars_geen_knop(client, db_session, situatie):
     assert "AI · Betalingen" not in html
 
 
-def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session,
-                                                        situatie, aan):
+def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session, situatie, aan):
     """De rolgrens die dit scherm bijzonder maakt (Koen, 20 september 2026).
 
     Betalingen draait op `require_finance_ui`, de assistent op
@@ -248,8 +268,7 @@ def test_wie_de_assistent_niet_mag_krijgt_er_geen_knop(client, db_session,
     db_session.flush()
     db_session.add(UserRole(user_id=penningmeester.id, role_code="FINANCE"))
     db_session.flush()
-    client.cookies.set(SESSION_COOKIE,
-                       make_session_value(penningmeester.email))
+    client.cookies.set(SESSION_COOKIE, make_session_value(penningmeester.email))
 
     antwoord = client.get("/admin/betalingen")
 
@@ -266,7 +285,6 @@ def test_zonder_de_schakelaars_geen_ingang(client, db_session, situatie):
     """
     kop = _login(client)
 
-    antwoord = client.post(PAD, data={"vraag": "hoeveel?", "historie": "[]"},
-                           headers=kop)
+    antwoord = client.post(PAD, data={"vraag": "hoeveel?", "historie": "[]"}, headers=kop)
 
     assert antwoord.status_code == 404

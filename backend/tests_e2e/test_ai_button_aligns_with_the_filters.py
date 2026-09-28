@@ -73,6 +73,7 @@ met wat er werkelijk omviel — niet met wat ik verwachtte:
   draagt `min-h-11` óók, dus daarmee zou de proef groen gebleven zijn en niets
   bewezen hebben.
 """
+
 import os
 import sys
 
@@ -122,7 +123,8 @@ def _open(page, scherm: str, breedte: int = 1440):
         pad = page.evaluate(
             r"""Array.from(document.querySelectorAll('a[href]'))
                     .map(a => a.getAttribute('href'))
-                    .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null""")
+                    .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
+        )
         if not pad:
             _ontbreekt("geen activiteit om de Betalingen-tab van te openen")
         page.goto(f"{pad}/betalingen")
@@ -130,8 +132,10 @@ def _open(page, scherm: str, breedte: int = 1440):
         page.goto(scherm)
     pagina_klaar(page)
     if page.get_by_role("button", name=KNOP).count() == 0:
-        _ontbreekt(f"geen {KNOP}-knop op {scherm} — staat de beheer-assistent aan "
-                   "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?")
+        _ontbreekt(
+            f"geen {KNOP}-knop op {scherm} — staat de beheer-assistent aan "
+            "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?"
+        )
     return page.get_by_role("button", name=KNOP).first
 
 
@@ -171,7 +175,8 @@ def test_the_ai_button_shares_its_centre_with_the_search_field(browser_pagina, s
         "een control (34 tegen 38) zonder dat zijn wrapper de hoogte van het "
         "formulier overneemt — dat laatste geeft precies 2 px. Staat hij LAGER, "
         "dan is hij tegen het formulier inclusief `mb-4` gecentreerd in plaats "
-        "van tegen de regel controls; dat geeft 8 px (#1197).")
+        "van tegen de regel controls; dat geeft 8 px (#1197)."
+    )
 
 
 @pytest.mark.parametrize("scherm", [LOS, TAB])
@@ -197,9 +202,11 @@ def test_the_ai_button_lines_up_with_every_control_on_the_row(browser_pagina, sc
 
     assert len(gemeten) >= 2, (
         f"maar {len(gemeten)} control gevonden op {scherm} ({gemeten}) — dan meet "
-        "deze test de regel niet")
-    assert not scheef, (f"op {scherm} ligt de knop niet op één lijn met de regel: "
-                        + ", ".join(scheef))
+        "deze test de regel niet"
+    )
+    assert not scheef, f"op {scherm} ligt de knop niet op één lijn met de regel: " + ", ".join(
+        scheef
+    )
 
 
 def test_the_touch_target_survives_on_a_phone(browser_pagina):
@@ -214,7 +221,8 @@ def test_the_touch_target_survives_on_a_phone(browser_pagina):
 
     assert doos, "de knop is op 390 px niet zichtbaar"
     assert doos["height"] >= 44, (
-        f"het aanraakvlak is {doos['height']:.0f} px, onder de 44 px van #804")
+        f"het aanraakvlak is {doos['height']:.0f} px, onder de 44 px van #804"
+    )
 
 
 def test_the_button_stays_outside_the_filter_form(browser_pagina):
@@ -235,9 +243,11 @@ def test_the_button_stays_outside_the_filter_form(browser_pagina):
                 .filter(b => b.textContent.includes('AI · Betalingen'));
             if (!knoppen.length) return null;
             return knoppen.some(b => b.closest('#bt-filter') !== null);
-        }""")
+        }"""
+    )
 
     assert binnen_de_balk is not None, "geen AI-knop gevonden in de DOM"
     assert binnen_de_balk is False, (
         "de knop staat weer BINNEN de filterbalk — dan gooit de browser het "
-        "geneste formulier weg en doet Vraag niets meer (#1115)")
+        "geneste formulier weg en doet Vraag niets meer (#1115)"
+    )

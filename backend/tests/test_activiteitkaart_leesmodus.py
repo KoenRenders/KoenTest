@@ -12,6 +12,7 @@ in de bewerkvorm. Een test die `"tekst" in resp.text` doet, staat dus groen
 zonder dat er iets in leesmodus zichtbaar is. Dat is precies hoe dit zo lang
 kon blijven staan, en het is de reden dat `_leesdeel()` hieronder knipt.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -65,8 +66,8 @@ def _leesdeel(html: str) -> str:
 
 # ── 1. De kaart toont wat ze bevat ──────────────────────────────────────────
 
-def test_description_and_internal_note_are_visible_without_clicking(
-        client, db_session, activiteit):
+
+def test_description_and_internal_note_are_visible_without_clicking(client, db_session, activiteit):
     """Het gemelde geval.
 
     Tegenproef: de twee leesregels uit `_aa_detail.html` gehaald → beide
@@ -84,8 +85,7 @@ def test_description_and_internal_note_are_visible_without_clicking(
     assert NOTA in lees, "de interne nota staat niet in de leesweergave"
 
 
-def test_the_internal_note_is_recognisably_internal_in_read_mode(
-        client, db_session, activiteit):
+def test_the_internal_note_is_recognisably_internal_in_read_mode(client, db_session, activiteit):
     """De nota mag niet als gewone tekst tussen de rest staan.
 
     Het veld bestaat omdat de oude `notes`-kolom stil publiek uitleesbaar bleek
@@ -99,7 +99,8 @@ def test_the_internal_note_is_recognisably_internal_in_read_mode(
     lees = _leesdeel(_kaart(client, activiteit))
     assert "Interne nota" in lees
     assert "Alleen het bestuur ziet dit" in lees, (
-        "de leesweergave zegt niet dat deze tekst intern is")
+        "de leesweergave zegt niet dat deze tekst intern is"
+    )
 
 
 def test_the_promise_about_the_internal_note_lives_in_one_place():
@@ -116,19 +117,26 @@ def test_the_promise_about_the_internal_note_lives_in_one_place():
     """
     from pathlib import Path
 
-    tekst = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
-             / "templates" / "_aa_detail.html").read_text()
+    tekst = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "domains"
+        / "activities"
+        / "templates"
+        / "_aa_detail.html"
+    ).read_text()
     zin = "Alleen het bestuur ziet dit"
     aantal = tekst.count(zin)
     assert aantal == 1, (
         f"de belofte staat {aantal}x letterlijk in het sjabloon; leid de tweede "
-        "plek af uit INTERNE_NOTA_BELOFTE in plaats van hem te herhalen")
+        "plek af uit INTERNE_NOTA_BELOFTE in plaats van hem te herhalen"
+    )
 
 
 # ── 2. Leeg blijft leeg, en zegt dat ────────────────────────────────────────
 
-def test_an_empty_card_says_so_instead_of_showing_blank_rows(
-        client, db_session, activiteit):
+
+def test_an_empty_card_says_so_instead_of_showing_blank_rows(client, db_session, activiteit):
     """Zonder omschrijving, nota of affiche: één zin, geen lege labelregels.
 
     Een leeg veld als lege regel tonen maakt de kaart opnieuw een kader zonder
@@ -142,8 +150,7 @@ def test_an_empty_card_says_so_instead_of_showing_blank_rows(
     assert "Interne nota:" not in lees
 
 
-def test_a_card_with_content_drops_the_empty_state_sentence(
-        client, db_session, activiteit):
+def test_a_card_with_content_drops_the_empty_state_sentence(client, db_session, activiteit):
     """De terugvalzin hoort bij de KAART, niet bij de affiche.
 
     Vroeger stond "Nog geen affiche" er ook wanneer de kaart verder vol stond;
@@ -161,8 +168,8 @@ def test_a_card_with_content_drops_the_empty_state_sentence(
 
 # ── 3. De bewerkmodus verandert niet ────────────────────────────────────────
 
-def test_edit_mode_keeps_the_same_fields_in_the_same_places(
-        client, db_session, activiteit):
+
+def test_edit_mode_keeps_the_same_fields_in_the_same_places(client, db_session, activiteit):
     """Buiten scope van #1139, dus hier vastgepind.
 
     De leesweergave is ernaast gezet, niet in de plaats van: dezelfde velden,

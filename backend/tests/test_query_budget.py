@@ -32,6 +32,7 @@ Kapotgemaakt om te controleren dat de verschiltest het onderscheid werkelijk maa
   **groen** en deed alleen het plafond aanslaan (20 tegen 19). Dat is de toets die
   bewijst dat de nieuwe gate iets anders meet dan de oude.
 """
+
 from collections import Counter
 from datetime import date
 from decimal import Decimal
@@ -41,9 +42,12 @@ from sqlalchemy import event
 
 from app.database import engine
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_activity_with_product, seed_postal_code)
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -102,8 +106,9 @@ class Queryteller:
         return "\n    ".join(regels)
 
 
-def _vul(db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int,
-         vanaf: int = 0, doel=None):
+def _vul(
+    db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int, vanaf: int = 0, doel=None
+):
     """Voeg rijen TOE aan de databank; geef het drietal terug om op te bouwen.
 
     #1058 maakte hier een fabriek van. Ze is bewust **aanvullend** en niet
@@ -113,8 +118,7 @@ def _vul(db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int,
     """
     from datetime import timedelta
 
-    from app.domains.activities.api import (Activity, ActivityDate, Registration,
-                                            RegistrationItem)
+    from app.domains.activities.api import Activity, ActivityDate, Registration, RegistrationItem
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
@@ -127,30 +131,56 @@ def _vul(db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int,
         extra = Activity(name=f"Budgetactiviteit {i}")
         db_session.add(extra)
         db_session.flush()
-        db_session.add(ActivityDate(activity_id=extra.id,
-                                    start_date=date.today() - timedelta(days=30 * i)))
+        db_session.add(
+            ActivityDate(activity_id=extra.id, start_date=date.today() - timedelta(days=30 * i))
+        )
 
     jaar = date.today().year
     for i in range(vanaf, vanaf + gezinnen):
         member, _person = create_test_family(db_session, email=f"budget{i}@example.com")
-        db_session.add(Membership(member_id=member.id, year=jaar, is_active=True,
-                                  valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
-        db_session.add(PaymentRecord(
-            payable_type="membership", payable_id=member.id, type="charge",
-            amount=Decimal("20.00"), method="transfer", status="pending"))
+        db_session.add(
+            Membership(
+                member_id=member.id,
+                year=jaar,
+                is_active=True,
+                valid_from=date(jaar, 1, 1),
+                valid_to=date(jaar, 12, 31),
+            )
+        )
+        db_session.add(
+            PaymentRecord(
+                payable_type="membership",
+                payable_id=member.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                method="transfer",
+                status="pending",
+            )
+        )
 
     for i in range(vanaf, vanaf + inschrijvingen):
-        registratie = Registration(activity_id=activity.id, component_id=component.id,
-                                   registration_type="INDIVIDUAL",
-                                   contact_name=f"Budget {i}",
-                                   contact_email=f"reg{i}@example.com")
+        registratie = Registration(
+            activity_id=activity.id,
+            component_id=component.id,
+            registration_type="INDIVIDUAL",
+            contact_name=f"Budget {i}",
+            contact_email=f"reg{i}@example.com",
+        )
         db_session.add(registratie)
         db_session.flush()
-        db_session.add(RegistrationItem(registration_id=registratie.id,
-                                        product_id=product.id, quantity=2))
-        db_session.add(PaymentRecord(
-            payable_type="registration", payable_id=registratie.id, type="charge",
-            amount=Decimal("20.00"), method="transfer", status="pending"))
+        db_session.add(
+            RegistrationItem(registration_id=registratie.id, product_id=product.id, quantity=2)
+        )
+        db_session.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=registratie.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                method="transfer",
+                status="pending",
+            )
+        )
     db_session.commit()
     return doel
 
@@ -158,8 +188,12 @@ def _vul(db_session, *, activiteiten: int, gezinnen: int, inschrijvingen: int,
 @pytest.fixture
 def gevulde_databank(client, db_session):
     """Genoeg rijen dat een N+1 niet meer binnen een plafond past."""
-    _vul(db_session, activiteiten=AANTAL_ACTIVITEITEN, gezinnen=AANTAL_GEZINNEN,
-         inschrijvingen=AANTAL_INSCHRIJVINGEN)
+    _vul(
+        db_session,
+        activiteiten=AANTAL_ACTIVITEITEN,
+        gezinnen=AANTAL_GEZINNEN,
+        inschrijvingen=AANTAL_INSCHRIJVINGEN,
+    )
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     return client
 
@@ -238,8 +272,7 @@ def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_s
     """
     from app.domains.activities.api import Activity
 
-    activiteit = db_session.query(Activity).filter(
-        Activity.name == "Testactiviteit").first()
+    activiteit = db_session.query(Activity).filter(Activity.name == "Testactiviteit").first()
     assert activiteit is not None, "de fixture levert geen activiteit om te openen"
     pad = f"/admin/activiteiten/{activiteit.id}"
 
@@ -307,16 +340,23 @@ def _meet(client, pad) -> Queryteller:
 
 def _verschiltest(client, db_session, pad_van):
     """Meet `pad_van(doel)` klein, laat de databank groeien, meet opnieuw."""
-    doel = _vul(db_session, activiteiten=SCHAAL_KLEIN, gezinnen=SCHAAL_KLEIN,
-                inschrijvingen=SCHAAL_KLEIN)
+    doel = _vul(
+        db_session, activiteiten=SCHAAL_KLEIN, gezinnen=SCHAAL_KLEIN, inschrijvingen=SCHAAL_KLEIN
+    )
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     pad = pad_van(doel)
 
     klein = _meet(client, pad)
 
     groei = SCHAAL_GROOT - SCHAAL_KLEIN
-    _vul(db_session, activiteiten=groei, gezinnen=groei, inschrijvingen=groei,
-         vanaf=SCHAAL_KLEIN, doel=doel)
+    _vul(
+        db_session,
+        activiteiten=groei,
+        gezinnen=groei,
+        inschrijvingen=groei,
+        vanaf=SCHAAL_KLEIN,
+        doel=doel,
+    )
 
     groot = _meet(client, pad)
 
@@ -330,8 +370,7 @@ def _verschiltest(client, db_session, pad_van):
 def test_het_activiteitdetail_schaalt_niet_mee(client, db_session):
     """Waar de drift zat (#1058). De plafondtest hierboven staat erboven, niet
     ervoor: die twee vangen niet hetzelfde."""
-    _verschiltest(client, db_session,
-                  lambda doel: f"/admin/activiteiten/{doel[0].id}")
+    _verschiltest(client, db_session, lambda doel: f"/admin/activiteiten/{doel[0].id}")
 
 
 # Gemeten, scherm per scherm, op 20 september 2026 (#1058): alle zeven zijn vlak —

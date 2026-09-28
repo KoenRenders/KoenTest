@@ -12,6 +12,7 @@ De redenering: "Openstaand" en "Terug te betalen" zijn hetzelfde soort toestand 
 er moet nog geld bewegen, alleen de richting verschilt. Die richting lees je af
 aan de type-badge.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
@@ -33,8 +34,9 @@ VERWACHT = {
 def _kaart_status(client):
     """De tonen zoals het scherm ze meekrijgt, uit het view-model zelf."""
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
-    from app.domains.payment import ui as betalingen_ui
     import inspect
+
+    from app.domains.payment import ui as betalingen_ui
 
     bron = inspect.getsource(betalingen_ui)
     start = bron.index("kaart_status={")
@@ -61,7 +63,8 @@ def test_terug_te_betalen_draagt_dezelfde_toon_als_openstaand(client):
     """
     tonen = _kaart_status(client)
     assert tonen["refund_due"] == tonen["pending"], (
-        "Terug te betalen en Openstaand horen dezelfde toon te dragen (#660)")
+        "Terug te betalen en Openstaand horen dezelfde toon te dragen (#660)"
+    )
 
 
 def test_deels_betaald_blijft_apart(client):
@@ -76,8 +79,7 @@ def test_het_soort_terugbetaling_staat_in_de_subregel():
     soort staat als tekst in de contextsubregel ("Terugbetaling · Online"),
     zodat een rij één badge draagt en niet dubbel zo hoog wordt. De oranje
     v1.14-badge (#660) is daarmee bewust vervallen."""
-    lijst = open("app/domains/payment/templates/_betalingen_lijst.html",
-                 encoding="utf-8").read()
+    lijst = open("app/domains/payment/templates/_betalingen_lijst.html", encoding="utf-8").read()
     assert '{{ _("Terugbetaling") }} · ' in lijst
     regels = [r for r in lijst.splitlines() if "Terugbetaling" in r and "ui.badge" in r]
     assert not regels, f"soortbadge is terug: {regels[0].strip() if regels else ''}"

@@ -26,11 +26,11 @@ True gezet → de vier "zonder boost"-asserts vallen om; hard op False → de vi
 "met boost"-asserts. Beide richtingen apart, want een vlag die maar één kant op
 getoetst wordt kan altijd blijven staan of altijd wegblijven.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_postal_code)
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -60,8 +60,8 @@ def _als_admin(client):
 
 # ── De publieke schil ────────────────────────────────────────────────────────
 
-def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(
-        client, db_session):
+
+def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(client, db_session):
     """Het paar: dezelfde pagina, alleen de HX-Boosted-header verschilt."""
     _als_lid(client, db_session)
 
@@ -74,7 +74,8 @@ def test_de_publieke_schil_stuurt_de_navigatie_alleen_out_of_band_bij_een_boost(
     assert geboost.status_code == 200, geboost.text
     assert PUBLIEK_MET in geboost.text, (
         "zonder dit attribuut volgt de actieve markering een gebooste navigatie niet "
-        "meer — dat is wat #714 oploste")
+        "meer — dat is wat #714 oploste"
+    )
 
 
 def test_een_body_swap_krijgt_de_navigatie_mee_in_het_antwoord(client, db_session):
@@ -88,18 +89,27 @@ def test_een_body_swap_krijgt_de_navigatie_mee_in_het_antwoord(client, db_sessio
     csrf = _als_lid(client, db_session)
     seed_postal_code(db_session)
 
-    resp = client.post("/leden/gezin/personen", headers={"X-CSRF-Token": csrf}, data={
-        "first_name": "Nieuw", "last_name": "Gezinslid",
-        "date_of_birth": "2010-04-05", "gender_code": "M"})
+    resp = client.post(
+        "/leden/gezin/personen",
+        headers={"X-CSRF-Token": csrf},
+        data={
+            "first_name": "Nieuw",
+            "last_name": "Gezinslid",
+            "date_of_birth": "2010-04-05",
+            "gender_code": "M",
+        },
+    )
 
     assert resp.status_code == 200, resp.text
     assert PUBLIEK_ZONDER in resp.text, "de navigatie ontbreekt in het antwoord"
     assert PUBLIEK_MET not in resp.text, (
         "out-of-band bij een body-swap: htmx haalt de navigatie er dan uit en het "
-        "lichaam wordt zonder menubalk vervangen")
+        "lichaam wordt zonder menubalk vervangen"
+    )
 
 
 # ── De beheerschil ───────────────────────────────────────────────────────────
+
 
 def test_de_beheerschil_stuurt_de_zijbalk_alleen_out_of_band_bij_een_boost(client):
     """Dezelfde behandeling kreeg de beheerschil in #714, dus dezelfde regel."""

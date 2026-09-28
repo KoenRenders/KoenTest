@@ -21,6 +21,7 @@ iedereen. Wat hier wint is de BRUIKBAARHEID — zie
 `test_een_gewone_naam_wordt_nu_een_token_in_plaats_van_een_blokkade`, dat het
 verschil meet in plaats van het te beweren.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -49,6 +50,7 @@ def _persoon(db, first: str, last: str):
 
 # ── 1. De terugvertaling ─────────────────────────────────────────────────────
 
+
 def test_een_token_van_een_gewone_persoon_wordt_weer_een_naam(db_session):
     """Vóór #1132 loste alleen een bestuurslid of organisator op.
 
@@ -59,8 +61,7 @@ def test_een_token_van_een_gewone_persoon_wordt_weer_een_naam(db_session):
     p = _persoon(db_session, "Mira", "Vandenbulcke")
     db_session.commit()
 
-    uit = detokenise(db_session, f"Ik zie persoon-{p.id} in de lijst.",
-                     tenant_id=TENANT)
+    uit = detokenise(db_session, f"Ik zie persoon-{p.id} in de lijst.", tenant_id=TENANT)
 
     assert "Mira Vandenbulcke" in uit, uit
     assert f"persoon-{p.id}" not in uit
@@ -85,6 +86,7 @@ def test_de_terugvertaling_blijft_binnen_de_afdeling(db_session):
 
 # ── 2. Wat de beheerder typt ─────────────────────────────────────────────────
 
+
 def test_een_gewone_naam_wordt_nu_een_token_in_plaats_van_een_blokkade(db_session):
     """De echte winst van punt 4, gemeten in plaats van beredeneerd.
 
@@ -99,8 +101,7 @@ def test_een_gewone_naam_wordt_nu_een_token_in_plaats_van_een_blokkade(db_sessio
     p = _persoon(db_session, "Mira", "Vandenbulcke")
     db_session.commit()
 
-    schoon = scrub_question(db_session, "Wat weten we over Vandenbulcke?",
-                            tenant_id=TENANT)
+    schoon = scrub_question(db_session, "Wat weten we over Vandenbulcke?", tenant_id=TENANT)
 
     assert "Vandenbulcke" not in schoon
     assert f"persoon-{p.id}" in schoon, schoon
@@ -119,14 +120,14 @@ def test_een_gezin_wint_van_de_personen_erin(db_session):
     member, _persoon_in_gezin = _household(db_session, "Joris", "Verlinden")
     db_session.commit()
 
-    schoon = scrub_question(db_session, "Stopt het gezin Verlinden dit jaar?",
-                            tenant_id=TENANT)
+    schoon = scrub_question(db_session, "Stopt het gezin Verlinden dit jaar?", tenant_id=TENANT)
 
     assert "Verlinden" not in schoon
     assert f"gezin-{member.id}" in schoon, schoon
 
 
 # ── 3. Geen enkel rapport verandert ──────────────────────────────────────────
+
 
 def test_geen_enkel_universe_object_leest_de_nieuwe_naamkolommen(db_session):
     """Test 5 uit het issue: een rapport dat Koen morgen opent, ziet er hetzelfde uit.
@@ -139,25 +140,35 @@ def test_geen_enkel_universe_object_leest_de_nieuwe_naamkolommen(db_session):
     from app.domains.reporting.universe import OBJECTS
 
     nieuw = {"first_name", "last_name", "person_name"}
-    lezers = sorted(o.key for o in OBJECTS
-                    if o.view == "d_person"
-                    and nieuw & {k for k in nieuw if f"{{view}}.{k}" in o.sql})
+    lezers = sorted(
+        o.key
+        for o in OBJECTS
+        if o.view == "d_person" and nieuw & {k for k in nieuw if f"{{view}}.{k}" in o.sql}
+    )
 
     assert not lezers, (
         "deze objecten lezen de naamkolommen van d_person, en dan toont een "
         f"bestaand rapport plots een naam: {lezers}. Is dat bedoeld, dan hoort "
-        "die keuze in een eigen issue — met de blootstelling erbij.")
+        "die keuze in een eigen issue — met de blootstelling erbij."
+    )
 
 
 def test_de_personen_weergave_draagt_de_namen_wel(db_session):
     """De tegenhanger: zonder deze test zou de test hierboven ook groen staan als
     de migratie nooit gedraaid had."""
-    kolommen = {row[0] for row in db_session.execute(text(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_schema = 'reporting' AND table_name = 'd_person'"))}
+    kolommen = {
+        row[0]
+        for row in db_session.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'reporting' AND table_name = 'd_person'"
+            )
+        )
+    }
 
     assert {"first_name", "last_name", "person_name"} <= kolommen, (
-        f"d_person draagt de naamkolommen niet; gevonden: {sorted(kolommen)}")
+        f"d_person draagt de naamkolommen niet; gevonden: {sorted(kolommen)}"
+    )
 
 
 def test_de_samengestelde_naam_overleeft_een_lege_voornaam(db_session):
@@ -176,8 +187,8 @@ def test_de_samengestelde_naam_overleeft_een_lege_voornaam(db_session):
     db_session.add(p)
     db_session.commit()
 
-    naam = db_session.execute(text(
-        "SELECT person_name FROM reporting.d_person WHERE person_id = :id"),
-        {"id": p.id}).scalar()
+    naam = db_session.execute(
+        text("SELECT person_name FROM reporting.d_person WHERE person_id = :id"), {"id": p.id}
+    ).scalar()
 
     assert naam == "Zonderdoop", repr(naam)

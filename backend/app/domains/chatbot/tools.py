@@ -8,6 +8,7 @@ nooit iets anders kan raken.
 De structuurvelden (datum/prijs/locatie) komen altijd uit de DB en winnen van
 vrije tekst — de bot mag niets verzinnen.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,8 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.media.api import MediaAsset
 from app.domains.chatbot.models import ChatbotInfo
+from app.domains.media.api import MediaAsset
 
 logger = logging.getLogger(__name__)
 
@@ -126,21 +127,41 @@ PUBLIC_FIELD_CONTRACT: dict[str, dict[str, set[str]]] = {
     "get_activities": {
         "": {"when", "activities"},
         "activities[]": {
-            "id", "name", "location", "members_only", "price_from", "dates",
+            "id",
+            "name",
+            "location",
+            "members_only",
+            "price_from",
+            "dates",
         },
         "activities[].dates[]": {
-            "start_date", "end_date", "start_time", "end_time",
+            "start_date",
+            "end_date",
+            "start_time",
+            "end_time",
         },
     },
     "get_activity_detail": {
         # Twee vormen: de gevonden activiteit, of de nette weigering.
         "": {
-            "id", "name", "location", "members_only", "description", "flyer_text",
-            "price_from", "dates", "components", "error",
+            "id",
+            "name",
+            "location",
+            "members_only",
+            "description",
+            "flyer_text",
+            "price_from",
+            "dates",
+            "components",
+            "error",
         },
         "dates[]": {"start_date", "end_date", "start_time", "end_time"},
         "components[]": {
-            "name", "description", "price", "member_price", "info_text",
+            "name",
+            "description",
+            "price",
+            "member_price",
+            "info_text",
             "products",
         },
         "components[].products[]": {"name", "price", "member_price"},
@@ -152,6 +173,7 @@ PUBLIC_FIELD_CONTRACT: dict[str, dict[str, set[str]]] = {
 
 
 # --- Helpers -----------------------------------------------------------------
+
 
 def _fmt_price(value: Optional[Decimal]) -> Optional[str]:
     if value is None:
@@ -211,6 +233,7 @@ def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
 
 # --- Tool-implementaties -----------------------------------------------------
 
+
 def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict[str, Any]:
     """Komende of voorbije, niet-geannuleerde activiteiten.
 
@@ -247,7 +270,7 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
     # Komend: eerstvolgende eerst. Verleden: meest recent eerst.
     fallback = "0000" if is_past else "9999"
     items.sort(
-        key=lambda x: (x["dates"][0]["start_date"] if x["dates"] else fallback),
+        key=lambda x: x["dates"][0]["start_date"] if x["dates"] else fallback,
         reverse=is_past,
     )
     return {"when": "past" if is_past else "upcoming", "activities": items[:limit]}
@@ -370,6 +393,7 @@ def submit_idea(
 
 # --- Dispatch (security-grens) ----------------------------------------------
 
+
 def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
     """Voer een tool uit en geef het resultaat als JSON-string terug.
 
@@ -400,7 +424,6 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
     return json.dumps(result, ensure_ascii=False, default=str)
 
 
-
 # ── De leestools, voor een ander pakket (#975) ───────────────────────────────
 #
 # De beheer-assistent mag alles lezen wat de publieke bot leest (Koen, 16
@@ -418,8 +441,9 @@ def read_tool_specs() -> list[dict[str, Any]]:
     origineel."""
     import copy
 
-    return [copy.deepcopy(spec) for spec in TOOL_SPECS
-            if spec["function"]["name"] in READ_ONLY_TOOLS]
+    return [
+        copy.deepcopy(spec) for spec in TOOL_SPECS if spec["function"]["name"] in READ_ONLY_TOOLS
+    ]
 
 
 def execute_read_tool(name: str, arguments: dict[str, Any], db: Session) -> str:

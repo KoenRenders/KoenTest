@@ -1,6 +1,7 @@
 """De rate-limiter mag X-Forwarded-For niet blind vertrouwen (#268). Bij precies
 één Caddy-hop is enkel het meest rechtse (door Caddy gezette) adres betrouwbaar;
 het meest linkse is client-gestuurd en dus spoofbaar."""
+
 from app.limiter import _client_ip
 
 

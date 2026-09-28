@@ -20,6 +20,7 @@ daarmee ook, want hij kijkt naar de vorm, niet naar de regel in de template.
 Kapotgemaakt om te controleren dat hij rood kan worden (gemeten): de `hx-post` van
 de vorm weggehaald → rood op "de sectievorm heeft geen bestemming".
 """
+
 from __future__ import annotations
 
 import re
@@ -95,12 +96,18 @@ def _login(client) -> str:
 
 
 def _formulier_met_sectie(client, admin_headers, db, csrf) -> tuple[int, FormSection]:
-    r = client.post("/api/v1/forms", json={"title": "Sectievorm", "status": "draft",
-                                           "fields": []}, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={"title": "Sectievorm", "status": "draft", "fields": []},
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     form_id = r.json()["id"]
-    r = client.post(f"/admin/formulieren/{form_id}/secties", data={"title": "Oude titel"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/formulieren/{form_id}/secties",
+        data={"title": "Oude titel"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200, r.text[:300]
     db.expire_all()
     sectie = db.query(FormSection).filter(FormSection.form_id == form_id).one()
@@ -122,7 +129,8 @@ def test_opslaan_in_de_sectievorm_bewaart_de_titel(client, admin_headers, db_ses
     assert bestemming, (
         "de sectievorm heeft geen bestemming (geen hx-post en geen action): Opslaan "
         f"doet dan een kale GET en de titel gaat verloren (#1101); attributen: "
-        f"{sorted(vorm.attributen)}")
+        f"{sorted(vorm.attributen)}"
+    )
     assert vorm.attributen.get("hx-target") == "#fb-detail", vorm.attributen
     assert "title" in vorm.velden and vorm.velden["title"] == "Oude titel", vorm.velden
 
@@ -141,8 +149,11 @@ def test_de_sectievorm_wijst_naar_haar_eigen_sectie(client, admin_headers, db_se
     de verkeerde sectie post, bewaart de titel op de verkeerde plek."""
     csrf = _login(client)
     form_id, eerste = _formulier_met_sectie(client, admin_headers, db_session, csrf)
-    client.post(f"/admin/formulieren/{form_id}/secties", data={"title": "Tweede"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form_id}/secties",
+        data={"title": "Tweede"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     html = client.get(f"/admin/formulieren/{form_id}").text
     bestemmingen = re.findall(r'<form[^>]*data-sectievorm[^>]*hx-post="([^"]+)"', html)

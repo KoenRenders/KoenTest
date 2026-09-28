@@ -1,7 +1,8 @@
 """Fase 4c-2 (#404): Raakje (htmx) en het ai-context-scherm."""
-from tests.conftest import SEEDED_ADMIN_EMAIL
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.chatbot.models import ChatbotInfo
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -18,6 +19,7 @@ def test_de_publieke_raakje_pagina_bestaat_niet_meer(client):
 
 def test_raakje_vraag_geeft_antwoord_via_mock(client, db_session, monkeypatch):
     from app.config import settings
+
     monkeypatch.setattr(settings, "chat_enabled", True)
     # In tests draait de mock-provider (CHAT_PROVIDER default) — geen netwerk.
     resp = client.post("/raakje/vraag", data={"vraag": "Wat is Raak?"})
@@ -26,6 +28,7 @@ def test_raakje_vraag_geeft_antwoord_via_mock(client, db_session, monkeypatch):
 
 def test_raakje_lege_vraag(client, monkeypatch):
     from app.config import settings
+
     monkeypatch.setattr(settings, "chat_enabled", True)
     resp = client.post("/raakje/vraag", data={"vraag": "  "})
     assert resp.status_code == 200 and "Typ eerst een vraag" in resp.text
@@ -36,12 +39,13 @@ def test_ai_context_scherm_en_notitieflow(client, db_session):
     page = client.get("/admin/ai-context")
     assert page.status_code == 200 and "Notities" in page.text
 
-    resp = client.post("/admin/ai-context/notities",
-                       data={"title": "Parkeren", "text_addition": "Parkeren kan aan de kerk."},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/ai-context/notities",
+        data={"title": "Parkeren", "text_addition": "Parkeren kan aan de kerk."},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and "Parkeren" in resp.text
-    note = (db_session.query(ChatbotInfo)
-            .filter(ChatbotInfo.title == "Parkeren").one())
+    note = db_session.query(ChatbotInfo).filter(ChatbotInfo.title == "Parkeren").one()
 
     uit = client.post(f"/admin/ai-context/{note.id}/toggle", headers={"X-CSRF-Token": csrf})
     assert uit.status_code == 200
@@ -65,8 +69,13 @@ def test_document_toont_gelezen_ocr_tekst(client, db_session):
     asset = MediaAsset(kind="activity_poster", data=b"x", content_type="image/png")
     db_session.add(asset)
     db_session.flush()
-    db_session.add(ChatbotInfo(media_asset_id=asset.id, is_active=True,
-                              extracted_text="AFFICHE: Zomerbar op 1 juli om 19u"))
+    db_session.add(
+        ChatbotInfo(
+            media_asset_id=asset.id,
+            is_active=True,
+            extracted_text="AFFICHE: Zomerbar op 1 juli om 19u",
+        )
+    )
     db_session.commit()
 
     _login(client)

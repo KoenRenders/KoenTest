@@ -1,6 +1,7 @@
 """Fase 4a-4 (#402): admin-activiteitenbeheer server-rendered (htmx)."""
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 
 def _login(client):
@@ -17,11 +18,13 @@ def test_admin_activiteit_aanmaken_en_detail(client, db_session):
     csrf = _login(client)
     # Sinds #586 opent aanmaken meteen de paginabrede editor (HX-Redirect), want
     # een verse activiteit heeft daar nog datums en onderdelen nodig.
-    resp = client.post("/admin/activiteiten",
-                       data={"name": "Zomerbar", "start_date": "2031-07-01",
-                             "location": "Millegem"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/activiteiten",
+        data={"name": "Zomerbar", "start_date": "2031-07-01", "location": "Millegem"},
+        headers={"X-CSRF-Token": csrf},
+    )
     from app.domains.activities.api import Activity
+
     activity = db_session.query(Activity).filter(Activity.name == "Zomerbar").one()
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
@@ -31,22 +34,29 @@ def test_admin_activiteit_aanmaken_en_detail(client, db_session):
 
 def test_admin_onderdeel_en_product_flow(client, db_session):
     csrf = _login(client)
-    client.post("/admin/activiteiten",
-                data={"name": "Kermis", "start_date": "2031-08-01"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        "/admin/activiteiten",
+        data={"name": "Kermis", "start_date": "2031-08-01"},
+        headers={"X-CSRF-Token": csrf},
+    )
     from app.domains.activities.api import Activity
+
     activity = db_session.query(Activity).filter(Activity.name == "Kermis").one()
 
-    comp = client.post(f"/admin/activiteiten/{activity.id}/onderdelen",
-                       data={"name": "Eetstand", "max_participants": "50"},
-                       headers={"X-CSRF-Token": csrf})
+    comp = client.post(
+        f"/admin/activiteiten/{activity.id}/onderdelen",
+        data={"name": "Eetstand", "max_participants": "50"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert comp.status_code == 200 and "Eetstand" in comp.text
 
     db_session.expire_all()
     component = activity.sub_registrations[0]
-    prod = client.post(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten",
-                       data={"name": "Pannenkoeken", "price": "5,00"},
-                       headers={"X-CSRF-Token": csrf})
+    prod = client.post(
+        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten",
+        data={"name": "Pannenkoeken", "price": "5,00"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert prod.status_code == 200 and "Pannenkoeken" in prod.text and "5,00" in prod.text
 
 
@@ -59,12 +69,21 @@ def test_product_afrekening_keuze(client, db_session):
     csrf = _login(client)
     base = f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten"
 
-    client.post(base, data={"name": "Gratis drankje", "price": "3,00", "afrekening": "gratis"},
-                headers={"X-CSRF-Token": csrf})
-    client.post(base, data={"name": "Frietjes", "price": "4,00", "afrekening": "ter_plaatse"},
-                headers={"X-CSRF-Token": csrf})
-    client.post(base, data={"name": "Pintje", "price": "2,50", "afrekening": "betalend"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        base,
+        data={"name": "Gratis drankje", "price": "3,00", "afrekening": "gratis"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    client.post(
+        base,
+        data={"name": "Frietjes", "price": "4,00", "afrekening": "ter_plaatse"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    client.post(
+        base,
+        data={"name": "Pintje", "price": "2,50", "afrekening": "betalend"},
+        headers={"X-CSRF-Token": csrf},
+    )
     db_session.expire_all()
 
     def _prod(naam):
@@ -83,7 +102,7 @@ def test_activiteit_geneste_producten_paneel(client, db_session):
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     # _() levert Markup, dus de & staat rauw in de uitvoer (#514-familie).
     assert ">Onderdelen & producten<" in html  # sectiekop, feedbackronde 15 sep
-    assert ">Producten<" in html             # nested_panel-mini-kop
+    assert ">Producten<" in html  # nested_panel-mini-kop
     assert "border-l-2 border-blue-200" in html  # geneste-paneel-inspringing
     assert product.name in html
 
@@ -102,20 +121,31 @@ def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
     assert ">Annuleren<" in html
 
     # De bewerkvorm draagt x-show="edit" én het bestandsveld.
-    bewerkvorm = [stuk.split("</form>")[0] for stuk in html.split("<form")[1:]
-                  if 'x-show="edit"' in stuk.split(">")[0] and 'name="poster_url"' in stuk]
-    assert bewerkvorm, "de bewerkvorm met poster-URL staat niet achter x-show=\"edit\""
+    bewerkvorm = [
+        stuk.split("</form>")[0]
+        for stuk in html.split("<form")[1:]
+        if 'x-show="edit"' in stuk.split(">")[0] and 'name="poster_url"' in stuk
+    ]
+    assert bewerkvorm, 'de bewerkvorm met poster-URL staat niet achter x-show="edit"'
     assert 'type="file"' in bewerkvorm[0], "het bestandsveld hoort in diezelfde vorm"
 
 
 def test_admin_inschrijvingen_en_export(client, db_session):
-    activity, component, product = seed_activity_with_product(db_session, price="10.00", is_free=False)
-    csrf = _login(client)
+    activity, component, product = seed_activity_with_product(
+        db_session, price="10.00", is_free=False
+    )
+    _login(client)
     # publieke flow maakt een inschrijving
-    client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                data={"contact_name": "Jef", "contact_email": "jef@example.com",
-                      "phone": "047", f"product_{product.id}": "1",
-                      "payment_method": "transfer"})
+    client.post(
+        f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+        data={
+            "contact_name": "Jef",
+            "contact_email": "jef@example.com",
+            "phone": "047",
+            f"product_{product.id}": "1",
+            "payment_method": "transfer",
+        },
+    )
     # Ronde 2 (15 sep): één tabpagina, per onderdeel gegroepeerd — de
     # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
@@ -124,6 +154,7 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     # pagina in LEESmodus — daar staat de consistente Bewerken-opener, met
     # Verwijderen in het cluster. Direct Verwijderen blijft van de rij weg.
     from app.domains.activities.api import Registration
+
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
     assert ">Details<" in lijst.text
     assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text

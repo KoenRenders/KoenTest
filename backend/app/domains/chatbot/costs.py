@@ -11,6 +11,7 @@ The list never carries `payload`. That is what left for the model, and it is
 shown per answer in the "Wat zag Mistral?" fold-out; a screen that lists every
 payload of a department is a different screen with a different access question.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -30,8 +31,11 @@ BELGIUM = ZoneInfo("Europe/Brussels")
 def month_period(day: date) -> tuple[datetime, datetime]:
     """The calendar month around `day`, as `[first, first of next)` in Belgian time."""
     start = datetime(day.year, day.month, 1, tzinfo=BELGIUM)
-    volgende = (datetime(day.year + 1, 1, 1, tzinfo=BELGIUM) if day.month == 12
-                else datetime(day.year, day.month + 1, 1, tzinfo=BELGIUM))
+    volgende = (
+        datetime(day.year + 1, 1, 1, tzinfo=BELGIUM)
+        if day.month == 12
+        else datetime(day.year, day.month + 1, 1, tzinfo=BELGIUM)
+    )
     return start, volgende
 
 
@@ -50,27 +54,35 @@ class CostLine:
     cost_amounts: dict[str, Decimal]
 
 
-def cost_per_period(db: Session, *, tenant_id: int, start: datetime,
-                    end: datetime) -> list[CostLine]:
+def cost_per_period(
+    db: Session, *, tenant_id: int, start: datetime, end: datetime
+) -> list[CostLine]:
     """The cost of one department in `[start, end)`, per provider and capability."""
     rows = (
         db.query(
-            AiCallLog.provider, AiCallLog.capability, AiCallLog.cost_currency,
+            AiCallLog.provider,
+            AiCallLog.capability,
+            AiCallLog.cost_currency,
             func.count(AiCallLog.id),
             func.coalesce(func.sum(AiCallLog.tokens_prompt), 0),
             func.coalesce(func.sum(AiCallLog.tokens_completion), 0),
             func.sum(AiCallLog.cost_credits),
             func.sum(AiCallLog.cost_amount),
         )
-        .filter(AiCallLog.tenant_id == tenant_id,
-                AiCallLog.created_at >= start, AiCallLog.created_at < end)
+        .filter(
+            AiCallLog.tenant_id == tenant_id,
+            AiCallLog.created_at >= start,
+            AiCallLog.created_at < end,
+        )
         .group_by(AiCallLog.provider, AiCallLog.capability, AiCallLog.cost_currency)
         .all()
     )
     lines: dict[tuple[Optional[AiProvider], AiCapability], dict] = {}
     for provider, capability, currency, calls, prompt, completion, credits, amount in rows:
-        line = lines.setdefault((provider, capability), {
-            "calls": 0, "prompt": 0, "completion": 0, "credits": None, "amounts": {}})
+        line = lines.setdefault(
+            (provider, capability),
+            {"calls": 0, "prompt": 0, "completion": 0, "credits": None, "amounts": {}},
+        )
         line["calls"] += calls
         line["prompt"] += int(prompt)
         line["completion"] += int(completion)
@@ -79,13 +91,20 @@ def cost_per_period(db: Session, *, tenant_id: int, start: datetime,
         if currency and amount is not None:
             line["amounts"][currency] = line["amounts"].get(currency, Decimal(0)) + amount
     return [
-        CostLine(provider=provider, capability=capability, calls=v["calls"],
-                 tokens_prompt=v["prompt"], tokens_completion=v["completion"],
-                 cost_credits=v["credits"], cost_amounts=v["amounts"])
+        CostLine(
+            provider=provider,
+            capability=capability,
+            calls=v["calls"],
+            tokens_prompt=v["prompt"],
+            tokens_completion=v["completion"],
+            cost_credits=v["credits"],
+            cost_amounts=v["amounts"],
+        )
         # Members do not order; their codes do. No provider sorts first.
         for (provider, capability), v in sorted(
             lines.items(),
-            key=lambda item: (item[0][0].value if item[0][0] else "", item[0][1].value))
+            key=lambda item: (item[0][0].value if item[0][0] else "", item[0][1].value),
+        )
     ]
 
 
@@ -110,8 +129,9 @@ class CallRow:
     cost_currency: Optional[str]
 
 
-def list_calls(db: Session, *, tenant_id: int, page: int = 1,
-               per_page: int = 50) -> tuple[list[CallRow], bool]:
+def list_calls(
+    db: Session, *, tenant_id: int, page: int = 1, per_page: int = 50
+) -> tuple[list[CallRow], bool]:
     """Newest first. Returns the rows and whether there is a next page.
 
     One row extra instead of a COUNT, like the e-mail log: the list grows with

@@ -1,5 +1,6 @@
 """Fase 5 (#406): tenant-fundament — resolutie, mixin-default en de globale
 cross-tenant-isolatiefilter (§7)."""
+
 from app.domains.cms.models import CmsPage
 from app.kernel.tenancy import (
     DEFAULT_TENANT_ID,
@@ -17,7 +18,10 @@ def test_resolve_tenant_volgorde():
     assert resolve_tenant("www.raakmillegem.be:443", "/", hosts) == TENANT_MILLEGEM_ID
     assert resolve_tenant("demo.example", "/raakmillegem/x", hosts) == TENANT_VOORBEELD_ID
     # pad-prefix als de hostname niets zegt
-    assert resolve_tenant("platform.example", "/raakvoorbeeldafdeling/activiteiten", hosts) == TENANT_VOORBEELD_ID
+    assert (
+        resolve_tenant("platform.example", "/raakvoorbeeldafdeling/activiteiten", hosts)
+        == TENANT_VOORBEELD_ID
+    )
     assert resolve_tenant("platform.example", "/raakmillegem", hosts) == TENANT_MILLEGEM_ID
     # default: Millegem
     assert resolve_tenant("platform.example", "/", hosts) == DEFAULT_TENANT_ID
@@ -41,10 +45,8 @@ def test_mixin_default_volgt_context(db_session):
 
 
 def test_globale_filter_isoleert_tenants(db_session):
-    db_session.add(CmsPage(title="Van Millegem", slug="iso-millegem",
-                           tenant_id=TENANT_MILLEGEM_ID))
-    db_session.add(CmsPage(title="Van demo", slug="iso-demo",
-                           tenant_id=TENANT_VOORBEELD_ID))
+    db_session.add(CmsPage(title="Van Millegem", slug="iso-millegem", tenant_id=TENANT_MILLEGEM_ID))
+    db_session.add(CmsPage(title="Van demo", slug="iso-demo", tenant_id=TENANT_VOORBEELD_ID))
     db_session.flush()
 
     def slugs(**opts):
@@ -65,8 +67,15 @@ def test_globale_filter_isoleert_tenants(db_session):
 
 
 def test_request_krijgt_default_tenant(client, db_session):
-    db_session.add(CmsPage(title="Demopagina", slug="alleen-demo", is_published=True,
-                           show_in_nav=False, tenant_id=TENANT_VOORBEELD_ID))
+    db_session.add(
+        CmsPage(
+            title="Demopagina",
+            slug="alleen-demo",
+            is_published=True,
+            show_in_nav=False,
+            tenant_id=TENANT_VOORBEELD_ID,
+        )
+    )
     db_session.flush()
     # het request loopt als Millegem (default) → de demo-pagina bestaat daar niet
     assert client.get("/api/v1/pages/alleen-demo").status_code == 404
@@ -76,8 +85,8 @@ def test_tenant_codes_dynamisch_uit_organizations(db_session):
     """#546: de code→id-map komt dynamisch uit de actieve UNIT-organizations, zodat
     een nieuw aangemaakte tenant zonder codewijziging resolvet."""
     from app.domains.mdm.api import tenant_codes
-    from app.kernel.tenancy import resolve_tenant
     from app.domains.mdm.models import Organization
+    from app.kernel.tenancy import resolve_tenant
 
     org = Organization(org_type="UNIT", code="raaknieuw", name="Raak Nieuw", is_active=True)
     db_session.add(org)

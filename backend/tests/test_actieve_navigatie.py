@@ -22,12 +22,12 @@ die staat in `tests_e2e/`. Hier toetsen we het **mechanisme** dat die swap mogel
 maakt — dat de nav als oob meekomt — en dat is precies het stuk dat ontbrak. Een test
 op "het antwoord bevat de juiste markering" stond vandaag al groen en bewijst niets.
 """
+
 import re
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -46,10 +46,11 @@ def _blok(html: str, element_id: str) -> str:
     start = html.index(f'id="{element_id}"')
     open_tag = html.rindex("<", 0, start)
     naam = re.match(r"<(\w+)", html[open_tag:]).group(1)
-    return html[open_tag:html.index(f"</{naam}>", start)]
+    return html[open_tag : html.index(f"</{naam}>", start)]
 
 
 # ── 1. Het mechanisme: de nav komt mee als oob ─────────────────────────────
+
 
 @pytest.mark.parametrize("element_id", ["admin-nav-zijbalk", "admin-nav-mobiel"])
 def test_de_beheernav_komt_mee_als_oob(client, db_session, element_id):
@@ -59,7 +60,7 @@ def test_de_beheernav_komt_mee_als_oob(client, db_session, element_id):
     html = client.get("/admin/activiteiten", headers=BOOST).text
 
     blok = _blok(html, element_id)
-    assert 'hx-swap-oob="true"' in blok[:blok.index(">") + 1], blok[:200]
+    assert 'hx-swap-oob="true"' in blok[: blok.index(">") + 1], blok[:200]
 
 
 @pytest.mark.parametrize("element_id", ["site-nav-breed", "site-nav-mobiel"])
@@ -70,16 +71,16 @@ def test_de_publieke_nav_komt_mee_als_oob(client, db_session, element_id):
     html = client.get("/fotos", headers=BOOST).text
 
     blok = _blok(html, element_id)
-    assert 'hx-swap-oob="true"' in blok[:blok.index(">") + 1], blok[:200]
+    assert 'hx-swap-oob="true"' in blok[: blok.index(">") + 1], blok[:200]
 
 
 # ── 2. De markering die meekomt, klopt ─────────────────────────────────────
 
+
 def test_de_meegestuurde_zijbalk_markeert_het_juiste_scherm(client, db_session):
     """Het gemelde geval: op /admin/activiteiten lichtte "Leden" op."""
     _login(client)
-    zijbalk = _blok(client.get("/admin/activiteiten", headers=BOOST).text,
-                    "admin-nav-zijbalk")
+    zijbalk = _blok(client.get("/admin/activiteiten", headers=BOOST).text, "admin-nav-zijbalk")
 
     actief = [r for r in zijbalk.split("<a ") if "bg-blue-50" in r]
     assert len(actief) == 1, f"{len(actief)} actieve items i.p.v. één"
@@ -89,8 +90,7 @@ def test_de_meegestuurde_zijbalk_markeert_het_juiste_scherm(client, db_session):
 def test_een_ander_scherm_markeert_een_ander_item(client, db_session):
     """De keerzijde: zonder haar zou "markeer altijd hetzelfde" ook slagen."""
     _login(client)
-    zijbalk = _blok(client.get("/admin/leden", headers=BOOST).text,
-                    "admin-nav-zijbalk")
+    zijbalk = _blok(client.get("/admin/leden", headers=BOOST).text, "admin-nav-zijbalk")
 
     actief = [r for r in zijbalk.split("<a ") if "bg-blue-50" in r]
     assert len(actief) == 1 and "/admin/leden" in actief[0], actief[0][:200]
@@ -98,15 +98,18 @@ def test_een_ander_scherm_markeert_een_ander_item(client, db_session):
 
 # ── 3. De bescherming uit #613/#616 blijft ─────────────────────────────────
 
+
 def test_een_gewone_hx_post_krijgt_geen_reselect(client, db_session):
     """Nu die middleware toch aangeraakt is: alleen een gebooste NAVIGATIE hoort
     `HX-Reselect` te krijgen. Zou een gewone `hx-post` hem meekrijgen, dan wordt van
     elk formulier-antwoord alleen `#main` geplukt en verdwijnt het fragment waar de
     knop op mikte — de val uit #613/#616."""
     csrf = _login(client)
-    resp = client.post("/admin/formulieren",
-                       data={"title": "Zonder reselect"},
-                       headers={"HX-Request": "true", "X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/formulieren",
+        data={"title": "Zonder reselect"},
+        headers={"HX-Request": "true", "X-CSRF-Token": csrf},
+    )
 
     assert "HX-Reselect" not in resp.headers, dict(resp.headers)
     assert "HX-Retarget" not in resp.headers

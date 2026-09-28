@@ -21,14 +21,14 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 noemt de knop bij naam (`AI · Activiteit`, `AI · Betalingen`); het menu-item uit
 de groep *Inzicht* gehaald → de menutest valt om.
 """
+
 from __future__ import annotations
 
 import re
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests._reporting_seed import TENANT_A
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
@@ -37,8 +37,10 @@ pytestmark = pytest.mark.ui_serverrendered
 # Een herkenbaar stuk van het Lucide-pad, niet het hele pad: een test die op de
 # laatste decimaal let, breekt bij elke Lucide-update zonder dat er iets mis is.
 STERRETJES = 'd="M12 3 10.1 8.8'
-ONDERTITEL = ("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje "
-              "draait er een echt rapport voor — het verzint geen getallen.")
+ONDERTITEL = (
+    "Stel een vraag over de eigen cijfers in gewone zinnen. Raakje "
+    "draait er een echt rapport voor — het verzint geen getallen."
+)
 
 
 def _login(client, db) -> str:
@@ -80,12 +82,15 @@ def _knop_met(html: str, label: str) -> str:
     """De gerenderde knop (of link) met dit label, inclusief haar inhoud."""
     treffer = re.search(
         r"<(button|a)\b[^>]*>(?:(?!</\1>).)*?" + re.escape(label) + r"(?:(?!</\1>).)*?</\1>",
-        _inhoud(html), re.S)
+        _inhoud(html),
+        re.S,
+    )
     assert treffer, f"geen knop met het label {label!r} gevonden"
     return treffer.group(0)
 
 
 # ── 1. Elke ingang: sparkles + AI · <Scherm> ─────────────────────────────────
+
 
 def test_elke_raakje_ingang_draagt_het_sterretjesicoon(client, db_session, assistent_aan):
     activiteit, _o, _p = seed_activity_with_product(db_session)
@@ -106,8 +111,10 @@ def test_elke_raakje_ingang_draagt_het_sterretjesicoon(client, db_session, assis
             zonder.append(f"{label} ({pad})")
 
     assert not zonder, (
-        "deze Raakje-ingangen dragen het sparkles-icoon niet: " + ", ".join(zonder)
-        + " — gebruik lead_icon=\"sparkles\" op de kitknop, geen eigen markup")
+        "deze Raakje-ingangen dragen het sparkles-icoon niet: "
+        + ", ".join(zonder)
+        + ' — gebruik lead_icon="sparkles" op de kitknop, geen eigen markup'
+    )
 
 
 def test_de_ingangen_heten_ai_plus_hun_onderwerp(client, db_session, assistent_aan):
@@ -117,8 +124,12 @@ def test_de_ingangen_heten_ai_plus_hun_onderwerp(client, db_session, assistent_a
     db_session.flush()
     _login(client, db_session)
 
-    for pad in (f"/admin/activiteiten/{activiteit.id}", "/admin/betalingen",
-                "/admin/rapporten", "/admin/rapporten/raakje"):
+    for pad in (
+        f"/admin/activiteiten/{activiteit.id}",
+        "/admin/betalingen",
+        "/admin/rapporten",
+        "/admin/rapporten/raakje",
+    ):
         html = client.get(pad).text
         assert "Vraag het Raakje" not in html, f"{pad} draagt de oude naam nog"
         assert re.search(r"AI · \w", html), f"{pad} draagt geen AI · …-naam"
@@ -129,12 +140,16 @@ def test_het_icoon_komt_uit_de_kit(client, db_session, assistent_aan):
     from pathlib import Path
 
     templates = Path(__file__).resolve().parents[1] / "app"
-    in_sjablonen = [str(p.relative_to(templates)) for p in templates.rglob("templates/*.html")
-                    if STERRETJES in p.read_text()]
+    in_sjablonen = [
+        str(p.relative_to(templates))
+        for p in templates.rglob("templates/*.html")
+        if STERRETJES in p.read_text()
+    ]
     assert in_sjablonen == ["ui/templates/_macros.html"], in_sjablonen
 
 
 # ── 2. De assistent heeft zijn eigen menuplek ────────────────────────────────
+
 
 def test_ai_raakje_staat_in_de_groep_inzicht():
     from app.ui import admin_nav
@@ -150,8 +165,9 @@ def test_het_menu_item_licht_op_op_zijn_eigen_pagina(client, db_session, assiste
     """En Rapporten dan níét: twee opgelichte items zeggen niet waar je bent."""
     from app.ui import admin_nav
 
-    items = {i["href"]: i["active"] for g in admin_nav("/admin/rapporten/raakje")
-             for i in g["items"]}
+    items = {
+        i["href"]: i["active"] for g in admin_nav("/admin/rapporten/raakje") for i in g["items"]
+    }
     assert items["/admin/rapporten/raakje"] is True
     assert items["/admin/rapporten"] is False
 
@@ -162,8 +178,8 @@ def test_het_menu_item_licht_op_op_zijn_eigen_pagina(client, db_session, assiste
 
 # ── 3. De pagina zelf ────────────────────────────────────────────────────────
 
-def test_de_pagina_heet_ai_raakje_en_houdt_haar_ondertitel(client, db_session,
-                                                           assistent_aan):
+
+def test_de_pagina_heet_ai_raakje_en_houdt_haar_ondertitel(client, db_session, assistent_aan):
     _login(client, db_session)
     html = client.get("/admin/rapporten/raakje").text
 

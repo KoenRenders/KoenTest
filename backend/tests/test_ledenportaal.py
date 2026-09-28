@@ -1,11 +1,11 @@
 """React-exit 405-b: ledenportaal (/leden/gezin) + login-pariteit (htmx)."""
+
 from datetime import date, timedelta
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import Person
-from tests.conftest import create_test_family, seed_postal_code
+from app.domains.mdm.api import PaymentMethod, Person
 from app.domains.payment.api import PayableType
-from app.domains.mdm.api import PaymentMethod
+from tests.conftest import create_test_family
 
 
 def _login_as(client, email):
@@ -26,28 +26,40 @@ def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
     page = client.get("/leden/gezin")
     assert page.status_code == 200 and "Mijn gezin" in page.text and person.first_name in page.text
 
-    resp = client.post(f"/leden/gezin/personen/{person.id}",
-                       data={"first_name": "Aangepast", "last_name": person.last_name,
-                             "date_of_birth": person.date_of_birth.isoformat(),
-                             "gender_code": person.gender_code,
-                             "email": "portaal@example.com"},  # #511: veldnaam `email`
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/leden/gezin/personen/{person.id}",
+        data={
+            "first_name": "Aangepast",
+            "last_name": person.last_name,
+            "date_of_birth": person.date_of_birth.isoformat(),
+            "gender_code": person.gender_code,
+            "email": "portaal@example.com",
+        },  # #511: veldnaam `email`
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and "Aangepast" in resp.text
     db_session.expire_all()
     assert db_session.get(Person, person.id).first_name == "Aangepast"
 
-    nieuw = client.post("/leden/gezin/personen",
-                        data={"first_name": "Kindje", "last_name": "Persoon",
-                              "date_of_birth": "2015-06-07", "gender_code": "F"},
-                        headers={"X-CSRF-Token": csrf})
+    nieuw = client.post(
+        "/leden/gezin/personen",
+        data={
+            "first_name": "Kindje",
+            "last_name": "Persoon",
+            "date_of_birth": "2015-06-07",
+            "gender_code": "F",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert nieuw.status_code == 200 and "Kindje" in nieuw.text
 
 
 def test_gezin_mutatie_zonder_csrf(client, db_session):
     member, person = create_test_family(db_session, email="csrfloos@example.com")
     _login_as(client, "csrfloos@example.com")
-    resp = client.post(f"/leden/gezin/personen/{person.id}",
-                       data={"first_name": "X", "last_name": "Y"})
+    resp = client.post(
+        f"/leden/gezin/personen/{person.id}", data={"first_name": "X", "last_name": "Y"}
+    )
     assert resp.status_code == 403
 
 
@@ -69,14 +81,31 @@ def test_coverage_telt_al_betaald_volgend_jaar(db_session):
     de vernieuwknop verbergt zich dan i.p.v. op een 409 'al vernieuwd' te botsen."""
     from app.domains.membership.api import Membership
     from app.domains.membership.service import (
-        membership_coverage_until, renewal_available, valid_membership_until)
+        membership_coverage_until,
+        renewal_available,
+        valid_membership_until,
+    )
 
     member, person = create_test_family(db_session, email="cov@example.com")
     y = date.today().year
-    db_session.add(Membership(member_id=member.id, year=y,
-                              valid_from=date(y, 1, 1), valid_to=date(y, 12, 31), is_active=True))
-    db_session.add(Membership(member_id=member.id, year=y + 1,
-                              valid_from=date(y + 1, 1, 1), valid_to=date(y + 1, 12, 31), is_active=True))
+    db_session.add(
+        Membership(
+            member_id=member.id,
+            year=y,
+            valid_from=date(y, 1, 1),
+            valid_to=date(y, 12, 31),
+            is_active=True,
+        )
+    )
+    db_session.add(
+        Membership(
+            member_id=member.id,
+            year=y + 1,
+            valid_from=date(y + 1, 1, 1),
+            valid_to=date(y + 1, 12, 31),
+            is_active=True,
+        )
+    )
     db_session.commit()
     db_session.expire_all()
     person = db_session.get(Person, person.id)
@@ -101,9 +130,12 @@ def test_vernieuwen_via_overschrijving(db_session):
     _member, person = create_test_family(db_session, email="renew-transfer@example.com")
     result = renew_membership(person=person, db=db_session, payment_method="transfer")
     assert result["checkout_url"] is None and result["payment_method"] == "transfer"
-    charge = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
-              .order_by(PaymentRecord.id.desc()).first())
+    charge = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
+        .order_by(PaymentRecord.id.desc())
+        .first()
+    )
     assert charge is not None and charge.method == PaymentMethod.TRANSFER
     assert charge.structured_communication  # OGM gezet voor de overschrijving
 
@@ -115,13 +147,19 @@ def test_login_redirects_naar_aanmelden(client):
 
 
 def test_login_verify_zet_sessie_en_stuurt_door(client, db_session):
-    from app.domains.auth.models import LoginToken
     from datetime import datetime, timezone
+
+    from app.domains.auth.models import LoginToken
 
     create_test_family(db_session, email="magiclink@example.com")
     token = "testtoken-magic-123"
-    db_session.add(LoginToken(email="magiclink@example.com", token=token,
-                              expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)))
+    db_session.add(
+        LoginToken(
+            email="magiclink@example.com",
+            token=token,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        )
+    )
     db_session.flush()
 
     resp = client.get(f"/login/verify?token={token}", follow_redirects=False)
@@ -137,8 +175,9 @@ def test_magic_link_landing_per_rol(client, db_session):
     """#530: de magic-link-landing volgt de rol — een FINANCE-only account gaat naar
     /admin/betalingen (werkbank zou 403'en), ADMIN naar /admin/werkbank; voorheen
     ging iedereen met ADMIN of FINANCE naar werkbank."""
-    from app.domains.auth.models import LoginToken, User, UserRole
     from datetime import datetime, timezone
+
+    from app.domains.auth.models import LoginToken, User, UserRole
 
     def _token(email, *roles):
         u = User(email=email, is_active=True)
@@ -147,8 +186,13 @@ def test_magic_link_landing_per_rol(client, db_session):
         for r in roles:
             db_session.add(UserRole(user_id=u.id, role_code=r))
         tok = f"tok-{email}"
-        db_session.add(LoginToken(email=email, token=tok,
-                                  expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)))
+        db_session.add(
+            LoginToken(
+                email=email,
+                token=tok,
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+            )
+        )
         db_session.flush()
         return tok
 

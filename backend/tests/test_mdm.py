@@ -1,9 +1,15 @@
 """Fase 2 (#400): MDM — merge/survivorship, resolve, unmerge, organisaties."""
+
 import pytest
 
 from app.domains.mdm.api import (
-    MergeError, Organization, Person, PersonHistory,
-    merge_persons, resolve, unmerge_person,
+    MergeError,
+    Organization,
+    Person,
+    PersonHistory,
+    merge_persons,
+    resolve,
+    unmerge_person,
 )
 from tests.conftest import create_test_person
 
@@ -17,9 +23,11 @@ def test_merge_sets_pointer_and_never_deletes(db_session):
     # Nooit hard weg: de bron bestaat nog.
     assert db_session.get(Person, a.id) is not None
     # Snapshot voor unmerge staat in de history.
-    hist = (db_session.query(PersonHistory)
-            .filter(PersonHistory.person_id == a.id,
-                    PersonHistory.action == "person_merged").one())
+    hist = (
+        db_session.query(PersonHistory)
+        .filter(PersonHistory.person_id == a.id, PersonHistory.action == "person_merged")
+        .one()
+    )
     assert hist.actor == "admin@test" and hist.last_name == "Dubbel"
 
 
@@ -55,7 +63,7 @@ def test_merge_rejects_self_and_unknown(db_session):
 
 def test_merge_publishes_entity_merged_event(db_session):
     from app.kernel.contracts.mdm import EntityMerged
-    from app.kernel.events import subscribe, _subscribers
+    from app.kernel.events import _subscribers, subscribe
 
     seen = []
 
@@ -82,9 +90,11 @@ def test_unmerge_restores_person(db_session):
     db_session.expire_all()
     assert a.superseded_by_id is None
     assert resolve(db_session, a.id).id == a.id
-    hist = (db_session.query(PersonHistory)
-            .filter(PersonHistory.person_id == a.id,
-                    PersonHistory.action == "person_unmerged").one())
+    hist = (
+        db_session.query(PersonHistory)
+        .filter(PersonHistory.person_id == a.id, PersonHistory.action == "person_unmerged")
+        .one()
+    )
     assert hist.actor == "admin@test"
     with pytest.raises(MergeError):
         unmerge_person(db_session, a.id)  # niet (meer) gemerged
@@ -100,8 +110,9 @@ def test_organizations_account_unit_hierarchy(db_session):
     account = Organization(code="testaccount", name="Testaccount", org_type="ACCOUNT")
     db_session.add(account)
     db_session.flush()
-    unit = Organization(code="testaccount-jeugd", name="Jeugdwerking",
-                        org_type="UNIT", parent_id=account.id)
+    unit = Organization(
+        code="testaccount-jeugd", name="Jeugdwerking", org_type="UNIT", parent_id=account.id
+    )
     db_session.add(unit)
     db_session.flush()
     assert unit.parent.id == account.id

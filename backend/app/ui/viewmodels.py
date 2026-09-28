@@ -2,6 +2,7 @@
 
 Zie `app/ui/viewmodel.py` voor het waarom van een view-model boven een dict.
 """
+
 from dataclasses import dataclass, field
 from typing import Any
 

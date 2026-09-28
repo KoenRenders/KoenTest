@@ -26,6 +26,7 @@ kon bedenken.
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de begroeting weer
 uit de tekst gehaald → de eerste test valt om; `viewboxes` leeggemaakt → de tweede.
 """
+
 from pathlib import Path
 
 import pytest
@@ -48,7 +49,8 @@ def test_de_bot_stelt_zich_voor():
     assert "Hallo, ik ben Raakje!" in TEKSTEN, "de begroeting ontbreekt"
     assert "👋" in TEKSTEN, "de emoji hoort bij de begroeting (lopende tekst, geen knop)"
     assert "doorgeven aan het bestuur" in TEKSTEN, (
-        "de doorgeef-zin uit #570 mag niet sneuvelen — die vertelt dát dat kan")
+        "de doorgeef-zin uit #570 mag niet sneuvelen — die vertelt dát dat kan"
+    )
 
 
 def test_de_widget_leest_de_gedeelde_tekst():
@@ -61,13 +63,15 @@ def test_de_widget_leest_de_gedeelde_tekst():
     """
     assert "teksten.intro()" in WIDGET, "de widget gebruikt de gedeelde tekst niet"
     assert "Hallo, ik ben Raakje" not in WIDGET, (
-        "de widget heeft de tekst weer overgeschreven in plaats van hem te lezen")
+        "de widget heeft de tekst weer overgeschreven in plaats van hem te lezen"
+    )
 
 
 def test_het_stopvierkantje_houdt_zijn_bijgesneden_viewbox():
     """Anders oogt het weer kleiner dan de microfoon die het vervangt."""
     assert '"square": "2 2 20 20"' in MACROS, (
-        "de viewBox van `square` staat niet meer bijgesneden (#762)")
+        "de viewBox van `square` staat niet meer bijgesneden (#762)"
+    )
 
 
 def test_de_andere_iconen_blijven_op_de_standaarddoos():
@@ -76,6 +80,6 @@ def test_de_andere_iconen_blijven_op_de_standaarddoos():
     Zonder haar zou "geef alles een eigen viewBox" ook groen staan, en dan is de
     doos geen gedeelde maat meer.
     """
-    blok = MACROS[MACROS.index("{%- set viewboxes"):]
-    blok = blok[:blok.index("-%}")]
+    blok = MACROS[MACROS.index("{%- set viewboxes") :]
+    blok = blok[: blok.index("-%}")]
     assert blok.count(":") == 1, f"er staan meer uitzonderingen dan bedoeld: {blok}"

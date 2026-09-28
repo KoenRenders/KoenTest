@@ -18,15 +18,19 @@ what they measure is unchanged; only where the date is written moved. The case t
 needs two components — one closed, one open — lives in
 `test_inschrijfdatum_per_onderdeel.py`, with the screen tests of #1051.
 """
+
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-import pytest
+from app.domains.activities.api import (
+    Activity,
+    ActivityDate,
+    ActivityProduct,
+    ActivitySubRegistration,
+    Registration,
+)
 
-from app.domains.activities.api import (Activity, ActivityDate, ActivityProduct,
-                                        ActivitySubRegistration, Registration)
-
-DEADLINE = date(2027, 7, 15)          # zomer: Brussel = UTC+2
+DEADLINE = date(2027, 7, 15)  # zomer: Brussel = UTC+2
 
 
 def _pin(monkeypatch, instant_utc: datetime) -> None:
@@ -62,23 +66,32 @@ def _activity(db, *, closes_on=DEADLINE, cancelled=False, external_url=None):
     # #1053: de datum staat op het ONDERDEEL. Eén onderdeel hier, dus dezelfde
     # meting als voorheen.
     comp = ActivitySubRegistration(
-        activity_id=a.id, name="Deelname", registration_type_code="INDIVIDUAL",
+        activity_id=a.id,
+        name="Deelname",
+        registration_type_code="INDIVIDUAL",
         registration_closes_on=closes_on,
-        price=Decimal("0"), is_free=True, external_register_url=external_url)
+        price=Decimal("0"),
+        is_free=True,
+        external_register_url=external_url,
+    )
     db.add(comp)
     db.flush()
-    product = ActivityProduct(component_id=comp.id, name="Plaats",
-                              price=Decimal("0"), is_free=True)
+    product = ActivityProduct(component_id=comp.id, name="Plaats", price=Decimal("0"), is_free=True)
     db.add(product)
     db.flush()
     return a, comp, product
 
 
 def _inschrijven(client, a, comp, product, naam="Fee"):
-    return client.post(f"/activiteiten/{a.id}/inschrijven/{comp.id}",
-                       data={"contact_name": naam,
-                             "contact_email": f"{naam.lower()}@example.org",
-                             "phone": "0470000000", f"product_{product.id}": "1"})
+    return client.post(
+        f"/activiteiten/{a.id}/inschrijven/{comp.id}",
+        data={
+            "contact_name": naam,
+            "contact_email": f"{naam.lower()}@example.org",
+            "phone": "0470000000",
+            f"product_{product.id}": "1",
+        },
+    )
 
 
 def _aantal(db, a) -> int:
@@ -87,8 +100,8 @@ def _aantal(db, a) -> int:
 
 # ── De deadline, rond middernacht ────────────────────────────────────────────
 
-def test_half_past_eleven_on_the_deadline_day_is_still_accepted(client, db_session,
-                                                                 monkeypatch):
+
+def test_half_past_eleven_on_the_deadline_day_is_still_accepted(client, db_session, monkeypatch):
     """Inclusive: the deadline day counts, until midnight in Brussels."""
     a, comp, product = _activity(db_session)
     _pin(monkeypatch, datetime(2027, 7, 15, 21, 30, tzinfo=timezone.utc))  # 23:30 BE
@@ -100,7 +113,8 @@ def test_half_past_eleven_on_the_deadline_day_is_still_accepted(client, db_sessi
 
 
 def test_half_past_midnight_the_day_after_is_refused_although_utc_still_says_the_deadline_day(
-        client, db_session, monkeypatch):
+    client, db_session, monkeypatch
+):
     """The test that matters (#974): Belgian date, not the container's.
 
     At 00:30 in Brussels on the 16th it is 22:30 UTC on the 15th. A service that
@@ -130,8 +144,7 @@ def test_without_a_deadline_nothing_changes(client, db_session, monkeypatch):
     assert _aantal(db_session, a) == 1
 
 
-def test_an_activity_whose_dates_have_passed_is_still_refused(client, db_session,
-                                                              monkeypatch):
+def test_an_activity_whose_dates_have_passed_is_still_refused(client, db_session, monkeypatch):
     """The old rule, now asked of the service instead of written in the route."""
     a, comp, product = _activity(db_session, closes_on=None)
     _pin(monkeypatch, datetime(2027, 9, 1, 10, 0, tzinfo=timezone.utc))  # na de datum
@@ -144,8 +157,8 @@ def test_an_activity_whose_dates_have_passed_is_still_refused(client, db_session
 
 # ── Geannuleerd ──────────────────────────────────────────────────────────────
 
-def test_a_cancelled_activity_is_refused_on_the_public_form(client, db_session,
-                                                            monkeypatch):
+
+def test_a_cancelled_activity_is_refused_on_the_public_form(client, db_session, monkeypatch):
     """Future date, no deadline — the cancellation is the ONLY reason to refuse.
 
     Until #974 only the card knew: it hid the button, and a form posted from a tab
@@ -163,16 +176,21 @@ def test_a_cancelled_activity_is_refused_on_the_public_form(client, db_session,
     assert _aantal(db_session, a) == 0
 
 
-def test_a_cancelled_activity_is_refused_on_the_json_api(client, db_session,
-                                                         monkeypatch):
+def test_a_cancelled_activity_is_refused_on_the_json_api(client, db_session, monkeypatch):
     """The same refusal on the other door — both reach `register_for_activity`."""
     a, comp, product = _activity(db_session, closes_on=None, cancelled=True)
     _pin(monkeypatch, datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc))
 
-    resp = client.post(f"/api/v1/activities/{a.id}/register", json={
-        "contact_name": "Api", "contact_email": "api@example.org",
-        "phone": "0470000000", "component_id": comp.id,
-        "items": [{"product_id": product.id, "quantity": 1}]})
+    resp = client.post(
+        f"/api/v1/activities/{a.id}/register",
+        json={
+            "contact_name": "Api",
+            "contact_email": "api@example.org",
+            "phone": "0470000000",
+            "component_id": comp.id,
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
 
     assert resp.status_code == 400
     assert "geannuleerd" in resp.json()["detail"]
@@ -181,8 +199,10 @@ def test_a_cancelled_activity_is_refused_on_the_json_api(client, db_session,
 
 # ── Wat een bezoeker ziet ────────────────────────────────────────────────────
 
+
 def test_after_the_deadline_the_card_shows_closed_and_offers_no_way_in(
-        client, db_session, monkeypatch):
+    client, db_session, monkeypatch
+):
     """No button, and no external link either — that one is easy to forget.
 
     It sits in another branch of the card than the regular button. The form behind
@@ -191,27 +211,25 @@ def test_after_the_deadline_the_card_shows_closed_and_offers_no_way_in(
     Broken to see it red: the `registration_state == "closed"` branch removed from
     `_activiteiten_cards.html` — the external link is back.
     """
-    a, _comp, _product = _activity(db_session,
-                                   external_url="https://extern.example/inschrijven")
+    a, _comp, _product = _activity(db_session, external_url="https://extern.example/inschrijven")
     _pin(monkeypatch, datetime(2027, 7, 16, 10, 0, tzinfo=timezone.utc))
 
     html = client.get("/activiteiten").text
     start = html.index("Bowling")
-    kaart = html[start:start + 6000]
+    kaart = html[start : start + 6000]
 
     assert "Inschrijvingen afgesloten" in kaart
     assert "https://extern.example/inschrijven" not in kaart
     assert f"/activiteiten/{a.id}/inschrijven/" not in kaart
 
 
-def test_before_the_deadline_the_card_says_until_when(client, db_session,
-                                                      monkeypatch):
+def test_before_the_deadline_the_card_says_until_when(client, db_session, monkeypatch):
     _activity(db_session)
     _pin(monkeypatch, datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc))
 
     html = client.get("/activiteiten").text
     start = html.index("Bowling")
-    kaart = html[start:start + 6000]
+    kaart = html[start : start + 6000]
 
     assert "Inschrijven t/m" in kaart
     assert "Inschrijvingen afgesloten" not in kaart
@@ -229,9 +247,10 @@ def test_a_modal_opened_after_the_deadline_says_why(client, db_session, monkeypa
 
 # ── Beheer mag nog corrigeren ────────────────────────────────────────────────
 
-def test_the_board_can_still_correct_an_existing_registration(client, db_session,
-                                                              monkeypatch,
-                                                              admin_headers):
+
+def test_the_board_can_still_correct_an_existing_registration(
+    client, db_session, monkeypatch, admin_headers
+):
     """A correction is not a new registration (#974).
 
     Registered before the deadline, corrected after it. And the same for a
@@ -244,8 +263,7 @@ def test_the_board_can_still_correct_an_existing_registration(client, db_session
     a, comp, product = _activity(db_session)
     _pin(monkeypatch, datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc))
     _inschrijven(client, a, comp, product)
-    reg = (db_session.query(Registration)
-           .filter(Registration.activity_id == a.id).one())
+    reg = db_session.query(Registration).filter(Registration.activity_id == a.id).one()
     item = reg.items[0]
 
     _pin(monkeypatch, datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc))
@@ -254,7 +272,9 @@ def test_the_board_can_still_correct_an_existing_registration(client, db_session
 
     resp = client.patch(
         f"/api/v1/activities/{a.id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 2}, headers=admin_headers)
+        json={"quantity": 2},
+        headers=admin_headers,
+    )
 
     assert resp.status_code == 200, resp.text[:300]
     db_session.refresh(item)
@@ -263,15 +283,15 @@ def test_the_board_can_still_correct_an_existing_registration(client, db_session
 
 # ── Beheer: het veld ─────────────────────────────────────────────────────────
 
+
 def test_the_deadline_can_be_set_and_cleared_in_the_admin(client, db_session):
     """Clearing is a valid choice, so an empty field must remove the deadline.
 
     #1053: the field sits on the COMPONENT form now, so this posts to the component
     route. Same three steps as before: set, read back on the screen, clear.
     """
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
-    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                      make_session_value)
 
     a, comp, _product = _activity(db_session, closes_on=None)
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -279,15 +299,13 @@ def test_the_deadline_can_be_set_and_cleared_in_the_admin(client, db_session):
     kop = {"X-CSRF-Token": csrf_token_for(value)}
     pad = f"/admin/activiteiten/{a.id}/onderdelen/{comp.id}"
 
-    client.post(pad, data={"name": "Deelname",
-                           "registration_closes_on": "2027-07-15"}, headers=kop)
+    client.post(pad, data={"name": "Deelname", "registration_closes_on": "2027-07-15"}, headers=kop)
     db_session.refresh(comp)
     assert comp.registration_closes_on == DEADLINE
 
     html = client.get(f"/admin/activiteiten/{a.id}").text
     assert 'value="2027-07-15"' in html
 
-    client.post(pad, data={"name": "Deelname",
-                           "registration_closes_on": ""}, headers=kop)
+    client.post(pad, data={"name": "Deelname", "registration_closes_on": ""}, headers=kop)
     db_session.refresh(comp)
     assert comp.registration_closes_on is None

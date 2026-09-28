@@ -8,6 +8,7 @@ draait. Spiegelt ``app/domains/chatbot/providers/factory.py``.
 Wélke browsers de provider gebruiken, beslist ``STT_MODE`` (zie ``app/routers/stt.py``);
 deze factory levert enkel de provider zodra die nodig is.
 """
+
 from __future__ import annotations
 
 from app.config import settings
@@ -30,9 +31,7 @@ def get_stt_provider(sample_rate: int | None = None) -> SttProvider:
 
     # voxtral (en elke andere niet-mock waarde): vereist een sleutel.
     if not settings.mistral_api_key:
-        raise RuntimeError(
-            "STT_PROVIDER=voxtral maar er is geen MISTRAL_API_KEY gezet."
-        )
+        raise RuntimeError("STT_PROVIDER=voxtral maar er is geen MISTRAL_API_KEY gezet.")
     # Lazy import: geen websockets/Mistral-config nodig om de mock te draaien.
     from .voxtral import VoxtralRealtimeProvider
 

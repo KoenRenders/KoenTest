@@ -1,13 +1,13 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
     Boolean,
+    Column,
+    DateTime,
     ForeignKey,
+    Integer,
     LargeBinary,
+    String,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -85,14 +85,20 @@ class MediaAsset(TenantMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     kind: Mapped[MediaKind] = mapped_column(
-        EnumColumn(MediaKind, length=20), ForeignKey("media.media_kind_codes.code"),
-        nullable=False, index=True)
+        EnumColumn(MediaKind, length=20),
+        ForeignKey("media.media_kind_codes.code"),
+        nullable=False,
+        index=True,
+    )
     activity_id = Column(
-        Integer, nullable=True, index=True  # soft-ref naar activities.activities (§8, migr. 081)
+        Integer,
+        nullable=True,
+        index=True,  # soft-ref naar activities.activities (§8, migr. 081)
     )
     component_id = Column(
         Integer,  # soft-ref naar activities.activity_sub_registrations (§8, migr. 081)
-        nullable=True, index=True,
+        nullable=True,
+        index=True,
     )
 
     # Volledig beeld (verkleind) + losse thumbnail.
@@ -105,8 +111,8 @@ class MediaAsset(TenantMixin, Base):
     width = Column(Integer, nullable=True)
     height = Column(Integer, nullable=True)
 
-    title = Column(String(255), nullable=True)        # alt-tekst / sponsornaam
-    link_url = Column(String(500), nullable=True)     # doorklik voor sponsorlogo
+    title = Column(String(255), nullable=True)  # alt-tekst / sponsornaam
+    link_url = Column(String(500), nullable=True)  # doorklik voor sponsorlogo
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     # #1057: alleen zinvol bij ``kind="sponsor"``. Tot dan las de footer dezelfde
@@ -149,13 +155,15 @@ class MediaThumbsUp(TenantMixin, Base):
     """
 
     __tablename__ = "media_thumbs_up"
-    __table_args__ = (UniqueConstraint("asset_id", "visitor_token",
-                                       name="uq_thumb_per_visitor"),
-                      {"schema": "media"})
+    __table_args__ = (
+        UniqueConstraint("asset_id", "visitor_token", name="uq_thumb_per_visitor"),
+        {"schema": "media"},
+    )
 
     id = Column(Integer, primary_key=True)
-    asset_id = Column(Integer, ForeignKey("media.media_assets.id", ondelete="CASCADE"),
-                      nullable=False, index=True)
+    asset_id = Column(
+        Integer, ForeignKey("media.media_assets.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     visitor_token = Column(String(64), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
@@ -183,5 +191,6 @@ class MediaKindLabel(Base):
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

@@ -21,6 +21,7 @@ zoals een lid ze op zijn scherm leest. Een test die `tenant_display_name()`
 rechtstreeks aanroept blijft groen op de dag dat niemand die functie nog aanroept —
 dat is de vorm die deze week zes keer misging.
 """
+
 from datetime import date
 from decimal import Decimal
 
@@ -28,13 +29,12 @@ import pytest
 from sqlalchemy import text
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_postal_code)
-from tests.test_reporting_panel_ui import login
 from app.kernel.codes import reset_label_cache
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
+from tests.test_reporting_panel_ui import login
 
-ACCOUNT_ID = 1          # Raak vzw — de rechtspersoon, géén tenant
-MILLEGEM_ID = 2         # de afdeling die live staat
+ACCOUNT_ID = 1  # Raak vzw — de rechtspersoon, géén tenant
+MILLEGEM_ID = 2  # de afdeling die live staat
 
 
 @pytest.fixture(autouse=True)
@@ -58,17 +58,19 @@ def _operator(client, db):
 
 def _post(client, db, organization_id: int, **velden):
     csrf = _operator(client, db)
-    return client.post(f"/admin/organisaties/{organization_id}", data=velden,
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        f"/admin/organisaties/{organization_id}", data=velden, headers={"X-CSRF-Token": csrf}
+    )
 
 
 # ── Het gat: de organisatie die geen tenant is ───────────────────────────────
+
 
 def test_the_organisation_that_is_not_a_tenant_is_in_the_list(client, db_session):
     _operator(client, db_session)
     html = client.get("/admin/organisaties").text
     assert "Raak" in html
-    assert f'/admin/organisaties/{ACCOUNT_ID}' in html
+    assert f"/admin/organisaties/{ACCOUNT_ID}" in html
 
 
 def test_the_legal_form_of_the_account_can_be_changed(client, db_session):
@@ -83,9 +85,9 @@ def test_the_legal_form_of_the_account_can_be_changed(client, db_session):
     resp = _post(client, db_session, ACCOUNT_ID, name="Raak", legal_form="VZW")
 
     assert resp.status_code == 200
-    rij = db_session.execute(text(
-        "SELECT legal_form FROM mdm.organizations WHERE id = :i"),
-        {"i": ACCOUNT_ID}).scalar()
+    rij = db_session.execute(
+        text("SELECT legal_form FROM mdm.organizations WHERE id = :i"), {"i": ACCOUNT_ID}
+    ).scalar()
     assert rij == "VZW"
 
 
@@ -99,6 +101,7 @@ def test_the_tenant_screen_does_not_know_this_organisation(client, db_session):
 
 
 # ── Het risico: de ledenschermen blijven werken ──────────────────────────────
+
 
 def test_the_member_screens_keep_working(client, db_session):
     """De test die ertoe doet (#971): aan de ledenkant verandert er niets.
@@ -116,12 +119,20 @@ def test_the_member_screens_keep_working(client, db_session):
     _operator(client, db_session)
 
     # Een organisatieadres wegschrijven — precies het werk dat dit kan breken.
-    _post(client, db_session, MILLEGEM_ID, name="Raak Millegem",
-          street="Verenigingsstraat", house_number="1", postal_code="2400")
+    _post(
+        client,
+        db_session,
+        MILLEGEM_ID,
+        name="Raak Millegem",
+        street="Verenigingsstraat",
+        house_number="1",
+        postal_code="2400",
+    )
 
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert html.count("Verenigingsstraat") == 0, (
-        "het adres van de vereniging staat op het gezinsscherm")
+        "het adres van de vereniging staat op het gezinsscherm"
+    )
     assert persoon.last_name in html
 
 
@@ -139,34 +150,48 @@ def test_a_member_address_still_saves(client, db_session, postcode):
     from app.domains.mdm.api import Address
 
     member, persoon = create_test_family(db_session, email="lid971b@example.com")
-    db_session.add(Address(person_id=persoon.id, street="Oudestraat",
-                           house_number="3", postal_code_id=postcode.id))
+    db_session.add(
+        Address(
+            person_id=persoon.id, street="Oudestraat", house_number="3", postal_code_id=postcode.id
+        )
+    )
     db_session.flush()
     csrf = _operator(client, db_session)
 
-    _post(client, db_session, MILLEGEM_ID, name="Raak Millegem",
-          street="Verenigingsstraat", house_number="1", postal_code="2400")
-    resp = client.post(f"/admin/leden/gezin/{member.id}/adres",
-                       data={"street": "Ledenlaan", "house_number": "9",
-                             "bus_number": "", "postal_code": "2400"},
-                       headers={"X-CSRF-Token": csrf})
+    _post(
+        client,
+        db_session,
+        MILLEGEM_ID,
+        name="Raak Millegem",
+        street="Verenigingsstraat",
+        house_number="1",
+        postal_code="2400",
+    )
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/adres",
+        data={"street": "Ledenlaan", "house_number": "9", "bus_number": "", "postal_code": "2400"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 200
-    van_lid = db_session.execute(text(
-        "SELECT street FROM mdm.addresses WHERE person_id = :p "
-        "AND deleted_at IS NULL"), {"p": persoon.id}).scalar()
-    van_vereniging = db_session.execute(text(
-        "SELECT street FROM mdm.addresses WHERE organization_id = :o "
-        "AND deleted_at IS NULL"), {"o": MILLEGEM_ID}).scalar()
+    van_lid = db_session.execute(
+        text("SELECT street FROM mdm.addresses WHERE person_id = :p AND deleted_at IS NULL"),
+        {"p": persoon.id},
+    ).scalar()
+    van_vereniging = db_session.execute(
+        text("SELECT street FROM mdm.addresses WHERE organization_id = :o AND deleted_at IS NULL"),
+        {"o": MILLEGEM_ID},
+    ).scalar()
     assert van_lid == "Ledenlaan"
     assert van_vereniging == "Verenigingsstraat", (
-        "het adres van de vereniging is meegeschreven met dat van het lid")
+        "het adres van de vereniging is meegeschreven met dat van het lid"
+    )
 
 
 # ── Door de uitvoer heen: de twee kanalen naar buiten ────────────────────────
 
-def test_the_organisation_name_reaches_the_from_line_of_a_sent_mail(db_session,
-                                                                    monkeypatch):
+
+def test_the_organisation_name_reaches_the_from_line_of_a_sent_mail(db_session, monkeypatch):
     """De afzender van een echte mail, niet de functie die hem samenstelt.
 
     `tenant_display_name()` rechtstreeks toetsen blijft groen op de dag dat niemand
@@ -183,8 +208,7 @@ def test_the_organisation_name_reaches_the_from_line_of_a_sent_mail(db_session,
     from app.domains.mail import service as mail_mod
     from app.domains.mdm.api import update_organization_details
 
-    update_organization_details(db_session, MILLEGEM_ID,
-                               {"name": "Vereniging Zevenbergen"})
+    update_organization_details(db_session, MILLEGEM_ID, {"name": "Vereniging Zevenbergen"})
     db_session.flush()
 
     # `_display_name()` opent zijn eigen sessie; de testsessie commit niet, dus die
@@ -197,9 +221,10 @@ def test_the_organisation_name_reaches_the_from_line_of_a_sent_mail(db_session,
             return getattr(self._echte, naam)
 
         def close(self):
-            pass   # de testsessie sluiten zou de rest van de test slopen
+            pass  # de testsessie sluiten zou de rest van de test slopen
 
     import app.database as database_mod
+
     monkeypatch.setattr(database_mod, "SessionLocal", lambda: _Sessie(db_session))
     monkeypatch.setattr(mail_mod.settings, "gmail_user", "x@example.org")
     monkeypatch.setattr(mail_mod.settings, "gmail_app_password", "pw")
@@ -207,48 +232,66 @@ def test_the_organisation_name_reaches_the_from_line_of_a_sent_mail(db_session,
     verstuurd = {}
 
     class _FakeSMTP:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def login(self, *a): pass
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def login(self, *a):
+            pass
+
         def sendmail(self, afzender, ontvangers, bericht):
             verstuurd["bericht"] = bericht
 
     monkeypatch.setattr(mail_mod.smtplib, "SMTP_SSL", lambda *a, **k: _FakeSMTP())
 
-    mail_mod.send_form_confirmation(to_email="lezer@example.org",
-                                    form_title="Contact", name="Lezer")
+    mail_mod.send_form_confirmation(
+        to_email="lezer@example.org", form_title="Contact", name="Lezer"
+    )
 
     assert "bericht" in verstuurd, "er is geen mail aan SMTP aangeboden"
-    from_regel = next(r for r in verstuurd["bericht"].splitlines()
-                      if r.startswith("From:"))
+    from_regel = next(r for r in verstuurd["bericht"].splitlines() if r.startswith("From:"))
     assert "Vereniging Zevenbergen" in from_regel, from_regel
 
 
-def test_the_payment_instructions_a_member_reads_come_from_the_organisation(
-        client, db_session):
+def test_the_payment_instructions_a_member_reads_come_from_the_organisation(client, db_session):
     """De betaalinstructies op het scherm van een lid, niet de functie eronder.
 
     Kapotgemaakt om het rood te zien: `tenant_payment_iban(db)` uit
     `membership/ui.py` gehaald — dan staat het rekeningnummer niet meer op het
     gezinsportaal en valt de laatste assertie om.
     """
-    from app.domains.membership.api import Membership
     from app.domains.mdm.api import update_organization_details
+    from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
-    update_organization_details(db_session, MILLEGEM_ID,
-                               {"payment_iban": "BE68 5390 0754 7034",
-                                "payment_beneficiary": "Vereniging Zevenbergen"})
+    update_organization_details(
+        db_session,
+        MILLEGEM_ID,
+        {"payment_iban": "BE68 5390 0754 7034", "payment_beneficiary": "Vereniging Zevenbergen"},
+    )
     member, _persoon = create_test_family(db_session, email="betaler@example.org")
     jaar = date.today().year + 1
-    ms = Membership(member_id=member.id, year=jaar, is_active=False,
-                    valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31))
+    ms = Membership(
+        member_id=member.id,
+        year=jaar,
+        is_active=False,
+        valid_from=date(jaar, 1, 1),
+        valid_to=date(jaar, 12, 31),
+    )
     db_session.add(ms)
     db_session.flush()
-    db_session.add(PaymentRecord(
-        payable_type="membership", payable_id=ms.id, amount=Decimal("35.00"),
-        method="transfer", status="pending",
-        structured_communication="+++123/4567/89012+++"))
+    db_session.add(
+        PaymentRecord(
+            payable_type="membership",
+            payable_id=ms.id,
+            amount=Decimal("35.00"),
+            method="transfer",
+            status="pending",
+            structured_communication="+++123/4567/89012+++",
+        )
+    )
     db_session.commit()
 
     client.cookies.set(SESSION_COOKIE, make_session_value("betaler@example.org"))
@@ -260,13 +303,14 @@ def test_the_payment_instructions_a_member_reads_come_from_the_organisation(
     # assertie die door twee oorzaken waar kan zijn, toetst geen van beide.
     assert "+++123/4567/89012+++" in html, "dit is niet het betaalscherm"
     start = html.index("Vernieuwing geregistreerd")
-    blok = html[start:html.index("</div>", start)]
+    blok = html[start : html.index("</div>", start)]
 
     assert "BE68 5390 0754 7034" in blok, blok
     assert "Vereniging Zevenbergen" in blok
 
 
 # ── De codelijst, en wat er NIET overschreven wordt ──────────────────────────
+
 
 def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
     """Uit `mdm.legal_form_codes` en niet uit een lijst in de template.
@@ -279,13 +323,19 @@ def test_the_legal_form_dropdown_grows_with_the_code_list(client, db_session):
     # because the list has been split. That is what makes a second language
     # possible, and it is exactly what this test should show: the dropdown
     # still grows along, without a code change.
-    db_session.execute(text(
-        "INSERT INTO mdm.legal_form_codes (code, sort_order, is_active, created_at) "
-        "VALUES ('STICHTING', 40, true, now())"))
-    db_session.execute(text(
-        "INSERT INTO mdm.legal_form_labels "
-        "(code, language, value, created_at, updated_at) "
-        "VALUES ('STICHTING', 'nl', 'Stichting', now(), now())"))
+    db_session.execute(
+        text(
+            "INSERT INTO mdm.legal_form_codes (code, sort_order, is_active, created_at) "
+            "VALUES ('STICHTING', 40, true, now())"
+        )
+    )
+    db_session.execute(
+        text(
+            "INSERT INTO mdm.legal_form_labels "
+            "(code, language, value, created_at, updated_at) "
+            "VALUES ('STICHTING', 'nl', 'Stichting', now(), now())"
+        )
+    )
     db_session.flush()
     # The label cache reads through its own session (§B2.4) and only sees these
     # rows after a commit; after that it does have to read again.
@@ -309,28 +359,46 @@ def test_a_second_bank_account_survives_a_save(client, db_session):
     Kapotgemaakt om het rood te zien: de `order_by(sort_order, id).first()` in
     `_bewaar_rekening` vervangen door een `delete()` van alle rijen.
     """
-    db_session.execute(text(
-        "INSERT INTO mdm.bank_accounts "
-        "(organization_id, iban, sort_order, created_at, updated_at) "
-        "VALUES (:o, 'BE11 1111 1111 1111', 0, now(), now()), "
-        "       (:o, 'BE22 2222 2222 2222', 1, now(), now())"),
-        {"o": ACCOUNT_ID})
+    db_session.execute(
+        text(
+            "INSERT INTO mdm.bank_accounts "
+            "(organization_id, iban, sort_order, created_at, updated_at) "
+            "VALUES (:o, 'BE11 1111 1111 1111', 0, now(), now()), "
+            "       (:o, 'BE22 2222 2222 2222', 1, now(), now())"
+        ),
+        {"o": ACCOUNT_ID},
+    )
     db_session.flush()
 
-    _post(client, db_session, ACCOUNT_ID, name="Raak",
-          payment_iban="BE33 3333 3333 3333")
+    _post(client, db_session, ACCOUNT_ID, name="Raak", payment_iban="BE33 3333 3333 3333")
 
-    rijen = [r[0] for r in db_session.execute(text(
-        "SELECT iban FROM mdm.bank_accounts WHERE organization_id = :o "
-        "AND deleted_at IS NULL ORDER BY sort_order, id"), {"o": ACCOUNT_ID})]
+    rijen = [
+        r[0]
+        for r in db_session.execute(
+            text(
+                "SELECT iban FROM mdm.bank_accounts WHERE organization_id = :o "
+                "AND deleted_at IS NULL ORDER BY sort_order, id"
+            ),
+            {"o": ACCOUNT_ID},
+        )
+    ]
     assert rijen == ["BE33 3333 3333 3333", "BE22 2222 2222 2222"], rijen
 
 
 # ── Het adres, in de vorm van de leden ───────────────────────────────────────
 
+
 def test_the_address_round_trips(client, db_session):
-    _post(client, db_session, ACCOUNT_ID, name="Raak", street="Kerkstraat",
-          house_number="7", bus_number="B", postal_code="2400")
+    _post(
+        client,
+        db_session,
+        ACCOUNT_ID,
+        name="Raak",
+        street="Kerkstraat",
+        house_number="7",
+        bus_number="B",
+        postal_code="2400",
+    )
 
     _operator(client, db_session)
     html = client.get(f"/admin/organisaties/{ACCOUNT_ID}").text
@@ -340,14 +408,23 @@ def test_the_address_round_trips(client, db_session):
 
 
 def test_clearing_street_and_number_removes_the_address(client, db_session):
-    _post(client, db_session, ACCOUNT_ID, name="Raak", street="Kerkstraat",
-          house_number="7", postal_code="2400")
-    _post(client, db_session, ACCOUNT_ID, name="Raak", street="", house_number="",
-          postal_code="")
+    _post(
+        client,
+        db_session,
+        ACCOUNT_ID,
+        name="Raak",
+        street="Kerkstraat",
+        house_number="7",
+        postal_code="2400",
+    )
+    _post(client, db_session, ACCOUNT_ID, name="Raak", street="", house_number="", postal_code="")
 
-    aantal = db_session.execute(text(
-        "SELECT count(*) FROM mdm.addresses WHERE organization_id = :o "
-        "AND deleted_at IS NULL"), {"o": ACCOUNT_ID}).scalar()
+    aantal = db_session.execute(
+        text(
+            "SELECT count(*) FROM mdm.addresses WHERE organization_id = :o AND deleted_at IS NULL"
+        ),
+        {"o": ACCOUNT_ID},
+    ).scalar()
     assert aantal == 0
 
 

@@ -5,6 +5,7 @@ provider actief), de streaming-pijplijn met de mock-provider (partials → final
 de vangrails: handshake-rate-limit, idle-timeout, harde audio-cap per sessie en per
 IP/dag. CI draait volledig op de mock-provider (geen Voxtral/MISTRAL_API_KEY nodig).
 """
+
 import json
 
 import pytest

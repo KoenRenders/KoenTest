@@ -52,6 +52,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
   óók dat de maat werkelijk gewijzigd is. Dat is geen ruis maar dezelfde
   bevinding langs twee wegen.
 """
+
 import json
 import os
 import re
@@ -90,8 +91,10 @@ def editor():
 
 
 def _bijlagen(inhoud: str) -> list[dict]:
-    return [json.loads(m.replace("&quot;", '"'))
-            for m in re.findall(r'data-trix-attachment="([^"]*)"', inhoud)]
+    return [
+        json.loads(m.replace("&quot;", '"'))
+        for m in re.findall(r'data-trix-attachment="([^"]*)"', inhoud)
+    ]
 
 
 def _voeg_in(page, scherm, *, alt: str, maat: str) -> None:
@@ -106,15 +109,17 @@ def _voeg_in(page, scherm, *, alt: str, maat: str) -> None:
     dialoog.get_by_role("button", name=maat, exact=True).click()
     dialoog.get_by_role("button", name="Invoegen", exact=True).click()
     page.wait_for_function(
-        "() => document.querySelector('#cp-trix figure.attachment')", timeout=5000)
+        "() => document.querySelector('#cp-trix figure.attachment')", timeout=5000
+    )
 
 
 def _open_de_bewerkdialoog(page):
     """Klik de bijlage aan en dan de knop in de werkbalk van de editor."""
     page.locator("#cp-trix figure.attachment").first.click()
     knop = page.locator("[data-raak-beeld-bewerken]")
-    expect(knop.first, "de bewerkknop verschijnt niet in de werkbalk van de "
-                       "geselecteerde bijlage").to_be_visible()
+    expect(
+        knop.first, "de bewerkknop verschijnt niet in de werkbalk van de geselecteerde bijlage"
+    ).to_be_visible()
     knop.first.click()
     dialoog = page.get_by_role("dialog")
     expect(dialoog, "de bewerkdialoog ging niet open").to_be_visible()
@@ -131,7 +136,8 @@ def verse_pagina(editor):
     # en dan telt "hoeveel afbeeldingen staan er" iets anders dan deze test denkt.
     editor.evaluate("() => document.getElementById('cp-trix').editor.loadHTML('')")
     editor.wait_for_function(
-        "() => !document.querySelector('#cp-trix figure.attachment')", timeout=5000)
+        "() => !document.querySelector('#cp-trix figure.attachment')", timeout=5000
+    )
     _voeg_in(editor, scherm, alt=EERSTE_ALT, maat="Half")
     return scherm
 
@@ -145,18 +151,22 @@ def test_de_dialoog_opent_met_de_huidige_alt_en_maat(editor, verse_pagina):
     dialoog = _open_de_bewerkdialoog(editor)
 
     assert dialoog.locator("#cp-alt").input_value() == EERSTE_ALT, (
-        "de alt is niet voorgevuld met de huidige waarde")
+        "de alt is niet voorgevuld met de huidige waarde"
+    )
     gekozen = dialoog.locator("button[data-url]").evaluate_all(
-        "els => els.filter(e => e.className.includes('border-blue-700')).length")
+        "els => els.filter(e => e.className.includes('border-blue-700')).length"
+    )
     assert gekozen == 1, (
         f"{gekozen} afbeeldingen staan als gekozen gemarkeerd, 1 verwacht — de "
-        "dialoog opent niet op de afbeelding die je aanklikte")
+        "dialoog opent niet op de afbeelding die je aanklikte"
+    )
 
 
 def _bijlage_ids(page) -> list[int]:
     return page.evaluate(
         "() => document.getElementById('cp-trix').editor.getDocument()"
-        ".getAttachments().map(a => a.id)")
+        ".getAttachments().map(a => a.id)"
+    )
 
 
 def test_bijwerken_wijzigt_DEZELFDE_bijlage(editor, verse_pagina):
@@ -184,18 +194,17 @@ def test_bijwerken_wijzigt_DEZELFDE_bijlage(editor, verse_pagina):
     ids_na = _bijlage_ids(editor)
     assert ids_na == ids_voor, (
         f"de bijlage is vervangen in plaats van bijgewerkt: {ids_voor} → {ids_na}. "
-        "Een nieuw object verliest elke eigenschap die we niet opnieuw meegeven")
+        "Een nieuw object verliest elke eigenschap die we niet opnieuw meegeven"
+    )
 
     bijlagen = _bijlagen(verse_pagina.editorinhoud())
-    assert len(bijlagen) == 1, (
-        f"{len(bijlagen)} afbeeldingen op de pagina, 1 verwacht: {bijlagen}")
-    assert bijlagen[0].get("size") == "klein", (
-        f"de maat is niet bijgewerkt: {bijlagen[0]}")
+    assert len(bijlagen) == 1, f"{len(bijlagen)} afbeeldingen op de pagina, 1 verwacht: {bijlagen}"
+    assert bijlagen[0].get("size") == "klein", f"de maat is niet bijgewerkt: {bijlagen[0]}"
     assert bijlagen[0].get("alt") == EERSTE_ALT, (
-        "de alt is onbedoeld meegewijzigd toen alleen de maat aangepast werd")
+        "de alt is onbedoeld meegewijzigd toen alleen de maat aangepast werd"
+    )
     for sleutel in ("width", "height", "contentType"):
-        assert sleutel in bijlagen[0], (
-            f"{sleutel} is verdwenen bij het bijwerken: {bijlagen[0]}")
+        assert sleutel in bijlagen[0], f"{sleutel} is verdwenen bij het bijwerken: {bijlagen[0]}"
 
 
 def test_de_nieuwe_alt_overleeft_een_rondgang(editor, verse_pagina):
@@ -214,18 +223,17 @@ def test_de_nieuwe_alt_overleeft_een_rondgang(editor, verse_pagina):
     assert paginaid, editor.url
     editor.goto(f"/admin/paginas/{paginaid.group(1)}")
     editor.wait_for_selector("#cp-trix", timeout=10000)
-    editor.evaluate(
-        "() => document.getElementById('cp-trix').editor.insertString('zz')")
+    editor.evaluate("() => document.getElementById('cp-trix').editor.insertString('zz')")
     editor.wait_for_function(
-        "() => document.getElementById('cp-content-input').value.includes('zz')",
-        timeout=5000)
+        "() => document.getElementById('cp-content-input').value.includes('zz')", timeout=5000
+    )
     verse_pagina.opslaan()
 
     bijlagen = _bijlagen(verse_pagina.editorinhoud())
     assert len(bijlagen) == 1, f"niet één afbeelding na de rondgang: {bijlagen}"
     assert bijlagen[0].get("alt") == NIEUWE_ALT, (
-        "de bijgewerkte alt is bij de tweede bewaring verdwenen: "
-        f"{bijlagen[0]}")
+        f"de bijgewerkte alt is bij de tweede bewaring verdwenen: {bijlagen[0]}"
+    )
 
 
 def test_bijwerken_kan_niet_met_een_lege_alt(editor, verse_pagina):
@@ -240,7 +248,8 @@ def test_bijwerken_kan_niet_met_een_lege_alt(editor, verse_pagina):
     knop = dialoog.get_by_role("button", name="Bijwerken", exact=True)
     assert knop.is_disabled(), (
         "Bijwerken is klikbaar met een lege alt — dan is bewerken een weg om de "
-        "verplichte alternatieve tekst heen")
+        "verplichte alternatieve tekst heen"
+    )
 
 
 def test_annuleren_laat_alles_zoals_het_was(editor, verse_pagina):

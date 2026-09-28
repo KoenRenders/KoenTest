@@ -15,6 +15,7 @@ The paths are Dutch because a board member reads them in the address bar and get
 them in a link; the module, the routes and the parameters are English like all new
 code (CLAUDE.md, "URL paths follow the audience").
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,36 +27,35 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.i18n import _
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE,
+    csrf_token_for,
+    require_admin_ui,
+    require_csrf,
 )
 from app.domains.reporting.api import (
-    Direction,
-    ExportKind,
-    Filter,
-    LAYOUTS,
-    Layout,
-    SYMBOLIC_ME,
-    SYMBOLIC_THIS_YEAR,
-    SYMBOLIC_TODAY,
-    SYMBOLIC_VALUES,
-    Operator,
-    Selection,
-    SelectionError,
-    SavedReportError,
-    Sort,
     BY_KEY,
     CHART_LAYOUTS,
     CLASSES,
     HIERARCHIES,
     HIERARCHY_OF,
+    LAYOUTS,
+    SYMBOLIC_ME,
+    SYMBOLIC_THIS_YEAR,
+    SYMBOLIC_TODAY,
+    SYMBOLIC_VALUES,
+    Direction,
+    ExportKind,
+    Filter,
+    Layout,
+    Operator,
+    SavedReportError,
+    Selection,
+    SelectionError,
+    Sort,
     build_chart,
     build_dataset_ods,
     build_pivot,
-    is_personal,
-    population_of,
-    resolve_selection,
     build_pivot_ods,
     build_report_ods,
     classes_of,
@@ -64,27 +64,37 @@ from app.domains.reporting.api import (
     dashboard_tile_of,
     dataset_filename,
     delete_report,
-    may_delete,
     dimension_values,
     get_saved_report,
+    is_personal,
     list_saved_reports,
     log_export,
     mark_run,
+    may_delete,
+    population_of,
     report_filename,
+    resolve_selection,
     run_validated,
     save_report,
     selection_of,
     selection_to_dict,
     update_report,
 )
+from app.domains.reporting.assistant import (
+    Scope,
+    ScopeNietOverdraagbaar,
+    scope_for_activity,
+    scope_for_payments,
+)
+from app.domains.reporting.viewmodels import (
+    AssistantTurnView,
+    AssistantView,
+    ReportListView,
+    ReportPanelView,
+)
+from app.i18n import _
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, is_fragment_request, templates
-from app.domains.reporting.assistant import (Scope, ScopeNietOverdraagbaar,
-                                              scope_for_activity,
-                                              scope_for_payments)
-from app.domains.reporting.viewmodels import (
-    AssistantTurnView, AssistantView, ReportListView, ReportPanelView,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -100,9 +110,14 @@ PER_PAGE = 50
 # end: the row that says "Quiz — 41 inschrijvingen" links to the activity.
 # The icon per shape of a saved report, so its card shows what it is without
 # running it.
-SHAPE_ICONS = {"table": "table", "pivot": "pivot", "bar": "chart-bar",
-               "line": "chart-line", "stacked": "chart-stacked",
-               "detail": "list"}
+SHAPE_ICONS = {
+    "table": "table",
+    "pivot": "pivot",
+    "bar": "chart-bar",
+    "line": "chart-line",
+    "stacked": "chart-stacked",
+    "detail": "list",
+}
 
 DRILL_URLS = {
     "activity": "/admin/activiteiten/{id}",
@@ -121,6 +136,7 @@ def _csrf(request: Request) -> str:
 
 
 # ── Reading the panel state out of the query string ──────────────────────────
+
 
 def _read_state(params) -> dict:
     """The panel state, plus the one command that is changing it.
@@ -146,11 +162,9 @@ def _read_state(params) -> dict:
     """
     objects = [k for k in params.getlist("object") if k in BY_KEY]
     filters = [k for k in params.getlist("filter") if k in BY_KEY]
-    values = {k[2:]: (params.get(k) or "").strip()
-              for k in params.keys() if k.startswith("v_")}
+    values = {k[2:]: (params.get(k) or "").strip() for k in params.keys() if k.startswith("v_")}
     values = {k: v for k, v in values.items() if v}
-    operators = {k[3:]: (params.get(k) or "eq")
-                 for k in params.keys() if k.startswith("op_")}
+    operators = {k[3:]: (params.get(k) or "eq") for k in params.keys() if k.startswith("op_")}
     sort = params.get("sort") or ""
     direction = params.get("dir") or "asc"
     layout = params.get("layout") or "table"
@@ -225,9 +239,9 @@ def _read_state(params) -> dict:
     drill = params.get("drill") or ""
     if "|" in drill:
         kind, _waarde = drill.split("|", 1)
-        ouder = next((k for k in objects
-                      if k in HIERARCHY_OF
-                      and HIERARCHY_OF[k].step(k, +1) == kind), "")
+        ouder = next(
+            (k for k in objects if k in HIERARCHY_OF and HIERARCHY_OF[k].step(k, +1) == kind), ""
+        )
         if ouder and kind in BY_KEY and kind not in objects:
             objects.insert(objects.index(ouder) + 1, kind)
             if ouder not in filters:
@@ -376,7 +390,8 @@ def _selection(state: dict) -> Selection:
             operator = Operator(state["operators"].get(key, "eq"))
         except ValueError as exc:
             raise SelectionError(
-                f"Onbekende filtersoort: '{state['operators'].get(key)}'.") from exc
+                f"Onbekende filtersoort: '{state['operators'].get(key)}'."
+            ) from exc
         # `@vandaag` in the query string is a RELATIVE value (#847). The prefix
         # exists only in the panel's own state; what gets saved carries the name
         # in its own field, so a literal value that happens to start with "@" —
@@ -392,9 +407,13 @@ def _selection(state: dict) -> Selection:
         sort = (Sort(state["sort"], richting),)
 
     return Selection(
-        object_keys=tuple(state["objects"]), filters=tuple(filters), sort=sort,
-        limit=PER_PAGE + 1, offset=(state["page"] - 1) * PER_PAGE,
-        layout=state["layout"], pivot_column=state["pivot_column"],
+        object_keys=tuple(state["objects"]),
+        filters=tuple(filters),
+        sort=sort,
+        limit=PER_PAGE + 1,
+        offset=(state["page"] - 1) * PER_PAGE,
+        layout=state["layout"],
+        pivot_column=state["pivot_column"],
     )
 
 
@@ -419,9 +438,10 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
     return {
         "objects": list(selection.object_keys),
         "filters": [f.object_key for f in selection.filters],
-        "values": {f.object_key: (f"@{f.symbolic}" if f.symbolic
-                                  else (f.values[0] if f.values else ""))
-                   for f in selection.filters},
+        "values": {
+            f.object_key: (f"@{f.symbolic}" if f.symbolic else (f.values[0] if f.values else ""))
+            for f in selection.filters
+        },
         "operators": {f.object_key: f.operator.value for f in selection.filters},
         "sort": selection.sort[0].object_key if selection.sort else "",
         "direction": selection.sort[0].direction.value if selection.sort else "asc",
@@ -439,8 +459,16 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
 
 # ── The panel view-model ─────────────────────────────────────────────────────
 
-def _panel(request: Request, db: Session, state: dict, *, report=None,
-           error: str | None = None, toast: bool = False) -> ReportPanelView:
+
+def _panel(
+    request: Request,
+    db: Session,
+    state: dict,
+    *,
+    report=None,
+    error: str | None = None,
+    toast: bool = False,
+) -> ReportPanelView:
     """Build the panel from its state. One place, so page and fragment agree."""
     tenant_id = _tenant(request)
     chosen = [BY_KEY[k] for k in state["objects"]]
@@ -453,8 +481,8 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     populatie = population_of(state["objects"])
     for key in state["filters"]:
         filter_options[key] = dimension_values(
-            db, key, tenant_id=tenant_id,
-            fact=populatie.key if populatie else "")
+            db, key, tenant_id=tenant_id, fact=populatie.key if populatie else ""
+        )
         filter_relative[key] = _relative_options(key)
 
     columns: list = []
@@ -490,8 +518,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
                     # number (#835 test 6).
                     pivot = gedraaid.as_context()
             else:
-                result = run_validated(db, selection, tenant_id=tenant_id,
-                                       viewer=_viewer(request))
+                result = run_validated(db, selection, tenant_id=tenant_id, viewer=_viewer(request))
                 columns = result.columns
                 rows = result.rows[:PER_PAGE]
                 has_next = len(result.rows) > PER_PAGE
@@ -585,62 +612,78 @@ def _viewer(request: Request) -> str:
 
 # ── The list (design-system C1) ──────────────────────────────────────────────
 
+
 def _list_view(request: Request, db: Session, email: str) -> ReportListView:
     params = request.query_params
     q = (params.get("q") or "").strip()
     owner = params.get("owner") or "all"
     shared = params.get("shared") or "all"
-    reports = list_saved_reports(db, tenant_id=_tenant(request), viewer=email,
-                                q=q, owner=owner, shared=shared)
+    reports = list_saved_reports(
+        db, tenant_id=_tenant(request), viewer=email, q=q, owner=owner, shared=shared
+    )
     return ReportListView(
         reports=reports,
         classes_per_report={r.id: classes_of(r) for r in reports},
-        owned={r.id: (r.owner_email == email or r.owner_email is None)
-               for r in reports},
-        shapes={r.id: SHAPE_ICONS.get((r.selection or {}).get("layout", "table"),
-                                      "table")
-                for r in reports},
-        shape_labels={"table": _("Tabel"), "pivot": _("Draaitabel"),
-                      "chart-bar": _("Staafgrafiek"), "chart-line": _("Lijngrafiek"),
-                      "chart-stacked": _("Gestapelde staafgrafiek"),
-                      "list": _("Lijst")},
-        q=q, owner=owner, shared=shared,
+        owned={r.id: (r.owner_email == email or r.owner_email is None) for r in reports},
+        shapes={
+            r.id: SHAPE_ICONS.get((r.selection or {}).get("layout", "table"), "table")
+            for r in reports
+        },
+        shape_labels={
+            "table": _("Tabel"),
+            "pivot": _("Draaitabel"),
+            "chart-bar": _("Staafgrafiek"),
+            "chart-line": _("Lijngrafiek"),
+            "chart-stacked": _("Gestapelde staafgrafiek"),
+            "list": _("Lijst"),
+        },
+        q=q,
+        owner=owner,
+        shared=shared,
         csrf_token=_csrf(request),
         nav_items=admin_nav(NAV),
     )
 
 
 @router.get("/admin/rapporten", response_class=HTMLResponse)
-def reports_index(request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
+def reports_index(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     view = _list_view(request, db, email)
-    template = "_rp_kaarten.html" if is_fragment_request(request) \
-        else "admin_rapporten.html"
+    template = "_rp_kaarten.html" if is_fragment_request(request) else "admin_rapporten.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
 @router.get("/admin/rapporten/lijst", response_class=HTMLResponse)
-def reports_list_fragment(request: Request, db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "_rp_kaarten.html",
-                                      _list_view(request, db, email).as_context())
+def reports_list_fragment(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
+    return templates.TemplateResponse(
+        request, "_rp_kaarten.html", _list_view(request, db, email).as_context()
+    )
 
 
 # ── The panel ────────────────────────────────────────────────────────────────
 # The static paths come first: `/{report_id}` would otherwise swallow "nieuw".
 
-@router.get("/admin/rapporten/nieuw", response_class=HTMLResponse,
-            dependencies=[Depends(require_admin_ui)])
+
+@router.get(
+    "/admin/rapporten/nieuw", response_class=HTMLResponse, dependencies=[Depends(require_admin_ui)]
+)
 def report_new(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
-        request, "admin_rapport_paneel.html",
-        _panel(request, db, _read_state(request.query_params)).as_context())
+        request,
+        "admin_rapport_paneel.html",
+        _panel(request, db, _read_state(request.query_params)).as_context(),
+    )
 
 
-@router.get("/admin/rapporten/paneel", response_class=HTMLResponse,
-            dependencies=[Depends(require_admin_ui)])
-def report_panel_fragment(request: Request, db: Session = Depends(get_db),
-                          report: int | None = None):
+@router.get(
+    "/admin/rapporten/paneel", response_class=HTMLResponse, dependencies=[Depends(require_admin_ui)]
+)
+def report_panel_fragment(
+    request: Request, db: Session = Depends(get_db), report: int | None = None
+):
     """The panel body after any change — add an object, set a filter, sort, page.
 
     One fragment for all of it, on purpose. Swapping only the result would leave
@@ -649,16 +692,21 @@ def report_panel_fragment(request: Request, db: Session = Depends(get_db),
     """
     bewaard = None
     if report:
-        bewaard = get_saved_report(db, report, tenant_id=_tenant(request),
-                                   viewer=_viewer(request))
+        bewaard = get_saved_report(db, report, tenant_id=_tenant(request), viewer=_viewer(request))
     return templates.TemplateResponse(
-        request, "_rp_paneel.html",
-        _panel(request, db, _read_state(request.query_params), report=bewaard).as_context())
+        request,
+        "_rp_paneel.html",
+        _panel(request, db, _read_state(request.query_params), report=bewaard).as_context(),
+    )
 
 
 @router.get("/admin/rapporten/export.ods")
-def report_export(request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui), report: int | None = None):
+def report_export(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    report: int | None = None,
+):
     """The report on screen as a spreadsheet — sheet 1 the table, sheet 2 the detail."""
     tenant_id = _tenant(request)
     state = _read_state(request.query_params)
@@ -679,42 +727,61 @@ def report_export(request: Request, db: Session = Depends(get_db),
         # No paging in an export: you take home the report, not the page.
         ruw = resolve_selection(_selection({**state, "page": 1}), viewer=email)
         selection = Selection(
-            object_keys=ruw.object_keys, filters=ruw.filters,
-            sort=ruw.sort, limit=5000, offset=0, layout=ruw.layout,
-            pivot_column=ruw.pivot_column)
+            object_keys=ruw.object_keys,
+            filters=ruw.filters,
+            sort=ruw.sort,
+            limit=5000,
+            offset=0,
+            layout=ruw.layout,
+            pivot_column=ruw.pivot_column,
+        )
         if selection.layout in ("pivot",) + CHART_LAYOUTS:
             gedraaid = build_pivot(db, selection, tenant_id=tenant_id)
-            grafiek = (build_chart(gedraaid, selection.layout)
-                       if selection.layout in CHART_LAYOUTS else None)
-            content = build_pivot_ods(db, gedraaid.as_context(), selection,
-                                      title=titel, tenant_id=tenant_id,
-                                      chart=grafiek)
+            grafiek = (
+                build_chart(gedraaid, selection.layout)
+                if selection.layout in CHART_LAYOUTS
+                else None
+            )
+            content = build_pivot_ods(
+                db,
+                gedraaid.as_context(),
+                selection,
+                title=titel,
+                tenant_id=tenant_id,
+                chart=grafiek,
+            )
             aantal = len(gedraaid.rows)
         else:
-            result = run_validated(db, selection, tenant_id=tenant_id,
-                                   viewer=email)
-            content = build_report_ods(db, result, selection, title=titel,
-                                       tenant_id=tenant_id)
+            result = run_validated(db, selection, tenant_id=tenant_id, viewer=email)
+            content = build_report_ods(db, result, selection, title=titel, tenant_id=tenant_id)
             aantal = len(result.rows)
     except SelectionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    log_export(db, tenant_id=tenant_id, actor=email,
-               kind=ExportKind.REPORT if bewaard else ExportKind.AD_HOC, subject=titel,
-               row_count=aantal,
-               filters=selection_to_dict(selection).get("filters"),
-               saved_report_id=bewaard.id if bewaard else None)
+    log_export(
+        db,
+        tenant_id=tenant_id,
+        actor=email,
+        kind=ExportKind.REPORT if bewaard else ExportKind.AD_HOC,
+        subject=titel,
+        row_count=aantal,
+        filters=selection_to_dict(selection).get("filters"),
+        saved_report_id=bewaard.id if bewaard else None,
+    )
     return Response(
-        content=content, media_type=ODS_MEDIA_TYPE,
-        headers={"Content-Disposition":
-                 f'attachment; filename="{report_filename(titel)}"'},
+        content=content,
+        media_type=ODS_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{report_filename(titel)}"'},
     )
 
 
 @router.get("/admin/rapporten/dataset/{fact_key}.ods")
-def dataset_export(fact_key: str, request: Request,
-                   db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui)):
+def dataset_export(
+    fact_key: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """One fact, flat, as a spreadsheet (#832).
 
     Same route and same output as when it shipped in phase 1; it moved here so one
@@ -726,12 +793,18 @@ def dataset_export(fact_key: str, request: Request,
     except SelectionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    log_export(db, tenant_id=tenant_id, actor=email, kind=ExportKind.DATASET,
-               subject=dataset.fact.key, row_count=len(dataset.rows))
+    log_export(
+        db,
+        tenant_id=tenant_id,
+        actor=email,
+        kind=ExportKind.DATASET,
+        subject=dataset.fact.key,
+        row_count=len(dataset.rows),
+    )
     return Response(
-        content=content, media_type=ODS_MEDIA_TYPE,
-        headers={"Content-Disposition":
-                 f'attachment; filename="{dataset_filename(dataset)}"'},
+        content=content,
+        media_type=ODS_MEDIA_TYPE,
+        headers={"Content-Disposition": f'attachment; filename="{dataset_filename(dataset)}"'},
     )
 
 
@@ -761,8 +834,10 @@ def _assistant_state(db: Session, request: Request) -> tuple[bool, str]:
     if not settings.admin_chat_enabled:
         return False, _("Raakje staat uit voor deze omgeving (ADMIN_CHAT_ENABLED).")
     if not tenant_admin_chat_enabled(db, _tenant(request)):
-        return False, _("Raakje staat uit voor deze vereniging. Zet 'Raakje in de "
-                        "backoffice' aan bij de instellingen van de tenant.")
+        return False, _(
+            "Raakje staat uit voor deze vereniging. Zet 'Raakje in de "
+            "backoffice' aan bij de instellingen van de tenant."
+        )
     return True, ""
 
 
@@ -783,7 +858,7 @@ def _history_in(raw: str) -> list[dict[str, str]]:
     if not isinstance(data, list):
         return []
     turns = []
-    for item in data[-HISTORY_TURNS * 2:]:
+    for item in data[-HISTORY_TURNS * 2 :]:
         if not isinstance(item, dict):
             continue
         role, content = item.get("role"), item.get("content")
@@ -795,38 +870,50 @@ def _history_in(raw: str) -> list[dict[str, str]]:
 def _history_out(turns: list[dict[str, str]]) -> str:
     import json as _json
 
-    return _json.dumps(turns[-HISTORY_TURNS * 2:], ensure_ascii=False)
+    return _json.dumps(turns[-HISTORY_TURNS * 2 :], ensure_ascii=False)
 
 
 @router.get("/admin/rapporten/raakje", response_class=HTMLResponse)
-def assistant_page(request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui)):
+def assistant_page(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     from app.config import settings
 
     enabled, reason = _assistant_state(db, request)
-    view = AssistantView(enabled=enabled, reason=reason, history="[]",
-                         stt_mode=settings.stt_mode,
-                         csrf_token=_csrf(request),
-                         # #1117: deze pagina heeft sinds dit issue haar eigen
-                         # menu-item (AI · Raakje, groep Inzicht) en markeert dat
-                         # als actief — niet Rapporten, waar ze niet onder hoort.
-                         nav_items=admin_nav(NAV_RAAKJE))
-    return templates.TemplateResponse(request, "admin_rapporten_raakje.html",
-                                      view.as_context())
+    view = AssistantView(
+        enabled=enabled,
+        reason=reason,
+        history="[]",
+        stt_mode=settings.stt_mode,
+        csrf_token=_csrf(request),
+        # #1117: deze pagina heeft sinds dit issue haar eigen
+        # menu-item (AI · Raakje, groep Inzicht) en markeert dat
+        # als actief — niet Rapporten, waar ze niet onder hoort.
+        nav_items=admin_nav(NAV_RAAKJE),
+    )
+    return templates.TemplateResponse(request, "admin_rapporten_raakje.html", view.as_context())
 
 
-@router.post("/admin/rapporten/raakje", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def assistant_ask(request: Request, db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/rapporten/raakje", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+async def assistant_ask(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     return await _ask(request, db, email, scope=None)
 
 
-@router.post("/admin/rapporten/raakje/activiteit/{activity_id}",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def assistant_ask_about_activity(activity_id: int, request: Request,
-                                       db: Session = Depends(get_db),
-                                       email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/rapporten/raakje/activiteit/{activity_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def assistant_ask_about_activity(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Raakje bound to one activity (#975) — the endpoint behind the overlay.
 
     The activity is in the PATH and not in the form. A form field can be dropped
@@ -843,11 +930,14 @@ async def assistant_ask_about_activity(activity_id: int, request: Request,
 
     if get_activity(db, activity_id) is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    return await _ask(request, db, email,
-                      # #1126: de naam van de activiteit gaat mee de prompt in, dus
-                      # de bouwer heeft de databank en de tenant nodig.
-                      scope=scope_for_activity(db, activity_id,
-                                               tenant_id=_tenant(request)))
+    return await _ask(
+        request,
+        db,
+        email,
+        # #1126: de naam van de activiteit gaat mee de prompt in, dus
+        # de bouwer heeft de databank en de tenant nodig.
+        scope=scope_for_activity(db, activity_id, tenant_id=_tenant(request)),
+    )
 
 
 #: De schermen waarvan de assistent de selectie kan overnemen (#1060). Een scherm
@@ -857,11 +947,17 @@ async def assistant_ask_about_activity(activity_id: int, request: Request,
 SCHERMSCOPES = {"betalingen": scope_for_payments}
 
 
-@router.post("/admin/rapporten/raakje/scherm/{scherm}",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def assistant_ask_about_screen(scherm: str, request: Request,
-                                     db: Session = Depends(get_db),
-                                     email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/rapporten/raakje/scherm/{scherm}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def assistant_ask_about_screen(
+    scherm: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Raakje met de selectie van het scherm waar hij aangeroepen wordt (#1060).
 
     Zelfde vorm als #975: het scherm zit in het PAD, en de selectie wordt
@@ -887,19 +983,25 @@ async def assistant_ask_about_screen(scherm: str, request: Request,
         scope = bouwer(filterparams(request), db, tenant_id=_tenant(request))
     except ScopeNietOverdraagbaar as waarom:
         return templates.TemplateResponse(
-            request, "_rp_raakje_antwoord.html",
+            request,
+            "_rp_raakje_antwoord.html",
             AssistantTurnView(
-                vraag="", antwoord="",
-                error=_("Raakje kan deze selectie niet overnemen: %(wat)s valt "
-                        "buiten wat de rapportering kent. Neem dat filter weg, of "
-                        "stel je vraag op het rapportenscherm.")
+                vraag="",
+                antwoord="",
+                error=_(
+                    "Raakje kan deze selectie niet overnemen: %(wat)s valt "
+                    "buiten wat de rapportering kent. Neem dat filter weg, of "
+                    "stel je vraag op het rapportenscherm."
+                )
                 % {"wat": str(waarom)},
-                payload="", history="[]").as_context())
+                payload="",
+                history="[]",
+            ).as_context(),
+        )
     return await _ask(request, db, email, scope=scope)
 
 
-async def _ask(request: Request, db: Session, email: str, *,
-               scope: Optional[Scope]):
+async def _ask(request: Request, db: Session, email: str, *, scope: Optional[Scope]):
     """One question to Raakje, with or without an activity scope.
 
     One implementation for both routes: the scope is a parameter of the SAME path,
@@ -909,12 +1011,24 @@ async def _ask(request: Request, db: Session, email: str, *,
 
     from app.config import settings
     from app.domains.chatbot.api import (
-        ChatTimeout, GuardedProvider, SeamBlocked, admin_chat_char_budget,
-        admin_rules, get_provider, run_chat, sink_for,
+        ChatTimeout,
+        GuardedProvider,
+        SeamBlocked,
+        admin_chat_char_budget,
+        admin_rules,
+        get_provider,
+        run_chat,
+        sink_for,
     )
     from app.domains.reporting.assistant import (
-        CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, detokenise,
-        dispatcher, scan_names, scrub_question, tool_specs,
+        CAPABILITY,
+        SCAN_PROMPT_NAMES,
+        build_system_prompt,
+        detokenise,
+        dispatcher,
+        scan_names,
+        scrub_question,
+        tool_specs,
     )  # noqa: F401  (Scope staat bovenaan geïmporteerd voor de annotatie)
 
     form = await request.form()
@@ -926,9 +1040,16 @@ async def _ask(request: Request, db: Session, email: str, *,
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     if not vraag:
         return templates.TemplateResponse(
-            request, "_rp_raakje_antwoord.html",
-            AssistantTurnView(vraag="", antwoord="", error=_("Typ eerst een vraag."),
-                              payload="", history=_history_out(turns)).as_context())
+            request,
+            "_rp_raakje_antwoord.html",
+            AssistantTurnView(
+                vraag="",
+                antwoord="",
+                error=_("Typ eerst een vraag."),
+                payload="",
+                history=_history_out(turns),
+            ).as_context(),
+        )
 
     # Per admin and not per IP: they are signed in, and two board members on one
     # network are two people (CR-07 §4.2).
@@ -941,55 +1062,74 @@ async def _ask(request: Request, db: Session, email: str, *,
     tenant = _tenant(request)
     verstuurd = scrub_question(db, vraag, tenant_id=tenant)
 
-    messages = [{"role": "system",
-                 "content": build_system_prompt(scope)}]
+    messages = [{"role": "system", "content": build_system_prompt(scope)}]
     messages += turns
     messages.append({"role": "user", "content": verstuurd})
 
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: scan_names(db), capability=CAPABILITY,
-                    scan_prompt_names=SCAN_PROMPT_NAMES),
+        admin_rules(
+            lambda: scan_names(db), capability=CAPABILITY, scan_prompt_names=SCAN_PROMPT_NAMES
+        ),
         sink_for(email),
     )
     deadline = time.monotonic() + settings.admin_chat_timeout_seconds
     try:
-        antwoord = run_chat(db, messages, provider,
-                            max_rounds=settings.admin_chat_max_tool_rounds,
-                            tools=tool_specs(),
-                            dispatch=dispatcher(tenant_id=tenant,
-                                                scope=scope),
-                            deadline=deadline)
+        antwoord = run_chat(
+            db,
+            messages,
+            provider,
+            max_rounds=settings.admin_chat_max_tool_rounds,
+            tools=tool_specs(),
+            dispatch=dispatcher(tenant_id=tenant, scope=scope),
+            deadline=deadline,
+        )
     except (SeamBlocked, ChatTimeout) as gestopt:
         # The log row is already written, in the logbook's own session — precisely
         # because this turn ends on an error path.
         return templates.TemplateResponse(
-            request, "_rp_raakje_antwoord.html",
-            AssistantTurnView(vraag=vraag, antwoord="", error=str(gestopt),
-                              payload=_last_payload(provider),
-                              history=_history_out(turns)).as_context())
+            request,
+            "_rp_raakje_antwoord.html",
+            AssistantTurnView(
+                vraag=vraag,
+                antwoord="",
+                error=str(gestopt),
+                payload=_last_payload(provider),
+                history=_history_out(turns),
+            ).as_context(),
+        )
     except Exception:
         logger.exception("Raakje (backoffice) kon geen antwoord geven")
         return templates.TemplateResponse(
-            request, "_rp_raakje_antwoord.html",
+            request,
+            "_rp_raakje_antwoord.html",
             AssistantTurnView(
-                vraag=vraag, antwoord="",
-                error=_("Sorry, dat lukte niet. Probeer het opnieuw of stel de "
-                        "vraag anders."),
+                vraag=vraag,
+                antwoord="",
+                error=_("Sorry, dat lukte niet. Probeer het opnieuw of stel de vraag anders."),
                 payload=_last_payload(provider),
-                history=_history_out(turns)).as_context())
+                history=_history_out(turns),
+            ).as_context(),
+        )
 
     # The history carries what the model said, tokens and all; the screen shows
     # the names. Feeding the rendered answer back would put a name in the next
     # payload — the one place this whole mechanism must not put one.
-    turns = turns + [{"role": "user", "content": verstuurd},
-                     {"role": "assistant", "content": antwoord}]
+    turns = turns + [
+        {"role": "user", "content": verstuurd},
+        {"role": "assistant", "content": antwoord},
+    ]
     return templates.TemplateResponse(
-        request, "_rp_raakje_antwoord.html",
-        AssistantTurnView(vraag=vraag,
-                          antwoord=detokenise(db, antwoord, tenant_id=tenant),
-                          error="", payload=_last_payload(provider),
-                          history=_history_out(turns)).as_context())
+        request,
+        "_rp_raakje_antwoord.html",
+        AssistantTurnView(
+            vraag=vraag,
+            antwoord=detokenise(db, antwoord, tenant_id=tenant),
+            error="",
+            payload=_last_payload(provider),
+            history=_history_out(turns),
+        ).as_context(),
+    )
 
 
 def _last_payload(provider) -> str:
@@ -1004,8 +1144,12 @@ def _last_payload(provider) -> str:
 
 
 @router.get("/admin/rapporten/{report_id}", response_class=HTMLResponse)
-def report_open(report_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)):
+def report_open(
+    report_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Open a saved report in the panel.
 
     A report of another tenant, or somebody else's private one, is a 404 and not a
@@ -1021,49 +1165,67 @@ def report_open(report_id: int, request: Request, db: Session = Depends(get_db),
         # A report that references an object which no longer exists says so, by
         # name, instead of rendering a table that is quietly missing a column.
         return templates.TemplateResponse(
-            request, "admin_rapport_paneel.html",
-            _panel(request, db, _read_state(request.query_params), report=report,
-                   error=str(exc)).as_context())
+            request,
+            "admin_rapport_paneel.html",
+            _panel(
+                request, db, _read_state(request.query_params), report=report, error=str(exc)
+            ).as_context(),
+        )
 
     state = _read_state(request.query_params)
     if not state["objects"]:
         state = _state_from_selection(selection, page=state["page"])
     mark_run(db, report)
     return templates.TemplateResponse(
-        request, "admin_rapport_paneel.html",
-        _panel(request, db, state, report=report).as_context())
+        request, "admin_rapport_paneel.html", _panel(request, db, state, report=report).as_context()
+    )
 
 
 # ── Saving (design-system P1: stay and toast) ────────────────────────────────
 
-@router.post("/admin/rapporten", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def report_save(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui)):
+
+@router.post("/admin/rapporten", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def report_save(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     form = await request.form()
     name, description = str(form.get("name") or ""), str(form.get("description") or "")
     is_shared = str(form.get("is_shared") or "")
     state = _read_state(form)
     try:
         selection = _selection(state)
-        report = save_report(db, tenant_id=_tenant(request), owner=email, name=name,
-                             selection=selection, description=description,
-                             is_shared=is_shared == "1")
+        report = save_report(
+            db,
+            tenant_id=_tenant(request),
+            owner=email,
+            name=name,
+            selection=selection,
+            description=description,
+            is_shared=is_shared == "1",
+        )
     except (SavedReportError, SelectionError) as exc:
         # A failed save shows the banner AND no toast (P1).
         return templates.TemplateResponse(
-            request, "_rp_paneel.html",
-            _panel(request, db, state, error=str(exc)).as_context())
+            request, "_rp_paneel.html", _panel(request, db, state, error=str(exc)).as_context()
+        )
     return templates.TemplateResponse(
-        request, "_rp_paneel.html",
-        _panel(request, db, state, report=report, toast=True).as_context())
+        request,
+        "_rp_paneel.html",
+        _panel(request, db, state, report=report, toast=True).as_context(),
+    )
 
 
-@router.post("/admin/rapporten/{report_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def report_update(report_id: int, request: Request,
-                        db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/rapporten/{report_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def report_update(
+    report_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
     if report is None:
         raise HTTPException(status_code=404, detail=_("Rapport niet gevonden"))
@@ -1073,34 +1235,50 @@ async def report_update(report_id: int, request: Request,
     state = _read_state(form)
     try:
         selection = _selection(state)
-        update_report(db, report, editor=email, name=name, selection=selection,
-                      description=description, is_shared=is_shared == "1")
+        update_report(
+            db,
+            report,
+            editor=email,
+            name=name,
+            selection=selection,
+            description=description,
+            is_shared=is_shared == "1",
+        )
     except (SavedReportError, SelectionError) as exc:
         return templates.TemplateResponse(
-            request, "_rp_paneel.html",
-            _panel(request, db, state, report=report, error=str(exc)).as_context())
+            request,
+            "_rp_paneel.html",
+            _panel(request, db, state, report=report, error=str(exc)).as_context(),
+        )
     return templates.TemplateResponse(
-        request, "_rp_paneel.html",
-        _panel(request, db, state, report=report, toast=True).as_context())
+        request,
+        "_rp_paneel.html",
+        _panel(request, db, state, report=report, toast=True).as_context(),
+    )
 
 
-@router.post("/admin/rapporten/{report_id}/kopieren",
-             dependencies=[Depends(require_csrf)])
-def report_copy(report_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)):
-    """"Kopiëren": your own copy. The original is never touched."""
+@router.post("/admin/rapporten/{report_id}/kopieren", dependencies=[Depends(require_csrf)])
+def report_copy(
+    report_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    """ "Kopiëren": your own copy. The original is never touched."""
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
     if report is None:
         raise HTTPException(status_code=404, detail=_("Rapport niet gevonden"))
     kopie = copy_report(db, report, owner=email)
-    return Response(status_code=204,
-                    headers={"HX-Redirect": f"/admin/rapporten/{kopie.id}"})
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/rapporten/{kopie.id}"})
 
 
-@router.post("/admin/rapporten/{report_id}/verwijderen",
-             dependencies=[Depends(require_csrf)])
-def report_delete(report_id: int, request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
+@router.post("/admin/rapporten/{report_id}/verwijderen", dependencies=[Depends(require_csrf)])
+def report_delete(
+    report_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     report = get_saved_report(db, report_id, tenant_id=_tenant(request), viewer=email)
     if report is None:
         raise HTTPException(status_code=404, detail=_("Rapport niet gevonden"))

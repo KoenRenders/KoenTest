@@ -8,6 +8,7 @@ verbiedt allebei: één `Empty`-component, niet schuin. De templates importeerde
 De test rendert ze zónder data, want dat is precies de toestand die niemand
 handmatig bekijkt.
 """
+
 import pytest
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -24,8 +25,10 @@ def _schuine_lege_toestand(html: str) -> bool:
     gewone cursieve tekst in CMS-inhoud, geen lege toestand. We kijken dus naar
     de combinatie op één regel, net als de lint-gate.
     """
-    return any("italic" in regel and ("Geen " in regel or "Nog geen " in regel)
-               for regel in html.splitlines())
+    return any(
+        "italic" in regel and ("Geen " in regel or "Nog geen " in regel)
+        for regel in html.splitlines()
+    )
 
 
 def test_fotos_zonder_albums_toont_de_lege_toestand(client):

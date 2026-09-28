@@ -1,17 +1,19 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 
-from app.domains.auth.service import get_current_admin
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.domains.auth.models import Role, User, UserRole
+from app.domains.auth.service import get_current_admin
 from app.i18n import _
 
 router = APIRouter(prefix="/users", tags=["users"])
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
+
 
 class UserRoleOut(BaseModel):
     role_code: str
@@ -44,6 +46,7 @@ class UserUpdate(BaseModel):
 # dat wordt afgeleid uit het leden-domein (e-mail -> Person) en heeft geen
 # user-record nodig.
 
+
 def _actieve_werkruimte() -> int:
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
@@ -60,8 +63,7 @@ def is_platform_workspace(db: Session) -> bool:
     return platform is not None and _actieve_werkruimte() == platform
 
 
-def _ken_rollen_toe(db: Session, user_id: int, codes: List[str],
-                    actor_roles: set | None) -> None:
+def _ken_rollen_toe(db: Session, user_id: int, codes: List[str], actor_roles: set | None) -> None:
     """Vervang de rollen van een gebruiker BINNEN de actieve werkruimte (#963).
 
     Rijen van andere werkruimtes blijven onaangeroerd — ADMIN van werkruimte A
@@ -69,23 +71,21 @@ def _ken_rollen_toe(db: Session, user_id: int, codes: List[str],
     rij (tenant_id NULL, besluit 1) en wordt ALLEEN binnen het platform
     toegekend (aanscherping 16 sep) — dit is de werkruimte-variant, dus een
     OPERATOR-code hier is altijd een 403, nooit een stille escalatie."""
-    from app.domains.auth.models import UserRole
 
     actief = _actieve_werkruimte()
     nieuwe = set(codes)
     if "OPERATOR" in nieuwe:
         raise HTTPException(
-            status_code=403,
-            detail=_("OPERATOR wordt alleen binnen het platform toegekend."))
-    db.query(UserRole).filter(UserRole.user_id == user_id,
-                              UserRole.tenant_id == actief).delete()
+            status_code=403, detail=_("OPERATOR wordt alleen binnen het platform toegekend.")
+        )
+    db.query(UserRole).filter(UserRole.user_id == user_id, UserRole.tenant_id == actief).delete()
     for code in nieuwe:
         db.add(UserRole(user_id=user_id, role_code=code, tenant_id=actief))
 
 
-def set_roles_for_workspaces(db: Session, user_id: int,
-                             per_werkruimte: dict, operator: bool,
-                             actor_roles: set | None) -> None:
+def set_roles_for_workspaces(
+    db: Session, user_id: int, per_werkruimte: dict, operator: bool, actor_roles: set | None
+) -> None:
     """Het platform-gebruikersbeheer (Koen, 16 sep): rollen voor MEERDERE
     werkruimtes in één beweging — zo maakt een OPERATOR de eerste gebruikers
     van een nieuwe tenant aan en beheert hij ze namens de afdelingen.
@@ -95,34 +95,37 @@ def set_roles_for_workspaces(db: Session, user_id: int,
     ``operator`` stuurt de platformbrede rij; die wijzigen mag alleen een
     OPERATOR — het vinkje is voor anderen verborgen en een omzeild formulier
     krijgt hier de 403."""
-    from app.domains.auth.models import UserRole
 
     for codes in per_werkruimte.values():
         _validate_role_codes(db, [c for c in codes if c != "OPERATOR"])
         if "OPERATOR" in codes:
             raise HTTPException(
                 status_code=403,
-                detail=_("OPERATOR is platformbreed en hoort niet bij één "
-                         "werkruimte."))
+                detail=_("OPERATOR is platformbreed en hoort niet bij één werkruimte."),
+            )
     mag_operator = bool(actor_roles and "OPERATOR" in actor_roles)
-    platform_rij = (db.query(UserRole)
-                    .filter(UserRole.user_id == user_id,
-                            UserRole.role_code == Role.OPERATOR,
-                            UserRole.tenant_id.is_(None)).first())
+    platform_rij = (
+        db.query(UserRole)
+        .filter(
+            UserRole.user_id == user_id,
+            UserRole.role_code == Role.OPERATOR,
+            UserRole.tenant_id.is_(None),
+        )
+        .first()
+    )
     if operator != (platform_rij is not None) and not mag_operator:
         raise HTTPException(
-            status_code=403,
-            detail=_("Alleen een OPERATOR kan de OPERATOR-rol toekennen."))
+            status_code=403, detail=_("Alleen een OPERATOR kan de OPERATOR-rol toekennen.")
+        )
     for tenant_id, codes in per_werkruimte.items():
-        db.query(UserRole).filter(UserRole.user_id == user_id,
-                                  UserRole.tenant_id == tenant_id).delete()
+        db.query(UserRole).filter(
+            UserRole.user_id == user_id, UserRole.tenant_id == tenant_id
+        ).delete()
         for code in set(codes):
-            db.add(UserRole(user_id=user_id, role_code=code,
-                            tenant_id=tenant_id))
+            db.add(UserRole(user_id=user_id, role_code=code, tenant_id=tenant_id))
     if mag_operator:
         if operator and platform_rij is None:
-            db.add(UserRole(user_id=user_id, role_code="OPERATOR",
-                            tenant_id=None))
+            db.add(UserRole(user_id=user_id, role_code="OPERATOR", tenant_id=None))
         elif not operator and platform_rij is not None:
             db.delete(platform_rij)
     # Zelf committen, zoals create_user/update_user: de UI-laag mag geen
@@ -149,7 +152,10 @@ def _validate_role_codes(db: Session, codes: List[str]) -> None:
     known = {r.code for r in db.query(RoleCode.code).all()}
     unknown = [c for c in codes if c not in known]
     if unknown:
-        raise HTTPException(status_code=400, detail=_("Onbekende rolcode(s): %(codes)s") % {"codes": ', '.join(unknown)})
+        raise HTTPException(
+            status_code=400,
+            detail=_("Onbekende rolcode(s): %(codes)s") % {"codes": ", ".join(unknown)},
+        )
 
 
 @router.get("", response_model=List[UserOut])
@@ -172,7 +178,9 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(
 
 
 @router.put("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
+def update_user(
+    user_id: int, body: UserUpdate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
@@ -192,13 +200,16 @@ def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _
 
 
 @router.delete("/{user_id}", status_code=204)
-def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
+def delete_user(
+    user_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)
+):
     if current_admin.id == user_id:
         raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
     from app.soft_delete import soft_delete
+
     soft_delete(user)
     db.commit()
 
@@ -220,8 +231,12 @@ def list_assignable_roles(db):
     from app.kernel.codes import code_labels
 
     active_codes = [code for code, _label in code_labels("role")]
-    return (db.query(RoleCode).filter(RoleCode.code.in_(active_codes))
-            .order_by(RoleCode.sort_order).all())
+    return (
+        db.query(RoleCode)
+        .filter(RoleCode.code.in_(active_codes))
+        .order_by(RoleCode.sort_order)
+        .all()
+    )
 
 
 def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
@@ -243,5 +258,7 @@ def role_options(rollen, taal: str = "nl") -> list[tuple[str, str]]:
     """
     from app.kernel.codes import code_label
 
-    return [(rij.code, code_label("role", rij.code, language=taal))
-            for rij in sorted(rollen, key=lambda r: r.sort_order)]
+    return [
+        (rij.code, code_label("role", rij.code, language=taal))
+        for rij in sorted(rollen, key=lambda r: r.sort_order)
+    ]

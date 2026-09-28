@@ -27,13 +27,13 @@ niets te beschermen dat verder gaat dan "niet publiek": alle demo-waarden staan
 hieronder in de broncode. De route bestaat dus op elke omgeving en de rooktest
 (strikt alleen-lezen, publieke paden) raakt haar niet.
 """
+
 from __future__ import annotations
 
 import re
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
-
-from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -110,7 +110,8 @@ def _tokens() -> list[tuple[str, str, bool]]:
         if kleur:
             verwijzing = re.fullmatch(r"rgb\(var\(--([a-z0-9-]+)\)\)", waarde or "")
             van_schil = naam in schil_namen or (
-                verwijzing is not None and verwijzing.group(1) in schil_namen)
+                verwijzing is not None and verwijzing.group(1) in schil_namen
+            )
             resultaat.append((naam, kleur, van_schil))
     return resultaat
 
@@ -122,8 +123,8 @@ def _iconen() -> list[str]:
         bron = _MACROS.read_text()
     except OSError:
         return []
-    blok = bron[bron.index("{% macro icon("):]
-    blok = blok[:blok.index("{%- endmacro %}")]
+    blok = bron[bron.index("{% macro icon(") :]
+    blok = blok[: blok.index("{%- endmacro %}")]
     return sorted(set(re.findall(r"^\s{2}\"([a-z0-9-]+)\":", blok, re.M)))
 
 
@@ -146,41 +147,128 @@ def _voorbeeldvelden() -> list:
 
     # Through the adapter, like the public form: the `veld()` macro reads the
     # type from `f.kind`, and a plain namespace has none (CR-12 phase 4).
-    return screen_fields([
-        N(id=1, field_type="text", label="Naam", required=True, help_text=None,
-          options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
-        N(id=2, field_type="textarea", label="Opmerking", required=False,
-          help_text="Zoveel of zo weinig als je wil.", options=[], rating_max=None,
-          rating_low_label=None, rating_high_label=None),
-        N(id=3, field_type="number", label="Aantal deelnemers", required=False,
-          help_text=None, options=[], rating_max=None, rating_low_label=None,
-          rating_high_label=None),
-        N(id=4, field_type="email", label="E-mailadres", required=True,
-          help_text=None, options=[], rating_max=None, rating_low_label=None,
-          rating_high_label=None),
-        N(id=5, field_type="phone", label="Gsm-nummer", required=False,
-          help_text=None, options=[], rating_max=None, rating_low_label=None,
-          rating_high_label=None),
-        N(id=6, field_type="select", label="Afdeling", required=False, help_text=None,
-          options=[optie(1, "Millegem"), optie(2, "Miloheem")], rating_max=None,
-          rating_low_label=None, rating_high_label=None),
-        N(id=7, field_type="radio", label="Hoe kom je?", required=False,
-          help_text=None,
-          options=[optie(3, "Te voet"), optie(4, "Met de fiets"),
-                   optie(5, "Anders", anders=True)],
-          rating_max=None, rating_low_label=None, rating_high_label=None),
-        N(id=8, field_type="checkbox", label="Wat neem je mee?", required=False,
-          help_text=None,
-          options=[optie(6, "Regenjas"), optie(7, "Picknick"),
-                   optie(8, "Iets anders", anders=True)],
-          rating_max=None, rating_low_label=None, rating_high_label=None),
-        N(id=9, field_type="rating", label="Hoe was het?", required=False,
-          help_text=None, options=[], rating_max=5,
-          rating_low_label="slecht", rating_high_label="top"),
-        N(id=10, field_type="info", label="Let op", required=False,
-          help_text="Een informatieblok vraagt niets; het vertelt alleen iets.",
-          options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
-    ])
+    return screen_fields(
+        [
+            N(
+                id=1,
+                field_type="text",
+                label="Naam",
+                required=True,
+                help_text=None,
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=2,
+                field_type="textarea",
+                label="Opmerking",
+                required=False,
+                help_text="Zoveel of zo weinig als je wil.",
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=3,
+                field_type="number",
+                label="Aantal deelnemers",
+                required=False,
+                help_text=None,
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=4,
+                field_type="email",
+                label="E-mailadres",
+                required=True,
+                help_text=None,
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=5,
+                field_type="phone",
+                label="Gsm-nummer",
+                required=False,
+                help_text=None,
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=6,
+                field_type="select",
+                label="Afdeling",
+                required=False,
+                help_text=None,
+                options=[optie(1, "Millegem"), optie(2, "Miloheem")],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=7,
+                field_type="radio",
+                label="Hoe kom je?",
+                required=False,
+                help_text=None,
+                options=[
+                    optie(3, "Te voet"),
+                    optie(4, "Met de fiets"),
+                    optie(5, "Anders", anders=True),
+                ],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=8,
+                field_type="checkbox",
+                label="Wat neem je mee?",
+                required=False,
+                help_text=None,
+                options=[
+                    optie(6, "Regenjas"),
+                    optie(7, "Picknick"),
+                    optie(8, "Iets anders", anders=True),
+                ],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+            N(
+                id=9,
+                field_type="rating",
+                label="Hoe was het?",
+                required=False,
+                help_text=None,
+                options=[],
+                rating_max=5,
+                rating_low_label="slecht",
+                rating_high_label="top",
+            ),
+            N(
+                id=10,
+                field_type="info",
+                label="Let op",
+                required=False,
+                help_text="Een informatieblok vraagt niets; het vertelt alleen iets.",
+                options=[],
+                rating_max=None,
+                rating_low_label=None,
+                rating_high_label=None,
+            ),
+        ]
+    )
 
 
 @router.get("/admin/design-system", response_class=HTMLResponse)
@@ -194,5 +282,4 @@ def design_system(request: Request, email: str = Depends(require_admin_ui)):
         # as a literal in the template (#875).
         demo_datum=date(2026, 9, 12),
     )
-    return templates.TemplateResponse(request, "design_system.html",
-                                      view.as_context())
+    return templates.TemplateResponse(request, "design_system.html", view.as_context())

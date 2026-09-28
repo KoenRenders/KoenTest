@@ -1,6 +1,7 @@
 """Admin bewerkt de opmerking van de inschrijver (#283): autorisatie, zetten/
 wijzigen/wissen (→ NULL), soft-deleted niet bewerkbaar, en bestelregels/saldo
 blijven ongemoeid."""
+
 from app.domains.activities.api import Registration
 from app.soft_delete import soft_delete
 from tests.conftest import seed_activity_with_product
@@ -8,8 +9,11 @@ from tests.conftest import seed_activity_with_product
 
 def _register(client, activity_id, comp, product, remarks=None, email="an@example.com"):
     payload = {
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": email,
-        "component_id": comp.id, "payment_method": "transfer",
+        "contact_name": "An Janssens",
+        "phone": "0470000000",
+        "contact_email": email,
+        "component_id": comp.id,
+        "payment_method": "transfer",
         "items": [{"product_id": product.id, "quantity": 2}],
     }
     if remarks is not None:
@@ -35,20 +39,29 @@ def test_admin_can_set_change_and_clear_remarks(client, db_session, admin_header
     reg_id = _register(client, activity_id, comp, product)
 
     # Zetten
-    r = client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
-                     json={"remarks": "Komt iets later"}, headers=admin_headers)
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
+        json={"remarks": "Komt iets later"},
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     assert r.json()["remarks"] == "Komt iets later"
 
     # Wijzigen
-    r = client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
-                     json={"remarks": "Toch op tijd"}, headers=admin_headers)
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
+        json={"remarks": "Toch op tijd"},
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     assert r.json()["remarks"] == "Toch op tijd"
 
     # Wissen: enkel witruimte wordt genormaliseerd naar NULL
-    r = client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
-                     json={"remarks": "   "}, headers=admin_headers)
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
+        json={"remarks": "   "},
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     assert r.json()["remarks"] is None
     db_session.expire_all()
@@ -60,8 +73,11 @@ def test_remarks_update_leaves_order_lines_untouched(client, db_session, admin_h
     activity_id = comp.activity_id
     reg_id = _register(client, activity_id, comp, product)
 
-    r = client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
-                     json={"remarks": "notitie"}, headers=admin_headers)
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
+        json={"remarks": "notitie"},
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     body = r.json()
     # Bestelregel blijft ongemoeid: nog steeds één regel met aantal 2.
@@ -75,14 +91,11 @@ def test_registration_list_order_stable_after_remark_edit(client, db_session, ad
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     ids = [
-        _register(client, activity_id, comp, product, email=f"reg{i}@example.com")
-        for i in range(3)
+        _register(client, activity_id, comp, product, email=f"reg{i}@example.com") for i in range(3)
     ]
 
     def _order():
-        resp = client.get(
-            f"/api/v1/activities/{activity_id}/registrations", headers=admin_headers
-        )
+        resp = client.get(f"/api/v1/activities/{activity_id}/registrations", headers=admin_headers)
         assert resp.status_code == 200, resp.text
         return [r["id"] for r in resp.json()]
 
@@ -92,7 +105,8 @@ def test_registration_list_order_stable_after_remark_edit(client, db_session, ad
     # Bewerk de opmerking van de EERSTE inschrijving.
     r = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{ids[0]}",
-        json={"remarks": "gewijzigd"}, headers=admin_headers,
+        json={"remarks": "gewijzigd"},
+        headers=admin_headers,
     )
     assert r.status_code == 200, r.text
 
@@ -108,6 +122,9 @@ def test_remarks_update_on_soft_deleted_returns_404(client, db_session, admin_he
     soft_delete(reg)
     db_session.commit()
 
-    r = client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
-                     json={"remarks": "mag niet"}, headers=admin_headers)
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{reg_id}",
+        json={"remarks": "mag niet"},
+        headers=admin_headers,
+    )
     assert r.status_code == 404

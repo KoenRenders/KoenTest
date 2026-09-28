@@ -10,6 +10,7 @@ De actieve taal komt per tenant uit de tenant-config (sleutel
 ``language``, default ``nl_BE``) en wordt door de tenant-middleware in
 ``current_locale`` gezet. Extract/compile: ``scripts/i18n.sh``.
 """
+
 from __future__ import annotations
 
 import gettext as _gettext
@@ -27,7 +28,8 @@ _cache: dict[str, _gettext.NullTranslations] = {}
 def _translations(locale: str) -> _gettext.NullTranslations:
     if locale not in _cache:
         _cache[locale] = _gettext.translation(
-            "messages", localedir=str(LOCALES_DIR), languages=[locale], fallback=True)
+            "messages", localedir=str(LOCALES_DIR), languages=[locale], fallback=True
+        )
     return _cache[locale]
 
 
@@ -54,7 +56,8 @@ def install_jinja_i18n(env) -> None:
     kunnen gebruiken; volgt dezelfde actieve taal als de Python-kant."""
     env.add_extension("jinja2.ext.i18n")
     env.install_gettext_callables(
-        gettext=_, ngettext=lambda s, p, n: _(s) if n == 1 else _(p), newstyle=True)
+        gettext=_, ngettext=lambda s, p, n: _(s) if n == 1 else _(p), newstyle=True
+    )
 
 
 def long_date(d) -> str:

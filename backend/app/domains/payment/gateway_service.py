@@ -1,7 +1,10 @@
 import logging
 from decimal import Decimal
+
 from sqlalchemy.orm import Session
+
 from app.config import settings
+
 from .models import GatewayPayment, PaymentProvider, PaymentStatus
 from .providers.mollie import MollieProvider
 
@@ -12,8 +15,7 @@ class StubRefused(RuntimeError):
     """The stub payment provider was asked for where it may not exist (#1274)."""
 
 
-def _get_provider(name: PaymentProvider = PaymentProvider.MOLLIE,
-                  api_key: str | None = None):
+def _get_provider(name: PaymentProvider = PaymentProvider.MOLLIE, api_key: str | None = None):
     """The provider object for a stored or chosen provider name.
 
     Runs for every real payment and every status re-fetch, so the brake on the
@@ -26,7 +28,8 @@ def _get_provider(name: PaymentProvider = PaymentProvider.MOLLIE,
     if provider is PaymentProvider.STUB:
         if not settings.payment_stub_allowed:
             raise StubRefused(
-                f"The stub payment provider does not exist in APP_ENV={settings.app_env}.")
+                f"The stub payment provider does not exist in APP_ENV={settings.app_env}."
+            )
         from .providers.stub import StubProvider
 
         return StubProvider(api_key=api_key)
@@ -55,8 +58,9 @@ def create_payment(
     # The code, not the member (#1279): since #1178 `provider_name` is a
     # `PaymentProvider` member, and a plain Enum in an f-string reads
     # `PaymentProvider.MOLLIE` — a webhook URL Mollie called and got a 404 on.
-    webhook_url = (f"{webhook_base}/api/v1/payment-gateway/webhooks/"
-                   f"{PaymentProvider(provider_name).value}")
+    webhook_url = (
+        f"{webhook_base}/api/v1/payment-gateway/webhooks/{PaymentProvider(provider_name).value}"
+    )
 
     result = provider.create_payment(
         amount=amount,
@@ -87,8 +91,7 @@ def refresh_payment_status(db: Session, gateway_payment_id: str) -> GatewayPayme
 
     from app.kernel.tenant_config import tenant_mollie_key
 
-    provider = _get_provider(gp.provider,
-                             api_key=tenant_mollie_key(db, tenant_id=gp.tenant_id))
+    provider = _get_provider(gp.provider, api_key=tenant_mollie_key(db, tenant_id=gp.tenant_id))
     details = provider.get_payment_details(gp.provider_payment_id)
     new_status = details.status
 
@@ -104,7 +107,10 @@ def refresh_payment_status(db: Session, gateway_payment_id: str) -> GatewayPayme
             logger.error(
                 "Bedrag-mismatch voor gateway payment %s: verwacht %s EUR, "
                 "provider meldt %s %s. NIET als betaald gemarkeerd.",
-                gp.id, gp.amount, details.amount, details.currency,
+                gp.id,
+                gp.amount,
+                details.amount,
+                details.currency,
             )
             gp.status = "needs_review"
             db.flush()

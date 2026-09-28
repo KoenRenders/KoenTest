@@ -7,10 +7,12 @@ belangrijkste — dit is de derde keer dat die klasse fout opduikt (#514, #613, 
 """
 
 import pytest
-pytestmark = pytest.mark.ui_serverrendered
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+
 from app.domains.activities.api import Registration, RegistrationItem
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -21,15 +23,22 @@ def _login(client):
 
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]
-    item_id = db.query(RegistrationItem).filter(
-        RegistrationItem.registration_id == reg_id).first().id
+    item_id = (
+        db.query(RegistrationItem).filter(RegistrationItem.registration_id == reg_id).first().id
+    )
     return reg_id, item_id
 
 
@@ -60,9 +69,11 @@ def test_opslaan_bewaart_aantal_en_opmerking_samen(client, db_session):
     reg_id, item_id = _inschrijving(client, db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
-                    data={f"quantity_{item_id}": "3", "remarks": "Nota van de admin"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        data={f"quantity_{item_id}": "3", "remarks": "Nota van de admin"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200, r.text
 
     db_session.expire_all()
@@ -84,9 +95,11 @@ def test_opslaan_ververst_de_kaart_erboven(client, db_session):
     reg_id, item_id = _inschrijving(client, db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
-                    data={f"quantity_{item_id}": "2", "remarks": ""},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        data={f"quantity_{item_id}": "2", "remarks": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.headers.get("HX-Trigger") == "betalingen-ververst"
 
 
@@ -95,12 +108,15 @@ def test_paneel_toont_bedragen_en_totaal(client, db_session):
     komt uit compute_registration_total, dezelfde bron als de betaalrecords."""
     reg_id, item_id = _inschrijving(client, db_session)
     csrf = _login(client)
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
-                data={f"quantity_{item_id}": "2", "remarks": ""},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        data={f"quantity_{item_id}": "2", "remarks": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     html = client.get(f"/admin/inschrijvingen/{reg_id}").text
     from app.domains.activities.api import compute_registration_total
+
     db_session.expire_all()
     totaal, _regels = compute_registration_total(db_session.get(Registration, reg_id))
     assert "Totaal" in html
@@ -108,4 +124,4 @@ def test_paneel_toont_bedragen_en_totaal(client, db_session):
     # anders toetst ze de opmaak van de test i.p.v. die van het scherm.
     from app.kernel.geld import bedrag
 
-    assert f'€ {bedrag(totaal)}' in html
+    assert f"€ {bedrag(totaal)}" in html

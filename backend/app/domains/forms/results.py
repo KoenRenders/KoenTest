@@ -3,23 +3,22 @@
 Berekent per veld de tellingen die de admin-resultaten-tab toont, zodat niet alle
 ruwe inzendingen naar de browser hoeven (schaalt beter, minder PII in de client).
 """
+
 from sqlalchemy import func
 
-from app.kernel.codes import code_of
 from app.domains.forms.models import (
+    RATING_LABELS,
     FieldType,
     Form,
     FormSubmission,
     FormSubmissionAnswer,
-    RATING_LABELS,
 )
+from app.kernel.codes import code_of
 
 
 def compute_results(db, form: Form) -> dict:
     submission_count = (
-        db.query(func.count(FormSubmission.id))
-        .filter(FormSubmission.form_id == form.id)
-        .scalar()
+        db.query(func.count(FormSubmission.id)).filter(FormSubmission.form_id == form.id).scalar()
         or 0
     )
     last_submission = (
@@ -39,9 +38,7 @@ def compute_results(db, form: Form) -> dict:
 
         if ftype in (FieldType.SELECT, FieldType.RADIO, FieldType.CHECKBOX):
             counts = dict(
-                db.query(
-                    FormSubmissionAnswer.value_option_id, func.count(FormSubmissionAnswer.id)
-                )
+                db.query(FormSubmissionAnswer.value_option_id, func.count(FormSubmissionAnswer.id))
                 .filter(FormSubmissionAnswer.field_id == field.id)
                 .filter(FormSubmissionAnswer.value_option_id.isnot(None))
                 .group_by(FormSubmissionAnswer.value_option_id)
@@ -70,13 +67,13 @@ def compute_results(db, form: Form) -> dict:
             entry["other_texts"] = [
                 f"{labels.get(oid, '')}: {txt}" if labels.get(oid) else txt
                 for oid, txt in (
-                    db.query(FormSubmissionAnswer.value_option_id,
-                             FormSubmissionAnswer.value_text)
+                    db.query(FormSubmissionAnswer.value_option_id, FormSubmissionAnswer.value_text)
                     .filter(FormSubmissionAnswer.field_id == field.id)
                     .filter(FormSubmissionAnswer.value_option_id.isnot(None))
                     .filter(FormSubmissionAnswer.value_text.isnot(None))
                     .order_by(FormSubmissionAnswer.id.desc())
-                    .all())
+                    .all()
+                )
             ]
 
         elif ftype is FieldType.RATING:

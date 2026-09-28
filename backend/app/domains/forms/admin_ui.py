@@ -3,24 +3,24 @@ lijstgebaseerd bouwen — secties en velden met op/aflopen, alle veldtypes,
 branching via selects, JSON-import als vluchtluik (zelfde payload als de
 admin-API), plus de inzendingen-tab en de afdrukweergave.
 """
+
 from __future__ import annotations
 
 import json
 from typing import Optional
 
-from fastapi import (APIRouter, Depends, File, Form, HTTPException, Request,
-                     UploadFile)
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, admin_user_by_email, csrf_from_request, csrf_token_for,
-    require_admin_ui, require_csrf,
+    csrf_from_request,
+    require_admin_ui,
+    require_csrf,
 )
 from app.domains.forms.api import (
     FIELD_TYPE,
-    FIELD_TYPES,
     FORM_STATUS,
     FORM_STATUSES,
     FieldType,
@@ -32,9 +32,9 @@ from app.domains.forms.api import (
     submission_count,
 )
 from app.domains.forms.screenfields import FieldKind, screen_fields
+from app.i18n import _
 from app.kernel.codes import code_labels, code_of, register_tones, tone
 from app.ui import admin_nav, is_fragment_request, templates
-from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -69,13 +69,21 @@ def _bewerk(bewerking, *args, **kwargs):
 
 def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
-    grouped = [{"section": s,
-                "fields": screen_fields(
-                    sorted((f for f in form.fields if f.section_id == s.id),
-                           key=lambda f: (f.position, f.id)))}
-               for s in sections]
-    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
-                                 key=lambda f: (f.position, f.id)))
+    grouped = [
+        {
+            "section": s,
+            "fields": screen_fields(
+                sorted(
+                    (f for f in form.fields if f.section_id == s.id),
+                    key=lambda f: (f.position, f.id),
+                )
+            ),
+        }
+        for s in sections
+    ]
+    loose = screen_fields(
+        sorted((f for f in form.fields if f.section_id is None), key=lambda f: (f.position, f.id))
+    )
     # §2.12: nooit een rauwe DB-waarde op het scherm (#641). De veldtypes zijn
     # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
     # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
@@ -85,8 +93,11 @@ def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     # table, so the screen reads the same as before (§B8.5).
     field_type_labels = dict(code_labels(FIELD_TYPE.name, db=db))
     ctx = {
-        "form": form, "grouped": grouped, "loose_fields": loose,
-        "sections": sections, "field_types": list(field_type_labels),
+        "form": form,
+        "grouped": grouped,
+        "loose_fields": loose,
+        "sections": sections,
+        "field_types": list(field_type_labels),
         "statuses": FORM_STATUSES,
         # `(code, word)` for the dropdown, plus this form's code: the screen
         # puts a code into a `value=` and compares codes (§B4.7).
@@ -99,15 +110,17 @@ def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
         "submission_count": submission_count(db, form.id),
         # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
         "share_path": deellink_pad(form),
-        "csrf_token": csrf_from_request(request), "error": None,
+        "csrf_token": csrf_from_request(request),
+        "error": None,
     }
     ctx.update(extra)
     return ctx
 
 
 def _builder_response(request: Request, db: Session, form, **extra):
-    return templates.TemplateResponse(request, "_fb_builder.html",
-                                      _builder_ctx(request, db, form, **extra))
+    return templates.TemplateResponse(
+        request, "_fb_builder.html", _builder_ctx(request, db, form, **extra)
+    )
 
 
 # ── Lijst + aanmaken ───────────────────────────────────────────────────────────
@@ -116,17 +129,24 @@ def _builder_response(request: Request, db: Session, form, **extra):
 # A tone is a design decision and not a translation (§B4.5), so it stays here,
 # next to the screen that draws the badge; the WORDS come from the label table
 # of `form_status` since CR-12 phase 4.
-register_tones(FORM_STATUS.name, {
-    FormStatus.DRAFT: "gray",
-    FormStatus.OPEN: "green",
-    FormStatus.CLOSED: "red",
-})
+register_tones(
+    FORM_STATUS.name,
+    {
+        FormStatus.DRAFT: "gray",
+        FormStatus.OPEN: "green",
+        FormStatus.CLOSED: "red",
+    },
+)
 
 
 @router.get("/admin/formulieren", response_class=HTMLResponse)
-def formulieren_page(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui),
-                     q: str = "", status: str = ""):
+def formulieren_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    q: str = "",
+    status: str = "",
+):
     """Lijst-index (design-system C1, #585): zoeken op naam + statusfilter.
 
     Een onbekende status filtert niet — een gemanipuleerde querystring hoort een
@@ -135,36 +155,50 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
     forms = list_forms(db, q=q, status=status)
     # De filterbalk vraagt enkel de kaarten op: zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en je focus) bij elke aanslag.
-    sjabloon = ("_fb_kaarten.html" if is_fragment_request(request)
-                else "admin_formulieren.html")
-    return templates.TemplateResponse(request, sjabloon, {
-        "nav_items": NAV, "forms": forms, "q": q, "status": status,
-        "statuses": FORM_STATUSES,
-        "status_labels": dict(code_labels(FORM_STATUS.name, db=db)),
-        "status_tones": {code: tone(FORM_STATUS.name, code)
-                         for code in FORM_STATUSES},
-        "gefilterd": bool(q.strip() or status),
-        # De deellink wordt HIER gekozen en niet in de template (#928): welke van
-        # de twee URL's je toont is een regel, en een regel in een sjabloon is een
-        # tweede plaats waar hij woont.
-        "share_paths": {f.id: deellink_pad(f) for f in forms},
-        "csrf_token": csrf_from_request(request)})
+    sjabloon = "_fb_kaarten.html" if is_fragment_request(request) else "admin_formulieren.html"
+    return templates.TemplateResponse(
+        request,
+        sjabloon,
+        {
+            "nav_items": NAV,
+            "forms": forms,
+            "q": q,
+            "status": status,
+            "statuses": FORM_STATUSES,
+            "status_labels": dict(code_labels(FORM_STATUS.name, db=db)),
+            "status_tones": {code: tone(FORM_STATUS.name, code) for code in FORM_STATUSES},
+            "gefilterd": bool(q.strip() or status),
+            # De deellink wordt HIER gekozen en niet in de template (#928): welke van
+            # de twee URL's je toont is een regel, en een regel in een sjabloon is een
+            # tweede plaats waar hij woont.
+            "share_paths": {f.id: deellink_pad(f) for f in forms},
+            "csrf_token": csrf_from_request(request),
+        },
+    )
 
 
 @router.get("/admin/formulieren/nieuw", response_class=HTMLResponse)
-def formulier_nieuw(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+def formulier_nieuw(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
-    return templates.TemplateResponse(request, "admin_formulier_nieuw.html", {
-        "nav_items": NAV,
-        "csrf_token": csrf_from_request(request),
-    })
+    return templates.TemplateResponse(
+        request,
+        "admin_formulier_nieuw.html",
+        {
+            "nav_items": NAV,
+            "csrf_token": csrf_from_request(request),
+        },
+    )
 
 
 @router.post("/admin/formulieren", dependencies=[Depends(require_csrf)])
-def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui),
-                       title: str = Form(...)) -> Response:
+def formulier_aanmaken(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(...),
+) -> Response:
     """Aanmaken opent meteen de paginabrede form-builder (C1, #585).
 
     De naam wordt in de modal gevraagd; het antwoord is een HX-Redirect zodat de
@@ -173,28 +207,41 @@ def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
     """
     from app.domains.forms.api import create_form, unique_share_token
 
-    form = create_form(db, title=title.strip() or "Naamloos formulier",
-                       share_token=unique_share_token(db))
-    return Response(status_code=204,
-                    headers={"HX-Redirect": f"/admin/formulieren/{form.id}"})
+    form = create_form(
+        db, title=title.strip() or "Naamloos formulier", share_token=unique_share_token(db)
+    )
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/formulieren/{form.id}"})
 
 
 def _form_tabs(form, aantal: int, actief: str) -> dict:
     """De recordtabs van het formulier (F15, #996 — golf-8-patroon): de twee
     grote navigatiekaarten onderaan de bouwer zijn hiermee vervangen."""
     basis = f"/admin/formulieren/{form.id}"
-    return {"form_tabs": [
-        {"label": _("Formulier"), "href": basis, "active": actief == "formulier"},
-        {"label": _("Inzendingen"), "count": aantal,
-         "href": f"{basis}/inzendingen", "active": actief == "inzendingen"},
-        {"label": _("Resultaten"), "href": f"{basis}/resultaten",
-         "active": actief == "resultaten"},
-    ]}
+    return {
+        "form_tabs": [
+            {"label": _("Formulier"), "href": basis, "active": actief == "formulier"},
+            {
+                "label": _("Inzendingen"),
+                "count": aantal,
+                "href": f"{basis}/inzendingen",
+                "active": actief == "inzendingen",
+            },
+            {
+                "label": _("Resultaten"),
+                "href": f"{basis}/resultaten",
+                "active": actief == "resultaten",
+            },
+        ]
+    }
 
 
 @router.get("/admin/formulieren/{form_id}", response_class=HTMLResponse)
-def formulier_builder(form_id: int, request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui)):
+def formulier_builder(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     form = _form_or_404(db, form_id)
     if is_fragment_request(request):
         return _builder_response(request, db, form)
@@ -203,10 +250,13 @@ def formulier_builder(form_id: int, request: Request, db: Session = Depends(get_
     return templates.TemplateResponse(request, "admin_formulier_builder.html", ctx)
 
 
-@router.post("/admin/formulieren/{form_id}/verwijderen",
-             dependencies=[Depends(require_csrf)])
-def formulier_verwijderen(form_id: int, request: Request, db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)) -> Response:
+@router.post("/admin/formulieren/{form_id}/verwijderen", dependencies=[Depends(require_csrf)])
+def formulier_verwijderen(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
     """Verwijderen gebeurt vanuit de builder, dus terug naar de lijst (#585).
 
     Voorheen kwam hier een lijstfragment terug voor `#fb-lijst`; dat element
@@ -222,17 +272,29 @@ def formulier_verwijderen(form_id: int, request: Request, db: Session = Depends(
 
 # ── Instellingen ───────────────────────────────────────────────────────────────
 
-@router.post("/admin/formulieren/{form_id}/instellingen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui),
-                         title: str = Form(...), description: str = Form(""),
-                         status: str = Form("draft"), max_submissions: str = Form(""),
-                         send_confirmation: str = Form(""), confirmation_message: str = Form(""),
-                         allow_edit: str = Form(""), is_anonymous: str = Form(""),
-                         requires_login: str = Form(""), slug: str = Form("")):
-    from app.domains.forms.api import (assert_slug_vrij, normaliseer_slug,
-                                       update_form_settings)
+
+@router.post(
+    "/admin/formulieren/{form_id}/instellingen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def instellingen_opslaan(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(...),
+    description: str = Form(""),
+    status: str = Form("draft"),
+    max_submissions: str = Form(""),
+    send_confirmation: str = Form(""),
+    confirmation_message: str = Form(""),
+    allow_edit: str = Form(""),
+    is_anonymous: str = Form(""),
+    requires_login: str = Form(""),
+    slug: str = Form(""),
+):
+    from app.domains.forms.api import assert_slug_vrij, normaliseer_slug, update_form_settings
 
     form = _form_or_404(db, form_id)
     # #694: als foutbanner, niet als kale 422. Dit scherm swapt zijn antwoord, dus
@@ -242,8 +304,9 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
     # één route verder; beide gaan nu door dezelfde behandeling.
     try:
         if status not in FORM_STATUSES:
-            raise HTTPException(status_code=422, detail=_(
-                "Ongeldige status: %(status)s") % {"status": status})
+            raise HTTPException(
+                status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status}
+            )
         # #690: vorm en uniciteit horen bij de regel, niet bij het scherm. De service
         # werpt een leesbare 422; de unieke index (091) is het vangnet daaronder.
         nieuwe_slug = normaliseer_slug(slug)
@@ -251,7 +314,8 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
     except HTTPException as exc:
         return _builder_response(request, db, form, error=str(exc.detail))
     update_form_settings(
-        db, form,
+        db,
+        form,
         slug=nieuwe_slug,
         title=title.strip() or form.title,
         description=description.strip() or None,
@@ -268,10 +332,19 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
 
 # ── Secties ────────────────────────────────────────────────────────────────────
 
-@router.post("/admin/formulieren/{form_id}/secties", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def sectie_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui), title: str = Form("")):
+
+@router.post(
+    "/admin/formulieren/{form_id}/secties",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def sectie_toevoegen(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+):
     from app.domains.forms.api import add_section
 
     form = _form_or_404(db, form_id)
@@ -294,27 +367,51 @@ def _bestemming(waarde: str) -> tuple[str, bool]:
     return keuze, False
 
 
-@router.post("/admin/formulieren/{form_id}/secties/{section_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def sectie_bewerken(form_id: int, section_id: int, request: Request,
-                    db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                    title: str = Form(""), description: str = Form(""),
-                    bestemming: str = Form("")):
+@router.post(
+    "/admin/formulieren/{form_id}/secties/{section_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def sectie_bewerken(
+    form_id: int,
+    section_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+    description: str = Form(""),
+    bestemming: str = Form(""),
+):
     from app.domains.forms.api import update_section
 
     form = _form_or_404(db, form_id)
     doel, naar_einde = _bestemming(bestemming)
-    _bewerk(update_section, db, form, section_id, title=title,
-            description=description, next_section_id=doel,
-            next_is_end=naar_einde)
+    _bewerk(
+        update_section,
+        db,
+        form,
+        section_id,
+        title=title,
+        description=description,
+        next_section_id=doel,
+        next_is_end=naar_einde,
+    )
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/secties/{section_id}/verplaats",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
-                       db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                       richting: str = Form("op")):
+@router.post(
+    "/admin/formulieren/{form_id}/secties/{section_id}/verplaats",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def sectie_verplaatsen(
+    form_id: int,
+    section_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    richting: str = Form("op"),
+):
     from app.domains.forms.api import move_section
 
     form = _form_or_404(db, form_id)
@@ -322,10 +419,18 @@ def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/secties/{section_id}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def sectie_verwijderen(form_id: int, section_id: int, request: Request,
-                       db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/formulieren/{form_id}/secties/{section_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def sectie_verwijderen(
+    form_id: int,
+    section_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.forms.api import delete_section
 
     form = _form_or_404(db, form_id)
@@ -335,17 +440,30 @@ def sectie_verwijderen(form_id: int, section_id: int, request: Request,
 
 # ── Velden ─────────────────────────────────────────────────────────────────────
 
-@router.post("/admin/formulieren/{form_id}/velden", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui),
-                   label: str = Form(...), field_type: str = Form("text"),
-                   section_id: str = Form(""), help_text: str = Form(""),
-                   required: str = Form(""), min_length: str = Form(""),
-                   max_length: str = Form(""), min_value: str = Form(""),
-                   max_value: str = Form(""), rating_max: str = Form(""),
-                   rating_low_label: str = Form(""),
-                   rating_high_label: str = Form("")):
+
+@router.post(
+    "/admin/formulieren/{form_id}/velden",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def veld_toevoegen(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    label: str = Form(...),
+    field_type: str = Form("text"),
+    section_id: str = Form(""),
+    help_text: str = Form(""),
+    required: str = Form(""),
+    min_length: str = Form(""),
+    max_length: str = Form(""),
+    min_value: str = Form(""),
+    max_value: str = Form(""),
+    rating_max: str = Form(""),
+    rating_low_label: str = Form(""),
+    rating_high_label: str = Form(""),
+):
     """Een nieuwe vraag, met álle eigenschappen ineens (#701).
 
     De toevoegbalk gaf enkel een label en een type; al de rest moest je in een
@@ -355,35 +473,72 @@ def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db)
     from app.domains.forms.api import add_field
 
     form = _form_or_404(db, form_id)
-    _bewerk(add_field, db, form, label=label, field_type=field_type,
-            section_id=section_id, help_text=help_text, required=required,
-            min_length=min_length, max_length=max_length, min_value=min_value,
-            max_value=max_value, rating_max=rating_max,
-            rating_low_label=rating_low_label,
-            rating_high_label=rating_high_label)
+    _bewerk(
+        add_field,
+        db,
+        form,
+        label=label,
+        field_type=field_type,
+        section_id=section_id,
+        help_text=help_text,
+        required=required,
+        min_length=min_length,
+        max_length=max_length,
+        min_value=min_value,
+        max_value=max_value,
+        rating_max=rating_max,
+        rating_low_label=rating_low_label,
+        rating_high_label=rating_high_label,
+    )
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/velden/{field_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def veld_bewerken(form_id: int, field_id: int, request: Request,
-                  db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                  label: str = Form(...), field_type: str = Form(""),
-                  help_text: str = Form(""),
-                  required: str = Form(""), min_length: str = Form(""),
-                  max_length: str = Form(""), min_value: str = Form(""),
-                  max_value: str = Form(""), rating_max: str = Form(""),
-                  rating_low_label: str = Form(""), rating_high_label: str = Form(""),
-                  section_id: str = Form("")):
+@router.post(
+    "/admin/formulieren/{form_id}/velden/{field_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def veld_bewerken(
+    form_id: int,
+    field_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    label: str = Form(...),
+    field_type: str = Form(""),
+    help_text: str = Form(""),
+    required: str = Form(""),
+    min_length: str = Form(""),
+    max_length: str = Form(""),
+    min_value: str = Form(""),
+    max_value: str = Form(""),
+    rating_max: str = Form(""),
+    rating_low_label: str = Form(""),
+    rating_high_label: str = Form(""),
+    section_id: str = Form(""),
+):
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
     try:
-        _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
-                help_text=help_text, section_id=section_id,
-                required=required, min_length=min_length, max_length=max_length,
-                min_value=min_value, max_value=max_value, rating_max=rating_max,
-                rating_low_label=rating_low_label, rating_high_label=rating_high_label)
+        _bewerk(
+            update_field,
+            db,
+            form,
+            field_id,
+            label=label,
+            field_type=field_type,
+            help_text=help_text,
+            section_id=section_id,
+            required=required,
+            min_length=min_length,
+            max_length=max_length,
+            min_value=min_value,
+            max_value=max_value,
+            rating_max=rating_max,
+            rating_low_label=rating_low_label,
+            rating_high_label=rating_high_label,
+        )
     except HTTPException as exc:
         if exc.status_code != 422:
             raise
@@ -397,11 +552,19 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/velden/{field_id}/verplaats",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def veld_verplaatsen(form_id: int, field_id: int, request: Request,
-                     db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                     richting: str = Form("op")):
+@router.post(
+    "/admin/formulieren/{form_id}/velden/{field_id}/verplaats",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def veld_verplaatsen(
+    form_id: int,
+    field_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    richting: str = Form("op"),
+):
     from app.domains.forms.api import move_field
 
     form = _form_or_404(db, form_id)
@@ -409,10 +572,18 @@ def veld_verplaatsen(form_id: int, field_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/velden/{field_id}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def veld_verwijderen(form_id: int, field_id: int, request: Request,
-                     db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/formulieren/{form_id}/velden/{field_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def veld_verwijderen(
+    form_id: int,
+    field_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.forms.api import delete_field
 
     form = _form_or_404(db, form_id)
@@ -422,11 +593,21 @@ def veld_verwijderen(form_id: int, field_id: int, request: Request,
 
 # ── Opties ─────────────────────────────────────────────────────────────────────
 
-@router.post("/admin/formulieren/{form_id}/velden/{field_id}/opties",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def optie_toevoegen(form_id: int, field_id: int, request: Request,
-                    db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                    label: str = Form(...), is_other: str = Form("")):
+
+@router.post(
+    "/admin/formulieren/{form_id}/velden/{field_id}/opties",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def optie_toevoegen(
+    form_id: int,
+    field_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    label: str = Form(...),
+    is_other: str = Form(""),
+):
     from app.domains.forms.api import add_option
 
     form = _form_or_404(db, form_id)
@@ -434,28 +615,51 @@ def optie_toevoegen(form_id: int, field_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/opties/{option_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def optie_bewerken(form_id: int, option_id: int, request: Request,
-                   db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                   label: str = Form(...), is_other: str = Form(""),
-                   bestemming: str = Form("")):
+@router.post(
+    "/admin/formulieren/{form_id}/opties/{option_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def optie_bewerken(
+    form_id: int,
+    option_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    label: str = Form(...),
+    is_other: str = Form(""),
+    bestemming: str = Form(""),
+):
     from app.domains.forms.api import update_option
 
     form = _form_or_404(db, form_id)
     doel, naar_einde = _bestemming(bestemming)
-    _bewerk(update_option, db, form, option_id, label=label,
-            is_other=bool(is_other), skip_to_section_id=doel,
-            skip_to_end=naar_einde)
+    _bewerk(
+        update_option,
+        db,
+        form,
+        option_id,
+        label=label,
+        is_other=bool(is_other),
+        skip_to_section_id=doel,
+        skip_to_end=naar_einde,
+    )
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/opties/{option_id}/verplaats",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def optie_verplaatsen(form_id: int, option_id: int, request: Request,
-                      db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui),
-                      richting: str = Form("op")):
+@router.post(
+    "/admin/formulieren/{form_id}/opties/{option_id}/verplaats",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def optie_verplaatsen(
+    form_id: int,
+    option_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    richting: str = Form("op"),
+):
     """Een keuze-optie omhoog of omlaag binnen haar eigen veld (#697)."""
     from app.domains.forms.api import move_option
 
@@ -464,10 +668,18 @@ def optie_verplaatsen(form_id: int, option_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
-@router.post("/admin/formulieren/{form_id}/opties/{option_id}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def optie_verwijderen(form_id: int, option_id: int, request: Request,
-                      db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/formulieren/{form_id}/opties/{option_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def optie_verwijderen(
+    form_id: int,
+    option_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.forms.api import delete_option
 
     form = _form_or_404(db, form_id)
@@ -477,12 +689,20 @@ def optie_verwijderen(form_id: int, option_id: int, request: Request,
 
 # ── JSON-import (vluchtluik + AI-formaatgids) ──────────────────────────────────
 
-@router.post("/admin/formulieren/{form_id}/json-import", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui),
-                      payload: str = Form(""),
-                      file: Optional[UploadFile] = File(None)):
+
+@router.post(
+    "/admin/formulieren/{form_id}/json-import",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def json_import(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    payload: str = Form(""),
+    file: Optional[UploadFile] = File(None),
+):
     """Vervangt de volledige opbouw van een formulier door een JSON-definitie.
 
     **Weigert zodra er inzendingen zijn (#665), en dat is geen cosmetiek.**
@@ -499,29 +719,36 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
     Een opgeladen bestand primeert op het tekstvak, net als een opgeladen affiche
     op de poster-URL (#223). Plakken blijft de gewone weg.
     """
-    from app.domains.forms.api import (assert_geen_id_vorm, import_definition,
-                                       submission_count)
+    from app.domains.forms.api import assert_geen_id_vorm, import_definition, submission_count
     from app.domains.forms.schemas import FormUpdate
 
     form = _form_or_404(db, form_id)
     aantal = submission_count(db, form_id)
     if aantal:
-        return _builder_response(request, db, form, error=_(
-            "Dit formulier heeft al %(n)s inzending(en). Een import vervangt de "
-            "volledige opbouw en zou die antwoorden verwijderen. Maak een nieuw "
-            "formulier aan, of verwijder eerst de inzendingen."
-        ) % {"n": aantal})
+        return _builder_response(
+            request,
+            db,
+            form,
+            error=_(
+                "Dit formulier heeft al %(n)s inzending(en). Een import vervangt de "
+                "volledige opbouw en zou die antwoorden verwijderen. Maak een nieuw "
+                "formulier aan, of verwijder eerst de inzendingen."
+            )
+            % {"n": aantal},
+        )
 
     if file is not None and file.filename:
         rauw = await file.read()
         try:
             payload = rauw.decode("utf-8")
         except UnicodeDecodeError:
-            return _builder_response(request, db, form, error=_(
-                "Het bestand is geen leesbare UTF-8-tekst."))
+            return _builder_response(
+                request, db, form, error=_("Het bestand is geen leesbare UTF-8-tekst.")
+            )
     if not payload.strip():
-        return _builder_response(request, db, form,
-                                 error=_("Plak een JSON-definitie of kies een bestand."))
+        return _builder_response(
+            request, db, form, error=_("Plak een JSON-definitie of kies een bestand.")
+        )
     try:
         rauw_json = json.loads(payload)
         # #692: een bestand uit de oude, id-gebaseerde export leest niet terug. De
@@ -536,8 +763,9 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
         # hieronder.
         return _builder_response(request, db, form, error=str(exc.detail))
     except (json.JSONDecodeError, ValueError) as exc:
-        return _builder_response(request, db, form,
-                                 error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
+        return _builder_response(
+            request, db, form, error=_("Ongeldige JSON: %(exc)s") % {"exc": exc}
+        )
     # Alle instellingen, niet drie (#635-3): deze route schreef enkel titel,
     # omschrijving en status, waardoor een import stilzwijgend slug,
     # requires_login, max_submissions, send_confirmation, confirmation_message,
@@ -553,9 +781,14 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
 
 # ── Inzendingen + afdruk ───────────────────────────────────────────────────────
 
+
 @router.get("/admin/formulieren/{form_id}/inzendingen", response_class=HTMLResponse)
-def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+def inzendingen_tab(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.forms.api import submission_view
 
     form = _form_or_404(db, form_id)
@@ -570,24 +803,38 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
     return templates.TemplateResponse(request, "admin_formulier_inzendingen.html", ctx)
 
 
-@router.post("/admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def inzending_verwijderen(form_id: int, submission_id: int, request: Request,
-                          db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def inzending_verwijderen(
+    form_id: int,
+    submission_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.forms.api import submission_view
 
     delete_submission(db, form_id, submission_id)
     form = _form_or_404(db, form_id)
     subs = list_submissions(db, form.id)
     rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]
-    return templates.TemplateResponse(request, "_fb_inzendingen.html", {
-        "form": form, "rows": rows, "csrf_token": csrf_from_request(request)})
+    return templates.TemplateResponse(
+        request,
+        "_fb_inzendingen.html",
+        {"form": form, "rows": rows, "csrf_token": csrf_from_request(request)},
+    )
 
 
 @router.get("/admin/formulieren/{form_id}/export")
-def inzendingen_export(form_id: int, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)) -> Response:
+def inzendingen_export(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
     from app.domains.forms.api import export_submissions_ods
 
     return export_submissions_ods(db, form_id)
@@ -595,9 +842,14 @@ def inzendingen_export(form_id: int, request: Request, db: Session = Depends(get
 
 # ── Resultaten (statistiek) + JSON-export ──────────────────────────────────────
 
+
 @router.get("/admin/formulieren/{form_id}/resultaten", response_class=HTMLResponse)
-def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui)):
+def resultaten_tab(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Server-side geaggregeerde resultaten per veld (#455/#454): staafjes per
     optie, rating-gemiddelde + verdeling, number-stats, tekstantwoorden."""
     from app.domains.forms.results import compute_results
@@ -610,44 +862,60 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
     ctx = {"form": form, "results": results}
     if is_fragment_request(request):
         return templates.TemplateResponse(request, "_fb_resultaten.html", ctx)
-    ctx.update({"nav_items": NAV,
-                **_form_tabs(form, submission_count(db, form.id), "resultaten")})
+    ctx.update({"nav_items": NAV, **_form_tabs(form, submission_count(db, form.id), "resultaten")})
     return templates.TemplateResponse(request, "admin_formulier_resultaten.html", ctx)
 
 
 @router.get("/admin/formulieren/{form_id}/json")
-def json_export(form_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)) -> Response:
+def json_export(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
     """Volledige formulierdefinitie als downloadbare JSON (backup/inspectie/AI)."""
     from app.domains.forms.api import export_definition
 
     form = _form_or_404(db, form_id)
     # #692: de import-woordenschat, niet het leesmodel van de API. Dat laatste
     # beschrijft rijen in déze databank en overleeft het vertrek eruit niet.
-    payload = json.dumps(export_definition(form), ensure_ascii=False,
-                         indent=2, default=str)
+    payload = json.dumps(export_definition(form), ensure_ascii=False, indent=2, default=str)
     slug = form.slug or f"formulier-{form.id}"
     return Response(
-        content=payload, media_type="application/json",
+        content=payload,
+        media_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="{slug}.json"'},
     )
 
 
 @router.get("/admin/formulieren/{form_id}/afdruk", response_class=HTMLResponse)
-def formulier_afdruk(form_id: int, request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
+def formulier_afdruk(
+    form_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     form = _form_or_404(db, form_id)
     sections = sorted(form.sections, key=lambda s: (s.position, s.id))
     # Through the adapter like every other screen that renders a field: the print
     # compares `field_type` with a code, and a member equals none — every choice,
     # scale and info block printed as an empty line (found by the
     # characterisation test, CR-12 phase 4).
-    grouped = [{"section": s,
-                "fields": screen_fields(sorted(
+    grouped = [
+        {
+            "section": s,
+            "fields": screen_fields(
+                sorted(
                     (f for f in form.fields if f.section_id == s.id),
-                    key=lambda f: (f.position, f.id)))}
-               for s in sections]
-    loose = screen_fields(sorted((f for f in form.fields if f.section_id is None),
-                                 key=lambda f: (f.position, f.id)))
-    return templates.TemplateResponse(request, "formulier_afdruk.html", {
-        "form": form, "grouped": grouped, "loose_fields": loose})
+                    key=lambda f: (f.position, f.id),
+                )
+            ),
+        }
+        for s in sections
+    ]
+    loose = screen_fields(
+        sorted((f for f in form.fields if f.section_id is None), key=lambda f: (f.position, f.id))
+    )
+    return templates.TemplateResponse(
+        request, "formulier_afdruk.html", {"form": form, "grouped": grouped, "loose_fields": loose}
+    )

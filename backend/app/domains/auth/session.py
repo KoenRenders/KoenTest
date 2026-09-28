@@ -7,6 +7,7 @@
   verborgen veld.
 Alles stdlib (hmac/hashlib) — geen nieuwe dependencies.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -82,8 +83,7 @@ def session_cookie_secure(request: Optional[Request]) -> bool:
     return schema == "https"
 
 
-def set_session_cookie(response: Response, email: str,
-                       request: Optional[Request] = None) -> None:
+def set_session_cookie(response: Response, email: str, request: Optional[Request] = None) -> None:
     response.set_cookie(
         SESSION_COOKIE,
         make_session_value(email),
@@ -188,8 +188,10 @@ def require_finance_mutation(db: Session, email: str) -> None:
     from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
 
     if not (_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email))):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
-                            detail=_("Alleen FINANCE mag betalingen wijzigen."))
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_("Alleen FINANCE mag betalingen wijzigen."),
+        )
 
 
 def require_operator_ui(db: Session, email: str) -> None:
@@ -203,7 +205,8 @@ def require_operator_ui(db: Session, email: str) -> None:
     if "OPERATOR" not in get_user_roles(db, email):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=_("Alleen de platformbeheerder (OPERATOR) mag tenants beheren."))
+            detail=_("Alleen de platformbeheerder (OPERATOR) mag tenants beheren."),
+        )
 
 
 def require_csrf(request: Request) -> None:
@@ -238,7 +241,8 @@ def require_csrf(request: Request) -> None:
         reden = "mismatch"
     if reden is not None:
         logging.getLogger("app.auth.csrf").warning(
-            "CSRF-controle geweigerd", extra={"csrf_fail": reden})
+            "CSRF-controle geweigerd", extra={"csrf_fail": reden}
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("CSRF-token ongeldig"))
 
 
@@ -257,11 +261,11 @@ def admin_user_by_email(db: Session, email: str):
     from app.domains.auth.models import User
     from app.i18n import _
 
-    user = (db.query(User)
-            .filter(func.lower(User.email) == email.strip().lower(),
-                    User.is_active == True)  # noqa: E712
-            .first())
+    user = (
+        db.query(User)
+        .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)  # noqa: E712
+        .first()
+    )
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=_("Niet aangemeld"))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Niet aangemeld"))
     return user

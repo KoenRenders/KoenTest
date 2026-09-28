@@ -22,6 +22,7 @@ Both rules were broken on purpose against a live database:
 And the gate refuses to pass on an empty scan: a renamed schema or a migration
 that never ran would otherwise leave it green forever while guarding nothing.
 """
+
 from __future__ import annotations
 
 from sqlalchemy import text
@@ -32,19 +33,36 @@ from sqlalchemy import text
 # RENAME that left the old name behind: `d_household` became `d_member` in #848,
 # and the gate went red until the list said so.
 EXPECTED_VIEWS = {
-    "d_activity", "d_activity_organiser", "d_date", "d_member",
+    "d_activity",
+    "d_activity_organiser",
+    "d_date",
+    "d_member",
     "d_membership_status",
-    "d_payment_method", "d_payment_status", "d_person", "d_form",
-    "d_board_member", "d_address", "f_forms",
-    "f_memberships", "f_payments", "f_registrations", "f_membership_persons",
-    "f_form_submissions", "f_tasks", "f_members", "f_activities",
+    "d_payment_method",
+    "d_payment_status",
+    "d_person",
+    "d_form",
+    "d_board_member",
+    "d_address",
+    "f_forms",
+    "f_memberships",
+    "f_payments",
+    "f_registrations",
+    "f_membership_persons",
+    "f_form_submissions",
+    "f_tasks",
+    "f_members",
+    "f_activities",
 }
 
 
 def _views(db) -> list[str]:
-    rows = db.execute(text(
-        "SELECT table_name FROM information_schema.views "
-        "WHERE table_schema = 'reporting' ORDER BY table_name"))
+    rows = db.execute(
+        text(
+            "SELECT table_name FROM information_schema.views "
+            "WHERE table_schema = 'reporting' ORDER BY table_name"
+        )
+    )
     return [row[0] for row in rows]
 
 
@@ -54,43 +72,51 @@ def test_the_gate_actually_looks_at_the_reporting_schema(db_session):
     assert len(found) >= len(EXPECTED_VIEWS), (
         f"deze gate vond {len(found)} weergaven in schema 'reporting', verwacht "
         f"minstens {len(EXPECTED_VIEWS)}. Draaide de migratie, of heet het schema "
-        "anders?")
+        "anders?"
+    )
     ontbreekt = EXPECTED_VIEWS - found
     assert not ontbreekt, f"verwachte weergaven ontbreken: {sorted(ontbreekt)}"
     onverwacht = found - EXPECTED_VIEWS
     assert not onverwacht, (
         f"weergaven die deze lijst niet kent: {sorted(onverwacht)} — een nieuwe "
-        "hoort erbij te komen, een hernoemde hoort de oude te vervangen")
+        "hoort erbij te komen, een hernoemde hoort de oude te vervangen"
+    )
 
 
 def test_every_reporting_view_carries_tenant_id(db_session):
     """The tenant fence has to be possible before it can be applied."""
-    rows = db_session.execute(text(
-        "SELECT v.table_name FROM information_schema.views v "
-        "WHERE v.table_schema = 'reporting' "
-        "  AND NOT EXISTS ("
-        "      SELECT 1 FROM information_schema.columns c "
-        "      WHERE c.table_schema = 'reporting' AND c.table_name = v.table_name "
-        "        AND c.column_name = 'tenant_id') "
-        "ORDER BY v.table_name"))
+    rows = db_session.execute(
+        text(
+            "SELECT v.table_name FROM information_schema.views v "
+            "WHERE v.table_schema = 'reporting' "
+            "  AND NOT EXISTS ("
+            "      SELECT 1 FROM information_schema.columns c "
+            "      WHERE c.table_schema = 'reporting' AND c.table_name = v.table_name "
+            "        AND c.column_name = 'tenant_id') "
+            "ORDER BY v.table_name"
+        )
+    )
     zonder = [row[0] for row in rows]
     assert not zonder, (
-        "elke weergave in schema 'reporting' draagt tenant_id (CR-06 §7.1); "
-        f"zonder: {zonder}")
+        f"elke weergave in schema 'reporting' draagt tenant_id (CR-06 §7.1); zonder: {zonder}"
+    )
 
 
 def test_every_reporting_view_says_what_it_excludes(db_session):
     """The soft-delete decision is per view, so it is documented per view."""
-    rows = db_session.execute(text(
-        "SELECT c.relname FROM pg_class c "
-        "JOIN pg_namespace n ON n.oid = c.relnamespace "
-        "WHERE n.nspname = 'reporting' AND c.relkind = 'v' "
-        "  AND COALESCE(obj_description(c.oid, 'pg_class'), '') = '' "
-        "ORDER BY c.relname"))
+    rows = db_session.execute(
+        text(
+            "SELECT c.relname FROM pg_class c "
+            "JOIN pg_namespace n ON n.oid = c.relnamespace "
+            "WHERE n.nspname = 'reporting' AND c.relkind = 'v' "
+            "  AND COALESCE(obj_description(c.oid, 'pg_class'), '') = '' "
+            "ORDER BY c.relname"
+        )
+    )
     zonder = [row[0] for row in rows]
     assert not zonder, (
-        "elke weergave krijgt een COMMENT dat zegt wat ze uitsluit; "
-        f"zonder: {zonder}")
+        f"elke weergave krijgt een COMMENT dat zegt wat ze uitsluit; zonder: {zonder}"
+    )
 
 
 def test_the_facts_exclude_soft_deleted_rows(db_session):
@@ -105,17 +131,29 @@ def test_the_facts_exclude_soft_deleted_rows(db_session):
     from tests._reporting_seed import TENANT_A, seed
 
     situation = seed(db_session)
-    before = db_session.execute(text(
-        "SELECT COUNT(DISTINCT registration_id) FROM reporting.f_registrations "
-        "WHERE tenant_id = :t"), {"t": TENANT_A}).scalar()
+    before = db_session.execute(
+        text(
+            "SELECT COUNT(DISTINCT registration_id) FROM reporting.f_registrations "
+            "WHERE tenant_id = :t"
+        ),
+        {"t": TENANT_A},
+    ).scalar()
 
-    registration = db_session.query(Registration).filter(
-        Registration.id == situation["registrations"]["guest"]).first()
+    registration = (
+        db_session.query(Registration)
+        .filter(Registration.id == situation["registrations"]["guest"])
+        .first()
+    )
     soft_delete(registration)
     db_session.commit()
 
-    after = db_session.execute(text(
-        "SELECT COUNT(DISTINCT registration_id) FROM reporting.f_registrations "
-        "WHERE tenant_id = :t"), {"t": TENANT_A}).scalar()
+    after = db_session.execute(
+        text(
+            "SELECT COUNT(DISTINCT registration_id) FROM reporting.f_registrations "
+            "WHERE tenant_id = :t"
+        ),
+        {"t": TENANT_A},
+    ).scalar()
     assert after == before - 1, (
-        "een verwijderde inschrijving hoort uit f_registrations te verdwijnen")
+        "een verwijderde inschrijving hoort uit f_registrations te verdwijnen"
+    )

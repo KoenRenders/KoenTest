@@ -27,6 +27,7 @@ the other-mutations test fall over, with records of another scope in the answer;
 four. The `?activiteit=` list and the unscoped list stay green both times, as
 they should.
 """
+
 from __future__ import annotations
 
 import json
@@ -55,9 +56,16 @@ def _login(client, db) -> dict:
 
 
 def _register(client, activity, component, product, name, email):
-    client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                data={"contact_name": name, "contact_email": email, "phone": "047",
-                      f"product_{product.id}": "1", "payment_method": "transfer"})
+    client.post(
+        f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+        data={
+            "contact_name": name,
+            "contact_email": email,
+            "phone": "047",
+            f"product_{product.id}": "1",
+            "payment_method": "transfer",
+        },
+    )
 
 
 @pytest.fixture
@@ -75,11 +83,12 @@ def world(client, db_session):
 
     anna = db_session.query(Registration).filter(Registration.contact_name == "Rec Anna").one()
     ander = db_session.query(Registration).filter(Registration.contact_name == "Ander Feest").one()
-    b_records = {str(r.id) for r in db_session.query(PaymentRecord)
-                 .filter(PaymentRecord.payable_id == ander.id).all()}
+    b_records = {
+        str(r.id)
+        for r in db_session.query(PaymentRecord).filter(PaymentRecord.payable_id == ander.id).all()
+    }
     assert b_records, "activity B has no payment record — is the setup still right?"
-    return {"a": a.id, "b": b.id, "family": family.id, "anna": anna.id,
-            "b_records": b_records}
+    return {"a": a.id, "b": b.id, "family": family.id, "anna": anna.id, "b_records": b_records}
 
 
 def _record_ids(html: str) -> set[str]:
@@ -104,9 +113,16 @@ def _confirm_url(html: str) -> str:
 def _mutate_from(client, csrf, page: str) -> tuple[set[str], set[str]]:
     html = client.get(page).text
     before = _record_ids(html)
-    answer = client.post(_confirm_url(html), data={"note": ""},
-                         headers={**csrf, **_list_headers(html), "HX-Request": "true",
-                                  "HX-Current-URL": f"http://testserver{page}"})
+    answer = client.post(
+        _confirm_url(html),
+        data={"note": ""},
+        headers={
+            **csrf,
+            **_list_headers(html),
+            "HX-Request": "true",
+            "HX-Current-URL": f"http://testserver{page}",
+        },
+    )
     assert answer.status_code == 200, answer.text[:300]
     return before, _record_ids(answer.text)
 
@@ -128,7 +144,8 @@ def test_a_confirmation_keeps_the_list_in_its_scope(client, db_session, world, s
     assert before, f"{scope}: the page shows no records — is the setup still right?"
     assert after == before, (
         f"{scope}: {len(before)} record(s) before the confirmation, {len(after)} after; "
-        f"extra: {sorted(after - before)}")
+        f"extra: {sorted(after - before)}"
+    )
 
 
 def test_without_a_scope_the_list_stays_complete(client, db_session, world):
@@ -149,16 +166,23 @@ def test_the_other_mutations_keep_the_scope_too(client, db_session, world):
     csrf = _login(client, db_session)
     page = f"/admin/activiteiten/{world['a']}/betalingen"
     html = client.get(page).text
-    headers = {**csrf, **_list_headers(html), "HX-Request": "true",
-               "HX-Current-URL": f"http://testserver{page}"}
+    headers = {
+        **csrf,
+        **_list_headers(html),
+        "HX-Request": "true",
+        "HX-Current-URL": f"http://testserver{page}",
+    }
     record = sorted(_record_ids(html))[0]
 
-    for route, data in (("bijwerken", {"amount_paid": "10.00", "note": ""}),
-                        ("bewerken", {"status": "paid", "amount_paid": "10.00", "note": ""}),
-                        ("refund", {"amount": "1.00", "note": "proef"})):
+    for route, data in (
+        ("bijwerken", {"amount_paid": "10.00", "note": ""}),
+        ("bewerken", {"status": "paid", "amount_paid": "10.00", "note": ""}),
+        ("refund", {"amount": "1.00", "note": "proef"}),
+    ):
         answer = client.post(f"/admin/betalingen/{record}/{route}", data=data, headers=headers)
         assert answer.status_code == 200, (route, answer.text[:300])
         shown = _record_ids(answer.text)
         assert shown, f"{route}: the answer shows no records"
         assert not shown & world["b_records"], (
-            f"{route}: the record of activity B came back — the scope was lost")
+            f"{route}: the record of activity B came back — the scope was lost"
+        )

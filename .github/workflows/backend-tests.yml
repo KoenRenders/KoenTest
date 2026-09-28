@@ -7,6 +7,26 @@ on:
     branches: ["master"]
 
 jobs:
+  # Formatter and linter (#781). A job of its own: it needs no database and no
+  # Inkscape, so a style finding is red within seconds instead of after the suite.
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The version comes from requirements-dev.txt, so CI and a local run agree.
+      - name: Install ruff
+        run: pip install "$(grep -E '^ruff==' requirements-dev.txt)"
+      - name: ruff format --check
+        run: ruff format --check .
+      - name: ruff check
+        run: ruff check .
+
   pytest:
     runs-on: ubuntu-latest
 

@@ -13,6 +13,7 @@ Alle admin-tekst voor de bot komt uit de ``chatbot_info``-tabel:
 Daarnaast injecteren we een **membership-blok** uit de config, zodat de bot
 prijzen/tarieven altijd correct kent — ook als geen pagina ze vermeldt.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -21,8 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.chatbot.models import ChatbotInfo
-from app.domains.cms.api import CmsPage
-from app.domains.cms.api import _format_md, _format_price, render_cms_content
+from app.domains.cms.api import CmsPage, _format_md, _format_price, render_cms_content
 from app.domains.payment.api import (
     current_membership_counts,
     membership_price_for_date,
@@ -141,11 +141,7 @@ def _membership_counts_block(db: Session) -> str:
 
 
 def _cms_overrides(db: Session) -> dict[int, ChatbotInfo]:
-    rows = (
-        db.query(ChatbotInfo)
-        .filter(ChatbotInfo.cms_page_id.isnot(None))
-        .all()
-    )
+    rows = db.query(ChatbotInfo).filter(ChatbotInfo.cms_page_id.isnot(None)).all()
     return {r.cms_page_id: r for r in rows}
 
 

@@ -23,6 +23,7 @@ anyone paid" (the booking already *Vereffend*) and "active before anyone paid"
 (the membership already *Actief*). That is the proof the webhook fetches its
 status from the provider and does not take it from anywhere else.
 """
+
 import os
 import re
 import sys
@@ -49,19 +50,25 @@ def paid_activity():
     import app.models  # noqa: F401
     from app.database import SessionLocal
     from app.domains.activities.api import (
-        Activity, ActivityDate, ActivityProduct, ActivitySubRegistration)
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+    )
 
     db = SessionLocal()
     activity = Activity(name=f"E2E Online betalen {int(time.time())}")
     db.add(activity)
     db.flush()
     db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
-    component = ActivitySubRegistration(activity_id=activity.id, name="Deelname",
-                                        price=Decimal("0"), is_free=True)
+    component = ActivitySubRegistration(
+        activity_id=activity.id, name="Deelname", price=Decimal("0"), is_free=True
+    )
     db.add(component)
     db.flush()
-    product = ActivityProduct(component_id=component.id, name="Ticket",
-                              price=Decimal("12.50"), is_free=False)
+    product = ActivityProduct(
+        component_id=component.id, name="Ticket", price=Decimal("12.50"), is_free=False
+    )
     db.add(product)
     db.commit()
     ids = (activity.id, component.id, product.id)
@@ -103,8 +110,10 @@ def _at_the_checkout(page) -> str:
     try:
         page.wait_for_url(CHECKOUT, timeout=10_000)
     except Exception:
-        pytest.fail(f"not sent to the stub's payment page but to {page.url} — is "
-                    f"PAYMENT_PROVIDER=stub set on the e2e server?")
+        pytest.fail(
+            f"not sent to the stub's payment page but to {page.url} — is "
+            f"PAYMENT_PROVIDER=stub set on the e2e server?"
+        )
     expect(page.get_by_role("heading", name=re.compile("Testbetaling"))).to_be_visible()
     return CHECKOUT.search(page.url).group(1)
 
@@ -124,8 +133,7 @@ def _payable_id(payment_id: str) -> int:
 
     db = SessionLocal()
     try:
-        gp = db.query(GatewayPayment).filter(
-            GatewayPayment.provider_payment_id == payment_id).one()
+        gp = db.query(GatewayPayment).filter(GatewayPayment.provider_payment_id == payment_id).one()
         return int(gp.payment_metadata["payable_id"])
     finally:
         db.close()
@@ -182,14 +190,15 @@ def test_a_registration_is_paid_online(visitor, admin, paid_activity):
     _fire_webhook(visitor, payment_id)
     before = _status_badges(admin, registration_id)
     assert "Openstaand" in before and "Vereffend" not in before, (
-        f"paid before anyone paid: {before}")
+        f"paid before anyone paid: {before}"
+    )
 
     # Pay on the pretend page; the page fires the webhook and returns the visitor.
     assert _pay(visitor, "registration") == registration_id
     after = _status_badges(admin, registration_id)
     assert "Vereffend" in after and "Openstaand" not in after, (
-        f"not settled after the payment: {after}")
-
+        f"not settled after the payment: {after}"
+    )
 
 
 def _membership_line(admin, member_id: int) -> str:

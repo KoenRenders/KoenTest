@@ -1,4 +1,5 @@
 """Events die het payment-component publiceert (contract, zie payment/CONTRACT.md)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

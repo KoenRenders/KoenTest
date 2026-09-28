@@ -22,6 +22,7 @@ container does not: run there, every test here fails on the assertion in `_repo`
 ("these tests need a real git binary"), which says nothing about `deploy.sh`.
 Run them on a host with git, or in CI.
 """
+
 import os
 import shutil
 import subprocess
@@ -48,8 +49,7 @@ def _repo(tmp_path, *, adds_migration: bool) -> Path:
     versions.mkdir(parents=True)
 
     def git(*args):
-        subprocess.run([REAL_GIT, "-C", str(repo), *args], check=True,
-                       capture_output=True)
+        subprocess.run([REAL_GIT, "-C", str(repo), *args], check=True, capture_output=True)
 
     git("init", "-q")
     git("config", "user.email", "test@example.com")
@@ -78,8 +78,7 @@ def _build(tmp_path, repo: Path):
     smoke_counter = tmp_path / "smoke-runs"
     # The smoke test fails every time: that is what sends the script to the
     # rollback decision under test.
-    (work / "tests" / "run-all.sh").write_text(
-        f'#!/bin/sh\necho x >> "{smoke_counter}"\nexit 1\n')
+    (work / "tests" / "run-all.sh").write_text(f'#!/bin/sh\necho x >> "{smoke_counter}"\nexit 1\n')
     (work / "tests" / "run-all.sh").chmod(0o755)
     for name in (".env.uat", ".env.prod"):
         (work / name).write_text("FRONTEND_URL=http://site.test\n")
@@ -92,16 +91,18 @@ def _build(tmp_path, repo: Path):
         '#!/bin/sh\ncase "$*" in\n'
         '  *"ps -q db"*) echo db123 ;;\n'
         '  *pg_dump*) echo "-- dump" ;;\n'
-        '  *alembic_version*) echo b2 ;;\n'
-        'esac\nexit 0\n')
-    (fakebin / "curl").write_text('#!/bin/sh\nexit 0\n')
-    (fakebin / "sleep").write_text('#!/bin/sh\nexit 0\n')
+        "  *alembic_version*) echo b2 ;;\n"
+        "esac\nexit 0\n"
+    )
+    (fakebin / "curl").write_text("#!/bin/sh\nexit 0\n")
+    (fakebin / "sleep").write_text("#!/bin/sh\nexit 0\n")
     (fakebin / "git").write_text(
         '#!/bin/sh\ncase "$1" in\n'
-        '  describe) echo v0.0.2 ;;\n'
-        '  rev-parse) echo deadbee ;;\n'
+        "  describe) echo v0.0.2 ;;\n"
+        "  rev-parse) echo deadbee ;;\n"
         f'  grep) exec "{REAL_GIT}" -C "{repo}" "$@" ;;\n'
-        'esac\nexit 0\n')
+        "esac\nexit 0\n"
+    )
     for f in fakebin.iterdir():
         f.chmod(0o755)
     return work, fakebin, smoke_counter
@@ -116,8 +117,14 @@ def _deploy(tmp_path, *, adds_migration: bool, environment: str = "prod"):
     env["LOG_OUT"] = str(tmp_path / "deploy.log")
     env["BACKUP_DIR"] = str(tmp_path / "backups")
     env["DEPLOY_PREV_REF"] = "v0.0.1"
-    done = subprocess.run(["bash", "./deploy.sh", environment, "v0.0.2"], cwd=work,
-                          env=env, capture_output=True, text=True, timeout=120)
+    done = subprocess.run(
+        ["bash", "./deploy.sh", environment, "v0.0.2"],
+        cwd=work,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
     return done, smoke_counter
 
 
@@ -161,7 +168,8 @@ def test_the_stop_message_says_to_stop_on_a_failed_restore_before_redeploying(tm
     redeploy = out.find("DEPLOY_ROLLBACK=1 ./deploy.sh prod v0.0.1")
     assert -1 not in (warning, counts, restore, redeploy), out[-3000:]
     assert restore < warning < counts < redeploy, (
-        "the warning and the row counts belong between the restore and the redeploy")
+        "the warning and the row counts belong between the restore and the redeploy"
+    )
 
 
 def test_a_release_without_a_migration_still_rolls_back(tmp_path):
@@ -171,4 +179,5 @@ def test_a_release_without_a_migration_still_rolls_back(tmp_path):
     assert "No migration in this release (alembic head a1 on both refs)" in done.stdout
     assert "Automatic rollback to v0.0.1" in done.stdout, done.stdout[-3000:]
     assert smoke_counter.read_text().count("x") == 2, (
-        "the rollback did not re-run the smoke test, or rolled back more than once")
+        "the rollback did not re-run the smoke test, or rolled back more than once"
+    )

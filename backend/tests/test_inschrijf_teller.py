@@ -17,6 +17,7 @@ markupkant ervan — snel, en precies genoeg om te zien dát de schakel er is.
 
 **#1172** — bij precies één product opent het formulier op 1.
 """
+
 from __future__ import annotations
 
 import re
@@ -31,8 +32,7 @@ MACROS = "app/ui/templates/_macros.html"
 
 
 def _formulier(client, activity, component) -> str:
-    respons = client.get(
-        f"/activiteiten/{activity.id}/inschrijven/{component.id}")
+    respons = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}")
     assert respons.status_code == 200
     return respons.text
 
@@ -46,6 +46,7 @@ def _veld(html: str, product_id: int) -> str:
 
 # ── #1171: de teller zelf ───────────────────────────────────────────────────
 
+
 def test_the_quantity_field_has_its_own_minus_and_plus(client, db_session):
     """Geen browserpijltjes meer nodig: er staan twee echte knoppen.
 
@@ -53,11 +54,13 @@ def test_the_quantity_field_has_its_own_minus_and_plus(client, db_session):
     geen tekst, en de UI-poort eist dat al voor een knop zonder woorden.
     """
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     html = _formulier(client, activity, component)
 
     assert 'aria-label="Eén minder' in html and 'aria-label="Eén meer' in html, (
-        "de teller mist een knop of een aria-label")
+        "de teller mist een knop of een aria-label"
+    )
     # Het product staat in het label, zodat twee tellers op één formulier uit
     # elkaar te houden zijn door wie het scherm niet ziet.
     assert product.name in html
@@ -75,13 +78,13 @@ def test_the_buttons_fire_a_real_change_event(client, db_session):
     door de regel uit de macro te halen: dan faalt deze, en faalt de e2e op het
     stilstaande totaal.
     """
-    activity, component, _p = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+    activity, component, _p = seed_activity_with_product(db_session, price="10.00", is_free=False)
     html = _formulier(client, activity, component)
 
     assert "dispatchEvent(new Event('change'" in html, (
         "de teller vuurt geen change af — het totaal zou op €0,00 blijven staan "
-        "terwijl het aantal klimt")
+        "terwijl het aantal klimt"
+    )
 
 
 def test_the_htmx_attributes_stay_on_the_input(client, db_session):
@@ -93,7 +96,8 @@ def test_the_htmx_attributes_stay_on_the_input(client, db_session):
     pad dat bij typen niet meeloopt.
     """
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     html = _formulier(client, activity, component)
 
     veld = _veld(html, product.id)
@@ -103,8 +107,8 @@ def test_the_htmx_attributes_stay_on_the_input(client, db_session):
     assert len(knoppen) == 2, f"twee knoppen verwacht, gevonden: {len(knoppen)}"
     for knop in knoppen:
         assert "hx-post=" not in knop, (
-            "de knop doet zijn eigen htmx-verzoek; dan loopt klikken langs een "
-            "ander pad dan typen")
+            "de knop doet zijn eigen htmx-verzoek; dan loopt klikken langs een ander pad dan typen"
+        )
 
 
 def test_the_field_keeps_its_name_and_its_bounds(client, db_session):
@@ -115,7 +119,8 @@ def test_the_field_keeps_its_name_and_its_bounds(client, db_session):
     leest ze van het veld.
     """
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     product.max_participants = 7
     db_session.commit()
 
@@ -131,18 +136,19 @@ def test_each_button_is_at_least_44px_by_class(client, db_session):
     ze betrapt iemand die de klasse weghaalt. De echte meting (`getBoundingClientRect`)
     staat in `tests_e2e/test_inschrijf_teller.py`, want een klassenaam is geen maat.
     """
-    activity, component, _p = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+    activity, component, _p = seed_activity_with_product(db_session, price="10.00", is_free=False)
     html = _formulier(client, activity, component)
 
     knoppen = re.findall(r'<button[^>]*aria-label="Eén (?:minder|meer)[^>]*>', html)
     assert len(knoppen) == 2
     for knop in knoppen:
         assert "h-11" in knop and "w-11" in knop, (
-            f"een tellerknop is kleiner dan 44px: {knop[:120]}")
+            f"een tellerknop is kleiner dan 44px: {knop[:120]}"
+        )
 
 
 # ── #1172: waarmee het formulier opent ──────────────────────────────────────
+
 
 def test_one_product_opens_at_one(client, db_session):
     """Het gewone geval: één product, dus het totaal toont meteen de prijs.
@@ -151,7 +157,8 @@ def test_one_product_opens_at_one(client, db_session):
     ook het geval met twee producten op 1 en valt de test hieronder om.
     """
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     html = _formulier(client, activity, component)
 
     assert 'value="1"' in _veld(html, product.id)
@@ -161,7 +168,8 @@ def test_one_product_opens_at_one(client, db_session):
     totaal = re.search(r'<div id="totaal-\d+">(.*?)</div>', html, re.S)
     assert totaal, "geen totaalblok in het formulier"
     assert "10,00" in totaal.group(1), (
-        f"het totaal toont de prijs niet bij het openen: {totaal.group(1).strip()!r}")
+        f"het totaal toont de prijs niet bij het openen: {totaal.group(1).strip()!r}"
+    )
 
 
 def test_two_products_open_at_zero(client, db_session):
@@ -172,10 +180,11 @@ def test_two_products_open_at_zero(client, db_session):
     from app.domains.activities.api import ActivityProduct
 
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
-    db_session.add(ActivityProduct(component_id=component.id,
-                                   name="Tweede product", price=5,
-                                   is_free=False))
+        db_session, price="10.00", is_free=False
+    )
+    db_session.add(
+        ActivityProduct(component_id=component.id, name="Tweede product", price=5, is_free=False)
+    )
     db_session.commit()
 
     html = _formulier(client, activity, component)
@@ -201,8 +210,7 @@ def test_a_product_with_maximum_zero_cannot_exist(db_session):
     """
     from sqlalchemy.exc import IntegrityError
 
-    _a, _c, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+    _a, _c, product = seed_activity_with_product(db_session, price="10.00", is_free=False)
     product.max_participants = 0
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -241,13 +249,15 @@ def test_what_the_visitor_typed_survives_a_validation_error(client, db_session):
     een herrendering die stiekem opnieuw voorvult, valt alleen hier op.
     """
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
 
     respons = client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-        data={"contact_name": "", "contact_email": "x", "phone": "",
-              f"product_{product.id}": "0"})
+        data={"contact_name": "", "contact_email": "x", "phone": "", f"product_{product.id}": "0"},
+    )
     assert respons.status_code == 200
     assert 'value="0"' in _veld(respons.text, product.id), (
         "de herrendering zette het aantal terug op de standaard; wat de bezoeker "
-        "invulde hoort te blijven staan")
+        "invulde hoort te blijven staan"
+    )

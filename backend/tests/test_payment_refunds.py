@@ -5,20 +5,21 @@ charge terug, je betaalt nooit meer terug dan ontvangen, en de stand per
 inschrijving (verschuldigd vs. netto betaald) klopt met de live DB.
 """
 
-
 from decimal import Decimal
 
 import pytest
 
-from app.domains.payment.api import PaymentRecord
 from app.domains.payment.api import (
-    create_refund, net_paid, registration_balance,
+    PayableType,
+    PaymentRecord,
+    PaymentRecordHistory,
+    PaymentStatus,
+    PaymentType,
+    create_refund,
+    net_paid,
 )
-from app.domains.payment.api import PaymentRecordHistory
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import seed_activity_with_product
-from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
-
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -65,12 +66,14 @@ def test_herbevestigen_na_refund_bewaart_saldo_en_context(db_session):
     # Herbevestigen op €20 (< het reeds ontvangen €30) → geweigerd: geen stille
     # overschrijving die het saldo incoherent maakt met de al uitbetaalde refund.
     with pytest.raises(ValueError):
-        confirm_manual_payment(db_session, charge.id,
-                               amount_paid=Decimal("20.00"), actor="admin@test")
+        confirm_manual_payment(
+            db_session, charge.id, amount_paid=Decimal("20.00"), actor="admin@test"
+        )
     # Randgeval: onder het reeds terugbetaalde (€10) duwen → óók geweigerd.
     with pytest.raises(ValueError):
-        confirm_manual_payment(db_session, charge.id,
-                               amount_paid=Decimal("5.00"), actor="admin@test")
+        confirm_manual_payment(
+            db_session, charge.id, amount_paid=Decimal("5.00"), actor="admin@test"
+        )
 
     # Invarianten intact: saldo coherent (30 ontvangen, 10 terug = 20), en géén
     # record verliest payable_type/payable_id.
@@ -84,8 +87,7 @@ def test_herbevestigen_na_refund_bewaart_saldo_en_context(db_session):
 
     # Een legitieme herbevestiging op het volledige bedrag (€30) blijft toegestaan
     # en houdt het saldo coherent.
-    confirm_manual_payment(db_session, charge.id,
-                           amount_paid=Decimal("30.00"), actor="admin@test")
+    confirm_manual_payment(db_session, charge.id, amount_paid=Decimal("30.00"), actor="admin@test")
     assert net_paid(db_session, "registration", 42) == Decimal("20.00")
 
 
@@ -127,9 +129,13 @@ def test_refund_amount_must_be_positive(db_session):
 def test_refund_writes_audit_history(db_session):
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("5.00"), actor="admin@test")
-    rows = db_session.query(PaymentRecordHistory).filter(
-        PaymentRecordHistory.payment_record_id == refund.id,
-    ).all()
+    rows = (
+        db_session.query(PaymentRecordHistory)
+        .filter(
+            PaymentRecordHistory.payment_record_id == refund.id,
+        )
+        .all()
+    )
     assert len(rows) == 1
     assert rows[0].action == "payment_refunded"
     # `PaymentRecordHistory.type` is a bare string: a history table carries
@@ -140,14 +146,18 @@ def test_refund_writes_audit_history(db_session):
 
 # ── Pending refund bevestigen (#219) ──────────────────────────────────────────
 
+
 def test_confirm_pending_refund_books_full_amount(client, db_session, admin_headers):
     """Een pending refund bevestigen (status=paid, géén bedrag) boekt het volledige
     negatieve bedrag; de tekengevoelige validatie blokkeert dit niet (#219)."""
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
     assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
-    resp = client.patch(f"/api/v1/payment-status/records/{refund.id}",
-                        json={"status": "paid"}, headers=admin_headers)
+    resp = client.patch(
+        f"/api/v1/payment-status/records/{refund.id}",
+        json={"status": "paid"},
+        headers=admin_headers,
+    )
     assert resp.status_code == 200, resp.text
     assert Decimal(str(resp.json()["amount_paid"])) == Decimal("-18.00")
 
@@ -156,12 +166,16 @@ def test_refund_rejects_positive_amount_paid(client, db_session, admin_headers):
     """Een positief betaald bedrag op een (negatieve) refund wordt geweigerd."""
     charge = _seed_charge(db_session)
     refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
-    resp = client.patch(f"/api/v1/payment-status/records/{refund.id}",
-                        json={"status": "paid", "amount_paid": "5.00"}, headers=admin_headers)
+    resp = client.patch(
+        f"/api/v1/payment-status/records/{refund.id}",
+        json={"status": "paid", "amount_paid": "5.00"},
+        headers=admin_headers,
+    )
     assert resp.status_code == 400, resp.text
 
 
 # ── Endpoint-laag (admin-only) ────────────────────────────────────────────────
+
 
 def test_refund_endpoint_requires_admin(client):
     resp = client.post("/api/v1/payment-status/records/whatever/refund", json={"amount": "5.00"})
@@ -195,32 +209,46 @@ def test_refund_endpoint_rejects_over_refund(client, db_session, admin_headers):
 
 # ── Saldo per inschrijving (live DB als waarheid) ─────────────────────────────
 
+
 def test_registration_balance_reflects_charge_and_refund(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
 
-    reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}],
-    })
+    reg_resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
-    charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == PayableType.REGISTRATION,
-        PaymentRecord.type == PaymentType.CHARGE,
-    ).order_by(PaymentRecord.created_at.desc()).first()
+    charge = (
+        db_session.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.type == PaymentType.CHARGE,
+        )
+        .order_by(PaymentRecord.created_at.desc())
+        .first()
+    )
     assert charge is not None
     registration_id = charge.payable_id
 
     # Penningmeester bevestigt de overschrijving, daarna deels terugbetalen.
     client.patch(
         f"/api/v1/payment-status/records/{charge.id}",
-        json={"status": "paid", "amount_paid": "18.00"}, headers=admin_headers,
+        json={"status": "paid", "amount_paid": "18.00"},
+        headers=admin_headers,
     )
     client.post(
         f"/api/v1/payment-status/records/{charge.id}/refund",
-        json={"amount": "5.00"}, headers=admin_headers,
+        json={"amount": "5.00"},
+        headers=admin_headers,
     )
 
     resp = client.get(

@@ -40,6 +40,7 @@ niemand aangemeld is, en de derde ook. Dat de tweede blijft staan is geen
 zwakte maar de reden dat de eerste een ánder adres invult dan het hoofdadres —
 zonder dat verschil zou geen van beide iets zien.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -79,8 +80,9 @@ def verstuurde_mail(monkeypatch):
 @pytest.fixture
 def lid_met_twee_adressen(db_session):
     _member, person = create_test_family(db_session, email=HOOFD)
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                                 value=WERK, is_primary=False))
+    db_session.add(
+        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=WERK, is_primary=False)
+    )
     db_session.commit()
     return person
 
@@ -91,9 +93,14 @@ def _schrijf_in(client, activity, component, product, *, email, aangemeld_met=No
         client.cookies.set(SESSION_COOKIE, make_session_value(aangemeld_met))
     return client.post(
         f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-        data={"contact_name": "Deelnemer", "contact_email": email,
-              "phone": "0470000000", f"product_{product.id}": "1",
-              "payment_method": "transfer"})
+        data={
+            "contact_name": "Deelnemer",
+            "contact_email": email,
+            "phone": "0470000000",
+            f"product_{product.id}": "1",
+            "payment_method": "transfer",
+        },
+    )
 
 
 def _bevestigingen(verstuurd: list[dict]) -> list[str]:
@@ -101,7 +108,8 @@ def _bevestigingen(verstuurd: list[dict]) -> list[str]:
 
 
 def test_een_aangemeld_lid_krijgt_de_bevestiging_op_het_ingevulde_adres(
-        client, db_session, lid_met_twee_adressen, verstuurde_mail):
+    client, db_session, lid_met_twee_adressen, verstuurde_mail
+):
     """Het geval waarvoor dit issue bestaat.
 
     Het lid is aangemeld met zijn hoofdadres en vult zijn WERKadres in. Gaat de
@@ -110,22 +118,24 @@ def test_een_aangemeld_lid_krijgt_de_bevestiging_op_het_ingevulde_adres(
     """
     activity, component, product = seed_activity_with_product(db_session)
 
-    respons = _schrijf_in(client, activity, component, product,
-                          email=WERK, aangemeld_met=HOOFD)
+    respons = _schrijf_in(client, activity, component, product, email=WERK, aangemeld_met=HOOFD)
 
     assert respons.status_code == 200, respons.status_code
     aan = _bevestigingen(verstuurde_mail)
     assert aan, (
         "er vertrok geen bevestiging; alle opgevangen mail: "
-        f"{[m['onderwerp'] for m in verstuurde_mail]}")
+        f"{[m['onderwerp'] for m in verstuurde_mail]}"
+    )
     assert aan == [WERK], (
         f"{WERK} verwacht, {aan} gekregen — de bevestiging volgt het hoofdadres "
-        "van de persoon in plaats van wat er op het formulier stond (#1218)")
+        "van de persoon in plaats van wat er op het formulier stond (#1218)"
+    )
     assert HOOFD not in aan
 
 
 def test_een_bezoeker_zonder_aanmelding_krijgt_ze_op_het_getypte_adres(
-        client, db_session, verstuurde_mail):
+    client, db_session, verstuurde_mail
+):
     """Zonder sessie is er geen hoofdadres om per ongeluk te kiezen; deze test
     bewaakt dat het gewone geval blijft werken."""
     activity, component, product = seed_activity_with_product(db_session)
@@ -136,8 +146,7 @@ def test_een_bezoeker_zonder_aanmelding_krijgt_ze_op_het_getypte_adres(
     assert _bevestigingen(verstuurde_mail) == [GAST]
 
 
-def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(
-        client, db_session, verstuurde_mail):
+def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(client, db_session, verstuurde_mail):
     """Wat er in de plaats komt van punt 3 — zie de kop van dit bestand.
 
     Het formulier weigert de inschrijving vóór er iets bewaard of verstuurd
@@ -150,6 +159,6 @@ def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(
 
     assert respons.status_code == 200
     assert "Vul naam, e-mailadres en mobiel nummer in" in respons.text, (
-        "het formulier aanvaardde een inschrijving zonder adres")
-    assert not verstuurde_mail, (
-        f"er vertrok toch een mail zonder ingevuld adres: {verstuurde_mail}")
+        "het formulier aanvaardde een inschrijving zonder adres"
+    )
+    assert not verstuurde_mail, f"er vertrok toch een mail zonder ingevuld adres: {verstuurde_mail}"

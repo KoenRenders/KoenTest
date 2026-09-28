@@ -18,12 +18,12 @@ die zonder foto's (#476), terwijl het lijstfilter bewust alleen activiteiten mé
 media toont. En een geüploade foto hoort onder de **gekozen** activiteit te landen,
 niet onder die uit het lijstfilter.
 """
+
 import io
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -59,12 +59,16 @@ def _activiteit(db, naam):
 def _upload(client, csrf, **velden):
     data = {"kind": "sponsor", "q": "", "filter_activity_id": ""}
     data.update({k: str(v) for k, v in velden.items() if v is not None})
-    return client.post("/admin/media", data=data,
-                       files={"files": ("foto.png", _png(), "image/png")},
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        "/admin/media",
+        data=data,
+        files={"files": ("foto.png", _png(), "image/png")},
+        headers={"X-CSRF-Token": csrf},
+    )
 
 
 # ── 1. De soort is een keuze op het scherm ──────────────────────────────────
+
 
 @pytest.mark.parametrize("filterstand", ["sponsor", "activity_photo"])
 def test_het_uploadscherm_laat_de_soort_kiezen(client, db_session, filterstand):
@@ -86,8 +90,7 @@ def test_de_filterstand_is_de_beginwaarde_en_niet_de_beslissing(client, db_sessi
     assert 'value="sponsor"' in html, "en de andere soort is nog altijd kiesbaar"
 
 
-def test_de_activiteitendropdown_staat_er_ook_vanaf_het_sponsorfilter(client,
-                                                                      db_session):
+def test_de_activiteitendropdown_staat_er_ook_vanaf_het_sponsorfilter(client, db_session):
     """Ze zat achter een server-side `{% if kind == "activity_photo" %}` en
     verscheen dus nooit als je vanaf het sponsorfilter kwam. Nu volgt ze de keuze in
     het scherm."""
@@ -98,8 +101,7 @@ def test_de_activiteitendropdown_staat_er_ook_vanaf_het_sponsorfilter(client,
     html = client.get("/admin/media/nieuw?kind=sponsor").text
     assert 'name="activity_id"' in html, "de dropdown ontbreekt"
     assert "Zomerfeest" in html
-    assert "soort === 'activity_photo'" in html, (
-        "de dropdown volgt de keuze niet")
+    assert "soort === 'activity_photo'" in html, "de dropdown volgt de keuze niet"
 
 
 def test_de_dropdown_toont_ook_activiteiten_zonder_media(client, db_session):
@@ -121,12 +123,13 @@ def test_de_dropdown_draagt_geen_vast_required(client, db_session):
     html = client.get("/admin/media/nieuw?kind=sponsor").text
 
     start = html.index('name="activity_id"')
-    tag = html[html.rindex("<select", 0, start):html.index(">", start)]
+    tag = html[html.rindex("<select", 0, start) : html.index(">", start)]
     assert " required" not in tag, tag
     assert ":required=" in tag, tag
 
 
 # ── 2. Wat er werkelijk opgeslagen wordt ────────────────────────────────────
+
 
 def test_de_foto_landt_onder_de_gekozen_activiteit(client, db_session):
     """De stille fout die deze samenvoeging kan opleveren: opslaan onder de
@@ -138,15 +141,18 @@ def test_de_foto_landt_onder_de_gekozen_activiteit(client, db_session):
     db_session.commit()
     csrf = _login(client)
 
-    resp = _upload(client, csrf, kind="activity_photo",
-                   activity_id=gekozen.id, filter_activity_id=uit_filter.id,
-                   title="Testfoto")
+    resp = _upload(
+        client,
+        csrf,
+        kind="activity_photo",
+        activity_id=gekozen.id,
+        filter_activity_id=uit_filter.id,
+        title="Testfoto",
+    )
     assert resp.status_code in (200, 204), resp.text[:300]
 
-    asset = (db_session.query(MediaAsset)
-             .filter(MediaAsset.title == "Testfoto").one())
-    assert asset.activity_id == gekozen.id, (
-        "de foto hangt aan de activiteit uit het lijstfilter")
+    asset = db_session.query(MediaAsset).filter(MediaAsset.title == "Testfoto").one()
+    assert asset.activity_id == gekozen.id, "de foto hangt aan de activiteit uit het lijstfilter"
 
 
 def test_een_sponsor_hangt_aan_geen_enkele_activiteit(client, db_session):
@@ -158,14 +164,13 @@ def test_een_sponsor_hangt_aan_geen_enkele_activiteit(client, db_session):
     db_session.commit()
     csrf = _login(client)
 
-    resp = _upload(client, csrf, kind="sponsor", activity_id=activiteit.id,
-                   title="Logo")
+    resp = _upload(client, csrf, kind="sponsor", activity_id=activiteit.id, title="Logo")
     assert resp.status_code in (200, 204), resp.text[:300]
-    assert db_session.query(MediaAsset).filter(
-        MediaAsset.title == "Logo").one().activity_id is None
+    assert db_session.query(MediaAsset).filter(MediaAsset.title == "Logo").one().activity_id is None
 
 
 # ── 3. De melding uit v1.14 ─────────────────────────────────────────────────
+
 
 def test_uploaden_zonder_activiteit_zegt_wat_je_moet_doen(client, db_session):
     """v1.14 zei "Kies eerst een activiteit."; de melding was "activity_id vereist
@@ -181,5 +186,4 @@ def test_uploaden_zonder_activiteit_zegt_wat_je_moet_doen(client, db_session):
 
     assert resp.status_code == 200, resp.text[:300]
     assert "Kies eerst een activiteit" in resp.text, resp.text[:400]
-    assert not db_session.query(MediaAsset).filter(
-        MediaAsset.title == "Zonder activiteit").all()
+    assert not db_session.query(MediaAsset).filter(MediaAsset.title == "Zonder activiteit").all()

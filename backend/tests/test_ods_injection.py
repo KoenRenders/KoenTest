@@ -6,10 +6,11 @@ bescherming. De eerdere apostrof-prefix (een CSV-mitigatie) is teruggedraaid: hi
 voegde geen beveiliging toe op .ods en corrumpeerde legitieme waarden (een
 zichtbare leidende ``'``, en mobiele nummers als ``+32…`` werden ``'+32…``).
 """
+
 from io import BytesIO
 
 from odf.opendocument import load
-from odf.table import Table, TableRow, TableCell
+from odf.table import Table, TableCell, TableRow
 from odf.teletype import extractText
 
 from app.kernel.ods import build_ods

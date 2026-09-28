@@ -8,17 +8,16 @@ Twee functionele bugs wegen hier zwaarder dan de opmaak:
   - je kon een terugbetaling niet afboeken zonder een minteken te typen;
   - een handmatig aangemaakte terugbetaling stond meteen op "Terugbetaald".
 """
+
 from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
-from app.domains.payment.api import PaymentRecord, get_records_for
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
+from app.domains.payment.api import PaymentRecord, PaymentStatus, PaymentType, get_records_for
 from tests._invarianten import assert_saldo_klopt
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -36,17 +35,23 @@ def _login(client, db):
 
 
 def _charge(db, bedrag="10.50", betaald="10.50", method="online", payable_id=PAYABLE[1]):
-    rec = PaymentRecord(payable_type="registration", payable_id=payable_id,
-                        type="charge", amount=Decimal(bedrag),
-                        amount_paid=Decimal(betaald) if betaald else None,
-                        method=method, status="paid" if betaald else "pending",
-                        paid_at=datetime.now(timezone.utc) if betaald else None)
+    rec = PaymentRecord(
+        payable_type="registration",
+        payable_id=payable_id,
+        type="charge",
+        amount=Decimal(bedrag),
+        amount_paid=Decimal(betaald) if betaald else None,
+        method=method,
+        status="paid" if betaald else "pending",
+        paid_at=datetime.now(timezone.utc) if betaald else None,
+    )
     db.add(rec)
     db.commit()
     return rec
 
 
 # ── §2-0: afboeken zonder minteken ──────────────────────────────────────────
+
 
 def test_afboeken_met_een_positief_bedrag(client, db_session):
     """De zwaarste bug: de penningmeester moest "-40.00" typen om een uitbetaling te
@@ -57,8 +62,11 @@ def test_afboeken_met_een_positief_bedrag(client, db_session):
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
     refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
-    resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
-                       data={"status": "paid", "amount_paid": "10.50", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{refund.id}/bewerken",
+        headers=hdr,
+        data={"status": "paid", "amount_paid": "10.50", "note": ""},
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -74,8 +82,11 @@ def test_te_veel_afboeken_wordt_geweigerd_in_positieve_termen(client, db_session
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
     refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
-    resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
-                       data={"status": "pending", "amount_paid": "99.00", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{refund.id}/bewerken",
+        headers=hdr,
+        data={"status": "pending", "amount_paid": "99.00", "note": ""},
+    )
     # Sinds #723 is dit een 200 met de reden in de foutbanner: htmx swapt geen 4xx,
     # dus die 400 kwam bij de penningmeester aan als "Er ging iets mis". De weigering
     # zelf is niet veranderd — ze staat nu alleen op het scherm.
@@ -116,20 +127,28 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
     refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
-    erover = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
-                         data={"status": "paid", "amount_paid": "10.51", "note": ""})
+    erover = client.post(
+        f"/admin/betalingen/{refund.id}/bewerken",
+        headers=hdr,
+        data={"status": "paid", "amount_paid": "10.51", "note": ""},
+    )
     assert erover.status_code == 200, erover.text
     assert 'role="alert"' in erover.text, "de weigering is nergens zichtbaar"
     assert "10,50" in erover.text, erover.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None, (
-        "een geweigerde uitbetaling mag niets vastleggen")
+        "een geweigerde uitbetaling mag niets vastleggen"
+    )
 
-    op_de_grens = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
-                              data={"status": "paid", "amount_paid": "10.50", "note": ""})
+    op_de_grens = client.post(
+        f"/admin/betalingen/{refund.id}/bewerken",
+        headers=hdr,
+        data={"status": "paid", "amount_paid": "10.50", "note": ""},
+    )
     assert op_de_grens.status_code == 200, op_de_grens.text
     assert 'role="alert"' not in op_de_grens.text, (
-        "het volledige bedrag uitbetalen hoort geen melding op te leveren")
+        "het volledige bedrag uitbetalen hoort geen melding op te leveren"
+    )
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid == Decimal("-10.50")
     assert_saldo_klopt(db_session, *PAYABLE, "0")
@@ -142,8 +161,11 @@ def test_nul_blijft_toegestaan(client, db_session):
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
     refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
 
-    resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
-                       data={"status": "pending", "amount_paid": "0", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{refund.id}/bewerken",
+        headers=hdr,
+        data={"status": "pending", "amount_paid": "0", "note": ""},
+    )
     assert resp.status_code == 200, resp.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid == Decimal("0")
@@ -151,14 +173,18 @@ def test_nul_blijft_toegestaan(client, db_session):
 
 # ── §2-0b: handmatige refund staat niet meteen op betaald ───────────────────
 
+
 def test_handmatige_refund_start_als_terug_te_betalen(client, db_session):
     """Er is geen weg meer die een refund meteen afboekt: aanmaken en afboeken zijn
     twee stappen, net als bij een betaling."""
     charge = _charge(db_session)
     hdr = _login(client, db_session)
 
-    client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr,
-                data={"amount": "10.50", "note": "handmatig"})
+    client.post(
+        f"/admin/betalingen/{charge.id}/refund",
+        headers=hdr,
+        data={"amount": "10.50", "note": "handmatig"},
+    )
 
     refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == PaymentType.REFUND][0]
     assert refund.status == PaymentStatus.PENDING
@@ -167,6 +193,7 @@ def test_handmatige_refund_start_als_terug_te_betalen(client, db_session):
 
 
 # ── §2-0d: het canonieke testgeval, met exacte bedragen ─────────────────────
+
 
 def test_canoniek_geval_uit_de_v1_14_screenshot(client, db_session):
     """Eén betaalde charge en twee terugbetalingen, waarvan één afgeboekt.
@@ -188,8 +215,11 @@ def test_canoniek_geval_uit_de_v1_14_screenshot(client, db_session):
     assert len(refunds) == 2
 
     # De tweede terugbetaling wordt uitbetaald — met een positief bedrag.
-    client.post(f"/admin/betalingen/{refunds[1].id}/bewerken", headers=hdr,
-                data={"status": "paid", "amount_paid": "10.50", "note": ""})
+    client.post(
+        f"/admin/betalingen/{refunds[1].id}/bewerken",
+        headers=hdr,
+        data={"status": "paid", "amount_paid": "10.50", "note": ""},
+    )
 
     db_session.expire_all()
     records = get_records_for(db_session, *PAYABLE)
@@ -203,8 +233,9 @@ def test_canoniek_geval_uit_de_v1_14_screenshot(client, db_session):
 
 def test_deels_betaalde_charge_met_refund(client, db_session):
     """Scenario uit §2c dat in de code zit maar nergens getoetst werd."""
-    charge = _charge(db_session, bedrag="30.00", betaald="10.00", method="transfer",
-                     payable_id=8812)
+    charge = _charge(
+        db_session, bedrag="30.00", betaald="10.00", method="transfer", payable_id=8812
+    )
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.00"})
 
@@ -212,11 +243,12 @@ def test_deels_betaalde_charge_met_refund(client, db_session):
     records = get_records_for(db_session, "registration", 8812)
     bedrag = sum((Decimal(str(r.amount)) for r in records), Decimal("0"))
     ontvangen = sum((Decimal(str(r.amount_paid or 0)) for r in records), Decimal("0"))
-    assert bedrag == Decimal("20.00")      # 30 − 10
-    assert ontvangen == Decimal("10.00")   # nog niets teruggestort
+    assert bedrag == Decimal("20.00")  # 30 − 10
+    assert ontvangen == Decimal("10.00")  # nog niets teruggestort
 
 
 # ── §2-0e: één totaalregel per INSCHRIJVING, niet per charge ────────────────
+
 
 def test_meerdere_charges_geven_een_totaalregel(client, db_session):
     """De totaalregel heette "Totaal inschrijving" maar telde één charge met haar
@@ -228,10 +260,10 @@ def test_meerdere_charges_geven_een_totaalregel(client, db_session):
     met Bedrag € 81,00 · Ontvangen € 86,00 · Saldo € −5,00.
     """
     payable_id = 8813
-    _charge(db_session, bedrag="20.00", betaald="20.00", method="transfer",
-            payable_id=payable_id)
-    charge2 = _charge(db_session, bedrag="66.00", betaald="66.00", method="transfer",
-                      payable_id=payable_id)
+    _charge(db_session, bedrag="20.00", betaald="20.00", method="transfer", payable_id=payable_id)
+    charge2 = _charge(
+        db_session, bedrag="66.00", betaald="66.00", method="transfer", payable_id=payable_id
+    )
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge2.id}/refund", headers=hdr, data={"amount": "5.00"})
 
@@ -244,13 +276,17 @@ def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
     """Randgeval uit bestaande data (gevolg van de bug uit §2-0b): de weergave moet
     Ontvangen tonen zodra `amount_paid` gevuld is, ongeacht de status."""
     payable_id = 8814
-    charge = _charge(db_session, bedrag="40.00", betaald="40.00", method="transfer",
-                     payable_id=payable_id)
+    charge = _charge(
+        db_session, bedrag="40.00", betaald="40.00", method="transfer", payable_id=payable_id
+    )
     hdr = _login(client, db_session)
     client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.00"})
-    refund = [r for r in get_records_for(db_session, "registration", payable_id)
-              if r.type == PaymentType.REFUND][0]
-    refund.amount_paid = Decimal("-5.00")   # pending mét uitbetaald bedrag
+    refund = [
+        r
+        for r in get_records_for(db_session, "registration", payable_id)
+        if r.type == PaymentType.REFUND
+    ][0]
+    refund.amount_paid = Decimal("-5.00")  # pending mét uitbetaald bedrag
     db_session.commit()
 
     html = client.get("/admin/betalingen/lijst").text

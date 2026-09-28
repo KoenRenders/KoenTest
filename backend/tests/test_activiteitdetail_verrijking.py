@@ -9,12 +9,12 @@ toevoegen, product verwijderen, volgorde wijzigen — die 483 ms opnieuw.
 Een kale query was niet de oplossing: het scherm heeft de verrijking wél nodig.
 Deze tests bewaken precies dat — dat de doorgang lichter is én evenveel toont.
 """
+
 from datetime import date, timedelta
 
 import pytest
 
-from app.domains.activities.api import (Activity, ActivityDate,
-                                        get_activity_detail)
+from app.domains.activities.api import ActivityDate, get_activity_detail
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
@@ -57,12 +57,10 @@ def test_het_detail_draagt_dezelfde_verrijking_als_de_lijst(client, db_session):
     """
     from app.domains.activities.api import list_activities
 
-    activity, component, _p = seed_activity_with_product(db_session,
-                                                         max_participants=1)
+    activity, component, _p = seed_activity_with_product(db_session, max_participants=1)
     db_session.flush()
 
-    uit_lijst = next(a for a in list_activities(db_session, scope="all")
-                     if a.id == activity.id)
+    uit_lijst = next(a for a in list_activities(db_session, scope="all") if a.id == activity.id)
     los = get_activity_detail(db_session, activity.id)
 
     assert los.status == uit_lijst.status
@@ -101,12 +99,13 @@ def test_het_scherm_gebruikt_de_doorgang_en_niet_de_lijstbewerking(client, db_se
         """
         start = bron.index(functie)
         einde = bron.index("\n@router", start)
-        return "\n".join(r for r in bron[start:einde].splitlines()
-                         if not r.strip().startswith("#"))
+        return "\n".join(r for r in bron[start:einde].splitlines() if not r.strip().startswith("#"))
 
     detail = code_van("def _detail_response(")
     assert "get_activity_detail(" in detail
     assert "list_activities(" not in detail, (
-        "het activiteitdetail haalt weer de volledige lijst op (#651)")
+        "het activiteitdetail haalt weer de volledige lijst op (#651)"
+    )
     assert "list_activities(" not in code_van("def admin_activiteit_detail("), (
-        "de paginaroute van het detail haalt weer de volledige lijst op (#651)")
+        "de paginaroute van het detail haalt weer de volledige lijst op (#651)"
+    )

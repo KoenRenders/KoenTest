@@ -62,6 +62,7 @@ To rewrite the snapshots after an intended change: `SNAPSHOT_UPDATE=1 pytest
 tests/test_form_field_types_characterisation.py`, and read the diff before
 committing it. An unread snapshot update is a test switched off.
 """
+
 from __future__ import annotations
 
 import os
@@ -99,8 +100,16 @@ EDIT_TOKEN = "characterisation-edit-token"
 #: One field per type, in this order. Extra columns per type exercise the
 #: branches the builder and the public form take on them.
 FIELDS = [
-    ("text", dict(label="Korte vraag", required=True, help_text="Hulp bij tekst",
-                  min_length=2, max_length=40)),
+    (
+        "text",
+        dict(
+            label="Korte vraag",
+            required=True,
+            help_text="Hulp bij tekst",
+            min_length=2,
+            max_length=40,
+        ),
+    ),
     ("textarea", dict(label="Lange vraag", min_length=5, max_length=500)),
     ("number", dict(label="Getal", min_value=Decimal("1"), max_value=Decimal("10"))),
     ("email", dict(label="Mailadres", required=True)),
@@ -108,8 +117,10 @@ FIELDS = [
     ("select", dict(label="Keuzelijst")),
     ("radio", dict(label="Eén keuze", required=True)),
     ("checkbox", dict(label="Meerdere keuzes")),
-    ("rating", dict(label="Score", rating_max=4, rating_low_label="slecht",
-                    rating_high_label="goed")),
+    (
+        "rating",
+        dict(label="Score", rating_max=4, rating_low_label="slecht", rating_high_label="goed"),
+    ),
     ("info", dict(label="Ter info", help_text="Dit is uitleg")),
 ]
 FIELD_IDS = {kind: BASE + 10 + i for i, (kind, _) in enumerate(FIELDS)}
@@ -118,11 +129,16 @@ FIELD_IDS = {kind: BASE + 10 + i for i, (kind, _) in enumerate(FIELDS)}
 #: "Anders" option and the jump to section two.
 OPTIONS = {
     "select": [("a", "Optie A", {}), ("b", "Optie B", {})],
-    "radio": [("ja", "Ja", {}),
-              ("verder", "Ga verder", {"skip_to_section_id": SECTION_IDS["two"]}),
-              ("anders", "Anders", {"is_other": True})],
-    "checkbox": [("x", "Vink X", {}), ("y", "Vink Y", {}),
-                 ("anders", "Anders", {"is_other": True})],
+    "radio": [
+        ("ja", "Ja", {}),
+        ("verder", "Ga verder", {"skip_to_section_id": SECTION_IDS["two"]}),
+        ("anders", "Anders", {"is_other": True}),
+    ],
+    "checkbox": [
+        ("x", "Vink X", {}),
+        ("y", "Vink Y", {}),
+        ("anders", "Anders", {"is_other": True}),
+    ],
 }
 OPTION_IDS = {}
 _next = BASE + 100
@@ -143,35 +159,75 @@ def _names() -> dict[int, str]:
 @pytest.fixture
 def form(db_session):
     tenant = 2
-    f = Form(id=FORM_ID, tenant_id=tenant, title="Karakterisering",
-             description="Elk veldtype op elk scherm", share_token=SHARE_TOKEN,
-             status="open", allow_edit=True)
+    f = Form(
+        id=FORM_ID,
+        tenant_id=tenant,
+        title="Karakterisering",
+        description="Elk veldtype op elk scherm",
+        share_token=SHARE_TOKEN,
+        status="open",
+        allow_edit=True,
+    )
     db_session.add(f)
     db_session.flush()
-    db_session.add(FormSection(id=SECTION_IDS["one"], tenant_id=tenant, form_id=f.id,
-                               title="Eerste deel", position=0))
-    db_session.add(FormSection(id=SECTION_IDS["two"], tenant_id=tenant, form_id=f.id,
-                               title="Tweede deel", position=1))
+    db_session.add(
+        FormSection(
+            id=SECTION_IDS["one"], tenant_id=tenant, form_id=f.id, title="Eerste deel", position=0
+        )
+    )
+    db_session.add(
+        FormSection(
+            id=SECTION_IDS["two"], tenant_id=tenant, form_id=f.id, title="Tweede deel", position=1
+        )
+    )
     db_session.flush()
     for position, (kind, extra) in enumerate(FIELDS):
-        db_session.add(FormField(id=FIELD_IDS[kind], tenant_id=tenant, form_id=f.id,
-                                 section_id=SECTION_IDS["one"], field_type=kind,
-                                 position=position, **extra))
-    db_session.add(FormField(id=BASE + 50, tenant_id=tenant, form_id=f.id,
-                             section_id=SECTION_IDS["two"], field_type="text",
-                             label="Vraag in deel twee", position=0))
+        db_session.add(
+            FormField(
+                id=FIELD_IDS[kind],
+                tenant_id=tenant,
+                form_id=f.id,
+                section_id=SECTION_IDS["one"],
+                field_type=kind,
+                position=position,
+                **extra,
+            )
+        )
+    db_session.add(
+        FormField(
+            id=BASE + 50,
+            tenant_id=tenant,
+            form_id=f.id,
+            section_id=SECTION_IDS["two"],
+            field_type="text",
+            label="Vraag in deel twee",
+            position=0,
+        )
+    )
     db_session.flush()
     for kind, options in OPTIONS.items():
         for position, (name, label, extra) in enumerate(options):
-            db_session.add(FormFieldOption(id=OPTION_IDS[(kind, name)], tenant_id=tenant,
-                                           field_id=FIELD_IDS[kind], label=label,
-                                           position=position, **extra))
+            db_session.add(
+                FormFieldOption(
+                    id=OPTION_IDS[(kind, name)],
+                    tenant_id=tenant,
+                    field_id=FIELD_IDS[kind],
+                    label=label,
+                    position=position,
+                    **extra,
+                )
+            )
     db_session.flush()
 
     submission = FormSubmission(
-        id=SUBMISSION_ID, tenant_id=tenant, form_id=f.id, submitter_name="Proef",
-        submitter_email="proef@example.org", edit_token=EDIT_TOKEN,
-        submitted_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc))
+        id=SUBMISSION_ID,
+        tenant_id=tenant,
+        form_id=f.id,
+        submitter_name="Proef",
+        submitter_email="proef@example.org",
+        edit_token=EDIT_TOKEN,
+        submitted_at=datetime(2026, 9, 1, 10, 0, tzinfo=timezone.utc),
+    )
     db_session.add(submission)
     db_session.flush()
     answers = [
@@ -181,16 +237,23 @@ def form(db_session):
         dict(field_id=FIELD_IDS["email"], value_text="antwoord@example.org"),
         dict(field_id=FIELD_IDS["phone"], value_text="0400 00 00 00"),
         dict(field_id=FIELD_IDS["select"], value_option_id=OPTION_IDS[("select", "b")]),
-        dict(field_id=FIELD_IDS["radio"], value_option_id=OPTION_IDS[("radio", "anders")],
-             value_text="Iets anders"),
+        dict(
+            field_id=FIELD_IDS["radio"],
+            value_option_id=OPTION_IDS[("radio", "anders")],
+            value_text="Iets anders",
+        ),
         dict(field_id=FIELD_IDS["checkbox"], value_option_id=OPTION_IDS[("checkbox", "x")]),
-        dict(field_id=FIELD_IDS["checkbox"],
-             value_option_id=OPTION_IDS[("checkbox", "anders")], value_text="Nog iets"),
+        dict(
+            field_id=FIELD_IDS["checkbox"],
+            value_option_id=OPTION_IDS[("checkbox", "anders")],
+            value_text="Nog iets",
+        ),
         dict(field_id=FIELD_IDS["rating"], value_rating=3),
     ]
     for answer in answers:
-        db_session.add(FormSubmissionAnswer(tenant_id=tenant, submission_id=SUBMISSION_ID,
-                                            **answer))
+        db_session.add(
+            FormSubmissionAnswer(tenant_id=tenant, submission_id=SUBMISSION_ID, **answer)
+        )
     db_session.flush()
     return f
 
@@ -202,8 +265,22 @@ def _login(client):
 # ── Extracting and normalising a region ──────────────────────────────────────
 
 _TAG = re.compile(r"<(/?)([a-zA-Z][a-zA-Z0-9]*)\b[^>]*?(/?)>")
-_VOID = {"input", "br", "img", "hr", "meta", "link", "source", "wbr", "area",
-         "base", "col", "embed", "param", "track"}
+_VOID = {
+    "input",
+    "br",
+    "img",
+    "hr",
+    "meta",
+    "link",
+    "source",
+    "wbr",
+    "area",
+    "base",
+    "col",
+    "embed",
+    "param",
+    "track",
+}
 
 
 def _element_at(html: str, start: int) -> str:
@@ -217,7 +294,7 @@ def _element_at(html: str, start: int) -> str:
             continue
         depth += -1 if m.group(1) else 1
         if depth == 0:
-            return html[start:m.end()]
+            return html[start : m.end()]
     raise AssertionError(f"<{name}> at {start} is never closed")
 
 
@@ -248,12 +325,16 @@ def _compare(screen: str, fragment: str) -> None:
     if got != want:
         import difflib
 
-        diff = "".join(difflib.unified_diff(want.splitlines(True), got.splitlines(True),
-                                            "snapshot", "rendered", n=2))
+        diff = "".join(
+            difflib.unified_diff(
+                want.splitlines(True), got.splitlines(True), "snapshot", "rendered", n=2
+            )
+        )
         pytest.fail(f"{screen} renders differently than before:\n{diff[:6000]}")
 
 
 # ── The screens ──────────────────────────────────────────────────────────────
+
 
 def test_the_public_form_renders_every_type_as_before(client, form):
     page = client.get(f"/formulier/{SHARE_TOKEN}")

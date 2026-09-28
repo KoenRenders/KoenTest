@@ -65,12 +65,13 @@ Gemeten, vier keer:
 Opgegeven met open ogen: een verplaatsing BINNEN dezelfde functie valt niet meer
 op.
 """
+
 import ast
 from pathlib import Path
 
-from tests._bestanden import bestanden
-
 import pytest
+
+from tests._bestanden import bestanden
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
@@ -102,7 +103,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     # heeft geen grafsteen nodig. Er hangt geen betaling aan, dus er kan geen wees
     # ontstaan.
     ("domains/activities/service.py", "remove_organiser"): (
-        "ActivityOrganiser: geen payable, geen soft delete (#1004)"),
+        "ActivityOrganiser: geen payable, geen soft delete (#1004)"
+    ),
 }
 
 REDEN = (
@@ -132,9 +134,11 @@ def _is_delete_aanroep(node: ast.AST) -> bool:
     Beide vormen tellen. Een bulk-delete zonder argumenten verwijdert rijen even
     hard, en dan zónder ORM-events — dus ook zonder de soft-delete-hook.
     """
-    if not (isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Attribute)
-            and node.func.attr == "delete"):
+    if not (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "delete"
+    ):
         return False
     ontvanger = node.func.value
     return not (isinstance(ontvanger, ast.Name) and ontvanger.id in GEEN_ORM)
@@ -181,11 +185,9 @@ def test_geen_hard_verwijderen_in_een_payable_domein():
                 gezien.add(sleutel)
                 continue
             bron = ast.get_source_segment(pad.read_text(), node) or ".delete(…)"
-            fouten.append(f"{naam}:{node.lineno} ({functie or 'moduleniveau'}): "
-                          f"{bron[:80]}")
+            fouten.append(f"{naam}:{node.lineno} ({functie or 'moduleniveau'}): {bron[:80]}")
     assert not fouten, (
-        f"Hard verwijderen in een domein met een payable — {REDEN}\n  "
-        + "\n  ".join(fouten)
+        f"Hard verwijderen in een domein met een payable — {REDEN}\n  " + "\n  ".join(fouten)
     )
 
 
@@ -204,7 +206,7 @@ def test_elke_uitzondering_wijst_nog_iets_aan():
         functies = {f for f, _node in _verwijderingen(ast.parse(pad.read_text()))}
         if functie not in functies:
             dood.append(f"{bestand}:{functie} verwijdert niets (meer) — {reden}")
-    assert not dood, ("Haal deze regels uit ALLOWLIST:\n  " + "\n  ".join(dood))
+    assert not dood, "Haal deze regels uit ALLOWLIST:\n  " + "\n  ".join(dood)
 
 
 @pytest.mark.parametrize("volledige_naam", sorted(PAYABLE_MODELLEN))
@@ -224,7 +226,8 @@ def test_beide_payables_dragen_soft_delete():
 
     for model in (Membership, Registration):
         assert hasattr(model, "deleted_at"), (
-            f"{model.__name__} kent geen soft delete, dus er is geen alternatief")
+            f"{model.__name__} kent geen soft delete, dus er is geen alternatief"
+        )
 
 
 def test_de_payable_types_in_de_code_zijn_de_twee_die_de_gate_kent():
@@ -232,10 +235,10 @@ def test_de_payable_types_in_de_code_zijn_de_twee_die_de_gate_kent():
     import re
 
     gevonden = set()
-    for pad in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
-                         minstens=100):
+    for pad in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100):
         for m in re.finditer(r'payable_type\s*=\s*"([a-z_]+)"', pad.read_text()):
             gevonden.add(m.group(1))
     assert gevonden <= {"membership", "registration"}, (
         f"onbekend payable_type: {sorted(gevonden - {'membership', 'registration'})} "
-        "— voeg het domein toe aan PAYABLE_DOMEINEN")
+        "— voeg het domein toe aan PAYABLE_DOMEINEN"
+    )

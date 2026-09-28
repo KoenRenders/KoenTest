@@ -1,4 +1,5 @@
 """View-models of the AI cost screen (#978)."""
+
 from dataclasses import dataclass, field
 from typing import Any
 

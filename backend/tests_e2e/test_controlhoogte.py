@@ -14,6 +14,7 @@ Een rendertest op klassen is hier zwak: de HTML klopte al. Dit meet wat de brows
 ervan maakt. Eén meting op de "+ Product"-vorm dekt de hele kit, want de
 maatvoering komt uit één gedeelde bron.
 """
+
 import os
 import sys
 
@@ -22,8 +23,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Activiteitdetail, controlhoogtes,  # noqa: E402
-                                login_als_admin)
+from tests_e2e.schermen import BASE, Activiteitdetail, controlhoogtes, login_als_admin  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -67,8 +67,9 @@ def test_input_en_select_zijn_even_hoog(admin_page):
         _ontbreekt("dit onderdeel heeft geen '+ Product'-vorm")
     knop.click()
     # #997: wait for the opened fields themselves, not for a fixed time.
-    expect(admin_page.locator(
-        'form[hx-post*="/producten"] input:not([type=hidden]):visible').first).to_be_visible()
+    expect(
+        admin_page.locator('form[hx-post*="/producten"] input:not([type=hidden]):visible').first
+    ).to_be_visible()
 
     hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/producten"]')
     if len(hoogtes) < 2:
@@ -77,7 +78,8 @@ def test_input_en_select_zijn_even_hoog(admin_page):
     uniek = set(hoogtes.values())
     assert len(uniek) == 1, (
         "de velden in één vorm zijn niet even hoog — een select krijgt van de "
-        f"browser een eigen minimumhoogte als die niet vastligt: {hoogtes}")
+        f"browser een eigen minimumhoogte als die niet vastligt: {hoogtes}"
+    )
 
 
 def test_datum_en_tijdvelden_lopen_mee(admin_page):
@@ -90,11 +92,13 @@ def test_datum_en_tijdvelden_lopen_mee(admin_page):
         _ontbreekt("de activiteit heeft geen datumregel")
 
     scherm.bewerk_de_eerste_datum()
-    expect(admin_page.locator(
-        'form[hx-post*="/datums/"] input:not([type=hidden]):visible').first).to_be_visible()
+    expect(
+        admin_page.locator('form[hx-post*="/datums/"] input:not([type=hidden]):visible').first
+    ).to_be_visible()
 
     hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/datums/"]')
     if len(hoogtes) < 2:
         _ontbreekt("de datumvorm toont geen velden om te meten")
     assert len(set(hoogtes.values())) == 1, (
-        f"datum- en tijdvelden lopen niet gelijk met de rest: {hoogtes}")
+        f"datum- en tijdvelden lopen niet gelijk met de rest: {hoogtes}"
+    )

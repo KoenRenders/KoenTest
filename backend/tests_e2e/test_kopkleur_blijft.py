@@ -12,6 +12,7 @@ fixed time — see #997.
 Broken to see it red (measured): the `style` removed from the <nav> in
 `site_base.html` → the first assertion fails.
 """
+
 import os
 import sys
 

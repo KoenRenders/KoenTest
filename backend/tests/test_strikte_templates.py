@@ -13,6 +13,7 @@ overstap naar een eigen environment moest die vlag expliciet aan, en zonder deze
 test zou het wegvallen ervan nergens opvallen — tot iemand een `<script>` in een
 activiteitnaam zet.
 """
+
 from pathlib import Path
 
 import pytest
@@ -25,7 +26,8 @@ APP = Path(__file__).resolve().parents[1] / "app"
 
 def test_de_teststand_draait_strikt():
     assert templates.env.undefined is StrictUndefined, (
-        "de testsuite draait niet strikt; typo's in templates blijven dan onzichtbaar")
+        "de testsuite draait niet strikt; typo's in templates blijven dan onzichtbaar"
+    )
 
 
 def test_een_onbestaande_variabele_faalt():
@@ -37,8 +39,10 @@ def test_een_onbestaande_variabele_faalt():
 def test_een_optionele_variabele_mag_met_default():
     """De ontsnapping die wél mag: expliciet zeggen dat iets optioneel is."""
     assert templates.env.from_string("{{ misschien|default('-') }}").render() == "-"
-    assert templates.env.from_string(
-        "{% if misschien is defined %}x{% else %}-{% endif %}").render() == "-"
+    assert (
+        templates.env.from_string("{% if misschien is defined %}x{% else %}-{% endif %}").render()
+        == "-"
+    )
 
 
 def test_autoescaping_staat_aan():

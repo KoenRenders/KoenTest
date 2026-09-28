@@ -24,6 +24,7 @@ verschil dat dit bestand moet kunnen zien; "het getal klimt" bewijst niets.
 Gemeten op telefoonbreedte (390 px): dat is de stand waar het probleem zich
 voordeed, en 80% van het publieke bezoek.
 """
+
 import os
 import sys
 
@@ -58,23 +59,28 @@ def tellerspel():
 
     import app.models  # noqa: F401  configureert alle mappers
     from app.database import SessionLocal
-    from app.domains.activities.api import (Activity, ActivityDate,
-                                            ActivityProduct,
-                                            ActivitySubRegistration)
+    from app.domains.activities.api import (
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+    )
 
     db = SessionLocal()
     activiteit = Activity(name="E2E Tellerspel")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(activity_id=activiteit.id,
-                        start_date=date.today() + timedelta(days=30)))
+    db.add(ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30)))
     onderdeel = ActivitySubRegistration(
-        activity_id=activiteit.id, name="Tellerdeelname",
-        price=Decimal("0"), is_free=True)
+        activity_id=activiteit.id, name="Tellerdeelname", price=Decimal("0"), is_free=True
+    )
     db.add(onderdeel)
     db.flush()
-    db.add(ActivityProduct(component_id=onderdeel.id, name="Tellerticket",
-                           price=Decimal("10.00"), is_free=False))
+    db.add(
+        ActivityProduct(
+            component_id=onderdeel.id, name="Tellerticket", price=Decimal("10.00"), is_free=False
+        )
+    )
     db.commit()
     ids = (activiteit.id, onderdeel.id)
     db.close()
@@ -85,8 +91,7 @@ def _open_het_formulier(page, ids):
     """De inschrijfmodal van díe activiteit — op de `hx-get`, niet op volgorde."""
     activiteit_id, onderdeel_id = ids
     page.goto("/activiteiten")
-    page.click(
-        f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
+    page.click(f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
     page.wait_for_selector("input[name^='product_']", timeout=10_000)
 
 
@@ -115,24 +120,26 @@ def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee(tellerspel):
         # #1172: één product, dus het formulier opent op 1 met de prijs erbij.
         begin = _stand(page)
         assert begin["aantal"] == "1", (
-            f"één product hoort op 1 te openen, gekregen: {begin['aantal']!r}")
+            f"één product hoort op 1 te openen, gekregen: {begin['aantal']!r}"
+        )
         assert "10" in begin["totaal"], (
-            f"het totaal toont de prijs niet bij het openen: {begin['totaal']!r}")
+            f"het totaal toont de prijs niet bij het openen: {begin['totaal']!r}"
+        )
 
         # #1171, punt 4: een MAAT, geen klassenaam.
-        assert len(begin["knoppen"]) == 2, (
-            f"twee tellerknoppen verwacht: {begin['knoppen']}")
+        assert len(begin["knoppen"]) == 2, f"twee tellerknoppen verwacht: {begin['knoppen']}"
         for knop in begin["knoppen"]:
             assert knop["label"], f"een tellerknop zonder aria-label: {knop}"
             assert knop["breedte"] >= MIN_RAAKVLAK and knop["hoogte"] >= MIN_RAAKVLAK, (
                 f"knop {knop['label']!r} meet {knop['breedte']}×{knop['hoogte']}px, "
-                f"minimaal {MIN_RAAKVLAK}px (#804)")
+                f"minimaal {MIN_RAAKVLAK}px (#804)"
+            )
 
         # #1171, punt 1 — de belangrijkste. Het getal klimt ÉN het totaal volgt.
         page.get_by_role("button", name="Eén meer").first.click()
         page.wait_for_function(
-            "() => document.querySelector(\"input[name^='product_']\").value === '2'",
-            timeout=5_000)
+            "() => document.querySelector(\"input[name^='product_']\").value === '2'", timeout=5_000
+        )
         # Wachten mag mislukken: blijft het totaal staan, dan is dát de bevinding
         # en hoort de assertie hieronder ze te melden. Een kale `wait_for_function`
         # zou hier een Playwright-timeout opleveren, en die zegt niet wat er stuk
@@ -143,7 +150,9 @@ def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee(tellerspel):
                      const t = document.querySelector("[id^='totaal-']");
                      return t && t.innerText.replace(/\\s+/g, ' ').trim() !== vorig;
                    }""",
-                arg=begin["totaal"], timeout=8_000)
+                arg=begin["totaal"],
+                timeout=8_000,
+            )
         except PlaywrightTimeout:
             pass
 
@@ -152,7 +161,8 @@ def test_de_teller_verhoogt_het_aantal_en_het_totaal_beweegt_mee(tellerspel):
         assert "20" in na["totaal"], (
             f"het totaal bewoog niet mee naar twee stuks: {na['totaal']!r} — de "
             "teller vuurt waarschijnlijk geen change af, en dan bevestigt de "
-            "bezoeker een bedrag dat niet op het scherm staat")
+            "bezoeker een bedrag dat niet op het scherm staat"
+        )
 
         browser.close()
 
@@ -170,8 +180,8 @@ def test_de_teller_stopt_op_nul(tellerspel):
         for _ in range(3):
             minder.click()
         page.wait_for_function(
-            "() => document.querySelector(\"input[name^='product_']\").value === '0'",
-            timeout=5_000)
+            "() => document.querySelector(\"input[name^='product_']\").value === '0'", timeout=5_000
+        )
 
         assert _stand(page)["aantal"] == "0", "de teller zakte onder nul"
         browser.close()

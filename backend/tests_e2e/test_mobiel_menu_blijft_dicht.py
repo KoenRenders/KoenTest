@@ -24,6 +24,7 @@ none"` weer weggehaald uit de betreffende container → de eerste assert valt om
 tegenproef blijft groen. Na #997 (wachten tot htmx gesetteld is, niet 1200 ms)
 opnieuw gemeten voor het publieke menu: valt om.
 """
+
 import os
 import sys
 
@@ -32,8 +33,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, htmx_afgerond, login_met_sessie,  # noqa: E402
-                                pagina_klaar)
+from tests_e2e.schermen import BASE, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
 
 # Smal genoeg voor `md:hidden`: onder de md-breekpunt van 768 px.
 TELEFOON = {"width": 390, "height": 800}
@@ -77,7 +77,8 @@ def test_het_publieke_menu_blijft_dicht_na_een_gebooste_navigatie(telefoon_page)
 
     assert not menu.is_visible(), (
         "het mobiele menu klapt open na elke navigatie — htmx' settle heeft de "
-        "display:none van Alpine gewist (#737)")
+        "display:none van Alpine gewist (#737)"
+    )
 
     page.get_by_role("button", name="Menu").click()
     expect(menu, "het menu gaat niet meer open met de ☰-knop").to_be_visible()
@@ -92,8 +93,7 @@ def test_het_beheermenu_blijft_dicht_na_een_gebooste_navigatie(telefoon_page):
 
     _boost_naar(page, '#admin-nav-zijbalk a[href="/admin/activiteiten"]')
 
-    assert not menu.is_visible(), (
-        "het mobiele beheermenu klapt open na elke navigatie (#737)")
+    assert not menu.is_visible(), "het mobiele beheermenu klapt open na elke navigatie (#737)"
 
     page.get_by_role("button", name="Menu").click()
     expect(menu, "het menu gaat niet meer open met de ☰-knop").to_be_visible()

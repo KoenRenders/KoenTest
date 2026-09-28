@@ -41,6 +41,7 @@ One `CodeSeed` per code carries its code, its sort order and its two labels,
 so a call site cannot add a code and forget its label — the two tables are
 written from one list. Every other name in that table is as the CR spells it.
 """
+
 from __future__ import annotations
 
 import logging
@@ -75,6 +76,7 @@ FALLBACK_TONE = "gray"
 
 # ── The base of every code-list enum ─────────────────────────────────────────
 
+
 class CodeEnum(Enum):
     """A member is its code in every string context (#1280, CR-12 §B4.3).
 
@@ -108,6 +110,7 @@ class CodeEnum(Enum):
 
 # ── Enums that are deliberately not a code list ──────────────────────────────
 
+
 class TechnicalEnum(Enum):
     """A technical distinction that is never stored and never shown.
 
@@ -129,6 +132,7 @@ class ExternalVocabulary(CodeEnum):
 
 
 # ── The declaration ──────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class CodeSeed:
@@ -212,7 +216,8 @@ def register(code_list: CodeList) -> None:
         raise ValueError(
             f"two different code lists are called {code_list.name!r}: "
             f"{existing.codes_table} and {code_list.codes_table}. A list name is "
-            f"how `code_label()` finds it, so it has to be unique.")
+            f"how `code_label()` finds it, so it has to be unique."
+        )
     _REGISTRY[code_list.name] = code_list
 
 
@@ -228,7 +233,8 @@ def code_list(name: str) -> CodeList:
         raise LookupError(
             f"no code list called {name!r}. Declare it in the owning domain's "
             f"codes.py and export it through its api.py; known lists: "
-            f"{sorted(_REGISTRY)}") from None
+            f"{sorted(_REGISTRY)}"
+        ) from None
 
 
 def register_tones(name: str, tones: dict[Any, str]) -> None:
@@ -245,6 +251,7 @@ def register_tones(name: str, tones: dict[Any, str]) -> None:
 
 
 # ── The column type ──────────────────────────────────────────────────────────
+
 
 class EnumColumn(TypeDecorator):
     """Stores `member.value`, reads the member back. Never the member name.
@@ -263,8 +270,7 @@ class EnumColumn(TypeDecorator):
     impl = String
     cache_ok = True
 
-    def __init__(self, enum_cls: type[Enum], length: int | None = None,
-                 **kw: Any):
+    def __init__(self, enum_cls: type[Enum], length: int | None = None, **kw: Any):
         self.enum_cls = enum_cls
         super().__init__(length=length, **kw)
 
@@ -279,7 +285,8 @@ class EnumColumn(TypeDecorator):
             return str(self.enum_cls(value).value)
         raise TypeError(
             f"{self.enum_cls.__name__}: cannot store {value!r} ({type(value).__name__}); "
-            f"pass a member or its code")
+            f"pass a member or its code"
+        )
 
     def process_result_value(self, value: Any, dialect: Any) -> Enum | None:
         if value is None:
@@ -299,6 +306,7 @@ def _coerce_on_assignment(enum_cls: type[Enum]) -> Any:
         if isinstance(value, str):
             return enum_cls(value)
         return value
+
     return coerce
 
 
@@ -328,9 +336,12 @@ def install_enum_coercion() -> None:
         for prop in mapper.column_attrs:
             column = prop.columns[0]
             if isinstance(column.type, EnumColumn):
-                event.listen(getattr(cls, prop.key), "set",
-                             _coerce_on_assignment(column.type.enum_cls),
-                             retval=True)
+                event.listen(
+                    getattr(cls, prop.key),
+                    "set",
+                    _coerce_on_assignment(column.type.enum_cls),
+                    retval=True,
+                )
 
 
 install_enum_coercion()
@@ -387,8 +398,8 @@ def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
         # does not see it. Such a caller is rare (an admin screen, a test); the
         # normal path stays cached.
         rows = db.execute(
-            sa.select(lst.labels.code, lst.labels.value)
-            .where(lst.labels.language == language)).all()
+            sa.select(lst.labels.code, lst.labels.value).where(lst.labels.language == language)
+        ).all()
         return {code: value for code, value in rows}
     key = (name, language)
     if key not in _label_cache:
@@ -396,8 +407,7 @@ def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
 
         with SessionLocal() as own:
             rows = own.execute(
-                sa.select(lst.labels.code, lst.labels.value)
-                .where(lst.labels.language == language)
+                sa.select(lst.labels.code, lst.labels.value).where(lst.labels.language == language)
             ).all()
         _label_cache[key] = {code: value for code, value in rows}
     return _label_cache[key]
@@ -405,9 +415,11 @@ def _labels_of(name: str, language: str, db: Any = None) -> dict[str, str]:
 
 def _active_of(name: str, db: Any = None) -> list[str]:
     lst = code_list(name)
-    query = (sa.select(lst.codes.code)
-             .where(lst.codes.is_active.is_(True))
-             .order_by(lst.codes.sort_order, lst.codes.code))
+    query = (
+        sa.select(lst.codes.code)
+        .where(lst.codes.is_active.is_(True))
+        .order_by(lst.codes.sort_order, lst.codes.code)
+    )
     if db is not None:
         return [row[0] for row in db.execute(query).all()]
     if name not in _active_cache:
@@ -418,8 +430,7 @@ def _active_of(name: str, db: Any = None) -> list[str]:
     return _active_cache[name]
 
 
-def code_label(name: str, code: Any, language: str | None = None,
-               db: Any = None) -> str:
+def code_label(name: str, code: Any, language: str | None = None, db: Any = None) -> str:
     """The human text of one code, in the active language.
 
     Falls back to `nl`, and then to the code itself so a screen never renders
@@ -440,20 +451,19 @@ def code_label(name: str, code: Any, language: str | None = None,
             return text
     if (name, stored) not in _missing_logged:
         _missing_logged.add((name, stored))
-        logger.warning("no label for code %r in list %r (language %r); showing the code",
-                       stored, name, wanted)
+        logger.warning(
+            "no label for code %r in list %r (language %r); showing the code", stored, name, wanted
+        )
     return stored
 
 
-def code_labels(name: str, language: str | None = None,
-                db: Any = None) -> list[tuple[str, str]]:
+def code_labels(name: str, language: str | None = None, db: Any = None) -> list[tuple[str, str]]:
     """The `(code, label)` pairs of the **active** codes, in `sort_order`.
 
     This is what a select list and a report dimension iterate over — the last
     place where a Python list decided in which order a user sees the options.
     """
-    return [(code, code_label(name, code, language, db))
-            for code in _active_of(name, db)]
+    return [(code, code_label(name, code, language, db)) for code in _active_of(name, db)]
 
 
 def tone(name: str, code: Any) -> str:
@@ -471,8 +481,7 @@ def install_jinja_codes(env: Any) -> None:
     instead trips the label-dictionary gate; one that compares the code to a
     literal trips the template gate.
     """
-    env.filters["code_label"] = lambda code, name, language=None: code_label(
-        name, code, language)
+    env.filters["code_label"] = lambda code, name, language=None: code_label(name, code, language)
     env.filters["tone"] = lambda code, name: tone(name, code)
 
 
@@ -527,7 +536,8 @@ def install_enum_guard(env: Any, *, strict: bool) -> None:
                     f"the CODE from its view-model (§B4.7) — `code_of(...)` on "
                     f"the view boundary — and its word from the `code_label` "
                     f"filter. Rendered as it is, {member_name} lands in the output, "
-                    f"equals no code and matches no option.")
+                    f"equals no code and matches no option."
+                )
             logger.warning("template rendered %s; showing its code instead", member_name)
             return _code_of(value)
         return previous(value) if previous is not None else value
@@ -536,6 +546,7 @@ def install_enum_guard(env: Any, *, strict: bool) -> None:
 
 
 # ── The migration helper ─────────────────────────────────────────────────────
+
 
 def _inspector(op: Any) -> Any:
     return sa.inspect(op.get_bind())
@@ -546,8 +557,9 @@ def _has_table(op: Any, schema: str, table: str) -> bool:
 
 
 def _has_fk(op: Any, schema: str, table: str, name: str) -> bool:
-    return any(fk.get("name") == name
-               for fk in _inspector(op).get_foreign_keys(table, schema=schema))
+    return any(
+        fk.get("name") == name for fk in _inspector(op).get_foreign_keys(table, schema=schema)
+    )
 
 
 def create_code_list(
@@ -589,8 +601,12 @@ def create_code_list(
             sa.Column("code", sa.String(code_length), primary_key=True),
             sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"),
             sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                      server_default=sa.func.now()),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
             # Properties of the code, not labels (see `extra_code_columns`).
             *extra_columns,
             schema=schema,
@@ -602,14 +618,24 @@ def create_code_list(
             sa.Column("language", sa.String(5), primary_key=True),
             sa.Column("value", sa.String(value_length), nullable=False),
             sa.Column("description", sa.String(255), nullable=True),
-            sa.Column("created_at", sa.DateTime(timezone=True), nullable=False,
-                      server_default=sa.func.now()),
-            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False,
-                      server_default=sa.func.now()),
-            sa.ForeignKeyConstraint(["code"], [f"{schema}.{codes_table}.code"],
-                                    name=f"fk_{name}_labels_code"),
-            sa.ForeignKeyConstraint(["language"], ["mdm.language_codes.code"],
-                                    name=f"fk_{name}_labels_language"),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.Column(
+                "updated_at",
+                sa.DateTime(timezone=True),
+                nullable=False,
+                server_default=sa.func.now(),
+            ),
+            sa.ForeignKeyConstraint(
+                ["code"], [f"{schema}.{codes_table}.code"], name=f"fk_{name}_labels_code"
+            ),
+            sa.ForeignKeyConstraint(
+                ["language"], ["mdm.language_codes.code"], name=f"fk_{name}_labels_language"
+            ),
             schema=schema,
         )
 
@@ -620,23 +646,35 @@ def create_code_list(
     # as intended — but it makes the loop order part of the contract.
     for seed in codes:
         bind.execute(
-            sa.text(f"INSERT INTO {schema}.{codes_table} "
-                    f"(code, sort_order, is_active, created_at) "
-                    f"VALUES (:code, :sort_order, :is_active, :now) "
-                    f"ON CONFLICT (code) DO NOTHING"),
-            {"code": seed.code, "sort_order": seed.sort_order,
-             "is_active": seed.is_active, "now": _now()},
+            sa.text(
+                f"INSERT INTO {schema}.{codes_table} "
+                f"(code, sort_order, is_active, created_at) "
+                f"VALUES (:code, :sort_order, :is_active, :now) "
+                f"ON CONFLICT (code) DO NOTHING"
+            ),
+            {
+                "code": seed.code,
+                "sort_order": seed.sort_order,
+                "is_active": seed.is_active,
+                "now": _now(),
+            },
         )
     for seed in codes:
         for language in ("nl", "en"):
             bind.execute(
-                sa.text(f"INSERT INTO {schema}.{labels_table} "
-                        f"(code, language, value, description, created_at, updated_at) "
-                        f"VALUES (:code, :language, :value, :description, :now, :now) "
-                        f"ON CONFLICT (code, language) DO NOTHING"),
-                {"code": seed.code, "language": language,
-                 "value": seed.label(language),
-                 "description": seed.description(language), "now": _now()},
+                sa.text(
+                    f"INSERT INTO {schema}.{labels_table} "
+                    f"(code, language, value, description, created_at, updated_at) "
+                    f"VALUES (:code, :language, :value, :description, :now, :now) "
+                    f"ON CONFLICT (code, language) DO NOTHING"
+                ),
+                {
+                    "code": seed.code,
+                    "language": language,
+                    "value": seed.label(language),
+                    "description": seed.description(language),
+                    "now": _now(),
+                },
             )
 
     known = {seed.code for seed in codes}
@@ -644,8 +682,9 @@ def create_code_list(
         add_code_fk(op, column, schema, name, known)
 
 
-def add_code_fk(op: Any, column: str, schema: str, name: str,
-                known: set[str] | None = None) -> None:
+def add_code_fk(
+    op: Any, column: str, schema: str, name: str, known: set[str] | None = None
+) -> None:
     """Point one storing column at a code table, after proving the data fits.
 
     `column` is `"schema.table.column"` — the same spelling the gate and the
@@ -657,41 +696,59 @@ def add_code_fk(op: Any, column: str, schema: str, name: str,
         return
 
     bind = op.get_bind()
-    stray = bind.execute(sa.text(
-        f'SELECT "{col}" AS value, count(*) AS n FROM {col_schema}.{table} '
-        f'WHERE "{col}" IS NOT NULL '
-        f'  AND "{col}" NOT IN (SELECT code FROM {schema}.{name}_codes) '
-        f'GROUP BY "{col}" ORDER BY n DESC')).all()
+    stray = bind.execute(
+        sa.text(
+            f'SELECT "{col}" AS value, count(*) AS n FROM {col_schema}.{table} '
+            f'WHERE "{col}" IS NOT NULL '
+            f'  AND "{col}" NOT IN (SELECT code FROM {schema}.{name}_codes) '
+            f'GROUP BY "{col}" ORDER BY n DESC'
+        )
+    ).all()
     if stray:
         found = ", ".join(f"{row.value!r}×{row.n}" for row in stray)
         raise RuntimeError(
             f"{column} holds {sum(row.n for row in stray)} row(s) whose value is not in "
             f"{schema}.{name}_codes: {found}. Add the code, map the value, or retire it "
             f"— the foreign key would fail on these rows, soft-deleted ones included. "
-            f"Known codes: {sorted(known) if known else 'see the table'}.")
+            f"Known codes: {sorted(known) if known else 'see the table'}."
+        )
 
-    op.create_foreign_key(constraint, table, f"{name}_codes",
-                          [col], ["code"],
-                          source_schema=col_schema, referent_schema=schema)
+    op.create_foreign_key(
+        constraint,
+        table,
+        f"{name}_codes",
+        [col],
+        ["code"],
+        source_schema=col_schema,
+        referent_schema=schema,
+    )
 
 
-def retire_code(op: Any, schema: str, name: str, code: str,
-                used_by: Iterable[str] = ()) -> None:
+def retire_code(op: Any, schema: str, name: str, code: str, used_by: Iterable[str] = ()) -> None:
     """Flip a code to inactive and log how many rows still carry it.
 
     Never a delete: a history row and an old record keep a valid target, and
     the enum keeps the member so the value never reads back as a bare string.
     """
     bind = op.get_bind()
-    bind.execute(sa.text(f"UPDATE {schema}.{name}_codes SET is_active = false "
-                         f"WHERE code = :code"), {"code": code})
+    bind.execute(
+        sa.text(f"UPDATE {schema}.{name}_codes SET is_active = false WHERE code = :code"),
+        {"code": code},
+    )
     for column in used_by:
         col_schema, table, col = column.split(".")
-        count = bind.execute(sa.text(
-            f'SELECT count(*) FROM {col_schema}.{table} WHERE "{col}" = :code'),
-            {"code": code}).scalar_one()
-        logger.info("retired %s.%s_codes.%s — %s still carries it in %s row(s)",
-                    schema, name, code, column, count)
+        count = bind.execute(
+            sa.text(f'SELECT count(*) FROM {col_schema}.{table} WHERE "{col}" = :code'),
+            {"code": code},
+        ).scalar_one()
+        logger.info(
+            "retired %s.%s_codes.%s — %s still carries it in %s row(s)",
+            schema,
+            name,
+            code,
+            column,
+            count,
+        )
 
 
 def _now() -> Any:

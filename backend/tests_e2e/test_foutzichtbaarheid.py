@@ -10,6 +10,7 @@ Alleen een echte browser kan dit bewijzen. De server deed niets fout — hij gaf
 netjes 403 — en de markup was in orde; de fout zat in wat de pagina met dat
 antwoord deed, en dat is per definitie gedrag in de browser.
 """
+
 import os
 import sys
 
@@ -18,8 +19,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Activiteitdetail, htmx_afgerond,  # noqa: E402
-                                login_als_admin)
+from tests_e2e.schermen import BASE, Activiteitdetail, htmx_afgerond, login_als_admin  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -77,9 +77,9 @@ def test_een_403_levert_een_zichtbare_melding(admin_page):
     # CSRF-token in `hx-headers`. Wat een melding moet doen, is zeggen wát er
     # misging en wát te doen; daar toetsen we op.
     assert "niet bewaard" in tekst, (
-        f"de melding zegt niet dat de wijziging niet bewaard is, kreeg: {tekst!r}")
-    assert "herlaad" in tekst, (
-        f"de melding zegt niet wat de gebruiker moet doen, kreeg: {tekst!r}")
+        f"de melding zegt niet dat de wijziging niet bewaard is, kreeg: {tekst!r}"
+    )
+    assert "herlaad" in tekst, f"de melding zegt niet wat de gebruiker moet doen, kreeg: {tekst!r}"
 
 
 def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
@@ -107,4 +107,5 @@ def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):
             scherm.bewaar()
 
     assert scherm.foutmeldingen().count() == 1, (
-        f"drie mislukte pogingen gaven {scherm.foutmeldingen().count()} meldingen")
+        f"drie mislukte pogingen gaven {scherm.foutmeldingen().count()} meldingen"
+    )

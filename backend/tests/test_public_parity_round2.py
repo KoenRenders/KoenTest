@@ -3,6 +3,7 @@
 - Inschrijfformulier voorinvullen (e-mail + mobiel) voor een ingelogd lid.
 - Gezin-toevoegformulier met geslacht/mobiel/telefoon-velden.
 """
+
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -17,9 +18,15 @@ def _members_only_activity(db):
     db.add(a)
     db.flush()
     db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=20)))
-    db.add(ActivitySubRegistration(
-        activity_id=a.id, name="Deelname", registration_type_code="INDIVIDUAL",
-        price=Decimal("0"), is_free=True))
+    db.add(
+        ActivitySubRegistration(
+            activity_id=a.id,
+            name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            price=Decimal("0"),
+            is_free=True,
+        )
+    )
     db.flush()
     return a
 
@@ -33,8 +40,11 @@ def test_members_only_badge_on_public_cards(client, db_session):
 
 def test_registration_form_prefills_email_and_mobile_for_member(client, db_session):
     _member, person = create_test_family(db_session, email="lid@example.com")
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE",
-                                 value="0470112233", is_primary=True))
+    db_session.add(
+        ContactDetail(
+            person_id=person.id, contact_type_code="MOBILE", value="0470112233", is_primary=True
+        )
+    )
     activity = _members_only_activity(db_session)
     comp = activity.sub_registrations[0]
     db_session.commit()
@@ -50,9 +60,15 @@ def test_archived_card_shows_participants_not_registration(client, db_session):
     db_session.add(a)
     db_session.flush()
     db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=30)))
-    db_session.add(ActivitySubRegistration(
-        activity_id=a.id, name="Deelname", registration_type_code="INDIVIDUAL",
-        price=Decimal("0"), is_free=True))
+    db_session.add(
+        ActivitySubRegistration(
+            activity_id=a.id,
+            name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            price=Decimal("0"),
+            is_free=True,
+        )
+    )
     db_session.flush()
     db_session.commit()
 

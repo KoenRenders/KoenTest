@@ -9,6 +9,7 @@ reader still reads it. The <title> keeps it either way — that is text, not ima
 Broken to see it red (measured): the tagline line moved back outside the
 logo/wordmark choice in `site_base.html` → the first test fails.
 """
+
 import re
 
 from tests.test_footer_branding import _render

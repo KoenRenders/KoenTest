@@ -22,6 +22,7 @@ statement.
 the refusals — an unknown object, a role that is not granted, measures from two
 facts — are provable without one, and the service layer decides when to execute.
 """
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -30,8 +31,6 @@ from dataclasses import dataclass, field
 from app.domains.reporting.universe import (
     BY_KEY,
     DATE_GRAINS,
-    DIMENSION_BY_KEY,
-    physical_view,
     DATE_OBJECT_GRAIN,
     FACT_BY_KEY,
     Fact,
@@ -40,6 +39,7 @@ from app.domains.reporting.universe import (
     UniverseObject,
     join_order,
     joins_for,
+    physical_view,
 )
 from app.i18n import N_
 from app.kernel.codes import TechnicalEnum
@@ -228,20 +228,21 @@ def selection_to_dict(selection: Selection) -> dict[str, object]:
     return {
         "objects": list(selection.object_keys),
         "filters": [
-            {"object": f.object_key, "operator": f.operator.value,
-             "values": list(f.values),
-             **({"symbolic": f.symbolic} if f.symbolic else {})}
+            {
+                "object": f.object_key,
+                "operator": f.operator.value,
+                "values": list(f.values),
+                **({"symbolic": f.symbolic} if f.symbolic else {}),
+            }
             for f in selection.filters
         ],
-        "sort": [{"object": s.object_key, "direction": s.direction.value}
-                 for s in selection.sort],
+        "sort": [{"object": s.object_key, "direction": s.direction.value} for s in selection.sort],
         "layout": selection.layout,
         "pivot_column": selection.pivot_column,
     }
 
 
-def selection_from_dict(data: object, *, limit: int = 200,
-                        offset: int = 0) -> Selection:
+def selection_from_dict(data: object, *, limit: int = 200, offset: int = 0) -> Selection:
     """A stored selection back into a `Selection` — validated on the way in.
 
     Everything here comes from a database row or from a query string, so nothing
@@ -270,8 +271,7 @@ def selection_from_dict(data: object, *, limit: int = 200,
         try:
             operator = Operator(raw.get("operator"))
         except ValueError as exc:
-            raise SelectionError(
-                f"Onbekende filtersoort: '{raw.get('operator')}'.") from exc
+            raise SelectionError(f"Onbekende filtersoort: '{raw.get('operator')}'.") from exc
         values = raw.get("values") or []
         if not isinstance(values, list):
             raise SelectionError("Een filter zonder waarden.")
@@ -279,9 +279,9 @@ def selection_from_dict(data: object, *, limit: int = 200,
         if symbolic and symbolic not in SYMBOLIC_VALUES:
             raise SelectionError(
                 f"Onbekende relatieve waarde: '{symbolic}'. Er zijn er drie: "
-                f"{', '.join(SYMBOLIC_VALUES)}.")
-        filters.append(Filter(object_key, operator,
-                              tuple(str(v) for v in values), str(symbolic)))
+                f"{', '.join(SYMBOLIC_VALUES)}."
+            )
+        filters.append(Filter(object_key, operator, tuple(str(v) for v in values), str(symbolic)))
 
     sort: list[Sort] = []
     for raw in data.get("sort") or []:
@@ -294,26 +294,30 @@ def selection_from_dict(data: object, *, limit: int = 200,
         try:
             direction = Direction(raw.get("direction", "asc"))
         except ValueError as exc:
-            raise SelectionError(
-                f"Onbekende sorteerrichting: '{raw.get('direction')}'.") from exc
+            raise SelectionError(f"Onbekende sorteerrichting: '{raw.get('direction')}'.") from exc
         sort.append(Sort(object_key, direction))
 
     layout = data.get("layout", "table")
     if layout not in LAYOUTS:
         raise SelectionError(
-            f"De vorm '{layout}' bestaat niet. Kies een tabel, een draaitabel "
-            "of een grafiek.")
+            f"De vorm '{layout}' bestaat niet. Kies een tabel, een draaitabel of een grafiek."
+        )
 
     pivot_column = data.get("pivot_column") or ""
     if pivot_column:
         kolom = _object(str(pivot_column))
         if kolom.is_measure:
-            raise SelectionError(
-                f"'{kolom.name}' is een maat en kan niet op de kolomas staan.")
+            raise SelectionError(f"'{kolom.name}' is een maat en kan niet op de kolomas staan.")
 
-    return Selection(object_keys=tuple(keys), filters=tuple(filters),
-                     sort=tuple(sort), limit=limit, offset=offset,
-                     layout=str(layout), pivot_column=str(pivot_column))
+    return Selection(
+        object_keys=tuple(keys),
+        filters=tuple(filters),
+        sort=tuple(sort),
+        limit=limit,
+        offset=offset,
+        layout=str(layout),
+        pivot_column=str(pivot_column),
+    )
 
 
 @dataclass
@@ -377,14 +381,17 @@ def _refuse_too_fine_a_date(objects: list[UniverseObject], fact: str) -> None:
     if toegestaan == DATE_GRAINS[-1]:
         return
     grens = DATE_GRAINS.index(toegestaan)
-    te_fijn = [o for o in objects
-               if o.key in DATE_OBJECT_GRAIN
-               and DATE_GRAINS.index(DATE_OBJECT_GRAIN[o.key]) > grens]
+    te_fijn = [
+        o
+        for o in objects
+        if o.key in DATE_OBJECT_GRAIN and DATE_GRAINS.index(DATE_OBJECT_GRAIN[o.key]) > grens
+    ]
     if te_fijn:
         namen = ", ".join(f"'{o.name}'" for o in te_fijn)
         raise SelectionError(
             f"{FACT_BY_KEY[fact].name} kent alleen een jaar, geen dag: {namen} "
-            "zou alles op januari laten vallen. Neem 'Jaar'.")
+            "zou alles op januari laten vallen. Neem 'Jaar'."
+        )
 
 
 def values_from_fact_sql(object_key: str, fact: str) -> tuple[str, list[str]]:
@@ -409,10 +416,12 @@ def values_from_fact_sql(object_key: str, fact: str) -> tuple[str, list[str]]:
     # ook in de SELECT, anders weigert Postgres het DISTINCT.
     extra = [deel for deel in order if not deel.startswith('"')]
     select = ", ".join([f"{expressie} AS waarde", *extra])
-    sql = (f"SELECT DISTINCT {select}\nFROM {from_clause}\n"
-           f"WHERE {_view_alias(fact)}.tenant_id = :tenant_id "
-           f"AND {expressie} IS NOT NULL\n"
-           f"ORDER BY {', '.join(extra or ['1'])}\nLIMIT :limit")
+    sql = (
+        f"SELECT DISTINCT {select}\nFROM {from_clause}\n"
+        f"WHERE {_view_alias(fact)}.tenant_id = :tenant_id "
+        f"AND {expressie} IS NOT NULL\n"
+        f"ORDER BY {', '.join(extra or ['1'])}\nLIMIT :limit"
+    )
     return sql, extra
 
 
@@ -535,16 +544,17 @@ def _from_clause(fact: str, views: list[str], joins: dict) -> str:
         # a habit (CR-06 §2.4).
         conditions = [f"{alias}.tenant_id = {links}.tenant_id"]
         conditions += [
-            f"{alias}.{dim_col} = {links}.{left_col}"
-            for left_col, dim_col in join.pairs
+            f"{alias}.{dim_col} = {links}.{left_col}" for left_col, dim_col in join.pairs
         ]
-        lines.append(f"LEFT JOIN reporting.{physical_view(view)} AS {alias} ON "
-                     + " AND ".join(conditions))
+        lines.append(
+            f"LEFT JOIN reporting.{physical_view(view)} AS {alias} ON " + " AND ".join(conditions)
+        )
     return "\n".join(lines)
 
 
-def _where_clause(filters: tuple[Filter, ...],
-                  fact: str) -> tuple[list[str], dict[str, object], list[UniverseObject]]:
+def _where_clause(
+    filters: tuple[Filter, ...], fact: str
+) -> tuple[list[str], dict[str, object], list[UniverseObject]]:
     """Conditions plus their bind parameters. Values never enter the SQL text."""
     conditions = [f"{_view_alias(fact)}.tenant_id = :tenant_id"]
     params: dict[str, object] = {}
@@ -563,9 +573,7 @@ def _where_clause(filters: tuple[Filter, ...],
 
         if flt.operator is Operator.IN:
             if not flt.values:
-                raise SelectionError(
-                    f"Het filter op '{obj.name}' heeft geen waarden."
-                )
+                raise SelectionError(f"Het filter op '{obj.name}' heeft geen waarden.")
             placeholders = []
             for i, value in enumerate(flt.values):
                 key = f"{name}_{i}"
@@ -582,16 +590,12 @@ def _where_clause(filters: tuple[Filter, ...],
             conditions.append(f"{expr} BETWEEN :{name}_van AND :{name}_tot")
         elif flt.operator is Operator.CONTAINS:
             if len(flt.values) != 1:
-                raise SelectionError(
-                    f"Het filter op '{obj.name}' verwacht één zoekterm."
-                )
+                raise SelectionError(f"Het filter op '{obj.name}' verwacht één zoekterm.")
             params[name] = f"%{flt.values[0]}%"
             conditions.append(f"CAST({expr} AS text) ILIKE :{name}")
         else:
             if len(flt.values) != 1:
-                raise SelectionError(
-                    f"Het filter op '{obj.name}' verwacht één waarde."
-                )
+                raise SelectionError(f"Het filter op '{obj.name}' verwacht één waarde.")
             params[name] = flt.values[0]
             conditions.append(f"{expr} {_SQL_OPERATOR[flt.operator]} :{name}")
 
@@ -599,8 +603,7 @@ def _where_clause(filters: tuple[Filter, ...],
     return conditions, params, used
 
 
-def build_query(selection: Selection, *, tenant_id: int,
-                with_entities: bool = False) -> QueryPlan:
+def build_query(selection: Selection, *, tenant_id: int, with_entities: bool = False) -> QueryPlan:
     """Build the one statement this selection means.
 
     Refuses, in this order and always by name: an unknown object, a selection
@@ -623,8 +626,9 @@ def build_query(selection: Selection, *, tenant_id: int,
     objects = [_object(key) for key in selection.object_keys]
 
     if selection.layout == Layout.DETAIL:
-        return _build_detail_list(selection, objects, tenant_id=tenant_id,
-                                  with_entities=with_entities)
+        return _build_detail_list(
+            selection, objects, tenant_id=tenant_id, with_entities=with_entities
+        )
 
     # No role check on the fact itself: the fence sits on the objects, and a
     # selection cannot exist without a measure, so every fact a report reaches is
@@ -656,7 +660,8 @@ def build_query(selection: Selection, *, tenant_id: int,
         raise SelectionError(
             f"Hier valt niet op te groeperen: {namen} is een detail, geen "
             "dimensie. Een detail hoort in een lijst — kies de lijstvorm, of "
-            "laat het weg.")
+            "laat het weg."
+        )
 
     select_parts: list[str] = []
     drill_aliases: dict[str, str] = {}
@@ -682,14 +687,17 @@ def build_query(selection: Selection, *, tenant_id: int,
     group_by = [_expression(o) for o in grouped]
     group_by += [d for d in (_drill_expression(o) for o in grouped) if d]
     if with_entities:
-        group_by += [e for o in grouped
-                     if o.key in entity_aliases
-                     and (e := _entity_expression(o)) is not None]
+        group_by += [
+            e
+            for o in grouped
+            if o.key in entity_aliases and (e := _entity_expression(o)) is not None
+        ]
     # An object that orders on something other than itself has to group on it as
     # well — Postgres refuses to order by a column that is not in the GROUP BY,
     # and it is functionally dependent anyway (one house number, one sort key).
-    group_by += [deel.strip() for o in grouped if o.sort_sql
-                 for deel in _sort_expression(o).split(",")]
+    group_by += [
+        deel.strip() for o in grouped if o.sort_sql for deel in _sort_expression(o).split(",")
+    ]
 
     # #761: the default sort ends in a unique key. Appending every grouping
     # expression is exactly that — a group-by set identifies its row by
@@ -705,17 +713,22 @@ def build_query(selection: Selection, *, tenant_id: int,
                 "object staat niet in het rapport."
             )
         richting = sort.direction.value.upper()
-        order_parts += [f"{deel.strip()} {richting}" for deel
-                        in _sort_expression(_object(sort.object_key)).split(",")]
+        order_parts += [
+            f"{deel.strip()} {richting}"
+            for deel in _sort_expression(_object(sort.object_key)).split(",")
+        ]
         already_sorted.add(sort.object_key)
     # Deduplicated by COLUMN, not by the whole term: a column the user sorted
     # descending would otherwise come back as a second, ascending term. Postgres
     # ignores that second mention, so nothing breaks — which is exactly why it
     # would have stayed in the statement, unread, until somebody debugging an order
     # spent an afternoon on it.
-    order_by = order_parts + [f"{deel.strip()} ASC" for o in grouped
-                              if o.key not in already_sorted
-                              for deel in _sort_expression(o).split(",")]
+    order_by = order_parts + [
+        f"{deel.strip()} ASC"
+        for o in grouped
+        if o.key not in already_sorted
+        for deel in _sort_expression(o).split(",")
+    ]
 
     limit = max(1, min(selection.limit, MAX_ROWS))
     params["tenant_id"] = tenant_id
@@ -732,23 +745,26 @@ def build_query(selection: Selection, *, tenant_id: int,
     # The totals row is the SAME aggregate over the whole set, not the sum of the
     # page. For a SUM that is the same number; for an average or a distinct count
     # it is the only right one, and adding up the rows would quietly lie.
-    totals_select = ", ".join(
-        f'{_expression(o)} AS "{o.key}"' for o in measures) or "1"
+    totals_select = ", ".join(f'{_expression(o)} AS "{o.key}"' for o in measures) or "1"
     totals_sql = f"SELECT {totals_select}\nFROM {from_clause}\nWHERE {where}"
 
     columns = [
-        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill)
+        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value, drill=o.drill)
         for o in objects
     ]
-    return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
-                     columns=columns, fact=fact, drill_aliases=drill_aliases,
-                     entity_aliases=entity_aliases,
-                     has_totals=bool(measures))
+    return QueryPlan(
+        sql=sql,
+        totals_sql=totals_sql,
+        params=params,
+        columns=columns,
+        fact=fact,
+        drill_aliases=drill_aliases,
+        entity_aliases=entity_aliases,
+        has_totals=bool(measures),
+    )
 
 
-def build_detail_query(selection: Selection, *, tenant_id: int,
-                       limit: int = 20000) -> QueryPlan:
+def build_detail_query(selection: Selection, *, tenant_id: int, limit: int = 20000) -> QueryPlan:
     """The rows BEHIND a report: the same filtered set, ungrouped.
 
     Sheet 2 of the export (CR-06 §5). A grouped table answers the question; the
@@ -764,8 +780,7 @@ def build_detail_query(selection: Selection, *, tenant_id: int,
     # A listing has no measure to name its fact, so fall back to the objects that
     # live on one. Same answer for an aggregating selection, and no crash for a
     # selection that legitimately has no measure at all.
-    fact = (_resolve_fact(objects) if any(o.is_measure for o in objects)
-            else _fact_of(objects))
+    fact = _resolve_fact(objects) if any(o.is_measure for o in objects) else _fact_of(objects)
     conditions, params, filter_objects = _where_clause(selection.filters, fact)
     views = _needed_views(objects + filter_objects, fact)
     joins = _check_joinable(views, fact)
@@ -774,13 +789,16 @@ def build_detail_query(selection: Selection, *, tenant_id: int,
     order = ", ".join(f"{alias}.{c}" for c in FACT_BY_KEY[fact].dataset_key)
     params["tenant_id"] = tenant_id
     params["limit"] = limit
-    sql = (f"SELECT {alias}.*\nFROM {_from_clause(fact, views, joins)}\n"
-           f"WHERE {' AND '.join(conditions)}\nORDER BY {order}\nLIMIT :limit")
+    sql = (
+        f"SELECT {alias}.*\nFROM {_from_clause(fact, views, joins)}\n"
+        f"WHERE {' AND '.join(conditions)}\nORDER BY {order}\nLIMIT :limit"
+    )
     return QueryPlan(sql=sql, totals_sql="", params=params, columns=[], fact=fact)
 
 
-def build_member_count_query(selection: Selection, object_key: str, *,
-                             tenant_id: int) -> tuple[str, dict[str, object]]:
+def build_member_count_query(
+    selection: Selection, object_key: str, *, tenant_id: int
+) -> tuple[str, dict[str, object]]:
     """How many members a dimension has under this selection's filters.
 
     Asked BEFORE the crosstab is built, so a column dimension that is too wide is
@@ -791,8 +809,7 @@ def build_member_count_query(selection: Selection, object_key: str, *,
     """
     obj = _object(object_key)
     if obj.is_measure:
-        raise SelectionError(
-            f"'{obj.name}' is een maat en kan niet op de kolomas staan.")
+        raise SelectionError(f"'{obj.name}' is een maat en kan niet op de kolomas staan.")
 
     objects = [_object(key) for key in selection.object_keys]
     fact = _resolve_fact(objects)
@@ -801,14 +818,21 @@ def build_member_count_query(selection: Selection, object_key: str, *,
     joins = _check_joinable(views, fact)
 
     params["tenant_id"] = tenant_id
-    sql = (f"SELECT COUNT(DISTINCT {_expression(obj)})\n"
-           f"FROM {_from_clause(fact, views, joins)}\n"
-           f"WHERE {' AND '.join(conditions)}")
+    sql = (
+        f"SELECT COUNT(DISTINCT {_expression(obj)})\n"
+        f"FROM {_from_clause(fact, views, joins)}\n"
+        f"WHERE {' AND '.join(conditions)}"
+    )
     return sql, params
 
 
-def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
-                       tenant_id: int, with_entities: bool = False) -> QueryPlan:
+def _build_detail_list(
+    selection: Selection,
+    objects: list[UniverseObject],
+    *,
+    tenant_id: int,
+    with_entities: bool = False,
+) -> QueryPlan:
     """A row list: the fact's rows as they are, without a GROUP BY (#841).
 
     Every other layout answers "how much"; this one answers "which ones". The
@@ -835,7 +859,8 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
         namen = ", ".join(f"'{o.name}'" for o in measures)
         raise SelectionError(
             f"Een lijst toont rijen, geen totalen: {namen} hoort niet in een "
-            "detailrapport. Laat de maat weg, of kies de tabelvorm.")
+            "detailrapport. Laat de maat weg, of kies de tabelvorm."
+        )
 
     fact = _fact_of(objects)
     conditions, params, filter_objects = _where_clause(selection.filters, fact)
@@ -867,11 +892,15 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
     # A listing sorts the same way a table does, so an object with its own sort
     # key uses it here too — a detail list of addresses is exactly where a
     # shuffled street would show.
-    order_parts = [f"{deel.strip()} {s.direction.value.upper()}"
-                   for s in selection.sort if s.object_key in selection.object_keys
-                   for deel in _sort_expression(_object(s.object_key)).split(",")]
-    natuurlijk = [fragment.format(view=_view_alias(fact))
-                  for fragment in FACT_BY_KEY[fact].detail_order]
+    order_parts = [
+        f"{deel.strip()} {s.direction.value.upper()}"
+        for s in selection.sort
+        if s.object_key in selection.object_keys
+        for deel in _sort_expression(_object(s.object_key)).split(",")
+    ]
+    natuurlijk = [
+        fragment.format(view=_view_alias(fact)) for fragment in FACT_BY_KEY[fact].detail_order
+    ]
     order_by = order_parts + natuurlijk
 
     limit = max(1, min(selection.limit, MAX_ROWS))
@@ -879,25 +908,29 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
     params["limit"] = limit
     params["offset"] = max(0, selection.offset)
 
-    sql = ("SELECT\n  " + ",\n  ".join(select_parts)
-           + f"\nFROM {from_clause}\nWHERE {where}")
+    sql = "SELECT\n  " + ",\n  ".join(select_parts) + f"\nFROM {from_clause}\nWHERE {where}"
     if order_by:
         sql += "\nORDER BY " + ", ".join(order_by)
     sql += "\nLIMIT :limit OFFSET :offset"
 
     geld = [o for o in objects if o.format is Format.MONEY]
-    totals_select = ", ".join(
-        f'SUM({_expression(o)}) AS "{o.key}"' for o in geld) or "1"
+    totals_select = ", ".join(f'SUM({_expression(o)}) AS "{o.key}"' for o in geld) or "1"
     totals_sql = f"SELECT {totals_select}\nFROM {from_clause}\nWHERE {where}"
 
     columns = [
-        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill)
+        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value, drill=o.drill)
         for o in objects
     ]
-    return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
-                     columns=columns, fact=fact, drill_aliases=drill_aliases,
-                     entity_aliases=entity_aliases, has_totals=bool(geld))
+    return QueryPlan(
+        sql=sql,
+        totals_sql=totals_sql,
+        params=params,
+        columns=columns,
+        fact=fact,
+        drill_aliases=drill_aliases,
+        entity_aliases=entity_aliases,
+        has_totals=bool(geld),
+    )
 
 
 def _fact_of(objects: list[UniverseObject]) -> str:
@@ -911,10 +944,12 @@ def _fact_of(objects: list[UniverseObject]) -> str:
     if not facts:
         raise SelectionError(
             "Kies minstens één veld van het feit zelf: uit alleen dimensies valt "
-            "geen lijst te maken.")
+            "geen lijst te maken."
+        )
     if len(facts) > 1:
         namen = sorted(FACT_BY_KEY[f].name for f in facts)
         raise SelectionError(
             "Velden uit twee feiten in één lijst kunnen niet: "
-            f"{' en '.join(namen)}. Maak er twee rapporten van.")
+            f"{' en '.join(namen)}. Maak er twee rapporten van."
+        )
     return facts.pop()

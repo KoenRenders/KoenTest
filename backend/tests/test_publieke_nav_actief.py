@@ -9,11 +9,9 @@ de invariant die telt is dat er per pagina precies één item oplicht, en dat he
 juiste item oplicht ook wanneer de href niet gelijk is aan het pad (/archief).
 """
 
-
 import re
 
 import pytest
-
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -25,11 +23,14 @@ def _actieve_hrefs(html: str) -> list[str]:
     return [m.group(1) for m in ACTIEF.finditer(html)]
 
 
-@pytest.mark.parametrize("pad,verwacht", [
-    ("/", "/"),
-    ("/fotos", "/fotos"),
-    ("/activiteiten/archief", "/archief"),
-])
+@pytest.mark.parametrize(
+    "pad,verwacht",
+    [
+        ("/", "/"),
+        ("/fotos", "/fotos"),
+        ("/activiteiten/archief", "/archief"),
+    ],
+)
 def test_de_juiste_nav_link_is_gemarkeerd(client, pad, verwacht):
     html = client.get(pad).text
     hrefs = set(_actieve_hrefs(html))
@@ -41,7 +42,10 @@ def test_archief_markeert_ondanks_de_redirect():
     `match`-argument zou de Archief-link daar nooit oplichten."""
     inhoud = (
         __import__("pathlib").Path(__file__).resolve().parents[1]
-        / "app" / "ui" / "templates" / "site_base.html"
+        / "app"
+        / "ui"
+        / "templates"
+        / "site_base.html"
     ).read_text()
     assert 'match="/activiteiten/archief"' in inhoud
 

@@ -5,13 +5,13 @@ de schemas bestaan, maar het scherm bood het veld niet meer aan — je kon allee
 uploaden. Zulke stille regressies zijn de reden dat deze tests op het gerenderde
 scherm kijken en niet alleen op de service.
 """
-from datetime import date
+
 from pathlib import Path
 
 import pytest
 
 from app.domains.activities.api import Activity
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for, make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -51,9 +51,17 @@ def test_poster_url_wordt_bewaard(client, db_session):
     detail = client.get(f"/admin/activiteiten/{activity.id}").text
     assert 'name="poster_url"' in detail, "het veld hoort in de bewerkvorm te staan"
 
-    resp = client.post(f"/admin/activiteiten/{activity.id}", headers=hdr, data={
-        "name": activity.name, "location": "", "poster_url": "https://voorbeeld.be/affiche.png",
-        "members_only": "", "is_cancelled": ""})
+    resp = client.post(
+        f"/admin/activiteiten/{activity.id}",
+        headers=hdr,
+        data={
+            "name": activity.name,
+            "location": "",
+            "poster_url": "https://voorbeeld.be/affiche.png",
+            "members_only": "",
+            "is_cancelled": "",
+        },
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -67,8 +75,9 @@ def test_de_affiche_zit_in_dezelfde_vorm_als_de_tekstvelden(client, db_session):
     detail = client.get(f"/admin/activiteiten/{activity.id}").text
 
     assert 'enctype="multipart/form-data"' in detail
-    assert 'hx-post="/admin/activiteiten/%d/affiche"' % activity.id not in detail, \
+    assert 'hx-post="/admin/activiteiten/%d/affiche"' % activity.id not in detail, (
         "de aparte upload-route hoort niet meer in het scherm te staan"
+    )
 
 
 def test_sectie_toevoegvormen_staan_dicht_tot_je_klikt(client, db_session):
@@ -89,8 +98,10 @@ def test_de_bijlage_kan_verwijderd_worden(client, db_session):
     activity, comp, _p = seed_activity_with_product(db_session, is_free=False)
     hdr = _login(client)
 
-    for pad in (f"/admin/activiteiten/{activity.id}/affiche/verwijderen",
-                f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/info/verwijderen"):
+    for pad in (
+        f"/admin/activiteiten/{activity.id}/affiche/verwijderen",
+        f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/info/verwijderen",
+    ):
         resp = client.post(pad, headers=hdr)
         assert resp.status_code == 200, f"{pad} → {resp.status_code}: {resp.text[:200]}"
 
@@ -100,13 +111,18 @@ def test_de_info_route_heet_niet_meer_reglement(client, db_session):
     activity, comp, _p = seed_activity_with_product(db_session, is_free=False)
     hdr = _login(client)
 
-    assert client.post(f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/info",
-                       headers=hdr).status_code == 200
+    assert (
+        client.post(
+            f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/info", headers=hdr
+        ).status_code
+        == 200
+    )
     detail = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "reglement" not in detail.lower()
 
 
 # ── #1016: the public description ────────────────────────────────────────────
+
 
 def test_de_omschrijving_wordt_bewaard_en_kan_weer_leeg(client, db_session):
     """Two or three sentences for the visitor — and the newsletter (#984).
@@ -121,16 +137,25 @@ def test_de_omschrijving_wordt_bewaard_en_kan_weer_leeg(client, db_session):
     detail = client.get(f"/admin/activiteiten/{activity.id}").text
     assert 'name="description"' in detail, "het veld hoort in de bewerkvorm te staan"
 
-    velden = {"name": activity.name, "location": "", "poster_url": "",
-              "members_only": "", "is_cancelled": ""}
-    resp = client.post(f"/admin/activiteiten/{activity.id}", headers=hdr,
-                       data={**velden, "description": "We proeven acht rums.\nKom op tijd."})
+    velden = {
+        "name": activity.name,
+        "location": "",
+        "poster_url": "",
+        "members_only": "",
+        "is_cancelled": "",
+    }
+    resp = client.post(
+        f"/admin/activiteiten/{activity.id}",
+        headers=hdr,
+        data={**velden, "description": "We proeven acht rums.\nKom op tijd."},
+    )
     assert resp.status_code == 200, resp.text
     db_session.expire_all()
     assert db_session.get(Activity, activity.id).description.startswith("We proeven acht rums.")
 
-    client.post(f"/admin/activiteiten/{activity.id}", headers=hdr,
-                data={**velden, "description": "   "})
+    client.post(
+        f"/admin/activiteiten/{activity.id}", headers=hdr, data={**velden, "description": "   "}
+    )
     db_session.expire_all()
     assert db_session.get(Activity, activity.id).description is None
 

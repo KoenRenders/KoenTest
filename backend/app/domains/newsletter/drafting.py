@@ -31,6 +31,7 @@ back: individual organisers are never thanked (Koen, 16 September 2026). This is
 also why this module does not reuse the reporting assistant's scrubber — that
 one turns names into tokens *in order to* restore them.
 """
+
 from __future__ import annotations
 
 import html as html_lib
@@ -46,15 +47,14 @@ from typing import Any, Callable, Optional
 from sqlalchemy.orm import Session
 
 from app.domains.chatbot.api import AiCapability
-from app.i18n import _
-
+from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import (
     DraftingMessage,
     LetterStatus,
     MessageRole,
     Newsletter,
 )
-from app.domains.newsletter import service as nb
+from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +99,8 @@ def _plain_kind_of(word: str) -> str:
     if word.startswith("afsl") or word.startswith("groet"):
         return "afsluiting"
     return ""
+
+
 #: Markers without a number (Koen, 19 September 2026: "Raakje zou alles moeten
 #: kunnen"). The portal fills them in the same way the buttons do — except an
 #: attachment, which is a file the author uploads and Raakje cannot know.
@@ -110,18 +112,33 @@ _HEADING = re.compile(r"#{1,6}\s+")
 # The blank line between blocks, the way Trix writes one.
 BLANK = "<div><br></div>"
 _NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
-_AMOUNT = re.compile(r"(?:€\s*(\d+(?:[.,]\d{1,2})?))|(?:(\d+(?:[.,]\d{1,2})?)\s*(?:euro|eur)\b)",
-                     re.IGNORECASE)
+_AMOUNT = re.compile(
+    r"(?:€\s*(\d+(?:[.,]\d{1,2})?))|(?:(\d+(?:[.,]\d{1,2})?)\s*(?:euro|eur)\b)", re.IGNORECASE
+)
 _WORD = re.compile(r"[^\W\d_]+", re.UNICODE)
 _SENTENCE = re.compile(r"[^.!?]*[.!?]+|[^.!?]+$")
 
 # Words that attach a role to someone. Each must occur in a source before a
 # proposal may use it — the public Raakje once made a steward a treasurer (#309).
 FUNCTION_WORDS = (
-    "voorzitter", "ondervoorzitter", "secretaris", "penningmeester", "wijkmeester",
-    "wijkmeesters", "bestuurslid", "bestuursleden", "organisator", "organisatoren",
-    "organisatrice", "coördinator", "coordinator", "verantwoordelijke", "trekker",
-    "trekkers", "gastspreker", "spreker",
+    "voorzitter",
+    "ondervoorzitter",
+    "secretaris",
+    "penningmeester",
+    "wijkmeester",
+    "wijkmeesters",
+    "bestuurslid",
+    "bestuursleden",
+    "organisator",
+    "organisatoren",
+    "organisatrice",
+    "coördinator",
+    "coordinator",
+    "verantwoordelijke",
+    "trekker",
+    "trekkers",
+    "gastspreker",
+    "spreker",
 )
 
 
@@ -130,6 +147,7 @@ class DraftingError(RuntimeError):
 
 
 # ── Names ────────────────────────────────────────────────────────────────────
+
 
 def scrub(text: str, names: set[str]) -> str:
     """Every known name part becomes ``[naam]`` — before anything leaves.
@@ -165,6 +183,7 @@ def _names(db: Session) -> set[str]:
 
 # ── The letter as numbered paragraphs ────────────────────────────────────────
 
+
 class _Splitter(HTMLParser):
     """Splits sanitised editor HTML into its top-level blocks, verbatim."""
 
@@ -194,7 +213,7 @@ class _Splitter(HTMLParser):
         self._depth = max(0, self._depth - 1)
         if self._depth == 0 and self._start is not None:
             end = self.source.index(">", self._offset()) + 1
-            self.blocks.append(self.source[self._start:end])
+            self.blocks.append(self.source[self._start : end])
             self._start = None
 
     def handle_startendtag(self, tag, attrs):
@@ -226,6 +245,7 @@ def plain(html: str) -> str:
 
 # ── Sources ──────────────────────────────────────────────────────────────────
 
+
 @dataclass
 class Sources:
     """Everything a proposal may state facts from, already scrubbed."""
@@ -244,9 +264,16 @@ class Sources:
 
     def fact_text(self) -> str:
         """The text a fact must be found in (layer 3). Style examples excluded."""
-        return "\n".join([*self.activity_texts.values(), *self.points,
-                          self.instruction, *self.letter, self.upcoming,
-                          *self.tool_results])
+        return "\n".join(
+            [
+                *self.activity_texts.values(),
+                *self.points,
+                self.instruction,
+                *self.letter,
+                self.upcoming,
+                *self.tool_results,
+            ]
+        )
 
 
 def _activity_text(db: Session, activity_id: int) -> str:
@@ -265,17 +292,23 @@ def _upcoming_list(db: Session) -> str:
 def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
     if not letter.audience:
         return []
-    earlier = (db.query(Newsletter)
-               .filter(Newsletter.status == LetterStatus.SENT,
-                       Newsletter.audience == letter.audience,
-                       Newsletter.id != letter.id)
-               .order_by(Newsletter.send_finished_at.desc())
-               .limit(EXAMPLE_LETTERS).all())
+    earlier = (
+        db.query(Newsletter)
+        .filter(
+            Newsletter.status == LetterStatus.SENT,
+            Newsletter.audience == letter.audience,
+            Newsletter.id != letter.id,
+        )
+        .order_by(Newsletter.send_finished_at.desc())
+        .limit(EXAMPLE_LETTERS)
+        .all()
+    )
     return [scrub(plain(e.body_html)[:EXAMPLE_CHARS], names) for e in earlier]
 
 
-def gather_sources(db: Session, letter: Newsletter, *, instruction: str,
-                   names: set[str], base_url: str = "") -> Sources:
+def gather_sources(
+    db: Session, letter: Newsletter, *, instruction: str, names: set[str], base_url: str = ""
+) -> Sources:
     from app.domains.meetings.api import report_points_of
     from app.kernel.tenant_config import tenant_newsletter_house_style
 
@@ -356,21 +389,31 @@ def _sources_message(src: Sources) -> str:
     parts = ["BRONNEN"]
     for activity_id in src.activity_ids:
         when = "voorbij" if activity_id in src.past_ids else "komt nog"
-        parts.append(f"## Activiteit {activity_id} ({when})\n{src.activity_texts.get(activity_id, '')}")
+        parts.append(
+            f"## Activiteit {activity_id} ({when})\n{src.activity_texts.get(activity_id, '')}"
+        )
     if src.points:
-        parts.append("## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
-                     "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points))
+        parts.append(
+            "## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
+            "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points)
+        )
     if src.instruction:
         parts.append(f"## Wat de auteur wil vertellen\n{src.instruction}")
     if src.upcoming:
-        parts.append("## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming)
+        parts.append(
+            "## Komende activiteiten (id: naam) — details via de leestools\n" + src.upcoming
+        )
     parts.append("HUISSTIJL\n" + (src.house_style or "Warm, enthousiast, jij-vorm, korte zinnen."))
     if src.examples:
-        parts.append("VOORBEELDEN VAN EERDERE BRIEVEN (alleen voor de toon — geen bron voor feiten)\n"
-                     + "\n---\n".join(src.examples))
+        parts.append(
+            "VOORBEELDEN VAN EERDERE BRIEVEN (alleen voor de toon — geen bron voor feiten)\n"
+            + "\n---\n".join(src.examples)
+        )
     if src.letter:
-        parts.append("DE BRIEF ZOALS HIJ NU IS\n"
-                     + "\n".join(f"{i}. {p}" for i, p in enumerate(src.letter, 1)))
+        parts.append(
+            "DE BRIEF ZOALS HIJ NU IS\n"
+            + "\n".join(f"{i}. {p}" for i, p in enumerate(src.letter, 1))
+        )
     else:
         parts.append("DE BRIEF IS NOG LEEG")
     return "\n\n".join(parts)
@@ -381,7 +424,7 @@ def _parse_json(text: str) -> dict[str, Any]:
     if start < 0 or end <= start:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw."))
     try:
-        data = json.loads(text[start:end + 1])
+        data = json.loads(text[start : end + 1])
     except json.JSONDecodeError as exc:
         raise DraftingError(_("Raakje gaf geen bruikbaar voorstel. Probeer het opnieuw.")) from exc
     if not isinstance(data, dict):
@@ -391,13 +434,15 @@ def _parse_json(text: str) -> dict[str, Any]:
 
 # ── Rendering a proposal ─────────────────────────────────────────────────────
 
+
 def _inline(text: str) -> str:
     escaped = html_lib.escape(text)
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
 
 
-def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] = None,
-                    base_url: str = "") -> str:
+def _paragraph_html(
+    text: str, facts: dict[int, Any], *, db: Optional[Session] = None, base_url: str = ""
+) -> str:
     """Model text → editor HTML, with every marker filled in by the server.
 
     A heading starts a new topic and gets a blank line above it, except at the
@@ -439,7 +484,7 @@ def _paragraph_html(text: str, facts: dict[int, Any], *, db: Optional[Session] =
         # "## Spel en plezier" and it arrived as literal text). A heading is a
         # heading; counting hashes is the model's business, not the reader's.
         hashes = _HEADING.match(line)
-        body = _with_names(line[hashes.end():].strip() if hashes else line, facts)
+        body = _with_names(line[hashes.end() :].strip() if hashes else line, facts)
         if not body:
             continue
         if hashes:
@@ -462,24 +507,27 @@ def _without_duplicate_headings(lines: list[str], facts: dict[int, Any]) -> list
     one activity — but a prompt is advice, so this is the guarantee: a heading
     directly above a single activity marker, saying the same thing, is removed.
     """
-    names = {activity_id: (fact.name or "").strip().lower()
-             for activity_id, fact in facts.items()}
+    names = {activity_id: (fact.name or "").strip().lower() for activity_id, fact in facts.items()}
     out: list[str] = []
     for index, line in enumerate(lines):
         hashes = _HEADING.match(line)
         if hashes:
-            heading = line[hashes.end():].strip().lower()
+            heading = line[hashes.end() :].strip().lower()
             # Look ahead to the end of this section — a sentence or two may
             # stand between the heading and its activity, and in the letter
             # Koen read that is exactly the shape it had.
-            for later in lines[index + 1:]:
+            for later in lines[index + 1 :]:
                 if not later:
                     continue
                 if _HEADING.match(later):
                     break
                 marker = _MARKER.fullmatch(later)
-                if marker and _kind_of(marker.group(1)) == "activiteit" \
-                        and heading and heading == names.get(int(marker.group(2))):
+                if (
+                    marker
+                    and _kind_of(marker.group(1)) == "activiteit"
+                    and heading
+                    and heading == names.get(int(marker.group(2)))
+                ):
                     heading = ""  # the block carries this name already
                     break
             if not heading:
@@ -494,7 +542,7 @@ def _with_names(line: str, facts: dict[int, Any]) -> str:
     out = []
     position = 0
     for match in _MARKER.finditer(line):
-        out.append(_inline(line[position:match.start()]))
+        out.append(_inline(line[position : match.start()]))
         fact = facts.get(int(match.group(2)))
         if _kind_of(match.group(1)) == "naam" and fact is not None:
             out.append(f"<strong>{html_lib.escape(fact.name)}</strong>")
@@ -529,8 +577,9 @@ def _to_decimal(raw: str) -> Optional[Decimal]:
         return None
 
 
-def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
-                        names: set[str]) -> list[dict[str, str]]:
+def deterministic_marks(
+    text: str, sources: Sources, prices: set[Decimal], names: set[str]
+) -> list[dict[str, str]]:
     """Layer 3: numbers, amounts, function words and names, without a model."""
     marks: list[dict[str, str]] = []
     prose = _PLAIN_MARKER.sub(" ", _MARKER.sub(" ", text or ""))
@@ -540,32 +589,33 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
     for match in _AMOUNT.finditer(prose):
         value = _to_decimal(match.group(1) or match.group(2))
         if value is None or value not in prices:
-            marks.append({"quote": match.group(0),
-                          "reason": _("dit bedrag is geen prijs van de activiteit")})
+            marks.append(
+                {"quote": match.group(0), "reason": _("dit bedrag is geen prijs van de activiteit")}
+            )
     amounts = {m.group(0) for m in _AMOUNT.finditer(prose)}
     for number in _NUMBER.findall(prose):
         if any(number in a for a in amounts):
             continue
         if number not in fact_numbers:
-            marks.append({"quote": number,
-                          "reason": _("dit getal staat in geen enkele bron")})
+            marks.append({"quote": number, "reason": _("dit getal staat in geen enkele bron")})
     for word in FUNCTION_WORDS:
         found = re.search(rf"\b{re.escape(word)}\b", prose, re.IGNORECASE)
         if found is not None and word not in fact_text:
-            marks.append({"quote": found.group(0),
-                          "reason": _("deze rol staat in geen enkele bron")})
+            marks.append(
+                {"quote": found.group(0), "reason": _("deze rol staat in geen enkele bron")}
+            )
     for word in _WORD.findall(prose):
         if len(word) >= 3 and word.lower() in names:
             marks.append({"quote": word, "reason": _("dit is een naam uit de ledenadministratie")})
     if NAME_PLACEHOLDER in prose:
-        marks.append({"quote": NAME_PLACEHOLDER,
-                      "reason": _("hier stond een weggehaalde naam")})
+        marks.append({"quote": NAME_PLACEHOLDER, "reason": _("hier stond een weggehaalde naam")})
     from app.domains.chatbot.api import REDACTION_PLACEHOLDERS
 
     for placeholder in REDACTION_PLACEHOLDERS:
         if placeholder in prose:
-            marks.append({"quote": placeholder,
-                          "reason": _("hier stond een weggehaald contactgegeven")})
+            marks.append(
+                {"quote": placeholder, "reason": _("hier stond een weggehaald contactgegeven")}
+            )
     return marks
 
 
@@ -583,8 +633,15 @@ def _attach(marks: list[dict[str, Any]], texts: dict[int, str]) -> list[dict[str
         key = (index, sentence)
         if any((m["index"], m["sentence"]) == key for m in out):
             continue
-        out.append({"id": len(out) + 1, "index": index, "quote": quote,
-                    "sentence": sentence, "reason": mark["reason"]})
+        out.append(
+            {
+                "id": len(out) + 1,
+                "index": index,
+                "quote": quote,
+                "sentence": sentence,
+                "reason": mark["reason"],
+            }
+        )
     return out
 
 
@@ -598,14 +655,16 @@ class Turn:
 
 def _provider(db: Session, actor: str):
     from app.config import settings
-    from app.domains.chatbot.api import (
-        GuardedProvider, admin_rules, get_provider, sink_for)
+    from app.domains.chatbot.api import GuardedProvider, admin_rules, get_provider, sink_for
     from app.domains.mdm.api import person_name_parts
 
     return GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY,
-                    scan_prompt_names=SCAN_PROMPT_NAMES),
+        admin_rules(
+            lambda: person_name_parts(db),
+            capability=CAPABILITY,
+            scan_prompt_names=SCAN_PROMPT_NAMES,
+        ),
         sink_for(actor),
     )
 
@@ -635,9 +694,17 @@ MODE_INSERT = "insert"
 MODE_REPLACE = "replace"
 
 
-def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
-        base_url: str, selection: str = "", selection_range: str = "",
-        before_cursor: str = "") -> Turn:
+def ask(
+    db: Session,
+    letter: Newsletter,
+    *,
+    instruction: str,
+    actor: str,
+    base_url: str,
+    selection: str = "",
+    selection_range: str = "",
+    before_cursor: str = "",
+) -> Turn:
     """One request to Raakje.
 
     Where the answer goes is decided by the author, not by the model (Koen,
@@ -657,8 +724,7 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
         raise DraftingError(_("Deze nieuwsbrief is al verstuurd."))
     instruction = (instruction or "").strip()
     names = _names(db)
-    sources = gather_sources(db, letter, instruction=instruction, names=names,
-                             base_url=base_url)
+    sources = gather_sources(db, letter, instruction=instruction, names=names, base_url=base_url)
     chosen = (selection or "").strip()
     if not sources.letter:
         mode = MODE_LETTER
@@ -668,29 +734,52 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
         mode = MODE_INSERT
 
     if mode == MODE_LETTER:
-        request = (instruction or _("Schrijf een volledige nieuwsbrief.")) + "\n" + \
-            _("Geef een volledige brief (paragraphs).")
+        request = (
+            (instruction or _("Schrijf een volledige nieuwsbrief."))
+            + "\n"
+            + _("Geef een volledige brief (paragraphs).")
+        )
     elif mode == MODE_REPLACE:
-        request = (instruction or _("Herschrijf deze tekst.")) + "\n" + \
-            _("GESELECTEERDE TEKST (je antwoord vervangt precies dit):") + "\n" + chosen + \
-            "\n" + _("Geef enkel de nieuwe versie (text).")
+        request = (
+            (instruction or _("Herschrijf deze tekst."))
+            + "\n"
+            + _("GESELECTEERDE TEKST (je antwoord vervangt precies dit):")
+            + "\n"
+            + chosen
+            + "\n"
+            + _("Geef enkel de nieuwe versie (text).")
+        )
     else:
         context = (before_cursor or "").strip()[-400:]
-        request = (instruction or _("Schrijf een stuk voor de brief.")) + "\n" + \
-            _("TEKST VLAK VOOR DE CURSOR:") + "\n" + (context or _("(de cursor staat bovenaan)")) + \
-            "\n" + _("Geef het stuk dat op de cursor komt (text).")
+        request = (
+            (instruction or _("Schrijf een stuk voor de brief."))
+            + "\n"
+            + _("TEKST VLAK VOOR DE CURSOR:")
+            + "\n"
+            + (context or _("(de cursor staat bovenaan)"))
+            + "\n"
+            + _("Geef het stuk dat op de cursor komt (text).")
+        )
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": _sources_message(sources)},
-                {"role": "assistant", "content": _("Begrepen. Wat wil je?")},
-                *_history(letter, names),
-                {"role": "user", "content": scrub(request, names)}]
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": _sources_message(sources)},
+        {"role": "assistant", "content": _("Begrepen. Wat wil je?")},
+        *_history(letter, names),
+        {"role": "user", "content": scrub(request, names)},
+    ]
     provider = _provider(db, actor)
     collected: list[str] = []
     deadline = time.monotonic() + settings.admin_chat_timeout_seconds
-    answer = run_chat(db, messages, provider, max_rounds=MAX_TOOL_ROUNDS,
-                      tools=read_tool_specs(), dispatch=_dispatcher(names, collected),
-                      deadline=deadline)
+    answer = run_chat(
+        db,
+        messages,
+        provider,
+        max_rounds=MAX_TOOL_ROUNDS,
+        tools=read_tool_specs(),
+        dispatch=_dispatcher(names, collected),
+        deadline=deadline,
+    )
     sources.tool_results = collected
     data = _parse_json(answer)
 
@@ -698,8 +787,9 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
         # The author asked for the whole letter again: offer it as one, with the
         # choice to replace the letter or insert at the cursor.
         mode = MODE_LETTER
-    proposal = build_proposal(db, letter, data, sources=sources, names=names,
-                              base_url=base_url, mode=mode)
+    proposal = build_proposal(
+        db, letter, data, sources=sources, names=names, base_url=base_url, mode=mode
+    )
     if mode == MODE_REPLACE:
         proposal["selected"] = chosen[:2000]
         proposal["range"] = _range(selection_range)
@@ -716,9 +806,16 @@ def _range(raw: str) -> Optional[list[int]]:
     return [start, end] if 0 <= start < end else None
 
 
-def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
-                   sources: Sources, names: set[str], base_url: str,
-                   mode: str) -> dict[str, Any]:
+def build_proposal(
+    db: Session,
+    letter: Newsletter,
+    data: dict[str, Any],
+    *,
+    sources: Sources,
+    names: set[str],
+    base_url: str,
+    mode: str,
+) -> dict[str, Any]:
     """The model's JSON → a proposal the screen can show and apply."""
     if mode == MODE_LETTER:
         parts = [str(t) for t in (data.get("paragraphs") or []) if str(t).strip()]
@@ -735,19 +832,25 @@ def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
     facts = nb.activity_facts(db, ids, base_url=base_url)
     prices = {p for f in facts.values() for p in f.prices}
     raw_marks: list[dict[str, Any]] = [
-        {**mark, "index": 0} for mark in deterministic_marks(text, sources, prices, names)]
+        {**mark, "index": 0} for mark in deterministic_marks(text, sources, prices, names)
+    ]
     ops[0]["html"] = _paragraph_html(text, facts, db=db, base_url=base_url)
     subject = data.get("subject") if mode == MODE_LETTER else None
-    return {"kind": mode,
-            "subject": scrub(str(subject), names).strip()[:500] if subject else None,
-            "operations": ops, "marks": _attach(raw_marks, {0: text}),
-            "facts": sorted(facts), "snapshot": nb_snapshot(letter.body_html),
-            "names": {str(i): scrub(f.name, names) for i, f in facts.items()},
-            "status": "open"}
+    return {
+        "kind": mode,
+        "subject": scrub(str(subject), names).strip()[:500] if subject else None,
+        "operations": ops,
+        "marks": _attach(raw_marks, {0: text}),
+        "facts": sorted(facts),
+        "snapshot": nb_snapshot(letter.body_html),
+        "names": {str(i): scrub(f.name, names) for i, f in facts.items()},
+        "status": "open",
+    }
 
 
-def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
-           names: set[str]) -> None:
+def verify(
+    db: Session, proposal: dict[str, Any], *, sources: Sources, provider, names: set[str]
+) -> None:
     """Layer 4: a separate call names the claims without support.
 
     If the verification itself fails, the proposal is marked as a whole — an
@@ -763,15 +866,27 @@ def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
     labels = proposal.get("names") or {}
 
     def readable(text: str) -> str:
-        return _MARKER.sub(lambda m: labels.get(m.group(2), "[markering]")
-                           if _kind_of(m.group(1)) == "naam" else "[markering]", text)
+        return _MARKER.sub(
+            lambda m: (
+                labels.get(m.group(2), "[markering]")
+                if _kind_of(m.group(1)) == "naam"
+                else "[markering]"
+            ),
+            text,
+        )
 
-    listing = "\n".join(f"{i + 1}. {scrub(readable(t), names)}"
-                        for i, t in texts.items())
-    messages = [{"role": "system", "content": VERIFY_PROMPT},
-                {"role": "user", "content": _sources_message(sources)
-                 + "\n\nRESULTATEN VAN DE LEESTOOLS\n" + "\n".join(sources.tool_results)
-                 + "\n\nVOORSTEL (alinea's genummerd)\n" + listing}]
+    listing = "\n".join(f"{i + 1}. {scrub(readable(t), names)}" for i, t in texts.items())
+    messages = [
+        {"role": "system", "content": VERIFY_PROMPT},
+        {
+            "role": "user",
+            "content": _sources_message(sources)
+            + "\n\nRESULTATEN VAN DE LEESTOOLS\n"
+            + "\n".join(sources.tool_results)
+            + "\n\nVOORSTEL (alinea's genummerd)\n"
+            + listing,
+        },
+    ]
     try:
         reply = provider.complete(messages, tools=None)
         data = _parse_json(reply.content or "")
@@ -796,10 +911,16 @@ def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
         if index in texts and quote and quote in scrub(texts[index], names):
             if quote not in texts[index]:
                 continue
-            extra.append({"index": index, "quote": quote,
-                          "reason": str(item.get("reason") or _("staat in geen enkele bron"))[:200]})
-    existing = [{"index": m["index"], "quote": m["quote"], "reason": m["reason"]}
-                for m in proposal["marks"]]
+            extra.append(
+                {
+                    "index": index,
+                    "quote": quote,
+                    "reason": str(item.get("reason") or _("staat in geen enkele bron"))[:200],
+                }
+            )
+    existing = [
+        {"index": m["index"], "quote": m["quote"], "reason": m["reason"]} for m in proposal["marks"]
+    ]
     proposal["marks"] = _attach(existing + extra, texts)
 
 
@@ -810,6 +931,7 @@ def nb_snapshot(body_html: str) -> str:
 
 
 # ── Applying ─────────────────────────────────────────────────────────────────
+
 
 def _without(text: str, sentences: list[str]) -> str:
     for sentence in sentences:
@@ -822,13 +944,20 @@ class Applied:
     """What the editor does with an applied proposal."""
 
     html: str
-    placement: str            # "replace" (whole letter), "cursor" or "selection"
+    placement: str  # "replace" (whole letter), "cursor" or "selection"
     range: Optional[list[int]] = None
 
 
-def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
-          keep: set[int], body_html: str, base_url: str,
-          placement: str = "replace") -> Applied:
+def apply(
+    db: Session,
+    letter: Newsletter,
+    message: DraftingMessage,
+    *,
+    keep: set[int],
+    body_html: str,
+    base_url: str,
+    placement: str = "replace",
+) -> Applied:
     """The HTML the editor takes over, and where it goes.
 
     A marked sentence is left out unless its mark id is in ``keep``
@@ -844,10 +973,10 @@ def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
-    nb.update_draft(db, letter, subject=letter.subject, body_html=body_html,
-                    audience=letter.audience)
-    drop: list[str] = [m["sentence"] for m in proposal.get("marks") or []
-                       if m["id"] not in keep]
+    nb.update_draft(
+        db, letter, subject=letter.subject, body_html=body_html, audience=letter.audience
+    )
+    drop: list[str] = [m["sentence"] for m in proposal.get("marks") or [] if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
     operation = (proposal.get("operations") or [{}])[0]
     kind = proposal.get("kind")
@@ -862,14 +991,20 @@ def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
     if kind == MODE_LETTER and placement != "cursor":
         # A whole letter gets its greeting and its closing from the portal, each
         # set apart by a blank line (Koen, 17 September 2026).
-        result = Applied(html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
-                         placement="replace")
+        result = Applied(
+            html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
+            placement="replace",
+        )
         if proposal.get("subject"):
             letter.subject = proposal["subject"]
     elif kind == MODE_REPLACE:
         if proposal.get("snapshot") != nb_snapshot(letter.body_html) or not proposal.get("range"):
-            raise DraftingError(_("De brief veranderde sinds dit voorstel. Selecteer de "
-                                  "tekst opnieuw en vraag het Raakje nog eens."))
+            raise DraftingError(
+                _(
+                    "De brief veranderde sinds dit voorstel. Selecteer de "
+                    "tekst opnieuw en vraag het Raakje nog eens."
+                )
+            )
         result = Applied(html=html, placement="selection", range=proposal["range"])
     else:
         result = Applied(html=html, placement="cursor")
@@ -892,14 +1027,28 @@ def dismiss(db: Session, message: DraftingMessage) -> None:
         db.commit()
 
 
-def record(db: Session, letter: Newsletter, *, author_text: str,
-           turn: Optional[Turn] = None, error: str = "") -> DraftingMessage:
+def record(
+    db: Session,
+    letter: Newsletter,
+    *,
+    author_text: str,
+    turn: Optional[Turn] = None,
+    error: str = "",
+) -> DraftingMessage:
     """Store both sides of the turn with the draft."""
-    db.add(DraftingMessage(newsletter_id=letter.id, role=MessageRole.AUTHOR,
-                           text=author_text or _("Schrijf een voorstel.")))
-    answer = DraftingMessage(newsletter_id=letter.id, role=MessageRole.RAAKJE,
-                             text=(turn.reply if turn else error) or "",
-                             proposal=turn.proposal if turn else None)
+    db.add(
+        DraftingMessage(
+            newsletter_id=letter.id,
+            role=MessageRole.AUTHOR,
+            text=author_text or _("Schrijf een voorstel."),
+        )
+    )
+    answer = DraftingMessage(
+        newsletter_id=letter.id,
+        role=MessageRole.RAAKJE,
+        text=(turn.reply if turn else error) or "",
+        proposal=turn.proposal if turn else None,
+    )
     db.add(answer)
     db.commit()
     return answer
@@ -922,7 +1071,9 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
     from app.domains.activities.api import Activity
 
     ids = proposal.get("facts") or []
-    names = {a.id: a.name for a in db.query(Activity).filter(Activity.id.in_(ids)).all()} if ids else {}
+    names = (
+        {a.id: a.name for a in db.query(Activity).filter(Activity.id.in_(ids)).all()} if ids else {}
+    )
     marks_by_op: dict[int, list[dict[str, Any]]] = {}
     for mark in proposal.get("marks") or []:
         marks_by_op.setdefault(mark["index"], []).append(mark)
@@ -931,32 +1082,51 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
         out = html_lib.escape(text)
         for mark in marks:
             sentence = html_lib.escape(mark["sentence"])
-            out = out.replace(sentence, f'<mark class="bg-yellow-100 text-ink rounded px-0.5" data-markering="{mark["id"]}">'
-                                        f'{sentence}</mark>', 1)
+            out = out.replace(
+                sentence,
+                f'<mark class="bg-yellow-100 text-ink rounded px-0.5" data-markering="{mark["id"]}">'
+                f"{sentence}</mark>",
+                1,
+            )
 
         def chip(match: re.Match) -> str:
             kind, activity_id = _kind_of(match.group(1)), int(match.group(2))
             name = html_lib.escape(names.get(activity_id, str(activity_id)))
             if kind == "naam":
                 return f"<strong>{name}</strong>"
-            label = (_("datum, plaats en inschrijflink van %(n)s") if kind == "activiteit"
-                     else _("link naar de foto's van %(n)s")) % {"n": name}
+            label = (
+                _("datum, plaats en inschrijflink van %(n)s")
+                if kind == "activiteit"
+                else _("link naar de foto's van %(n)s")
+            ) % {"n": name}
             return f'<span class="text-ink-soft italic">[{label}]</span>'
 
         out = _MARKER.sub(chip, out)
         return out.replace("\n", "<br>")
 
     kind = proposal.get("kind")
-    label = {MODE_LETTER: _("Volledige brief"), MODE_REPLACE: _("Vervangt je selectie"),
-             MODE_INSERT: _("Komt waar je cursor staat")}.get(str(kind), _("Voorstel"))
+    label = {
+        MODE_LETTER: _("Volledige brief"),
+        MODE_REPLACE: _("Vervangt je selectie"),
+        MODE_INSERT: _("Komt waar je cursor staat"),
+    }.get(str(kind), _("Voorstel"))
     operations = []
     for op in proposal.get("operations") or []:
-        operations.append({"label": label,
-                           "old": proposal.get("selected", "") if kind == MODE_REPLACE else "",
-                           "new_html": shown(op.get("text") or "", marks_by_op.get(op["index"], [])),
-                           "marks": marks_by_op.get(op["index"], [])})
-    return {"id": message.id, "kind": proposal.get("kind"), "status": proposal.get("status"),
-            "subject": proposal.get("subject"), "operations": operations,
-            "unverified": bool(proposal.get("unverified")),
-            "stale": kind == MODE_REPLACE and not unchanged,
-            "has_text": bool(current)}
+        operations.append(
+            {
+                "label": label,
+                "old": proposal.get("selected", "") if kind == MODE_REPLACE else "",
+                "new_html": shown(op.get("text") or "", marks_by_op.get(op["index"], [])),
+                "marks": marks_by_op.get(op["index"], []),
+            }
+        )
+    return {
+        "id": message.id,
+        "kind": proposal.get("kind"),
+        "status": proposal.get("status"),
+        "subject": proposal.get("subject"),
+        "operations": operations,
+        "unverified": bool(proposal.get("unverified")),
+        "stale": kind == MODE_REPLACE and not unchanged,
+        "has_text": bool(current),
+    }

@@ -9,6 +9,7 @@ gebruikt door:
 Houd berekeningslogica hier — niet inline in routers of mailtemplates — zodat
 scherm, mail en betaling nooit uit elkaar kunnen lopen.
 """
+
 from decimal import Decimal
 from typing import List, Tuple, TypedDict
 
@@ -60,8 +61,9 @@ def _telt_mee(regel: RegistrationLine) -> bool:
     return not regel["is_free"] and not regel["pay_on_site"]
 
 
-def quote_lines(component, quantities: dict[int, int],
-                is_member: bool) -> Tuple[Decimal, List[RegistrationLine]]:
+def quote_lines(
+    component, quantities: dict[int, int], is_member: bool
+) -> Tuple[Decimal, List[RegistrationLine]]:
     """Wat kost deze keuze, vóórdat er iets is opgeslagen? (#635 punt 1)
 
     Dezelfde regel-per-product-logica als `compute_registration_total`, maar met
@@ -76,9 +78,11 @@ def quote_lines(component, quantities: dict[int, int],
 
     Producten met aantal 0 leveren geen regel op.
     """
-    regels = [_line(p, quantities.get(p.id, 0), is_member)
-              for p in (component.products or [])
-              if quantities.get(p.id, 0) > 0]
+    regels = [
+        _line(p, quantities.get(p.id, 0), is_member)
+        for p in (component.products or [])
+        if quantities.get(p.id, 0) > 0
+    ]
     totaal = sum((r["subtotal"] for r in regels if _telt_mee(r)), Decimal("0"))
     return totaal, regels
 
@@ -90,12 +94,10 @@ def has_payable_products(component, is_member: bool) -> bool:
     niet kan verschijnen zonder bedrag of omgekeerd: een lid met ledenprijs 0
     telt niet als betalend, en gratis/ter-plaatse-producten evenmin.
     """
-    return any(_betaalbaar(p) and _unit_price(p, is_member) > 0
-               for p in (component.products or []))
+    return any(_betaalbaar(p) and _unit_price(p, is_member) > 0 for p in (component.products or []))
 
 
-def quote_registration(registration,
-                       quantities: dict) -> Tuple[Decimal, List[RegistrationLine]]:
+def quote_registration(registration, quantities: dict) -> Tuple[Decimal, List[RegistrationLine]]:
     """Wat zou deze inschrijving kosten met deze aantallen? (#670)
 
     De derde ingang, en bewust géén hergebruik van `quote_lines`. Die is gesleuteld

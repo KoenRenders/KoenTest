@@ -2,6 +2,7 @@
 
 Soft-delete = bewaren, niet wissen: het betalingen-scherm (financiële view) verrijkt
 met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
+
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
 from tests.conftest import seed_postal_code
@@ -9,13 +10,26 @@ from tests.conftest import seed_postal_code
 
 def _family_with_membership(client, db):
     seed_postal_code(db)
-    resp = client.post("/api/v1/families", json={
-        "street": "Milostraat", "house_number": "40", "postal_code": "2400",
-        "payment_method": "transfer",
-        "members": [{"last_name": "Wiske", "first_name": "Suske",
-                     "email": "suske@suske.be", "mobile": "0470111111",
-                     "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"}],
-    })
+    resp = client.post(
+        "/api/v1/families",
+        json={
+            "street": "Milostraat",
+            "house_number": "40",
+            "postal_code": "2400",
+            "payment_method": "transfer",
+            "members": [
+                {
+                    "last_name": "Wiske",
+                    "first_name": "Suske",
+                    "email": "suske@suske.be",
+                    "mobile": "0470111111",
+                    "date_of_birth": "1980-01-01",
+                    "gender_code": "M",
+                    "relation_type": "HOOFDLID",
+                }
+            ],
+        },
+    )
     assert resp.status_code == 201, resp.text
     return db.query(Member).order_by(Member.id.desc()).first()
 
@@ -28,23 +42,34 @@ def _membership_record(client, admin_headers):
 def test_registration_description_survives_activity_soft_delete(client, db_session, admin_headers):
     """#190: na soft-delete van de activiteit blijft de betalingsrij de activiteitnaam
     tonen (de verrijking haalt de activiteit op met include_deleted)."""
-    from tests.conftest import seed_activity_with_product
     from app.domains.activities.api import Activity, Registration
+    from tests.conftest import seed_activity_with_product
 
     _, comp, product = seed_activity_with_product(db_session, price="12.00")
-    resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
-        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{comp.activity_id}/register",
+        json={
+            "contact_name": "An",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
-    reg = db_session.query(Registration).filter(
-        Registration.component_id == comp.id).order_by(Registration.id.desc()).first()
+    reg = (
+        db_session.query(Registration)
+        .filter(Registration.component_id == comp.id)
+        .order_by(Registration.id.desc())
+        .first()
+    )
 
     def _rec():
         recs = client.get("/api/v1/payment-status/records", headers=admin_headers).json()
-        return next(r for r in recs
-                    if r["payable_type"] == "registration" and r["payable_id"] == reg.id)
+        return next(
+            r for r in recs if r["payable_type"] == "registration" and r["payable_id"] == reg.id
+        )
 
     name = _rec()["description"]
     assert name  # = de activiteitnaam

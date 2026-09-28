@@ -1,10 +1,10 @@
 """Blok P (#398): berichten-capture → SubmissionCreated → behartigen-taak, en de
 werkbank (sessie-auth, CSRF, sluiten-door-beslissing)."""
-from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.forms.models import Form, FormSubmission
-from app.domains.workflow.models import TaskStatus, WorkflowTask
-from app.domains.forms.models import FieldType, FormStatus
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.forms.models import FieldType, Form, FormStatus, FormSubmission
+from app.domains.workflow.models import TaskStatus, WorkflowTask
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -40,7 +40,10 @@ def test_bericht_creates_submission_and_task(client, db_session):
 def test_bericht_requires_name_and_message(client, db_session):
     before = db_session.query(FormSubmission).count()
     resp = _post_bericht(client, naam="", bericht="")
-    assert resp.status_code == 200 and "Vul je naam, een geldig e-mailadres en je bericht in" in resp.text
+    assert (
+        resp.status_code == 200
+        and "Vul je naam, een geldig e-mailadres en je bericht in" in resp.text
+    )
     # #501: ook een ontbrekend/ongeldig e-mailadres wordt geweigerd.
     resp2 = _post_bericht(client, naam="Jan", email="geen-apestaart", bericht="Hoi")
     assert resp2.status_code == 200 and "geldig e-mailadres" in resp2.text
@@ -62,9 +65,11 @@ def test_werkbank_lists_and_closes_task(client, db_session):
     detail = client.get(f"/admin/werkbank/taken/{task.id}")
     assert detail.status_code == 200 and "zomerbar" in detail.text
 
-    done = client.post(f"/admin/werkbank/taken/{task.id}/afgehandeld",
-                       data={"besluit": "Doorgegeven aan het bestuur"},
-                       headers={"X-CSRF-Token": csrf})
+    done = client.post(
+        f"/admin/werkbank/taken/{task.id}/afgehandeld",
+        data={"besluit": "Doorgegeven aan het bestuur"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert done.status_code == 200
     db_session.expire_all()
     assert task.status is TaskStatus.DONE and task.done_by == SEEDED_ADMIN_EMAIL
@@ -85,9 +90,11 @@ def test_verify_otp_sets_session_cookie(client, db_session, monkeypatch):
     # De OTP-generator woont sinds #635 I in auth/login.py; patchen doe je waar
     # de implementatie staat.
     from app.domains.auth import login as auth_login
+
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
-    resp = client.post("/api/v1/auth/verify-otp",
-                       json={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})
+    resp = client.post(
+        "/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": "424242"}
+    )
     assert resp.status_code == 200
     assert SESSION_COOKIE in resp.cookies

@@ -22,12 +22,12 @@ het stukje dat stil kapotgaat.
 * `params["per_page"] = per_page` weggehaald uit `_sorteer_url` (mail/ui.py) →
   `test_de_paginagrootte_overleeft_een_kop_klik` viel om op het e-maillog.
 """
+
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.ui import PER_PAGE_DEFAULT, PER_PAGE_OPTIONS
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from tests.test_filterbalk_op_een_regel import meet
@@ -55,8 +55,14 @@ def _wijzigingen(db, aantal):
         person = Person(first_name=f"Vorm{i}", last_name="Test")
         db.add(person)
         db.flush()
-        snapshot_person(db, person, operation="insert", action="person_created",
-                        source="test", actor=f"tester{i:03d}@example.com")
+        snapshot_person(
+            db,
+            person,
+            operation="insert",
+            action="person_created",
+            source="test",
+            actor=f"tester{i:03d}@example.com",
+        )
     db.commit()
 
 
@@ -65,13 +71,20 @@ def _emails(db, aantal):
 
     moment = datetime(2026, 9, 14, 10, 0, tzinfo=timezone.utc)
     for i in range(aantal):
-        db.add(EmailLog(recipient=f"vormtest{i:03d}@example.com",
-                        subject=f"Onderwerp {i}", email_type="other",
-                        status="sent", created_at=moment + timedelta(minutes=i)))
+        db.add(
+            EmailLog(
+                recipient=f"vormtest{i:03d}@example.com",
+                subject=f"Onderwerp {i}",
+                email_type="other",
+                status="sent",
+                created_at=moment + timedelta(minutes=i),
+            )
+        )
     db.commit()
 
 
 # ── 1. Volle breedte ─────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("pad", [WIJZIGINGEN, EMAILLOG])
 def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
@@ -84,8 +97,9 @@ def test_beide_schermen_gebruiken_de_volle_breedte(client, db_session, pad):
     _login(client, db_session)
     html = client.get(pad).text
 
-    assert '<div class="max-w-none mx-auto">' in html, \
+    assert '<div class="max-w-none mx-auto">' in html, (
         f"{pad}: de contentkolom staat niet op max-w-none"
+    )
     for grens in ("max-w-5xl mx-auto", "max-w-7xl mx-auto"):
         assert grens not in html, f"{pad}: draagt nog de begrensde kolom {grens}"
 
@@ -109,11 +123,13 @@ def test_de_tabel_zit_in_haar_eigen_schuifcontainer(client, db_session, pad):
     assert opening != -1, f"{pad}: geen tabel gevonden"
     blok = html[:opening]
     wrapper = blok.rfind("overflow-x-auto")
-    assert wrapper != -1 and blok.rfind("<div", wrapper - 200, wrapper) != -1, \
+    assert wrapper != -1 and blok.rfind("<div", wrapper - 200, wrapper) != -1, (
         f"{pad}: de tabel staat niet in een overflow-x-auto-container"
+    )
 
 
 # ── 2. De meta-regel boven de tabel ──────────────────────────────────────────
+
 
 def test_de_meta_regel_van_wijzigingen_telt_en_benoemt_de_volgorde(client, db_session):
     """§2.3: hoeveel regels en waarom deze bovenaan staat, zonder de koppen af te gaan."""
@@ -125,9 +141,9 @@ def test_de_meta_regel_van_wijzigingen_telt_en_benoemt_de_volgorde(client, db_se
 
     # Een andere sortering hoort een ANDERE zin te geven — anders is de regel
     # opsmuk die altijd hetzelfde zegt.
-    op_actor = client.get(WIJZIGINGEN, params={"since": "2000-01-01",
-                                               "sort": "actor",
-                                               "richting": "asc"}).text
+    op_actor = client.get(
+        WIJZIGINGEN, params={"since": "2000-01-01", "sort": "actor", "richting": "asc"}
+    ).text
     assert "op Actor, oplopend" in op_actor
     assert "nieuwste eerst" not in op_actor
 
@@ -147,8 +163,8 @@ def test_de_meta_regel_van_het_emaillog_belooft_geen_totaal(client, db_session):
 
 # ── 3. Hoeveel rijen op een pagina ───────────────────────────────────────────
 
-@pytest.mark.parametrize("pad,form_id", [(WIJZIGINGEN, "lw-filters"),
-                                         (EMAILLOG, "el-filters")])
+
+@pytest.mark.parametrize("pad,form_id", [(WIJZIGINGEN, "lw-filters"), (EMAILLOG, "el-filters")])
 def test_de_keuze_biedt_precies_de_toegestane_maten(client, db_session, pad, form_id):
     """De keuzelijst wordt uit dezelfde reeks gevuld als de whitelist in de route.
 
@@ -163,8 +179,7 @@ def test_de_keuze_biedt_precies_de_toegestane_maten(client, db_session, pad, for
 
     for n in PER_PAGE_OPTIONS:
         assert f'<option value="{n}"' in html, f"{pad}: maat {n} ontbreekt"
-    assert f'form="{form_id}"' in html, \
-        f"{pad}: de keuzelijst hangt niet aan de filterbalk"
+    assert f'form="{form_id}"' in html, f"{pad}: de keuzelijst hangt niet aan de filterbalk"
 
 
 def test_een_kleinere_pagina_toont_ook_echt_minder_rijen(client, db_session):
@@ -183,8 +198,7 @@ def test_een_kleinere_pagina_toont_ook_echt_minder_rijen(client, db_session):
     assert rijen(per_page=100000) == PER_PAGE_DEFAULT
 
 
-@pytest.mark.parametrize("pad,sleutel", [(WIJZIGINGEN, "actor"),
-                                         (EMAILLOG, "ontvanger")])
+@pytest.mark.parametrize("pad,sleutel", [(WIJZIGINGEN, "actor"), (EMAILLOG, "ontvanger")])
 def test_de_paginagrootte_overleeft_een_kop_klik(client, db_session, pad, sleutel):
     """Een kop-klik gaat langs de LINK en niet langs de filterbalk.
 
@@ -196,22 +210,23 @@ def test_de_paginagrootte_overleeft_een_kop_klik(client, db_session, pad, sleute
     _login(client, db_session)
 
     html = client.get(pad, params={"since": "2000-01-01", "per_page": 25}).text
-    koplinks = [r for r in html.splitlines() if f'sort={sleutel}' in r]
+    koplinks = [r for r in html.splitlines() if f"sort={sleutel}" in r]
     assert koplinks, f"{pad}: geen sorteerlink voor {sleutel} gevonden"
-    assert any("per_page=25" in r for r in koplinks), \
+    assert any("per_page=25" in r for r in koplinks), (
         f"{pad}: de sorteerlink van {sleutel} laat de paginagrootte vallen"
+    )
 
 
 def test_de_paginagrootte_reist_mee_bij_het_bladeren(client, db_session):
     """Zonder dit springt pagina 2 terug naar 50 rijen."""
     _wijzigingen(db_session, 60)
     _login(client, db_session)
-    html = client.get(WIJZIGINGEN, params={"since": "2000-01-01",
-                                           "per_page": 25}).text
+    html = client.get(WIJZIGINGEN, params={"since": "2000-01-01", "per_page": 25}).text
     assert "per_page=25" in html and "Volgende" in html
 
 
 # ── 4. Het veld *Vanaf* blijft, met een zichtbaar label ERNAAST ──────────────
+
 
 def test_het_vanaf_label_staat_naast_het_veld_niet_erboven(client, db_session):
     """Het label keert terug (Koen, 20 sep) — maar niet als blok-label.
@@ -258,8 +273,7 @@ def test_het_vanaf_veld_staat_standaard_op_dertig_dagen_geleden(client, db_sessi
     import re
 
     _login(client, db_session)
-    veld = re.search(r'<input[^>]*id="lw-since"[^>]*>',
-                     client.get(WIJZIGINGEN).text).group(0)
+    veld = re.search(r'<input[^>]*id="lw-since"[^>]*>', client.get(WIJZIGINGEN).text).group(0)
 
     verwacht = (date.today() - timedelta(days=30)).isoformat()
     assert f'value="{verwacht}"' in veld, veld
@@ -267,10 +281,14 @@ def test_het_vanaf_veld_staat_standaard_op_dertig_dagen_geleden(client, db_sessi
 
 # ── De filterregel van #1079 blijft staan ────────────────────────────────────
 
-@pytest.mark.parametrize("pad,verwacht", [
-    (WIJZIGINGEN, {"actor", "since", "group"}),
-    (EMAILLOG, {"recipient", "email_type", "status"}),
-])
+
+@pytest.mark.parametrize(
+    "pad,verwacht",
+    [
+        (WIJZIGINGEN, {"actor", "since", "group"}),
+        (EMAILLOG, {"recipient", "email_type", "status"}),
+    ],
+)
 def test_de_filterregel_blijft_een_rij(client, db_session, pad, verwacht):
     """#1079 mag hier niet sneuvelen: de keuzelijst voor de paginagrootte hangt
     via `form=` aan de balk, maar staat er BUITEN — ze hoort dus geen tweede
@@ -279,5 +297,6 @@ def test_de_filterregel_blijft_een_rij(client, db_session, pad, verwacht):
     controls = meet(client.get(pad).text)
 
     assert {naam for _k, naam, _s in controls} == verwacht
-    assert len({kind for kind, _n, _s in controls}) == 1, \
+    assert len({kind for kind, _n, _s in controls}) == 1, (
         f"{pad}: de filterbalk heeft meer dan één directe kind: {sorted(controls)}"
+    )

@@ -8,6 +8,7 @@ The known hallucinations of the public Raakje are fixed cases here (§3.16):
 games that are not in the flyer, a function given to a board member, a price
 found only in an old letter.
 """
+
 import json
 from datetime import date, timedelta
 from decimal import Decimal
@@ -22,7 +23,6 @@ from app.domains.newsletter import service as nb
 from app.domains.newsletter.models import (
     Audience,
     LetterStatus,
-    Newsletter,
 )
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -57,9 +57,9 @@ class ScriptedProvider:
 def raakje(monkeypatch):
     def install(*answers):
         provider = ScriptedProvider(*answers)
-        monkeypatch.setattr("app.domains.chatbot.api.get_provider",
-                            lambda model="": provider)
+        monkeypatch.setattr("app.domains.chatbot.api.get_provider", lambda model="": provider)
         return provider
+
     return install
 
 
@@ -72,24 +72,32 @@ def _piece(text, reply="Aangepast."):
 
 
 def _verdict(*items):
-    return json.dumps({"unsupported": [
-        {"paragraph": p, "quote": q, "reason": r} for p, q, r in items]})
+    return json.dumps(
+        {"unsupported": [{"paragraph": p, "quote": q, "reason": r} for p, q, r in items]}
+    )
 
 
 def _activity(db, name, days_ahead=20, price=None, member_price=None):
     from app.domains.activities.api import ActivitySubRegistration
 
-    activity = Activity(name=name, location="Dorpsplein",
-                        slug=name.lower().replace(" ", "-").replace("&", "en"))
+    activity = Activity(
+        name=name, location="Dorpsplein", slug=name.lower().replace(" ", "-").replace("&", "en")
+    )
     db.add(activity)
     db.flush()
-    db.add(ActivityDate(activity_id=activity.id,
-                        start_date=date.today() + timedelta(days=days_ahead)))
+    db.add(
+        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=days_ahead))
+    )
     if price is not None:
-        db.add(ActivitySubRegistration(activity_id=activity.id, name="Deelname",
-                                       price=Decimal(price), is_free=False,
-                                       member_price=(Decimal(member_price)
-                                                     if member_price else None)))
+        db.add(
+            ActivitySubRegistration(
+                activity_id=activity.id,
+                name="Deelname",
+                price=Decimal(price),
+                is_free=False,
+                member_price=(Decimal(member_price) if member_price else None),
+            )
+        )
     db.flush()
     return activity
 
@@ -101,27 +109,41 @@ def _letter(db, body="", audience=Audience.MEMBERS, activity_ids=()):
     return letter
 
 
-def _ask(db, letter, instruction="Schrijf de najaarsbrief.", selection="",
-         selection_range="", before_cursor=""):
-    return drafting.ask(db, letter, instruction=instruction, actor="s@example.org",
-                        base_url=BASE, selection=selection,
-                        selection_range=selection_range, before_cursor=before_cursor)
+def _ask(
+    db,
+    letter,
+    instruction="Schrijf de najaarsbrief.",
+    selection="",
+    selection_range="",
+    before_cursor="",
+):
+    return drafting.ask(
+        db,
+        letter,
+        instruction=instruction,
+        actor="s@example.org",
+        base_url=BASE,
+        selection=selection,
+        selection_range=selection_range,
+        before_cursor=before_cursor,
+    )
 
 
 def _sent_meeting_with_point(db, notes, activity=None):
     """A sent meeting report with one point, as the composer may tick it."""
     from app.domains.meetings.api import (
-    MeetingStatus,
-    SectionKind,
-    add_item,
-    create_meeting,
-    sections_of,
-)
+        MeetingStatus,
+        SectionKind,
+        add_item,
+        create_meeting,
+        sections_of,
+    )
 
     meeting = create_meeting(db, meeting_date=date.today() - timedelta(days=10))
     section = next(s for s in sections_of(db, meeting) if s.kind == SectionKind.EVALUATION)
-    item = add_item(db, meeting, section, title="Vervoer",
-                    activity_id=activity.id if activity else None)
+    item = add_item(
+        db, meeting, section, title="Vervoer", activity_id=activity.id if activity else None
+    )
     item.notes = notes
     meeting.status = MeetingStatus.SENT
     db.commit()
@@ -129,6 +151,7 @@ def _sent_meeting_with_point(db, notes, activity=None):
 
 
 # ── 11–12. What leaves ───────────────────────────────────────────────────────
+
 
 def test_een_naam_uit_het_verslag_vertrekt_niet_en_komt_niet_terug(db_session, raakje):
     """A ticked point "Kris regelt de bus" leaves without the name, and the name
@@ -185,8 +208,11 @@ def test_een_aangevinkt_verslag_gaat_als_geheel_mee(db_session, raakje):
 def test_niemands_adres_en_geen_ontvangerslijst_in_de_payload(db_session, raakje):
     from app.domains.newsletter.models import Subscriber
 
-    db_session.add(Subscriber(email="piet@example.org", status="confirmed",
-                              source="admin", unsubscribe_token="t1"))
+    db_session.add(
+        Subscriber(
+            email="piet@example.org", status="confirmed", source="admin", unsubscribe_token="t1"
+        )
+    )
     db_session.flush()
     letter = _letter(db_session)
     provider = raakje(_draft(["Een brief."]), _verdict())
@@ -214,8 +240,11 @@ def test_een_adres_in_de_gegevens_blokkeert_raakje_niet_meer(db_session, raakje)
     from app.domains.activities.api import Activity
 
     activiteit = _activity(db_session, "Wandelweekend Eifel")
-    db_session.get(Activity, activiteit.id).description = (
-        "Inschrijven via info@raak.example of 0473 12 34 56, betalen op BE68539007547034.")
+    db_session.get(
+        Activity, activiteit.id
+    ).description = (
+        "Inschrijven via info@raak.example of 0473 12 34 56, betalen op BE68539007547034."
+    )
     db_session.commit()
     letter = _letter(db_session, activity_ids=[activiteit.id])
     provider = raakje(_draft(["Een brief."]), _verdict())
@@ -253,8 +282,10 @@ def test_de_hele_brief_op_vraag_ook_als_er_al_tekst_staat(db_session, raakje):
 
 # ── 13–15, 17–18. What comes back ────────────────────────────────────────────
 
+
 def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_data(
-        db_session, raakje):
+    db_session, raakje
+):
     """The model writes its own date → marked; the marker line comes from the
     activity data (CR-05 §3.16 layers 1 and 3).
 
@@ -263,8 +294,16 @@ def test_een_zelf_geschreven_datum_wordt_gemarkeerd_de_markering_komt_uit_de_dat
     """
     brood = _activity(db_session, "Brood & Spelen", days_ahead=30)
     letter = _letter(db_session, activity_ids=[brood.id])
-    raakje(_draft(["# In de kijker", f"[[activiteit:{brood.id}]]",
-                   "Kom op de 12de naar Brood & Spelen, gezellig!"]), _verdict())
+    raakje(
+        _draft(
+            [
+                "# In de kijker",
+                f"[[activiteit:{brood.id}]]",
+                "Kom op de 12de naar Brood & Spelen, gezellig!",
+            ]
+        ),
+        _verdict(),
+    )
 
     turn = _ask(db_session, letter)
 
@@ -296,8 +335,13 @@ def test_een_bedrag_dat_geen_prijs_is_wordt_gemarkeerd(db_session, raakje):
 def test_een_prijs_die_alleen_in_een_oude_brief_staat_telt_als_verzonnen(db_session, raakje):
     """Example letters are style only (CR-05 §3.16)."""
     old = nb.create_newsletter(db_session, created_by="s@example.org")
-    nb.update_draft(db_session, old, subject="Vorig jaar",
-                    body_html="<div>De BBQ kost € 7 dit jaar.</div>", audience=Audience.MEMBERS)
+    nb.update_draft(
+        db_session,
+        old,
+        subject="Vorig jaar",
+        body_html="<div>De BBQ kost € 7 dit jaar.</div>",
+        audience=Audience.MEMBERS,
+    )
     old.status = LetterStatus.SENT
     db_session.commit()
     bbq = _activity(db_session, "BBQ", price="15")
@@ -306,7 +350,9 @@ def test_een_prijs_die_alleen_in_een_oude_brief_staat_telt_als_verzonnen(db_sess
 
     turn = _ask(db_session, letter)
 
-    assert "€ 7 dit jaar" in json.dumps(provider.asked, ensure_ascii=False), "als stijlvoorbeeld mee"
+    assert "€ 7 dit jaar" in json.dumps(provider.asked, ensure_ascii=False), (
+        "als stijlvoorbeeld mee"
+    )
     assert [m["quote"] for m in turn.proposal["marks"]] == ["€ 7"]
 
 
@@ -334,7 +380,8 @@ def test_verzonnen_spelletjes_worden_door_de_controleronde_gemarkeerd(db_session
     turn = _ask(db_session, letter)
 
     assert [(m["quote"], m["sentence"]) for m in turn.proposal["marks"]] == [
-        ("zaklopen-wedstrijd", zin)]
+        ("zaklopen-wedstrijd", zin)
+    ]
     verify_payload = json.dumps(provider.asked[-1], ensure_ascii=False)
     assert "VOORSTEL" in verify_payload and "zaklopen" in verify_payload
 
@@ -362,8 +409,10 @@ def test_een_naam_in_het_antwoord_wordt_gemarkeerd(db_session, raakje):
 def test_een_fotolink_alleen_als_er_een_album_is(db_session, raakje, monkeypatch):
     zonder = _activity(db_session, "Wandeling", days_ahead=-10)
     met = _activity(db_session, "Comedy Festival", days_ahead=-20)
-    monkeypatch.setattr("app.domains.media.api.activity_photo_covers",
-                        lambda db: [{"activity_id": met.id, "thumb_url": "/x"}])
+    monkeypatch.setattr(
+        "app.domains.media.api.activity_photo_covers",
+        lambda db: [{"activity_id": met.id, "thumb_url": "/x"}],
+    )
     letter = _letter(db_session, activity_ids=[zonder.id, met.id])
     raakje(_draft([f"[[fotos:{zonder.id}]]", f"[[fotos:{met.id}]]"]), _verdict())
 
@@ -375,6 +424,7 @@ def test_een_fotolink_alleen_als_er_een_album_is(db_session, raakje, monkeypatch
 
 
 # ── Applying ─────────────────────────────────────────────────────────────────
+
 
 def _proposal_message(db, letter, turn):
     return drafting.record(db, letter, author_text="vraag", turn=turn)
@@ -390,14 +440,17 @@ def test_een_gemarkeerde_zin_blijft_weg_tenzij_je_hem_behoudt(db_session, raakje
     zin = "Er is ook een zaklopen-wedstrijd."
     for keep, expected in ((set(), False), ({1}, True)):
         letter = _letter(db_session, activity_ids=[brood.id])
-        raakje(_draft(["Kom naar Brood & Spelen!", zin]),
-               _verdict((1, "zaklopen", "staat niet in de flyer")))
+        raakje(
+            _draft(["Kom naar Brood & Spelen!", zin]),
+            _verdict((1, "zaklopen", "staat niet in de flyer")),
+        )
         turn = _ask(db_session, letter)
         message = _proposal_message(db_session, letter, turn)
         assert letter.body_html == "", "niets in de brief vóór Toepassen"
 
-        html = drafting.apply(db_session, letter, message, keep=keep,
-                              body_html="", base_url=BASE).html
+        html = drafting.apply(
+            db_session, letter, message, keep=keep, body_html="", base_url=BASE
+        ).html
 
         assert ("zaklopen" in html) is expected
         assert "Kom naar Brood &amp; Spelen!" in html
@@ -414,11 +467,11 @@ def test_zonder_selectie_komt_het_stuk_waar_de_cursor_staat(db_session, raakje):
     letter = _letter(db_session, body=body)
     provider = raakje(_piece("Een nieuw stuk."), _verdict())
 
-    turn = _ask(db_session, letter, instruction="Een stuk over de BBQ.",
-                before_cursor="Eerste alinea.")
+    turn = _ask(
+        db_session, letter, instruction="Een stuk over de BBQ.", before_cursor="Eerste alinea."
+    )
     message = _proposal_message(db_session, letter, turn)
-    applied = drafting.apply(db_session, letter, message, keep=set(),
-                             body_html=body, base_url=BASE)
+    applied = drafting.apply(db_session, letter, message, keep=set(), body_html=body, base_url=BASE)
 
     assert turn.proposal["kind"] == "insert"
     assert "TEKST VLAK VOOR DE CURSOR" in provider.asked[0][-1]["content"]
@@ -432,16 +485,23 @@ def test_een_selectie_wordt_vervangen(db_session, raakje):
     letter = _letter(db_session, body=body)
     provider = raakje(_piece("Een korte zin."), _verdict())
 
-    turn = _ask(db_session, letter, instruction="Korter.",
-                selection="Een te lange zin die korter mag.", selection_range="7,39")
+    turn = _ask(
+        db_session,
+        letter,
+        instruction="Korter.",
+        selection="Een te lange zin die korter mag.",
+        selection_range="7,39",
+    )
     message = _proposal_message(db_session, letter, turn)
-    applied = drafting.apply(db_session, letter, message, keep=set(),
-                             body_html=body, base_url=BASE)
+    applied = drafting.apply(db_session, letter, message, keep=set(), body_html=body, base_url=BASE)
 
     assert turn.proposal["kind"] == "replace"
     assert "Een te lange zin die korter mag." in provider.asked[0][-1]["content"]
     assert (applied.placement, applied.range, applied.html) == (
-        "selection", [7, 39], "<div>Een korte zin.</div>")
+        "selection",
+        [7, 39],
+        "<div>Een korte zin.</div>",
+    )
 
 
 def test_een_selectie_op_een_intussen_veranderde_brief_wordt_geweigerd(db_session, raakje):
@@ -453,22 +513,32 @@ def test_een_selectie_op_een_intussen_veranderde_brief_wordt_geweigerd(db_sessio
     body = "<div>Een.</div><div>Twee.</div>"
     letter = _letter(db_session, body=body)
     raakje(_piece("Drie."), _verdict())
-    turn = _ask(db_session, letter, instruction="Anders.", selection="Twee.",
-                selection_range="4,9")
+    turn = _ask(db_session, letter, instruction="Anders.", selection="Twee.", selection_range="4,9")
     message = _proposal_message(db_session, letter, turn)
 
     with pytest.raises(drafting.DraftingError):
-        drafting.apply(db_session, letter, message, keep=set(),
-                       body_html="<div>Nul.</div>" + body, base_url=BASE)
+        drafting.apply(
+            db_session,
+            letter,
+            message,
+            keep=set(),
+            body_html="<div>Nul.</div>" + body,
+            base_url=BASE,
+        )
     assert message.proposal["status"] == "open"
 
 
 def test_de_brief_splitsen_in_alineas():
-    html = ("<div>Een <strong>vet</strong> woord.<br>Tweede regel.</div>"
-            "<ul><li>a</li><li>b</li></ul><h1>Kop</h1><div>Laatste</div>")
+    html = (
+        "<div>Een <strong>vet</strong> woord.<br>Tweede regel.</div>"
+        "<ul><li>a</li><li>b</li></ul><h1>Kop</h1><div>Laatste</div>"
+    )
     assert drafting.paragraphs(html) == [
         "<div>Een <strong>vet</strong> woord.<br>Tweede regel.</div>",
-        "<ul><li>a</li><li>b</li></ul>", "<h1>Kop</h1>", "<div>Laatste</div>"]
+        "<ul><li>a</li><li>b</li></ul>",
+        "<h1>Kop</h1>",
+        "<div>Laatste</div>",
+    ]
 
 
 def test_de_systeemprompt_draagt_geen_opgeslagen_inhoud(db_session, raakje):
@@ -496,6 +566,7 @@ def test_de_systeemprompt_draagt_geen_opgeslagen_inhoud(db_session, raakje):
 
 # ── 19. The switch ───────────────────────────────────────────────────────────
 
+
 def _login(client) -> dict:
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
@@ -521,8 +592,11 @@ def test_met_raakje_uit_is_er_geen_paneel_en_werkt_de_rest(client, db_session, m
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert 'id="nb-raakje"' not in scherm.text
     assert 'id="nb-trix"' in scherm.text
-    vraag = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag", headers=headers,
-                        data={"instruction": "x", "body_html": ""})
+    vraag = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
+        headers=headers,
+        data={"instruction": "x", "body_html": ""},
+    )
     assert vraag.status_code == 404
 
 
@@ -533,22 +607,32 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
     brood = _activity(db_session, "Brood & Spelen")
     letter = _letter(db_session)
 
-    kies = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/activiteit",
-                       headers=headers, data={"activity_id": str(brood.id)})
+    kies = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/activiteit",
+        headers=headers,
+        data={"activity_id": str(brood.id)},
+    )
     assert "Brood &amp; Spelen" in kies.text
-    raakje(_draft(["Kom naar Brood & Spelen!", "Er is een zaklopen-wedstrijd."]),
-           _verdict((1, "zaklopen", "staat niet in de flyer")))
+    raakje(
+        _draft(["Kom naar Brood & Spelen!", "Er is een zaklopen-wedstrijd."]),
+        _verdict((1, "zaklopen", "staat niet in de flyer")),
+    )
 
-    antwoord = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
-                           headers=headers, data={"instruction": "Een feestelijke brief",
-                                                  "body_html": ""})
+    antwoord = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
+        headers=headers,
+        data={"instruction": "Een feestelijke brief", "body_html": ""},
+    )
     assert "staat niet in de flyer" in antwoord.text
     assert "klopt, behouden" in antwoord.text
     assert "bg-yellow-100" in antwoord.text
 
     message = [m for m in nb.messages_of(db_session, letter) if m.proposal][-1]
-    toegepast = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen",
-                            headers=headers, data={"body_html": "", "placement": "replace"})
+    toegepast = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/{message.id}/toepassen",
+        headers=headers,
+        data={"body_html": "", "placement": "replace"},
+    )
     assert 'id="nb-toepassen"' in toegepast.text
     sjabloon = toegepast.text.split('id="nb-toepassen"')[1].split("</template>")[0]
     assert "Kom naar Brood" in sjabloon
@@ -559,26 +643,33 @@ def test_het_gesprek_via_het_scherm(client, db_session, monkeypatch, raakje):
 def test_versturen_ruimt_het_gesprek_op(db_session, raakje, monkeypatch):
     from app.domains.newsletter.models import DraftingMessage, Subscriber
 
-    monkeypatch.setattr("app.domains.mail.api.send_campaign_mail",
-                        lambda *a, **k: "sent")
-    db_session.add(Subscriber(email="a@example.org", status="confirmed", source="admin",
-                              unsubscribe_token="t"))
+    monkeypatch.setattr("app.domains.mail.api.send_campaign_mail", lambda *a, **k: "sent")
+    db_session.add(
+        Subscriber(email="a@example.org", status="confirmed", source="admin", unsubscribe_token="t")
+    )
     db_session.flush()
     letter = _letter(db_session, audience="non_members")
     raakje(_draft(["Een brief."]), _verdict())
     turn = _ask(db_session, letter)
     _proposal_message(db_session, letter, turn)
-    nb.update_draft(db_session, letter, subject="Onderwerp", body_html="<div>Tekst</div>",
-                    audience="non_members")
+    nb.update_draft(
+        db_session,
+        letter,
+        subject="Onderwerp",
+        body_html="<div>Tekst</div>",
+        audience="non_members",
+    )
     assert db_session.query(DraftingMessage).count() == 2
 
-    nb.start_sending(db_session, letter, sent_by="s@example.org",
-                     reply_to_mode="association", base_url=BASE)
+    nb.start_sending(
+        db_session, letter, sent_by="s@example.org", reply_to_mode="association", base_url=BASE
+    )
 
     assert db_session.query(DraftingMessage).count() == 0
 
 
 # ── The shape of a whole letter (Koen, 17 September 2026) ────────────────────
+
 
 def test_een_volledige_brief_krijgt_aanhef_witregels_en_afsluiting(db_session, raakje):
     """A greeting at the top, a blank line before every topic but the first, and
@@ -589,13 +680,22 @@ def test_een_volledige_brief_krijgt_aanhef_witregels_en_afsluiting(db_session, r
     """
     wandel = _activity(db_session, "Wandelweekend Eifel")
     letter = _letter(db_session, activity_ids=[wandel.id])
-    raakje(_draft(["# Vooruitblik", "De komende maanden zitten vol.", f"[[activiteit:{wandel.id}]]",
-                   "# Terugblik", "Het was gezellig."]), _verdict())
+    raakje(
+        _draft(
+            [
+                "# Vooruitblik",
+                "De komende maanden zitten vol.",
+                f"[[activiteit:{wandel.id}]]",
+                "# Terugblik",
+                "Het was gezellig.",
+            ]
+        ),
+        _verdict(),
+    )
     turn = _ask(db_session, letter)
     message = drafting.record(db_session, letter, author_text="vraag", turn=turn)
 
-    html = drafting.apply(db_session, letter, message, keep=set(), body_html="",
-                          base_url=BASE).html
+    html = drafting.apply(db_session, letter, message, keep=set(), body_html="", base_url=BASE).html
 
     # Sinds 20 september 2026 is een kopje een echte titel (`h1`), zodat ze bij
     # het versturen dezelfde merkkleur krijgt als de rest van de brief.
@@ -610,8 +710,10 @@ def test_een_naam_in_een_zin_komt_er_een_keer_en_vet_in(db_session, raakje):
     the model builds the sentence around it and never writes the name itself."""
     sint = _activity(db_session, "Sint komt naar onze gezinnen")
     letter = _letter(db_session, activity_ids=[sint.id])
-    raakje(_draft([f"Tijdens [[naam:{sint.id}]] beleven groot en klein magische momenten."]),
-           _verdict())
+    raakje(
+        _draft([f"Tijdens [[naam:{sint.id}]] beleven groot en klein magische momenten."]),
+        _verdict(),
+    )
 
     turn = _ask(db_session, letter)
 
@@ -630,6 +732,7 @@ def test_de_prompt_vraagt_correct_nederlands_en_laat_aanhef_en_groet_aan_het_por
 
 # ── What a new letter starts with (Koen, 17 September 2026) ──────────────────
 
+
 def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session, monkeypatch):
     """Past: what took place since the previous letter went out. Coming: the
     next three months. Older and further activities are left for the picker.
@@ -641,8 +744,9 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
     from datetime import datetime, timezone
 
     vorige = nb.create_newsletter(db_session, created_by="s@example.org")
-    nb.update_draft(db_session, vorige, subject="Vorige", body_html="<div>x</div>",
-                    audience=Audience.MEMBERS)
+    nb.update_draft(
+        db_session, vorige, subject="Vorige", body_html="<div>x</div>", audience=Audience.MEMBERS
+    )
     vorige.status = LetterStatus.SENT
     vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=30)
     db_session.commit()
@@ -682,24 +786,38 @@ def test_de_nieuwste_beurt_staat_bovenaan(client, db_session, monkeypatch, raakj
     headers = _login(client)
     _switch(db_session, monkeypatch, True)
     letter = _letter(db_session)
-    raakje(_draft(["Eerste voorstel."], reply="Antwoord een."), _verdict(),
-           _piece("Tweede stuk.", reply="Antwoord twee."), _verdict())
+    raakje(
+        _draft(["Eerste voorstel."], reply="Antwoord een."),
+        _verdict(),
+        _piece("Tweede stuk.", reply="Antwoord twee."),
+        _verdict(),
+    )
 
-    client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag", headers=headers,
-                data={"instruction": "Vraag een", "body_html": ""})
-    html = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag", headers=headers,
-                       data={"instruction": "Vraag twee",
-                             "body_html": "<div>Er staat al tekst.</div>"}).text
+    client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
+        headers=headers,
+        data={"instruction": "Vraag een", "body_html": ""},
+    )
+    html = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag",
+        headers=headers,
+        data={"instruction": "Vraag twee", "body_html": "<div>Er staat al tekst.</div>"},
+    ).text
 
-    assert html.index("Vraag twee") < html.index("Antwoord twee") < html.index("Vraag een") \
+    assert (
+        html.index("Vraag twee")
+        < html.index("Antwoord twee")
+        < html.index("Vraag een")
         < html.index("Antwoord een")
+    )
     assert html.index("Gesprek met Raakje") < html.index("Vraag twee")
 
 
 # ── Raakje kan alles wat de knoppen kunnen (Koen, 19 September 2026) ─────────
 
+
 def test_raakje_zet_de_kalender_en_de_afsluiting(db_session, raakje):
-    """"Raakje zou alles moeten kunnen (muv bijlagen invoegen)." De markeringen
+    """ "Raakje zou alles moeten kunnen (muv bijlagen invoegen)." De markeringen
     zonder nummer worden door het portaal gevuld, net als de knoppen.
 
     Broken on purpose: `_PLAIN_MARKER` niet meer herkend in `_paragraph_html` →
@@ -755,9 +873,18 @@ def test_geen_kopje_dat_de_titel_van_het_blok_herhaalt(db_session, raakje):
     """
     brood = _activity(db_session, "Brood en Spelen")
     letter = _letter(db_session, activity_ids=[brood.id])
-    raakje(_draft(["# Wat er aankomt", "Het najaar zit vol.",
-                   "# Brood en Spelen", "Een middag vol spel.",
-                   f"[[activiteit:{brood.id}]]"]), _verdict())
+    raakje(
+        _draft(
+            [
+                "# Wat er aankomt",
+                "Het najaar zit vol.",
+                "# Brood en Spelen",
+                "Een middag vol spel.",
+                f"[[activiteit:{brood.id}]]",
+            ]
+        ),
+        _verdict(),
+    )
 
     turn = _ask(db_session, letter)
 
@@ -789,8 +916,7 @@ def test_de_groet_staat_maar_een_keer_onder_een_volledige_brief(db_session, raak
     turn = _ask(db_session, letter)
     message = drafting.record(db_session, letter, author_text="schrijf de brief", turn=turn)
 
-    html = drafting.apply(db_session, letter, message, keep=set(), body_html="",
-                          base_url=BASE).html
+    html = drafting.apply(db_session, letter, message, keep=set(), body_html="", base_url=BASE).html
 
     assert html.count("Tot binnenkort!") == 1
     assert "[[afsluiting]]" not in html
@@ -805,8 +931,7 @@ def test_een_verkeerd_gespelde_markering_wordt_toch_ingevuld(db_session, raakje)
     """
     comedy = _activity(db_session, "Comedy Festival")
     letter = _letter(db_session, activity_ids=[comedy.id])
-    raakje(_draft([f"We genoten van een hilarisch [[nam:{comedy.id}]] in Miloheem."]),
-           _verdict())
+    raakje(_draft([f"We genoten van een hilarisch [[nam:{comedy.id}]] in Miloheem."]), _verdict())
 
     turn = _ask(db_session, letter)
 
@@ -824,8 +949,7 @@ def test_een_markering_die_niets_betekent_laat_niets_achter(db_session, raakje):
     assert "[[" not in turn.proposal["operations"][0]["html"]
 
 
-def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje,
-                                                      monkeypatch):
+def test_elke_markering_toont_de_zin_waarover_ze_gaat(db_session, client, raakje, monkeypatch):
     """Koen, 21 september 2026: met vier vinkjes onder elkaar wist hij niet meer
     welk vinkje bij welke bewering hoorde.
 

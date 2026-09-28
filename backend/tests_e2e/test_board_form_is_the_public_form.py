@@ -30,8 +30,8 @@ product row and the total" (and the same at 1280 px); with the block's own
 `space-y-3` it is 12 px in both channels, at both widths, and on the board also
 after an address change.
 """
+
 import os
-import re
 import secrets
 import sys
 from datetime import date
@@ -62,16 +62,28 @@ def setup():
     member_email = f"e2e-lid-1284-{secrets.token_hex(3)}@example.org"
     household, _person = create_test_family(db, email=member_email)
     year = date.today().year
-    db.add(Membership(member_id=household.id, year=year, is_active=True,
-                      valid_from=date(year, 1, 1), valid_to=date(year, 12, 31)))
+    db.add(
+        Membership(
+            member_id=household.id,
+            year=year,
+            is_active=True,
+            valid_from=date(year, 1, 1),
+            valid_to=date(year, 12, 31),
+        )
+    )
     board_email = f"e2e-1284-{secrets.token_hex(3)}@example.org"
     user = User(email=board_email, is_active=True)
     db.add(user)
     db.flush()
     db.add(UserRole(user_id=user.id, role_code="ADMIN"))
     db.commit()
-    out = {"activity": activity.id, "component": component.id, "product": product.id,
-           "member": member_email, "session": make_session_value(board_email)}
+    out = {
+        "activity": activity.id,
+        "component": component.id,
+        "product": product.id,
+        "member": member_email,
+        "session": make_session_value(board_email),
+    }
     db.close()
     return out
 
@@ -133,7 +145,9 @@ _ROW = """(pid) => document.querySelector('input[name="product_' + pid + '"]')
 
 def _open_public(page, setup):
     page.goto("/activiteiten")
-    page.click(f'button[hx-get="/activiteiten/{setup["activity"]}/inschrijven/{setup["component"]}"]')
+    page.click(
+        f'button[hx-get="/activiteiten/{setup["activity"]}/inschrijven/{setup["component"]}"]'
+    )
     page.wait_for_selector("#contact_email")
     htmx_stil(page)
 
@@ -150,7 +164,8 @@ def _check(page, setup, label: str) -> dict:
     assert m["total"] and m["total"].startswith("Totaal:"), f"{label}: no total: {m['total']!r}"
     assert m["online"], f"{label}: no online payment"
     assert m["doc"] <= m["vw"] and not m["outside"], (
-        f"{label}: {m['doc']} px wide at {m['vw']} px; sticking out: {m['outside']}")
+        f"{label}: {m['doc']} px wide at {m['vw']} px; sticking out: {m['outside']}"
+    )
     return m
 
 
@@ -190,9 +205,13 @@ def test_both_channels_show_prices_a_live_total_and_online(browser, setup, width
         assert "€12,00" in total and "ledenprijs" in total, total
         row_after = board.evaluate(_ROW, setup["product"])
         assert "/ leden €6,00" not in row_before and "€10,00 / leden €6,00" in row_after, (
-            row_before, row_after)
+            row_before,
+            row_after,
+        )
         assert board.locator(f'input[name="product_{setup["product"]}"]').input_value() == "2"
-        assert board.evaluate("document.activeElement && document.activeElement.id") == "contact_email"
+        assert (
+            board.evaluate("document.activeElement && document.activeElement.id") == "contact_email"
+        )
         _assert_gap(board, setup, f"board @{width}, after the address")
         _check(board, setup, f"board @{width}, member")
     finally:

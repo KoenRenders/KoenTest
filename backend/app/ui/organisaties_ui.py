@@ -42,6 +42,7 @@ met een ander type.
 rekening of een tweede btw-nummer, dan bewerkt dit de eerste en laat het de rest met
 rust — nooit stilzwijgend overschrijven of verwijderen.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -78,8 +79,11 @@ CONTACTGROEP = [
 ]
 
 REKENINGGROEP = [
-    ("payment_iban", "Rekeningnummer (IBAN)",
-     "Voor de overschrijvingsinstructies in de bevestigingsmail."),
+    (
+        "payment_iban",
+        "Rekeningnummer (IBAN)",
+        "Voor de overschrijvingsinstructies in de bevestigingsmail.",
+    ),
     ("payment_bic", "BIC", "Optioneel; staat bij het rekeningnummer in de footer."),
     ("payment_beneficiary", "Begunstigde", "Naam op de overschrijving."),
 ]
@@ -92,11 +96,14 @@ NUMMERGROEP = [
 # CR-12 phase 2: the words of the organisation kind come from its label table;
 # the dictionary that stood here became its seed. The badge tone stays here,
 # next to the screen that draws it (§B4.5): the legal entity blue, the rest gray.
-register_tones(ORGANIZATION_TYPE.name, {
-    OrganizationType.ACCOUNT: "blue",
-    OrganizationType.UNIT: "gray",
-    OrganizationType.PLATFORM: "gray",
-})
+register_tones(
+    ORGANIZATION_TYPE.name,
+    {
+        OrganizationType.ACCOUNT: "blue",
+        OrganizationType.UNIT: "gray",
+        OrganizationType.PLATFORM: "gray",
+    },
+)
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:
@@ -110,24 +117,34 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     organisaties = organization_options(db)
     if zoek:
         naald = zoek.lower()
-        organisaties = [o for o in organisaties
-                        if naald in (o["name"] or "").lower()
-                        or naald in (o["code"] or "").lower()]
+        organisaties = [
+            o
+            for o in organisaties
+            if naald in (o["name"] or "").lower() or naald in (o["code"] or "").lower()
+        ]
     soorten = code_labels(ORGANIZATION_TYPE.name, db=db)
     if soort in dict(soorten):
         organisaties = [o for o in organisaties if o["org_type"] == soort]
 
-    return {"nav_items": admin_nav(NAV), "organisaties": organisaties,
-            "q": zoek, "org_type": soort,
-            "soort_options": soorten,
-            "gefilterd": bool(zoek or soort),
-            "csrf_token": csrf_from_request(request)}
+    return {
+        "nav_items": admin_nav(NAV),
+        "organisaties": organisaties,
+        "q": zoek,
+        "org_type": soort,
+        "soort_options": soorten,
+        "gefilterd": bool(zoek or soort),
+        "csrf_token": csrf_from_request(request),
+    }
 
 
 def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
-    from app.domains.mdm.api import (legal_form_options, list_postal_codes,
-                                     organization_address, organization_details,
-                                     organization_options)
+    from app.domains.mdm.api import (
+        legal_form_options,
+        list_postal_codes,
+        organization_address,
+        organization_details,
+        organization_options,
+    )
 
     organisaties = organization_options(db)
     organisatie = next((o for o in organisaties if o["id"] == organization_id), None)
@@ -138,43 +155,57 @@ def _editor_ctx(request: Request, db: Session, organization_id: int) -> dict:
     # ACCOUNT heeft er geen, en een link daarheen zou op een 404 uitkomen.
     heeft_site = organisatie["org_type"] in ("UNIT", "PLATFORM")
 
-    return {"nav_items": admin_nav(NAV), "organisatie": organisatie,
-            "organization_id": organization_id,
-            "heeft_site": heeft_site,
-            "velden": organization_details(db, organization_id),
-            "adres": organization_address(db, organization_id),
-            "postal_codes": list_postal_codes(db),
-            "rechtsvormen": legal_form_options(db),
-            "contactgroep": CONTACTGROEP,
-            "rekeninggroep": REKENINGGROEP,
-            "nummergroep": NUMMERGROEP,
-            "error": None, "toast_opgeslagen": False,
-            "csrf_token": csrf_from_request(request)}
+    return {
+        "nav_items": admin_nav(NAV),
+        "organisatie": organisatie,
+        "organization_id": organization_id,
+        "heeft_site": heeft_site,
+        "velden": organization_details(db, organization_id),
+        "adres": organization_address(db, organization_id),
+        "postal_codes": list_postal_codes(db),
+        "rechtsvormen": legal_form_options(db),
+        "contactgroep": CONTACTGROEP,
+        "rekeninggroep": REKENINGGROEP,
+        "nummergroep": NUMMERGROEP,
+        "error": None,
+        "toast_opgeslagen": False,
+        "csrf_token": csrf_from_request(request),
+    }
 
 
 @router.get("/admin/organisaties", response_class=HTMLResponse)
-def organisaties(request: Request, db: Session = Depends(get_db),
-                 email: str = Depends(require_admin_ui)):
+def organisaties(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     require_operator_ui(db, email)
-    sjabloon = ("_org_kaarten.html" if is_fragment_request(request)
-                else "admin_organisaties.html")
+    sjabloon = "_org_kaarten.html" if is_fragment_request(request) else "admin_organisaties.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
 
 @router.get("/admin/organisaties/{organization_id}", response_class=HTMLResponse)
-def organisatie_editor(organization_id: int, request: Request,
-                       db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)):
+def organisatie_editor(
+    organization_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     require_operator_ui(db, email)
-    return templates.TemplateResponse(request, "admin_organisatie.html",
-                                      _editor_ctx(request, db, organization_id))
+    return templates.TemplateResponse(
+        request, "admin_organisatie.html", _editor_ctx(request, db, organization_id)
+    )
 
 
-@router.post("/admin/organisaties/{organization_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def organisatie_opslaan(organization_id: int, request: Request,
-                              db: Session = Depends(get_db),
-                              email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/organisaties/{organization_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def organisatie_opslaan(
+    organization_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.mdm.api import OngeldigeInstelling, save_organization
 
     require_operator_ui(db, email)
@@ -187,19 +218,20 @@ async def organisatie_opslaan(organization_id: int, request: Request,
         # betekenen dat één tikfout het hele scherm leegveegt, en dan is de melding
         # erger dan de fout.
         ctx = _editor_ctx(request, db, organization_id)
-        labels = {key: label for key, label, _h in
-                  (*CONTACTGROEP, *REKENINGGROEP, *NUMMERGROEP)}
-        labels.update({"name": _("Naam"), "legal_form": _("Rechtsvorm"),
-                       "street": _("Straat"), "house_number": _("Huisnummer"),
-                       "postal_code": _("Postcode")})
-        ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}"
-                                for k, m in fout.fouten.items())
-        ctx["velden"] = {**ctx["velden"],
-                         **{k: v for k, v in form.items() if k in ctx["velden"]}}
-        ctx["adres"] = {**ctx["adres"],
-                        **{k: v for k, v in form.items() if k in ctx["adres"]}}
-        return templates.TemplateResponse(request, "admin_organisatie.html", ctx,
-                                          status_code=422)
+        labels = {key: label for key, label, _h in (*CONTACTGROEP, *REKENINGGROEP, *NUMMERGROEP)}
+        labels.update(
+            {
+                "name": _("Naam"),
+                "legal_form": _("Rechtsvorm"),
+                "street": _("Straat"),
+                "house_number": _("Huisnummer"),
+                "postal_code": _("Postcode"),
+            }
+        )
+        ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
+        ctx["velden"] = {**ctx["velden"], **{k: v for k, v in form.items() if k in ctx["velden"]}}
+        ctx["adres"] = {**ctx["adres"], **{k: v for k, v in form.items() if k in ctx["adres"]}}
+        return templates.TemplateResponse(request, "admin_organisatie.html", ctx, status_code=422)
 
     ctx = _editor_ctx(request, db, organization_id)
     ctx["toast_opgeslagen"] = True

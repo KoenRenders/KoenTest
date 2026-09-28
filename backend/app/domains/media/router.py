@@ -4,27 +4,35 @@ Afbeeldingen worden in Postgres (BYTEA) bewaard, dus ze zitten automatisch mee
 in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
 (zie :mod:`app.domains.media.images`).
 """
+
 import hashlib
 import re
 from typing import List, Optional
 
 from fastapi import (
-    APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Query, Request,
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
 )
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
+from app.domains.auth.api import User, get_current_admin
 from app.domains.media import service as _service
-from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
-from app.domains.activities.api import Activity
-from app.domains.activities.api import ActivitySubRegistration
-from app.domains.auth.api import User
-from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 from app.domains.media.images import (
-    process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
+    ALLOWED_CONTENT_TYPES,
+    MAX_UPLOAD_BYTES,
+    ImageError,
+    process_image,
 )
+from app.domains.media.models import MediaAsset, MediaKind, as_media_kind
 from app.domains.media.pdf import PDF_CONTENT_TYPE, PNG_CONTENT_TYPE, first_page_png
 from app.domains.media.svg import SVG_CONTENT_TYPE
 from app.i18n import _
@@ -40,8 +48,11 @@ SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 # Poster/reglement mag een afbeelding óf een PDF zijn (#223).
 DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
 _EXT_BY_TYPE = {
-    "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
-    "image/webp": ".webp", "image/gif": ".gif",
+    "application/pdf": ".pdf",
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
 }
 
 
@@ -58,22 +69,34 @@ def _process_document(raw: bytes, content_type: str, *, kind: MediaKind | str = 
         # het document gewoon een document — geen mislukte upload.
         png = first_page_png(raw)
         return {
-            "data": raw, "content_type": "application/pdf",
-            "thumbnail": png, "thumb_content_type": PNG_CONTENT_TYPE if png else None,
-            "width": None, "height": None, "byte_size": len(raw),
+            "data": raw,
+            "content_type": "application/pdf",
+            "thumbnail": png,
+            "thumb_content_type": PNG_CONTENT_TYPE if png else None,
+            "width": None,
+            "height": None,
+            "byte_size": len(raw),
         }
     return process_image(raw, kind=kind)
 
 
-async def _replace_single_asset(db, file: UploadFile, *, kind: MediaKind | str,
-                                activity_id=None, component_id=None,
-                                title_base: Optional[str] = None) -> MediaAsset:
+async def _replace_single_asset(
+    db,
+    file: UploadFile,
+    *,
+    kind: MediaKind | str,
+    activity_id=None,
+    component_id=None,
+    title_base: Optional[str] = None,
+) -> MediaAsset:
     """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
     media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
     (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
     if file.content_type not in DOC_CONTENT_TYPES:
-        raise HTTPException(status_code=400,
-                            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename})
+        raise HTTPException(
+            status_code=400,
+            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename},
+        )
     raw = await file.read()
     try:
         processed = _process_document(raw, file.content_type)
@@ -81,8 +104,11 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: MediaKind | str,
         raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
 
     q = db.query(MediaAsset).filter(MediaAsset.kind == as_media_kind(kind))
-    q = q.filter(MediaAsset.activity_id == activity_id) if activity_id is not None \
+    q = (
+        q.filter(MediaAsset.activity_id == activity_id)
+        if activity_id is not None
         else q.filter(MediaAsset.component_id == component_id)
+    )
     for old in q.all():
         db.delete(old)  # hard delete, geen ballast
 
@@ -92,8 +118,13 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: MediaKind | str,
     else:
         title = file.filename
     asset = MediaAsset(
-        kind=kind, activity_id=activity_id, component_id=component_id,
-        title=title, sort_order=0, is_active=True, **processed,
+        kind=kind,
+        activity_id=activity_id,
+        component_id=component_id,
+        title=title,
+        sort_order=0,
+        is_active=True,
+        **processed,
     )
     db.add(asset)
     db.commit()
@@ -115,8 +146,14 @@ def _safe_filename(name: Optional[str], fallback: str) -> str:
     return cleaned or fallback
 
 
-def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request,
-           etag_seed: str, *, filename: Optional[str] = None):
+def _serve(
+    blob: Optional[bytes],
+    content_type: Optional[str],
+    request: Request,
+    etag_seed: str,
+    *,
+    filename: Optional[str] = None,
+):
     if not blob:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     etag = '"' + hashlib.md5(etag_seed.encode()).hexdigest() + '"'  # noqa: S324 - alleen cache-validatie
@@ -149,8 +186,13 @@ def serve_media(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    return _serve(a.data, a.content_type, request, f"full-{a.id}",
-                  filename=_safe_filename(a.title, f"bestand-{a.id}"))
+    return _serve(
+        a.data,
+        a.content_type,
+        request,
+        f"full-{a.id}",
+        filename=_safe_filename(a.title, f"bestand-{a.id}"),
+    )
 
 
 @router.get("/media/{asset_id}/thumb")
@@ -240,9 +282,9 @@ async def upload_media(
     _admin: User = Depends(get_current_admin),
 ):
     try:
-        return await _service.upload_media(db, files=files, kind=kind,
-                                           activity_id=activity_id, title=title,
-                                           link_url=link_url)
+        return await _service.upload_media(
+            db, files=files, kind=kind, activity_id=activity_id, title=title, link_url=link_url
+        )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=_(str(exc)))
     except _service.MediaFout as exc:
@@ -253,6 +295,7 @@ async def upload_media(
 # Poster (activiteit) en info/reglement (onderdeel): één bestand, vervangbaar (#223)
 # ---------------------------------------------------------------------------
 
+
 @router.post("/admin/activities/{activity_id}/poster")
 async def upload_activity_poster(
     activity_id: int,
@@ -262,8 +305,7 @@ async def upload_activity_poster(
     _admin: User = Depends(get_current_admin),
 ):
     try:
-        return await _service.replace_activity_poster(db, activity_id, file,
-                                                      background_tasks)
+        return await _service.replace_activity_poster(db, activity_id, file, background_tasks)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
 
@@ -286,8 +328,7 @@ async def upload_component_info(
     _admin: User = Depends(get_current_admin),
 ):
     try:
-        return await _service.replace_component_info(db, component_id, file,
-                                                     background_tasks)
+        return await _service.replace_component_info(db, component_id, file, background_tasks)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
 

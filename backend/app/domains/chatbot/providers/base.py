@@ -4,6 +4,7 @@ Bewust dun gehouden. We praten in OpenAI-/Mistral-compatibele berichten-dicts
 (``{"role": ..., "content": ...}`` en tool-resultaten met ``tool_call_id``),
 zodat een nieuwe provider enkel ``complete()`` hoeft te implementeren.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

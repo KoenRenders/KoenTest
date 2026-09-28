@@ -4,12 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
+from app.domains.auth.api import User, get_current_admin
 from app.domains.mail.models import EmailLog
-from app.domains.auth.api import User
-from app.schemas.email_log import EmailLogPage
 from app.i18n import _
+from app.schemas.email_log import EmailLogPage
 
 router = APIRouter(tags=["email-log"])
 
@@ -36,10 +35,7 @@ def list_email_log(
 
     total = q.with_entities(func.count(EmailLog.id)).scalar() or 0
     items = (
-        q.order_by(EmailLog.created_at.desc())
-        .offset((page - 1) * per_page)
-        .limit(per_page)
-        .all()
+        q.order_by(EmailLog.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
     )
     return {"items": items, "total": total, "page": page, "per_page": per_page}
 

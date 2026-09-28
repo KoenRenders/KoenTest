@@ -12,6 +12,7 @@ aangepast te worden en kan verwijderde data niet "per ongeluk" lekken. Een query
 die toch verwijderde rijen nodig heeft (bv. straks het upload-programma) zet
 ``.execution_options(include_deleted=True)``.
 """
+
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, event
@@ -24,6 +25,7 @@ def _utcnow() -> datetime:
 
 class SoftDeleteMixin:
     """Geeft een model een ``deleted_at`` en brengt het onder de globale filter."""
+
     deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
 
 

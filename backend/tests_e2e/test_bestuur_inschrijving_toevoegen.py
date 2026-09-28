@@ -9,6 +9,7 @@ Broken on purpose to check that this test can go red: the `HX-Redirect` taken ou
 of the board route → the browser stays on the form and never reaches the
 registration's page.
 """
+
 import os
 import secrets
 import sys
@@ -58,7 +59,8 @@ def page(setup):
 def _inside(locator) -> dict:
     box = locator.bounding_box()
     assert box and box["x"] >= 0 and box["x"] + box["width"] <= WIDTH, (
-        f"outside the {WIDTH}px screen: {box}")
+        f"outside the {WIDTH}px screen: {box}"
+    )
     return box
 
 
@@ -79,7 +81,8 @@ def test_the_board_adds_a_registration_on_a_phone(page, setup):
     opslaan = page.get_by_role("button", name="Inschrijving toevoegen")
     _inside(opslaan)
     assert page.evaluate("document.documentElement.scrollWidth") <= WIDTH, (
-        "the form scrolls sideways on a phone")
+        "the form scrolls sideways on a phone"
+    )
 
     opslaan.click()
     page.wait_for_url("**/admin/inschrijvingen/*", timeout=10_000)

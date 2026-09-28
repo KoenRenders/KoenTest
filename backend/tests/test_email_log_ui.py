@@ -3,11 +3,12 @@
 De preview toont de body in een gesandboxte iframe (srcdoc) zodat opmaak
 (bullets/indents) behouden blijft, en Type is rustige tekst i.p.v. een pill.
 """
+
 from datetime import datetime, timezone
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mail.models import EmailLog
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -17,13 +18,16 @@ def _login(client):
 
 
 def _seed(db):
-    db.add(EmailLog(
-        recipient="jan@example.com",
-        subject="Inschrijving bevestigd: E2E-CHECK Product met een lang onderwerp",
-        email_type="form_confirmation", status="sent",
-        body="<p>Beste Jan</p><ul><li>Punt een</li><li>Punt twee</li></ul>",
-        created_at=datetime.now(timezone.utc),
-    ))
+    db.add(
+        EmailLog(
+            recipient="jan@example.com",
+            subject="Inschrijving bevestigd: E2E-CHECK Product met een lang onderwerp",
+            email_type="form_confirmation",
+            status="sent",
+            body="<p>Beste Jan</p><ul><li>Punt een</li><li>Punt twee</li></ul>",
+            created_at=datetime.now(timezone.utc),
+        )
+    )
     db.commit()
 
 

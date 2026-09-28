@@ -25,6 +25,7 @@ before must keep working.
 Ids come from the database by kind, not by number (migration 086 could hand
 them out in another order; `tenant_lookup.py` says the same).
 """
+
 import re
 
 import pytest
@@ -38,9 +39,13 @@ pytestmark = pytest.mark.ui_serverrendered
 
 
 def _id_of(db, kind: str) -> int:
-    return db.execute(text(
-        "SELECT id FROM mdm.organizations WHERE org_type = :k AND deleted_at IS NULL "
-        "ORDER BY id LIMIT 1"), {"k": kind}).scalar_one()
+    return db.execute(
+        text(
+            "SELECT id FROM mdm.organizations WHERE org_type = :k AND deleted_at IS NULL "
+            "ORDER BY id LIMIT 1"
+        ),
+        {"k": kind},
+    ).scalar_one()
 
 
 def _login(client, db, *, operator: bool = False):
@@ -54,7 +59,7 @@ def _login(client, db, *, operator: bool = False):
 
 def _card(html: str, organisation_id: int) -> str:
     start = html.index(f'href="/admin/organisaties/{organisation_id}"')
-    return html[start:html.index("</div>\n  </div>", start)]
+    return html[start : html.index("</div>\n  </div>", start)]
 
 
 def test_the_list_badge_names_the_kind_and_colours_the_account(client, db_session):
@@ -82,16 +87,18 @@ def test_the_editor_of_a_unit_links_to_its_site_settings(client, db_session):
 
     assert f'href="/admin/tenants/{unit}"' in client.get(f"/admin/organisaties/{unit}").text
     assert "/admin/tenants/" not in client.get(f"/admin/organisaties/{account}").text, (
-        "an ACCOUNT runs no site; a link there ends on a 404")
+        "an ACCOUNT runs no site; a link there ends on a 404"
+    )
 
 
 def test_the_tenant_list_marks_the_platform(client, db_session):
     _login(client, db_session, operator=True)
     html = client.get("/admin/tenants").text
-    code = db_session.execute(text(
-        "SELECT code FROM mdm.organizations WHERE org_type = 'PLATFORM'")).scalar_one()
+    code = db_session.execute(
+        text("SELECT code FROM mdm.organizations WHERE org_type = 'PLATFORM'")
+    ).scalar_one()
 
     assert f">{code}</span>" in html and f">/{code}</span>" not in html, (
-        "the platform opens no site, so its code carries no slash")
+        "the platform opens no site, so its code carries no slash"
+    )
     assert ">platform</span>" in html
-

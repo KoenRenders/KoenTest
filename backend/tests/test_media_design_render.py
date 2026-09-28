@@ -26,9 +26,10 @@ Broken to see them red (measured):
 - the raster check widened to any `image/*` → the svg-in-a-data-uri case fails;
 - `image` out of the list → the embedded raster is dropped.
 """
+
 import pytest
 
-from app.domains.media.api import MediaAsset, MediaFout, MediaKind, add_document
+from app.domains.media.api import MediaFout, MediaKind, add_document
 from app.domains.media.svg import INKSCAPE_NS, SODIPODI_NS
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -58,27 +59,28 @@ AFFICHE = f'''<svg xmlns="{SVG}" xmlns:inkscape="{INKSCAPE_NS}"
 
 GEVAARLIJK = {
     "script": f'<svg xmlns="{SVG}" viewBox="0 0 10 10"><script>alert(1)</script>'
-              '<rect width="10" height="10"/></svg>',
+    '<rect width="10" height="10"/></svg>',
     "onload": f'<svg xmlns="{SVG}" viewBox="0 0 10 10" onload="alert(1)">'
-              '<rect width="10" height="10" onclick="alert(2)"/></svg>',
+    '<rect width="10" height="10" onclick="alert(2)"/></svg>',
     "foreignObject": f'<svg xmlns="{SVG}" viewBox="0 0 10 10"><foreignObject>'
-                     '<body xmlns="http://www.w3.org/1999/xhtml">hallo</body>'
-                     '</foreignObject><rect width="10" height="10"/></svg>',
+    '<body xmlns="http://www.w3.org/1999/xhtml">hallo</body>'
+    '</foreignObject><rect width="10" height="10"/></svg>',
     "externe href": f'<svg xmlns="{SVG}" xmlns:xlink="http://www.w3.org/1999/xlink" '
-                    'viewBox="0 0 10 10"><use xlink:href="https://evil.example/x.svg#a"/>'
-                    '<image href="https://evil.example/foto.png"/>'
-                    '<rect width="10" height="10"/></svg>',
+    'viewBox="0 0 10 10"><use xlink:href="https://evil.example/x.svg#a"/>'
+    '<image href="https://evil.example/foto.png"/>'
+    '<rect width="10" height="10"/></svg>',
 }
-VERBODEN = [b"script", b"alert", b"onload", b"onclick", b"foreignObject",
-            b"evil.example"]
+VERBODEN = [b"script", b"alert", b"onload", b"onclick", b"foreignObject", b"evil.example"]
 
 
 def _render(db, svg=AFFICHE, *, naam="affiche.svg", kind="design_render", **extra):
-    return add_document(db, kind=kind, filename=naam,
-                        content_type="image/svg+xml", data=svg.encode(), **extra)
+    return add_document(
+        db, kind=kind, filename=naam, content_type="image/svg+xml", data=svg.encode(), **extra
+    )
 
 
 # ── De ingang ────────────────────────────────────────────────────────────────
+
 
 def test_a_render_can_be_stored_as_pdf_png_and_svg(db_session):
     from io import BytesIO
@@ -88,10 +90,20 @@ def test_a_render_can_be_stored_as_pdf_png_and_svg(db_session):
     buf = BytesIO()
     Image.new("RGB", (2000, 2800), (255, 255, 255)).save(buf, format="PNG")
 
-    pdf = add_document(db_session, kind="design_render", filename="v1.pdf",
-                       content_type="application/pdf", data=b"%PDF-1.7\n%aap\n")
-    png = add_document(db_session, kind="design_render", filename="v1.png",
-                       content_type="image/png", data=buf.getvalue())
+    pdf = add_document(
+        db_session,
+        kind="design_render",
+        filename="v1.pdf",
+        content_type="application/pdf",
+        data=b"%PDF-1.7\n%aap\n",
+    )
+    png = add_document(
+        db_session,
+        kind="design_render",
+        filename="v1.png",
+        content_type="image/png",
+        data=buf.getvalue(),
+    )
     svg = _render(db_session, naam="v1.svg")
 
     assert pdf.content_type == "application/pdf" and pdf.data.startswith(b"%PDF")
@@ -109,8 +121,13 @@ def test_a_render_png_keeps_its_print_size(db_session):
     buf = BytesIO()
     Image.new("RGB", (5000, 3000), (255, 255, 255)).save(buf, format="PNG")
 
-    png = add_document(db_session, kind="design_render", filename="groot.png",
-                       content_type="image/png", data=buf.getvalue())
+    png = add_document(
+        db_session,
+        kind="design_render",
+        filename="groot.png",
+        content_type="image/png",
+        data=buf.getvalue(),
+    )
     assert max(png.width, png.height) == 4096
 
 
@@ -140,12 +157,23 @@ def test_a_newsletter_file_may_not_be_an_svg(db_session):
 
 # ── Tekenen mag ──────────────────────────────────────────────────────────────
 
+
 def test_a_poster_keeps_everything_it_draws_with(db_session):
     bewaard = _render(db_session).data.decode()
 
-    for onderdeel in ("linearGradient", "clipPath", "filter", "feGaussianBlur",
-                      "feDropShadow", "marker", "marker-end", "url(#lucht)",
-                      "url(#kader)", "url(#schaduw)", "Quiz van Raak"):
+    for onderdeel in (
+        "linearGradient",
+        "clipPath",
+        "filter",
+        "feGaussianBlur",
+        "feDropShadow",
+        "marker",
+        "marker-end",
+        "url(#lucht)",
+        "url(#kader)",
+        "url(#schaduw)",
+        "Quiz van Raak",
+    ):
         assert onderdeel in bewaard, f"{onderdeel} overleefde het opschonen niet"
 
 
@@ -158,23 +186,37 @@ def test_the_round_trip_stays_editable_in_inkscape(db_session):
     """
     eerste = _render(db_session).data.decode()
 
-    for kenmerk in (INKSCAPE_NS, SODIPODI_NS, "namedview",
-                    'inkscape:label="Achtergrond"', "groupmode", "<text",
-                    # De vergrendeling van de huisstijllaag (#1011, nagelezen door
-                    # de designstudio-CLI): verdwijnt dat slotje, dan versleept
-                    # iemand na een rondgang per ongeluk het logo.
-                    'sodipodi:insensitive="true"'):
+    for kenmerk in (
+        INKSCAPE_NS,
+        SODIPODI_NS,
+        "namedview",
+        'inkscape:label="Achtergrond"',
+        "groupmode",
+        "<text",
+        # De vergrendeling van de huisstijllaag (#1011, nagelezen door
+        # de designstudio-CLI): verdwijnt dat slotje, dan versleept
+        # iemand na een rondgang per ongeluk het logo.
+        'sodipodi:insensitive="true"',
+    ):
         assert kenmerk in eerste, f"{kenmerk} is weg na het opslaan"
 
     # Tweede rondgang: wat bewaard werd, moet opnieuw bewaard kunnen worden
     # zonder verder te eroderen — anders slijt een affiche bij elke bewerking.
     tweede = _render(db_session, svg=eerste, naam="ronde2.svg").data.decode()
-    for kenmerk in (INKSCAPE_NS, SODIPODI_NS, "namedview", "groupmode",
-                    'sodipodi:insensitive="true"', "feDropShadow", "Quiz van Raak"):
+    for kenmerk in (
+        INKSCAPE_NS,
+        SODIPODI_NS,
+        "namedview",
+        "groupmode",
+        'sodipodi:insensitive="true"',
+        "feDropShadow",
+        "Quiz van Raak",
+    ):
         assert kenmerk in tweede, f"{kenmerk} is weg na de tweede rondgang"
 
 
 # ── Doen mag niet, en dat leest de databank ──────────────────────────────────
+
 
 @pytest.mark.parametrize("soort", sorted(GEVAARLIJK))
 def test_a_dangerous_construct_is_not_stored(db_session, soort):
@@ -195,15 +237,18 @@ def test_the_stored_bytes_are_not_the_bytes_that_came_in(db_session):
 
 
 def test_an_external_reference_in_style_is_refused_too(db_session):
-    svg = (f'<svg xmlns="{SVG}" viewBox="0 0 10 10">'
-           '<style>@import url(https://evil.example/x.css);</style>'
-           '<rect width="10" height="10" style="fill:url(https://evil.example/p)"/></svg>')
+    svg = (
+        f'<svg xmlns="{SVG}" viewBox="0 0 10 10">'
+        "<style>@import url(https://evil.example/x.css);</style>"
+        '<rect width="10" height="10" style="fill:url(https://evil.example/p)"/></svg>'
+    )
 
     asset = _render(db_session, svg=svg)
     assert b"evil.example" not in asset.data and b"@import" not in asset.data
 
 
 # ── Bij het uitserveren verandert er niets (#989) ────────────────────────────
+
 
 def test_the_served_render_still_carries_the_security_headers(client, db_session):
     asset = _render(db_session)
@@ -213,23 +258,30 @@ def test_the_served_render_still_carries_the_security_headers(client, db_session
 
     assert resp.status_code == 200
     assert resp.headers.get("content-security-policy") == (
-        "default-src 'none'; style-src 'unsafe-inline'")
+        "default-src 'none'; style-src 'unsafe-inline'"
+    )
     assert resp.headers.get("x-content-type-options") == "nosniff"
 
 
 # ── `<image>`: meedragen mag, ophalen niet (#1011) ───────────────────────────
 
-RASTER = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
-          "AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
-SVG_IN_EEN_DATA_URI = ("data:image/svg+xml;base64,"
-                       "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxzY3Jp"
-                       "cHQ+YWxlcnQoMSk8L3NjcmlwdD48L3N2Zz4=")
+RASTER = (
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ"
+    "AAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+)
+SVG_IN_EEN_DATA_URI = (
+    "data:image/svg+xml;base64,"
+    "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxzY3Jp"
+    "cHQ+YWxlcnQoMSk8L3NjcmlwdD48L3N2Zz4="
+)
 
 
 def _met_image(href: str) -> str:
-    return ('<svg xmlns="%s" viewBox="0 0 10 10">'
-            '<image x="0" y="0" width="10" height="10" href="%s"/>'
-            '<rect width="10" height="10"/></svg>' % (SVG, href))
+    return (
+        '<svg xmlns="%s" viewBox="0 0 10 10">'
+        '<image x="0" y="0" width="10" height="10" href="%s"/>'
+        '<rect width="10" height="10"/></svg>' % (SVG, href)
+    )
 
 
 def test_an_embedded_raster_image_stays(db_session):
@@ -239,11 +291,14 @@ def test_an_embedded_raster_image_stays(db_session):
     assert "<image" in bewaard and "data:image/png;base64," in bewaard
 
 
-@pytest.mark.parametrize("href,waarom", [
-    ("https://evil.example/foto.png", "ophalen van buiten"),
-    ("file:///etc/passwd", "een bestand van de server"),
-    (SVG_IN_EEN_DATA_URI, "een SVG in een data-URI wordt niet opgeschoond"),
-])
+@pytest.mark.parametrize(
+    "href,waarom",
+    [
+        ("https://evil.example/foto.png", "ophalen van buiten"),
+        ("file:///etc/passwd", "een bestand van de server"),
+        (SVG_IN_EEN_DATA_URI, "een SVG in een data-URI wordt niet opgeschoond"),
+    ],
+)
 def test_an_image_that_fetches_or_hides_an_svg_is_refused(db_session, href, waarom):
     bewaard = _render(db_session, svg=_met_image(href)).data.decode()
 
@@ -255,8 +310,10 @@ def test_an_image_that_fetches_or_hides_an_svg_is_refused(db_session, href, waar
 
 def test_a_data_uri_is_only_allowed_on_an_image(db_session):
     """Een `use` die een data-URI binnenhaalt, is dezelfde omweg (#1011)."""
-    svg = ('<svg xmlns="%s" viewBox="0 0 10 10">'
-           '<use href="%s"/><rect width="10" height="10"/></svg>' % (SVG, RASTER))
+    svg = (
+        '<svg xmlns="%s" viewBox="0 0 10 10">'
+        '<use href="%s"/><rect width="10" height="10"/></svg>' % (SVG, RASTER)
+    )
 
     bewaard = _render(db_session, svg=svg).data.decode()
     assert "data:image" not in bewaard
@@ -265,7 +322,7 @@ def test_a_data_uri_is_only_allowed_on_an_image(db_session):
 # Wat de affiche-sjabloon van CR-10 echt gebruikt, opgesomd door de
 # designstudio-CLI. Als één test, zodat een latere wijziging aan de opschoner die
 # hier iets van wegneemt, opvalt vóór ze in de studio opvalt.
-SJABLOON = '''<svg xmlns="%s" xmlns:inkscape="%s" xmlns:sodipodi="%s"
+SJABLOON = """<svg xmlns="%s" xmlns:inkscape="%s" xmlns:sodipodi="%s"
      viewBox="0 0 420 594">
   <defs>
     <pattern id="ruit" patternUnits="userSpaceOnUse" width="8" height="8">
@@ -288,15 +345,33 @@ SJABLOON = '''<svg xmlns="%s" xmlns:inkscape="%s" xmlns:sodipodi="%s"
       <rect width="21" height="21" fill="#000"/></svg>
   </g>
   <script>alert(1)</script>
-</svg>''' % (SVG, INKSCAPE_NS, SODIPODI_NS)
+</svg>""" % (SVG, INKSCAPE_NS, SODIPODI_NS)
 
 SJABLOON_ONDERDELEN = (
-    "pattern", "patternUnits", "mask", "maskUnits", "feTurbulence",
-    "baseFrequency", "numOctaves", "seed", "feDisplacementMap",
-    "xChannelSelector", "yChannelSelector", "feGaussianBlur", "stdDeviation",
-    "paint-order", "letter-spacing", "font-weight", "fill-rule", "fill-opacity",
-    "stroke-dasharray", "stroke-linecap", "inkscape:label", "groupmode",
-    "insensitive", 'viewBox="0 0 21 21"',
+    "pattern",
+    "patternUnits",
+    "mask",
+    "maskUnits",
+    "feTurbulence",
+    "baseFrequency",
+    "numOctaves",
+    "seed",
+    "feDisplacementMap",
+    "xChannelSelector",
+    "yChannelSelector",
+    "feGaussianBlur",
+    "stdDeviation",
+    "paint-order",
+    "letter-spacing",
+    "font-weight",
+    "fill-rule",
+    "fill-opacity",
+    "stroke-dasharray",
+    "stroke-linecap",
+    "inkscape:label",
+    "groupmode",
+    "insensitive",
+    'viewBox="0 0 21 21"',
 )
 
 

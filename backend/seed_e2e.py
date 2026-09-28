@@ -21,6 +21,7 @@ aan de marker en doet het niets.
 VEILIGHEID: dit script weigert te draaien tenzij APP_ENV dev of test is **en**
 E2E_SEED=1 in de omgeving staat. Deze data hoort nooit op HDEV, UAT of PROD.
 """
+
 import os
 import sys
 from datetime import date, datetime, timedelta, timezone
@@ -114,10 +115,7 @@ PARTNER_GSM = "0470 00 00 02"
 # Bewust GEEN rekeningnummer: de placeholder van 027 draagt er een, maar een
 # verzonnen IBAN die er echt uitziet is precies het soort getal dat later iemands
 # rekening blijkt te zijn. Wat op deze beelden niets doet, zaaien we niet.
-VOETTEKST_HTML = (
-    "<p>Raak Millegem · Dorpsstraat 1, 2400 Mol</p>"
-    "<p>\U0001F4E7 info@example.com</p>"
-)
+VOETTEKST_HTML = "<p>Raak Millegem · Dorpsstraat 1, 2400 Mol</p><p>\U0001f4e7 info@example.com</p>"
 
 
 def _adres(db, Address, person_id: int, postal_code_id: int) -> None:
@@ -129,9 +127,14 @@ def _adres(db, Address, person_id: int, postal_code_id: int) -> None:
     bewerkformulier weg — beide hangen aan dezelfde `{% if p.address %}`, en dat is
     waarom het op de afdrukken geen UI-gat was maar ontbrekende data.
     """
-    db.add(Address(person_id=person_id, street=JOMMEKE_STRAAT,
-                   house_number=JOMMEKE_HUISNUMMER, postal_code_id=postal_code_id))
-
+    db.add(
+        Address(
+            person_id=person_id,
+            street=JOMMEKE_STRAAT,
+            house_number=JOMMEKE_HUISNUMMER,
+            postal_code_id=postal_code_id,
+        )
+    )
 
 
 def _weiger_buiten_dev() -> None:
@@ -153,12 +156,21 @@ def main() -> None:
     load_all_models()
 
     from app.domains.activities.api import (
-        Activity, ActivityDate, ActivityProduct, ActivitySubRegistration, Registration,
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+        Registration,
     )
     from app.domains.cms.api import CmsPage
     from app.domains.forms.api import Form, FormField
     from app.domains.mdm.api import (
-        Address, ContactDetail, Member, MemberPerson, Person, PostalCode,
+        Address,
+        ContactDetail,
+        Member,
+        MemberPerson,
+        Person,
+        PostalCode,
     )
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
@@ -194,10 +206,18 @@ def main() -> None:
         from app.domains.mdm.api import BankAccount
         from app.kernel.tenancy import DEFAULT_TENANT_ID
 
-        if db.query(BankAccount).filter(
-                BankAccount.organization_id == DEFAULT_TENANT_ID).first() is None:
-            db.add(BankAccount(organization_id=DEFAULT_TENANT_ID, iban=SEED_IBAN,
-                               beneficiary=SEED_BEGUNSTIGDE, sort_order=0))
+        if (
+            db.query(BankAccount).filter(BankAccount.organization_id == DEFAULT_TENANT_ID).first()
+            is None
+        ):
+            db.add(
+                BankAccount(
+                    organization_id=DEFAULT_TENANT_ID,
+                    iban=SEED_IBAN,
+                    beneficiary=SEED_BEGUNSTIGDE,
+                    sort_order=0,
+                )
+            )
         # #1238 punt 4: de voettekst. Vóór de markercontrole, zodat een tweede run op
         # een bestaande databank haar ook herstelt — dit is inhoud van de OMGEVING en
         # geen rij van het voorbeeldgezin.
@@ -209,8 +229,7 @@ def main() -> None:
         db.commit()
 
         vandaag = date.today()
-        bestaat = (db.query(ContactDetail)
-                   .filter(ContactDetail.value == MARKER_EMAIL).first())
+        bestaat = db.query(ContactDetail).filter(ContactDetail.value == MARKER_EMAIL).first()
         if bestaat is not None:
             print("seed_e2e: data staat er al (marker gevonden) — niets gedaan")
             return
@@ -232,12 +251,15 @@ def main() -> None:
         member = Member()
         db.add(member)
         db.flush()
-        person = Person(first_name="Theofiel", last_name="Jommeke",
-                        date_of_birth=JOMMEKE_GEBOORTE, gender_code="M")
+        person = Person(
+            first_name="Theofiel",
+            last_name="Jommeke",
+            date_of_birth=JOMMEKE_GEBOORTE,
+            gender_code="M",
+        )
         db.add(person)
         db.flush()
-        db.add(MemberPerson(member_id=member.id, person_id=person.id,
-                            relation_type="HOOFDLID"))
+        db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
         # #1208: een gezin en niet één persoon. Het gezinsscherm is de afdruk waarop
         # een lid ziet hoe zijn gegevens erbij staan; met één rij toont hij niet wat
         # het scherm doet. Partner en kinderen erbij maken die afdruk bruikbaar.
@@ -257,41 +279,74 @@ def main() -> None:
         # luiheid maar het geval dat een lezer herkent — en het scherm toont zo ook
         # hoe een gezinslid zónder eigen contactgegevens eruitziet, wat op die pagina
         # even nuttig is.
-        kinderen_geboorte = (date(vandaag.year - 22, 6, 15),
-                             date(vandaag.year - 20, 3, 9))
+        kinderen_geboorte = (date(vandaag.year - 22, 6, 15), date(vandaag.year - 20, 3, 9))
         for voornaam, relatie, geboorte, geslacht in (
-                ("Marie", "PARTNER", JOMMEKE_GEBOORTE, "F"),
-                ("Annemieke", "KIND", kinderen_geboorte[0], "F"),
-                ("Rozemieke", "KIND", kinderen_geboorte[1], "F")):
-            gezinslid = Person(first_name=voornaam, last_name="Jommeke",
-                               date_of_birth=geboorte, gender_code=geslacht)
+            ("Marie", "PARTNER", JOMMEKE_GEBOORTE, "F"),
+            ("Annemieke", "KIND", kinderen_geboorte[0], "F"),
+            ("Rozemieke", "KIND", kinderen_geboorte[1], "F"),
+        ):
+            gezinslid = Person(
+                first_name=voornaam,
+                last_name="Jommeke",
+                date_of_birth=geboorte,
+                gender_code=geslacht,
+            )
             db.add(gezinslid)
             db.flush()
-            db.add(MemberPerson(member_id=member.id, person_id=gezinslid.id,
-                                relation_type=relatie))
+            db.add(MemberPerson(member_id=member.id, person_id=gezinslid.id, relation_type=relatie))
             _adres(db, Address, gezinslid.id, postcode.id)
             if relatie == "PARTNER":
-                db.add(ContactDetail(person_id=gezinslid.id, contact_type_code="EMAIL",
-                                     value=PARTNER_EMAIL, is_primary=True))
-                db.add(ContactDetail(person_id=gezinslid.id, contact_type_code="MOBILE",
-                                     value=PARTNER_GSM, is_primary=True))
+                db.add(
+                    ContactDetail(
+                        person_id=gezinslid.id,
+                        contact_type_code="EMAIL",
+                        value=PARTNER_EMAIL,
+                        is_primary=True,
+                    )
+                )
+                db.add(
+                    ContactDetail(
+                        person_id=gezinslid.id,
+                        contact_type_code="MOBILE",
+                        value=PARTNER_GSM,
+                        is_primary=True,
+                    )
+                )
         _adres(db, Address, person.id, postcode.id)
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                             value=MARKER_EMAIL, is_primary=True))
-        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE",
-                             value=HOOFDLID_GSM, is_primary=True))
+        db.add(
+            ContactDetail(
+                person_id=person.id, contact_type_code="EMAIL", value=MARKER_EMAIL, is_primary=True
+            )
+        )
+        db.add(
+            ContactDetail(
+                person_id=person.id, contact_type_code="MOBILE", value=HOOFDLID_GSM, is_primary=True
+            )
+        )
         jaar = vandaag.year
-        membership = Membership(member_id=member.id, year=jaar, is_active=True,
-                                valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31))
+        membership = Membership(
+            member_id=member.id,
+            year=jaar,
+            is_active=True,
+            valid_from=date(jaar, 1, 1),
+            valid_to=date(jaar, 12, 31),
+        )
         db.add(membership)
         db.flush()
         # Een betaald lidgeld: zonder dat levert het schrappen van het lidmaatschap
         # geen terugbetaling op en zou de ledenflow niets te toetsen hebben (#619).
-        db.add(PaymentRecord(
-            payable_type="membership", payable_id=membership.id, type="charge",
-            amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
-            method="transfer", status="paid",
-            structured_communication="+++000/0000/00097+++"))
+        db.add(
+            PaymentRecord(
+                payable_type="membership",
+                payable_id=membership.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                amount_paid=Decimal("20.00"),
+                method="transfer",
+                status="paid",
+                structured_communication="+++000/0000/00097+++",
+            )
+        )
         db.flush()
 
         # ── Gezin met een VERLOPEN lidmaatschap (#1183) ─────────────────────
@@ -307,12 +362,28 @@ def main() -> None:
         verlopen_person = Person(first_name="Professor", last_name="Gobelijn")
         db.add(verlopen_person)
         db.flush()
-        db.add(MemberPerson(member_id=verlopen_member.id,
-                            person_id=verlopen_person.id, relation_type="HOOFDLID"))
-        db.add(ContactDetail(person_id=verlopen_person.id, contact_type_code="EMAIL",
-                             value=MARKER_EMAIL_VERLOPEN, is_primary=True))
-        db.add(Membership(member_id=verlopen_member.id, year=vorig, is_active=True,
-                          valid_from=date(vorig, 1, 1), valid_to=date(vorig, 12, 31)))
+        db.add(
+            MemberPerson(
+                member_id=verlopen_member.id, person_id=verlopen_person.id, relation_type="HOOFDLID"
+            )
+        )
+        db.add(
+            ContactDetail(
+                person_id=verlopen_person.id,
+                contact_type_code="EMAIL",
+                value=MARKER_EMAIL_VERLOPEN,
+                is_primary=True,
+            )
+        )
+        db.add(
+            Membership(
+                member_id=verlopen_member.id,
+                year=vorig,
+                is_active=True,
+                valid_from=date(vorig, 1, 1),
+                valid_to=date(vorig, 12, 31),
+            )
+        )
         db.flush()
 
         # ── Gezin dat ONLINE VERNIEUWD heeft (#1241, afdruk 2) ──────────────
@@ -330,30 +401,62 @@ def main() -> None:
         vernieuwd_member = Member()
         db.add(vernieuwd_member)
         db.flush()
-        vernieuwd_person = Person(first_name="Filiberke", last_name="Kwak",
-                                  date_of_birth=date(vandaag.year - 30, 5, 4),
-                                  gender_code="M")
+        vernieuwd_person = Person(
+            first_name="Filiberke",
+            last_name="Kwak",
+            date_of_birth=date(vandaag.year - 30, 5, 4),
+            gender_code="M",
+        )
         db.add(vernieuwd_person)
         db.flush()
-        db.add(MemberPerson(member_id=vernieuwd_member.id,
-                            person_id=vernieuwd_person.id, relation_type="HOOFDLID"))
-        db.add(ContactDetail(person_id=vernieuwd_person.id, contact_type_code="EMAIL",
-                             value=MARKER_EMAIL_VERNIEUWD, is_primary=True))
+        db.add(
+            MemberPerson(
+                member_id=vernieuwd_member.id,
+                person_id=vernieuwd_person.id,
+                relation_type="HOOFDLID",
+            )
+        )
+        db.add(
+            ContactDetail(
+                person_id=vernieuwd_person.id,
+                contact_type_code="EMAIL",
+                value=MARKER_EMAIL_VERNIEUWD,
+                is_primary=True,
+            )
+        )
         _adres(db, Address, vernieuwd_person.id, postcode.id)
         # Twee lidmaatschappen, zoals een echt vernieuwd gezin ze heeft: het lopende
         # jaar en het jaar dat net betaald is.
-        db.add(Membership(member_id=vernieuwd_member.id, year=jaar, is_active=True,
-                          valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
-        vernieuwing = Membership(member_id=vernieuwd_member.id, year=volgend,
-                                 is_active=True, valid_from=date(volgend, 1, 1),
-                                 valid_to=date(volgend, 12, 31))
+        db.add(
+            Membership(
+                member_id=vernieuwd_member.id,
+                year=jaar,
+                is_active=True,
+                valid_from=date(jaar, 1, 1),
+                valid_to=date(jaar, 12, 31),
+            )
+        )
+        vernieuwing = Membership(
+            member_id=vernieuwd_member.id,
+            year=volgend,
+            is_active=True,
+            valid_from=date(volgend, 1, 1),
+            valid_to=date(volgend, 12, 31),
+        )
         db.add(vernieuwing)
         db.flush()
-        db.add(PaymentRecord(
-            payable_type="membership", payable_id=vernieuwing.id, type="charge",
-            amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
-            method="online", status="paid",
-            structured_communication=VERNIEUWD_OGM))
+        db.add(
+            PaymentRecord(
+                payable_type="membership",
+                payable_id=vernieuwing.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                amount_paid=Decimal("20.00"),
+                method="online",
+                status="paid",
+                structured_communication=VERNIEUWD_OGM,
+            )
+        )
         db.flush()
 
         # ── Gezin met een LOPENDE OVERSCHRIJVING (#1241, afdruk 3) ───────────
@@ -384,49 +487,82 @@ def main() -> None:
         overschrijving_member = Member()
         db.add(overschrijving_member)
         db.flush()
-        overschrijving_person = Person(first_name="Anatool", last_name="Boemel",
-                                       date_of_birth=date(vandaag.year - 45, 11, 21),
-                                       gender_code="M")
+        overschrijving_person = Person(
+            first_name="Anatool",
+            last_name="Boemel",
+            date_of_birth=date(vandaag.year - 45, 11, 21),
+            gender_code="M",
+        )
         db.add(overschrijving_person)
         db.flush()
-        db.add(MemberPerson(member_id=overschrijving_member.id,
-                            person_id=overschrijving_person.id,
-                            relation_type="HOOFDLID"))
-        db.add(ContactDetail(person_id=overschrijving_person.id,
-                             contact_type_code="EMAIL",
-                             value=MARKER_EMAIL_OVERSCHRIJVING, is_primary=True))
+        db.add(
+            MemberPerson(
+                member_id=overschrijving_member.id,
+                person_id=overschrijving_person.id,
+                relation_type="HOOFDLID",
+            )
+        )
+        db.add(
+            ContactDetail(
+                person_id=overschrijving_person.id,
+                contact_type_code="EMAIL",
+                value=MARKER_EMAIL_OVERSCHRIJVING,
+                is_primary=True,
+            )
+        )
         _adres(db, Address, overschrijving_person.id, postcode.id)
-        db.add(Membership(member_id=overschrijving_member.id, year=jaar,
-                          is_active=True, valid_from=date(jaar, 1, 1),
-                          valid_to=date(jaar, 12, 31)))
+        db.add(
+            Membership(
+                member_id=overschrijving_member.id,
+                year=jaar,
+                is_active=True,
+                valid_from=date(jaar, 1, 1),
+                valid_to=date(jaar, 12, 31),
+            )
+        )
         # Het lidmaatschap van de LOPENDE vernieuwing staat nog op niet-actief; zo
         # maakt de vernieuwroute het ook aan, en pas de betaling activeert het.
-        loopt = Membership(member_id=overschrijving_member.id, year=volgend,
-                           is_active=False, valid_from=date(volgend, 1, 1),
-                           valid_to=date(volgend, 12, 31))
+        loopt = Membership(
+            member_id=overschrijving_member.id,
+            year=volgend,
+            is_active=False,
+            valid_from=date(volgend, 1, 1),
+            valid_to=date(volgend, 12, 31),
+        )
         db.add(loopt)
         db.flush()
-        db.add(PaymentRecord(
-            payable_type="membership", payable_id=loopt.id, type="charge",
-            amount=Decimal("20.00"), method="transfer", status="pending",
-            created_at=datetime.now(timezone.utc) - timedelta(days=30),
-            structured_communication=OVERSCHRIJVING_OGM))
+        db.add(
+            PaymentRecord(
+                payable_type="membership",
+                payable_id=loopt.id,
+                type="charge",
+                amount=Decimal("20.00"),
+                method="transfer",
+                status="pending",
+                created_at=datetime.now(timezone.utc) - timedelta(days=30),
+                structured_communication=OVERSCHRIJVING_OGM,
+            )
+        )
         db.flush()
 
         # ── Activiteit met een betalend product ─────────────────────────────
         activity = Activity(name="E2E-activiteit")
         db.add(activity)
         db.flush()
-        db.add(ActivityDate(activity_id=activity.id,
-                            start_date=date.today() + timedelta(days=30)))
+        db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
         component = ActivitySubRegistration(
-            activity_id=activity.id, name="E2E-onderdeel",
-            registration_type_code="INDIVIDUAL", price=Decimal("0"), is_free=True,
-            max_participants=None)
+            activity_id=activity.id,
+            name="E2E-onderdeel",
+            registration_type_code="INDIVIDUAL",
+            price=Decimal("0"),
+            is_free=True,
+            max_participants=None,
+        )
         db.add(component)
         db.flush()
-        product = ActivityProduct(component_id=component.id, name="E2E-product",
-                                  price=Decimal("10.00"), is_free=False)
+        product = ActivityProduct(
+            component_id=component.id, name="E2E-product", price=Decimal("10.00"), is_free=False
+        )
         db.add(product)
 
         # ── Twee activiteitenfoto's ─────────────────────────────────────────
@@ -436,7 +572,7 @@ def main() -> None:
         # de filterrij brak (#1138 punt 1).
         from app.domains.media.api import MediaAsset
 
-        beeld = (b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
+        beeld = b"\x89PNG\r\n\x1a\n" + b"\x00" * 64
 
         # Een TWEEDE activiteit met een lange naam (#1138 punt 1). De
         # keuzelijst op het mediascherm is zo breed als haar langste optie, dus
@@ -453,15 +589,25 @@ def main() -> None:
         lange = Activity(name="Gezinsuitstap naar Irrland met bus en picknick")
         db.add(lange)
         db.flush()
-        db.add(ActivityDate(activity_id=lange.id,
-                            start_date=date.today() + timedelta(days=365)))
+        db.add(ActivityDate(activity_id=lange.id, start_date=date.today() + timedelta(days=365)))
 
         for doel in (activity, lange):
-            db.add(MediaAsset(kind="activity_photo", activity_id=doel.id,
-                              title=f"E2E-foto {doel.name}", data=beeld,
-                              content_type="image/png", thumbnail=beeld,
-                              thumb_content_type="image/png", width=64, height=64,
-                              byte_size=len(beeld), sort_order=0, is_active=True))
+            db.add(
+                MediaAsset(
+                    kind="activity_photo",
+                    activity_id=doel.id,
+                    title=f"E2E-foto {doel.name}",
+                    data=beeld,
+                    content_type="image/png",
+                    thumbnail=beeld,
+                    thumb_content_type="image/png",
+                    width=64,
+                    height=64,
+                    byte_size=len(beeld),
+                    sort_order=0,
+                    is_active=True,
+                )
+            )
 
         # ── Eén pagina-afbeelding (#1173) ───────────────────────────────────
         # Zonder haar staat de afbeeldingskiezer in de pagina-editor op zijn lege
@@ -478,11 +624,21 @@ def main() -> None:
         buf = BytesIO()
         Image.new("RGB", (240, 150), (240, 244, 250)).save(buf, format="PNG")
         echte_png = buf.getvalue()
-        db.add(MediaAsset(kind="page_image",
-                          title="E2E-schermafdruk aanmelden", data=echte_png,
-                          content_type="image/png", thumbnail=echte_png,
-                          thumb_content_type="image/png", width=240, height=150,
-                          byte_size=len(echte_png), sort_order=0, is_active=True))
+        db.add(
+            MediaAsset(
+                kind="page_image",
+                title="E2E-schermafdruk aanmelden",
+                data=echte_png,
+                content_type="image/png",
+                thumbnail=echte_png,
+                thumb_content_type="image/png",
+                width=240,
+                height=150,
+                byte_size=len(echte_png),
+                sort_order=0,
+                is_active=True,
+            )
+        )
         db.commit()
 
         # ── Inschrijving via het echte registratiepad ────────────────────────
@@ -496,17 +652,21 @@ def main() -> None:
 
         def _schrijf_in(naam: str) -> int | None:
             data = RegistrationCreate(
-                contact_name=naam, contact_email=MARKER_EMAIL, phone="0470000000",
-                component_id=component.id, payment_method="transfer",
+                contact_name=naam,
+                contact_email=MARKER_EMAIL,
+                phone="0470000000",
+                component_id=component.id,
+                payment_method="transfer",
                 items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
             )
-            resultaat = register_for_activity(activity.id, data, BackgroundTasks(),
-                                              db=db, current_member=None)
+            resultaat = register_for_activity(
+                activity.id, data, BackgroundTasks(), db=db, current_member=None
+            )
             gevonden = getattr(resultaat, "id", None) or (
-                resultaat.get("id") if isinstance(resultaat, dict) else None)
+                resultaat.get("id") if isinstance(resultaat, dict) else None
+            )
             if gevonden is None:
-                reg = (db.query(Registration)
-                       .filter(Registration.contact_name == naam).first())
+                reg = db.query(Registration).filter(Registration.contact_name == naam).first()
                 gevonden = reg.id if reg else None
             return gevonden
 
@@ -522,11 +682,18 @@ def main() -> None:
         # Ook dit record krijgt een mededeling: de kaarten staan op datum
         # gesorteerd, dus zonder OGM zou de bovenste kaart er geen hebben en zoekt
         # de e2e-flow tevergeefs naar er een.
-        db.add(PaymentRecord(
-            payable_type="registration", payable_id=reg_id, type="charge",
-            amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
-            method="transfer", status="paid",
-            structured_communication="+++000/0000/00098+++"))
+        db.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=reg_id,
+                type="charge",
+                amount=Decimal("20.00"),
+                amount_paid=Decimal("20.00"),
+                method="transfer",
+                status="paid",
+                structured_communication="+++000/0000/00098+++",
+            )
+        )
 
         # De beheerder uit migratie 014 heeft ADMIN; de betaalacties staan onder
         # `is_finance` en vragen FINANCE (mutaties: FINANCE/OPERATOR). Zonder deze
@@ -546,37 +713,50 @@ def main() -> None:
                     db.add(UserRole(user_id=beheerder.id, role_code=rol))
             db.flush()
 
-        formulier = Form(title="E2E-formulier", share_token="tok-e2e-seed",
-                         status="draft")
+        formulier = Form(title="E2E-formulier", share_token="tok-e2e-seed", status="draft")
         # Een OPEN formulier mét velden, zodat de publieke formulierpagina iets
         # te tonen heeft (#785 stap 0: het screenshotscript legt hem vast; de
         # draft hierboven geeft op zijn deellink een 403).
-        open_formulier = Form(title="E2E-open-formulier", share_token="tok-e2e-open",
-                              status="open")
+        open_formulier = Form(title="E2E-open-formulier", share_token="tok-e2e-open", status="open")
         pagina = CmsPage(title="E2E-pagina", slug="e2e-pagina", content="<p>e2e</p>")
         db.add_all([formulier, open_formulier, pagina])
         db.flush()
-        db.add_all([
-            FormField(form_id=open_formulier.id, field_type="text",
-                      label="Naam ploeg", required=True, position=0),
-            FormField(form_id=open_formulier.id, field_type="textarea",
-                      label="Opmerking", position=1),
-            # Mét schaal-labels (Koens vraag op het clusterpakket): zonder
-            # betekenen de cijfers niets — en de afdrukken tonen dan een
-            # kaler scherm dan het product kan.
-            FormField(form_id=open_formulier.id, field_type="rating",
-                      label="Hoe graag kom je?", position=2, rating_max=5,
-                      rating_low_label="niet graag",
-                      rating_high_label="zeer graag"),
-        ])
+        db.add_all(
+            [
+                FormField(
+                    form_id=open_formulier.id,
+                    field_type="text",
+                    label="Naam ploeg",
+                    required=True,
+                    position=0,
+                ),
+                FormField(
+                    form_id=open_formulier.id, field_type="textarea", label="Opmerking", position=1
+                ),
+                # Mét schaal-labels (Koens vraag op het clusterpakket): zonder
+                # betekenen de cijfers niets — en de afdrukken tonen dan een
+                # kaler scherm dan het product kan.
+                FormField(
+                    form_id=open_formulier.id,
+                    field_type="rating",
+                    label="Hoe graag kom je?",
+                    position=2,
+                    rating_max=5,
+                    rating_low_label="niet graag",
+                    rating_high_label="zeer graag",
+                ),
+            ]
+        )
         db.commit()
 
-        print(f"seed_e2e: gezin={member.id} lidmaatschap={membership.id} "
-              f"activiteit={activity.id} "
-              f"onderdeel={component.id} product={product.id} "
-              f"inschrijving={reg_id} tweede-inschrijving={tweede_id} "
-              f"formulier={formulier.id} open-formulier={open_formulier.id} "
-              f"pagina={pagina.id}")
+        print(
+            f"seed_e2e: gezin={member.id} lidmaatschap={membership.id} "
+            f"activiteit={activity.id} "
+            f"onderdeel={component.id} product={product.id} "
+            f"inschrijving={reg_id} tweede-inschrijving={tweede_id} "
+            f"formulier={formulier.id} open-formulier={open_formulier.id} "
+            f"pagina={pagina.id}"
+        )
     finally:
         db.close()
 

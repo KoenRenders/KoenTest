@@ -1,9 +1,13 @@
 """Pydantic-schemas voor leden/gezinnen (verhuisd uit app/schemas/member.py, #444)."""
+
 from __future__ import annotations
+
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel
+
 from app.domains.mdm.api import RelationType
 
 
@@ -137,8 +141,9 @@ class FamilyResponse(BaseModel):
         complaining. Who the primary member is, is a rule; it belongs here and
         not in Jinja.
         """
-        return next((m for m in self.members
-                     if m.relation_type is RelationType.PRIMARY_MEMBER), None)
+        return next(
+            (m for m in self.members if m.relation_type is RelationType.PRIMARY_MEMBER), None
+        )
 
 
 class AddressUpdate(BaseModel):

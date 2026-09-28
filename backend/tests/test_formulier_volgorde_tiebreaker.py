@@ -36,6 +36,7 @@ Bij die tweede mutatie kwam een gat in deze test zelf aan het licht: met alleen
 de UPDATE — de test stond dan groen zonder de heap-volgorde ooit aan te raken.
 Vandaar de `expire_all()` daar, met dezelfde reden in een commentaar.
 """
+
 import pytest
 from sqlalchemy import text
 
@@ -53,8 +54,7 @@ def _formulier_met_gelijkspel(db, aantal=4) -> Form:
     db.add(form)
     db.flush()
     for nr in range(aantal):
-        db.add(FormField(form_id=form.id, field_type="text",
-                         label=f"Vraag {nr + 1}", position=0))
+        db.add(FormField(form_id=form.id, field_type="text", label=f"Vraag {nr + 1}", position=0))
     db.flush()
     return form
 
@@ -76,11 +76,12 @@ def test_een_bewerkt_veld_blijft_op_zijn_plaats(db_session):
     tweede = db_session.get(Form, form.id).fields[1]
 
     db_session.execute(
-        text("UPDATE form.form_fields SET required = true WHERE id = :id"),
-        {"id": tweede.id})
+        text("UPDATE form.form_fields SET required = true WHERE id = :id"), {"id": tweede.id}
+    )
 
     assert _labels(db_session, form) == voor, (
-        "het bewerkte veld is verschoven — de sortering heeft geen tiebreaker")
+        "het bewerkte veld is verschoven — de sortering heeft geen tiebreaker"
+    )
 
 
 def test_de_positie_blijft_de_eerste_sleutel(db_session):
@@ -93,29 +94,28 @@ def test_de_positie_blijft_de_eerste_sleutel(db_session):
     db_session.add(form)
     db_session.flush()
     for nr, positie in enumerate([2, 1, 0]):
-        db_session.add(FormField(form_id=form.id, field_type="text",
-                                 label=f"Vraag {nr + 1}", position=positie))
+        db_session.add(
+            FormField(form_id=form.id, field_type="text", label=f"Vraag {nr + 1}", position=positie)
+        )
     db_session.flush()
 
     assert _labels(db_session, form) == ["Vraag 3", "Vraag 2", "Vraag 1"]
 
 
-def test_de_bouwer_toont_dezelfde_volgorde_als_de_relatie(client, db_session,
-                                                          admin_headers):
+def test_de_bouwer_toont_dezelfde_volgorde_als_de_relatie(client, db_session, admin_headers):
     """De bouwer sorteert zelf (per sectie), dus die weg moet apart afgedekt.
 
     Zonder deze test kan de relatie kloppen terwijl het scherm iets anders toont —
     en het scherm is waar de melding vandaan komt.
     """
-    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                      make_session_value)
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     form = _formulier_met_gelijkspel(db_session)
     tweede = db_session.get(Form, form.id).fields[1]
     db_session.execute(
-        text("UPDATE form.form_fields SET required = true WHERE id = :id"),
-        {"id": tweede.id})
+        text("UPDATE form.form_fields SET required = true WHERE id = :id"), {"id": tweede.id}
+    )
     # expire_all() is hier geen opsmuk: zonder haar bedient de route de velden uit
     # de identity map, in de volgorde van vóór de UPDATE. De test stond dan groen
     # zonder de heap-volgorde ooit aan te raken — precies het soort test dat niets
@@ -129,7 +129,8 @@ def test_de_bouwer_toont_dezelfde_volgorde_als_de_relatie(client, db_session,
 
     posities = [html.index(f"Vraag {nr}") for nr in (1, 2, 3, 4)]
     assert posities == sorted(posities), (
-        "de bouwer toont de vragen in een andere volgorde dan de relatie")
+        "de bouwer toont de vragen in een andere volgorde dan de relatie"
+    )
 
 
 def test_een_import_zonder_posities_levert_geen_dubbels_op(db_session):
@@ -141,16 +142,21 @@ def test_een_import_zonder_posities_levert_geen_dubbels_op(db_session):
     from app.domains.forms.api import apply_definition
     from app.domains.forms.schemas import FormCreate
 
-    form = Form(title="Import zonder posities", share_token="tok-volgorde-3",
-                status="open")
+    form = Form(title="Import zonder posities", share_token="tok-volgorde-3", status="open")
     db_session.add(form)
     db_session.flush()
 
-    apply_definition(form, FormCreate(
-        title="Import zonder posities",
-        fields=[{"field_type": "text", "label": "Eerst"},
+    apply_definition(
+        form,
+        FormCreate(
+            title="Import zonder posities",
+            fields=[
+                {"field_type": "text", "label": "Eerst"},
                 {"field_type": "text", "label": "Dan"},
-                {"field_type": "text", "label": "Laatst"}]))
+                {"field_type": "text", "label": "Laatst"},
+            ],
+        ),
+    )
     db_session.flush()
 
     assert [f.position for f in form.fields] == [0, 1, 2]
@@ -159,13 +165,18 @@ def test_een_import_zonder_posities_levert_geen_dubbels_op(db_session):
 
 # ── De datastap: migratie 093 ────────────────────────────────────────────────
 
+
 def _migratie_093():
     """De migratiemodule inladen op pad — `alembic/versions` is geen package."""
     import importlib.util
     from pathlib import Path
 
-    pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "093_formulier_posities_uniek_per_ouder.py")
+    pad = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "093_formulier_posities_uniek_per_ouder.py"
+    )
     spec = importlib.util.spec_from_file_location("migratie_093", pad)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -187,8 +198,9 @@ def test_de_migratie_hernummert_de_dubbels_zonder_de_volgorde_te_wijzigen(db_ses
     migratie = _migratie_093()
     form = _formulier_met_gelijkspel(db_session, aantal=3)
     # Eén veld met een écht gezette positie ertussen, om te tonen dat die telt.
-    db_session.add(FormField(form_id=form.id, field_type="text",
-                             label="Handmatig eerst", position=-1))
+    db_session.add(
+        FormField(form_id=form.id, field_type="text", label="Handmatig eerst", position=-1)
+    )
     db_session.flush()
     verwacht = _labels(db_session, form)
 
@@ -199,4 +211,5 @@ def test_de_migratie_hernummert_de_dubbels_zonder_de_volgorde_te_wijzigen(db_ses
     velden = db_session.get(Form, form.id).fields
     assert [f.position for f in velden] == [0, 1, 2, 3], "de dubbels staan er nog"
     assert [f.label for f in velden] == verwacht, (
-        "de hernummering heeft de zichtbare volgorde veranderd")
+        "de hernummering heeft de zichtbare volgorde veranderd"
+    )

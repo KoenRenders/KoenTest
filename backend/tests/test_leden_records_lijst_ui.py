@@ -11,17 +11,20 @@ op het oog goed uitzien terwijl ze fout staan:
   niet op de opgehaalde pagina, anders klopt de paginering niet meer.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 from datetime import date
 
-from tests.conftest import (
-    SEEDED_ADMIN_EMAIL, create_test_member, create_test_person,
-)
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.mdm.api import Member, RelationType
 from app.domains.membership.api import Membership, not_renewed_count, renewal_years
-from app.domains.mdm.api import Member
-from app.domains.mdm.api import RelationType
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_member,
+    create_test_person,
+)
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -37,8 +40,7 @@ def _gezin(db, naam: str) -> Member:
 
     member = create_test_member(db)
     persoon = create_test_person(db, last_name=naam)
-    db.add(MemberPerson(member_id=member.id, person_id=persoon.id,
-                        relation_type="HOOFDLID"))
+    db.add(MemberPerson(member_id=member.id, person_id=persoon.id, relation_type="HOOFDLID"))
     db.flush()
     return member
 
@@ -47,13 +49,21 @@ def _gezin_met_lidmaatschap(db, naam: str, jaren: list[int]) -> Member:
     """Gezin met voor elk jaar in `jaren` een lidmaatschap dat dat jaar dekt."""
     member = _gezin(db, naam)
     for jaar in jaren:
-        db.add(Membership(member_id=member.id, year=jaar, is_active=True,
-                          valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
+        db.add(
+            Membership(
+                member_id=member.id,
+                year=jaar,
+                is_active=True,
+                valid_from=date(jaar, 1, 1),
+                valid_to=date(jaar, 12, 31),
+            )
+        )
     db.commit()
     return member
 
 
 # ── De kantelende campagne ────────────────────────────────────────────────────
+
 
 def test_doeljaar_kantelt_op_de_tenant_datum():
     """Standaardinstelling is 17 september (membership_next_year_from_md)."""
@@ -64,9 +74,9 @@ def test_doeljaar_kantelt_op_de_tenant_datum():
 
 
 def test_niet_vernieuwd_volgt_het_juiste_referentiejaar(db_session):
-    _gezin_met_lidmaatschap(db_session, "Vorigjaar", [2025])         # enkel 2025
-    _gezin_met_lidmaatschap(db_session, "Ditjaar", [2025, 2026])     # 2025 + 2026
-    _gezin_met_lidmaatschap(db_session, "Vooruit", [2026, 2027])     # 2026 + 2027
+    _gezin_met_lidmaatschap(db_session, "Vorigjaar", [2025])  # enkel 2025
+    _gezin_met_lidmaatschap(db_session, "Ditjaar", [2025, 2026])  # 2025 + 2026
+    _gezin_met_lidmaatschap(db_session, "Vooruit", [2026, 2027])  # 2026 + 2027
 
     # Vóór de kanteldatum: referentie 2025, doel 2026 → enkel "Vorigjaar" mist 2026.
     assert not_renewed_count(db_session, date(2026, 9, 16)) == 1
@@ -78,32 +88,52 @@ def test_niet_vernieuwd_telt_wie_al_twee_jaar_gedekt_is_niet_mee(db_session):
     """Een lidmaatschap dat na de kanteldatum betaald werd dekt twee jaren; dat is
     exact wat 'al vernieuwd' betekent."""
     member = _gezin(db_session, "Dubbeldek")
-    db_session.add(Membership(member_id=member.id, year=2026, is_active=True,
-                              valid_from=date(2026, 9, 20), valid_to=date(2027, 12, 31)))
+    db_session.add(
+        Membership(
+            member_id=member.id,
+            year=2026,
+            is_active=True,
+            valid_from=date(2026, 9, 20),
+            valid_to=date(2027, 12, 31),
+        )
+    )
     db_session.commit()
     assert not_renewed_count(db_session, date(2026, 9, 17)) == 0
 
 
 def test_inactief_lidmaatschap_telt_niet_als_vernieuwd(db_session):
     member = _gezin(db_session, "Inactief")
-    db_session.add_all([
-        Membership(member_id=member.id, year=2025, is_active=True,
-                   valid_from=date(2025, 1, 1), valid_to=date(2025, 12, 31)),
-        Membership(member_id=member.id, year=2026, is_active=False,
-                   valid_from=date(2026, 1, 1), valid_to=date(2026, 12, 31)),
-    ])
+    db_session.add_all(
+        [
+            Membership(
+                member_id=member.id,
+                year=2025,
+                is_active=True,
+                valid_from=date(2025, 1, 1),
+                valid_to=date(2025, 12, 31),
+            ),
+            Membership(
+                member_id=member.id,
+                year=2026,
+                is_active=False,
+                valid_from=date(2026, 1, 1),
+                valid_to=date(2026, 12, 31),
+            ),
+        ]
+    )
     db_session.commit()
     assert not_renewed_count(db_session, date(2026, 9, 16)) == 1
 
 
 # ── Het scherm ────────────────────────────────────────────────────────────────
 
+
 def test_kpi_rij_noemt_het_doeljaar_in_het_label(client, db_session):
     _login(client)
     _, doeljaar = renewal_years()
     html = client.get("/admin/leden").text
     assert "Actieve gezinnen" in html and "Actieve personen" in html
-    assert f"Nog niet vernieuwd</div>" not in html      # zonder jaar is het dubbelzinnig
+    assert "Nog niet vernieuwd</div>" not in html  # zonder jaar is het dubbelzinnig
     assert f"({doeljaar})" in html
 
 
@@ -142,22 +172,22 @@ def test_statusfilter_scheidt_actief_van_opgezegd(client, db_session):
 
 def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_session):
     from app.domains.mdm.api import MemberPerson, Person
-
     from tests.conftest import nieuw_lid_velden
 
     csrf = _login(client)
-    resp = client.post("/admin/leden",
-                       # #681: geboortedatum en geslacht zijn verplicht; sinds
-                       # #1110 verstuurt het scherm één formulier met m0_-velden,
-                       # het adres en de contactgegevens van het hoofdlid.
-                       data=nieuw_lid_velden(db_session, m0_first_name="Marie",
-                                             m0_last_name="Peeters",
-                                             m0_gender_code="F"),
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/leden",
+        # #681: geboortedatum en geslacht zijn verplicht; sinds
+        # #1110 verstuurt het scherm één formulier met m0_-velden,
+        # het adres en de contactgegevens van het hoofdlid.
+        data=nieuw_lid_velden(
+            db_session, m0_first_name="Marie", m0_last_name="Peeters", m0_gender_code="F"
+        ),
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 204
     persoon = db_session.query(Person).filter(Person.last_name == "Peeters").one()
-    koppeling = db_session.query(MemberPerson).filter(
-        MemberPerson.person_id == persoon.id).one()
+    koppeling = db_session.query(MemberPerson).filter(MemberPerson.person_id == persoon.id).one()
     assert koppeling.relation_type == RelationType.PRIMARY_MEMBER
     assert resp.headers["HX-Redirect"] == f"/admin/leden/gezin/{koppeling.member_id}"
 
@@ -173,12 +203,12 @@ def test_kaart_opent_de_paginabrede_editor(client, db_session):
     assert editor.status_code == 200
     assert "Alle leden" in editor.text and 'id="leden-detail"' in editor.text
     # htmx krijgt nog steeds het fragment, want de mutaties swappen #leden-detail
-    fragment = client.get(f"/admin/leden/gezin/{member.id}",
-                          headers={"HX-Request": "true"})
+    fragment = client.get(f"/admin/leden/gezin/{member.id}", headers={"HX-Request": "true"})
     assert "<html" not in fragment.text.lower()
 
 
 # ── C1-referentiescherm (#611) ────────────────────────────────────────────────
+
 
 def test_acties_staan_op_de_titelregel_boven_de_kpi_rij(client, db_session):
     """Het C1-referentiescherm zet de knoppen in de kop, niet in een losse rij
@@ -199,4 +229,4 @@ def test_kpi_kaart_noemt_het_referentiejaar_niet_nog_eens_het_doeljaar(client, d
     html = client.get("/admin/leden").text
     assert f"was lid in {referentiejaar}" in html  # subzin achter · sinds #996
     assert referentiejaar == doeljaar - 1
-    assert "dekt" not in html          # de oude formulering is weg
+    assert "dekt" not in html  # de oude formulering is weg

@@ -61,7 +61,14 @@ def _dispatch(
         _send(to_email, subject, body_html, cc, email_type)
 
 
-def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: MailStatus, error: Optional[str]) -> Optional[int]:
+def _log_email(
+    to_email: str,
+    subject: str,
+    body_html: str,
+    email_type: str,
+    status: MailStatus,
+    error: Optional[str],
+) -> Optional[int]:
     """Schrijf één rij naar de centrale email_log (#328). Loggen mag het versturen
     nooit breken: alle fouten worden hier opgevangen. Gebruikt een eigen
     SessionLocal omdat _send vaak in een BackgroundTask draait (geen request-sessie).
@@ -148,12 +155,14 @@ def _gmail_config() -> tuple:
     try:
         from app.database import SessionLocal
         from app.kernel.tenant_config import (
-            tenant_gmail_app_password, tenant_gmail_from, tenant_gmail_user)
+            tenant_gmail_app_password,
+            tenant_gmail_from,
+            tenant_gmail_user,
+        )
 
         db = SessionLocal()
         try:
-            return (tenant_gmail_user(db), tenant_gmail_app_password(db),
-                    tenant_gmail_from(db))
+            return (tenant_gmail_user(db), tenant_gmail_app_password(db), tenant_gmail_from(db))
         finally:
             db.close()
     except Exception:
@@ -165,28 +174,50 @@ def _payment_config() -> tuple:
     try:
         from app.database import SessionLocal
         from app.kernel.tenant_config import (
-            tenant_payment_beneficiary, tenant_payment_iban, tenant_payment_term_days)
+            tenant_payment_beneficiary,
+            tenant_payment_iban,
+            tenant_payment_term_days,
+        )
 
         db = SessionLocal()
         try:
-            return (tenant_payment_term_days(db), tenant_payment_iban(db),
-                    tenant_payment_beneficiary(db))
+            return (
+                tenant_payment_term_days(db),
+                tenant_payment_iban(db),
+                tenant_payment_beneficiary(db),
+            )
         finally:
             db.close()
     except Exception:
-        return (settings.payment_term_days, settings.payment_iban,
-                settings.payment_beneficiary)
+        return (settings.payment_term_days, settings.payment_iban, settings.payment_beneficiary)
 
 
-def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
+def _send(
+    to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other"
+) -> None:
     if _mail_mode() == "log_only":
-        _log_email(to_email, subject, body_html, email_type, MailStatus.LOGGED,
-                   "demo-tenant: alleen gelogd, niet verstuurd")
+        _log_email(
+            to_email,
+            subject,
+            body_html,
+            email_type,
+            MailStatus.LOGGED,
+            "demo-tenant: alleen gelogd, niet verstuurd",
+        )
         return
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
-        logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
-        _log_email(to_email, subject, body_html, email_type, MailStatus.SKIPPED, "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+        logger.warning(
+            "E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject
+        )
+        _log_email(
+            to_email,
+            subject,
+            body_html,
+            email_type,
+            MailStatus.SKIPPED,
+            "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld",
+        )
         return
 
     msg = MIMEMultipart("alternative")
@@ -230,10 +261,16 @@ def _is_quota_error(exc: Exception) -> bool:
     return any(marker in text for marker in _QUOTA_MARKERS)
 
 
-def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
-                       email_type: str, reply_to: Optional[str] = None,
-                       unsubscribe_url: Optional[str] = None,
-                       body_text: Optional[str] = None) -> str:
+def send_campaign_mail(
+    to_email: str,
+    subject: str,
+    body_html: str,
+    *,
+    email_type: str,
+    reply_to: Optional[str] = None,
+    unsubscribe_url: Optional[str] = None,
+    body_text: Optional[str] = None,
+) -> str:
     """One mail to one recipient, for a campaign such as the newsletter (#984).
 
     Differs from ``_send`` on three points, each a decision:
@@ -256,13 +293,25 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
     credentials) or ``failed``.
     """
     if _mail_mode() == "log_only":
-        _log_email(to_email, subject, body_html, email_type, MailStatus.LOGGED,
-                   "demo-tenant: alleen gelogd, niet verstuurd")
+        _log_email(
+            to_email,
+            subject,
+            body_html,
+            email_type,
+            MailStatus.LOGGED,
+            "demo-tenant: alleen gelogd, niet verstuurd",
+        )
         return "logged"
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
-        _log_email(to_email, subject, body_html, email_type, MailStatus.SKIPPED,
-                   "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+        _log_email(
+            to_email,
+            subject,
+            body_html,
+            email_type,
+            MailStatus.SKIPPED,
+            "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld",
+        )
         return "skipped"
 
     msg = MIMEMultipart("alternative")
@@ -295,12 +344,10 @@ def send_campaign_mail(to_email: str, subject: str, body_html: str, *,
     return "sent"
 
 
-def send_newsletter_confirmation(to_email: str, first_name: Optional[str],
-                                 confirm_url: str) -> str:
+def send_newsletter_confirmation(to_email: str, first_name: Optional[str], confirm_url: str) -> str:
     """The double opt-in mail (CR-05 §3.5): one button, and what to do if it
     was not you. Nothing is sent to this address until the button is used."""
-    greeting = (_("Dag %(naam)s,") % {"naam": escape(first_name)}) if first_name \
-        else _("Dag,")
+    greeting = (_("Dag %(naam)s,") % {"naam": escape(first_name)}) if first_name else _("Dag,")
     body = f"""
         <p>{greeting}</p>
         <p>{_("Iemand — hopelijk jij — schreef dit adres in voor de nieuwsbrief van %(naam)s.") % {"naam": escape(_display_name())}}</p>
@@ -308,8 +355,11 @@ def send_newsletter_confirmation(to_email: str, first_name: Optional[str],
         <p style="color:#52607a;font-size:13px">{_("Was jij het niet? Dan hoef je niets te doen: zonder bevestiging sturen we niets.")}</p>
     """
     return send_campaign_mail(
-        to_email, _("Bevestig je inschrijving op de nieuwsbrief"), body,
-        email_type="newsletter_confirmation")
+        to_email,
+        _("Bevestig je inschrijving op de nieuwsbrief"),
+        body,
+        email_type="newsletter_confirmation",
+    )
 
 
 def _transfer_instructions_html(payment_record) -> str:
@@ -322,6 +372,7 @@ def _transfer_instructions_html(payment_record) -> str:
     if not ogm:
         return ""
     from datetime import date, timedelta
+
     term_days, iban, beneficiary = _payment_config()
     due = date.today() + timedelta(days=term_days)
     rows = [f"<li><strong>Bedrag:</strong> €{payment_record.amount:.2f}</li>"]
@@ -332,9 +383,11 @@ def _transfer_instructions_html(payment_record) -> str:
     rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
     rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
     return (
-        _("<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
-          "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
-          "zodat we je betaling correct kunnen verwerken:</p>")
+        _(
+            "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
+            "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
+            "zodat we je betaling correct kunnen verwerken:</p>"
+        )
         + f"<ul>{''.join(rows)}</ul>"
     )
 
@@ -374,11 +427,20 @@ def send_member_contact_board_notice(to_email: str) -> None:
         je wil beheren.</p>
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
         <p>Met vriendelijke groeten,<br>%(naam)s</p>
-        """) % {"naam": _display_name()},
+        """)
+        % {"naam": _display_name()},
     )
 
 
-def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "", background_tasks=None, payment_record=None) -> None:
+def send_registration_confirmation(
+    to_email: str,
+    name: str,
+    family,
+    data=None,
+    pc_municipality: str = "",
+    background_tasks=None,
+    payment_record=None,
+) -> None:
     details = ""
     if data:
         address_parts = [data.street, data.house_number]
@@ -392,7 +454,13 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
             member_name = escape(f"{m.first_name} {m.last_name}")
             parts = [f"<strong>{member_name}</strong> ({escape(m.relation_type)})"]
             if m.date_of_birth:
-                parts.append(str(m.date_of_birth.strftime("%d/%m/%Y") if hasattr(m.date_of_birth, "strftime") else m.date_of_birth))
+                parts.append(
+                    str(
+                        m.date_of_birth.strftime("%d/%m/%Y")
+                        if hasattr(m.date_of_birth, "strftime")
+                        else m.date_of_birth
+                    )
+                )
             if m.email:
                 parts.append(escape(m.email))
             if m.phone:
@@ -401,7 +469,11 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
                 parts.append(escape(m.mobile))
             members_html += f"<li>{' — '.join(parts)}</li>"
 
-        method_labels = {"online": _("Online (Mollie)"), "cash": _("Cash"), "transfer": _("Overschrijving")}
+        method_labels = {
+            "online": _("Online (Mollie)"),
+            "cash": _("Cash"),
+            "transfer": _("Overschrijving"),
+        }
         payment_label = method_labels.get(data.payment_method, data.payment_method)
 
         details = f"""
@@ -430,14 +502,23 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
 
 
 def send_activity_registration_confirmation(
-    to_email: str, name: str, activity, registration=None, background_tasks=None, payment_record=None
+    to_email: str,
+    name: str,
+    activity,
+    registration=None,
+    background_tasks=None,
+    payment_record=None,
 ) -> None:
     activity_name = escape(activity.name)
     subject = _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
     from datetime import date as _date
+
     today = _date.today()
     all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
-    relevant = next((d for d in all_dates if (d.end_date or d.start_date) >= today), all_dates[0] if all_dates else None)
+    relevant = next(
+        (d for d in all_dates if (d.end_date or d.start_date) >= today),
+        all_dates[0] if all_dates else None,
+    )
     date_str = relevant.start_date.strftime("%d/%m/%Y") if relevant else ""
     time_str = relevant.start_time.strftime("%H:%M") if (relevant and relevant.start_time) else ""
     location = escape(activity.location) if activity.location else ""
@@ -452,7 +533,9 @@ def send_activity_registration_confirmation(
     if registration:
         details = []
         if registration.contact_email:
-            details.append(f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>")
+            details.append(
+                f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>"
+            )
         if registration.phone:
             details.append(f"<li><strong>GSM:</strong> {escape(registration.phone)}</li>")
         if registration.team_name:
@@ -462,6 +545,7 @@ def send_activity_registration_confirmation(
 
         totaal, regels = compute_registration_total(registration)
         if regels:
+
             def _regel_html(r):
                 naam = f"{escape(r['name'])} × {r['quantity']}"
                 if r.get("pay_on_site"):
@@ -473,6 +557,7 @@ def send_activity_registration_confirmation(
                     f"<li>{naam} — €{r['unit_price']:.2f} / stuk "
                     f"= <strong>€{r['subtotal']:.2f}</strong></li>"
                 )
+
             regels_html = "".join(_regel_html(r) for r in regels)
             details.append(f"<li><strong>Producten:</strong><ul>{regels_html}</ul></li>")
             if totaal > 0:
@@ -528,8 +613,10 @@ def send_form_confirmation(
     edit_block = ""
     if edit_link:
         edit_block = (
-            _("<p>Je kan je antwoord later nog aanpassen via deze link "
-              "(zolang het formulier open staat):</p>")
+            _(
+                "<p>Je kan je antwoord later nog aanpassen via deze link "
+                "(zolang het formulier open staat):</p>"
+            )
             + f'<p><a href="{edit_link}">{edit_link}</a></p>'
         )
     _dispatch(
@@ -546,13 +633,11 @@ def send_form_confirmation(
     )
 
 
-
-
 def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
     """Verwijder email_log-rijen ouder dan de bewaartermijn (#328). Geeft het
     aantal verwijderde rijen terug. retention_days <= 0 (of None met default <= 0)
     = niets verwijderen (oneindig bewaren)."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta, timezone
 
     from app.domains.mail.models import EmailLog
 
@@ -561,9 +646,7 @@ def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
         return 0
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     deleted = (
-        db.query(EmailLog)
-        .filter(EmailLog.created_at < cutoff)
-        .delete(synchronize_session=False)
+        db.query(EmailLog).filter(EmailLog.created_at < cutoff).delete(synchronize_session=False)
     )
     db.commit()
     return deleted
@@ -586,9 +669,17 @@ _EMAIL_LOG_SORT = {
 EMAIL_LOG_SORT_KEYS: tuple[str, ...] = tuple(_EMAIL_LOG_SORT)
 
 
-def list_email_log(db, *, email_type: str = "", status: str = "",
-                   recipient: str = "", page: int = 1, page_size: int = 25,
-                   sort: str = "datum", richting: str = "desc"):
+def list_email_log(
+    db,
+    *,
+    email_type: str = "",
+    status: str = "",
+    recipient: str = "",
+    page: int = 1,
+    page_size: int = 25,
+    sort: str = "datum",
+    richting: str = "desc",
+):
     """Een pagina uit het e-maillogboek, met de actieve filters toegepast.
 
     Geeft `(rijen, is_er_nog_een_pagina)` terug. De "nog een pagina?"-vraag wordt
@@ -615,8 +706,7 @@ def list_email_log(db, *, email_type: str = "", status: str = "",
     aflopend = richting != "asc"
     orden = (kolom.desc(), EmailLog.id.desc()) if aflopend else (kolom.asc(), EmailLog.id.asc())
 
-    rijen = (query.order_by(*orden)
-             .offset((max(1, page) - 1) * page_size).limit(page_size + 1).all())
+    rijen = query.order_by(*orden).offset((max(1, page) - 1) * page_size).limit(page_size + 1).all()
     return rijen[:page_size], len(rijen) > page_size
 
 
@@ -632,10 +722,15 @@ def delete_email_log(db, log_id: int) -> bool:
     return True
 
 
-def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
-                          attachments: list[tuple] | None = None,
-                          reply_to: Optional[str] = None,
-                          email_type: str = "other") -> None:
+def send_with_attachments(
+    *,
+    to_emails: list[str],
+    subject: str,
+    body_html: str,
+    attachments: list[tuple] | None = None,
+    reply_to: Optional[str] = None,
+    email_type: str = "other",
+) -> None:
     """Eén mail naar meerdere ontvangers, met bijlagen (#258, CR-09 §3.13).
 
     Verschilt bewust van ``_send`` op drie punten, en elk punt is een beslissing:
@@ -653,8 +748,8 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
     de log beantwoordt "heeft deze persoon dit gekregen?", en dat antwoord mag
     niet afhangen van hoeveel mensen er in dezelfde mail zaten.
     """
-    from email.mime.base import MIMEBase
     from email import encoders
+    from email.mime.base import MIMEBase
 
     to_emails = [e for e in (to_emails or []) if e]
     if not to_emails:
@@ -663,17 +758,30 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
 
     if _mail_mode() == "log_only":
         for address in to_emails:
-            _log_email(address, subject, body_html, email_type, MailStatus.LOGGED,
-                       "demo-tenant: alleen gelogd, niet verstuurd")
+            _log_email(
+                address,
+                subject,
+                body_html,
+                email_type,
+                MailStatus.LOGGED,
+                "demo-tenant: alleen gelogd, niet verstuurd",
+            )
         return
 
     gmail_user, gmail_password, gmail_from = _gmail_config()
     if not gmail_user or not gmail_password:
-        logger.warning("E-mail niet verstuurd (GMAIL_USER/GMAIL_APP_PASSWORD ontbreekt): %s",
-                       subject)
+        logger.warning(
+            "E-mail niet verstuurd (GMAIL_USER/GMAIL_APP_PASSWORD ontbreekt): %s", subject
+        )
         for address in to_emails:
-            _log_email(address, subject, body_html, email_type, MailStatus.SKIPPED,
-                       "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+            _log_email(
+                address,
+                subject,
+                body_html,
+                email_type,
+                MailStatus.SKIPPED,
+                "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld",
+            )
         return
 
     msg = MIMEMultipart("mixed")
@@ -687,7 +795,7 @@ def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
     body.attach(MIMEText(body_html, "html"))
     msg.attach(body)
 
-    for filename, content_type, data in (attachments or []):
+    for filename, content_type, data in attachments or []:
         main, _, sub = (content_type or "application/octet-stream").partition("/")
         part = MIMEBase(main or "application", sub or "octet-stream")
         part.set_payload(data)

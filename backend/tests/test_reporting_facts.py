@@ -17,12 +17,14 @@ per view rather than assumed:
 - lose the member-price rule and the registration amount goes from 26,00 to 30,00;
 - count the lapsed households as members and the last year reads 3 instead of 2.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 
 import pytest
 
+from app.domains.mdm.api import PaymentMethod
 from app.domains.reporting.api import (
     Filter,
     Operator,
@@ -33,7 +35,7 @@ from app.domains.reporting.api import (
     run_selection,
 )
 from tests._reporting_seed import EXPECTED, TENANT_A, TENANT_B, seed
-from app.domains.mdm.api import PaymentMethod
+
 
 @pytest.fixture
 def situation(db_session):
@@ -42,9 +44,10 @@ def situation(db_session):
 
 def run(db, keys, *, tenant=TENANT_A, filters=(), sort=()):
     return run_selection(
-        db, Selection(object_keys=tuple(keys), filters=tuple(filters),
-                      sort=tuple(sort)),
-        tenant_id=tenant)
+        db,
+        Selection(object_keys=tuple(keys), filters=tuple(filters), sort=tuple(sort)),
+        tenant_id=tenant,
+    )
 
 
 def by(result, key):
@@ -54,19 +57,21 @@ def by(result, key):
 
 # ── f_memberships: questions 1 and 2 ─────────────────────────────────────────
 
+
 def test_members_per_year_counts_households_and_persons(db_session, situation):
     """Question 1: how many members, and how does that evolve per year?"""
     y0, y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_households",
-                              "membership_persons"])
+    result = run(db_session, ["membership_year", "membership_households", "membership_persons"])
     rows = by(result, "membership_year")
 
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
         assert rows[year]["membership_households"] == verwacht["households"][offset], (
-            f"aantal gezinnen in {year}")
+            f"aantal gezinnen in {year}"
+        )
         assert rows[year]["membership_persons"] == verwacht["persons"][offset], (
-            f"aantal personen in {year}")
+            f"aantal personen in {year}"
+        )
 
 
 def test_new_renewed_and_lapsed_add_up_per_year(db_session, situation):
@@ -80,22 +85,23 @@ def test_new_renewed_and_lapsed_add_up_per_year(db_session, situation):
     # Since #871 these are one count grouped by the status dimension, not three
     # measures. Same three numbers; the condition is now visible instead of baked
     # into a name.
-    result = run(db_session, ["membership_year", "membership_status",
-                              "membership_count"])
-    rows = {(r["membership_year"], r["membership_status"]):
-            r["membership_count"] for r in result.rows}
+    result = run(db_session, ["membership_year", "membership_status", "membership_count"])
+    rows = {
+        (r["membership_year"], r["membership_status"]): r["membership_count"] for r in result.rows
+    }
 
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
         assert rows.get((year, "Nieuw"), 0) == verwacht["new"][offset], f"nieuw in {year}"
         assert rows.get((year, "Vernieuwd"), 0) == verwacht["renewed"][offset], (
-            f"vernieuwd in {year}")
+            f"vernieuwd in {year}"
+        )
         assert rows.get((year, "Vervallen"), 0) == verwacht["lapsed"][offset], (
-            f"vervallen in {year}")
+            f"vervallen in {year}"
+        )
 
 
-def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
-                                                                  situation):
+def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session, situation):
     """From mid-September a membership can be taken out for the NEXT year.
 
     Its `valid_from` then falls in this year while its `year` is the next one, and
@@ -112,15 +118,18 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
     rows = by(result, "membership_year")
 
     assert rows[y2]["membership_households"] == 2, (
-        "H4 is dit jaar geen lid, ook al loopt zijn lidmaatschap al")
+        "H4 is dit jaar geen lid, ook al loopt zijn lidmaatschap al"
+    )
     assert rows[y3]["membership_households"] == 1
 
     # Filtered to H4 and NOT grouped by household: grouping by a single family is
     # exactly what the small-cell threshold of #841 folds away, and rightly so —
     # this test is about the September rule, not about privacy.
-    alleen_h4 = run(db_session, ["membership_year", "membership_households"],
-                    filters=[Filter("member", Operator.EQ,
-                                    (str(situation["households"]["h4"]),))])
+    alleen_h4 = run(
+        db_session,
+        ["membership_year", "membership_households"],
+        filters=[Filter("member", Operator.EQ, (str(situation["households"]["h4"]),))],
+    )
     jaren = {row["membership_year"] for row in alleen_h4.rows}
     assert jaren == {y3}, "één rij, in één jaar"
 
@@ -128,17 +137,20 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
 def test_membership_status_dimension_labels_the_same_rows(db_session, situation):
     """The status dimension and the three counters must tell the same story."""
     _y0, y1, _y2, _y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_status",
-                              "membership_households"],
-                 filters=[Filter("membership_year", Operator.EQ, (str(y1),))])
+    result = run(
+        db_session,
+        ["membership_year", "membership_status", "membership_households"],
+        filters=[Filter("membership_year", Operator.EQ, (str(y1),))],
+    )
     labels = {row["membership_status"] for row in result.rows}
     assert labels == {"Vernieuwd", "Vervallen"}
 
 
 def test_membership_money_is_the_charged_and_received_amount(db_session, situation):
     y0, y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_amount_charged",
-                              "membership_amount_paid"])
+    result = run(
+        db_session, ["membership_year", "membership_amount_charged", "membership_amount_paid"]
+    )
     rows = by(result, "membership_year")
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
@@ -148,6 +160,7 @@ def test_membership_money_is_the_charged_and_received_amount(db_session, situati
 
 # ── f_registrations: question 3 ──────────────────────────────────────────────
 
+
 def test_registrations_per_activity_and_year(db_session, situation):
     """Question 3: which activities draw the most people?
 
@@ -155,8 +168,9 @@ def test_registrations_per_activity_and_year(db_session, situation):
     one, and one who never picked a product. That last one is the interesting case
     — it is a real registration and it must be counted.
     """
-    result = run(db_session, ["activity", "activity_year", "registration_count",
-                              "registration_quantity"])
+    result = run(
+        db_session, ["activity", "activity_year", "registration_count", "registration_quantity"]
+    )
     assert len(result.rows) == 1
     row = result.rows[0]
     assert row["activity"] == "Quiz"
@@ -173,12 +187,10 @@ def test_registration_amount_uses_the_member_price(db_session, situation):
     number nobody would question.
     """
     result = run(db_session, ["activity", "registration_amount"])
-    assert Decimal(result.rows[0]["registration_amount"]) == \
-        EXPECTED["registrations"]["amount"]
+    assert Decimal(result.rows[0]["registration_amount"]) == EXPECTED["registrations"]["amount"]
 
 
-def test_registration_without_lines_shows_as_a_row_without_a_product(db_session,
-                                                                    situation):
+def test_registration_without_lines_shows_as_a_row_without_a_product(db_session, situation):
     result = run(db_session, ["product", "registration_count"])
     products = by(result, "product")
     assert products["Geen product"]["registration_count"] == 1
@@ -187,10 +199,19 @@ def test_registration_without_lines_shows_as_a_row_without_a_product(db_session,
 
 # ── f_payments: questions 4 to 7 ─────────────────────────────────────────────
 
+
 def test_payment_totals_are_net_of_refunds(db_session, situation):
-    result = run(db_session, ["payment_payable_type", "payment_amount",
-                              "payment_amount_paid", "payment_open_amount",
-                              "payment_refunded", "payment_count"])
+    result = run(
+        db_session,
+        [
+            "payment_payable_type",
+            "payment_amount",
+            "payment_amount_paid",
+            "payment_open_amount",
+            "payment_refunded",
+            "payment_count",
+        ],
+    )
     rows = by(result, "payment_payable_type")
     verwacht = EXPECTED["payments"]["per_payable_type"]
     for label, amounts in verwacht.items():
@@ -247,16 +268,15 @@ def test_outstanding_per_age_bucket(db_session, situation):
 
 def test_payment_method_and_speed(db_session, situation):
     """Question 7: how do people pay, and how fast?"""
-    result = run(db_session, ["payment_method", "payment_amount",
-                              "payment_days_to_paid"])
+    result = run(db_session, ["payment_method", "payment_amount", "payment_days_to_paid"])
     rows = by(result, "payment_method")
     for label, amount in EXPECTED["payments"]["per_method"].items():
         assert Decimal(rows[label]["payment_amount"]) == amount, label
-    assert int(result.totals["payment_days_to_paid"]) == \
-        EXPECTED["payments"]["days_to_paid"]
+    assert int(result.totals["payment_days_to_paid"]) == EXPECTED["payments"]["days_to_paid"]
 
 
 # ── The tenant fence (CR-06 §7.1) ────────────────────────────────────────────
+
 
 def test_the_same_selection_returns_only_its_own_tenant(db_session, situation):
     """Tenant B paid 500,00 that tenant A may never see, and the other way round."""
@@ -277,12 +297,12 @@ def test_a_dimension_row_is_not_borrowed_from_another_tenant(db_session, situati
     tenant A's municipality to tenant B's fact row — a leak the fact filter alone
     does not catch.
     """
-    b = run(db_session, ["member_municipality", "membership_households"],
-            tenant=TENANT_B)
+    b = run(db_session, ["member_municipality", "membership_households"], tenant=TENANT_B)
     assert b.rows[0]["membership_households"] == EXPECTED["tenant_b"]["households"]
 
 
 # ── The flat dataset export (#832, point 5) ──────────────────────────────────
+
 
 def test_dataset_holds_every_column_of_the_view_for_one_tenant(db_session, situation):
     dataset = load_dataset(db_session, "f_payments", tenant_id=TENANT_A)
@@ -293,18 +313,19 @@ def test_dataset_holds_every_column_of_the_view_for_one_tenant(db_session, situa
     amount_at = dataset.headers.index("amount")
     som = sum((Decimal(str(row[amount_at])) for row in dataset.rows), Decimal("0"))
     assert som == EXPECTED["payments"]["amount"], (
-        "de platte export moet hetzelfde totaal geven als het rapport")
+        "de platte export moet hetzelfde totaal geven als het rapport"
+    )
 
 
 def test_dataset_refuses_a_fact_that_is_not_in_the_universe(db_session, situation):
     """The fact name reaches the SQL only through the universe's own dictionary."""
     with pytest.raises(SelectionError) as exc:
-        load_dataset(db_session, "pg_class; DROP TABLE mdm.persons",
-                     tenant_id=TENANT_A)
+        load_dataset(db_session, "pg_class; DROP TABLE mdm.persons", tenant_id=TENANT_A)
     assert "Onbekend feit" in str(exc.value)
 
 
 # ── Equivalence and ordering ─────────────────────────────────────────────────
+
 
 def test_the_totals_row_equals_the_sum_of_the_rows(db_session, situation):
     """CR-06 §9: the totals row is not a second story.
@@ -328,16 +349,21 @@ def test_the_default_order_is_stable_after_an_update(db_session, situation):
     from app.domains.payment.api import PaymentRecord
 
     keys = ["payment_method", "payment_payable_type", "payment_amount"]
-    before = [(row["payment_method"], row["payment_payable_type"])
-              for row in run(db_session, keys).rows]
+    before = [
+        (row["payment_method"], row["payment_payable_type"]) for row in run(db_session, keys).rows
+    ]
 
-    record = db_session.query(PaymentRecord).filter(
-        PaymentRecord.method == PaymentMethod.TRANSFER).first()
+    record = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.method == PaymentMethod.TRANSFER)
+        .first()
+    )
     record.note = "aangeraakt"
     db_session.commit()
 
-    after = [(row["payment_method"], row["payment_payable_type"])
-             for row in run(db_session, keys).rows]
+    after = [
+        (row["payment_method"], row["payment_payable_type"]) for row in run(db_session, keys).rows
+    ]
     assert before == after
     assert after == sorted(after), "de standaardsortering is de groepering zelf"
 
@@ -348,20 +374,28 @@ def test_a_filter_value_is_a_value_and_never_sql(db_session, situation):
     If it did not, this filter would end the statement and the test would fail on
     a database error instead of an empty result.
     """
-    result = run(db_session, ["payment_method", "payment_amount"], filters=[Filter("payment_method", Operator.EQ,
-                                 ("Online' OR '1'='1",))])
+    result = run(
+        db_session,
+        ["payment_method", "payment_amount"],
+        filters=[Filter("payment_method", Operator.EQ, ("Online' OR '1'='1",))],
+    )
     assert result.rows == []
 
 
 def test_sorting_puts_the_requested_column_first(db_session, situation):
     from app.domains.reporting.api import Direction
 
-    result = run(db_session, ["payment_method", "payment_amount"], sort=[Sort("payment_amount", Direction.DESC)])
+    result = run(
+        db_session,
+        ["payment_method", "payment_amount"],
+        sort=[Sort("payment_amount", Direction.DESC)],
+    )
     amounts = [Decimal(row["payment_amount"]) for row in result.rows]
     assert amounts == sorted(amounts, reverse=True)
 
 
 # ── The filter forms the panel will use (#833) ───────────────────────────────
+
 
 def test_every_filter_form_narrows_the_same_report(db_session, situation):
     """One operator per form, each against a number we already know.
@@ -373,27 +407,38 @@ def test_every_filter_form_narrows_the_same_report(db_session, situation):
     keys = ["payment_method", "payment_amount"]
     verwacht = EXPECTED["payments"]["per_method"]
 
-    alleen_online = run(db_session, keys, filters=[Filter("payment_method", Operator.EQ, ("Online",))])
+    alleen_online = run(
+        db_session, keys, filters=[Filter("payment_method", Operator.EQ, ("Online",))]
+    )
     assert len(alleen_online.rows) == 1
     assert Decimal(alleen_online.rows[0]["payment_amount"]) == verwacht["Online"]
 
-    twee = run(db_session, keys, filters=[Filter("payment_method", Operator.IN, ("Online", "Cash"))])
+    twee = run(
+        db_session, keys, filters=[Filter("payment_method", Operator.IN, ("Online", "Cash"))]
+    )
     assert {row["payment_method"] for row in twee.rows} == {"Online", "Cash"}
 
     niet_cash = run(db_session, keys, filters=[Filter("payment_method", Operator.NE, ("Cash",))])
     assert "Cash" not in {row["payment_method"] for row in niet_cash.rows}
 
-    zoek = run(db_session, keys, filters=[Filter("payment_method", Operator.CONTAINS, ("schrijv",))])
+    zoek = run(
+        db_session, keys, filters=[Filter("payment_method", Operator.CONTAINS, ("schrijv",))]
+    )
     assert {row["payment_method"] for row in zoek.rows} == {"Overschrijving"}
 
     y0, _y1, y2, y3 = situation["years"]
-    bereik = run(db_session, ["membership_year", "membership_households"],
-                 filters=[Filter("membership_year", Operator.BETWEEN,
-                                 (str(y0), str(y0)))])
+    bereik = run(
+        db_session,
+        ["membership_year", "membership_households"],
+        filters=[Filter("membership_year", Operator.BETWEEN, (str(y0), str(y0)))],
+    )
     assert [row["membership_year"] for row in bereik.rows] == [y0]
 
-    vanaf = run(db_session, ["membership_year", "membership_households"],
-                filters=[Filter("membership_year", Operator.GTE, (str(y2),))])
+    vanaf = run(
+        db_session,
+        ["membership_year", "membership_households"],
+        filters=[Filter("membership_year", Operator.GTE, (str(y2),))],
+    )
     assert [row["membership_year"] for row in vanaf.rows] == [y2, y3]
 
 
@@ -403,25 +448,27 @@ def test_a_filter_may_use_a_dimension_that_is_not_a_column(db_session, situation
     Filtering on the payment status without showing it must still narrow the
     report — and it must bring its dimension view along in the join.
     """
-    result = run(db_session, ["payment_payable_type", "payment_amount"],
-                 filters=[Filter("payment_status", Operator.EQ, ("Betaald",))])
+    result = run(
+        db_session,
+        ["payment_payable_type", "payment_amount"],
+        filters=[Filter("payment_status", Operator.EQ, ("Betaald",))],
+    )
     som = sum((Decimal(row["payment_amount"]) for row in result.rows), Decimal("0"))
     assert som == EXPECTED["payments"]["amount_paid"], (
-        "alleen de betaalde records; hun bedrag is per definitie het ontvangen bedrag")
+        "alleen de betaalde records; hun bedrag is per definitie het ontvangen bedrag"
+    )
 
 
-def test_paging_walks_the_report_without_losing_or_repeating_a_row(db_session,
-                                                                   situation):
+def test_paging_walks_the_report_without_losing_or_repeating_a_row(db_session, situation):
     """Paging is only safe because the order ends in a unique key (#761)."""
     from app.domains.reporting.api import Selection
 
     keys = ("payment_method", "payment_payable_type", "payment_amount")
-    heel = run_selection(db_session, Selection(object_keys=keys),
-                         tenant_id=TENANT_A).rows
+    heel = run_selection(db_session, Selection(object_keys=keys), tenant_id=TENANT_A).rows
     stukjes = []
     for offset in range(0, len(heel), 2):
         deel = run_selection(
-            db_session, Selection(object_keys=keys, limit=2, offset=offset),
-            tenant_id=TENANT_A)
+            db_session, Selection(object_keys=keys, limit=2, offset=offset), tenant_id=TENANT_A
+        )
         stukjes.extend(deel.rows)
     assert stukjes == heel

@@ -17,11 +17,12 @@ regel `regel["quantity"] = quantities[regel["id"]]` weggehaald → de eerste en 
 derde test vallen om; de tweede (zonder quantities) blijft groen, want die hangt
 aan de andere kant van de voorwaarde.
 """
+
 import re
 
 import pytest
 
-from app.domains.activities.api import Registration, RegistrationItem
+from app.domains.activities.api import RegistrationItem
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
@@ -36,14 +37,20 @@ def _login(client):
 
 def _inschrijving(client, db, aantal=2):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": aantal}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": aantal}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]
-    item_id = (db.query(RegistrationItem)
-               .filter(RegistrationItem.registration_id == reg_id).one().id)
+    item_id = db.query(RegistrationItem).filter(RegistrationItem.registration_id == reg_id).one().id
     return reg_id, item_id
 
 
@@ -66,13 +73,15 @@ def test_het_getypte_aantal_komt_terug_in_het_veld(client, db_session):
     reg_id, item_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr,
-                       data={f"quantity_{item_id}": "1"})
+    resp = client.post(
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+    )
 
     assert resp.status_code == 200, resp.text
     assert _veldwaarde(resp.text, item_id) == "1", (
         "het veld springt terug op de bewaarde waarde terwijl de bedragen die van "
-        "het getypte aantal tonen")
+        "het getypte aantal tonen"
+    )
 
 
 def test_zonder_getypt_aantal_blijft_de_bewaarde_stand_staan(client, db_session):
@@ -99,18 +108,28 @@ def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
     reg_id, item_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
-    live = client.post(f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr,
-                       data={f"quantity_{item_id}": "1"})
+    live = client.post(
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+    )
     teruggestuurd = _veldwaarde(live.text, item_id)
 
-    opslaan = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "remarks": "", f"quantity_{item_id}": teruggestuurd})
+    opslaan = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "remarks": "",
+            f"quantity_{item_id}": teruggestuurd,
+        },
+    )
     assert opslaan.status_code == 200, opslaan.text
 
     db_session.expire_all()
     assert db_session.get(RegistrationItem, item_id).quantity == 1, (
-        "het formulier stuurde de teruggezette waarde mee en er is niets bewaard")
+        "het formulier stuurde de teruggezette waarde mee en er is niets bewaard"
+    )
 
 
 def test_het_live_endpoint_bewaart_nog_steeds_niets(client, db_session):
@@ -118,9 +137,11 @@ def test_het_live_endpoint_bewaart_nog_steeds_niets(client, db_session):
     reg_id, item_id = _inschrijving(client, db_session, aantal=2)
     hdr = _login(client)
 
-    client.post(f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr,
-                data={f"quantity_{item_id}": "1"})
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/totaal", headers=hdr, data={f"quantity_{item_id}": "1"}
+    )
 
     db_session.expire_all()
     assert db_session.get(RegistrationItem, item_id).quantity == 2, (
-        "/totaal heeft stilletjes opgeslagen")
+        "/totaal heeft stilletjes opgeslagen"
+    )

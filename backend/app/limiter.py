@@ -5,10 +5,13 @@ dan telt elke worker apart (de effectieve limiet ligt dan hoger). Voor de
 schaal van deze site (één vereniging, één worker) is dat ruim voldoende.
 Een gedeelde teller zou Redis o.i.d. vereisen — bewust niet gedaan.
 """
+
 import time
 from collections import defaultdict
 from datetime import date
-from fastapi import Request, HTTPException, status
+
+from fastapi import HTTPException, Request, status
+
 from app.i18n import _
 
 

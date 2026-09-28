@@ -8,6 +8,7 @@ gebeurde er niets, dus leek willekeurig beheerwerk "kapot".
 Twee lagen hier; de derde (ziet de gebruiker het echt?) kan alleen een browser
 bewijzen en staat in tests_e2e/test_foutzichtbaarheid.py.
 """
+
 import time
 
 import pytest
@@ -49,16 +50,20 @@ def test_token_van_een_vorige_sessie_geeft_403(client, db_session):
     # De browser draagt de nieuwe cookie (herinlog), het tabblad het oude token.
     client.cookies.set(SESSION_COOKIE, nieuwe_waarde)
     datum = activity.dates[0]
-    r = client.post(f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
-                    data={"start_date": "2032-03-03"},
-                    headers={"X-CSRF-Token": csrf_token_for(oude_waarde)})
+    r = client.post(
+        f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
+        data={"start_date": "2032-03-03"},
+        headers={"X-CSRF-Token": csrf_token_for(oude_waarde)},
+    )
     assert r.status_code == 403
 
     # Met het token van de huidige cookie lukt dezelfde POST wél — het bewijs dat
     # niet de invoer maar de sessie het probleem was.
-    ok = client.post(f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
-                     data={"start_date": "2032-03-03"},
-                     headers={"X-CSRF-Token": csrf_token_for(nieuwe_waarde)})
+    ok = client.post(
+        f"/admin/activiteiten/{activity.id}/datums/{datum.id}",
+        data={"start_date": "2032-03-03"},
+        headers={"X-CSRF-Token": csrf_token_for(nieuwe_waarde)},
+    )
     assert ok.status_code == 200
 
 
@@ -81,12 +86,14 @@ def test_de_foutafhandeling_geldt_ook_voor_gewone_hx_posts():
     klonen.
     """
     kit = open("app/ui/templates/_macros.html", encoding="utf-8").read()
-    handler = kit[kit.index("htmx:responseError', function"):]
-    handler = handler[:handler.index("});")]
+    handler = kit[kit.index("htmx:responseError', function") :]
+    handler = handler[: handler.index("});")]
     assert "401" in handler and "403" in handler, (
-        "de foutafhandeling onderscheidt 401/403 niet meer")
+        "de foutafhandeling onderscheidt 401/403 niet meer"
+    )
     assert "boosted" in handler and "return" in handler, (
-        "de gebooste tak hoort te blijven bestaan naast de gewone")
+        "de gebooste tak hoort te blijven bestaan naast de gewone"
+    )
     assert 'id="htmx-foutmelding"' in kit, "het meldingssjabloon is verdwenen"
 
 

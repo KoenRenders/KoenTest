@@ -5,6 +5,7 @@ weet wie transcribeert. Een provider krijgt een async-stroom audiochunks (bytes)
 binnen en levert een async-stroom transcript-events terug (partial → final), zodat
 een nieuwe leverancier enkel ``stream()`` hoeft te implementeren.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

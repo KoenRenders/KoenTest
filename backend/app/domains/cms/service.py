@@ -5,6 +5,7 @@ gepubliceerde pagina op slug zoeken, de slugs voor de sitemap verzamelen. Kleine
 queries, maar wel met een regel erin die nergens anders staat — "publiek betekent
 `is_published`" — en die regel hoort niet in drie routes te wonen.
 """
+
 from typing import Optional
 
 from app.domains.cms.models import CmsPage
@@ -21,22 +22,24 @@ def get_published_page(db, slug: str) -> Optional[CmsPage]:
     `is_published` is hier de hele autorisatieregel van de publieke kant: een
     concept is publiek onzichtbaar (de admin-voorbeeldroute heeft haar eigen pad).
     """
-    return (db.query(CmsPage)
-            .filter(CmsPage.slug == slug, CmsPage.is_published.is_(True))
-            .first())
+    return db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published.is_(True)).first()
 
 
 def published_slugs(db) -> list[str]:
     """De slugs die in de sitemap horen."""
-    return [p.slug for p in (db.query(CmsPage)
-                             .filter(CmsPage.is_published.is_(True))
-                             .order_by(CmsPage.slug).all())]
+    return [
+        p.slug
+        for p in (
+            db.query(CmsPage).filter(CmsPage.is_published.is_(True)).order_by(CmsPage.slug).all()
+        )
+    ]
 
 
 # ── Beheer (#635 I) ──────────────────────────────────────────────────────────
 # Deze vier stonden als routerfuncties in `router.py` en werden door
 # `admin_ui.py` geïmporteerd — de JSON-router als servicelaag, precies wat #635
 # punt 3 beschrijft. De routes zijn nu dunne schillen.
+
 
 def list_pages(db) -> list[CmsPage]:
     """Alle pagina's, in de volgorde waarin ze in de navigatie horen.
@@ -46,8 +49,7 @@ def list_pages(db) -> list[CmsPage]:
     een pijltje twee plaatsen te springen zodra twee pagina's dezelfde volgorde
     dragen — precies de toestand die vandaag bestaat. Zelfde redenering als #725.
     """
-    return (db.query(CmsPage)
-            .order_by(CmsPage.sort_order.asc(), CmsPage.id.asc()).all())
+    return db.query(CmsPage).order_by(CmsPage.sort_order.asc(), CmsPage.id.asc()).all()
 
 
 def verplaats_pagina(db, page_id: int, richting: str) -> bool:
@@ -115,6 +117,11 @@ def placeholders() -> list[dict]:
     """Beschikbare codes voor de CMS-editor (code → omschrijving + voorbeeld)."""
     from app.domains.cms.render import PLACEHOLDER_LABELS, render_cms_content
 
-    return [{"code": f"{{{{{code}}}}}", "label": label,
-             "preview": render_cms_content(f"{{{{{code}}}}}")}
-            for code, label in PLACEHOLDER_LABELS.items()]
+    return [
+        {
+            "code": f"{{{{{code}}}}}",
+            "label": label,
+            "preview": render_cms_content(f"{{{{{code}}}}}"),
+        }
+        for code, label in PLACEHOLDER_LABELS.items()
+    ]

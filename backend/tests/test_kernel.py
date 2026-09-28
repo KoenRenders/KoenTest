@@ -1,5 +1,6 @@
 """Kernel-tests (#396): event-dispatcher (in-transactie-semantiek) en het
 achtergrondwerk-primitief (enqueue, retry met backoff, definitief falen)."""
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -30,6 +31,7 @@ def _clean_registries():
 
 # ── events ─────────────────────────────────────────────────────────────────────
 
+
 def test_publish_reaches_all_handlers_synchronously(db_session):
     seen = []
     subscribe(PingEvent)(lambda e, db: seen.append(("a", e.value)))
@@ -42,6 +44,7 @@ def test_publish_reaches_all_handlers_synchronously(db_session):
 def test_handler_failure_propagates_to_publisher(db_session):
     """Trede 1 van de event-ladder: een handler-fout rolt de bron mee terug —
     de fout MOET dus bij de publisher aankomen, niet stil verdwijnen."""
+
     @subscribe(PingEvent)
     def boom(event, db):
         raise RuntimeError("handler stuk")
@@ -55,6 +58,7 @@ def test_publish_without_subscribers_is_noop(db_session):
 
 
 # ── jobs ───────────────────────────────────────────────────────────────────────
+
 
 def test_job_runs_and_completes(db_session):
     done = []

@@ -15,6 +15,7 @@ scherm de baas is.
 
 Idempotent en veilig om bij elke opstart te draaien.
 """
+
 from app.database import SessionLocal
 from app.domains.registry import load_all_models
 from app.kernel.tenancy import TENANT_MILLEGEM_ID

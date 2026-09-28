@@ -17,6 +17,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten): de
 `md:max-w-[calc(...)]` van de rij weggehaald → de linkerkolom neemt weer alle
 ruimte, het blok schuift naar links en de marges lopen tientallen pixels uiteen.
 """
+
 import os
 import sys
 
@@ -44,28 +45,36 @@ def activiteit_met_affiche():
 
     import app.models  # noqa: F401  → alle mappers geconfigureerd
     from app.database import SessionLocal
-    from app.domains.activities.api import (Activity, ActivityDate,
-                                            ActivitySubRegistration)
+    from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
     from app.domains.media.api import MediaAsset
 
     db = SessionLocal()
     try:
-        a = Activity(name="E2E Blokproef",
-                     description="Een korte omschrijving van deze activiteit.")
+        a = Activity(
+            name="E2E Blokproef", description="Een korte omschrijving van deze activiteit."
+        )
         db.add(a)
         db.flush()
-        db.add(ActivityDate(activity_id=a.id,
-                            start_date=date.today() + timedelta(days=21)))
-        db.add(ActivitySubRegistration(activity_id=a.id, name="Deelname",
-                                       price=Decimal("0"), is_free=True))
+        db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=21)))
+        db.add(
+            ActivitySubRegistration(
+                activity_id=a.id, name="Deelname", price=Decimal("0"), is_free=True
+            )
+        )
         # Een echt PNG'je van één pixel: de pagina toont het als affiche.
-        db.add(MediaAsset(
-            kind="activity_poster", activity_id=a.id, title="Affiche",
-            content_type="image/png",
-            data=bytes.fromhex(
-                "89504e470d0a1a0a0000000d49484452000000010000000108060000"
-                "001f15c4890000000a49444154789c6360000002000100ffff03000006"
-                "0005a5f7b6e40000000049454e44ae426082")))
+        db.add(
+            MediaAsset(
+                kind="activity_poster",
+                activity_id=a.id,
+                title="Affiche",
+                content_type="image/png",
+                data=bytes.fromhex(
+                    "89504e470d0a1a0a0000000d49484452000000010000000108060000"
+                    "001f15c4890000000a49444154789c6360000002000100ffff03000006"
+                    "0005a5f7b6e40000000049454e44ae426082"
+                ),
+            )
+        )
         db.commit()
         return a.id
     finally:
@@ -110,7 +119,8 @@ def test_op_een_breed_scherm_staat_het_blok_gecentreerd(page, activiteit_met_aff
     rechts = (schil["x"] + schil["width"]) - (blok["x"] + blok["width"])
 
     assert abs(links - rechts) <= 2, (
-        f"het blok staat niet in het midden: {links:.0f}px links, {rechts:.0f}px rechts")
+        f"het blok staat niet in het midden: {links:.0f}px links, {rechts:.0f}px rechts"
+    )
     # En het blok is ook echt smaller dan de schil. Zonder deze regel zou de test
     # óók groen staan in de oude situatie: een blok dat de volle breedte vult,
     # heeft immers links en rechts evenveel ruimte — namelijk de 16px van de
@@ -118,7 +128,8 @@ def test_op_een_breed_scherm_staat_het_blok_gecentreerd(page, activiteit_met_aff
     # erbij staat.
     assert schil["width"] - blok["width"] >= 100, (
         f"het blok vult de volle breedte ({blok['width']:.0f} van "
-        f"{schil['width']:.0f}px); dan is er niets gecentreerd")
+        f"{schil['width']:.0f}px); dan is er niets gecentreerd"
+    )
     assert links > 40, f"maar {links:.0f}px ruimte naast het blok"
 
 
@@ -143,7 +154,8 @@ def test_de_affiche_sluit_aan_op_de_tekst(page, activiteit_met_affiche):
 
     assert gat <= 40, (
         f"er zit {gat:.0f}px tussen de tekst en de affiche; de kolom loopt door "
-        "waar de tekst ophoudt (#1143)")
+        "waar de tekst ophoudt (#1143)"
+    )
 
 
 def test_op_een_telefoon_staat_de_affiche_boven_de_tekst(page, activiteit_met_affiche):
@@ -158,4 +170,5 @@ def test_op_een_telefoon_staat_de_affiche_boven_de_tekst(page, activiteit_met_af
     omschrijving = page.locator("div.whitespace-pre-line").first
     expect(beeld, "de affiche staat niet op de telefoonweergave").to_be_visible()
     assert beeld.bounding_box()["y"] < omschrijving.bounding_box()["y"], (
-        "de affiche staat niet meer boven de omschrijving")
+        "de affiche staat niet meer boven de omschrijving"
+    )

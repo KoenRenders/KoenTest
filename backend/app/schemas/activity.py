@@ -1,7 +1,11 @@
 from __future__ import annotations
-from datetime import date as Date, time as Time, datetime
-from typing import Optional, List
+
+from datetime import date as Date
+from datetime import datetime
+from datetime import time as Time
 from decimal import Decimal
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
@@ -14,6 +18,7 @@ def _non_negative_price(v: Optional[Decimal]) -> Optional[Decimal]:
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
+
 
 class ProductCreate(BaseModel):
     name: str
@@ -57,6 +62,7 @@ class ProductResponse(BaseModel):
 
 
 # ── Components (Onderdelen) ───────────────────────────────────────────────────
+
 
 class ComponentCreate(BaseModel):
     name: str
@@ -127,6 +133,7 @@ class ComponentResponse(BaseModel):
 
 # ── Activity dates ────────────────────────────────────────────────────────────
 
+
 class ActivityDateCreate(BaseModel):
     start_date: Date
     end_date: Optional[Date] = None
@@ -153,6 +160,7 @@ class ActivityDateResponse(BaseModel):
 
 
 # ── Activities ────────────────────────────────────────────────────────────────
+
 
 class ActivityCreate(BaseModel):
     name: str
@@ -228,6 +236,7 @@ class ActivityResponse(BaseModel):
 
 # ── Registrations ─────────────────────────────────────────────────────────────
 
+
 class RegistrationItemCreate(BaseModel):
     product_id: int
     quantity: int = 1
@@ -236,6 +245,7 @@ class RegistrationItemCreate(BaseModel):
 class RegistrationItemUpdate(BaseModel):
     """Admin past een bestaande bestelregel aan (#84): product wisselen en/of
     aantal wijzigen. Beide optioneel; minstens één is zinvol."""
+
     product_id: Optional[int] = None
     quantity: Optional[int] = None
 
@@ -247,6 +257,7 @@ class RegistrationRemarksUpdate(BaseModel):
     dit schema blijft staan omdat een externe API-client het nog kan versturen — een
     JSON-body met enkel `remarks` valideert nog steeds tegen beide vormen.
     """
+
     remarks: Optional[str] = None
 
 
@@ -265,6 +276,7 @@ class RegistrationContactUpdate(BaseModel):
     Los van de gekoppelde `Person`: deze velden zijn een momentopname van wat de
     inschrijver invulde. Het ledenbestand corrigeer je op /admin/leden.
     """
+
     contact_name: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     phone: Optional[str] = None

@@ -3,6 +3,7 @@
 Het publieke postcode-endpoint hoort bij de masterdata (verhuisd uit de
 members-router); de URL blijft ongewijzigd (/api/v1/postal-codes).
 """
+
 from __future__ import annotations
 
 import time
@@ -30,7 +31,8 @@ def list_postal_codes(db: Session = Depends(get_db)):
     if _postal_cache is not None and (now - _postal_cache_ts) < POSTAL_CACHE_TTL:
         return _postal_cache
     rows = db.query(PostalCode).order_by(PostalCode.postal_code).all()
-    _postal_cache = [PostalCodeResponse(postal_code=r.postal_code, municipality=r.municipality)
-                     for r in rows]
+    _postal_cache = [
+        PostalCodeResponse(postal_code=r.postal_code, municipality=r.municipality) for r in rows
+    ]
     _postal_cache_ts = now
     return _postal_cache

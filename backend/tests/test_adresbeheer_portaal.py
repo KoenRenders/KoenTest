@@ -15,6 +15,7 @@ Gemeten vóór de reparatie: de exportregel was `EMAIL: <waarde>` met het label
 "Gewijzigd", en bij een verandering van alleen de markering is die waarde
 identiek aan de vorige. Onzichtbaar dus.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -45,14 +46,18 @@ def _aanmelden(client, adres: str) -> str:
 def _adressen(db, person) -> dict[str, bool]:
     db.expire_all()
     person = db.query(Person).filter(Person.id == person.id).one()
-    return {c.value: bool(c.is_primary) for c in person.contact_details
-            if c.contact_type_code == "EMAIL"}
+    return {
+        c.value: bool(c.is_primary)
+        for c in person.contact_details
+        if c.contact_type_code == "EMAIL"
+    }
 
 
 def _rij_id(db, person, waarde: str) -> int:
     person = db.query(Person).filter(Person.id == person.id).one()
-    return next(c.id for c in person.contact_details
-                if c.contact_type_code == "EMAIL" and c.value == waarde)
+    return next(
+        c.id for c in person.contact_details if c.contact_type_code == "EMAIL" and c.value == waarde
+    )
 
 
 def _post(client, csrf, pad, **data):
@@ -61,12 +66,12 @@ def _post(client, csrf, pad, **data):
 
 # ── Het lid zelf ────────────────────────────────────────────────────────────
 
+
 def test_een_lid_zet_er_zelf_een_adres_bij(client, db_session, lid):
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
 
-    respons = _post(client, csrf, f"/leden/gezin/personen/{person.id}/email",
-                    extra_email=TWEEDE)
+    respons = _post(client, csrf, f"/leden/gezin/personen/{person.id}/email", extra_email=TWEEDE)
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
@@ -79,8 +84,7 @@ def test_een_lid_duidt_zelf_zijn_hoofdadres_aan(client, db_session, lid):
     _post(client, csrf, f"/leden/gezin/personen/{person.id}/email", extra_email=TWEEDE)
     tweede_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(client, csrf,
-          f"/leden/gezin/personen/{person.id}/email/{tweede_id}/hoofd")
+    _post(client, csrf, f"/leden/gezin/personen/{person.id}/email/{tweede_id}/hoofd")
 
     assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
 
@@ -100,14 +104,19 @@ def test_een_lid_raakt_niet_aan_de_adressen_van_een_ander_gezin(client, db_sessi
     db_session.commit()
     csrf = _aanmelden(client, HOOFD)
 
-    respons = _post(client, csrf, f"/leden/gezin/personen/{vreemde.id}/email",
-                    extra_email="ingebroken@example.com")
+    respons = _post(
+        client,
+        csrf,
+        f"/leden/gezin/personen/{vreemde.id}/email",
+        extra_email="ingebroken@example.com",
+    )
 
     assert respons.status_code == 403
     assert "ingebroken@example.com" not in _adressen(db_session, vreemde)
 
 
 # ── De lus naar Raak Nationaal ──────────────────────────────────────────────
+
 
 def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid):
     """De eis die de lus sluit.
@@ -119,8 +128,9 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     Tegenproef: de markering-tak uit `changes.py` → de samenvatting is dan
     `EMAIL: tweede@example.com` en deze test faalt op de ontbrekende zin.
     """
-    from app.domains.audit.api import member_changes_since
     from datetime import date, timedelta
+
+    from app.domains.audit.api import member_changes_since
 
     _member, person = lid
     csrf = _aanmelden(client, HOOFD)
@@ -132,10 +142,11 @@ def test_de_export_zegt_dat_het_hoofdadres_verplaatst_is(client, db_session, lid
     samenvattingen = [r["summary"] for r in regels if r["entity"] == "Contact"]
 
     assert any("is nu het hoofdadres" in s and TWEEDE in s for s in samenvattingen), (
-        f"de export zegt niet dát dit het nieuwe hoofdadres is: {samenvattingen}")
-    assert any("is niet meer het hoofdadres" in s and HOOFD in s
-               for s in samenvattingen), (
-        f"de export zegt niet dat het oude adres het niet meer is: {samenvattingen}")
+        f"de export zegt niet dát dit het nieuwe hoofdadres is: {samenvattingen}"
+    )
+    assert any("is niet meer het hoofdadres" in s and HOOFD in s for s in samenvattingen), (
+        f"de export zegt niet dat het oude adres het niet meer is: {samenvattingen}"
+    )
 
 
 def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
@@ -157,14 +168,17 @@ def test_een_gewone_adreswijziging_blijft_lezen_zoals_ze_was(db_session):
         if c.contact_type_code == "EMAIL":
             person.contact_details.remove(c)
     db_session.commit()
-    upsert_primary_contact(db_session, person, "EMAIL", HOOFD,
-                           action="contacts_updated", source="admin_update")
+    upsert_primary_contact(
+        db_session, person, "EMAIL", HOOFD, action="contacts_updated", source="admin_update"
+    )
     db_session.commit()
-    upsert_primary_contact(db_session, person, "EMAIL", TWEEDE,
-                           action="contacts_updated", source="admin_update")
+    upsert_primary_contact(
+        db_session, person, "EMAIL", TWEEDE, action="contacts_updated", source="admin_update"
+    )
     db_session.commit()
 
     regels = member_changes_since(db_session, date.today() - timedelta(days=1))
     samenvattingen = [r["summary"] for r in regels if r["entity"] == "Contact"]
     assert any(f"{HOOFD} → {TWEEDE}" in s for s in samenvattingen), (
-        f"de oud → nieuw-regel is verdwenen: {samenvattingen}")
+        f"de oud → nieuw-regel is verdwenen: {samenvattingen}"
+    )

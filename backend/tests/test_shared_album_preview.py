@@ -23,6 +23,7 @@ absolute-URL test falls over with a path a crawler cannot resolve; and the hardc
 "Raak Millegem" put back in the album title → the tenant test falls over with another
 association's name on the page.
 """
+
 import pytest
 
 from app.domains.media.models import MediaAsset
@@ -42,10 +43,21 @@ def _activity_with_photos(db, *, name="Zomerfeest", count=2):
     db.flush()
     db.add(ActivityDate(activity_id=activity.id, start_date=date(2026, 7, 1)))
     for index in range(count):
-        db.add(MediaAsset(kind="activity_photo", activity_id=activity.id,
-                          title=f"foto {index}", sort_order=index, is_active=True,
-                          content_type="image/jpeg", byte_size=10, width=1200,
-                          height=800, data=b"volledig", thumbnail=b"klein"))
+        db.add(
+            MediaAsset(
+                kind="activity_photo",
+                activity_id=activity.id,
+                title=f"foto {index}",
+                sort_order=index,
+                is_active=True,
+                content_type="image/jpeg",
+                byte_size=10,
+                width=1200,
+                height=800,
+                data=b"volledig",
+                thumbnail=b"klein",
+            )
+        )
     db.flush()
     return activity
 
@@ -67,10 +79,12 @@ def test_the_album_carries_an_absolute_og_image_a_crawler_can_fetch(client, db_s
 
     assert image, "er is geen og:image, dus een gedeelde link toont nooit een beeld"
     assert image.startswith("http://") or image.startswith("https://"), (
-        f"de URL is niet absoluut; een crawler lost dit niet op: {image}")
+        f"de URL is niet absoluut; een crawler lost dit niet op: {image}"
+    )
     assert "/thumb" not in image, (
         "de voorbeschouwing wijst naar de thumbnail; WhatsApp en Facebook wijzen kleine "
-        "beelden af of tonen ze onscherp")
+        "beelden af of tonen ze onscherp"
+    )
 
     # Zoals een crawler: geen sessie, en dan moet het beeld er gewoon zijn.
     client.cookies.clear()
@@ -89,7 +103,8 @@ def test_the_og_title_is_the_album_and_not_the_site(client, db_session):
     assert titel and "Kerstmarkt" in titel, f"og:title is {titel!r}"
     beschrijving = _og(html, "og:description")
     assert beschrijving and "Kerstmarkt" in beschrijving, (
-        f"de omschrijving komt nog van de site: {beschrijving!r}")
+        f"de omschrijving komt nog van de site: {beschrijving!r}"
+    )
 
 
 def test_an_album_without_photos_sends_no_og_image(client, db_session):
@@ -114,9 +129,12 @@ def test_the_page_title_carries_the_tenant_name(client, db_session, monkeypatch)
     from app.domains.mdm.api import Organization
     from app.kernel.tenant_config import _actieve_tenant
 
-    organisatie = (db_session.query(Organization)
-                   .filter(Organization.id == _actieve_tenant(None))
-                   .execution_options(include_all_tenants=True).one())
+    organisatie = (
+        db_session.query(Organization)
+        .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
     organisatie.name = "Raak Voorbeeldafdeling"
     db_session.flush()
     activity = _activity_with_photos(db_session, name="Buurtfeest")
@@ -125,8 +143,7 @@ def test_the_page_title_carries_the_tenant_name(client, db_session, monkeypatch)
 
     titel = html.split("<title>", 1)[1].split("</title>", 1)[0]
     assert "Raak Voorbeeldafdeling" in titel, f"<title> is {titel!r}"
-    assert "Raak Millegem" not in titel, (
-        "de naam van een andere vereniging staat in de paginatitel")
+    assert "Raak Millegem" not in titel, "de naam van een andere vereniging staat in de paginatitel"
 
 
 def test_a_page_that_overrides_nothing_keeps_its_tags(client, db_session):
@@ -139,5 +156,4 @@ def test_a_page_that_overrides_nothing_keeps_its_tags(client, db_session):
 
     assert _og(html, "og:title"), "de homepagina heeft geen og:title meer"
     assert _og(html, "og:description"), "de homepagina heeft geen og:description meer"
-    assert _og(html, "og:image") is None, (
-        "de homepagina zendt een og:image die ze niet zelf zet")
+    assert _og(html, "og:image") is None, "de homepagina zendt een og:image die ze niet zelf zet"

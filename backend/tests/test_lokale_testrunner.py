@@ -27,6 +27,7 @@ De laatste twee tests doen hetzelfde voor `e2e-local.sh` (#728). Dat script hoor
 niet in CI thuis — daar is de databank altijd vers — maar de vangrail wél, want ze
 beschermt een DROP DATABASE.
 """
+
 import os
 import subprocess
 from pathlib import Path
@@ -51,7 +52,7 @@ def _draai(tmp_path, script=None, faal_op=None, **omgeving):
     nepbin = tmp_path / "bin"
     nepbin.mkdir()
     nepdocker = nepbin / "docker"
-    val = (f'\ncase "$*" in *{faal_op}*) exit 1 ;; esac' if faal_op else "")
+    val = f'\ncase "$*" in *{faal_op}*) exit 1 ;; esac' if faal_op else ""
     nepdocker.write_text(f'#!/bin/sh\necho "$@" >> "{spoor}"{val}\nexit 0\n')
     nepdocker.chmod(0o755)
 
@@ -61,8 +62,9 @@ def _draai(tmp_path, script=None, faal_op=None, **omgeving):
     env["PATH"] = f"{nepbin}:{env['PATH']}"
     env.update(omgeving)
 
-    klaar = subprocess.run(["bash", str(script or SCRIPT)], env=env,
-                           capture_output=True, text=True, timeout=60)
+    klaar = subprocess.run(
+        ["bash", str(script or SCRIPT)], env=env, capture_output=True, text=True, timeout=60
+    )
     return klaar, spoor
 
 
@@ -73,15 +75,15 @@ def test_een_doel_dat_geen_testdatabank_is_wordt_geweigerd(tmp_path):
     assert klaar.returncode == 2, klaar.stderr or klaar.stdout
     assert "raakmillegem" in klaar.stderr
     assert not spoor.exists(), (
-        "het script heeft docker aangeroepen vóór het weigerde:\n"
-        + spoor.read_text())
+        "het script heeft docker aangeroepen vóór het weigerde:\n" + spoor.read_text()
+    )
 
 
 def test_ook_een_volledige_url_wordt_getoetst(tmp_path):
     """`TEST_DATABASE_URL` omzeilt de afgeleide naam — en dus bijna de vangrail."""
     klaar, spoor = _draai(
-        tmp_path,
-        TEST_DATABASE_URL="postgresql+psycopg2://u:p@db:5432/raakmillegem_prod")
+        tmp_path, TEST_DATABASE_URL="postgresql+psycopg2://u:p@db:5432/raakmillegem_prod"
+    )
 
     assert klaar.returncode == 2, klaar.stderr or klaar.stdout
     assert not spoor.exists()
@@ -106,7 +108,8 @@ def test_de_e2e_runner_weigert_een_doel_dat_geen_e2e_databank_is(tmp_path):
     assert klaar.returncode == 2, klaar.stderr or klaar.stdout
     assert "raakmillegem" in klaar.stderr
     assert not spoor.exists(), (
-        "het script heeft docker aangeroepen vóór het weigerde:\n" + spoor.read_text())
+        "het script heeft docker aangeroepen vóór het weigerde:\n" + spoor.read_text()
+    )
 
 
 def test_de_e2e_runner_laat_een_echte_e2e_databank_wel_door(tmp_path):
@@ -145,7 +148,8 @@ def test_de_poort_stopt_op_mypy_voordat_pytest_draait(tmp_path):
     aanroepen = spoor.read_text()
     assert "mypy" in aanroepen, "mypy wordt niet gedraaid"
     assert "pytest" not in aanroepen, (
-        "pytest is toch gedraaid nadat mypy faalde — dan is de volgorde zinloos")
+        "pytest is toch gedraaid nadat mypy faalde — dan is de volgorde zinloos"
+    )
 
 
 def test_snel_slaat_de_poort_over_maar_is_niet_de_standaard(tmp_path):
@@ -154,8 +158,7 @@ def test_snel_slaat_de_poort_over_maar_is_niet_de_standaard(tmp_path):
     `SNEL=1` bestaat voor wie tijdens het bouwen één bestand draait. De STANDAARD
     blijft de volle poort — dat is precies wat de vorige test vastlegt.
     """
-    klaar, spoor = _draai(tmp_path, faal_op="mypy", SNEL="1",
-                          TEST_DB_NAME="raaktest_proef")
+    klaar, spoor = _draai(tmp_path, faal_op="mypy", SNEL="1", TEST_DB_NAME="raaktest_proef")
 
     aanroepen = spoor.read_text()
     assert "mypy" not in aanroepen, "SNEL=1 draait mypy toch"

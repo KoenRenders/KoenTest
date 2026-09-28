@@ -7,6 +7,7 @@ wordt i.p.v. stil te falen.
   wrapper _extract_pdf_text_layer slikt excepties (een breuk zou anders als ""
   verdwijnen).
 """
+
 from io import BytesIO
 
 from PIL import Image

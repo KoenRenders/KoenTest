@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, Form
 from sqlalchemy.orm import Session
+
 from app.database import get_db
-from .models import GatewayPayment
-from .gateway_service import refresh_payment_status
-from .service import handle_gateway_update
 from app.limiter import mollie_webhook_limiter
+
+from .gateway_service import refresh_payment_status
+from .models import GatewayPayment
+from .service import handle_gateway_update
 
 router = APIRouter(prefix="/payment-gateway", tags=["payment-gateway"])
 
@@ -17,9 +19,11 @@ def process_webhook(db: Session, provider_payment_id: str) -> dict:
     re-fetch is the security model (`CLAUDE.md`). One function for every
     provider's route (#1274), so the stub's webhook is this code and not a copy.
     """
-    gp = db.query(GatewayPayment).filter(
-        GatewayPayment.provider_payment_id == provider_payment_id
-    ).first()
+    gp = (
+        db.query(GatewayPayment)
+        .filter(GatewayPayment.provider_payment_id == provider_payment_id)
+        .first()
+    )
     if not gp:
         return {"status": "ignored"}
 

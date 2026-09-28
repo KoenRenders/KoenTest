@@ -9,6 +9,7 @@ bedragen handmatig moet bijwerken.
 Let op: vervanging gebeurt alleen op de PUBLIEKE leesendpoints. De admin-/
 editor-endpoints geven de ruwe codes terug, zodat ze bewerkbaar blijven.
 """
+
 import json
 import re
 from html import escape, unescape
@@ -22,16 +23,43 @@ import nh3
 # staat enkel veilige URL-schema's toe (blokkeert javascript:). Toegepast op élk
 # publiek renderpunt via render_cms_content.
 _ALLOWED_TAGS = {
-    "p", "br", "hr", "span", "div",
-    "h1", "h2", "h3", "h4", "h5", "h6",
-    "ul", "ol", "li",
+    "p",
+    "br",
+    "hr",
+    "span",
+    "div",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "li",
     # `del` en `ins` horen bij "wat de WYSIWYG-editor produceert": Trix schrijft
     # doorstreepte tekst als <del>. Stond er niet in, dus doorstrepen werkte in de
     # editor en was na het opslaan spoorloos — in het CMS net zo goed als in de
     # vergadernotities (#939, gemeten).
-    "a", "strong", "b", "em", "i", "u", "s", "del", "ins",
-    "blockquote", "pre", "code",
-    "img", "table", "thead", "tbody", "tr", "th", "td",
+    "a",
+    "strong",
+    "b",
+    "em",
+    "i",
+    "u",
+    "s",
+    "del",
+    "ins",
+    "blockquote",
+    "pre",
+    "code",
+    "img",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
 }
 # NB: 'rel' NIET vermelden op <a> — nh3 beheert dat zelf via link_rel en voegt
 # standaard rel="noopener noreferrer" toe (het expliciet toelaten geeft een
@@ -67,12 +95,12 @@ _TRIX_IMAGE = re.compile(
     r'(?P<figure><figure\b[^>]*\bdata-trix-attachment="(?P<json>[^"]*)"[^>]*>)'
     # Everything up to this figure's first <img>, and never past its end — so a
     # figure without an <img> cannot swallow the next one.
-    r'(?P<between>(?:(?!<img\b|</figure>).)*)'
-    r'<img\b(?P<attrs>[^>]*?)\s*/?>',
+    r"(?P<between>(?:(?!<img\b|</figure>).)*)"
+    r"<img\b(?P<attrs>[^>]*?)\s*/?>",
     re.DOTALL | re.IGNORECASE,
 )
-_HAS_ALT = re.compile(r'\balt\s*=', re.IGNORECASE)
-_HAS_CLASS = re.compile(r'\bclass\s*=', re.IGNORECASE)
+_HAS_ALT = re.compile(r"\balt\s*=", re.IGNORECASE)
+_HAS_CLASS = re.compile(r"\bclass\s*=", re.IGNORECASE)
 
 # The three sizes a page image can have (#1207). Koen asked for fixed sizes and
 # not a free percentage: with a free number you end up with 37 %, 40 % and 45 %
@@ -119,8 +147,7 @@ def _attributes_onto_image(match: "re.Match") -> str:
         extra.append(f'class="{klasse}"')
     if not extra:
         return match.group(0)
-    return (f"{match.group('figure')}{match.group('between')}"
-            f"<img{attrs} {' '.join(extra)}>")
+    return f"{match.group('figure')}{match.group('between')}<img{attrs} {' '.join(extra)}>"
 
 
 def image_attributes_from_attachment(html: Optional[str]) -> Optional[str]:
@@ -151,8 +178,21 @@ PLACEHOLDER_LABELS = {
     "next_year_from": "Vanaf deze datum lid voor volgend jaar (bv. 17 september)",
 }
 
-_MAANDEN = ["", "januari", "februari", "maart", "april", "mei", "juni",
-            "juli", "augustus", "september", "oktober", "november", "december"]
+_MAANDEN = [
+    "",
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+]
 
 
 def _format_price(value) -> str:
@@ -166,7 +206,7 @@ def _format_price(value) -> str:
 
 
 def _format_md(md: str) -> str:
-    """"MM-DD" → "16 april"."""
+    """ "MM-DD" → "16 april"."""
     month, day = md.split("-")
     return f"{int(day)} {_MAANDEN[int(month)]}"
 

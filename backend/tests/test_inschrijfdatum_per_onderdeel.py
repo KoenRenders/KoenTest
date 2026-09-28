@@ -34,19 +34,25 @@ elk één keer gedraaid; tussen haakjes wat er werkelijk omviel:
 - de `not a.shared_deadline`-voorwaarde uit de activiteitspagina (*de
   activiteitspagina volgt dezelfde twee takken*) — dan staat de datum er twee keer.
 """
+
 from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
-from app.domains.activities.api import (Activity, ActivityDate, ActivityProduct,
-                                        ActivitySubRegistration, Registration)
+from app.domains.activities.api import (
+    Activity,
+    ActivityDate,
+    ActivityProduct,
+    ActivitySubRegistration,
+    Registration,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
 VANDAAG = date(2027, 5, 10)
-VROEG = date(2027, 5, 3)      # voorbij op VANDAAG
-LAAT = date(2027, 5, 20)      # nog open op VANDAAG
+VROEG = date(2027, 5, 3)  # voorbij op VANDAAG
+LAAT = date(2027, 5, 20)  # nog open op VANDAAG
 
 
 @pytest.fixture
@@ -69,32 +75,42 @@ def _activiteit(db, naam="Brood en Spelen", *, omschrijving=None):
 
 def _onderdeel(db, a, naam, *, deadline=None, max_deelnemers=None):
     comp = ActivitySubRegistration(
-        activity_id=a.id, name=naam, registration_type_code="INDIVIDUAL",
-        registration_closes_on=deadline, max_participants=max_deelnemers,
-        price=Decimal("0"), is_free=True)
+        activity_id=a.id,
+        name=naam,
+        registration_type_code="INDIVIDUAL",
+        registration_closes_on=deadline,
+        max_participants=max_deelnemers,
+        price=Decimal("0"),
+        is_free=True,
+    )
     db.add(comp)
     db.flush()
-    product = ActivityProduct(component_id=comp.id, name="Plaats",
-                              price=Decimal("0"), is_free=True)
+    product = ActivityProduct(component_id=comp.id, name="Plaats", price=Decimal("0"), is_free=True)
     db.add(product)
     db.flush()
     return comp, product
 
 
 def _inschrijven(client, a, comp, product, naam="Fee"):
-    return client.post(f"/activiteiten/{a.id}/inschrijven/{comp.id}",
-                       data={"contact_name": naam,
-                             "contact_email": f"{naam.lower()}@example.org",
-                             "phone": "0470000000", f"product_{product.id}": "1"})
+    return client.post(
+        f"/activiteiten/{a.id}/inschrijven/{comp.id}",
+        data={
+            "contact_name": naam,
+            "contact_email": f"{naam.lower()}@example.org",
+            "phone": "0470000000",
+            f"product_{product.id}": "1",
+        },
+    )
 
 
 def _kaart(client, a, pad="/activiteiten") -> str:
     html = client.get(pad).text
     start = html.index(a.name)
-    return html[start:start + 8000]
+    return html[start : start + 8000]
 
 
 # ── De poort ─────────────────────────────────────────────────────────────────
+
 
 def test_het_ene_onderdeel_sluit_en_het_andere_niet(client, db_session, vandaag):
     """Dit is het issue in één test (#1053).
@@ -117,8 +133,7 @@ def test_het_ene_onderdeel_sluit_en_het_andere_niet(client, db_session, vandaag)
 
     aanvaard = _inschrijven(client, a, corn, corn_plaats, naam="Cis")
     assert "Bedankt, Cis" in aanvaard.text, aanvaard.text[:300]
-    assert db_session.query(Registration).filter(
-        Registration.activity_id == a.id).count() == 1
+    assert db_session.query(Registration).filter(Registration.activity_id == a.id).count() == 1
 
 
 def test_een_onderdeel_zonder_datum_blijft_open(client, db_session, vandaag):
@@ -157,6 +172,7 @@ def test_de_activiteit_sluit_pas_als_elk_onderdeel_gesloten_is(db_session, vanda
 
 # ── De publieke kaart: één regel, of bij het onderdeel (#1053 + #1051) ───────
 
+
 def test_een_onderdeel_met_een_datum_geeft_een_icoonregel(client, db_session, vandaag):
     """Toets 3: één regel onder de locatie, in de vorm van de andere praktische
     regels (`ui.icon_text`)."""
@@ -171,12 +187,14 @@ def test_een_onderdeel_met_een_datum_geeft_een_icoonregel(client, db_session, va
     # Bij datum en locatie, boven de onderdelen — niet meer in de actiekolom.
     # De naam van het enige onderdeel staat er niet (#489), dus het blok wordt
     # herkend aan de inschrijf-URL erin.
-    assert (kaart.index("Miloheem") < kaart.index("Inschrijven t/m")
-            < kaart.index(f"/activiteiten/{a.id}/inschrijven/"))
+    assert (
+        kaart.index("Miloheem")
+        < kaart.index("Inschrijven t/m")
+        < kaart.index(f"/activiteiten/{a.id}/inschrijven/")
+    )
 
 
-def test_drie_onderdelen_met_dezelfde_datum_geven_één_regel(client, db_session,
-                                                            vandaag):
+def test_drie_onderdelen_met_dezelfde_datum_geven_één_regel(client, db_session, vandaag):
     """Toets 4 (#1053) en toets 2 van #1051: de oude vorm zette de regel bij élk
     onderdeel, dus drie keer.
 
@@ -191,8 +209,7 @@ def test_drie_onderdelen_met_dezelfde_datum_geven_één_regel(client, db_session
     assert kaart.count("Inschrijven t/m") == 1
 
 
-def test_verschillende_datums_zetten_de_datum_bij_het_onderdeel(client, db_session,
-                                                                 vandaag):
+def test_verschillende_datums_zetten_de_datum_bij_het_onderdeel(client, db_session, vandaag):
     """Toets 5: geen regel bovenaan; elke datum staat bij zijn eigen onderdeel.
 
     Kapotgemaakt: `card_deadline` de vroegste datum laten teruggeven in plaats van
@@ -212,31 +229,33 @@ def test_verschillende_datums_zetten_de_datum_bij_het_onderdeel(client, db_sessi
     # En als eigen klokregel ONDER de knoppenrij, niet tussen de knoppen geperst
     # (Koens plek van het golf 12-pakket; hij merkte de inline-variant meteen op).
     # Kapotgemaakt: de regel terug als <span> in de knoppen-flex → geen mt-1-blok.
-    assert kaart.count('mt-1 flex items-center gap-1 text-xs') == 2
-    knopblok = kaart[kaart.index("Barbecue"):kaart.index("donderdag 20 mei")]
+    assert kaart.count("mt-1 flex items-center gap-1 text-xs") == 2
+    knopblok = kaart[kaart.index("Barbecue") : kaart.index("donderdag 20 mei")]
     assert "Inschrijven</button>" in knopblok, (
-        "de klokregel hoort ná de knoppenrij, niet ervoor of ertussen")
+        "de klokregel hoort ná de knoppenrij, niet ervoor of ertussen"
+    )
 
 
-def test_een_volzet_onderdeel_telt_niet_mee_voor_de_regel(client, db_session,
-                                                          vandaag):
+def test_een_volzet_onderdeel_telt_niet_mee_voor_de_regel(client, db_session, vandaag):
     """Toets 3 van #1051: staat alles volzet, dan geen datumregel.
 
     "Inschrijven t/m 20 mei" naast een kaart die overal *Volzet* toont, spreekt
     zichzelf tegen.
     """
     a = _activiteit(db_session)
-    comp, product = _onderdeel(db_session, a, "Deelname", deadline=LAAT,
-                               max_deelnemers=1)
-    reg = Registration(activity_id=a.id, component_id=comp.id,
-                       registration_type="INDIVIDUAL",
-                       contact_name="Vol", contact_email="vol@example.org")
+    comp, product = _onderdeel(db_session, a, "Deelname", deadline=LAAT, max_deelnemers=1)
+    reg = Registration(
+        activity_id=a.id,
+        component_id=comp.id,
+        registration_type="INDIVIDUAL",
+        contact_name="Vol",
+        contact_email="vol@example.org",
+    )
     db_session.add(reg)
     db_session.flush()
     from app.domains.activities.api import RegistrationItem
 
-    db_session.add(RegistrationItem(registration_id=reg.id, product_id=product.id,
-                                    quantity=1))
+    db_session.add(RegistrationItem(registration_id=reg.id, product_id=product.id, quantity=1))
     db_session.flush()
 
     kaart = _kaart(client, a)
@@ -245,8 +264,7 @@ def test_een_volzet_onderdeel_telt_niet_mee_voor_de_regel(client, db_session,
     assert "Inschrijven t/m" not in kaart
 
 
-def test_zonder_datum_staat_er_geen_regel_en_geen_leeg_icoon(client, db_session,
-                                                             vandaag):
+def test_zonder_datum_staat_er_geen_regel_en_geen_leeg_icoon(client, db_session, vandaag):
     """Toets 4 van #1051: geen datum, geen regel — en zeker geen kaal icoon."""
     a = _activiteit(db_session)
     _onderdeel(db_session, a, "Deelname", deadline=None)
@@ -266,8 +284,7 @@ def test_in_de_laatste_week_kleurt_de_regel_oranje(client, db_session, vandaag):
     die helft zou "altijd oranje" ook groen staan.
     """
     a = _activiteit(db_session)
-    comp, _ = _onderdeel(db_session, a, "Deelname",
-                         deadline=VANDAAG + timedelta(days=3))
+    comp, _ = _onderdeel(db_session, a, "Deelname", deadline=VANDAAG + timedelta(days=3))
 
     assert "text-orange-600" in _kaart(client, a)
 
@@ -277,8 +294,7 @@ def test_in_de_laatste_week_kleurt_de_regel_oranje(client, db_session, vandaag):
     assert "Inschrijven t/m" in kaart and "text-orange-600" not in kaart
 
 
-def test_de_activiteitspagina_volgt_dezelfde_twee_takken(client, db_session,
-                                                          vandaag):
+def test_de_activiteitspagina_volgt_dezelfde_twee_takken(client, db_session, vandaag):
     """Golf 12's pagina toont één klokregel of één per onderdeel — zoals de kaart.
 
     De per-onderdeel-tak stond daar als `deadline_per: {}`: gebouwd, maar nooit
@@ -307,8 +323,7 @@ OMSCHRIJVING = "Een namiddag vol brood, spelen en te veel dessert."
 
 
 @pytest.mark.parametrize("pad", ["/", "/activiteiten"])
-def test_de_omschrijving_staat_niet_meer_op_de_kaart(client, db_session, vandaag,
-                                                      pad):
+def test_de_omschrijving_staat_niet_meer_op_de_kaart(client, db_session, vandaag, pad):
     """Koen, 20 september 2026: "omschrijving overal weg".
 
     Op beide publieke schermen die de partial delen. Het archief deelt dezelfde
@@ -329,12 +344,10 @@ def test_ook_niet_in_het_archief(client, db_session):
     """Bewust ZONDER de geprikte dag: de archieflijst filtert in SQL met de
     `belgian_today` die de router bij het importeren opnam, dus een geprikte dag
     bereikt die query niet. Een datum in het echte verleden wel."""
-    a = Activity(name="Voorbije quiz", location="Miloheem",
-                 description=OMSCHRIJVING)
+    a = Activity(name="Voorbije quiz", location="Miloheem", description=OMSCHRIJVING)
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id,
-                                start_date=date.today() - timedelta(days=30)))
+    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=30)))
     db_session.flush()
 
     html = client.get("/activiteiten/archief").text
@@ -367,6 +380,7 @@ def test_de_activiteitspagina_toont_de_omschrijving_nog_wel(client, db_session):
 
 # ── De migratie ──────────────────────────────────────────────────────────────
 
+
 def test_de_migratie_kopieert_de_datum_naar_elk_onderdeel(db_session):
     """Toets 6 (#1053): drie onderdelen dragen na de migratie dezelfde datum, en
     de kolom op de activiteit bestaat niet meer.
@@ -381,33 +395,49 @@ def test_de_migratie_kopieert_de_datum_naar_elk_onderdeel(db_session):
 
     from sqlalchemy import text
 
-    pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "144_2026_09_20_065547_registration_deadline_per_component.py")
+    pad = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "144_2026_09_20_065547_registration_deadline_per_component.py"
+    )
     spec = importlib.util.spec_from_file_location("migratie_144", pad)
     migratie = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migratie)
 
-    bestaat = db_session.execute(text(
-        "SELECT 1 FROM information_schema.columns "
-        "WHERE table_schema = 'activities' AND table_name = 'activities' "
-        "AND column_name = 'registration_closes_on'")).scalar()
+    bestaat = db_session.execute(
+        text(
+            "SELECT 1 FROM information_schema.columns "
+            "WHERE table_schema = 'activities' AND table_name = 'activities' "
+            "AND column_name = 'registration_closes_on'"
+        )
+    ).scalar()
     assert not bestaat, "de kolom staat nog op de activiteit — is 144 wel gedraaid?"
 
-    db_session.execute(text(
-        "ALTER TABLE activities.activities ADD COLUMN registration_closes_on DATE"))
+    db_session.execute(
+        text("ALTER TABLE activities.activities ADD COLUMN registration_closes_on DATE")
+    )
     a = _activiteit(db_session, naam="Brood en Spelen 2028")
     for naam in ("Barbecue", "Cornhole", "Sjoelbak"):
         _onderdeel(db_session, a, naam)
-    db_session.execute(text(
-        "UPDATE activities.activities SET registration_closes_on = :d WHERE id = :i"),
-        {"d": LAAT, "i": a.id})
+    db_session.execute(
+        text("UPDATE activities.activities SET registration_closes_on = :d WHERE id = :i"),
+        {"d": LAAT, "i": a.id},
+    )
 
     db_session.execute(text(migratie.KOPIEER))
 
-    datums = db_session.execute(text(
-        "SELECT registration_closes_on FROM activities.activity_sub_registrations "
-        "WHERE activity_id = :i"), {"i": a.id}).scalars().all()
+    datums = (
+        db_session.execute(
+            text(
+                "SELECT registration_closes_on FROM activities.activity_sub_registrations "
+                "WHERE activity_id = :i"
+            ),
+            {"i": a.id},
+        )
+        .scalars()
+        .all()
+    )
     assert datums == [LAAT, LAAT, LAAT]
 
-    db_session.execute(text(
-        "ALTER TABLE activities.activities DROP COLUMN registration_closes_on"))
+    db_session.execute(text("ALTER TABLE activities.activities DROP COLUMN registration_closes_on"))

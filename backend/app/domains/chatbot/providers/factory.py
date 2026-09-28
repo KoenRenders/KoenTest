@@ -5,9 +5,11 @@
 - ``mistral``: forceer Mistral (faalt expliciet zonder sleutel).
 - ``mock``: forceer de afhankelijkheidsvrije mock (CI/lokaal).
 """
+
 from __future__ import annotations
 
 from app.config import settings
+
 from .base import LLMProvider
 from .mock import MockProvider
 
@@ -28,9 +30,7 @@ def get_provider(model: str = "") -> LLMProvider:
 
     if choice == "mistral" or (choice == "auto" and has_key):
         if not has_key:
-            raise RuntimeError(
-                "CHAT_LLM_PROVIDER=mistral maar er is geen MISTRAL_API_KEY gezet."
-            )
+            raise RuntimeError("CHAT_LLM_PROVIDER=mistral maar er is geen MISTRAL_API_KEY gezet.")
         # Lazy import: geen Mistral-config nodig om de mock te draaien.
         from .mistral import build_mistral_provider
 

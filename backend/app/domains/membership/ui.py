@@ -5,6 +5,7 @@ state), postcode altijd een dropdown (vaste UI-beslissing), betaalwijze met
 Mollie-redirect via HX-Redirect. Hergebruikt register_family integraal
 (dedup, prijsregels, mail, audit).
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
@@ -12,10 +13,10 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.domains.mdm.api import PaymentMethod
+from app.i18n import _
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
-from app.i18n import _
-from app.domains.mdm.api import PaymentMethod
 
 router = APIRouter(include_in_schema=False)
 
@@ -30,17 +31,18 @@ def _codes(db: Session) -> dict:
 
 @router.get("/lid-worden", response_class=HTMLResponse)
 def lid_worden(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "lid_worden.html", {
-        **site_context(db, request), **_codes(db), "error": None, "values": {},
-        **_lidgeld()})
+    return templates.TemplateResponse(
+        request,
+        "lid_worden.html",
+        {**site_context(db, request), **_codes(db), "error": None, "values": {}, **_lidgeld()},
+    )
 
 
 def _lidgeld() -> dict:
     """Tarief en geldigheid voor het Word-lid-scherm (F3, #996): dezelfde
     helpers als de inzending zelf gebruikt, dus scherm en aanrekening kunnen
     niet uiteenlopen."""
-    from app.domains.payment.api import (membership_price_for_date,
-                                         membership_valid_period)
+    from app.domains.payment.api import membership_price_for_date, membership_valid_period
 
     _van, tot = membership_valid_period()
     return {"lidgeld": {"prijs": membership_price_for_date(), "tot": tot}}
@@ -52,8 +54,9 @@ def persoon_rij(request: Request, db: Session = Depends(get_db)):
         index = max(1, int(request.query_params.get("index", "1")))
     except ValueError:
         index = 1
-    return templates.TemplateResponse(request, "_lid_persoon_rij.html", {
-        **_codes(db), "i": index, "values": {}})
+    return templates.TemplateResponse(
+        request, "_lid_persoon_rij.html", {**_codes(db), "i": index, "values": {}}
+    )
 
 
 @router.get("/lid-worden/email-rij", response_class=HTMLResponse)
@@ -64,6 +67,7 @@ def email_row(request: Request):
     first one, so it is never the primary address and can be removed again; the
     family does not exist yet, so the row has no id and no server actions.
     """
+
     def _int(name: str, default: int, minimum: int) -> int:
         try:
             return max(minimum, int(request.query_params.get(name, default)))
@@ -72,8 +76,11 @@ def email_row(request: Request):
 
     from app.domains.membership.viewmodels import EmailRowView
 
-    view = EmailRowView(index=_int("index", 1, 1), nummer=_int("nummer", 2, 2),
-                        name_prefix=f"m{_int('member', 0, 0)}_")
+    view = EmailRowView(
+        index=_int("index", 1, 1),
+        nummer=_int("nummer", 2, 2),
+        name_prefix=f"m{_int('member', 0, 0)}_",
+    )
     return templates.TemplateResponse(request, "_email_rij.html", view.as_context())
 
 
@@ -85,10 +92,12 @@ def _parse_members(form) -> list[dict]:
     return parse_member_rows(form)
 
 
-@router.post("/lid-worden", response_class=HTMLResponse,
-             dependencies=[Depends(registration_limiter)])
-async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
-                            db: Session = Depends(get_db)):
+@router.post(
+    "/lid-worden", response_class=HTMLResponse, dependencies=[Depends(registration_limiter)]
+)
+async def lid_worden_submit(
+    request: Request, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
     from pydantic import ValidationError
 
     from app.domains.membership.api import register_family
@@ -98,8 +107,7 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
     # Elk foutpad hieronder rendert hetzelfde sjabloon; het lidgeldblok (F3)
     # hoort er dus ook hier bij, anders valt StrictUndefined over `lidgeld`.
-    ctx = {**site_context(db, request), **_codes(db), "values": values,
-           **_lidgeld()}
+    ctx = {**site_context(db, request), **_codes(db), "values": values, **_lidgeld()}
 
     members = _parse_members(form)
     if not members:
@@ -116,14 +124,21 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
             bus_number=(values.get("bus_number") or "").strip() or None,
             postal_code=(values.get("postal_code") or "").strip(),
             payment_method=(values.get("payment_method") or "online").strip(),
-            members=[FamilyMemberCreate(
-                first_name=m["first_name"], last_name=m["last_name"],
-                date_of_birth=m["date_of_birth"] or None,
-                gender_code=m["gender_code"] or None,
-                email=m["email"] or None, extra_emails=m["extra_emails"],
-                phone=m["phone"] or None, mobile=m["mobile"] or None,
-                relation_type=m["relation_type"] or ("HOOFDLID" if not members.index(m) else "PARTNER"),
-            ) for m in members],
+            members=[
+                FamilyMemberCreate(
+                    first_name=m["first_name"],
+                    last_name=m["last_name"],
+                    date_of_birth=m["date_of_birth"] or None,
+                    gender_code=m["gender_code"] or None,
+                    email=m["email"] or None,
+                    extra_emails=m["extra_emails"],
+                    phone=m["phone"] or None,
+                    mobile=m["mobile"] or None,
+                    relation_type=m["relation_type"]
+                    or ("HOOFDLID" if not members.index(m) else "PARTNER"),
+                )
+                for m in members
+            ],
         )
     except ValidationError as exc:
         eerste = exc.errors()[0]
@@ -137,15 +152,22 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
         return templates.TemplateResponse(request, "lid_worden.html", ctx)
 
     checkout_url = getattr(result, "checkout_url", None)
-    response = templates.TemplateResponse(request, "lid_worden_klaar.html", {
-        **site_context(db, request), "checkout": bool(checkout_url),
-        "amount": getattr(result, "amount", None)})
+    response = templates.TemplateResponse(
+        request,
+        "lid_worden_klaar.html",
+        {
+            **site_context(db, request),
+            "checkout": bool(checkout_url),
+            "amount": getattr(result, "amount", None),
+        },
+    )
     if checkout_url:
         response.headers["HX-Redirect"] = checkout_url
     return response
 
 
 # ── Ledenportaal (React-exit 405-b): /leden/gezin + login-pariteit ─────────────
+
 
 def _session_member(request: Request, db: Session):
     """Ingelogd lid via de HttpOnly-sessie, of None."""
@@ -161,14 +183,18 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
     from datetime import date
 
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
-    from app.domains.membership.api import renewal_available, membership_coverage_until
-    from app.domains.membership.api import household_view
+    from app.domains.membership.api import (
+        household_view,
+        membership_coverage_until,
+        renewal_available,
+    )
 
     household = household_view(db, person)
     # Dekking t/m (incl. een al betaald volgend jaar) i.p.v. enkel 'geldig vandaag' (#496).
     valid_until = membership_coverage_until(person)
     ctx = {
-        **site_context(db, request), **_codes(db),
+        **site_context(db, request),
+        **_codes(db),
         "household": household,
         "person_id": person.id,
         "valid_until": valid_until,
@@ -198,8 +224,7 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     onderscheiden.
     """
     leeg = {"renew_transfer": None, "renew_online": None}
-    from app.domains.membership.api import open_renewal_payment
-    from app.domains.membership.api import household_member_for
+    from app.domains.membership.api import household_member_for, open_renewal_payment
 
     try:
         member = household_member_for(db, person)
@@ -210,14 +235,17 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
         return leeg
 
     if record.method == PaymentMethod.TRANSFER:
-        from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
+        from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
 
-        return {**leeg, "renew_transfer": {
-            "amount": record.amount,
-            "ogm": record.structured_communication,
-            "iban": tenant_payment_iban(db),
-            "beneficiary": tenant_payment_beneficiary(db),
-        }}
+        return {
+            **leeg,
+            "renew_transfer": {
+                "amount": record.amount,
+                "ogm": record.structured_communication,
+                "iban": tenant_payment_iban(db),
+                "beneficiary": tenant_payment_beneficiary(db),
+            },
+        }
 
     # Online afgebroken bij Mollie (#618-3): even doodlopend als de overschrijving.
     # Met een checkout-URL kan het lid de betaling hervatten; zonder blijft enkel de
@@ -225,8 +253,7 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     from app.domains.payment.api import checkout_url_for
 
     checkout_url = checkout_url_for(db, record)
-    return {**leeg, "renew_online": {"amount": record.amount,
-                                     "checkout_url": checkout_url}}
+    return {**leeg, "renew_online": {"amount": record.amount, "checkout_url": checkout_url}}
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)
@@ -234,9 +261,11 @@ def gezin_portaal(request: Request, db: Session = Depends(get_db)):
     person = _session_member(request, db)
     if person is None:
         from fastapi.responses import RedirectResponse
+
         return RedirectResponse("/aanmelden", status_code=302)
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
 def _require_member_csrf(request: Request, db: Session):
@@ -250,8 +279,7 @@ def _require_member_csrf(request: Request, db: Session):
 
 
 @router.post("/leden/gezin/personen/{person_id}", response_class=HTMLResponse)
-async def gezin_persoon_opslaan(person_id: int, request: Request,
-                                db: Session = Depends(get_db)):
+async def gezin_persoon_opslaan(person_id: int, request: Request, db: Session = Depends(get_db)):
     from app.domains.membership.api import household_update_person
 
     person = _require_member_csrf(request, db)
@@ -289,8 +317,9 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
     from app.domains.membership.api import household_apply_email_rows
 
     household_apply_email_rows(db, person, person_id, form)
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
 # ── E-mailadressen, door het lid zelf (#1174) ────────────────────────────────
@@ -299,60 +328,76 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
 # bewerkingen hier. De gezinsgrens en de audit zitten in de domeinlaag; dit
 # scherm geeft alleen door wie er klikte.
 
-@router.get("/leden/gezin/personen/{person_id}/email-rij",
-            response_class=HTMLResponse)
-def gezin_email_rij(person_id: int, request: Request, index: str = "",
-                    nummer: str = "", db: Session = Depends(get_db)):
+
+@router.get("/leden/gezin/personen/{person_id}/email-rij", response_class=HTMLResponse)
+def gezin_email_rij(
+    person_id: int,
+    request: Request,
+    index: str = "",
+    nummer: str = "",
+    db: Session = Depends(get_db),
+):
     """Een lege e-mailrij om onderaan te plakken (#1219).
 
     Leest de sessie mee zodat een niet-aangemelde bezoeker hier niets ophaalt;
     er gaat niets naar de databank, dus wat er al getypt staat blijft staan.
     """
     _require_member_csrf(request, db)
-    return templates.TemplateResponse(request, "_email_rij.html", {
-        "rij": None, "index": index or "0",
-        "nummer": nummer or "1",
-        "basis_url": f"/leden/gezin/personen/{person_id}/email",
-        "doel": "body", "swap": "innerHTML",
-    })
+    return templates.TemplateResponse(
+        request,
+        "_email_rij.html",
+        {
+            "rij": None,
+            "index": index or "0",
+            "nummer": nummer or "1",
+            "basis_url": f"/leden/gezin/personen/{person_id}/email",
+            "doel": "body",
+            "swap": "innerHTML",
+        },
+    )
 
 
 @router.post("/leden/gezin/personen/{person_id}/email", response_class=HTMLResponse)
-async def gezin_email_toevoegen(person_id: int, request: Request,
-                                db: Session = Depends(get_db)):
+async def gezin_email_toevoegen(person_id: int, request: Request, db: Session = Depends(get_db)):
     from app.domains.membership.api import household_add_email
 
     person = _require_member_csrf(request, db)
     form = await request.form()
     waarde = form.get("extra_email")
-    household_add_email(db, person, person_id,
-                        waarde.strip() if isinstance(waarde, str) else "")
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    household_add_email(db, person, person_id, waarde.strip() if isinstance(waarde, str) else "")
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
-@router.post("/leden/gezin/personen/{person_id}/email/{contact_id}/hoofd",
-             response_class=HTMLResponse)
-def gezin_email_hoofdadres(person_id: int, contact_id: int, request: Request,
-                           db: Session = Depends(get_db)):
+@router.post(
+    "/leden/gezin/personen/{person_id}/email/{contact_id}/hoofd", response_class=HTMLResponse
+)
+def gezin_email_hoofdadres(
+    person_id: int, contact_id: int, request: Request, db: Session = Depends(get_db)
+):
     from app.domains.membership.api import household_make_email_primary
 
     person = _require_member_csrf(request, db)
     household_make_email_primary(db, person, person_id, contact_id)
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
-@router.post("/leden/gezin/personen/{person_id}/email/{contact_id}/verwijderen",
-             response_class=HTMLResponse)
-def gezin_email_verwijderen(person_id: int, contact_id: int, request: Request,
-                            db: Session = Depends(get_db)):
+@router.post(
+    "/leden/gezin/personen/{person_id}/email/{contact_id}/verwijderen", response_class=HTMLResponse
+)
+def gezin_email_verwijderen(
+    person_id: int, contact_id: int, request: Request, db: Session = Depends(get_db)
+):
     from app.domains.membership.api import household_remove_email
 
     person = _require_member_csrf(request, db)
     household_remove_email(db, person, person_id, contact_id)
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
 @router.post("/leden/gezin/personen", response_class=HTMLResponse)
@@ -366,33 +411,39 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
         value = form.get(key)
         return value.strip() if isinstance(value, str) else ""
 
-    household_add_person(db, person, {
-        "first_name": _v("first_name"),
-        "last_name": _v("last_name"),
-        "date_of_birth": _v("date_of_birth") or None,
-        "gender_code": _v("gender_code") or None,
-        "email": _v("email") or None,
-        "phone": _v("phone") or None,
-        "mobile": _v("mobile") or None,
-    })
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    household_add_person(
+        db,
+        person,
+        {
+            "first_name": _v("first_name"),
+            "last_name": _v("last_name"),
+            "date_of_birth": _v("date_of_birth") or None,
+            "gender_code": _v("gender_code") or None,
+            "email": _v("email") or None,
+            "phone": _v("phone") or None,
+            "mobile": _v("mobile") or None,
+        },
+    )
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
 @router.post("/leden/gezin/personen/{person_id}/verwijderen", response_class=HTMLResponse)
-def gezin_persoon_verwijderen(person_id: int, request: Request,
-                              db: Session = Depends(get_db)):
+def gezin_persoon_verwijderen(person_id: int, request: Request, db: Session = Depends(get_db)):
     from app.domains.membership.api import household_remove_person
 
     person = _require_member_csrf(request, db)
     household_remove_person(db, person, person_id)
-    return templates.TemplateResponse(request, "gezin_portaal.html",
-                                      _portal_ctx(request, db, person))
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
 
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
-def gezin_vernieuwen(request: Request, db: Session = Depends(get_db),
-                     payment_method: str = Form("online")):
+def gezin_vernieuwen(
+    request: Request, db: Session = Depends(get_db), payment_method: str = Form("online")
+):
     from app.domains.membership.api import household_renew_membership
 
     person = _require_member_csrf(request, db)
@@ -410,7 +461,7 @@ def gezin_vernieuwen(request: Request, db: Session = Depends(get_db),
         response.headers["HX-Redirect"] = checkout_url
         return response
     # Overschrijving (#497): toon de betaalinstructies (bedrag + OGM + IBAN) op het scherm.
-    from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
+    from app.kernel.tenant_config import tenant_payment_beneficiary, tenant_payment_iban
 
     ctx["renew_transfer"] = {
         "amount": result.get("amount"),
@@ -423,6 +474,7 @@ def gezin_vernieuwen(request: Request, db: Session = Depends(get_db),
 
 # Login-pariteit (#405): /login = de htmx-aanmeldflow; /login/verify blijft het
 # magic-link-doel uit de e-mails en zet de sessie + stuurt door.
+
 
 @router.get("/login", response_class=HTMLResponse)
 def login_redirect(request: Request):
@@ -442,14 +494,14 @@ def leden_login_redirect(request: Request):
 def login_verify(request: Request, token: str = "", db: Session = Depends(get_db)):
     from fastapi.responses import RedirectResponse
 
-    from app.domains.auth.api import (consume_magic_link, get_user_roles,
-                                      set_session_cookie)
+    from app.domains.auth.api import consume_magic_link, get_user_roles, set_session_cookie
 
     # Eenmalig verzilveren (#268) — die regel woont in de auth-service, niet hier.
     email = consume_magic_link(db, token)
     if email is None:
-        return templates.TemplateResponse(request, "login_verlopen.html",
-                                          site_context(db, request), status_code=401)
+        return templates.TemplateResponse(
+            request, "login_verlopen.html", site_context(db, request), status_code=401
+        )
     # Landing naar wat de rol mag openen (#530), gelijk aan de OTP-flow: ADMIN/
     # OPERATOR → werkbank; FINANCE-only → betalingen (werkbank is nu ADMIN/OPERATOR-
     # only en zou 403'en); overige (gewoon lid) → gezin.

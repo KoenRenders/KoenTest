@@ -10,6 +10,7 @@ Een server-side test hierop zou vandaag al groen zijn geweest en niets bewijzen;
 in `tests/test_actieve_navigatie.py` toetst daarom het mechanisme (de nav komt mee als
 out-of-band swap), en deze de uitkomst.
 """
+
 import os
 import sys
 
@@ -53,7 +54,8 @@ def admin_page():
 def _actief(page) -> list[str]:
     """De href's die in de zijbalk als actief gemarkeerd staan."""
     return page.eval_on_selector_all(
-        "#admin-nav-zijbalk a.bg-blue-50", "els => els.map(e => e.getAttribute('href'))")
+        "#admin-nav-zijbalk a.bg-blue-50", "els => els.map(e => e.getAttribute('href'))"
+    )
 
 
 def test_de_markering_volgt_een_geboorde_navigatie(admin_page):
@@ -75,8 +77,7 @@ def test_de_markering_volgt_een_geboorde_navigatie(admin_page):
     admin_page.wait_for_url("**/admin/activiteiten")
 
     na = _actief(admin_page)
-    assert na == ["/admin/activiteiten"], (
-        f"de markering bleef op het vorige scherm staan: {na}")
+    assert na == ["/admin/activiteiten"], f"de markering bleef op het vorige scherm staan: {na}"
 
 
 def test_er_licht_altijd_precies_een_item_op(admin_page):

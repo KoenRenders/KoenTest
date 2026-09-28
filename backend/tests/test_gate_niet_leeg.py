@@ -33,6 +33,7 @@ De regels die ik in deze reeks zelf toevoegde zijn elk apart zo gemeten en dat
 staat in hun eigen docstring: 4 treffers vóór en 0 ná #646, 3/0 bij #647, 1/0 bij
 #653, 1/0 bij #656, en bij #659 het volledige restant.
 """
+
 import ast
 from pathlib import Path
 
@@ -70,7 +71,8 @@ def test_een_lege_verzameling_faalt():
     melding = str(fout.value)
     assert "0 bestanden" in melding, "de melding zegt niet dat er niets gescand is"
     assert "een pad dat niet bestaat" in melding, (
-        "de melding zegt niet WELKE verzameling leeg was — dan helpt ze niemand")
+        "de melding zegt niet WELKE verzameling leeg was — dan helpt ze niemand"
+    )
 
 
 def test_te_weinig_bestanden_faalt_ook():
@@ -80,9 +82,11 @@ def test_te_weinig_bestanden_faalt_ook():
 
 
 def test_een_gevulde_verzameling_komt_gesorteerd_en_ontdubbeld_terug():
-    twee_keer = bestanden(TESTS.glob("test_gate_niet_leeg.py"),
-                          TESTS.glob("test_gate_niet_leeg.py"),
-                          wat="dit testbestand")
+    twee_keer = bestanden(
+        TESTS.glob("test_gate_niet_leeg.py"),
+        TESTS.glob("test_gate_niet_leeg.py"),
+        wat="dit testbestand",
+    )
     assert len(twee_keer) == 1
     veel = bestanden(TESTS.glob("test_*.py"), wat="de tests", minstens=5)
     assert veel == sorted(veel)
@@ -94,7 +98,8 @@ def test_elke_gate_gebruikt_de_helper(naam):
     gate hem vergeten, en dat is precies de fout die dit issue wegneemt."""
     bron = (TESTS / naam).read_text(encoding="utf-8")
     assert "from tests._bestanden import bestanden" in bron, (
-        f"{naam} haalt zijn bestanden buiten de helper om")
+        f"{naam} haalt zijn bestanden buiten de helper om"
+    )
 
 
 @pytest.mark.parametrize("naam", GATE_BESTANDEN)
@@ -108,16 +113,23 @@ def test_geen_gate_scant_nog_rechtstreeks(naam):
     los = []
     binnen_helper = set()
     for node in ast.walk(boom):
-        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                and node.func.id == "bestanden"):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "bestanden"
+        ):
             for arg in node.args:
                 for kind in ast.walk(arg):
                     binnen_helper.add(id(kind))
     for node in ast.walk(boom):
-        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                and node.func.attr in ("rglob", "glob")
-                and id(node) not in binnen_helper):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("rglob", "glob")
+            and id(node) not in binnen_helper
+        ):
             los.append(node.lineno)
     assert not los, (
         f"{naam} scant rechtstreeks op regel {los} — die verzameling valt buiten "
-        "de niet-leeg-controle (#678)")
+        "de niet-leeg-controle (#678)"
+    )

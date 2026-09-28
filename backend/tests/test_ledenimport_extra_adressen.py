@@ -17,6 +17,7 @@ Zonder deze tests verdwijnen die adressen bij de eerstvolgende import en vertelt
 niets op het scherm dat het gebeurd is. `test_de_import_verwijdert_geen_extra_adres`
 is de belangrijkste van dit bestand.
 """
+
 from datetime import date
 
 import pytest
@@ -34,12 +35,21 @@ NIEUW = "nieuw@example.com"
 
 def _row(lidnr, voornaam, naam, relatie, *, email=None):
     return {
-        "lidnr": lidnr, "voornaam": voornaam, "naam": naam,
-        "straat": "milostraat", "huisnummer": "40", "busnummer": "",
-        "postcode": "2400", "gemeente": "Mol",
-        "email": email, "telefoon": None, "gsm": None,
-        "geboortedatum": date(1980, 1, 1), "geslacht": "M",
-        "bestuurslid": None, "_relatie": relatie,
+        "lidnr": lidnr,
+        "voornaam": voornaam,
+        "naam": naam,
+        "straat": "milostraat",
+        "huisnummer": "40",
+        "busnummer": "",
+        "postcode": "2400",
+        "gemeente": "Mol",
+        "email": email,
+        "telefoon": None,
+        "gsm": None,
+        "geboortedatum": date(1980, 1, 1),
+        "geslacht": "M",
+        "bestuurslid": None,
+        "_relatie": relatie,
     }
 
 
@@ -50,8 +60,11 @@ def _import(db, rij):
 def _adressen(db, persoon) -> dict[str, bool]:
     """Elk e-mailadres van deze persoon → is het het hoofdadres?"""
     db.refresh(persoon)
-    return {c.value: bool(c.is_primary) for c in persoon.contact_details
-            if c.contact_type_code == "EMAIL"}
+    return {
+        c.value: bool(c.is_primary)
+        for c in persoon.contact_details
+        if c.contact_type_code == "EMAIL"
+    }
 
 
 @pytest.fixture
@@ -77,24 +90,29 @@ def lid_met_twee_adressen(db_session):
     _import(db_session, _row("L-1", "Tine", "Peeters", "HOOFDLID", email=None))
     persoon = db_session.query(Person).filter(Person.first_name == "Tine").one()
     # Eerst het extra adres (laagste id), dán het hoofdadres.
-    db_session.add(ContactDetail(person_id=persoon.id, contact_type_code="EMAIL",
-                                 value=EXTRA, is_primary=False))
+    db_session.add(
+        ContactDetail(
+            person_id=persoon.id, contact_type_code="EMAIL", value=EXTRA, is_primary=False
+        )
+    )
     db_session.flush()
-    db_session.add(ContactDetail(person_id=persoon.id, contact_type_code="EMAIL",
-                                 value=HOOFD, is_primary=True))
+    db_session.add(
+        ContactDetail(person_id=persoon.id, contact_type_code="EMAIL", value=HOOFD, is_primary=True)
+    )
     db_session.commit()
     db_session.expire_all()
 
     persoon = db_session.query(Person).filter(Person.first_name == "Tine").one()
-    volgorde = [c.value for c in persoon.contact_details
-                if c.contact_type_code == "EMAIL"]
+    volgorde = [c.value for c in persoon.contact_details if c.contact_type_code == "EMAIL"]
     assert volgorde[:1] == [EXTRA], (
         f"opzet klopt niet: het extra adres hoort vooraan te staan, gekregen "
-        f"{volgorde} — zonder die volgorde toetst dit bestand de bug niet")
+        f"{volgorde} — zonder die volgorde toetst dit bestand de bug niet"
+    )
     return persoon
 
 
 # ── De belangrijkste: een leeg rapportveld wist het extra adres niet ────────
+
 
 def test_de_import_verwijdert_geen_extra_adres(db_session, lid_met_twee_adressen):
     """Het rapport draagt geen e-mailadres. Vroeger verdween dan "de eerste rij".
@@ -116,15 +134,15 @@ def test_de_import_verwijdert_geen_extra_adres(db_session, lid_met_twee_adressen
     _import(db_session, _row("L-1", "Tine", "Peeters", "HOOFDLID", email=None))
 
     na = _adressen(db_session, lid_met_twee_adressen)
-    assert EXTRA in na, (
-        f"het extra adres is verdwenen bij een import zonder e-mailadres: {na}")
+    assert EXTRA in na, f"het extra adres is verdwenen bij een import zonder e-mailadres: {na}"
     assert na == {EXTRA: False}, (
-        f"verwacht: het extra adres blijft staan en wordt GEEN hoofdadres; "
-        f"gekregen: {na}")
+        f"verwacht: het extra adres blijft staan en wordt GEEN hoofdadres; gekregen: {na}"
+    )
 
 
 def test_de_import_werkt_het_hoofdadres_bij_en_laat_het_extra_staan(
-        db_session, lid_met_twee_adressen):
+    db_session, lid_met_twee_adressen
+):
     """Het rapport draagt een gewijzigd adres: alleen het hoofdadres volgt.
 
     Tegenproef: op "de eerste rij" zoeken → afhankelijk van de rijvolgorde
@@ -135,7 +153,8 @@ def test_de_import_werkt_het_hoofdadres_bij_en_laat_het_extra_staan(
 
     na = _adressen(db_session, lid_met_twee_adressen)
     assert na == {NIEUW: True, EXTRA: False}, (
-        f"het hoofdadres hoort te volgen en het extra ongemoeid te blijven: {na}")
+        f"het hoofdadres hoort te volgen en het extra ongemoeid te blijven: {na}"
+    )
 
 
 def test_een_onveranderd_rapport_laat_alles_staan(db_session, lid_met_twee_adressen):
@@ -152,6 +171,7 @@ def test_een_onveranderd_rapport_laat_alles_staan(db_session, lid_met_twee_adres
 
 # ── Het hoofdadres blijft enkelvoudig ──────────────────────────────────────
 
+
 def test_het_rapportadres_promoveert_een_bestaand_extra_adres(db_session):
     """Staat het nationale adres al als extra rij, dan wordt die het hoofdadres.
 
@@ -166,8 +186,11 @@ def test_het_rapportadres_promoveert_een_bestaand_extra_adres(db_session):
     for c in list(persoon.contact_details):
         if c.contact_type_code == "EMAIL":
             persoon.contact_details.remove(c)
-    db_session.add(ContactDetail(person_id=persoon.id, contact_type_code="EMAIL",
-                                 value=HOOFD, is_primary=False))
+    db_session.add(
+        ContactDetail(
+            person_id=persoon.id, contact_type_code="EMAIL", value=HOOFD, is_primary=False
+        )
+    )
     db_session.commit()
 
     _import(db_session, _row("L-2", "Bram", "Claes", "HOOFDLID", email=HOOFD))
@@ -187,6 +210,7 @@ def test_er_blijft_hoogstens_een_hoofdadres(db_session, lid_met_twee_adressen):
     """
     _import(db_session, _row("L-1", "Tine", "Peeters", "HOOFDLID", email=NIEUW))
 
-    primair = [v for v, is_primary in _adressen(db_session, lid_met_twee_adressen).items()
-               if is_primary]
+    primair = [
+        v for v, is_primary in _adressen(db_session, lid_met_twee_adressen).items() if is_primary
+    ]
     assert len(primair) == 1, f"precies één hoofdadres verwacht, gekregen: {primair}"

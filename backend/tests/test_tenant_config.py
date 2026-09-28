@@ -1,5 +1,6 @@
 """Fase 5b (#406): per-tenant config/secrets, demo-mail-modus (log_only),
 per-tenant Mollie-key/base-URL en de OPERATOR-platformrol."""
+
 from app.domains.auth.models import User, UserRole
 from app.domains.auth.service import create_access_token
 from app.domains.mail.models import EmailLog, MailStatus
@@ -23,8 +24,7 @@ def test_setting_plain_en_secret(db_session):
     assert get_setting(db_session, "mollie_api_key", tenant_id=99) == "test_geheim123"
 
     # secret staat versleuteld op rust: nooit als klartekst in de rij
-    rij = (db_session.query(TenantSetting)
-           .filter_by(tenant_id=99, key="mollie_api_key").one())
+    rij = db_session.query(TenantSetting).filter_by(tenant_id=99, key="mollie_api_key").one()
     assert rij.value is None
     assert rij.value_encrypted and "test_geheim123" not in rij.value_encrypted
 
@@ -66,10 +66,13 @@ def test_demo_mails_worden_enkel_gelogd(db_session):
     finally:
         current_tenant_id.reset(token)
 
-    log = (db_session.query(EmailLog)
-           .execution_options(include_all_tenants=True)
-           .filter(EmailLog.recipient == "demo@example.com")
-           .order_by(EmailLog.id.desc()).first())
+    log = (
+        db_session.query(EmailLog)
+        .execution_options(include_all_tenants=True)
+        .filter(EmailLog.recipient == "demo@example.com")
+        .order_by(EmailLog.id.desc())
+        .first()
+    )
     assert log is not None and log.status is MailStatus.LOGGED
     assert log.tenant_id == TENANT_VOORBEELD_ID
 
@@ -82,12 +85,12 @@ def test_operator_passeert_elke_rolcheck(client, db_session):
     db_session.commit()
 
     token = create_access_token({"sub": "operator@example.com"})
-    resp = client.get("/api/v1/admin/stats",
-                      headers={"Authorization": f"Bearer {token}"})
+    resp = client.get("/api/v1/admin/stats", headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
 
 
 # ── #571: Fernet wire format survives a cryptography major bump ─────────────
+
 
 def test_fernet_reads_a_token_from_an_older_release():
     """A tenant secret encrypted by an earlier ``cryptography`` release must stay
@@ -121,7 +124,6 @@ def test_stored_secret_is_a_v1_fernet_token(db_session):
     set_setting(db_session, "mollie_api_key", "test_geheim123", secret=True, tenant_id=97)
     db_session.flush()
 
-    row = (db_session.query(TenantSetting)
-           .filter_by(tenant_id=97, key="mollie_api_key").one())
+    row = db_session.query(TenantSetting).filter_by(tenant_id=97, key="mollie_api_key").one()
     raw = _b64.urlsafe_b64decode(row.value_encrypted.encode())
     assert raw[0] == 0x80

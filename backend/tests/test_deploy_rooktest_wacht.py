@@ -25,6 +25,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de lus terug i
 om (de rooktest start bij poging 0), de hdev-variant blijft groen. Precies het
 verschil dat de bug was.
 """
+
 import os
 import shutil
 import subprocess
@@ -55,7 +56,8 @@ def _bouw(tmp_path, faal_altijd=False):
 
     # De rooktest noteert bij welke curl-poging hij gedraaid heeft.
     (werk / "tests" / "run-all.sh").write_text(
-        f'#!/bin/sh\ncat "{teller}" 2>/dev/null | wc -l > "{gezien}"\nexit 0\n')
+        f'#!/bin/sh\ncat "{teller}" 2>/dev/null | wc -l > "{gezien}"\nexit 0\n'
+    )
     (werk / "tests" / "run-all.sh").chmod(0o755)
 
     for naam in (".env.hdev", ".env.uat", ".env.prod"):
@@ -67,10 +69,11 @@ def _bouw(tmp_path, faal_altijd=False):
     drempel = 10**6 if faal_altijd else TRAAG
     (nepbin / "curl").write_text(
         f'#!/bin/sh\necho x >> "{teller}"\n'
-        f'[ "$(wc -l < "{teller}")" -gt {drempel} ] && exit 0\nexit 1\n')
+        f'[ "$(wc -l < "{teller}")" -gt {drempel} ] && exit 0\nexit 1\n'
+    )
     (nepbin / "git").write_text(
-        '#!/bin/sh\ncase "$1" in describe) echo v0.0.0 ;; rev-parse) echo deadbee ;; esac\n'
-        'exit 0\n')
+        '#!/bin/sh\ncase "$1" in describe) echo v0.0.0 ;; rev-parse) echo deadbee ;; esac\nexit 0\n'
+    )
     # `docker compose ... ps -q db` moet leeg blijven: dan slaat het script de
     # pre-migratie-backup over en hoeven pg_dump/gzip niet nagebootst te worden.
     #
@@ -84,10 +87,11 @@ def _bouw(tmp_path, faal_altijd=False):
         '  *"alembic heads"*|*"alembic current"*) echo "001 (head)" ;;\n'
         '  *"logs backend"*) printf "==> Running database migrations...\\n'
         'INFO:     Uvicorn running on http://0.0.0.0:8000\\n" ;;\n'
-        'esac\nexit 0\n')
+        "esac\nexit 0\n"
+    )
     # Een echte sleep zou deze test dertig seconden laten duren; de volgorde is wat
     # we toetsen, niet de wandklok.
-    (nepbin / "sleep").write_text('#!/bin/sh\nexit 0\n')
+    (nepbin / "sleep").write_text("#!/bin/sh\nexit 0\n")
     for f in nepbin.iterdir():
         f.chmod(0o755)
 
@@ -102,8 +106,7 @@ def _draai(werk, nepbin, omgeving, tmp_path):
     env["DEPLOY_REEXEC"] = "1"
     env["LOG_OUT"] = str(tmp_path / "deploy.log")
     args = ["bash", "./deploy.sh", omgeving] + (["v0.0.0"] if omgeving != "hdev" else [])
-    return subprocess.run(args, cwd=werk, env=env, capture_output=True, text=True,
-                          timeout=120)
+    return subprocess.run(args, cwd=werk, env=env, capture_output=True, text=True, timeout=120)
 
 
 @pytest.mark.parametrize("omgeving", ["hdev", "uat", "prod"])
@@ -118,7 +121,8 @@ def test_de_rooktest_wacht_tot_de_site_antwoordt(omgeving, tmp_path):
     poging = int(gezien.read_text().strip())
     assert poging > TRAAG, (
         f"de rooktest begon al bij poging {poging}, terwijl de site pas vanaf "
-        f"poging {TRAAG + 1} antwoordt — hij start dus vóór de backend klaar is")
+        f"poging {TRAAG + 1} antwoordt — hij start dus vóór de backend klaar is"
+    )
 
 
 def test_een_site_die_nooit_antwoordt_blokkeert_de_deploy_niet(tmp_path):
@@ -134,5 +138,6 @@ def test_een_site_die_nooit_antwoordt_blokkeert_de_deploy_niet(tmp_path):
 
     assert gezien.exists(), "de deploy is blijven hangen in de wachtlus"
     assert int(teller.read_text().count("x")) >= 30, (
-        "de lus geeft te snel op; een trage backend is dan nog steeds een valse fail")
+        "de lus geeft te snel op; een trage backend is dan nog steeds een valse fail"
+    )
     assert klaar.returncode == 0  # onze neppe rooktest slaagt; het wachten is wat telt

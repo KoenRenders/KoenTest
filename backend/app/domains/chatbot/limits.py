@@ -5,6 +5,7 @@ daar rechtstreeks. Het is gedeelde toestand: de JSON-route en het scherm schrijv
 naar dezelfde teller, dus het moet dezelfde instantie zijn — één module die beide
 importeren, en geen router die als servicelaag dienstdoet.
 """
+
 from app.config import settings
 from app.limiter import DailyCharBudget
 

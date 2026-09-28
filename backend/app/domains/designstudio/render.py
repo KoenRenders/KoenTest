@@ -14,6 +14,7 @@ Three steps, each usable on its own:
 Inkscape runs with a clean, minimal environment and a timeout; it reads one
 file in a private temporary directory and writes one file next to it.
 """
+
 from __future__ import annotations
 
 import json
@@ -60,7 +61,7 @@ class RenderError(RuntimeError):
 class Merged:
     svg: str
     boxes: dict[str, float]
-    violations: tuple[str, ...]   # from the planner: vertical overflow, missing title
+    violations: tuple[str, ...]  # from the planner: vertical overflow, missing title
     width_mm: float
     height_mm: float
 
@@ -72,14 +73,18 @@ def contract(template_key: str) -> dict:
 
 @lru_cache(maxsize=1)
 def _env() -> Environment:
-    env = Environment(loader=FileSystemLoader(str(POSTERS)), autoescape=True, undefined=StrictUndefined)
+    env = Environment(
+        loader=FileSystemLoader(str(POSTERS)), autoescape=True, undefined=StrictUndefined
+    )
     # The second Jinja environment of this codebase, and so the second place
     # where an enum member could end up in the output (CR-12 §B4.7). Always
     # strict here: a poster is not a visitor's page, and a wrong value in an SVG
     # is noticed later than one in a form.
     install_enum_guard(env, strict=True)
     env.globals["speckles"] = speckle_pattern
-    env.globals["icon"] = lambda code, fg, bg, x, y, s: icon_svg(code, fg=fg, bg=bg, x=x, y=y, size=s)
+    env.globals["icon"] = lambda code, fg, bg, x, y, s: icon_svg(
+        code, fg=fg, bg=bg, x=x, y=y, size=s
+    )
     return env
 
 
@@ -102,8 +107,10 @@ def wordmark(pal: dict[str, str], *, x: float, y: float, width: float) -> str:
         raise RenderError("lockup: unexpected size attributes")
     svg = svg.replace(old_vb, 'viewBox="106 106.2 491 245"')
     height = width * 245 / 491
-    svg = svg.replace('width="701.945" height="451.249"',
-                      f'x="{x:.3f}" y="{y:.3f}" width="{width:.3f}" height="{height:.3f}"')
+    svg = svg.replace(
+        'width="701.945" height="451.249"',
+        f'x="{x:.3f}" y="{y:.3f}" width="{width:.3f}" height="{height:.3f}"',
+    )
     accent = pal["accent"] if pal["tile"] != brand.COLOURS["golden_yellow"].hex else pal["ink"]
     svg = svg.replace("#ffce00", accent)
     # Only the root's own attributes go (a poster has one lockup and one
@@ -119,26 +126,46 @@ def qr_fragment(url: str, dark: str) -> str:
     """The QR as a nested ``<svg>``; the template adds x/y/width/height. Error
     level M, one-module border — the white box in the template is the quiet
     zone."""
-    inline = segno.make(url, error="m").svg_inline(scale=1, border=1, dark=dark, light=None,
-                                                    omitsize=True, svgclass=None, lineclass=None)
+    inline = segno.make(url, error="m").svg_inline(
+        scale=1, border=1, dark=dark, light=None, omitsize=True, svgclass=None, lineclass=None
+    )
     return inline.split("<svg", 1)[1]
 
 
-def merge(content: PosterContent, *, layout: str, template_key: str = "affiche",
-          title: str = "Affiche", qr_url: str = "") -> Merged:
+def merge(
+    content: PosterContent,
+    *,
+    layout: str,
+    template_key: str = "affiche",
+    title: str = "Affiche",
+    qr_url: str = "",
+) -> Merged:
     spec = contract(template_key)["layouts"][layout]
     pal = brand.palette_for(content.duo_code)
-    p: Plan = plan_affiche(content, layout=layout, width=spec["width_mm"], height=spec["height_mm"], pal=pal)
-    svg = _env().get_template(f"{template_key}/{template_key}.svg.j2").render(
-        p=p, title=title,
-        wordmark=wordmark(pal, x=p.lockup["x"], y=p.lockup["y"], width=p.lockup["width"]),
-        qr=qr_fragment(qr_url, pal["tile"]) if qr_url else "",
+    p: Plan = plan_affiche(
+        content, layout=layout, width=spec["width_mm"], height=spec["height_mm"], pal=pal
     )
-    return Merged(svg=svg, boxes=dict(p.boxes), violations=tuple(p.violations),
-                  width_mm=spec["width_mm"], height_mm=spec["height_mm"])
+    svg = (
+        _env()
+        .get_template(f"{template_key}/{template_key}.svg.j2")
+        .render(
+            p=p,
+            title=title,
+            wordmark=wordmark(pal, x=p.lockup["x"], y=p.lockup["y"], width=p.lockup["width"]),
+            qr=qr_fragment(qr_url, pal["tile"]) if qr_url else "",
+        )
+    )
+    return Merged(
+        svg=svg,
+        boxes=dict(p.boxes),
+        violations=tuple(p.violations),
+        width_mm=spec["width_mm"],
+        height_mm=spec["height_mm"],
+    )
 
 
 # ── Overflow ──────────────────────────────────────────────────────────────
+
 
 def _texts(svg: str) -> dict[str, ET.Element]:
     root = ET.fromstring(svg)
@@ -178,9 +205,16 @@ def estimate(merged: Merged) -> list[str]:
             continue
         size = float(el.get("font-size", "0"))
         tracking = float(el.get("letter-spacing", "0") or 0)
-        font = richtext.HAND_FONT if "Caveat" in (el.get("font-family") or "") else richtext.BODY_FONT
-        widest = max(sum(richtext.text_width(run, size, bold=bold, tracking=tracking, font=font) for run, bold in ln)
-                     for ln in _lines_of(el))
+        font = (
+            richtext.HAND_FONT if "Caveat" in (el.get("font-family") or "") else richtext.BODY_FONT
+        )
+        widest = max(
+            sum(
+                richtext.text_width(run, size, bold=bold, tracking=tracking, font=font)
+                for run, bold in ln
+            )
+            for ln in _lines_of(el)
+        )
         if widest * margin > max_w:
             problems.append(f"{eid}: {widest:.1f} mm geschat, {max_w:.1f} mm beschikbaar")
     return problems
@@ -224,7 +258,9 @@ def check(merged: Merged, *, authority: bool = False) -> list[str]:
             continue
         allow = max_w * (1.06 if eid in rotated else 1.0)
         if box[2] > allow:
-            problems.append(f"{eid}: {box[2]:.1f} mm gemeten door Inkscape, {max_w:.1f} mm beschikbaar")
+            problems.append(
+                f"{eid}: {box[2]:.1f} mm gemeten door Inkscape, {max_w:.1f} mm beschikbaar"
+            )
     return problems
 
 
@@ -249,24 +285,37 @@ def _fontconfig_file() -> str:
     conf.write_text(
         '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">\n<fontconfig>'
         '<include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
-        f'<dir>{FONTS_DIR}</dir><cachedir>{home / "cache"}</cachedir></fontconfig>\n',
-        encoding="utf-8")
+        f"<dir>{FONTS_DIR}</dir><cachedir>{home / 'cache'}</cachedir></fontconfig>\n",
+        encoding="utf-8",
+    )
     return str(conf)
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     if shutil.which(INKSCAPE) is None:
         raise RenderError("Inkscape is niet geïnstalleerd op deze server")
-    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tempfile.gettempdir(),
-           "LANG": "C.UTF-8", "INKSCAPE_PROFILE_DIR": tempfile.gettempdir(),
-           "FONTCONFIG_FILE": _fontconfig_file()}
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": tempfile.gettempdir(),
+        "LANG": "C.UTF-8",
+        "INKSCAPE_PROFILE_DIR": tempfile.gettempdir(),
+        "FONTCONFIG_FILE": _fontconfig_file(),
+    }
     try:
-        result = subprocess.run([INKSCAPE, *args], capture_output=True, text=True,
-                                timeout=INKSCAPE_TIMEOUT, env=env, check=False)
+        result = subprocess.run(
+            [INKSCAPE, *args],
+            capture_output=True,
+            text=True,
+            timeout=INKSCAPE_TIMEOUT,
+            env=env,
+            check=False,
+        )
     except subprocess.TimeoutExpired as exc:
         raise RenderError("Inkscape deed er te lang over") from exc
     if result.returncode != 0:
-        raise RenderError(f"Inkscape faalde (code {result.returncode}): {result.stderr.strip()[-300:]}")
+        raise RenderError(
+            f"Inkscape faalde (code {result.returncode}): {result.stderr.strip()[-300:]}"
+        )
     return result
 
 
@@ -290,8 +339,12 @@ def page_size_mm(svg: str) -> tuple[float, float]:
 def resize_page(svg: str, width_mm: float, height_mm: float) -> str:
     """Another paper size for the same design: only the ``width``/``height``
     attributes change, the viewBox scales everything (A3 → A4)."""
-    new, n = re.subn(r'(<svg\b[^>]*?)\swidth="[^"]+"\sheight="[^"]+"',
-                     lambda m: f'{m.group(1)} width="{width_mm}mm" height="{height_mm}mm"', svg, count=1)
+    new, n = re.subn(
+        r'(<svg\b[^>]*?)\swidth="[^"]+"\sheight="[^"]+"',
+        lambda m: f'{m.group(1)} width="{width_mm}mm" height="{height_mm}mm"',
+        svg,
+        count=1,
+    )
     if n != 1:
         raise RenderError("SVG zonder paginaformaat")
     return new

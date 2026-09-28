@@ -21,6 +21,7 @@ Kapotgemaakt om te controleren dat deze test rood kan worden (gemeten):
 - een regel voor een verzonnen maat `reus` toegevoegd → "de editor heeft een
   regel voor 'reus', maar die maat staat niet in IMAGE_SIZES".
 """
+
 from __future__ import annotations
 
 import re
@@ -32,8 +33,7 @@ from app.domains.cms.render import IMAGE_SIZES
 
 pytestmark = pytest.mark.ui_serverrendered
 
-SJABLOON = (Path(__file__).resolve().parents[1]
-            / "app/domains/cms/templates/admin_pagina.html")
+SJABLOON = Path(__file__).resolve().parents[1] / "app/domains/cms/templates/admin_pagina.html"
 # De selector zoals hij in het sjabloon staat: `[data-trix-attachment*='"size":"<maat>"']`
 REGEL = re.compile(r"""data-trix-attachment\*='"size":"([a-z_]+)"'""")
 
@@ -50,12 +50,14 @@ def test_elke_maat_met_een_klasse_heeft_ook_een_regel_in_de_editor():
 
     assert in_de_editor, (
         "geen enkele maatregel gevonden in admin_pagina.html — staat de "
-        "attribuutselector er nog, of is de schrijfwijze veranderd?")
+        "attribuutselector er nog, of is de schrijfwijze veranderd?"
+    )
     ontbreekt = met_klasse - in_de_editor
     assert not ontbreekt, (
         "de editor mist een regel voor maat "
         + ", ".join(f"{m!r} (klasse {IMAGE_SIZES[m]})" for m in sorted(ontbreekt))
-        + " — een beheerder kiest die maat dan en ziet geen verschil")
+        + " — een beheerder kiest die maat dan en ziet geen verschil"
+    )
 
 
 def test_de_editor_kent_geen_maten_die_de_pagina_niet_kent():
@@ -70,11 +72,13 @@ def test_de_editor_kent_geen_maten_die_de_pagina_niet_kent():
     assert not te_veel, (
         "de editor heeft een regel voor "
         + ", ".join(repr(m) for m in sorted(te_veel))
-        + ", maar die maat staat niet in IMAGE_SIZES")
+        + ", maar die maat staat niet in IMAGE_SIZES"
+    )
 
 
 def test_vol_draagt_ook_in_de_editor_geen_eigen_regel():
     """Anders zou "volle breedte" iets anders zijn dan de gewone weergave, en dan
     rendert een pagina van vóór #1207 opeens anders."""
     assert "vol" not in _maten_in_de_editor(), (
-        "volle breedte hoort de standaardweergave te blijven, zonder eigen regel")
+        "volle breedte hoort de standaardweergave te blijven, zonder eigen regel"
+    )

@@ -1,4 +1,5 @@
 """Events die het MDM-component publiceert (contract, zie mdm/CONTRACT.md)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,5 +14,5 @@ class EntityMerged(KernelEvent):
     via ``mdm.api.resolve()`` lezen hoeven niets te doen."""
 
     entity_type: str  # bv. "person"
-    source_id: int    # de opgeslokte entiteit (blijft bestaan, superseded)
-    target_id: int    # de overlever
+    source_id: int  # de opgeslokte entiteit (blijft bestaan, superseded)
+    target_id: int  # de overlever

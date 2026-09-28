@@ -8,11 +8,11 @@ leest ze uit. ``update_media_extracted_text`` slaat assets met al een tekst over
 Gebruik (in de backend-container):
     python backfill_extracted_text.py
 """
+
 import logging
 
 from app.database import SessionLocal
-from app.domains.media.api import MediaAsset
-from app.domains.media.api import EXTRACTABLE_KINDS, update_media_extracted_text
+from app.domains.media.api import EXTRACTABLE_KINDS, MediaAsset, update_media_extracted_text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backfill_extracted_text")
@@ -21,11 +21,7 @@ logger = logging.getLogger("backfill_extracted_text")
 def main() -> None:
     db = SessionLocal()
     try:
-        rows = (
-            db.query(MediaAsset.id)
-            .filter(MediaAsset.kind.in_(EXTRACTABLE_KINDS))
-            .all()
-        )
+        rows = db.query(MediaAsset.id).filter(MediaAsset.kind.in_(EXTRACTABLE_KINDS)).all()
         asset_ids = [r[0] for r in rows]
     finally:
         db.close()

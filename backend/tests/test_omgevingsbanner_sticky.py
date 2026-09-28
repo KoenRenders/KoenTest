@@ -10,22 +10,32 @@ De val die deze test afdekt: op PROD is er géén banner, dus daar moet de offse
 door scrolt. De opmaak zelf toetsen we niet — enkel dat de twee standen kloppen.
 """
 
-
-from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
 import pytest
-
 
 pytestmark = pytest.mark.ui_serverrendered
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 
-BASIS = dict(nav_pages=[], sponsors=[], gebruiker=None, footer_block=None,
-             current_year=2026, chat_enabled=False, canonical_url=None,
-             base_url="", site_name="Raak Voorbeeld", site_tagline="", site_header_color=None,
-             facebook_url=None, instagram_url=None, tiktok_url=None,
-             actief="dashboard", admin_nav=[])
+BASIS = dict(
+    nav_pages=[],
+    sponsors=[],
+    gebruiker=None,
+    footer_block=None,
+    current_year=2026,
+    chat_enabled=False,
+    canonical_url=None,
+    base_url="",
+    site_name="Raak Voorbeeld",
+    site_tagline="",
+    site_header_color=None,
+    facebook_url=None,
+    instagram_url=None,
+    tiktok_url=None,
+    actief="dashboard",
+    admin_nav=[],
+)
 
 
 def _render(schil: str, omgeving: str) -> str:
@@ -41,10 +51,13 @@ def _render(schil: str, omgeving: str) -> str:
 # Let op de z-index in de site_base-waarden: de banner draagt zelf `sticky top-0`,
 # dus "staat top-0 in de HTML?" zegt niets. We toetsen op de klasse van het element
 # eronder — de header is z-40, de banner z-50.
-@pytest.mark.parametrize("schil,sticky_aan,sticky_uit", [
-    ("site_base.html", 'sticky top-6 z-40', 'sticky top-0 z-40'),
-    ("admin_base.html", 'md:top-6 md:h-[calc(100vh-1.5rem)]', 'md:top-0 md:h-screen'),
-])
+@pytest.mark.parametrize(
+    "schil,sticky_aan,sticky_uit",
+    [
+        ("site_base.html", "sticky top-6 z-40", "sticky top-0 z-40"),
+        ("admin_base.html", "md:top-6 md:h-[calc(100vh-1.5rem)]", "md:top-0 md:h-screen"),
+    ],
+)
 def test_banner_op_hdev_duwt_het_sticky_element_omlaag(schil, sticky_aan, sticky_uit):
     html = _render(schil, "hdev")
     assert "testomgeving (geen productie)" in html
@@ -53,10 +66,13 @@ def test_banner_op_hdev_duwt_het_sticky_element_omlaag(schil, sticky_aan, sticky
     assert sticky_uit not in html
 
 
-@pytest.mark.parametrize("schil,sticky_uit", [
-    ("site_base.html", 'sticky top-0 z-40'),
-    ("admin_base.html", 'md:top-0 md:h-screen'),
-])
+@pytest.mark.parametrize(
+    "schil,sticky_uit",
+    [
+        ("site_base.html", "sticky top-0 z-40"),
+        ("admin_base.html", "md:top-0 md:h-screen"),
+    ],
+)
 def test_op_prod_geen_banner_en_dus_geen_offset(schil, sticky_uit):
     """Zonder deze regel krijgt productie een gat van 24px onder de header."""
     html = _render(schil, "prod")

@@ -23,6 +23,7 @@ Counter-proofs actually run, not reasoned:
 * pointed `_form_ctx` back at `component.products` → the form test fails;
 * dropped the `is_active` filter out of `publicly_bookable_products` → both fail.
 """
+
 from __future__ import annotations
 
 import zipfile
@@ -45,8 +46,7 @@ def _login(client) -> str:
 
 
 def _public_form(client, activity, component) -> str:
-    respons = client.get(
-        f"/activiteiten/{activity.id}/inschrijven/{component.id}")
+    respons = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}")
     assert respons.status_code == 200
     return respons.text
 
@@ -70,18 +70,23 @@ def _seed_registration(db, activity, component, product, quantity: int):
     the subject."""
     from app.domains.activities.api import Registration, RegistrationItem
 
-    reg = Registration(activity_id=activity.id, component_id=component.id,
-                       registration_type="INDIVIDUAL", contact_name="Deelnemer",
-                       contact_email="deelnemer@example.com", phone="0470000000")
+    reg = Registration(
+        activity_id=activity.id,
+        component_id=component.id,
+        registration_type="INDIVIDUAL",
+        contact_name="Deelnemer",
+        contact_email="deelnemer@example.com",
+        phone="0470000000",
+    )
     db.add(reg)
     db.flush()
-    db.add(RegistrationItem(registration_id=reg.id, product_id=product.id,
-                            quantity=quantity))
+    db.add(RegistrationItem(registration_id=reg.id, product_id=product.id, quantity=quantity))
     db.commit()
     return reg
 
 
 # ── The public side ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.ui_serverrendered
 def test_an_inactive_product_is_absent_from_the_public_form(client, db_session):
@@ -91,22 +96,22 @@ def test_an_inactive_product_is_absent_from_the_public_form(client, db_session):
     proves something once the probe has found the thing it looks for. Without that
     line a renamed input id would make this test pass forever.
     """
-    activity, component, product = seed_activity_with_product(
-        db_session, price="10.00")
+    activity, component, product = seed_activity_with_product(db_session, price="10.00")
 
     html = _public_form(client, activity, component)
     assert f'id="product-{product.id}"' in html, (
         "het aantalveld staat er niet terwijl het product actief is — de "
-        "zoekopdracht van deze test klopt niet")
+        "zoekopdracht van deze test klopt niet"
+    )
 
     product.is_active = False
     db_session.commit()
 
     html = _public_form(client, activity, component)
     assert f'id="product-{product.id}"' not in html, (
-        "een inactief product staat nog op het publieke formulier")
-    assert PRODUCT_NAME not in html, (
-        "de naam van het inactieve product staat nog op het formulier")
+        "een inactief product staat nog op het publieke formulier"
+    )
+    assert PRODUCT_NAME not in html, "de naam van het inactieve product staat nog op het formulier"
 
 
 @pytest.mark.ui_agnostisch
@@ -125,8 +130,7 @@ def test_a_direct_post_on_an_inactive_product_is_refused(client, db_session):
     """
     from app.domains.activities.api import Registration
 
-    activity, component, product = seed_activity_with_product(
-        db_session, price="10.00")
+    activity, component, product = seed_activity_with_product(db_session, price="10.00")
     product.is_active = False
     db_session.commit()
 
@@ -135,12 +139,14 @@ def test_a_direct_post_on_an_inactive_product_is_refused(client, db_session):
     respons = client.post(f"/api/v1/activities/{activity.id}/register", json=body)
 
     assert respons.status_code == 400, (
-        f"een rechtstreekse POST op een inactief product gaf {respons.status_code}")
+        f"een rechtstreekse POST op een inactief product gaf {respons.status_code}"
+    )
     assert "niet beschikbaar" in respons.json()["detail"], (
-        f"de melding legt niet uit waarom: {respons.json()['detail']!r}")
-    assert db_session.query(Registration).filter(
-        Registration.activity_id == activity.id).count() == 0, (
-        "de inschrijving is toch bewaard")
+        f"de melding legt niet uit waarom: {respons.json()['detail']!r}"
+    )
+    assert (
+        db_session.query(Registration).filter(Registration.activity_id == activity.id).count() == 0
+    ), "de inschrijving is toch bewaard"
 
 
 @pytest.mark.ui_agnostisch
@@ -150,18 +156,21 @@ def test_an_active_product_still_registers(client, db_session):
     from app.domains.activities.api import Registration
 
     activity, component, product = seed_activity_with_product(
-        db_session, price="0.00", is_free=True)
+        db_session, price="0.00", is_free=True
+    )
 
     body = _registration_body(product.id)
     body["component_id"] = component.id
     respons = client.post(f"/api/v1/activities/{activity.id}/register", json=body)
 
     assert respons.status_code in (200, 201), respons.text
-    assert db_session.query(Registration).filter(
-        Registration.activity_id == activity.id).count() == 1
+    assert (
+        db_session.query(Registration).filter(Registration.activity_id == activity.id).count() == 1
+    )
 
 
 # ── The back office ──────────────────────────────────────────────────────────
+
 
 @pytest.mark.ui_serverrendered
 def test_the_back_office_can_still_book_an_inactive_product(client, db_session):
@@ -174,33 +183,41 @@ def test_the_back_office_can_still_book_an_inactive_product(client, db_session):
     """
     from app.domains.activities.api import Registration, RegistrationItem
 
-    activity, component, product = seed_activity_with_product(
-        db_session, price="10.00")
+    activity, component, product = seed_activity_with_product(db_session, price="10.00")
     product.is_active = False
     db_session.commit()
-    reg = Registration(activity_id=activity.id, component_id=component.id,
-                       registration_type="INDIVIDUAL", contact_name="Gastenlijst",
-                       contact_email="bestuur@example.com", phone="0470000000")
+    reg = Registration(
+        activity_id=activity.id,
+        component_id=component.id,
+        registration_type="INDIVIDUAL",
+        contact_name="Gastenlijst",
+        contact_email="bestuur@example.com",
+        phone="0470000000",
+    )
     db_session.add(reg)
     db_session.commit()
 
     csrf = _login(client)
-    respons = client.post(f"/admin/inschrijvingen/{reg.id}/regels",
-                          data={"product_id": str(product.id), "quantity": "8"},
-                          headers={"X-CSRF-Token": csrf})
+    respons = client.post(
+        f"/admin/inschrijvingen/{reg.id}/regels",
+        data={"product_id": str(product.id), "quantity": "8"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert respons.status_code == 200, respons.text
-    regels = db_session.query(RegistrationItem).filter(
-        RegistrationItem.registration_id == reg.id).all()
+    regels = (
+        db_session.query(RegistrationItem).filter(RegistrationItem.registration_id == reg.id).all()
+    )
     assert [r.quantity for r in regels] == [8], (
-        "het bestuur kon geen regel op een inactief product zetten")
+        "het bestuur kon geen regel op een inactief product zetten"
+    )
 
 
 # ── Why the flag exists instead of a delete ──────────────────────────────────
 
+
 @pytest.mark.ui_serverrendered
-def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
-        client, db_session):
+def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(client, db_session):
     """Test 4 of the issue, with its counter-proof inside the test.
 
     Three things must survive a deactivation: the product name on the
@@ -224,16 +241,17 @@ def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
     The .ods is a zip; its `content.xml` carries the header row and the cell
     values, which is where both the column and the quantity are visible.
     """
-    from app.domains.activities.api import (Activity, ActivityProduct,
-                                            ActivitySubRegistration,
-                                            build_component_export_ods)
+    from app.domains.activities.api import (
+        Activity,
+        ActivityProduct,
+        ActivitySubRegistration,
+        build_component_export_ods,
+    )
     from app.soft_delete import soft_delete
 
-    activity, component, product = seed_activity_with_product(
-        db_session, price="10.00")
+    activity, component, product = seed_activity_with_product(db_session, price="10.00")
     reg = _seed_registration(db_session, activity, component, product, quantity=8)
-    activity_id, component_id, product_id, reg_id = (
-        activity.id, component.id, product.id, reg.id)
+    activity_id, component_id, product_id, reg_id = (activity.id, component.id, product.id, reg.id)
 
     def _detail_html() -> str:
         respons = client.get(f"/admin/inschrijvingen/{reg_id}")
@@ -244,7 +262,8 @@ def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
         ods = build_component_export_ods(
             db_session,
             db_session.get(Activity, activity_id),
-            db_session.get(ActivitySubRegistration, component_id))
+            db_session.get(ActivitySubRegistration, component_id),
+        )
         with zipfile.ZipFile(BytesIO(ods)) as zf:
             return zf.read("content.xml").decode()
 
@@ -255,8 +274,7 @@ def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
     db_session.commit()
 
     detail = _detail_html()
-    assert PRODUCT_NAME in detail, (
-        "het inschrijvingsdetail toont de productnaam niet meer")
+    assert PRODUCT_NAME in detail, "het inschrijvingsdetail toont de productnaam niet meer"
 
     lijst = _doorlist()
     assert PRODUCT_NAME in lijst, "de deurlijst verloor haar kolom"
@@ -271,7 +289,8 @@ def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
     detail = _detail_html()
     assert PRODUCT_NAME not in detail, (
         "een VERWIJDERD product zou zijn naam uit het detail moeten verliezen — "
-        "klopt die aanname niet meer, dan bewijst deze test niets over de vlag")
+        "klopt die aanname niet meer, dan bewijst deze test niets over de vlag"
+    )
 
     lijst = _doorlist()
     assert PRODUCT_NAME not in lijst, "de kolom overleefde het verwijderen"
@@ -280,6 +299,7 @@ def test_deactivating_keeps_a_booking_whole_where_deleting_breaks_it(
 
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.ui_agnostisch
 def test_a_new_product_is_active_and_an_existing_row_comes_along(db_session):
@@ -290,16 +310,18 @@ def test_a_new_product_is_active_and_an_existing_row_comes_along(db_session):
     insert through the ORM would fill the Python default in and prove nothing
     about the rows that already existed on PROD when the column arrived.
     """
-    _activity, component, product = seed_activity_with_product(
-        db_session, price="10.00")
+    _activity, component, product = seed_activity_with_product(db_session, price="10.00")
     assert product.is_active is True, "een nieuw product staat niet op actief"
 
-    rij = db_session.execute(sa.text(
-        "INSERT INTO activities.activity_products "
-        "(component_id, name, price, is_free, sort_order, tenant_id) "
-        "VALUES (:c, :n, :p, false, 0, :t) RETURNING is_active"),
-        {"c": component.id, "n": "Zonder vlag", "p": Decimal("5.00"),
-         "t": component.tenant_id}).scalar()
+    rij = db_session.execute(
+        sa.text(
+            "INSERT INTO activities.activity_products "
+            "(component_id, name, price, is_free, sort_order, tenant_id) "
+            "VALUES (:c, :n, :p, false, 0, :t) RETURNING is_active"
+        ),
+        {"c": component.id, "n": "Zonder vlag", "p": Decimal("5.00"), "t": component.tenant_id},
+    ).scalar()
     assert rij is True, (
         "een rij die de kolom niet meegeeft komt niet op actief terug — de "
-        "server_default uit de migratie ontbreekt")
+        "server_default uit de migratie ontbreekt"
+    )

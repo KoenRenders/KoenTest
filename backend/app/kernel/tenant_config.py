@@ -16,6 +16,7 @@ Bekende sleutels:
                        worden enkel gelogd, nooit echt verstuurd)
 - ``noindex``        — "1" = robots-noindex voor deze tenant (demo)
 """
+
 from __future__ import annotations
 
 import base64
@@ -25,14 +26,13 @@ import re
 from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
-from sqlalchemy import (Column, DateTime, Integer, String, Text,
-                        UniqueConstraint, text)
+from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Session
-
-logger = logging.getLogger(__name__)
 
 from app.database import Base
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map
+
+logger = logging.getLogger(__name__)
 
 
 class TenantSetting(Base):
@@ -48,9 +48,12 @@ class TenantSetting(Base):
     key = Column(String(100), nullable=False)
     value = Column(Text, nullable=True)
     value_encrypted = Column(Text, nullable=True)
-    updated_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 def _fernet() -> Fernet:
@@ -66,11 +69,14 @@ def _actieve_tenant(tenant_id: int | None) -> int:
     return tenant_id or current_tenant_id.get() or DEFAULT_TENANT_ID
 
 
-def get_setting(db: Session, key: str, default: str | None = None,
-                tenant_id: int | None = None) -> str | None:
-    row = (db.query(TenantSetting)
-           .filter(TenantSetting.tenant_id == _actieve_tenant(tenant_id),
-                   TenantSetting.key == key).first())
+def get_setting(
+    db: Session, key: str, default: str | None = None, tenant_id: int | None = None
+) -> str | None:
+    row = (
+        db.query(TenantSetting)
+        .filter(TenantSetting.tenant_id == _actieve_tenant(tenant_id), TenantSetting.key == key)
+        .first()
+    )
     if row is None:
         return default
     if row.value_encrypted is not None:
@@ -78,11 +84,15 @@ def get_setting(db: Session, key: str, default: str | None = None,
     return row.value if row.value is not None else default
 
 
-def set_setting(db: Session, key: str, value: str | None, *, secret: bool = False,
-                tenant_id: int | None = None) -> None:
+def set_setting(
+    db: Session, key: str, value: str | None, *, secret: bool = False, tenant_id: int | None = None
+) -> None:
     tenant = _actieve_tenant(tenant_id)
-    row = (db.query(TenantSetting)
-           .filter(TenantSetting.tenant_id == tenant, TenantSetting.key == key).first())
+    row = (
+        db.query(TenantSetting)
+        .filter(TenantSetting.tenant_id == tenant, TenantSetting.key == key)
+        .first()
+    )
     if row is None:
         row = TenantSetting(tenant_id=tenant, key=key)
         db.add(row)
@@ -98,6 +108,7 @@ def set_setting(db: Session, key: str, value: str | None, *, secret: bool = Fals
 
 
 # ── Afgeleide helpers (met .env als default) ───────────────────────────────────
+
 
 def _origin_serves_this_environment(url: str) -> bool:
     """Wijst deze ``base_url`` naar een host die déze omgeving werkelijk bedient?
@@ -131,8 +142,7 @@ def _origin_serves_this_environment(url: str) -> bool:
     return host in {h.lower().removeprefix("www.") for h in known if h}
 
 
-def tenant_base_url(db: Session, tenant_id: int | None = None, *,
-                    code: str | None = None) -> str:
+def tenant_base_url(db: Session, tenant_id: int | None = None, *, code: str | None = None) -> str:
     """Canonieke publieke origin van een tenant, voor absolute URL's in mails,
     Mollie-redirects en SEO.
 
@@ -164,8 +174,12 @@ def tenant_base_url(db: Session, tenant_id: int | None = None, *,
     afdeling); zonder wordt de code van de actieve tenant gebruikt.
     """
     from app.config import settings
-    from app.kernel.tenancy import (current_origin, current_platform_host,
-                                    current_tenant_code, current_tenant_id)
+    from app.kernel.tenancy import (
+        current_origin,
+        current_platform_host,
+        current_tenant_code,
+        current_tenant_id,
+    )
 
     stored = (get_setting(db, "base_url", tenant_id=tenant_id) or "").strip()
     if stored and _origin_serves_this_environment(stored):
@@ -227,13 +241,11 @@ def _origin_voor(host: str) -> str:
     """
     from app.config import settings
 
-    schema = (settings.frontend_url.split("://", 1)[0]
-              if "://" in settings.frontend_url else "https")
+    schema = settings.frontend_url.split("://", 1)[0] if "://" in settings.frontend_url else "https"
     return f"{schema}://{host}{_omgevingspoort(schema)}"
 
 
-def tenant_home_url(db: Session, tenant_id: int | None = None, *,
-                    code: str | None = None) -> str:
+def tenant_home_url(db: Session, tenant_id: int | None = None, *, code: str | None = None) -> str:
     """Waar WOONT deze tenant — haar eigen canonieke adres (#860).
 
     Dit is een andere vraag dan die van ``tenant_base_url``, en ze hebben een ander
@@ -296,10 +308,10 @@ def _organisatie(db: Session, tenant_id: int | None = None):
     een wijziging aan het model hier zichtbaar breekt in plaats van stil iets
     anders te leveren.
     """
-    return db.execute(text(
-        "SELECT name FROM mdm.organizations "
-        "WHERE id = :id AND deleted_at IS NULL"),
-        {"id": _actieve_tenant(tenant_id)}).first()
+    return db.execute(
+        text("SELECT name FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        {"id": _actieve_tenant(tenant_id)},
+    ).first()
 
 
 def _eerste_rekening(db: Session, tenant_id: int | None = None):
@@ -309,11 +321,14 @@ def _eerste_rekening(db: Session, tenant_id: int | None = None):
     is het hele punt van de eigen tabel. Ook hier met SQL en een uitgeschreven
     kolomlijst, om dezelfde reden als `_organisatie` hierboven.
     """
-    return db.execute(text(
-        "SELECT iban, bic, beneficiary FROM mdm.bank_accounts "
-        "WHERE organization_id = :id AND deleted_at IS NULL "
-        "ORDER BY sort_order, id LIMIT 1"),
-        {"id": _actieve_tenant(tenant_id)}).first()
+    return db.execute(
+        text(
+            "SELECT iban, bic, beneficiary FROM mdm.bank_accounts "
+            "WHERE organization_id = :id AND deleted_at IS NULL "
+            "ORDER BY sort_order, id LIMIT 1"
+        ),
+        {"id": _actieve_tenant(tenant_id)},
+    ).first()
 
 
 def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
@@ -363,8 +378,10 @@ NEWSLETTER_DAILY_CAP_DEFAULT = 300
 
 def tenant_newsletter_daily_cap(db: Session, tenant_id: int | None = None) -> int:
     """Hoeveel nieuwsbriefmails er per 24 uur vertrekken (#984)."""
-    return max(1, _int_setting(db, "newsletter_daily_cap", NEWSLETTER_DAILY_CAP_DEFAULT,
-                               tenant_id=tenant_id))
+    return max(
+        1,
+        _int_setting(db, "newsletter_daily_cap", NEWSLETTER_DAILY_CAP_DEFAULT, tenant_id=tenant_id),
+    )
 
 
 def tenant_newsletter_house_style(db: Session, tenant_id: int | None = None) -> str:
@@ -410,8 +427,7 @@ def tenant_language(db: Session, tenant_id: int | None = None) -> str:
     return get_setting(db, "language", tenant_id=tenant_id) or "nl_BE"
 
 
-def _int_setting(db: Session, key: str, fallback: int,
-                 tenant_id: int | None = None) -> int:
+def _int_setting(db: Session, key: str, fallback: int, tenant_id: int | None = None) -> int:
     value = get_setting(db, key, tenant_id=tenant_id)
     if not value:
         return fallback
@@ -424,19 +440,22 @@ def _int_setting(db: Session, key: str, fallback: int,
 # ── Per-tenant e-mail-, betaal-, limiet- en analytics-config (#451). DB-sleutel
 #    wint, de .env-setting blijft de fallback (net als tenant_mollie_key). ──────
 
+
 def tenant_gmail_user(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
+
     return get_setting(db, "gmail_user", tenant_id=tenant_id) or settings.gmail_user
 
 
 def tenant_gmail_app_password(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
-    return (get_setting(db, "gmail_app_password", tenant_id=tenant_id)
-            or settings.gmail_app_password)
+
+    return get_setting(db, "gmail_app_password", tenant_id=tenant_id) or settings.gmail_app_password
 
 
 def tenant_gmail_from(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
+
     return get_setting(db, "gmail_from", tenant_id=tenant_id) or settings.gmail_from
 
 
@@ -456,8 +475,7 @@ def tenant_payment_iban(db: Session, tenant_id: int | None = None) -> str | None
     from app.config import settings
 
     rekening = _eerste_rekening(db, tenant_id)
-    return (rekening.iban if rekening and rekening.iban
-            else settings.payment_iban)
+    return rekening.iban if rekening and rekening.iban else settings.payment_iban
 
 
 def tenant_payment_beneficiary(db: Session, tenant_id: int | None = None) -> str | None:
@@ -465,36 +483,41 @@ def tenant_payment_beneficiary(db: Session, tenant_id: int | None = None) -> str
     from app.config import settings
 
     rekening = _eerste_rekening(db, tenant_id)
-    return (rekening.beneficiary
-            if rekening and rekening.beneficiary
-            else settings.payment_beneficiary)
+    return (
+        rekening.beneficiary if rekening and rekening.beneficiary else settings.payment_beneficiary
+    )
 
 
 def tenant_payment_term_days(db: Session, tenant_id: int | None = None) -> int:
     from app.config import settings
+
     return _int_setting(db, "payment_term_days", settings.payment_term_days, tenant_id)
 
 
 def tenant_max_item_quantity(db: Session, tenant_id: int | None = None) -> int:
     from app.config import settings
+
     return _int_setting(db, "max_item_quantity", settings.max_item_quantity, tenant_id)
 
 
 def tenant_max_registrations_per_email(db: Session, tenant_id: int | None = None) -> int:
     from app.config import settings
-    return _int_setting(db, "max_registrations_per_email",
-                        settings.max_registrations_per_email, tenant_id)
+
+    return _int_setting(
+        db, "max_registrations_per_email", settings.max_registrations_per_email, tenant_id
+    )
 
 
 def tenant_umami_src(db: Session, tenant_id: int | None = None) -> str:
     from app.config import settings
+
     return get_setting(db, "umami_src", tenant_id=tenant_id) or settings.umami_src
 
 
 def tenant_umami_website_id(db: Session, tenant_id: int | None = None) -> str:
     from app.config import settings
-    return (get_setting(db, "umami_website_id", tenant_id=tenant_id)
-            or settings.umami_website_id)
+
+    return get_setting(db, "umami_website_id", tenant_id=tenant_id) or settings.umami_website_id
 
 
 # ── The public header colour (#992) ─────────────────────────────────────────
@@ -513,11 +536,12 @@ MIN_CONTRAST_WITH_WHITE = 4.5
 
 def contrast_with_white(hex_color: str) -> float:
     """The WCAG contrast ratio of `#rrggbb` against white text."""
+
     def kanaal(c: int) -> float:
         v = c / 255
         return v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4
 
-    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    r, g, b = (int(hex_color[i : i + 2], 16) for i in (1, 3, 5))
     luminantie = 0.2126 * kanaal(r) + 0.7152 * kanaal(g) + 0.0722 * kanaal(b)
     return 1.05 / (luminantie + 0.05)
 
@@ -534,7 +558,8 @@ def header_color_problem(value: str) -> str | None:
     verhouding = contrast_with_white(value)
     if verhouding < MIN_CONTRAST_WITH_WHITE:
         return _("te licht voor witte tekst: contrast %(v)s:1, minstens 4,5:1 nodig.") % {
-            "v": f"{verhouding:.2f}".replace(".", ",")}
+            "v": f"{verhouding:.2f}".replace(".", ",")
+        }
     return None
 
 
@@ -571,8 +596,7 @@ def umami_tracking(db: Session, tenant_id: int | None = None) -> tuple[str, str]
     return src, website_id
 
 
-def tenant_membership_config(db: Session | None = None,
-                             tenant_id: int | None = None) -> dict:
+def tenant_membership_config(db: Session | None = None, tenant_id: int | None = None) -> dict:
     """Lidmaatschapsprijzen en -datumgrenzen van de actieve tenant (branding-
     slice #407): DB-sleutels winnen, de .env-settings blijven de default.
     Zonder meegegeven sessie wordt een eigen SessionLocal geopend, zodat ook
@@ -587,6 +611,7 @@ def tenant_membership_config(db: Session | None = None,
 
         db = SessionLocal()
     try:
+
         def _s(key: str, default):
             waarde = get_setting(db, key, tenant_id=tenant_id)
             return waarde if waarde is not None else default
@@ -611,17 +636,28 @@ def tenant_membership_config(db: Session | None = None,
                 return Decimal(str(ruw))
             except InvalidOperation:
                 logger.warning(
-                    "Tenant-instelling %r is geen bedrag (%r); terug op de "
-                    "omgevingswaarde %r.", key, ruw, default)
+                    "Tenant-instelling %r is geen bedrag (%r); terug op de omgevingswaarde %r.",
+                    key,
+                    ruw,
+                    default,
+                )
                 return Decimal(str(default))
 
         return {
             "price_full": _bedrag("membership_price_full", settings.membership_price_full),
             "price_half": _bedrag("membership_price_half", settings.membership_price_half),
-            "half_start_md": _s("membership_half_price_start_md", settings.membership_half_price_start_md),
-            "half_end_md": _s("membership_half_price_end_md", settings.membership_half_price_end_md),
-            "next_year_from_md": _s("membership_next_year_from_md", settings.membership_next_year_from_md),
-            "renewal_start_md": _s("membership_renewal_start_md", settings.membership_renewal_start_md),
+            "half_start_md": _s(
+                "membership_half_price_start_md", settings.membership_half_price_start_md
+            ),
+            "half_end_md": _s(
+                "membership_half_price_end_md", settings.membership_half_price_end_md
+            ),
+            "next_year_from_md": _s(
+                "membership_next_year_from_md", settings.membership_next_year_from_md
+            ),
+            "renewal_start_md": _s(
+                "membership_renewal_start_md", settings.membership_renewal_start_md
+            ),
         }
     finally:
         if eigen_sessie and db is not None:

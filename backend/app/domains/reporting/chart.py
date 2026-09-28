@@ -16,6 +16,7 @@ polylines from values and a stated domain; deciding *what* the domain is — whe
 zero sits, how far the axis reaches, which ticks are round — is a rule, and a rule
 in a template is a rule in two places (design-system §8.3).
 """
+
 from __future__ import annotations
 
 import math
@@ -24,8 +25,8 @@ from decimal import Decimal
 from typing import Any
 
 from app.domains.reporting.engine import SelectionError
-from app.domains.reporting.universe import Format
 from app.domains.reporting.pivot import Pivot
+from app.domains.reporting.universe import Format
 
 CHART_LAYOUTS = ("bar", "line", "stacked")
 
@@ -38,9 +39,14 @@ CHART_LAYOUTS = ("bar", "line", "stacked")
 # come last — they mean something in this kit, and a bar that is red for no reason
 # reads as a problem.
 SERIES_COLORS = (
-    "var(--brand-ocean)", "var(--brand-teal)", "var(--brand-indigo)",
-    "var(--brand-green)", "var(--brand-pink)", "var(--brand-accent)",
-    "var(--brand-warning)", "var(--brand-danger)",
+    "var(--brand-ocean)",
+    "var(--brand-teal)",
+    "var(--brand-indigo)",
+    "var(--brand-green)",
+    "var(--brand-pink)",
+    "var(--brand-accent)",
+    "var(--brand-warning)",
+    "var(--brand-danger)",
 )
 
 
@@ -74,8 +80,7 @@ class Chart:
             # `points` and not `values`: on a dict Jinja resolves an attribute
             # before an item, so `series.values` would hand the template the
             # built-in `dict.values` method instead of the numbers.
-            "series": [{"name": s.name, "points": s.values, "color": s.color}
-                       for s in self.series],
+            "series": [{"name": s.name, "points": s.values, "color": s.color} for s in self.series],
             "y_min": self.y_min,
             "y_max": self.y_max,
             "y_ticks": self.y_ticks,
@@ -145,28 +150,33 @@ def build_chart(pivot: Pivot, kind: str, *, title: str = "") -> Chart:
     if kind == "stacked":
         if not pivot.column_values:
             raise SelectionError(
-                "Een gestapelde staaf heeft een kolomdimensie nodig: kies er een "
-                "voor de stapeling.")
+                "Een gestapelde staaf heeft een kolomdimensie nodig: kies er een voor de stapeling."
+            )
         maat = pivot.measures[0]
         reeksen = [
-            Series(name=str(waarde),
-                   values=[_number(r.cells.get(waarde, {}).get(maat.key))
-                           for r in rijen],
-                   color=SERIES_COLORS[index % len(SERIES_COLORS)])
+            Series(
+                name=str(waarde),
+                values=[_number(r.cells.get(waarde, {}).get(maat.key)) for r in rijen],
+                color=SERIES_COLORS[index % len(SERIES_COLORS)],
+            )
             for index, waarde in enumerate(pivot.column_values)
         ]
         # A stack is as tall as its parts together, so the axis has to reach the
         # sum and not the tallest part.
-        stapels = [sum(v or 0.0 for v in kolom)
-                   for kolom in zip(*[s.values for s in reeksen])] if reeksen else []
+        stapels = (
+            [sum(v or 0.0 for v in kolom) for kolom in zip(*[s.values for s in reeksen])]
+            if reeksen
+            else []
+        )
         y_min, y_max, ticks = _domain([float(v) for v in stapels])
-        beschrijving = (f"{maat.name} per "
-                        f"{pivot.column_column.name if pivot.column_column else ''}")
+        beschrijving = f"{maat.name} per {pivot.column_column.name if pivot.column_column else ''}"
     else:
         reeksen = [
-            Series(name=maat.name,
-                   values=[_number(r.total.get(maat.key)) for r in rijen],
-                   color=SERIES_COLORS[index % len(SERIES_COLORS)])
+            Series(
+                name=maat.name,
+                values=[_number(r.total.get(maat.key)) for r in rijen],
+                color=SERIES_COLORS[index % len(SERIES_COLORS)],
+            )
             for index, maat in enumerate(pivot.measures)
         ]
         alle = [v for s in reeksen for v in s.values if v is not None]
@@ -184,8 +194,11 @@ def build_chart(pivot: Pivot, kind: str, *, title: str = "") -> Chart:
         y_ticks=ticks,
         money=geld,
         description=f"{beschrijving}, per {as_naam}."
-                    + (f" Gestapeld per {pivot.column_column.name}."
-                       if kind == "stacked" and pivot.column_column else ""),
+        + (
+            f" Gestapeld per {pivot.column_column.name}."
+            if kind == "stacked" and pivot.column_column
+            else ""
+        ),
     )
 
 

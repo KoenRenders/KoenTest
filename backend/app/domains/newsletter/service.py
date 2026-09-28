@@ -4,6 +4,7 @@ Everything deterministic lives here. Raakje's drafting is a separate module
 (``drafting.py``) that only ever proposes text; it never reaches the functions
 that pick recipients or send.
 """
+
 from __future__ import annotations
 
 import html as html_lib
@@ -17,16 +18,13 @@ from typing import Optional
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.i18n import _
-from app.kernel.codes import code_of
-
 from app.domains.newsletter.models import (
+    ERASED_ADDRESS,
     Audience,
     Delivery,
     DeliveryKind,
     DeliveryStatus,
     DraftingMessage,
-    ERASED_ADDRESS,
     LetterStatus,
     Newsletter,
     ReplyToMode,
@@ -34,6 +32,8 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from app.i18n import _
+from app.kernel.codes import code_of
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +80,7 @@ def normalize_email(raw: Optional[str]) -> Optional[str]:
 
 # ── Subscribers ──────────────────────────────────────────────────────────────
 
+
 def get_subscriber(db: Session, subscriber_id: int) -> Optional[Subscriber]:
     return db.get(Subscriber, subscriber_id)
 
@@ -106,8 +107,7 @@ def subscriber_counts(db: Session) -> dict[str, int]:
     A screen that has to supply an enum member as a dictionary key is a screen
     that knows the vocabulary — and that is exactly what this CR takes away.
     """
-    rows = db.query(Subscriber.status, func.count(Subscriber.id)).group_by(
-        Subscriber.status)
+    rows = db.query(Subscriber.status, func.count(Subscriber.id)).group_by(Subscriber.status)
     counts = {status.value: 0 for status in SubscriberStatus}
     for status, amount in rows:
         counts[code_of(status) or ""] = amount
@@ -116,14 +116,15 @@ def subscriber_counts(db: Session) -> dict[str, int]:
 
 def _confirmations_sent_today(db: Session) -> int:
     since = _now() - timedelta(hours=24)
-    return (db.query(func.count(Subscriber.id))
-            .filter(Subscriber.confirm_sent_at.isnot(None),
-                    Subscriber.confirm_sent_at >= since)
-            .scalar() or 0)
+    return (
+        db.query(func.count(Subscriber.id))
+        .filter(Subscriber.confirm_sent_at.isnot(None), Subscriber.confirm_sent_at >= since)
+        .scalar()
+        or 0
+    )
 
 
-def subscribe_public(db: Session, raw_email: str, first_name: str,
-                     confirm_url_for) -> None:
+def subscribe_public(db: Session, raw_email: str, first_name: str, confirm_url_for) -> None:
     """The public form (CR-05 §3.5): store the request and send the confirmation.
 
     Always answers the same way, whatever the address's state, so the form
@@ -149,8 +150,13 @@ def subscribe_public(db: Session, raw_email: str, first_name: str,
     if subscriber is not None and subscriber.status == SubscriberStatus.CONFIRMED:
         return
     if subscriber is None:
-        subscriber = Subscriber(email=email, first_name=name, source=SubscriberSource.PUBLIC_FORM,
-                                status=SubscriberStatus.PENDING, unsubscribe_token=_token())
+        subscriber = Subscriber(
+            email=email,
+            first_name=name,
+            source=SubscriberSource.PUBLIC_FORM,
+            status=SubscriberStatus.PENDING,
+            unsubscribe_token=_token(),
+        )
         db.add(subscriber)
     elif subscriber.status == SubscriberStatus.UNSUBSCRIBED:
         subscriber.status = SubscriberStatus.PENDING
@@ -160,20 +166,26 @@ def subscribe_public(db: Session, raw_email: str, first_name: str,
         subscriber.first_name = name
     subscriber.consented_at = now
 
-    if (subscriber.confirm_sent_at is not None
-            and now - subscriber.confirm_sent_at < CONFIRMATION_INTERVAL):
+    if (
+        subscriber.confirm_sent_at is not None
+        and now - subscriber.confirm_sent_at < CONFIRMATION_INTERVAL
+    ):
         db.commit()
         return
     if _confirmations_sent_today(db) >= CONFIRMATIONS_PER_DAY:
-        logger.warning("Nieuwsbrief: dagelijks maximum aan bevestigingsmails bereikt; "
-                       "%s wacht op een volgende poging.", subscriber.id)
+        logger.warning(
+            "Nieuwsbrief: dagelijks maximum aan bevestigingsmails bereikt; "
+            "%s wacht op een volgende poging.",
+            subscriber.id,
+        )
         db.commit()
         return
     subscriber.confirm_token = _token()
     subscriber.confirm_sent_at = now
     db.commit()
-    send_newsletter_confirmation(email, subscriber.first_name,
-                                 confirm_url_for(subscriber.confirm_token))
+    send_newsletter_confirmation(
+        email, subscriber.first_name, confirm_url_for(subscriber.confirm_token)
+    )
 
 
 def subscriber_by_confirm_token(db: Session, token: str) -> Optional[Subscriber]:
@@ -215,7 +227,7 @@ def unsubscribe(db: Session, token: str) -> Optional[Subscriber]:
 
 
 def resubscribe(db: Session, token: str) -> Optional[Subscriber]:
-    """"Toch opnieuw inschrijven" on the unsubscribe page.
+    """ "Toch opnieuw inschrijven" on the unsubscribe page.
 
     The token came out of this person's own mailbox, so the click is the
     confirmation: no second mail.
@@ -243,14 +255,23 @@ def add_by_admin(db: Session, raw_email: str, first_name: str = "") -> Subscribe
     existing = subscriber_by_email(db, email)
     if existing is not None:
         if existing.status == SubscriberStatus.UNSUBSCRIBED:
-            raise NewsletterError(_("Dit adres heeft zich uitgeschreven. Het kan zich "
-                                    "alleen zelf opnieuw inschrijven."))
+            raise NewsletterError(
+                _(
+                    "Dit adres heeft zich uitgeschreven. Het kan zich "
+                    "alleen zelf opnieuw inschrijven."
+                )
+            )
         raise NewsletterError(_("Dit adres staat al op de lijst."))
     now = _now()
-    subscriber = Subscriber(email=email, first_name=(first_name or "").strip()[:100] or None,
-                            source=SubscriberSource.ADMIN, status=SubscriberStatus.CONFIRMED,
-                            consented_at=now, confirmed_at=now,
-                            unsubscribe_token=_token())
+    subscriber = Subscriber(
+        email=email,
+        first_name=(first_name or "").strip()[:100] or None,
+        source=SubscriberSource.ADMIN,
+        status=SubscriberStatus.CONFIRMED,
+        consented_at=now,
+        confirmed_at=now,
+        unsubscribe_token=_token(),
+    )
     db.add(subscriber)
     db.commit()
     return subscriber
@@ -275,8 +296,7 @@ def erase(db: Session, subscriber_id: int) -> None:
     subscriber = get_subscriber(db, subscriber_id)
     if subscriber is None:
         return
-    for delivery in (db.query(Delivery)
-                     .filter(Delivery.subscriber_id == subscriber.id).all()):
+    for delivery in db.query(Delivery).filter(Delivery.subscriber_id == subscriber.id).all():
         delivery.email = f"{ERASED_ADDRESS} {delivery.id}"
         delivery.subscriber_id = None
     db.delete(subscriber)
@@ -284,6 +304,7 @@ def erase(db: Session, subscriber_id: int) -> None:
 
 
 # ── Import ───────────────────────────────────────────────────────────────────
+
 
 @dataclass
 class ImportPreview:
@@ -332,14 +353,22 @@ def run_import(db: Session, text: str) -> ImportPreview:
     preview = preview_import(db, text)
     now = _now()
     for email in preview.new:
-        db.add(Subscriber(email=email, source=SubscriberSource.IMPORT,
-                          status=SubscriberStatus.CONFIRMED, imported_at=now,
-                          confirmed_at=now, unsubscribe_token=_token()))
+        db.add(
+            Subscriber(
+                email=email,
+                source=SubscriberSource.IMPORT,
+                status=SubscriberStatus.CONFIRMED,
+                imported_at=now,
+                confirmed_at=now,
+                unsubscribe_token=_token(),
+            )
+        )
     db.commit()
     return preview
 
 
 # ── Audiences ────────────────────────────────────────────────────────────────
+
 
 def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
     """Every address of every person in a household with a membership for the
@@ -352,9 +381,12 @@ def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
 
 
 def confirmed_subscribers(db: Session) -> list[Subscriber]:
-    return (db.query(Subscriber)
-            .filter(Subscriber.status == SubscriberStatus.CONFIRMED)
-            .order_by(Subscriber.email).all())
+    return (
+        db.query(Subscriber)
+        .filter(Subscriber.status == SubscriberStatus.CONFIRMED)
+        .order_by(Subscriber.email)
+        .all()
+    )
 
 
 @dataclass(frozen=True)
@@ -379,8 +411,10 @@ def recipients_for(db: Session, audience: Audience) -> list[Recipient]:
             out[email] = Recipient(email, DeliveryKind.MEMBER, None)
     if audience in (Audience.NON_MEMBERS, Audience.BOTH):
         for subscriber in confirmed_subscribers(db):
-            out.setdefault(subscriber.email,
-                           Recipient(subscriber.email, DeliveryKind.SUBSCRIBER, subscriber.id))
+            out.setdefault(
+                subscriber.email,
+                Recipient(subscriber.email, DeliveryKind.SUBSCRIBER, subscriber.id),
+            )
     return [out[email] for email in sorted(out)]
 
 
@@ -398,11 +432,13 @@ class AudienceCounts:
 def audience_counts(db: Session) -> AudienceCounts:
     members = set(member_addresses(db))
     subscribers = {s.email for s in confirmed_subscribers(db)}
-    return AudienceCounts(members=len(members), non_members=len(subscribers),
-                          both=len(members | subscribers))
+    return AudienceCounts(
+        members=len(members), non_members=len(subscribers), both=len(members | subscribers)
+    )
 
 
 # ── Letters ──────────────────────────────────────────────────────────────────
+
 
 def list_newsletters(db: Session, *, query: str = "") -> list[Newsletter]:
     q = db.query(Newsletter)
@@ -447,12 +483,17 @@ def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int
     from app.domains.meetings.api import sent_reports
 
     today = today or date.today()
-    previous = (db.query(Newsletter)
-                .filter(Newsletter.status != LetterStatus.DRAFT,
-                        Newsletter.send_started_at.isnot(None))
-                .order_by(Newsletter.send_started_at.desc()).first())
-    since = (previous.send_started_at.date() if previous is not None
-             else _months_later(today, -MONTHS_BACK_WITHOUT_LETTER))
+    previous = (
+        db.query(Newsletter)
+        .filter(Newsletter.status != LetterStatus.DRAFT, Newsletter.send_started_at.isnot(None))
+        .order_by(Newsletter.send_started_at.desc())
+        .first()
+    )
+    since = (
+        previous.send_started_at.date()
+        if previous is not None
+        else _months_later(today, -MONTHS_BACK_WITHOUT_LETTER)
+    )
     until = _months_later(today, MONTHS_AHEAD)
     past = [s.activity.id for s in activities_active_between(db, since, today)]
     coming = [s.activity.id for s in activities_from(db, today) if s.start <= until]
@@ -462,8 +503,13 @@ def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int
 
 def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
     activity_ids, meeting_ids = default_sources(db)
-    letter = Newsletter(created_by=created_by, subject="", body_html="",
-                        draft_activity_ids=activity_ids, draft_meeting_ids=meeting_ids)
+    letter = Newsletter(
+        created_by=created_by,
+        subject="",
+        body_html="",
+        draft_activity_ids=activity_ids,
+        draft_meeting_ids=meeting_ids,
+    )
     db.add(letter)
     db.commit()
     return letter
@@ -471,8 +517,9 @@ def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
 
 def _refuse_unless_draft(letter: Newsletter) -> None:
     if letter.status != LetterStatus.DRAFT:
-        raise NewsletterError(_("Deze nieuwsbrief is al verstuurd. Kopieer hem om "
-                                "een nieuwe te maken."))
+        raise NewsletterError(
+            _("Deze nieuwsbrief is al verstuurd. Kopieer hem om een nieuwe te maken.")
+        )
 
 
 def _clean_body(body_html: str) -> str:
@@ -481,8 +528,15 @@ def _clean_body(body_html: str) -> str:
     return sanitize_cms_html(body_html or "") or ""
 
 
-def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: str,
-                 audience: Optional[str], preview_text: Optional[str] = None) -> None:
+def update_draft(
+    db: Session,
+    letter: Newsletter,
+    *,
+    subject: str,
+    body_html: str,
+    audience: Optional[str],
+    preview_text: Optional[str] = None,
+) -> None:
     _refuse_unless_draft(letter)
     # Convert on the boundary: the form sends a code, the column carries the
     # member. `Audience(...)` rejects what is not in it, with the name of the
@@ -503,8 +557,9 @@ def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: st
     db.commit()
 
 
-def set_draft_sources(db: Session, letter: Newsletter, *, activity_ids: list[int],
-                      meeting_ids: list[int]) -> None:
+def set_draft_sources(
+    db: Session, letter: Newsletter, *, activity_ids: list[int], meeting_ids: list[int]
+) -> None:
     """What Raakje writes about: the chosen activities and ticked reports."""
     _refuse_unless_draft(letter)
     letter.draft_activity_ids = sorted({int(i) for i in activity_ids})
@@ -514,11 +569,16 @@ def set_draft_sources(db: Session, letter: Newsletter, *, activity_ids: list[int
 
 def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> Newsletter:
     """A new draft with the same subject and text — and no audience (CR-05 §3.12)."""
-    copy = Newsletter(subject=letter.subject, body_html=letter.body_html,
-                      preview_text=letter.preview_text,
-                      audience=None, created_by=created_by, copied_from_id=letter.id,
-                      draft_activity_ids=list(letter.draft_activity_ids or []),
-                      draft_meeting_ids=list(letter.draft_meeting_ids or []))
+    copy = Newsletter(
+        subject=letter.subject,
+        body_html=letter.body_html,
+        preview_text=letter.preview_text,
+        audience=None,
+        created_by=created_by,
+        copied_from_id=letter.id,
+        draft_activity_ids=list(letter.draft_activity_ids or []),
+        draft_meeting_ids=list(letter.draft_meeting_ids or []),
+    )
     db.add(copy)
     db.commit()
     return copy
@@ -535,12 +595,23 @@ def delete_draft(db: Session, letter: Newsletter) -> None:
 # ── Insert helpers ───────────────────────────────────────────────────────────
 
 _WEEKDAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"]
-_MONTHS = ["", "jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep",
-           "okt", "nov", "dec"]
-_LONG_WEEKDAYS = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag",
-                  "zaterdag", "zondag"]
-_LONG_MONTHS = ["", "januari", "februari", "maart", "april", "mei", "juni", "juli",
-                "augustus", "september", "oktober", "november", "december"]
+_MONTHS = ["", "jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+_LONG_WEEKDAYS = ["maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag", "zondag"]
+_LONG_MONTHS = [
+    "",
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+]
 
 
 def short_date(day: date) -> str:
@@ -630,14 +701,19 @@ def _pictures(db: Session, activity_ids: set[int]) -> dict[int, str]:
     return out
 
 
-def activity_facts(db: Session, activity_ids, *, base_url: str,
-                   today: Optional[date] = None) -> dict[int, ActivityFacts]:
+def activity_facts(
+    db: Session, activity_ids, *, base_url: str, today: Optional[date] = None
+) -> dict[int, ActivityFacts]:
     """The facts of these activities, from the activities domain.
 
     ``base_url`` makes the links absolute: they end up in a mail.
     """
-    from app.domains.activities.api import (Activity, RegistrationState, activities_from,
-                                            registration_state)
+    from app.domains.activities.api import (
+        Activity,
+        RegistrationState,
+        activities_from,
+        registration_state,
+    )
 
     wanted = {int(i) for i in (activity_ids or [])}
     if not wanted:
@@ -645,13 +721,16 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
     albums = _albums(db)
     pictures = _pictures(db, wanted)
     since = (today or date.today()) - timedelta(days=400)
-    spans = {span.activity.id: span for span in activities_from(db, since)
-             if span.activity.id in wanted}
+    spans = {
+        span.activity.id: span for span in activities_from(db, since) if span.activity.id in wanted
+    }
     out: dict[int, ActivityFacts] = {}
     for activity in db.query(Activity).filter(Activity.id.in_(wanted)).all():
         span = spans.get(activity.id)
-        dates = sorted(getattr(activity, "dates", []) or [],
-                       key=lambda d: (d.start_date, d.start_time or datetime.min.time()))
+        dates = sorted(
+            getattr(activity, "dates", []) or [],
+            key=lambda d: (d.start_date, d.start_time or datetime.min.time()),
+        )
         first = dates[0] if dates else None
         start = span.start if span else (first.start_date if first else None)
         if start is None:
@@ -664,28 +743,37 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
         # The same rules as the public card: register while it is open, and a
         # participant list for an internal registration or an external list.
         register_url = None
-        if components and not is_past and not is_full \
-                and registration_state(activity) is RegistrationState.OPEN:
+        if (
+            components
+            and not is_past
+            and not is_full
+            and registration_state(activity) is RegistrationState.OPEN
+        ):
             external = [c.external_register_url for c in components if c.external_register_url]
             register_url = external[0] if len(components) == 1 and external else page
         registrations_url = None
         if components and not is_past:
-            lists = [c.external_registrations_url for c in components
-                     if c.external_registrations_url]
-            internal = [c for c in components
-                        if not c.external_register_url and not c.external_registrations_url]
+            lists = [
+                c.external_registrations_url for c in components if c.external_registrations_url
+            ]
+            internal = [
+                c
+                for c in components
+                if not c.external_register_url and not c.external_registrations_url
+            ]
             if lists and len(components) == 1:
                 registrations_url = lists[0]
             elif internal or lists:
                 registrations_url = page
         out[activity.id] = ActivityFacts(
-            id=activity.id, name=activity.name, start=start,
+            id=activity.id,
+            name=activity.name,
+            start=start,
             end=span.end if span else start,
             start_time=first.start_time if first else None,
             location=activity.location or "",
             url=page,
-            photos_url=(f"{base_url}/activiteiten/{key}/fotos"
-                        if activity.id in albums else None),
+            photos_url=(f"{base_url}/activiteiten/{key}/fotos" if activity.id in albums else None),
             is_full=is_full,
             prices=_prices_of(activity),
             is_past=is_past,
@@ -695,13 +783,28 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
             register_url=register_url,
             registrations_url=registrations_url,
             description=(activity.description or "").strip(),
-            image_url=(f"{base_url}{pictures.get(activity.id)}"
-                       if pictures.get(activity.id) else None))
+            image_url=(
+                f"{base_url}{pictures.get(activity.id)}" if pictures.get(activity.id) else None
+            ),
+        )
     return out
 
 
-_MONTH_ONLY = ["", "januari", "februari", "maart", "april", "mei", "juni", "juli",
-               "augustus", "september", "oktober", "november", "december"]
+_MONTH_ONLY = [
+    "",
+    "januari",
+    "februari",
+    "maart",
+    "april",
+    "mei",
+    "juni",
+    "juli",
+    "augustus",
+    "september",
+    "oktober",
+    "november",
+    "december",
+]
 # From this many days on, a span reads as months ("juni-september") and not as
 # two dates — the photo hunt that runs all summer.
 LONG_SPAN_DAYS = 28
@@ -733,8 +836,10 @@ def when_text(facts: ActivityFacts) -> str:
                 text += "-" + _clock(facts.end_time)
         return text
     if (end - start).days == 1 and start.month == end.month:
-        return (f"{_LONG_WEEKDAYS[start.weekday()]} {start.day} en "
-                f"{_LONG_WEEKDAYS[end.weekday()]} {end.day} {_LONG_MONTHS[end.month]}")
+        return (
+            f"{_LONG_WEEKDAYS[start.weekday()]} {start.day} en "
+            f"{_LONG_WEEKDAYS[end.weekday()]} {end.day} {_LONG_MONTHS[end.month]}"
+        )
     return f"{_day(start)} - {_day(end)}"
 
 
@@ -796,8 +901,7 @@ BLOCK_STYLES: dict[str, str] = {
 #: block title below it. Koen, 19 September 2026, after comparing with the
 #: letter of Raak nationaal: give it the brand colour and one step up in size —
 #: the minimum, and no colour picker anywhere.
-HEADING_STYLE = ("font-size:20px;font-weight:700;line-height:1.3;color:#0051a4;"
-                 "margin:18px 0 6px")
+HEADING_STYLE = "font-size:20px;font-weight:700;line-height:1.3;color:#0051a4;margin:18px 0 6px"
 HEADING_TAGS = ("h1", "h2", "h3", "h4", "h5", "h6")
 #: On a phone the two columns become two rows. A media query is the only way to
 #: say that in a mail, and it needs a `<style>`; the inline styles above keep the
@@ -874,18 +978,21 @@ def activity_block_html(facts: ActivityFacts) -> str:
         elif facts.register_url:
             action = f'<a href="{esc(facts.register_url)}">{esc(_("Schrijf je in!"))}</a>'
     elif facts.photos_url:
-        action = (f'<a href="{esc(facts.photos_url)}">'
-                  f'{esc(_("Bekijk de foto’s"))}</a>')
+        action = f'<a href="{esc(facts.photos_url)}">{esc(_("Bekijk de foto’s"))}</a>'
     if action:
         rows.append(f'<div class="nb-blok-actie">{action}</div>')
     text_cell = f'<td class="nb-blok-tekst">{"".join(rows)}</td>'
     image_cell = ""
     if facts.image_url:
-        image_cell = (f'<td class="nb-blok-beeld"><a href="{esc(facts.url)}">'
-                      f'<img class="nb-blok-foto" src="{esc(facts.image_url)}" '
-                      f'alt="{esc(facts.name)}" width="180"></a></td>')
-    return (f'<div class="nb-blok"><table class="nb-blok-tabel"><tr>'
-            f'{image_cell}{text_cell}</tr></table></div>')
+        image_cell = (
+            f'<td class="nb-blok-beeld"><a href="{esc(facts.url)}">'
+            f'<img class="nb-blok-foto" src="{esc(facts.image_url)}" '
+            f'alt="{esc(facts.name)}" width="180"></a></td>'
+        )
+    return (
+        f'<div class="nb-blok"><table class="nb-blok-tabel"><tr>'
+        f"{image_cell}{text_cell}</tr></table></div>"
+    )
 
 
 def with_inline_styles(html: str) -> str:
@@ -895,10 +1002,12 @@ def with_inline_styles(html: str) -> str:
     throws a stylesheet away. The classes stay, so the compose screen can show
     the same shape.
     """
+
     def replace(match: "re.Match[str]") -> str:
         names = match.group(1).split()
-        styles = "".join(BLOCK_STYLES.get(name, "") + ";" if BLOCK_STYLES.get(name) else ""
-                         for name in names)
+        styles = "".join(
+            BLOCK_STYLES.get(name, "") + ";" if BLOCK_STYLES.get(name) else "" for name in names
+        )
         if not styles:
             return match.group(0)
         return f'class="{match.group(1)}" style="{styles.rstrip(";")}"'
@@ -909,9 +1018,9 @@ def with_inline_styles(html: str) -> str:
         attrs = match.group(2)
         if "style=" in attrs.lower():
             return match.group(0)
-        return f"<{match.group(1)}{attrs} style=\"{HEADING_STYLE}\">"
+        return f'<{match.group(1)}{attrs} style="{HEADING_STYLE}">'
 
-    return re.sub(rf'<({"|".join(HEADING_TAGS)})([^>]*)>', heading, out, flags=re.I)
+    return re.sub(rf"<({'|'.join(HEADING_TAGS)})([^>]*)>", heading, out, flags=re.I)
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -919,8 +1028,10 @@ def photos_line_html(facts: ActivityFacts) -> str:
     if not facts.photos_url:
         return ""
     esc = html_lib.escape
-    return (f'<a href="{esc(facts.photos_url)}">'
-            f'{esc(_("Bekijk de foto’s van %(naam)s") % {"naam": facts.name})}</a>')
+    return (
+        f'<a href="{esc(facts.photos_url)}">'
+        f"{esc(_('Bekijk de foto’s van %(naam)s') % {'naam': facts.name})}</a>"
+    )
 
 
 def calendar_default_ids(db: Session, *, today: Optional[date] = None) -> list[int]:
@@ -936,9 +1047,14 @@ def calendar_default_ids(db: Session, *, today: Optional[date] = None) -> list[i
     return [s.activity.id for s in activities_from(db, start) if s.start <= until]
 
 
-def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None,
-                  activity_ids: Optional[list[int]] = None) -> str:
-    """"Kalender invoegen": one compact line per activity, soonest first.
+def calendar_html(
+    db: Session,
+    *,
+    base_url: str,
+    today: Optional[date] = None,
+    activity_ids: Optional[list[int]] = None,
+) -> str:
+    """ "Kalender invoegen": one compact line per activity, soonest first.
 
     Without a choice it is the coming weeks; with one (Koen, 19 September 2026)
     exactly the activities the author ticked — so an extra activity further
@@ -949,8 +1065,9 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None,
     start = today or date.today()
     if activity_ids is not None:
         wanted = {int(i) for i in activity_ids}
-        spans = [s for s in activities_from(db, start - timedelta(days=400))
-                 if s.activity.id in wanted]
+        spans = [
+            s for s in activities_from(db, start - timedelta(days=400)) if s.activity.id in wanted
+        ]
     else:
         until = start + timedelta(weeks=CALENDAR_WEEKS)
         spans = [s for s in activities_from(db, start) if s.start <= until]
@@ -960,21 +1077,28 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None,
     # A bulleted list (Koen, 20 September 2026): seven lines under each other
     # read as one block of text; a bullet per activity makes them countable at a
     # glance. Trix keeps `ul`/`li`, so the list survives the editor.
-    items = "".join(f"<li>{activity_line_html(facts[s.activity.id])}</li>"
-                    for s in spans if s.activity.id in facts)
+    items = "".join(
+        f"<li>{activity_line_html(facts[s.activity.id])}</li>"
+        for s in spans
+        if s.activity.id in facts
+    )
     return f"<ul>{items}</ul>" if items else ""
 
 
-def insertable_activities(db: Session, *, query: str = "", past: bool = False,
-                          today: Optional[date] = None) -> list:
+def insertable_activities(
+    db: Session, *, query: str = "", past: bool = False, today: Optional[date] = None
+) -> list:
     """The picker: every coming activity, soonest first — or, with ``past``,
     the activities of the last year, most recent first. Optionally filtered."""
     from app.domains.activities.api import activities_active_between, activities_from
 
     today = today or date.today()
     if past:
-        spans = sorted(activities_active_between(db, _months_later(today, -12), today),
-                       key=lambda s: s.start, reverse=True)
+        spans = sorted(
+            activities_active_between(db, _months_later(today, -12), today),
+            key=lambda s: s.start,
+            reverse=True,
+        )
     else:
         spans = activities_from(db, today)
     needle = (query or "").strip().lower()
@@ -983,8 +1107,9 @@ def insertable_activities(db: Session, *, query: str = "", past: bool = False,
     return spans[:40]
 
 
-def add_attachment(db: Session, letter: Newsletter, *, filename: str,
-                   content_type: str, data: bytes, base_url: str) -> str:
+def add_attachment(
+    db: Session, letter: Newsletter, *, filename: str, content_type: str, data: bytes, base_url: str
+) -> str:
     """Store a file for this letter and return the link that goes at the cursor.
 
     A link and not an attachment (Koen, 17 September 2026): each letter leaves
@@ -997,8 +1122,9 @@ def add_attachment(db: Session, letter: Newsletter, *, filename: str,
 
     _refuse_unless_draft(letter)
     try:
-        asset = add_document(db, kind="newsletter_file", filename=filename,
-                             content_type=content_type, data=data)
+        asset = add_document(
+            db, kind="newsletter_file", filename=filename, content_type=content_type, data=data
+        )
     except MediaFout as exc:
         raise NewsletterError(str(exc)) from exc
     stem, extension = os.path.splitext(filename or "")
@@ -1025,6 +1151,7 @@ def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) ->
 
 # ── The mail ─────────────────────────────────────────────────────────────────
 
+
 def _organisation_footer(db: Session) -> tuple[str, str]:
     """The association's name and address line for the mail footer."""
     from app.domains.mdm.api import organization_address
@@ -1038,8 +1165,7 @@ def _organisation_footer(db: Session) -> tuple[str, str]:
         organisation_id = current_tenant_id.get() or DEFAULT_TENANT_ID
         if organisation_id:
             address = organization_address(db, organisation_id)
-            street = " ".join(p for p in (address.get("street"),
-                                          address.get("house_number")) if p)
+            street = " ".join(p for p in (address.get("street"), address.get("house_number")) if p)
             if address.get("bus_number"):
                 street = f"{street} bus {address['bus_number']}"
             line = ", ".join(p for p in (street, address.get("postal_code")) if p)
@@ -1088,9 +1214,12 @@ def plain_text(html: str) -> str:
     watch there is then nothing left at all.
     """
     text = html or ""
-    text = re.sub(r"<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>",
-                  lambda m: f"{re.sub(r'<[^>]+>', '', m.group(2))} ({m.group(1)})",
-                  text, flags=re.I | re.S)
+    text = re.sub(
+        r"<a[^>]*href=\"([^\"]+)\"[^>]*>(.*?)</a>",
+        lambda m: f"{re.sub(r'<[^>]+>', '', m.group(2))} ({m.group(1)})",
+        text,
+        flags=re.I | re.S,
+    )
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
     text = re.sub(r"</(li|div|p|h\d|tr|table)>", "\n", text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", text)
@@ -1103,16 +1232,19 @@ def plain_text(html: str) -> str:
     return "\n".join(out).strip()
 
 
-def render_text(db: Session, letter: Newsletter, *, unsubscribe_url: Optional[str],
-                base_url: str = "") -> str:
+def render_text(
+    db: Session, letter: Newsletter, *, unsubscribe_url: Optional[str], base_url: str = ""
+) -> str:
     """The letter as plain text, with the same footer as the HTML version."""
     base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
     body = plain_text(expand_blocks(db, letter.body_html or "", base_url=base))
     footer = [f"{name} · {address}" if address else name]
     if unsubscribe_url:
-        footer.append(_("Je krijgt deze mail omdat je op de mailinglijst van "
-                        "%(naam)s staat.") % {"naam": name})
+        footer.append(
+            _("Je krijgt deze mail omdat je op de mailinglijst van %(naam)s staat.")
+            % {"naam": name}
+        )
         footer.append(f"{_('Uitschrijven')}: {unsubscribe_url}")
     return f"{body}\n\n---\n" + "\n".join(footer)
 
@@ -1122,13 +1254,21 @@ def closing_html(db: Session) -> str:
     from app.kernel.tenant_config import tenant_display_name
 
     esc = html_lib.escape
-    return (f"<div>{esc(_('Tot binnenkort!'))}<br>"
-            f"{esc(_('Het bestuur van %(naam)s') % {'naam': tenant_display_name(db)})}</div>")
+    return (
+        f"<div>{esc(_('Tot binnenkort!'))}<br>"
+        f"{esc(_('Het bestuur van %(naam)s') % {'naam': tenant_display_name(db)})}</div>"
+    )
 
 
-def render_mail(db: Session, letter: Newsletter, *, kind: DeliveryKind,
-                unsubscribe_url: Optional[str], logo_url: Optional[str] = None,
-                base_url: str = "") -> str:
+def render_mail(
+    db: Session,
+    letter: Newsletter,
+    *,
+    kind: DeliveryKind,
+    unsubscribe_url: Optional[str],
+    logo_url: Optional[str] = None,
+    base_url: str = "",
+) -> str:
     """The letter as it arrives: a simple frame around the text.
 
     Inline styles only — many mail clients ignore a style block. A member mail
@@ -1139,36 +1279,49 @@ def render_mail(db: Session, letter: Newsletter, *, kind: DeliveryKind,
     # it is still a draft — the links in a block must be absolute either way.
     base = (base_url or letter.link_base or "").rstrip("/")
     name, address = _organisation_footer(db)
-    header = (f'<img src="{esc(logo_url)}" alt="{esc(name)}" style="max-height:56px">'
-              if logo_url else
-              f'<span style="font-size:24px;font-weight:700;color:#0051a4">{esc(name)}</span>')
+    header = (
+        f'<img src="{esc(logo_url)}" alt="{esc(name)}" style="max-height:56px">'
+        if logo_url
+        else f'<span style="font-size:24px;font-weight:700;color:#0051a4">{esc(name)}</span>'
+    )
     footer = [esc(name)]
     if address:
         footer[0] = f"{esc(name)} · {esc(address)}"
     if kind == DeliveryKind.SUBSCRIBER and unsubscribe_url:
-        footer.append(esc(_("Je krijgt deze mail omdat je op de mailinglijst van "
-                            "%(naam)s staat.") % {"naam": name}))
-        footer.append(f'<a href="{esc(unsubscribe_url)}" style="color:#52607a">'
-                      f'{esc(_("Uitschrijven"))}</a>')
+        footer.append(
+            esc(
+                _("Je krijgt deze mail omdat je op de mailinglijst van %(naam)s staat.")
+                % {"naam": name}
+            )
+        )
+        footer.append(
+            f'<a href="{esc(unsubscribe_url)}" style="color:#52607a">{esc(_("Uitschrijven"))}</a>'
+        )
     # The preview line: hidden in the letter, shown by the inbox beside the
     # subject. The spaces after it stop a client from padding it with the first
     # words of the letter.
     preview = preview_text_of(letter)
     preview_block = (
-        f'<div style="display:none;font-size:0;line-height:0;max-height:0;'
-        f'max-width:0;opacity:0;overflow:hidden">{esc(preview)}'
-        + "&#847;&zwnj;&nbsp;" * 40 + "</div>") if preview else ""
+        (
+            f'<div style="display:none;font-size:0;line-height:0;max-height:0;'
+            f'max-width:0;opacity:0;overflow:hidden">{esc(preview)}'
+            + "&#847;&zwnj;&nbsp;" * 40
+            + "</div>"
+        )
+        if preview
+        else ""
+    )
     return (
-        f'<style>{BLOCK_MEDIA_CSS}</style>{preview_block}'
+        f"<style>{BLOCK_MEDIA_CSS}</style>{preview_block}"
         '<div style="background:#eef3f9;padding:20px 10px;font-family:Arial,Helvetica,sans-serif">'
         '<div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:10px;'
         'padding:22px 26px;font-size:15px;line-height:1.6;color:#14171c">'
         f'<div style="border-bottom:3px solid #ffce00;padding-bottom:10px;margin-bottom:16px">{header}</div>'
-        f'{with_inline_styles(expand_blocks(db, letter.body_html or "", base_url=base))}'
-        '</div>'
+        f"{with_inline_styles(expand_blocks(db, letter.body_html or '', base_url=base))}"
+        "</div>"
         '<div style="max-width:640px;margin:0 auto;text-align:center;font-size:12px;'
         f'color:#52607a;padding:14px 10px 0;line-height:1.6">{"<br>".join(footer)}</div>'
-        '</div>'
+        "</div>"
     )
 
 
@@ -1206,7 +1359,7 @@ def reply_address(mode: ReplyToMode, sender_email: str) -> Optional[str]:
 
 
 def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) -> str:
-    """"Testmail naar mezelf": the real mail, to the signed-in admin only.
+    """ "Testmail naar mezelf": the real mail, to the signed-in admin only.
 
     Shown as a non-member would see it when non-members are among the
     audience, so the unsubscribe line can be checked too. Changes nothing
@@ -1216,17 +1369,30 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
 
     if not (letter.subject or "").strip():
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
-    kind = (DeliveryKind.SUBSCRIBER if letter.audience in (Audience.NON_MEMBERS, Audience.BOTH)
-            else DeliveryKind.MEMBER)
-    unsubscribe_url = f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DeliveryKind.SUBSCRIBER else None
-    body = render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe_url,
-                       logo_url=_logo_url(db, base_url), base_url=base_url)
+    kind = (
+        DeliveryKind.SUBSCRIBER
+        if letter.audience in (Audience.NON_MEMBERS, Audience.BOTH)
+        else DeliveryKind.MEMBER
+    )
+    unsubscribe_url = (
+        f"{base_url}/nieuwsbrief/uitschrijven/test" if kind == DeliveryKind.SUBSCRIBER else None
+    )
+    body = render_mail(
+        db,
+        letter,
+        kind=kind,
+        unsubscribe_url=unsubscribe_url,
+        logo_url=_logo_url(db, base_url),
+        base_url=base_url,
+    )
     text = render_text(db, letter, unsubscribe_url=unsubscribe_url, base_url=base_url)
-    return send_campaign_mail(to_email, f"[{_('TEST')}] {letter.subject}", body,
-                              email_type="newsletter", body_text=text)
+    return send_campaign_mail(
+        to_email, f"[{_('TEST')}] {letter.subject}", body, email_type="newsletter", body_text=text
+    )
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────
+
 
 def unfilled_placeholders(body_html: Optional[str]) -> list[str]:
     """The sentences of the letter that still carry a placeholder.
@@ -1255,13 +1421,15 @@ def placeholder_refusal(body_html: Optional[str]) -> Optional[str]:
     sentences = unfilled_placeholders(body_html)
     if not sentences:
         return None
-    return _("Er staat nog een plaatshouder in de brief. Vul hem in of haal hem weg "
-             "voor je verstuurt: %(zinnen)s") % {
-                 "zinnen": " · ".join(f"«{s}»" for s in sentences)}
+    return _(
+        "Er staat nog een plaatshouder in de brief. Vul hem in of haal hem weg "
+        "voor je verstuurt: %(zinnen)s"
+    ) % {"zinnen": " · ".join(f"«{s}»" for s in sentences)}
 
 
-def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mode: str,
-                  base_url: str) -> int:
+def start_sending(
+    db: Session, letter: Newsletter, *, sent_by: str, reply_to_mode: str, base_url: str
+) -> int:
     """Fix the recipient list and hand the letter to the queue (CR-05 §3.7).
 
     Returns the number of recipients. Everything that can be refused is
@@ -1289,9 +1457,15 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
         raise NewsletterError(_("Er is niemand om deze nieuwsbrief naar te sturen."))
 
     for recipient in recipients:
-        db.add(Delivery(newsletter_id=letter.id, email=recipient.email,
-                        kind=recipient.kind, subscriber_id=recipient.subscriber_id,
-                        status=DeliveryStatus.QUEUED))
+        db.add(
+            Delivery(
+                newsletter_id=letter.id,
+                email=recipient.email,
+                kind=recipient.kind,
+                subscriber_id=recipient.subscriber_id,
+                status=DeliveryStatus.QUEUED,
+            )
+        )
     letter.status = LetterStatus.SENDING
     letter.sent_by = sent_by
     letter.reply_to_mode = mode
@@ -1301,25 +1475,29 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
     # The conversation with Raakje ends here: the letter is the record now.
     for message in list(letter.messages):
         db.delete(message)
-    enqueue(db, SEND_JOB, {"newsletter_id": letter.id,
-                           "tenant_id": current_tenant_id.get()})
+    enqueue(db, SEND_JOB, {"newsletter_id": letter.id, "tenant_id": current_tenant_id.get()})
     db.commit()
     return len(recipients)
 
 
 def sent_in_last_day(db: Session) -> int:
     since = _now() - timedelta(hours=24)
-    return (db.query(func.count(Delivery.id))
-            .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
-            .scalar() or 0)
+    return (
+        db.query(func.count(Delivery.id))
+        .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
+        .scalar()
+        or 0
+    )
 
 
 def _next_free_moment(db: Session) -> datetime:
     """When the oldest send of the last 24 hours drops out of the window."""
     since = _now() - timedelta(hours=24)
-    oldest = (db.query(func.min(Delivery.sent_at))
-              .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
-              .scalar())
+    oldest = (
+        db.query(func.min(Delivery.sent_at))
+        .filter(Delivery.status == DeliveryStatus.SENT, Delivery.sent_at >= since)
+        .scalar()
+    )
     return (oldest + timedelta(hours=24, minutes=1)) if oldest else _now() + timedelta(minutes=5)
 
 
@@ -1328,8 +1506,12 @@ def _pause(db: Session, letter: Newsletter, until: datetime) -> None:
     from app.kernel.tenancy import current_tenant_id
 
     letter.paused_until = until
-    enqueue(db, SEND_JOB, {"newsletter_id": letter.id,
-                           "tenant_id": current_tenant_id.get()}, run_at=until)
+    enqueue(
+        db,
+        SEND_JOB,
+        {"newsletter_id": letter.id, "tenant_id": current_tenant_id.get()},
+        run_at=until,
+    )
     db.commit()
 
 
@@ -1359,32 +1541,42 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
         _pause(db, letter, _next_free_moment(db))
         return "paused"
 
-    queued = (db.query(Delivery)
-              .filter(Delivery.newsletter_id == letter.id,
-                      Delivery.status == DeliveryStatus.QUEUED)
-              .order_by(Delivery.id)
-              .limit(min(room, batch_size)).all())
+    queued = (
+        db.query(Delivery)
+        .filter(Delivery.newsletter_id == letter.id, Delivery.status == DeliveryStatus.QUEUED)
+        .order_by(Delivery.id)
+        .limit(min(room, batch_size))
+        .all()
+    )
     logo_url = _logo_url(db, letter.link_base or "")
     for delivery in queued:
         unsubscribe_url = None
         if delivery.kind == DeliveryKind.SUBSCRIBER:
-            subscriber = (db.get(Subscriber, delivery.subscriber_id)
-                          if delivery.subscriber_id else None)
+            subscriber = (
+                db.get(Subscriber, delivery.subscriber_id) if delivery.subscriber_id else None
+            )
             if subscriber is None or subscriber.status != SubscriberStatus.CONFIRMED:
                 delivery.status = DeliveryStatus.SKIPPED
                 delivery.error = _("uitgeschreven tijdens het versturen")
                 db.commit()
                 continue
-            unsubscribe_url = (f"{letter.link_base}/nieuwsbrief/uitschrijven/"
-                               f"{subscriber.unsubscribe_token}")
-        body = render_mail(db, letter, kind=delivery.kind,
-                           unsubscribe_url=unsubscribe_url, logo_url=logo_url)
+            unsubscribe_url = (
+                f"{letter.link_base}/nieuwsbrief/uitschrijven/{subscriber.unsubscribe_token}"
+            )
+        body = render_mail(
+            db, letter, kind=delivery.kind, unsubscribe_url=unsubscribe_url, logo_url=logo_url
+        )
         text = render_text(db, letter, unsubscribe_url=unsubscribe_url)
         try:
-            outcome = send_campaign_mail(delivery.email, letter.subject, body,
-                                         email_type="newsletter", body_text=text,
-                                         reply_to=letter.reply_to_address,
-                                         unsubscribe_url=unsubscribe_url)
+            outcome = send_campaign_mail(
+                delivery.email,
+                letter.subject,
+                body,
+                email_type="newsletter",
+                body_text=text,
+                reply_to=letter.reply_to_address,
+                unsubscribe_url=unsubscribe_url,
+            )
         except SendingQuotaReached:
             _pause(db, letter, _now() + timedelta(hours=24))
             return "paused"
@@ -1400,17 +1592,23 @@ def send_batch(db: Session, newsletter_id: int, *, batch_size: int = BATCH_SIZE)
             delivery.error = _("de mailserver weigerde deze mail")
         db.commit()
 
-    left = (db.query(func.count(Delivery.id))
-            .filter(Delivery.newsletter_id == letter.id,
-                    Delivery.status == DeliveryStatus.QUEUED).scalar() or 0)
+    left = (
+        db.query(func.count(Delivery.id))
+        .filter(Delivery.newsletter_id == letter.id, Delivery.status == DeliveryStatus.QUEUED)
+        .scalar()
+        or 0
+    )
     if left == 0:
         letter.status = LetterStatus.SENT
         letter.send_finished_at = _now()
         db.commit()
         return "done"
-    enqueue(db, SEND_JOB, {"newsletter_id": letter.id,
-                           "tenant_id": current_tenant_id.get()},
-            run_at=_now() + timedelta(seconds=5))
+    enqueue(
+        db,
+        SEND_JOB,
+        {"newsletter_id": letter.id, "tenant_id": current_tenant_id.get()},
+        run_at=_now() + timedelta(seconds=5),
+    )
     db.commit()
     return "continue"
 
@@ -1426,21 +1624,27 @@ class Progress:
 
 
 def progress_of(db: Session, letter: Newsletter) -> Progress:
-    from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
-    rows = dict(db.query(Delivery.status, func.count(Delivery.id))
-                .filter(Delivery.newsletter_id == letter.id)
-                .group_by(Delivery.status).all())
+    rows = dict(
+        db.query(Delivery.status, func.count(Delivery.id))
+        .filter(Delivery.newsletter_id == letter.id)
+        .group_by(Delivery.status)
+        .all()
+    )
     queued = rows.get(DeliveryStatus.QUEUED, 0)
     expected = None
     if letter.status == LetterStatus.SENDING and queued:
         days = expected_days(db, queued) - 1
         start = letter.paused_until or _now()
         expected = start + timedelta(days=days)
-    return Progress(total=sum(rows.values()), sent=rows.get(DeliveryStatus.SENT, 0),
-                    failed=rows.get(DeliveryStatus.FAILED, 0),
-                    skipped=rows.get(DeliveryStatus.SKIPPED, 0), queued=queued,
-                    expected_finish=expected)
+    return Progress(
+        total=sum(rows.values()),
+        sent=rows.get(DeliveryStatus.SENT, 0),
+        failed=rows.get(DeliveryStatus.FAILED, 0),
+        skipped=rows.get(DeliveryStatus.SKIPPED, 0),
+        queued=queued,
+        expected_finish=expected,
+    )
 
 
 def expected_days(db: Session, count: int) -> int:
@@ -1454,8 +1658,9 @@ def expected_days(db: Session, count: int) -> int:
     return 1 + -(-(count - room_today) // cap)
 
 
-def deliveries_of(db: Session, letter: Newsletter, *, status: str = "",
-                  query: str = "") -> list[Delivery]:
+def deliveries_of(
+    db: Session, letter: Newsletter, *, status: str = "", query: str = ""
+) -> list[Delivery]:
     q = db.query(Delivery).filter(Delivery.newsletter_id == letter.id)
     if status:
         q = q.filter(Delivery.status == status)
@@ -1466,6 +1671,9 @@ def deliveries_of(db: Session, letter: Newsletter, *, status: str = "",
 
 
 def messages_of(db: Session, letter: Newsletter) -> list[DraftingMessage]:
-    return (db.query(DraftingMessage)
-            .filter(DraftingMessage.newsletter_id == letter.id)
-            .order_by(DraftingMessage.id).all())
+    return (
+        db.query(DraftingMessage)
+        .filter(DraftingMessage.newsletter_id == letter.id)
+        .order_by(DraftingMessage.id)
+        .all()
+    )

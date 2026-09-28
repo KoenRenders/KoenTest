@@ -5,23 +5,23 @@ screens over HTTP, with CSRF: write a letter, insert an activity, send a test,
 send it for real, read the archive; manage subscribers and the import; and the
 public side — sign up, confirm, unsubscribe — without a login.
 """
+
 from datetime import date, timedelta
 
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.newsletter import service as nb
+from app.domains.newsletter.api import Audience
 from app.domains.newsletter.models import (
     Delivery,
-    DeliveryStatus,
     LetterStatus,
     Newsletter,
     Subscriber,
     SubscriberStatus,
 )
-from app.domains.newsletter import service as nb
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.newsletter.api import Audience
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -36,11 +36,26 @@ def _login(client) -> dict:
 def mailbox(monkeypatch):
     sent = []
 
-    def fake(to_email, subject, body_html, *, email_type, reply_to=None,
-             unsubscribe_url=None, body_text=None):
-        sent.append({"to": to_email, "subject": subject, "body": body_html,
-                     "reply_to": reply_to, "unsubscribe_url": unsubscribe_url,
-                     "body_text": body_text})
+    def fake(
+        to_email,
+        subject,
+        body_html,
+        *,
+        email_type,
+        reply_to=None,
+        unsubscribe_url=None,
+        body_text=None,
+    ):
+        sent.append(
+            {
+                "to": to_email,
+                "subject": subject,
+                "body": body_html,
+                "reply_to": reply_to,
+                "unsubscribe_url": unsubscribe_url,
+                "body_text": body_text,
+            }
+        )
         return "sent"
 
     monkeypatch.setattr("app.domains.mail.api.send_campaign_mail", fake)
@@ -50,8 +65,10 @@ def mailbox(monkeypatch):
 @pytest.fixture
 def confirmations(monkeypatch):
     sent = []
-    monkeypatch.setattr("app.domains.mail.api.send_newsletter_confirmation",
-                        lambda to, name, url: sent.append((to, url)) or "sent")
+    monkeypatch.setattr(
+        "app.domains.mail.api.send_newsletter_confirmation",
+        lambda to, name, url: sent.append((to, url)) or "sent",
+    )
     return sent
 
 
@@ -65,8 +82,7 @@ def _activity(db, name, day, location="Miloheem"):
 
 
 def _subscriber(db, email, status=SubscriberStatus.CONFIRMED):
-    row = Subscriber(email=email, status=status, source="admin",
-                     unsubscribe_token=f"tok-{email}")
+    row = Subscriber(email=email, status=status, source="admin", unsubscribe_token=f"tok-{email}")
     db.add(row)
     db.flush()
     return row
@@ -77,6 +93,7 @@ def _latest(db) -> Newsletter:
 
 
 # ── The board member's path ──────────────────────────────────────────────────
+
 
 def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     """List → new draft → text and audience → insert → test mail → send → archive."""
@@ -97,7 +114,10 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     scherm = client.get(f"/admin/nieuwsbrieven/{letter.id}")
     assert scherm.status_code == 200
     assert 'id="nb-trix"' in scherm.text
-    assert 'name="audience"' in scherm.text and " checked" not in scherm.text.split('name="audience"')[1][:40]
+    assert (
+        'name="audience"' in scherm.text
+        and " checked" not in scherm.text.split('name="audience"')[1][:40]
+    )
 
     # 3. "Activiteit invoegen" delivers a REFERENCE (#984, 19 September 2026):
     # the block itself is built when the letter is sent, because Trix keeps no
@@ -112,9 +132,15 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     assert "Rumproefavond" in kiezer.text
 
     # 4. Autosave.
-    bewaard = client.post(f"/admin/nieuwsbrieven/{letter.id}/bewaren", headers=headers,
-                          data={"subject": "Het najaar", "audience": "non_members",
-                                "body_html": f"<div>Beste,</div>{regel.text}"})
+    bewaard = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={
+            "subject": "Het najaar",
+            "audience": "non_members",
+            "body_html": f"<div>Beste,</div>{regel.text}",
+        },
+    )
     assert bewaard.status_code == 200
     assert "Bewaard om" in bewaard.text
     db_session.refresh(letter)
@@ -128,8 +154,9 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     # 6. The send screen repeats audience and count; sending starts the queue.
     stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
     assert "Niet-leden · 1 adressen" in stap.text
-    verstuurd = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen",
-                            headers=headers, data={"reply_to": "sender"})
+    verstuurd = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers, data={"reply_to": "sender"}
+    )
     assert verstuurd.status_code == 204
     db_session.refresh(letter)
     assert letter.status == LetterStatus.SENDING
@@ -145,14 +172,18 @@ def test_de_hele_weg_van_een_nieuwsbrief(client, db_session, mailbox):
     assert 'id="nb-trix"' not in archief.text
     assert "piet@example.org" in archief.text
     assert "Kopiëren naar een nieuw concept" in archief.text
-    filter_ = client.get(f"/admin/nieuwsbrieven/{letter.id}?status=failed",
-                         headers={"HX-Request": "true", "X-Raak-Filter": "1"})
+    filter_ = client.get(
+        f"/admin/nieuwsbrieven/{letter.id}?status=failed",
+        headers={"HX-Request": "true", "X-Raak-Filter": "1"},
+    )
     assert "piet@example.org" not in filter_.text
 
     # 8. A sent letter cannot be saved over.
-    geweigerd = client.post(f"/admin/nieuwsbrieven/{letter.id}/bewaren", headers=headers,
-                            data={"subject": "Anders", "audience": "non_members",
-                                  "body_html": "x"})
+    geweigerd = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bewaren",
+        headers=headers,
+        data={"subject": "Anders", "audience": "non_members", "body_html": "x"},
+    )
     assert "al verstuurd" in geweigerd.text
     db_session.refresh(letter)
     assert letter.subject == "Het najaar"
@@ -169,28 +200,40 @@ def test_versturen_zonder_doelgroep_toont_de_reden(client, db_session, mailbox):
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
     assert "Kies eerst voor wie" in stap.text
-    poging = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers,
-                         data={"reply_to": "association"})
+    poging = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/versturen",
+        headers=headers,
+        data={"reply_to": "association"},
+    )
     assert "Kies eerst voor wie" in poging.text
     assert db_session.query(Delivery).count() == 0
 
 
 def test_met_een_plaatshouder_toont_het_scherm_de_zin_en_geen_verzendknop(
-        client, db_session, mailbox):
+    client, db_session, mailbox
+):
     """Broken on purpose: `not blocked` taken out of `_nb_versturen.html` →
     the button is back and this test fails."""
     headers = _login(client)
     _subscriber(db_session, "piet@example.org")
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
-    nb.update_draft(db_session, letter, subject="Het najaar", audience="non_members",
-                    body_html="<div>Inschrijven via [e-mailadres].</div>")
+    nb.update_draft(
+        db_session,
+        letter,
+        subject="Het najaar",
+        audience="non_members",
+        body_html="<div>Inschrijven via [e-mailadres].</div>",
+    )
 
     stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
     assert "Er staat nog een plaatshouder" in stap.text
     assert "«Inschrijven via [e-mailadres].»" in stap.text
     assert "Versturen (1)" not in stap.text
-    poging = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers,
-                         data={"reply_to": "association"})
+    poging = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/versturen",
+        headers=headers,
+        data={"reply_to": "association"},
+    )
     assert "Er staat nog een plaatshouder" in poging.text
     assert db_session.query(Delivery).count() == 0
 
@@ -222,24 +265,32 @@ def test_zonder_aanmelding_geen_toegang(client, db_session):
 
 # ── Subscribers and the import ───────────────────────────────────────────────
 
+
 def test_abonnees_beheren(client, db_session):
     headers = _login(client)
-    toegevoegd = client.post("/admin/nieuwsbrieven/abonnees", headers=headers,
-                             data={"subscriber_email": "Nora@example.org",
-                                   "first_name": "Nora"})
+    toegevoegd = client.post(
+        "/admin/nieuwsbrieven/abonnees",
+        headers=headers,
+        data={"subscriber_email": "Nora@example.org", "first_name": "Nora"},
+    )
     assert "nora@example.org staat op de lijst" in toegevoegd.text
     nora = nb.subscriber_by_email(db_session, "nora@example.org")
 
-    dubbel = client.post("/admin/nieuwsbrieven/abonnees", headers=headers,
-                         data={"subscriber_email": "nora@example.org"})
+    dubbel = client.post(
+        "/admin/nieuwsbrieven/abonnees",
+        headers=headers,
+        data={"subscriber_email": "nora@example.org"},
+    )
     assert "staat al op de lijst" in dubbel.text
 
     client.post(f"/admin/nieuwsbrieven/abonnees/{nora.id}/uitschrijven", headers=headers)
     db_session.refresh(nora)
     assert nora.status == SubscriberStatus.UNSUBSCRIBED
 
-    gefilterd = client.get("/admin/nieuwsbrieven/abonnees?status=confirmed",
-                           headers={"HX-Request": "true", "X-Raak-Filter": "1"})
+    gefilterd = client.get(
+        "/admin/nieuwsbrieven/abonnees?status=confirmed",
+        headers={"HX-Request": "true", "X-Raak-Filter": "1"},
+    )
     assert "nora@example.org" not in gefilterd.text
 
     client.post(f"/admin/nieuwsbrieven/abonnees/{nora.id}/verwijderen", headers=headers)
@@ -251,8 +302,11 @@ def test_de_import_via_het_scherm(client, db_session):
     _subscriber(db_session, "weg@example.org", status=SubscriberStatus.UNSUBSCRIBED)
     inhoud = b"nieuw@example.org\r\nweg@example.org\r\ngeen adres\r\n"
 
-    stap2 = client.post("/admin/nieuwsbrieven/abonnees/import", headers=headers,
-                        files={"file": ("adressen.txt", inhoud, "text/plain")})
+    stap2 = client.post(
+        "/admin/nieuwsbrieven/abonnees/import",
+        headers=headers,
+        files={"file": ("adressen.txt", inhoud, "text/plain")},
+    )
     assert stap2.status_code == 200
     assert "Importeren (1)" in stap2.text
     # Koen, 17 September 2026: no notice about a first-letter explanation.
@@ -260,33 +314,46 @@ def test_de_import_via_het_scherm(client, db_session):
     assert db_session.query(Subscriber).count() == 1, "de voorvertoning schrijft niets"
 
     tekst = stap2.text.split('<textarea name="text"')[1].split(">", 1)[1].split("</textarea>")[0]
-    klaar = client.post("/admin/nieuwsbrieven/abonnees/import/bevestigen", headers=headers,
-                        data={"text": tekst.replace("&#13;", "\r")})
+    klaar = client.post(
+        "/admin/nieuwsbrieven/abonnees/import/bevestigen",
+        headers=headers,
+        data={"text": tekst.replace("&#13;", "\r")},
+    )
     assert klaar.status_code == 204
-    assert nb.subscriber_by_email(db_session, "nieuw@example.org").status == SubscriberStatus.CONFIRMED
-    assert nb.subscriber_by_email(db_session, "weg@example.org").status == SubscriberStatus.UNSUBSCRIBED
+    assert (
+        nb.subscriber_by_email(db_session, "nieuw@example.org").status == SubscriberStatus.CONFIRMED
+    )
+    assert (
+        nb.subscriber_by_email(db_session, "weg@example.org").status
+        == SubscriberStatus.UNSUBSCRIBED
+    )
 
 
 def test_de_instellingen(client, db_session):
     headers = _login(client)
-    from app.kernel.tenant_config import (tenant_newsletter_daily_cap,
-                                          tenant_newsletter_house_style)
+    from app.kernel.tenant_config import tenant_newsletter_daily_cap, tenant_newsletter_house_style
 
-    client.post("/admin/nieuwsbrieven/instellingen", headers=headers,
-                data={"house_style": "Warm, jij-vorm.", "daily_cap": "120"})
+    client.post(
+        "/admin/nieuwsbrieven/instellingen",
+        headers=headers,
+        data={"house_style": "Warm, jij-vorm.", "daily_cap": "120"},
+    )
     assert tenant_newsletter_house_style(db_session) == "Warm, jij-vorm."
     assert tenant_newsletter_daily_cap(db_session) == 120
 
-    fout = client.post("/admin/nieuwsbrieven/instellingen", headers=headers,
-                       data={"house_style": "", "daily_cap": "0"})
+    fout = client.post(
+        "/admin/nieuwsbrieven/instellingen",
+        headers=headers,
+        data={"house_style": "", "daily_cap": "0"},
+    )
     assert "groter dan nul" in fout.text
     assert tenant_newsletter_daily_cap(db_session) == 120
 
 
 # ── The public side ──────────────────────────────────────────────────────────
 
-def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session,
-                                                              confirmations):
+
+def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session, confirmations):
     """Opening a link never acts; the button does (mail scanners open links).
 
     Broken on purpose: confirming on the GET → the pending assertion after the
@@ -295,13 +362,12 @@ def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session,
     pagina = client.get("/nieuwsbrief")
     assert pagina.status_code == 200 and 'name="email"' in pagina.text
 
-    ingeschreven = client.post("/nieuwsbrief", data={"email": "an@example.org",
-                                                     "first_name": "An"})
+    ingeschreven = client.post("/nieuwsbrief", data={"email": "an@example.org", "first_name": "An"})
     assert "Kijk in je mailbox" in ingeschreven.text
     an = nb.subscriber_by_email(db_session, "an@example.org")
     assert an.status == SubscriberStatus.PENDING
     link = confirmations[0][1]
-    pad = link[link.index("/nieuwsbrief/"):]
+    pad = link[link.index("/nieuwsbrief/") :]
 
     geopend = client.get(pad)
     assert "Ja, ik wil de nieuwsbrief" in geopend.text
@@ -328,8 +394,10 @@ def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session,
 def test_uitschrijven_met_een_klik_vanuit_het_mailprogramma(client, db_session):
     """RFC 8058: the mail client POSTs `List-Unsubscribe=One-Click`."""
     piet = _subscriber(db_session, "piet@example.org")
-    antwoord = client.post(f"/nieuwsbrief/uitschrijven/{piet.unsubscribe_token}",
-                           data={"List-Unsubscribe": "One-Click"})
+    antwoord = client.post(
+        f"/nieuwsbrief/uitschrijven/{piet.unsubscribe_token}",
+        data={"List-Unsubscribe": "One-Click"},
+    )
     assert antwoord.status_code == 200 and antwoord.text == "ok"
     db_session.refresh(piet)
     assert piet.status == SubscriberStatus.UNSUBSCRIBED
@@ -349,16 +417,18 @@ def test_een_onbekende_link_zegt_dat_ze_niet_meer_werkt(client, db_session):
 
 
 def test_de_honingpot_slaat_niets_op(client, db_session, confirmations):
-    antwoord = client.post("/nieuwsbrief", data={"email": "bot@example.org",
-                                                 "website": "http://spam.example"})
+    antwoord = client.post(
+        "/nieuwsbrief", data={"email": "bot@example.org", "website": "http://spam.example"}
+    )
     assert "Kijk in je mailbox" in antwoord.text
     assert db_session.query(Subscriber).count() == 0
     assert confirmations == []
 
 
 def test_een_ongeldig_adres_blijft_op_het_formulier(client, db_session, confirmations):
-    antwoord = client.post("/nieuwsbrief", data={"email": "geen-adres"},
-                           headers={"HX-Request": "true"})
+    antwoord = client.post(
+        "/nieuwsbrief", data={"email": "geen-adres"}, headers={"HX-Request": "true"}
+    )
     assert "geen geldig e-mailadres" in antwoord.text
     assert 'name="email"' in antwoord.text
 
@@ -397,6 +467,7 @@ def test_de_nieuwsbrief_staat_alleen_als_link_op_de_homepagina(client, db_sessio
 
 # ── Attachments as links (Koen, 17 September 2026) ───────────────────────────
 
+
 def test_een_bijlage_wordt_een_link_op_de_cursor(client, db_session):
     """Upload a PDF → a public media file and the link that goes at the cursor.
 
@@ -409,8 +480,11 @@ def test_een_bijlage_wordt_een_link_op_de_cursor(client, db_session):
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
     pdf = b"%PDF-1.4 het programma"
 
-    antwoord = client.post(f"/admin/nieuwsbrieven/{letter.id}/bijlage", headers=headers,
-                           files={"file": ("Het_programma.pdf", pdf, "application/pdf")})
+    antwoord = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bijlage",
+        headers=headers,
+        files={"file": ("Het_programma.pdf", pdf, "application/pdf")},
+    )
 
     assert antwoord.status_code == 200, antwoord.text
     asset = db_session.query(MediaAsset).filter(MediaAsset.kind == "newsletter_file").one()
@@ -423,8 +497,11 @@ def test_een_bijlage_wordt_een_link_op_de_cursor(client, db_session):
 def test_een_verkeerd_bestand_wordt_geweigerd_met_de_reden(client, db_session):
     headers = _login(client)
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
-    antwoord = client.post(f"/admin/nieuwsbrieven/{letter.id}/bijlage", headers=headers,
-                           files={"file": ("macro.docm", b"PK...", "application/vnd.ms-word")})
+    antwoord = client.post(
+        f"/admin/nieuwsbrieven/{letter.id}/bijlage",
+        headers=headers,
+        files={"file": ("macro.docm", b"PK...", "application/vnd.ms-word")},
+    )
     assert antwoord.status_code == 400
     assert "PDF of een afbeelding" in antwoord.text
 
@@ -446,8 +523,13 @@ def test_het_voorbeeld_toont_de_brief_zoals_hij_aankomt(client, db_session):
     rum = _activity(db_session, "Rumproefavond", date.today() + timedelta(days=10))
     rum.description = "We proeven acht rums."
     letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
-    nb.update_draft(db_session, letter, subject="Het najaar", audience="members",
-                    body_html=f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>")
+    nb.update_draft(
+        db_session,
+        letter,
+        subject="Het najaar",
+        audience="members",
+        body_html=f"<div>Beste,</div><div>[[activiteit:{rum.id}|Rumproefavond]]</div>",
+    )
 
     voorbeeld = client.get(f"/admin/nieuwsbrieven/{letter.id}/voorbeeld")
 
@@ -477,8 +559,9 @@ def test_de_kalender_neemt_alleen_wat_je_aanvinkt(client, db_session):
     assert f'value="{dichtbij.id}"' in kiezer.text and f'value="{ver.id}"' in kiezer.text
     assert len(vinkjes) == 3, "beide activiteiten staan in de lijst"
 
-    gekozen = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender"
-                         f"?ids={dichtbij.id},{ver.id}")
+    gekozen = client.get(
+        f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender?ids={dichtbij.id},{ver.id}"
+    )
     assert "Rumproefavond" in gekozen.text and "Kerstmarkt" in gekozen.text
 
     standaard = client.get(f"/admin/nieuwsbrieven/{letter.id}/invoegen/kalender")

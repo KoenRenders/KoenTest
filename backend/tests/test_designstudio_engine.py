@@ -4,6 +4,7 @@ Brand gate, formatted text and the merge/check/export chain with the real
 Inkscape. (Uploaded SVGs are cleaned by media, #1011 — tested there.) Every gate here is proven the way CLAUDE.md asks:
 one violation, the intended message, then the clean case.
 """
+
 from __future__ import annotations
 
 import os
@@ -21,7 +22,6 @@ from app.domains.designstudio.content import Contact, Highlight, ImageBytes, Pos
 HERE = Path(__file__).resolve().parent
 INKSCAPE = shutil.which(render.INKSCAPE) is not None
 needs_inkscape = pytest.mark.skipif(not INKSCAPE, reason="inkscape not installed")
-
 
 
 def _png(size: tuple[int, int] = (2, 2), colour: str = "white") -> bytes:
@@ -42,19 +42,28 @@ def _plan():
     """A bare plan, for the block functions that only need the palette."""
     from app.domains.designstudio.blocks import Plan
 
-    return Plan(width=297, height=420, frame=9, pal=brand.palette_for("dark_green-golden_yellow"), seed=1)
+    return Plan(
+        width=297, height=420, frame=9, pal=brand.palette_for("dark_green-golden_yellow"), seed=1
+    )
 
 
 def _content(**overrides) -> PosterContent:
     base = {
-        "duo_code": "dark_green-golden_yellow", "preset": "beeld",
-        "title_lines": ("STAPPEN", "KLAPPEN"), "title_joiner": "EN", "bar_text": "SAMEN WANDELEN",
+        "duo_code": "dark_green-golden_yellow",
+        "preset": "beeld",
+        "title_lines": ("STAPPEN", "KLAPPEN"),
+        "title_joiner": "EN",
+        "bar_text": "SAMEN WANDELEN",
         "tagline": "Zet het in je agenda!",
-        "highlights": (Highlight("calendar", "IEDERE 2DE MAANDAG VAN DE MAAND", True),
-                       Highlight("map-pin", "VERTREK AAN HET MILOHEEM")),
-        "dates_heading": "DATA IN 2026", "dates": ("13 JULI", "10 AUGUSTUS", "14 SEPTEMBER"),
+        "highlights": (
+            Highlight("calendar", "IEDERE 2DE MAANDAG VAN DE MAAND", True),
+            Highlight("map-pin", "VERTREK AAN HET MILOHEEM"),
+        ),
+        "dates_heading": "DATA IN 2026",
+        "dates": ("13 JULI", "10 AUGUSTUS", "14 SEPTEMBER"),
         "main_image": ImageBytes(PNG_2x2, "image/png"),
-        "website": "www.raakmillegem.be", "email": "info@example.com",
+        "website": "www.raakmillegem.be",
+        "email": "info@example.com",
         "contacts": (Contact("Voornaam Naam", "0470 00 00 00"),),
         "seed": 3,
     }
@@ -63,6 +72,7 @@ def _content(**overrides) -> PosterContent:
 
 
 # ── Brand ───────────────────────────────────────────────────────────────────
+
 
 def test_brand_gate_refuses_a_foreign_colour_and_passes_the_palette():
     """Broken on purpose: one `#123456` in a template. The gate must name it."""
@@ -100,8 +110,11 @@ def test_the_rendered_poster_passes_the_brand_gate():
 
 # ── Formatted text ──────────────────────────────────────────────────────────
 
+
 def test_richtext_subset_parses_bold_bullets_and_paragraphs_and_nothing_else():
-    blocks = richtext.parse("Eerste **vet** woord\nnieuwe regel\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>")
+    blocks = richtext.parse(
+        "Eerste **vet** woord\nnieuwe regel\n\n- punt één\n- punt **twee**\n\n<b>geen html</b>"
+    )
     assert [b.bullet for b in blocks] == [False, False, True, True, False]
     assert [r.bold for r in blocks[0].runs] == [False, True, False]
     assert "".join(r.text for r in blocks[0].runs) == "Eerste vet woord"
@@ -115,7 +128,11 @@ def test_an_enter_is_a_new_line_a_blank_line_is_a_blank_line():
     assert [b.gap for b in blocks] == [False, False, True]
     lines = richtext.wrap(blocks, width=200, size=6)
     assert ["".join(r.text for r in line) for line in lines] == [
-        "Regel een", "Regel twee", "", "Na een lege regel"]
+        "Regel een",
+        "Regel twee",
+        "",
+        "Na een lege regel",
+    ]
     fragment, lines = richtext.to_svg("a **b** <c>", x=0, y=0, width=100, size=5, fill="#000000")
     assert "&lt;c&gt;" in fragment and '<tspan font-weight="bold">b</tspan>' in fragment
     assert lines == 1
@@ -134,8 +151,9 @@ def test_only_a_typed_enter_gets_the_extra_air():
 
     # One typed line, too long for the column: it wraps, and the wrap is not
     # a break.
-    wrapped = richtext.wrap(richtext.parse("Gezellig samen wandelen en praten in het Miloheem"),
-                            width=40, size=6)
+    wrapped = richtext.wrap(
+        richtext.parse("Gezellig samen wandelen en praten in het Miloheem"), width=40, size=6
+    )
     assert len(wrapped) > 1 and [ln.after_break for ln in wrapped] == [False] * len(wrapped)
 
     # Two typed lines and then a blank one: the step onto each is the wide one.
@@ -161,25 +179,51 @@ def test_richtext_wraps_on_font_metrics_and_the_estimate_is_an_upper_bound():
 
 # ── Merge and the overflow check ────────────────────────────────────────────
 
+
 def test_the_qr_says_what_it_is_for():
-    svg = render.merge(_content(), layout="print_a", qr_url="https://www.raakmillegem.be/activiteiten/bowlen").svg
+    svg = render.merge(
+        _content(), layout="print_a", qr_url="https://www.raakmillegem.be/activiteiten/bowlen"
+    ).svg
     assert ">Scan voor meer info</text>" in svg
 
 
 def test_merge_places_every_content_block_and_promises_a_box_per_text():
     merged = render.merge(_content(), layout="print_a", qr_url="https://www.raakmillegem.be")
     svg = merged.svg
-    for expected in ("STAPPEN", "KLAPPEN", ">EN<", "SAMEN WANDELEN", "IEDERE 2DE MAANDAG", "DATA IN 2026",
-                     "13 JULI", "Zet het in je agenda!", "IEDEREEN WELKOM!", "www.raakmillegem.be",
-                     "Voornaam Naam · 0470 00 00 00", 'preserveAspectRatio="xMidYMid slice"', "<svg x="):
+    for expected in (
+        "STAPPEN",
+        "KLAPPEN",
+        ">EN<",
+        "SAMEN WANDELEN",
+        "IEDERE 2DE MAANDAG",
+        "DATA IN 2026",
+        "13 JULI",
+        "Zet het in je agenda!",
+        "IEDEREEN WELKOM!",
+        "www.raakmillegem.be",
+        "Voornaam Naam · 0470 00 00 00",
+        'preserveAspectRatio="xMidYMid slice"',
+        "<svg x=",
+    ):
         assert expected in svg, expected
     assert merged.violations == ()
     assert render.estimate(merged) == []
-    for eid in ("t-title-0", "t-title-1", "t-bar", "t-tagline", "t-hl-0-0", "t-date-0", "t-website", "t-contact-0"):
+    for eid in (
+        "t-title-0",
+        "t-title-1",
+        "t-bar",
+        "t-tagline",
+        "t-hl-0-0",
+        "t-date-0",
+        "t-website",
+        "t-contact-0",
+    ):
         assert eid in merged.boxes and f'id="{eid}"' in svg
     # With a contact person the association's e-mail stays off the poster (Koen, 20 Sep 2026).
     assert "info@example.com" not in svg
-    alone = render.merge(_content(contacts=(), association_mobile="0499 00 00 00"), layout="print_a").svg
+    alone = render.merge(
+        _content(contacts=(), association_mobile="0499 00 00 00"), layout="print_a"
+    ).svg
     assert "info@example.com" in alone and "0499 00 00 00" in alone and "t-contact-" not in alone
     for eid in ():
         assert eid in merged.boxes and f'id="{eid}"' in svg
@@ -194,8 +238,13 @@ def test_the_estimate_catches_a_title_that_cannot_fit():
 
 def test_too_much_content_is_reported_never_cut():
     many = tuple(Highlight("smile", f"Kernpunt nummer {i} met wat tekst erbij") for i in range(6))
-    merged = render.merge(_content(highlights=many, explanation_md="\n\n".join(["Een alinea tekst die lang genoeg is."] * 30)),
-                          layout="print_a")
+    merged = render.merge(
+        _content(
+            highlights=many,
+            explanation_md="\n\n".join(["Een alinea tekst die lang genoeg is."] * 30),
+        ),
+        layout="print_a",
+    )
     assert any(v.startswith("Te veel inhoud in de kolom rechts") for v in merged.violations)
     assert "KERNPUNT NUMMER 5" in merged.svg and merged.svg.count("Een alinea tekst") == 30
 
@@ -205,11 +254,19 @@ def test_feed_layout_shows_every_row_the_grid_the_polaroid_and_the_badge():
     four own), the dates grid, the polaroid on the picture and the same
     welcome badge as print; the description and the third picture stay off."""
     six = tuple(Highlight("smile", f"Kernpunt {i}") for i in range(6))
-    merged = render.merge(_content(highlights=six, inset_image=ImageBytes(PNG_2x2, "image/png"),
-                                   third_image=ImageBytes(PNG_2x2, "image/png"), explanation_md="Tekst."),
-                          layout="feed_portrait")
+    merged = render.merge(
+        _content(
+            highlights=six,
+            inset_image=ImageBytes(PNG_2x2, "image/png"),
+            third_image=ImageBytes(PNG_2x2, "image/png"),
+            explanation_md="Tekst.",
+        ),
+        layout="feed_portrait",
+    )
     assert merged.height_mm == 371.25
-    assert all(f"t-hl-{i}-0" in merged.boxes for i in range(6)) and "Deze opmaak toont" not in " ".join(merged.violations)
+    assert all(
+        f"t-hl-{i}-0" in merged.boxes for i in range(6)
+    ) and "Deze opmaak toont" not in " ".join(merged.violations)
     assert 'id="t-welcome-0"' in merged.svg
     # The dates grid gives way to one row (Koen, 20 September 2026).
     assert 'id="t-dates-head"' not in merged.svg
@@ -241,18 +298,29 @@ def test_the_simple_preset_puts_date_and_place_on_the_feed_image_too():
     `test_the_simple_preset_puts_when_left_and_where_right_above_the_picture` stays
     green — proof that the print branch was not moved along with it.
     """
-    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
-                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
-                  explanation_md="Jong en oud zijn welkom op onze familiebowling.")
+    simple = dict(
+        preset="eenvoudig",
+        highlights=(),
+        dates=(),
+        dates_heading="",
+        date_line="ZONDAG 15 NOVEMBER OM 9U45",
+        location="BOWLING BRUUL",
+        explanation_md="Jong en oud zijn welkom op onze familiebowling.",
+    )
     feed = render.merge(_content(**simple), layout="feed_portrait")
     printed = render.merge(_content(**simple), layout="print_a")
     for merged in (feed, printed):
         # The same shape on both: facts above the picture, text under it.
         assert _rows(merged.svg) == ["ZONDAG 15 NOVEMBER OM 9U45", "BOWLING BRUUL"]
         assert 'id="t-rt-explanation"' in merged.svg
-        rows_y = max(float(y) for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', merged.svg))
+        rows_y = max(
+            float(y)
+            for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', merged.svg)
+        )
         picture_y = float(re.search(r'<image x="19.00" y="([0-9.]+)"', merged.svg).group(1))
-        text_y = float(re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)"', merged.svg).group(1))
+        text_y = float(
+            re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)"', merged.svg).group(1)
+        )
         assert rows_y < picture_y < text_y
     assert not feed.violations
 
@@ -290,8 +358,9 @@ def test_the_qr_is_big_enough_to_scan_and_stays_inside_the_band():
     # One band row is the sparsest poster there is: no deadline, no contacts,
     # nothing but the website.
     sparse = _content(contacts=(), email="", association_mobile="", deadline_text="")
-    plan = plan_affiche(sparse, layout="print_a", width=297, height=420,
-                        pal=brand.palette_for(sparse.duo_code))
+    plan = plan_affiche(
+        sparse, layout="print_a", width=297, height=420, pal=brand.palette_for(sparse.duo_code)
+    )
     assert len(plan.band["rows"]) == 1
     assert plan.band["qr_mm"] == QR_MM
     assert plan.band["y"] <= plan.band["qr_y"]
@@ -305,7 +374,9 @@ def _white_band(svg: str, text: str) -> tuple[float, float]:
     The badge's baseline sits 8.6 mm under the top of its brush stroke, and
     that stroke is where the free space ends.
     """
-    m = re.search(r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"', svg)
+    m = re.search(
+        r'<text id="t-rt-explanation" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"', svg
+    )
     top, size = float(m.group(1)), float(m.group(2))
     bottom = top - size + richtext.text_height(text, width=259.0, size=size)
     badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', svg).group(1)) - 8.6
@@ -329,30 +400,45 @@ def test_the_feed_image_fills_the_bottom_without_shrinking_the_picture():
     `_richtext_height` (the block, five millimetres larger than the text) →
     the long text drops a size step and the white band grows past the bar.
     """
-    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
-                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
-                  main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100))
+    simple = dict(
+        preset="eenvoudig",
+        highlights=(),
+        dates=(),
+        dates_heading="",
+        date_line="ZONDAG 15 NOVEMBER OM 9U45",
+        location="BOWLING BRUUL",
+        main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100),
+    )
     short = "Kom mee bowlen met het hele gezin."
-    long = ("Raak Millegem gaat bowlen! Jong en oud zijn welkom! De deelnameprijs bedraagt 6 euro "
-            "voor één spel waarbij dit met 8 personen ongeveer 1,5 uur duurt.\n"
-            "Voor de kleinsten zijn er hulpmiddelen om toch strikes te kunnen gooien!\n"
-            "Nadien kan je aan een voordeliger tarief naar de binnenspeeltuin.")
+    long = (
+        "Raak Millegem gaat bowlen! Jong en oud zijn welkom! De deelnameprijs bedraagt 6 euro "
+        "voor één spel waarbij dit met 8 personen ongeveer 1,5 uur duurt.\n"
+        "Voor de kleinsten zijn er hulpmiddelen om toch strikes te kunnen gooien!\n"
+        "Nadien kan je aan een voordeliger tarief naar de binnenspeeltuin."
+    )
     for text, ceiling in ((short, True), (long, False)):
         merged = render.merge(_content(**simple, explanation_md=text), layout="feed_portrait")
         size, white = _white_band(merged.svg, text)
-        picture = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
-                            r'[^>]*preserveAspectRatio="([^"]+)"', merged.svg)
-        assert "slice" in picture.group(3), "de foto staat gebrievenbust in plaats van over de volle breedte"
+        picture = re.search(
+            r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"'
+            r'[^>]*preserveAspectRatio="([^"]+)"',
+            merged.svg,
+        )
+        assert "slice" in picture.group(3), (
+            "de foto staat gebrievenbust in plaats van over de volle breedte"
+        )
         assert float(picture.group(2)) >= full_bleed_floor(
-            simple["main_image"], 259.0, 120.0, 50.0), "de foto is een strook geworden"
+            simple["main_image"], 259.0, 120.0, 50.0
+        ), "de foto is een strook geworden"
         if ceiling:
-            assert size == 10.0        # short text: the body stops at its ceiling
+            assert size == 10.0  # short text: the body stops at its ceiling
         else:
             # The long text is as big as it can be: one step more would not
             # fit in the white that is left. No magic millimetre here — the
             # measure is the text itself.
-            step = (richtext.text_height(long, width=259.0, size=size + 0.2)
-                    - richtext.text_height(long, width=259.0, size=size))
+            step = richtext.text_height(long, width=259.0, size=size + 0.2) - richtext.text_height(
+                long, width=259.0, size=size
+            )
             assert step > white, f"nog {white:.0f} mm vrij en de tekst kon {step:.0f} mm groeien"
 
 
@@ -367,17 +453,25 @@ def test_a_sponsor_logo_does_not_push_the_text_up(recwarn=None):
     Broken on purpose: the reservation back at 22 → the text drops a size on
     the design with a logo and this test names it.
     """
-    simple = dict(preset="eenvoudig", highlights=(), dates=(), dates_heading="",
-                  date_line="ZONDAG 15 NOVEMBER OM 9U45", location="BOWLING BRUUL",
-                  main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100),
-                  explanation_md="Kom mee bowlen met het hele gezin. Jong en oud zijn welkom.")
+    simple = dict(
+        preset="eenvoudig",
+        highlights=(),
+        dates=(),
+        dates_heading="",
+        date_line="ZONDAG 15 NOVEMBER OM 9U45",
+        location="BOWLING BRUUL",
+        main_image=ImageBytes(PNG_2x2, "image/png", width=1600, height=1100),
+        explanation_md="Kom mee bowlen met het hele gezin. Jong en oud zijn welkom.",
+    )
     logo = ImageBytes(PNG_2x2, "image/png", width=600, height=240)
     bare = render.merge(_content(**simple), layout="feed_portrait")
     sponsored = render.merge(_content(**simple, logos=(logo,)), layout="feed_portrait")
     sizes = [_white_band(m.svg, simple["explanation_md"])[0] for m in (bare, sponsored)]
     assert sizes[1] >= sizes[0] - 0.4, f"met sponsor {sizes[1]} mm, zonder {sizes[0]} mm"
     # And the strip really is beside the badge, which is why it may.
-    strip = float(re.search(r'<image id="logo-0" x="[0-9.]+" y="([0-9.]+)"', sponsored.svg).group(1))
+    strip = float(
+        re.search(r'<image id="logo-0" x="[0-9.]+" y="([0-9.]+)"', sponsored.svg).group(1)
+    )
     badge = float(re.search(r'id="t-welcome-0"[^>]*y="([0-9.]+)"', sponsored.svg).group(1)) - 8.6
     assert abs(strip - badge) < 12, "de logostrook staat niet meer naast de badge"
 
@@ -395,10 +489,17 @@ def test_every_row_in_the_band_is_set_in_one_size():
     """
     from app.domains.designstudio.blocks import BAND_CONT_STEP, BAND_ROW_STEP, BAND_TEXT
 
-    merged = render.merge(_content(deadline_text="Inschrijven tot 8 november",
-                                   contacts=(Contact("Voornaam Naam", "0470 00 00 00"),)), layout="print_a")
-    rows = re.findall(r'<text id="t-(deadline|website|contact-0)" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"',
-                      merged.svg)
+    merged = render.merge(
+        _content(
+            deadline_text="Inschrijven tot 8 november",
+            contacts=(Contact("Voornaam Naam", "0470 00 00 00"),),
+        ),
+        layout="print_a",
+    )
+    rows = re.findall(
+        r'<text id="t-(deadline|website|contact-0)" x="[0-9.]+" y="([0-9.]+)" font-size="([0-9.]+)"',
+        merged.svg,
+    )
     assert len(rows) == 3
     assert {float(size) for _id, _y, size in rows} == {BAND_TEXT}
     ys = [float(y) for _id, y, _size in rows]
@@ -406,8 +507,10 @@ def test_every_row_in_the_band_is_set_in_one_size():
     # millimetre depends on whether it starts something of its own — that is
     # `test_a_continued_line_keeps_the_ordinary_step`.
     assert round(ys[1] - ys[0], 1) == BAND_ROW_STEP
-    assert all(round(n - v, 1) in (BAND_ROW_STEP, BAND_ROW_STEP + 1, BAND_CONT_STEP)
-               for v, n in zip(ys, ys[1:]))
+    assert all(
+        round(n - v, 1) in (BAND_ROW_STEP, BAND_ROW_STEP + 1, BAND_CONT_STEP)
+        for v, n in zip(ys, ys[1:])
+    )
 
 
 def test_the_sponsor_logo_grew_to_the_left_and_down(recwarn=None):
@@ -424,18 +527,22 @@ def test_the_sponsor_logo_grew_to_the_left_and_down(recwarn=None):
     """
     from app.domains.designstudio.blocks import LOGO_H, Plan, logo_strip
 
-    assert round(LOGO_H / 16, 2) == 1.2          # a fifth over the old 16 mm
-    plan = Plan(width=297, height=420, frame=10, pal=brand.palette_for("dark_green-golden_yellow"), seed=1)
+    assert round(LOGO_H / 16, 2) == 1.2  # a fifth over the old 16 mm
+    plan = Plan(
+        width=297, height=420, frame=10, pal=brand.palette_for("dark_green-golden_yellow"), seed=1
+    )
     logo = ImageBytes(PNG_2x2, "image/png", width=600, height=190)
     boxes = {}
     for h in (16.0, LOGO_H):
-        m = re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"',
-                      logo_strip(plan, (logo,), 283.0, 300.0, h))
+        m = re.search(
+            r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"',
+            logo_strip(plan, (logo,), 283.0, 300.0, h),
+        )
         boxes[h] = [float(v) for v in m.groups()]
     (x0, y0, w0, h0), (x1, y1, w1, h1) = boxes[16.0], boxes[LOGO_H]
-    assert y0 == y1                               # not higher
+    assert y0 == y1  # not higher
     assert round(x0 + w0, 2) == round(x1 + w1, 2)  # not further right
-    assert x1 < x0 and h1 > h0                    # so it grew left and down
+    assert x1 < x0 and h1 > h0  # so it grew left and down
     assert "xMax" in logo_strip(plan, (logo,), 283.0, 300.0, LOGO_H)
 
 
@@ -455,21 +562,31 @@ def test_a_contact_that_does_not_fit_takes_a_second_line_instead_of_shrinking():
     from app.domains.designstudio.blocks import BAND_TEXT
 
     def band(svg):
-        return re.findall(r'<text id="(t-contact[^"]*)" x="([0-9.]+)" y="[0-9.]+" font-size="([0-9.]+)"[^>]*>([^<]*)<', svg)
+        return re.findall(
+            r'<text id="(t-contact[^"]*)" x="([0-9.]+)" y="[0-9.]+" font-size="([0-9.]+)"[^>]*>([^<]*)<',
+            svg,
+        )
 
-    short = render.merge(_content(contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
-                         layout="print_a")
+    short = render.merge(
+        _content(contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)), layout="print_a"
+    )
     assert [(rid, text) for rid, _x, _size, text in band(short.svg)] == [
-        ("t-contact-0", "An Peeters · an.peeters@gmail.com")]
+        ("t-contact-0", "An Peeters · an.peeters@gmail.com")
+    ]
 
-    long = render.merge(_content(contacts=(Contact("Natascha Furleo", "0123 456 789",
-                                                   "furleonatascha@hotmail.com"),)), layout="print_a")
+    long = render.merge(
+        _content(
+            contacts=(Contact("Natascha Furleo", "0123 456 789", "furleonatascha@hotmail.com"),)
+        ),
+        layout="print_a",
+    )
     rows = band(long.svg)
     assert [(rid, text) for rid, _x, _size, text in rows] == [
         ("t-contact-0", "Natascha Furleo · 0123 456 789"),
-        ("t-contact-0-b", "furleonatascha@hotmail.com")]
-    assert {float(size) for _rid, _x, size, _text in rows} == {BAND_TEXT}   # one size, still
-    assert len({x for _rid, x, _size, _text in rows}) == 1                  # and one column
+        ("t-contact-0-b", "furleonatascha@hotmail.com"),
+    ]
+    assert {float(size) for _rid, _x, size, _text in rows} == {BAND_TEXT}  # one size, still
+    assert len({x for _rid, x, _size, _text in rows}) == 1  # and one column
     # The second line carries no icon of its own.
     assert long.svg.count('id="icon-users"') <= short.svg.count('id="icon-users"') + 0
 
@@ -484,7 +601,9 @@ def test_every_contact_gets_its_own_row_with_name_gsm_and_email_and_the_band_gro
     its address rather than shrinking — three contacts with a mobile number
     is exactly that case, so each of them is two rows here.
     """
-    three = tuple(Contact(f"Persoon {i}", f"047{i} 00 00 00", f"persoon{i}@example.com") for i in range(3))
+    three = tuple(
+        Contact(f"Persoon {i}", f"047{i} 00 00 00", f"persoon{i}@example.com") for i in range(3)
+    )
     none = render.merge(_content(contacts=()), layout="print_a")
     with_three = render.merge(_content(contacts=three), layout="print_a")
     for i in range(3):
@@ -512,8 +631,12 @@ def test_welcome_is_a_badge_above_the_tile_and_members_only_turns_it_red():
 
 
 def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
-    merged = render.merge(_content(title_lines=("STAPPEN", "KLAPPEN"), title_joiner="EN"), layout="print_a")
-    sizes = set(re.findall(r'id="t-title-\d" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)"', merged.svg))
+    merged = render.merge(
+        _content(title_lines=("STAPPEN", "KLAPPEN"), title_joiner="EN"), layout="print_a"
+    )
+    sizes = set(
+        re.findall(r'id="t-title-\d" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)"', merged.svg)
+    )
     assert len(sizes) == 1
     # The lockup's y lies inside the band, not at the top-left corner.
     m = re.search(r'viewBox="106 106.2 491 245"', merged.svg)
@@ -525,30 +648,58 @@ def test_both_title_lines_share_one_size_and_the_lockup_sits_in_the_band():
 def test_the_third_picture_and_the_sponsor_logos_do_not_collide():
     """Third picture bottom-left under the highlights, logos bottom-right
     above the band — both may be there (Koen, 20 September 2026)."""
-    both = render.merge(_content(inset_image=ImageBytes(PNG_2x2, "image/png"),
-                                 third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
-                                 logos=(ImageBytes(PNG_2x2, "image/png"),)), layout="print_a").svg
-    assert both.count("<image") == 4 and 'id="logo-0"' in both and 'preserveAspectRatio="xMinYMin slice"' in both
+    both = render.merge(
+        _content(
+            inset_image=ImageBytes(PNG_2x2, "image/png"),
+            third_image=ImageBytes(PNG_2x2, "image/png", 0.2, 0.2),
+            logos=(ImageBytes(PNG_2x2, "image/png"),),
+        ),
+        layout="print_a",
+    ).svg
+    assert (
+        both.count("<image") == 4
+        and 'id="logo-0"' in both
+        and 'preserveAspectRatio="xMinYMin slice"' in both
+    )
 
 
 def test_the_simple_preset_puts_one_picture_and_the_text_over_the_full_width():
     """Half of the unit's posters are a Bowlen: one big picture, the
     activity's text, "iedereen welkom" small and low — no icon rows."""
-    simple = render.merge(_content(preset="eenvoudig", dates=(), explanation_md="De **tekst** van de activiteit."),
-                          layout="print_a")
+    simple = render.merge(
+        _content(preset="eenvoudig", dates=(), explanation_md="De **tekst** van de activiteit."),
+        layout="print_a",
+    )
     assert simple.violations == ()
     m = re.search(r'<image x="19.00" y="[0-9.]+" width="([0-9.]+)" height="([0-9.]+)"', simple.svg)
     assert m is not None and float(m.group(1)) > 250 and float(m.group(2)) > 100
     assert "t-hl-0-0" not in simple.svg and 'id="t-rt-explanation"' in simple.svg
     # A polaroid lies on the big picture; the big picture keeps its size.
-    with_inset = render.merge(_content(preset="eenvoudig", dates=(), explanation_md="De tekst.",
-                                       inset_image=ImageBytes(PNG_2x2, "image/png")), layout="print_a")
+    with_inset = render.merge(
+        _content(
+            preset="eenvoudig",
+            dates=(),
+            explanation_md="De tekst.",
+            inset_image=ImageBytes(PNG_2x2, "image/png"),
+        ),
+        layout="print_a",
+    )
     assert with_inset.violations == () and with_inset.svg.count("<image") == 2
-    hero = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', simple.svg).group(1)
-    hero2 = re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', with_inset.svg).group(1)
+    hero = re.search(
+        r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', simple.svg
+    ).group(1)
+    hero2 = re.search(
+        r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', with_inset.svg
+    ).group(1)
     assert abs(float(hero) - float(hero2)) < 12
     # The lockup sits 4 mm in from the paper's left edge, its bottom level with the band's.
-    x, y, w = (float(v) for v in re.search(r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106', simple.svg).groups())
+    x, y, w = (
+        float(v)
+        for v in re.search(
+            r'x="([0-9.]+)" y="([0-9.]+)" width="([0-9.]+)" height="[0-9.]+" viewBox="106',
+            simple.svg,
+        ).groups()
+    )
     assert x == 13.0 and abs(y + w * 245 / 491 - 409) < 0.01
 
 
@@ -556,10 +707,14 @@ def test_six_highlight_rows_fit_the_left_column():
     """Date, place and four own rows (Koen, 20 September 2026: six in total,
     rows five and six structurally gone) — all six on the print poster, room
     to spare."""
-    six = tuple(Highlight("smile", f"Kernpunt {i} met een tweede regel erbij", i == 0) for i in range(6))
+    six = tuple(
+        Highlight("smile", f"Kernpunt {i} met een tweede regel erbij", i == 0) for i in range(6)
+    )
     merged = render.merge(_content(highlights=six, inset_image=None, dates=()), layout="print_a")
-    assert all(f't-hl-{i}-0' in merged.svg for i in range(6))
-    assert not any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations), merged.violations
+    assert all(f"t-hl-{i}-0" in merged.svg for i in range(6))
+    assert not any(v.startswith("Te veel inhoud in de kolom links") for v in merged.violations), (
+        merged.violations
+    )
 
 
 def test_every_highlight_row_is_upper_case_bold_and_one_size():
@@ -567,9 +722,16 @@ def test_every_highlight_row_is_upper_case_bold_and_one_size():
     than the others. One size, upper case, bold — whatever was typed. The
     size itself went from 7,4 to 8,0 on 21 September ("dat moet het best
     leesbaar zijn"); what this test guards is that there is only one."""
-    merged = render.merge(_content(highlights=(Highlight("map-pin", "Miloheem"), Highlight("users", "gezellig samen"))),
-                          layout="print_a")
-    rows = re.findall(r'<text id="t-hl-\d-0" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)" font-weight="(\w+)"[^>]*>([^<]*)</text>', merged.svg)
+    merged = render.merge(
+        _content(
+            highlights=(Highlight("map-pin", "Miloheem"), Highlight("users", "gezellig samen"))
+        ),
+        layout="print_a",
+    )
+    rows = re.findall(
+        r'<text id="t-hl-\d-0" x="[0-9.]+" y="[0-9.]+" font-size="([0-9.]+)" font-weight="(\w+)"[^>]*>([^<]*)</text>',
+        merged.svg,
+    )
     assert len(rows) == 2
     from app.domains.designstudio.blocks import ROW_TEXT
 
@@ -583,18 +745,26 @@ def test_the_picture_takes_the_height_of_its_own_proportions():
     of a known size takes the height that belongs to its width."""
     from app.domains.designstudio.blocks import hero_height
 
-    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 600)     # 8:3
+    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 600)  # 8:3
     tall = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1000, 1200)
     unknown = ImageBytes(PNG_2x2, "image/png")
-    assert round(hero_height(wide, 240, 200, cap=200, floor=60)) == 90      # its own strip
-    assert hero_height(tall, 240, 200, cap=200, floor=60) == 200            # capped, then cropped
-    assert hero_height(unknown, 240, 200, cap=200, floor=60) == 200         # unchanged for unknown sizes
-    assert hero_height(wide, 240, 40, cap=200, floor=60) == 60              # an over-full page keeps the floor
+    assert round(hero_height(wide, 240, 200, cap=200, floor=60)) == 90  # its own strip
+    assert hero_height(tall, 240, 200, cap=200, floor=60) == 200  # capped, then cropped
+    assert hero_height(unknown, 240, 200, cap=200, floor=60) == 200  # unchanged for unknown sizes
+    assert hero_height(wide, 240, 40, cap=200, floor=60) == 60  # an over-full page keeps the floor
     # And the poster really reserves less room for a wide photo.
-    low = render.merge(_content(main_image=wide, preset="eenvoudig", dates=()), layout="print_a").svg
-    high = render.merge(_content(main_image=tall, preset="eenvoudig", dates=()), layout="print_a").svg
-    hl = float(re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', low).group(1))
-    hh = float(re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', high).group(1))
+    low = render.merge(
+        _content(main_image=wide, preset="eenvoudig", dates=()), layout="print_a"
+    ).svg
+    high = render.merge(
+        _content(main_image=tall, preset="eenvoudig", dates=()), layout="print_a"
+    ).svg
+    hl = float(
+        re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', low).group(1)
+    )
+    hh = float(
+        re.search(r'<image x="19.00" y="[0-9.]+" width="[0-9.]+" height="([0-9.]+)"', high).group(1)
+    )
     assert hl < 110 < hh
 
 
@@ -602,19 +772,32 @@ def test_the_simple_preset_puts_when_left_and_where_right_above_the_picture():
     """The preset has no highlight column, so date and place go above the
     picture in those same icon rows — date left, place right (Koen,
     20 September 2026)."""
-    one = render.merge(_content(preset="eenvoudig", dates=(), date_line="ZONDAG 15 NOVEMBER OM 9U45",
-                                location="BOWLING BRUUL"), layout="print_a")
+    one = render.merge(
+        _content(
+            preset="eenvoudig",
+            dates=(),
+            date_line="ZONDAG 15 NOVEMBER OM 9U45",
+            location="BOWLING BRUUL",
+        ),
+        layout="print_a",
+    )
     assert one.violations == ()
     rows: dict[str, list[str]] = {}
     for idx, text in re.findall(r'<text id="t-hl-(\d)-\d"[^>]*>([^<]*)</text>', one.svg):
         rows.setdefault(idx, []).append(text)
-    assert " ".join(rows["0"]) == "ZONDAG 15 NOVEMBER OM 9U45"   # may wrap inside its column
+    assert " ".join(rows["0"]) == "ZONDAG 15 NOVEMBER OM 9U45"  # may wrap inside its column
     assert " ".join(rows["1"]) == "BOWLING BRUUL"
-    xs = [float(x) for x, _y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg)]
-    assert xs[0] < xs[1]                                     # date left, place right
-    top = max(float(y) for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg))
+    xs = [
+        float(x)
+        for x, _y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg)
+    ]
+    assert xs[0] < xs[1]  # date left, place right
+    top = max(
+        float(y)
+        for _x, y in re.findall(r'<text id="t-hl-\d-0" x="([0-9.]+)" y="([0-9.]+)"', one.svg)
+    )
     picture_y = float(re.search(r'<image x="19.00" y="([0-9.]+)"', one.svg).group(1))
-    assert top < picture_y                                   # both above the picture
+    assert top < picture_y  # both above the picture
     series = render.merge(_content(preset="eenvoudig", location="MILOHEEM"), layout="print_a").svg
     lines = [text for _i, text in re.findall(r'<text id="t-hl-(0)-\d"[^>]*>([^<]*)</text>', series)]
     assert " ".join(lines) == "3 DATA IN 2026 · ZIE DE WEBSITE" and "MILOHEEM" in series
@@ -636,9 +819,11 @@ def test_the_body_text_grows_into_the_room_it_has():
     long = " ".join(["Een alinea die maar doorgaat en doorgaat."] * 40)
     assert fit_richtext_size(short, 260, 120, max_size=11.0, min_size=7.2) == 11.0
     assert fit_richtext_size(long, 260, 60, max_size=11.0, min_size=7.2) == 7.2
-    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 700)    # a low strip leaves room
-    svg = render.merge(_content(preset="eenvoudig", dates=(), main_image=wide, explanation_md=short),
-                       layout="print_a").svg
+    wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1600, 700)  # a low strip leaves room
+    svg = render.merge(
+        _content(preset="eenvoudig", dates=(), main_image=wide, explanation_md=short),
+        layout="print_a",
+    ).svg
     assert float(re.search(r'id="t-rt-explanation"[^>]*font-size="([0-9.]+)"', svg).group(1)) > 8
 
 
@@ -655,17 +840,23 @@ def test_registering_closes_the_band_in_the_accent_colour():
     the contacts → the order assert names them.
     """
     pal = brand.palette_for("dark_green-golden_yellow")
-    svg = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
-                                contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
-                       layout="print_a").svg
+    svg = render.merge(
+        _content(
+            deadline_text="Inschrijven tot en met 8 november",
+            contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),),
+        ),
+        layout="print_a",
+    ).svg
     # One sentence over two lines: the first ends on "via", the second is
     # the address and carries no icon of its own.
     assert ">Inschrijven tot en met 8 november via</text>" in svg
     assert ">www.raakmillegem.be</text>" in svg
     for rij in ("t-deadline", "t-website"):
         assert re.search(rf'id="{rij}"[^>]*fill="{pal["accent"]}"', svg), rij
-    y = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
-         for rij in ("t-contact-0", "t-deadline", "t-website")}
+    y = {
+        rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+        for rij in ("t-contact-0", "t-deadline", "t-website")
+    }
     assert y["t-contact-0"] < y["t-deadline"] < y["t-website"]
 
     # No shared deadline (it differs per component): one line with the globe,
@@ -675,8 +866,9 @@ def test_registering_closes_the_band_in_the_accent_colour():
     assert ">Inschrijven via www.raakmillegem.be</text>" in alone
 
     # And no address to follow it: no dangling "via".
-    losse_datum = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
-                                        website=""), layout="print_a").svg
+    losse_datum = render.merge(
+        _content(deadline_text="Inschrijven tot en met 8 november", website=""), layout="print_a"
+    ).svg
     assert ">Inschrijven tot en met 8 november</text>" in losse_datum
     assert "via</text>" not in losse_datum
 
@@ -703,11 +895,17 @@ def test_a_continued_line_sits_closer_than_a_row_of_its_own():
     """
     from app.domains.designstudio.blocks import BAND_CONT_STEP, BAND_ROW_STEP
 
-    svg = render.merge(_content(deadline_text="Inschrijven tot en met 8 november",
-                                contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)),
-                       layout="print_a").svg
-    y = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
-         for rij in ("t-contact-0", "t-deadline", "t-website")}
+    svg = render.merge(
+        _content(
+            deadline_text="Inschrijven tot en met 8 november",
+            contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),),
+        ),
+        layout="print_a",
+    ).svg
+    y = {
+        rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', svg).group(1))
+        for rij in ("t-contact-0", "t-deadline", "t-website")
+    }
     # De zin hangt samen: dichter dan de rijen die op zichzelf staan.
     assert round(y["t-website"] - y["t-deadline"], 1) == BAND_CONT_STEP
     assert round(y["t-deadline"] - y["t-contact-0"], 1) == BAND_ROW_STEP
@@ -715,8 +913,10 @@ def test_a_continued_line_sits_closer_than_a_row_of_its_own():
 
     # Sluit een rij mét icoon de balk af, dan zakt die wél een millimeter.
     los = render.merge(_content(deadline_text="", contacts=()), layout="print_a").svg
-    y2 = {rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', los).group(1))
-          for rij in ("t-email", "t-website")}
+    y2 = {
+        rij: float(re.search(rf'id="{rij}" x="[0-9.]+" y="([0-9.]+)"', los).group(1))
+        for rij in ("t-email", "t-website")
+    }
     assert round(y2["t-website"] - y2["t-email"], 1) == BAND_ROW_STEP + 1
 
 
@@ -741,17 +941,22 @@ def test_the_icon_follows_the_meaning_not_the_length_of_the_line():
 
     def band(content, layout):
         maat = {"print_a": 420.0, "feed_portrait": 371.25}[layout]
-        plan = plan_affiche(content, layout=layout, width=297, height=maat,
-                            pal=brand.palette_for(content.duo_code))
+        plan = plan_affiche(
+            content, layout=layout, width=297, height=maat, pal=brand.palette_for(content.duo_code)
+        )
         return [(r["id"], r["icon"], r["text"]) for r in plan.band["rows"]]
 
     for layout in ("print_a", "feed_portrait"):
         een = band(_content(deadline_text="", contacts=()), layout)
         assert een[-1] == ("t-website", "ticket", "Inschrijven via www.raakmillegem.be"), layout
 
-        twee = band(_content(deadline_text="Inschrijven tot en met 8 november", contacts=()), layout)
-        assert twee[-2:] == [("t-deadline", "ticket", "Inschrijven tot en met 8 november via"),
-                             ("t-website", "", "www.raakmillegem.be")], layout
+        twee = band(
+            _content(deadline_text="Inschrijven tot en met 8 november", contacts=()), layout
+        )
+        assert twee[-2:] == [
+            ("t-deadline", "ticket", "Inschrijven tot en met 8 november via"),
+            ("t-website", "", "www.raakmillegem.be"),
+        ], layout
 
         # Niets om op in te schrijven: enkel het adres, met de wereldbol.
         geen = band(_content(registration=False, deadline_text="", contacts=()), layout)
@@ -766,10 +971,15 @@ def test_a_wide_picture_in_a_squeezed_box_is_shown_whole():
     from app.domains.designstudio.blocks import aspect_for
 
     wide = ImageBytes(PNG_2x2, "image/png", 0.5, 0.5, 1440, 1248)
-    assert aspect_for(wide, 260, 60) == "xMidYMid meet"       # squeezed: whole
-    assert aspect_for(wide, 260, 200) == "xMidYMid slice"     # normal: crop
-    assert aspect_for(ImageBytes(PNG_2x2, "image/png"), 260, 60) == "xMidYMid slice"   # size unknown: crop
-    assert 'preserveAspectRatio="xMidYMid slice"' in render.merge(_content(main_image=wide), layout="print_a").svg
+    assert aspect_for(wide, 260, 60) == "xMidYMid meet"  # squeezed: whole
+    assert aspect_for(wide, 260, 200) == "xMidYMid slice"  # normal: crop
+    assert (
+        aspect_for(ImageBytes(PNG_2x2, "image/png"), 260, 60) == "xMidYMid slice"
+    )  # size unknown: crop
+    assert (
+        'preserveAspectRatio="xMidYMid slice"'
+        in render.merge(_content(main_image=wide), layout="print_a").svg
+    )
 
 
 def test_the_polaroid_lies_on_the_corner_that_was_chosen():
@@ -778,31 +988,41 @@ def test_the_polaroid_lies_on_the_corner_that_was_chosen():
     from app.domains.designstudio.blocks import polaroid_on
 
     inset = ImageBytes(PNG_2x2, "image/png")
-    rect = (19.0, 100.0, 260.0, 120.0)          # x, y, w, h of the main picture
+    rect = (19.0, 100.0, 260.0, 120.0)  # x, y, w, h of the main picture
     places = {}
     for corner in ("top_left", "top_right", "bottom_left", "bottom_right"):
         frag, bottom = polaroid_on(_plan(), inset, rect, corner, 91.0)
-        x, y = (float(v) for v in re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="91', frag).groups())
+        x, y = (
+            float(v)
+            for v in re.search(r'<rect x="([0-9.]+)" y="([0-9.]+)" width="91', frag).groups()
+        )
         places[corner] = (x, y, bottom)
-    assert places["top_left"][0] == places["bottom_left"][0] == 25.0          # 6 mm inside the left edge
-    assert places["top_right"][0] == places["bottom_right"][0] == 182.0       # ... and the right edge
+    assert places["top_left"][0] == places["bottom_left"][0] == 25.0  # 6 mm inside the left edge
+    assert places["top_right"][0] == places["bottom_right"][0] == 182.0  # ... and the right edge
     assert places["top_left"][1] < places["bottom_left"][1]
-    assert places["top_left"][2] == 220.0                                     # inside: the picture's own bottom
-    assert places["bottom_left"][2] > 220.0                                   # breaks the bottom edge
+    assert places["top_left"][2] == 220.0  # inside: the picture's own bottom
+    assert places["bottom_left"][2] > 220.0  # breaks the bottom edge
     # And the poster really uses the design's choice.
-    svg = render.merge(_content(preset="eenvoudig", dates=(), inset_image=inset,
-                                inset_corner="top_left"), layout="print_a").svg
+    svg = render.merge(
+        _content(preset="eenvoudig", dates=(), inset_image=inset, inset_corner="top_left"),
+        layout="print_a",
+    ).svg
     hero_x = float(re.search(r'<image x="19.00"', svg).group(0).split('"')[1])
     assert hero_x == 19.0 and svg.count("<image") == 2
 
 
 def test_a_focal_point_moves_the_crop():
-    left = render.merge(_content(main_image=ImageBytes(PNG_2x2, "image/png", 0.1, 0.9)), layout="print_a")
+    left = render.merge(
+        _content(main_image=ImageBytes(PNG_2x2, "image/png", 0.1, 0.9)), layout="print_a"
+    )
     assert 'preserveAspectRatio="xMinYMax slice"' in left.svg
 
 
 def test_page_size_is_read_from_the_root_in_mm_or_px():
-    assert render.page_size_mm('<svg width="297mm" height="420mm" viewBox="0 0 297 420"/>') == (297, 420)
+    assert render.page_size_mm('<svg width="297mm" height="420mm" viewBox="0 0 297 420"/>') == (
+        297,
+        420,
+    )
     w, h = render.page_size_mm('<svg width="96" height="192"/>')
     assert (round(w, 1), round(h, 1)) == (25.4, 50.8)
     with pytest.raises(render.RenderError):
@@ -825,7 +1045,7 @@ def test_wordmark_is_recoloured_per_duo_and_keeps_the_baseline_glyphs():
     id/role attributes."""
     green = render.wordmark(brand.palette_for("dark_green-golden_yellow"), x=0, y=0, width=72)
     assert "#ffce00" in green and 'viewBox="106 106.2 491 245"' in green
-    assert not re.search(r'<svg[^>]*\sid="', green) and 'aria-labelledby' not in green
+    assert not re.search(r'<svg[^>]*\sid="', green) and "aria-labelledby" not in green
     uses = re.findall(r'href="#(font_[^"]+)"', green)
     used = set(uses)
     assert len(uses) >= 20 and len(used) >= 10, "the baseline's letters are missing"
@@ -837,11 +1057,12 @@ def test_wordmark_is_recoloured_per_duo_and_keeps_the_baseline_glyphs():
 
 # ── AI drawings ─────────────────────────────────────────────────────────────
 
+
 def test_dutch_scenes_are_translated_and_logged_english_ones_pass(monkeypatch):
     """Koen, 20 September 2026: type Dutch, the model gets English, the
     translation lands in the AI log."""
-    from app.domains.designstudio import imaging
     from app.domains.chatbot import api as chatbot_api
+    from app.domains.designstudio import imaging
 
     class FakeAnswer:
         content = "two adults and two children on bicycles"
@@ -856,14 +1077,18 @@ def test_dutch_scenes_are_translated_and_logged_english_ones_pass(monkeypatch):
 
     logged: list[dict] = []
     monkeypatch.setattr(chatbot_api, "get_provider", lambda model="": FakeProvider())
-    monkeypatch.setattr(chatbot_api, "sink_for", lambda actor="": (lambda **kw: logged.append(kw)))
-    english, translated = imaging.translate_scene("twee volwassenen en twee kinderen op de fiets", actor="x")
+    monkeypatch.setattr(chatbot_api, "sink_for", lambda actor="": lambda **kw: logged.append(kw))
+    english, translated = imaging.translate_scene(
+        "twee volwassenen en twee kinderen op de fiets", actor="x"
+    )
     assert translated and english == "two adults and two children on bicycles"
     assert logged and logged[0]["capability"] is chatbot_api.AiCapability.TRANSLATE
     assert logged[0]["surface"] is chatbot_api.AiSurface.DESIGNSTUDIO
     assert "twee volwassenen" in logged[0]["payload"]
     assert imaging.translate_scene("two adults on bicycles") == ("two adults on bicycles", False)
-    assert imaging.looks_dutch("een gezin met twee kinderen op de fiets") and not imaging.looks_dutch("a family on bikes")
+    assert imaging.looks_dutch(
+        "een gezin met twee kinderen op de fiets"
+    ) and not imaging.looks_dutch("a family on bikes")
 
 
 def test_three_styles_and_their_wording():
@@ -898,6 +1123,7 @@ def test_whitening_pushes_the_near_white_ground_to_white_and_keeps_the_lines():
 
 # ── Inkscape ────────────────────────────────────────────────────────────────
 
+
 @needs_inkscape
 def test_inkscape_measures_what_the_estimate_promised_and_names_an_overflow():
     """The authority: `--query-all` in mm via the reference rectangle. Then one
@@ -920,12 +1146,22 @@ def test_inkscape_gets_the_poster_fonts_from_the_repo_not_from_the_host():
     the directory drops out of the config."""
     import subprocess
 
-    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(Path(tempfile.gettempdir())),
-           "FONTCONFIG_FILE": render._fontconfig_file()}
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": str(Path(tempfile.gettempdir())),
+        "FONTCONFIG_FILE": render._fontconfig_file(),
+    }
     for family in ("Radio Canada Big", "Caveat"):
-        out = subprocess.run(["fc-match", "-f", "%{file}", family], capture_output=True, text=True,
-                             env=env, check=True).stdout
-        assert Path(out).resolve().parent == render.FONTS_DIR.resolve(), f"{family} resolved to {out}"
+        out = subprocess.run(
+            ["fc-match", "-f", "%{file}", family],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+        ).stdout
+        assert Path(out).resolve().parent == render.FONTS_DIR.resolve(), (
+            f"{family} resolved to {out}"
+        )
 
 
 @needs_inkscape
@@ -934,23 +1170,36 @@ def test_the_estimate_stays_above_inkscape_for_small_and_large_text(tmp_path):
     for lower case at 6.4 mm as much as for a 51 mm title (iteration 17: Pango
     lays small text out up to 8 % wider than the advances). If a font or an
     Inkscape upgrade changes that, this goes red before a poster does."""
-    samples = [("Een rustige tocht langs de kanaaldijk en door", False, 6.4), ("Helm aanbevolen.", True, 6.4),
-               ("IEDERE 2DE MAANDAG VAN DE MAAND", True, 8.2), ("VERTREK AAN HET MILOHEEM", False, 7.4),
-               ("Kinderen fietsen mee onder begeleiding van", False, 6.4), ("STAPPEN", True, 51)]
+    samples = [
+        ("Een rustige tocht langs de kanaaldijk en door", False, 6.4),
+        ("Helm aanbevolen.", True, 6.4),
+        ("IEDERE 2DE MAANDAG VAN DE MAAND", True, 8.2),
+        ("VERTREK AAN HET MILOHEEM", False, 7.4),
+        ("Kinderen fietsen mee onder begeleiding van", False, 6.4),
+        ("STAPPEN", True, 51),
+    ]
     parts = ['<rect id="ref100mm" x="0" y="0" width="100" height="1" fill="none"/>']
     for i, (text, bold, size) in enumerate(samples):
-        parts.append(f'<text id="t{i}" x="10" y="{20 + i * 20}" font-size="{size}" '
-                     f'font-weight="{"bold" if bold else "normal"}">{text}</text>')
-    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="200mm" viewBox="0 0 297 200" '
-           f'font-family="Radio Canada Big">{"".join(parts)}</svg>')
+        parts.append(
+            f'<text id="t{i}" x="10" y="{20 + i * 20}" font-size="{size}" '
+            f'font-weight="{"bold" if bold else "normal"}">{text}</text>'
+        )
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="200mm" viewBox="0 0 297 200" '
+        f'font-family="Radio Canada Big">{"".join(parts)}</svg>'
+    )
     path = tmp_path / "measure.svg"
     path.write_text(svg)
     boxes = render.query_all(path)
     for i, (text, bold, size) in enumerate(samples):
         estimate = richtext.text_width(text, size, bold=bold)
         ink = boxes[f"t{i}"][2]
-        assert ink <= estimate, f"{text!r} at {size}: Inkscape {ink:.2f} mm > estimate {estimate:.2f} mm"
-        assert ink >= estimate * 0.85, f"{text!r}: the estimate is far too loose ({estimate:.2f} vs {ink:.2f})"
+        assert ink <= estimate, (
+            f"{text!r} at {size}: Inkscape {ink:.2f} mm > estimate {estimate:.2f} mm"
+        )
+        assert ink >= estimate * 0.85, (
+            f"{text!r}: the estimate is far too loose ({estimate:.2f} vs {ink:.2f})"
+        )
 
 
 @needs_inkscape

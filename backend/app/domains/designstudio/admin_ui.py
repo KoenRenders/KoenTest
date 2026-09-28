@@ -12,6 +12,7 @@ every layout with Inkscape as the authority and writes a version — or shows
 why not. "Publiceren" copies the A3 PDF onto the activity after a
 confirmation.
 """
+
 from __future__ import annotations
 
 import logging
@@ -19,7 +20,16 @@ from dataclasses import replace
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 
@@ -29,25 +39,25 @@ from app.domains.designstudio import render
 from app.domains.designstudio.api import (
     DESIGN_STATUS,
     DRAWING_STYLE,
-    DesignError,
-    DesignStatus,
-    GenerationStatus,
     ENABLED_DUOS,
     FILE_LAYOUT_LABELS,
     GENERATION_STATUS,
     ICONS,
     INSET_CORNER,
-    ImagingError,
     LAYOUT,
-    Layout,
     MAX_HIGHLIGHTS,
     MAX_VERSIONS,
     PRESET,
     PREVIEW_LARGE_PX,
     PREVIEW_PX,
     RENDER_VARIANT,
-    RenderError,
     STYLES,
+    DesignError,
+    DesignStatus,
+    GenerationStatus,
+    ImagingError,
+    Layout,
+    RenderError,
     add_design_image,
     budget,
     check_design,
@@ -103,10 +113,13 @@ DUO_LABELS = {
 # not a translation (§B4.5), so it stays in Python, here, next to the screen
 # that draws the badge — and the code table gets no `tone` column where a
 # translator would find one. Total by construction and by gate.
-register_tones(DESIGN_STATUS.name, {
-    DesignStatus.DRAFT: "yellow",
-    DesignStatus.FINAL: "green",
-})
+register_tones(
+    DESIGN_STATUS.name,
+    {
+        DesignStatus.DRAFT: "yellow",
+        DesignStatus.FINAL: "green",
+    },
+)
 
 
 def _short(name: str, limit: int = 22) -> str:
@@ -150,8 +163,10 @@ def _design_or_404(db: Session, design_id: int):
 def _activity_options(db: Session) -> list[tuple[int, str]]:
     from app.domains.activities.api import activity_options
 
-    return [(o.id, f"{o.name} ({o.first_date.isoformat()})" if o.first_date else o.name)
-            for o in activity_options(db)]
+    return [
+        (o.id, f"{o.name} ({o.first_date.isoformat()})" if o.first_date else o.name)
+        for o in activity_options(db)
+    ]
 
 
 def _duo_options() -> list[tuple[str, str]]:
@@ -172,8 +187,14 @@ def _redirect(request: Request, target: str):
 
 # ── The list ─────────────────────────────────────────────────────────────────
 
-def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] = None,
-               activity_id: Optional[int] = None) -> DesignListView:
+
+def _list_view(
+    request: Request,
+    db: Session,
+    q: str = "",
+    error: Optional[str] = None,
+    activity_id: Optional[int] = None,
+) -> DesignListView:
     from app.domains.activities.api import get_activity
 
     rows = []
@@ -186,21 +207,35 @@ def _list_view(request: Request, db: Session, q: str = "", error: Optional[str] 
         if needle and needle not in name.lower():
             continue
         published = next((v for v in design.versions if v.id == design.published_version_id), None)
-        rows.append(DesignRow(
-            id=design.id, activity_id=design.activity_id, activity_name=name,
-            preset_label=code_label(PRESET.name, design.preset, db=db),
-            status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
-            status_tone=tone(DESIGN_STATUS.name, design.status),
-            version_count=len(design.versions), published=published is not None,
-            stale=bool(published is not None and activity is not None and is_stale(db, published)),
-            updated=short_datetime(design.updated_at) if design.updated_at else "",
-        ))
-    return DesignListView(rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        rows.append(
+            DesignRow(
+                id=design.id,
+                activity_id=design.activity_id,
+                activity_name=name,
+                preset_label=code_label(PRESET.name, design.preset, db=db),
+                status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
+                status_tone=tone(DESIGN_STATUS.name, design.status),
+                version_count=len(design.versions),
+                published=published is not None,
+                stale=bool(
+                    published is not None and activity is not None and is_stale(db, published)
+                ),
+                updated=short_datetime(design.updated_at) if design.updated_at else "",
+            )
+        )
+    return DesignListView(
+        rows=rows, q=q, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+    )
 
 
 @router.get("/admin/ontwerpen", response_class=HTMLResponse)
-def design_list(request: Request, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), q: str = "", activity_id: Optional[int] = None):
+def design_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+    activity_id: Optional[int] = None,
+):
     """`?activity_id=` narrows the list to one activity — the target of the
     jump from the activity screen."""
     view = _list_view(request, db, q=q, activity_id=activity_id)
@@ -208,76 +243,146 @@ def design_list(request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-def _new_view(request: Request, db: Session, *, activity_id: str = "", duo_code: str = "",
-              preset: str = "beeld", error: Optional[str] = None) -> DesignNewView:
-    return DesignNewView(activity_options=_activity_options(db), activity_id=activity_id,
-                         duo_options=_duo_options(), duo_code=duo_code or ENABLED_DUOS[0],
-                         preset_options=_preset_options(db), preset=preset,
-                         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+def _new_view(
+    request: Request,
+    db: Session,
+    *,
+    activity_id: str = "",
+    duo_code: str = "",
+    preset: str = "beeld",
+    error: Optional[str] = None,
+) -> DesignNewView:
+    return DesignNewView(
+        activity_options=_activity_options(db),
+        activity_id=activity_id,
+        duo_options=_duo_options(),
+        duo_code=duo_code or ENABLED_DUOS[0],
+        preset_options=_preset_options(db),
+        preset=preset,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/ontwerpen/nieuw", response_class=HTMLResponse)
-def design_new(request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
-               activity_id: str = ""):
-    return templates.TemplateResponse(request, "admin_ontwerp_nieuw.html",
-                                      _new_view(request, db, activity_id=activity_id).as_context())
+def design_new(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    activity_id: str = "",
+):
+    return templates.TemplateResponse(
+        request,
+        "admin_ontwerp_nieuw.html",
+        _new_view(request, db, activity_id=activity_id).as_context(),
+    )
 
 
 @router.post("/admin/ontwerpen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def design_create(request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                  activity_id: str = Form(""), duo_code: str = Form(""), preset: str = Form("beeld")):
+def design_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    activity_id: str = Form(""),
+    duo_code: str = Form(""),
+    preset: str = Form("beeld"),
+):
     try:
-        design = create_design(db, activity_id=int(activity_id or 0), duo_code=duo_code, preset=preset,
-                               created_by=email)
+        design = create_design(
+            db,
+            activity_id=int(activity_id or 0),
+            duo_code=duo_code,
+            preset=preset,
+            created_by=email,
+        )
     except (DesignError, ValueError) as exc:
         return templates.TemplateResponse(
-            request, "admin_ontwerp_nieuw.html",
-            _new_view(request, db, activity_id=activity_id, duo_code=duo_code, preset=preset,
-                      error=str(exc) or _("Kies een activiteit.")).as_context())
+            request,
+            "admin_ontwerp_nieuw.html",
+            _new_view(
+                request,
+                db,
+                activity_id=activity_id,
+                duo_code=duo_code,
+                preset=preset,
+                error=str(exc) or _("Kies een activiteit."),
+            ).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}")
 
 
 # ── The editor ───────────────────────────────────────────────────────────────
 
+
 def _facts_rows(facts: dict) -> list[tuple[str, str]]:
     rows = [(_("Titel"), facts["title"])]
     if facts["dates"]:
-        rows.append((_("Data"), ", ".join(
-            f"{d['date']} {d['time']}".strip() for d in facts["dates"])))
+        rows.append(
+            (_("Data"), ", ".join(f"{d['date']} {d['time']}".strip() for d in facts["dates"]))
+        )
     rows.append((_("Plaats"), facts["location"] or "—"))
     rows.append((_("Inschrijven tot"), facts["deadline"] or "—"))
-    rows.append((_("Contact"), "; ".join(" · ".join(p for p in (c["name"], c["mobile"], c["email"]) if p)
-                                          for c in facts["organisers"])
-                 or _("niemand aangevinkt → gegevens van de vereniging")))
-    rows.append((_("Omschrijving"), facts["description"] or _("— (leeg; typ hieronder een toelichting)")))
+    rows.append(
+        (
+            _("Contact"),
+            "; ".join(
+                " · ".join(p for p in (c["name"], c["mobile"], c["email"]) if p)
+                for c in facts["organisers"]
+            )
+            or _("niemand aangevinkt → gegevens van de vereniging"),
+        )
+    )
+    rows.append(
+        (_("Omschrijving"), facts["description"] or _("— (leeg; typ hieronder een toelichting)"))
+    )
     return rows
 
 
-def _typed_over(view: DesignEditorView, values: dict, highlights: list[tuple[str, str, bool]],
-                logo_ids: list[int]) -> DesignEditorView:
+def _typed_over(
+    view: DesignEditorView,
+    values: dict,
+    highlights: list[tuple[str, str, bool]],
+    logo_ids: list[int],
+) -> DesignEditorView:
     """After a refused save the form shows what was typed, not what was
     saved — otherwise a wrong icon in row six costs the other five rows."""
+
     def num(key: str) -> Optional[int]:
         raw = (values.get(key) or "").strip()
         return int(raw) if raw.isdigit() else None
 
     return replace(
         view,
-        duo_code=values.get("duo_code", view.duo_code), preset=values.get("preset", view.preset),
-        tagline=values.get("tagline", view.tagline), subtitle=values.get("subtitle", view.subtitle),
+        duo_code=values.get("duo_code", view.duo_code),
+        preset=values.get("preset", view.preset),
+        tagline=values.get("tagline", view.tagline),
+        subtitle=values.get("subtitle", view.subtitle),
         explanation_md=values.get("explanation_md", view.explanation_md),
         explanation_is_own=bool(values.get("explanation_md", view.explanation_md).strip()),
         highlights=[HighlightRow(icon=i, text=t, emphasis=e) for i, t, e in highlights],
         logo_ids=logo_ids,
-        main_image_id=num("main_image_id"), inset_image_id=num("inset_image_id"), third_image_id=num("third_image_id"),
-        main_focus_x=values.get("main_focus_x", view.main_focus_x), main_focus_y=values.get("main_focus_y", view.main_focus_y),
+        main_image_id=num("main_image_id"),
+        inset_image_id=num("inset_image_id"),
+        third_image_id=num("third_image_id"),
+        main_focus_x=values.get("main_focus_x", view.main_focus_x),
+        main_focus_y=values.get("main_focus_y", view.main_focus_y),
         inset_corner=values.get("inset_corner", view.inset_corner),
     )
 
 
-def _editor_view(request: Request, db: Session, design, *, layout: str = "print_a",
-                 error: Optional[str] = None, notice: Optional[str] = None,
-                 violations: Optional[list[str]] = None, ai_prompt: str = "", ai_style: str = "lijn") -> DesignEditorView:
+def _editor_view(
+    request: Request,
+    db: Session,
+    design,
+    *,
+    layout: str = "print_a",
+    error: Optional[str] = None,
+    notice: Optional[str] = None,
+    violations: Optional[list[str]] = None,
+    ai_prompt: str = "",
+    ai_style: str = "lijn",
+) -> DesignEditorView:
     try:
         chosen = Layout(layout)
     except ValueError:
@@ -291,67 +396,139 @@ def _editor_view(request: Request, db: Session, design, *, layout: str = "print_
             violations, render_error = [], str(exc)
     # Short labels: a select shows ~25 characters; a phone's file name does
     # not fit and the source in Dutch says more than "activity_photo".
-    source_labels = {"activity_photo": _("foto activiteit"), "design_image": _("studio"), "generated": _("AI")}
-    options = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],
-                           label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
-                           source=m["source"]) for m in image_options(db, design)]
+    source_labels = {
+        "activity_photo": _("foto activiteit"),
+        "design_image": _("studio"),
+        "generated": _("AI"),
+    }
+    options = [
+        ImageOption(
+            id=m["id"],
+            thumb_url=m["thumb_url"],
+            label=f"{_short(m.get('title') or '')} · {source_labels.get(m['source'], m['source'])} #{m['id']}",
+            source=m["source"],
+        )
+        for m in image_options(db, design)
+    ]
     year = date.today().year
-    logos = [ImageOption(id=m["id"], thumb_url=m["thumb_url"],
-                         label=f"{m.get('title') or '#' + str(m['id'])} ({sponsor_usage(db, m['id'], year)}× in {year})",
-                         source="sponsor")
-             for m in sponsor_options(db)]
+    logos = [
+        ImageOption(
+            id=m["id"],
+            thumb_url=m["thumb_url"],
+            label=f"{m.get('title') or '#' + str(m['id'])} ({sponsor_usage(db, m['id'], year)}× in {year})",
+            source="sponsor",
+        )
+        for m in sponsor_options(db)
+    ]
     versions = []
     for v in sorted(design.versions, key=lambda v: -v.number):
-        files = [{"label": f"{code_label(LAYOUT.name, r.layout_code, db=db)} · "
-                           f"{code_label(RENDER_VARIANT.name, r.variant, db=db)} {r.size_code}".strip(),
-                  "url": f"/api/v1/media/{r.media_asset_id}"} for r in v.renditions]
-        versions.append(VersionRow(id=v.id, number=v.number, created=short_datetime(v.created_at),
-                                   published=(v.id == design.published_version_id), stale=is_stale(db, v), files=files))
-    generations = [GenerationRow(id=g.id, status=code_of(g.status) or "",
-                                 status_label=code_label(GENERATION_STATUS.name, g.status, db=db),
-                                 thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
-                                 media_asset_id=g.media_asset_id, failure_reason=g.failure_reason or "",
-                                 scene=g.scene or "", style=code_of(g.style) or "lijn",
-                                 image_url=f"/api/v1/media/{g.media_asset_id}" if g.media_asset_id else "")
-                   for g in sorted(design.generations, key=lambda g: -g.id)[:12]]
-    highlights = [HighlightRow(icon=h.icon_code, text=h.text, emphasis=h.emphasis) for h in design.highlights]
+        files = [
+            {
+                "label": f"{code_label(LAYOUT.name, r.layout_code, db=db)} · "
+                f"{code_label(RENDER_VARIANT.name, r.variant, db=db)} {r.size_code}".strip(),
+                "url": f"/api/v1/media/{r.media_asset_id}",
+            }
+            for r in v.renditions
+        ]
+        versions.append(
+            VersionRow(
+                id=v.id,
+                number=v.number,
+                created=short_datetime(v.created_at),
+                published=(v.id == design.published_version_id),
+                stale=is_stale(db, v),
+                files=files,
+            )
+        )
+    generations = [
+        GenerationRow(
+            id=g.id,
+            status=code_of(g.status) or "",
+            status_label=code_label(GENERATION_STATUS.name, g.status, db=db),
+            thumb_url=f"/api/v1/media/{g.media_asset_id}/thumb" if g.media_asset_id else "",
+            media_asset_id=g.media_asset_id,
+            failure_reason=g.failure_reason or "",
+            scene=g.scene or "",
+            style=code_of(g.style) or "lijn",
+            image_url=f"/api/v1/media/{g.media_asset_id}" if g.media_asset_id else "",
+        )
+        for g in sorted(design.generations, key=lambda g: -g.id)[:12]
+    ]
+    highlights = [
+        HighlightRow(icon=h.icon_code, text=h.text, emphasis=h.emphasis) for h in design.highlights
+    ]
     while len(highlights) < MAX_HIGHLIGHTS:
         highlights.append(HighlightRow(icon="smile", text="", emphasis=False))
     ai = budget(db)
     return DesignEditorView(
-        design_id=design.id, activity_id=design.activity_id, activity_name=facts["title"],
-        status=code_of(design.status) or "", status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
+        design_id=design.id,
+        activity_id=design.activity_id,
+        activity_name=facts["title"],
+        status=code_of(design.status) or "",
+        status_label=code_label(DESIGN_STATUS.name, design.status, db=db),
         status_tone=tone(DESIGN_STATUS.name, design.status),
-        preset=code_of(design.preset) or "", preset_options=_preset_options(db),
-        duo_code=design.duo_code, duo_options=_duo_options(),
-        tagline=design.tagline or "", subtitle=design.subtitle or "",
-        explanation_md=design.explanation_md or "", explanation_is_own=bool(design.explanation_md),
+        preset=code_of(design.preset) or "",
+        preset_options=_preset_options(db),
+        duo_code=design.duo_code,
+        duo_options=_duo_options(),
+        tagline=design.tagline or "",
+        subtitle=design.subtitle or "",
+        explanation_md=design.explanation_md or "",
+        explanation_is_own=bool(design.explanation_md),
         explanation_hint=facts["description"],
-        highlights=highlights, icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
-        main_image_id=design.main_image_id, inset_image_id=design.inset_image_id, third_image_id=design.third_image_id,
-        main_focus_x=f"{float(design.main_focus_x):.2f}", main_focus_y=f"{float(design.main_focus_y):.2f}",
+        highlights=highlights,
+        icon_options=[(code, label) for code, (label, _p) in ICONS.items()],
+        main_image_id=design.main_image_id,
+        inset_image_id=design.inset_image_id,
+        third_image_id=design.third_image_id,
+        main_focus_x=f"{float(design.main_focus_x):.2f}",
+        main_focus_y=f"{float(design.main_focus_y):.2f}",
         inset_corner=code_of(design.inset_corner) or "bottom_right",
         corner_options=code_labels(INSET_CORNER.name, db=db),
-        image_options=options, logo_options=logos, logo_ids=[lg.media_asset_id for lg in design.logos],
-        facts=_facts_rows(facts), facts_href=f"/admin/activiteiten/{design.activity_id}",
+        image_options=options,
+        logo_options=logos,
+        logo_ids=[lg.media_asset_id for lg in design.logos],
+        facts=_facts_rows(facts),
+        facts_href=f"/admin/activiteiten/{design.activity_id}",
         preview_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&v={fingerprint(facts)[:8]}",
         preview_large_url=f"/admin/ontwerpen/{design.id}/voorbeeld.png?layout={chosen.value}&groot=1&v={fingerprint(facts)[:8]}",
-        layout=chosen.value, layout_options=code_labels(LAYOUT.name, db=db),
-        violations=violations or [], warnings=warnings_for(design, facts), render_error=render_error,
+        layout=chosen.value,
+        layout_options=code_labels(LAYOUT.name, db=db),
+        violations=violations or [],
+        warnings=warnings_for(design, facts),
+        render_error=render_error,
         edited_layouts=[lc.value for lc in Layout if edited_svg_for(db, design, lc) is not None],
-        font_links=[("Radio Canada Big", "/static/fonts/RadioCanadaBig-VariableFont_wght.ttf"),
-                    ("Caveat", "/static/fonts/Caveat-VariableFont_wght.ttf")],
-        versions=versions, published_version_id=design.published_version_id, max_versions=MAX_VERSIONS,
-        ai_enabled=ai.enabled, ai_budget_line=ai.line(), generations=generations, ai_prompt=ai_prompt,
-        ai_style=ai_style, style_options=code_labels(DRAWING_STYLE.name, db=db),
+        font_links=[
+            ("Radio Canada Big", "/static/fonts/RadioCanadaBig-VariableFont_wght.ttf"),
+            ("Caveat", "/static/fonts/Caveat-VariableFont_wght.ttf"),
+        ],
+        versions=versions,
+        published_version_id=design.published_version_id,
+        max_versions=MAX_VERSIONS,
+        ai_enabled=ai.enabled,
+        ai_budget_line=ai.line(),
+        generations=generations,
+        ai_prompt=ai_prompt,
+        ai_style=ai_style,
+        style_options=code_labels(DRAWING_STYLE.name, db=db),
         style_texts={code: text.lstrip(" —") for code, text in STYLES.items()},
         ai_pending=any(g.status == GenerationStatus.REQUESTED for g in design.generations),
-        csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        notice=notice,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/ontwerpen/{design_id}", response_class=HTMLResponse)
-def design_editor(request: Request, design_id: int, db: Session = Depends(get_db),
-                  _email: str = Depends(require_admin_ui), layout: str = "print_a", notice: str = ""):
+def design_editor(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    layout: str = "print_a",
+    notice: str = "",
+):
     design = _design_or_404(db, design_id)
     view = _editor_view(request, db, design, layout=layout, notice=notice or None)
     template = "_ds_voorbeeld.html" if is_fragment_request(request) else "admin_ontwerp.html"
@@ -359,8 +536,13 @@ def design_editor(request: Request, design_id: int, db: Session = Depends(get_db
 
 
 @router.get("/admin/ontwerpen/{design_id}/varianten", response_class=HTMLResponse)
-def design_variants(request: Request, design_id: int, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui), layout: str = "print_a"):
+def design_variants(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    layout: str = "print_a",
+):
     """The variants grid alone, polled by the editor while a request runs, so
     a drawing shows the moment it lands (Koen, 20 September 2026)."""
     design = _design_or_404(db, design_id)
@@ -369,24 +551,34 @@ def design_variants(request: Request, design_id: int, db: Session = Depends(get_
 
 
 @router.get("/admin/ontwerpen/{design_id}/voorbeeld.png")
-def design_preview(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
-                   layout: str = "print_a", groot: bool = False):
+def design_preview(
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    layout: str = "print_a",
+    groot: bool = False,
+):
     design = _design_or_404(db, design_id)
     chosen = _layout_or_404(layout)
     try:
         # "Groot bekijken" renders at print resolution so a phone camera can
         # read the QR code off the screen (Koen, 20 September 2026). It takes
         # several seconds, which is why the panel's own picture does not.
-        png, _problems = preview_png(db, design, chosen,
-                                     width_px=PREVIEW_LARGE_PX if groot else PREVIEW_PX)
+        png, _problems = preview_png(
+            db, design, chosen, width_px=PREVIEW_LARGE_PX if groot else PREVIEW_PX
+        )
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return Response(content=png, media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
 @router.get("/admin/ontwerpen/{design_id}/voorbeeld.pdf")
-def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
-                       layout: str = "print_a"):
+def design_preview_pdf(
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    layout: str = "print_a",
+):
     """The draft as a PDF, to look at it large or print a proof — no version
     is made (Koen, 19 September 2026: "in het groot bekijken")."""
     from app.domains.designstudio.service import merged_for
@@ -400,13 +592,20 @@ def design_preview_pdf(design_id: int, db: Session = Depends(get_db), _email: st
     except (DesignError, RenderError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     name = f"{_slug(facts, design)}-proefdruk-{FILE_LAYOUT_LABELS[chosen]}.pdf"
-    return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{name}"'})
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{name}"'},
+    )
 
 
 @router.get("/admin/ontwerpen/{design_id}/svg/{layout}")
-def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_db),
-                        _email: str = Depends(require_admin_ui)):
+def design_svg_download(
+    design_id: int,
+    layout: str,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """The editable SVG of the current draft, to rework in Inkscape (§3.6a)."""
     from app.domains.designstudio.service import merged_for
 
@@ -415,8 +614,11 @@ def design_svg_download(design_id: int, layout: str, db: Session = Depends(get_d
     facts = facts_for(db, design)
     merged = merged_for(db, design, chosen, facts=facts)
     name = f"{_slug(facts, design)}-{FILE_LAYOUT_LABELS[chosen]}.svg"
-    return Response(content=merged.svg.encode("utf-8"), media_type="image/svg+xml",
-                    headers={"Content-Disposition": f'attachment; filename="{name}"'})
+    return Response(
+        content=merged.svg.encode("utf-8"),
+        media_type="image/svg+xml",
+        headers={"Content-Disposition": f'attachment; filename="{name}"'},
+    )
 
 
 async def _form_dict(request: Request) -> dict:
@@ -424,16 +626,29 @@ async def _form_dict(request: Request) -> dict:
     return {k: v for k, v in form.multi_items() if not hasattr(v, "filename")}
 
 
-@router.post("/admin/ontwerpen/{design_id}", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def design_save(request: Request, design_id: int, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/ontwerpen/{design_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def design_save(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     design = _design_or_404(db, design_id)
     form = await request.form()
     values = {k: str(v) for k, v in form.items() if not hasattr(v, "filename")}
     highlights: list[tuple[str, str, bool]] = []
     for i in range(MAX_HIGHLIGHTS):
-        highlights.append((str(form.get(f"hl_icon_{i}", "smile")), str(form.get(f"hl_text_{i}", "")),
-                           bool(form.get(f"hl_emphasis_{i}"))))
+        highlights.append(
+            (
+                str(form.get(f"hl_icon_{i}", "smile")),
+                str(form.get(f"hl_text_{i}", "")),
+                bool(form.get(f"hl_emphasis_{i}")),
+            )
+        )
     logo_ids = [int(str(v)) for v in form.getlist("logo_ids") if str(v).isdigit()]
     layout = values.get("layout", "print_a")
     try:
@@ -441,83 +656,162 @@ async def design_save(request: Request, design_id: int, db: Session = Depends(ge
     except DesignError as exc:
         # The service refuses before it mutates, so `design` is still the saved
         # state; the form shows what was typed on top of it.
-        view = _typed_over(_editor_view(request, db, design, layout=layout, error=str(exc)), values, highlights, logo_ids)
+        view = _typed_over(
+            _editor_view(request, db, design, layout=layout, error=str(exc)),
+            values,
+            highlights,
+            logo_ids,
+        )
         return templates.TemplateResponse(request, "admin_ontwerp.html", view.as_context())
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=bewaard")
 
 
-@router.post("/admin/ontwerpen/{design_id}/afbeelding", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def design_image_upload(request: Request, design_id: int, db: Session = Depends(get_db),
-                              _email: str = Depends(require_admin_ui), file: UploadFile = File(...),
-                              slot: str = Form("main_image_id"), layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/afbeelding",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def design_image_upload(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    file: UploadFile = File(...),
+    slot: str = Form("main_image_id"),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     try:
         await add_design_image(db, design, file, slot=slot)
     except DesignError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
+        return templates.TemplateResponse(
+            request,
+            "admin_ontwerp.html",
+            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=afbeelding")
 
 
-@router.post("/admin/ontwerpen/{design_id}/genereer", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def design_generate(request: Request, design_id: int, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui), scene: str = Form(""), layout: str = Form("print_a"),
-                    reference_id: str = Form(""), style: str = Form("lijn"), change: str = Form("")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/genereer",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def design_generate(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    scene: str = Form(""),
+    layout: str = Form("print_a"),
+    reference_id: str = Form(""),
+    style: str = Form("lijn"),
+    change: str = Form(""),
+):
     """Four variants — from scratch, or ("wat wil je anders?") on top of a
     variant the unit liked: then `reference_id` is that variant's picture and
     `change` the instruction."""
     design = _design_or_404(db, design_id)
     try:
-        request_images(db, design, scene, requested_by=email, style=style, change=change,
-                       reference_asset_id=int(reference_id) if reference_id.isdigit() else None)
+        request_images(
+            db,
+            design,
+            scene,
+            requested_by=email,
+            style=style,
+            change=change,
+            reference_asset_id=int(reference_id) if reference_id.isdigit() else None,
+        )
     except (DesignError, ImagingError) as exc:
         return templates.TemplateResponse(
-            request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, error=str(exc), ai_prompt=scene,
-                         ai_style=style).as_context())
+            request,
+            "admin_ontwerp.html",
+            _editor_view(
+                request, db, design, layout=layout, error=str(exc), ai_prompt=scene, ai_style=style
+            ).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gevraagd")
 
 
-@router.post("/admin/ontwerpen/{design_id}/kies/{generation_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def design_pick(request: Request, design_id: int, generation_id: int, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), slot: str = Form("main_image_id"),
-                layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/kies/{generation_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def design_pick(
+    request: Request,
+    design_id: int,
+    generation_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    slot: str = Form("main_image_id"),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     try:
         pick_generation(db, design, generation_id, slot=slot)
     except DesignError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
+        return templates.TemplateResponse(
+            request,
+            "admin_ontwerp.html",
+            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gekozen")
 
 
-@router.post("/admin/ontwerpen/{design_id}/definitief", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def design_finalise(request: Request, design_id: int, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui), layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/definitief",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def design_finalise(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     try:
         version = make_version(db, design, created_by=email)
     except DesignError as exc:
         return templates.TemplateResponse(
-            request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout,
-                         error=_("Nog niet definitief: ") + " · ".join(exc.messages),
-                         violations=exc.messages).as_context())
+            request,
+            "admin_ontwerp.html",
+            _editor_view(
+                request,
+                db,
+                design,
+                layout=layout,
+                error=_("Nog niet definitief: ") + " · ".join(exc.messages),
+                violations=exc.messages,
+            ).as_context(),
+        )
     except RenderError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
-    return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=versie{version.number}")
+        return templates.TemplateResponse(
+            request,
+            "admin_ontwerp.html",
+            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+        )
+    return _redirect(
+        request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=versie{version.number}"
+    )
 
 
-@router.post("/admin/ontwerpen/{design_id}/publiceer", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def design_publish(request: Request, design_id: int, background_tasks: BackgroundTasks,
-                         db: Session = Depends(get_db), _email: str = Depends(require_admin_ui),
-                         version_id: int = Form(...), layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/publiceer",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def design_publish(
+    request: Request,
+    design_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    version_id: int = Form(...),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     version = next((v for v in design.versions if v.id == version_id), None)
     if version is None:
@@ -525,43 +819,81 @@ async def design_publish(request: Request, design_id: int, background_tasks: Bac
     try:
         await publish(db, design, version, background_tasks)
     except DesignError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
+        return templates.TemplateResponse(
+            request,
+            "admin_ontwerp.html",
+            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=gepubliceerd")
 
 
-@router.post("/admin/ontwerpen/{design_id}/svg", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def design_svg_upload(request: Request, design_id: int, db: Session = Depends(get_db),
-                            _email: str = Depends(require_admin_ui), file: UploadFile = File(...),
-                            layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/svg",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def design_svg_upload(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    file: UploadFile = File(...),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     raw = await file.read()
     try:
         warnings = upload_edited_svg(db, design, _layout_or_404(layout), raw)
     except DesignError as exc:
-        return templates.TemplateResponse(request, "admin_ontwerp.html",
-                                          _editor_view(request, db, design, layout=layout, error=str(exc)).as_context())
+        return templates.TemplateResponse(
+            request,
+            "admin_ontwerp.html",
+            _editor_view(request, db, design, layout=layout, error=str(exc)).as_context(),
+        )
     if warnings:
         return templates.TemplateResponse(
-            request, "admin_ontwerp.html",
-            _editor_view(request, db, design, layout=layout, notice=_("SVG bewaard — met opmerkingen van de huisstijl:"),
-                         violations=warnings).as_context())
+            request,
+            "admin_ontwerp.html",
+            _editor_view(
+                request,
+                db,
+                design,
+                layout=layout,
+                notice=_("SVG bewaard — met opmerkingen van de huisstijl:"),
+                violations=warnings,
+            ).as_context(),
+        )
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=svg")
 
 
-@router.post("/admin/ontwerpen/{design_id}/svg/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def design_svg_remove(request: Request, design_id: int, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui), layout: str = Form("print_a")):
+@router.post(
+    "/admin/ontwerpen/{design_id}/svg/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def design_svg_remove(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    layout: str = Form("print_a"),
+):
     design = _design_or_404(db, design_id)
     remove_edited_svg(db, design, _layout_or_404(layout))
     return _redirect(request, f"/admin/ontwerpen/{design.id}?layout={layout}&notice=svgweg")
 
 
-@router.post("/admin/ontwerpen/{design_id}/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def design_delete(request: Request, design_id: int, db: Session = Depends(get_db),
-                  _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/ontwerpen/{design_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def design_delete(
+    request: Request,
+    design_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     design = _design_or_404(db, design_id)
     delete_design(db, design)
     return _redirect(request, "/admin/ontwerpen")

@@ -9,6 +9,7 @@ subscriber screen, the audiences and a send can be tried without real people.
 moment before the real import, and example addresses there would be mailed.
 Only `@example.org` addresses, which no mail server delivers.
 """
+
 from __future__ import annotations
 
 import secrets
@@ -37,13 +38,19 @@ def seed(db, app_env: str) -> int:
         return 0
     now = datetime.now(timezone.utc)
     for email, first_name, status, source in EXAMPLES:
-        db.add(Subscriber(
-            email=email, first_name=first_name, status=status, source=source,
-            imported_at=now if source == "import" else None,
-            consented_at=now if source == "public_form" else None,
-            confirmed_at=now if status == "confirmed" else None,
-            unsubscribed_at=now if status == "unsubscribed" else None,
-            unsubscribe_token=secrets.token_urlsafe(32)))
+        db.add(
+            Subscriber(
+                email=email,
+                first_name=first_name,
+                status=status,
+                source=source,
+                imported_at=now if source == "import" else None,
+                consented_at=now if source == "public_form" else None,
+                confirmed_at=now if status == "confirmed" else None,
+                unsubscribed_at=now if status == "unsubscribed" else None,
+                unsubscribe_token=secrets.token_urlsafe(32),
+            )
+        )
     db.commit()
     return len(EXAMPLES)
 

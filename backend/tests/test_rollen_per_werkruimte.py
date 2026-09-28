@@ -6,17 +6,22 @@ accounts in ``SEED_ALLE_WERKRUIMTES_EMAILS``; (3) een ADMIN kent rollen toe
 binnen zijn eigen werkruimte — en dus nooit de OPERATOR-rol, want die staat
 erboven. De kern: **ADMIN in werkruimte A is geen ADMIN in werkruimte B.**
 """
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
+import pytest
 import pytest as _pytest
 
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    User,
+    UserRole,
+    csrf_token_for,
+    get_user_roles,
+    make_session_value,
+)
+from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID, current_tenant_id
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
-                                  csrf_token_for, get_user_roles,
-                                  make_session_value)
-from app.kernel.tenancy import (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID,
-                                current_tenant_id)
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client, email=SEEDED_ADMIN_EMAIL):
@@ -29,7 +34,8 @@ def _user(db, email, *rollen):
     """Gebruiker met (role_code, tenant_id)-paren — tenant_id None is de
     platformbrede rij."""
     u = User(email=email, is_active=True)
-    db.add(u); db.flush()
+    db.add(u)
+    db.flush()
     for code, tenant in rollen:
         db.add(UserRole(user_id=u.id, role_code=code, tenant_id=tenant))
     db.flush()
@@ -37,8 +43,7 @@ def _user(db, email, *rollen):
 
 
 def test_admin_in_a_is_geen_admin_in_b(db_session):
-    _user(db_session, "afdeling-b@example.com",
-          ("ADMIN", TENANT_VOORBEELD_ID))
+    _user(db_session, "afdeling-b@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
     db_session.flush()
 
     token = current_tenant_id.set(TENANT_MILLEGEM_ID)
@@ -58,8 +63,7 @@ def test_operator_is_platformbreed(db_session):
     for tenant in (TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID):
         token = current_tenant_id.set(tenant)
         try:
-            assert "OPERATOR" in get_user_roles(db_session,
-                                                "platform@example.com")
+            assert "OPERATOR" in get_user_roles(db_session, "platform@example.com")
         finally:
             current_tenant_id.reset(token)
 
@@ -92,14 +96,18 @@ def test_operator_wordt_nergens_buiten_het_platform_toegekend(client, db_session
     lijst = client.get("/admin/gebruikers").text
     assert 'value="OPERATOR"' not in lijst
 
-    r = client.post(f"/admin/gebruikers/{doel.id}",
-                    data={"is_active": "on", "role_codes": ["ADMIN", "OPERATOR"]},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/gebruikers/{doel.id}",
+        data={"is_active": "on", "role_codes": ["ADMIN", "OPERATOR"]},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert "alleen binnen het platform" in r.text
     db_session.expire_all()
-    assert (db_session.query(UserRole)
-            .filter(UserRole.user_id == doel.id,
-                    UserRole.role_code == "OPERATOR").count()) == 0
+    assert (
+        db_session.query(UserRole)
+        .filter(UserRole.user_id == doel.id, UserRole.role_code == "OPERATOR")
+        .count()
+    ) == 0
 
 
 PLATFORM_HOST = "platform.example.test"
@@ -126,26 +134,33 @@ def test_platform_beheert_rollen_per_werkruimte(client, db_session, platform_hos
     db_session.commit()
     csrf = _login(client)  # beheerder = OPERATOR (087)
 
-    lijst = client.get("/admin/gebruikers",
-                       headers={"host": platform_host}).text
+    lijst = client.get("/admin/gebruikers", headers={"host": platform_host}).text
     assert f'name="rollen_{TENANT_VOORBEELD_ID}"' in lijst
     assert 'name="operator"' in lijst and 'value="OPERATOR"' not in lijst
 
     # Rollen voor twee werkruimtes tegelijk + OPERATOR platformbreed.
-    r = client.post(f"/admin/gebruikers/{doel.id}",
-                    data={"is_active": "on",
-                          f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN", "FINANCE"],
-                          f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"],
-                          "operator": "1"},
-                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    r = client.post(
+        f"/admin/gebruikers/{doel.id}",
+        data={
+            "is_active": "on",
+            f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN", "FINANCE"],
+            f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"],
+            "operator": "1",
+        },
+        headers={"X-CSRF-Token": csrf, "host": platform_host},
+    )
     assert r.status_code == 200
     db_session.expire_all()
-    paren = {(rij.role_code.value, rij.tenant_id) for rij in
-             db_session.query(UserRole).filter(UserRole.user_id == doel.id)}
-    assert paren == {("ADMIN", TENANT_MILLEGEM_ID),
-                     ("FINANCE", TENANT_MILLEGEM_ID),
-                     ("ADMIN", TENANT_VOORBEELD_ID),
-                     ("OPERATOR", None)}
+    paren = {
+        (rij.role_code.value, rij.tenant_id)
+        for rij in db_session.query(UserRole).filter(UserRole.user_id == doel.id)
+    }
+    assert paren == {
+        ("ADMIN", TENANT_MILLEGEM_ID),
+        ("FINANCE", TENANT_MILLEGEM_ID),
+        ("ADMIN", TENANT_VOORBEELD_ID),
+        ("OPERATOR", None),
+    }
 
 
 def test_eerste_gebruiker_van_een_nieuwe_tenant_via_het_platform(client, db_session, platform_host):
@@ -153,10 +168,14 @@ def test_eerste_gebruiker_van_een_nieuwe_tenant_via_het_platform(client, db_sess
     gebruiker zijn eerste rol in een afdeling geven — en die kan daar dan
     ook echt binnen, maar nergens anders."""
     csrf = _login(client)
-    r = client.post("/admin/gebruikers",
-                    data={"email": "nieuwe-tenantadmin@example.com",
-                          f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"]},
-                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    r = client.post(
+        "/admin/gebruikers",
+        data={
+            "email": "nieuwe-tenantadmin@example.com",
+            f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"],
+        },
+        headers={"X-CSRF-Token": csrf, "host": platform_host},
+    )
     assert r.status_code in (200, 204)
 
     _login(client, "nieuwe-tenantadmin@example.com")
@@ -175,44 +194,54 @@ def test_platform_admin_zonder_operator_kan_operator_niet_zetten(client, db_sess
     db_session.commit()
     csrf = _login(client, "platform-admin@example.com")
 
-    assert 'name="operator"' not in client.get(
-        "/admin/gebruikers", headers={"host": platform_host}).text
-    r = client.post(f"/admin/gebruikers/{doel.id}",
-                    data={"is_active": "on", "operator": "1",
-                          f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN"]},
-                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    assert (
+        'name="operator"'
+        not in client.get("/admin/gebruikers", headers={"host": platform_host}).text
+    )
+    r = client.post(
+        f"/admin/gebruikers/{doel.id}",
+        data={"is_active": "on", "operator": "1", f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN"]},
+        headers={"X-CSRF-Token": csrf, "host": platform_host},
+    )
     assert "Alleen een OPERATOR" in r.text
     db_session.expire_all()
-    assert (db_session.query(UserRole)
-            .filter(UserRole.user_id == doel.id,
-                    UserRole.role_code == "OPERATOR").count()) == 0
+    assert (
+        db_session.query(UserRole)
+        .filter(UserRole.user_id == doel.id, UserRole.role_code == "OPERATOR")
+        .count()
+    ) == 0
 
 
 def test_rollen_vervangen_raakt_andere_werkruimte_niet(client, db_session):
     """Besluit 3: de rollenlijst in gebruikersbeheer vervangt alleen de rijen
     van de actieve werkruimte; wat het doelwit elders heeft, blijft staan."""
-    doel = _user(db_session, "doelwit@example.com",
-                 ("FINANCE", TENANT_MILLEGEM_ID),
-                 ("ADMIN", TENANT_VOORBEELD_ID))
+    doel = _user(
+        db_session,
+        "doelwit@example.com",
+        ("FINANCE", TENANT_MILLEGEM_ID),
+        ("ADMIN", TENANT_VOORBEELD_ID),
+    )
     db_session.commit()
     csrf = _login(client)
 
-    r = client.post(f"/admin/gebruikers/{doel.id}",
-                    data={"is_active": "on", "role_codes": ["ADMIN"]},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/gebruikers/{doel.id}",
+        data={"is_active": "on", "role_codes": ["ADMIN"]},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200
     db_session.expire_all()
-    paren = {(r.role_code.value, r.tenant_id) for r in
-             db_session.query(UserRole).filter(UserRole.user_id == doel.id)}
-    assert paren == {("ADMIN", TENANT_MILLEGEM_ID),
-                     ("ADMIN", TENANT_VOORBEELD_ID)}
+    paren = {
+        (r.role_code.value, r.tenant_id)
+        for r in db_session.query(UserRole).filter(UserRole.user_id == doel.id)
+    }
+    assert paren == {("ADMIN", TENANT_MILLEGEM_ID), ("ADMIN", TENANT_VOORBEELD_ID)}
 
 
 def test_lijst_toont_rollen_van_de_actieve_werkruimte(client, db_session):
     """Het rolvinkje op de kaart toont de werkruimte waarin je kijkt — een
     ADMIN-vinkje uit een andere werkruimte zou hier liegen."""
-    doel = _user(db_session, "doelwit@example.com",
-                 ("ADMIN", TENANT_VOORBEELD_ID))
+    _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_VOORBEELD_ID))
     db_session.commit()
     _login(client)
     html = client.get("/admin/gebruikers?q=doelwit").text
@@ -234,8 +263,12 @@ def test_accountmenu_toont_wisselen_alleen_bij_meerdere_werkruimtes(client, db_s
 
 
 def test_werkruimte_wisselen_linkt_via_de_padprefix(client, db_session):
-    _user(db_session, "twee@example.com",
-          ("ADMIN", TENANT_MILLEGEM_ID), ("ADMIN", TENANT_VOORBEELD_ID))
+    _user(
+        db_session,
+        "twee@example.com",
+        ("ADMIN", TENANT_MILLEGEM_ID),
+        ("ADMIN", TENANT_VOORBEELD_ID),
+    )
     db_session.commit()
     _login(client, "twee@example.com")
     html = client.get("/admin/werkruimte-wisselen").text
@@ -253,8 +286,9 @@ def _migratie_127():
     import importlib.util
     from pathlib import Path
 
-    pad = (Path(__file__).resolve().parents[1]
-           / "alembic" / "versions" / "127_roles_per_workspace.py")
+    pad = (
+        Path(__file__).resolve().parents[1] / "alembic" / "versions" / "127_roles_per_workspace.py"
+    )
     spec = importlib.util.spec_from_file_location("migratie_127", pad)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -279,14 +313,15 @@ def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
     m = _migratie_127()
     email = "hoofdbeheer@example.com"
     # Pre-migratiestand: rijen zonder werkruimte, zoals vóór #963.
-    u = _user(db_session, email,
-              ("ACCOUNT_ADMIN", None), ("ADMIN", None))
+    u = _user(db_session, email, ("ACCOUNT_ADMIN", None), ("ADMIN", None))
     bind = db_session.connection()
     m.scope_existing_roles(bind)
     m.copy_seed_roles(bind, [email])
 
-    rijen = {(r.role_code.value, r.tenant_id) for r in
-             db_session.query(UserRole).filter(UserRole.user_id == u.id)}
+    rijen = {
+        (r.role_code.value, r.tenant_id)
+        for r in db_session.query(UserRole).filter(UserRole.user_id == u.id)
+    }
     platform = platform_tenant_id(db_session)
     assert platform is not None
     assert {t for c, t in rijen if c == "ACCOUNT_ADMIN"} == {1, platform}

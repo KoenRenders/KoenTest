@@ -9,6 +9,7 @@ The script is driven as a subprocess, like `test_deploy_script_imports.py` does
 for the deploy scripts: it runs in CI as a standalone stdlib program, so that is
 how it should be exercised.
 """
+
 import json
 import os
 import subprocess
@@ -21,13 +22,19 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "ci_audit_report.py"
 
 FINDINGS = {
     "dependencies": [
-        {"name": "pillow", "version": "12.2.0", "vulns": [
-            {"id": f"GHSA-{i:04d}", "fix_versions": ["12.3.0"]} for i in range(26)
-        ]},
-        {"name": "markdown", "version": "3.7", "vulns": [
-            {"id": "PYSEC-2026-89", "fix_versions": ["3.8.1"]},
-            {"id": "GHSA-5wmx", "fix_versions": ["3.8.1"]},
-        ]},
+        {
+            "name": "pillow",
+            "version": "12.2.0",
+            "vulns": [{"id": f"GHSA-{i:04d}", "fix_versions": ["12.3.0"]} for i in range(26)],
+        },
+        {
+            "name": "markdown",
+            "version": "3.7",
+            "vulns": [
+                {"id": "PYSEC-2026-89", "fix_versions": ["3.8.1"]},
+                {"id": "GHSA-5wmx", "fix_versions": ["3.8.1"]},
+            ],
+        },
         {"name": "fastapi", "version": "0.137.1", "vulns": []},
     ]
 }
@@ -41,7 +48,8 @@ def run(tmp_path, payload, *, write=True):
     summary.write_text("")
     proc = subprocess.run(
         [sys.executable, str(SCRIPT), str(report)],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
         # De echte omgeving erven (CI draait een eigen Python-installatie), maar
         # GITHUB_STEP_SUMMARY naar een wegwerpbestand wijzen — anders schrijft
         # deze test in de summary van de draaiende CI-run.
@@ -78,9 +86,14 @@ def test_reporting_never_blocks(tmp_path):
 def test_a_clean_audit_still_writes_a_summary(tmp_path):
     """'Clean' has to be visible. Inferring it from the absence of a warning is
     the same trap as reading a green tick as 'nothing to see here'."""
-    proc, summary = run(tmp_path, {"dependencies": [
-        {"name": "fastapi", "version": "0.137.1", "vulns": []},
-    ]})
+    proc, summary = run(
+        tmp_path,
+        {
+            "dependencies": [
+                {"name": "fastapi", "version": "0.137.1", "vulns": []},
+            ]
+        },
+    )
     assert "::warning::" not in proc.stdout
     assert "geen bekende kwetsbaarheden" in summary
     assert proc.returncode == 0
@@ -100,24 +113,48 @@ def test_the_fix_version_is_labelled_a_candidate(tmp_path):
     """#571's lesson: fix versions are per advisory, and pypdf 6.14.0 — the
     advertised fix — still carried 12 open advisories. The report must not
     present one as a safe version."""
-    _, summary = run(tmp_path, {"dependencies": [
-        {"name": "pypdf", "version": "6.13.3", "vulns": [
-            {"id": "A", "fix_versions": ["6.14.0"]},
-            {"id": "B", "fix_versions": ["6.9.1"]},
-        ]},
-    ]})
+    _, summary = run(
+        tmp_path,
+        {
+            "dependencies": [
+                {
+                    "name": "pypdf",
+                    "version": "6.13.3",
+                    "vulns": [
+                        {"id": "A", "fix_versions": ["6.14.0"]},
+                        {"id": "B", "fix_versions": ["6.9.1"]},
+                    ],
+                },
+            ]
+        },
+    )
     assert "kandidaat" in summary.lower()
     # Hoogste van de genoemde fixversies, numeriek — niet lexicaal (6.9.1 > 6.14.0
     # als je strings vergelijkt).
     assert "6.14.0" in summary
 
 
-@pytest.mark.parametrize("payload", [
-    {"dependencies": [{"name": "pillow", "version": "12.2.0",
-                       "vulns": [{"id": "X", "fix_versions": ["12.3.0"]}]}]},
-    [{"name": "pillow", "version": "12.2.0",
-      "vulns": [{"id": "X", "fix_versions": ["12.3.0"]}]}],
-])
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "dependencies": [
+                {
+                    "name": "pillow",
+                    "version": "12.2.0",
+                    "vulns": [{"id": "X", "fix_versions": ["12.3.0"]}],
+                }
+            ]
+        },
+        [
+            {
+                "name": "pillow",
+                "version": "12.2.0",
+                "vulns": [{"id": "X", "fix_versions": ["12.3.0"]}],
+            }
+        ],
+    ],
+)
 def test_both_pip_audit_json_shapes_are_read(tmp_path, payload):
     """Modern pip-audit wraps the list in {"dependencies": …}; older releases
     emit the bare list. A pip-audit upgrade must not silently turn every report
@@ -128,7 +165,12 @@ def test_both_pip_audit_json_shapes_are_read(tmp_path, payload):
 
 
 def test_no_fix_available_is_reported_as_such(tmp_path):
-    _, summary = run(tmp_path, {"dependencies": [
-        {"name": "odfpy", "version": "1.4.1", "vulns": [{"id": "X", "fix_versions": []}]},
-    ]})
+    _, summary = run(
+        tmp_path,
+        {
+            "dependencies": [
+                {"name": "odfpy", "version": "1.4.1", "vulns": [{"id": "X", "fix_versions": []}]},
+            ]
+        },
+    )
     assert "geen fix beschikbaar" in summary

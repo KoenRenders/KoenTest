@@ -19,19 +19,28 @@ Twee lagen domeinlogica:
    in de twee publieke schermen — terwijl de API-ingang `submit_bericht` hem
    helemaal niet aanriep.
 """
+
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 
-from app.kernel.codes import code_of
-from app.domains.forms.models import (FIELD_TYPES, FORM_STATUSES, FieldType, FormStatus, Form, FormField,
-                                      FormFieldOption, FormSection,
-                                      FormSubmissionAnswer)
+from app.domains.forms.models import (
+    FIELD_TYPES,
+    FORM_STATUSES,
+    FieldType,
+    Form,
+    FormField,
+    FormFieldOption,
+    FormSection,
+    FormStatus,
+    FormSubmissionAnswer,
+)
 from app.domains.forms.schemas import AnswerIn
 from app.domains.forms.screenfields import BRANCHABLE, CHOICES
 from app.i18n import _
+from app.kernel.codes import code_of
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -171,11 +180,19 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
         anders_telt = bool(other_text) and bool(other_option_ids)
         if anders_telt and not (set(option_ids) & other_option_ids):
             anders_id = sorted(other_option_ids)[0]
-            option_ids = ([anders_id] if field.field_type in (FieldType.RADIO, FieldType.SELECT)
-                          else option_ids + [anders_id])
+            option_ids = (
+                [anders_id]
+                if field.field_type in (FieldType.RADIO, FieldType.SELECT)
+                else option_ids + [anders_id]
+            )
 
-        has_value = (bool(text) or number is not None or bool(option_ids)
-                     or rating is not None or anders_telt)
+        has_value = (
+            bool(text)
+            or number is not None
+            or bool(option_ids)
+            or rating is not None
+            or anders_telt
+        )
 
         if field.required and not has_value:
             raise _fail(field, "dit veld is verplicht.")
@@ -185,8 +202,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
 
         ftype = field.field_type
 
-        if ftype in (FieldType.TEXT, FieldType.TEXTAREA, FieldType.EMAIL,
-                     FieldType.PHONE):
+        if ftype in (FieldType.TEXT, FieldType.TEXTAREA, FieldType.EMAIL, FieldType.PHONE):
             if field.min_length is not None and len(text) < field.min_length:
                 raise _fail(field, f"minstens {field.min_length} tekens.")
             if field.max_length is not None and len(text) > field.max_length:
@@ -223,7 +239,9 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
             if oid not in option_ids_valid:
                 raise _fail(field, "ongeldige keuze.")
             txt = other_text if oid in other_option_ids and other_text else None
-            rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
+            rows.append(
+                FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt)
+            )
 
         elif ftype is FieldType.CHECKBOX:
             for oid in option_ids:
@@ -232,7 +250,9 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
             # Eén rij per aangevinkte optie; "Andere…"-optie krijgt de vrije tekst.
             for oid in option_ids:
                 txt = other_text if oid in other_option_ids and other_text else None
-                rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
+                rows.append(
+                    FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt)
+                )
 
         elif ftype is FieldType.RATING:
             if rating is None:
@@ -255,18 +275,20 @@ def assert_open_for_submission(db, form: Form) -> None:
     from app.domains.forms.models import FormSubmission
 
     if form.status is not FormStatus.OPEN:
-        raise HTTPException(status_code=403, detail=_("Dit formulier staat niet open voor inzendingen."))
-    if form.max_submissions is not None:
-        count = (
-            db.query(FormSubmission)
-            .filter(FormSubmission.form_id == form.id)
-            .count()
+        raise HTTPException(
+            status_code=403, detail=_("Dit formulier staat niet open voor inzendingen.")
         )
+    if form.max_submissions is not None:
+        count = db.query(FormSubmission).filter(FormSubmission.form_id == form.id).count()
         if count >= form.max_submissions:
-            raise HTTPException(status_code=403, detail=_("Dit formulier heeft het maximum aantal inzendingen bereikt."))
+            raise HTTPException(
+                status_code=403,
+                detail=_("Dit formulier heeft het maximum aantal inzendingen bereikt."),
+            )
 
 
 # ── De formulierdefinitie (#635 D) ───────────────────────────────────────────
+
 
 def update_settings(form: Form, data) -> None:
     """Schrijf de formulierinstellingen uit de payload naar het formulier.
@@ -276,16 +298,27 @@ def update_settings(form: Form, data) -> None:
     bewuste leegmaking: `FormUpdate` heeft defaults, dus de aanroeper bepaalt de
     payload en niet deze functie.
     """
-    for veld in ("title", "slug", "description", "status", "requires_login",
-                 "max_submissions", "send_confirmation", "confirmation_message",
-                 "allow_edit", "is_anonymous"):
+    for veld in (
+        "title",
+        "slug",
+        "description",
+        "status",
+        "requires_login",
+        "max_submissions",
+        "send_confirmation",
+        "confirmation_message",
+        "allow_edit",
+        "is_anonymous",
+    ):
         if hasattr(data, veld):
             setattr(form, veld, getattr(data, veld))
 
 
 def validate_definition(data) -> None:
     if data.status not in FORM_STATUSES:
-        raise HTTPException(status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": data.status})
+        raise HTTPException(
+            status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": data.status}
+        )
     sections = getattr(data, "sections", []) or []
     n_sections = len(sections)
     # Sectie-navigatie moet vooruit springen (geen lus).
@@ -300,7 +333,10 @@ def validate_definition(data) -> None:
                 )
     for f in data.fields:
         if f.field_type not in FIELD_TYPES:
-            raise HTTPException(status_code=422, detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": f.field_type})
+            raise HTTPException(
+                status_code=422,
+                detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": f.field_type},
+            )
         # Vraag/label is verplicht (#340).
         if not (f.label or "").strip():
             raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
@@ -315,7 +351,9 @@ def validate_definition(data) -> None:
             # het veld komen. Secties zijn geordend volgens hun index in de payload.
             if o.skip_to_section_index is not None:
                 if not (0 <= o.skip_to_section_index < n_sections):
-                    raise HTTPException(status_code=422, detail=_("Ongeldige doelsectie voor vertakking."))
+                    raise HTTPException(
+                        status_code=422, detail=_("Ongeldige doelsectie voor vertakking.")
+                    )
                 if f.section_index is not None and o.skip_to_section_index <= f.section_index:
                     raise HTTPException(
                         status_code=422,
@@ -407,7 +445,9 @@ def apply_definition(form: Form, data) -> None:
             option.skip_to_end = oi.skip_to_end
             sidx = oi.skip_to_section_index
             option.skip_to_section = (
-                result_sections[sidx] if sidx is not None and 0 <= sidx < len(result_sections) else None
+                result_sections[sidx]
+                if sidx is not None and 0 <= sidx < len(result_sections)
+                else None
             )
             result_options.append(option)
         keep_options = set(result_options)
@@ -439,8 +479,8 @@ def assert_submitter(form, name, email, *, message=None, require_message=False):
     if not getattr(form, "is_anonymous", False):
         if not (name or "").strip() or "@" not in (email or ""):
             raise HTTPException(
-                status_code=422,
-                detail=_("Vul je naam en een geldig e-mailadres in."))
+                status_code=422, detail=_("Vul je naam en een geldig e-mailadres in.")
+            )
     if require_message and not (message or "").strip():
         raise HTTPException(status_code=422, detail=_("Schrijf een bericht."))
 
@@ -448,6 +488,7 @@ def assert_submitter(form, name, email, *, message=None, require_message=False):
 # ── Opzoeken (#635 I) ────────────────────────────────────────────────────────
 # Kleine queries, maar wél met de vraag "welk formulier is dit?" erin. Het scherm
 # hoort die vraag te stellen, niet te beantwoorden.
+
 
 def get_form_by_slug(db, slug: str):
     return db.query(Form).filter(Form.slug == slug).first()
@@ -460,8 +501,7 @@ def get_form_by_share_token(db, share_token: str):
 def get_submission_by_edit_token(db, edit_token: str):
     from app.domains.forms.models import FormSubmission
 
-    return (db.query(FormSubmission)
-            .filter(FormSubmission.edit_token == edit_token).first())
+    return db.query(FormSubmission).filter(FormSubmission.edit_token == edit_token).first()
 
 
 # ── Form-builder: secties, velden en opties (#635 D/I) ───────────────────────
@@ -498,15 +538,24 @@ def _hernummer(items) -> None:
 
 # ── Secties ──────────────────────────────────────────────────────────────────
 
+
 def add_section(db, form: Form, *, title: str = "") -> None:
-    form.sections.append(FormSection(title=(title or "").strip() or None,
-                                     position=len(form.sections)))
+    form.sections.append(
+        FormSection(title=(title or "").strip() or None, position=len(form.sections))
+    )
     db.commit()
 
 
-def update_section(db, form: Form, section_id: int, *, title: str = "",
-                   description: str = "", next_section_id: str = "",
-                   next_is_end: bool = False) -> None:
+def update_section(
+    db,
+    form: Form,
+    section_id: int,
+    *,
+    title: str = "",
+    description: str = "",
+    next_section_id: str = "",
+    next_is_end: bool = False,
+) -> None:
     """Titel, omschrijving en de sprong naar een volgende sectie.
 
     Een sprong moet vooruit: een sectie die naar zichzelf of naar een eerdere
@@ -523,8 +572,7 @@ def update_section(db, form: Form, section_id: int, *, title: str = "",
     # #699: zelfde regel als bij een optie — anders is de bouwer op twee plekken
     # verschillend voor hetzelfde begrip.
     if bool(next_is_end) and doel_id is not None:
-        raise FormulierFout(
-            "Kies één bestemming: een sectie óf het einde, niet allebei.")
+        raise FormulierFout("Kies één bestemming: een sectie óf het einde, niet allebei.")
     if doel_id is not None:
         doel = next((s for s in form.sections if s.id == doel_id), None)
         if doel is None or doel.position <= section.position:
@@ -553,6 +601,7 @@ def delete_section(db, form: Form, section_id: int) -> None:
 
 # ── Velden ───────────────────────────────────────────────────────────────────
 
+
 def _veldwaarden(veld: FormField, waarden: dict) -> None:
     """De eigenschappen van één veld toepassen (#701).
 
@@ -563,6 +612,7 @@ def _veldwaarden(veld: FormField, waarden: dict) -> None:
 
     Lege tekstwaarden betekenen "niet ingesteld".
     """
+
     def _getal(naam):
         rauw = str(waarden.get(naam) or "").strip()
         return int(rauw) if rauw.isdigit() else None
@@ -578,16 +628,18 @@ def _veldwaarden(veld: FormField, waarden: dict) -> None:
     veld.rating_high_label = (waarden.get("rating_high_label") or "").strip() or None
 
 
-def add_field(db, form: Form, *, label: str, field_type: str = "text",
-              section_id: str = "", **waarden) -> None:
+def add_field(
+    db, form: Form, *, label: str, field_type: str = "text", section_id: str = "", **waarden
+) -> None:
     if field_type not in FIELD_TYPES:
         raise FormulierFout(f"Ongeldig veldtype: {field_type}")
     if not (label or "").strip():
         raise FormulierFout("Elk veld heeft een vraag/label nodig.")
     sid = int(section_id) if str(section_id).strip().isdigit() else None
     broers = [f for f in form.fields if f.section_id == sid]
-    veld = FormField(label=label.strip(), field_type=field_type,
-                     section_id=sid, position=len(broers))
+    veld = FormField(
+        label=label.strip(), field_type=field_type, section_id=sid, position=len(broers)
+    )
     _veldwaarden(veld, waarden)
     form.fields.append(veld)
     db.commit()
@@ -626,7 +678,8 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
         if submission_count(db, form.id):
             raise FormulierFout(
                 "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
-                "bewaarde antwoorden betekenisloos maken.")
+                "bewaarde antwoorden betekenisloos maken."
+            )
 
     # #1136: every check before the first change to the row. A refused edit then
     # leaves nothing half-applied for the screen to show, and needs no rollback.
@@ -656,8 +709,9 @@ def _section_name(section: FormSection) -> str:
     return section.title or f"Sectie {section.position + 1}"
 
 
-def _check_move(form: Form, veld: FormField, section_id: int, *,
-                check_jumps: bool = True) -> FormSection:
+def _check_move(
+    form: Form, veld: FormField, section_id: int, *, check_jumps: bool = True
+) -> FormSection:
     """The section a question may move to, or a `FormulierFout` saying why not.
 
     **A move that breaks a jump is refused** (Koen, 21 September 2026). An
@@ -670,13 +724,14 @@ def _check_move(form: Form, veld: FormField, section_id: int, *,
     doel = next((s for s in form.sections if s.id == section_id), None)
     if doel is None:
         raise FormulierFout("Die sectie hoort niet bij dit formulier.")
-    for optie in (veld.options if check_jumps else ()):
+    for optie in veld.options if check_jumps else ():
         sprong = optie.skip_to_section
         if sprong is not None and sprong.position <= doel.position:
             raise FormulierFout(
                 f"De optie '{optie.label}' springt naar "
                 f"{_section_name(sprong)}; verplaatst naar {_section_name(doel)} "
-                f"zou die sprong niet meer vooruit gaan. Pas eerst die sprong aan.")
+                f"zou die sprong niet meer vooruit gaan. Pas eerst die sprong aan."
+            )
     return doel
 
 
@@ -690,8 +745,7 @@ def _move_to_section(form: Form, veld: FormField, doel: FormSection) -> None:
     two questions the same place (the tie of #1068). `_check_move` has decided
     that the move is allowed.
     """
-    oude_broers = [f for f in form.fields
-                   if f.section_id == veld.section_id and f.id != veld.id]
+    oude_broers = [f for f in form.fields if f.section_id == veld.section_id and f.id != veld.id]
     nieuwe_broers = [f for f in form.fields if f.section_id == doel.id]
     veld.section_id = doel.id
     veld.position = max((f.position for f in nieuwe_broers), default=-1) + 1
@@ -731,8 +785,7 @@ def move_option(db, form: Form, option_id: int, richting: str) -> None:
     """
     from app.kernel.ordering import move_sibling
 
-    veld = next((f for f in form.fields
-                 if any(o.id == option_id for o in f.options)), None)
+    veld = next((f for f in form.fields if any(o.id == option_id for o in f.options)), None)
     if veld is None:
         raise LookupError("Optie niet gevonden")
     move_sibling(list(veld.options), option_id, richting, attr="position")
@@ -755,8 +808,7 @@ VERTAKBARE_VELDEN = BRANCHABLE
 BRANCHABLE_CODES = tuple(m.value for m in VERTAKBARE_VELDEN)
 
 
-def add_option(db, form: Form, field_id: int, *, label: str,
-               is_other: bool = False) -> None:
+def add_option(db, form: Form, field_id: int, *, label: str, is_other: bool = False) -> None:
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None or veld.field_type not in KEUZEVELDEN:
         raise FormulierFout("Opties kunnen enkel bij keuzevelden.")
@@ -765,15 +817,24 @@ def add_option(db, form: Form, field_id: int, *, label: str,
     # `update_option` weigerde dit al; de aanmaakweg was het enige lek.
     if not (label or "").strip():
         raise FormulierFout("Elke optie heeft een label nodig.")
-    veld.options.append(FormFieldOption(label=(label or "").strip(),
-                                        position=len(veld.options),
-                                        is_other=bool(is_other)))
+    veld.options.append(
+        FormFieldOption(
+            label=(label or "").strip(), position=len(veld.options), is_other=bool(is_other)
+        )
+    )
     db.commit()
 
 
-def update_option(db, form: Form, option_id: int, *, label: str = "",
-                  is_other: bool = False, skip_to_section_id: str = "",
-                  skip_to_end: bool = False) -> None:
+def update_option(
+    db,
+    form: Form,
+    option_id: int,
+    *,
+    label: str = "",
+    is_other: bool = False,
+    skip_to_section_id: str = "",
+    skip_to_end: bool = False,
+) -> None:
     """Een keuze-optie, eventueel met een vertakking.
 
     Twee regels: vertakken kan alleen bij "één keuze" en "keuzelijst" (bij
@@ -786,16 +847,14 @@ def update_option(db, form: Form, option_id: int, *, label: str = "",
         raise LookupError("Optie niet gevonden")
 
     veld = optie.field
-    doel_id = (int(skip_to_section_id)
-               if str(skip_to_section_id).strip().isdigit() else None)
+    doel_id = int(skip_to_section_id) if str(skip_to_section_id).strip().isdigit() else None
     # #699: "einde" én een sectie tegelijk is geen geldige toestand. Ze werden
     # allebei weggeschreven zonder tegen elkaar afgewogen te worden, en het scherm
     # liet het einde stil winnen (`_target()` in formulier.html vraagt eerst naar
     # `end`). De beheerder zag zijn sectie staan en het formulier deed iets anders.
     # De keuzelijst maakt dit onmogelijk; deze regel geldt óók voor de JSON-import.
     if bool(skip_to_end) and doel_id is not None:
-        raise FormulierFout(
-            "Kies één bestemming: een sectie óf het einde, niet allebei.")
+        raise FormulierFout("Kies één bestemming: een sectie óf het einde, niet allebei.")
     if (bool(skip_to_end) or doel_id is not None) and veld.field_type not in VERTAKBARE_VELDEN:
         raise FormulierFout("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.")
     if doel_id is not None:
@@ -820,6 +879,7 @@ def delete_option(db, form: Form, option_id: int) -> None:
 
 # ── Formulier en inzendingen ─────────────────────────────────────────────────
 
+
 def create_form(db, *, title: str, share_token: str, status: str = "draft") -> Form:
     form = Form(title=title.strip(), share_token=share_token, status=status)
     db.add(form)
@@ -839,9 +899,11 @@ def delete_form(db, form_id: int) -> None:
 def delete_submission(db, form_id: int, submission_id: int) -> None:
     from app.domains.forms.models import FormSubmission
 
-    inzending = (db.query(FormSubmission)
-                 .filter(FormSubmission.id == submission_id,
-                         FormSubmission.form_id == form_id).first())
+    inzending = (
+        db.query(FormSubmission)
+        .filter(FormSubmission.id == submission_id, FormSubmission.form_id == form_id)
+        .first()
+    )
     if inzending is not None:
         db.delete(inzending)
         db.commit()
@@ -867,16 +929,19 @@ def import_definition(db, form: Form, data) -> None:
 def submission_count(db, form_id: int) -> int:
     from app.domains.forms.models import FormSubmission
 
-    return (db.query(FormSubmission)
-            .filter(FormSubmission.form_id == form_id).count())
+    return db.query(FormSubmission).filter(FormSubmission.form_id == form_id).count()
 
 
 def list_submissions(db, form_id: int):
     """De inzendingen van één formulier, nieuwste eerst."""
     from app.domains.forms.models import FormSubmission
 
-    return (db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
-            .order_by(FormSubmission.id.desc()).all())
+    return (
+        db.query(FormSubmission)
+        .filter(FormSubmission.form_id == form_id)
+        .order_by(FormSubmission.id.desc())
+        .all()
+    )
 
 
 def list_forms(db, *, q: str = "", status: str = ""):
@@ -947,12 +1012,18 @@ def normaliseer_slug(waarde) -> Optional[str]:
     if not slug:
         return None
     if not _SLUG_RE.match(slug):
-        raise HTTPException(status_code=422, detail=_(
-            "Gebruik alleen kleine letters, cijfers, koppeltekens (-) en liggende "
-            "streepjes (_) in de link."))
+        raise HTTPException(
+            status_code=422,
+            detail=_(
+                "Gebruik alleen kleine letters, cijfers, koppeltekens (-) en liggende "
+                "streepjes (_) in de link."
+            ),
+        )
     if slug in GERESERVEERDE_SLUGS:
-        raise HTTPException(status_code=422, detail=_(
-            "Deze naam is voorbehouden aan de site zelf; kies een andere."))
+        raise HTTPException(
+            status_code=422,
+            detail=_("Deze naam is voorbehouden aan de site zelf; kies een andere."),
+        )
     return slug
 
 
@@ -970,8 +1041,7 @@ def assert_slug_vrij(db, slug: Optional[str], *, huidige_id: Optional[int] = Non
     if huidige_id is not None:
         bezet = bezet.filter(Form.id != huidige_id)
     if bezet.first() is not None:
-        raise HTTPException(status_code=422, detail=_(
-            "Er bestaat al een formulier met deze link."))
+        raise HTTPException(status_code=422, detail=_("Er bestaat al een formulier met deze link."))
 
 
 def update_form_settings(db, form: Form, **waarden) -> None:
@@ -1030,7 +1100,9 @@ def export_definition(form: Form) -> dict:
 
     def _optie(o) -> dict:
         return {
-            "label": o.label, "value": o.value, "position": o.position,
+            "label": o.label,
+            "value": o.value,
+            "position": o.position,
             "is_other": o.is_other,
             "skip_to_section_index": index_van.get(o.skip_to_section_id),
             "skip_to_end": o.skip_to_end,
@@ -1038,17 +1110,21 @@ def export_definition(form: Form) -> dict:
 
     def _veld(f) -> dict:
         return {
-            "field_type": code_of(f.field_type), "label": f.label,
+            "field_type": code_of(f.field_type),
+            "label": f.label,
             "help_text": f.help_text,
-            "required": f.required, "position": f.position,
+            "required": f.required,
+            "position": f.position,
             "section_index": index_van.get(f.section_id),
-            "min_value": f.min_value, "max_value": f.max_value,
-            "min_length": f.min_length, "max_length": f.max_length,
-            "regex_pattern": f.regex_pattern, "rating_max": f.rating_max,
+            "min_value": f.min_value,
+            "max_value": f.max_value,
+            "min_length": f.min_length,
+            "max_length": f.max_length,
+            "regex_pattern": f.regex_pattern,
+            "rating_max": f.rating_max,
             "rating_low_label": f.rating_low_label,
             "rating_high_label": f.rating_high_label,
-            "options": [_optie(o) for o in sorted(f.options,
-                                                  key=lambda o: (o.position, o.id))],
+            "options": [_optie(o) for o in sorted(f.options, key=lambda o: (o.position, o.id))],
         }
 
     return {
@@ -1061,13 +1137,17 @@ def export_definition(form: Form) -> dict:
         "confirmation_message": form.confirmation_message,
         "allow_edit": form.allow_edit,
         "is_anonymous": form.is_anonymous,
-        "sections": [{
-            "title": s.title, "description": s.description, "position": s.position,
-            "next_section_index": index_van.get(s.next_section_id),
-            "next_is_end": s.next_is_end,
-        } for s in secties],
-        "fields": [_veld(f) for f in sorted(form.fields,
-                                            key=lambda f: (f.position, f.id))],
+        "sections": [
+            {
+                "title": s.title,
+                "description": s.description,
+                "position": s.position,
+                "next_section_index": index_van.get(s.next_section_id),
+                "next_is_end": s.next_is_end,
+            }
+            for s in secties
+        ],
+        "fields": [_veld(f) for f in sorted(form.fields, key=lambda f: (f.position, f.id))],
     }
 
 
@@ -1097,11 +1177,15 @@ def assert_geen_id_vorm(rauw) -> None:
 
     _loop(rauw)
     if gevonden:
-        raise HTTPException(status_code=422, detail=_(
-            "Dit bestand komt uit een oudere export die naar databank-id's verwees "
-            "(%(sleutels)s) en niet terug in te lezen is. Exporteer het formulier "
-            "opnieuw en gebruik dat bestand."
-        ) % {"sleutels": ", ".join(sorted(gevonden))})
+        raise HTTPException(
+            status_code=422,
+            detail=_(
+                "Dit bestand komt uit een oudere export die naar databank-id's verwees "
+                "(%(sleutels)s) en niet terug in te lezen is. Exporteer het formulier "
+                "opnieuw en gebruik dat bestand."
+            )
+            % {"sleutels": ", ".join(sorted(gevonden))},
+        )
 
 
 def submission_url(db, submission_id) -> str | None:

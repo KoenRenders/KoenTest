@@ -10,6 +10,7 @@ contacts) are copied *into this value* at render time and never into the
 design, so a changed fact shows up in the next render and in the staleness
 fingerprint.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -23,7 +24,9 @@ class ImageBytes:
     mime: str  # image/png | image/jpeg
     focus_x: float = 0.5
     focus_y: float = 0.5
-    width: int = 0     # pixel size when known — lets a wide box show a drawing whole instead of cropping it
+    width: int = (
+        0  # pixel size when known — lets a wide box show a drawing whole instead of cropping it
+    )
     height: int = 0
 
 
@@ -53,32 +56,34 @@ class PosterContent:
     # ``title_joiner`` is set (STAPPEN *en* KLAPPEN).
     title_lines: tuple[str, ...] = ()
     title_joiner: str = ""
-    bar_text: str = ""          # the rough bar under the title ("SAMEN WANDELEN")
-    tagline: str = ""           # handwritten line ("Zet het in je agenda!")
+    bar_text: str = ""  # the rough bar under the title ("SAMEN WANDELEN")
+    tagline: str = ""  # handwritten line ("Zet het in je agenda!")
 
     highlights: tuple[Highlight, ...] = ()
     # The same facts the first two highlight rows carry, as plain lines: the
     # simple preset has no icon rows and prints them above the picture.
-    date_line: str = ""             # "ZONDAG 15 NOVEMBER OM 9U45", empty for a series
+    date_line: str = ""  # "ZONDAG 15 NOVEMBER OM 9U45", empty for a series
     location: str = ""
-    deadline_text: str = ""         # "Inschrijven tot en met 8 november", empty when it differs per component
+    deadline_text: str = (
+        ""  # "Inschrijven tot en met 8 november", empty when it differs per component
+    )
     #: Whether the activity takes registrations at all. False turns the band's
     #: closing line into the plain address: no point inviting someone to
     #: register for something that has no registration.
     registration: bool = True
-    members_only: bool = False      # "ENKEL LEDEN" instead of "IEDEREEN WELKOM!"
+    members_only: bool = False  # "ENKEL LEDEN" instead of "IEDEREEN WELKOM!"
     dates_heading: str = ""
-    dates: tuple[str, ...] = ()     # "13 JULI" … at most twelve
+    dates: tuple[str, ...] = ()  # "13 JULI" … at most twelve
     explanation_md: str = ""
 
     main_image: ImageBytes | None = None
     inset_image: ImageBytes | None = None
-    inset_corner: str = "bottom_right"   # which corner of the main picture it lies on
+    inset_corner: str = "bottom_right"  # which corner of the main picture it lies on
     third_image: ImageBytes | None = None
 
-    website: str = ""               # shown without scheme; the QR carries https://
-    email: str = ""                 # the association's — on the poster only without contact persons
-    association_mobile: str = ""    # idem
+    website: str = ""  # shown without scheme; the QR carries https://
+    email: str = ""  # the association's — on the poster only without contact persons
+    association_mobile: str = ""  # idem
     contacts: tuple[Contact, ...] = ()
     logos: tuple[ImageBytes, ...] = ()
     more_info_label: str = "Meer info"

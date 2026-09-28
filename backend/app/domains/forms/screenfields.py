@@ -16,6 +16,7 @@ One adapter rather than a copy per template: the four templates that render a
 field read a dozen of its attributes, and listing them here would be a second
 place to forget one.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -60,7 +61,8 @@ class FieldKind:
     is_single_line = property(lambda self: self.type in _SINGLE_LINE)
     #: The builder offers a minimum and maximum length for these.
     has_length_limits = property(
-        lambda self: self.type in _SINGLE_LINE or self.type is FieldType.TEXTAREA)
+        lambda self: self.type in _SINGLE_LINE or self.type is FieldType.TEXTAREA
+    )
     #: The `type` of the `<input>` for a single-line field.
     input_type = property(lambda self: _INPUT_TYPES.get(self.type, "text"))
 

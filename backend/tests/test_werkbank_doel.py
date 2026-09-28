@@ -10,6 +10,7 @@ dus de route was in orde.
 De invariant hieronder is niet "de knop werkt" maar "het doel van de vorm is
 oplosbaar in elk scherm dat het fragment opneemt". Dat is wat stukging.
 """
+
 import re
 
 import pytest
@@ -30,9 +31,13 @@ def _login(client):
 def _taak(db):
     from app.domains.workflow.models import WorkflowTask
 
-    taak = WorkflowTask(kind="bericht.behartigen", status="open",
-                        subject_type="form_submission", subject_id=1,
-                        title="Vernieuwing nakijken")
+    taak = WorkflowTask(
+        kind="bericht.behartigen",
+        status="open",
+        subject_type="form_submission",
+        subject_id=1,
+        title="Vernieuwing nakijken",
+    )
     db.add(taak)
     db.commit()
     return taak
@@ -40,8 +45,10 @@ def _taak(db):
 
 def _doelen(html: str) -> list[str]:
     """De hx-target-waarden van de afhandelvormen op deze pagina."""
-    return [m.group(1) for m in re.finditer(
-        r'<form[^>]*hx-post="[^"]*/afgehandeld"[^>]*hx-target="([^"]+)"', html)]
+    return [
+        m.group(1)
+        for m in re.finditer(r'<form[^>]*hx-post="[^"]*/afgehandeld"[^>]*hx-target="([^"]+)"', html)
+    ]
 
 
 @pytest.mark.parametrize("context", ["fragment", "pagina"])
@@ -64,7 +71,8 @@ def test_het_doel_is_oplosbaar_in_beide_schermen(client, db_session, context):
         if doel.startswith("#"):
             assert f'id="{doel[1:]}"' in html, (
                 f"{context}: het doel {doel} staat niet in dit document — htmx "
-                "verstuurt dan niets (#666)")
+                "verstuurt dan niets (#666)"
+            )
         else:
             assert doel in ("this", "closest form"), f"onbekend doel {doel!r}"
 
@@ -74,13 +82,16 @@ def test_afhandelen_vanaf_de_detailpagina_stuurt_terug(client, db_session):
     taak = _taak(db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/werkbank/taken/{taak.id}/afgehandeld",
-                    data={"besluit": "goedgekeurd", "standalone": "1"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/werkbank/taken/{taak.id}/afgehandeld",
+        data={"besluit": "goedgekeurd", "standalone": "1"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 204
     assert r.headers.get("HX-Redirect") == "/admin/werkbank"
 
     from app.domains.workflow.models import WorkflowTask
+
     db_session.expire_all()
     assert db_session.get(WorkflowTask, taak.id).status is TaskStatus.DONE
 
@@ -90,8 +101,11 @@ def test_afhandelen_vanaf_de_lijst_ververst_de_lijst(client, db_session):
     taak = _taak(db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/werkbank/taken/{taak.id}/afgehandeld",
-                    data={"besluit": ""}, headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/werkbank/taken/{taak.id}/afgehandeld",
+        data={"besluit": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200
     assert r.headers.get("HX-Retarget") == "#werkbank-lijst"
     assert r.headers.get("HX-Reswap") == "innerHTML"
@@ -103,7 +117,7 @@ def test_de_kit_meldt_ook_een_doelfout():
     kit = open("app/ui/templates/_macros.html", encoding="utf-8").read()
     assert "htmx:targetError" in kit and "htmx:swapError" in kit
     # De melding is voor de gebruiker; de selector hoort in de console.
-    handler = kit[kit.index("htmx:targetError"):]
-    handler = handler[:handler.index("});")]
+    handler = kit[kit.index("htmx:targetError") :]
+    handler = handler[: handler.index("});")]
     assert "console.error" in handler
     assert "meldFout" in handler

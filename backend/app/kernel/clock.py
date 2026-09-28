@@ -14,6 +14,7 @@ changes.
 **`now` is a parameter** so a test can pin the instant. A test that can only go red
 at 00:30 in summer is not a test.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime, timezone

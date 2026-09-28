@@ -22,12 +22,12 @@ En ze lopen over **élke** basisroute van de schil. Het probleem ontstond juist
 doordat sommige routes het token wél zetten en andere niet, dus één steekproef had
 het gemist.
 """
+
 import re
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -35,9 +35,19 @@ pytestmark = pytest.mark.ui_agnostisch
 HEADERS = re.compile(r'hx-headers=\'\{"X-CSRF-Token": "([^"]*)"\}\'')
 
 PUBLIEK = ["/", "/activiteiten", "/fotos", "/lid-worden", "/aanmelden", "/berichten"]
-ADMIN = ["/admin", "/admin/leden", "/admin/activiteiten", "/admin/betalingen",
-         "/admin/formulieren", "/admin/paginas", "/admin/media", "/admin/gebruikers",
-         "/admin/werkbank", "/admin/e-maillog", "/admin/tenants"]
+ADMIN = [
+    "/admin",
+    "/admin/leden",
+    "/admin/activiteiten",
+    "/admin/betalingen",
+    "/admin/formulieren",
+    "/admin/paginas",
+    "/admin/media",
+    "/admin/gebruikers",
+    "/admin/werkbank",
+    "/admin/e-maillog",
+    "/admin/tenants",
+]
 
 
 def _token_uit(html: str):
@@ -86,10 +96,12 @@ def test_elke_beheerpagina_draagt_het_juiste_token(client, db_session, pad):
         pytest.skip(f"{pad} is hier niet bereikbaar ({resp.status_code})")
     assert resp.status_code == 200, resp.text[:200]
     assert _token_uit(resp.text) == csrf_token_for(waarde), (
-        f"{pad} zet een leeg of verkeerd CSRF-token")
+        f"{pad} zet een leeg of verkeerd CSRF-token"
+    )
 
 
 # ── Het vangnet in de boosted swap ──────────────────────────────────────────
+
 
 def test_de_boosted_swap_neemt_hx_headers_over(client, db_session):
     """Een bronregel, want JavaScript draait hier niet.
@@ -101,9 +113,9 @@ def test_de_boosted_swap_neemt_hx_headers_over(client, db_session):
     """
     html = client.get("/").text
     assert "getAttribute('hx-headers')" in html, (
-        "de swap-handler leest hx-headers niet uit het antwoord")
-    assert "setAttribute('hx-headers'" in html, (
-        "de swap-handler neemt hx-headers niet over")
+        "de swap-handler leest hx-headers niet uit het antwoord"
+    )
+    assert "setAttribute('hx-headers'" in html, "de swap-handler neemt hx-headers niet over"
 
 
 def test_de_melding_beweert_geen_oorzaak_meer(client, db_session):
@@ -116,6 +128,6 @@ def test_de_melding_beweert_geen_oorzaak_meer(client, db_session):
     """
     html = client.get("/").text
     assert "vernieuwd in een ander venster" not in html, (
-        "de melding beweert nog altijd een oorzaak die zelden klopt")
-    assert "beveiligingscontrole ging niet door" in html, (
-        "de neutrale melding ontbreekt")
+        "de melding beweert nog altijd een oorzaak die zelden klopt"
+    )
+    assert "beveiligingscontrole ging niet door" in html, "de neutrale melding ontbreekt"

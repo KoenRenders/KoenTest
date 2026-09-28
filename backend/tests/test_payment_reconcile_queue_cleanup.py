@@ -29,20 +29,25 @@ Broken on purpose to check that these tests can go red: restricted the delete to
 ``subject_id`` condition from the UPDATE → the other-job test falls over with a task
 closed that nobody asked about.
 """
+
 import importlib.util
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
 
-from app.kernel.jobs import JobStatus, KernelJob
 from app.domains.workflow.models import TaskStatus, WorkflowTask
+from app.kernel.jobs import JobStatus, KernelJob
 
 pytestmark = pytest.mark.ui_agnostisch
 
 JOB_NAME = "payment.reconcile"
-MIGRATION = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-             / "098_drop_payment_reconcile_queue.py")
+MIGRATION = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "098_drop_payment_reconcile_queue.py"
+)
 
 
 def _cleanup(db):
@@ -55,10 +60,15 @@ def _cleanup(db):
 
 
 def _job(db, *, name=JOB_NAME, status="pending", error=None):
-    entry = KernelJob(name=name, payload={}, status=status,
-                      run_at=datetime.now(timezone.utc) - timedelta(hours=1),
-                      attempts=5 if status == "failed" else 0, max_attempts=5,
-                      last_error=error)
+    entry = KernelJob(
+        name=name,
+        payload={},
+        status=status,
+        run_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        attempts=5 if status == "failed" else 0,
+        max_attempts=5,
+        last_error=error,
+    )
     db.add(entry)
     db.flush()
     return entry
@@ -68,8 +78,11 @@ def _failed_job_task(db, job):
     task = WorkflowTask(
         kind="kernel.job_gefaald",
         title=f"Job {job.name} (#{job.id}) definitief gefaald: {job.last_error or ''}",
-        subject_type="kernel_job", subject_id=str(job.id),
-        status="open", required_role="ADMIN")
+        subject_type="kernel_job",
+        subject_id=str(job.id),
+        status="open",
+        required_role="ADMIN",
+    )
     db.add(task)
     db.flush()
     return task
@@ -83,11 +96,11 @@ def test_a_waiting_row_is_gone_and_the_history_is_untouched(db_session):
 
     _cleanup(db_session)
 
-    remaining = (db_session.query(KernelJob)
-                 .filter(KernelJob.name == JOB_NAME).all())
+    remaining = db_session.query(KernelJob).filter(KernelJob.name == JOB_NAME).all()
     assert [j.status for j in remaining] == [JobStatus.DONE] * 3, (
         "either the waiting row survived, or the history was taken along — those 58 "
-        "successful runs are a report and there is nothing wrong with them")
+        "successful runs are a report and there is nothing wrong with them"
+    )
     assert {j.id for j in remaining} == {j.id for j in history}
 
 
@@ -105,8 +118,11 @@ def test_a_clean_environment_does_not_change(db_session):
 def test_an_existing_task_is_closed_with_a_readable_reason(db_session):
     """On HDEV this task is already on the workbench. A closing reason that says the
     mechanism was removed — not an empty system note nobody can use in six months."""
-    failed = _job(db_session, status="failed",
-                  error="LookupError: geen handler geregistreerd voor job 'payment.reconcile'")
+    failed = _job(
+        db_session,
+        status="failed",
+        error="LookupError: geen handler geregistreerd voor job 'payment.reconcile'",
+    )
     task = _failed_job_task(db_session, failed)
 
     assert _cleanup(db_session) == 1
@@ -114,7 +130,8 @@ def test_an_existing_task_is_closed_with_a_readable_reason(db_session):
     db_session.refresh(task)
     assert task.status is TaskStatus.DONE and task.done_by == "systeem"
     assert "#824" in (task.decision or "") and "#858" in (task.decision or ""), (
-        f"the reason does not say why this was removed: {task.decision!r}")
+        f"the reason does not say why this was removed: {task.decision!r}"
+    )
 
 
 def test_the_task_stays_closed_after_a_sweep(db_session):
@@ -133,11 +150,14 @@ def test_the_task_stays_closed_after_a_sweep(db_session):
     sweep(db_session, {"once": True})
 
     db_session.expire_all()
-    still_open = (db_session.query(WorkflowTask)
-                  .filter(WorkflowTask.kind == "kernel.job_gefaald",
-                          WorkflowTask.status == "open").all())
+    still_open = (
+        db_session.query(WorkflowTask)
+        .filter(WorkflowTask.kind == "kernel.job_gefaald", WorkflowTask.status == "open")
+        .all()
+    )
     assert not [t for t in still_open if JOB_NAME in t.title], (
-        "the sweep put the task back, so the cleanup only lasted until the next round")
+        "the sweep put the task back, so the cleanup only lasted until the next round"
+    )
 
 
 def test_a_task_about_another_job_is_left_alone(db_session):
@@ -154,5 +174,9 @@ def test_a_task_about_another_job_is_left_alone(db_session):
 
     db_session.refresh(other_task)
     assert other_task.status is TaskStatus.OPEN, (
-        "a task about another failed job was closed as well — the cleanup grabs too wide")
-    assert db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status is JobStatus.FAILED
+        "a task about another failed job was closed as well — the cleanup grabs too wide"
+    )
+    assert (
+        db_session.query(KernelJob).filter(KernelJob.id == other.id).one().status
+        is JobStatus.FAILED
+    )

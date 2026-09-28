@@ -18,6 +18,7 @@ both tests fail on the missing dialog (measured, 2 failed).
 confirm store's `cancel()` sending the request anyway → the first test fails on
 the import request (measured).
 """
+
 import os
 import re
 import sys

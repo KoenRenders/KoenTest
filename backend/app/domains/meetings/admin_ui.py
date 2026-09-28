@@ -14,10 +14,11 @@ The paths are Dutch because a board member reads them in the address bar; the
 module, the routes and the parameters are English like all new code (CLAUDE.md,
 "URL paths follow the audience").
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, time, timedelta
+from datetime import date, time, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -26,12 +27,15 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE,
+    csrf_token_for,
+    require_admin_ui,
+    require_csrf,
 )
 from app.domains.meetings.api import (
+    MEETING_STATUS,
     Attendance,
     FilePurpose,
-    MEETING_STATUS,
     MeetingError,
     MeetingStatus,
     add_extra_recipient,
@@ -61,7 +65,6 @@ from app.domains.meetings.api import (
     remove_extra_recipient,
     render,
     reopen,
-    section_label,
     sections_of,
     send_meeting_mail,
     sent_with_label,
@@ -73,8 +76,12 @@ from app.domains.meetings.api import (
     update_meeting,
 )
 from app.domains.meetings.viewmodels import (
-    MeetingCircleView, MeetingDocumentView, MeetingItemView, MeetingListView,
-    MeetingNewView, MeetingSendView,
+    MeetingCircleView,
+    MeetingDocumentView,
+    MeetingItemView,
+    MeetingListView,
+    MeetingNewView,
+    MeetingSendView,
 )
 from app.i18n import _
 from app.kernel.codes import code_of, register_tones
@@ -91,17 +98,22 @@ NAV = "/admin/vergaderingen"
 # it stays in Python, here, next to the screen that draws the badge, and the
 # code table gets no `tone` column where a translator would find one (§B4.5).
 # Total by construction and by gate: every member has one.
-register_tones(MEETING_STATUS.name, {
-    MeetingStatus.AGENDA: "blue",
-    MeetingStatus.REPORT: "yellow",
-    MeetingStatus.SENT: "green",
-})
+register_tones(
+    MEETING_STATUS.name,
+    {
+        MeetingStatus.AGENDA: "blue",
+        MeetingStatus.REPORT: "yellow",
+        MeetingStatus.SENT: "green",
+    },
+)
 
 # Attendance cycles present → excused → not ticked. One click per state, in the
 # order a secretary uses them.
-NEXT_ATTENDANCE = {None: Attendance.PRESENT,
-                   Attendance.PRESENT: Attendance.EXCUSED,
-                   Attendance.EXCUSED: None}
+NEXT_ATTENDANCE = {
+    None: Attendance.PRESENT,
+    Attendance.PRESENT: Attendance.EXCUSED,
+    Attendance.EXCUSED: None,
+}
 
 
 def _next_attendance(current: str):
@@ -136,8 +148,10 @@ def _title(meeting) -> str:
 
 # ── The list ─────────────────────────────────────────────────────────────────
 
-def _list_view(request: Request, db: Session, error: Optional[str] = None,
-               q: str = "") -> MeetingListView:
+
+def _list_view(
+    request: Request, db: Session, error: Optional[str] = None, q: str = ""
+) -> MeetingListView:
     from app.domains.mdm.api import organization_circle
 
     meetings = list_meetings(db)
@@ -146,93 +160,122 @@ def _list_view(request: Request, db: Session, error: Optional[str] = None,
         # Op het GETOONDE label zoeken en niet op de kolom: een bestuurder typt
         # "oktober", niet "2026-10-01". De lijst is klein (een twaalftal per jaar),
         # dus dit filtert in Python zonder dat iemand het merkt.
-        meetings = [m for m in meetings
-                    if zoek in long_date(m.meeting_date).lower()
-                    or zoek in (m.location or "").lower()]
+        meetings = [
+            m
+            for m in meetings
+            if zoek in long_date(m.meeting_date).lower() or zoek in (m.location or "").lower()
+        ]
     return MeetingListView(
-        meetings=meetings, q=q,
+        meetings=meetings,
+        q=q,
         dates={m.id: long_date(m.meeting_date) for m in meetings},
         circle_size=len(organization_circle(db)),
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
-def _new_view(request: Request, db: Session, error: Optional[str] = None
-              ) -> MeetingNewView:
+def _new_view(request: Request, db: Session, error: Optional[str] = None) -> MeetingNewView:
     """Het aanmaakscherm, met uur en locatie van de vorige vergadering voorgesteld."""
     previous = previous_meeting(db, date.today() + timedelta(days=365))
     return MeetingNewView(
         suggested_date="",
-        suggested_time=(previous.start_time.strftime("%H:%M")
-                        if previous is not None and previous.start_time else ""),
+        suggested_time=(
+            previous.start_time.strftime("%H:%M")
+            if previous is not None and previous.start_time
+            else ""
+        ),
         suggested_location=(previous.location or "") if previous is not None else "",
         action="/admin/vergaderingen",
         title=_("Nieuwe vergadering"),
-        intro=_("Eén datum volstaat: de agenda wordt meteen samengesteld uit de "
-                "activiteiten en de nieuwe leden."),
+        intro=_(
+            "Eén datum volstaat: de agenda wordt meteen samengesteld uit de "
+            "activiteiten en de nieuwe leden."
+        ),
         submit_label=_("Vergadering aanmaken"),
         cancel_href="/admin/vergaderingen",
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
-def _edit_view(request: Request, db: Session, meeting,
-               error: Optional[str] = None) -> MeetingNewView:
+def _edit_view(
+    request: Request, db: Session, meeting, error: Optional[str] = None
+) -> MeetingNewView:
     """Hetzelfde formulier, maar voor een vergadering die al bestaat."""
     return MeetingNewView(
         suggested_date=meeting.meeting_date.isoformat(),
-        suggested_time=(meeting.start_time.strftime("%H:%M")
-                        if meeting.start_time else ""),
+        suggested_time=(meeting.start_time.strftime("%H:%M") if meeting.start_time else ""),
         suggested_location=meeting.location or "",
         action=f"/admin/vergaderingen/{meeting.id}/bewerken",
         title=_("Vergadering wijzigen"),
-        intro=_("Verschuift de vergadering, pas dan de datum aan: de agenda wordt "
-                "opnieuw samengesteld. Punten waar al op genotuleerd is, blijven staan."),
+        intro=_(
+            "Verschuift de vergadering, pas dan de datum aan: de agenda wordt "
+            "opnieuw samengesteld. Punten waar al op genotuleerd is, blijven staan."
+        ),
         submit_label=_("Wijziging bewaren"),
         cancel_href=f"/admin/vergaderingen/{meeting.id}",
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/vergaderingen", response_class=HTMLResponse)
-def meeting_list(request: Request, db: Session = Depends(get_db),
-                 _email: str = Depends(require_admin_ui), q: str = ""):
+def meeting_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+):
     view = _list_view(request, db, q=q)
     # Bij een filterverzoek alleen de kaartenlijst terug, zodat het zoekveld niet
     # onder je vingers vervangen wordt (dezelfde regel als op het betalingsscherm).
-    template = ("_vg_lijst.html" if is_fragment_request(request)
-                else "admin_vergaderingen.html")
+    template = "_vg_lijst.html" if is_fragment_request(request) else "admin_vergaderingen.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
 @router.get("/admin/vergaderingen/nieuw", response_class=HTMLResponse)
-def meeting_new(request: Request, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui)):
+def meeting_new(
+    request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+):
     """Aanmaken op een eigen scherm en niet in een modal (#627, §2.8)."""
     return templates.TemplateResponse(
-        request, "admin_vergadering_nieuw.html",
-        _new_view(request, db).as_context())
+        request, "admin_vergadering_nieuw.html", _new_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def meeting_create(request: Request, db: Session = Depends(get_db),
-                   _email: str = Depends(require_admin_ui),
-                   meeting_date: str = Form(...), start_time: str = Form(""),
-                   location: str = Form("")):
+@router.post(
+    "/admin/vergaderingen", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def meeting_create(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    meeting_date: str = Form(...),
+    start_time: str = Form(""),
+    location: str = Form(""),
+):
     """Create a meeting — its agenda is generated in the same breath (§3.1)."""
     try:
         day = date.fromisoformat(meeting_date)
     except ValueError:
         return templates.TemplateResponse(
-            request, "admin_vergadering_nieuw.html",
-            _new_view(request, db,
-                      error=_("Vul een geldige datum in.")).as_context())
+            request,
+            "admin_vergadering_nieuw.html",
+            _new_view(request, db, error=_("Vul een geldige datum in.")).as_context(),
+        )
     moment = None
     if start_time:
         try:
             moment = time.fromisoformat(start_time)
         except ValueError:
             moment = None
-    meeting = create_meeting(db, meeting_date=day, start_time=moment,
-                             location=location.strip() or None)
+    meeting = create_meeting(
+        db, meeting_date=day, start_time=moment, location=location.strip() or None
+    )
     doel = f"/admin/vergaderingen/{meeting.id}"
     # De schil draagt hx-boost, dus dit formulier vertrekt als htmx-verzoek. Een
     # 303 laat htmx het antwoord inswappen zonder dat het adres in de balk
@@ -248,8 +291,10 @@ def meeting_create(request: Request, db: Session = Depends(get_db),
 # Declared before `/{meeting_id}`: FastAPI matches in declaration order, and
 # "kring" would otherwise be parsed as a meeting id.
 
-def _circle_view(request: Request, db: Session, query: str = "",
-                 error: Optional[str] = None) -> MeetingCircleView:
+
+def _circle_view(
+    request: Request, db: Session, query: str = "", error: Optional[str] = None
+) -> MeetingCircleView:
     from app.domains.mdm.api import organization_circle, search_persons
 
     circle = organization_circle(db)
@@ -258,44 +303,70 @@ def _circle_view(request: Request, db: Session, query: str = "",
     # uses the same one. Deliberately without `members_only`: the circle holds
     # people who are not members (#939).
     candidates = search_persons(db, query, exclude_ids=in_circle)
-    return MeetingCircleView(circle=circle, candidates=candidates, query=query,
-                             signature=mail_signature(db),
-                             csrf_token=_csrf(request), error=error,
-                             nav_items=admin_nav(NAV))
+    return MeetingCircleView(
+        circle=circle,
+        candidates=candidates,
+        query=query,
+        signature=mail_signature(db),
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/vergaderingen/kring", response_class=HTMLResponse)
-def circle_screen(request: Request, db: Session = Depends(get_db),
-                  _email: str = Depends(require_admin_ui), q: str = ""):
+def circle_screen(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+):
     view = _circle_view(request, db, query=q)
-    template = "_vg_kring.html" if request.headers.get("HX-Request") and q else \
-        "admin_vergaderkring.html"
+    template = (
+        "_vg_kring.html" if request.headers.get("HX-Request") and q else "admin_vergaderkring.html"
+    )
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-@router.post("/admin/vergaderingen/kring", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def circle_add(request: Request, db: Session = Depends(get_db),
-               _email: str = Depends(require_admin_ui), person_id: int = Form(...)):
+@router.post(
+    "/admin/vergaderingen/kring", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def circle_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    person_id: int = Form(...),
+):
     from app.domains.mdm.api import add_to_circle, platform_org
 
     organization = platform_org(db)
     if organization is None:
         return templates.TemplateResponse(
-            request, "_vg_kring.html",
-            _circle_view(request, db,
-                         error=_("Er is nog geen organisatie ingesteld.")).as_context())
+            request,
+            "_vg_kring.html",
+            _circle_view(
+                request, db, error=_("Er is nog geen organisatie ingesteld.")
+            ).as_context(),
+        )
     add_to_circle(db, person_id, organization_id=organization.id)
-    return templates.TemplateResponse(request, "_vg_kring.html",
-                                      _circle_view(request, db).as_context())
+    return templates.TemplateResponse(
+        request, "_vg_kring.html", _circle_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen/kring/nieuw", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def circle_new_person(request: Request, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui),
-                      first_name: str = Form(""), last_name: str = Form(""),
-                      person_email: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/kring/nieuw",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def circle_new_person(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
+    person_email: str = Form(""),
+):
     """Iemand in de kring die (nog) geen lid is — de afdelingsondersteuner.
 
     Maakt een persoon zonder gezin aan. Tot nu liep élk pad naar een nieuwe
@@ -307,26 +378,42 @@ def circle_new_person(request: Request, db: Session = Depends(get_db),
     organization = platform_org(db)
     if organization is None:
         return templates.TemplateResponse(
-            request, "_vg_kring.html",
-            _circle_view(request, db,
-                         error=_("Er is nog geen organisatie ingesteld.")).as_context())
+            request,
+            "_vg_kring.html",
+            _circle_view(
+                request, db, error=_("Er is nog geen organisatie ingesteld.")
+            ).as_context(),
+        )
     try:
-        create_person_for_circle(db, first_name=first_name, last_name=last_name,
-                                 email=person_email, organization_id=organization.id)
+        create_person_for_circle(
+            db,
+            first_name=first_name,
+            last_name=last_name,
+            email=person_email,
+            organization_id=organization.id,
+        )
     except ValueError:
         return templates.TemplateResponse(
-            request, "_vg_kring.html",
-            _circle_view(request, db,
-                         error=_("Vul minstens een naam in.")).as_context())
-    return templates.TemplateResponse(request, "_vg_kring.html",
-                                      _circle_view(request, db).as_context())
+            request,
+            "_vg_kring.html",
+            _circle_view(request, db, error=_("Vul minstens een naam in.")).as_context(),
+        )
+    return templates.TemplateResponse(
+        request, "_vg_kring.html", _circle_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen/kring/ondertekening", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def circle_signature(request: Request, db: Session = Depends(get_db),
-                     _email: str = Depends(require_admin_ui),
-                     signature: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/kring/ondertekening",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def circle_signature(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    signature: str = Form(""),
+):
     """De ondertekening onder elke vergadermail — per afdeling, niet in de code.
 
     Staat op dit scherm en niet bij de tenant-instellingen: die zijn OPERATOR-only
@@ -335,35 +422,49 @@ def circle_signature(request: Request, db: Session = Depends(get_db),
     vergadering.
     """
     set_mail_signature(db, signature)
-    return templates.TemplateResponse(request, "_vg_kring.html",
-                                      _circle_view(request, db).as_context())
+    return templates.TemplateResponse(
+        request, "_vg_kring.html", _circle_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen/kring/{relation_id}/beeindigen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def circle_end(relation_id: int, request: Request, db: Session = Depends(get_db),
-               _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/vergaderingen/kring/{relation_id}/beeindigen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def circle_end(
+    relation_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     from app.domains.mdm.api import end_circle_relation
 
     end_circle_relation(db, relation_id)
-    return templates.TemplateResponse(request, "_vg_kring.html",
-                                      _circle_view(request, db).as_context())
+    return templates.TemplateResponse(
+        request, "_vg_kring.html", _circle_view(request, db).as_context()
+    )
 
 
 # ── The document ─────────────────────────────────────────────────────────────
 
-def _document_view(request: Request, db: Session, meeting,
-                   picker_section_id: Optional[int] = None,
-                   picker_query: str = "",
-                   error: Optional[str] = None) -> MeetingDocumentView:
+
+def _document_view(
+    request: Request,
+    db: Session,
+    meeting,
+    picker_section_id: Optional[int] = None,
+    picker_query: str = "",
+    error: Optional[str] = None,
+) -> MeetingDocumentView:
     from app.domains.mdm.api import organization_circle
 
     picker_options = []
     if picker_section_id is not None:
-        picker_options = addable_activities(db, meeting, picker_query,
-                                            section_id=picker_section_id)
+        picker_options = addable_activities(db, meeting, picker_query, section_id=picker_section_id)
     return MeetingDocumentView(
-        meeting=meeting, title=_title(meeting),
+        meeting=meeting,
+        title=_title(meeting),
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
@@ -371,89 +472,134 @@ def _document_view(request: Request, db: Session, meeting,
         # form and compares it with a literal. Convert on the boundary
         # (§B4.7) — a member in an attribute renders as `Attendance.PRESENT`
         # and compares against nothing.
-        attendance={key: code_of(state) or ""
-                    for key, state in attendance_of(db, meeting).items()},
+        attendance={key: code_of(state) or "" for key, state in attendance_of(db, meeting).items()},
         standing=member_standing(db),
-        picker_section_id=picker_section_id, picker_options=picker_options,
+        picker_section_id=picker_section_id,
+        picker_options=picker_options,
         picker_query=picker_query,
-        attachments=[(f, file_is_sent(meeting, f), sent_with_label(f))
-                     for f in files_of(db, meeting)],
+        attachments=[
+            (f, file_is_sent(meeting, f), sent_with_label(f)) for f in files_of(db, meeting)
+        ],
         sent_pdfs=files_of(db, meeting, purpose=FilePurpose.SENT_PDF),
         editable=meeting.status != MeetingStatus.SENT,
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 def _item_response(request: Request, db: Session, meeting, item_id: int):
     """Eén punt als fragment — het antwoord op een notitie of een wijkmeesterkeuze."""
     from app.domains.mdm.api import organization_circle
 
-    punt = next((i for section in document_of(db, meeting) for i in section.items
-                 if i.id == item_id), None)
+    punt = next(
+        (i for section in document_of(db, meeting) for i in section.items if i.id == item_id), None
+    )
     if punt is None:
         return _document_response(request, db, meeting)
-    return templates.TemplateResponse(request, "_vg_punt.html", MeetingItemView(
-        item=punt, meeting=meeting, editable=meeting.status != MeetingStatus.SENT,
-        circle=organization_circle(db, on_day=meeting.meeting_date),
-        csrf_token=_csrf(request)).as_context())
+    return templates.TemplateResponse(
+        request,
+        "_vg_punt.html",
+        MeetingItemView(
+            item=punt,
+            meeting=meeting,
+            editable=meeting.status != MeetingStatus.SENT,
+            circle=organization_circle(db, on_day=meeting.meeting_date),
+            csrf_token=_csrf(request),
+        ).as_context(),
+    )
 
 
 def _document_response(request: Request, db: Session, meeting, **kwargs):
     """Every write re-renders the document fragment — one swap, one truth."""
     return templates.TemplateResponse(
-        request, "_vg_document.html",
-        _document_view(request, db, meeting, **kwargs).as_context())
+        request, "_vg_document.html", _document_view(request, db, meeting, **kwargs).as_context()
+    )
 
 
 @router.get("/admin/vergaderingen/{meeting_id}", response_class=HTMLResponse)
-def meeting_document(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                     _email: str = Depends(require_admin_ui)):
+def meeting_document(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     meeting = _meeting_or_404(db, meeting_id)
     return templates.TemplateResponse(
-        request, "admin_vergadering.html",
-        _document_view(request, db, meeting).as_context())
+        request, "admin_vergadering.html", _document_view(request, db, meeting).as_context()
+    )
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/kiezer", response_class=HTMLResponse)
-def item_picker(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui),
-                section_id: int = 0, q: str = ""):
+def item_picker(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    section_id: int = 0,
+    q: str = "",
+):
     """Open the picker over the activities this agenda does not carry yet."""
     meeting = _meeting_or_404(db, meeting_id)
-    return _document_response(request, db, meeting,
-                              picker_section_id=section_id or None, picker_query=q)
+    return _document_response(
+        request, db, meeting, picker_section_id=section_id or None, picker_query=q
+    )
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/punt", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def item_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
-             _email: str = Depends(require_admin_ui), section_id: int = Form(...),
-             activity_id: str = Form(""), title: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/punt",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def item_add(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    section_id: int = Form(...),
+    activity_id: str = Form(""),
+    title: str = Form(""),
+):
     meeting = _meeting_or_404(db, meeting_id)
     section = next((s for s in sections_of(db, meeting) if s.id == section_id), None)
     if section is None:
         raise HTTPException(status_code=404, detail=_("Sectie niet gevonden."))
     try:
-        add_item(db, meeting, section,
-                 activity_id=int(activity_id) if activity_id else None,
-                 title=title.strip() or None)
+        add_item(
+            db,
+            meeting,
+            section,
+            activity_id=int(activity_id) if activity_id else None,
+            title=title.strip() or None,
+        )
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/punt/{item_id}",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def item_update(meeting_id: int, item_id: int, request: Request,
-                db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), notes: str = Form(None),
-                title: str = Form(None), steward_person_id: str = Form(None)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/punt/{item_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def item_update(
+    meeting_id: int,
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    notes: str = Form(None),
+    title: str = Form(None),
+    steward_person_id: str = Form(None),
+):
     meeting = _meeting_or_404(db, meeting_id)
     try:
         # `None` = het veld stond niet in dít formulier (notities en wijkmeester
         # posten elk hun eigen); een lege string = de gebruiker koos "geen".
         if steward_person_id is not None:
-            set_noted_steward(db, meeting, item_id,
-                              int(steward_person_id) if steward_person_id else None)
+            set_noted_steward(
+                db, meeting, item_id, int(steward_person_id) if steward_person_id else None
+            )
         if notes is not None or title is not None:
             update_item(db, meeting, item_id, notes=notes, title=title)
     except MeetingError as exc:
@@ -463,11 +609,18 @@ def item_update(meeting_id: int, item_id: int, request: Request,
     return _item_response(request, db, meeting, item_id)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/punt/{item_id}/verwijder",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def item_delete(meeting_id: int, item_id: int, request: Request,
-                db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/punt/{item_id}/verwijder",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def item_delete(
+    meeting_id: int,
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     meeting = _meeting_or_404(db, meeting_id)
     try:
         delete_item(db, meeting, item_id)
@@ -476,10 +629,18 @@ def item_delete(meeting_id: int, item_id: int, request: Request,
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/sectie", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def section_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), title: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/sectie",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def section_add(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+):
     """A named block for a big topic — always before Varia, which stays last."""
     meeting = _meeting_or_404(db, meeting_id)
     try:
@@ -489,49 +650,72 @@ def section_add(meeting_id: int, request: Request, db: Session = Depends(get_db)
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/aanwezigheid",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def attendance_toggle(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui),
-                      person_id: str = Form(""), guest_id: str = Form(""),
-                      current: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/aanwezigheid",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def attendance_toggle(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    person_id: str = Form(""),
+    guest_id: str = Form(""),
+    current: str = Form(""),
+):
     meeting = _meeting_or_404(db, meeting_id)
     nxt = _next_attendance(current)
     try:
-        set_attendance(db, meeting,
-                       person_id=int(person_id) if person_id else None,
-                       guest_id=int(guest_id) if guest_id else None,
-                       status=nxt or None)
+        set_attendance(
+            db,
+            meeting,
+            person_id=int(person_id) if person_id else None,
+            guest_id=int(guest_id) if guest_id else None,
+            status=nxt or None,
+        )
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
     return _document_response(request, db, meeting)
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/bewerken", response_class=HTMLResponse)
-def meeting_edit(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                 _email: str = Depends(require_admin_ui)):
+def meeting_edit(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """Datum, uur en locatie van een bestaande vergadering."""
     meeting = _meeting_or_404(db, meeting_id)
     return templates.TemplateResponse(
-        request, "admin_vergadering_nieuw.html",
-        _edit_view(request, db, meeting).as_context())
+        request, "admin_vergadering_nieuw.html", _edit_view(request, db, meeting).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/bewerken", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def meeting_edit_save(meeting_id: int, request: Request,
-                      db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui),
-                      meeting_date: str = Form(...), start_time: str = Form(""),
-                      location: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def meeting_edit_save(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    meeting_date: str = Form(...),
+    start_time: str = Form(""),
+    location: str = Form(""),
+):
     meeting = _meeting_or_404(db, meeting_id)
     try:
         day = date.fromisoformat(meeting_date)
     except ValueError:
         return templates.TemplateResponse(
-            request, "admin_vergadering_nieuw.html",
-            _edit_view(request, db, meeting,
-                       error=_("Vul een geldige datum in.")).as_context())
+            request,
+            "admin_vergadering_nieuw.html",
+            _edit_view(request, db, meeting, error=_("Vul een geldige datum in.")).as_context(),
+        )
     moment = None
     if start_time:
         try:
@@ -539,23 +723,34 @@ def meeting_edit_save(meeting_id: int, request: Request,
         except ValueError:
             moment = None
     try:
-        update_meeting(db, meeting, meeting_date=day, start_time=moment,
-                       location=location.strip() or None)
+        update_meeting(
+            db, meeting, meeting_date=day, start_time=moment, location=location.strip() or None
+        )
     except MeetingError as exc:
         return templates.TemplateResponse(
-            request, "admin_vergadering_nieuw.html",
-            _edit_view(request, db, meeting, error=str(exc)).as_context())
+            request,
+            "admin_vergadering_nieuw.html",
+            _edit_view(request, db, meeting, error=str(exc)).as_context(),
+        )
     doel = f"/admin/vergaderingen/{meeting.id}"
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": doel})
     return RedirectResponse(doel, status_code=303)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/gast", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def guest_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
-              _email: str = Depends(require_admin_ui),
-              guest_name: str = Form(""), guest_email: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/gast",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def guest_add(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    guest_name: str = Form(""),
+    guest_email: str = Form(""),
+):
     """Een gast voor deze ene vergadering: krijgt de mails én staat in de
     aanwezigheidslijst."""
     meeting = _meeting_or_404(db, meeting_id)
@@ -566,20 +761,34 @@ def guest_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def guest_remove(meeting_id: int, guest_id: int, request: Request,
-                 db: Session = Depends(get_db),
-                 _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def guest_remove(
+    meeting_id: int,
+    guest_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     meeting = _meeting_or_404(db, meeting_id)
     remove_extra_recipient(db, meeting, guest_id)
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/heropen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def meeting_reopen(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                   _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/heropen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def meeting_reopen(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """Reopen a sent report for the correction that comes the day after (§3.23)."""
     meeting = _meeting_or_404(db, meeting_id)
     reopen(db, meeting)
@@ -588,29 +797,47 @@ def meeting_reopen(meeting_id: int, request: Request, db: Session = Depends(get_
 
 # ── Files ────────────────────────────────────────────────────────────────────
 
-@router.post("/admin/vergaderingen/{meeting_id}/bijlage", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def attachment_add(meeting_id: int, request: Request,
-                         db: Session = Depends(get_db),
-                         _email: str = Depends(require_admin_ui),
-                         file: UploadFile = File(...)):
+
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/bijlage",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def attachment_add(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    file: UploadFile = File(...),
+):
     meeting = _meeting_or_404(db, meeting_id)
     data = await file.read()
     try:
-        add_file(db, meeting, filename=file.filename or "bijlage",
-                 content_type=file.content_type or "application/octet-stream",
-                 data=data)
+        add_file(
+            db,
+            meeting,
+            filename=file.filename or "bijlage",
+            content_type=file.content_type or "application/octet-stream",
+            data=data,
+        )
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/meesturen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def attachment_mailing(meeting_id: int, file_id: int, request: Request,
-                       db: Session = Depends(get_db),
-                       _email: str = Depends(require_admin_ui),
-                       mail: str = Form(...)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/meesturen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def attachment_mailing(
+    meeting_id: int,
+    file_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    mail: str = Form(...),
+):
     """Zet deze bijlage aan of uit voor de agenda- of de verslagmail."""
     meeting = _meeting_or_404(db, meeting_id)
     try:
@@ -620,11 +847,18 @@ def attachment_mailing(meeting_id: int, file_id: int, request: Request,
     return _document_response(request, db, meeting)
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/verwijder",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def attachment_delete(meeting_id: int, file_id: int, request: Request,
-                      db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/verwijder",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def attachment_delete(
+    meeting_id: int,
+    file_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     meeting = _meeting_or_404(db, meeting_id)
     try:
         delete_file(db, meeting, file_id)
@@ -634,8 +868,12 @@ def attachment_delete(meeting_id: int, file_id: int, request: Request,
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/bestand/{file_id}")
-def file_download(meeting_id: int, file_id: int, db: Session = Depends(get_db),
-                  _email: str = Depends(require_admin_ui)):
+def file_download(
+    meeting_id: int,
+    file_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """Download an attachment or an archived PDF — admin session required.
 
     This is the whole reason meeting files are not media assets: media serves
@@ -645,12 +883,15 @@ def file_download(meeting_id: int, file_id: int, db: Session = Depends(get_db),
     record = get_file(db, meeting_id, file_id)
     if record is None:
         raise HTTPException(status_code=404, detail=_("Bestand niet gevonden."))
-    return Response(content=record.data, media_type=record.content_type,
-                    headers={"Content-Disposition":
-                             f'attachment; filename="{record.filename}"'})
+    return Response(
+        content=record.data,
+        media_type=record.content_type,
+        headers={"Content-Disposition": f'attachment; filename="{record.filename}"'},
+    )
 
 
 # ── The PDF ──────────────────────────────────────────────────────────────────
+
 
 def _logo_data_uri(db: Session) -> Optional[str]:
     """Het verenigingslogo als data-URI, of None.
@@ -674,7 +915,6 @@ def _logo_data_uri(db: Session) -> Optional[str]:
 
 def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
     """Everything the PDF template needs — the same structure the screen shows."""
-    from app.domains.mdm.api import organization_circle
 
     ticked = attendance_of(db, meeting)
     present, excused = [], []
@@ -689,27 +929,38 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
             present.append(naam)
         elif ticked.get(deelnemer.key) == Attendance.EXCUSED:
             excused.append(naam)
-    return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
-            "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),
-            "date_label": long_date(meeting.meeting_date),
-            "time_label": clock(meeting.start_time),
-            "sections": document_of(db, meeting),
-            "present": present, "excused": excused,
-            "location": meeting.location or "",
-            "standing": member_standing(db),
-            # De bijlagen die mét déze mail meegaan. Ze staan op het scherm maar
-            # nergens in het document zelf, en juist de PDF is wat een bestuurslid
-            # later terugleest: dan hoort er te staan wélke stukken erbij hoorden
-            # (#939, naar aanleiding van de wijkmeester die ook alleen op het
-            # scherm stond).
-            "attachments": [f for f in files_of(db, meeting)
-                            if (f.on_agenda_mail if kind == "agenda"
-                                else f.on_report_mail)]}
+    return {
+        "meeting": meeting,
+        "kind": kind,
+        "logo": _logo_data_uri(db),
+        "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),
+        "date_label": long_date(meeting.meeting_date),
+        "time_label": clock(meeting.start_time),
+        "sections": document_of(db, meeting),
+        "present": present,
+        "excused": excused,
+        "location": meeting.location or "",
+        "standing": member_standing(db),
+        # De bijlagen die mét déze mail meegaan. Ze staan op het scherm maar
+        # nergens in het document zelf, en juist de PDF is wat een bestuurslid
+        # later terugleest: dan hoort er te staan wélke stukken erbij hoorden
+        # (#939, naar aanleiding van de wijkmeester die ook alleen op het
+        # scherm stond).
+        "attachments": [
+            f
+            for f in files_of(db, meeting)
+            if (f.on_agenda_mail if kind == "agenda" else f.on_report_mail)
+        ],
+    }
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/pdf")
-def meeting_pdf(meeting_id: int, db: Session = Depends(get_db),
-                _email: str = Depends(require_admin_ui), kind: str = "verslag"):
+def meeting_pdf(
+    meeting_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    kind: str = "verslag",
+):
     """Download the PDF as the circle will receive it (§3.16).
 
     The control step is a download and not a preview pane: the secretary checks
@@ -719,12 +970,17 @@ def meeting_pdf(meeting_id: int, db: Session = Depends(get_db),
     meeting = _meeting_or_404(db, meeting_id)
     internal = "agenda" if kind == "agenda" else "report"
     pdf = render(context=_pdf_context(db, meeting, kind=internal))
-    return Response(content=pdf, media_type="application/pdf",
-                    headers={"Content-Disposition":
-                             f'attachment; filename="{filename_for(meeting, kind=internal)}"'})
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename_for(meeting, kind=internal)}"'
+        },
+    )
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────
+
 
 def _wanneer(meeting) -> str:
     """`donderdag 1 oktober 2026 om 20u in Miloheem` — datum, uur en plaats.
@@ -758,49 +1014,82 @@ def _default_body(db: Session, meeting, kind: str) -> str:
     dan de verkeerde namen onder een mail die de deur uit gaat.
     """
     if kind == "agenda":
-        tekst = _("Hallo allemaal,\n\nIn bijlage de agenda van onze vergadering "
-                  "van %s.\n\nAllen warm uitgenodigd!") % _wanneer(meeting)
+        tekst = _(
+            "Hallo allemaal,\n\nIn bijlage de agenda van onze vergadering "
+            "van %s.\n\nAllen warm uitgenodigd!"
+        ) % _wanneer(meeting)
     else:
-        tekst = _("Hoi allemaal,\n\nIn bijlage het verslag van onze vergadering "
-                  "van %s.") % _wanneer(meeting)
+        tekst = _(
+            "Hoi allemaal,\n\nIn bijlage het verslag van onze vergadering van %s."
+        ) % _wanneer(meeting)
     ondertekening = mail_signature(db)
     return f"{tekst}\n\n{ondertekening}" if ondertekening else tekst
 
 
-def _send_view(request: Request, db: Session, meeting, kind: str, email: str,
-               subject: str = "", body: str = "",
-               error: Optional[str] = None) -> MeetingSendView:
+def _send_view(
+    request: Request,
+    db: Session,
+    meeting,
+    kind: str,
+    email: str,
+    subject: str = "",
+    body: str = "",
+    error: Optional[str] = None,
+) -> MeetingSendView:
     internal = "agenda" if kind == "agenda" else "report"
     return MeetingSendView(
-        meeting=meeting, kind=internal,
+        meeting=meeting,
+        kind=internal,
         kind_label=_("agenda") if internal == "agenda" else _("verslag"),
         subject=subject or _default_subject(meeting, internal),
         body=body or _default_body(db, meeting, internal),
         recipients=recipients_for(db, meeting),
         extra_recipients=extra_recipients_of(db, meeting),
-        attachments=[f for f in files_of(db, meeting)
-                     if (f.on_agenda_mail if internal == "agenda" else f.on_report_mail)],
+        attachments=[
+            f
+            for f in files_of(db, meeting)
+            if (f.on_agenda_mail if internal == "agenda" else f.on_report_mail)
+        ],
         pdf_filename=filename_for(meeting, kind=internal),
         reply_to=email,
-        already_sent_at=(meeting.agenda_sent_at if internal == "agenda"
-                         else meeting.report_sent_at),
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        already_sent_at=(
+            meeting.agenda_sent_at if internal == "agenda" else meeting.report_sent_at
+        ),
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/verstuur", response_class=HTMLResponse)
-def send_screen(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui), kind: str = "verslag"):
+def send_screen(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = "verslag",
+):
     meeting = _meeting_or_404(db, meeting_id)
     return templates.TemplateResponse(
-        request, "admin_vergadering_verstuur.html",
-        _send_view(request, db, meeting, kind, email).as_context())
+        request,
+        "admin_vergadering_verstuur.html",
+        _send_view(request, db, meeting, kind, email).as_context(),
+    )
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/ontvanger", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def recipient_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui), kind: str = Form("verslag"),
-                  extra_email: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/ontvanger",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def recipient_add(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = Form("verslag"),
+    extra_email: str = Form(""),
+):
     """A one-off address for this meeting only — the guest speaker case (§3.15)."""
     meeting = _meeting_or_404(db, meeting_id)
     error = None
@@ -809,28 +1098,46 @@ def recipient_add(meeting_id: int, request: Request, db: Session = Depends(get_d
     except MeetingError as exc:
         error = str(exc)
     return templates.TemplateResponse(
-        request, "_vg_verstuur.html",
-        _send_view(request, db, meeting, kind, email, error=error).as_context())
+        request,
+        "_vg_verstuur.html",
+        _send_view(request, db, meeting, kind, email, error=error).as_context(),
+    )
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/ontvanger/{recipient_id}/verwijder",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def recipient_remove(meeting_id: int, recipient_id: int, request: Request,
-                     db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui),
-                     kind: str = Form("verslag")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/ontvanger/{recipient_id}/verwijder",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def recipient_remove(
+    meeting_id: int,
+    recipient_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = Form("verslag"),
+):
     meeting = _meeting_or_404(db, meeting_id)
     remove_extra_recipient(db, meeting, recipient_id)
     return templates.TemplateResponse(
-        request, "_vg_verstuur.html",
-        _send_view(request, db, meeting, kind, email).as_context())
+        request, "_vg_verstuur.html", _send_view(request, db, meeting, kind, email).as_context()
+    )
 
 
-@router.post("/admin/vergaderingen/{meeting_id}/verstuur", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def send_mail(meeting_id: int, request: Request, db: Session = Depends(get_db),
-              email: str = Depends(require_admin_ui), kind: str = Form("verslag"),
-              subject: str = Form(""), body: str = Form("")):
+@router.post(
+    "/admin/vergaderingen/{meeting_id}/verstuur",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def send_mail(
+    meeting_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = Form("verslag"),
+    subject: str = Form(""),
+    body: str = Form(""),
+):
     """Send, after a human has read it (§3.12) — never automatically.
 
     The PDF is regenerated here and archived as it goes out, in the same
@@ -841,22 +1148,41 @@ def send_mail(meeting_id: int, request: Request, db: Session = Depends(get_db),
     internal = "agenda" if kind == "agenda" else "report"
     try:
         pdf = render(context=_pdf_context(db, meeting, kind=internal))
-        send_meeting_mail(db, meeting, kind=internal, subject=subject.strip(),
-                          body_html=_as_html(body), reply_to=email, pdf=pdf,
-                          pdf_filename=filename_for(meeting, kind=internal))
+        send_meeting_mail(
+            db,
+            meeting,
+            kind=internal,
+            subject=subject.strip(),
+            body_html=_as_html(body),
+            reply_to=email,
+            pdf=pdf,
+            pdf_filename=filename_for(meeting, kind=internal),
+        )
     except MeetingError as exc:
         return templates.TemplateResponse(
-            request, "_vg_verstuur.html",
-            _send_view(request, db, meeting, kind, email, subject=subject,
-                       body=body, error=str(exc)).as_context())
+            request,
+            "_vg_verstuur.html",
+            _send_view(
+                request, db, meeting, kind, email, subject=subject, body=body, error=str(exc)
+            ).as_context(),
+        )
     except Exception:
         logger.exception("Vergadermail versturen mislukt (meeting %s)", meeting_id)
         return templates.TemplateResponse(
-            request, "_vg_verstuur.html",
-            _send_view(request, db, meeting, kind, email, subject=subject, body=body,
-                       error=_("Versturen mislukt. Kijk de e-maillog na.")).as_context())
-    return Response(status_code=204,
-                    headers={"HX-Redirect": f"/admin/vergaderingen/{meeting.id}"})
+            request,
+            "_vg_verstuur.html",
+            _send_view(
+                request,
+                db,
+                meeting,
+                kind,
+                email,
+                subject=subject,
+                body=body,
+                error=_("Versturen mislukt. Kijk de e-maillog na."),
+            ).as_context(),
+        )
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/vergaderingen/{meeting.id}"})
 
 
 def _as_html(body: str) -> str:

@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
+
 from pydantic import BaseModel
 
 from app.domains.mdm.api import PaymentMethod
@@ -69,6 +70,7 @@ class PaymentRecordResponse(BaseModel):
 class RefundCreate(BaseModel):
     """Terugbetaling op een charge-record. ``amount`` is het positieve te
     refunden bedrag; de service slaat het op als negatief record."""
+
     amount: Decimal
     note: Optional[str] = None
     method: PaymentMethod = PaymentMethod.TRANSFER
@@ -85,9 +87,9 @@ class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
     activity_id: Optional[int] = None
-    component_id: Optional[int] = None      # voor de penningmeester-filter (#90)
+    component_id: Optional[int] = None  # voor de penningmeester-filter (#90)
     component_name: Optional[str] = None
-    membership_year: Optional[int] = None   # lidgeld-jaar voor de jaarfilter (#308)
+    membership_year: Optional[int] = None  # lidgeld-jaar voor de jaarfilter (#308)
     items: list = []
 
 
@@ -95,5 +97,3 @@ class PaymentRecordUpdate(BaseModel):
     status: Optional[PaymentStatus] = None
     amount_paid: Optional[Decimal] = None
     note: Optional[str] = None
-
-

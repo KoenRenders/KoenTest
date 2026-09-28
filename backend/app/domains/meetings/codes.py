@@ -12,6 +12,7 @@ Phase 3 added the other three: `section_kind`, `attendance` and
 `file_purpose`. All four were module constants; the tone mapping of the status
 moved to `register_tones` with the pilot.
 """
+
 from app.domains.meetings.models import (
     Attendance,
     AttendanceCode,
@@ -30,8 +31,7 @@ from app.kernel.codes import CodeList, CodeSeed
 
 MEETING_STATUS_CODES = (
     CodeSeed(code="agenda", nl="Agenda", en="Agenda", sort_order=10),
-    CodeSeed(code="report", nl="Verslag (bezig)", en="Report (in progress)",
-             sort_order=20),
+    CodeSeed(code="report", nl="Verslag (bezig)", en="Report (in progress)", sort_order=20),
     CodeSeed(code="sent", nl="Verslag verstuurd", en="Report sent", sort_order=30),
 )
 
@@ -46,16 +46,17 @@ MEETING_STATUS = CodeList(
 
 
 SECTION_KIND_CODES = (
-    CodeSeed(code="EVALUATION", nl="Evaluatie voorbije activiteiten",
-             en="Evaluation of past activities", sort_order=10),
-    CodeSeed(code="UPCOMING", nl="Volgende activiteiten",
-             en="Upcoming activities", sort_order=20),
+    CodeSeed(
+        code="EVALUATION",
+        nl="Evaluatie voorbije activiteiten",
+        en="Evaluation of past activities",
+        sort_order=10,
+    ),
+    CodeSeed(code="UPCOMING", nl="Volgende activiteiten", en="Upcoming activities", sort_order=20),
     CodeSeed(code="MEMBERS", nl="Leden", en="Members", sort_order=30),
-    CodeSeed(code="IDEAS", nl="Programma-ideeën", en="Programme ideas",
-             sort_order=40),
+    CodeSeed(code="IDEAS", nl="Programma-ideeën", en="Programme ideas", sort_order=40),
     CodeSeed(code="MISC", nl="Varia", en="Miscellaneous", sort_order=50),
-    CodeSeed(code="CUSTOM", nl="Eigen rubriek", en="Custom section",
-             sort_order=60),
+    CodeSeed(code="CUSTOM", nl="Eigen rubriek", en="Custom section", sort_order=60),
 )
 
 SECTION_KIND = CodeList(
@@ -83,8 +84,7 @@ ATTENDANCE = CodeList(
 
 FILE_PURPOSE_CODES = (
     CodeSeed(code="attachment", nl="Bijlage", en="Attachment", sort_order=10),
-    CodeSeed(code="sent_pdf", nl="Verstuurd verslag (pdf)",
-             en="Sent report (PDF)", sort_order=20),
+    CodeSeed(code="sent_pdf", nl="Verstuurd verslag (pdf)", en="Sent report (PDF)", sort_order=20),
 )
 
 FILE_PURPOSE = CodeList(

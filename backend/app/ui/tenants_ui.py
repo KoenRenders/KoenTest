@@ -11,9 +11,8 @@ zodat de nieuwe tenant meteen resolvet (pad-prefix ``/<code>/…`` of, na het ze
 van een hostname-mapping, via de hostnaam). Composer-module: leest/schrijft via de
 mdm-/kernel-facades.
 """
-from __future__ import annotations
 
-import re
+from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -21,12 +20,15 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (  # noqa: F401
+    csrf_from_request,
+    get_user_roles,
+    require_admin_ui,
+    require_csrf,
     require_operator_ui,
-    csrf_from_request, get_user_roles, require_admin_ui, require_csrf,
 )
+from app.domains.mdm.api import OrganizationType
 from app.i18n import _
 from app.ui import admin_nav, filterparams, is_fragment_request, templates
-from app.domains.mdm.api import OrganizationType
 
 router = APIRouter(include_in_schema=False)
 
@@ -37,14 +39,25 @@ BEKENDE_SLEUTELS = [
     # nu uit de organisatie. Komt er ooit een merknaam die van de statutaire naam
     # afwijkt, dan is dat een kolom op de organisatie en geen tenant-instelling.
     ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
-    ("site_header_color", "Kleur van de kopbalk",
-     "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
-     "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992)."),
+    (
+        "site_header_color",
+        "Kleur van de kopbalk",
+        "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
+        "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992).",
+    ),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
     # zijn.
-    ("base_url", "Canonieke URL", "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be."),
-    ("privacy_url", "Privacyverklaring-link", "Footer-link naar je privacyverklaring. Leeg = niet tonen."),
+    (
+        "base_url",
+        "Canonieke URL",
+        "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be.",
+    ),
+    (
+        "privacy_url",
+        "Privacyverklaring-link",
+        "Footer-link naar je privacyverklaring. Leeg = niet tonen.",
+    ),
     ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
     ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),
     ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),
@@ -53,20 +66,39 @@ BEKENDE_SLEUTELS = [
     ("membership_half_price_start_md", "Halfprijs van", "MM-DD, bv. 04-16."),
     ("membership_half_price_end_md", "Halfprijs tot", "MM-DD, bv. 09-16."),
     ("membership_next_year_from_md", "Volgend jaar vanaf", "MM-DD, bv. 09-17."),
-    ("membership_renewal_start_md", "Hernieuwen vanaf", "MM-DD; leeg = enkel bij verlopen lidmaatschap."),
+    (
+        "membership_renewal_start_md",
+        "Hernieuwen vanaf",
+        "MM-DD; leeg = enkel bij verlopen lidmaatschap.",
+    ),
     # #924: rekeningnummer en begunstigde staan bij de ORGANISATIE. Ze hier laten
     # staan "voor het geval dat" zou een tweede bewerkbare bron zijn — dan is het
     # veld verplaatst in plaats van weggenomen.
-    ("payment_term_days", "Betaaltermijn (dagen)", "Aantal dagen voor een overschrijving. Default 7."),
-    ("gmail_user", "Gmail-gebruiker", "Afzender-account voor uitgaande mail (SMTP). Leeg = .env-default."),
+    (
+        "payment_term_days",
+        "Betaaltermijn (dagen)",
+        "Aantal dagen voor een overschrijving. Default 7.",
+    ),
+    (
+        "gmail_user",
+        "Gmail-gebruiker",
+        "Afzender-account voor uitgaande mail (SMTP). Leeg = .env-default.",
+    ),
     ("gmail_from", "Afzender (From)", "Getoonde afzender; leeg = de Gmail-gebruiker."),
-    ("umami_src", "Umami script-URL", "bv. https://stats.example/script.js. Leeg = geen webstatistieken."),
+    (
+        "umami_src",
+        "Umami script-URL",
+        "bv. https://stats.example/script.js. Leeg = geen webstatistieken.",
+    ),
     ("umami_website_id", "Umami Website-ID", "Het Umami-site-ID (geen secret)."),
     ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
     ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
-    ("admin_chat_enabled", "Raakje in de backoffice",
-     "'1' = het bestuur mag Raakje vragen stellen over de eigen cijfers. Leeg = uit. "
-     "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917)."),
+    (
+        "admin_chat_enabled",
+        "Raakje in de backoffice",
+        "'1' = het bestuur mag Raakje vragen stellen over de eigen cijfers. Leeg = uit. "
+        "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917).",
+    ),
 ]
 
 # #971: hier stond `ORGANISATIEVELDEN` — naam, rechtsvorm, nummers, contact,
@@ -83,7 +115,11 @@ BEKENDE_SLEUTELS = [
 # Wat hier overblijft is wat dit scherm werkelijk is: de instellingen van de site.
 GEHEIME_SLEUTELS = [
     ("mollie_api_key", "Mollie API-key", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
-    ("gmail_app_password", "Gmail app-wachtwoord", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
+    (
+        "gmail_app_password",
+        "Gmail app-wachtwoord",
+        "Versleuteld opgeslagen; wordt nooit teruggetoond.",
+    ),
 ]
 
 
@@ -92,10 +128,14 @@ GEHEIME_SLEUTELS = [
 # Bood het scherm ze toch aan, dan vult iemand ooit een lidgeld in voor het platform,
 # en dan staat er een waarde waarvan later niemand weet waarom.
 LEDENSLEUTELS = {
-    "membership_price_full", "membership_price_half",
-    "membership_half_price_start_md", "membership_half_price_end_md",
-    "membership_next_year_from_md", "membership_renewal_start_md",
-    "max_item_quantity", "max_registrations_per_email",
+    "membership_price_full",
+    "membership_price_half",
+    "membership_half_price_start_md",
+    "membership_half_price_end_md",
+    "membership_next_year_from_md",
+    "membership_renewal_start_md",
+    "max_item_quantity",
+    "max_registrations_per_email",
     # Een platform heeft geen leden, dus ook geen vragen over leden (#917).
     "admin_chat_enabled",
 }
@@ -125,43 +165,59 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     units = _units(db)
     if zoek:
         naald = zoek.lower()
-        units = [u for u in units
-                 if naald in (u.name or "").lower() or naald in (u.code or "").lower()]
+        units = [
+            u for u in units if naald in (u.name or "").lower() or naald in (u.code or "").lower()
+        ]
     if status == "actief":
         units = [u for u in units if u.is_active]
     elif status == "inactief":
         units = [u for u in units if not u.is_active]
     accounts = list_accounts(db)
-    return {"nav_items": admin_nav("/admin/tenants"), "units": units,
-            # #854: the platform is in this list but is no unit; the screen marks
-            # it. Decided here, because a template comparing the member with
-            # "PLATFORM" is always false (CR-12 phase 2).
-            "platform_id": next((u.id for u in units
-                                 if u.org_type is OrganizationType.PLATFORM), None),
-            "accounts": accounts, "q": zoek, "status": status,
-            "error": None, "opgeslagen": False,
-            "csrf_token": csrf_from_request(request)}
+    return {
+        "nav_items": admin_nav("/admin/tenants"),
+        "units": units,
+        # #854: the platform is in this list but is no unit; the screen marks
+        # it. Decided here, because a template comparing the member with
+        # "PLATFORM" is always false (CR-12 phase 2).
+        "platform_id": next((u.id for u in units if u.org_type is OrganizationType.PLATFORM), None),
+        "accounts": accounts,
+        "q": zoek,
+        "status": status,
+        "error": None,
+        "opgeslagen": False,
+        "csrf_token": csrf_from_request(request),
+    }
 
 
 def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
-    from app.kernel.tenant_config import get_setting
     from app.domains.mdm.api import secrets_gezet as _secrets_gezet
+    from app.kernel.tenant_config import get_setting
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     # #854: een platform-tenant krijgt de ledenvelden niet te zien.
-    sleutels = [rij for rij in BEKENDE_SLEUTELS
-                if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)]
-    waarden = {key: get_setting(db, key, tenant_id=tenant_id) or ""
-               for key, _label, _hulp in sleutels}
-    secrets_gezet = _secrets_gezet(
-        db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
-    return {"nav_items": admin_nav("/admin/tenants"), "unit": unit,
-            "tenant_id": tenant_id, "sleutels": sleutels,
-            "geheime_sleutels": GEHEIME_SLEUTELS, "waarden": waarden,
-            "secrets_gezet": secrets_gezet, "error": None, "opgeslagen": False,
-            "csrf_token": csrf_from_request(request)}
+    sleutels = [
+        rij
+        for rij in BEKENDE_SLEUTELS
+        if not (unit.org_type == OrganizationType.PLATFORM and rij[0] in LEDENSLEUTELS)
+    ]
+    waarden = {
+        key: get_setting(db, key, tenant_id=tenant_id) or "" for key, _label, _hulp in sleutels
+    }
+    secrets_gezet = _secrets_gezet(db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
+    return {
+        "nav_items": admin_nav("/admin/tenants"),
+        "unit": unit,
+        "tenant_id": tenant_id,
+        "sleutels": sleutels,
+        "geheime_sleutels": GEHEIME_SLEUTELS,
+        "waarden": waarden,
+        "secrets_gezet": secrets_gezet,
+        "error": None,
+        "opgeslagen": False,
+        "csrf_token": csrf_from_request(request),
+    }
 
 
 @router.get("/admin/instellingen")
@@ -174,19 +230,20 @@ def instellingen_verhuisd():
 
 
 @router.get("/admin/tenants", response_class=HTMLResponse)
-def tenants(request: Request, db: Session = Depends(get_db),
-            email: str = Depends(require_admin_ui)):
+def tenants(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     require_operator_ui(db, email)
     # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
     # tijdens het typen vervangen en de focus wegnemen.
-    sjabloon = ("_tn_kaarten.html" if is_fragment_request(request)
-                else "admin_tenants.html")
+    sjabloon = "_tn_kaarten.html" if is_fragment_request(request) else "admin_tenants.html"
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
 
 @router.get("/admin/tenants/nieuw", response_class=HTMLResponse)
-def tenant_nieuw(request: Request, db: Session = Depends(get_db),
-                 email: str = Depends(require_admin_ui)):
+def tenant_nieuw(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
 
     Hergebruikt de contextbouwer van de lijst voor de accounts-dropdown.
@@ -195,26 +252,39 @@ def tenant_nieuw(request: Request, db: Session = Depends(get_db),
 
 
 @router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
-def tenant_editor(tenant_id: int, request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
+def tenant_editor(
+    tenant_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     require_operator_ui(db, email)
-    return templates.TemplateResponse(request, "admin_tenant.html",
-                                      _editor_ctx(request, db, tenant_id))
+    return templates.TemplateResponse(
+        request, "admin_tenant.html", _editor_ctx(request, db, tenant_id)
+    )
 
 
-@router.post("/admin/tenants", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui),
-                    name: str = Form(""), code: str = Form(""),
-                    account_id: str = Form(""), base_url: str = Form("")):
+@router.post("/admin/tenants", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def tenant_aanmaken(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    name: str = Form(""),
+    code: str = Form(""),
+    account_id: str = Form(""),
+    base_url: str = Form(""),
+):
     from app.domains.mdm.api import TenantFout, create_tenant
 
     require_operator_ui(db, email)
     try:
-        create_tenant(db, name=name, code=code,
-                      parent_id=int(account_id) if account_id.isdigit() else None,
-                      base_url=base_url)
+        create_tenant(
+            db,
+            name=name,
+            code=code,
+            parent_id=int(account_id) if account_id.isdigit() else None,
+            base_url=base_url,
+        )
     except TenantFout as fout:
         ctx = _lijst_ctx(request, db)
         ctx["error"] = _(str(fout))
@@ -225,11 +295,15 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(request, "admin_tenants.html", ctx)
 
 
-@router.post("/admin/tenants/{tenant_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def tenant_opslaan(tenant_id: int, request: Request,
-                         db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/tenants/{tenant_id}", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+async def tenant_opslaan(
+    tenant_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
 
     require_operator_ui(db, email)
@@ -240,9 +314,12 @@ async def tenant_opslaan(tenant_id: int, request: Request,
     # `/admin/organisaties` bewerkt — één scherm per feit.
     try:
         update_tenant_settings(
-            db, tenant_id, form,
+            db,
+            tenant_id,
+            form,
             known=[key for key, _l, _h in BEKENDE_SLEUTELS],
-            secret=[key for key, _l, _h in GEHEIME_SLEUTELS])
+            secret=[key for key, _l, _h in GEHEIME_SLEUTELS],
+        )
     except OngeldigeInstelling as fout:
         # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
         # betekenen dat één tikfout in een bedrag het hele scherm leegveegt, en dan
@@ -250,10 +327,8 @@ async def tenant_opslaan(tenant_id: int, request: Request,
         ctx = _editor_ctx(request, db, tenant_id)
         labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
-        ctx["waarden"] = {**ctx["waarden"],
-                          **{k: v for k, v in form.items() if k in labels}}
-        return templates.TemplateResponse(request, "admin_tenant.html", ctx,
-                                          status_code=422)
+        ctx["waarden"] = {**ctx["waarden"], **{k: v for k, v in form.items() if k in labels}}
+        return templates.TemplateResponse(request, "admin_tenant.html", ctx, status_code=422)
     ctx = _editor_ctx(request, db, tenant_id)
     # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
     # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie

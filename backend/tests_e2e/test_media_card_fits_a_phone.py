@@ -23,6 +23,7 @@ Desktop geometry, measured before and after on every media kind at 1440 and
 1280 px: identical, element for element (27 boxes on the page-image cards; the
 seed has no sponsor or logo cards).
 """
+
 import os
 import sys
 
@@ -83,14 +84,16 @@ def _measure(page, width: int) -> dict:
     assert m is not None, "no media list on the screen"
     assert m["cards"] >= 1, "no media card on the screen — is the e2e seed loaded?"
     assert m["save"] == 1 and m["arrows"] == 2 and m["active"] == 1, (
-        f"the card's controls are not all there: {m}")
+        f"the card's controls are not all there: {m}"
+    )
     return m
 
 
 def test_the_media_card_fits_a_phone(page):
     m = _measure(page, PHONE)
     assert m["doc"] <= PHONE, (
-        f"the page is {m['doc']} px wide at {PHONE} px; sticking out: {m['offenders']}")
+        f"the page is {m['doc']} px wide at {PHONE} px; sticking out: {m['offenders']}"
+    )
     assert not m["offenders"], f"sticking out of the screen: {m['offenders']}"
 
 

@@ -34,16 +34,19 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 de naamtest valt om; de schoonmaak in `_activity_label` overgeslagen → de
 ledennaam-test valt om met de naam in de prompt.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
 import pytest
 
-from app.domains.reporting.assistant import (ScopeNietOverdraagbaar,
-                                             build_system_prompt,
-                                             scope_for_activity,
-                                             scope_for_payments)
+from app.domains.reporting.assistant import (
+    ScopeNietOverdraagbaar,
+    build_system_prompt,
+    scope_for_activity,
+    scope_for_payments,
+)
 from tests._assistant_seed import TENANT, seed
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -65,6 +68,7 @@ def situatie(db_session):
 
 # ── 1. Geen belofte over namen ───────────────────────────────────────────────
 
+
 def test_geen_enkele_openingszin_belooft_dat_namen_wegblijven():
     """Toets de zin, niet de aanwezigheid van een overlay.
 
@@ -76,13 +80,13 @@ def test_geen_enkele_openingszin_belooft_dat_namen_wegblijven():
     fouten = []
     for relatief in OPENINGEN:
         bron = (DOMAINS / relatief).read_text()
-        for zin in ("Namen van personen geef ik niet",
-                    "ik antwoord op groepsniveau"):
+        for zin in ("Namen van personen geef ik niet", "ik antwoord op groepsniveau"):
             if zin in bron:
                 fouten.append(f"{relatief}: «{zin}»")
     assert not fouten, (
         "deze openingszinnen beloven nog dat namen wegblijven, terwijl de "
-        "beheerder ze wél leest (#1126):\n  " + "\n  ".join(fouten))
+        "beheerder ze wél leest (#1126):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_rest_van_de_openingszin_blijft_staan():
@@ -99,10 +103,10 @@ def test_de_rest_van_de_openingszin_blijft_staan():
 
 # ── 2. De activiteit bij naam ────────────────────────────────────────────────
 
+
 def test_de_activiteitscope_noemt_de_naam_en_het_nummer(db_session, situatie):
     nummer = situatie["activities"]["quiz"]
-    prompt = build_system_prompt(
-        scope_for_activity(db_session, nummer, tenant_id=TENANT))
+    prompt = build_system_prompt(scope_for_activity(db_session, nummer, tenant_id=TENANT))
 
     assert "«Quiz»" in prompt, "de prompt noemt de activiteit niet bij naam"
     assert f"nummer {nummer}" in prompt, "het nummer hoort erbij: het model filtert erop"
@@ -112,7 +116,8 @@ def test_de_schermselectie_noemt_de_naam_en_het_nummer(db_session, situatie):
     """Dezelfde fout stond op twee plaatsen; dit is de tweede (#1060-selectie)."""
     nummer = situatie["activities"]["wandeling"]
     prompt = build_system_prompt(
-        scope_for_payments({"activiteit": str(nummer)}, db_session, tenant_id=TENANT))
+        scope_for_payments({"activiteit": str(nummer)}, db_session, tenant_id=TENANT)
+    )
 
     assert "Wandeling" in prompt and f"nummer {nummer}" in prompt, prompt[:400]
     assert f"activiteit {nummer}," not in prompt, "alleen het nummer is de oude vorm"
@@ -135,8 +140,7 @@ def test_een_geweigerde_selectie_zoekt_geen_naam_op(db_session, situatie):
     event.listen(db_session.bind, "before_cursor_execute", _tel)
     try:
         with pytest.raises(ScopeNietOverdraagbaar):
-            scope_for_payments({"q": "janssens", "activiteit": "1"}, db_session,
-                               tenant_id=TENANT)
+            scope_for_payments({"q": "janssens", "activiteit": "1"}, db_session, tenant_id=TENANT)
     finally:
         event.remove(db_session.bind, "before_cursor_execute", _tel)
 
@@ -149,8 +153,7 @@ def test_een_onbekende_activiteit_blijft_een_nummer(db_session, situatie):
     Niet "activiteit (onbekend)" en zeker geen gok: de scope klopt nog steeds, en
     het model filtert op het nummer.
     """
-    prompt = build_system_prompt(
-        scope_for_activity(db_session, 999_999, tenant_id=TENANT))
+    prompt = build_system_prompt(scope_for_activity(db_session, 999_999, tenant_id=TENANT))
 
     assert "nummer 999999" in prompt
     assert "«" not in prompt.split("nummer 999999")[0][-80:], prompt[:300]
@@ -180,24 +183,33 @@ def test_een_ledennaam_in_de_titel_gaat_niet_mee_de_prompt_in(db_session, situat
     gezin = Member(tenant_id=TENANT)
     db_session.add(gezin)
     db_session.flush()
-    hoofdlid = Person(tenant_id=TENANT, first_name="Wiebe", last_name=achternaam,
-                      date_of_birth=date(1980, 6, 15), gender_code="M")
+    hoofdlid = Person(
+        tenant_id=TENANT,
+        first_name="Wiebe",
+        last_name=achternaam,
+        date_of_birth=date(1980, 6, 15),
+        gender_code="M",
+    )
     db_session.add(hoofdlid)
     db_session.flush()
-    db_session.add(MemberPerson(tenant_id=TENANT, member_id=gezin.id,
-                                person_id=hoofdlid.id, relation_type="HOOFDLID"))
+    db_session.add(
+        MemberPerson(
+            tenant_id=TENANT, member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID"
+        )
+    )
     db_session.flush()
     assert scrub_question(db_session, achternaam, tenant_id=TENANT) != achternaam, (
-        "voorwaarde: deze naam staat in de namenlijst van de tenant")
+        "voorwaarde: deze naam staat in de namenlijst van de tenant"
+    )
 
     activiteit = Activity(tenant_id=TENANT, name=f"Wandeling met {achternaam}")
     db_session.add(activiteit)
     db_session.flush()
 
-    prompt = build_system_prompt(
-        scope_for_activity(db_session, activiteit.id, tenant_id=TENANT))
+    prompt = build_system_prompt(scope_for_activity(db_session, activiteit.id, tenant_id=TENANT))
 
     assert achternaam.lower() not in prompt.lower(), (
         "een ledennaam uit een activiteitstitel staat in de systeemprompt, die "
-        "niet op namen gescand wordt (#1126)")
+        "niet op namen gescand wordt (#1126)"
+    )
     assert "Wandeling met" in prompt, "de rest van de titel hoort er wél in"

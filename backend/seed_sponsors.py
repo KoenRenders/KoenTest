@@ -4,12 +4,13 @@ Idempotent: leest elk logo uit ``assets/seed/`` en voegt het toe als sponsor,
 tenzij er al een sponsor met dezelfde titel bestaat. Ontbreekt een bestand, dan
 wordt het stilletjes overgeslagen. Veilig om bij elke opstart te draaien.
 """
+
 import os
 
 from app.database import SessionLocal
-from app.domains.registry import load_all_models
 from app.domains.media.api import MediaAsset
 from app.domains.media.images import process_image
+from app.domains.registry import load_all_models
 
 load_all_models()
 
@@ -44,14 +45,16 @@ def main():
             processed = process_image(raw)
 
             order = db.query(MediaAsset).filter(MediaAsset.kind == "sponsor").count()
-            db.add(MediaAsset(
-                kind="sponsor",
-                title=title,
-                link_url=link_url,
-                sort_order=order,
-                is_active=True,
-                **processed,
-            ))
+            db.add(
+                MediaAsset(
+                    kind="sponsor",
+                    title=title,
+                    link_url=link_url,
+                    sort_order=order,
+                    is_active=True,
+                    **processed,
+                )
+            )
             db.commit()
             print(f"  Sponsor '{title}' geseed.")
     finally:

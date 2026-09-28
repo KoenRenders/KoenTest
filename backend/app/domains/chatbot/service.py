@@ -16,6 +16,7 @@ bij de provider (`seam.py`), niet in deze lus: daar passeert elke oproep van elk
 toekomstig pakket, en een controle die in de lus zou staan, zou een pakket dat
 zijn eigen lus schrijft stilzwijgend mislopen.
 """
+
 from __future__ import annotations
 
 import json
@@ -42,6 +43,7 @@ Dispatcher = Callable[[str, dict[str, Any], Session], str]
 
 logger = logging.getLogger(__name__)
 
+
 class ChatTimeout(RuntimeError):
     """De wandklok liep af vóór er een antwoord was (CR-07 §4.3).
 
@@ -52,8 +54,7 @@ class ChatTimeout(RuntimeError):
 
 
 _FALLBACK = (
-    "Sorry, dat lukt me even niet. Wil je het anders formuleren, of zal ik je "
-    "vraag doorgeven?"
+    "Sorry, dat lukt me even niet. Wil je het anders formuleren, of zal ik je vraag doorgeven?"
 )
 
 # Trefwoorden die wijzen op een vraag waarvoor de bot data móét ophalen
@@ -61,17 +62,28 @@ _FALLBACK = (
 # het model over te laten. Brede match; vals-positief = hooguit een extra (gratis)
 # tool-aanroep, vals-negatief valt terug op de strikte system-prompt.
 _ACTIVITY_HINTS = (
-    "activiteit", "agenda", "evenement", "programma", "wanneer", "datum",
-    "kinder", "gezin", "deelnem", "inschrijv", "te doen", "uitstap", "feest",
-    "voorbije", "volgende", "eerstvolgende",
+    "activiteit",
+    "agenda",
+    "evenement",
+    "programma",
+    "wanneer",
+    "datum",
+    "kinder",
+    "gezin",
+    "deelnem",
+    "inschrijv",
+    "te doen",
+    "uitstap",
+    "feest",
+    "voorbije",
+    "volgende",
+    "eerstvolgende",
 )
 
 
 def _wants_activity_data(messages: list[dict[str, Any]]) -> bool:
     """Lijkt de laatste bezoekersvraag om activiteiten-/agendagegevens te vragen?"""
-    last_user = next(
-        (m for m in reversed(messages) if m.get("role") == "user"), None
-    )
+    last_user = next((m for m in reversed(messages) if m.get("role") == "user"), None)
     if not last_user:
         return False
     text = (last_user.get("content") or "").lower()
@@ -153,8 +165,9 @@ def run_chat(
         return fallback
 
 
-def run_public_chat(db: Session, messages: list[dict[str, Any]],
-                    provider: LLMProvider, max_rounds: int = 4) -> str:
+def run_public_chat(
+    db: Session, messages: list[dict[str, Any]], provider: LLMProvider, max_rounds: int = 4
+) -> str:
     """De publieke bot: de gedeelde lus met zijn eigen kist en zijn eigen zet.
 
     De trefwoord-heuristiek hoort hier en niet in de lus: ze gaat over agenda's en
@@ -163,6 +176,12 @@ def run_public_chat(db: Session, messages: list[dict[str, Any]],
     """
     from .tools import TOOL_SPECS, execute_tool
 
-    return run_chat(db, messages, provider, max_rounds=max_rounds,
-                    tools=TOOL_SPECS, dispatch=execute_tool,
-                    force_first=_wants_activity_data(messages))
+    return run_chat(
+        db,
+        messages,
+        provider,
+        max_rounds=max_rounds,
+        tools=TOOL_SPECS,
+        dispatch=execute_tool,
+        force_first=_wants_activity_data(messages),
+    )

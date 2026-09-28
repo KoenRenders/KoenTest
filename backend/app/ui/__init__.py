@@ -5,14 +5,21 @@ template kiezen) + ``templates/`` (dom: alleen tonen). Dit pakket levert de
 gedeelde machinerie: de template-omgeving (met de component-template-mappen),
 de UI-kit-macro's en de shells (base-layouts).
 """
+
 import hashlib
 import logging
 from functools import lru_cache
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
-from jinja2 import Environment, FileSystemLoader, StrictUndefined, Undefined
-from jinja2 import make_logging_undefined, pass_context
+from jinja2 import (
+    Environment,
+    FileSystemLoader,
+    StrictUndefined,
+    Undefined,
+    make_logging_undefined,
+    pass_context,
+)
 
 from app.config import settings
 
@@ -36,9 +43,9 @@ template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
 # voor een bezoeker.
 _STRICT_ENVS = {"dev", "test", "hdev"}
 _undefined = (
-    StrictUndefined if settings.app_env in _STRICT_ENVS
-    else make_logging_undefined(logger=logging.getLogger("app.ui.undefined"),
-                                base=Undefined)
+    StrictUndefined
+    if settings.app_env in _STRICT_ENVS
+    else make_logging_undefined(logger=logging.getLogger("app.ui.undefined"), base=Undefined)
 )
 
 # LET OP — `autoescape=True` is hier XSS-kritisch. Starlette zet autoescape zelf
@@ -46,8 +53,7 @@ _undefined = (
 # meegeeft: dan is het jouw environment en jouw verantwoordelijkheid. Zonder deze
 # regel gaat élke `{{ }}` ongeëscapet naar de browser. De lint-gate bewaakt dat
 # de regel hier letterlijk blijft staan.
-_env = Environment(loader=FileSystemLoader(template_dirs), undefined=_undefined,
-                   autoescape=True)
+_env = Environment(loader=FileSystemLoader(template_dirs), undefined=_undefined, autoescape=True)
 
 templates = Jinja2Templates(env=_env)
 
@@ -107,6 +113,7 @@ def _maandkort(d) -> str:
     if d is None:
         return ""
     from babel.dates import format_date
+
     from app.i18n import current_locale
 
     return format_date(d, format="MMM", locale=current_locale.get()).rstrip(".")
@@ -158,9 +165,13 @@ templates.env.filters["relatielabel"] = _relatielabel
 # ui.confirm_host() ziet `data-confirm` en toont de in-app bevestig-modal.
 def _confirm_attrs(type_label, name) -> str:
     from markupsafe import escape
+
     from app.i18n import _
-    return (f"data-confirm='{escape(type_label)} \"{escape(name)}\" "
-            f"{escape(_('definitief verwijderen?'))}'")
+
+    return (
+        f'data-confirm=\'{escape(type_label)} "{escape(name)}" '
+        f"{escape(_('definitief verwijderen?'))}'"
+    )
 
 
 templates.env.globals["confirm_attrs"] = _confirm_attrs
@@ -186,8 +197,13 @@ templates.env.globals["gezinslabel"] = _gezinslabel
 # stilletjes normaliseren, controltekens — valt terug op de canonieke plek van het
 # record (de fallback), zodat de knop altijd ergens zinnigs heen gaat.
 def veilige_terug(waarde: str | None, fallback: str) -> str:
-    if (not waarde or not waarde.startswith("/") or waarde.startswith("//")
-            or "\\" in waarde or any(ord(t) < 0x20 for t in waarde)):
+    if (
+        not waarde
+        or not waarde.startswith("/")
+        or waarde.startswith("//")
+        or "\\" in waarde
+        or any(ord(t) < 0x20 for t in waarde)
+    ):
         return fallback
     return waarde
 
@@ -403,62 +419,78 @@ templates.env.globals["path_for"] = path_for
 # (de render-gate bezoekt élk item, groep of niet).
 _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     (None, [("/admin/werkbank", "Werkbank")]),
-    ("Werking", [
-        ("/admin/activiteiten", "Activiteiten"),
-        ("/admin/leden", "Leden"),
-        ("/admin/formulieren", "Formulieren"),
-    ]),
-    ("Inhoud", [
-        ("/admin/paginas", "Pagina's"),
-        ("/admin/media", "Media"),
-        ("/admin/ai-context", "Raakje"),
-    ]),
-    ("Financieel", [
-        ("/admin/betalingen", "Betalingen"),
-    ]),
+    (
+        "Werking",
+        [
+            ("/admin/activiteiten", "Activiteiten"),
+            ("/admin/leden", "Leden"),
+            ("/admin/formulieren", "Formulieren"),
+        ],
+    ),
+    (
+        "Inhoud",
+        [
+            ("/admin/paginas", "Pagina's"),
+            ("/admin/media", "Media"),
+            ("/admin/ai-context", "Raakje"),
+        ],
+    ),
+    (
+        "Financieel",
+        [
+            ("/admin/betalingen", "Betalingen"),
+        ],
+    ),
     # Communicatie (#258): wat naar buiten gaat. De vergaderingen gaan naar het
     # bestuur, de nieuwsbrief (#984, CR-05) naar leden en niet-leden.
-    ("Communicatie", [
-        ("/admin/vergaderingen", "Vergaderingen"),
-        ("/admin/nieuwsbrieven", "Nieuwsbrief"),
-        # Design Studio (#1007, CR-10): affiches en sociale beelden uit een activiteit.
-        ("/admin/ontwerpen", "Design Studio"),
-    ]),
+    (
+        "Communicatie",
+        [
+            ("/admin/vergaderingen", "Vergaderingen"),
+            ("/admin/nieuwsbrieven", "Nieuwsbrief"),
+            # Design Studio (#1007, CR-10): affiches en sociale beelden uit een activiteit.
+            ("/admin/ontwerpen", "Design Studio"),
+        ],
+    ),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
     # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.
-    ("Inzicht", [
-        ("/admin", "Dashboard"),
-        ("/admin/rapporten", "Rapporten"),
-        # #1117: de beheer-assistent gaat breder dan de rapporten — hij
-        # beantwoordt vragen over betalingen, leden, activiteiten en taken. Hem
-        # onder Rapporten laten wonen verkleint hem tot één van zijn onderwerpen
-        # en je moet er langs de rapportenlijst naartoe. Vandaar een eigen regel,
-        # en vandaar `AI · Raakje`: geen scherm, geen selectie — de assistent zelf.
-        ("/admin/rapporten/raakje", "AI · Raakje"),
-    ]),
-    ("Systeem", [
-        ("/admin/gebruikers", "Gebruikers"),
-        ("/admin/ledenwijzigingen", "Wijzigingen"),
-        ("/admin/e-maillog", "E-maillog"),
-        # #971: twee items en geen één, want het zijn twee dingen. Een ORGANISATIE
-        # is een rechtspersoon — naam, rechtsvorm, ondernemingsnummer, rekening —
-        # en een TENANT is een site met haar instellingen. Meestal vallen ze samen,
-        # maar de ACCOUNT-organisatie is geen tenant en stond daardoor nergens in
-        # dit menu; net zij is de vzw met een ondernemingsnummer.
-        ("/admin/organisaties", "Organisaties"),
-        ("/admin/tenants", "Tenants"),
-        # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
-        # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
-        # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
-        # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
-        # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
-        ("/admin/info", "Info"),
-    ]),
+    (
+        "Inzicht",
+        [
+            ("/admin", "Dashboard"),
+            ("/admin/rapporten", "Rapporten"),
+            # #1117: de beheer-assistent gaat breder dan de rapporten — hij
+            # beantwoordt vragen over betalingen, leden, activiteiten en taken. Hem
+            # onder Rapporten laten wonen verkleint hem tot één van zijn onderwerpen
+            # en je moet er langs de rapportenlijst naartoe. Vandaar een eigen regel,
+            # en vandaar `AI · Raakje`: geen scherm, geen selectie — de assistent zelf.
+            ("/admin/rapporten/raakje", "AI · Raakje"),
+        ],
+    ),
+    (
+        "Systeem",
+        [
+            ("/admin/gebruikers", "Gebruikers"),
+            ("/admin/ledenwijzigingen", "Wijzigingen"),
+            ("/admin/e-maillog", "E-maillog"),
+            # #971: twee items en geen één, want het zijn twee dingen. Een ORGANISATIE
+            # is een rechtspersoon — naam, rechtsvorm, ondernemingsnummer, rekening —
+            # en een TENANT is een site met haar instellingen. Meestal vallen ze samen,
+            # maar de ACCOUNT-organisatie is geen tenant en stond daardoor nergens in
+            # dit menu; net zij is de vzw met een ondernemingsnummer.
+            ("/admin/organisaties", "Organisaties"),
+            ("/admin/tenants", "Tenants"),
+            # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
+            # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
+            # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
+            # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+            # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
+            ("/admin/info", "Info"),
+        ],
+    ),
 ]
 
-_ADMIN_NAV: list[tuple[str, str]] = [
-    item for _, _items in _ADMIN_NAV_GROEPEN for item in _items
-]
+_ADMIN_NAV: list[tuple[str, str]] = [item for _, _items in _ADMIN_NAV_GROEPEN for item in _items]
 
 
 def is_fragment_request(request) -> bool:
@@ -543,8 +575,7 @@ def sort_description(column_label: str, direction: str, is_date: bool = False) -
 
     if is_date:
         return _("nieuwste eerst") if direction == "desc" else _("oudste eerst")
-    sjabloon = (_("op %(kolom)s, aflopend") if direction == "desc"
-                else _("op %(kolom)s, oplopend"))
+    sjabloon = _("op %(kolom)s, aflopend") if direction == "desc" else _("op %(kolom)s, oplopend")
     return sjabloon % {"kolom": column_label}
 
 
@@ -561,11 +592,17 @@ def admin_nav(active: str, roles=None) -> list[dict]:
     groepen = _ADMIN_NAV_GROEPEN
     if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
         # FINANCE-only: één ongelabelde groep met enkel Betalingen.
-        groepen = [(None, [(h, l) for h, l in _ADMIN_NAV if h == "/admin/betalingen"])]
-    return [{"label": _(label) if label else None,
-             "items": [{"href": href, "label": _(l), "active": href == active}
-                       for href, l in items]}
-            for label, items in groepen if items]
+        groepen = [(None, [(h, lbl) for h, lbl in _ADMIN_NAV if h == "/admin/betalingen"])]
+    return [
+        {
+            "label": _(label) if label else None,
+            "items": [
+                {"href": href, "label": _(lbl), "active": href == active} for href, lbl in items
+            ],
+        }
+        for label, items in groepen
+        if items
+    ]
 
 
 def _huidige_gebruiker(db, request) -> dict | None:
@@ -575,7 +612,11 @@ def _huidige_gebruiker(db, request) -> dict | None:
         return None
     try:
         from app.domains.auth.api import (
-            SESSION_COOKIE, get_user_roles, login_person_for_email, read_session_value)
+            SESSION_COOKIE,
+            get_user_roles,
+            login_person_for_email,
+            read_session_value,
+        )
 
         email = read_session_value(request.cookies.get(SESSION_COOKIE))
         if not email:
@@ -584,9 +625,12 @@ def _huidige_gebruiker(db, request) -> dict | None:
         person = login_person_for_email(db, email)
         if person is not None:
             naam = f"{person.first_name} {person.last_name}".strip() or email
-        return {"email": email, "naam": naam,
-                "is_admin": "ADMIN" in get_user_roles(db, email),
-                "is_member": person is not None}
+        return {
+            "email": email,
+            "naam": naam,
+            "is_admin": "ADMIN" in get_user_roles(db, email),
+            "is_member": person is not None,
+        }
     except Exception:
         return None
 
@@ -616,18 +660,18 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         return None
     from app.domains.mdm.api import Address, BankAccount, ContactDetail
 
-    adres = (db.query(Address)
-             .filter(Address.organization_id == organisatie.id,
-                     Address.deleted_at.is_(None))
-             .execution_options(include_all_tenants=True)
-             .one_or_none())
+    adres = (
+        db.query(Address)
+        .filter(Address.organization_id == organisatie.id, Address.deleted_at.is_(None))
+        .execution_options(include_all_tenants=True)
+        .one_or_none()
+    )
     regels: list[str] = []
     if adres is not None:
         bus = f" bus {adres.bus_number}" if adres.bus_number else ""
         regels.append(f"{adres.street} {adres.house_number}{bus}")
         if adres.postal_code is not None:
-            regels.append(f"{adres.postal_code.postal_code} "
-                          f"{adres.postal_code.municipality}")
+            regels.append(f"{adres.postal_code.postal_code} {adres.postal_code.municipality}")
     # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
     # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
     # antwoord geven in plaats van geen.
@@ -636,18 +680,22 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     # `mdm.codes.CONTACT`); `code_of` keeps this correct whichever it holds.
     from app.kernel.codes import code_of as _code_of
 
-    contacten = {_code_of(c.contact_type_code): c.value for c in
-                 db.query(ContactDetail)
-                 .filter(ContactDetail.organization_id == organisatie.id,
-                         ContactDetail.deleted_at.is_(None))
-                 .execution_options(include_all_tenants=True).all()}
+    contacten = {
+        _code_of(c.contact_type_code): c.value
+        for c in db.query(ContactDetail)
+        .filter(ContactDetail.organization_id == organisatie.id, ContactDetail.deleted_at.is_(None))
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
     # De eerste rekening: `sort_order` bepaalt welke er getoond wordt zodra er
     # meer dan één is (#945).
-    rekening = (db.query(BankAccount)
-                .filter(BankAccount.organization_id == organisatie.id,
-                        BankAccount.deleted_at.is_(None))
-                .order_by(BankAccount.sort_order, BankAccount.id)
-                .execution_options(include_all_tenants=True).first())
+    rekening = (
+        db.query(BankAccount)
+        .filter(BankAccount.organization_id == organisatie.id, BankAccount.deleted_at.is_(None))
+        .order_by(BankAccount.sort_order, BankAccount.id)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
     blok = {
         "name": organisatie.name,
         "address_lines": regels,
@@ -656,8 +704,7 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         "iban": (rekening.iban if rekening else None) or None,
         "bic": (rekening.bic if rekening else None) or None,
     }
-    heeft_inhoud = (regels or blok["email"] or blok["phone"] or blok["iban"]
-                    or blok["bic"])
+    heeft_inhoud = regels or blok["email"] or blok["phone"] or blok["iban"] or blok["bic"]
     return blok if heeft_inhoud else None
 
 
@@ -675,7 +722,7 @@ def _externe_url(waarde: str) -> str | None:
 
     try:
         stuk = urlsplit((waarde or "").strip())
-    except ValueError:          # een waarde die niet eens te ontleden valt
+    except ValueError:  # een waarde die niet eens te ontleden valt
         return None
     if stuk.scheme in ("http", "https") and stuk.netloc:
         return waarde.strip()
@@ -713,28 +760,35 @@ def _sociale_links(db, organisatie) -> list[dict]:
     # comes from the label table, via `code_label()`.
     from app.kernel.codes import code_label, code_of
 
-    netwerken = {c.code: code_label("contact_type", c.code) for c in
-                 db.query(ContactTypeCode)
-                 .filter(ContactTypeCode.is_social_network.is_(True))
-                 .execution_options(include_all_tenants=True).all()}
+    netwerken = {
+        c.code: code_label("contact_type", c.code)
+        for c in db.query(ContactTypeCode)
+        .filter(ContactTypeCode.is_social_network.is_(True))
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
     if not netwerken:
         return []
     # `code_of`: the column holds the plain code — contact types have no enum,
     # precisely so that a fifth social network is one row (#1160) — and
     # `code_of` returns it unchanged. Kept so this reads the same as every
     # other code lookup.
-    rijen = {code_of(c.contact_type_code): c.value for c in
-             db.query(ContactDetail)
-             .filter(ContactDetail.organization_id == organisatie.id,
-                     ContactDetail.contact_type_code.in_(list(netwerken)),
-                     ContactDetail.deleted_at.is_(None))
-             .execution_options(include_all_tenants=True).all()}
+    rijen = {
+        code_of(c.contact_type_code): c.value
+        for c in db.query(ContactDetail)
+        .filter(
+            ContactDetail.organization_id == organisatie.id,
+            ContactDetail.contact_type_code.in_(list(netwerken)),
+            ContactDetail.deleted_at.is_(None),
+        )
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
     links = []
     for code in sorted(netwerken):
         url = _externe_url(rijen.get(code) or "")
         if url:
-            links.append({"code": code, "label": netwerken[code] or code.title(),
-                          "url": url})
+            links.append({"code": code, "label": netwerken[code] or code.title(), "url": url})
     return links
 
 
@@ -745,22 +799,29 @@ def site_context(db, request=None) -> dict:
 
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
-    from app.domains.media.api import MediaAsset, MediaKind
     from app.domains.mdm.api import Organization
+    from app.domains.media.api import MediaAsset, MediaKind
     from app.kernel.tenant_config import _actieve_tenant
 
     # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
     # verzoek — een script, een test — is er geen context, en dan hoort de
     # standaardtenant te gelden in plaats van "geen organisatie".
-    organisatie = (db.query(Organization)
-                   .filter(Organization.id == _actieve_tenant(None))
-                   .execution_options(include_all_tenants=True)
-                   .one_or_none())
+    organisatie = (
+        db.query(Organization)
+        .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one_or_none()
+    )
 
-    pages = (db.query(CmsPage)
-             .filter(CmsPage.is_published == True,        # noqa: E712
-                     CmsPage.show_in_nav == True)         # noqa: E712  (#465)
-             .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc()).all())
+    pages = (
+        db.query(CmsPage)
+        .filter(
+            CmsPage.is_published == True,  # noqa: E712
+            CmsPage.show_in_nav == True,
+        )  # noqa: E712  (#465)
+        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
+        .all()
+    )
     # #727: via de domeinfacade en niet met een eigen query — die keek langs
     # `is_published` heen, dus de footer stond op elke publieke pagina terwijl het
     # beheerscherm hem als niet-gepubliceerd toonde.
@@ -773,13 +834,23 @@ def site_context(db, request=None) -> dict:
     # #1057: de footer toont alleen de logo's die daarvoor aangevinkt zijn. De
     # Design Studio blijft élk actief sponsorlogo aanbieden — dat is met opzet: een
     # logo dat niet in de footer hoort, hoort daarom nog niet van de affiche geweerd.
-    sponsors = (db.query(MediaAsset)
-                .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True,  # noqa: E712
-                        MediaAsset.show_in_footer == True)  # noqa: E712
-                .order_by(MediaAsset.sort_order, MediaAsset.id).all())
-    from app.kernel.tenant_config import (get_setting, tenant_display_name,
-                                          tenant_site_header_color, umami_tracking)
+    sponsors = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == MediaKind.SPONSOR,
+            MediaAsset.is_active == True,  # noqa: E712
+            MediaAsset.show_in_footer == True,
+        )  # noqa: E712
+        .order_by(MediaAsset.sort_order, MediaAsset.id)
+        .all()
+    )
     from app.config import settings
+    from app.kernel.tenant_config import (
+        get_setting,
+        tenant_display_name,
+        tenant_site_header_color,
+        umami_tracking,
+    )
 
     base_url = (get_setting(db, "base_url") or "").rstrip("/")
     # #808: sinds de React-exit (#405) werd het trackingscript NERGENS meer
@@ -789,77 +860,82 @@ def site_context(db, request=None) -> dict:
     # naar `prod-backend`.
     umami_src, umami_website_id = umami_tracking(db)
 
-    return {"nav_pages": pages, "footer_block": footer_block,
-            "sponsors": sponsors, "current_year": date.today().year,
-            "chat_enabled": settings.chat_enabled,
-            "stt_mode": settings.stt_mode,   # spraakinvoer in de widget (#567)
-            "gebruiker": _huidige_gebruiker(db, request),
-            # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
-            # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
-            # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
-            # Instagram/TikTok/privacy (#493): elke tenant zet zijn eigen waarden.
-            # Open Graph per PAGINA (#881), met de sitewaarden als terugval. Altijd
-            # aanwezig en niet via `|default()`: de sjablonen renderen onder
-            # StrictUndefined, en een ontbrekende naam hoort daar te falen in plaats van
-            # leeg te renderen. Een pagina die niets overschrijft krijgt exact de tags
-            # die ze vandaag heeft.
-            #
-            # Waarom dit nodig was: titel en omschrijving kwamen van de SITE, dus wie een
-            # album deelde las de naam van de vereniging in plaats van die van het album —
-            # en er was helemaal geen `og:image`, dus nooit een beeld.
-            "og_title": None,
-            "og_description": None,
-            "og_image": None,
-            "site_name": tenant_display_name(db),
-            "site_tagline": get_setting(db, "tagline") or "",
-            # #992: the public header's own colour, or None for the shell's.
-            # Validated again on read, so it can go into a style attribute.
-            "site_header_color": tenant_site_header_color(db),
-            # Het logo van de vereniging (#258), als het er is: de header toont het
-            # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
-            # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de
-            # media en niet in de vergadermodule. Als URL en niet als bytes: de
-            # browser haalt het gewoon op, en de mediaroute cachet het al.
-            "site_logo_url": _site_logo_url(db),
-            # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
-            # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
-            # los van haar site — de beslisregel uit het issue. Enkel tonen als
-            # gezet; er is geen zinvolle default.
-            # #945: en ze zijn een lijst geworden. Drie contextsleutels werden er
-            # één, want drie sleutels zijn drie sjabloonregels en dus precies de
-            # kolom-per-netwerk die dit issue opruimt.
-            "sociale_links": _sociale_links(db, organisatie),
-            # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
-            # staan: `site-footer` is vrije tekst en een migratie kan een adres
-            # niet van een zin onderscheiden, dus er verdwijnt niets.
-            "organisatie": _footer_organisatie(db, organisatie),
-            # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
-            # op 19 september 2026). Niet op het platform: dat heeft geen leden en
-            # verstuurt geen nieuwsbrief.
-            "nieuwsbrief_inschrijven": (organisatie is not None
-                                        and getattr(organisatie, "org_type", "") != "PLATFORM"),
-            # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
-            "privacy_url": get_setting(db, "privacy_url") or None,
-            # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
-            "base_url": base_url,
-            # Webstatistieken (#176/#808). Beide of geen van beide — zie
-            # `umami_tracking`. Alleen de PUBLIEKE schil draagt het script:
-            # beheerverkeer is geen bezoek en zou de cijfers vervuilen.
-            "umami_src": umami_src,
-            "umami_website_id": umami_website_id,
-            # #693: élke publieke pagina draagt het CSRF-token. Dit was de
-            # eigenlijke oorzaak van de 403's onder #649/#662, en het lag niet aan
-            # een verlopen sessie: het token staat in `hx-headers` op de <body> van
-            # de schil, en bij een hx-boost-navigatie vervangt htmx de INHOUD van de
-            # body, niet haar ATTRIBUTEN. Landde je via een publieke pagina zonder
-            # token (`{{ csrf_token|default("") }}` → lege string) en boostte je
-            # daarna naar /leden/gezin, dan bleef die lege waarde staan en stuurde
-            # elke mutatie een leeg token mee.
-            #
-            # Herladen hielp, want dat is een harde navigatie — vandaar dat het
-            # advies in de melding klopte terwijl de verklaring erin niet klopte.
-            #
-            # De reparatie hoort hier en niet in de JS: is het token overal correct,
-            # dan maakt het niet meer uit welke pagina de body-attributen leverde.
-            "csrf_token": csrf_from_request(request) if request is not None else "",
-            "canonical_url": (base_url + request.url.path) if (base_url and request) else None}
+    return {
+        "nav_pages": pages,
+        "footer_block": footer_block,
+        "sponsors": sponsors,
+        "current_year": date.today().year,
+        "chat_enabled": settings.chat_enabled,
+        "stt_mode": settings.stt_mode,  # spraakinvoer in de widget (#567)
+        "gebruiker": _huidige_gebruiker(db, request),
+        # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
+        # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
+        # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
+        # Instagram/TikTok/privacy (#493): elke tenant zet zijn eigen waarden.
+        # Open Graph per PAGINA (#881), met de sitewaarden als terugval. Altijd
+        # aanwezig en niet via `|default()`: de sjablonen renderen onder
+        # StrictUndefined, en een ontbrekende naam hoort daar te falen in plaats van
+        # leeg te renderen. Een pagina die niets overschrijft krijgt exact de tags
+        # die ze vandaag heeft.
+        #
+        # Waarom dit nodig was: titel en omschrijving kwamen van de SITE, dus wie een
+        # album deelde las de naam van de vereniging in plaats van die van het album —
+        # en er was helemaal geen `og:image`, dus nooit een beeld.
+        "og_title": None,
+        "og_description": None,
+        "og_image": None,
+        "site_name": tenant_display_name(db),
+        "site_tagline": get_setting(db, "tagline") or "",
+        # #992: the public header's own colour, or None for the shell's.
+        # Validated again on read, so it can go into a style attribute.
+        "site_header_color": tenant_site_header_color(db),
+        # Het logo van de vereniging (#258), als het er is: de header toont het
+        # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
+        # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de
+        # media en niet in de vergadermodule. Als URL en niet als bytes: de
+        # browser haalt het gewoon op, en de mediaroute cachet het al.
+        "site_logo_url": _site_logo_url(db),
+        # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
+        # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
+        # los van haar site — de beslisregel uit het issue. Enkel tonen als
+        # gezet; er is geen zinvolle default.
+        # #945: en ze zijn een lijst geworden. Drie contextsleutels werden er
+        # één, want drie sleutels zijn drie sjabloonregels en dus precies de
+        # kolom-per-netwerk die dit issue opruimt.
+        "sociale_links": _sociale_links(db, organisatie),
+        # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
+        # staan: `site-footer` is vrije tekst en een migratie kan een adres
+        # niet van een zin onderscheiden, dus er verdwijnt niets.
+        "organisatie": _footer_organisatie(db, organisatie),
+        # De link naar de nieuwsbrief onderaan de HOMEPAGINA (#984, bijgesteld
+        # op 19 september 2026). Niet op het platform: dat heeft geen leden en
+        # verstuurt geen nieuwsbrief.
+        "nieuwsbrief_inschrijven": (
+            organisatie is not None and getattr(organisatie, "org_type", "") != "PLATFORM"
+        ),
+        # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
+        "privacy_url": get_setting(db, "privacy_url") or None,
+        # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
+        "base_url": base_url,
+        # Webstatistieken (#176/#808). Beide of geen van beide — zie
+        # `umami_tracking`. Alleen de PUBLIEKE schil draagt het script:
+        # beheerverkeer is geen bezoek en zou de cijfers vervuilen.
+        "umami_src": umami_src,
+        "umami_website_id": umami_website_id,
+        # #693: élke publieke pagina draagt het CSRF-token. Dit was de
+        # eigenlijke oorzaak van de 403's onder #649/#662, en het lag niet aan
+        # een verlopen sessie: het token staat in `hx-headers` op de <body> van
+        # de schil, en bij een hx-boost-navigatie vervangt htmx de INHOUD van de
+        # body, niet haar ATTRIBUTEN. Landde je via een publieke pagina zonder
+        # token (`{{ csrf_token|default("") }}` → lege string) en boostte je
+        # daarna naar /leden/gezin, dan bleef die lege waarde staan en stuurde
+        # elke mutatie een leeg token mee.
+        #
+        # Herladen hielp, want dat is een harde navigatie — vandaar dat het
+        # advies in de melding klopte terwijl de verklaring erin niet klopte.
+        #
+        # De reparatie hoort hier en niet in de JS: is het token overal correct,
+        # dan maakt het niet meer uit welke pagina de body-attributen leverde.
+        "csrf_token": csrf_from_request(request) if request is not None else "",
+        "canonical_url": (base_url + request.url.path) if (base_url and request) else None,
+    }

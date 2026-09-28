@@ -4,6 +4,7 @@
 cover-thumbnail); /activiteiten/{id}/fotos: het album zelf. Server-rendered
 in de SiteShell; hergebruikt de media-routerfuncties als servicelaag.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,8 +23,7 @@ def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
     from app.domains.activities.api import list_activities
     from app.domains.media.api import activity_photo_covers
 
-    covers = {row["activity_id"]: row["thumb_url"]
-              for row in activity_photo_covers(db)}
+    covers = {row["activity_id"]: row["thumb_url"] for row in activity_photo_covers(db)}
     albums = [a for a in list_activities(db, scope="archived") if a.id in covers]
 
     per_jaar: dict[int, list] = {}
@@ -33,9 +33,11 @@ def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
         per_jaar.setdefault(jaar, []).append(album)
     jaren = sorted(per_jaar, reverse=True)
 
-    return templates.TemplateResponse(request, "fotos.html", {
-        **site_context(db, request), "jaren": jaren, "per_jaar": per_jaar,
-        "covers": covers})
+    return templates.TemplateResponse(
+        request,
+        "fotos.html",
+        {**site_context(db, request), "jaren": jaren, "per_jaar": per_jaar, "covers": covers},
+    )
 
 
 # #883: de cookie die "één duimpje per bezoeker" mogelijk maakt.
@@ -58,8 +60,7 @@ def _duim_token(request: Request) -> str | None:
 
 
 @router.get("/activiteiten/{activity_key}/fotos", response_class=HTMLResponse)
-def activiteit_fotos(activity_key: str, request: Request,
-                     db: Session = Depends(get_db)):
+def activiteit_fotos(activity_key: str, request: Request, db: Session = Depends(get_db)):
     """Het album van één activiteit, op nummer ÓF op vriendelijke URL (#884).
 
     Het pad is een STRING en geen int: `/activiteiten/7/fotos` en
@@ -102,23 +103,25 @@ def activiteit_fotos(activity_key: str, request: Request,
 
         from app.ui import path_for
 
-        return RedirectResponse(path_for(f"/activiteiten/{activiteit.slug}/fotos"),
-                                status_code=307)
+        return RedirectResponse(path_for(f"/activiteiten/{activiteit.slug}/fotos"), status_code=307)
     activity_id = activiteit.id
     fotos = list_activity_photos(db, activity_id)
     from app.domains.media.api import thumb_counts, thumbs_of_visitor
 
     ids = [f["id"] for f in fotos]
     token = _duim_token(request)
-    context = {**site_context(db, request), "activiteit": activiteit, "fotos": fotos,
-               # #883: alleen AANTALLEN en "heb ik zelf geduimd" — nooit wie.
-               "duimen": thumb_counts(db, ids),
-               "eigen_duimen": thumbs_of_visitor(db, ids, token)}
+    context = {
+        **site_context(db, request),
+        "activiteit": activiteit,
+        "fotos": fotos,
+        # #883: alleen AANTALLEN en "heb ik zelf geduimd" — nooit wie.
+        "duimen": thumb_counts(db, ids),
+        "eigen_duimen": thumbs_of_visitor(db, ids, token),
+    }
     if activiteit is not None:
         # #881: de naam van het ALBUM in de voorbeschouwing, niet die van de site.
         context["og_title"] = _("Foto's — %(naam)s") % {"naam": activiteit.name}
-        context["og_description"] = _(
-            "Bekijk de foto's van %(naam)s.") % {"naam": activiteit.name}
+        context["og_description"] = _("Bekijk de foto's van %(naam)s.") % {"naam": activiteit.name}
     # #884: precies ÉÉN van de twee adressen is canoniek, en deze pagina zegt altijd
     # welke. Bestaat er een slug, dan is die het en wijst de nummer-URL ernaar; anders is
     # de nummer-URL zelf het canonieke adres. Zonder die uitspraak indexeert Google beide
@@ -143,8 +146,9 @@ def activiteit_fotos(activity_key: str, request: Request,
     return templates.TemplateResponse(request, "fotos_album.html", context)
 
 
-@router.post("/fotos/{asset_id}/duim", response_class=HTMLResponse,
-             dependencies=[Depends(thumb_limiter)])
+@router.post(
+    "/fotos/{asset_id}/duim", response_class=HTMLResponse, dependencies=[Depends(thumb_limiter)]
+)
 def foto_duim(asset_id: int, request: Request, db: Session = Depends(get_db)):
     """Duimpje aan of uit voor deze bezoeker (#883). Publiek, geen sessie.
 
@@ -173,9 +177,11 @@ def foto_duim(asset_id: int, request: Request, db: Session = Depends(get_db)):
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Foto niet gevonden"))
 
-    antwoord = templates.TemplateResponse(request, "_duim.html", {
-        "foto_id": asset_id, "aantal": aantal, "aan": aan})
+    antwoord = templates.TemplateResponse(
+        request, "_duim.html", {"foto_id": asset_id, "aantal": aantal, "aan": aan}
+    )
     if _duim_token(request) is None:
-        antwoord.set_cookie(DUIM_COOKIE, token, max_age=DUIM_MAX_AGE,
-                            httponly=True, samesite="lax", path="/")
+        antwoord.set_cookie(
+            DUIM_COOKIE, token, max_age=DUIM_MAX_AGE, httponly=True, samesite="lax", path="/"
+        )
     return antwoord

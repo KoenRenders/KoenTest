@@ -8,6 +8,7 @@ Regels (laagmodel §8):
 3. De oude wereld (routers/services) die in domein-internals grijpt staat op een
    expliciete, per fase krimpende allowlist — nieuw doodhout faalt de build.
 """
+
 import ast
 from pathlib import Path
 
@@ -28,7 +29,11 @@ LEGACY_CROSS_DOMAIN = {
 }
 
 KERNEL_FORBIDDEN_PREFIXES = (
-    "app.domains", "app.routers", "app.services", "app.models", "app.schemas",
+    "app.domains",
+    "app.routers",
+    "app.services",
+    "app.models",
+    "app.schemas",
 )
 
 
@@ -57,8 +62,7 @@ def _domain_of(module: str) -> str | None:
 
 def test_import_boundaries():
     violations = []
-    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
-                          minstens=100):
+    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100):
         module = _module_name(path)
         imports = _imports(path)
 
@@ -69,20 +73,48 @@ def test_import_boundaries():
 
             # Regel 2: cross-domain enkel via de facade (…api).
             src, dst = _domain_of(module), _domain_of(imp)
-            if (src and dst and src != dst and not imp.endswith(".api")
-                    and (module, imp) not in LEGACY_CROSS_DOMAIN):
+            if (
+                src
+                and dst
+                and src != dst
+                and not imp.endswith(".api")
+                and (module, imp) not in LEGACY_CROSS_DOMAIN
+            ):
                 violations.append(f"CROSS-DOMAIN: {module} -> {imp}")
 
             # Composer-uitzonderingen: main mount routers/ui/handlers,
             # models/__init__ doet model-discovery voor Alembic. Dat zijn de
             # bedoelde compositiepunten, geen reach-in.
             composer = (
-                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui", "tenants_ui", "import_router", "admin_api", "register_router", "household_router", "stub_router"))
-                or (module == "app.models.__init__" and (imp == "app.domains.registry" or imp.endswith(".models")))
+                module == "app.main"
+                and imp.split(".")[-1]
+                in (
+                    "router",
+                    "ui",
+                    "admin_ui",
+                    "info_router",
+                    "handlers",
+                    "workflow",
+                    "changes_ui",
+                    "system_ui",
+                    "tenants_ui",
+                    "import_router",
+                    "admin_api",
+                    "register_router",
+                    "household_router",
+                    "stub_router",
+                )
+            ) or (
+                module == "app.models.__init__"
+                and (imp == "app.domains.registry" or imp.endswith(".models"))
             )
 
             # Regel 3: oude wereld -> domein-internals enkel via de allowlist.
-            if not module.startswith("app.domains") and not module.startswith("app.kernel") and not composer:
+            if (
+                not module.startswith("app.domains")
+                and not module.startswith("app.kernel")
+                and not composer
+            ):
                 if dst and not imp.endswith(".api") and (module, imp) not in LEGACY_ALLOWLIST:
                     violations.append(f"REACH-IN (niet op allowlist): {module} -> {imp}")
 

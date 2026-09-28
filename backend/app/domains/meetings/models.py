@@ -18,6 +18,7 @@ Three shapes decide everything here:
   confidentiality flag being set at every upload — that fails open. A meetings
   table with an admin-only download route fails closed.
 """
+
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -114,15 +115,15 @@ class MeetingStatusLabel(Base):
     __tablename__ = "meeting_status_labels"
     __table_args__ = {"schema": "meetings"}
 
-    code = Column(String(10), ForeignKey("meetings.meeting_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("meetings.meeting_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
 
 # The five standard sections, in their fixed order, plus the custom kind.
 # MISC is always last (CR-09 §3.17) — a custom section inserts before it.
@@ -130,15 +131,18 @@ class MeetingStatusLabel(Base):
 # The two tuples stay, because they say something the enum does not: WHICH
 # sections are on an agenda by default, and in what order. That is a rule of
 # this domain and not a property of the list.
-STANDARD_SECTIONS = (SectionKind.EVALUATION, SectionKind.UPCOMING,
-                     SectionKind.MEMBERS, SectionKind.IDEAS, SectionKind.MISC)
+STANDARD_SECTIONS = (
+    SectionKind.EVALUATION,
+    SectionKind.UPCOMING,
+    SectionKind.MEMBERS,
+    SectionKind.IDEAS,
+    SectionKind.MISC,
+)
 
 # Which sections carry their items over to the next agenda (CR-09 §3.6): only
 # the ideas and the miscellaneous ones. Everything else is regenerated from the
 # activities and the member data, so carrying it over would duplicate it.
 CARRY_OVER_SECTIONS = (SectionKind.IDEAS, SectionKind.MISC)
-
-
 
 
 class SectionKindCode(Base):
@@ -159,15 +163,14 @@ class SectionKindLabel(Base):
     __tablename__ = "section_kind_labels"
     __table_args__ = {"schema": "meetings"}
 
-    code = Column(String(20), ForeignKey("meetings.section_kind_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("meetings.section_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class AttendanceCode(Base):
@@ -188,15 +191,14 @@ class AttendanceLabel(Base):
     __tablename__ = "attendance_labels"
     __table_args__ = {"schema": "meetings"}
 
-    code = Column(String(10), ForeignKey("meetings.attendance_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("meetings.attendance_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class FilePurposeCode(Base):
@@ -217,15 +219,14 @@ class FilePurposeLabel(Base):
     __tablename__ = "file_purpose_labels"
     __table_args__ = {"schema": "meetings"}
 
-    code = Column(String(20), ForeignKey("meetings.file_purpose_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("meetings.file_purpose_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class Meeting(TenantMixin, SoftDeleteMixin, Base):
@@ -243,27 +244,31 @@ class Meeting(TenantMixin, SoftDeleteMixin, Base):
     # supported and is what lets mypy see this attribute's type at all
     # (§B4.8). `EnumColumn` stores `member.value`, never the member name.
     status: Mapped[MeetingStatus] = mapped_column(
-        EnumColumn(MeetingStatus, length=10), nullable=False,
-        default=MeetingStatus.AGENDA)
+        EnumColumn(MeetingStatus, length=10), nullable=False, default=MeetingStatus.AGENDA
+    )
     # Sending stamps these; they are also the guard the file rules read, so
     # "this meeting has been sent" stays one fact in one place (CR-09 §4).
     agenda_sent_at = Column(DateTime(timezone=True), nullable=True)
     report_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
-    sections = relationship("MeetingSection", back_populates="meeting",
-                            cascade="all, delete-orphan",
-                            order_by="MeetingSection.position")
-    items = relationship("MeetingItem", back_populates="meeting",
-                         cascade="all, delete-orphan")
-    attendances = relationship("MeetingAttendance", back_populates="meeting",
-                               cascade="all, delete-orphan")
-    files = relationship("MeetingFile", back_populates="meeting",
-                         cascade="all, delete-orphan")
-    extra_recipients = relationship("MeetingExtraRecipient", back_populates="meeting",
-                                    cascade="all, delete-orphan")
+    sections = relationship(
+        "MeetingSection",
+        back_populates="meeting",
+        cascade="all, delete-orphan",
+        order_by="MeetingSection.position",
+    )
+    items = relationship("MeetingItem", back_populates="meeting", cascade="all, delete-orphan")
+    attendances = relationship(
+        "MeetingAttendance", back_populates="meeting", cascade="all, delete-orphan"
+    )
+    files = relationship("MeetingFile", back_populates="meeting", cascade="all, delete-orphan")
+    extra_recipients = relationship(
+        "MeetingExtraRecipient", back_populates="meeting", cascade="all, delete-orphan"
+    )
 
 
 class MeetingSection(TenantMixin, SoftDeleteMixin, Base):
@@ -278,23 +283,30 @@ class MeetingSection(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "meetings"}
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
+    meeting_id = Column(
+        Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     kind: Mapped[SectionKind] = mapped_column(
         EnumColumn(SectionKind, length=20),
-        ForeignKey("meetings.section_kind_codes.code"), nullable=False)
+        ForeignKey("meetings.section_kind_codes.code"),
+        nullable=False,
+    )
     # Only a custom section carries its own title; a standard one is labelled
     # from its kind, so renaming that label later is one place, not N rows.
     title = Column(String(255), nullable=True)
     position = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     meeting = relationship("Meeting", back_populates="sections")
-    items = relationship("MeetingItem", back_populates="section",
-                         cascade="all, delete-orphan",
-                         order_by="MeetingItem.position")
+    items = relationship(
+        "MeetingItem",
+        back_populates="section",
+        cascade="all, delete-orphan",
+        order_by="MeetingItem.position",
+    )
 
 
 class MeetingItem(TenantMixin, SoftDeleteMixin, Base):
@@ -311,10 +323,15 @@ class MeetingItem(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "meetings"}
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
-    section_id = Column(Integer, ForeignKey("meetings.meeting_sections.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
+    meeting_id = Column(
+        Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    section_id = Column(
+        Integer,
+        ForeignKey("meetings.meeting_sections.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     position = Column(Integer, nullable=False, default=0)
     title = Column(String(255), nullable=True)
     notes = Column(Text, nullable=True)
@@ -331,17 +348,16 @@ class MeetingItem(TenantMixin, SoftDeleteMixin, Base):
     # through the national administration and returns via the MDM import (§3.9).
     noted_steward_person_id = Column(Integer, nullable=True)
 
-    carried_over_from = Column(Integer, ForeignKey("meetings.meeting_items.id"),
-                               nullable=True)
+    carried_over_from = Column(Integer, ForeignKey("meetings.meeting_items.id"), nullable=True)
     # The date this item sorts on; NULL for a free item, which lands at the end.
     sort_key = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     meeting = relationship("Meeting", back_populates="items")
-    section = relationship("MeetingSection", back_populates="items",
-                           foreign_keys=[section_id])
+    section = relationship("MeetingSection", back_populates="items", foreign_keys=[section_id])
 
 
 class MeetingAttendance(TenantMixin, SoftDeleteMixin, Base):
@@ -351,23 +367,29 @@ class MeetingAttendance(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "meetings"}
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
+    meeting_id = Column(
+        Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     # Precies één van de twee is gezet: iemand uit de kring, of een gast die voor
     # deze ene vergadering uitgenodigd is. Een gast heeft bewust geen `Person`
     # (CR-09 §3.15), en toch hoort hij in de aanwezigheidslijst — wie er was, was
     # er (Koen, 15 september 2026).
     person_id = Column(Integer, nullable=True, index=True)  # soft-ref, see MeetingItem
-    guest_id = Column(Integer,
-                      ForeignKey("meetings.meeting_extra_recipients.id",
-                                 ondelete="CASCADE"),
-                      nullable=True, index=True)
+    guest_id = Column(
+        Integer,
+        ForeignKey("meetings.meeting_extra_recipients.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     status: Mapped[Attendance] = mapped_column(
         EnumColumn(Attendance, length=10),
-        ForeignKey("meetings.attendance_codes.code"), nullable=False)
+        ForeignKey("meetings.attendance_codes.code"),
+        nullable=False,
+    )
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     meeting = relationship("Meeting", back_populates="attendances")
 
@@ -384,12 +406,15 @@ class MeetingFile(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "meetings"}
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
+    meeting_id = Column(
+        Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     purpose: Mapped[FilePurpose] = mapped_column(
         EnumColumn(FilePurpose, length=20),
-        ForeignKey("meetings.file_purpose_codes.code"), nullable=False,
-        default=FilePurpose.ATTACHMENT)
+        ForeignKey("meetings.file_purpose_codes.code"),
+        nullable=False,
+        default=FilePurpose.ATTACHMENT,
+    )
     filename = Column(String(255), nullable=False)
     content_type = Column(String(100), nullable=False)
     byte_size = Column(Integer, nullable=True)
@@ -418,8 +443,9 @@ class MeetingExtraRecipient(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "meetings"}
 
     id = Column(Integer, primary_key=True, index=True)
-    meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
-                        nullable=False, index=True)
+    meeting_id = Column(
+        Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name = Column(String(255), nullable=True)
     email = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)

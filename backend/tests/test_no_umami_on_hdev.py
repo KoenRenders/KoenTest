@@ -20,6 +20,7 @@ Broken on purpose to check that these tests can go red: put the service back in
 `docker-compose.hdev.yml` → the first falls over; removed the service from
 `docker-compose.uat.yml` → the second falls over.
 """
+
 from pathlib import Path
 
 import pytest
@@ -41,11 +42,12 @@ def test_hdev_runs_no_umami():
 
     assert "umami" not in config["services"], (
         "the umami service is back in the HDEV stack; it measures nothing there as long "
-        "as HDEV has no tenant settings (#808)")
-    ports = [p for service in config["services"].values()
-             for p in (service.get("ports") or [])]
+        "as HDEV has no tenant settings (#808)"
+    )
+    ports = [p for service in config["services"].values() for p in (service.get("ports") or [])]
     assert not [p for p in ports if str(p).startswith("8082")], (
-        "port 8082 is published on HDEV again")
+        "port 8082 is published on HDEV again"
+    )
 
 
 @pytest.mark.parametrize("environment", ["uat", "prod"])
@@ -54,10 +56,11 @@ def test_uat_and_prod_keep_their_own_umami(environment):
     services = _stack(environment)["services"]
 
     assert "umami" in services, (
-        f"{environment} no longer has a umami service; #820 is about HDEV and only "
-        f"about HDEV")
+        f"{environment} no longer has a umami service; #820 is about HDEV and only about HDEV"
+    )
     assert f"umami_{environment}" in str(services["umami"]), (
-        f"{environment} does not point at its own database umami_{environment}")
+        f"{environment} does not point at its own database umami_{environment}"
+    )
 
 
 def test_the_hdev_env_example_asks_for_no_umami_secret():

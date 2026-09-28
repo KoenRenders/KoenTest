@@ -53,6 +53,7 @@ declaration is what a reviewer changes, the migration is what creates it — so
 the violation has to be in the migration. Same shape as the Mollie case in
 phase 1, and the same lesson: measure the violation where the mechanism is.
 """
+
 import pytest
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
@@ -78,8 +79,7 @@ def _clean_label_cache():
 #: The role codes as `public.role_codes` held them before the move, read from a
 #: freshly migrated database on 26 September 2026. This is the "before" of the
 #: before/after that §B8.9 asks for; the "after" is the assertion below.
-ROLE_CODES_BEFORE_THE_MOVE = {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN",
-                              "MEMBER", "USER"}
+ROLE_CODES_BEFORE_THE_MOVE = {"ADMIN", "FINANCE", "OPERATOR", "ACCOUNT_ADMIN", "MEMBER", "USER"}
 
 
 def test_the_set_of_role_codes_is_the_same_after_the_move(db_session):
@@ -90,8 +90,7 @@ def test_the_set_of_role_codes_is_the_same_after_the_move(db_session):
     delete would have been the easy reading of "nobody carries them" and the
     wrong one.
     """
-    now = {r[0] for r in db_session.execute(text(
-        "SELECT code FROM auth.role_codes")).all()}
+    now = {r[0] for r in db_session.execute(text("SELECT code FROM auth.role_codes")).all()}
     assert now == ROLE_CODES_BEFORE_THE_MOVE
     assert {m.value for m in Role} == ROLE_CODES_BEFORE_THE_MOVE
 
@@ -115,15 +114,19 @@ def test_a_role_that_is_not_a_code_is_refused(db_session):
     layer". That was true for the old placement in `public` — and one layer too
     high for something an authorisation check rests on.
     """
-    from app.domains.auth.api import User, UserRole
+    from app.domains.auth.api import User
 
     user = User(email="rolproef@example.com", is_active=True)
     db_session.add(user)
     db_session.flush()
     with pytest.raises(IntegrityError):
-        db_session.execute(text(
-            "INSERT INTO auth.user_roles (user_id, role_code, created_at) "
-            "VALUES (:u, 'SUPERUSER', now())"), {"u": user.id})
+        db_session.execute(
+            text(
+                "INSERT INTO auth.user_roles (user_id, role_code, created_at) "
+                "VALUES (:u, 'SUPERUSER', now())"
+            ),
+            {"u": user.id},
+        )
 
 
 def test_the_workflow_role_points_at_the_same_list(db_session):
@@ -133,8 +136,7 @@ def test_the_workflow_role_points_at_the_same_list(db_session):
     `auth.user_roles.role_code`. Before this phase it was an unconstrained
     string in another schema — the second place where the role list lived.
     """
-    fks = inspect(db_session.bind).get_foreign_keys("workflow_tasks",
-                                                    schema="workflow")
+    fks = inspect(db_session.bind).get_foreign_keys("workflow_tasks", schema="workflow")
     role_fk = [fk for fk in fks if fk["constrained_columns"] == ["required_role"]]
     assert role_fk, "required_role has no foreign key"
     assert role_fk[0]["referred_schema"] == "auth"
@@ -143,8 +145,8 @@ def test_the_workflow_role_points_at_the_same_list(db_session):
 
 # ── The four lists that had the old shape ────────────────────────────────────
 
-@pytest.mark.parametrize("code_list", ["gender", "contact_type", "relation_type",
-                                       "legal_form"])
+
+@pytest.mark.parametrize("code_list", ["gender", "contact_type", "relation_type", "legal_form"])
 def test_the_split_lists_carry_two_languages(db_session, code_list):
     """What #929 asked for, per list: a code row and a label row per language.
 
@@ -152,14 +154,20 @@ def test_the_split_lists_carry_two_languages(db_session, code_list):
     alone. Exactly one language fits in that, and migration 017 proved it by
     wiping every English label without anybody noticing.
     """
-    languages = {r[0] for r in db_session.execute(text(
-        f"SELECT DISTINCT language FROM mdm.{code_list}_labels")).all()}
+    languages = {
+        r[0]
+        for r in db_session.execute(
+            text(f"SELECT DISTINCT language FROM mdm.{code_list}_labels")
+        ).all()
+    }
     assert {"nl", "en"} <= languages
 
-    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
-        f"{code_list}_codes", schema="mdm")}
+    columns = {
+        c["name"] for c in inspect(db_session.bind).get_columns(f"{code_list}_codes", schema="mdm")
+    }
     assert "language" not in columns, (
-        "the code table still carries a language — then the split did not happen")
+        "the code table still carries a language — then the split did not happen"
+    )
 
 
 def test_the_contact_type_keeps_its_own_property(db_session):
@@ -170,13 +178,18 @@ def test_the_contact_type_keeps_its_own_property(db_session):
     because the `CodeList` declares it, not because an extra column is
     tolerated silently.
     """
-    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
-        "contact_type_codes", schema="mdm")}
+    columns = {
+        c["name"] for c in inspect(db_session.bind).get_columns("contact_type_codes", schema="mdm")
+    }
     assert "is_social_network" in columns
     assert registry()["contact_type"].extra_code_columns == ("is_social_network",)
 
-    networks = {r[0] for r in db_session.execute(text(
-        "SELECT code FROM mdm.contact_type_codes WHERE is_social_network")).all()}
+    networks = {
+        r[0]
+        for r in db_session.execute(
+            text("SELECT code FROM mdm.contact_type_codes WHERE is_social_network")
+        ).all()
+    }
     assert networks == {"FACEBOOK", "INSTAGRAM", "TIKTOK"}
 
 
@@ -197,30 +210,41 @@ def test_a_fifth_social_network_is_one_row_and_no_code_change(db_session):
     footer for the same promise.
     """
     from app.domains.mdm.api import (
-        CONTACT, ContactDetail, ContactTypeCode, ContactTypeLabel, Person,
+        CONTACT,
+        ContactDetail,
+        ContactTypeCode,
+        ContactTypeLabel,
+        Person,
     )
 
     assert registry()["contact_type"].enum is None
     assert CONTACT.EMAIL == "EMAIL" and CONTACT.MOBILE == "MOBILE"
 
-    db_session.add(ContactTypeCode(code="MATRIX", sort_order=95, is_active=True,
-                                   is_social_network=True))
+    db_session.add(
+        ContactTypeCode(code="MATRIX", sort_order=95, is_active=True, is_social_network=True)
+    )
     db_session.add(ContactTypeLabel(code="MATRIX", language="nl", value="Matrix"))
     db_session.add(ContactTypeLabel(code="MATRIX", language="en", value="Matrix"))
     person = Person(first_name="Proef", last_name="Persoon")
     db_session.add(person)
     db_session.flush()
 
-    detail = ContactDetail(person_id=person.id, contact_type_code="MATRIX",
-                           value="@raak:matrix.example")
+    detail = ContactDetail(
+        person_id=person.id, contact_type_code="MATRIX", value="@raak:matrix.example"
+    )
     db_session.add(detail)
     db_session.flush()
     assert detail.contact_type_code == "MATRIX"
 
-    networks = {r[0] for r in db_session.execute(text(
-        "SELECT code FROM mdm.contact_type_codes WHERE is_social_network")).all()}
+    networks = {
+        r[0]
+        for r in db_session.execute(
+            text("SELECT code FROM mdm.contact_type_codes WHERE is_social_network")
+        ).all()
+    }
     assert networks == {"FACEBOOK", "INSTAGRAM", "TIKTOK", "MATRIX"}, (
-        "the footer reads the column, so a new row is enough")
+        "the footer reads the column, so a new row is enough"
+    )
 
 
 def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
@@ -236,15 +260,19 @@ def test_an_unknown_contact_type_is_still_refused_by_the_database(db_session):
     db_session.add(person)
     db_session.flush()
     with pytest.raises(IntegrityError):
-        db_session.execute(text(
-            "INSERT INTO mdm.contact_details "
-            "(person_id, contact_type_code, value, is_primary, created_at, "
-            " updated_at, tenant_id) "
-            "VALUES (:p, 'SEMAFOON', 'x', false, now(), now(), 2)"),
-            {"p": person.id})
+        db_session.execute(
+            text(
+                "INSERT INTO mdm.contact_details "
+                "(person_id, contact_type_code, value, is_primary, created_at, "
+                " updated_at, tenant_id) "
+                "VALUES (:p, 'SEMAFOON', 'x', false, now(), now(), 2)"
+            ),
+            {"p": person.id},
+        )
 
 
 # ── Gender: what the measurement corrected ───────────────────────────────────
+
 
 def test_the_gender_list_is_m_f_x_with_u_retired(db_session):
     """Koen, 26 September 2026: the list is `M`, `F`, `X` and nothing else.
@@ -255,10 +283,13 @@ def test_the_gender_list_is_m_f_x_with_u_retired(db_session):
     migrated database; the migration handles either state so an environment
     with older history is not left behind.
     """
-    all_codes = {r[0]: r[1] for r in db_session.execute(text(
-        "SELECT code, is_active FROM mdm.gender_codes")).all()}
+    all_codes = {
+        r[0]: r[1]
+        for r in db_session.execute(text("SELECT code, is_active FROM mdm.gender_codes")).all()
+    }
     assert set(all_codes) == {"M", "F", "X", "U"}, (
-        "expected M/F/X plus the retired U — `O` does not exist")
+        "expected M/F/X plus the retired U — `O` does not exist"
+    )
     assert all_codes["U"] is False
     assert [code for code, _ in code_labels("gender")] == ["M", "F", "X"]
 
@@ -275,8 +306,8 @@ def test_a_retired_gender_still_renders(db_session):
 
 # ── The two lists that were nearly in the pattern (#924) ─────────────────────
 
-@pytest.mark.parametrize("code_list", ["organization_relation_type",
-                                       "identification_scheme"])
+
+@pytest.mark.parametrize("code_list", ["organization_relation_type", "identification_scheme"])
 def test_the_924_lists_are_now_fully_in_the_pattern(db_session, code_list):
     """Renamed to `<list>_codes`, and given the two columns they lacked.
 
@@ -285,19 +316,20 @@ def test_the_924_lists_are_now_fully_in_the_pattern(db_session, code_list):
     follow the pattern. A list that needs a special case in every gate is not in
     the pattern; these now are.
     """
-    columns = {c["name"] for c in inspect(db_session.bind).get_columns(
-        f"{code_list}_codes", schema="mdm")}
+    columns = {
+        c["name"] for c in inspect(db_session.bind).get_columns(f"{code_list}_codes", schema="mdm")
+    }
     assert {"code", "sort_order", "is_active", "created_at"} == columns
 
 
 def test_the_identification_schemes_finally_have_english_labels(db_session):
     """They never had them; the seeding call added them."""
-    assert code_label("identification_scheme", "KBO", language="en") == \
-        "Enterprise number"
+    assert code_label("identification_scheme", "KBO", language="en") == "Enterprise number"
     assert code_label("identification_scheme", "VAT", language="en") == "VAT number"
 
 
 # ── The two new foreign keys on the organisation ─────────────────────────────
+
 
 def test_the_organisation_type_is_a_list_and_no_longer_a_check(db_session):
     """`ck_org_type` said what the foreign key says.
@@ -306,8 +338,10 @@ def test_the_organisation_type_is_a_list_and_no_longer_a_check(db_session):
     check still there a fourth kind of organisation would cost a row *and* a
     migration, so "a new value is a row" would quietly stop being true.
     """
-    checks = {c["name"] for c in inspect(db_session.bind).get_check_constraints(
-        "organizations", schema="mdm")}
+    checks = {
+        c["name"]
+        for c in inspect(db_session.bind).get_check_constraints("organizations", schema="mdm")
+    }
     assert "ck_org_type" not in checks
 
     fks = inspect(db_session.bind).get_foreign_keys("organizations", schema="mdm")
@@ -323,6 +357,7 @@ def test_the_legal_form_gets_the_key_it_never_had(db_session):
 
 # ── The enums ────────────────────────────────────────────────────────────────
 
+
 def test_the_legal_form_is_a_plain_enum_with_english_member_names(db_session):
     """From `str, Enum` to plain, and `COMPANY = "BEDRIJF"` (§B4.3 literally).
 
@@ -332,8 +367,7 @@ def test_the_legal_form_is_a_plain_enum_with_english_member_names(db_session):
     """
     assert not issubclass(LegalForm, str)
     assert LegalForm.COMPANY.value == "BEDRIJF"
-    assert {m.value for m in LegalForm} == {"VZW", "FEITELIJKE_VERENIGING",
-                                            "BEDRIJF"}
+    assert {m.value for m in LegalForm} == {"VZW", "FEITELIJKE_VERENIGING", "BEDRIJF"}
 
 
 def test_the_relation_type_keeps_its_dutch_values_and_english_names():
@@ -345,14 +379,17 @@ def test_the_four_new_enum_columns_store_codes(db_session):
     """The round trip, on the master data columns."""
     from app.domains.mdm.api import Organization
 
-    org = Organization(code="proefvorm", name="Proef",
-                       org_type=OrganizationType.UNIT,
-                       legal_form=LegalForm.NON_PROFIT)
+    org = Organization(
+        code="proefvorm",
+        name="Proef",
+        org_type=OrganizationType.UNIT,
+        legal_form=LegalForm.NON_PROFIT,
+    )
     db_session.add(org)
     db_session.flush()
-    raw = db_session.execute(text(
-        "SELECT org_type, legal_form FROM mdm.organizations WHERE id = :i"),
-        {"i": org.id}).one()
+    raw = db_session.execute(
+        text("SELECT org_type, legal_form FROM mdm.organizations WHERE id = :i"), {"i": org.id}
+    ).one()
     assert tuple(raw) == ("UNIT", "VZW")
 
 
@@ -366,24 +403,30 @@ def test_the_contact_type_constants_match_the_stored_codes(db_session):
     """
     from app.domains.mdm.api import CONTACT
 
-    named = {v for k, v in vars(CONTACT).items() if not k.startswith("_")
-             and isinstance(v, str)}
-    in_the_table = {r[0] for r in db_session.execute(text(
-        "SELECT code FROM mdm.contact_type_codes")).all()}
+    named = {v for k, v in vars(CONTACT).items() if not k.startswith("_") and isinstance(v, str)}
+    in_the_table = {
+        r[0] for r in db_session.execute(text("SELECT code FROM mdm.contact_type_codes")).all()
+    }
     assert named <= in_the_table, (
-        f"`CONTACT` names codes that do not exist: {sorted(named - in_the_table)}")
+        f"`CONTACT` names codes that do not exist: {sorted(named - in_the_table)}"
+    )
     assert CONTACT.MOBILE == "MOBILE"
 
 
 # ── The migration's own guard (#1179, on the CR session's request) ──────────
+
 
 def _flag_from_rows():
     """Import the migration by file, because its name is not an identifier."""
     import importlib.util
     from pathlib import Path
 
-    path = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-            / "154_2026_09_26_014501_master_data_and_roles_become_code_lists.py")
+    path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "154_2026_09_26_014501_master_data_and_roles_become_code_lists.py"
+    )
     spec = importlib.util.spec_from_file_location("migration_154", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -397,10 +440,10 @@ def test_the_social_network_flag_survives_one_language_row_per_code():
     `(code, language)` before this migration — so the flag is stored per
     LANGUAGE while it means something per CODE.
     """
-    flag = _flag_from_rows()([("EMAIL", False), ("FACEBOOK", True),
-                              ("INSTAGRAM", True), ("TIKTOK", True)])
-    assert flag == {"EMAIL": False, "FACEBOOK": True,
-                    "INSTAGRAM": True, "TIKTOK": True}
+    flag = _flag_from_rows()(
+        [("EMAIL", False), ("FACEBOOK", True), ("INSTAGRAM", True), ("TIKTOK", True)]
+    )
+    assert flag == {"EMAIL": False, "FACEBOOK": True, "INSTAGRAM": True, "TIKTOK": True}
 
 
 def test_two_language_rows_that_disagree_stop_the_migration():
@@ -416,11 +459,11 @@ def test_two_language_rows_that_disagree_stop_the_migration():
     assumption is not.
     """
     with pytest.raises(RuntimeError, match="contradicts itself"):
-        _flag_from_rows()([("FACEBOOK", True), ("FACEBOOK", False),
-                           ("EMAIL", False)])
+        _flag_from_rows()([("FACEBOOK", True), ("FACEBOOK", False), ("EMAIL", False)])
 
 
 # ── What may not change ──────────────────────────────────────────────────────
+
 
 def test_the_roles_document_is_untouched():
     """`docs/rollen-en-rechten.md` describes who may do what.

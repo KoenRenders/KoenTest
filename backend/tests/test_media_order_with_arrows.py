@@ -28,10 +28,10 @@ Broken on purpose to check that these tests can go red:
   resets the order to 0, which is the regression this change would otherwise have
   introduced.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.media.models import MediaAsset
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -48,12 +48,20 @@ def _login(client, db):
     return {"X-CSRF-Token": csrf_token_for(value)}
 
 
-def _asset(db, *, kind="activity_photo", activity_id=None, title="foto",
-           sort_order=0):
-    asset = MediaAsset(kind=kind, activity_id=activity_id, title=title,
-                       sort_order=sort_order, is_active=True,
-                       content_type="image/jpeg", byte_size=10, width=10, height=10,
-                       data=b"x", thumbnail=b"x")
+def _asset(db, *, kind="activity_photo", activity_id=None, title="foto", sort_order=0):
+    asset = MediaAsset(
+        kind=kind,
+        activity_id=activity_id,
+        title=title,
+        sort_order=sort_order,
+        is_active=True,
+        content_type="image/jpeg",
+        byte_size=10,
+        width=10,
+        height=10,
+        data=b"x",
+        thumbnail=b"x",
+    )
     db.add(asset)
     db.flush()
     return asset
@@ -63,14 +71,18 @@ def _order(db, **filters):
     query = db.query(MediaAsset)
     for veld, waarde in filters.items():
         query = query.filter(getattr(MediaAsset, veld) == waarde)
-    return [(a.title, a.sort_order) for a in
-            query.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()]
+    return [
+        (a.title, a.sort_order)
+        for a in query.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()
+    ]
 
 
 def _move(client, headers, asset, richting="omhoog"):
-    return client.post(f"/admin/media/{asset.id}/verplaats", headers=headers,
-                       data={"richting": richting, "kind": asset.kind,
-                             "q": "", "filter_activity_id": ""})
+    return client.post(
+        f"/admin/media/{asset.id}/verplaats",
+        headers=headers,
+        data={"richting": richting, "kind": asset.kind, "q": "", "filter_activity_id": ""},
+    )
 
 
 def test_moving_a_photo_up_swaps_it_with_the_previous_one(client, db_session):
@@ -104,7 +116,8 @@ def test_after_a_move_the_numbers_are_a_closed_sequence(client, db_session):
     db_session.expire_all()
     nummers = sorted(nr for _t, nr in _order(db_session, activity_id=2))
     assert nummers == [0, 1, 2, 3], (
-        f"de reeks is niet sluitend: {nummers} — gaten of duplicaten zijn gebleven")
+        f"de reeks is niet sluitend: {nummers} — gaten of duplicaten zijn gebleven"
+    )
 
 
 def test_the_top_item_cannot_go_up_and_the_bottom_cannot_go_down(client, db_session):
@@ -117,7 +130,8 @@ def test_the_top_item_cannot_go_up_and_the_bottom_cannot_go_down(client, db_sess
 
     db_session.expire_all()
     assert [t for t, _ in _order(db_session, activity_id=3)] == ["boven", "onder"], (
-        "buiten bereik verschoof er toch iets")
+        "buiten bereik verschoof er toch iets"
+    )
 
 
 def test_the_group_boundary_holds(client, db_session):
@@ -135,9 +149,11 @@ def test_the_group_boundary_holds(client, db_session):
 
     db_session.expire_all()
     assert _order(db_session, activity_id=5) == [("b1", 3), ("b2", 9)], (
-        "het andere album is hernummerd")
+        "het andere album is hernummerd"
+    )
     assert _order(db_session, kind="sponsor") == [("s1", 4), ("s2", 8)], (
-        "de sponsorlogo's zijn hernummerd door het bewerken van een album")
+        "de sponsorlogo's zijn hernummerd door het bewerken van een album"
+    )
 
 
 def test_saving_a_title_does_not_reset_the_order(client, db_session):
@@ -148,20 +164,29 @@ def test_saving_a_title_does_not_reset_the_order(client, db_session):
     _asset(db_session, activity_id=6, title="eerste", sort_order=0)
     tweede = _asset(db_session, activity_id=6, title="tweede", sort_order=1)
 
-    resp = client.post(f"/admin/media/{tweede.id}", headers=headers,
-                       data={"kind": "activity_photo", "title": "tweede bis",
-                             "link_url": "", "is_active": "1",
-                             "q": "", "filter_activity_id": ""})
+    resp = client.post(
+        f"/admin/media/{tweede.id}",
+        headers=headers,
+        data={
+            "kind": "activity_photo",
+            "title": "tweede bis",
+            "link_url": "",
+            "is_active": "1",
+            "q": "",
+            "filter_activity_id": "",
+        },
+    )
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.expire_all()
     assert _order(db_session, activity_id=6) == [("eerste", 0), ("tweede bis", 1)], (
-        "opslaan heeft de volgorde veranderd")
+        "opslaan heeft de volgorde veranderd"
+    )
 
 
 def test_the_number_field_is_gone_from_the_screen(client, db_session):
     """En de pijltjes staan er wél — anders is er niets om op te klikken."""
-    headers = _login(client, db_session)
+    _login(client, db_session)
     _asset(db_session, activity_id=7, title="foto", sort_order=0)
 
     # Mét het activiteitenfilter: sinds #891 toont dit scherm bij activiteitenfoto's
@@ -173,4 +198,5 @@ def test_the_number_field_is_gone_from_the_screen(client, db_session):
     assert "/verplaats" in html, "er zijn geen pijltjes"
     assert 'aria-label="Naar boven"' in html, (
         "de pijltjes dragen geen aria-label — de lint-poort uit "
-        "test_ui_conventions_gate.py eist dat bij symboolknoppen")
+        "test_ui_conventions_gate.py eist dat bij symboolknoppen"
+    )

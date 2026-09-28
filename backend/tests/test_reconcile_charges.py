@@ -11,22 +11,25 @@ terugbetaling.
 zélf niet afgedekt. De A-gevallen zijn daarmee ook de regressiebescherming voor de
 activiteiten die er nog niet was.
 """
+
 from datetime import date
 from decimal import Decimal
 
 import pytest
 
-from app.domains.membership.api import Membership
 from app.domains.mdm.api import PaymentMethod
+from app.domains.membership.api import Membership
 from app.domains.payment.api import (
-    PaymentRecord, PaymentRecordHistory, PaymentStatus, PaymentType,
-    get_records_for, reconcile_charges, reconcile_registration_charges,
+    PaymentRecord,
+    PaymentRecordHistory,
+    PaymentStatus,
+    PaymentType,
+    get_records_for,
+    reconcile_charges,
+    reconcile_registration_charges,
 )
 from tests._invarianten import assert_geen_wezen, assert_saldo_klopt
-from app.domains.payment.api import PaymentStatus, PaymentType
-from tests.conftest import (create_test_family, create_test_member,
-                            seed_activity_with_product)
-
+from tests.conftest import create_test_member, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -35,22 +38,28 @@ pytestmark = pytest.mark.ui_agnostisch
 # Sinds #622 staat ze gedeeld in tests/_invarianten.py, zodat élke geldmutatie-test
 # dezelfde controle doet i.p.v. per bestand een eigen variant.
 
+
 def _controleer_invariant(db, payable_type, payable_id, verwacht_totaal):
     return assert_saldo_klopt(db, payable_type, payable_id, verwacht_totaal)
 
 
 def _charge(db, payable_type, payable_id, amount, amount_paid=None, method="transfer"):
     rec = PaymentRecord(
-        payable_type=payable_type, payable_id=payable_id, type="charge",
+        payable_type=payable_type,
+        payable_id=payable_id,
+        type="charge",
         amount=Decimal(amount),
         amount_paid=Decimal(amount_paid) if amount_paid is not None else None,
-        method=method, status="paid" if amount_paid is not None else "pending")
+        method=method,
+        status="paid" if amount_paid is not None else "pending",
+    )
     db.add(rec)
     db.flush()
     return rec
 
 
 # ── A. Activiteiten — bestelwijziging ───────────────────────────────────────
+
 
 def test_A1_onbetaald_verlaagd_geeft_een_nieuwe_open_post(db_session):
     _charge(db_session, "registration", 101, "25.00")
@@ -81,15 +90,17 @@ def test_A3_betaald_verlaagd_geeft_een_pending_terugbetaling(db_session):
 
 
 def test_A4_online_betaald_krijgt_een_transfer_terugbetaling(db_session):
-    charge = _charge(db_session, "registration", 104, "25.00", amount_paid="25.00",
-                     method="online")
+    charge = _charge(db_session, "registration", 104, "25.00", amount_paid="25.00", method="online")
     reconcile_charges(db_session, "registration", 104, Decimal("10.00"))
 
-    refunds = [r for r in get_records_for(db_session, "registration", 104)
-               if r.type == PaymentType.REFUND]
+    refunds = [
+        r for r in get_records_for(db_session, "registration", 104) if r.type == PaymentType.REFUND
+    ]
     assert len(refunds) == 1
     assert refunds[0].refund_of_id == charge.id
-    assert refunds[0].method == PaymentMethod.TRANSFER, "terugstorten is mensenwerk, niet via Mollie"
+    assert refunds[0].method == PaymentMethod.TRANSFER, (
+        "terugstorten is mensenwerk, niet via Mollie"
+    )
 
 
 def test_A5_deels_betaald_sluit_de_charge_op_het_ontvangene(db_session):
@@ -126,26 +137,38 @@ def test_A7_schrappen_en_weer_toevoegen_komt_terug_op_de_beginstand(db_session):
 def test_registratie_variant_gebruikt_hetzelfde_pad(client, db_session):
     """De dunne laag boven reconcile_charges rekent met het echte besteltotaal."""
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 2}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 2}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     from app.domains.activities.api import Registration, compute_registration_total
 
     reg = db_session.get(Registration, resp.json()["id"])
     reconcile_registration_charges(db_session, reg)
     db_session.flush()
-    _controleer_invariant(db_session, "registration", reg.id,
-                          compute_registration_total(reg)[0])
+    _controleer_invariant(db_session, "registration", reg.id, compute_registration_total(reg)[0])
 
 
 # ── B. Lidmaatschap schrappen ───────────────────────────────────────────────
 
+
 def _lidmaatschap(db, member, jaar=None):
     jaar = jaar or date.today().year
-    ms = Membership(member_id=member.id, year=jaar, is_active=True,
-                    valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31))
+    ms = Membership(
+        member_id=member.id,
+        year=jaar,
+        is_active=True,
+        valid_from=date(jaar, 1, 1),
+        valid_to=date(jaar, 12, 31),
+    )
     db.add(ms)
     db.flush()
     return ms
@@ -190,8 +213,9 @@ def test_B3_online_betaald_lidmaatschap_idem(db_session):
 
     _schrap(db_session, ms)
 
-    refunds = [r for r in get_records_for(db_session, "membership", ms.id)
-               if r.type == PaymentType.REFUND]
+    refunds = [
+        r for r in get_records_for(db_session, "membership", ms.id) if r.type == PaymentType.REFUND
+    ]
     assert len(refunds) == 1 and refunds[0].method == PaymentMethod.TRANSFER
 
 
@@ -226,12 +250,14 @@ def test_B6_tweemaal_schrappen_is_idempotent(db_session):
     _schrap(db_session, ms)
     _schrap(db_session, ms)
 
-    refunds = [r for r in get_records_for(db_session, "membership", ms.id)
-               if r.type == PaymentType.REFUND]
+    refunds = [
+        r for r in get_records_for(db_session, "membership", ms.id) if r.type == PaymentType.REFUND
+    ]
     assert len(refunds) == 1, "geen tweede terugbetaling"
 
 
 # ── C. Gezin schrappen ──────────────────────────────────────────────────────
+
 
 def test_C1_twee_betaalde_lidmaatschappen_geven_twee_terugbetalingen(db_session):
     member = create_test_member(db_session)
@@ -245,8 +271,11 @@ def test_C1_twee_betaalde_lidmaatschappen_geven_twee_terugbetalingen(db_session)
         _schrap(db_session, ms)
 
     for ms, charge in ((ms1, c1), (ms2, c2)):
-        refunds = [r for r in get_records_for(db_session, "membership", ms.id)
-                   if r.type == PaymentType.REFUND]
+        refunds = [
+            r
+            for r in get_records_for(db_session, "membership", ms.id)
+            if r.type == PaymentType.REFUND
+        ]
         assert len(refunds) == 1
         assert refunds[0].refund_of_id == charge.id, "elk aan zijn eigen charge"
 
@@ -262,8 +291,16 @@ def test_C2_betaald_en_onbetaald_naast_elkaar(db_session):
     for ms in (betaald, onbetaald):
         _schrap(db_session, ms)
 
-    assert len([r for r in get_records_for(db_session, "membership", betaald.id)
-                if r.type == PaymentType.REFUND]) == 1
+    assert (
+        len(
+            [
+                r
+                for r in get_records_for(db_session, "membership", betaald.id)
+                if r.type == PaymentType.REFUND
+            ]
+        )
+        == 1
+    )
     assert get_records_for(db_session, "membership", onbetaald.id) == []
 
 
@@ -283,6 +320,7 @@ def test_C3_een_activiteitsinschrijving_blijft_ongemoeid(db_session):
 
 
 # ── D. Randen en naburige systemen ──────────────────────────────────────────
+
 
 def test_D1_er_ontstaan_geen_weesrecords(db_session):
     member = create_test_member(db_session)
@@ -304,8 +342,11 @@ def test_D2_de_audit_historie_legt_elk_geraakt_record_vast(db_session):
 
     _schrap(db_session, ms, actor="penning@example.com")
 
-    snapshots = (db_session.query(PaymentRecordHistory)
-                 .filter(PaymentRecordHistory.payment_record_id == charge.id).all())
+    snapshots = (
+        db_session.query(PaymentRecordHistory)
+        .filter(PaymentRecordHistory.payment_record_id == charge.id)
+        .all()
+    )
     assert snapshots, "geen snapshot van de bijgestelde charge"
     assert any(s.actor == "penning@example.com" for s in snapshots)
 
@@ -316,8 +357,9 @@ def test_D3_bevestigde_terugbetaling_brengt_het_saldo_op_nul(db_session):
     _charge(db_session, "membership", ms.id, "35.00", amount_paid="35.00")
     _schrap(db_session, ms)
 
-    refund = [r for r in get_records_for(db_session, "membership", ms.id)
-              if r.type == PaymentType.REFUND][0]
+    refund = [
+        r for r in get_records_for(db_session, "membership", ms.id) if r.type == PaymentType.REFUND
+    ][0]
     refund.amount_paid = refund.amount
     refund.status = "paid"
     db_session.flush()

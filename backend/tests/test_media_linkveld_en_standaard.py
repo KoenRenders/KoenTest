@@ -18,12 +18,12 @@ Uploaden" geeft de huidige filterstand door in de URL, dus alleen het uploadsche
 wijzigen laat de lijst hem meteen overschrijven — en dan lijkt de wijziging niet te
 werken.
 """
+
 import io
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -59,9 +59,12 @@ def _activiteit(db, naam="Zomerfeest"):
 def _upload(client, csrf, **velden):
     data = {"kind": "sponsor", "q": "", "filter_activity_id": ""}
     data.update({k: str(v) for k, v in velden.items() if v is not None})
-    return client.post("/admin/media", data=data,
-                       files={"files": ("x.png", _png(), "image/png")},
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        "/admin/media",
+        data=data,
+        files={"files": ("x.png", _png(), "image/png")},
+        headers={"X-CSRF-Token": csrf},
+    )
 
 
 def _asset(db, titel):
@@ -72,6 +75,7 @@ def _asset(db, titel):
 
 # ── 1. De link hoort bij een sponsor ───────────────────────────────────────
 
+
 def test_een_foto_bewaart_geen_link(client, db_session):
     """Server-side genegeerd, niet alleen verborgen in het scherm: op een verborgen
     veld vertrouwen laat de andere ingang open."""
@@ -79,8 +83,14 @@ def test_een_foto_bewaart_geen_link(client, db_session):
     db_session.commit()
     csrf = _login(client)
 
-    resp = _upload(client, csrf, kind="activity_photo", activity_id=activiteit.id,
-                   title="Foto", link_url="https://example.org")
+    resp = _upload(
+        client,
+        csrf,
+        kind="activity_photo",
+        activity_id=activiteit.id,
+        title="Foto",
+        link_url="https://example.org",
+    )
     assert resp.status_code in (200, 204), resp.text[:300]
 
     db_session.expire_all()
@@ -89,32 +99,36 @@ def test_een_foto_bewaart_geen_link(client, db_session):
 
 def test_een_sponsor_bewaart_de_link_wel(client, db_session):
     csrf = _login(client)
-    resp = _upload(client, csrf, kind="sponsor", title="Logo",
-                   link_url="https://sponsor.example")
+    resp = _upload(client, csrf, kind="sponsor", title="Logo", link_url="https://sponsor.example")
     assert resp.status_code in (200, 204), resp.text[:300]
 
     db_session.expire_all()
     assert _asset(db_session, "Logo").link_url == "https://sponsor.example"
 
 
-@pytest.mark.parametrize("gevaarlijk", [
-    "javascript:alert(1)", "JavaScript:alert(1)", "data:text/html,<script>",
-])
+@pytest.mark.parametrize(
+    "gevaarlijk",
+    [
+        "javascript:alert(1)",
+        "JavaScript:alert(1)",
+        "data:text/html,<script>",
+    ],
+)
 def test_een_onveilig_schema_wordt_geweigerd(client, db_session, gevaarlijk):
     """De waarde gaat rechtstreeks in een `href` op een publieke pagina."""
     csrf = _login(client)
-    resp = _upload(client, csrf, kind="sponsor", title="Kwaad",
-                   link_url=gevaarlijk)
+    resp = _upload(client, csrf, kind="sponsor", title="Kwaad", link_url=gevaarlijk)
     assert resp.status_code == 200
     assert "moet met" in resp.text, resp.text[:300]
 
     from app.domains.media.api import MediaAsset
-    assert not db_session.query(MediaAsset).filter(
-        MediaAsset.title == "Kwaad").all()
+
+    assert not db_session.query(MediaAsset).filter(MediaAsset.title == "Kwaad").all()
 
 
-@pytest.mark.parametrize("goed", ["https://x.example", "http://x.example",
-                                  "mailto:info@example.org", "/fotos"])
+@pytest.mark.parametrize(
+    "goed", ["https://x.example", "http://x.example", "mailto:info@example.org", "/fotos"]
+)
 def test_gewone_links_blijven_toegestaan(client, db_session, goed):
     """De keerzijde: zonder haar zou "weiger alles" ook slagen, en dan kan een
     sponsorlogo nergens meer heen wijzen."""
@@ -131,14 +145,15 @@ def test_de_regel_geldt_ook_op_de_json_route(client, db_session, admin_headers):
     from app.domains.media.api import MediaAsset
 
     csrf = _login(client)
-    _upload(client, csrf, kind="sponsor", title="Viaapi",
-            link_url="https://ok.example")
+    _upload(client, csrf, kind="sponsor", title="Viaapi", link_url="https://ok.example")
     db_session.commit()
     asset = _asset(db_session, "Viaapi")
 
-    resp = client.patch(f"/api/v1/admin/media/{asset.id}",
-                        json={"link_url": "javascript:alert(1)"},
-                        headers=admin_headers)
+    resp = client.patch(
+        f"/api/v1/admin/media/{asset.id}",
+        json={"link_url": "javascript:alert(1)"},
+        headers=admin_headers,
+    )
     assert resp.status_code == 400, resp.text[:300]
 
     db_session.expire_all()
@@ -147,21 +162,24 @@ def test_de_regel_geldt_ook_op_de_json_route(client, db_session, admin_headers):
 
 # ── 2. Het scherm toont het veld alleen bij een sponsor ────────────────────
 
+
 def test_het_linkveld_volgt_de_soortkeuze(client, db_session):
     _login(client)
     html = client.get("/admin/media/nieuw?kind=sponsor").text
     start = html.index('id="me-link"')
-    blok = html[html.rindex("<div", 0, start):start]
+    blok = html[html.rindex("<div", 0, start) : start]
     assert "soort === 'sponsor'" in blok, blok
 
 
 # ── 3. De standaardsoort (#708) ────────────────────────────────────────────
 
+
 def test_de_medialijst_opent_op_activiteitenfotos(client, db_session):
     _login(client)
     html = client.get("/admin/media").text
     assert 'href="/admin/media/nieuw?kind=activity_photo"' in html, (
-        "de lijst geeft nog sponsor door aan het uploadscherm")
+        "de lijst geeft nog sponsor door aan het uploadscherm"
+    )
 
 
 def test_het_uploadscherm_staat_standaard_op_activiteitenfoto(client, db_session):
@@ -180,6 +198,7 @@ def test_een_meegegeven_soort_wint_nog_altijd(client, db_session):
 
 
 # ── 4. De volgorde van de velden ───────────────────────────────────────────
+
 
 def test_de_bestanden_staan_onderaan(client, db_session):
     """Soort → Activiteit → Titel/Link → Bestanden: eerst zeggen wát je uploadt,

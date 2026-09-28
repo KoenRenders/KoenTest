@@ -22,6 +22,7 @@ condition dropped from `kies_eerst` → the sponsor test falls over with an empt
 which would be the restriction grabbing everything; and the condition inverted → the first
 test falls over with the mixed list back.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
@@ -40,9 +41,19 @@ def _login(client, db):
 
 
 def _asset(db, *, kind="activity_photo", activity_id=None, title="iets"):
-    asset = MediaAsset(kind=kind, activity_id=activity_id, title=title, sort_order=0,
-                       is_active=True, content_type="image/jpeg", byte_size=10,
-                       width=10, height=10, data=b"x", thumbnail=b"y")
+    asset = MediaAsset(
+        kind=kind,
+        activity_id=activity_id,
+        title=title,
+        sort_order=0,
+        is_active=True,
+        content_type="image/jpeg",
+        byte_size=10,
+        width=10,
+        height=10,
+        data=b"x",
+        thumbnail=b"y",
+    )
     db.add(asset)
     db.flush()
     return asset
@@ -56,9 +67,11 @@ def test_activity_photos_stay_hidden_until_an_activity_is_chosen(client, db_sess
     zonder = client.get("/admin/media?kind=activity_photo").text
 
     assert "album-elf" not in zonder and "album-twaalf" not in zonder, (
-        "de foto's van alle activiteiten staan nog door elkaar")
+        "de foto's van alle activiteiten staan nog door elkaar"
+    )
     assert "Kies eerst een activiteit" in zonder, (
-        "er staat geen lege staat die zegt wat er van je verwacht wordt")
+        "er staat geen lege staat die zegt wat er van je verwacht wordt"
+    )
 
     met = client.get("/admin/media?kind=activity_photo&activity_id=11").text
 
@@ -87,7 +100,8 @@ def test_an_activity_without_photos_gives_the_empty_state_and_not_an_error(clien
 
     assert resp.status_code == 200
     assert "Kies eerst een activiteit" not in resp.text, (
-        "er ís gekozen; dan hoort de gewone lege staat te verschijnen")
+        "er ís gekozen; dan hoort de gewone lege staat te verschijnen"
+    )
     assert "Geen media gevonden" in resp.text or "Nog geen media" in resp.text
 
 
@@ -100,12 +114,21 @@ def test_the_filter_survives_a_mutation(client, db_session):
     foto = _asset(db_session, activity_id=13, title="blijft-staan")
     waarde = make_session_value(SEEDED_ADMIN_EMAIL)
 
-    resp = client.post(f"/admin/media/{foto.id}", headers={"X-CSRF-Token": csrf_token_for(waarde)},
-                       data={"kind": "activity_photo", "title": "hernoemd",
-                             "link_url": "", "is_active": "1",
-                             "q": "", "filter_activity_id": "13"})
+    resp = client.post(
+        f"/admin/media/{foto.id}",
+        headers={"X-CSRF-Token": csrf_token_for(waarde)},
+        data={
+            "kind": "activity_photo",
+            "title": "hernoemd",
+            "link_url": "",
+            "is_active": "1",
+            "q": "",
+            "filter_activity_id": "13",
+        },
+    )
 
     assert resp.status_code == 200, resp.text[:200]
     assert "hernoemd" in resp.text, "de lijst toont het album niet meer na de mutatie"
     assert "Kies eerst een activiteit" not in resp.text, (
-        "het filter is weggevallen na het opslaan, dus je staat weer op het beginpunt")
+        "het filter is weggevallen na het opslaan, dus je staat weer op het beginpunt"
+    )

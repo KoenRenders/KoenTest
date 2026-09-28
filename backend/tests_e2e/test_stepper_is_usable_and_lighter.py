@@ -36,6 +36,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - **`border-0` van het veld gehaald**: de basislaag zet dan haar eigen
   `border:1px solid` terug en test 4 meet 1px in plaats van 0px.
 """
+
 import os
 import sys
 
@@ -47,8 +48,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE  # noqa: E402
 
 BREED, SMAL = 1440, 390
-MIN_RAAKVLAK = 44          # #804, en de reden dat deze teller bestaat
-DESKTOP_HOOGTE = 36        # punt 4: lichter zodra er een muis is
+MIN_RAAKVLAK = 44  # #804, en de reden dat deze teller bestaat
+DESKTOP_HOOGTE = 36  # punt 4: lichter zodra er een muis is
 
 # Eén lang, onbreekbaar woord. Zie de kop: Koens eigen zin knijpt de doos niet
 # meer zodra de desktopmaat gedaald is, en dan bewijst de tegenproef niets.
@@ -99,24 +100,34 @@ def lange_naam():
 
     import app.models  # noqa: F401  configureert alle mappers
     from app.database import SessionLocal
-    from app.domains.activities.api import (Activity, ActivityDate,
-                                            ActivityProduct,
-                                            ActivitySubRegistration)
+    from app.domains.activities.api import (
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+    )
 
     db = SessionLocal()
     activiteit = Activity(name="E2E Teller met lange naam")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(activity_id=activiteit.id,
-                        start_date=date.today() + timedelta(days=30)))
-    onderdeel = ActivitySubRegistration(activity_id=activiteit.id, name="Deelname",
-                                        price=Decimal("0"), is_free=True)
+    db.add(ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30)))
+    onderdeel = ActivitySubRegistration(
+        activity_id=activiteit.id, name="Deelname", price=Decimal("0"), is_free=True
+    )
     db.add(onderdeel)
     db.flush()
     # `pay_on_site`: dat geeft het langste bijschrift naast de naam, en zo zag
     # Koens geval eruit.
-    db.add(ActivityProduct(component_id=onderdeel.id, name=LANGE_NAAM,
-                           price=Decimal("0"), is_free=False, pay_on_site=True))
+    db.add(
+        ActivityProduct(
+            component_id=onderdeel.id,
+            name=LANGE_NAAM,
+            price=Decimal("0"),
+            is_free=False,
+            pay_on_site=True,
+        )
+    )
     db.commit()
     ids = (activiteit.id, onderdeel.id)
     db.close()
@@ -130,8 +141,7 @@ def _meet(lange_naam, breedte: int) -> dict:
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": breedte, "height": 900})
         page.goto("/activiteiten")
-        page.click(
-            f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
+        page.click(f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
         page.wait_for_selector("input[name^='product_']", timeout=10_000)
         stand = page.evaluate(METING)
         browser.close()
@@ -142,6 +152,7 @@ def _meet(lange_naam, breedte: int) -> dict:
 
 # ── 1. Niets wordt nog afgeknipt ────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("breedte", [BREED, SMAL])
 def test_both_buttons_lie_inside_their_box(lange_naam, breedte):
     """De belangrijkste test: wat buiten de doos valt, is voor een mens weg.
@@ -151,18 +162,20 @@ def test_both_buttons_lie_inside_their_box(lange_naam, breedte):
     """
     stand = _meet(lange_naam, breedte)
 
-    afgeknipt = [k for k in stand["knoppen"]
-                 if k["steekt_links_uit"] or k["steekt_rechts_uit"]]
+    afgeknipt = [k for k in stand["knoppen"] if k["steekt_links_uit"] or k["steekt_rechts_uit"]]
     assert not afgeknipt, (
         f"op {breedte} px valt er een knop buiten de teller: {afgeknipt} — de doos "
         f"is {stand['doos']['breedte']} px en draagt `overflow-hidden`, dus wat "
-        "erbuiten valt is onzichtbaar en onbereikbaar (#1200 punt 1)")
+        "erbuiten valt is onzichtbaar en onbereikbaar (#1200 punt 1)"
+    )
     assert stand["doos"]["inhoud"] <= stand["doos"]["zichtbaar"] + 1, (
         f"op {breedte} px loopt de teller over: inhoud {stand['doos']['inhoud']} px "
-        f"in een zichtbare breedte van {stand['doos']['zichtbaar']} px")
+        f"in een zichtbare breedte van {stand['doos']['zichtbaar']} px"
+    )
 
 
 # ── 2. Geen tweede bediening ────────────────────────────────────────────────
+
 
 def test_the_number_field_shows_no_native_arrows(lange_naam):
     """De teller bestaat omdat iOS Safari die pijltjes nooit toont; op een
@@ -178,14 +191,14 @@ def test_the_number_field_shows_no_native_arrows(lange_naam):
     assert stand["appearance"] == "textfield", (
         f"het getalveld staat op appearance {stand['appearance']!r}; met `auto` "
         "toont een desktopbrowser zijn eigen pijltjes naast onze − en + "
-        "(#1200 punt 2)")
-    for naam, waarde in (("inner", stand["spin_binnen"]),
-                         ("outer", stand["spin_buiten"])):
-        assert waarde != "auto", (
-            f"de {naam} spin-button staat nog op {waarde!r}")
+        "(#1200 punt 2)"
+    )
+    for naam, waarde in (("inner", stand["spin_binnen"]), ("outer", stand["spin_buiten"])):
+        assert waarde != "auto", f"de {naam} spin-button staat nog op {waarde!r}"
 
 
 # ── 3. Eén kader, niet drie ─────────────────────────────────────────────────
+
 
 def test_the_field_has_no_border_of_its_own(lange_naam):
     """Koen: *"die − + knoppen en dan nog een kader rond het getal (vooral dit)
@@ -199,11 +212,12 @@ def test_the_field_has_no_border_of_its_own(lange_naam):
     stand = _meet(lange_naam, BREED)
 
     assert stand["randen"] == ["0px"] * 4, (
-        f"het getalveld draagt nog een eigen rand: {stand['randen']} "
-        "(boven/rechts/onder/links)")
+        f"het getalveld draagt nog een eigen rand: {stand['randen']} (boven/rechts/onder/links)"
+    )
 
 
 # ── 4. Lichter op desktop, ongewijzigd op een telefoon ──────────────────────
+
 
 def test_the_touch_target_stays_44_on_a_phone(lange_naam):
     """De ondergrens voor een vinger (#804) — en de hele reden dat deze teller
@@ -213,7 +227,8 @@ def test_the_touch_target_stays_44_on_a_phone(lange_naam):
     for knop in stand["knoppen"]:
         assert knop["breedte"] >= MIN_RAAKVLAK and knop["hoogte"] >= MIN_RAAKVLAK, (
             f"knop {knop['label']!r} meet {knop['breedte']}×{knop['hoogte']} px, "
-            f"minimaal {MIN_RAAKVLAK} px (#804)")
+            f"minimaal {MIN_RAAKVLAK} px (#804)"
+        )
 
 
 def test_the_stepper_is_lighter_on_a_desktop(lange_naam):
@@ -228,10 +243,12 @@ def test_the_stepper_is_lighter_on_a_desktop(lange_naam):
     for knop in stand["knoppen"]:
         assert knop["hoogte"] == DESKTOP_HOOGTE, (
             f"knop {knop['label']!r} is {knop['hoogte']} px hoog op een desktop, "
-            f"verwacht {DESKTOP_HOOGTE}")
+            f"verwacht {DESKTOP_HOOGTE}"
+        )
     assert stand["veld"]["hoogte"] == DESKTOP_HOOGTE, (
-        f"het getalveld is {stand['veld']['hoogte']} px hoog, verwacht "
-        f"{DESKTOP_HOOGTE}")
+        f"het getalveld is {stand['veld']['hoogte']} px hoog, verwacht {DESKTOP_HOOGTE}"
+    )
     assert stand["doos"]["breedte"] < 144, (
         f"de teller is {stand['doos']['breedte']} px breed; op een desktop hoort "
-        "hij smaller te zijn dan de 144 px van vóór dit issue")
+        "hij smaller te zijn dan de 144 px van vóór dit issue"
+    )

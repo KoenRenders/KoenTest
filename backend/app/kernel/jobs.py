@@ -17,6 +17,7 @@ Gebruik:
     enqueue(db, "sweep", run_at=..., )                        # gepland
 Periodiek werk = de handler her-enqueuet zichzelf met een nieuwe run_at.
 """
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, JSON
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Session
 
 from app.database import Base, SessionLocal
@@ -70,15 +71,14 @@ class KernelJobStatusLabel(Base):
 
     __tablename__ = "kernel_job_status_labels"
 
-    code = Column(String(10), ForeignKey("kernel_job_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("kernel_job_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 JOB_STATUS_CODES = (
@@ -89,8 +89,11 @@ JOB_STATUS_CODES = (
 )
 
 JOB_STATUS = CodeList(
-    name="kernel_job_status", schema="public",
-    codes=KernelJobStatusCode, labels=KernelJobStatusLabel, enum=JobStatus,
+    name="kernel_job_status",
+    schema="public",
+    codes=KernelJobStatusCode,
+    labels=KernelJobStatusLabel,
+    enum=JobStatus,
     fk_from=("public.kernel_jobs.status",),
 )
 
@@ -101,15 +104,20 @@ class KernelJob(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False, index=True)
     payload = Column(JSON, nullable=False, default=dict)
-    status = Column(EnumColumn(JobStatus, length=10),
-                    ForeignKey("kernel_job_status_codes.code"),
-                    nullable=False, default=JobStatus.PENDING, index=True)
+    status = Column(
+        EnumColumn(JobStatus, length=10),
+        ForeignKey("kernel_job_status_codes.code"),
+        nullable=False,
+        default=JobStatus.PENDING,
+        index=True,
+    )
     run_at = Column(DateTime(timezone=True), nullable=False, index=True)
     attempts = Column(Integer, nullable=False, default=0)
     max_attempts = Column(Integer, nullable=False, default=5)
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False,
-                        default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
 
 
 def job(name: str) -> Callable[[Callable], Callable]:
@@ -124,8 +132,13 @@ def job(name: str) -> Callable[[Callable], Callable]:
     return decorator
 
 
-def enqueue(db: Session, name: str, payload: Optional[dict] = None,
-            run_at: Optional[datetime] = None, max_attempts: int = 5) -> KernelJob:
+def enqueue(
+    db: Session,
+    name: str,
+    payload: Optional[dict] = None,
+    run_at: Optional[datetime] = None,
+    max_attempts: int = 5,
+) -> KernelJob:
     """Plan een job — in de lopende transactie (commit van de bron = commit van de job)."""
     entry = KernelJob(
         name=name,
@@ -150,8 +163,13 @@ def job_details(db: Session, job_id: str) -> Optional[dict]:
         return None
     if job is None:
         return None
-    return {"name": job.name, "status": code_of(job.status), "attempts": job.attempts,
-            "max_attempts": job.max_attempts, "last_error": job.last_error}
+    return {
+        "name": job.name,
+        "status": code_of(job.status),
+        "attempts": job.attempts,
+        "max_attempts": job.max_attempts,
+        "last_error": job.last_error,
+    }
 
 
 def run_due_jobs(db: Session, batch: int = 10) -> int:
@@ -194,15 +212,26 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
             entry.last_error = f"{type(exc).__name__}: {exc}"
             if entry.attempts >= entry.max_attempts:
                 entry.status = JobStatus.FAILED
-                logger.error("job %s (#%s) definitief GEFAALD na %d pogingen: %s",
-                             entry.name, entry.id, entry.attempts, entry.last_error)
+                logger.error(
+                    "job %s (#%s) definitief GEFAALD na %d pogingen: %s",
+                    entry.name,
+                    entry.id,
+                    entry.attempts,
+                    entry.last_error,
+                )
             else:
                 entry.status = JobStatus.PENDING
                 backoff = timedelta(seconds=30 * (2 ** (entry.attempts - 1)))
                 entry.run_at = datetime.now(timezone.utc) + backoff
-                logger.warning("job %s (#%s) faalde (poging %d/%d), retry over %s: %s",
-                               entry.name, entry.id, entry.attempts,
-                               entry.max_attempts, backoff, entry.last_error)
+                logger.warning(
+                    "job %s (#%s) faalde (poging %d/%d), retry over %s: %s",
+                    entry.name,
+                    entry.id,
+                    entry.attempts,
+                    entry.max_attempts,
+                    backoff,
+                    entry.last_error,
+                )
             db.commit()
         processed += 1
     return processed

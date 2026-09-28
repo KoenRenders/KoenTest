@@ -10,6 +10,7 @@ Eén helper, met het strengere van de twee: eerst normaliseren (zodat er altijd
 distincte waarden zijn), dan wisselen. Kernel-code, dus zonder domeinkennis: welke
 attribuutnaam de volgorde draagt, zegt de aanroeper.
 """
+
 from typing import Any, Literal, Sequence
 
 Richting = Literal["up", "down"]
@@ -19,8 +20,9 @@ Richting = Literal["up", "down"]
 _OMHOOG = {"up", "op", "omhoog"}
 
 
-def move_sibling(items: Sequence[Any], item_id: int, direction: str, *,
-                 attr: str = "sort_order") -> bool:
+def move_sibling(
+    items: Sequence[Any], item_id: int, direction: str, *, attr: str = "sort_order"
+) -> bool:
     """Verplaats één item één plaats binnen zijn broers/zussen.
 
     Normaliseert `attr` eerst naar 0..n — ook als alles nog op de default staat —

@@ -21,6 +21,7 @@ alembic in dit proces en leest `caplog` daarna gewoon de regels van de route. Zo
 deze parameter terugdraaien, dan vallen die vier tests om. Wat hier staat is het
 mechanisme zelf, uit elkaar gehaald.
 """
+
 import logging
 from logging.config import fileConfig
 from pathlib import Path
@@ -36,7 +37,8 @@ ALEMBIC_INI = BACKEND / "alembic.ini"
 
 def test_env_py_laat_bestaande_loggers_met_rust():
     assert "fileConfig(config.config_file_name, disable_existing_loggers=False)" in ENV_PY, (
-        "alembic zet bij het inlezen van zijn eigen logconfiguratie de app-loggers uit")
+        "alembic zet bij het inlezen van zijn eigen logconfiguratie de app-loggers uit"
+    )
 
 
 @pytest.fixture
@@ -66,10 +68,12 @@ def test_de_parameter_is_precies_wat_het_verschil_maakt(herstel_logging):
     fileConfig(ALEMBIC_INI, disable_existing_loggers=True)
     assert uit.disabled, (
         "de standaard van fileConfig zet bestaande loggers níet uit — dan is dit "
-        "issue er nooit geweest en toetst deze test niets")
+        "issue er nooit geweest en toetst deze test niets"
+    )
 
     uit.disabled = False  # de vorige aanroep raakte ze allebei
     aan.disabled = False
     fileConfig(ALEMBIC_INI, disable_existing_loggers=False)
     assert not aan.disabled and not uit.disabled, (
-        "met disable_existing_loggers=False blijft een bestaande logger gewoon aan")
+        "met disable_existing_loggers=False blijft een bestaande logger gewoon aan"
+    )

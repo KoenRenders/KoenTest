@@ -37,6 +37,7 @@ The situation, in words:
 - Every registration is charged; the Quiz ones are paid, the Wandeling ones are
   not. That gives "€30 received, €20 outstanding" as a second, independent check.
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -58,11 +59,19 @@ def _now() -> datetime:
 
 def seed(db) -> dict:
     from app.domains.activities.api import (
-        Activity, ActivityDate, ActivityProduct, ActivitySubRegistration,
-        Registration, RegistrationItem,
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+        Registration,
+        RegistrationItem,
     )
     from app.domains.mdm.api import (
-        Address, Member, MemberPerson, Person, PostalCode,
+        Address,
+        Member,
+        MemberPerson,
+        Person,
+        PostalCode,
     )
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
@@ -77,8 +86,13 @@ def seed(db) -> dict:
     # ── Board members: two people who are nobody's household head ────────────
     bestuur = []
     for naam in ("Anke", "Bram"):
-        persoon = Person(tenant_id=TENANT, first_name=naam, last_name="Bestuur",
-                         date_of_birth=date(jaar - 50, 5, 5), gender_code="M")
+        persoon = Person(
+            tenant_id=TENANT,
+            first_name=naam,
+            last_name="Bestuur",
+            date_of_birth=date(jaar - 50, 5, 5),
+            gender_code="M",
+        )
         db.add(persoon)
         db.flush()
         bestuur.append(persoon)
@@ -91,28 +105,48 @@ def seed(db) -> dict:
         for nummer in range(aantal):
             index += 1
             verantwoordelijke = bestuur[0] if index <= 5 else bestuur[1]
-            member = Member(tenant_id=TENANT,
-                            board_member_id=verantwoordelijke.id)
+            member = Member(tenant_id=TENANT, board_member_id=verantwoordelijke.id)
             db.add(member)
             db.flush()
             for rol, leeftijd in zip(("HOOFDLID", "PARTNER", "KIND"), AGES):
                 persoon = Person(
-                    tenant_id=TENANT, first_name=f"{rol.title()}{index}",
+                    tenant_id=TENANT,
+                    first_name=f"{rol.title()}{index}",
                     last_name=f"Gezin{index}",
-                    date_of_birth=date(jaar - leeftijd, 6, 15), gender_code="M",
+                    date_of_birth=date(jaar - leeftijd, 6, 15),
+                    gender_code="M",
                 )
                 db.add(persoon)
                 db.flush()
-                db.add(MemberPerson(tenant_id=TENANT, member_id=member.id,
-                                    person_id=persoon.id, relation_type=rol))
-                db.add(Address(tenant_id=TENANT, person_id=persoon.id,
-                               street=straat, house_number=str(nummer + 1),
-                               postal_code_id=postal.id))
+                db.add(
+                    MemberPerson(
+                        tenant_id=TENANT,
+                        member_id=member.id,
+                        person_id=persoon.id,
+                        relation_type=rol,
+                    )
+                )
+                db.add(
+                    Address(
+                        tenant_id=TENANT,
+                        person_id=persoon.id,
+                        street=straat,
+                        house_number=str(nummer + 1),
+                        postal_code_id=postal.id,
+                    )
+                )
                 if rol == "HOOFDLID":
                     heads.append(persoon)
-            db.add(Membership(tenant_id=TENANT, member_id=member.id, year=jaar,
-                              valid_from=date(jaar, 1, 1),
-                              valid_to=date(jaar, 12, 31), is_active=True))
+            db.add(
+                Membership(
+                    tenant_id=TENANT,
+                    member_id=member.id,
+                    year=jaar,
+                    valid_from=date(jaar, 1, 1),
+                    valid_to=date(jaar, 12, 31),
+                    is_active=True,
+                )
+            )
             db.flush()
             households.append(member)
 
@@ -121,15 +155,20 @@ def seed(db) -> dict:
         row = Activity(tenant_id=TENANT, name=naam)
         db.add(row)
         db.flush()
-        db.add(ActivityDate(tenant_id=TENANT, activity_id=row.id,
-                            start_date=date(jaar, 5, 1)))
+        db.add(ActivityDate(tenant_id=TENANT, activity_id=row.id, start_date=date(jaar, 5, 1)))
         component = ActivitySubRegistration(
-            tenant_id=TENANT, activity_id=row.id, name="Deelname",
-            registration_type_code="INDIVIDUAL", price=prijs, is_free=False)
+            tenant_id=TENANT,
+            activity_id=row.id,
+            name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            price=prijs,
+            is_free=False,
+        )
         db.add(component)
         db.flush()
-        product = ActivityProduct(tenant_id=TENANT, component_id=component.id,
-                                  name="Plaats", price=prijs, is_free=False)
+        product = ActivityProduct(
+            tenant_id=TENANT, component_id=component.id, name="Plaats", price=prijs, is_free=False
+        )
         db.add(product)
         db.flush()
         return row, component, product
@@ -139,30 +178,45 @@ def seed(db) -> dict:
 
     def inschrijving(activity, component, product, persoon, prijs, betaald: bool):
         reg = Registration(
-            tenant_id=TENANT, activity_id=activity.id, person_id=persoon.id,
+            tenant_id=TENANT,
+            activity_id=activity.id,
+            person_id=persoon.id,
             registered_at=datetime(jaar, 4, 1, 12, 0, tzinfo=timezone.utc),
-            registration_type="INDIVIDUAL", component_id=component.id,
-            contact_name="Contact", contact_email="contact@example.com",
-            payment_method="online")
+            registration_type="INDIVIDUAL",
+            component_id=component.id,
+            contact_name="Contact",
+            contact_email="contact@example.com",
+            payment_method="online",
+        )
         db.add(reg)
         db.flush()
-        db.add(RegistrationItem(tenant_id=TENANT, registration_id=reg.id,
-                                product_id=product.id, quantity=1))
+        db.add(
+            RegistrationItem(
+                tenant_id=TENANT, registration_id=reg.id, product_id=product.id, quantity=1
+            )
+        )
         aangemaakt = _now() - timedelta(days=20)
-        db.add(PaymentRecord(
-            tenant_id=TENANT, payable_type="registration", payable_id=reg.id,
-            amount=prijs, method="online",
-            status="paid" if betaald else "pending", type="charge",
-            amount_paid=prijs if betaald else None, created_at=aangemaakt,
-            paid_at=aangemaakt + timedelta(days=1) if betaald else None))
+        db.add(
+            PaymentRecord(
+                tenant_id=TENANT,
+                payable_type="registration",
+                payable_id=reg.id,
+                amount=prijs,
+                method="online",
+                status="paid" if betaald else "pending",
+                type="charge",
+                amount_paid=prijs if betaald else None,
+                created_at=aangemaakt,
+                paid_at=aangemaakt + timedelta(days=1) if betaald else None,
+            )
+        )
         db.flush()
         return reg
 
     for head in heads[:QUIZ_PLACES]:
         inschrijving(quiz, quiz_component, quiz_product, head, QUIZ_PRICE, True)
     for head in heads[:WALK_PLACES]:
-        inschrijving(wandeling, walk_component, walk_product, head, WALK_PRICE,
-                     False)
+        inschrijving(wandeling, walk_component, walk_product, head, WALK_PRICE, False)
 
     db.commit()
     return {
@@ -181,8 +235,7 @@ EXPECTED = {
     "busiest_street": "Dorpsstraat",
     "per_board_member": {"A": 5, "B": 4},
     "participants": {"Quiz": QUIZ_PLACES, "Wandeling": WALK_PLACES},
-    "revenue": {"Quiz": QUIZ_PRICE * QUIZ_PLACES,
-                "Wandeling": WALK_PRICE * WALK_PLACES},
+    "revenue": {"Quiz": QUIZ_PRICE * QUIZ_PLACES, "Wandeling": WALK_PRICE * WALK_PLACES},
     "received": QUIZ_PRICE * QUIZ_PLACES,
     "outstanding": WALK_PRICE * WALK_PLACES,
     "age_groups": {"41-60": 9, "26-40": 9, "6-12": 9},

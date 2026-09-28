@@ -16,10 +16,10 @@ onbekende naam — een lege, onzichtbare SVG. Een typefout geeft dus een knop zo
 icoon en geen enkele foutmelding. Daarom toetsen deze tests het gerenderde
 `<path>`, niet de macro-aanroep.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -37,18 +37,29 @@ def _login(client):
 
 
 def _bouwer(client, admin_headers) -> str:
-    r = client.post("/api/v1/forms", json={
-        "title": "Iconen", "status": "draft",
-        "fields": [{"field_type": "radio", "label": "Kies", "position": 0,
-                    "options": [{"label": "Een", "position": 0},
-                                {"label": "Twee", "position": 1}]}],
-    }, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Iconen",
+            "status": "draft",
+            "fields": [
+                {
+                    "field_type": "radio",
+                    "label": "Kies",
+                    "position": 0,
+                    "options": [{"label": "Een", "position": 0}, {"label": "Twee", "position": 1}],
+                }
+            ],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     _login(client)
     return client.get(f"/admin/formulieren/{r.json()['id']}").text
 
 
 # ── 1. De iconen staan er, en de glyphs niet meer ──────────────────────────
+
 
 def test_de_prullenbak_staat_klaar_in_de_set():
     """Sinds #1090 rendert de bouwer de prullenbak nergens meer: het verwijderen
@@ -91,7 +102,7 @@ def _optie_verwijderknop(html: str, tot: str = "</button>") -> str:
     treffer = re.search(r'hx-post="/admin/formulieren/\d+/opties/\d+/verwijderen"', html)
     assert treffer, "geen optie-verwijderknop gevonden"
     start = treffer.start()
-    return html[html.rindex("<button", 0, start):html.index(tot, start)]
+    return html[html.rindex("<button", 0, start) : html.index(tot, start)]
 
 
 def test_de_glyphs_zijn_weg_van_de_knoppen(client, admin_headers):
@@ -115,6 +126,7 @@ def test_verwijderen_blijft_rood(client, admin_headers):
 
 # ── 2. De tooltip ──────────────────────────────────────────────────────────
 
+
 # "Optie bewerken" stond hier tot #699; die knop bestaat niet meer — de velden van
 # een optie staan nu altijd inline, dus er valt niets te openen. "Veld verwijderen"
 # verdween in golf 6 (#913) en "Optie verwijderen" in #1090, om dezelfde reden:
@@ -126,7 +138,7 @@ def test_elke_symboolknop_draagt_een_tooltip(client, admin_headers, label):
     symbool."""
     html = _bouwer(client, admin_headers)
     start = html.index(f'aria-label="{label}"')
-    knop = html[html.rindex("<button", 0, start):html.index(">", start)]
+    knop = html[html.rindex("<button", 0, start) : html.index(">", start)]
     assert f'title="{label}"' in knop, knop
 
 
@@ -135,11 +147,12 @@ def test_een_knop_met_tekst_krijgt_geen_tooltip(client, admin_headers):
     herhaalt wat er al leesbaar op staat."""
     html = _bouwer(client, admin_headers)
     start = html.index(">Opslaan<")
-    knop = html[html.rindex("<button", 0, start):start]
+    knop = html[html.rindex("<button", 0, start) : start]
     assert "title=" not in knop, knop
 
 
 # ── 3. De sluitknoppen elders blijven ──────────────────────────────────────
+
 
 def test_de_toast_sluit_nog_altijd_met_een_kruisje(client, admin_headers):
     """Dat is de toets of de regel klopt: ná deze wijziging betekent `×` in de hele
@@ -148,11 +161,11 @@ def test_de_toast_sluit_nog_altijd_met_een_kruisje(client, admin_headers):
     _login(client)
     html = client.get("/admin/formulieren").text
     start = html.index('id="htmx-foutmelding"')
-    assert "&times;" in html[start:start + 800], (
-        "de sluitknop van de foutmelding is meeverdwenen")
+    assert "&times;" in html[start : start + 800], "de sluitknop van de foutmelding is meeverdwenen"
 
 
 # ── 4. De sectiebalk verwijdert ook met een prullenbak (#706) ───────────────
+
 
 def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_headers):
     """`section_bar` schreef zijn knop als rauwe HTML binnen een kit-macro, en die
@@ -161,12 +174,16 @@ def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_header
     Op de bouwer stond daardoor nog steeds hetzelfde teken voor "sluit deze melding"
     en voor "vernietig deze sectie met haar velden, opties en sprongregels".
     """
-    r = client.post("/api/v1/forms", json={
-        "title": "Sectiebalk", "status": "draft",
-        "sections": [{"title": "Een", "position": 0}],
-        "fields": [{"field_type": "text", "label": "V", "position": 0,
-                    "section_index": 0}],
-    }, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Sectiebalk",
+            "status": "draft",
+            "sections": [{"title": "Een", "position": 0}],
+            "fields": [{"field_type": "text", "label": "V", "position": 0, "section_index": 0}],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     _login(client)
     html = client.get(f"/admin/formulieren/{r.json()['id']}").text
@@ -175,11 +192,13 @@ def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_header
     # sectie-verwijderen is een tekstknop in de actiebalk van de sectievorm.
     # De oorspronkelijke zorg (× voor vernietigen) kan dus niet terugkomen via
     # deze balk; het kale aria-label was er het kenmerk van.
-    assert 'aria-label="Verwijderen"' not in html, \
+    assert 'aria-label="Verwijderen"' not in html, (
         "de sectiebalk heeft weer een eigen (symbool)verwijderknop"
+    )
     # De verhuisde knop bestaat écht: rood en met tekst, in de sectievorm.
-    assert html.count(">Verwijderen<") >= 2, \
+    assert html.count(">Verwijderen<") >= 2, (
         "sectie- en formulier-verwijderen horen als tekstknop in een actiebalk"
+    )
 
 
 def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client, admin_headers):
@@ -189,4 +208,4 @@ def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client, admin_headers):
     _login(client)
     html = client.get("/admin/formulieren").text
     start = html.index('id="htmx-foutmelding"')
-    assert "&times;" in html[start:start + 800]
+    assert "&times;" in html[start : start + 800]

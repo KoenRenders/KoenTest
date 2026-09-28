@@ -5,6 +5,7 @@ audiostroom (zodat de vangrails/idle-logica realistisch lopen) en geeft een
 deterministisch resultaat terug: één partial per ontvangen chunk en een
 afsluitende final. Geen netwerk, geen Mistral.
 """
+
 from __future__ import annotations
 
 from typing import AsyncIterator

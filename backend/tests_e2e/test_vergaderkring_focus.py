@@ -12,6 +12,7 @@ die je typte er nog staat.
 1200 ms. Gemeten: de zoekopdracht terug op het hele blok (`hx-target="#vg-kring"`)
 → de test valt om.
 """
+
 import os
 import sys
 
@@ -55,7 +56,8 @@ def test_typen_in_het_zoekveld_verliest_de_focus_niet(admin_page):
     with htmx_afgerond(page):
         veld.type("Kris V", delay=120)
 
-    assert veld.input_value() == "Kris V", \
+    assert veld.input_value() == "Kris V", (
         f"de getypte tekst overleefde de swap niet: {veld.input_value()!r}"
+    )
     actief = page.evaluate("document.activeElement && document.activeElement.name")
     assert actief == "q", f"de focus sprong weg naar {actief!r}"

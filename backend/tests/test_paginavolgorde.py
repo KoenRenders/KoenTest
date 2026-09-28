@@ -24,10 +24,11 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal):
   * `sort_order: str | None = Form(None)` terug op `Form("0")` → de opslagtest valt
     om, precies met de stille regressie die ze beschrijft.
 """
+
 import pytest
 
-from app.domains.cms.models import CmsPage
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.cms.models import CmsPage
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -43,8 +44,14 @@ def _paginas(db, *specs) -> list[CmsPage]:
     """Maakt pagina's aan met de gegeven (slug, sort_order); de rest staat vast."""
     gemaakt = []
     for slug, volgorde in specs:
-        pagina = CmsPage(slug=slug, title=slug.title(), content="<p>x</p>",
-                         is_published=True, show_in_nav=True, sort_order=volgorde)
+        pagina = CmsPage(
+            slug=slug,
+            title=slug.title(),
+            content="<p>x</p>",
+            is_published=True,
+            show_in_nav=True,
+            sort_order=volgorde,
+        )
         db.add(pagina)
         gemaakt.append(pagina)
     db.flush()
@@ -58,6 +65,7 @@ def _volgorde(db, slugs) -> list[str]:
 
 
 # ── De pijltjes ──────────────────────────────────────────────────────────────
+
 
 def test_omhoog_wisselt_met_de_buur(client, db_session):
     slugs = ("aaa", "bbb", "ccc")
@@ -85,18 +93,25 @@ def test_dubbels_en_negatieve_waarden_worden_genormaliseerd(client, db_session):
     # Alleen deze drie: de migraties seeden per tenant hun eigen pagina's, en
     # `list_pages` is tenant-gebonden — over alle tenants heen tellen zou iets anders
     # meten dan wat de verplaatsing aanraakt.
-    waarden = [p.sort_order for p in db_session.query(CmsPage)
-               .filter(CmsPage.slug.in_(slugs)).order_by(CmsPage.sort_order).all()]
+    waarden = [
+        p.sort_order
+        for p in db_session.query(CmsPage)
+        .filter(CmsPage.slug.in_(slugs))
+        .order_by(CmsPage.sort_order)
+        .all()
+    ]
     assert len(set(waarden)) == len(waarden), f"er staan nog dubbels: {waarden}"
     assert all(v >= 0 for v in waarden), f"er staat nog een negatieve waarde: {waarden}"
     # Beginstand: een=0, twee=0, drie=-1. Genormaliseerd op (sort_order, id) wordt
     # dat drie, een, twee — de -1 gaat vooraan, de twee nullen houden hun id-volgorde.
     # "twee" één omhoog wisselt dan met "een".
     assert _volgorde(db_session, slugs) == ["drie", "twee", "een"], (
-        "de verplaatsing zelf klopt niet")
+        "de verplaatsing zelf klopt niet"
+    )
 
 
 # ── De twee manieren waarop dit stil misgaat ─────────────────────────────────
+
 
 def test_een_filter_verzet_de_paginas_erbuiten_niet(client, db_session):
     """De belangrijkste test van dit issue.
@@ -105,22 +120,29 @@ def test_een_filter_verzet_de_paginas_erbuiten_niet(client, db_session):
     díe rijen hernummeren, dan krijgen ze 0..n en verliezen alle andere pagina's hun
     plaats — een filter herschrijft dan de volgorde van de hele site.
     """
-    _paginas(db_session, ("zichtbaar-a", 20), ("verborgen-b", 21),
-             ("zichtbaar-c", 22), ("verborgen-d", 23))
+    _paginas(
+        db_session,
+        ("zichtbaar-a", 20),
+        ("verborgen-b", 21),
+        ("zichtbaar-c", 22),
+        ("verborgen-d", 23),
+    )
     c = db_session.query(CmsPage).filter(CmsPage.slug == "zichtbaar-c").one()
     hdr = _login(client)
 
     # De filterstand reist mee zoals de browser hem meestuurt (#671).
-    resp = client.post(f"/admin/paginas/{c.id}/volgorde/omhoog",
-                       headers={**hdr, "HX-Current-URL": "/admin/paginas?q=zichtbaar"})
+    resp = client.post(
+        f"/admin/paginas/{c.id}/volgorde/omhoog",
+        headers={**hdr, "HX-Current-URL": "/admin/paginas?q=zichtbaar"},
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
-    alles = _volgorde(db_session, ("zichtbaar-a", "verborgen-b", "zichtbaar-c",
-                                   "verborgen-d"))
+    alles = _volgorde(db_session, ("zichtbaar-a", "verborgen-b", "zichtbaar-c", "verborgen-d"))
     # c gaat één plaats omhoog binnen de VOLLEDIGE lijst: over verborgen-b heen.
     assert alles == ["zichtbaar-a", "zichtbaar-c", "verborgen-b", "verborgen-d"], (
-        "de pagina's buiten het filter zijn verzet")
+        "de pagina's buiten het filter zijn verzet"
+    )
 
 
 def test_een_gewone_opslag_laat_de_volgorde_met_rust(client, db_session):
@@ -133,9 +155,16 @@ def test_een_gewone_opslag_laat_de_volgorde_met_rust(client, db_session):
     pagina = db_session.query(CmsPage).filter(CmsPage.slug == "blijft").one()
     hdr = _login(client)
 
-    resp = client.post(f"/admin/paginas/{pagina.id}", headers=hdr, data={
-        "title": "Nieuwe titel", "slug": "blijft", "content": "<p>x</p>",
-        "is_published": "1"})
+    resp = client.post(
+        f"/admin/paginas/{pagina.id}",
+        headers=hdr,
+        data={
+            "title": "Nieuwe titel",
+            "slug": "blijft",
+            "content": "<p>x</p>",
+            "is_published": "1",
+        },
+    )
 
     assert resp.status_code == 200, resp.text
     db_session.expire_all()
@@ -145,6 +174,7 @@ def test_een_gewone_opslag_laat_de_volgorde_met_rust(client, db_session):
 
 
 # ── Het publieke menu volgt ──────────────────────────────────────────────────
+
 
 def test_de_publieke_navigatie_volgt_de_nieuwe_volgorde(client, db_session):
     """Herschikken in het beheer verzet wat de bezoeker ziet. Zonder deze test
@@ -160,7 +190,8 @@ def test_de_publieke_navigatie_volgt_de_nieuwe_volgorde(client, db_session):
 
     na = client.get("/").text
     assert na.index("/menu-twee") < na.index("/menu-een"), (
-        "het publieke menu volgt de nieuwe volgorde niet")
+        "het publieke menu volgt de nieuwe volgorde niet"
+    )
 
 
 def test_het_getalveld_staat_niet_meer_in_de_editor(client, db_session):

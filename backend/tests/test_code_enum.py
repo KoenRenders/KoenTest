@@ -24,11 +24,10 @@ import) → the gate fails with "meetings.models.MeetingStatus is a plain Enum",
 and the behaviour test with "meetings.models.MeetingStatus.AGENDA: f-string gives
 'MeetingStatus.AGENDA', not 'agenda'".
 """
+
 from __future__ import annotations
 
 from enum import Enum
-
-import pytest
 
 from app.domains.registry import load_all_models
 from app.kernel.codes import CodeEnum, ExternalVocabulary, registry
@@ -63,7 +62,9 @@ def test_every_code_list_enum_is_a_code_enum():
     plain = [_name(e) for e in enums if not issubclass(e, CodeEnum)]
     assert not plain, "\n".join(
         f"{n} is a plain Enum — inherit from app.kernel.codes.CodeEnum, so a member is "
-        f"its code in an f-string, str(), .format() and a log line (#1280)" for n in plain)
+        f"its code in an f-string, str(), .format() and a log line (#1280)"
+        for n in plain
+    )
 
 
 def test_every_member_is_its_code_in_a_string_context():
@@ -73,15 +74,19 @@ def test_every_member_is_its_code_in_a_string_context():
     wrong = []
     for m in members:
         code = str(m.value)
-        seen = {"f-string": f"{m}", "str()": str(m), ".format()": "{}".format(m),
-                "%s": "%s" % m}
-        wrong += [f"{_name(type(m))}.{m.name}: {how} gives {got!r}, not {code!r}"
-                  for how, got in seen.items() if got != code]
+        seen = {"f-string": f"{m}", "str()": str(m), ".format()": "{}".format(m), "%s": "%s" % m}
+        wrong += [
+            f"{_name(type(m))}.{m.name}: {how} gives {got!r}, not {code!r}"
+            for how, got in seen.items()
+            if got != code
+        ]
         if repr(m) == code:
             wrong.append(f"{_name(type(m))}.{m.name}: repr() lost the member name")
         if not isinstance(m, str) and m == m.value:
             wrong.append(f"{_name(type(m))}.{m.name}: equals its code — CodeEnum must not be a str")
-    assert not wrong, "\n".join(wrong[:20]) + (f"\n… {len(wrong) - 20} more" if len(wrong) > 20 else "")
+    assert not wrong, "\n".join(wrong[:20]) + (
+        f"\n… {len(wrong) - 20} more" if len(wrong) > 20 else ""
+    )
 
 
 def test_the_adapter_enum_is_a_code_enum_too():

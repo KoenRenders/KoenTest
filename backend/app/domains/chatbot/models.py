@@ -11,11 +11,20 @@ Velden met elk hun eigen bedoeling:
 
 ``is_active=False`` → de rij gaat niet naar de bot (bv. een CMS-pagina uitzetten).
 """
+
 from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import (
-    CHAR, Column, Integer, Numeric, String, Text, DateTime, Boolean, ForeignKey,
+    CHAR,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -140,11 +149,14 @@ class AiCallLog(TenantMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     surface: Mapped[AiSurface] = mapped_column(
-        EnumColumn(AiSurface, length=32), ForeignKey("ai.ai_surface_codes.code"),
-        nullable=False)
+        EnumColumn(AiSurface, length=32), ForeignKey("ai.ai_surface_codes.code"), nullable=False
+    )
     capability: Mapped[AiCapability] = mapped_column(
-        EnumColumn(AiCapability, length=32), ForeignKey("ai.ai_capability_codes.code"),
-        nullable=False, default=AiCapability.CHAT)
+        EnumColumn(AiCapability, length=32),
+        ForeignKey("ai.ai_capability_codes.code"),
+        nullable=False,
+        default=AiCapability.CHAT,
+    )
     actor = Column(String(255), nullable=False, default="")
     model = Column(String(64), nullable=False, default="")
     payload = Column(Text, nullable=False, default="")
@@ -157,13 +169,13 @@ class AiCallLog(TenantMixin, Base):
     # Nullable since CR-12 phase 4: "no provider" is NULL, not an empty string
     # that a foreign key would have to know.
     provider: Mapped[Optional[AiProvider]] = mapped_column(
-        EnumColumn(AiProvider, length=32), ForeignKey("ai.ai_provider_codes.code"),
-        nullable=True)
+        EnumColumn(AiProvider, length=32), ForeignKey("ai.ai_provider_codes.code"), nullable=True
+    )
     endpoint = Column(String(128), nullable=False, default="")
     provider_request_id = Column(String(128), nullable=False, default="")
     status: Mapped[AiStatus] = mapped_column(
-        EnumColumn(AiStatus, length=16), ForeignKey("ai.ai_status_codes.code"),
-        nullable=False)
+        EnumColumn(AiStatus, length=16), ForeignKey("ai.ai_status_codes.code"), nullable=False
+    )
     duration_ms = Column(Integer, nullable=True)
     cost_credits = Column(Numeric(12, 4), nullable=True)
     cost_amount = Column(Numeric(12, 6), nullable=True)
@@ -191,13 +203,13 @@ class AiSurfaceLabel(Base):
     __table_args__ = {"schema": "ai"}
 
     code = Column(String(32), ForeignKey("ai.ai_surface_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class AiCapabilityCode(Base):
@@ -219,13 +231,13 @@ class AiCapabilityLabel(Base):
     __table_args__ = {"schema": "ai"}
 
     code = Column(String(32), ForeignKey("ai.ai_capability_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class AiStatusCode(Base):
@@ -247,13 +259,13 @@ class AiStatusLabel(Base):
     __table_args__ = {"schema": "ai"}
 
     code = Column(String(16), ForeignKey("ai.ai_status_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class AiProviderCode(Base):
@@ -275,10 +287,10 @@ class AiProviderLabel(Base):
     __table_args__ = {"schema": "ai"}
 
     code = Column(String(32), ForeignKey("ai.ai_provider_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

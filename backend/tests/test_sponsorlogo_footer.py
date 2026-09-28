@@ -23,6 +23,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - `show_in_footer` uit de lijst van velden die `update_media` overneemt → *de
   schakelaar bewaart* valt om.
 """
+
 from io import BytesIO
 
 import pytest
@@ -49,11 +50,20 @@ def _login(client):
 
 def _logo(db, titel, *, actief=True, in_footer=True):
     beeld = _png()
-    asset = MediaAsset(kind="sponsor", title=titel, data=beeld,
-                       content_type="image/png", thumbnail=beeld,
-                       thumb_content_type="image/png", width=40, height=40,
-                       byte_size=len(beeld), sort_order=0, is_active=actief,
-                       show_in_footer=in_footer)
+    asset = MediaAsset(
+        kind="sponsor",
+        title=titel,
+        data=beeld,
+        content_type="image/png",
+        thumbnail=beeld,
+        thumb_content_type="image/png",
+        width=40,
+        height=40,
+        byte_size=len(beeld),
+        sort_order=0,
+        is_active=actief,
+        show_in_footer=in_footer,
+    )
     db.add(asset)
     db.flush()
     return asset
@@ -112,15 +122,16 @@ def test_een_nieuw_logo_staat_standaard_in_de_footer(client, db_session):
     """
     csrf = _login(client)
 
-    antwoord = client.post("/admin/media",
-                           files={"files": ("logo.png", _png(), "image/png")},
-                           data={"kind": "sponsor", "title": "Verse sponsor"},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        "/admin/media",
+        files={"files": ("logo.png", _png(), "image/png")},
+        data={"kind": "sponsor", "title": "Verse sponsor"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code in (200, 204), antwoord.text[:300]
 
     db_session.expire_all()
-    asset = db_session.query(MediaAsset).filter(
-        MediaAsset.title == "Verse sponsor").one()
+    asset = db_session.query(MediaAsset).filter(MediaAsset.title == "Verse sponsor").one()
     assert asset.show_in_footer is True
     assert asset.id in _footer_logos(client, db_session)
 
@@ -134,10 +145,11 @@ def test_de_schakelaar_staat_op_het_scherm_en_bewaart(client, db_session):
     assert 'name="show_in_footer"' in lijst
     assert "In de footer" in lijst
 
-    antwoord = client.post(f"/admin/media/{logo.id}",
-                           data={"kind": "sponsor", "title": logo.title,
-                                 "link_url": "", "is_active": "1", "q": ""},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/media/{logo.id}",
+        data={"kind": "sponsor", "title": logo.title, "link_url": "", "is_active": "1", "q": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200, antwoord.text[:300]
 
     db_session.expire_all()
@@ -156,16 +168,26 @@ def test_bij_een_andere_soort_staat_de_schakelaar_er_niet(client, db_session):
     db_session.add(a)
     db_session.flush()
     beeld = _png()
-    db_session.add(MediaAsset(kind="activity_photo", activity_id=a.id,
-                              title="Een foto", data=beeld,
-                              content_type="image/png", thumbnail=beeld,
-                              thumb_content_type="image/png", width=40, height=40,
-                              byte_size=len(beeld), sort_order=0, is_active=True))
+    db_session.add(
+        MediaAsset(
+            kind="activity_photo",
+            activity_id=a.id,
+            title="Een foto",
+            data=beeld,
+            content_type="image/png",
+            thumbnail=beeld,
+            thumb_content_type="image/png",
+            width=40,
+            height=40,
+            byte_size=len(beeld),
+            sort_order=0,
+            is_active=True,
+        )
+    )
     db_session.flush()
     _login(client)
 
-    lijst = client.get(
-        f"/admin/media?kind=activity_photo&activity_id={a.id}").text
+    lijst = client.get(f"/admin/media?kind=activity_photo&activity_id={a.id}").text
 
     assert "Een foto" in lijst, "de foto staat niet op dit scherm"
     assert 'name="show_in_footer"' not in lijst

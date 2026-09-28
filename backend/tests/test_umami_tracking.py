@@ -40,10 +40,10 @@ drie pogingen leverden een correctie op mijn eigen aanname op:
   test om. Het script kan vandaag dus alleen in de beheerschil belanden als iemand
   twee dingen tegelijk doet — en dán vangt deze test het.
 """
+
 import pytest
 
-from app.domains.auth.api import (
-    SESSION_COOKIE, User, UserRole, make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.kernel.tenant_config import set_setting
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -86,14 +86,18 @@ def test_elke_publieke_schil_draagt_het_script(client, db_session, pad, monkeypa
 
     assert SRC in html, f"{pad} draagt het trackingscript niet"
     assert f'data-website-id="{WEBSITE_ID}"' in html, (
-        f"{pad} rapporteert niet aan het juiste website-id")
+        f"{pad} rapporteert niet aan het juiste website-id"
+    )
 
 
-@pytest.mark.parametrize("src,website_id", [
-    (SRC, ""),      # wel een script, maar het rapporteert aan niets
-    ("", WEBSITE_ID),  # wel een id, maar er wordt niets geladen
-    ("", ""),
-])
+@pytest.mark.parametrize(
+    "src,website_id",
+    [
+        (SRC, ""),  # wel een script, maar het rapporteert aan niets
+        ("", WEBSITE_ID),  # wel een id, maar er wordt niets geladen
+        ("", ""),
+    ],
+)
 def test_een_halve_instelling_levert_geen_script(client, db_session, src, website_id):
     """Beide of geen van beide — een halve tag meet niets en ziet er wél uit alsof."""
     _stel_in(db_session, src, website_id)
@@ -101,7 +105,8 @@ def test_een_halve_instelling_levert_geen_script(client, db_session, src, websit
     html = client.get("/").text
 
     assert "data-website-id" not in html, (
-        f"er staat een scripttag met src={src!r} en id={website_id!r}")
+        f"er staat een scripttag met src={src!r} en id={website_id!r}"
+    )
     assert "script.js" not in html
 
 
@@ -148,11 +153,11 @@ def test_systeeminfo_zegt_of_er_echt_gemeten_wordt(client, db_session):
 # Een onbekende soort maakt de gate rood. Zo dwingt hij geen momentopname af maar een
 # beslissing: wie een schil toevoegt, zegt erbij of ze meetelt.
 SCHILSOORTEN = {
-    "site": True,       # de publieke site — veertien templates
-    "public": True,     # /raakje, een eigen schil die NIET van site_base erft
+    "site": True,  # de publieke site — veertien templates
+    "public": True,  # /raakje, een eigen schil die NIET van site_base erft
     "platform": False,  # eigen domein; tenant-cijfers zouden vervuild raken
-    "admin": False,     # beheerverkeer is geen bezoek
-    "afdruk": False,    # papier, en de route eronder is een beheerscherm
+    "admin": False,  # beheerverkeer is geen bezoek
+    "afdruk": False,  # papier, en de route eronder is een beheerscherm
 }
 
 
@@ -182,7 +187,8 @@ def test_de_gate_vindt_uberhaupt_schillen():
 
     assert len(schillen) >= 4, (
         f"maar {len(schillen)} volledige documenten gevonden — kijkt deze gate nog "
-        "wel op de juiste plaats?")
+        "wel op de juiste plaats?"
+    )
 
 
 def test_elk_volledig_document_zegt_wat_voor_schil_het_is():
@@ -191,7 +197,8 @@ def test_elk_volledig_document_zegt_wat_voor_schil_het_is():
 
     assert not zonder, (
         f"deze documenten dragen geen data-shell: {zonder}. Voeg er een toe en zet "
-        "de soort in SCHILSOORTEN, met de reden waarom ze wel of niet meetelt.")
+        "de soort in SCHILSOORTEN, met de reden waarom ze wel of niet meetelt."
+    )
 
 
 def test_elke_publieke_schil_bevat_het_analytics_blok():
@@ -223,7 +230,7 @@ def test_elke_publieke_schil_bevat_het_analytics_blok():
         if not SCHILSOORTEN[soort] and heeft:
             teveel.append(pad.name)
 
-    assert not ontbreekt, (
-        f"deze publieke schillen meten niets: {sorted(ontbreekt)}")
+    assert not ontbreekt, f"deze publieke schillen meten niets: {sorted(ontbreekt)}"
     assert not teveel, (
-        f"deze schillen horen niet mee te tellen maar dragen het script: {sorted(teveel)}")
+        f"deze schillen horen niet mee te tellen maar dragen het script: {sorted(teveel)}"
+    )

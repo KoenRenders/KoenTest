@@ -31,6 +31,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - de drie `.cms-beeld-*`-regels uit `site_base.html` gehaald en de pagina
   herladen → de maattest valt om met drie keer dezelfde breedte.
 """
+
 import json
 import os
 import re
@@ -98,7 +99,8 @@ def test_de_maat_overleeft_een_tweede_bewaring(admin_page):
     # Eerste bewaring — hier ziet alles er ook goed uit met een kapotte oplossing.
     na_invoegen = _bijlage(scherm.editorinhoud())
     assert na_invoegen.get("size") == "klein", (
-        f"de maat staat niet in de bijlage-JSON: {na_invoegen}")
+        f"de maat staat niet in de bijlage-JSON: {na_invoegen}"
+    )
     scherm.opslaan()
 
     paginaid = re.search(r"/admin/paginas/(\d+)", admin_page.url)
@@ -111,28 +113,28 @@ def test_de_maat_overleeft_een_tweede_bewaring(admin_page):
     # dood: Trix schrijft een leidende spatie weg als `&nbsp;`, dus die tekst
     # staat nooit letterlijk in de verborgen invoer. Gemeten bij #1173 en hier
     # één keer opnieuw tegengekomen.
-    admin_page.evaluate(
-        "() => document.getElementById('cp-trix').editor.insertString('zz')")
+    admin_page.evaluate("() => document.getElementById('cp-trix').editor.insertString('zz')")
     # Wachten op de voorwaarde en niet op de klok (#997): de editor schrijft zijn
     # HTML in de verborgen invoer, en pas wanneer die wijziging er staat heeft
     # opslaan zin.
     admin_page.wait_for_function(
-        "() => document.getElementById('cp-content-input').value.includes('zz')",
-        timeout=5000)
+        "() => document.getElementById('cp-content-input').value.includes('zz')", timeout=5000
+    )
     scherm.opslaan()
 
     na_rondgang = _bijlage(scherm.editorinhoud())
     assert na_rondgang.get("size") == "klein", (
         "de maat is bij de tweede bewaring verdwenen — ze staat dus niet in de "
-        f"bijlage-gegevens maar op de <img>: {na_rondgang}")
+        f"bijlage-gegevens maar op de <img>: {na_rondgang}"
+    )
     assert na_rondgang.get("alt") == ALT, (
-        f"de alt van #1173 sneuvelde op dezelfde rondgang: {na_rondgang}")
+        f"de alt van #1173 sneuvelde op dezelfde rondgang: {na_rondgang}"
+    )
 
     # En wat de bezoeker ziet.
     admin_page.goto(f"/admin/paginas/{paginaid.group(1)}/voorbeeld")
     beeld = admin_page.locator("img.cms-beeld-klein")
-    expect(beeld.first, "de maatklasse staat niet op de gerenderde pagina"
-           ).to_be_visible()
+    expect(beeld.first, "de maatklasse staat niet op de gerenderde pagina").to_be_visible()
 
 
 @pytest.fixture(scope="module")
@@ -152,25 +154,41 @@ def drie_maten():
     breed = buf.getvalue()
 
     db = SessionLocal()
-    asset = MediaAsset(kind="page_image", title="E2E breed testbeeld", data=breed,
-                       content_type="image/png", thumbnail=breed,
-                       thumb_content_type="image/png", width=1600, height=900,
-                       byte_size=len(breed), sort_order=0, is_active=True)
+    asset = MediaAsset(
+        kind="page_image",
+        title="E2E breed testbeeld",
+        data=breed,
+        content_type="image/png",
+        thumbnail=breed,
+        thumb_content_type="image/png",
+        width=1600,
+        height=900,
+        byte_size=len(breed),
+        sort_order=0,
+        is_active=True,
+    )
     db.add(asset)
     db.flush()
 
     def figuur(maat: str) -> str:
-        velden = (f"&quot;alt&quot;:&quot;Beeld {maat}&quot;,"
-                  "&quot;contentType&quot;:&quot;image&quot;,"
-                  f"&quot;size&quot;:&quot;{maat}&quot;,"
-                  f"&quot;url&quot;:&quot;/api/v1/media/{asset.id}&quot;")
-        return (f'<div><figure data-trix-attachment="{{{velden}}}" '
-                f'data-trix-content-type="image">'
-                f'<img src="/api/v1/media/{asset.id}"></figure></div>')
+        velden = (
+            f"&quot;alt&quot;:&quot;Beeld {maat}&quot;,"
+            "&quot;contentType&quot;:&quot;image&quot;,"
+            f"&quot;size&quot;:&quot;{maat}&quot;,"
+            f"&quot;url&quot;:&quot;/api/v1/media/{asset.id}&quot;"
+        )
+        return (
+            f'<div><figure data-trix-attachment="{{{velden}}}" '
+            f'data-trix-content-type="image">'
+            f'<img src="/api/v1/media/{asset.id}"></figure></div>'
+        )
 
-    pagina = CmsPage(title="E2E maatmeting", slug="e2e-maatmeting",
-                     content="".join(figuur(m) for m in ("klein", "half", "vol")),
-                     is_published=True)
+    pagina = CmsPage(
+        title="E2E maatmeting",
+        slug="e2e-maatmeting",
+        content="".join(figuur(m) for m in ("klein", "half", "vol")),
+        is_published=True,
+    )
     db.add(pagina)
     db.commit()
     slug = pagina.slug
@@ -198,9 +216,9 @@ def test_de_drie_maten_renderen_verschillend(admin_page, drie_maten):
     m = _breedtes(admin_page, drie_maten, 1440)
 
     assert m["Beeld klein"] < m["Beeld half"] < m["Beeld vol"], (
-        f"de drie maten renderen niet oplopend: {m}")
-    assert m["Beeld vol"] == m["kolom"], (
-        f"volle breedte vult de kolom niet: {m}")
+        f"de drie maten renderen niet oplopend: {m}"
+    )
+    assert m["Beeld vol"] == m["kolom"], f"volle breedte vult de kolom niet: {m}"
     # Geen van de drie steekt buiten de kolom — `max-width:100%` blijft gelden.
     for naam in ("Beeld klein", "Beeld half", "Beeld vol"):
         assert m[naam] <= m["kolom"], f"{naam} is breder dan de kolom: {m}"
@@ -215,5 +233,4 @@ def test_op_een_telefoon_vervalt_de_maat(admin_page, drie_maten):
     m = _breedtes(admin_page, drie_maten, 390)
 
     for naam in ("Beeld klein", "Beeld half", "Beeld vol"):
-        assert m[naam] == m["kolom"], (
-            f"{naam} staat op een telefoon niet op volle breedte: {m}")
+        assert m[naam] == m["kolom"], f"{naam} staat op een telefoon niet op volle breedte: {m}"

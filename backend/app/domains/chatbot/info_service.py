@@ -9,6 +9,7 @@ er in de context zitten (affiches, onderdeel-info, CMS-pagina's, notities), hoe 
 document zijn label krijgt, en dat een rij zonder ChatbotInfo als "standaard aan"
 telt.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
@@ -19,6 +20,7 @@ from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 from app.kernel.codes import code_of
+
 # media wordt per functie geïmporteerd: `media/extraction.py` importeert op
 # modulniveau `ChatbotInfo` uit chatbot.api, dat op zijn beurt deze module laadt.
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
@@ -78,13 +80,15 @@ def list_chatbot_info(db: Session, _admin=None):
         .order_by(MediaAsset.id)
         .all()
     ):
-        documents.append({
-            "asset_id": asset.id,
-            "kind": code_of(asset.kind),
-            "is_pdf": asset.content_type == "application/pdf",
-            "label": _document_label(db, asset),
-            "info": _row(rows_by_asset.get(asset.id)),
-        })
+        documents.append(
+            {
+                "asset_id": asset.id,
+                "kind": code_of(asset.kind),
+                "is_pdf": asset.content_type == "application/pdf",
+                "label": _document_label(db, asset),
+                "info": _row(rows_by_asset.get(asset.id)),
+            }
+        )
 
     # CMS: gepubliceerde pagina's + hun (optionele) override-rij.
     rows_by_page = {
@@ -98,12 +102,14 @@ def list_chatbot_info(db: Session, _admin=None):
         .order_by(CmsPage.sort_order, CmsPage.id)
         .all()
     ):
-        cms.append({
-            "page_id": page.id,
-            "title": page.title,
-            "slug": page.slug,
-            "info": _row(rows_by_page.get(page.id)),
-        })
+        cms.append(
+            {
+                "page_id": page.id,
+                "title": page.title,
+                "slug": page.slug,
+                "info": _row(rows_by_page.get(page.id)),
+            }
+        )
 
     # Vrije notities.
     notes = [
@@ -128,7 +134,9 @@ def _apply_edit(ci: ChatbotInfo, data: ChatbotInfoEdit) -> None:
 
 def create_note(db: Session, data: NoteCreate, _admin=None):
     ci = ChatbotInfo(
-        title=data.title, text_addition=data.text_addition, is_active=data.is_active,
+        title=data.title,
+        text_addition=data.text_addition,
+        is_active=data.is_active,
     )
     db.add(ci)
     db.commit()

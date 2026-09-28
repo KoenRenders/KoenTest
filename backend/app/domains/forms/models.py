@@ -1,15 +1,15 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
+    DateTime,
+    ForeignKey,
     Integer,
+    Numeric,
     SmallInteger,
     String,
     Text,
-    Boolean,
-    DateTime,
-    Numeric,
-    ForeignKey,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,8 +38,8 @@ class FieldType(CodeEnum):
     RADIO = "radio"
     CHECKBOX = "checkbox"
     RATING = "rating"
-    INFO = "info"      # a purely informative text block, no answer (#335)
-    PHONE = "phone"    # mobile/phone with light validation (#344)
+    INFO = "info"  # a purely informative text block, no answer (#335)
+    PHONE = "phone"  # mobile/phone with light validation (#344)
 
 
 class FormStatus(CodeEnum):
@@ -79,8 +79,10 @@ class Form(TenantMixin, Base):
     share_token = Column(String(64), nullable=False, unique=True, index=True)
     status: Mapped[FormStatus] = mapped_column(
         EnumColumn(FormStatus, length=20),
-        ForeignKey("form.form_status_codes.code"), nullable=False,
-        default=FormStatus.DRAFT)
+        ForeignKey("form.form_status_codes.code"),
+        nullable=False,
+        default=FormStatus.DRAFT,
+    )
     requires_login = Column(Boolean, nullable=False, default=False)
     max_submissions = Column(Integer, nullable=True)
     # Bevestigingsmail na inzending (enkel als er een e-mailadres is).
@@ -152,8 +154,8 @@ class FormField(TenantMixin, Base):
         Integer, ForeignKey("form.form_sections.id", ondelete="CASCADE"), nullable=True, index=True
     )
     field_type: Mapped[FieldType] = mapped_column(
-        EnumColumn(FieldType, length=20),
-        ForeignKey("form.field_type_codes.code"), nullable=False)
+        EnumColumn(FieldType, length=20), ForeignKey("form.field_type_codes.code"), nullable=False
+    )
     label = Column(String(300), nullable=False)
     help_text = Column(Text, nullable=True)
     required = Column(Boolean, nullable=False, default=False)
@@ -283,15 +285,14 @@ class FormStatusLabel(Base):
     __tablename__ = "form_status_labels"
     __table_args__ = {"schema": "form"}
 
-    code = Column(String(20), ForeignKey("form.form_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("form.form_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class FieldTypeCode(Base):
@@ -312,12 +313,11 @@ class FieldTypeLabel(Base):
     __tablename__ = "field_type_labels"
     __table_args__ = {"schema": "form"}
 
-    code = Column(String(20), ForeignKey("form.field_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("form.field_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

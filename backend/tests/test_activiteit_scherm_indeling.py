@@ -18,6 +18,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - de include ná de buitenste `</div>` van dit bestand → **groen**, en dat is
   een meting die de aanname uit het issue bijstelt: zie de test hieronder.
 """
+
 import re
 
 import pytest
@@ -52,14 +53,18 @@ def _scherm(client, activiteit) -> str:
 def _ontwerp(db, activiteit):
     from app.domains.designstudio.api import create_design
 
-    ontwerp = create_design(db, activity_id=activiteit.id,
-                            duo_code="dark_green-golden_yellow",
-                            created_by=SEEDED_ADMIN_EMAIL)
+    ontwerp = create_design(
+        db,
+        activity_id=activiteit.id,
+        duo_code="dark_green-golden_yellow",
+        created_by=SEEDED_ADMIN_EMAIL,
+    )
     db.flush()
     return ontwerp
 
 
 # ── #1046: Organisatoren onderaan ────────────────────────────────────────────
+
 
 def test_organisatoren_staan_onder_onderdelen(client, db_session, activiteit):
     _login(client)
@@ -76,11 +81,11 @@ def test_organisatoren_staan_onder_onderdelen(client, db_session, activiteit):
     organisatoren = kop("Organisatoren")
 
     assert organisatoren > onderdelen, (
-        "het organisatorenblok staat weer boven Onderdelen & producten (#1046)")
+        "het organisatorenblok staat weer boven Onderdelen & producten (#1046)"
+    )
 
 
-def test_het_blok_staat_ook_in_het_fragment_na_een_bewerking(client, db_session,
-                                                             activiteit):
+def test_het_blok_staat_ook_in_het_fragment_na_een_bewerking(client, db_session, activiteit):
     """Na bewaren staat het organisatorenblok er nog — getoetst op het FRAGMENT.
 
     Het issue waarschuwt dat de include buiten `#aa-detail` kan belanden en dan
@@ -96,19 +101,25 @@ def test_het_blok_staat_ook_in_het_fragment_na_een_bewerking(client, db_session,
     """
     csrf = _login(client)
 
-    antwoord = client.post(f"/admin/activiteiten/{activiteit.id}",
-                           data={"name": activiteit.name, "location": "Miloheem",
-                                 "description": "", "board_notes": "", "slug": ""},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/activiteiten/{activiteit.id}",
+        data={
+            "name": activiteit.name,
+            "location": "Miloheem",
+            "description": "",
+            "board_notes": "",
+            "slug": "",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert antwoord.status_code == 200
     assert re.search(r"<h3[^>]*>Organisatoren</h3>", antwoord.text), (
-        "na een bewerking is het organisatorenblok weg — de include staat buiten "
-        "#aa-detail")
+        "na een bewerking is het organisatorenblok weg — de include staat buiten #aa-detail"
+    )
 
 
-def test_zonder_onderdelen_blijft_de_scheiding_leesbaar(client, db_session,
-                                                        activiteit):
+def test_zonder_onderdelen_blijft_de_scheiding_leesbaar(client, db_session, activiteit):
     """#637/#650 verhuist mee: zonder onderdelen las de kaart eronder als een
     onderdeel. Die kaart is nu het organisatorenblok."""
     _login(client)
@@ -126,6 +137,7 @@ def test_zonder_onderdelen_blijft_de_scheiding_leesbaar(client, db_session,
 # `test_designs_knop_in_de_recordkop.py`; hier blijft alleen de waarborg dat het
 # oude blok werkelijk weg is en de publieke kant er nooit iets van zag.
 
+
 def test_de_rail_draagt_het_afficheblok_niet_meer(client, db_session, activiteit):
     """#1070: het kopje bestond alleen voor die ene knop, dus het verdwijnt mee."""
     _login(client)
@@ -141,8 +153,9 @@ def test_de_publieke_kant_toont_de_sprong_niet(client, db_session, activiteit):
 
     from app.domains.activities.api import ActivityDate
 
-    db_session.add(ActivityDate(activity_id=activiteit.id,
-                                start_date=date.today() + timedelta(days=14)))
+    db_session.add(
+        ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=14))
+    )
     db_session.flush()
     _ontwerp(db_session, activiteit)
 

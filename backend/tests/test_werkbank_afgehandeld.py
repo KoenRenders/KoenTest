@@ -15,10 +15,10 @@ Twee dingen die hier stil kapot kunnen gaan, en die deze tests vastzetten:
 2. **De rolfilter geldt óók op afgehandelde taken**, anders lekt een FINANCE-taak
    naar een gewone admin zodra ze gesloten is.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.workflow import api
 from app.domains.workflow.models import WorkflowTask
 from tests.conftest import SEEDED_ADMIN_EMAIL
@@ -33,9 +33,14 @@ def _login(client):
 
 
 def _taak(db, *, titel="Bericht behartigen", rol="ADMIN", status="open"):
-    taak = WorkflowTask(kind="bericht.behartigen", title=titel, status=status,
-                        subject_type="form_submission", subject_id=1,
-                        required_role=rol)
+    taak = WorkflowTask(
+        kind="bericht.behartigen",
+        title=titel,
+        status=status,
+        subject_type="form_submission",
+        subject_id=1,
+        required_role=rol,
+    )
     db.add(taak)
     db.commit()
     return taak
@@ -43,8 +48,12 @@ def _taak(db, *, titel="Bericht behartigen", rol="ADMIN", status="open"):
 
 def test_een_afgehandelde_taak_is_terug_te_vinden(client, db_session):
     taak = _taak(db_session, titel="Vraag over de barbecue")
-    api.close_task(db_session, taak.id, done_by="koen@example.com",
-                   decision="Telefonisch beantwoord, komt met twee personen")
+    api.close_task(
+        db_session,
+        taak.id,
+        done_by="koen@example.com",
+        decision="Telefonisch beantwoord, komt met twee personen",
+    )
     db_session.commit()
     _login(client)
 
@@ -55,7 +64,7 @@ def test_een_afgehandelde_taak_is_terug_te_vinden(client, db_session):
 
 
 def test_de_open_lijst_blijft_de_open_lijst(client, db_session):
-    open_taak = _taak(db_session, titel="Nog te doen")
+    _taak(db_session, titel="Nog te doen")
     klaar = _taak(db_session, titel="Al gedaan")
     api.close_task(db_session, klaar.id, done_by="koen@example.com", decision="ok")
     db_session.commit()
@@ -66,7 +75,7 @@ def test_de_open_lijst_blijft_de_open_lijst(client, db_session):
 
 
 def test_alle_toont_beide(client, db_session):
-    open_taak = _taak(db_session, titel="Nog te doen")
+    _taak(db_session, titel="Nog te doen")
     klaar = _taak(db_session, titel="Al gedaan")
     api.close_task(db_session, klaar.id, done_by="koen@example.com", decision="ok")
     db_session.commit()
@@ -78,7 +87,7 @@ def test_alle_toont_beide(client, db_session):
 
 def test_open_tasks_blijft_onveranderd(db_session):
     """De regressie die de weesjob en de navigatieteller stil zou breken."""
-    open_taak = _taak(db_session, titel="Nog te doen")
+    _taak(db_session, titel="Nog te doen")
     klaar = _taak(db_session, titel="Al gedaan")
     api.close_task(db_session, klaar.id, done_by="koen@example.com", decision="ok")
     db_session.commit()
@@ -87,7 +96,8 @@ def test_open_tasks_blijft_onveranderd(db_session):
     assert "Nog te doen" in titels
     assert "Al gedaan" not in titels, (
         "open_tasks geeft nu ook afgehandelde taken terug — de weesjob maakt dan "
-        "geen taken meer aan en de teller klopt niet")
+        "geen taken meer aan en de teller klopt niet"
+    )
     assert api.open_count(db_session, ["ADMIN"]) == len(titels)
 
 
@@ -113,7 +123,8 @@ def test_een_afgehandelde_taak_toont_geen_afhandelvorm(client, db_session):
     html = client.get(f"/admin/werkbank/taken/{taak.id}").text
     assert "Besluit" in html and "ok" in html
     assert f"/admin/werkbank/taken/{taak.id}/afgehandeld" not in html, (
-        "een afgehandelde taak biedt nog een afhandelknop aan")
+        "een afgehandelde taak biedt nog een afhandelknop aan"
+    )
 
 
 def test_een_onbekende_status_valt_terug_op_open(client, db_session):

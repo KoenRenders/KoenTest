@@ -18,18 +18,21 @@ balance by status rather than charged-minus-received. Point any of them at the
 obvious-looking measure instead and the corresponding assertion fails with two
 different numbers.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 
 import pytest
 
+from app.domains.payment.api import PaymentStatus
 from app.domains.reporting.api import (
-    list_saved_reports, run_validated, selection_of,
+    list_saved_reports,
+    run_validated,
+    selection_of,
 )
 from tests._reporting_seed import TENANT_A, seed
 from tests.test_reporting_panel_ui import ADMIN_EMAIL, login
-from app.domains.payment.api import PaymentStatus
 
 # builtin_key -> the key of the one measure the report returns.
 TILE_REPORTS = {
@@ -48,13 +51,15 @@ def situation(db_session):
 
 
 def _tile_number(db, key: str):
-    rapport = next(r for r in list_saved_reports(db, tenant_id=TENANT_A,
-                                                 viewer=ADMIN_EMAIL)
-                   if r.builtin_key == key)
-    resultaat = run_validated(db, selection_of(rapport), tenant_id=TENANT_A,
-                              viewer=ADMIN_EMAIL)
+    rapport = next(
+        r
+        for r in list_saved_reports(db, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
+        if r.builtin_key == key
+    )
+    resultaat = run_validated(db, selection_of(rapport), tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
     assert len(resultaat.rows) == 1, (
-        f"{key} hoort één rij met één getal te geven, een tegel is geen tabel")
+        f"{key} hoort één rij met één getal te geven, een tegel is geen tabel"
+    )
     return resultaat.rows[0][TILE_REPORTS[key]]
 
 
@@ -80,6 +85,7 @@ def _old_stats(db):
 
 # ── The cross-check (#848, the test the issue rests on) ──────────────────────
 
+
 def test_every_tile_reads_the_same_number_both_ways(db_session, situation):
     from datetime import datetime, timedelta, timezone
 
@@ -89,28 +95,33 @@ def test_every_tile_reads_the_same_number_both_ways(db_session, situation):
     # not — otherwise "counts two roles" and "counts everything" look the same.
     nu = datetime.now(timezone.utc)
     for rol in ("ADMIN", "FINANCE", "OPERATOR"):
-        db_session.add(WorkflowTask(
-            tenant_id=TENANT_A, kind="kernel.job_gefaald", title=f"T {rol}",
-            subject_type="kernel_job", subject_id=f"j{rol}", status="open",
-            required_role=rol, created_at=nu - timedelta(days=2)))
+        db_session.add(
+            WorkflowTask(
+                tenant_id=TENANT_A,
+                kind="kernel.job_gefaald",
+                title=f"T {rol}",
+                subject_type="kernel_job",
+                subject_id=f"j{rol}",
+                status="open",
+                required_role=rol,
+                created_at=nu - timedelta(days=2),
+            )
+        )
     db_session.commit()
 
     oud = _old_stats(db_session)
 
     assert _tile_number(db_session, "dashboard_members") == oud["members"]
-    assert _tile_number(db_session, "dashboard_active_members") == \
-        oud["active_members"]
-    assert _tile_number(db_session, "dashboard_member_persons") == \
-        oud["active_member_persons"]
-    assert _tile_number(db_session, "dashboard_upcoming_activities") == \
-        oud["upcoming_activities"]
+    assert _tile_number(db_session, "dashboard_active_members") == oud["active_members"]
+    assert _tile_number(db_session, "dashboard_member_persons") == oud["active_member_persons"]
+    assert _tile_number(db_session, "dashboard_upcoming_activities") == oud["upcoming_activities"]
     assert _tile_number(db_session, "dashboard_open_tasks") == oud["open_tasks"]
-    assert Decimal(str(_tile_number(db_session, "dashboard_outstanding"))) == \
-        Decimal(str(oud["outstanding_balance"]))
+    assert Decimal(str(_tile_number(db_session, "dashboard_outstanding"))) == Decimal(
+        str(oud["outstanding_balance"])
+    )
 
 
-def test_the_open_tasks_tile_counts_two_roles_and_not_the_third(db_session,
-                                                                situation):
+def test_the_open_tasks_tile_counts_two_roles_and_not_the_third(db_session, situation):
     """The narrowness is the point: a task for OPERATOR is not on this tile."""
     from datetime import datetime, timedelta, timezone
 
@@ -118,17 +129,25 @@ def test_the_open_tasks_tile_counts_two_roles_and_not_the_third(db_session,
 
     nu = datetime.now(timezone.utc)
     voor = _tile_number(db_session, "dashboard_open_tasks")
-    db_session.add(WorkflowTask(
-        tenant_id=TENANT_A, kind="kernel.job_gefaald", title="Alleen operator",
-        subject_type="kernel_job", subject_id="jo", status="open",
-        required_role="OPERATOR", created_at=nu - timedelta(days=1)))
+    db_session.add(
+        WorkflowTask(
+            tenant_id=TENANT_A,
+            kind="kernel.job_gefaald",
+            title="Alleen operator",
+            subject_type="kernel_job",
+            subject_id="jo",
+            status="open",
+            required_role="OPERATOR",
+            created_at=nu - timedelta(days=1),
+        )
+    )
     db_session.commit()
     assert _tile_number(db_session, "dashboard_open_tasks") == voor, (
-        "een taak voor OPERATOR hoort niet op deze tegel")
+        "een taak voor OPERATOR hoort niet op deze tegel"
+    )
 
 
-def test_the_members_tile_counts_a_household_that_never_joined(db_session,
-                                                               situation):
+def test_the_members_tile_counts_a_household_that_never_joined(db_session, situation):
     """The grain that was missing: `f_memberships` cannot see this household."""
     from app.domains.mdm.api import Member
 
@@ -141,11 +160,13 @@ def test_the_members_tile_counts_a_household_that_never_joined(db_session,
     # needed at all: distinct households there, against every household here.
     from sqlalchemy import text
 
-    in_lidmaatschappen = db_session.execute(text(
-        "SELECT COUNT(DISTINCT member_id) FROM reporting.f_memberships "
-        "WHERE tenant_id = :t"), {"t": TENANT_A}).scalar()
+    in_lidmaatschappen = db_session.execute(
+        text("SELECT COUNT(DISTINCT member_id) FROM reporting.f_memberships WHERE tenant_id = :t"),
+        {"t": TENANT_A},
+    ).scalar()
     assert in_lidmaatschappen < _tile_number(db_session, "dashboard_members"), (
-        "een gezin dat nooit lid was, bestaat niet in f_memberships")
+        "een gezin dat nooit lid was, bestaat niet in f_memberships"
+    )
 
 
 def test_the_persons_tile_follows_validity_and_not_the_year(db_session, situation):
@@ -157,12 +178,16 @@ def test_the_persons_tile_follows_validity_and_not_the_year(db_session, situatio
     from sqlalchemy import text
 
     vandaag_geldig = _tile_number(db_session, "dashboard_member_persons")
-    dit_jaar = db_session.execute(text(
-        "SELECT COUNT(*) FROM reporting.f_membership_persons "
-        "WHERE tenant_id = :t AND year = EXTRACT(YEAR FROM CURRENT_DATE)"),
-        {"t": TENANT_A}).scalar()
+    dit_jaar = db_session.execute(
+        text(
+            "SELECT COUNT(*) FROM reporting.f_membership_persons "
+            "WHERE tenant_id = :t AND year = EXTRACT(YEAR FROM CURRENT_DATE)"
+        ),
+        {"t": TENANT_A},
+    ).scalar()
     assert vandaag_geldig != dit_jaar, (
-        "de seed bevat het oktobergeval, dus de twee regels geven een ander getal")
+        "de seed bevat het oktobergeval, dus de twee regels geven een ander getal"
+    )
 
 
 def test_the_outstanding_tile_uses_the_status_rule(db_session, situation):
@@ -175,29 +200,39 @@ def test_the_outstanding_tile_uses_the_status_rule(db_session, situation):
 
     from app.domains.payment.api import PaymentRecord
 
-    record = db_session.query(PaymentRecord).filter(
-        PaymentRecord.status == PaymentStatus.PENDING).first()
+    record = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.status == PaymentStatus.PENDING)
+        .first()
+    )
     record.amount_paid = D("4.00")
     db_session.commit()
 
     op_status = D(str(_tile_number(db_session, "dashboard_outstanding")))
     oud = _old_stats(db_session)
     assert op_status == D(str(oud["outstanding_balance"])), (
-        "het rapport volgt dezelfde regel als de tegel")
+        "het rapport volgt dezelfde regel als de tegel"
+    )
 
     gevorderd_min_ontvangen = run_validated(
         db_session,
         __import__("app.domains.reporting.api", fromlist=["Selection"]).Selection(
-            object_keys=("payment_open_amount",)),
-        tenant_id=TENANT_A)
+            object_keys=("payment_open_amount",)
+        ),
+        tenant_id=TENANT_A,
+    )
     assert D(str(gevorderd_min_ontvangen.rows[0]["payment_open_amount"])) != op_status, (
         "bij een deels betaald record lopen de twee regels uiteen — dat verschil "
-        "is het onderwerp, geen dubbeling")
+        "is het onderwerp, geen dubbeling"
+    )
 
 
 def test_the_reports_are_shared_and_shipped(db_session, situation):
-    keys = {r.builtin_key for r in list_saved_reports(
-        db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL) if r.builtin_key}
+    keys = {
+        r.builtin_key
+        for r in list_saved_reports(db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
+        if r.builtin_key
+    }
     assert set(TILE_REPORTS) <= keys
 
 
@@ -209,27 +244,26 @@ def test_a_dashboard_report_still_answers_next_year(db_session, situation):
     """
     from datetime import date
 
-    rapport = next(r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
-                                                 viewer=ADMIN_EMAIL)
-                   if r.builtin_key == "dashboard_active_members")
+    rapport = next(
+        r
+        for r in list_saved_reports(db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
+        if r.builtin_key == "dashboard_active_members"
+    )
     selectie = selection_of(rapport)
     assert selectie.filters[0].symbolic == "dit_jaar", (
-        "het jaar staat als verwijzing in de bewaarde selectie, niet als jaartal")
+        "het jaar staat als verwijzing in de bewaarde selectie, niet als jaartal"
+    )
 
     _y0, y1, y2, _y3 = situation["years"]
-    vorig = run_validated(db_session, selectie, tenant_id=TENANT_A,
-                          today=date(y1, 6, 1))
-    dit = run_validated(db_session, selectie, tenant_id=TENANT_A,
-                        today=date(y2, 6, 1))
-    assert vorig.rows[0]["membership_active_count"] != \
-        dit.rows[0]["membership_active_count"]
+    vorig = run_validated(db_session, selectie, tenant_id=TENANT_A, today=date(y1, 6, 1))
+    dit = run_validated(db_session, selectie, tenant_id=TENANT_A, today=date(y2, 6, 1))
+    assert vorig.rows[0]["membership_active_count"] != dit.rows[0]["membership_active_count"]
 
 
 # ── The screen itself ────────────────────────────────────────────────────────
 
-def test_the_dashboard_shows_six_tiles_that_link_to_their_report(client,
-                                                                 db_session,
-                                                                 situation):
+
+def test_the_dashboard_shows_six_tiles_that_link_to_their_report(client, db_session, situation):
     """The tile keeps its operational link and gains one to its report.
 
     Not instead of: at "Open taken" you usually want the workbench, not a table.
@@ -240,21 +274,23 @@ def test_the_dashboard_shows_six_tiles_that_link_to_their_report(client,
     pagina = client.get("/admin")
     assert pagina.status_code == 200
 
-    for titel, doel in [("Leden", "/admin/leden"),
-                        ("Actieve gezinnen", "/admin/leden"),
-                        ("Personen (actief lid)", "/admin/leden"),
-                        ("Komende activiteiten", "/admin/activiteiten"),
-                        ("Open taken (werkbank)", "/admin/werkbank"),
-                        ("Openstaand saldo", "/admin/betalingen")]:
+    for titel, doel in [
+        ("Leden", "/admin/leden"),
+        ("Actieve gezinnen", "/admin/leden"),
+        ("Personen (actief lid)", "/admin/leden"),
+        ("Komende activiteiten", "/admin/activiteiten"),
+        ("Open taken (werkbank)", "/admin/werkbank"),
+        ("Openstaand saldo", "/admin/betalingen"),
+    ]:
         assert titel in pagina.text, titel
         assert doel in pagina.text, doel
 
     assert pagina.text.count("/admin/rapporten/") >= 6, (
-        "elke tegel is doorklikbaar naar zijn rapport")
+        "elke tegel is doorklikbaar naar zijn rapport"
+    )
 
 
-def test_the_dashboard_numbers_are_the_report_numbers(client, db_session,
-                                                      situation):
+def test_the_dashboard_numbers_are_the_report_numbers(client, db_session, situation):
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
@@ -264,8 +300,7 @@ def test_the_dashboard_numbers_are_the_report_numbers(client, db_session,
         assert f">{getal}<" in pagina.text, f"{key} = {getal} staat op het scherm"
 
 
-def test_dashboard_numbers_resolves_every_tile_on_the_one_clock(db_session,
-                                                                situation):
+def test_dashboard_numbers_resolves_every_tile_on_the_one_clock(db_session, situation):
     """Wave 7 (#913, B3): `dashboard_numbers` takes `today` and threads it into
     every tile's `run_validated`. Without it each tile resolved its own clock,
     and around midnight six tiles could disagree. Proven the same way as the
@@ -276,12 +311,13 @@ def test_dashboard_numbers_resolves_every_tile_on_the_one_clock(db_session,
 
     _y0, y1, y2, _y3 = situation["years"]
     wanted = [("dashboard_active_members", "membership_active_count")]
-    vorig = dashboard_numbers(db_session, wanted, tenant_id=TENANT_A,
-                              viewer=ADMIN_EMAIL, today=date(y1, 6, 1))
-    dit = dashboard_numbers(db_session, wanted, tenant_id=TENANT_A,
-                            viewer=ADMIN_EMAIL, today=date(y2, 6, 1))
-    assert vorig["dashboard_active_members"].value != \
-        dit["dashboard_active_members"].value
+    vorig = dashboard_numbers(
+        db_session, wanted, tenant_id=TENANT_A, viewer=ADMIN_EMAIL, today=date(y1, 6, 1)
+    )
+    dit = dashboard_numbers(
+        db_session, wanted, tenant_id=TENANT_A, viewer=ADMIN_EMAIL, today=date(y2, 6, 1)
+    )
+    assert vorig["dashboard_active_members"].value != dit["dashboard_active_members"].value
 
 
 def test_the_dashboard_names_its_peilmoment(client, db_session, situation):

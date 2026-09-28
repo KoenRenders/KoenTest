@@ -4,6 +4,7 @@ Mollie-redirect. De totaalberekening is uitsluitend server-side (§19.3): het
 totaal-fragment wordt bij elke wijziging via htmx opnieuw berekend met de
 prijzen uit de databank — geen client-side duplicaat meer.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -11,12 +12,12 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.domains.activities.api import REGISTRATION_STATE, RegistrationState
+from app.domains.mdm.api import CONTACT
+from app.i18n import _
+from app.kernel.codes import register_tones
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
-from app.i18n import _
-from app.domains.mdm.api import CONTACT
-from app.domains.activities.api import REGISTRATION_STATE, RegistrationState
-from app.kernel.codes import register_tones
 
 router = APIRouter(include_in_schema=False)
 
@@ -24,12 +25,15 @@ router = APIRouter(include_in_schema=False)
 # (§B4.5). These were a dictionary keyed on the DUTCH LABEL inside two templates
 # ("Afgesloten": "gray", …), which would have lost every colour the day a unit
 # read the page in English. Keyed on the code now; the colours are the same.
-register_tones(REGISTRATION_STATE.name, {
-    RegistrationState.OPEN: "green",
-    RegistrationState.CLOSED: "gray",
-    RegistrationState.PAST: "gray",
-    RegistrationState.CANCELLED: "red",
-})
+register_tones(
+    REGISTRATION_STATE.name,
+    {
+        RegistrationState.OPEN: "green",
+        RegistrationState.CLOSED: "gray",
+        RegistrationState.PAST: "gray",
+        RegistrationState.CANCELLED: "red",
+    },
+)
 
 
 def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
@@ -44,7 +48,9 @@ def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
 
 @router.get("/activiteiten", response_class=HTMLResponse)
 def activiteiten_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "upcoming", request))
+    return templates.TemplateResponse(
+        request, "activiteiten.html", _lijst_ctx(db, "upcoming", request)
+    )
 
 
 @router.get("/archief", response_class=HTMLResponse)
@@ -57,21 +63,22 @@ def archief_redirect(request: Request):
 
 @router.get("/activiteiten/archief", response_class=HTMLResponse)
 def archief_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "archived", request))
+    return templates.TemplateResponse(
+        request, "activiteiten.html", _lijst_ctx(db, "archived", request)
+    )
 
 
-@router.get("/activiteiten/{activity_id}/deelnemers/{component_id}",
-            response_class=HTMLResponse)
-def deelnemers_fragment(activity_id: int, component_id: int, request: Request,
-                        db: Session = Depends(get_db)):
+@router.get("/activiteiten/{activity_id}/deelnemers/{component_id}", response_class=HTMLResponse)
+def deelnemers_fragment(
+    activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
+):
     """Publieke deelnemerslijst per onderdeel ('Wie doet er mee?') als htmx-
     fragment — herstelt de v1.14-functie voor portal-beheerde inschrijvingen
     (#451). Hergebruikt het bestaande publieke registraties-endpoint."""
     from app.domains.activities.api import public_registrations
 
     deelnemers = public_registrations(db, activity_id, component_id)
-    return templates.TemplateResponse(request, "_deelnemers.html",
-                                      {"deelnemers": deelnemers})
+    return templates.TemplateResponse(request, "_deelnemers.html", {"deelnemers": deelnemers})
 
 
 def _component_or_404(db: Session, activity_id: int, component_id: int):
@@ -143,10 +150,10 @@ def _prefill(request: Request, person) -> dict:
     return prefill
 
 
-@router.get("/activiteiten/{activity_id}/inschrijven/{component_id}",
-            response_class=HTMLResponse)
-def inschrijf_form(activity_id: int, component_id: int, request: Request,
-                   db: Session = Depends(get_db)):
+@router.get("/activiteiten/{activity_id}/inschrijven/{component_id}", response_class=HTMLResponse)
+def inschrijf_form(
+    activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
+):
     from app.domains.activities.api import form_context, registration_refusal
 
     activity, component = _component_or_404(db, activity_id, component_id)
@@ -154,45 +161,62 @@ def inschrijf_form(activity_id: int, component_id: int, request: Request,
     # #974: een modal die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
-    ctx = form_context(channel, activity, component,
-                       values=_prefill(request, channel.person),
-                       error=registration_refusal(activity, component=component))
+    ctx = form_context(
+        channel,
+        activity,
+        component,
+        values=_prefill(request, channel.person),
+        error=registration_refusal(activity, component=component),
+    )
     return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
 
 
-@router.post("/activiteiten/{activity_id}/inschrijven/{component_id}/totaal",
-             response_class=HTMLResponse)
-async def inschrijf_totaal(activity_id: int, component_id: int, request: Request,
-                           db: Session = Depends(get_db)):
+@router.post(
+    "/activiteiten/{activity_id}/inschrijven/{component_id}/totaal", response_class=HTMLResponse
+)
+async def inschrijf_totaal(
+    activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
+):
     """Server-side herberekening bij elke wijziging (§19.3 — geen drift)."""
     from app.domains.activities.api import total_context
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
     return templates.TemplateResponse(
-        request, "_inschrijf_totaal.html",
-        total_context(_channel(request, db, activity, component), component, form))
+        request,
+        "_inschrijf_totaal.html",
+        total_context(_channel(request, db, activity, component), component, form),
+    )
 
 
-@router.post("/activiteiten/{activity_id}/inschrijven/{component_id}",
-             response_class=HTMLResponse, dependencies=[Depends(registration_limiter)])
-async def inschrijf_submit(activity_id: int, component_id: int, request: Request,
-                           background_tasks: BackgroundTasks,
-                           db: Session = Depends(get_db)):
+@router.post(
+    "/activiteiten/{activity_id}/inschrijven/{component_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(registration_limiter)],
+)
+async def inschrijf_submit(
+    activity_id: int,
+    component_id: int,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     """The public channel of the one form (#1284): the processing is shared with
     the board; what is decided here is only how the outcome is shown."""
     from app.domains.activities.api import OutcomeKind, public_registrations, submit
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
-    outcome = submit(db, _channel(request, db, activity, component), activity, component,
-                     form, background_tasks)
+    outcome = submit(
+        db, _channel(request, db, activity, component), activity, component, form, background_tasks
+    )
     if outcome.kind is OutcomeKind.REFUSED:
         return templates.TemplateResponse(request, "_inschrijf_form.html", outcome.context)
     if outcome.kind is OutcomeKind.CHECKOUT:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).
-        response = templates.TemplateResponse(request, "_inschrijf_klaar.html",
-                                              {"naam": outcome.name, "checkout": True})
+        response = templates.TemplateResponse(
+            request, "_inschrijf_klaar.html", {"naam": outcome.name, "checkout": True}
+        )
         response.headers["HX-Redirect"] = outcome.checkout_url
         return response
     # #1159: de deelnemerslijst staat BUITEN het swap-doel van dit formulier
@@ -202,15 +226,20 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     # het doel staat, reist out-of-band mee met het antwoord (fragment-antwoord,
     # §8.2, #748). Alleen op dit pad: het betaalde pad verlaat de pagina.
     return templates.TemplateResponse(
-        request, "_inschrijf_klaar.html",
-        {"naam": outcome.name, "checkout": False,
-         "activity_id": activity.id, "component_id": component.id,
-         "deelnemers": public_registrations(db, activity.id, component.id)})
+        request,
+        "_inschrijf_klaar.html",
+        {
+            "naam": outcome.name,
+            "checkout": False,
+            "activity_id": activity.id,
+            "component_id": component.id,
+            "deelnemers": public_registrations(db, activity.id, component.id),
+        },
+    )
 
 
 @router.get("/activiteiten/{sleutel}")
-def activiteit_deeplink(sleutel: str, request: Request,
-                        db: Session = Depends(get_db)):
+def activiteit_deeplink(sleutel: str, request: Request, db: Session = Depends(get_db)):
     """Het kanonieke deeladres van één activiteit (golf 8, 15 sep 2026).
 
     Een vooraf gecommuniceerde link moet ook ná het evenement blijven werken,
@@ -222,7 +251,6 @@ def activiteit_deeplink(sleutel: str, request: Request,
 
     Staat ná /activiteiten/archief geregistreerd, dus "archief" wint als pad.
     """
-    from datetime import date
 
     from fastapi.responses import RedirectResponse
 
@@ -234,8 +262,7 @@ def activiteit_deeplink(sleutel: str, request: Request,
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     # Voorbij = de laatste (eind)datum ligt vóór vandaag — dezelfde blik als de
     # lijstscopes: zonder datums blijft ze op de komende lijst staan.
-    laatste = max((d.end_date or d.start_date for d in activiteit.dates),
-                  default=None)
+    laatste = max((d.end_date or d.start_date for d in activiteit.dates), default=None)
     # #977: de Belgische datum, zoals de lijst zelf — anders stuurt een link rond
     # middernacht door naar een lijst waar de kaart (nog) niet op staat.
     from app.kernel.clock import belgian_today
@@ -248,8 +275,7 @@ def activiteit_deeplink(sleutel: str, request: Request,
     from app.domains.activities.api import list_activities
 
     scope = "archived" if voorbij else "upcoming"
-    vm = next((x for x in list_activities(db, scope=scope)
-               if x.id == activiteit.id), None)
+    vm = next((x for x in list_activities(db, scope=scope) if x.id == activiteit.id), None)
     if vm is None:
         # Vangnet voor een record dat (nog) in geen van beide lijstscopes valt:
         # de oude redirect, zodat de link nooit doodloopt.
@@ -262,8 +288,11 @@ def activiteit_deeplink(sleutel: str, request: Request,
         # Een PDF-affiche toont haar voorblad (#1019); het beeld linkt altijd
         # naar het volledige bestand.
         poster_link = activiteit.poster_asset_url
-        poster_url = (activiteit.poster_asset_url + "/thumb"
-                      if activiteit.poster_asset_is_pdf else activiteit.poster_asset_url)
+        poster_url = (
+            activiteit.poster_asset_url + "/thumb"
+            if activiteit.poster_asset_is_pdf
+            else activiteit.poster_asset_url
+        )
     elif activiteit.poster_url:
         poster_link = activiteit.poster_url
     # De klokregel bovenaan (#1051-copy: zonder jaartal, oranje in de laatste week)
@@ -273,8 +302,15 @@ def activiteit_deeplink(sleutel: str, request: Request,
     # tonen. Eén bron: twee berekeningen van "de laatste week" lopen vroeg of laat
     # uiteen, en de datumopmaak zat hier bovendien met `rsplit` in plaats van via
     # de babel-filter.
-    return templates.TemplateResponse(request, "activiteit.html", {
-        **site_context(db, request), "a": vm, "scope": scope,
-        "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
-        "poster_url": poster_url, "poster_link": poster_link,
-    })
+    return templates.TemplateResponse(
+        request,
+        "activiteit.html",
+        {
+            **site_context(db, request),
+            "a": vm,
+            "scope": scope,
+            "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
+            "poster_url": poster_url,
+            "poster_link": poster_link,
+        },
+    )

@@ -38,10 +38,11 @@ finds nothing anybody reads. A guard that is off finds nothing and says
 nothing, which is the failure mode of #678 in its purest form. Hence also the
 second number in the ratchet table: how many values it actually inspected.
 """
+
 from enum import Enum
 
 import pytest
-from jinja2 import Environment, DictLoader
+from jinja2 import DictLoader, Environment
 
 from app.kernel import codes as kernel_codes
 from app.kernel.codes import EnumRendered, install_enum_guard
@@ -53,13 +54,13 @@ class SampleStatus(Enum):
 
 
 def _environment(*, strict: bool) -> Environment:
-    env = Environment(loader=DictLoader({"t.html": '<input value="{{ x }}">'}),
-                      autoescape=True)
+    env = Environment(loader=DictLoader({"t.html": '<input value="{{ x }}">'}), autoescape=True)
     install_enum_guard(env, strict=strict)
     return env
 
 
 # ── The guard itself ─────────────────────────────────────────────────────────
+
 
 def test_a_member_in_the_output_is_refused():
     """The exact shape of all three real cases: a member into `value=`."""
@@ -89,8 +90,9 @@ def test_a_label_filter_still_renders_its_word(db_session):
     from app.kernel.codes import reset_label_cache
 
     reset_label_cache()
-    env = Environment(loader=DictLoader({"t.html": '{{ x | code_label("meeting_status") }}'}),
-                      autoescape=True)
+    env = Environment(
+        loader=DictLoader({"t.html": '{{ x | code_label("meeting_status") }}'}), autoescape=True
+    )
     from app.kernel.codes import install_jinja_codes
 
     install_jinja_codes(env)
@@ -103,6 +105,7 @@ def test_a_label_filter_still_renders_its_word(db_session):
 
 # ── That it is attached, and that it sees something (#678) ───────────────────
 
+
 def test_the_guard_is_installed_and_strict_on_both_environments():
     """A guard nobody attached finds nothing and says nothing.
 
@@ -113,8 +116,10 @@ def test_the_guard_is_installed_and_strict_on_both_environments():
     """
     from app.domains.designstudio import render
 
-    for name, env in (("the shared template environment", templates.env),
-                      ("the poster environment", render._env())):
+    for name, env in (
+        ("the shared template environment", templates.env),
+        ("the poster environment", render._env()),
+    ):
         template = env.from_string('<input value="{{ x }}">')
         with pytest.raises(EnumRendered):
             template.render(x=SampleStatus.OPEN)

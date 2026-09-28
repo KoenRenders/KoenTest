@@ -3,6 +3,7 @@
 Wat het ledenscherm van zijn route krijgt, getypeerd en op één plek. Zie
 `app/ui/viewmodel.py` voor het waarom.
 """
+
 from dataclasses import dataclass, field
 from typing import Any
 

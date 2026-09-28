@@ -20,10 +20,10 @@ beter dan het achteraf weigeren. De servercontrole blijft er wél: het scherm ma
 de fout onmogelijk, de service weigert hem alsnog. Dat is geen dubbelop maar de twee
 lagen uit de architectuurregel: vorm bij de ingang, betekenis in de service.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -36,16 +36,28 @@ def _login(client):
 
 
 def _formulier(client, admin_headers):
-    r = client.post("/api/v1/forms", json={
-        "title": "Sprong", "status": "draft",
-        "sections": [{"title": "Een", "position": 0},
-                     {"title": "Twee", "position": 1},
-                     {"title": "Drie", "position": 2}],
-        "fields": [{"field_type": "radio", "label": "Kies", "position": 0,
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Sprong",
+            "status": "draft",
+            "sections": [
+                {"title": "Een", "position": 0},
+                {"title": "Twee", "position": 1},
+                {"title": "Drie", "position": 2},
+            ],
+            "fields": [
+                {
+                    "field_type": "radio",
+                    "label": "Kies",
+                    "position": 0,
                     "section_index": 0,
-                    "options": [{"label": "A", "position": 0},
-                                {"label": "B", "position": 1}]}],
-    }, headers=admin_headers)
+                    "options": [{"label": "A", "position": 0}, {"label": "B", "position": 1}],
+                }
+            ],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -60,8 +72,8 @@ def _lees(client, admin_headers, form_id):
 
 # ── 1. De opgeslagen toestand ───────────────────────────────────────────────
 
-def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers,
-                                                     db_session):
+
+def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers, db_session):
     """De onmogelijke toestand, getoetst op wat er in de databank staat.
 
     De keuzelijst kan dit niet meer versturen, maar de regel hoort in de service:
@@ -77,8 +89,14 @@ def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers,
     form = db_session.get(Form, form_json["id"])
 
     with pytest.raises(FormulierFout):
-        update_option(db_session, form, a["id"], label="A",
-                      skip_to_section_id=str(derde["id"]), skip_to_end=True)
+        update_option(
+            db_session,
+            form,
+            a["id"],
+            label="A",
+            skip_to_section_id=str(derde["id"]),
+            skip_to_end=True,
+        )
 
     # Géén `db_session.rollback()`: de testsessie draait op een savepoint, dus een
     # rollback wist óók de fixture — dezelfde val als in #681. De service werpt
@@ -86,11 +104,11 @@ def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers,
     db_session.expire_all()
     bewaard = db_session.get(FormFieldOption, a["id"])
     assert bewaard.skip_to_section_id is None and bewaard.skip_to_end is False, (
-        "er is een onmogelijke toestand bewaard")
+        "er is een onmogelijke toestand bewaard"
+    )
 
 
-def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, admin_headers,
-                                                        db_session):
+def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, admin_headers, db_session):
     """Wat het scherm post is één waarde, dus de combinatie kan niet ontstaan."""
     from app.domains.forms.models import FormFieldOption
 
@@ -99,9 +117,11 @@ def test_via_het_scherm_kan_er_maar_een_bestemming_zijn(client, admin_headers,
     a = _optie(form, "A")
     derde = sorted(form["sections"], key=lambda s: s["position"])[2]
 
-    resp = client.post(f"/admin/formulieren/{form['id']}/opties/{a['id']}",
-                       data={"label": "A", "bestemming": str(derde["id"])},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/formulieren/{form['id']}/opties/{a['id']}",
+        data={"label": "A", "bestemming": str(derde["id"])},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200, resp.text[:300]
 
     db_session.expire_all()
@@ -120,12 +140,16 @@ def test_einde_kiezen_wist_een_eerdere_sectie(client, admin_headers, db_session)
     a = _optie(form, "A")
     derde = sorted(form["sections"], key=lambda s: s["position"])[2]
 
-    client.post(f"/admin/formulieren/{form['id']}/opties/{a['id']}",
-                data={"label": "A", "bestemming": str(derde["id"])},
-                headers={"X-CSRF-Token": csrf})
-    client.post(f"/admin/formulieren/{form['id']}/opties/{a['id']}",
-                data={"label": "A", "bestemming": "end"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form['id']}/opties/{a['id']}",
+        data={"label": "A", "bestemming": str(derde["id"])},
+        headers={"X-CSRF-Token": csrf},
+    )
+    client.post(
+        f"/admin/formulieren/{form['id']}/opties/{a['id']}",
+        data={"label": "A", "bestemming": "end"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     db_session.expire_all()
     bewaard = db_session.get(FormFieldOption, a["id"])
@@ -140,12 +164,16 @@ def test_gewone_volgorde_wist_allebei(client, admin_headers, db_session):
     csrf = _login(client)
     a = _optie(form, "A")
 
-    client.post(f"/admin/formulieren/{form['id']}/opties/{a['id']}",
-                data={"label": "A", "bestemming": "end"},
-                headers={"X-CSRF-Token": csrf})
-    client.post(f"/admin/formulieren/{form['id']}/opties/{a['id']}",
-                data={"label": "A", "bestemming": ""},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form['id']}/opties/{a['id']}",
+        data={"label": "A", "bestemming": "end"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    client.post(
+        f"/admin/formulieren/{form['id']}/opties/{a['id']}",
+        data={"label": "A", "bestemming": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     db_session.expire_all()
     bewaard = db_session.get(FormFieldOption, a["id"])
@@ -153,6 +181,7 @@ def test_gewone_volgorde_wist_allebei(client, admin_headers, db_session):
 
 
 # ── 2. Hetzelfde één niveau hoger ───────────────────────────────────────────
+
 
 def test_een_sectie_kent_dezelfde_ene_bestemming(client, admin_headers, db_session):
     """Anders is de bouwer op twee plekken verschillend voor hetzelfde begrip."""
@@ -165,7 +194,8 @@ def test_een_sectie_kent_dezelfde_ene_bestemming(client, admin_headers, db_sessi
     resp = client.post(
         f"/admin/formulieren/{form['id']}/secties/{secties[0]['id']}",
         data={"title": "Een", "bestemming": "end"},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200, resp.text[:300]
 
     db_session.expire_all()
@@ -174,6 +204,7 @@ def test_een_sectie_kent_dezelfde_ene_bestemming(client, admin_headers, db_sessi
 
 
 # ── 3. Wat de keuzelijst aanbiedt ───────────────────────────────────────────
+
 
 def test_de_lijst_biedt_alleen_latere_secties_aan(client, admin_headers):
     """Niet aanbieden wat verboden is. Het veld staat in sectie 1, dus alleen 2 en 3
@@ -184,7 +215,7 @@ def test_de_lijst_biedt_alleen_latere_secties_aan(client, admin_headers):
     secties = sorted(form["sections"], key=lambda s: s["position"])
 
     start = html.index('name="bestemming"')
-    lijst = html[start:html.index("</select>", start)]
+    lijst = html[start : html.index("</select>", start)]
     assert f'value="{secties[0]["id"]}"' not in lijst, "de eigen sectie staat erin"
     assert f'value="{secties[1]["id"]}"' in lijst
     assert f'value="{secties[2]["id"]}"' in lijst
@@ -201,6 +232,7 @@ def test_er_is_geen_los_einde_vakje_meer(client, admin_headers):
 
 
 # ── 4. De optierij is inline ────────────────────────────────────────────────
+
 
 def test_de_optierij_heeft_geen_bewerktoggle_meer(client, admin_headers):
     """Drie klikken voor één handeling, en een rij die er in twee toestanden anders
@@ -224,5 +256,5 @@ def test_er_wordt_niet_automatisch_bewaard_bij_change(client, admin_headers):
     html = client.get(f"/admin/formulieren/{form['id']}").text
 
     start = html.index('name="bestemming"')
-    vorm = html[html.rindex("<form", 0, start):html.index("</form>", start)]
+    vorm = html[html.rindex("<form", 0, start) : html.index("</form>", start)]
     assert 'hx-trigger="change' not in vorm, vorm[:200]

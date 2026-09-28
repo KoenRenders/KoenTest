@@ -2,10 +2,11 @@
 (#567) en TTS-toggle (#568). De invariant die telt: het antwoord toont opmaak
 i.p.v. ruwe markdown, en LLM-uitvoer wordt gesaneerd (geen stored/reflected XSS).
 """
+
 from app.domains.chatbot.render import render_answer_markdown
 
-
 # ── #566: markdown → veilige HTML ───────────────────────────────────────────
+
 
 def test_bold_wordt_strong():
     html = render_answer_markdown("Kom naar **Irrland**!")
@@ -33,15 +34,18 @@ def test_geneste_opsomming_met_twee_spaties():
         "- **Wandelen** (Miloheem)\n"
         "  - 15 januari 2026 om 19:32\n"
         "  - 21 mei 2026 om 19:00\n"
-        "- **Comedy Festival** (Miloheem)\n")
+        "- **Comedy Festival** (Miloheem)\n"
+    )
 
     assert html.count("<ul>") == 2, (
         "de datums staan niet in een eigen lijst — ze zijn broers van de activiteit "
-        f"geworden:\n{html}")
+        f"geworden:\n{html}"
+    )
     # De geneste <ul> hoort BINNEN het <li> van de activiteit te staan, niet ernaast.
     eerste_li = html.index("<li>")
     assert eerste_li < html.index("<ul>", eerste_li), (
-        f"de geneste lijst staat naast het item in plaats van erin:\n{html}")
+        f"de geneste lijst staat naast het item in plaats van erin:\n{html}"
+    )
     assert html.count("<li>") == 4  # twee activiteiten + twee datums
 
 
@@ -58,8 +62,7 @@ def test_een_zacht_regeleinde_blijft_op_dezelfde_regel():
     """
     html = render_answer_markdown("- **Wandeling** (Miloheem)\n  15 januari, gratis")
 
-    assert "<br" not in html, (
-        f"een zacht regeleinde wordt nog steeds een breuk:\n{html}")
+    assert "<br" not in html, f"een zacht regeleinde wordt nog steeds een breuk:\n{html}"
     assert "Miloheem" in html and "15 januari" in html
 
 
@@ -123,12 +126,13 @@ def test_javascript_link_scheme_geweerd():
     html = render_answer_markdown("[klik](javascript:alert(1))")
     hrefs = re.findall(r'href="([^"]*)"', html)
     assert not [h for h in hrefs if h.strip().lower().startswith("javascript:")], (
-        f"er staat een klikbare javascript-link in:\n{html}")
+        f"er staat een klikbare javascript-link in:\n{html}"
+    )
 
     goed = render_answer_markdown("[Raak](https://example.org/pagina)")
     assert 'href="https://example.org/pagina"' in goed, (
-        f"een gewone link wordt niet meer gerenderd — dan bewijst de test hierboven "
-        f"niets:\n{goed}")
+        f"een gewone link wordt niet meer gerenderd — dan bewijst de test hierboven niets:\n{goed}"
+    )
 
 
 def test_lege_invoer():
@@ -155,31 +159,39 @@ def test_de_systeemprompt_zegt_hoe_een_activiteitenlijst_eruitziet():
     assert "EEN opsommingsregel per activiteit" in SYSTEM_PERSONA
     for verboden in ("GEEN sublijst", "GEEN scheidingslijn", "GEEN\n  koppen"):
         assert verboden.replace("\n  ", " ") in " ".join(SYSTEM_PERSONA.split()), (
-            f"de persona verbiedt '{verboden}' niet meer")
+            f"de persona verbiedt '{verboden}' niet meer"
+        )
 
 
 # ── #566 end-to-end: het /raakje/vraag-fragment rendert de markdown ─────────
 
+
 def test_antwoordfragment_rendert_markdown_niet_als_ruwe_tekst(client, monkeypatch):
     from app.config import settings
     from app.domains.chatbot import service
+
     monkeypatch.setattr(settings, "chat_enabled", True)
     # Gecontroleerd markdown-antwoord i.p.v. afhankelijk van de mock-provider.
-    monkeypatch.setattr(service, "run_public_chat",
-                        lambda *a, **k: "Kom naar **Irrland**!\n\n- 16 augustus\n- 29 augustus")
+    monkeypatch.setattr(
+        service,
+        "run_public_chat",
+        lambda *a, **k: "Kom naar **Irrland**!\n\n- 16 augustus\n- 29 augustus",
+    )
     resp = client.post("/raakje/vraag", data={"vraag": "Wat is er te doen?"})
     assert resp.status_code == 200
-    assert "<strong>Irrland</strong>" in resp.text   # markdown werd gerenderd
+    assert "<strong>Irrland</strong>" in resp.text  # markdown werd gerenderd
     assert "<li>" in resp.text
-    assert "**Irrland**" not in resp.text             # geen ruwe markdown meer
+    assert "**Irrland**" not in resp.text  # geen ruwe markdown meer
 
 
 # ── #567/#568: de zwevende widget draagt mic + voorlees-toggle + scripts ────
 
+
 def test_widget_heeft_mic_en_tts(client, monkeypatch):
     from app.config import settings
+
     monkeypatch.setattr(settings, "chat_enabled", True)
     html = client.get("/").text
-    assert 'data-stt-target="#raakje-widget-vraag"' in html   # STT-mic (#567)
-    assert "data-tts-toggle" in html                          # TTS-toggle (#568)
+    assert 'data-stt-target="#raakje-widget-vraag"' in html  # STT-mic (#567)
+    assert "data-tts-toggle" in html  # TTS-toggle (#568)
     assert "/static/stt.js" in html and "/static/tts.js" in html

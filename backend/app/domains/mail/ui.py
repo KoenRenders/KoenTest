@@ -3,6 +3,7 @@
 Zelfde inzage als de admin-API (#328): filterbaar overzicht + verwijderen.
 Sessie-auth (HttpOnly-cookie) + CSRF, zoals de werkbank.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
@@ -11,12 +12,24 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
-from app.domains.mail.api import (EMAIL_LOG_SORT_KEYS, EMAIL_TYPE, MAIL_STATUS,
-                                  MailStatus, delete_email_log, list_email_log)
-from app.kernel.codes import code_labels, register_tones
+from app.domains.mail.api import (
+    EMAIL_LOG_SORT_KEYS,
+    EMAIL_TYPE,
+    MAIL_STATUS,
+    MailStatus,
+    delete_email_log,
+    list_email_log,
+)
 from app.i18n import _
-from app.ui import (PER_PAGE_OPTIONS, admin_nav, filterparams, per_page_from,
-                    sort_description, templates)
+from app.kernel.codes import code_labels, register_tones
+from app.ui import (
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    filterparams,
+    per_page_from,
+    sort_description,
+    templates,
+)
 
 router = APIRouter(include_in_schema=False)
 
@@ -25,12 +38,15 @@ router = APIRouter(include_in_schema=False)
 # label tables; the two dictionaries that stood here became their seed. The
 # badge tone stays here, next to the screen that draws it (§B4.5): sent green,
 # failed red, the two that did not leave yellow — as before.
-register_tones(MAIL_STATUS.name, {
-    MailStatus.SENT: "green",
-    MailStatus.FAILED: "red",
-    MailStatus.SKIPPED: "yellow",
-    MailStatus.LOGGED: "yellow",
-})
+register_tones(
+    MAIL_STATUS.name,
+    {
+        MailStatus.SENT: "green",
+        MailStatus.FAILED: "red",
+        MailStatus.SKIPPED: "yellow",
+        MailStatus.LOGGED: "yellow",
+    },
+)
 
 
 def _sorteer_labels() -> dict[str, str]:
@@ -40,9 +56,13 @@ def _sorteer_labels() -> dict[str, str]:
     Hier en niet in het sjabloon, omdat de meta-regel boven de tabel dezelfde
     woorden gebruikt als de kolomkop.
     """
-    return {"datum": _("Datum"), "ontvanger": _("Ontvanger"),
-            "onderwerp": _("Onderwerp"), "type": _("Type"),
-            "status": _("Status")}
+    return {
+        "datum": _("Datum"),
+        "ontvanger": _("Ontvanger"),
+        "onderwerp": _("Onderwerp"),
+        "type": _("Type"),
+        "status": _("Status"),
+    }
 
 
 def _ctx(request: Request, db: Session) -> dict:
@@ -67,10 +87,16 @@ def _ctx(request: Request, db: Session) -> dict:
     # querystring komt. De whitelist staat sinds #1083 in `app.ui`, want de
     # keuzelijst in de meta-regel wordt uit diezelfde reeks gevuld.
     per_page = per_page_from(stand.get("per_page"))
-    rows, has_next = list_email_log(db, email_type=email_type, status=status,
-                                    recipient=recipient, page=page,
-                                    page_size=per_page, sort=sort,
-                                    richting=richting)
+    rows, has_next = list_email_log(
+        db,
+        email_type=email_type,
+        status=status,
+        recipient=recipient,
+        page=page,
+        page_size=per_page,
+        sort=sort,
+        richting=richting,
+    )
 
     from urllib.parse import urlencode
 
@@ -79,15 +105,24 @@ def _ctx(request: Request, db: Session) -> dict:
         # Standaardrichting per klik: eerst desc (nieuwste/hoogste eerst), een
         # tweede klik draait om. Pagina reset — een andere ordening is een
         # andere lijst.
-        params = {k: v for k, v in (("email_type", email_type), ("status", status),
-                                    ("recipient", recipient)) if v}
-        params.update({"sort": key, "richting": volgende if sort == key else ("desc" if key == "datum" else "asc")})
+        params = {
+            k: v
+            for k, v in (("email_type", email_type), ("status", status), ("recipient", recipient))
+            if v
+        }
+        params.update(
+            {
+                "sort": key,
+                "richting": volgende if sort == key else ("desc" if key == "datum" else "asc"),
+            }
+        )
         # Altijd meesturen (#1083): met "alleen als het afwijkt" viel de keuze bij
         # een kop-klik terug op de standaard zodra ze toevallig 50 was — en die
         # voorwaarde is precies het soort ding dat bij de volgende standaard
         # vergeten wordt.
         params["per_page"] = str(per_page)
         return "/admin/e-maillog/lijst?" + urlencode(params)
+
     raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
         "csrf_token": csrf_token_for(raw),
@@ -109,8 +144,7 @@ def _ctx(request: Request, db: Session) -> dict:
         # haalt één rij extra op om te weten of er nog een pagina is. "N e-mails"
         # zou dus een totaal suggereren dat we niet gemeten hebben.
         "meta_telling": _("%(aantal)s e-mails op deze pagina") % {"aantal": len(rows)},
-        "meta_volgorde": sort_description(labels[sort], richting,
-                                          is_date=(sort == "datum")),
+        "meta_volgorde": sort_description(labels[sort], richting, is_date=(sort == "datum")),
         # `(code, word)` for the two filters, in the lists' own order.
         "type_options": code_labels(EMAIL_TYPE.name, db=db),
         "status_options": code_labels(MAIL_STATUS.name, db=db),
@@ -119,22 +153,31 @@ def _ctx(request: Request, db: Session) -> dict:
 
 
 @router.get("/admin/e-maillog", response_class=HTMLResponse)
-def email_log_page(request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui)):
+def email_log_page(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     return templates.TemplateResponse(request, "email_log.html", _ctx(request, db))
 
 
 @router.get("/admin/e-maillog/lijst", response_class=HTMLResponse)
-def email_log_lijst(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+def email_log_lijst(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Fragment voor filterwissels (htmx)."""
     return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
 
 
-@router.post("/admin/e-maillog/{log_id}/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def email_log_verwijderen(log_id: int, request: Request, db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/e-maillog/{log_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def email_log_verwijderen(
+    log_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     delete_email_log(db, log_id)
     # #760-absorptie (golf 3): elke mutatie bevestigt — fragment-antwoord, dus
     # de toast mag out-of-band mee (#748).

@@ -17,12 +17,12 @@ schermen bouwen geen eigen pijltjesknoppen meer."* Die zin was onwaar. `section_
 gebruikt nu `reorder`, en daarmee klopt ze weer — dat is de tweede test hieronder, en
 de reden dat de twee niet opnieuw uit elkaar kunnen lopen.
 """
+
 import re
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -40,16 +40,28 @@ def _login(client):
 
 
 def _bouwer(client, admin_headers) -> str:
-    r = client.post("/api/v1/forms", json={
-        "title": "Reorder", "status": "draft",
-        "sections": [{"title": "Een", "position": 0},
-                     {"title": "Twee", "position": 1}],
-        "fields": [{"field_type": "radio", "label": "Kies", "position": 0,
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Reorder",
+            "status": "draft",
+            "sections": [{"title": "Een", "position": 0}, {"title": "Twee", "position": 1}],
+            "fields": [
+                {
+                    "field_type": "radio",
+                    "label": "Kies",
+                    "position": 0,
                     "section_index": 0,
-                    "options": [{"label": "A", "position": 0},
-                                {"label": "B", "position": 1},
-                                {"label": "C", "position": 2}]}],
-    }, headers=admin_headers)
+                    "options": [
+                        {"label": "A", "position": 0},
+                        {"label": "B", "position": 1},
+                        {"label": "C", "position": 2},
+                    ],
+                }
+            ],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     _login(client)
     return client.get(f"/admin/formulieren/{r.json()['id']}").text
@@ -60,7 +72,7 @@ def _knoppen(html: str, label: str) -> list[str]:
     uit = []
     for m in re.finditer(f'aria-label="{label}"', html):
         start = html.rindex("<button", 0, m.start())
-        uit.append(html[start:html.index(">", m.start())])
+        uit.append(html[start : html.index(">", m.start())])
     return uit
 
 
@@ -76,6 +88,7 @@ def _staat_uit(knop: str) -> bool:
 
 # ── 1. De vorm ─────────────────────────────────────────────────────────────
 
+
 def test_de_knoppen_dragen_pijlen_en_geen_chevrons(client, admin_headers):
     """Toetst het gerenderde `<path>`: `ui.icon` faalt stil bij een onbekende naam,
     dus `arrow-upp` zou een knop zonder icoon geven en geen foutmelding."""
@@ -88,11 +101,15 @@ def test_de_knoppen_hebben_chroom_en_staan_naast_elkaar(client, admin_headers):
     html = _bouwer(client, admin_headers)
     knop = _knoppen(html, "Naar boven")[0]
     assert "rounded" in knop and "px-1.5" in knop, (
-        f"geen chroom, dus twee knoppen versmelten tot één strookje: {knop}")
+        f"geen chroom, dus twee knoppen versmelten tot één strookje: {knop}"
+    )
 
     macros = open(MACROS, encoding="utf-8").read()
-    blok = macros[macros.index("{% macro reorder("):macros.index("{%- endmacro %}",
-                                                                macros.index("{% macro reorder("))]
+    blok = macros[
+        macros.index("{% macro reorder(") : macros.index(
+            "{%- endmacro %}", macros.index("{% macro reorder(")
+        )
+    ]
     assert "inline-flex items-center" in blok, "de knoppen staan nog gestapeld"
     assert "flex-col" not in blok, "verticaal gestapeld — dat was juist de spinnervorm"
     assert "gap-" in blok, "geen tussenruimte tussen de twee knoppen"
@@ -106,12 +123,13 @@ def test_de_knoppen_lezen_niet_meer_als_versiering(client, admin_headers):
 
 # ── 2. Eén vorm, en dat blijft zo ──────────────────────────────────────────
 
+
 def test_section_bar_gebruikt_dezelfde_macro():
     """De docstring van `reorder` claimt "dé enige reorder-vorm". Die zin was onwaar
     zolang `section_bar` zijn eigen pijltjes bouwde; deze test houdt haar waar."""
     macros = open(MACROS, encoding="utf-8").read()
-    blok = macros[macros.index("{% macro section_bar("):]
-    blok = blok[:blok.index("{%- endmacro %}")]
+    blok = macros[macros.index("{% macro section_bar(") :]
+    blok = blok[: blok.index("{%- endmacro %}")]
     assert "reorder(" in blok, "section_bar bouwt weer eigen pijltjesknoppen"
     assert "icon('arrow-up'" not in blok, blok
 
@@ -131,6 +149,7 @@ def test_er_is_maar_een_plek_met_pijltjesknoppen():
 
 # ── 3. Wat bij het herbouwen kon sneuvelen ─────────────────────────────────
 
+
 def test_de_eindstanden_blijven_uitgeschakeld(client, admin_headers):
     """Bestond al en moet blijven: de bovenste omhoog en de onderste omlaag."""
     html = _bouwer(client, admin_headers)
@@ -140,7 +159,8 @@ def test_de_eindstanden_blijven_uitgeschakeld(client, admin_headers):
     assert any(_staat_uit(k) for k in omhoog), "geen enkele ↑ is uitgeschakeld"
     assert any(_staat_uit(k) for k in omlaag), "geen enkele ↓ is uitgeschakeld"
     assert any(not _staat_uit(k) for k in omhoog), (
-        "álle ↑ staan uit — dan werkt verplaatsen nergens")
+        "álle ↑ staan uit — dan werkt verplaatsen nergens"
+    )
 
 
 def test_de_aria_labels_blijven(client, admin_headers):

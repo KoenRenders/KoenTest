@@ -1,14 +1,15 @@
 """React-exit 405-d: server-rendered admin-schermen — pagina's (CMS),
 gebruikers, media, wijzigingen en systeeminfo."""
+
 import io
 
 from PIL import Image
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.auth.models import User
 from app.domains.cms.models import CmsPage
 from app.domains.media.models import MediaAsset
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -18,16 +19,24 @@ def _login(client):
 
 
 def test_schermen_vereisen_sessie(client):
-    for pad in ("/admin/paginas", "/admin/gebruikers", "/admin/media",
-                "/admin/ledenwijzigingen", "/admin/info"):
+    for pad in (
+        "/admin/paginas",
+        "/admin/gebruikers",
+        "/admin/media",
+        "/admin/ledenwijzigingen",
+        "/admin/info",
+    ):
         assert client.get(pad).status_code == 401, pad
 
 
 def test_paginas_crud(client, db_session):
     csrf = _login(client)
     # Sinds #587 opent aanmaken meteen de paginabrede editor (HX-Redirect).
-    resp = client.post("/admin/paginas", data={"title": "Over ons", "slug": "over-ons"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/paginas",
+        data={"title": "Over ons", "slug": "over-ons"},
+        headers={"X-CSRF-Token": csrf},
+    )
     page = db_session.query(CmsPage).filter(CmsPage.slug == "over-ons").one()
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == f"/admin/paginas/{page.id}"
@@ -35,17 +44,24 @@ def test_paginas_crud(client, db_session):
     detail = client.get(f"/admin/paginas/{page.id}")
     assert detail.status_code == 200 and "Beschikbare placeholders" in detail.text
 
-    resp = client.post(f"/admin/paginas/{page.id}", data={
-        "title": "Over ons", "slug": "over-ons", "content": "Welkom bij Raak!",
-        "is_published": "1", "sort_order": "5"}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/paginas/{page.id}",
+        data={
+            "title": "Over ons",
+            "slug": "over-ons",
+            "content": "Welkom bij Raak!",
+            "is_published": "1",
+            "sort_order": "5",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
     db_session.expire_all()
     assert page.content == "Welkom bij Raak!"
     assert page.is_published is True and page.show_in_nav is False
     assert page.sort_order == 5
 
-    resp = client.post(f"/admin/paginas/{page.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/paginas/{page.id}/verwijderen", headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == "/admin/paginas"
     assert db_session.query(CmsPage).filter(CmsPage.slug == "over-ons").first() is None
@@ -55,32 +71,31 @@ def test_gebruikers_beheer(client, db_session):
     csrf = _login(client)
     # Sinds #627 komt de gebruiker van een eigen aanmaakpagina; na het opslaan
     # stuurt de route door naar de lijst i.p.v. een fragment terug te geven.
-    resp = client.post("/admin/gebruikers", data={"email": "nieuw@example.com"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/gebruikers", data={"email": "nieuw@example.com"}, headers={"X-CSRF-Token": csrf}
+    )
     assert resp.status_code == 204
     assert resp.headers.get("HX-Redirect") == "/admin/gebruikers"
     user = db_session.query(User).filter(User.email == "nieuw@example.com").one()
 
     # dubbel aanmaken → foutbanner, geen crash
-    resp = client.post("/admin/gebruikers", data={"email": "nieuw@example.com"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/gebruikers", data={"email": "nieuw@example.com"}, headers={"X-CSRF-Token": csrf}
+    )
     assert "al in gebruik" in resp.text
 
     # deactiveren (checkbox niet meegestuurd = uit)
-    resp = client.post(f"/admin/gebruikers/{user.id}", data={},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/gebruikers/{user.id}", data={}, headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200
     db_session.expire_all()
     assert user.is_active is False
 
     # jezelf verwijderen is geblokkeerd
     zelf = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
-    resp = client.post(f"/admin/gebruikers/{zelf.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/gebruikers/{zelf.id}/verwijderen", headers={"X-CSRF-Token": csrf})
     assert "jezelf niet verwijderen" in resp.text
 
-    resp = client.post(f"/admin/gebruikers/{user.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/gebruikers/{user.id}/verwijderen", headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200
 
 
@@ -92,11 +107,12 @@ def _png_bytes() -> bytes:
 
 def test_media_upload_en_beheer(client, db_session):
     csrf = _login(client)
-    resp = client.post("/admin/media",
-                       files={"files": ("logo.png", _png_bytes(), "image/png")},
-                       data={"kind": "sponsor", "title": "Sponsor X",
-                             "link_url": "https://example.com"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/media",
+        files={"files": ("logo.png", _png_bytes(), "image/png")},
+        data={"kind": "sponsor", "title": "Sponsor X", "link_url": "https://example.com"},
+        headers={"X-CSRF-Token": csrf},
+    )
     # Sinds #627 stuurt de upload door naar de lijst (media is met één handeling
     # compleet) i.p.v. het lijstfragment terug te geven. Sinds #962 mét de plek waar
     # je stond erin: hier alleen de soort, want er is geen filter meegestuurd. Dat
@@ -110,18 +126,24 @@ def test_media_upload_en_beheer(client, db_session):
     # pijltjes, en een nummerveld met default "0" zou bij elke keer opslaan de volgorde
     # wissen. Het meesturen ervan hoort dus niets te doen; de pijltjes zelf zijn getest
     # in test_media_order_with_arrows.py.
-    resp = client.post(f"/admin/media/{asset.id}", data={
-        "kind": "sponsor", "title": "Sponsor Y", "sort_order": "3", "is_active": "1"},
-        headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/media/{asset.id}",
+        data={"kind": "sponsor", "title": "Sponsor Y", "sort_order": "3", "is_active": "1"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
     db_session.expire_all()
     assert asset.title == "Sponsor Y"
     assert asset.sort_order != 3, (
         "de volgorde volgt nog een meegestuurd nummerveld; dat is precies de invoer die "
-        "#882 weggehaald heeft")
+        "#882 weggehaald heeft"
+    )
 
-    resp = client.post(f"/admin/media/{asset.id}/verwijderen", data={"kind": "sponsor"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/media/{asset.id}/verwijderen",
+        data={"kind": "sponsor"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
     assert db_session.query(MediaAsset).filter(MediaAsset.id == asset.id).first() is None
 
@@ -140,7 +162,8 @@ def test_ledenwijzigingen_en_info(client):
     export = client.get("/admin/ledenwijzigingen/export?since=2026-01-01")
     assert export.status_code == 200
     assert export.headers["content-type"].startswith(
-        "application/vnd.oasis.opendocument.spreadsheet")
+        "application/vnd.oasis.opendocument.spreadsheet"
+    )
 
     info = client.get("/admin/info")
     assert info.status_code == 200 and "Systeeminfo" in info.text
@@ -151,9 +174,14 @@ def test_cms_concept_voorbeeld(client, db_session):
     """#554: het admin-voorbeeld toont een concept-pagina (200) terwijl de publieke
     /{slug} 404 blijft tot publicatie."""
     _login(client)
-    page = CmsPage(title="Geheim", slug="geheim-concept",
-                   content="<p>nog niet live</p>", is_published=False,
-                   show_in_nav=False, sort_order=0)
+    page = CmsPage(
+        title="Geheim",
+        slug="geheim-concept",
+        content="<p>nog niet live</p>",
+        is_published=False,
+        show_in_nav=False,
+        sort_order=0,
+    )
     db_session.add(page)
     db_session.commit()
 

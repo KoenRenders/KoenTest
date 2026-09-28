@@ -34,6 +34,7 @@ elk één keer gedraaid; tussen haakjes wat er werkelijk omviel — telkens prec
   bewijst dat de test de bladerbalk werkelijk ziet en niet alleen een tikfout in
   de macronaam overleeft.
 """
+
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -72,18 +73,25 @@ def _groepen(db, aantal=AANTAL, *, open_vanaf=0):
     for i in range(aantal):
         nr = EERSTE_ID + i
         betaald = i < open_vanaf
-        db.add(PaymentRecord(
-            payable_type="registration", payable_id=nr,
-            amount=Decimal("20.00"),
-            amount_paid=Decimal("20.00") if betaald else None,
-            method="transfer", status="paid" if betaald else "pending",
-            type="charge", created_at=BASIS - timedelta(minutes=i)))
+        db.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=nr,
+                amount=Decimal("20.00"),
+                amount_paid=Decimal("20.00") if betaald else None,
+                method="transfer",
+                status="paid" if betaald else "pending",
+                type="charge",
+                created_at=BASIS - timedelta(minutes=i),
+            )
+        )
     db.commit()
 
 
 def _zichtbare_ids(html: str, aantal=AANTAL) -> set[int]:
-    return {EERSTE_ID + i for i in range(aantal)
-            if f"/admin/inschrijvingen/{EERSTE_ID + i}?" in html}
+    return {
+        EERSTE_ID + i for i in range(aantal) if f"/admin/inschrijvingen/{EERSTE_ID + i}?" in html
+    }
 
 
 def _exportrijen(antwoord) -> list[str]:
@@ -110,6 +118,7 @@ def _lijst(client, **params) -> str:
 
 
 # ── Bladeren ─────────────────────────────────────────────────────────────────
+
 
 def test_de_eerste_pagina_toont_er_vijftig_en_de_tweede_de_rest(client, db_session):
     _groepen(db_session)
@@ -143,19 +152,27 @@ def test_een_inschrijvingsgroep_breekt_nooit_over_twee_paginas(client, db_sessio
     # lijst rangschikt een groep op haar nieuwste kaart.
     grens = EERSTE_ID + PER_PAGE - 1
     for k in range(4):
-        db_session.add(PaymentRecord(
-            payable_type="registration", payable_id=grens,
-            amount=Decimal("7.00"), method="transfer", status="pending",
-            type="charge",
-            created_at=BASIS - timedelta(minutes=PER_PAGE - 1, seconds=k + 1)))
+        db_session.add(
+            PaymentRecord(
+                payable_type="registration",
+                payable_id=grens,
+                amount=Decimal("7.00"),
+                method="transfer",
+                status="pending",
+                type="charge",
+                created_at=BASIS - timedelta(minutes=PER_PAGE - 1, seconds=k + 1),
+            )
+        )
     db_session.commit()
     _login(client)
 
     # Per RECORD geteld, niet per link naar de inschrijving: die zegt alleen dát
     # de groep er staat, niet hoevéél van haar kaarten. Een bedrag telde ook niet:
     # elke kaart toont het drie keer (bedrag, ontvangen, saldo) — gemeten.
-    kaart_ids = [r.id for r in db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_id == grens).all()]
+    kaart_ids = [
+        r.id
+        for r in db_session.query(PaymentRecord).filter(PaymentRecord.payable_id == grens).all()
+    ]
     assert len(kaart_ids) == 5
 
     een, twee = _lijst(client), _lijst(client, page=2)
@@ -166,8 +183,8 @@ def test_een_inschrijvingsgroep_breekt_nooit_over_twee_paginas(client, db_sessio
     op_een, op_twee = _erop(een), _erop(twee)
 
     assert not (op_een and op_twee), (
-        f"de groep staat verdeeld: {len(op_een)} kaarten op pagina 1, "
-        f"{len(op_twee)} op pagina 2")
+        f"de groep staat verdeeld: {len(op_een)} kaarten op pagina 1, {len(op_twee)} op pagina 2"
+    )
     assert len(op_een | op_twee) == 5, "niet elke kaart van de groep is zichtbaar"
 
 
@@ -195,6 +212,7 @@ def test_met_meer_dan_een_pagina_staat_de_balk_er_wel(client, db_session):
 
 
 # ── Wat NIET mag meeschuiven ─────────────────────────────────────────────────
+
 
 def test_de_tellingen_bewegen_niet_bij_het_bladeren(client, db_session):
     """Band, tabaantallen, meta-regel en financieel overzicht gaan over de
@@ -246,6 +264,7 @@ def test_de_export_draait_de_volledige_selectie(client, db_session):
 
 # ── Waar de pagina vandaan komt ──────────────────────────────────────────────
 
+
 def test_bladeren_behoudt_het_zicht_en_de_filter(client, db_session):
     """De bladerknop draagt de stand zélf, zoals de tabs — geen hx-include."""
     _groepen(db_session, open_vanaf=20)
@@ -271,9 +290,13 @@ def test_een_filterwissel_begint_weer_op_pagina_een(client, db_session):
     _groepen(db_session)
     _login(client)
 
-    html = client.get("/admin/betalingen/lijst",
-                      headers={"HX-Request": "true",
-                               "HX-Current-URL": "http://testserver/admin/betalingen?page=2"}).text
+    html = client.get(
+        "/admin/betalingen/lijst",
+        headers={
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/betalingen?page=2",
+        },
+    ).text
 
     assert len(_zichtbare_ids(html)) == PER_PAGE
     assert EERSTE_ID + AANTAL - 1 in _zichtbare_ids(html) or True  # zie hieronder
@@ -293,18 +316,24 @@ def test_een_mutatie_blijft_op_de_pagina_waar_je_stond(client, db_session):
     _groepen(db_session)
     _login(client)
     csrf = _login(client)
-    laatste = (db_session.query(PaymentRecord)
-               .filter(PaymentRecord.payable_id == EERSTE_ID + AANTAL - 1).one())
+    laatste = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_id == EERSTE_ID + AANTAL - 1)
+        .one()
+    )
 
     antwoord = client.post(
         f"/admin/betalingen/{laatste.id}/bevestigen",
-        headers={"X-CSRF-Token": csrf, "HX-Request": "true",
-                 "HX-Current-URL": "http://testserver/admin/betalingen?page=2"})
+        headers={
+            "X-CSRF-Token": csrf,
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/betalingen?page=2",
+        },
+    )
 
     assert antwoord.status_code == 200, antwoord.text[:300]
     zichtbaar = _zichtbare_ids(antwoord.text)
-    assert len(zichtbaar) == AANTAL - PER_PAGE, (
-        "na de bevestiging staat de lijst terug op pagina 1")
+    assert len(zichtbaar) == AANTAL - PER_PAGE, "na de bevestiging staat de lijst terug op pagina 1"
 
 
 def test_een_pagina_voorbij_het_einde_valt_terug_op_de_laatste(client, db_session):

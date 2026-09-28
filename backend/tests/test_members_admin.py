@@ -3,16 +3,26 @@
 Exerceert de admin-gated lijst/detail-endpoints en de read-builders
 (_build_family_response / _person_to_schema), plus admin-lidmaatschap aanmaken.
 """
+
 from tests.conftest import seed_postal_code
 
 
 def _family_payload(email="admincrud@example.com"):
     return {
-        "street": "Teststraat", "house_number": "1", "postal_code": "2400",
+        "street": "Teststraat",
+        "house_number": "1",
+        "postal_code": "2400",
         "payment_method": "transfer",
         "members": [
-            {"last_name": "Lid", "first_name": "Hoofd", "email": email,
-             "mobile": "0470000000", "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"},
+            {
+                "last_name": "Lid",
+                "first_name": "Hoofd",
+                "email": email,
+                "mobile": "0470000000",
+                "date_of_birth": "1980-01-01",
+                "gender_code": "M",
+                "relation_type": "HOOFDLID",
+            },
         ],
     }
 

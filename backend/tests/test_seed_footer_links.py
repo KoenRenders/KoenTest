@@ -11,11 +11,12 @@ iemand bewust heeft aangepast of leeggemaakt.
 """
 
 import pytest
-pytestmark = pytest.mark.ui_agnostisch
+
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
 from app.kernel.tenant_config import get_setting, set_setting
-
 from seed_tenant_settings import FOOTER_LINKS, MARKER, seed_footer_links
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _millegem(db, key):
@@ -38,8 +39,12 @@ def test_tweede_aanroep_doet_niets(db_session):
 
 def test_een_handmatig_ingevulde_waarde_wordt_niet_overschreven(db_session):
     """Wat via /admin/tenants is ingesteld, blijft staan."""
-    set_setting(db_session, "facebook_url", "https://facebook.com/eigen-pagina",
-                tenant_id=TENANT_MILLEGEM_ID)
+    set_setting(
+        db_session,
+        "facebook_url",
+        "https://facebook.com/eigen-pagina",
+        tenant_id=TENANT_MILLEGEM_ID,
+    )
     db_session.commit()
 
     gezet = seed_footer_links(db_session)
@@ -73,6 +78,7 @@ def test_andere_tenants_krijgen_niets(db_session):
 def test_seed_draait_bij_elke_opstart(db_session):
     """startup.sh roept het script niet-fataal aan, net als de sponsors."""
     from pathlib import Path
+
     startup = (Path(__file__).resolve().parents[1] / "startup.sh").read_text()
     assert "python seed_tenant_settings.py" in startup
     assert "non-fatal" in startup.split("seed_tenant_settings.py")[1].split("\n")[0]

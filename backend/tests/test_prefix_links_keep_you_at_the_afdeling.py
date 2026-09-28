@@ -25,10 +25,8 @@ argument unchanged → the first two fall over, with *Home* pointing at `/` agai
 `/admin` exception removed from `path_for` → the admin test falls over with a prefix on a
 screen that is never reached through one.
 """
-import pytest
 
-from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL
+import pytest
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -48,7 +46,7 @@ def platform_host(monkeypatch):
 
 def test_home_keeps_you_at_the_afdeling(client, db_session, platform_host):
     """Koens geval, letterlijk: via de prefix binnen, dan Foto's, dan Home."""
-    eerste = client.get(f"/raakmillegem/", headers={"host": PLATFORM_HOST})
+    eerste = client.get("/raakmillegem/", headers={"host": PLATFORM_HOST})
     assert eerste.status_code == 200
 
     fotos = client.get("/raakmillegem/fotos", headers={"host": PLATFORM_HOST})
@@ -58,9 +56,9 @@ def test_home_keeps_you_at_the_afdeling(client, db_session, platform_host):
     # (`tenant_home_url`): één schrijfwijze door de hele app, want twee vormen van
     # hetzelfde adres is precies wat #884 met de canonical probeerde te vermijden.
     assert 'href="/raakmillegem"' in fotos.text, (
-        "Home wijst naar / en stuurt je dus naar het platform — dat is de bug")
-    assert 'href="/raakmillegem/fotos"' in fotos.text, (
-        "de Foto's-link draagt de prefix niet")
+        "Home wijst naar / en stuurt je dus naar het platform — dat is de bug"
+    )
+    assert 'href="/raakmillegem/fotos"' in fotos.text, "de Foto's-link draagt de prefix niet"
 
 
 def test_the_same_route_works_without_a_cookie(client, db_session, platform_host):
@@ -77,11 +75,11 @@ def test_the_same_route_works_without_a_cookie(client, db_session, platform_host
     assert resp.status_code == 200
     assert 'href="/raakmillegem"' in resp.text, (
         "zonder cookie dragen de links geen prefix, dus een gedeelde link brengt de "
-        "ontvanger ergens anders")
+        "ontvanger ergens anders"
+    )
 
 
-def test_on_an_own_hostname_there_is_no_prefix(client, db_session, platform_host,
-                                               monkeypatch):
+def test_on_an_own_hostname_there_is_no_prefix(client, db_session, platform_host, monkeypatch):
     """De tegenproef: op de echte site geen lelijke URL's."""
     from app.config import settings
     from app.domains.mdm.api import invalidate_tenant_codes
@@ -98,8 +96,7 @@ def test_on_an_own_hostname_there_is_no_prefix(client, db_session, platform_host
     assert 'href="/"' in resp.text
 
 
-def test_the_bare_platform_host_still_gives_the_landing_page(client, db_session,
-                                                             platform_host):
+def test_the_bare_platform_host_still_gives_the_landing_page(client, db_session, platform_host):
     """Ongewijzigd, en het is de reden dat er géén extra knop naar het platform nodig is:
     het bare domein blijft de landingspagina geven, ongeacht welke cookie je draagt."""
     client.get("/raakvoorbeeldafdeling/", headers={"host": PLATFORM_HOST})  # zet de cookie
@@ -108,15 +105,16 @@ def test_the_bare_platform_host_still_gives_the_landing_page(client, db_session,
 
     assert resp.status_code == 200
     assert "Digital Platform" in resp.text, (
-        "het platform is niet meer bereikbaar door het domein te typen")
+        "het platform is niet meer bereikbaar door het domein te typen"
+    )
 
 
 def test_an_admin_path_never_gets_a_prefix(client, db_session, platform_host):
     """Beheerschermen worden niet via een prefix bereikt. De uitzondering staat in
     `path_for` zelf en niet bij elke aanroeper — een regel die je op tientallen plaatsen
     moet onthouden, vergeet iemand."""
-    from app.ui import path_for
     from app.kernel.tenancy import current_platform_host, current_tenant_code
+    from app.ui import path_for
 
     host_token = current_platform_host.set(True)
     code_token = current_tenant_code.set("raakmillegem")

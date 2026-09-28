@@ -1,43 +1,61 @@
 """Fase 4b (#403): workflow-definities/instanties + werkbank-sweep (5 bronnen)."""
+
 from decimal import Decimal
 
 import pytest
 
-from tests._task_kinds import register_task_kind
-
+from app.domains.auth.api import Role
 from app.domains.workflow import api
 from app.domains.workflow.handlers import sweep
 from app.domains.workflow.models import (
-    RunStatus, WorkflowDefinition, WorkflowInstance, WorkflowTask,
+    RunStatus,
+    WorkflowDefinition,
+    WorkflowInstance,
+    WorkflowTask,
 )
-from app.domains.auth.api import Role
+from tests._task_kinds import register_task_kind
 
 
 def test_definitie_start_advance_complete(db_session):
     # A definition is DATA and may introduce a task kind (§5.7) — but since
     # CR-12 phase 4 that kind must have a row, just like a new source. That is
     # exactly why this list got no enum.
-    step_one = register_task_kind(db_session, "stap.een", nl="Stap één",
-                                  en="Step one", category_nl="Stappen")
-    step_two = register_task_kind(db_session, "stap.twee", nl="Stap twee",
-                                  en="Step two", category_nl="Stappen")
-    db_session.add(WorkflowDefinition(code="test2stap", name="Test", steps=[
-        {"kind": step_one, "title": "Eerst {wie}", "role": "ADMIN"},
-        {"kind": step_two, "title": "Dan FINANCE", "role": "FINANCE"},
-    ]))
+    step_one = register_task_kind(
+        db_session, "stap.een", nl="Stap één", en="Step one", category_nl="Stappen"
+    )
+    step_two = register_task_kind(
+        db_session, "stap.twee", nl="Stap twee", en="Step two", category_nl="Stappen"
+    )
+    db_session.add(
+        WorkflowDefinition(
+            code="test2stap",
+            name="Test",
+            steps=[
+                {"kind": step_one, "title": "Eerst {wie}", "role": "ADMIN"},
+                {"kind": step_two, "title": "Dan FINANCE", "role": "FINANCE"},
+            ],
+        )
+    )
     db_session.flush()
 
-    instance = api.start(db_session, "test2stap", subject_type="form_submission", subject_id=1,
-                         context={"wie": "Koen"})
-    taak1 = (db_session.query(WorkflowTask)
-             .filter(WorkflowTask.instance_id == instance.id).one())
+    instance = api.start(
+        db_session,
+        "test2stap",
+        subject_type="form_submission",
+        subject_id=1,
+        context={"wie": "Koen"},
+    )
+    taak1 = db_session.query(WorkflowTask).filter(WorkflowTask.instance_id == instance.id).one()
     assert taak1.kind == "stap.een" and taak1.title == "Eerst Koen"
 
     api.complete_task(db_session, taak1.id, done_by="a@b", decision="ok")
     db_session.flush()
-    taken = (db_session.query(WorkflowTask)
-             .filter(WorkflowTask.instance_id == instance.id)
-             .order_by(WorkflowTask.id).all())
+    taken = (
+        db_session.query(WorkflowTask)
+        .filter(WorkflowTask.instance_id == instance.id)
+        .order_by(WorkflowTask.id)
+        .all()
+    )
     assert len(taken) == 2 and taken[1].kind == "stap.twee"
     assert taken[1].required_role == Role.FINANCE
     assert instance.status is RunStatus.RUNNING and instance.current_step == 1
@@ -55,14 +73,17 @@ def test_onbekende_definitie_faalt_luid(db_session):
 
 
 def test_bericht_start_via_definitie(client, db_session):
-    client.post("/berichten", data={"naam": "Mie", "email": "mie@example.com",
-                                    "bericht": "Workflow-test"})
-    instance = (db_session.query(WorkflowInstance)
-                .filter(WorkflowInstance.definition_code == "bericht")
-                .order_by(WorkflowInstance.id.desc()).first())
+    client.post(
+        "/berichten", data={"naam": "Mie", "email": "mie@example.com", "bericht": "Workflow-test"}
+    )
+    instance = (
+        db_session.query(WorkflowInstance)
+        .filter(WorkflowInstance.definition_code == "bericht")
+        .order_by(WorkflowInstance.id.desc())
+        .first()
+    )
     assert instance is not None
-    taak = (db_session.query(WorkflowTask)
-            .filter(WorkflowTask.instance_id == instance.id).one())
+    taak = db_session.query(WorkflowTask).filter(WorkflowTask.instance_id == instance.id).one()
     assert taak.kind == "bericht.behartigen" and "Mie" in taak.title
 
 
@@ -71,28 +92,47 @@ def test_sweep_vult_werkbank_uit_de_bronnen(db_session):
     from app.kernel.jobs import KernelJob
 
     # refund-bevestiging (pending refund)
-    db_session.add(PaymentRecord(payable_type="membership", payable_id=7,
-                                 amount=Decimal("-5.00"), method="transfer",
-                                 status="pending", type="refund"))
+    db_session.add(
+        PaymentRecord(
+            payable_type="membership",
+            payable_id=7,
+            amount=Decimal("-5.00"),
+            method="transfer",
+            status="pending",
+            type="refund",
+        )
+    )
     # webhook-mismatch
     gp = GatewayPayment(provider="mollie", amount=Decimal("10.00"), status="paid")
     db_session.add(gp)
     db_session.flush()
-    db_session.add(PaymentRecord(payable_type="registration", payable_id=8,
-                                 amount=Decimal("10.00"), method="online",
-                                 status="pending", gateway_payment_id=gp.id))
+    db_session.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=8,
+            amount=Decimal("10.00"),
+            method="online",
+            status="pending",
+            gateway_payment_id=gp.id,
+        )
+    )
     # definitief gefaalde job
-    db_session.add(KernelJob(name="iets.anders", payload={}, status="failed",
-                             run_at=__import__("datetime").datetime.now(
-                                 __import__("datetime").timezone.utc),
-                             last_error="Boem"))
+    db_session.add(
+        KernelJob(
+            name="iets.anders",
+            payload={},
+            status="failed",
+            run_at=__import__("datetime").datetime.now(__import__("datetime").timezone.utc),
+            last_error="Boem",
+        )
+    )
     db_session.flush()
 
     sweep(db_session, {"once": True})
-    kinds = {t.kind for t in db_session.query(WorkflowTask)
-             .filter(WorkflowTask.status == "open").all()}
-    assert {"payment.refund_bevestigen", "payment.webhook_mismatch",
-            "kernel.job_gefaald"} <= kinds
+    kinds = {
+        t.kind for t in db_session.query(WorkflowTask).filter(WorkflowTask.status == "open").all()
+    }
+    assert {"payment.refund_bevestigen", "payment.webhook_mismatch", "kernel.job_gefaald"} <= kinds
 
     # Idempotent: tweede run maakt geen duplicaten.
     before = db_session.query(WorkflowTask).count()
@@ -105,9 +145,16 @@ def test_sweep_kill_switch(db_session, monkeypatch):
     from app.domains.payment.api import PaymentRecord
 
     monkeypatch.setattr(settings, "workbench_enabled", False)
-    db_session.add(PaymentRecord(payable_type="membership", payable_id=9,
-                                 amount=Decimal("-1.00"), method="transfer",
-                                 status="pending", type="refund"))
+    db_session.add(
+        PaymentRecord(
+            payable_type="membership",
+            payable_id=9,
+            amount=Decimal("-1.00"),
+            method="transfer",
+            status="pending",
+            type="refund",
+        )
+    )
     db_session.flush()
     before = db_session.query(WorkflowTask).count()
     sweep(db_session, {"once": True})
@@ -115,11 +162,10 @@ def test_sweep_kill_switch(db_session, monkeypatch):
 
 
 def test_werkbank_deep_link_full_page(client, db_session):
-    from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
 
-    client.post("/berichten", data={"naam": "Deep", "email": "d@example.com",
-                                    "bericht": "Link"})
+    client.post("/berichten", data={"naam": "Deep", "email": "d@example.com", "bericht": "Link"})
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     # Zonder HX-Request → volledige pagina (deep-link).
@@ -134,22 +180,47 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     """#549: de werkbank filtert via één gegroepeerde `kind`-dropdown (optgroups),
     data-gedreven uit de dotted kind — `membership` = hele categorie (prefix),
     `membership.reminder` = exact."""
-    from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
 
     # CR-12 phase 4: `kind` carries a foreign key, so an invented kind no
     # longer gets in. These two register the way a new source does — one row
     # plus its words — and that is what the key enforces.
-    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
-                         en="Remind member", category_nl="Lidmaatschap")
-    register_task_kind(db_session, "membership.renewal", nl="Lid vernieuwen",
-                         en="Renew member", category_nl="Lidmaatschap")
-    api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
-                    subject_type="form_submission", subject_id=1)
-    api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
-                    subject_type="form_submission", subject_id=2)
-    api.create_task(db_session, kind="bericht.behartigen", title="Bericht Cara",
-                    subject_type="form_submission", subject_id=3)
+    register_task_kind(
+        db_session,
+        "membership.reminder",
+        nl="Lid herinneren",
+        en="Remind member",
+        category_nl="Lidmaatschap",
+    )
+    register_task_kind(
+        db_session,
+        "membership.renewal",
+        nl="Lid vernieuwen",
+        en="Renew member",
+        category_nl="Lidmaatschap",
+    )
+    api.create_task(
+        db_session,
+        kind="membership.reminder",
+        title="Herinnering An",
+        subject_type="form_submission",
+        subject_id=1,
+    )
+    api.create_task(
+        db_session,
+        kind="membership.renewal",
+        title="Vernieuwing Bob",
+        subject_type="form_submission",
+        subject_id=2,
+    )
+    api.create_task(
+        db_session,
+        kind="bericht.behartigen",
+        title="Bericht Cara",
+        subject_type="form_submission",
+        subject_id=3,
+    )
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
@@ -176,15 +247,30 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
 def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     """#592: de werkbank is een records-lijst-variant — zoeken werkt op de titel
     én op het taaktype, zodat een volgelopen bord bruikbaar blijft."""
-    from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
 
-    register_task_kind(db_session, "membership.reminder", nl="Lid herinneren",
-                         en="Remind member", category_nl="Lidmaatschap")
-    api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
-                    subject_type="form_submission", subject_id=11)
-    api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",
-                    subject_type="form_submission", subject_id=12)
+    register_task_kind(
+        db_session,
+        "membership.reminder",
+        nl="Lid herinneren",
+        en="Remind member",
+        category_nl="Lidmaatschap",
+    )
+    api.create_task(
+        db_session,
+        kind="membership.reminder",
+        title="Herinnering Anouk",
+        subject_type="form_submission",
+        subject_id=11,
+    )
+    api.create_task(
+        db_session,
+        kind="bericht.behartigen",
+        title="Vraag van Bram",
+        subject_type="form_submission",
+        subject_id=12,
+    )
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
@@ -195,16 +281,15 @@ def test_werkbank_zoekt_op_taak_en_type(client, db_session):
     assert "Vraag van Bram" in op_type and "Herinnering Anouk" not in op_type
 
     # Zoek + filter combineren: de zoekterm zoekt binnen het gekozen taaktype.
-    combi = client.get("/admin/werkbank/lijst",
-                       params={"kind": "membership", "q": "bram"}).text
+    combi = client.get("/admin/werkbank/lijst", params={"kind": "membership", "q": "bram"}).text
     assert "Vraag van Bram" not in combi and "Herinnering Anouk" not in combi
 
 
 def test_werkbank_pollend_fragment_bevat_de_filter_niet(client, db_session):
     """De lijst ververst elke 30 s. Stond het zoekveld in dat fragment, dan sprong
     het bij elke poll leeg — daarom staat de filterbalk op de pagina (#592)."""
-    from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
+    from tests.conftest import SEEDED_ADMIN_EMAIL
 
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     fragment = client.get("/admin/werkbank/lijst").text
@@ -216,8 +301,10 @@ def test_werkbank_pollend_fragment_bevat_de_filter_niet(client, db_session):
     # er ook bij (Open/Afgehandeld/Alle), en die zou de polling anders elke 30 s
     # terugzetten op Open.
     import re
+
     m = re.search(r'hx-include="([^"]+)"', pagina)
     assert m, "de polling stuurt geen filterwaarden mee"
     for naam in ("kind", "q", "status"):
         assert f"[name='{naam}']" in m.group(1), (
-            f"de polling stuurt {naam} niet mee — dat filter wordt om de 30 s gewist")
+            f"de polling stuurt {naam} niet mee — dat filter wordt om de 30 s gewist"
+        )

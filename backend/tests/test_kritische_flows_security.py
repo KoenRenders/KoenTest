@@ -9,13 +9,14 @@ houden — geen gedragswijziging aan de productiecode.
 3. De echte `MollieProvider.create_payment` bouwt de juiste payload en slaat de
    webhookUrl over op localhost — de buitenste geldgrens, die elders gemockt is.
 """
+
 from decimal import Decimal
 
 import pytest
 
 from app.domains.auth.api import create_access_token
-from tests.conftest import create_test_family
 from app.domains.payment.api import PaymentStatus
+from tests.conftest import create_test_family
 
 
 def _member_headers(email: str) -> dict:
@@ -24,6 +25,7 @@ def _member_headers(email: str) -> dict:
 
 
 # ── 1. IDOR gezinsportaal ────────────────────────────────────────────────────
+
 
 def test_gezinsportaal_idor_blokkeert_bewerken_vreemd_gezin(client, db_session):
     """Lid van gezin A mag een persoon van gezin B niet bewerken → 403, en er
@@ -40,6 +42,7 @@ def test_gezinsportaal_idor_blokkeert_bewerken_vreemd_gezin(client, db_session):
     assert resp.status_code == 403
     db_session.expire_all()
     from app.domains.mdm.api import Person
+
     assert db_session.get(Person, pers_b.id).first_name == origineel
 
 
@@ -55,14 +58,17 @@ def test_gezinsportaal_idor_blokkeert_verwijderen_vreemd_gezin(client, db_sessio
     assert resp.status_code == 403
     db_session.expire_all()
     from app.domains.mdm.api import MemberPerson
+
     mp = db_session.query(MemberPerson).filter(MemberPerson.person_id == pers_b.id).first()
     assert mp is not None and mp.deleted_at is None
 
 
 # ── 2. Webhook-onvervalsbaarheid ─────────────────────────────────────────────
 
+
 def _seed_gateway_payment(db, amount="35.00", status="pending"):
     from app.domains.payment.api import GatewayPayment
+
     gp = GatewayPayment(
         provider="mollie",
         provider_payment_id="tr_forge_1",
@@ -82,11 +88,14 @@ def test_webhook_negeert_vervalste_status_en_bedrag(client, db_session, monkeypa
     `status=paid&amount=999`, de status komt enkel uit de re-fetch bij Mollie —
     die hier 'pending' teruggeeft, dus de betaling blijft 'pending'."""
     from app.limiter import mollie_webhook_limiter
+
     mollie_webhook_limiter._calls.clear()
     from app.domains.payment.providers import mollie
     from app.domains.payment.providers.base import PaymentStatusResult
+
     monkeypatch.setattr(
-        mollie.MollieProvider, "get_payment_details",
+        mollie.MollieProvider,
+        "get_payment_details",
         lambda self, pid: PaymentStatusResult(status="pending", amount=None, currency=None),
     )
 
@@ -99,6 +108,7 @@ def test_webhook_negeert_vervalste_status_en_bedrag(client, db_session, monkeypa
     assert resp.status_code == 200
     db_session.expire_all()
     from app.domains.payment.api import GatewayPayment
+
     # Mollie's own vocabulary on this column (§B4.10): a bare string, not a member.
     assert db_session.get(GatewayPayment, gp.id).status == PaymentStatus.PENDING.value
 
@@ -106,6 +116,7 @@ def test_webhook_negeert_vervalste_status_en_bedrag(client, db_session, monkeypa
 def test_webhook_onbekende_id_wordt_genegeerd(client, db_session):
     """Een onbekend payment-id verandert niets → 200 {'status': 'ignored'}."""
     from app.limiter import mollie_webhook_limiter
+
     mollie_webhook_limiter._calls.clear()
 
     resp = client.post(
@@ -117,6 +128,7 @@ def test_webhook_onbekende_id_wordt_genegeerd(client, db_session):
 
 
 # ── 3. Echte MollieProvider.create_payment ───────────────────────────────────
+
 
 class _FakeResponse:
     def __init__(self, *, status_code=200, json_data=None, text=""):
@@ -156,7 +168,8 @@ def test_create_payment_payload_en_localhost_webhook_skip(monkeypatch):
 
     provider = mollie.MollieProvider(api_key="test_key")
     result = provider.create_payment(
-        amount=Decimal("12"), description="Test",
+        amount=Decimal("12"),
+        description="Test",
         redirect_url="https://raak.example/ok",
         webhook_url="http://localhost:8000/api/v1/payment-gateway/webhooks/mollie",
         metadata={"ref": 1},
@@ -174,31 +187,41 @@ def test_create_payment_stuurt_webhook_op_echte_host(monkeypatch):
 
     captured: dict = {}
     monkeypatch.setattr(
-        mollie.httpx, "post",
-        lambda url, json, headers, timeout: captured.update(payload=json) or _FakeResponse(json_data=_OK_JSON),
+        mollie.httpx,
+        "post",
+        lambda url, json, headers, timeout: (
+            captured.update(payload=json) or _FakeResponse(json_data=_OK_JSON)
+        ),
     )
 
     provider = mollie.MollieProvider(api_key="test_key")
     provider.create_payment(
-        amount=Decimal("35.00"), description="Test",
+        amount=Decimal("35.00"),
+        description="Test",
         redirect_url="https://raak.example/ok",
         webhook_url="https://raak.example/api/v1/payment-gateway/webhooks/mollie",
         metadata={},
     )
-    assert captured["payload"]["webhookUrl"] == "https://raak.example/api/v1/payment-gateway/webhooks/mollie"
+    assert (
+        captured["payload"]["webhookUrl"]
+        == "https://raak.example/api/v1/payment-gateway/webhooks/mollie"
+    )
 
 
 def test_create_payment_faalt_bij_niet_200(monkeypatch):
     """Een niet-200 van Mollie → nette ValueError i.p.v. een stille 'paid'."""
     from app.domains.payment.providers import mollie
+
     monkeypatch.setattr(
-        mollie.httpx, "post",
+        mollie.httpx,
+        "post",
         lambda url, json, headers, timeout: _FakeResponse(status_code=422, text="Unprocessable"),
     )
     provider = mollie.MollieProvider(api_key="test_key")
     with pytest.raises(ValueError):
         provider.create_payment(
-            amount=Decimal("10.00"), description="Test",
+            amount=Decimal("10.00"),
+            description="Test",
             redirect_url="https://raak.example/ok",
             webhook_url="https://raak.example/hook",
             metadata={},
@@ -207,10 +230,12 @@ def test_create_payment_faalt_bij_niet_200(monkeypatch):
 
 def test_create_payment_zonder_api_key_faalt():
     from app.domains.payment.providers import mollie
+
     provider = mollie.MollieProvider(api_key="")
     with pytest.raises(ValueError):
         provider.create_payment(
-            amount=Decimal("10.00"), description="Test",
+            amount=Decimal("10.00"),
+            description="Test",
             redirect_url="https://raak.example/ok",
             webhook_url="https://raak.example/hook",
             metadata={},

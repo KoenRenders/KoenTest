@@ -12,6 +12,7 @@ Achtergrond. Bij de v2.0-refactor (#393) verhuisden de modellen naar
    resolven omdat het andere domein niet geladen is. `load_all_models()` lost dit
    op; deze test bewaakt beide gaten.
 """
+
 import os
 import subprocess
 import sys
@@ -44,14 +45,14 @@ def test_no_stale_app_models_reference(script):
 
 def test_seed_symbols_importable_from_facades():
     """De symbolen die startup.sh/seeds nodig hebben, bestaan op hun nieuwe pad."""
-    from app.domains.mdm.api import PostalCode  # noqa: F401
     from app.domains.activities.api import (  # noqa: F401
         Activity,
         ActivityDate,
-        Registration,
         ActivitySubRegistration,
+        Registration,
     )
     from app.domains.cms.api import CmsPage  # noqa: F401
+    from app.domains.mdm.api import PostalCode  # noqa: F401
 
 
 def test_registry_configures_all_mappers_in_isolation():

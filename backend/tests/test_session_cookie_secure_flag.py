@@ -23,6 +23,7 @@ on `http://` and no forwarded header) → the flag disappears, which is the firs
 removing the `X-Forwarded-Proto` read → the proxy test falls over with a cookie that has no
 `Secure` while the browser spoke https.
 """
+
 import pytest
 
 from app.domains.auth.api import session_cookie_secure
@@ -110,11 +111,14 @@ def test_the_login_screen_sets_the_flag_behind_a_proxy(client, db_session, monke
     monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
 
-    resp = client.post("/aanmelden/code",
-                       data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"},
-                       headers={"X-Forwarded-Proto": "https"})
+    resp = client.post(
+        "/aanmelden/code",
+        data={"email": SEEDED_ADMIN_EMAIL, "code": "424242"},
+        headers={"X-Forwarded-Proto": "https"},
+    )
 
     cookie = [h for h in resp.headers.get_list("set-cookie") if SESSION_COOKIE in h]
     assert cookie, resp.headers
     assert "Secure" in cookie[0], (
-        f"the browser spoke https but the cookie carries no Secure flag: {cookie[0]}")
+        f"the browser spoke https but the cookie carries no Secure flag: {cookie[0]}"
+    )

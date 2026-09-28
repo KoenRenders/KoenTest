@@ -21,6 +21,7 @@ image for this (WeasyPrint 70 no longer uses Cairo — measured at the build).
 
 Only for `tenant_logo`. Every other kind stays raster — the service decides that.
 """
+
 from __future__ import annotations
 
 import re
@@ -76,73 +77,239 @@ SODIPODI_NS = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.0.dtd"
 # kan het iets ophalen? Twee keer nee → het hoort thuis op de lijst. Twee keer
 # nee is ook precies waarom de filters hieronder mochten: een gaussische vervaging
 # rekent op pixels die er al zijn.
-ALLOWED_ELEMENTS = frozenset({
-    # Structuur en vorm
-    "svg", "g", "defs", "title", "desc", "symbol", "use", "style", "metadata",
-    "path", "rect", "circle", "ellipse", "line", "polyline", "polygon",
-    "text", "tspan", "textPath",
-    "linearGradient", "radialGradient", "stop", "clipPath", "mask", "pattern",
-    # Markers: pijlpunten en stippen op een lijn — tekenen, niets meer (#1011).
-    "marker",
-    # `image` mag, maar alleen met een INGEBEDDE rasterafbeelding — zie
-    # `_BRUIKBARE_AFBEELDING` hieronder. Het element zelf is tekenwerk; het is de
-    # WAARDE van zijn href die kan ophalen.
-    "image",
-    # Filters (#1011): een affiche gebruikt schaduw, vervaging en kleurcorrectie.
-    # Allemaal rekenwerk op de pixels van het document zelf. `feImage` staat er
-    # bewust NIET bij: dat is het enige filterelement dat iets van buiten haalt.
-    "filter", "feBlend", "feColorMatrix", "feComponentTransfer", "feComposite",
-    "feConvolveMatrix", "feDiffuseLighting", "feDisplacementMap", "feDistantLight",
-    "feDropShadow", "feFlood", "feFuncA", "feFuncB", "feFuncG", "feFuncR",
-    "feGaussianBlur", "feMerge", "feMergeNode", "feMorphology", "feOffset",
-    "fePointLight", "feSpecularLighting", "feSpotLight", "feTile", "feTurbulence",
-})
+ALLOWED_ELEMENTS = frozenset(
+    {
+        # Structuur en vorm
+        "svg",
+        "g",
+        "defs",
+        "title",
+        "desc",
+        "symbol",
+        "use",
+        "style",
+        "metadata",
+        "path",
+        "rect",
+        "circle",
+        "ellipse",
+        "line",
+        "polyline",
+        "polygon",
+        "text",
+        "tspan",
+        "textPath",
+        "linearGradient",
+        "radialGradient",
+        "stop",
+        "clipPath",
+        "mask",
+        "pattern",
+        # Markers: pijlpunten en stippen op een lijn — tekenen, niets meer (#1011).
+        "marker",
+        # `image` mag, maar alleen met een INGEBEDDE rasterafbeelding — zie
+        # `_BRUIKBARE_AFBEELDING` hieronder. Het element zelf is tekenwerk; het is de
+        # WAARDE van zijn href die kan ophalen.
+        "image",
+        # Filters (#1011): een affiche gebruikt schaduw, vervaging en kleurcorrectie.
+        # Allemaal rekenwerk op de pixels van het document zelf. `feImage` staat er
+        # bewust NIET bij: dat is het enige filterelement dat iets van buiten haalt.
+        "filter",
+        "feBlend",
+        "feColorMatrix",
+        "feComponentTransfer",
+        "feComposite",
+        "feConvolveMatrix",
+        "feDiffuseLighting",
+        "feDisplacementMap",
+        "feDistantLight",
+        "feDropShadow",
+        "feFlood",
+        "feFuncA",
+        "feFuncB",
+        "feFuncG",
+        "feFuncR",
+        "feGaussianBlur",
+        "feMerge",
+        "feMergeNode",
+        "feMorphology",
+        "feOffset",
+        "fePointLight",
+        "feSpecularLighting",
+        "feSpotLight",
+        "feTile",
+        "feTurbulence",
+    }
+)
 
-ALLOWED_ATTRIBUTES = frozenset({
-    # identity and structure
-    "id", "class", "style", "lang", "version", "viewBox", "preserveAspectRatio",
-    "width", "height", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry",
-    "fx", "fy", "d", "points", "transform", "pathLength",
-    # text
-    "dx", "dy", "rotate", "textLength", "lengthAdjust", "startOffset", "method",
-    "spacing", "text-anchor", "dominant-baseline", "alignment-baseline",
-    "baseline-shift", "font-family", "font-size", "font-size-adjust",
-    "font-stretch", "font-style", "font-variant", "font-weight",
-    "letter-spacing", "word-spacing", "text-decoration", "writing-mode",
-    "direction", "unicode-bidi", "white-space",
-    # painting
-    "fill", "fill-opacity", "fill-rule", "stroke", "stroke-dasharray",
-    "stroke-dashoffset", "stroke-linecap", "stroke-linejoin",
-    "stroke-miterlimit", "stroke-opacity", "stroke-width", "opacity",
-    "color", "display", "visibility", "overflow", "clip", "clip-path",
-    "clip-rule", "mask", "vector-effect", "paint-order", "shape-rendering",
-    "text-rendering", "image-rendering", "color-interpolation",
-    "isolation", "mix-blend-mode",
-    # gradients, patterns, clips, masks
-    "offset", "stop-color", "stop-opacity", "gradientUnits",
-    "gradientTransform", "spreadMethod", "patternUnits",
-    "patternContentUnits", "patternTransform", "clipPathUnits",
-    "maskUnits", "maskContentUnits",
-    # references, checked separately
-    "href",
-    # <style>
-    "type", "media",
-    # Markers (#1011)
-    "marker-start", "marker-mid", "marker-end", "markerUnits", "markerWidth",
-    "markerHeight", "refX", "refY", "orient",
-    # Filters (#1011): parameters van het rekenwerk hierboven. Geen van deze
-    # waarden kan een adres zijn — `in`/`in2`/`result` verwijzen naar een
-    # tussenresultaat binnen hetzelfde filter.
-    "filter", "filterUnits", "primitiveUnits", "in", "in2", "result",
-    "stdDeviation", "mode", "values", "operator", "k1", "k2", "k3", "k4",
-    "radius", "flood-color", "flood-opacity", "surfaceScale", "specularConstant",
-    "specularExponent", "diffuseConstant", "kernelMatrix", "kernelUnitLength",
-    "order", "divisor", "bias", "targetX", "targetY", "edgeMode", "preserveAlpha",
-    "xChannelSelector", "yChannelSelector", "scale", "baseFrequency",
-    "numOctaves", "seed", "stitchTiles", "tableValues", "slope", "intercept",
-    "amplitude", "exponent", "azimuth", "elevation", "pointsAtX", "pointsAtY",
-    "pointsAtZ", "limitingConeAngle", "z", "color-interpolation-filters",
-})
+ALLOWED_ATTRIBUTES = frozenset(
+    {
+        # identity and structure
+        "id",
+        "class",
+        "style",
+        "lang",
+        "version",
+        "viewBox",
+        "preserveAspectRatio",
+        "width",
+        "height",
+        "x",
+        "y",
+        "x1",
+        "y1",
+        "x2",
+        "y2",
+        "cx",
+        "cy",
+        "r",
+        "rx",
+        "ry",
+        "fx",
+        "fy",
+        "d",
+        "points",
+        "transform",
+        "pathLength",
+        # text
+        "dx",
+        "dy",
+        "rotate",
+        "textLength",
+        "lengthAdjust",
+        "startOffset",
+        "method",
+        "spacing",
+        "text-anchor",
+        "dominant-baseline",
+        "alignment-baseline",
+        "baseline-shift",
+        "font-family",
+        "font-size",
+        "font-size-adjust",
+        "font-stretch",
+        "font-style",
+        "font-variant",
+        "font-weight",
+        "letter-spacing",
+        "word-spacing",
+        "text-decoration",
+        "writing-mode",
+        "direction",
+        "unicode-bidi",
+        "white-space",
+        # painting
+        "fill",
+        "fill-opacity",
+        "fill-rule",
+        "stroke",
+        "stroke-dasharray",
+        "stroke-dashoffset",
+        "stroke-linecap",
+        "stroke-linejoin",
+        "stroke-miterlimit",
+        "stroke-opacity",
+        "stroke-width",
+        "opacity",
+        "color",
+        "display",
+        "visibility",
+        "overflow",
+        "clip",
+        "clip-path",
+        "clip-rule",
+        "mask",
+        "vector-effect",
+        "paint-order",
+        "shape-rendering",
+        "text-rendering",
+        "image-rendering",
+        "color-interpolation",
+        "isolation",
+        "mix-blend-mode",
+        # gradients, patterns, clips, masks
+        "offset",
+        "stop-color",
+        "stop-opacity",
+        "gradientUnits",
+        "gradientTransform",
+        "spreadMethod",
+        "patternUnits",
+        "patternContentUnits",
+        "patternTransform",
+        "clipPathUnits",
+        "maskUnits",
+        "maskContentUnits",
+        # references, checked separately
+        "href",
+        # <style>
+        "type",
+        "media",
+        # Markers (#1011)
+        "marker-start",
+        "marker-mid",
+        "marker-end",
+        "markerUnits",
+        "markerWidth",
+        "markerHeight",
+        "refX",
+        "refY",
+        "orient",
+        # Filters (#1011): parameters van het rekenwerk hierboven. Geen van deze
+        # waarden kan een adres zijn — `in`/`in2`/`result` verwijzen naar een
+        # tussenresultaat binnen hetzelfde filter.
+        "filter",
+        "filterUnits",
+        "primitiveUnits",
+        "in",
+        "in2",
+        "result",
+        "stdDeviation",
+        "mode",
+        "values",
+        "operator",
+        "k1",
+        "k2",
+        "k3",
+        "k4",
+        "radius",
+        "flood-color",
+        "flood-opacity",
+        "surfaceScale",
+        "specularConstant",
+        "specularExponent",
+        "diffuseConstant",
+        "kernelMatrix",
+        "kernelUnitLength",
+        "order",
+        "divisor",
+        "bias",
+        "targetX",
+        "targetY",
+        "edgeMode",
+        "preserveAlpha",
+        "xChannelSelector",
+        "yChannelSelector",
+        "scale",
+        "baseFrequency",
+        "numOctaves",
+        "seed",
+        "stitchTiles",
+        "tableValues",
+        "slope",
+        "intercept",
+        "amplitude",
+        "exponent",
+        "azimuth",
+        "elevation",
+        "pointsAtX",
+        "pointsAtY",
+        "pointsAtZ",
+        "limitingConeAngle",
+        "z",
+        "color-interpolation-filters",
+    }
+)
 
 _LOCAL_REF = re.compile(r"^#[A-Za-z_][\w.\-]*$")
 # Een `<image>` die haar beeld meedraagt in plaats van het op te halen (#1011).
@@ -152,13 +319,14 @@ _LOCAL_REF = re.compile(r"^#[A-Za-z_][\w.\-]*$")
 #   * `data:image/svg+xml` — een SVG ín een SVG. De buitenste wordt opgeschoond,
 #     de binnenste niet: deze opschoner kijkt niet in een data-URI. Vandaar dat
 #     alleen RASTERformaten erdoor mogen.
-_BRUIKBARE_AFBEELDING = re.compile(
-    r"^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$", re.I)
+_BRUIKBARE_AFBEELDING = re.compile(r"^data:image/(?:png|jpeg|webp);base64,[A-Za-z0-9+/=\s]+$", re.I)
 # Anything in style text that loads or runs something. `url(#id)` stays: that
 # is how a fill points at a gradient in the same document.
 _UNSAFE_STYLE = re.compile(
     r"@import|expression\s*\(|javascript:|behavior\s*:|-moz-binding"
-    r"|url\s*\(\s*(?![\"']?#)", re.I)
+    r"|url\s*\(\s*(?![\"']?#)",
+    re.I,
+)
 _NUMBER = re.compile(r"^\s*([0-9]*\.?[0-9]+)\s*(px)?\s*$")
 
 
@@ -189,7 +357,8 @@ def _clean_attributes(el: ET.Element, *, naam: str = "") -> None:
         if keep and name == "href":
             schoon = value.strip()
             keep = bool(_LOCAL_REF.match(schoon)) or (
-                naam == "image" and bool(_BRUIKBARE_AFBEELDING.match(schoon)))
+                naam == "image" and bool(_BRUIKBARE_AFBEELDING.match(schoon))
+            )
         if keep and _UNSAFE_STYLE.search(value):
             keep = False
         if not keep:
@@ -271,8 +440,9 @@ def render_png(svg: bytes, width: float, height: float) -> bytes:
     scale = PNG_MAX_SIDE / max(width, height)
     out_w, out_h = max(1, round(width * scale)), max(1, round(height * scale))
     try:
-        png = cairosvg.svg2png(bytestring=svg, output_width=out_w, output_height=out_h,
-                               unsafe=False)
+        png = cairosvg.svg2png(
+            bytestring=svg, output_width=out_w, output_height=out_h, unsafe=False
+        )
     except Exception as exc:  # noqa: BLE001 - any renderer failure is an unusable file
         raise ImageError("Het SVG-bestand kon niet weergegeven worden") from exc
     # Through Pillow once more: a PNG that Pillow cannot read is not one to mail.

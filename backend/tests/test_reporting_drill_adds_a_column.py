@@ -9,6 +9,7 @@ Dit bestand toetst wat daar structureel aan is: de plaats van de filterknop (#90
 en het zichtbaar afkappen. De werking van het drillen zelf staat in
 `test_reporting_drill.py`.
 """
+
 from __future__ import annotations
 
 import re
@@ -30,8 +31,7 @@ def _paneel(client, query: str = "") -> str:
     return antwoord.text
 
 
-def test_the_filter_button_sits_beside_the_name_like_everywhere_else(
-        client, db_session, situation):
+def test_the_filter_button_sits_beside_the_name_like_everywhere_else(client, db_session, situation):
     """#909, getoetst op de STRUCTUUR en niet op een klassenaam.
 
     Sinds de hiërarchie rendert een datum op twee regels, en de filterknop was
@@ -50,22 +50,24 @@ def test_the_filter_button_sits_beside_the_name_like_everywhere_else(
     # filterknop. De tweede regel draagt de niveaus.
     blok = re.search(
         r'<span class="flex-1 text-sm text-ink">Betaaldatum</span>(.*?)</div>'
-        r'(.*?)</div>', tekst, re.S)
+        r"(.*?)</div>",
+        tekst,
+        re.S,
+    )
     assert blok, "de regel voor Betaaldatum staat er niet zoals verwacht"
     eerste_regel, niveaurij = blok.group(1), blok.group(2)
 
     assert 'name="add_filter"' in eerste_regel, (
-        "de filterknop hoort naast de naam te staan, op dezelfde regel")
-    assert 'name="add_filter"' not in niveaurij, (
-        "en niet achteraan de rij met niveauknopjes")
+        "de filterknop hoort naast de naam te staan, op dezelfde regel"
+    )
+    assert 'name="add_filter"' not in niveaurij, "en niet achteraan de rij met niveauknopjes"
     assert 'name="add"' in niveaurij or 'name="remove"' in niveaurij, (
         "de tweede regel hoort de niveaus te dragen; vindt deze test ze niet, "
-        "dan meet de regel hierboven iets anders dan bedoeld")
+        "dan meet de regel hierboven iets anders dan bedoeld"
+    )
 
 
-def test_a_plain_object_has_its_filter_button_in_the_same_place(client,
-                                                                db_session,
-                                                                situation):
+def test_a_plain_object_has_its_filter_button_in_the_same_place(client, db_session, situation):
     """De vergelijking waar #909 over gaat: één positie voor alle objecten."""
     login(client, db_session)
     tekst = _paneel(client)
@@ -84,15 +86,15 @@ def test_a_truncated_crosstab_says_so(client, db_session, situation):
     from app.domains.reporting.api import Selection, build_pivot
 
     objecten = ("payment_created_day", "payment_method", "payment_amount")
-    heel = build_pivot(db_session,
-                       Selection(object_keys=objecten, layout="pivot"),
-                       tenant_id=TENANT_A)
+    heel = build_pivot(
+        db_session, Selection(object_keys=objecten, layout="pivot"), tenant_id=TENANT_A
+    )
     assert not heel.truncated, "met de gewone limiet valt er niets af te kappen"
 
-    afgekapt = build_pivot(db_session,
-                           Selection(object_keys=objecten, layout="pivot",
-                                     limit=1),
-                           tenant_id=TENANT_A)
+    afgekapt = build_pivot(
+        db_session, Selection(object_keys=objecten, layout="pivot", limit=1), tenant_id=TENANT_A
+    )
     assert afgekapt.truncated, (
-        "met een limiet van één rij hoort de draaitabel te zeggen dat ze afkapt")
+        "met een limiet van één rij hoort de draaitabel te zeggen dat ze afkapt"
+    )
     assert afgekapt.as_context()["truncated"] is True

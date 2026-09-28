@@ -28,6 +28,7 @@ Kapotgemaakt om te controleren dat deze test rood kan worden: het succespad van
 hij op de eerste assert (geen toast in #toasts) en, na die assert weg te halen,
 ook op de bewerkmodus die blijft staan.
 """
+
 import os
 import sys
 
@@ -36,8 +37,13 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Betalingenscherm,  # noqa: E402
-                                Inschrijvingsdetail, login_als_admin, toasts)
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Betalingenscherm,
+    Inschrijvingsdetail,
+    login_als_admin,
+    toasts,
+)
 
 
 def _ontbreekt(reden: str) -> None:
@@ -88,8 +94,7 @@ def test_opslaan_toont_een_toast_en_sluit_het_paneel(admin_page):
 
     # En het paneel is dicht: de knop staat er niet meer, dus de reflex om nog eens
     # te klikken bestaat niet meer.
-    assert not detail.staat_in_bewerkmodus(), (
-        "het paneel staat na Opslaan nog in bewerkmodus")
+    assert not detail.staat_in_bewerkmodus(), "het paneel staat na Opslaan nog in bewerkmodus"
 
 
 def test_de_toast_verdwijnt_weer(admin_page):

@@ -1,10 +1,15 @@
 """Pydantic-schemas voor de publieke gezinsregistratie (verhuisd uit app/schemas/family.py, #444)."""
+
 from __future__ import annotations
+
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, List
+from typing import List, Optional
+
 from pydantic import BaseModel, EmailStr, model_validator
+
 from app.domains.mdm.api import RelationType
+
 
 class FamilyMemberCreate(BaseModel):
     last_name: str
@@ -59,7 +64,9 @@ class FamilyCreate(BaseModel):
 
     @model_validator(mode="after")
     def _hoofdlid_contactgegevens_verplicht(self):
-        hoofdlid = next((m for m in self.members if m.relation_type == RelationType.PRIMARY_MEMBER), None)
+        hoofdlid = next(
+            (m for m in self.members if m.relation_type == RelationType.PRIMARY_MEMBER), None
+        )
         if hoofdlid is None:
             raise ValueError("Minstens één gezinslid moet het type 'HOOFDLID' hebben.")
         if not hoofdlid.email:

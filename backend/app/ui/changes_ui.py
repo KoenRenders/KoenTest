@@ -6,6 +6,7 @@ manuele overname in Raak Nationaal blijven beschikbaar als .ods-export (aparte
 route), niet meer als altijd-zichtbare tabel. Composer-module: leest via de
 audit-facade (`app.domains.audit.api`, #444), geen domein-internals.
 """
+
 from __future__ import annotations
 
 from datetime import date, timedelta
@@ -17,8 +18,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui
 from app.i18n import _
-from app.ui import (PER_PAGE_OPTIONS, admin_nav, is_fragment_request,
-                    per_page_from, sort_description, templates)
+from app.ui import (
+    PER_PAGE_OPTIONS,
+    admin_nav,
+    is_fragment_request,
+    per_page_from,
+    sort_description,
+    templates,
+)
 
 router = APIRouter(include_in_schema=False)
 
@@ -53,14 +60,27 @@ def _sorteer_labels() -> dict[str, str]:
     Hier en niet in het sjabloon, omdat de meta-regel dezelfde woorden gebruikt
     als de kolomkop — twee plekken zouden na de eerste hernoeming uiteenlopen.
     """
-    return {"wanneer": _("Wanneer"), "wijziging": _("Wijziging"),
-            "groep": _("Groep"), "persoon": _("Persoon"),
-            "object": _("Object"), "actor": _("Actor")}
+    return {
+        "wanneer": _("Wanneer"),
+        "wijziging": _("Wijziging"),
+        "groep": _("Groep"),
+        "persoon": _("Persoon"),
+        "object": _("Object"),
+        "actor": _("Actor"),
+    }
 
 
-def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor: str,
-                    page: int = 1, sort: str = "wanneer",
-                    richting: str = "desc", per_page: str = "") -> dict:
+def wijzigingen_ctx(
+    request: Request,
+    db: Session,
+    since: str,
+    group: str,
+    actor: str,
+    page: int = 1,
+    sort: str = "wanneer",
+    richting: str = "desc",
+    per_page: str = "",
+) -> dict:
     from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
@@ -99,8 +119,7 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
     rijen_per_pagina = per_page_from(per_page)
 
     def _sorteer_url(key: str) -> str:
-        params = {k: v for k, v in (("since", since), ("group", group),
-                                    ("actor", actor)) if v}
+        params = {k: v for k, v in (("since", since), ("group", group), ("actor", actor)) if v}
         if sort == key:
             volgende = "asc" if richting == "desc" else "desc"
         else:
@@ -113,16 +132,30 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
 
     totaal = len(alle)
     page = max(1, page)
-    feed_rows = alle[(page - 1) * rijen_per_pagina:page * rijen_per_pagina]
+    feed_rows = alle[(page - 1) * rijen_per_pagina : page * rijen_per_pagina]
 
     # P13-spronglinks (golf 5, #913): de object-cel linkt naar de canonieke
     # pagina van het record — alleen voor entiteiten die er een hébben; de rest
     # blijft tekst. De inschrijvingspagina kent P3, dus alleen die sprong draagt
     # de weg terug naar dit scherm mét zijn filter- en sorteerstand.
-    terug = quote("/admin/ledenwijzigingen?" + urlencode(
-        {k: v for k, v in (("since", since), ("group", group), ("actor", actor),
-                           ("sort", sort), ("richting", richting),
-                           ("page", page if page > 1 else "")) if v}), safe="")
+    terug = quote(
+        "/admin/ledenwijzigingen?"
+        + urlencode(
+            {
+                k: v
+                for k, v in (
+                    ("since", since),
+                    ("group", group),
+                    ("actor", actor),
+                    ("sort", sort),
+                    ("richting", richting),
+                    ("page", page if page > 1 else ""),
+                )
+                if v
+            }
+        ),
+        safe="",
+    )
     _OBJECT_URLS = {
         "Gezin": "/admin/leden/gezin/{id}",
         "Activiteit": "/admin/activiteiten/{id}",
@@ -130,38 +163,47 @@ def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor
     }
     for r in feed_rows:
         sjabloon = _OBJECT_URLS.get(r["entity"])
-        r["object_url"] = (sjabloon.format(id=r["entity_id"])
-                           if sjabloon and r.get("entity_id") else None)
+        r["object_url"] = (
+            sjabloon.format(id=r["entity_id"]) if sjabloon and r.get("entity_id") else None
+        )
     return {
         "since": vanaf.isoformat(),
-        "group": group, "actor": actor,
-        "sort": sort, "richting": richting,
+        "group": group,
+        "actor": actor,
+        "sort": sort,
+        "richting": richting,
         "sorteer_urls": {key: _sorteer_url(key) for key in _SORT_VELDEN},
         "sorteer_labels": labels,
-        "groups": GROUPS, "feed_rows": feed_rows,
-        "page": page, "per_page": rijen_per_pagina, "totaal": totaal,
+        "groups": GROUPS,
+        "feed_rows": feed_rows,
+        "page": page,
+        "per_page": rijen_per_pagina,
+        "totaal": totaal,
         "per_page_options": PER_PAGE_OPTIONS,
         # De meta-regel boven de tabel (§2.3): hoeveel regels, en in welke
         # volgorde. `totaal` telt de HELE selectie en niet deze pagina — dat is
         # hier eerlijk, want de datumfilter begrenst al wat er opgehaald wordt.
         "meta_telling": _("%(aantal)s wijzigingen") % {"aantal": totaal},
-        "meta_volgorde": sort_description(labels[sort], richting,
-                                          is_date=(sort == "wanneer")),
+        "meta_volgorde": sort_description(labels[sort], richting, is_date=(sort == "wanneer")),
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
 
 
 @router.get("/admin/ledenwijzigingen", response_class=HTMLResponse)
-def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
-                           actor: str = "", page: int = 1,
-                           sort: str = "wanneer", richting: str = "desc",
-                           per_page: str = "",
-                           db: Session = Depends(get_db),
-                           email: str = Depends(require_admin_ui)):
-    ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting,
-                          per_page)
-    template = ("_lw_inhoud.html" if is_fragment_request(request)
-                else "admin_ledenwijzigingen.html")
+def admin_ledenwijzigingen(
+    request: Request,
+    since: str = "",
+    group: str = "",
+    actor: str = "",
+    page: int = 1,
+    sort: str = "wanneer",
+    richting: str = "desc",
+    per_page: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
+    ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting, per_page)
+    template = "_lw_inhoud.html" if is_fragment_request(request) else "admin_ledenwijzigingen.html"
     if template == "admin_ledenwijzigingen.html":
         ctx["nav_items"] = NAV
     else:
@@ -173,9 +215,12 @@ def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
 
 
 @router.get("/admin/ledenwijzigingen/export")
-def ledenwijzigingen_export(request: Request, since: str = "",
-                            db: Session = Depends(get_db),
-                            email: str = Depends(require_admin_ui)) -> Response:
+def ledenwijzigingen_export(
+    request: Request,
+    since: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
     from app.domains.audit.api import build_member_changes_ods, member_changes_since
 
     vanaf = _since(since)
@@ -183,5 +228,7 @@ def ledenwijzigingen_export(request: Request, since: str = "",
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{vanaf}.ods"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{vanaf}.ods"'
+        },
     )

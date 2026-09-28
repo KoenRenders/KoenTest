@@ -47,6 +47,7 @@ rebuilt → the one-line and the order tests fail at 1440 and 1280 px, and the
 phone test finds the list sticking out of the row. (`min-w-[30rem]` still fitted
 on one line at 1280 px; only the phone test caught that one.)
 """
+
 import os
 import sys
 
@@ -139,7 +140,8 @@ def test_de_filterrij_blijft_een_regel(mediascherm, breedte):
     m = _maten(mediascherm, breedte)
     assert m["hoogte"] <= m["hoogste"] + 4, (
         f"de filterrij breekt bij {breedte} px: hoogte {m['hoogte']} px, "
-        f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}")
+        f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}"
+    )
 
 
 @pytest.mark.parametrize("breedte", [1440, 1280])
@@ -161,16 +163,19 @@ def test_de_keuzelijst_staat_rechts_van_de_soortknoppen(mediascherm, breedte):
     m = _maten(mediascherm, breedte)
     assert len(m["kinderen"]) == 3, (
         f"de filterrij hoort drie onderdelen te hebben (zoekveld, soortlijst, "
-        f"keuzelijst), gemeten: {m['kinderen']}")
+        f"keuzelijst), gemeten: {m['kinderen']}"
+    )
     assert m["soortIndex"] == 1, f"the kind list is not second: {m['soortIndex']}"
     assert m["keuzelijstIndex"] == 2, (
         "de keuzelijst hoort het laatste onderdeel van de rij te zijn, dus "
-        f"rechts van de soort-knoppen — gemeten op plaats {m['keuzelijstIndex']}")
+        f"rechts van de soort-knoppen — gemeten op plaats {m['keuzelijstIndex']}"
+    )
     links = m["kinderen"][m["keuzelijstIndex"]]["links"]
     knoppen = m["kinderen"][1]
     assert links >= knoppen["links"] + knoppen["breedte"], (
         f"de keuzelijst ({links} px) staat niet rechts van de soort-knoppen "
-        f"(die eindigen op {knoppen['links'] + knoppen['breedte']} px)")
+        f"(die eindigen op {knoppen['links'] + knoppen['breedte']} px)"
+    )
 
 
 def test_op_telefoonbreedte_breekt_ze_wel(mediascherm):
@@ -184,11 +189,12 @@ def test_op_telefoonbreedte_breekt_ze_wel(mediascherm):
     m = _maten(mediascherm, 390)
     assert m["hoogte"] > m["hoogste"] + 4, (
         f"op 390 px hoort de filterrij te breken, gemeten: hoogte {m['hoogte']} px, "
-        f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}")
+        f"hoogste kind {m['hoogste']} px — kinderen {m['kinderen']}"
+    )
     te_breed = [k for k in m["kinderen"] if k["breedte"] > m["breedte"]]
     assert not te_breed, (
-        f"op 390 px steekt er iets buiten de filterrij ({m['breedte']} px): "
-        f"{te_breed}")
+        f"op 390 px steekt er iets buiten de filterrij ({m['breedte']} px): {te_breed}"
+    )
 
 
 def test_every_kind_has_its_one_name_in_the_list(mediascherm):

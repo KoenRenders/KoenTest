@@ -42,6 +42,7 @@ configuration: `PLATFORM_HOSTS` named a host the proxy did not serve. In a setup
 e2e harness sets both itself, that difference is invisible. That hole was closed by #866 —
 one source for that address — and not here.
 """
+
 import os
 import sys
 from urllib.parse import urlsplit, urlunsplit
@@ -60,9 +61,15 @@ from tests_e2e.schermen import BASE  # noqa: E402
 # `127.0.0.1`. Een `replace()` op één van die twee werkt op de ene machine en stilletjes
 # niet op de andere — en daar viel deze test dan ook over, precies zoals bedoeld.
 _SPLIT = urlsplit(BASE)
-PLATFORM = urlunsplit((_SPLIT.scheme,
-                       f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
-                       _SPLIT.path, "", ""))
+PLATFORM = urlunsplit(
+    (
+        _SPLIT.scheme,
+        f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
+        _SPLIT.path,
+        "",
+        "",
+    )
+)
 
 
 @pytest.fixture(scope="module")
@@ -86,15 +93,19 @@ def test_de_landing_toont_de_afdelingen(pagina):
     tekst = _tekst(pagina)
     assert "Digital Platform" in tekst, (
         f"geen landingspagina op {PLATFORM} — staat de host in PLATFORM_HOSTS? "
-        f"Zonder beginpunt bewijst deze suite niets.\n{tekst[:300]}")
+        f"Zonder beginpunt bewijst deze suite niets.\n{tekst[:300]}"
+    )
     kaarten = pagina.locator("main a[href]")
     assert kaarten.count() >= 2, f"maar {kaarten.count()} kaart(en) op de landing"
 
 
-@pytest.mark.parametrize("code,naam", [
-    ("raakmillegem", "Millegem"),
-    ("raakvoorbeeldafdeling", "Voorbeeldafdeling"),
-])
+@pytest.mark.parametrize(
+    "code,naam",
+    [
+        ("raakmillegem", "Millegem"),
+        ("raakvoorbeeldafdeling", "Voorbeeldafdeling"),
+    ],
+)
 def test_doorklikken_komt_bij_de_juiste_afdeling_uit(pagina, code, naam):
     """Per bestemming: WELKE tenant bereik je. Een 200 is het bewijs niet — de verkeerde
     afdeling antwoordt even goed met 200."""
@@ -109,12 +120,14 @@ def test_doorklikken_komt_bij_de_juiste_afdeling_uit(pagina, code, naam):
     tekst = _tekst(pagina)
     assert naam in tekst, (
         f"de kaart van {code} komt uit bij een andere afdeling — op het scherm staat "
-        f"niet '{naam}'.\n{tekst[:300]}")
+        f"niet '{naam}'.\n{tekst[:300]}"
+    )
     # Op de SCHIL en niet op de tekst: de demo-afdeling noemt "het Raak Digital Platform"
     # in haar eigen intro, dus een tekstvondst zou hier een bevinding over inhoud zijn en
     # niet over waar je staat. `data-shell` is wat het antwoord zelf over zijn schil zegt.
     assert pagina.locator("body").get_attribute("data-shell") != "platform", (
-        "je staat nog op de landingspagina; de klik heeft je nergens gebracht")
+        "je staat nog op de landingspagina; de klik heeft je nergens gebracht"
+    )
 
 
 def test_de_terugweg_houdt_je_op_dezelfde_afdeling(pagina):
@@ -130,4 +143,5 @@ def test_de_terugweg_houdt_je_op_dezelfde_afdeling(pagina):
 
     tekst = _tekst(pagina)
     assert "Voorbeeldafdeling" in tekst and "Raak Millegem" not in tekst, (
-        f"na een absoluut pad sta je bij een andere afdeling — dat is #853\n{tekst[:300]}")
+        f"na een absoluut pad sta je bij een andere afdeling — dat is #853\n{tekst[:300]}"
+    )

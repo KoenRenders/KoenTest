@@ -7,6 +7,7 @@ dus ``check_imports`` blijft groen ook zonder de ``mistralai``-SDK.
 De API-sleutel komt serverside uit de config (nooit naar de browser). Mistral is
 OpenAI-compatibel, dus de berichten-/tool-dicts gaan ongewijzigd door.
 """
+
 from __future__ import annotations
 
 import json
@@ -16,6 +17,7 @@ from typing import Any, Optional
 import httpx
 
 from app.config import settings
+
 from .base import AssistantMessage, LLMProvider, ToolCall
 
 logger = logging.getLogger(__name__)
@@ -86,9 +88,12 @@ class MistralProvider(LLMProvider):
             "completion": int(raw_usage.get("completion_tokens") or 0),
         }
 
-        return AssistantMessage(content=message.get("content"),
-                                tool_calls=tool_calls, usage=usage,
-                                request_id=str(data.get("id") or ""))
+        return AssistantMessage(
+            content=message.get("content"),
+            tool_calls=tool_calls,
+            usage=usage,
+            request_id=str(data.get("id") or ""),
+        )
 
 
 def build_mistral_provider(model: str = "") -> MistralProvider:

@@ -1,25 +1,30 @@
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import List, Optional
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from app.domains.auth.api import get_finance_or_admin, get_current_finance
+
 from app.database import get_db
-from app.domains.auth.api import User
-from .models import PaymentRecord, PaymentStatus
+from app.domains.audit.api import snapshot_payment_record
+from app.domains.auth.api import User, get_current_finance, get_finance_or_admin
 from app.domains.mdm.api import PaymentMethod
+from app.i18n import _
+from app.soft_delete import soft_delete
+
+from .models import PaymentRecord, PaymentStatus
 from .schemas import (
-    PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord,
-    RefundCreate, RegistrationBalance,
+    EnrichedPaymentRecord,
+    PaymentRecordResponse,
+    PaymentRecordUpdate,
+    RefundCreate,
+    RegistrationBalance,
 )
 from .service import (
-    edit_payment_record, get_records_for, handle_gateway_update,
-    create_refund, registration_balance,
+    create_refund,
+    edit_payment_record,
+    get_records_for,
+    handle_gateway_update,
+    registration_balance,
 )
-from app.domains.audit.api import snapshot_payment_record
-from app.soft_delete import soft_delete
-from app.domains.activities.api import compute_registration_total
-from app.i18n import _
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -71,6 +76,7 @@ def export_all_payment_records(
     zichtbare details + een totaalrij te betalen / betaald / saldo. Volgt het
     actieve filter van de pagina (context #90/#308 + status #83)."""
     from app.domains.payment.exports import build_payments_export_ods
+
     content = build_payments_export_ods(db, context=context, status=status)
     return Response(
         content=content,
@@ -115,8 +121,11 @@ def refresh_payment_record(
 
     gp = refresh_payment_status(db, record.gateway_payment_id)
     handle_gateway_update(
-        db, gateway_payment_id=gp.id, new_status=gp.status,
-        source="admin_refresh", actor=admin.email,
+        db,
+        gateway_payment_id=gp.id,
+        new_status=gp.status,
+        source="admin_refresh",
+        actor=admin.email,
     )
     db.commit()
     db.refresh(record)
@@ -137,8 +146,12 @@ def refund_payment_record(
     """
     try:
         refund = create_refund(
-            db, record_id, data.amount,
-            note=data.note, method=data.method, actor=admin.email,
+            db,
+            record_id,
+            data.amount,
+            note=data.note,
+            method=data.method,
+            actor=admin.email,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -179,8 +192,12 @@ def update_payment_record(
     # bedrag-grens (#219) en de #517 refund-invariant zitten in de service.
     try:
         edit_payment_record(
-            db, record_id, status=data.status, amount_paid=data.amount_paid,
-            note=data.note, actor=admin.email,
+            db,
+            record_id,
+            status=data.status,
+            amount_paid=data.amount_paid,
+            note=data.note,
+            actor=admin.email,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -219,9 +236,12 @@ def delete_payment_record(
             detail=_("Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden."),
         )
     snapshot_payment_record(
-        db, record,
-        operation="delete", action="payment_deleted",
-        source="admin_manual", actor=admin.email,
+        db,
+        record,
+        operation="delete",
+        action="payment_deleted",
+        source="admin_manual",
+        actor=admin.email,
     )
     soft_delete(record)
     db.commit()

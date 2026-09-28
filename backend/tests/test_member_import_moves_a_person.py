@@ -17,11 +17,12 @@ branch skipped → the first test falls over with the person in two households a
 is exactly the silent corruption; and the address overwrite in `_sync_address` skipped → the
 second falls over with the old street still there.
 """
+
 from datetime import date
 
 import pytest
 
-from app.domains.mdm.api import Member, MemberPerson, Person
+from app.domains.mdm.api import MemberPerson, Person
 from app.domains.mdm.import_service import upsert_families
 from tests.conftest import seed_postal_code
 
@@ -30,12 +31,21 @@ pytestmark = pytest.mark.ui_agnostisch
 
 def _row(lidnr, voornaam, naam, relatie, *, huisnummer="40", straat="milostraat"):
     return {
-        "lidnr": lidnr, "voornaam": voornaam, "naam": naam,
-        "straat": straat, "huisnummer": huisnummer, "busnummer": "",
-        "postcode": "2400", "gemeente": "Mol",
-        "email": None, "telefoon": None, "gsm": None,
-        "geboortedatum": date(1980, 1, 1), "geslacht": None,
-        "bestuurslid": None, "_relatie": relatie,
+        "lidnr": lidnr,
+        "voornaam": voornaam,
+        "naam": naam,
+        "straat": straat,
+        "huisnummer": huisnummer,
+        "busnummer": "",
+        "postcode": "2400",
+        "gemeente": "Mol",
+        "email": None,
+        "telefoon": None,
+        "gsm": None,
+        "geboortedatum": date(1980, 1, 1),
+        "geslacht": None,
+        "bestuurslid": None,
+        "_relatie": relatie,
     }
 
 
@@ -44,9 +54,12 @@ def _load(db, families):
 
 
 def _households_of(db, person_id):
-    return [mp.member_id for mp in db.query(MemberPerson)
-            .filter(MemberPerson.person_id == person_id,
-                    MemberPerson.deleted_at.is_(None)).all()]
+    return [
+        mp.member_id
+        for mp in db.query(MemberPerson)
+        .filter(MemberPerson.person_id == person_id, MemberPerson.deleted_at.is_(None))
+        .all()
+    ]
 
 
 def test_a_person_moving_house_leaves_the_old_household(db_session):
@@ -57,26 +70,35 @@ def test_a_person_moving_house_leaves_the_old_household(db_session):
     households are wrong from then on.
     """
     seed_postal_code(db_session)
-    _load(db_session, [
-        [_row("1001", "Jan", "Peeters", "HOOFDLID", huisnummer="40")],
-        [_row("1002", "Els", "Claes", "HOOFDLID", huisnummer="42")],
-    ])
+    _load(
+        db_session,
+        [
+            [_row("1001", "Jan", "Peeters", "HOOFDLID", huisnummer="40")],
+            [_row("1002", "Els", "Claes", "HOOFDLID", huisnummer="42")],
+        ],
+    )
     db_session.flush()
     jan = db_session.query(Person).filter(Person.first_name == "Jan").one()
     oud_gezin = _households_of(db_session, jan.id)
     assert len(oud_gezin) == 1, "de opzet klopt niet — Jan zit niet in één gezin (#678)"
 
     # Jan duikt op in de adresgroep van Els: hetzelfde lidnummer, ander huisnummer.
-    _load(db_session, [
-        [_row("1002", "Els", "Claes", "HOOFDLID", huisnummer="42"),
-         _row("1001", "Jan", "Peeters", "PARTNER", huisnummer="42")],
-    ])
+    _load(
+        db_session,
+        [
+            [
+                _row("1002", "Els", "Claes", "HOOFDLID", huisnummer="42"),
+                _row("1001", "Jan", "Peeters", "PARTNER", huisnummer="42"),
+            ],
+        ],
+    )
     db_session.flush()
 
     nieuw_gezin = _households_of(db_session, jan.id)
     assert len(nieuw_gezin) == 1, (
         f"Jan zit in {len(nieuw_gezin)} gezinnen tegelijk — verhuizen werd kopiëren, en "
-        f"dat merkt niemand tot de ledenaantallen niet meer kloppen")
+        f"dat merkt niemand tot de ledenaantallen niet meer kloppen"
+    )
     assert nieuw_gezin != oud_gezin, "Jan is niet verhuisd"
 
 
@@ -92,8 +114,7 @@ def test_an_address_change_overwrites_the_old_one(db_session):
 
     mia = db_session.query(Person).filter(Person.first_name == "Mia").one()
     assert mia.address is not None, "de opzet klopt niet — Mia heeft geen adres"
-    assert mia.address.street == "kerkstraat", (
-        f"het adres is niet bijgewerkt: {mia.address.street}")
+    assert mia.address.street == "kerkstraat", f"het adres is niet bijgewerkt: {mia.address.street}"
 
 
 def test_an_unchanged_row_changes_nothing(db_session):
@@ -111,4 +132,5 @@ def test_an_unchanged_row_changes_nothing(db_session):
     db_session.flush()
 
     assert db_session.query(AddressHistory).count() == voor, (
-        "een ongewijzigde rij schreef toch geschiedenis")
+        "een ongewijzigde rij schreef toch geschiedenis"
+    )

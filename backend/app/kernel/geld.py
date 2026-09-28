@@ -9,6 +9,7 @@ Hier en niet in `app/ui`: de servicelaag heeft dezelfde opmaak nodig voor de
 meldingen die sinds #723 op het scherm komen, en die mag niet van de UI-laag
 afhangen.
 """
+
 from decimal import Decimal
 
 

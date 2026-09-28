@@ -1,69 +1,76 @@
 import logging
 import time
-
+from contextlib import asynccontextmanager
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
-from app.config import settings
-from app.database import engine
-from app.logging_config import configure_logging
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
-from app.models import *  # noqa: F401, F403 - ensures all models are registered
-from app.domains.membership.register_router import router as members_router
-from app.domains.membership.household_router import router as member_household_router
-from app.domains.mdm.import_router import router as member_import_router
-from app.domains.audit.router import router as audit_router
-from app.ui.admin_api import router as admin_api_router
+from app.config import settings
+from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.activities.router import router as activities_router
 from app.domains.activities.ui import router as activities_ui_router
-from app.domains.activities.admin_ui import router as activities_admin_ui_router
+from app.domains.audit.router import router as audit_router
+from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
-from app.domains.auth.admin_ui import router as auth_admin_ui_router
-from app.domains.cms.admin_ui import router as cms_admin_ui_router
-from app.domains.media.admin_ui import router as media_admin_ui_router
-from app.ui.changes_ui import router as changes_ui_router
-from app.ui.design_system_ui import router as design_system_ui_router
-from app.ui.system_ui import router as system_ui_router
-from app.ui.organisaties_ui import router as organisaties_ui_router
-from app.ui.tenants_ui import router as tenants_ui_router
-from app.domains.media.router import router as media_router
-from app.domains.media.ui import router as media_ui_router
-from app.domains.chatbot.router import router as chat_router
-from app.domains.chatbot.info_router import router as chatbot_info_router
-from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
-from app.domains.membership.ui import router as membership_ui_router
-from app.domains.cms.ui import router as cms_public_ui_router
-from app.domains.stt.router import router as stt_router
+from app.domains.chatbot.info_router import router as chatbot_info_router
+from app.domains.chatbot.router import router as chat_router
+from app.domains.chatbot.ui import router as chatbot_ui_router
+from app.domains.cms.admin_ui import router as cms_admin_ui_router
 from app.domains.cms.router import router as cms_router
-from app.domains.mdm.router import router as mdm_router
+from app.domains.cms.ui import router as cms_public_ui_router
+from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
+from app.domains.designstudio.handlers import (
+    generate_image,  # noqa: F401 - registers the designstudio.generate job (#1007)
+)
+from app.domains.forms.admin_ui import router as forms_admin_ui_router
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
-from app.domains.forms.admin_ui import router as forms_admin_ui_router
-from app.domains.workflow.ui import router as workflow_ui_router
-from app.domains.workflow import handlers as workflow_handlers  # noqa: F401 - event-abonnementen (#398)
+from app.domains.mail.handlers import (
+    retry_mail,  # noqa: F401 - registreert de mail.retry-job (#399)
+)
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
+from app.domains.mdm.import_router import router as member_import_router
+from app.domains.mdm.router import router as mdm_router
 from app.domains.mdm.ui import router as mdm_ui_router
-from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
-from app.domains.newsletter.handlers import send_newsletter  # noqa: F401 - registreert de newsletter.send-job (#984)
-from app.domains.payment.router import router as payment_router
-from app.domains.payment.ui import router as payment_ui_router
-from app.domains.payment.stub_router import include_stub_routes
-from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
-from app.domains.designstudio.admin_ui import router as designstudio_admin_ui_router
-from app.domains.designstudio.handlers import generate_image  # noqa: F401 - registers the designstudio.generate job (#1007)
+from app.domains.media.admin_ui import router as media_admin_ui_router
+from app.domains.media.router import router as media_router
+from app.domains.media.ui import router as media_ui_router
 from app.domains.meetings.admin_ui import router as meetings_admin_ui_router
+from app.domains.membership.household_router import router as member_household_router
+from app.domains.membership.register_router import router as members_router
+from app.domains.membership.ui import router as membership_ui_router
 from app.domains.newsletter.admin_ui import router as newsletter_admin_ui_router
+from app.domains.newsletter.handlers import (
+    send_newsletter,  # noqa: F401 - registreert de newsletter.send-job (#984)
+)
 from app.domains.newsletter.ui import router as newsletter_ui_router
+from app.domains.payment.router import router as payment_router
+from app.domains.payment.stub_router import include_stub_routes
+from app.domains.payment.ui import router as payment_ui_router
+from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
+from app.domains.stt.router import router as stt_router
+from app.domains.workflow import (
+    handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
+)
+from app.domains.workflow.ui import router as workflow_ui_router
+from app.logging_config import configure_logging
+from app.models import *  # noqa: F401, F403 - ensures all models are registered
+from app.ui.admin_api import router as admin_api_router
+from app.ui.changes_ui import router as changes_ui_router
+from app.ui.design_system_ui import router as design_system_ui_router
+from app.ui.organisaties_ui import router as organisaties_ui_router
+from app.ui.system_ui import router as system_ui_router
+from app.ui.tenants_ui import router as tenants_ui_router
 
 configure_logging()
 
@@ -75,6 +82,7 @@ logger.info(
     settings.git_sha,
     settings.app_env,
 )
+
 
 def _docs_kwargs(app_env: str) -> dict:
     """Verberg de interactieve docs + het OpenAPI-schema in prod-achtige
@@ -93,9 +101,6 @@ def cors_origins(app_env: str, frontend_url: str) -> list[str]:
     if app_env not in ("uat", "prod"):
         origins.append("http://localhost:3000")
     return origins
-
-
-from contextlib import asynccontextmanager
 
 
 @asynccontextmanager
@@ -180,9 +185,11 @@ def favicon() -> FileResponse:
     The icon is candidate B of #1245, chosen by Koen: the RaaK wordmark cropped
     square from the house-style logo and scaled, on the logo's own blue — nothing
     redrawn (CLAUDE.md, *Brand*)."""
-    return FileResponse(Path(__file__).parent / "static" / "favicon.ico",
-                        media_type="image/x-icon",
-                        headers={"Cache-Control": "public, max-age=86400"})
+    return FileResponse(
+        Path(__file__).parent / "static" / "favicon.ico",
+        media_type="image/x-icon",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 # #1274: the stub payment provider's pretend checkout page and webhook — only in
@@ -214,13 +221,14 @@ class _StatischeBestanden(StaticFiles):
         scope = args[2] if len(args) > 2 else kwargs.get("scope", {})
         query = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
         response.headers["Cache-Control"] = (
-            "public, max-age=31536000, immutable" if "v" in query
-            else "public, max-age=300"
+            "public, max-age=31536000, immutable" if "v" in query else "public, max-age=300"
         )
         return response
 
 
-app.mount("/static", _StatischeBestanden(directory=str(Path(__file__).parent / "static")), name="static")
+app.mount(
+    "/static", _StatischeBestanden(directory=str(Path(__file__).parent / "static")), name="static"
+)
 
 
 @app.middleware("http")
@@ -231,18 +239,24 @@ async def _tenant_context(request: Request, call_next):
     pad-prefix wordt gestript en verankerd in een cookie, zodat absolute
     vervolgnavigatie op dezelfde tenant blijft; noindex-tenants (demo) krijgen
     een X-Robots-Tag-header."""
-    from app.kernel.tenancy import (
-        DEFAULT_TENANT_ID, current_origin, current_platform_host, current_tenant_code,
-        current_tenant_id, parse_hostname_map, resolve_request,
-    )
     from app.domains.mdm.api import platform_tenant_id, tenant_codes
+    from app.kernel.tenancy import (
+        DEFAULT_TENANT_ID,
+        current_origin,
+        current_platform_host,
+        current_tenant_code,
+        current_tenant_id,
+        parse_hostname_map,
+        resolve_request,
+    )
 
     # Dynamische code→id-map uit de DB (#546): een nieuw aangemaakte tenant resolvet
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
     codes = tenant_codes()
     platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
     tenant, nieuw_pad, platform_landing = resolve_request(
-        request.headers.get("host"), request.url.path,
+        request.headers.get("host"),
+        request.url.path,
         request.cookies.get("raak_tenant"),
         parse_hostname_map(settings.tenant_hostnames),
         platform_hosts,
@@ -274,13 +288,14 @@ async def _tenant_context(request: Request, call_next):
     binnenkomende_host = (request.headers.get("host") or "").strip()
     schema = settings.frontend_url.split("://", 1)[0] if "://" in settings.frontend_url else "https"
     origin_token = current_origin.set(
-        f"{schema}://{binnenkomende_host}" if binnenkomende_host else None)
+        f"{schema}://{binnenkomende_host}" if binnenkomende_host else None
+    )
     platform_token = current_platform_host.set(
-        binnenkomende_host.split(":")[0].lower().removeprefix("www.") in platform_hosts)
+        binnenkomende_host.split(":")[0].lower().removeprefix("www.") in platform_hosts
+    )
     # De code van de actieve tenant, als ze er een heeft. De platform-tenant staat
     # niet in de code→id-map en heeft geen pad-prefix; dan blijft dit None.
-    code_token = current_tenant_code.set(
-        next((c for c, t in codes.items() if t == tenant), None))
+    code_token = current_tenant_code.set(next((c for c, t in codes.items() if t == tenant), None))
     token = current_tenant_id.set(tenant)
     taal_token = current_locale.set(taal)
     try:
@@ -305,7 +320,6 @@ async def _tenant_context(request: Request, call_next):
         finally:
             db.close()
     return response
-
 
 
 @app.middleware("http")
@@ -358,9 +372,11 @@ async def _boosted_swap_headers(request: Request, call_next):
     `HX-Boosted: true` bij). Geen overerving, geen invloed op de rest.
     """
     response = await call_next(request)
-    if (request.headers.get("HX-Boosted") == "true"
-            and response.status_code < 400
-            and response.headers.get("content-type", "").startswith("text/html")):
+    if (
+        request.headers.get("HX-Boosted") == "true"
+        and response.status_code < 400
+        and response.headers.get("content-type", "").startswith("text/html")
+    ):
         response.headers["HX-Retarget"] = "#main"
         response.headers["HX-Reselect"] = "#main"
         response.headers["HX-Reswap"] = "outerHTML show:window:top"
@@ -417,12 +433,13 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
     # ingevoerde waarden of de request-body, want die kunnen persoonsgegevens
     # bevatten. Genoeg om 422's te diagnosticeren zonder PII te lekken.
     velden = [
-        {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")}
-        for e in exc.errors()
+        {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")} for e in exc.errors()
     ]
     logger.warning(
         "422 validatiefout op %s %s — velden: %s",
-        request.method, request.url.path, velden,
+        request.method,
+        request.url.path,
+        velden,
     )
     # jsonable_encoder maakt eventuele ValueError-objecten in ctx (afkomstig
     # van custom validators) serialiseerbaar — net zoals FastAPI's eigen
@@ -432,9 +449,7 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception(
-        "Onverwerkte uitzondering: %s %s", request.method, request.url.path
-    )
+    logger.exception("Onverwerkte uitzondering: %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "Interne serverfout"})
 
 
@@ -453,10 +468,14 @@ def _start_kernel_jobs() -> None:
 
         db = SessionLocal()
         try:
-            sweep_pending = (db.query(KernelJob)
-                             .filter(KernelJob.name == "workflow.sweep",
-                                     KernelJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]))
-                             .count())
+            sweep_pending = (
+                db.query(KernelJob)
+                .filter(
+                    KernelJob.name == "workflow.sweep",
+                    KernelJob.status.in_([JobStatus.PENDING, JobStatus.RUNNING]),
+                )
+                .count()
+            )
             if not sweep_pending:
                 enqueue(db, "workflow.sweep", {})
                 db.commit()

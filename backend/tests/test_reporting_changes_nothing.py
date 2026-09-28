@@ -23,6 +23,7 @@ default changes nothing, because `build_ods_multi` always passes the value
 explicitly. That is worth writing down: the first break was tried, came back
 green, and the reason was that it never reached the code the test guards.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -41,9 +42,13 @@ def _first_sheet(content: bytes) -> list[list[str]]:
 
     document = load(BytesIO(content))
     tabel = document.getElementsByType(Table)[0]
-    return [["".join(str(p) for p in cel.getElementsByType(P))
-             for cel in rij.getElementsByType(TableCell)]
-            for rij in tabel.getElementsByType(TableRow)]
+    return [
+        [
+            "".join(str(p) for p in cel.getElementsByType(P))
+            for cel in rij.getElementsByType(TableCell)
+        ]
+        for rij in tabel.getElementsByType(TableRow)
+    ]
 
 
 def test_the_ods_kernel_is_untouched_when_no_intro_rows_are_given():
@@ -53,18 +58,28 @@ def test_the_ods_kernel_is_untouched_when_no_intro_rows_are_given():
     headers = ["Naam", "Bedrag"]
     rows = [["Aap", 1.0], ["Noot", 2.0]]
 
-    for content in (build_ods("Blad", headers, rows),
-                    build_ods_multi([{"name": "Blad", "headers": headers,
-                                      "rows": rows}])):
+    for content in (
+        build_ods("Blad", headers, rows),
+        build_ods_multi([{"name": "Blad", "headers": headers, "rows": rows}]),
+    ):
         blad = _first_sheet(content)
         assert blad[0] == headers, "de kopregel staat nog altijd bovenaan"
         assert len(blad) == len(rows) + 1, "er is geen rij bijgekomen"
 
     # And with intro rows it does what the report export needs, without moving
     # anything else: the intro sits above the header, the rest is unchanged.
-    met_intro = _first_sheet(build_ods_multi([{
-        "name": "Blad", "headers": headers, "rows": rows,
-        "intro_rows": [["Rapport", "Test"], []]}]))
+    met_intro = _first_sheet(
+        build_ods_multi(
+            [
+                {
+                    "name": "Blad",
+                    "headers": headers,
+                    "rows": rows,
+                    "intro_rows": [["Rapport", "Test"], []],
+                }
+            ]
+        )
+    )
     assert met_intro[0] == ["Rapport", "Test"]
     assert met_intro[2] == headers
     assert met_intro[3:] == [["Aap", "1.0"], ["Noot", "2.0"]]
@@ -86,9 +101,19 @@ def test_the_payments_export_still_answers_as_it_did(client, db_session):
     antwoord = client.get("/admin/betalingen/export")
     assert antwoord.status_code == 200
     blad = _first_sheet(antwoord.content)
-    assert blad[0] == ["Waarvoor", "Soort", "Type", "Betaalwijze", "Status",
-                       "Mededeling (OGM)", "Te betalen", "Betaald", "Saldo",
-                       "Betaald op", "Notitie"], "de kopregel is onveranderd"
+    assert blad[0] == [
+        "Waarvoor",
+        "Soort",
+        "Type",
+        "Betaalwijze",
+        "Status",
+        "Mededeling (OGM)",
+        "Te betalen",
+        "Betaald",
+        "Saldo",
+        "Betaald op",
+        "Notitie",
+    ], "de kopregel is onveranderd"
     assert blad[-1][0] == "Totaal"
     # The same net total as the reporting fact gives for this tenant — two
     # implementations, one number.
@@ -106,8 +131,8 @@ def test_the_member_changes_export_keeps_its_columns(client, db_session):
     blad = _first_sheet(antwoord.content)
     assert blad[0], "de export heeft een kopregel"
     assert blad[0][0] != "Rapport", (
-        "geen introregel in een bestaande export — dat is precies wat "
-        "`intro_rows` niet mag doen")
+        "geen introregel in een bestaande export — dat is precies wat `intro_rows` niet mag doen"
+    )
 
 
 def test_the_form_submissions_export_still_works(client, db_session):
@@ -130,7 +155,8 @@ def test_the_component_export_still_works(client, db_session):
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
     antwoord = client.get(
         f"/admin/activiteiten/{situatie['activity_id']}"
-        f"/onderdelen/{situatie['component_id']}/export")
+        f"/onderdelen/{situatie['component_id']}/export"
+    )
     assert antwoord.status_code == 200
     assert _first_sheet(antwoord.content)[0], "de export heeft een kopregel"
 
@@ -154,21 +180,33 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
     # de nieuwe volgorde en blijft even exact als voorheen.
     assert hrefs == [
         "/admin/werkbank",
-        "/admin/activiteiten", "/admin/leden", "/admin/formulieren",
-        "/admin/paginas", "/admin/media", "/admin/ai-context",
+        "/admin/activiteiten",
+        "/admin/leden",
+        "/admin/formulieren",
+        "/admin/paginas",
+        "/admin/media",
+        "/admin/ai-context",
         "/admin/betalingen",
         # #1007: Design Studio joins Communicatie, after the newsletter.
-        "/admin/vergaderingen", "/admin/nieuwsbrieven", "/admin/ontwerpen",
+        "/admin/vergaderingen",
+        "/admin/nieuwsbrieven",
+        "/admin/ontwerpen",
         # #1117: de beheer-assistent krijgt een eigen regel in Inzicht — `AI · Raakje`,
         # de assistent zelf, want hij gaat breder dan de rapporten. Dat is een
         # toevoeging aan deze lijst en geen verschuiving: elk ander item staat waar
         # het stond.
-        "/admin", "/admin/rapporten", "/admin/rapporten/raakje",
-        "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
+        "/admin",
+        "/admin/rapporten",
+        "/admin/rapporten/raakje",
+        "/admin/gebruikers",
+        "/admin/ledenwijzigingen",
+        "/admin/e-maillog",
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het
         # twee dingen zijn — een rechtspersoon en een site. De ACCOUNT-organisatie
         # is geen tenant en stond daardoor in geen enkel menu.
-        "/admin/organisaties", "/admin/tenants", "/admin/info",
+        "/admin/organisaties",
+        "/admin/tenants",
+        "/admin/info",
     ]
     # Sinds de Inzicht-groep (Koen, 14 sep) staat Rapporten naast het Dashboard,
     # niet meer naast Betalingen — rapportering is niet enkel financieel.
@@ -204,12 +242,14 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     pagina = client.get("/admin")
     assert pagina.status_code == 200
 
-    for titel, doel in [("Gezinnen", "/admin/leden"),
-                        ("Actieve gezinnen", "/admin/leden"),
-                        ("Personen (actief lid)", "/admin/leden"),
-                        ("Komende activiteiten", "/admin/activiteiten"),
-                        ("Open taken (werkbank)", "/admin/werkbank"),
-                        ("Openstaand saldo", "/admin/betalingen")]:
+    for titel, doel in [
+        ("Gezinnen", "/admin/leden"),
+        ("Actieve gezinnen", "/admin/leden"),
+        ("Personen (actief lid)", "/admin/leden"),
+        ("Komende activiteiten", "/admin/activiteiten"),
+        ("Open taken (werkbank)", "/admin/werkbank"),
+        ("Openstaand saldo", "/admin/betalingen"),
+    ]:
         assert titel in pagina.text, titel
         assert doel in pagina.text, doel
 
@@ -218,8 +258,7 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     assert len(DASHBOARD_TEGELS) == 6, "zes tegels erin, zes eruit"
 
 
-def test_the_outstanding_tile_now_writes_its_amount_the_house_way(client,
-                                                                  db_session):
+def test_the_outstanding_tile_now_writes_its_amount_the_house_way(client, db_session):
     """The #848 tripwire, sprung on purpose in wave 7 (#913).
 
     The tile wrote `€45.00` with a point; #735 made the comma the house rule.
@@ -237,6 +276,8 @@ def test_the_outstanding_tile_now_writes_its_amount_the_house_way(client,
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
     pagina = client.get("/admin")
     assert not re.findall(r"€\d+\.\d{2}", pagina.text), (
-        "de saldotegel schrijft weer een punt-bedrag buiten de ene formatter om")
+        "de saldotegel schrijft weer een punt-bedrag buiten de ene formatter om"
+    )
     assert re.findall(r"€ \d+,\d{2}", pagina.text), (
-        "de saldotegel toont geen huisstijl-bedrag (spatie + komma, §735)")
+        "de saldotegel toont geen huisstijl-bedrag (spatie + komma, §735)"
+    )

@@ -9,15 +9,21 @@ Die laatste is de belangrijkste van dit issue. `contact_details` draagt sinds #9
 zowel persoons- als organisatierijen, en de gevaarlijke fout is niet dat de nieuwe
 rijen ontbreken maar dat ze in een bestaand antwoord opduiken.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.mdm.api import (BankAccount, ContactDetail,
-                                 OrganizationIdentification, Organization,
-                                 Person, PostalCode)
+from app.domains.mdm.api import (
+    CONTACT,
+    BankAccount,
+    ContactDetail,
+    Organization,
+    OrganizationIdentification,
+    OrganizationType,
+    Person,
+)
 from app.kernel.tenant_config import _actieve_tenant
-from app.domains.mdm.api import CONTACT, OrganizationType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -28,19 +34,27 @@ TENANT = None  # gezet door de fixture; de UNIT, niet het ACCOUNT
 def organisatie(db_session):
     global TENANT
     TENANT = _actieve_tenant(None)
-    return (db_session.query(Organization)
-            .filter(Organization.id == TENANT)
-            .execution_options(include_all_tenants=True).one())
+    return (
+        db_session.query(Organization)
+        .filter(Organization.id == TENANT)
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
 
 
 def _contact(db_session, organisatie, code: str, waarde: str) -> ContactDetail:
-    rij = ContactDetail(tenant_id=organisatie.id, organization_id=organisatie.id,
-                        contact_type_code=code, value=waarde)
+    rij = ContactDetail(
+        tenant_id=organisatie.id,
+        organization_id=organisatie.id,
+        contact_type_code=code,
+        value=waarde,
+    )
     db_session.add(rij)
     return rij
 
 
 # ── 1. Het tweede geval is een rij ──────────────────────────────────────────
+
 
 def test_two_vat_numbers_in_two_countries_are_two_rows(db_session, organisatie):
     """Koens eigen geval: *"op termijn kan één organisatie meerdere btw-nummers
@@ -50,20 +64,31 @@ def test_two_vat_numbers_in_two_countries_are_two_rows(db_session, organisatie):
     hangt aan `cac:PartyTaxScheme` een eigen registratieland, en dat is precies
     waarom dit een rij kan zijn.
     """
-    db_session.add_all([
-        OrganizationIdentification(organization_id=organisatie.id, scheme="VAT",
-                                   value="BE0123456789", country="BE"),
-        OrganizationIdentification(organization_id=organisatie.id, scheme="VAT",
-                                   value="NL123456789B01", country="NL"),
-    ])
+    db_session.add_all(
+        [
+            OrganizationIdentification(
+                organization_id=organisatie.id, scheme="VAT", value="BE0123456789", country="BE"
+            ),
+            OrganizationIdentification(
+                organization_id=organisatie.id, scheme="VAT", value="NL123456789B01", country="NL"
+            ),
+        ]
+    )
     db_session.commit()
 
-    rijen = (db_session.query(OrganizationIdentification)
-             .filter(OrganizationIdentification.organization_id == organisatie.id,
-                     OrganizationIdentification.scheme == "VAT")
-             .execution_options(include_all_tenants=True).all())
+    rijen = (
+        db_session.query(OrganizationIdentification)
+        .filter(
+            OrganizationIdentification.organization_id == organisatie.id,
+            OrganizationIdentification.scheme == "VAT",
+        )
+        .execution_options(include_all_tenants=True)
+        .all()
+    )
     assert {(r.value, r.country) for r in rijen} == {
-        ("BE0123456789", "BE"), ("NL123456789B01", "NL")}
+        ("BE0123456789", "BE"),
+        ("NL123456789B01", "NL"),
+    }
 
 
 def test_the_scheme_must_exist_in_the_code_list(db_session, organisatie):
@@ -74,8 +99,9 @@ def test_the_scheme_must_exist_in_the_code_list(db_session, organisatie):
     """
     from sqlalchemy.exc import IntegrityError
 
-    db_session.add(OrganizationIdentification(
-        organization_id=organisatie.id, scheme="VERZONNEN", value="X"))
+    db_session.add(
+        OrganizationIdentification(organization_id=organisatie.id, scheme="VERZONNEN", value="X")
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
@@ -83,29 +109,29 @@ def test_the_scheme_must_exist_in_the_code_list(db_session, organisatie):
 
 # ── 2. Twee rekeningen, en de footer kiest ──────────────────────────────────
 
-def test_a_second_bank_account_is_a_row_and_the_first_one_is_shown(
-        db_session, organisatie, client):
+
+def test_a_second_bank_account_is_a_row_and_the_first_one_is_shown(db_session, organisatie, client):
     """Een vzw met een aparte rekening per werking is niets bijzonders.
 
     `sort_order` beslist welke er getoond wordt; zonder die keuze zou de footer
     de rekening tonen die toevallig als eerste is aangemaakt.
     """
-    db_session.add_all([
-        BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222",
-                    sort_order=1),
-        BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111",
-                    sort_order=0),
-    ])
+    db_session.add_all(
+        [
+            BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222", sort_order=1),
+            BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111", sort_order=0),
+        ]
+    )
     db_session.commit()
 
     html = client.get("/aanmelden").text
     assert "BE11 1111 1111 1111" in html
     assert "BE22 2222 2222 2222" not in html, (
-        "de footer hoort één rekening te tonen, en de eerste volgens sort_order")
+        "de footer hoort één rekening te tonen, en de eerste volgens sort_order"
+    )
 
 
-def test_the_payment_instructions_follow_the_same_first_account(
-        db_session, organisatie):
+def test_the_payment_instructions_follow_the_same_first_account(db_session, organisatie):
     """Dezelfde keuze, langs de andere lezer.
 
     Zouden footer en overschrijvingsinstructie elk hun eigen "eerste" kiezen, dan
@@ -113,12 +139,12 @@ def test_the_payment_instructions_follow_the_same_first_account(
     """
     from app.kernel.tenant_config import tenant_payment_iban
 
-    db_session.add_all([
-        BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222",
-                    sort_order=1),
-        BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111",
-                    sort_order=0),
-    ])
+    db_session.add_all(
+        [
+            BankAccount(organization_id=organisatie.id, iban="BE22 2222 2222 2222", sort_order=1),
+            BankAccount(organization_id=organisatie.id, iban="BE11 1111 1111 1111", sort_order=0),
+        ]
+    )
     db_session.commit()
 
     assert tenant_payment_iban(db_session, organisatie.id) == "BE11 1111 1111 1111"
@@ -126,8 +152,8 @@ def test_the_payment_instructions_follow_the_same_first_account(
 
 # ── 3. Een vijfde netwerk raakt geen schema ─────────────────────────────────
 
-def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
-                                                        client):
+
+def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie, client):
     """De belofte van dit issue, letterlijk getoetst.
 
     Er wordt hier géén kolom toegevoegd, géén migratie gedraaid en géén
@@ -145,10 +171,10 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     # one row and no code change (Koen, 26 September 2026).
     from app.domains.mdm.api import ContactTypeCode, ContactTypeLabel
 
-    db_session.add(ContactTypeCode(code="MASTODON", sort_order=80,
-                                   is_active=True, is_social_network=True))
-    db_session.add(ContactTypeLabel(code="MASTODON", language="nl",
-                                    value="Mastodon"))
+    db_session.add(
+        ContactTypeCode(code="MASTODON", sort_order=80, is_active=True, is_social_network=True)
+    )
+    db_session.add(ContactTypeLabel(code="MASTODON", language="nl", value="Mastodon"))
     db_session.flush()
     _contact(db_session, organisatie, "MASTODON", "https://mastodon.example/@raak")
     db_session.commit()
@@ -157,8 +183,7 @@ def test_a_fifth_network_is_only_a_row_in_the_code_list(db_session, organisatie,
     assert "https://mastodon.example/@raak" in html
 
 
-def test_email_and_phone_do_not_end_up_between_the_icons(db_session, organisatie,
-                                                         client):
+def test_email_and_phone_do_not_end_up_between_the_icons(db_session, organisatie, client):
     """De tegenproef: niet élk contactgegeven is een sociale link.
 
     Zonder deze grens zou het e-mailadres als icoonlink in de rij verschijnen —
@@ -173,10 +198,12 @@ def test_email_and_phone_do_not_end_up_between_the_icons(db_session, organisatie
 
     codes = {link["code"] for link in _sociale_links(db_session, organisatie)}
     assert codes == set(), (
-        "e-mail, telefoon en website horen in het contactblok, niet tussen de iconen")
+        "e-mail, telefoon en website horen in het contactblok, niet tussen de iconen"
+    )
 
 
 # ── 4. De persoonskant merkt er niets van (de belangrijkste) ────────────────
+
 
 def test_a_person_only_sees_their_own_contact_details(db_session, organisatie):
     """De belangrijkste test van #945.
@@ -188,16 +215,22 @@ def test_a_person_only_sees_their_own_contact_details(db_session, organisatie):
     persoon = Person(first_name="Test", last_name="Persoon")
     db_session.add(persoon)
     db_session.flush()
-    db_session.add(ContactDetail(tenant_id=organisatie.id, person_id=persoon.id,
-                                 contact_type_code="EMAIL",
-                                 value="persoon@example.com"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=organisatie.id,
+            person_id=persoon.id,
+            contact_type_code="EMAIL",
+            value="persoon@example.com",
+        )
+    )
     _contact(db_session, organisatie, "EMAIL", "bestuur@example.com")
     db_session.commit()
     db_session.refresh(persoon)
 
     waarden = {c.value for c in persoon.contact_details}
     assert waarden == {"persoon@example.com"}, (
-        "de organisatierij hoort niet in de contactgegevens van een persoon te zitten")
+        "de organisatierij hoort niet in de contactgegevens van een persoon te zitten"
+    )
 
 
 def test_a_row_cannot_belong_to_both_at_once(db_session, organisatie):
@@ -215,16 +248,23 @@ def test_a_row_cannot_belong_to_both_at_once(db_session, organisatie):
     persoon = Person(first_name="Test", last_name="Persoon")
     db_session.add(persoon)
     db_session.flush()
-    db_session.add(ContactDetail(tenant_id=organisatie.id, person_id=persoon.id,
-                                 organization_id=organisatie.id,
-                                 contact_type_code="EMAIL", value="beide@example.com"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=organisatie.id,
+            person_id=persoon.id,
+            organization_id=organisatie.id,
+            contact_type_code="EMAIL",
+            value="beide@example.com",
+        )
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
 
     # En de andere kant: een rij zonder eigenaar is evengoed geweigerd.
-    db_session.add(ContactDetail(tenant_id=organisatie.id,
-                                 contact_type_code="EMAIL", value="wees@example.com"))
+    db_session.add(
+        ContactDetail(tenant_id=organisatie.id, contact_type_code="EMAIL", value="wees@example.com")
+    )
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
@@ -250,20 +290,26 @@ def test_the_audit_lookup_ignores_the_organisation_row(db_session, organisatie):
     persoon = Person(first_name="Bestuurs", last_name="Lid")
     db_session.add(persoon)
     db_session.flush()
-    db_session.add(ContactDetail(tenant_id=organisatie.id, person_id=persoon.id,
-                                 contact_type_code="EMAIL",
-                                 value="gedeeld@example.com"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=organisatie.id,
+            person_id=persoon.id,
+            contact_type_code="EMAIL",
+            value="gedeeld@example.com",
+        )
+    )
     db_session.commit()
 
     gevonden = _SubjectResolver(db_session)._person_by_email("gedeeld@example.com")
     assert gevonden == persoon.id, (
-        "de auditregel hoort de persoon te vinden, niet de organisatierij")
+        "de auditregel hoort de persoon te vinden, niet de organisatierij"
+    )
 
 
 # ── 5. De tenant-naad, expliciet ────────────────────────────────────────────
 
-def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session,
-                                                                  organisatie):
+
+def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session, organisatie):
     """`tenant_id` is op een organisatierij niet de scope — vastgelegd (#945).
 
     De kolom is NOT NULL en krijgt de eigenaar mee omdat er geen betere waarde
@@ -276,34 +322,51 @@ def test_an_organisation_row_is_invisible_under_the_tenant_filter(db_session,
     """
     from app.kernel.tenancy import current_tenant_id
 
-    account = (db_session.query(Organization)
-               .filter(Organization.org_type == OrganizationType.ACCOUNT)
-               .execution_options(include_all_tenants=True).first())
+    account = (
+        db_session.query(Organization)
+        .filter(Organization.org_type == OrganizationType.ACCOUNT)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
     assert account is not None and account.id != organisatie.id
-    db_session.add(ContactDetail(tenant_id=account.id, organization_id=account.id,
-                                 contact_type_code="EMAIL",
-                                 value="account@example.com"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=account.id,
+            organization_id=account.id,
+            contact_type_code="EMAIL",
+            value="account@example.com",
+        )
+    )
     db_session.commit()
 
     token = current_tenant_id.set(organisatie.id)
     try:
-        zonder = (db_session.query(ContactDetail)
-                  .filter(ContactDetail.value == "account@example.com").all())
-        met = (db_session.query(ContactDetail)
-               .filter(ContactDetail.value == "account@example.com")
-               .execution_options(include_all_tenants=True).all())
+        zonder = (
+            db_session.query(ContactDetail)
+            .filter(ContactDetail.value == "account@example.com")
+            .all()
+        )
+        met = (
+            db_session.query(ContactDetail)
+            .filter(ContactDetail.value == "account@example.com")
+            .execution_options(include_all_tenants=True)
+            .all()
+        )
     finally:
         current_tenant_id.reset(token)
 
     assert zonder == [], (
         "zonder include_all_tenants hoort een organisatierij van een ándere "
-        "organisatie onzichtbaar te zijn")
+        "organisatie onzichtbaar te zijn"
+    )
     assert len(met) == 1, (
         "en mét die optie hoort ze er wél te zijn — anders toetst de regel "
-        "hierboven alleen dat de rij nergens bestaat")
+        "hierboven alleen dat de rij nergens bestaat"
+    )
 
 
 # ── 6. De telling in de migratie kan rood worden ────────────────────────────
+
 
 def test_the_migration_count_refuses_a_silent_zero():
     """De vangnetvorm van #945, en ze moet rood kunnen.
@@ -320,8 +383,7 @@ def test_the_migration_count_refuses_a_silent_zero():
     import importlib.util
     from pathlib import Path
 
-    pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "124_organization_lists.py")
+    pad = Path(__file__).resolve().parents[1] / "alembic" / "versions" / "124_organization_lists.py"
     spec = importlib.util.spec_from_file_location("migratie_124", pad)
     migratie = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migratie)
@@ -356,6 +418,7 @@ def test_the_migration_count_refuses_a_silent_zero():
 
 # ── 7. Het scherm bewerkt nog steeds één van elk ────────────────────────────
 
+
 def test_the_screen_round_trips_through_three_tables(db_session, organisatie):
     """Elf invoervelden, drie tabellen, één plat woordenboek.
 
@@ -363,23 +426,26 @@ def test_the_screen_round_trips_through_three_tables(db_session, organisatie):
     gaat moet er ook weer uitkomen, anders staat een penningmeester te kijken naar
     een leeg veld dat hij net ingevuld heeft.
     """
-    from app.domains.mdm.api import (organization_details,
-                                     update_organization_details)
+    from app.domains.mdm.api import organization_details, update_organization_details
 
-    update_organization_details(db_session, organisatie.id, {
-        "legal_form": "VZW",
-        "enterprise_number": " 0123.456.789 ",
-        "vat_number": "BE0123456789",
-        "email": "bestuur@example.com",
-        "phone": "014 00 00 00",
-        "website": "https://example.com",
-        "facebook_url": "https://facebook.com/raak",
-        "instagram_url": "",
-        "tiktok_url": "",
-        "payment_iban": " BE68 5390 0754 7034 ",
-        "payment_beneficiary": "Raak Voorbeeld",
-        "payment_bic": "GKCCBEBB",
-    })
+    update_organization_details(
+        db_session,
+        organisatie.id,
+        {
+            "legal_form": "VZW",
+            "enterprise_number": " 0123.456.789 ",
+            "vat_number": "BE0123456789",
+            "email": "bestuur@example.com",
+            "phone": "014 00 00 00",
+            "website": "https://example.com",
+            "facebook_url": "https://facebook.com/raak",
+            "instagram_url": "",
+            "tiktok_url": "",
+            "payment_iban": " BE68 5390 0754 7034 ",
+            "payment_beneficiary": "Raak Voorbeeld",
+            "payment_bic": "GKCCBEBB",
+        },
+    )
 
     uit = organization_details(db_session, organisatie.id)
     assert uit["legal_form"] == "VZW"
@@ -397,16 +463,19 @@ def test_clearing_a_field_removes_the_row(db_session, organisatie):
     Een rij met een lege waarde is een derde toestand die nergens iets betekent en
     die een volgende lezer als "ingevuld" telt.
     """
-    from app.domains.mdm.api import (organization_details,
-                                     update_organization_details)
+    from app.domains.mdm.api import organization_details, update_organization_details
 
-    update_organization_details(db_session, organisatie.id,
-                                {"email": "bestuur@example.com"})
+    update_organization_details(db_session, organisatie.id, {"email": "bestuur@example.com"})
     update_organization_details(db_session, organisatie.id, {"email": ""})
 
     assert organization_details(db_session, organisatie.id)["email"] == ""
-    rijen = (db_session.query(ContactDetail)
-             .filter(ContactDetail.organization_id == organisatie.id,
-                     ContactDetail.contact_type_code == CONTACT.EMAIL)
-             .execution_options(include_all_tenants=True).all())
+    rijen = (
+        db_session.query(ContactDetail)
+        .filter(
+            ContactDetail.organization_id == organisatie.id,
+            ContactDetail.contact_type_code == CONTACT.EMAIL,
+        )
+        .execution_options(include_all_tenants=True)
+        .all()
+    )
     assert rijen == [], "een leeg veld hoort geen lege rij achter te laten"

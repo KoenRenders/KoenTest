@@ -20,6 +20,7 @@ seed is precies de rij die `test_beheer_flows` als eerste "Bevestig" oppikt — 
 toetste dan zijn naam belooft. Vandaar een eigen gezin per toestand, en vandaar de
 laatste test hieronder, die bewaakt dat de nieuwe rij níét vooraan komt.
 """
+
 import os
 import sys
 
@@ -72,10 +73,12 @@ def test_het_vernieuwde_gezin_toont_geen_vernieuwblok_meer(browser_page):
     page = _portaal(browser_page, MARKER_EMAIL_VERNIEUWD)
     volgend = date.today().year + 1
     assert f"31-12-{volgend}" in page.locator("main").inner_text(), (
-        "de dekking loopt niet tot eind volgend jaar; dit is de toestand ná de betaling")
+        "de dekking loopt niet tot eind volgend jaar; dit is de toestand ná de betaling"
+    )
     expect(page.get_by_role("button", name=VERLENGKNOP)).to_have_count(0)
     assert BETAALINSTRUCTIE not in page.locator("main").inner_text(), (
-        "er staan betaalinstructies op een gezin dat al betaald heeft")
+        "er staan betaalinstructies op een gezin dat al betaald heeft"
+    )
 
 
 def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(browser_page):
@@ -87,7 +90,10 @@ def test_het_overschrijvingsgezin_toont_bedrag_iban_begunstigde_en_mededeling(br
     rekeningnummer er geslaagd uitzien.
     """
     from seed_e2e import (
-        MARKER_EMAIL_OVERSCHRIJVING, OVERSCHRIJVING_OGM, SEED_BEGUNSTIGDE, SEED_IBAN,
+        MARKER_EMAIL_OVERSCHRIJVING,
+        OVERSCHRIJVING_OGM,
+        SEED_BEGUNSTIGDE,
+        SEED_IBAN,
     )
 
     page = _portaal(browser_page, MARKER_EMAIL_OVERSCHRIJVING)
@@ -125,9 +131,8 @@ def test_de_openstaande_vernieuwing_komt_niet_vooraan_bij_de_betalingen(browser_
     komt de rij wél vooraan en faalt de laatste assertie met
     `+++000/0000/40416+++` erin. Dát is de meting die telt.
     """
-    from tests.conftest import SEEDED_ADMIN_EMAIL
-
     from seed_e2e import OVERSCHRIJVING_OGM
+    from tests.conftest import SEEDED_ADMIN_EMAIL
 
     browser_page.context.clear_cookies()
     login_met_sessie(browser_page, _sessie(SEEDED_ADMIN_EMAIL))
@@ -136,7 +141,8 @@ def test_de_openstaande_vernieuwing_komt_niet_vooraan_bij_de_betalingen(browser_
         Betalingenscherm(browser_page).open()
         rijen = browser_page.locator(
             "#betalingen-lijst tbody tr",
-            has=browser_page.get_by_role("button", name="Bevestig", exact=True))
+            has=browser_page.get_by_role("button", name="Bevestig", exact=True),
+        )
         mededelingen = []
         for i in range(rijen.count()):
             mono = rijen.nth(i).locator(".font-mono")
@@ -146,9 +152,11 @@ def test_de_openstaande_vernieuwing_komt_niet_vooraan_bij_de_betalingen(browser_
         assert mededelingen, "geen enkele rij met een Bevestig-knop op het scherm"
         assert OVERSCHRIJVING_OGM in mededelingen, (
             "de openstaande vernieuwing staat niet tussen de bevestigbare rijen; deze "
-            "test kan dan niet meten of ze vooraan komt")
+            "test kan dan niet meten of ze vooraan komt"
+        )
         assert mededelingen[0] != OVERSCHRIJVING_OGM, (
             f"de vernieuwing van #1241 staat vooraan ({mededelingen[0]}) — "
-            "`test_beheer_flows` bevestigt voortaan die rij en afdruk 3 verdwijnt")
+            "`test_beheer_flows` bevestigt voortaan die rij en afdruk 3 verdwijnt"
+        )
     finally:
         browser_page.set_viewport_size({"width": 390, "height": 844})

@@ -5,12 +5,13 @@ met kaarten die de paginabrede editor openen i.p.v. een detailpaneel te vullen.
 Getest wordt wat stuk kan: de filters (ook gecombineerd), de betekenis van de
 KPI-rij onder een filter, en de navigatie na aanmaken en verwijderen.
 """
+
 import re
 from datetime import date, timedelta
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.activities.api import Activity, ActivityDate
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -25,8 +26,9 @@ def _activiteit(db_session, naam: str, locatie: str, dagen_vooruit: int) -> Acti
     a = Activity(name=naam, location=locatie)
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id,
-                                start_date=date.today() + timedelta(days=dagen_vooruit)))
+    db_session.add(
+        ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=dagen_vooruit))
+    )
     db_session.commit()
     return a
 
@@ -48,7 +50,7 @@ def test_archief_toont_voorbije_activiteiten_en_komende_niet(client, db_session)
     _activiteit(db_session, "Straks", "Zaal", 30)
     _activiteit(db_session, "Voorbij", "Zaal", -30)
 
-    komende = client.get("/admin/activiteiten")           # default scope
+    komende = client.get("/admin/activiteiten")  # default scope
     assert "Straks" in komende.text and "Voorbij" not in komende.text
 
     archief = client.get("/admin/activiteiten", params={"scope": "archived"})
@@ -96,15 +98,14 @@ def test_kaart_linkt_naar_de_paginabrede_editor(client, db_session):
 
     pagina = client.get(f"/admin/activiteiten/{a.id}")
     assert pagina.status_code == 200
-    assert "Alle activiteiten" in pagina.text      # terugkeerlink van de editor
+    assert "Alle activiteiten" in pagina.text  # terugkeerlink van de editor
     assert 'id="aa-detail"' in pagina.text
 
 
 def test_verwijderen_stuurt_terug_naar_de_lijst(client, db_session):
     csrf = _login(client)
     a = _activiteit(db_session, "Weg", "Zaal", 8)
-    resp = client.post(f"/admin/activiteiten/{a.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/activiteiten/{a.id}/verwijderen", headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == "/admin/activiteiten"
 

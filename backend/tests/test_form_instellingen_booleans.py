@@ -8,20 +8,27 @@ zonder melding. Dat is de vervelendste soort fout: je doet niets verkeerd.
 De laatste test is de structurele bewaker: hij vergelijkt wat de route accepteert met
 wat het formulier verstuurt, zodat een vergeten checkbox opvalt vóór ze data vernietigt.
 """
+
 import inspect
 import re
 from pathlib import Path
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for, make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.api import Form
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-TEMPLATE = (Path(__file__).resolve().parents[1] / "app" / "domains" / "forms"
-            / "templates" / "_fb_builder.html")
+TEMPLATE = (
+    Path(__file__).resolve().parents[1]
+    / "app"
+    / "domains"
+    / "forms"
+    / "templates"
+    / "_fb_builder.html"
+)
 BOOLEANS = ("send_confirmation", "allow_edit", "is_anonymous", "requires_login")
 
 
@@ -32,8 +39,12 @@ def _login(client):
 
 
 def _formulier(db, **kw):
-    form = Form(title="Instellingen", share_token=f"tok-{kw.get('n', 1)}", status="draft", **{
-        k: v for k, v in kw.items() if k != "n"})
+    form = Form(
+        title="Instellingen",
+        share_token=f"tok-{kw.get('n', 1)}",
+        status="draft",
+        **{k: v for k, v in kw.items() if k != "n"},
+    )
     db.add(form)
     db.commit()
     return form
@@ -44,8 +55,11 @@ def test_requires_login_blijft_staan_na_opslaan(client, db_session):
     form = _formulier(db_session, requires_login=True, n=1)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/formulieren/{form.id}/instellingen", headers=hdr, data={
-        "title": "Instellingen", "status": "draft", "requires_login": "1"})
+    resp = client.post(
+        f"/admin/formulieren/{form.id}/instellingen",
+        headers=hdr,
+        data={"title": "Instellingen", "status": "draft", "requires_login": "1"},
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -70,8 +84,9 @@ def test_elke_boolean_is_uit_te_zetten_en_aan_te_zetten(client, db_session, veld
     hdr = _login(client)
     basis = {"title": "Instellingen", "status": "draft"}
 
-    client.post(f"/admin/formulieren/{form.id}/instellingen", headers=hdr,
-                data={**basis, veld: "1"})
+    client.post(
+        f"/admin/formulieren/{form.id}/instellingen", headers=hdr, data={**basis, veld: "1"}
+    )
     db_session.expire_all()
     assert getattr(db_session.get(Form, form.id), veld) is True
 

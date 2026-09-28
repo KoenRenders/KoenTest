@@ -24,6 +24,7 @@ Kapotgemaakt om te controleren dat hij rood kan worden: `form="<id>"` weer van
 het veld gehaald → het nieuwe adres verschijnt niet na het opslaan, en de test
 faalt op precies de zin die Koen meldde.
 """
+
 import os
 import sys
 
@@ -90,7 +91,8 @@ def test_een_toegevoegde_rij_overleeft_het_opslaan(admin_page):
     page = admin_page
     _open_het_eerste_gezin(page).click()
     page.locator("input[name^='email_existing_'], button:has-text('+ E-mailadres')").first.wait_for(
-        state="visible", timeout=5_000)
+        state="visible", timeout=5_000
+    )
 
     page.get_by_role("button", name="+ E-mailadres").first.click()
     veld = page.locator("input[name^='email_new_']").first
@@ -102,14 +104,16 @@ def test_een_toegevoegde_rij_overleeft_het_opslaan(admin_page):
     # dat er één van de twee geldt. Dit veld staat in de bewerkvorm van het lid.
     assert veld.evaluate("el => el.form ? el.form.id : null"), (
         "het veld hoort bij geen enkel formulier — de browser stuurt het dan niet "
-        "mee met Opslaan, en dat is precies wat er op HDEV misging")
+        "mee met Opslaan, en dat is precies wat er op HDEV misging"
+    )
 
     veld.fill(NIEUW)
     _maak_de_verplichte_velden_geldig(page)
     page.get_by_role("button", name="Opslaan").first.click()
     page.wait_for_function(
         "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')",
-        timeout=10_000)
+        timeout=10_000,
+    )
 
     # Na het opslaan staat de kaart weer in leesmodus, en die toont alleen het
     # hoofdadres. Kijken dus zoals Koen keek: opnieuw Bewerken, en staat de rij
@@ -129,13 +133,15 @@ def test_een_gecorrigeerde_tikfout_overleeft_het_opslaan(admin_page):
     page = admin_page
     _open_het_eerste_gezin(page).click()
     page.locator("input[name^='email_existing_'], button:has-text('+ E-mailadres')").first.wait_for(
-        state="visible", timeout=5_000)
+        state="visible", timeout=5_000
+    )
 
     veld = page.locator(f"input[value='{NIEUW}']").first
     if veld.count() == 0:
         _ontbreekt(f"{NIEUW} staat niet op de kaart; de vorige test moet eerst slagen")
     assert veld.evaluate("el => el.form ? el.form.id : null"), (
-        "ook een bestaande rij hoort bij geen enkel formulier")
+        "ook een bestaande rij hoort bij geen enkel formulier"
+    )
 
     verbeterd = "verbeterd@example.com"
     veld.fill(verbeterd)
@@ -143,8 +149,8 @@ def test_een_gecorrigeerde_tikfout_overleeft_het_opslaan(admin_page):
     page.get_by_role("button", name="Opslaan").first.click()
     page.wait_for_function(
         "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')",
-        timeout=10_000)
+        timeout=10_000,
+    )
 
     _open_het_eerste_gezin(page).click()
-    expect(page.locator(f"input[value='{verbeterd}']").first).to_have_count(
-        1, timeout=10_000)
+    expect(page.locator(f"input[value='{verbeterd}']").first).to_have_count(1, timeout=10_000)

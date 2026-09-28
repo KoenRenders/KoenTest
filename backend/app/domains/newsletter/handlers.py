@@ -10,6 +10,7 @@ carries the tenant id, and the handler sets it for the duration of the run:
 without it the tenant filter is off and the mail settings would be read for
 the default tenant.
 """
+
 from __future__ import annotations
 
 import logging

@@ -18,6 +18,7 @@ Broken on purpose to check that these tests can go red: the activity point
 built with `is_activity=False, is_member=True` → the chip test and the
 newsletter test fall over.
 """
+
 import re
 from datetime import date
 
@@ -50,20 +51,22 @@ def meeting_with_three_kinds(db_session):
     db_session.flush()
     db_session.add(ActivityDate(activity_id=activity.id, start_date=date(2026, 10, 5)))
     db_session.flush()
-    activity_point = add_item(db_session, meeting, sections["UPCOMING"],
-                              activity_id=activity.id)
-    free_point = add_item(db_session, meeting, sections["MISC"],
-                          title="Een vrij punt")
+    activity_point = add_item(db_session, meeting, sections["UPCOMING"], activity_id=activity.id)
+    free_point = add_item(db_session, meeting, sections["MISC"], title="Een vrij punt")
     member_point = _member_point(db_session, meeting, sections["MEMBERS"])
     db_session.flush()
-    return meeting, {"activity": activity_point.id, "free": free_point.id,
-                     "member": member_point.id}
+    return meeting, {
+        "activity": activity_point.id,
+        "free": free_point.id,
+        "member": member_point.id,
+    }
 
 
 def _member_point(db, meeting, section):
     member, _person = create_test_family(db, email="punt@example.org")
-    item = MeetingItem(meeting_id=meeting.id, section_id=section.id, position=0,
-                       member_id=member.id)
+    item = MeetingItem(
+        meeting_id=meeting.id, section_id=section.id, position=0, member_id=member.id
+    )
     db.add(item)
     db.flush()
     return item
@@ -82,11 +85,12 @@ def _steward_form(block: str) -> bool:
 def _block(html: str, item_id: int) -> str:
     start = html.index(f'id="vg-punt-{item_id}"')
     end = html.find('id="vg-punt-', start + 1)
-    return html[start:end if end != -1 else len(html)]
+    return html[start : end if end != -1 else len(html)]
 
 
 def test_the_source_chip_and_the_steward_choice_follow_the_kind(
-        client, db_session, meeting_with_three_kinds):
+    client, db_session, meeting_with_three_kinds
+):
     meeting, ids = meeting_with_three_kinds
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     html = client.get(f"/admin/vergaderingen/{meeting.id}").text
@@ -103,8 +107,9 @@ def test_the_source_chip_and_the_steward_choice_follow_the_kind(
 
 def test_the_newsletter_never_gets_a_member_point(db_session, meeting_with_three_kinds):
     meeting, ids = meeting_with_three_kinds
-    db_session.execute(text("UPDATE meetings.meetings SET status = 'sent' WHERE id = :i"),
-                       {"i": meeting.id})
+    db_session.execute(
+        text("UPDATE meetings.meetings SET status = 'sent' WHERE id = :i"), {"i": meeting.id}
+    )
     db_session.expire_all()
 
     points = {p.item.id for p in report_points_of(db_session, [meeting.id])}

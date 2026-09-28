@@ -6,9 +6,9 @@
   blijft FINANCE/OPERATOR — financiële scheiding #83).
 - OPERATOR (platform-superuser) mag alles.
 """
+
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import (
-    SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value)
 
 GENERAL_SCREENS = ["/admin", "/admin/werkbank", "/admin/leden", "/admin/paginas"]
 

@@ -17,6 +17,7 @@ vlek: ze leest dezelfde markup waarin het ontbrak.
 Zelfde vorm als #613 punt 3 en als de `sort_order` die uit het formulier verdween
 terwijl de route hem nog aannam.
 """
+
 import os
 import sys
 
@@ -38,13 +39,15 @@ def _wacht_op(page, objectsleutel: str) -> None:
     from playwright.sync_api import TimeoutError as PWTimeout
 
     try:
-        page.wait_for_selector(f'input[name="object"][value="{objectsleutel}"]',
-                               state="attached", timeout=15000)
+        page.wait_for_selector(
+            f'input[name="object"][value="{objectsleutel}"]', state="attached", timeout=15000
+        )
     except PWTimeout:
         paneel = [u for u in getattr(page, "verzoeken", []) if "paneel" in u]
         raise AssertionError(
             f"de staat kwam niet op {objectsleutel}. Verzoeken naar het paneel: "
-            f"{paneel[-3:] or 'GEEN — de klik vertrok niet'}") from None
+            f"{paneel[-3:] or 'GEEN — de klik vertrok niet'}"
+        ) from None
 
 
 def _ontbreekt(reden: str) -> None:
@@ -58,6 +61,7 @@ def _ontbreekt(reden: str) -> None:
     if os.environ.get("E2E_SEEDED") == "1":
         pytest.fail(f"e2e-seed geladen maar: {reden}")
     pytest.skip(reden)
+
 
 # Een draaitabel op jaar met één maat en geen kolomas: de kortste weg naar een
 # scherm waarin een jaartal doorklikbaar hoort te zijn.
@@ -77,8 +81,10 @@ def _ontbreekt(reden: str) -> None:
 # heet "Onbekend", en daar hoort juist niet op gedrild te worden. De activiteiten
 # hebben wél datums, dus dit is de rol die in een verse databank iets te klikken
 # geeft.
-PANEEL = ("/admin/rapporten/nieuw?object=start_date_year&object=activity_count"
-          "&layout=pivot&pivot_column=&no_column=1")
+PANEEL = (
+    "/admin/rapporten/nieuw?object=start_date_year&object=activity_count"
+    "&layout=pivot&pivot_column=&no_column=1"
+)
 
 
 def _admin_email() -> str:
@@ -138,7 +144,8 @@ def test_klikken_op_een_jaartal_drilt_naar_kwartaal(admin_page):
 
     inhoud = admin_page.content()
     assert f'value="{jaar}"' in inhoud, (
-        "de filter op het aangeklikte jaar hoort zichtbaar in de staat te staan")
+        "de filter op het aangeklikte jaar hoort zichtbaar in de staat te staan"
+    )
 
 
 def test_terug_omhoog_haalt_de_diepste_kolom_weg(admin_page):
@@ -161,9 +168,10 @@ def test_terug_omhoog_haalt_de_diepste_kolom_weg(admin_page):
     # Wachten tot de diepere kolom WEG is: oprollen haalt een niveau weg, het
     # jaar stond er al en blijft staan (#907).
     admin_page.wait_for_selector(
-        'input[name="object"][value="start_date_quarter"]',
-        state="detached", timeout=15000)
+        'input[name="object"][value="start_date_quarter"]', state="detached", timeout=15000
+    )
 
     inhoud = admin_page.content()
     assert 'name="object" value="start_date_year"' in inhoud, (
-        "het jaar blijft; oprollen haalt alleen het niveau eronder weg")
+        "het jaar blijft; oprollen haalt alleen het niveau eronder weg"
+    )

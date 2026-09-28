@@ -14,6 +14,7 @@ Two lists, and neither is ordinary.
   come from `code_label()` like every other code's, and the dictionary that
   held them in the service can go. `RegistrationState` is its enum.
 """
+
 from app.domains.activities.models import (
     RegistrationState,
     RegistrationStateCode,
@@ -29,10 +30,15 @@ REGISTRATION_TYPE_CODES = (
 )
 
 REGISTRATION_TYPE = CodeList(
-    name="registration_type", schema="activities",
-    codes=RegistrationTypeCode, labels=RegistrationTypeLabel, enum=None,
-    fk_from=("activities.registrations.registration_type",
-             "activities.activity_sub_registrations.registration_type_code"),
+    name="registration_type",
+    schema="activities",
+    codes=RegistrationTypeCode,
+    labels=RegistrationTypeLabel,
+    enum=None,
+    fk_from=(
+        "activities.registrations.registration_type",
+        "activities.activity_sub_registrations.registration_type_code",
+    ),
 )
 
 #: The registration type every new registration gets today.
@@ -48,7 +54,10 @@ REGISTRATION_STATE_CODES = (
 )
 
 REGISTRATION_STATE = CodeList(
-    name="registration_state", schema="activities",
-    codes=RegistrationStateCode, labels=RegistrationStateLabel,
-    enum=RegistrationState, derived=True,
+    name="registration_state",
+    schema="activities",
+    codes=RegistrationStateCode,
+    labels=RegistrationStateLabel,
+    enum=RegistrationState,
+    derived=True,
 )

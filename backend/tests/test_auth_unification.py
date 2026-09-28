@@ -10,11 +10,12 @@ Bewijst de kerngaranties van de auth-unificatie:
   - rolcontrole (require_roles) blokkeert leden op admin-endpoints;
   - een OTP is eenmalig bruikbaar.
 """
-from tests.conftest import seed_postal_code, SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import LoginToken
+
 # De OTP-generator woont sinds #635 I in auth/login.py (de aanmeldstap is service,
 # geen router); patchen doe je waar de implementatie staat.
 from app.domains.auth import login as auth_login
+from app.domains.auth.api import LoginToken
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 FIXED_OTP = "424242"
 
@@ -26,11 +27,20 @@ def _fix_otp(monkeypatch):
 
 def _family_payload(email):
     return {
-        "street": "Milostraat", "house_number": "40", "postal_code": "2400",
+        "street": "Milostraat",
+        "house_number": "40",
+        "postal_code": "2400",
         "payment_method": "transfer",
         "members": [
-            {"last_name": "Lid", "first_name": "Jan", "email": email,
-             "mobile": "0470000000", "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"},
+            {
+                "last_name": "Lid",
+                "first_name": "Jan",
+                "email": email,
+                "mobile": "0470000000",
+                "date_of_birth": "1980-01-01",
+                "gender_code": "M",
+                "relation_type": "HOOFDLID",
+            },
         ],
     }
 
@@ -51,6 +61,7 @@ def _latest_token(db_session, email):
 
 
 # ── request-login ──────────────────────────────────────────────────────────────
+
 
 def test_request_login_unknown_email_creates_no_token(client, db_session):
     resp = client.post("/api/v1/auth/request-login", json={"email": "niemand@example.com"})
@@ -76,6 +87,7 @@ def test_request_login_member_creates_token(client, db_session):
 
 
 # ── verify + /auth/me ────────────────────────────────────────────────────────
+
 
 def test_admin_login_via_otp_and_capabilities(client, db_session, monkeypatch):
     _fix_otp(monkeypatch)
@@ -127,6 +139,7 @@ def test_admin_who_is_also_member(client, db_session, monkeypatch):
 
 # ── autorisatie ────────────────────────────────────────────────────────────────
 
+
 def test_member_token_forbidden_on_admin_endpoint(client, db_session):
     _seed_member(client, db_session, "lid@example.com")
     client.post("/api/v1/auth/request-login", json={"email": "lid@example.com"})
@@ -149,6 +162,7 @@ def test_member_token_can_access_household(client, db_session):
 
 # ── OTP eenmalig ────────────────────────────────────────────────────────────────
 
+
 def test_otp_is_single_use(client, db_session, monkeypatch):
     _fix_otp(monkeypatch)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
@@ -156,5 +170,7 @@ def test_otp_is_single_use(client, db_session, monkeypatch):
 
     first = client.post("/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code})
     assert first.status_code == 200
-    second = client.post("/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code})
+    second = client.post(
+        "/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code}
+    )
     assert second.status_code == 401

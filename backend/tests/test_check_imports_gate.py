@@ -11,6 +11,7 @@ pass vacuously. These tests compare discovery against the files on disk.
 Importing the module is safe — the smoke test itself only runs under
 `if __name__ == "__main__"`.
 """
+
 from pathlib import Path
 
 import check_imports

@@ -16,6 +16,7 @@ Broken on purpose to check that these tests can go red: the entry put back into 
 → the first two fall over; and the *Openen* button removed from `admin_info.html` → the last
 one falls over, with the page then unreachable from the interface.
 """
+
 from pathlib import Path
 
 import pytest
@@ -41,8 +42,7 @@ def test_the_bar_no_longer_offers_the_design_system():
     hrefs = [item["href"] for groep in admin_nav("/admin/werkbank") for item in groep["items"]]
 
     assert "/admin/design-system" not in hrefs
-    assert "/admin/info" in hrefs, (
-        "Info is weg — en dat is juist de weg naar het design system")
+    assert "/admin/info" in hrefs, "Info is weg — en dat is juist de weg naar het design system"
     assert len(hrefs) >= 10, f"de balk telt nog maar {len(hrefs)} items — te veel weg"
 
 
@@ -62,17 +62,18 @@ def test_the_page_still_opens_and_its_bar_renders_normally(client, db_session):
     for label in ("Werkbank", "Activiteiten", "Info"):
         assert label in resp.text, f"{label} ontbreekt in de balk op deze pagina"
     assert 'href="/admin/design-system"' not in resp.text.split("</nav>")[0], (
-        "de balk verwijst nog naar zichzelf")
+        "de balk verwijst nog naar zichzelf"
+    )
 
 
 def test_none_of_the_bar_items_is_marked_active_here():
     """Geen actief item is een geldige toestand; één verkeerd actief item niet."""
-    items = [i for groep in admin_nav("/admin/design-system")
-             for i in groep["items"]]
+    items = [i for groep in admin_nav("/admin/design-system") for i in groep["items"]]
 
     assert items, "de balk is leeg"
     assert not [i for i in items if i["active"]], (
-        f"er staat toch iets actief: {[i['href'] for i in items if i['active']]}")
+        f"er staat toch iets actief: {[i['href'] for i in items if i['active']]}"
+    )
 
 
 def test_info_still_links_to_it(client, db_session):
@@ -84,4 +85,5 @@ def test_info_still_links_to_it(client, db_session):
 
     assert resp.status_code == 200
     assert 'href="/admin/design-system"' in resp.text, (
-        "Info verwijst niet meer naar het design system")
+        "Info verwijst niet meer naar het design system"
+    )

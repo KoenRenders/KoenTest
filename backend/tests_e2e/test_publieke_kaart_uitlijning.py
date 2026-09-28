@@ -16,6 +16,7 @@ terug buiten de inhoudskolom gezet (de twee sluittags weer vóór het blok) → 
 desktoptest valt om op de linkerkant; de `-ml-[60px]` weggehaald → de mobiele
 tegenproef valt om.
 """
+
 import os
 import sys
 
@@ -24,6 +25,7 @@ from playwright.sync_api import sync_playwright
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE  # noqa: E402
+
 
 def _meet(page):
     return page.evaluate("""() => {
@@ -48,11 +50,13 @@ def test_desktop_acties_op_de_inhoudsrand_mobiel_volle_breedte():
         d = _meet(page)
         assert d["knop"] == d["titel"], (
             f"desktop: de knop begint op {d['knop']}px, de titel op {d['titel']}px — "
-            "de acties horen op de inhoudsrand")
+            "de acties horen op de inhoudsrand"
+        )
 
         page.set_viewport_size({"width": 390, "height": 844})
         m = _meet(page)
         assert m["knop"] < m["titel"], (
             f"mobiel: de knop ({m['knop']}px) hoort de volle kaartbreedte te nemen, "
-            f"links van de titelinsprong ({m['titel']}px)")
+            f"links van de titelinsprong ({m['titel']}px)"
+        )
         browser.close()

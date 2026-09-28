@@ -6,13 +6,14 @@ in migratie 056 toegekend aan de twee penningmeester-zetels; de derde zetel uit
 014 heeft enkel ADMIN en is dus de admin-only testcase. De adressen hieronder zijn
 de placeholder-defaults van SEED_ADMIN_EMAILS/SEED_FINANCE_EMAILS.
 """
+
 from decimal import Decimal
 
 from app.domains.auth.api import create_access_token, get_user_roles
 from app.domains.payment.api import PaymentRecord
 
-FINANCE_EMAIL = "beheerder@example.com"        # ADMIN + FINANCE (014 + 056)
-ADMIN_ONLY_EMAIL = "bestuurslid@example.com"   # enkel ADMIN (014)
+FINANCE_EMAIL = "beheerder@example.com"  # ADMIN + FINANCE (014 + 056)
+ADMIN_ONLY_EMAIL = "bestuurslid@example.com"  # enkel ADMIN (014)
 
 
 def _headers(email):
@@ -21,10 +22,13 @@ def _headers(email):
 
 def _seed_charge(db, *, payable_id=1, amount="18.00", amount_paid="18.00", status="paid"):
     charge = PaymentRecord(
-        payable_type="registration", payable_id=payable_id,
+        payable_type="registration",
+        payable_id=payable_id,
         amount=Decimal(amount),
         amount_paid=Decimal(amount_paid) if amount_paid is not None else None,
-        method="transfer", status=status, type="charge",
+        method="transfer",
+        status=status,
+        type="charge",
     )
     db.add(charge)
     db.flush()
@@ -57,12 +61,16 @@ def test_admin_without_finance_cannot_mutate(client, db_session):
     charge = _seed_charge(db_session)
     h = _headers(ADMIN_ONLY_EMAIL)
 
-    patch = client.patch(f"/api/v1/payment-status/records/{charge.id}",
-                         json={"status": "paid", "amount_paid": "18.00"}, headers=h)
+    patch = client.patch(
+        f"/api/v1/payment-status/records/{charge.id}",
+        json={"status": "paid", "amount_paid": "18.00"},
+        headers=h,
+    )
     assert patch.status_code == 403, patch.text
 
-    refund = client.post(f"/api/v1/payment-status/records/{charge.id}/refund",
-                         json={"amount": "5.00"}, headers=h)
+    refund = client.post(
+        f"/api/v1/payment-status/records/{charge.id}/refund", json={"amount": "5.00"}, headers=h
+    )
     assert refund.status_code == 403, refund.text
 
     delete = client.delete(f"/api/v1/payment-status/records/{charge.id}", headers=h)
@@ -72,8 +80,11 @@ def test_admin_without_finance_cannot_mutate(client, db_session):
 def test_finance_may_mutate(client, db_session):
     """FINANCE mag wél een terugbetaling registreren."""
     charge = _seed_charge(db_session)
-    resp = client.post(f"/api/v1/payment-status/records/{charge.id}/refund",
-                       json={"amount": "18.00"}, headers=_headers(FINANCE_EMAIL))
+    resp = client.post(
+        f"/api/v1/payment-status/records/{charge.id}/refund",
+        json={"amount": "18.00"},
+        headers=_headers(FINANCE_EMAIL),
+    )
     assert resp.status_code == 200, resp.text
     assert resp.json()["type"] == "refund"
 
@@ -83,8 +94,11 @@ def test_editing_amount_paid_stamps_paid_at(client, db_session):
     paid_at, zodat er geen 'betaald zonder datum'-record ontstaat."""
     charge = _seed_charge(db_session, amount="18.00", amount_paid=None, status="pending")
     assert charge.paid_at is None
-    resp = client.patch(f"/api/v1/payment-status/records/{charge.id}",
-                        json={"amount_paid": "18.00"}, headers=_headers(FINANCE_EMAIL))
+    resp = client.patch(
+        f"/api/v1/payment-status/records/{charge.id}",
+        json={"amount_paid": "18.00"},
+        headers=_headers(FINANCE_EMAIL),
+    )
     assert resp.status_code == 200, resp.text
     db_session.refresh(charge)
     assert charge.paid_at is not None

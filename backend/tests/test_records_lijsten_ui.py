@@ -12,10 +12,12 @@ Deze tests dekken de invarianten die stilletjes kapot kunnen gaan:
 """
 
 import pytest
-pytestmark = pytest.mark.ui_serverrendered
-from tests.conftest import SEEDED_ADMIN_EMAIL
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.cms.api import CmsPage
+from tests.conftest import SEEDED_ADMIN_EMAIL
+
+pytestmark = pytest.mark.ui_serverrendered
 
 HX = {"HX-Request": "true"}
 
@@ -34,6 +36,7 @@ def _pagina(db_session, titel: str, slug: str, gepubliceerd: bool) -> CmsPage:
 
 
 # ── Pagina's (#587) ───────────────────────────────────────────────────────────
+
 
 def test_paginas_zoeken_op_titel_en_slug(client, db_session):
     _login(client)
@@ -88,8 +91,8 @@ def test_trix_wordt_een_keer_geladen_vanuit_de_schil(client, db_session):
     assert lijst.count("trix.min.js") == 1
     assert editor.count("trix.min.js") == 1
     # ...en de editorpagina zelf voegt geen tweede scripttag toe.
-    assert "trix-editor" in editor           # de <trix-editor> uit _cp_detail
-    assert "Alle pagina's" in editor          # terugkeerlink
+    assert "trix-editor" in editor  # de <trix-editor> uit _cp_detail
+    assert "Alle pagina's" in editor  # terugkeerlink
 
 
 def test_onbestaande_pagina_geeft_404(client):
@@ -99,16 +102,31 @@ def test_onbestaande_pagina_geeft_404(client):
 
 # ── Media (#588) ──────────────────────────────────────────────────────────────
 
+
 def test_media_zoekt_op_titel_en_behoudt_het_filter_bij_opslaan(client, db_session):
     from app.domains.media.api import MediaAsset
 
     csrf = _login(client)
-    db_session.add_all([
-        MediaAsset(kind="sponsor", title="Bakkerij Jan", data=b"png",
-                   content_type="image/png", byte_size=3, sort_order=0),
-        MediaAsset(kind="sponsor", title="Garage Piet", data=b"png",
-                   content_type="image/png", byte_size=3, sort_order=1),
-    ])
+    db_session.add_all(
+        [
+            MediaAsset(
+                kind="sponsor",
+                title="Bakkerij Jan",
+                data=b"png",
+                content_type="image/png",
+                byte_size=3,
+                sort_order=0,
+            ),
+            MediaAsset(
+                kind="sponsor",
+                title="Garage Piet",
+                data=b"png",
+                content_type="image/png",
+                byte_size=3,
+                sort_order=1,
+            ),
+        ]
+    )
     db_session.commit()
     bakkerij = db_session.query(MediaAsset).filter(MediaAsset.title == "Bakkerij Jan").one()
 
@@ -120,24 +138,34 @@ def test_media_zoekt_op_titel_en_behoudt_het_filter_bij_opslaan(client, db_sessi
     assert "Bakkerij Jan" in gezocht.text and "Garage Piet" not in gezocht.text
 
     # Opslaan vanuit een gefilterde lijst mag niet terugvallen op 'alles'.
-    opgeslagen = client.post(f"/admin/media/{bakkerij.id}",
-                             data={"kind": "sponsor", "title": "Bakkerij Jan",
-                                   "sort_order": "0", "is_active": "1", "q": "bakkerij"},
-                             headers={"X-CSRF-Token": csrf})
+    opgeslagen = client.post(
+        f"/admin/media/{bakkerij.id}",
+        data={
+            "kind": "sponsor",
+            "title": "Bakkerij Jan",
+            "sort_order": "0",
+            "is_active": "1",
+            "q": "bakkerij",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert opgeslagen.status_code == 200
     assert "Bakkerij Jan" in opgeslagen.text and "Garage Piet" not in opgeslagen.text
 
 
 # ── Gebruikers (#589) ─────────────────────────────────────────────────────────
 
+
 def test_gebruikers_zoeken_en_rolfilter(client, db_session):
     csrf = _login(client)
     # 16 sep: OPERATOR is buiten het platform niet toekenbaar, dus de
     # rolfilter oefent hier met FINANCE.
-    for adres, rollen in (("penning@example.com", ["FINANCE"]),
-                          ("helper@example.com", ["ADMIN"])):
-        client.post("/admin/gebruikers", data={"email": adres, "role_codes": rollen},
-                    headers={"X-CSRF-Token": csrf})
+    for adres, rollen in (("penning@example.com", ["FINANCE"]), ("helper@example.com", ["ADMIN"])):
+        client.post(
+            "/admin/gebruikers",
+            data={"email": adres, "role_codes": rollen},
+            headers={"X-CSRF-Token": csrf},
+        )
 
     gezocht = client.get("/admin/gebruikers", params={"q": "penning"})
     assert "penning@example.com" in gezocht.text
@@ -171,6 +199,7 @@ def test_gebruikers_actieffilter_en_htmx_fragment(client, db_session):
 
 # ── Wijzigingen (#590) ────────────────────────────────────────────────────────
 
+
 def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
     _login(client)
     pagina = client.get("/admin/ledenwijzigingen")
@@ -181,15 +210,17 @@ def test_wijzigingen_heeft_geen_toon_knop_meer_en_filtert_live(client):
     assert "delay:" in pagina.text
     assert "/admin/ledenwijzigingen/export" in pagina.text
 
-    fragment = client.get("/admin/ledenwijzigingen",
-                          params={"actor": "niemand@example.com"}, headers=HX)
+    fragment = client.get(
+        "/admin/ledenwijzigingen", params={"actor": "niemand@example.com"}, headers=HX
+    )
     assert fragment.status_code == 200
     assert "<html" not in fragment.text.lower()
-    assert "Audit-logboek" in fragment.text          # de lijst zelf komt terug
-    assert 'type="search"' not in fragment.text      # het zoekveld blijft staan
+    assert "Audit-logboek" in fragment.text  # de lijst zelf komt terug
+    assert 'type="search"' not in fragment.text  # het zoekveld blijft staan
 
 
 # ── Tenants (#584-rest) ───────────────────────────────────────────────────────
+
 
 def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client):
     _login(client)
@@ -205,6 +236,7 @@ def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client):
 
 
 # ── C1-gelijktrekking (#621) ─────────────────────────────────────────────────
+
 
 def test_paginas_heet_paginas_niet_cms_paginas(client, db_session):
     """Titel en navigatie horen hetzelfde te zeggen; "CMS" is intern jargon.

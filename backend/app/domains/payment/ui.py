@@ -7,9 +7,10 @@ businesslogica. Rollen: iedereen met ADMIN of FINANCE mag kijken en
 exporteren; bevestigen en terugbetalen is FINANCE-only (financiële
 scheiding, #83).
 """
+
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
@@ -17,26 +18,36 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, get_user_roles, require_csrf,
-    require_finance_mutation, require_finance_ui,
+    SESSION_COOKIE,
+    csrf_token_for,
+    get_user_roles,
+    require_csrf,
+    require_finance_mutation,
+    require_finance_ui,
 )
-from app.ui import admin_nav, filterparams, templates
 from app.domains.payment.api import PayableType, PaymentType
-from app.i18n import _
-from app.kernel.codes import code_labels
 from app.domains.payment.service import (
-    BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
-    ververs_betaalstatus, verwijder_betaling, zet_betaalstatus,
+    BetalingFout,
+    bevestig_betaling,
+    bewerk_betaling,
+    registreer_terugbetaling,
+    ververs_betaalstatus,
+    verwijder_betaling,
+    zet_betaalstatus,
 )
 from app.domains.payment.viewmodels import BetalingenView
+from app.i18n import _
+from app.kernel.codes import code_labels
+from app.ui import admin_nav, filterparams, templates
 
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/betalingen")
 
 
-def _uitvoeren(bewerking, request: Request, db: Session, email: str,
-               *args, **kwargs) -> HTMLResponse:
+def _uitvoeren(
+    bewerking, request: Request, db: Session, email: str, *args, **kwargs
+) -> HTMLResponse:
     """Voer één schermbewerking uit en geef de lijst terug — met de reden bij een
     weigering.
 
@@ -90,9 +101,11 @@ def _scope_from_request(request: Request) -> dict:
 
     raw = dict(parse_qsl(request.headers.get("x-betalingen-scope", "")))
     scope: dict = {}
-    for field, argument in (("activiteit", "forceer_activiteit"),
-                            ("gezin", "forceer_gezin"),
-                            ("inschrijving", "forceer_inschrijving")):
+    for field, argument in (
+        ("activiteit", "forceer_activiteit"),
+        ("gezin", "forceer_gezin"),
+        ("inschrijving", "forceer_inschrijving"),
+    ):
         value = (raw.get(field) or "").strip()
         if value.isdigit():
             scope[argument] = int(value)
@@ -108,9 +121,10 @@ def _activiteit_scope(db: Session, activiteit_id: int):
     from app.domains.activities.api import get_activity, registration_ids_for
 
     activiteit = get_activity(db, activiteit_id, include_deleted=True)
-    return (activiteit.name if activiteit is not None else None,
-            {(PayableType.REGISTRATION, i)
-             for i in registration_ids_for(db, activiteit_id)})
+    return (
+        activiteit.name if activiteit is not None else None,
+        {(PayableType.REGISTRATION, i) for i in registration_ids_for(db, activiteit_id)},
+    )
 
 
 def _gezin_scope(db: Session, family_id: int):
@@ -123,8 +137,7 @@ def _gezin_scope(db: Session, family_id: int):
         gezin = get_family(db, family_id)
     except Exception:
         gezin = None
-    return (family_label(gezin) if gezin is not None else None,
-            family_payables(db, family_id))
+    return (family_label(gezin) if gezin is not None else None, family_payables(db, family_id))
 
 
 #: Groepen per pagina (#1059). Vijftig, zoals elke andere beheerlijst
@@ -146,8 +159,7 @@ def _paginakeuze(request, stand: dict) -> int:
     dan hoor je daar te blijven staan. Die post draagt geen query-string, dus
     daarvoor is `HX-Current-URL` — via `stand` — juist de goede bron.
     """
-    ruw = (request.query_params.get("page") if request.method == "GET"
-           else stand.get("page")) or ""
+    ruw = (request.query_params.get("page") if request.method == "GET" else stand.get("page")) or ""
     return max(1, int(ruw)) if ruw.isdigit() else 1
 
 
@@ -174,12 +186,17 @@ def _stt_mode() -> str:
     return settings.stt_mode
 
 
-def _view(request: Request, db: Session, email: str,
-          nav_items: list | None = None, *,
-          forceer_activiteit: int | None = None,
-          forceer_gezin: int | None = None,
-          forceer_inschrijving: int | None = None,
-          scope_stil: bool = False) -> BetalingenView:
+def _view(
+    request: Request,
+    db: Session,
+    email: str,
+    nav_items: list | None = None,
+    *,
+    forceer_activiteit: int | None = None,
+    forceer_gezin: int | None = None,
+    forceer_inschrijving: int | None = None,
+    scope_stil: bool = False,
+) -> BetalingenView:
     """View-model voor het betalingenscherm.
 
     Filteren, optellen, groeperen en het afleiden van de status gebeuren in
@@ -192,8 +209,14 @@ def _view(request: Request, db: Session, email: str,
     bewijzen dat de template niets vraagt wat hier niet staat.
     """
     from app.domains.payment.api import (
-        aggregate, apply_zicht, count_zichten, derived_status, enriched_records,
-        filter_records, group_cards, may_delete,
+        aggregate,
+        apply_zicht,
+        count_zichten,
+        derived_status,
+        enriched_records,
+        filter_records,
+        group_cards,
+        may_delete,
     )
 
     # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
@@ -225,22 +248,25 @@ def _view(request: Request, db: Session, email: str,
     # scope-regel hieronder; de enige uitgang is haar "Alle bekijken". Alleen
     # cijfers tellen: al het andere is geen id en zou de scope-regel een
     # vervalste tekst laten tonen.
-    inschrijving_id = (str(forceer_inschrijving) if forceer_inschrijving
-                       else (stand.get("inschrijving") or "").strip())
+    inschrijving_id = (
+        str(forceer_inschrijving)
+        if forceer_inschrijving
+        else (stand.get("inschrijving") or "").strip()
+    )
     if not inschrijving_id.isdigit():
         inschrijving_id = ""
     # Golf 8 (#913): `?activiteit=<id>` — de betalingen van één activiteit, voor
     # de Betalingen-tab op haar recordpagina. Zelfde regels als de
     # inschrijvingscope; de resolutie naar inschrijving-ids gebeurt in
     # _activiteit_scope via de activities-facade.
-    activiteit_id = (str(forceer_activiteit) if forceer_activiteit
-                     else (stand.get("activiteit") or "").strip())
+    activiteit_id = (
+        str(forceer_activiteit) if forceer_activiteit else (stand.get("activiteit") or "").strip()
+    )
     if not activiteit_id.isdigit():
         activiteit_id = ""
     # Golf 9 (#913): de gezinsscope — lidmaatschappen én inschrijvingen van één
     # gezin, voor de Betalingen-tab op de gezinspagina. Zelfde regels.
-    gezin_id = (str(forceer_gezin) if forceer_gezin
-                else (stand.get("gezin") or "").strip())
+    gezin_id = str(forceer_gezin) if forceer_gezin else (stand.get("gezin") or "").strip()
     if not gezin_id.isdigit():
         gezin_id = ""
     # Golf 8-feedback: op de ingebedde tab zegt de recordkop al waar je bent —
@@ -270,10 +296,16 @@ def _view(request: Request, db: Session, email: str,
     # Eerst zónder zicht (de tab-aantallen tellen over deze basis), daarna de
     # doorsnede van het actieve tab — dezelfde apply_zicht die filter_records
     # en de export gebruiken, dus scherm en bestand kunnen niet uiteenlopen.
-    zicht_basis = filter_records(records, context=context, status=status, q=q,
-                                 openstaand=openstaand, record_id=record_id,
-                                 registration_id=inschrijving_id,
-                                 payables=scope_payables)
+    zicht_basis = filter_records(
+        records,
+        context=context,
+        status=status,
+        q=q,
+        openstaand=openstaand,
+        record_id=record_id,
+        registration_id=inschrijving_id,
+        payables=scope_payables,
+    )
     telling = count_zichten(zicht_basis)
     zichtbaar = zicht_basis if record_id else apply_zicht(zicht_basis, zicht)
 
@@ -290,7 +322,8 @@ def _view(request: Request, db: Session, email: str,
             "titel": scope_naam or f"#{gezin_id}",
             "titel_url": f"/admin/leden/gezin/{gezin_id}",
             "alles_url": "/admin/betalingen",
-            "param_naam": "gezin", "param_waarde": gezin_id,
+            "param_naam": "gezin",
+            "param_waarde": gezin_id,
             "stil": stil,
         }
     elif activiteit_id:
@@ -299,7 +332,8 @@ def _view(request: Request, db: Session, email: str,
             "titel": scope_naam or f"#{activiteit_id}",
             "titel_url": f"/admin/activiteiten/{activiteit_id}",
             "alles_url": "/admin/betalingen",
-            "param_naam": "activiteit", "param_waarde": activiteit_id,
+            "param_naam": "activiteit",
+            "param_waarde": activiteit_id,
             "stil": stil,
         }
     elif inschrijving_id:
@@ -311,17 +345,22 @@ def _view(request: Request, db: Session, email: str,
         naam = (reg.contact_name if reg is not None else None) or f"#{inschrijving_id}"
         terug = quote(f"/admin/betalingen?inschrijving={inschrijving_id}", safe="")
         scope = {
-            "soort": _("Voor inschrijving:"), "titel": naam,
+            "soort": _("Voor inschrijving:"),
+            "titel": naam,
             "titel_url": f"/admin/inschrijvingen/{inschrijving_id}?terug={terug}",
             "alles_url": "/admin/betalingen",
-            "param_naam": "inschrijving", "param_waarde": inschrijving_id,
+            "param_naam": "inschrijving",
+            "param_waarde": inschrijving_id,
             "stil": stil,
         }
     elif record_id:
         scope = {
-            "soort": _("Eén betaling uitgelicht"), "titel": None, "titel_url": None,
+            "soort": _("Eén betaling uitgelicht"),
+            "titel": None,
+            "titel_url": None,
             "alles_url": "/admin/betalingen",
-            "param_naam": "record", "param_waarde": record_id,
+            "param_naam": "record",
+            "param_waarde": record_id,
         }
 
     charges = [r for r in zichtbaar if r.type != PaymentType.REFUND]
@@ -330,18 +369,24 @@ def _view(request: Request, db: Session, email: str,
     # De KPI-band telt over de zicht-BASIS: de tabs snijden de tabel, niet de
     # kengetallen — anders zegt het tab "Betaald" dat er € 0 openstaat.
     basis_tot = aggregate(zicht_basis)
-    kpi = {"due": basis_tot["due"], "paid": basis_tot["paid"],
-           "saldo": basis_tot["saldo"],
-           "boekingen": len(zicht_basis), "open": telling["openstaand"]}
+    kpi = {
+        "due": basis_tot["due"],
+        "paid": basis_tot["paid"],
+        "saldo": basis_tot["saldo"],
+        "boekingen": len(zicht_basis),
+        "open": telling["openstaand"],
+    }
 
     # Tab-URLs server-side opgebouwd mét de actieve filterstand: de tabs staan
     # in het fragment (verse aantallen bij elke filterwissel) en een link die
     # zijn stand zelf draagt heeft geen hx-include-samenloop met de filterbalk.
     from urllib.parse import urlencode
 
-    _tabstand: list = [("q", q) if q else None,
-                       ("context", context) if context != "all" else None,
-                       ("status", status) if status != "all" else None]
+    _tabstand: list = [
+        ("q", q) if q else None,
+        ("context", context) if context != "all" else None,
+        ("status", status) if status != "all" else None,
+    ]
     if inschrijving_id:
         _tabstand.append(("inschrijving", inschrijving_id))
     elif activiteit_id:
@@ -351,14 +396,23 @@ def _view(request: Request, db: Session, email: str,
     if stil:
         _tabstand.append(("scope_stil", "1"))
     zichten = []
-    for _zkey, _zlabel in (("alle", _("Alle")), ("openstaand", _("Openstaand")),
-                           ("betaald", _("Betaald")),
-                           ("terugbetaald", _("Terugbetaald"))):
+    for _zkey, _zlabel in (
+        ("alle", _("Alle")),
+        ("openstaand", _("Openstaand")),
+        ("betaald", _("Betaald")),
+        ("terugbetaald", _("Terugbetaald")),
+    ):
         _qs = urlencode([("zicht", _zkey)] + [p for p in _tabstand if p])
-        zichten.append({"key": _zkey, "label": _zlabel, "count": telling[_zkey],
-                        "url": f"/admin/betalingen/lijst?{_qs}",
-                        "page_url": f"/admin/betalingen?{_qs}",
-                        "actief": _zkey == zicht})
+        zichten.append(
+            {
+                "key": _zkey,
+                "label": _zlabel,
+                "count": telling[_zkey],
+                "url": f"/admin/betalingen/lijst?{_qs}",
+                "page_url": f"/admin/betalingen?{_qs}",
+                "actief": _zkey == zicht,
+            }
+        )
     # Terugbetalingen staan al NEGATIEF in de records (create_refund bewaart
     # -bedrag), dus netto is een OPTELSOM. De oude aftrekking telde ze dubbel:
     # 18 − (−9) = 27, terwijl de totaalregels onderaan (aggregate over alle
@@ -367,7 +421,9 @@ def _view(request: Request, db: Session, email: str,
     # #1059: dezelfde stand als de tabs, plus het actieve zicht. De macro plakt er
     # `&page=N` achter. Bewust zonder `hx-include`: de filterbalk serialiseert
     # geen `page`, dus meesturen zou de knop zijn eigen keuze laten overschrijven.
-    pager_url = f"/admin/betalingen/lijst?{urlencode([('zicht', zicht)] + [p for p in _tabstand if p])}"
+    pager_url = (
+        f"/admin/betalingen/lijst?{urlencode([('zicht', zicht)] + [p for p in _tabstand if p])}"
+    )
 
     def _kaart(rec) -> dict:
         """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
@@ -407,12 +463,15 @@ def _view(request: Request, db: Session, email: str,
     # Een verwijdering kan de laatste groep van de laatste pagina weghalen; dan
     # is "pagina 4" van zonet er geen meer.
     page = min(page, paginas)
-    groepen = groepen[(page - 1) * PER_PAGE:page * PER_PAGE]
+    groepen = groepen[(page - 1) * PER_PAGE : page * PER_PAGE]
     for groep in groepen:
-        groep["kaarten"] = [(_kaart(k["charge"]) | {"is_context": k["is_context"],
-                                                    "is_extra": k["is_extra"]},
-                             [_kaart(x) for x in k["refunds"]])
-                            for k in groep["kaarten"]]
+        groep["kaarten"] = [
+            (
+                _kaart(k["charge"]) | {"is_context": k["is_context"], "is_extra": k["is_extra"]},
+                [_kaart(x) for x in k["refunds"]],
+            )
+            for k in groep["kaarten"]
+        ]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -422,12 +481,16 @@ def _view(request: Request, db: Session, email: str,
     context_groups: dict = {}
     if _jaren:
         context_groups[_("Lidmaatschap per jaar")] = [
-            (f"year-{j}", f"{_('Lidgeld')} {j}") for j in _jaren]
+            (f"year-{j}", f"{_('Lidgeld')} {j}") for j in _jaren
+        ]
     if _comp:
         context_groups[_("Activiteit / onderdeel")] = [
-            (f"comp-{cid}", label) for cid, label in _comp]
+            (f"comp-{cid}", label) for cid, label in _comp
+        ]
     return BetalingenView(
-        records=zichtbaar, groepen=groepen, context=context,
+        records=zichtbaar,
+        groepen=groepen,
+        context=context,
         # Eén bron voor de statuslabels (#617-2): de filterbalk én de editors in het
         # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
         # op het scherm komen. Het fragment wordt ook los gerenderd, dus een
@@ -443,7 +506,8 @@ def _view(request: Request, db: Session, email: str,
         # and "outstanding balance" are ways of looking, not values that sit
         # in the column. So they keep going through `_()`.
         status_labels={
-            "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
+            "all": _("Alle statussen"),
+            "openstaand": _("Openstaand saldo"),
             **dict(code_labels("payment_status")),
         },
         # Badge per afgeleide status (service.derived_status). Label + kleur horen
@@ -463,12 +527,21 @@ def _view(request: Request, db: Session, email: str,
             "failed": (_("Mislukt"), "red"),
             "cancelled": (_("Geannuleerd"), "gray"),
         },
-        status=status, openstaand=openstaand, q=q, scope=scope,
-        zicht=zicht, zichten=zichten, kpi=kpi,
-        page=page, per_page=PER_PAGE, totaal_groepen=totaal_groepen,
+        status=status,
+        openstaand=openstaand,
+        q=q,
+        scope=scope,
+        zicht=zicht,
+        zichten=zichten,
+        kpi=kpi,
+        page=page,
+        per_page=PER_PAGE,
+        totaal_groepen=totaal_groepen,
         pager_url=pager_url,
-        componenten=_comp, jaren=_jaren,
-        context_top=context_top, context_groups=context_groups,
+        componenten=_comp,
+        jaren=_jaren,
+        context_top=context_top,
+        context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
         is_finance="FINANCE" in get_user_roles(db, email),
         raakje_scherm=_raakje_op_dit_scherm(db, email),
@@ -479,21 +552,24 @@ def _view(request: Request, db: Session, email: str,
 
 
 @router.get("/admin/betalingen", response_class=HTMLResponse)
-def betalingen_page(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_finance_ui)):
+def betalingen_page(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+):
     # Role-aware nav (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) ziet
     # enkel de schermen die hij mag openen — anders 403't elke andere nav-link.
     nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
     return templates.TemplateResponse(
-        request, "betalingen.html",
-        _view(request, db, email, nav_items=nav).as_context())
+        request, "betalingen.html", _view(request, db, email, nav_items=nav).as_context()
+    )
 
 
-@router.get("/admin/activiteiten/{activity_id}/betalingen",
-            response_class=HTMLResponse)
-def activiteit_betalingen_tab(activity_id: int, request: Request,
-                              db: Session = Depends(get_db),
-                              email: str = Depends(require_finance_ui)):
+@router.get("/admin/activiteiten/{activity_id}/betalingen", response_class=HTMLResponse)
+def activiteit_betalingen_tab(
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+):
     """De Betalingen-tab van de activiteit-recordpagina (golf 8-feedback):
     exact het betalingenscherm, gefilterd op dit record, onder de recordkop —
     zonder scope-regel, want de kop zegt al waar je bent. FINANCE-gated zoals
@@ -506,27 +582,29 @@ def activiteit_betalingen_tab(activity_id: int, request: Request,
     # Nav-focus (Koen, 15 sep): je zit ín Activiteiten — de linkernavigatie
     # blijft daar staan, ook al rendert het betalingenscherm.
     nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
-    ctx = _view(request, db, email, nav_items=nav,
-                forceer_activiteit=activity_id, scope_stil=True).as_context()
+    ctx = _view(
+        request, db, email, nav_items=nav, forceer_activiteit=activity_id, scope_stil=True
+    ).as_context()
     ctx["a"] = activiteit
     # #1070: één bouwer voor de hele recordkop. Stond hier met de hand samengesteld
     # naast dezelfde samenstelling in `activities.admin_ui`; een sleutel erbij ging
     # dan onvermijdelijk op één van de twee plekken ontbreken.
     ctx.update(record_kop_ctx(db, activiteit, email, "betalingen"))
-    return templates.TemplateResponse(
-        request, "admin_activiteit_betalingen.html", ctx)
+    return templates.TemplateResponse(request, "admin_activiteit_betalingen.html", ctx)
 
 
-@router.get("/admin/leden/gezin/{family_id}/betalingen",
-            response_class=HTMLResponse)
-def gezin_betalingen_tab(family_id: int, request: Request,
-                         db: Session = Depends(get_db),
-                         email: str = Depends(require_finance_ui)):
+@router.get("/admin/leden/gezin/{family_id}/betalingen", response_class=HTMLResponse)
+def gezin_betalingen_tab(
+    family_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+):
     """De Betalingen-tab van de gezinspagina (golf 9, #913): het gewone
     betalingenscherm, gefilterd op dit gezin, onder de gezins-recordkop.
     FINANCE-gated zoals /admin/betalingen zelf (#544)."""
-    from app.domains.membership.api import get_family
     from app.domains.mdm.api import gezin_tabs
+    from app.domains.membership.api import get_family
 
     try:
         gezin = get_family(db, family_id)
@@ -535,25 +613,27 @@ def gezin_betalingen_tab(family_id: int, request: Request,
     if gezin is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
     nav = admin_nav("/admin/leden", roles=get_user_roles(db, email))
-    ctx = _view(request, db, email, nav_items=nav,
-                forceer_gezin=family_id, scope_stil=True).as_context()
+    ctx = _view(
+        request, db, email, nav_items=nav, forceer_gezin=family_id, scope_stil=True
+    ).as_context()
     ctx["family"] = gezin
     ctx["record_tabs"] = gezin_tabs(db, gezin, email, "betalingen")
-    return templates.TemplateResponse(
-        request, "admin_gezin_betalingen.html", ctx)
+    return templates.TemplateResponse(request, "admin_gezin_betalingen.html", ctx)
 
 
-@router.get("/admin/inschrijvingen/{registration_id}/betalingen",
-            response_class=HTMLResponse)
-def inschrijving_betalingen_tab(registration_id: int, request: Request,
-                                terug: str = "",
-                                db: Session = Depends(get_db),
-                                email: str = Depends(require_finance_ui)):
+@router.get("/admin/inschrijvingen/{registration_id}/betalingen", response_class=HTMLResponse)
+def inschrijving_betalingen_tab(
+    registration_id: int,
+    request: Request,
+    terug: str = "",
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+):
     """De Betalingen-tab van de inschrijvingspagina (feedback 15 sep): het
     gewone betalingenscherm in de inschrijvingscope, onder de gedeelde
     recordkop — dit verving de P13-chip op dat scherm. FINANCE-gated zoals
     /admin/betalingen zelf (#544)."""
-    from app.domains.activities.api import inschrijving_kop_ctx, get_registration
+    from app.domains.activities.api import get_registration, inschrijving_kop_ctx
 
     reg = get_registration(db, registration_id, include_deleted=True)
     if reg is None:
@@ -561,29 +641,30 @@ def inschrijving_betalingen_tab(registration_id: int, request: Request,
     # Nav-focus (Koen, 15 sep): je kwam uit Activiteiten — de navigatie blijft
     # daar staan, ook al rendert het betalingenscherm.
     nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
-    ctx = _view(request, db, email, nav_items=nav,
-                forceer_inschrijving=registration_id,
-                scope_stil=True).as_context()
+    ctx = _view(
+        request, db, email, nav_items=nav, forceer_inschrijving=registration_id, scope_stil=True
+    ).as_context()
     kop = inschrijving_kop_ctx(db, registration_id, email, "betalingen", terug)
     if kop is None:  # kan niet meer na de 404 hierboven; mypy weet dat niet
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     ctx.update(kop)
     ctx["reg"] = reg
-    return templates.TemplateResponse(
-        request, "admin_inschrijving_betalingen.html", ctx)
+    return templates.TemplateResponse(request, "admin_inschrijving_betalingen.html", ctx)
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
-def betalingen_lijst(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_finance_ui)):
+def betalingen_lijst(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+):
     ctx = _view(request, db, email).as_context()
     ctx["oob_boven"] = True
     return templates.TemplateResponse(request, "_betalingen_lijst.html", ctx)
 
 
 @router.get("/admin/betalingen/export")
-def betalingen_export(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_finance_ui)):
+def betalingen_export(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_finance_ui)
+):
     from app.domains.payment.exports import build_payments_export_ods
 
     # Dezelfde bron als het scherm (#669/#671): de exportknop draagt de filterstand
@@ -612,9 +693,14 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     elif gezin_id.isdigit():
         _naam, paren = _gezin_scope(db, int(gezin_id))
     content = build_payments_export_ods(
-        db, context=context, status=status, openstaand=openstaand,
+        db,
+        context=context,
+        status=status,
+        openstaand=openstaand,
         registration_id=inschrijving_id if inschrijving_id.isdigit() else "",
-        payables=paren, zicht=zicht)
+        payables=paren,
+        zicht=zicht,
+    )
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
@@ -622,43 +708,89 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     )
 
 
-@router.post("/admin/betalingen/{record_id}/bevestigen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_bevestigen(record_id: str, request: Request,
-                        db: Session = Depends(get_db),
-                        email: str = Depends(require_finance_ui),
-                        note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/bevestigen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_bevestigen(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    note: str = Form(""),
+):
     require_finance_mutation(db, email)
     return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, actor=email)
 
 
-@router.post("/admin/betalingen/{record_id}/refund", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_finance_ui),
-                    amount: str = Form(""), note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/refund",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_refund(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    amount: str = Form(""),
+    note: str = Form(""),
+):
     require_finance_mutation(db, email)
-    return _uitvoeren(registreer_terugbetaling, request, db, email, record_id, amount=amount, note=note,
-               actor=email)
+    return _uitvoeren(
+        registreer_terugbetaling,
+        request,
+        db,
+        email,
+        record_id,
+        amount=amount,
+        note=note,
+        actor=email,
+    )
 
 
-@router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_finance_ui),
-                       amount_paid: str = Form(""), note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/bijwerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_bijwerken(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    amount_paid: str = Form(""),
+    note: str = Form(""),
+):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
     require_finance_mutation(db, email)
-    return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, amount_paid=amount_paid,
-               actor=email)
+    return _uitvoeren(
+        bevestig_betaling,
+        request,
+        db,
+        email,
+        record_id,
+        note=note,
+        amount_paid=amount_paid,
+        actor=email,
+    )
 
 
-@router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_finance_ui),
-                      status: str = Form(""), amount_paid: str = Form(""),
-                      note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/bewerken",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_bewerken(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    status: str = Form(""),
+    amount_paid: str = Form(""),
+    note: str = Form(""),
+):
     """Geünificeerde 'Bewerken' (#515): status + betaald bedrag + opmerking in één
     form, voor charges én refunds (zo registreer je op een refund de effectief
     uitbetaalde som). Hergebruikt de gedeelde service-regel `edit_payment_record`,
@@ -667,34 +799,67 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
     # Het omdraaien van het teken bij een terugbetaling en de bovengrens erop
     # stonden hier; ze bepalen hoeveel geld er terugvloeit en horen dus in de
     # service (#635-I).
-    return _uitvoeren(bewerk_betaling, request, db, email, record_id, status=status,
-               amount_paid=amount_paid, note=note, actor=email)
+    return _uitvoeren(
+        bewerk_betaling,
+        request,
+        db,
+        email,
+        record_id,
+        status=status,
+        amount_paid=amount_paid,
+        note=note,
+        actor=email,
+    )
 
 
-@router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_verversen(record_id: str, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_finance_ui)):
+@router.post(
+    "/admin/betalingen/{record_id}/verversen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_verversen(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
     require_finance_mutation(db, email)
     return _uitvoeren(ververs_betaalstatus, request, db, email, record_id, actor=email)
 
 
-@router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_status(record_id: str, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_finance_ui),
-                    status: str = Form(...), note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/status",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_status(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    status: str = Form(...),
+    note: str = Form(""),
+):
     """Vrije status-correctie door de penningmeester (#455)."""
     require_finance_mutation(db, email)
-    return _uitvoeren(zet_betaalstatus, request, db, email, record_id, status, note=note, actor=email)
+    return _uitvoeren(
+        zet_betaalstatus, request, db, email, record_id, status, note=note, actor=email
+    )
 
 
-@router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends(get_db),
-                         email: str = Depends(require_finance_ui),
-                         note: str = Form("")):
+@router.post(
+    "/admin/betalingen/{record_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def betaling_verwijderen(
+    record_id: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_finance_ui),
+    note: str = Form(""),
+):
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""
     require_finance_mutation(db, email)

@@ -18,6 +18,7 @@ lus eindigt zodra het model de weigering gebruikt — niet dat Mistral dat ook d
 expliciet in zijn eigen docstring. Wat wél hard gemeten is, is de INHOUD van de
 weigering: die noemt nu wat er wél bestaat.
 """
+
 from __future__ import annotations
 
 import json
@@ -27,7 +28,10 @@ from sqlalchemy import text
 
 from app.domains.chatbot.providers.base import AssistantMessage, ToolCall
 from app.domains.reporting.assistant import (
-    detokenise, dispatcher, scan_names, scrub_question,
+    detokenise,
+    dispatcher,
+    scan_names,
+    scrub_question,
 )
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -44,25 +48,35 @@ def _activiteit_met_twee_soorten(db):
     """
     from datetime import date, timedelta
 
-    from app.domains.activities.api import (Activity, ActivityDate,
-                                            Registration)
+    from app.domains.activities.api import Activity, ActivityDate, Registration
     from app.domains.mdm.api import Person
 
     activiteit = Activity(tenant_id=TENANT, name="Wandeling")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(tenant_id=TENANT, activity_id=activiteit.id,
-                        start_date=date.today() + timedelta(days=7)))
+    db.add(
+        ActivityDate(
+            tenant_id=TENANT, activity_id=activiteit.id, start_date=date.today() + timedelta(days=7)
+        )
+    )
 
     persoon = Person(tenant_id=TENANT, first_name="Mira", last_name="Vandenbulcke")
     db.add(persoon)
     db.flush()
 
-    met_lid = Registration(tenant_id=TENANT, activity_id=activiteit.id,
-                           person_id=persoon.id, registration_type="INDIVIDUAL")
-    zonder_lid = Registration(tenant_id=TENANT, activity_id=activiteit.id,
-                              person_id=None, registration_type="INDIVIDUAL",
-                              contact_name="Joris Verlinden")
+    met_lid = Registration(
+        tenant_id=TENANT,
+        activity_id=activiteit.id,
+        person_id=persoon.id,
+        registration_type="INDIVIDUAL",
+    )
+    zonder_lid = Registration(
+        tenant_id=TENANT,
+        activity_id=activiteit.id,
+        person_id=None,
+        registration_type="INDIVIDUAL",
+        contact_name="Joris Verlinden",
+    )
     db.add_all([met_lid, zonder_lid])
     db.flush()
     db.commit()
@@ -70,13 +84,18 @@ def _activiteit_met_twee_soorten(db):
 
 
 def _rijen(db, activiteit_id):
-    return db.execute(text(
-        "SELECT registration_id, registrant_name, registrant_source "
-        "FROM reporting.f_registrations WHERE activity_id = :a "
-        "ORDER BY registration_id"), {"a": activiteit_id}).all()
+    return db.execute(
+        text(
+            "SELECT registration_id, registrant_name, registrant_source "
+            "FROM reporting.f_registrations WHERE activity_id = :a "
+            "ORDER BY registration_id"
+        ),
+        {"a": activiteit_id},
+    ).all()
 
 
 # ── 1. Beide soorten leveren een naam, met de juiste herkomst ────────────────
+
 
 def test_beide_soorten_inschrijving_leveren_een_naam_met_herkomst(db_session):
     """Test 1 uit het issue, en de reden dat de view de twee bronnen samenvoegt."""
@@ -105,21 +124,25 @@ def test_de_herkomst_volgt_de_naam_en_niet_de_koppeling(db_session):
     weg = Person(tenant_id=TENANT, first_name="Weg", last_name="Gehaald")
     db_session.add(weg)
     db_session.flush()
-    reg = Registration(tenant_id=TENANT, activity_id=activiteit.id,
-                       person_id=weg.id, registration_type="INDIVIDUAL",
-                       contact_name="Joris Verlinden")
+    reg = Registration(
+        tenant_id=TENANT,
+        activity_id=activiteit.id,
+        person_id=weg.id,
+        registration_type="INDIVIDUAL",
+        contact_name="Joris Verlinden",
+    )
     db_session.add(reg)
     db_session.flush()
     soft_delete(weg)
     db_session.commit()
 
-    naam, herkomst = {r[0]: (r[1], r[2])
-                      for r in _rijen(db_session, activiteit.id)}[reg.id]
+    naam, herkomst = {r[0]: (r[1], r[2]) for r in _rijen(db_session, activiteit.id)}[reg.id]
 
     assert (naam, herkomst) == ("Joris Verlinden", "Contactgegeven")
 
 
 # ── 2 en 3. Het model ziet een token, de beheerder leest een naam ────────────
+
 
 def test_het_model_krijgt_een_token_voor_allebei_de_soorten(db_session):
     """Test 2: nooit een naam naar Mistral, ook niet voor een contactnaam.
@@ -134,11 +157,16 @@ def test_het_model_krijgt_een_token_voor_allebei_de_soorten(db_session):
     """
     activiteit, _p, met_lid, zonder_lid = _activiteit_met_twee_soorten(db_session)
 
-    uit = dispatcher(tenant_id=TENANT, max_rows=50)("run_report", {
-        "objects": ["registrant", "registration_count"],
-        "filters": [{"object": "activity_id", "operator": "eq",
-                     "values": [str(activiteit.id)]}],
-    }, db_session)
+    uit = dispatcher(tenant_id=TENANT, max_rows=50)(
+        "run_report",
+        {
+            "objects": ["registrant", "registration_count"],
+            "filters": [
+                {"object": "activity_id", "operator": "eq", "values": [str(activiteit.id)]}
+            ],
+        },
+        db_session,
+    )
     payload = json.loads(uit) if isinstance(uit, str) else uit
 
     tekst = json.dumps(payload, ensure_ascii=False)
@@ -159,13 +187,15 @@ def test_de_beheerder_leest_een_naam_geen_token(db_session):
     uit = detokenise(
         db_session,
         f"Ik zie inschrijving-{met_lid.id} en inschrijving-{zonder_lid.id}.",
-        tenant_id=TENANT)
+        tenant_id=TENANT,
+    )
 
     assert "Mira Vandenbulcke" in uit and "Joris Verlinden" in uit, uit
     assert "inschrijving-" not in uit, uit
 
 
 # ── 4. De naadwachter kent de contactnamen ───────────────────────────────────
+
 
 def test_de_naadwachter_kent_nu_ook_een_contactnaam(db_session):
     """Test 4 — met de nuance die het issue niet maakt, en die gemeten is.
@@ -185,7 +215,8 @@ def test_de_naadwachter_kent_nu_ook_een_contactnaam(db_session):
 
     assert "verlinden" not in alleen_persoon, (
         "de opstelling deugt niet: deze naam bestaat blijkbaar óók als persoon, "
-        "en dan meet deze test het oude gedrag")
+        "en dan meet deze test het oude gedrag"
+    )
     assert "verlinden" in met_inschrijvingen
     # En de oude bron blijft: dit is een uitbreiding, geen vervanging.
     assert "vandenbulcke" in met_inschrijvingen
@@ -199,14 +230,14 @@ def test_een_getypte_contactnaam_wordt_een_token(db_session):
     """
     _act, _p, _met, zonder_lid = _activiteit_met_twee_soorten(db_session)
 
-    schoon = scrub_question(db_session, "Wat weten we over Verlinden?",
-                            tenant_id=TENANT)
+    schoon = scrub_question(db_session, "Wat weten we over Verlinden?", tenant_id=TENANT)
 
     assert "Verlinden" not in schoon
     assert f"inschrijving-{zonder_lid.id}" in schoon, schoon
 
 
 # ── 5. Een vraag die het universum niet kan beantwoorden ─────────────────────
+
 
 def test_een_verzonnen_sleutel_krijgt_te_horen_wat_er_wel_bestaat(db_session):
     """De kern van punt 4, en het deel dat hard te meten is.
@@ -220,9 +251,13 @@ def test_een_verzonnen_sleutel_krijgt_te_horen_wat_er_wel_bestaat(db_session):
     "Onbekend object"-melding gewoon bleef staan. Dat is precies het verschil
     tussen de oude en de nieuwe weigering.
     """
-    uit = dispatcher(tenant_id=TENANT, max_rows=50)("run_report", {
-        "objects": ["component", "wie_schreef_in"],
-    }, db_session)
+    uit = dispatcher(tenant_id=TENANT, max_rows=50)(
+        "run_report",
+        {
+            "objects": ["component", "wie_schreef_in"],
+        },
+        db_session,
+    )
     payload = json.loads(uit) if isinstance(uit, str) else uit
 
     fout = payload["error"]
@@ -238,9 +273,13 @@ def test_zonder_enkel_herkenbaar_object_noemt_de_weigering_de_klassen(db_session
     Dan blijven de klassen over — grover, maar nog altijd meer dan een kale
     "bestaat niet", en het zegt het model met zoveel woorden dat het mag stoppen.
     """
-    uit = dispatcher(tenant_id=TENANT, max_rows=50)("run_report", {
-        "objects": ["helemaal_verzonnen"],
-    }, db_session)
+    uit = dispatcher(tenant_id=TENANT, max_rows=50)(
+        "run_report",
+        {
+            "objects": ["helemaal_verzonnen"],
+        },
+        db_session,
+    )
     payload = json.loads(uit) if isinstance(uit, str) else uit
 
     fout = payload["error"]
@@ -277,9 +316,15 @@ def test_een_model_dat_de_weigering_leest_is_na_twee_aanroepen_klaar(db_session)
         def complete(self, messages, tools=None, **kwargs):
             self.aanroepen += 1
             if self.aanroepen == 1:
-                return AssistantMessage(tool_calls=[ToolCall(
-                    id="1", name="run_report",
-                    arguments={"objects": ["component", "wie_schreef_in"]})])
+                return AssistantMessage(
+                    tool_calls=[
+                        ToolCall(
+                            id="1",
+                            name="run_report",
+                            arguments={"objects": ["component", "wie_schreef_in"]},
+                        )
+                    ]
+                )
             self.gezien = " ".join(str(m.get("content") or "") for m in messages)
             return AssistantMessage(content="Dat kan ik niet uit de cijfers halen.")
 
@@ -287,10 +332,14 @@ def test_een_model_dat_de_weigering_leest_is_na_twee_aanroepen_klaar(db_session)
     antwoord = run_chat(
         db_session,
         [{"role": "user", "content": "Wie schreef in?"}],
-        provider, max_rounds=6, tools=tool_specs(),
-        dispatch=dispatcher(tenant_id=TENANT, max_rows=50))
+        provider,
+        max_rounds=6,
+        tools=tool_specs(),
+        dispatch=dispatcher(tenant_id=TENANT, max_rows=50),
+    )
 
     assert provider.aanroepen == 2, provider.aanroepen
     assert "Sorry, dat lukt me even niet" not in antwoord, antwoord
     assert "Op dit onderwerp bestaan wél" in provider.gezien, (
-        "de weigering met de opsomming bereikte het model niet")
+        "de weigering met de opsomming bereikte het model niet"
+    )

@@ -11,6 +11,7 @@ Twee stappen, met het bestand server-side gecachet tussen beide:
 De upsert-logica en de rapport-parsing zijn gedeeld met het CLI-script.
 (verhuisd uit app/routers/member_import.py, #444)
 """
+
 import secrets
 import time
 
@@ -18,11 +19,10 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.domains.auth.api import User
-from app.domains.mdm.ledenrapport import parse_families
+from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.import_service import upsert_families
+from app.domains.mdm.ledenrapport import parse_families
 from app.i18n import _
 
 router = APIRouter(tags=["member-import"])
@@ -30,9 +30,9 @@ router = APIRouter(tags=["member-import"])
 # Server-side cache van geüploade bestanden tussen preview en commit.
 # In-memory met TTL — een import is een eenmalige, kortlevende admin-actie.
 _PENDING: dict[str, dict] = {}
-_TTL_SECONDS = 900          # 15 minuten
-_MAX_PENDING = 20           # bovengrens op gelijktijdige imports
-_MAX_FILE_BYTES = 5 * 1024 * 1024   # 5 MB
+_TTL_SECONDS = 900  # 15 minuten
+_MAX_PENDING = 20  # bovengrens op gelijktijdige imports
+_MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 def _purge_expired() -> None:
@@ -44,7 +44,9 @@ def _purge_expired() -> None:
 def _store(content: bytes) -> str:
     _purge_expired()
     if len(_PENDING) >= _MAX_PENDING:
-        raise HTTPException(status_code=429, detail=_("Te veel openstaande imports. Probeer later opnieuw."))
+        raise HTTPException(
+            status_code=429, detail=_("Te veel openstaande imports. Probeer later opnieuw.")
+        )
     token = secrets.token_urlsafe(24)
     _PENDING[token] = {"content": content, "created_at": time.monotonic()}
     return token
@@ -57,22 +59,34 @@ def _take(token: str) -> dict:
     zodat een net-verlopen token een duidelijke 410 geeft i.p.v. 404."""
     entry = _PENDING.get(token)
     if entry is None:
-        raise HTTPException(status_code=404, detail=_("Onbekende of reeds gebruikte import. Laad het bestand opnieuw op."))
+        raise HTTPException(
+            status_code=404,
+            detail=_("Onbekende of reeds gebruikte import. Laad het bestand opnieuw op."),
+        )
     if time.monotonic() - entry["created_at"] > _TTL_SECONDS:
         _PENDING.pop(token, None)
-        raise HTTPException(status_code=410, detail=_("De import is verlopen. Laad het bestand opnieuw op."))
+        raise HTTPException(
+            status_code=410, detail=_("De import is verlopen. Laad het bestand opnieuw op.")
+        )
     _purge_expired()
     return _PENDING.pop(token)
 
 
 def _parse_or_400(content: bytes, filename: str | None):
     if filename and filename.lower().endswith(".xlsx"):
-        raise HTTPException(status_code=400,
-                            detail=_("Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."))
+        raise HTTPException(
+            status_code=400,
+            detail=_(
+                "Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."
+            ),
+        )
     try:
         return parse_families(content)
     except Exception:
-        raise HTTPException(status_code=400, detail=_("Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?"))
+        raise HTTPException(
+            status_code=400,
+            detail=_("Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?"),
+        )
 
 
 class CommitRequest(BaseModel):
@@ -94,8 +108,7 @@ async def preview(
     families, bl_index, all_bl_names, _rest = _parse_or_400(content, file.filename)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
-    report = upsert_families(db, families, bl_index, all_bl_names, apply=False,
-                             actor=admin.email)
+    report = upsert_families(db, families, bl_index, all_bl_names, apply=False, actor=admin.email)
 
     token = _store(content)
     return {
@@ -114,8 +127,7 @@ def commit(
 ):
     entry = _take(req.token)
     families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"], None)
-    report = upsert_families(db, families, bl_index, all_bl_names, apply=True,
-                             actor=admin.email)
+    report = upsert_families(db, families, bl_index, all_bl_names, apply=True, actor=admin.email)
     db.commit()
     return {
         "selected_families": len(families),

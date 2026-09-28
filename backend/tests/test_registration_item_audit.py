@@ -5,16 +5,17 @@ aanpassen, regel toevoegen/verwijderen) moeten auditeerbaar zijn én het
 verschuldigde totaal herberekenen, zodat het saldo in het betaalscherm klopt en
 een eventueel terug te betalen bedrag zichtbaar wordt.
 """
+
 from decimal import Decimal
 
-import pytest
-
-from app.domains.activities.api import Registration, RegistrationItem
-from app.domains.activities.api import ActivityProduct
-from app.domains.activities.api import RegistrationItemHistory
-from app.domains.payment.api import PaymentRecord
+from app.domains.activities.api import (
+    ActivityProduct,
+    Registration,
+    RegistrationItem,
+    RegistrationItemHistory,
+)
+from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus, PaymentType
 from tests.conftest import seed_activity_with_product
-from app.domains.payment.api import PayableType, PaymentStatus, PaymentType
 
 
 def _add_product(db, comp, *, name, price, is_free=False):
@@ -26,23 +27,35 @@ def _add_product(db, comp, *, name, price, is_free=False):
 
 def _register(client, db, comp, product, qty=1):
     activity_id = comp.activity_id
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": qty}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": qty}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
-    reg = db.query(Registration).filter(
-        Registration.component_id == comp.id
-    ).order_by(Registration.id.desc()).first()
+    reg = (
+        db.query(Registration)
+        .filter(Registration.component_id == comp.id)
+        .order_by(Registration.id.desc())
+        .first()
+    )
     item = db.query(RegistrationItem).filter(RegistrationItem.registration_id == reg.id).first()
     return activity_id, reg, item
 
 
 def _history_for(db, item_id):
-    return db.query(RegistrationItemHistory).filter(
-        RegistrationItemHistory.registration_item_id == item_id
-    ).order_by(RegistrationItemHistory.id).all()
+    return (
+        db.query(RegistrationItemHistory)
+        .filter(RegistrationItemHistory.registration_item_id == item_id)
+        .order_by(RegistrationItemHistory.id)
+        .all()
+    )
 
 
 def test_initial_registration_is_audited(client, db_session):
@@ -63,7 +76,8 @@ def test_update_quantity_recomputes_due_and_audits(client, db_session, admin_hea
 
     resp = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"quantity": 2}, headers=admin_headers,
+        json={"quantity": 2},
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
     assert Decimal(str(resp.json()["balance"]["total_due"])) == Decimal("36.00")
@@ -81,17 +95,26 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     activity_id, reg, item = _register(client, db_session, comp, product)
 
     # Penningmeester bevestigt de overschrijving van €18.
-    charge = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
-    ).first()
-    client.patch(f"/api/v1/payment-status/records/{charge.id}",
-                 json={"status": "paid", "amount_paid": "18.00"}, headers=admin_headers)
+    charge = (
+        db_session.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.payable_id == reg.id,
+        )
+        .first()
+    )
+    client.patch(
+        f"/api/v1/payment-status/records/{charge.id}",
+        json={"status": "paid", "amount_paid": "18.00"},
+        headers=admin_headers,
+    )
 
     # Bestelregel naar de gratis helper-variant → verschuldigd 0; de €18 wordt als
     # terugbetaal-verplichting aangemaakt (#216), pending tot bevestiging.
     resp = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"product_id": helper.id}, headers=admin_headers,
+        json={"product_id": helper.id},
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -101,14 +124,25 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("0.00")
 
     # Penningmeester bevestigt de terugstorting → nu pas vereffend.
-    refund = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == PayableType.REGISTRATION, PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == PaymentType.REFUND).order_by(PaymentRecord.created_at.desc()).first()
+    refund = (
+        db_session.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.payable_id == reg.id,
+            PaymentRecord.type == PaymentType.REFUND,
+        )
+        .order_by(PaymentRecord.created_at.desc())
+        .first()
+    )
     assert refund.status == PaymentStatus.PENDING and refund.amount_paid is None
-    client.patch(f"/api/v1/payment-status/records/{refund.id}",
-                 json={"status": "paid"}, headers=admin_headers)
-    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",
-                     headers=admin_headers).json()
+    client.patch(
+        f"/api/v1/payment-status/records/{refund.id}",
+        json={"status": "paid"},
+        headers=admin_headers,
+    )
+    bal = client.get(
+        f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers
+    ).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
     assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
@@ -120,15 +154,20 @@ def test_add_order_line(client, db_session, admin_headers):
 
     resp = client.post(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-        json={"product_id": extra.id, "quantity": 2}, headers=admin_headers,
+        json={"product_id": extra.id, "quantity": 2},
+        headers=admin_headers,
     )
     assert resp.status_code == 200, resp.text
     assert Decimal(str(resp.json()["balance"]["total_due"])) == Decimal("28.00")  # 18 + 2×5
 
-    new_item = db_session.query(RegistrationItem).filter(
-        RegistrationItem.registration_id == reg.id,
-        RegistrationItem.product_id == extra.id,
-    ).first()
+    new_item = (
+        db_session.query(RegistrationItem)
+        .filter(
+            RegistrationItem.registration_id == reg.id,
+            RegistrationItem.product_id == extra.id,
+        )
+        .first()
+    )
     rows = _history_for(db_session, new_item.id)
     assert rows[0].operation == "insert"
     assert rows[0].action == "order_changed"
@@ -159,7 +198,8 @@ def test_product_from_other_activity_rejected(client, db_session, admin_headers)
 
     resp = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-        json={"product_id": product_b.id}, headers=admin_headers,
+        json={"product_id": product_b.id},
+        headers=admin_headers,
     )
     assert resp.status_code == 400
 

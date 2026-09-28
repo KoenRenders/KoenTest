@@ -21,6 +21,7 @@ over. And against the route as it was on v2.6.0 (the two functions called one
 after the other) all three are red — the half-save test too, because the name
 was committed before the address was refused.
 """
+
 import pytest
 from sqlalchemy import text
 
@@ -30,7 +31,7 @@ from app.main import app
 
 pytestmark = pytest.mark.ui_serverrendered
 
-ACCOUNT_ID = 1   # the legal entity; any organisation with an editor will do
+ACCOUNT_ID = 1  # the legal entity; any organisation with an editor will do
 EMAIL = "operator-1244@example.org"
 POSTCODE = "9999"
 
@@ -50,6 +51,7 @@ def _sql(statement: str, **params):
 @pytest.fixture
 def real_request(client):
     """The route runs on a session of its own, closed after the request."""
+
     def _own_session():
         db = SessionLocal()
         try:
@@ -80,20 +82,27 @@ def real_request(client):
         _sql("DELETE FROM mdm.addresses WHERE organization_id = :o", o=ACCOUNT_ID)
         _sql("UPDATE mdm.organizations SET name = :n WHERE id = :o", n=name_before, o=ACCOUNT_ID)
         _sql("DELETE FROM mdm.postal_codes WHERE postal_code = :p", p=POSTCODE)
-        _sql("DELETE FROM auth.user_roles WHERE user_id IN "
-             "(SELECT id FROM auth.users WHERE email = :e)", e=EMAIL)
+        _sql(
+            "DELETE FROM auth.user_roles WHERE user_id IN "
+            "(SELECT id FROM auth.users WHERE email = :e)",
+            e=EMAIL,
+        )
         _sql("DELETE FROM auth.users WHERE email = :e", e=EMAIL)
 
 
 def _post(real_request, **fields):
     client, csrf = real_request
-    return client.post(f"/admin/organisaties/{ACCOUNT_ID}", data=fields,
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        f"/admin/organisaties/{ACCOUNT_ID}", data=fields, headers={"X-CSRF-Token": csrf}
+    )
 
 
 def _address():
-    rows = _sql("SELECT street, house_number FROM mdm.addresses "
-                "WHERE organization_id = :o AND deleted_at IS NULL", o=ACCOUNT_ID)
+    rows = _sql(
+        "SELECT street, house_number FROM mdm.addresses "
+        "WHERE organization_id = :o AND deleted_at IS NULL",
+        o=ACCOUNT_ID,
+    )
     return tuple(rows[0]) if rows else None
 
 
@@ -102,18 +111,24 @@ def _name() -> str:
 
 
 def test_an_address_outlives_the_request(real_request):
-    resp = _post(real_request, name="Raak", street="Kerkstraat", house_number="7",
-                 postal_code=POSTCODE)
+    resp = _post(
+        real_request, name="Raak", street="Kerkstraat", house_number="7", postal_code=POSTCODE
+    )
 
     assert resp.status_code == 200, resp.text[:300]
     assert _address() == ("Kerkstraat", "7"), (
-        "the address was not committed: it is gone once the request's session closes")
+        "the address was not committed: it is gone once the request's session closes"
+    )
 
 
 def test_removing_an_address_outlives_the_request(real_request):
-    _sql("INSERT INTO mdm.addresses (organization_id, tenant_id, street, house_number, "
-         "postal_code_id, created_at, updated_at) SELECT :o, :o, 'Kerkstraat', '7', id, now(), now() "
-         "FROM mdm.postal_codes WHERE postal_code = :p", o=ACCOUNT_ID, p=POSTCODE)
+    _sql(
+        "INSERT INTO mdm.addresses (organization_id, tenant_id, street, house_number, "
+        "postal_code_id, created_at, updated_at) SELECT :o, :o, 'Kerkstraat', '7', id, now(), now() "
+        "FROM mdm.postal_codes WHERE postal_code = :p",
+        o=ACCOUNT_ID,
+        p=POSTCODE,
+    )
     assert _address() is not None, "precondition: there is an address"
 
     resp = _post(real_request, name="Raak", street="", house_number="", postal_code="")
@@ -126,8 +141,9 @@ def test_a_refused_address_leaves_nothing_of_the_form(real_request):
     """The name changes, the address is refused (no house number): neither stays."""
     before = _name()
 
-    resp = _post(real_request, name="Nieuwe naam", street="Kerkstraat",
-                 house_number="", postal_code=POSTCODE)
+    resp = _post(
+        real_request, name="Nieuwe naam", street="Kerkstraat", house_number="", postal_code=POSTCODE
+    )
 
     assert resp.status_code == 422
     assert _name() == before, "the name was saved although the form was refused"

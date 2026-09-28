@@ -12,6 +12,7 @@ verzoek meer, dus `htmx_afgerond` wacht tevergeefs en de test valt om in die
 wachtvoorwaarde, nog vóór de assertie op `m1_first_name`. Beide zijn hetzelfde
 gebrek: er komt geen tweede rij.
 """
+
 import os
 import sys
 import time
@@ -60,10 +61,10 @@ def test_hoofdlid_en_gezinslid_in_een_keer_bewaard(page):
     # Een gezinslid erbij: een lege rij, geen opslag — wat hierboven staat blijft.
     with htmx_afgerond(page):
         page.get_by_role("button", name="+ Gezinslid toevoegen").click()
-    expect(page.locator("#m1_first_name"),
-           "de tweede persoonsrij kwam niet").to_be_visible()
-    expect(page.locator("#m0_first_name"),
-           "het hoofdlid is leeggemaakt door een rij toe te voegen").to_have_value("Hoofd")
+    expect(page.locator("#m1_first_name"), "de tweede persoonsrij kwam niet").to_be_visible()
+    expect(
+        page.locator("#m0_first_name"), "het hoofdlid is leeggemaakt door een rij toe te voegen"
+    ).to_have_value("Hoofd")
 
     page.fill("#m1_first_name", "Partner")
     page.fill("#m1_last_name", achternaam)
@@ -77,7 +78,10 @@ def test_hoofdlid_en_gezinslid_in_een_keer_bewaard(page):
 
     hoofd = page.locator("#leden-detail", has_text=f"Hoofd {achternaam}")
     expect(hoofd, "het hoofdlid staat niet op de gezinspagina").to_be_visible()
-    expect(page.locator("#leden-detail", has_text=f"Partner {achternaam}"),
-           "het tweede gezinslid is niet mee bewaard").to_be_visible()
+    expect(
+        page.locator("#leden-detail", has_text=f"Partner {achternaam}"),
+        "het tweede gezinslid is niet mee bewaard",
+    ).to_be_visible()
     expect(page.locator("#adres-kaart"), "het adres is niet mee bewaard").to_contain_text(
-        "Teststraat 1")
+        "Teststraat 1"
+    )

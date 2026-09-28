@@ -28,6 +28,7 @@ de vlag zijn ze niet meer van elkaar te onderscheiden — precies de verwarring 
 moest wegnemen; en `disable_existing_loggers=False` uit `env.py` gehaald → alle vier
 vallen om op een lege `caplog`.
 """
+
 import json
 import logging
 from typing import AsyncIterator
@@ -102,7 +103,8 @@ def test_geval_1_de_provider_weigert(client, monkeypatch, caplog):
     berichten = [r.getMessage() for r in caplog.records]
     assert any("STT-provider mislukt (48000 Hz)" in m for m in berichten), berichten
     assert not any("herkende geen spraak" in m for m in berichten), (
-        "een weigering wordt óók als 'niets herkend' gemeld; dan is het onderscheid weg")
+        "een weigering wordt óók als 'niets herkend' gemeld; dan is het onderscheid weg"
+    )
 
 
 def test_geval_2_aanvaard_maar_niets_herkend(client, monkeypatch, caplog):
@@ -115,8 +117,10 @@ def test_geval_2_aanvaard_maar_niets_herkend(client, monkeypatch, caplog):
         _sessie(client, StilleProvider(), spraak=True, monkeypatch=monkeypatch)
 
     zwaar = [r.getMessage() for r in caplog.records if r.levelno >= logging.WARNING]
-    assert any("herkende geen spraak" in m and "48000 Hz" in m
-               and "de browser hoorde wél spraak" in m for m in zwaar), caplog.text
+    assert any(
+        "herkende geen spraak" in m and "48000 Hz" in m and "de browser hoorde wél spraak" in m
+        for m in zwaar
+    ), caplog.text
 
 
 def test_geval_3_er_is_niets_ingesproken(client, monkeypatch, caplog):
@@ -130,7 +134,8 @@ def test_geval_3_er_is_niets_ingesproken(client, monkeypatch, caplog):
     stil = [m for _lvl, m in regels if "de browser hoorde" in m]
     assert stil and "zelf geen spraak" in stil[0], caplog.text
     assert all(lvl < logging.WARNING for lvl, m in regels if "STT-sessie" in m), (
-        "een sessie waarin niemand iets zei is geen waarschuwing")
+        "een sessie waarin niemand iets zei is geen waarschuwing"
+    )
 
 
 def test_een_geslaagde_sessie_meldt_hoeveel_tekst(client, caplog):
@@ -143,6 +148,5 @@ def test_een_geslaagde_sessie_meldt_hoeveel_tekst(client, caplog):
         _sessie(client)
 
     regels = [(r.levelno, r.getMessage()) for r in caplog.records]
-    assert any("STT-sessie klaar" in m and "tekstdelen" in m
-               for _lvl, m in regels), caplog.text
+    assert any("STT-sessie klaar" in m and "tekstdelen" in m for _lvl, m in regels), caplog.text
     assert all(lvl < logging.WARNING for lvl, m in regels if "STT-sessie" in m)

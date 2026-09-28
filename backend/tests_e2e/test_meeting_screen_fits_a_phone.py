@@ -18,6 +18,7 @@ fails with the page width and both offenders by name; with them back it passes.
 The desktop test guards the other half of the issue: at 1440 px both rows stay
 on one line, which is what they did before the fix.
 """
+
 import os
 import sys
 
@@ -98,12 +99,14 @@ def test_the_meeting_screen_does_not_scroll_sideways_on_a_phone(browser):
         width = page.evaluate("document.documentElement.scrollWidth")
         offenders = page.evaluate(_OFFENDERS, PHONE)
         assert width <= PHONE and not offenders, (
-            f"the meeting screen is {width} px wide at {PHONE} px; sticking out: {offenders}")
+            f"the meeting screen is {width} px wide at {PHONE} px; sticking out: {offenders}"
+        )
         # The degenerate case: a row squeezed to nothing also fits. The upload button
         # must still sit fully inside the viewport and have its own width.
         button = page.locator(_ROWS["upload"] + " button[type=submit]").bounding_box()
         assert button and button["width"] > 40 and button["x"] + button["width"] <= PHONE, (
-            f"the upload button is not usable at {PHONE} px: {button}")
+            f"the upload button is not usable at {PHONE} px: {button}"
+        )
     finally:
         page.close()
 
@@ -118,14 +121,14 @@ def test_both_rows_stay_on_one_line_on_a_desktop(browser):
                     .filter(c => c.type !== 'hidden')
                     .map(c => { const r = c.getBoundingClientRect();
                                 return [Math.round(r.top), Math.round(r.bottom)]; })""",
-                selector)
+                selector,
+            )
             assert len(boxes) >= 2, f"the {name} row has fewer than two visible children: {boxes}"
             # One line means every child overlaps the first one vertically. The rows
             # align their children differently (centre, bottom), so equal tops would be
             # the wrong test; a wrapped child starts below the first child's bottom.
             first_top, first_bottom = boxes[0]
             wrapped = [b for b in boxes[1:] if b[0] >= first_bottom or b[1] <= first_top]
-            assert not wrapped, (
-                f"the {name} row wraps on a 1440 px desktop: child boxes {boxes}")
+            assert not wrapped, f"the {name} row wraps on a 1440 px desktop: child boxes {boxes}"
     finally:
         page.close()

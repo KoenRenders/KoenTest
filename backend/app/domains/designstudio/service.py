@@ -18,6 +18,7 @@ The rules that live here and nowhere else:
   of the merge for that layout's exports, and named "handmatig bewerkt" until
   it is removed. Its brand check only warns.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -59,17 +60,30 @@ from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 def _tenant() -> int:
     return current_tenant_id.get() or DEFAULT_TENANT_ID
 
+
 logger = logging.getLogger(__name__)
 
 MAX_VERSIONS = 3
-MAX_HIGHLIGHTS = 4          # the unit's own rows (Koen, 20 September 2026: six in total is calmer)
-MAX_HIGHLIGHT_ROWS = 6      # plus date/time and place, which come by themselves
+MAX_HIGHLIGHTS = 4  # the unit's own rows (Koen, 20 September 2026: six in total is calmer)
+MAX_HIGHLIGHT_ROWS = 6  # plus date/time and place, which come by themselves
 MAX_LOGOS = 2
 MAX_DATES = 12
 IMAGE_SLOTS = ("main_image_id", "inset_image_id", "third_image_id")
 
-MONTHS_NL = ("JANUARI", "FEBRUARI", "MAART", "APRIL", "MEI", "JUNI", "JULI", "AUGUSTUS",
-             "SEPTEMBER", "OKTOBER", "NOVEMBER", "DECEMBER")
+MONTHS_NL = (
+    "JANUARI",
+    "FEBRUARI",
+    "MAART",
+    "APRIL",
+    "MEI",
+    "JUNI",
+    "JULI",
+    "AUGUSTUS",
+    "SEPTEMBER",
+    "OKTOBER",
+    "NOVEMBER",
+    "DECEMBER",
+)
 WEEKDAYS_NL = ("MAANDAG", "DINSDAG", "WOENSDAG", "DONDERDAG", "VRIJDAG", "ZATERDAG", "ZONDAG")
 
 # The words for a preset, a status and a layout now come from the label
@@ -144,6 +158,7 @@ def _layout(code) -> Layout:
 
 # ── Designs ─────────────────────────────────────────────────────────────────
 
+
 def list_designs(db: Session) -> list[Design]:
     return db.query(Design).order_by(Design.updated_at.desc(), Design.id.desc()).all()
 
@@ -151,16 +166,21 @@ def list_designs(db: Session) -> list[Design]:
 def designs_for_activity(db: Session, activity_id: int) -> list[Design]:
     """The designs of one activity, newest first — for the activity screen's
     jump to the Design Studio (Koen, 20 September 2026)."""
-    return (db.query(Design).filter(Design.activity_id == activity_id)
-            .order_by(Design.updated_at.desc(), Design.id.desc()).all())
+    return (
+        db.query(Design)
+        .filter(Design.activity_id == activity_id)
+        .order_by(Design.updated_at.desc(), Design.id.desc())
+        .all()
+    )
 
 
 def get_design(db: Session, design_id: int) -> Optional[Design]:
     return db.query(Design).filter(Design.id == design_id).first()
 
 
-def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str = "beeld",
-                  created_by: str = "") -> Design:
+def create_design(
+    db: Session, *, activity_id: int, duo_code: str, preset: str = "beeld", created_by: str = ""
+) -> Design:
     from app.domains.activities.api import get_activity
 
     if get_activity(db, activity_id) is None:
@@ -168,15 +188,22 @@ def create_design(db: Session, *, activity_id: int, duo_code: str, preset: str =
     brand.split_duo(duo_code)  # raises on an unknown or forbidden duo
     if duo_code not in brand.ENABLED_DUOS:
         raise DesignError("Dit kleurenduo staat niet aan.")
-    design = Design(activity_id=activity_id, duo_code=duo_code, preset=_preset(preset),
-                    created_by=created_by)
+    design = Design(
+        activity_id=activity_id, duo_code=duo_code, preset=_preset(preset), created_by=created_by
+    )
     db.add(design)
     db.commit()
     return design
 
 
-def save_design(db: Session, design: Design, form: dict, *, highlights: list[tuple[str, str, bool]],
-                logo_ids: list[int]) -> None:
+def save_design(
+    db: Session,
+    design: Design,
+    form: dict,
+    *,
+    highlights: list[tuple[str, str, bool]],
+    logo_ids: list[int],
+) -> None:
     """Store the editor form. Facts are not in ``form``; they cannot be.
 
     Every refusal comes before the first mutation, so a refused save leaves
@@ -234,8 +261,11 @@ def save_design(db: Session, design: Design, form: dict, *, highlights: list[tup
     design.logos.clear()
     db.flush()
     for i, (icon, line, emphasis) in enumerate(kept):
-        design.highlights.append(DesignHighlight(sort_order=i, icon_code=icon, text=line.strip()[:90],
-                                                 emphasis=bool(emphasis)))
+        design.highlights.append(
+            DesignHighlight(
+                sort_order=i, icon_code=icon, text=line.strip()[:90], emphasis=bool(emphasis)
+            )
+        )
     for i, asset_id in enumerate(logo_ids):
         design.logos.append(DesignLogo(media_asset_id=asset_id, sort_order=i))
     design.status = DesignStatus.DRAFT
@@ -250,14 +280,18 @@ def delete_design(db: Session, design: Design) -> None:
 
 # ── Facts ───────────────────────────────────────────────────────────────────
 
+
 def _organisers(db: Session, activity_id: int) -> list[Contact]:
     """The organisers ticked as contact (#1004), with the e-mail and gsm the
     activity publishes (override or the person's own). Nobody ticked → the
     poster shows the association's own lines."""
     from app.domains.activities.api import organisers_for
 
-    return [Contact(name=row.name, mobile=row.mobile or "", email=row.email or "")
-            for row in organisers_for(db, activity_id) if row.is_contact]
+    return [
+        Contact(name=row.name, mobile=row.mobile or "", email=row.email or "")
+        for row in organisers_for(db, activity_id)
+        if row.is_contact
+    ]
 
 
 def _association(db: Session) -> dict[str, str]:
@@ -267,10 +301,13 @@ def _association(db: Session) -> dict[str, str]:
     website = (details.get("website") or "").strip()
     for prefix in ("https://", "http://"):
         if website.startswith(prefix):
-            website = website[len(prefix):]
-    return {"website": website.rstrip("/"), "email": (details.get("email") or "").strip(),
-            "mobile": (details.get("mobile") or details.get("phone") or "").strip(),
-            "name": (details.get("name") or "").strip()}
+            website = website[len(prefix) :]
+    return {
+        "website": website.rstrip("/"),
+        "email": (details.get("email") or "").strip(),
+        "mobile": (details.get("mobile") or details.get("phone") or "").strip(),
+        "name": (details.get("name") or "").strip(),
+    }
 
 
 def day_label(day: date, *, weekday: bool = False) -> str:
@@ -300,15 +337,22 @@ def facts_for(db: Session, design: Design) -> dict:
     activity = get_activity(db, design.activity_id)
     if activity is None:
         raise DesignError("Activiteit niet gevonden.")
-    dates = sorted((d for d in activity.dates if getattr(d, "deleted_at", None) is None),
-                   key=lambda d: (d.start_date, d.start_time or datetime.min.time()))
+    dates = sorted(
+        (d for d in activity.dates if getattr(d, "deleted_at", None) is None),
+        key=lambda d: (d.start_date, d.start_time or datetime.min.time()),
+    )
     assoc = _association(db)
     return {
         "activity_id": activity.id,
         "title": activity.name or "",
         "location": activity.location or "",
-        "dates": [{"date": d.start_date.isoformat(),
-                   "time": d.start_time.strftime("%H:%M") if d.start_time else ""} for d in dates],
+        "dates": [
+            {
+                "date": d.start_date.isoformat(),
+                "time": d.start_time.strftime("%H:%M") if d.start_time else "",
+            }
+            for d in dates
+        ],
         # #1053: the deadline moved to the component. A poster speaks for the
         # whole activity, so it only carries a date when every component has the
         # same one; differing dates belong on the page, not on one printed line.
@@ -326,15 +370,21 @@ def facts_for(db: Session, design: Design) -> dict:
         # "scan voor meer info" really shows this activity (CR-10 §3.7).
         "key": activity.slug or str(activity.id),
         "members_only": bool(activity.members_only),
-        "organisers": [{"name": c.name, "mobile": c.mobile, "email": c.email}
-                       for c in _organisers(db, activity.id)],
-        "website": assoc["website"], "email": assoc["email"], "mobile": assoc["mobile"],
+        "organisers": [
+            {"name": c.name, "mobile": c.mobile, "email": c.email}
+            for c in _organisers(db, activity.id)
+        ],
+        "website": assoc["website"],
+        "email": assoc["email"],
+        "mobile": assoc["mobile"],
         "association": assoc["name"],
     }
 
 
 def fingerprint(facts: dict) -> str:
-    return hashlib.sha256(json.dumps(facts, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(facts, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 def is_stale(db: Session, version: DesignVersion) -> bool:
@@ -342,6 +392,7 @@ def is_stale(db: Session, version: DesignVersion) -> bool:
 
 
 # ── Content ─────────────────────────────────────────────────────────────────
+
 
 def file_slug(title: str, fallback: str) -> str:
     """The activity's name as the first part of a file name.
@@ -367,10 +418,20 @@ def _image(db: Session, asset_id: Optional[int], focus=(0.5, 0.5)) -> Optional[I
     if not asset_id:
         return None
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if asset is None or not asset.content_type.startswith("image/") or asset.content_type == "image/svg+xml":
+    if (
+        asset is None
+        or not asset.content_type.startswith("image/")
+        or asset.content_type == "image/svg+xml"
+    ):
         return None
-    return ImageBytes(bytes(asset.data), asset.content_type, float(focus[0]), float(focus[1]),
-                      int(asset.width or 0), int(asset.height or 0))
+    return ImageBytes(
+        bytes(asset.data),
+        asset.content_type,
+        float(focus[0]),
+        float(focus[1]),
+        int(asset.width or 0),
+        int(asset.height or 0),
+    )
 
 
 def _title_lines(title: str) -> tuple[tuple[str, ...], str]:
@@ -406,18 +467,25 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         highlights.append(Highlight(hl.icon_code, hl.text.upper()))
     highlights = highlights[:MAX_HIGHLIGHT_ROWS]
 
-    grid = tuple(day_label(date.fromisoformat(d["date"])) for d in dates[:MAX_DATES]) if len(dates) > 1 else ()
+    grid = (
+        tuple(day_label(date.fromisoformat(d["date"])) for d in dates[:MAX_DATES])
+        if len(dates) > 1
+        else ()
+    )
     year = date.fromisoformat(dates[0]["date"]).year if dates else date.today().year
 
     contacts = tuple(Contact(**c) for c in facts["organisers"])
 
     return PosterContent(
-        duo_code=design.duo_code, preset=design.preset,
-        title_lines=title_lines, title_joiner=joiner,
+        duo_code=design.duo_code,
+        preset=design.preset,
+        title_lines=title_lines,
+        title_joiner=joiner,
         bar_text=(design.subtitle or "").upper(),
         tagline=design.tagline or "",
         highlights=tuple(highlights),
-        date_line=date_line, location=(facts["location"] or "").upper(),
+        date_line=date_line,
+        location=(facts["location"] or "").upper(),
         deadline_text=deadline_line(facts["deadline"]),
         registration=bool(facts.get("registration", True)),
         # The heading covers what is under it, and what is under it is the
@@ -431,16 +499,20 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         dates=grid,
         explanation_md=design.explanation_md or facts["description"],
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
-        inset_image=_image(db, design.inset_image_id), inset_corner=design.inset_corner or "bottom_right",
+        inset_image=_image(db, design.inset_image_id),
+        inset_corner=design.inset_corner or "bottom_right",
         third_image=_image(db, design.third_image_id),
-        website=facts["website"], email=facts["email"], association_mobile=facts["mobile"], contacts=contacts,
+        website=facts["website"],
+        email=facts["email"],
+        association_mobile=facts["mobile"],
+        contacts=contacts,
         logos=tuple(img for img in (_image(db, lg.media_asset_id) for lg in design.logos) if img),
         seed=design.id or 1,
     )
 
 
 def deadline_line(iso: str) -> str:
-    """"Inschrijven tot en met 8 november", or "" when there is no single
+    """ "Inschrijven tot en met 8 november", or "" when there is no single
     deadline for the whole activity (#1053: it lives per component).
 
     "Tot en met" because that is what the software does: a registration is
@@ -468,11 +540,18 @@ def qr_url(db: Session, key: str = "") -> str:
 
 # ── Preview and check ───────────────────────────────────────────────────────
 
+
 def edited_svg_for(db: Session, design: Design, layout) -> Optional[DesignRendition]:
-    return (db.query(DesignRendition)
-            .filter(DesignRendition.design_id == design.id, DesignRendition.version_id.is_(None),
-                    DesignRendition.layout_code == layout, DesignRendition.variant == RenderVariant.SVG_EDITED)
-            .first())
+    return (
+        db.query(DesignRendition)
+        .filter(
+            DesignRendition.design_id == design.id,
+            DesignRendition.version_id.is_(None),
+            DesignRendition.layout_code == layout,
+            DesignRendition.variant == RenderVariant.SVG_EDITED,
+        )
+        .first()
+    )
 
 
 def _asset_bytes(db: Session, asset_id: int) -> bytes:
@@ -484,8 +563,14 @@ def _asset_bytes(db: Session, asset_id: int) -> bytes:
     return bytes(asset.data)
 
 
-def merged_for(db: Session, design: Design, layout, *, facts: Optional[dict] = None,
-               content: Optional[PosterContent] = None) -> render.Merged:
+def merged_for(
+    db: Session,
+    design: Design,
+    layout,
+    *,
+    facts: Optional[dict] = None,
+    content: Optional[PosterContent] = None,
+) -> render.Merged:
     """The SVG for one layout: the hand-edited one when there is one, else the
     merge. An edited SVG has no boxes to check — the unit took over."""
     layout = _layout(layout)
@@ -493,11 +578,17 @@ def merged_for(db: Session, design: Design, layout, *, facts: Optional[dict] = N
     if edited is not None:
         svg = _asset_bytes(db, edited.media_asset_id).decode("utf-8")
         spec = render.contract(design.template_key)["layouts"][layout.value]
-        return render.Merged(svg=svg, boxes={}, violations=(), width_mm=spec["width_mm"], height_mm=spec["height_mm"])
+        return render.Merged(
+            svg=svg, boxes={}, violations=(), width_mm=spec["width_mm"], height_mm=spec["height_mm"]
+        )
     content = content or content_for(db, design, facts)
-    return render.merge(content, layout=layout.value, template_key=design.template_key,
-                        title=facts["title"] if facts else "Affiche",
-                        qr_url=qr_url(db, facts.get("key", "") if facts else ""))
+    return render.merge(
+        content,
+        layout=layout.value,
+        template_key=design.template_key,
+        title=facts["title"] if facts else "Affiche",
+        qr_url=qr_url(db, facts.get("key", "") if facts else ""),
+    )
 
 
 #: Pixel width of the editor's preview, over the sheet's full width. It was
@@ -510,7 +601,9 @@ PREVIEW_PX = 1400
 PREVIEW_LARGE_PX = 2400
 
 
-def preview_png(db: Session, design: Design, layout, *, width_px: int = PREVIEW_PX) -> tuple[bytes, list[str]]:
+def preview_png(
+    db: Session, design: Design, layout, *, width_px: int = PREVIEW_PX
+) -> tuple[bytes, list[str]]:
     """The editor's preview: quick check (no Inkscape measurement), then a PNG.
 
     1400 px over an A3 sheet is about 4.7 px per millimetre. It was 700, and
@@ -527,16 +620,23 @@ def preview_png(db: Session, design: Design, layout, *, width_px: int = PREVIEW_
 def check_design(db: Session, design: Design) -> dict[Layout, list[str]]:
     facts = facts_for(db, design)
     content = content_for(db, design, facts)
-    return {layout: render.check(merged_for(db, design, layout, facts=facts, content=content), authority=False)
-            for layout in tuple(Layout)}
+    return {
+        layout: render.check(
+            merged_for(db, design, layout, facts=facts, content=content), authority=False
+        )
+        for layout in tuple(Layout)
+    }
 
 
 # ── Versions ────────────────────────────────────────────────────────────────
 
+
 def _store_render(db: Session, *, filename: str, content_type: str, data: bytes) -> int:
     from app.domains.media.api import add_document
 
-    asset = add_document(db, kind="design_render", filename=filename, content_type=content_type, data=data)
+    asset = add_document(
+        db, kind="design_render", filename=filename, content_type=content_type, data=data
+    )
     return asset.id
 
 
@@ -547,15 +647,22 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
     if facts["cancelled"]:
         raise DesignError("Deze activiteit is geannuleerd; er komt geen affiche van.")
     content = content_for(db, design, facts)
-    merged = {layout: merged_for(db, design, layout, facts=facts, content=content) for layout in tuple(Layout)}
+    merged = {
+        layout: merged_for(db, design, layout, facts=facts, content=content)
+        for layout in tuple(Layout)
+    }
     problems: list[str] = []
     for layout, m in merged.items():
-        problems += [f"{code_label(LAYOUT.name, layout, db=db)}: {p}"
-                     for p in render.check(m, authority=True)]
+        problems += [
+            f"{code_label(LAYOUT.name, layout, db=db)}: {p}"
+            for p in render.check(m, authority=True)
+        ]
     if problems:
         raise DesignError(*problems)
 
-    files: list[tuple[Layout, RenderVariant, str, str, bytes]] = []  # layout, variant, size, content type, bytes
+    files: list[
+        tuple[Layout, RenderVariant, str, str, bytes]
+    ] = []  # layout, variant, size, content type, bytes
     slug = file_slug(facts.get("title", ""), f"ontwerp-{design.id}")
     for layout, plan in RENDITIONS.items():
         svg = merged[layout].svg
@@ -565,23 +672,40 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
                 continue
             source = render.resize_page(svg, *page) if page else svg
             data = render.export(source, kind, png_width_px=png_w)
-            files.append((layout, variant, size, "application/pdf" if kind == "pdf" else "image/png", data))
+            files.append(
+                (layout, variant, size, "application/pdf" if kind == "pdf" else "image/png", data)
+            )
 
     number = (max((v.number for v in design.versions), default=0)) + 1
-    version = DesignVersion(design=design, number=number, facts_fingerprint=fingerprint(facts),
-                            sponsor_asset_ids=",".join(str(lg.media_asset_id) for lg in design.logos),
-                            created_by=created_by)
+    version = DesignVersion(
+        design=design,
+        number=number,
+        facts_fingerprint=fingerprint(facts),
+        sponsor_asset_ids=",".join(str(lg.media_asset_id) for lg in design.logos),
+        created_by=created_by,
+    )
     db.add(version)
     db.flush()
     ext = {"application/pdf": "pdf", "image/png": "png", "image/svg+xml": "svg"}
     for layout, variant, size, ctype, data in files:
-        asset_id = _store_render(db,
-                                 filename=f"{slug}-v{number}-{FILE_SIZE_LABELS.get(size, size)}.{ext[ctype]}",
-                                 content_type=ctype, data=data)
+        asset_id = _store_render(
+            db,
+            filename=f"{slug}-v{number}-{FILE_SIZE_LABELS.get(size, size)}.{ext[ctype]}",
+            content_type=ctype,
+            data=data,
+        )
         edited = edited_svg_for(db, design, layout)
-        db.add(DesignRendition(design_id=design.id, version_id=version.id, layout_code=layout, variant=variant,
-                               size_code=size, media_asset_id=asset_id,
-                               facts_fingerprint=edited.facts_fingerprint if edited else None))
+        db.add(
+            DesignRendition(
+                design_id=design.id,
+                version_id=version.id,
+                layout_code=layout,
+                variant=variant,
+                size_code=size,
+                media_asset_id=asset_id,
+                facts_fingerprint=edited.facts_fingerprint if edited else None,
+            )
+        )
     design.status = DesignStatus.FINAL
     design.updated_at = _now()
     _prune_versions(db, design)
@@ -631,8 +755,11 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
     if pdf is None:
         raise DesignError("Deze versie heeft geen A3-pdf.")
     data = _asset_bytes(db, pdf.media_asset_id)
-    upload = UploadFile(file=BytesIO(data), filename=f"affiche-{design.activity_id}-v{version.number}.pdf",
-                        headers=Headers({"content-type": "application/pdf"}))
+    upload = UploadFile(
+        file=BytesIO(data),
+        filename=f"affiche-{design.activity_id}-v{version.number}.pdf",
+        headers=Headers({"content-type": "application/pdf"}),
+    )
     await replace_activity_poster(db, design.activity_id, upload, background_tasks)
     design.published_version_id = version.id
     design.updated_at = _now()
@@ -640,6 +767,7 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
 
 
 # ── Hand-edited SVG ─────────────────────────────────────────────────────────
+
 
 def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[str]:
     """Store through media — which cleans the file with the platform's one
@@ -653,9 +781,13 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
         raise DesignError("Leeg bestand.")
     try:
         slug = file_slug(facts_for(db, design).get("title", ""), f"ontwerp-{design.id}")
-        asset = add_document(db, kind="design_render",
-                             filename=f"{slug}-{FILE_LAYOUT_LABELS.get(layout, layout)}-bewerkt.svg",
-                             content_type="image/svg+xml", data=raw)
+        asset = add_document(
+            db,
+            kind="design_render",
+            filename=f"{slug}-{FILE_LAYOUT_LABELS.get(layout, layout)}-bewerkt.svg",
+            content_type="image/svg+xml",
+            data=raw,
+        )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
     cleaned = bytes(asset.data).decode("utf-8")
@@ -663,12 +795,23 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
         delete_media(db, asset.id)
-        raise DesignError(f"Het paginaformaat klopt niet: {w:.0f} × {h:.0f} mm in plaats van "
-                          f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm.")
+        raise DesignError(
+            f"Het paginaformaat klopt niet: {w:.0f} × {h:.0f} mm in plaats van "
+            f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm."
+        )
     warnings = brand.check_template(cleaned)
     remove_edited_svg(db, design, layout)
-    db.add(DesignRendition(design_id=design.id, version_id=None, layout_code=layout, variant=RenderVariant.SVG_EDITED,
-                           size_code="", media_asset_id=asset.id, facts_fingerprint=fingerprint(facts_for(db, design))))
+    db.add(
+        DesignRendition(
+            design_id=design.id,
+            version_id=None,
+            layout_code=layout,
+            variant=RenderVariant.SVG_EDITED,
+            size_code="",
+            media_asset_id=asset.id,
+            facts_fingerprint=fingerprint(facts_for(db, design)),
+        )
+    )
     design.status = DesignStatus.DRAFT
     db.commit()
     return warnings
@@ -689,6 +832,7 @@ def remove_edited_svg(db: Session, design: Design, layout) -> None:
 
 # ── Images ──────────────────────────────────────────────────────────────────
 
+
 async def add_design_image(db: Session, design: Design, upload, *, slot: str = "") -> int:
     """Store one uploaded picture as a design image and, with ``slot``, put it
     in that place of the design right away."""
@@ -697,7 +841,9 @@ async def add_design_image(db: Session, design: Design, upload, *, slot: str = "
     if slot and slot not in IMAGE_SLOTS:
         raise DesignError("Onbekende plaats voor het beeld.")
     try:
-        rows = await upload_media(db, files=[upload], kind="design_image", activity_id=design.activity_id)
+        rows = await upload_media(
+            db, files=[upload], kind="design_image", activity_id=design.activity_id
+        )
     except MediaFout as exc:
         raise DesignError(str(exc)) from exc
     asset_id = rows[0]["id"]
@@ -714,7 +860,10 @@ def image_options(db: Session, design: Design) -> list[dict]:
     from app.domains.media.api import list_activity_photos, list_media
 
     out = [dict(m, source="activity_photo") for m in list_activity_photos(db, design.activity_id)]
-    out += [dict(m, source="design_image") for m in list_media(db, kind="design_image", activity_id=design.activity_id)]
+    out += [
+        dict(m, source="design_image")
+        for m in list_media(db, kind="design_image", activity_id=design.activity_id)
+    ]
     return out
 
 
@@ -726,7 +875,10 @@ def sponsor_options(db: Session) -> list[dict]:
 
 # ── AI images ───────────────────────────────────────────────────────────────
 
-def spent_this_month(db: Session, *, tenant_id: Optional[int] = None, all_tenants: bool = False) -> Decimal:
+
+def spent_this_month(
+    db: Session, *, tenant_id: Optional[int] = None, all_tenants: bool = False
+) -> Decimal:
     """What the AI log says this unit (or the platform) spent on images this
     month, in EUR. USD lines are converted with the configured rate."""
     from app.domains.chatbot.api import cost_per_period
@@ -750,18 +902,30 @@ def spent_this_month(db: Session, *, tenant_id: Optional[int] = None, all_tenant
 def reserved_cents(db: Session) -> int:
     from sqlalchemy import func
 
-    value = (db.query(func.coalesce(func.sum(ImageGeneration.reserved_cents), 0))
-             .filter(ImageGeneration.status == GenerationStatus.REQUESTED).scalar())
+    value = (
+        db.query(func.coalesce(func.sum(ImageGeneration.reserved_cents), 0))
+        .filter(ImageGeneration.status == GenerationStatus.REQUESTED)
+        .scalar()
+    )
     return int(value or 0)
 
 
 def budget(db: Session) -> imaging.Budget:
-    return imaging.budget_for(db, tenant_id=_tenant(), spent_eur=spent_this_month(db),
-                              reserved_cents=reserved_cents(db))
+    return imaging.budget_for(
+        db, tenant_id=_tenant(), spent_eur=spent_this_month(db), reserved_cents=reserved_cents(db)
+    )
 
 
-def request_images(db: Session, design: Design, scene: str, *, requested_by: str = "",
-                   reference_asset_id: Optional[int] = None, style: str = "lijn", change: str = "") -> str:
+def request_images(
+    db: Session,
+    design: Design,
+    scene: str,
+    *,
+    requested_by: str = "",
+    reference_asset_id: Optional[int] = None,
+    style: str = "lijn",
+    change: str = "",
+) -> str:
     """One click: budget check, four reservations, four jobs. Returns the
     request key the screen polls on. A second click while the first is still
     running is refused — a double click must not cost twice. With a
@@ -772,26 +936,46 @@ def request_images(db: Session, design: Design, scene: str, *, requested_by: str
     english, _translated = imaging.translate_scene(scene, actor=requested_by)
     english_change, _c = imaging.translate_scene(change, actor=requested_by)
     prompt = imaging.build_prompt(english, style, english_change)
-    scene = scene.strip() or change.strip()   # kept as typed, so the redo shows Dutch to a Dutch speaker
+    scene = (
+        scene.strip() or change.strip()
+    )  # kept as typed, so the redo shows Dutch to a Dutch speaker
     if any(g.status == GenerationStatus.REQUESTED for g in design.generations):
         raise DesignError("Er loopt al een aanvraag voor dit ontwerp; wacht tot die klaar is.")
     with_reference = bool(reference_asset_id)
     per_image = imaging.expected_cost_eur(with_reference=with_reference)
-    imaging.check_budget(budget(db), platform_spent_eur=spent_this_month(db, all_tenants=True),
-                         cost_eur=per_image * imaging.VARIANTS_PER_CLICK)
+    imaging.check_budget(
+        budget(db),
+        platform_spent_eur=spent_this_month(db, all_tenants=True),
+        cost_eur=per_image * imaging.VARIANTS_PER_CLICK,
+    )
     key = imaging.new_request_key()
     rnd = random.Random()
     for _ in range(imaging.VARIANTS_PER_CLICK):
-        row = ImageGeneration(design_id=design.id, request_key=key, seed=rnd.randint(1, 2**31 - 1),
-                              scene=scene.strip()[:600], style=style,
-                              width=1440, height=1248, status=GenerationStatus.REQUESTED,
-                              reserved_cents=int((per_image * 100).to_integral_value()),
-                              requested_by=requested_by)
+        row = ImageGeneration(
+            design_id=design.id,
+            request_key=key,
+            seed=rnd.randint(1, 2**31 - 1),
+            scene=scene.strip()[:600],
+            style=style,
+            width=1440,
+            height=1248,
+            status=GenerationStatus.REQUESTED,
+            reserved_cents=int((per_image * 100).to_integral_value()),
+            requested_by=requested_by,
+        )
         db.add(row)
         db.flush()
-        enqueue(db, "designstudio.generate", {"generation_id": row.id, "prompt": prompt,
-                                              "reference_asset_id": reference_asset_id,
-                                              "tenant_id": _tenant()}, max_attempts=1)
+        enqueue(
+            db,
+            "designstudio.generate",
+            {
+                "generation_id": row.id,
+                "prompt": prompt,
+                "reference_asset_id": reference_asset_id,
+                "tenant_id": _tenant(),
+            },
+            max_attempts=1,
+        )
     db.commit()
     return key
 
@@ -801,10 +985,13 @@ def sponsor_usage(db: Session, asset_id: int, year: int) -> int:
     ``year`` — the Mona agreement allows five posters a year (CR-10 R11)."""
     from sqlalchemy import extract
 
-    rows = (db.query(DesignVersion.sponsor_asset_ids)
-            .join(Design, Design.published_version_id == DesignVersion.id)
-            .filter(extract("year", DesignVersion.created_at) == year)
-            .filter(DesignVersion.sponsor_asset_ids != "").all())
+    rows = (
+        db.query(DesignVersion.sponsor_asset_ids)
+        .join(Design, Design.published_version_id == DesignVersion.id)
+        .filter(extract("year", DesignVersion.created_at) == year)
+        .filter(DesignVersion.sponsor_asset_ids != "")
+        .all()
+    )
     return sum(1 for (ids,) in rows if str(asset_id) in ids.split(","))
 
 
@@ -812,13 +999,18 @@ def warnings_for(design: Design, facts: dict) -> list[str]:
     """What the unit should know but may do anyway: design text that shadows
     a fact (CR-10 §3.7). Never blocks a version."""
     out = []
-    if design.explanation_md and facts.get("description") and \
-            design.explanation_md.strip() != facts["description"].strip():
+    if (
+        design.explanation_md
+        and facts.get("description")
+        and design.explanation_md.strip() != facts["description"].strip()
+    ):
         out.append("De omschrijving op de affiche wijkt af van die van de activiteit.")
     return out
 
 
-def pick_generation(db: Session, design: Design, generation_id: int, *, slot: str = "main_image_id") -> None:
+def pick_generation(
+    db: Session, design: Design, generation_id: int, *, slot: str = "main_image_id"
+) -> None:
     gen = next((g for g in design.generations if g.id == generation_id), None)
     if gen is None or gen.media_asset_id is None:
         raise DesignError("Dit beeld is er (nog) niet.")
@@ -827,7 +1019,11 @@ def pick_generation(db: Session, design: Design, generation_id: int, *, slot: st
     setattr(design, slot, gen.media_asset_id)
     gen.status = GenerationStatus.PICKED
     for sibling in design.generations:
-        if sibling.request_key == gen.request_key and sibling.id != gen.id and sibling.status is GenerationStatus.FETCHED:
+        if (
+            sibling.request_key == gen.request_key
+            and sibling.id != gen.id
+            and sibling.status is GenerationStatus.FETCHED
+        ):
             sibling.status = GenerationStatus.DISCARDED
     design.status = DesignStatus.DRAFT
     design.updated_at = _now()

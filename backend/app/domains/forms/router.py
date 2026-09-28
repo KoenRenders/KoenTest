@@ -7,40 +7,36 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
-from app.limiter import form_submit_limiter
-from app.config import settings
 from app.database import get_db
+from app.domains.auth.api import User, get_current_admin
+from app.domains.forms.export import build_submissions_view, export_ods
 from app.domains.forms.models import (
-    FieldType,
-    FormStatus,
     Form,
-    FormSection,
-    FormField,
-    FormFieldOption,
+    FormStatus,
     FormSubmission,
-    FORM_STATUSES,
-    FIELD_TYPES,
 )
-from app.domains.auth.api import User
+from app.domains.forms.results import compute_results
 from app.domains.forms.schemas import (
-    FormCreate,
-    FormUpdate,
+    EditSubmissionOut,
     FormAdminOut,
+    FormCreate,
     FormSummary,
+    FormUpdate,
     PublicForm,
     SubmissionIn,
     SubmissionResult,
-    EditSubmissionOut,
 )
 from app.domains.forms.service import (
-    apply_definition, assert_open_for_submission, assert_submitter, build_answers,
-    update_settings, validate_definition,
+    apply_definition,
+    assert_open_for_submission,
+    assert_submitter,
+    build_answers,
+    update_settings,
+    validate_definition,
 )
-from app.domains.forms.results import compute_results
-from app.domains.forms.export import export_ods, build_submissions_view
 from app.domains.mail.api import send_form_confirmation
 from app.i18n import _
+from app.limiter import form_submit_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +57,7 @@ def _unique_share_token(db: Session) -> str:
 
 def _submission_count(db: Session, form_id: int) -> int:
     return (
-        db.query(func.count(FormSubmission.id))
-        .filter(FormSubmission.form_id == form_id)
-        .scalar()
+        db.query(func.count(FormSubmission.id)).filter(FormSubmission.form_id == form_id).scalar()
         or 0
     )
 
@@ -75,6 +69,7 @@ def _admin_out(db: Session, form: Form) -> dict:
 
 
 # ── Admin CRUD ──────────────────────────────────────────────────────────────────
+
 
 @router.post("/forms", response_model=FormAdminOut)
 def create_form(
@@ -228,6 +223,7 @@ def export_form(
 
 # ── Publiek: invullen ───────────────────────────────────────────────────────────
 
+
 def _load_public_form(db: Session, share_token: str) -> Form:
     form = db.query(Form).filter(Form.share_token == share_token).first()
     # Concept-formulieren zijn niet publiek zichtbaar.
@@ -241,8 +237,11 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
     return _load_public_form(db, share_token)
 
 
-@router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
-             dependencies=[Depends(form_submit_limiter)])
+@router.post(
+    "/forms/by-token/{share_token}/submit",
+    response_model=SubmissionResult,
+    dependencies=[Depends(form_submit_limiter)],
+)
 def submit_form(
     share_token: str,
     data: SubmissionIn,
@@ -292,8 +291,9 @@ def submit_form(
             # (#690/#928): bewerken bestaat alleen onder
             # `/formulier/{share_token}/edit/{edit_token}`. De slug verandert wat je
             # DEELT, niet waarlangs een inzending bewerkt wordt.
-            edit_link = (f"{tenant_home_url(db)}/formulier/{form.share_token}"
-                         f"/edit/{submission.edit_token}")
+            edit_link = (
+                f"{tenant_home_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
+            )
         try:
             send_form_confirmation(
                 to_email=sub_email,
@@ -311,13 +311,20 @@ def submit_form(
 
 # ── Publiek: wijzigen via edit_token ────────────────────────────────────────────
 
+
 def _answers_payload(submission: FormSubmission) -> list:
     by_field: dict = {}
     for ans in submission.answers:
         entry = by_field.setdefault(
             ans.field_id,
-            {"field_id": ans.field_id, "text": None, "number": None,
-             "option_ids": [], "rating": None, "other_text": None},
+            {
+                "field_id": ans.field_id,
+                "text": None,
+                "number": None,
+                "option_ids": [],
+                "rating": None,
+                "other_text": None,
+            },
         )
         if ans.value_option_id is not None:
             entry["option_ids"].append(ans.value_option_id)
@@ -347,8 +354,11 @@ def get_editable_submission(edit_token: str, db: Session = Depends(get_db)):
     }
 
 
-@router.put("/forms/edit/{edit_token}", response_model=SubmissionResult,
-            dependencies=[Depends(form_submit_limiter)])
+@router.put(
+    "/forms/edit/{edit_token}",
+    response_model=SubmissionResult,
+    dependencies=[Depends(form_submit_limiter)],
+)
 def update_submission(
     edit_token: str,
     data: SubmissionIn,

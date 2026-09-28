@@ -19,6 +19,7 @@ so the check can neither name something that is gone nor miss something new.
 
 `tests/test_check_imports_gate.py` guards the discovery against blind spots.
 """
+
 from __future__ import annotations
 
 import importlib

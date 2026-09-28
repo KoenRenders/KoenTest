@@ -14,17 +14,18 @@ the roles are declared in the universe and reporting sits behind
 declaration is complete, and it is not enforced — so that neither half can drift
 without somebody noticing.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from app.domains.reporting.api import (
     FACTS,
+    MAX_ROWS,
+    OBJECTS,
     Direction,
     Filter,
     Format,
-    MAX_ROWS,
-    OBJECTS,
     ObjectKind,
     Operator,
     Role,
@@ -38,11 +39,11 @@ from app.domains.reporting.api import (
 
 
 def plan(keys, *, tenant=2, **kwargs):
-    return build_query(Selection(object_keys=tuple(keys), **kwargs),
-                       tenant_id=tenant)
+    return build_query(Selection(object_keys=tuple(keys), **kwargs), tenant_id=tenant)
 
 
 # ── Refusals ─────────────────────────────────────────────────────────────────
+
 
 def test_an_unknown_object_is_refused_by_name():
     with pytest.raises(SelectionError) as exc:
@@ -109,31 +110,37 @@ def test_a_membership_can_be_grouped_by_its_own_year():
 
 def test_sorting_on_something_that_is_not_in_the_report_is_refused():
     with pytest.raises(SelectionError) as exc:
-        plan(["payment_method", "payment_amount"],
-             sort=(Sort("payment_status", Direction.ASC),))
+        plan(["payment_method", "payment_amount"], sort=(Sort("payment_status", Direction.ASC),))
     assert "'Status'" in str(exc.value)
 
 
 def test_filtering_on_a_measure_is_refused():
     with pytest.raises(SelectionError) as exc:
-        plan(["payment_method", "payment_amount"],
-             filters=(Filter("payment_amount", Operator.GT, ("10",)),))
+        plan(
+            ["payment_method", "payment_amount"],
+            filters=(Filter("payment_amount", Operator.GT, ("10",)),),
+        )
     assert "'Te betalen'" in str(exc.value)
 
 
 def test_a_filter_needs_the_right_number_of_values():
     with pytest.raises(SelectionError) as exc:
-        plan(["payment_method", "payment_amount"],
-             filters=(Filter("payment_method", Operator.BETWEEN, ("a",)),))
+        plan(
+            ["payment_method", "payment_amount"],
+            filters=(Filter("payment_method", Operator.BETWEEN, ("a",)),),
+        )
     assert "van- en een tot-waarde" in str(exc.value)
 
     with pytest.raises(SelectionError) as exc:
-        plan(["payment_method", "payment_amount"],
-             filters=(Filter("payment_method", Operator.IN, ()),))
+        plan(
+            ["payment_method", "payment_amount"],
+            filters=(Filter("payment_method", Operator.IN, ()),),
+        )
     assert "geen waarden" in str(exc.value)
 
 
 # ── What the built statement looks like ──────────────────────────────────────
+
 
 def test_the_tenant_filter_is_always_there_and_always_a_parameter():
     built = plan(["payment_method", "payment_amount"])
@@ -152,8 +159,10 @@ def test_every_join_matches_on_tenant_as_well():
 def test_no_filter_value_ever_reaches_the_statement_text():
     """No free SQL (CR-06 §7.5), stated structurally rather than hoped for."""
     gevaarlijk = "Online'; DROP TABLE mdm.persons; --"
-    built = plan(["payment_method", "payment_amount"],
-                 filters=(Filter("payment_method", Operator.EQ, (gevaarlijk,)),))
+    built = plan(
+        ["payment_method", "payment_amount"],
+        filters=(Filter("payment_method", Operator.EQ, (gevaarlijk,)),),
+    )
     assert gevaarlijk not in built.sql
     assert "DROP" not in built.sql.upper()
     assert gevaarlijk in built.params.values()
@@ -168,13 +177,16 @@ def test_the_order_ends_in_the_grouping_which_is_the_unique_key():
 
 
 def test_an_explicit_sort_comes_first_and_the_tiebreaker_still_follows():
-    built = plan(["payment_method", "payment_payable_type", "payment_amount"],
-                 sort=(Sort("payment_payable_type", Direction.DESC),))
+    built = plan(
+        ["payment_method", "payment_payable_type", "payment_amount"],
+        sort=(Sort("payment_payable_type", Direction.DESC),),
+    )
     order = built.sql.split("ORDER BY")[1].strip()
     assert order.startswith('"payment_payable_type" DESC')
     assert '"payment_method" ASC' in order
     assert order.count('"payment_payable_type"') == 1, (
-        "een kolom hoort niet twee keer in de sortering te staan")
+        "een kolom hoort niet twee keer in de sortering te staan"
+    )
 
 
 def test_a_report_is_capped_even_when_the_selection_asks_for_more():
@@ -203,6 +215,7 @@ def test_the_same_selection_builds_the_same_statement_twice():
 
 
 # ── The declaration: complete, and deliberately not enforced ─────────────────
+
 
 def test_every_object_is_offered_to_whoever_gets_through_the_door():
     """v2.3.0 adds no new security surface (#832, 10 September 2026).
@@ -248,8 +261,11 @@ def test_every_money_measure_is_declared_finance():
     its role turns the build red here, so the declaration stays complete while the
     enforcement is still absent.
     """
-    fouten = [f"{o.name} (`{o.key}`)" for o in OBJECTS
-              if o.format is Format.MONEY and o.role is not Role.FINANCE]
+    fouten = [
+        f"{o.name} (`{o.key}`)"
+        for o in OBJECTS
+        if o.format is Format.MONEY and o.role is not Role.FINANCE
+    ]
     assert not fouten, f"geldmaten zonder de rol finance: {fouten}"
 
 
@@ -258,13 +274,15 @@ def test_the_payments_class_is_declared_finance_end_to_end():
     # and one of them names a person (`payment_payable_label`: "voor wie en
     # waarvoor"). That is `member_details`, which is a tighter fence than finance
     # and not a hole in it — the rule is "at least finance", never "exactly".
-    fouten = [o.key for o in OBJECTS
-              if o.klass == "Betalingen"
-              and o.role not in (Role.FINANCE, Role.MEMBER_DETAILS)]
-    assert not fouten, (
-        f"objecten in Betalingen met een ruimere rol dan finance: {fouten}")
-    assert any(o.klass == "Betalingen" and o.role is Role.FINANCE
-               for o in OBJECTS), "anders toetst de regel hierboven niets"
+    fouten = [
+        o.key
+        for o in OBJECTS
+        if o.klass == "Betalingen" and o.role not in (Role.FINANCE, Role.MEMBER_DETAILS)
+    ]
+    assert not fouten, f"objecten in Betalingen met een ruimere rol dan finance: {fouten}"
+    assert any(o.klass == "Betalingen" and o.role is Role.FINANCE for o in OBJECTS), (
+        "anders toetst de regel hierboven niets"
+    )
 
     # A fact's role governs its flat dump, and a dump carries every column. The
     # three money facts therefore declare finance; the three that #841 added carry
@@ -281,14 +299,15 @@ def test_the_payments_class_is_declared_finance_end_to_end():
 
 
 def test_every_measure_and_detail_carries_a_role():
-    fouten = [o.key for o in OBJECTS
-              if o.kind in (ObjectKind.MEASURE, ObjectKind.DETAIL)
-              and not isinstance(o.role, Role)]
+    fouten = [
+        o.key
+        for o in OBJECTS
+        if o.kind in (ObjectKind.MEASURE, ObjectKind.DETAIL) and not isinstance(o.role, Role)
+    ]
     assert not fouten, f"maten of details zonder rol: {fouten}"
 
 
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
-    assert classes == ["Leden", "Activiteiten", "Betalingen",
-                       "Formulieren", "Taken"]
+    assert classes == ["Leden", "Activiteiten", "Betalingen", "Formulieren", "Taken"]
     assert all(objects for _name, objects in classes_with_objects())

@@ -7,6 +7,7 @@ bestaande log-rij op 'sent' gezet (géén nieuwe rij, anders telt één mail
 dubbel in het log). Beperking: een eventuele cc staat niet in het log en
 wordt bij een retry dus niet opnieuw meegenomen.
 """
+
 from __future__ import annotations
 
 import logging
@@ -57,5 +58,11 @@ def on_mail_requested(event: MailRequested, db: Session) -> None:
     De verzending zelf loopt via het bestaande _send-chokepoint (incl. skipped/
     failed-logging en de mail.retry-job) en gebeurt synchroon in de handler —
     de publicerende transactie is dan al geslaagd of rolt óók terug."""
-    _dispatch(None, event.to_email, event.subject, event.body_html,
-              cc=event.cc, email_type=event.email_type)
+    _dispatch(
+        None,
+        event.to_email,
+        event.subject,
+        event.body_html,
+        cc=event.cc,
+        email_type=event.email_type,
+    )

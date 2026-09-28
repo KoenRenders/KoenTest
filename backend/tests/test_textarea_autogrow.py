@@ -24,6 +24,7 @@ opt-out-test valt om.
 opent, staat in de browsertest van #1037 — dit bestand blijft over WELKE velden
 meegroeien.
 """
+
 import re
 from pathlib import Path
 
@@ -60,7 +61,8 @@ def test_omschrijving_groeit_en_naam_niet(client, db_session):
     from app.domains.activities.api import Activity
 
     a = Activity(name="Groeitest", location="Miloheem")
-    db_session.add(a); db_session.commit()
+    db_session.add(a)
+    db_session.commit()
     _login(client)
 
     html = client.get(f"/admin/activiteiten/{a.id}").text
@@ -96,5 +98,5 @@ def test_de_twee_bewuste_afwijkingen_staan_met_reden_in_de_bron():
     assert "ui.autogrow" not in raakje  # niet én de standaard én de oude attrs
 
     cp = (TEMPLATES / "domains/cms/templates/_cp_detail.html").read_text()
-    bron_editor = cp[cp.index('id="cp-htmlsrc"') - 400:cp.index('id="cp-htmlsrc"') + 400]
+    bron_editor = cp[cp.index('id="cp-htmlsrc"') - 400 : cp.index('id="cp-htmlsrc"') + 400]
     assert "autogrow=False" in bron_editor

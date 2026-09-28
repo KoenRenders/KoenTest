@@ -13,17 +13,23 @@ hier. De router houdt zijn 404 en zijn responsemodel; de service kent geen HTTP.
 De transactiegrens ligt hier (§635 regel 2): de service commit, het scherm niet.
 Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
+
 from datetime import date
 from typing import NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
-from app.kernel.codes import code_label, code_of
-from app.domains.mdm.api import CONTACT
-from app.domains.activities.codes import INDIVIDUAL
 
-from app.domains.activities.models import (ActiviteitFout, Activity, ActivityDate,
-                                           ActivitySubRegistration, Registration,
-                                           RegistrationState)
+from app.domains.activities.codes import INDIVIDUAL
+from app.domains.activities.models import (
+    ActiviteitFout,
+    Activity,
+    ActivityDate,
+    ActivitySubRegistration,
+    Registration,
+    RegistrationState,
+)
+from app.domains.mdm.api import CONTACT
+from app.kernel.codes import code_label, code_of
 
 
 def _effective_end(ad: ActivityDate) -> date:
@@ -42,8 +48,9 @@ def open_deadlines(activity: Activity) -> list[date]:
     op HDEV hebben er precies één). Meer dan één betekent dat de datum bij het
     onderdeel hoort en niet bovenaan de kaart.
     """
-    return sorted({d for d in (_deadline_van(c) for c in activity.sub_registrations)
-                   if d is not None})
+    return sorted(
+        {d for d in (_deadline_van(c) for c in activity.sub_registrations) if d is not None}
+    )
 
 
 def shared_deadline(activity: Activity) -> Optional[date]:
@@ -97,18 +104,21 @@ def card_deadline(activity, *, today: Optional[date] = None) -> Optional[date]:
     telt het als niet-volzet. De toestand wordt wél opnieuw berekend in plaats van
     afgelezen, zodat deze functie hetzelfde antwoord geeft op beide vormen.
     """
-    openstaand = [c for c in activity.sub_registrations
-                  if registration_state(activity, component=c,
-                                        today=today) is RegistrationState.OPEN
-                  and not getattr(c, "is_full", False)]
+    openstaand = [
+        c
+        for c in activity.sub_registrations
+        if registration_state(activity, component=c, today=today) is RegistrationState.OPEN
+        and not getattr(c, "is_full", False)
+    ]
     if not openstaand:
         return None
     datums = {_deadline_van(c) for c in openstaand}
     return datums.pop() if len(datums) == 1 else None
 
 
-def registration_state(activity: Activity, *, component=None,
-                       today: Optional[date] = None) -> RegistrationState:
+def registration_state(
+    activity: Activity, *, component=None, today: Optional[date] = None
+) -> RegistrationState:
     """The one place that decides whether an activity takes a new registration.
 
     Until #974 two places decided that, each in its own way. The registration route
@@ -150,8 +160,7 @@ def registration_state(activity: Activity, *, component=None,
             return RegistrationState.CLOSED
         return RegistrationState.OPEN
     onderdelen = list(activity.sub_registrations)
-    if onderdelen and all((d := _deadline_van(c)) is not None and vandaag > d
-                          for c in onderdelen):
+    if onderdelen and all((d := _deadline_van(c)) is not None and vandaag > d for c in onderdelen):
         return RegistrationState.CLOSED
     return RegistrationState.OPEN
 
@@ -179,8 +188,9 @@ def status_label(activity: Activity, *, today: Optional[date] = None) -> str:
     return code_label(REGISTRATION_STATE.name, registration_state(activity, today=today))
 
 
-def registration_refusal(activity: Activity, *, component=None,
-                         today: Optional[date] = None) -> Optional[str]:
+def registration_refusal(
+    activity: Activity, *, component=None, today: Optional[date] = None
+) -> Optional[str]:
     """Why a new registration is refused, in the words the visitor reads — or None.
 
     Next to `registration_state` and not inside the route, because two callers show
@@ -196,14 +206,15 @@ def registration_refusal(activity: Activity, *, component=None,
         # De datum die de bezoeker leest, is die van ZIJN onderdeel (#1053) — met
         # verschillende datums per onderdeel zou elke andere datum liegen.
         if component is not None:
-            return (_("De inschrijvingen voor dit onderdeel zijn afgesloten sinds "
-                      "%(datum)s.")
-                    % {"datum": long_date(_deadline_van(component))})
+            return _("De inschrijvingen voor dit onderdeel zijn afgesloten sinds %(datum)s.") % {
+                "datum": long_date(_deadline_van(component))
+            }
         # Zonder onderdeel gaat het over de activiteit als geheel, en die is pas
         # dicht als élk onderdeel dicht is — dus telt de LAATSTE datum.
         alle = open_deadlines(activity)
-        return (_("De inschrijvingen zijn afgesloten sinds %(datum)s.")
-                % {"datum": long_date(alle[-1] if alle else None)})
+        return _("De inschrijvingen zijn afgesloten sinds %(datum)s.") % {
+            "datum": long_date(alle[-1] if alle else None)
+        }
     if toestand is RegistrationState.PAST:
         return _("Activity is no longer open for registration")
     return None
@@ -295,15 +306,25 @@ def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> 
 
         # Zichtbaar weigeren en niet stil een cijfer erachter zetten: dan krijgt de
         # bestuurder een adres dat hij niet gekozen heeft en nergens ziet.
-        raise ActiviteitFout(vertaal(
-            "De URL '%(slug)s' is al in gebruik door een andere activiteit."
-        ) % {"slug": schoon})
+        raise ActiviteitFout(
+            vertaal("De URL '%(slug)s' is al in gebruik door een andere activiteit.")
+            % {"slug": schoon}
+        )
     return schoon
 
 
-def create_activity(db, *, name: str, location=None, poster_url=None, description=None,
-                    members_only: bool = False, dates=(), actor=None,
-                    slug: str | None = None) -> Activity:
+def create_activity(
+    db,
+    *,
+    name: str,
+    location=None,
+    poster_url=None,
+    description=None,
+    members_only: bool = False,
+    dates=(),
+    actor=None,
+    slug: str | None = None,
+) -> Activity:
     """Maak een activiteit met haar eerste datums (#679, batch 1).
 
     De audit-snapshots horen bij de mutatie, niet bij de route: een activiteit die
@@ -322,13 +343,24 @@ def create_activity(db, *, name: str, location=None, poster_url=None, descriptio
         slug = voorstel if voorstel and slug_is_vrij(db, voorstel) else None
     else:
         slug = _controleer_slug(db, slug)
-    activity = Activity(name=name, location=location, poster_url=poster_url,
-                        description=description,
-                        members_only=bool(members_only), slug=slug)
+    activity = Activity(
+        name=name,
+        location=location,
+        poster_url=poster_url,
+        description=description,
+        members_only=bool(members_only),
+        slug=slug,
+    )
     db.add(activity)
     db.flush()
-    snapshot_activity(db, activity, operation="insert", action="activity_created",
-                      source="admin_manual", actor=actor)
+    snapshot_activity(
+        db,
+        activity,
+        operation="insert",
+        action="activity_created",
+        source="admin_manual",
+        actor=actor,
+    )
 
     with _rollback_on_rule_violation(db):
         for datum in dates:
@@ -341,8 +373,14 @@ def create_activity(db, *, name: str, location=None, poster_url=None, descriptio
             )
             db.add(ad)
             db.flush()
-            snapshot_activity_date(db, ad, operation="insert", action="activity_created",
-                                   source="admin_manual", actor=actor)
+            snapshot_activity_date(
+                db,
+                ad,
+                operation="insert",
+                action="activity_created",
+                source="admin_manual",
+                actor=actor,
+            )
         db.commit()
     return activity
 
@@ -364,12 +402,17 @@ def update_activity(db, activity_id: int, velden: dict, *, actor=None) -> Option
     # met de naam, dan sterft elke gedeelde link bij een hernoeming, zonder dat iemand
     # het merkt: wie op zo'n link klikt is geen bestuurder.
     if "slug" in velden:
-        velden = {**velden,
-                  "slug": _controleer_slug(db, velden["slug"], behalve_id=activity_id)}
+        velden = {**velden, "slug": _controleer_slug(db, velden["slug"], behalve_id=activity_id)}
     for veld, waarde in velden.items():
         setattr(activity, veld, waarde)
-    snapshot_activity(db, activity, operation="update", action="activity_updated",
-                      source="admin_manual", actor=actor)
+    snapshot_activity(
+        db,
+        activity,
+        operation="update",
+        action="activity_updated",
+        source="admin_manual",
+        actor=actor,
+    )
     db.commit()
     db.refresh(activity)
     return activity
@@ -382,31 +425,54 @@ def delete_activity(db, activity_id: int, *, actor=None) -> bool:
     Betalingen NIET: die zijn een financieel feit en blijven bestaan — dat is
     dezelfde regel die #667 met een gate vastlegde.
     """
-    from app.domains.audit.api import (snapshot_activity, snapshot_activity_date,
-                                       snapshot_component, snapshot_product)
+    from app.domains.audit.api import (
+        snapshot_activity,
+        snapshot_activity_date,
+        snapshot_component,
+        snapshot_product,
+    )
     from app.soft_delete import soft_delete
 
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if activity is None:
         return False
     for d in activity.dates:
-        snapshot_activity_date(db, d, operation="delete", action="activity_deleted",
-                               source="admin_manual", actor=actor)
+        snapshot_activity_date(
+            db, d, operation="delete", action="activity_deleted", source="admin_manual", actor=actor
+        )
         soft_delete(d)
     for comp in activity.sub_registrations:
         for p in comp.products:
-            snapshot_product(db, p, operation="delete", action="activity_deleted",
-                             source="admin_manual", actor=actor)
+            snapshot_product(
+                db,
+                p,
+                operation="delete",
+                action="activity_deleted",
+                source="admin_manual",
+                actor=actor,
+            )
             soft_delete(p)
-        snapshot_component(db, comp, operation="delete", action="activity_deleted",
-                           source="admin_manual", actor=actor)
+        snapshot_component(
+            db,
+            comp,
+            operation="delete",
+            action="activity_deleted",
+            source="admin_manual",
+            actor=actor,
+        )
         soft_delete(comp)
     for reg in activity.registrations:
         for item in reg.items:
             soft_delete(item)
         soft_delete(reg)
-    snapshot_activity(db, activity, operation="delete", action="activity_deleted",
-                      source="admin_manual", actor=actor)
+    snapshot_activity(
+        db,
+        activity,
+        operation="delete",
+        action="activity_deleted",
+        source="admin_manual",
+        actor=actor,
+    )
     soft_delete(activity)
     db.commit()
     return True
@@ -428,15 +494,17 @@ def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional
     with _rollback_on_rule_violation(db):
         db.add(ad)
         db.flush()
-        snapshot_activity_date(db, ad, operation="insert", action="date_created",
-                               source="admin_manual", actor=actor)
+        snapshot_activity_date(
+            db, ad, operation="insert", action="date_created", source="admin_manual", actor=actor
+        )
         db.commit()
     db.refresh(ad)
     return ad
 
 
-def update_activity_date(db, activity_id: int, date_id: int, velden: dict, *,
-                         actor=None) -> Optional[ActivityDate]:
+def update_activity_date(
+    db, activity_id: int, date_id: int, velden: dict, *, actor=None
+) -> Optional[ActivityDate]:
     """Werk een datum bij. None als ze niet bij deze activiteit hoort.
 
     Het activiteit-id hoort bij de sleutel en niet bij de HTTP-laag: een datum van
@@ -451,8 +519,9 @@ def update_activity_date(db, activity_id: int, date_id: int, velden: dict, *,
     for veld, waarde in velden.items():
         setattr(ad, veld, waarde)
     with _rollback_on_rule_violation(db):
-        snapshot_activity_date(db, ad, operation="update", action="date_updated",
-                               source="admin_manual", actor=actor)
+        snapshot_activity_date(
+            db, ad, operation="update", action="date_updated", source="admin_manual", actor=actor
+        )
         db.commit()
     db.refresh(ad)
     return ad
@@ -466,18 +535,20 @@ def delete_activity_date(db, activity_id: int, date_id: int, *, actor=None) -> b
     ad = _datum(db, activity_id, date_id)
     if ad is None:
         return False
-    snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
-                           source="admin_manual", actor=actor)
+    snapshot_activity_date(
+        db, ad, operation="delete", action="date_deleted", source="admin_manual", actor=actor
+    )
     soft_delete(ad)
     db.commit()
     return True
 
 
 def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
-    return (db.query(ActivityDate)
-            .filter(ActivityDate.id == date_id,
-                    ActivityDate.activity_id == activity_id)
-            .first())
+    return (
+        db.query(ActivityDate)
+        .filter(ActivityDate.id == date_id, ActivityDate.activity_id == activity_id)
+        .first()
+    )
 
 
 # ActiviteitFout lived here until #792 and now lives in models.py: the first rule that
@@ -514,15 +585,20 @@ def add_component(db, activity_id: int, gegevens, *, actor=None):
     )
     db.add(component)
     db.flush()
-    snapshot_component(db, component, operation="insert", action="component_created",
-                       source="admin_manual", actor=actor)
+    snapshot_component(
+        db,
+        component,
+        operation="insert",
+        action="component_created",
+        source="admin_manual",
+        actor=actor,
+    )
     db.commit()
     db.refresh(component)
     return component
 
 
-def update_component(db, activity_id: int, component_id: int, velden: dict, *,
-                     actor=None):
+def update_component(db, activity_id: int, component_id: int, velden: dict, *, actor=None):
     """Werk een onderdeel bij. None als het niet bij deze activiteit hoort."""
     from app.domains.audit.api import snapshot_component
 
@@ -531,8 +607,14 @@ def update_component(db, activity_id: int, component_id: int, velden: dict, *,
         return None
     for veld, waarde in velden.items():
         setattr(component, veld, waarde)
-    snapshot_component(db, component, operation="update", action="component_updated",
-                       source="admin_manual", actor=actor)
+    snapshot_component(
+        db,
+        component,
+        operation="update",
+        action="component_updated",
+        source="admin_manual",
+        actor=actor,
+    )
     db.commit()
     db.refresh(component)
     return component
@@ -547,11 +629,23 @@ def delete_component(db, activity_id: int, component_id: int, *, actor=None) -> 
     if component is None:
         return False
     for p in component.products:
-        snapshot_product(db, p, operation="delete", action="component_deleted",
-                         source="admin_manual", actor=actor)
+        snapshot_product(
+            db,
+            p,
+            operation="delete",
+            action="component_deleted",
+            source="admin_manual",
+            actor=actor,
+        )
         soft_delete(p)
-    snapshot_component(db, component, operation="delete", action="component_deleted",
-                       source="admin_manual", actor=actor)
+    snapshot_component(
+        db,
+        component,
+        operation="delete",
+        action="component_deleted",
+        source="admin_manual",
+        actor=actor,
+    )
     soft_delete(component)
     db.commit()
     return True
@@ -565,8 +659,9 @@ def _controleer_afrekening(is_free, pay_on_site) -> None:
     if is_free and pay_on_site:
         from app.i18n import _ as vertaal
 
-        raise ActiviteitFout(vertaal(
-            "Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."))
+        raise ActiviteitFout(
+            vertaal("Een product kan niet tegelijk gratis én ter plaatse te betalen zijn.")
+        )
 
 
 def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None):
@@ -590,8 +685,14 @@ def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None
     )
     db.add(product)
     db.flush()
-    snapshot_product(db, product, operation="insert", action="product_created",
-                     source="admin_manual", actor=actor)
+    snapshot_product(
+        db,
+        product,
+        operation="insert",
+        action="product_created",
+        source="admin_manual",
+        actor=actor,
+    )
     db.commit()
     db.refresh(product)
     return product
@@ -608,8 +709,14 @@ def update_product(db, component_id: int, product_id: int, velden: dict, *, acto
         setattr(product, veld, waarde)
     # Ná het toepassen: de combinatie kan ook ontstaan door één veld te wijzigen.
     _controleer_afrekening(product.is_free, product.pay_on_site)
-    snapshot_product(db, product, operation="update", action="product_updated",
-                     source="admin_manual", actor=actor)
+    snapshot_product(
+        db,
+        product,
+        operation="update",
+        action="product_updated",
+        source="admin_manual",
+        actor=actor,
+    )
     db.commit()
     db.refresh(product)
     return product
@@ -623,8 +730,14 @@ def delete_product(db, component_id: int, product_id: int, *, actor=None) -> boo
     product = _product(db, component_id, product_id)
     if product is None:
         return False
-    snapshot_product(db, product, operation="delete", action="product_deleted",
-                     source="admin_manual", actor=actor)
+    snapshot_product(
+        db,
+        product,
+        operation="delete",
+        action="product_deleted",
+        source="admin_manual",
+        actor=actor,
+    )
     soft_delete(product)
     db.commit()
     return True
@@ -633,28 +746,32 @@ def delete_product(db, component_id: int, product_id: int, *, actor=None) -> boo
 def _product(db, component_id: int, product_id: int):
     from app.domains.activities.models import ActivityProduct
 
-    return (db.query(ActivityProduct)
-            .filter(ActivityProduct.id == product_id,
-                    ActivityProduct.component_id == component_id)
-            .first())
+    return (
+        db.query(ActivityProduct)
+        .filter(ActivityProduct.id == product_id, ActivityProduct.component_id == component_id)
+        .first()
+    )
 
 
 # ── Bestelregels en inschrijvingen (#679, batch 4) ────────────────────────────
 
+
 def _registratie(db, activity_id: int, registration_id: int):
-    return (db.query(Registration)
-            .filter(Registration.id == registration_id,
-                    Registration.activity_id == activity_id)
-            .first())
+    return (
+        db.query(Registration)
+        .filter(Registration.id == registration_id, Registration.activity_id == activity_id)
+        .first()
+    )
 
 
 def _regel(db, registration_id: int, item_id: int):
     from app.domains.activities.models import RegistrationItem
 
-    return (db.query(RegistrationItem)
-            .filter(RegistrationItem.id == item_id,
-                    RegistrationItem.registration_id == registration_id)
-            .first())
+    return (
+        db.query(RegistrationItem)
+        .filter(RegistrationItem.id == item_id, RegistrationItem.registration_id == registration_id)
+        .first()
+    )
 
 
 def publicly_bookable_products(component) -> list:
@@ -696,11 +813,11 @@ def check_publicly_bookable(activity, product_ids) -> None:
     # guarding the copy. With `not p.is_active` written out here, the form could
     # hide a product this check still accepts, or the other way round — and both
     # read as green.
-    boekbaar = {p.id for comp in activity.sub_registrations
-                for p in publicly_bookable_products(comp)}
+    boekbaar = {
+        p.id for comp in activity.sub_registrations for p in publicly_bookable_products(comp)
+    }
     if any(product_id not in boekbaar for product_id in product_ids):
-        raise ActiviteitFout(vertaal(
-            "Dit product is niet beschikbaar om online in te schrijven."))
+        raise ActiviteitFout(vertaal("Dit product is niet beschikbaar om online in te schrijven."))
 
 
 def controleer_bestelproduct(db, activity_id: int, registration, product_id: int):
@@ -715,22 +832,20 @@ def controleer_bestelproduct(db, activity_id: int, registration, product_id: int
     from app.domains.activities.models import ActivityProduct
     from app.i18n import _ as vertaal
 
-    product = db.query(ActivityProduct).filter(
-        ActivityProduct.id == product_id).first()
+    product = db.query(ActivityProduct).filter(ActivityProduct.id == product_id).first()
     if product is None:
         return None
     comp = get_component(db, product.component_id)
     if comp is None or comp.activity_id != activity_id:
         raise ActiviteitFout(vertaal("Product hoort niet bij deze activiteit."))
-    if (registration.component_id is not None
-            and product.component_id != registration.component_id):
-        raise ActiviteitFout(vertaal(
-            "Product hoort niet bij het onderdeel van deze inschrijving."))
+    if registration.component_id is not None and product.component_id != registration.component_id:
+        raise ActiviteitFout(vertaal("Product hoort niet bij het onderdeel van deze inschrijving."))
     return product
 
 
-def add_order_line(db, activity_id: int, registration_id: int, product_id: int,
-                   quantity: int, *, actor=None):
+def add_order_line(
+    db, activity_id: int, registration_id: int, product_id: int, quantity: int, *, actor=None
+):
     """Voeg een bestelregel toe, of hoog een bestaande regel op (#197).
 
     Geeft de inschrijving terug, of None als activiteit/inschrijving/product niet
@@ -749,32 +864,47 @@ def add_order_line(db, activity_id: int, registration_id: int, product_id: int,
     if controleer_bestelproduct(db, activity_id, reg, product_id) is None:
         return None
 
-    bestaand = (db.query(RegistrationItem)
-                .filter(RegistrationItem.registration_id == reg.id,
-                        RegistrationItem.product_id == product_id)
-                .first())
+    bestaand = (
+        db.query(RegistrationItem)
+        .filter(
+            RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == product_id
+        )
+        .first()
+    )
     if bestaand is not None:
         # #197: geen tweede regel voor hetzelfde product, maar optellen.
         bestaand.quantity += quantity
         db.flush()
-        snapshot_registration_item(db, bestaand, operation="update",
-                                   action="order_changed", source="admin_manual",
-                                   actor=actor)
+        snapshot_registration_item(
+            db,
+            bestaand,
+            operation="update",
+            action="order_changed",
+            source="admin_manual",
+            actor=actor,
+        )
     else:
-        item = RegistrationItem(registration_id=reg.id, product_id=product_id,
-                                quantity=quantity)
+        item = RegistrationItem(registration_id=reg.id, product_id=product_id, quantity=quantity)
         db.add(item)
         db.flush()
-        snapshot_registration_item(db, item, operation="insert",
-                                   action="order_changed", source="admin_manual",
-                                   actor=actor)
+        snapshot_registration_item(
+            db, item, operation="insert", action="order_changed", source="admin_manual", actor=actor
+        )
     db.commit()
     _herbereken(db, reg, actor)
     return reg
 
 
-def update_order_line(db, activity_id: int, registration_id: int, item_id: int,
-                      *, product_id=None, quantity=None, actor=None):
+def update_order_line(
+    db,
+    activity_id: int,
+    registration_id: int,
+    item_id: int,
+    *,
+    product_id=None,
+    quantity=None,
+    actor=None,
+):
     """Wijzig een bestelregel. None als activiteit/inschrijving/regel niet bestaat."""
     from app.domains.audit.api import snapshot_registration_item
     from app.i18n import _ as vertaal
@@ -791,19 +921,20 @@ def update_order_line(db, activity_id: int, registration_id: int, item_id: int,
         item.product_id = product_id
     if quantity is not None:
         if quantity < 1:
-            raise ActiviteitFout(vertaal(
-                "Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen."))
+            raise ActiviteitFout(
+                vertaal("Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen.")
+            )
         item.quantity = quantity
     db.flush()
-    snapshot_registration_item(db, item, operation="update", action="order_changed",
-                              source="admin_manual", actor=actor)
+    snapshot_registration_item(
+        db, item, operation="update", action="order_changed", source="admin_manual", actor=actor
+    )
     db.commit()
     _herbereken(db, reg, actor)
     return reg
 
 
-def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, *,
-                      actor=None):
+def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, *, actor=None):
     """Soft delete van één bestelregel. None als ze niet gevonden wordt.
 
     Snapshot vóór het schrappen (#84/#166): de bronrij blijft bestaan maar wordt
@@ -818,8 +949,9 @@ def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, 
     item = _regel(db, reg.id, item_id)
     if item is None:
         return None
-    snapshot_registration_item(db, item, operation="delete", action="order_changed",
-                              source="admin_manual", actor=actor)
+    snapshot_registration_item(
+        db, item, operation="delete", action="order_changed", source="admin_manual", actor=actor
+    )
     soft_delete(item)
     db.commit()
     _herbereken(db, reg, actor)
@@ -882,8 +1014,9 @@ def controleer_inschrijfvelden(component, *, contact_name, phone, team_name) -> 
         raise ActiviteitFout(vertaal("Dit onderdeel vraagt een ploegnaam."))
 
 
-def update_registration_contact(db, activity_id: int, registration_id: int,
-                                gezet: dict, *, actor=None):
+def update_registration_contact(
+    db, activity_id: int, registration_id: int, gezet: dict, *, actor=None
+):
     """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
 
     Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
@@ -901,13 +1034,20 @@ def update_registration_contact(db, activity_id: int, registration_id: int,
     # #733: toetsen op de UITKOMST, niet op wat er meegestuurd is. Het beheerscherm
     # stuurt alle velden mee, maar de oude #283-aanroep alleen `remarks` — dan telt
     # wat er al staat. Vóór de mutatie, zodat een weigering niets wegschrijft.
-    onderdeel = (db.query(ActivitySubRegistration)
-                 .filter(ActivitySubRegistration.id == reg.component_id).first()
-                 if reg.component_id else None)
+    onderdeel = (
+        db.query(ActivitySubRegistration)
+        .filter(ActivitySubRegistration.id == reg.component_id)
+        .first()
+        if reg.component_id
+        else None
+    )
     controleer_inschrijfvelden(
         onderdeel,
-        **{veld: gezet.get(veld, getattr(reg, veld))
-           for veld in ("contact_name", "phone", "team_name")})
+        **{
+            veld: gezet.get(veld, getattr(reg, veld))
+            for veld in ("contact_name", "phone", "team_name")
+        },
+    )
     gewijzigd = False
     for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
         if veld not in gezet:
@@ -918,9 +1058,14 @@ def update_registration_contact(db, activity_id: int, registration_id: int,
             gewijzigd = True
     if gewijzigd:
         db.flush()
-        snapshot_registration(db, reg, operation="update",
-                              action="registration_contact_updated",
-                              source="admin_manual", actor=actor)
+        snapshot_registration(
+            db,
+            reg,
+            operation="update",
+            action="registration_contact_updated",
+            source="admin_manual",
+            actor=actor,
+        )
     db.commit()
     db.refresh(reg)
     return reg
@@ -947,9 +1092,14 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
         return False
     for item in list(reg.items):
         if getattr(item, "deleted_at", None) is None:
-            snapshot_registration_item(db, item, operation="delete",
-                                       action="order_changed",
-                                       source="admin_manual", actor=actor)
+            snapshot_registration_item(
+                db,
+                item,
+                operation="delete",
+                action="order_changed",
+                source="admin_manual",
+                actor=actor,
+            )
             soft_delete(item)
     db.commit()
     db.refresh(reg)
@@ -960,6 +1110,7 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
 
 
 # ── Export (#679, batch 5) ────────────────────────────────────────────────────
+
 
 def component_export(db, activity_id: int, component_id: int):
     """De .ods van één onderdeel, plus een veilige bestandsnaam.
@@ -992,39 +1143,42 @@ def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
     """Eén activiteit met haar datums, onderdelen en producten in één keer."""
     from sqlalchemy.orm import selectinload
 
-    return (db.query(Activity)
-            .options(selectinload(Activity.dates),
-                     selectinload(Activity.sub_registrations)
-                     .selectinload(ActivitySubRegistration.products))
-            .filter(Activity.id == activity_id)
-            .first())
+    return (
+        db.query(Activity)
+        .options(
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
+        )
+        .filter(Activity.id == activity_id)
+        .first()
+    )
 
 
-def get_activity(db, activity_id: int,
-                 include_deleted: bool = False) -> Optional[Activity]:
+def get_activity(db, activity_id: int, include_deleted: bool = False) -> Optional[Activity]:
     query = db.query(Activity)
     if include_deleted:
         query = query.execution_options(include_deleted=True)
     return query.filter(Activity.id == activity_id).first()
 
 
-def get_component(db, component_id: int,
-                  activity_id: Optional[int] = None) -> Optional[ActivitySubRegistration]:
+def get_component(
+    db, component_id: int, activity_id: Optional[int] = None
+) -> Optional[ActivitySubRegistration]:
     """Een onderdeel, eventueel binnen één activiteit.
 
     Met `activity_id` erbij is dit meteen de controle dat het onderdeel écht bij
     die activiteit hoort — anders zou /activiteiten/1/inschrijven/99 het onderdeel
     van een andere activiteit tonen.
     """
-    query = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id)
+    query = db.query(ActivitySubRegistration).filter(ActivitySubRegistration.id == component_id)
     if activity_id is not None:
         query = query.filter(ActivitySubRegistration.activity_id == activity_id)
     return query.first()
 
 
-def get_registration(db, registration_id: int,
-                     include_deleted: bool = False) -> Optional[Registration]:
+def get_registration(
+    db, registration_id: int, include_deleted: bool = False
+) -> Optional[Registration]:
     """Een inschrijving. Met `include_deleted` ook een geschrapte.
 
     Dat laatste is nodig op het betalingenscherm: een betaling is een financieel
@@ -1069,15 +1223,14 @@ def activity_options(db) -> list[ActivityOption]:
     (app/soft_delete.py, app/kernel/tenancy.py); die gelden ook voor de
     outerjoin — vandaar geen handmatige `deleted_at`-check hier.
     """
-    rijen = (db.query(Activity.id, Activity.name,
-                      func.min(ActivityDate.start_date))
-             .outerjoin(ActivityDate, ActivityDate.activity_id == Activity.id)
-             .group_by(Activity.id, Activity.name)
-             .order_by(nulls_last(func.min(ActivityDate.start_date).desc()),
-                       Activity.name)
-             .all())
-    return [ActivityOption(id=rij[0], name=rij[1], first_date=rij[2])
-            for rij in rijen]
+    rijen = (
+        db.query(Activity.id, Activity.name, func.min(ActivityDate.start_date))
+        .outerjoin(ActivityDate, ActivityDate.activity_id == Activity.id)
+        .group_by(Activity.id, Activity.name)
+        .order_by(nulls_last(func.min(ActivityDate.start_date).desc()), Activity.name)
+        .all()
+    )
+    return [ActivityOption(id=rij[0], name=rij[1], first_date=rij[2]) for rij in rijen]
 
 
 def registrations_without_component_count(db, activity_id: int) -> int:
@@ -1092,14 +1245,17 @@ def registrations_without_component_count(db, activity_id: int) -> int:
     De soft-delete- en tenantfilters komen van `with_loader_criteria`, dus een
     geschrapte inschrijving telt niet mee.
     """
-    return (db.query(func.count(Registration.id))
-            .filter(Registration.activity_id == activity_id,
-                    Registration.component_id.is_(None))
-            .scalar() or 0)
+    return (
+        db.query(func.count(Registration.id))
+        .filter(Registration.activity_id == activity_id, Registration.component_id.is_(None))
+        .scalar()
+        or 0
+    )
 
 
-def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
-                   reg_count: int | None = None) -> dict:
+def record_kop_ctx(
+    db, activiteit, viewer_email: str, actief: str, *, reg_count: int | None = None
+) -> dict:
     """Alles wat `_aa_recordkop.html` nodig heeft, op één plek (#1070).
 
     Die kop wordt door VIER sjablonen ingesloten — Overzicht, de paginaschil, de
@@ -1126,8 +1282,7 @@ def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
     else:
         designs_href = f"/admin/ontwerpen?activity_id={activiteit.id}"
     return {
-        "record_tabs": record_tabs(db, activiteit, viewer_email, actief,
-                                   reg_count=reg_count),
+        "record_tabs": record_tabs(db, activiteit, viewer_email, actief, reg_count=reg_count),
         # Golf 10 (#913): de "AI · Activiteit"-knop bestaat alleen als Raakje voor
         # beheer aan staat — één bron (kernel, CR-07 §6.3), geen eigen vlag ernaast.
         "raakje_admin": tenant_admin_chat_enabled(db),
@@ -1139,8 +1294,9 @@ def record_kop_ctx(db, activiteit, viewer_email: str, actief: str, *,
     }
 
 
-def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
-                reg_count: int | None = None) -> list[dict]:
+def record_tabs(
+    db, activiteit, viewer_email: str, actief: str, *, reg_count: int | None = None
+) -> list[dict]:
     """De tabbalk van de activiteit-recordpagina (golf 8, #913) — P13 in
     tabvorm: elke tab een bestaand lijstscherm in de scope van dit record.
 
@@ -1149,25 +1305,33 @@ def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
     naar de INGEBEDDE pagina onder het record. Lokale imports: auth en payment
     importeren zelf uit activities.
     """
-    from app.i18n import _
     from app.domains.auth.api import may_view_payments
     from app.domains.payment.api import count_registration_records_by_activity
+    from app.i18n import _
 
     if reg_count is None:
         reg_count = registration_count_for(db, activiteit.id)
     tabs = [
-        {"label": _("Overzicht"),
-         "href": f"/admin/activiteiten/{activiteit.id}",
-         "active": actief == "overzicht"},
-        {"label": _("Inschrijvingen") + f" {reg_count}",
-         "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
-         "active": actief == "inschrijvingen"},
+        {
+            "label": _("Overzicht"),
+            "href": f"/admin/activiteiten/{activiteit.id}",
+            "active": actief == "overzicht",
+        },
+        {
+            "label": _("Inschrijvingen") + f" {reg_count}",
+            "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
+            "active": actief == "inschrijvingen",
+        },
     ]
     if may_view_payments(db, viewer_email):
         n = count_registration_records_by_activity(db, activiteit.id)
-        tabs.append({"label": _("Betalingen") + f" {n}",
-                     "href": f"/admin/activiteiten/{activiteit.id}/betalingen",
-                     "active": actief == "betalingen"})
+        tabs.append(
+            {
+                "label": _("Betalingen") + f" {n}",
+                "href": f"/admin/activiteiten/{activiteit.id}/betalingen",
+                "active": actief == "betalingen",
+            }
+        )
     return tabs
 
 
@@ -1180,46 +1344,56 @@ def sorteer_inschrijvingen(regs, sort: str, richting: str):
     Geeft (rijen, sort, richting) terug met gevalideerde waarden; #761-tiebreaker
     op id zodat gelijke sleutels een stabiele volgorde houden."""
     sleutels = {
-        "datum": lambda r: (r["registered_at"] is None,
-                            str(r["registered_at"] or "")),
-        "naam": lambda r: ((r["contact_name"] or "") == "",
-                           str(r["contact_name"] or "").lower()),
+        "datum": lambda r: (r["registered_at"] is None, str(r["registered_at"] or "")),
+        "naam": lambda r: ((r["contact_name"] or "") == "", str(r["contact_name"] or "").lower()),
     }
     if sort not in sleutels:
         sort = "datum"
     richting = "desc" if richting == "desc" else "asc"
     sleutel = sleutels[sort]
-    return (sorted(regs, key=lambda r: (*sleutel(r), r["id"]),
-                   reverse=richting == "desc"), sort, richting)
+    return (
+        sorted(regs, key=lambda r: (*sleutel(r), r["id"]), reverse=richting == "desc"),
+        sort,
+        richting,
+    )
 
 
-def inschrijving_tabs(db, registration_id: int, viewer_email: str,
-                      actief: str, *, terug: str = "") -> list[dict]:
+def inschrijving_tabs(
+    db, registration_id: int, viewer_email: str, actief: str, *, terug: str = ""
+) -> list[dict]:
     """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Overzicht ·
     Betalingen N — zelfde patroon als activiteit en gezin; de P13-chip op dat
     scherm verdween hiermee. `terug` (door de route gevalideerd) reist met
     beide tabs mee, zodat de A7-terugweg een tabwissel overleeft."""
     from urllib.parse import quote
 
-    from app.i18n import _
     from app.domains.auth.api import may_view_payments
     from app.domains.payment.api import get_records_for
+    from app.i18n import _
 
     suffix = f"?terug={quote(terug, safe='')}" if terug else ""
-    tabs = [{"label": _("Overzicht"),
-             "href": f"/admin/inschrijvingen/{registration_id}{suffix}",
-             "active": actief == "overzicht"}]
+    tabs = [
+        {
+            "label": _("Overzicht"),
+            "href": f"/admin/inschrijvingen/{registration_id}{suffix}",
+            "active": actief == "overzicht",
+        }
+    ]
     if may_view_payments(db, viewer_email):
         n = len(get_records_for(db, "registration", registration_id))
-        tabs.append({"label": _("Betalingen") + f" {n}",
-                     "href": (f"/admin/inschrijvingen/{registration_id}"
-                              f"/betalingen{suffix}"),
-                     "active": actief == "betalingen"})
+        tabs.append(
+            {
+                "label": _("Betalingen") + f" {n}",
+                "href": (f"/admin/inschrijvingen/{registration_id}/betalingen{suffix}"),
+                "active": actief == "betalingen",
+            }
+        )
     return tabs
 
 
-def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
-                         actief: str, terug: str = "") -> dict | None:
+def inschrijving_kop_ctx(
+    db, registration_id: int, viewer_email: str, actief: str, terug: str = ""
+) -> dict | None:
     """Context van `_insch_recordkop.html`, op één plek: de Overzicht-pagina en
     de ingebedde Betalingen-tab renderen dezelfde kop — naam, contextregel,
     A7-terugweg (incl. labelafleiding uit het gevalideerde pad) en tabs.
@@ -1231,9 +1405,11 @@ def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
     if reg is None:
         return None
     activity = db.get(Activity, reg.activity_id)
-    component = (next((c for c in activity.sub_registrations
-                       if c.id == reg.component_id), None)
-                 if activity is not None else None)
+    component = (
+        next((c for c in activity.sub_registrations if c.id == reg.component_id), None)
+        if activity is not None
+        else None
+    )
     titel = activity.name if activity is not None else ""
     pad = veilige_terug(terug, f"/admin/activiteiten/{reg.activity_id}")
     # P3: het label wordt uit het gevalideerde pad afgeleid, nooit uit een
@@ -1251,9 +1427,9 @@ def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
         "activiteit_id": reg.activity_id,
         "activiteit_titel": titel,
         "component_naam": component.name if component is not None else None,
-        "terug": pad, "terug_label": label,
-        "record_tabs": inschrijving_tabs(db, registration_id, viewer_email,
-                                         actief, terug=pad),
+        "terug": pad,
+        "terug_label": label,
+        "record_tabs": inschrijving_tabs(db, registration_id, viewer_email, actief, terug=pad),
     }
 
 
@@ -1273,11 +1449,15 @@ def registration_contact_names(db) -> list[str]:
     Soft-deleted inschrijvingen tellen niet mee: hun naam staat nergens meer op een
     scherm, dus hij hoort ook niet in een blokkeerlijst.
     """
-    rijen = (db.query(Registration.contact_name)
-             .filter(Registration.deleted_at.is_(None),
-                     Registration.contact_name.isnot(None),
-                     Registration.contact_name != "")
-             .all())
+    rijen = (
+        db.query(Registration.contact_name)
+        .filter(
+            Registration.deleted_at.is_(None),
+            Registration.contact_name.isnot(None),
+            Registration.contact_name != "",
+        )
+        .all()
+    )
     return [rij[0] for rij in rijen]
 
 
@@ -1286,8 +1466,12 @@ def registration_count_for(db, activity_id: int) -> int:
     de query-budget-gate (#651) rekent in opgehaalde rijen."""
     from sqlalchemy import func as _func
 
-    return db.query(_func.count(Registration.id)).filter(
-        Registration.activity_id == activity_id).scalar() or 0
+    return (
+        db.query(_func.count(Registration.id))
+        .filter(Registration.activity_id == activity_id)
+        .scalar()
+        or 0
+    )
 
 
 def registration_ids_for(db, activity_id: int) -> list[int]:
@@ -1296,9 +1480,10 @@ def registration_ids_for(db, activity_id: int) -> list[int]:
     Voor tellers en scopes: de recordpagina en de betalingen-activiteitscope
     hebben geen verrijking nodig, en de query-budget-gate (#651) bewaakt dat
     het detailscherm niet de hele boom ophaalt."""
-    return [rij[0] for rij in
-            db.query(Registration.id)
-            .filter(Registration.activity_id == activity_id).all()]
+    return [
+        rij[0]
+        for rij in db.query(Registration.id).filter(Registration.activity_id == activity_id).all()
+    ]
 
 
 def enrich_registration(reg, activity) -> dict:
@@ -1317,13 +1502,15 @@ def enrich_registration(reg, activity) -> dict:
     items = []
     for item in reg.items:
         pname, cname = product_map.get(item.product_id, (None, component_name))
-        items.append({
-            "id": item.id,
-            "product_id": item.product_id,
-            "quantity": item.quantity,
-            "product_name": pname,
-            "component_name": cname or component_name,
-        })
+        items.append(
+            {
+                "id": item.id,
+                "product_id": item.product_id,
+                "quantity": item.quantity,
+                "product_name": pname,
+                "component_name": cname or component_name,
+            }
+        )
     return {
         "id": reg.id,
         "activity_id": reg.activity_id,
@@ -1341,9 +1528,14 @@ def enrich_registration(reg, activity) -> dict:
     }
 
 
-def registrations_for(db, activity_id: int, *, component_id: Optional[int] = None,
-                      without_component: bool = False,
-                      alle: bool = False) -> Optional[list[dict]]:
+def registrations_for(
+    db,
+    activity_id: int,
+    *,
+    component_id: Optional[int] = None,
+    without_component: bool = False,
+    alle: bool = False,
+) -> Optional[list[dict]]:
     """De inschrijvingen van één activiteit, verrijkt. None als ze niet bestaat.
 
     Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de rijen
@@ -1368,9 +1560,7 @@ def registrations_for(db, activity_id: int, *, component_id: Optional[int] = Non
         vraag = vraag.filter(Registration.component_id.is_(None))
     elif component_id is not None:
         vraag = vraag.filter(Registration.component_id == component_id)
-    regs = (vraag
-            .order_by(Registration.registered_at.asc(), Registration.id.asc())
-            .all())
+    regs = vraag.order_by(Registration.registered_at.asc(), Registration.id.asc()).all()
     return [enrich_registration(r, activity) for r in regs]
 
 
@@ -1378,6 +1568,7 @@ def registrations_for(db, activity_id: int, *, component_id: Optional[int] = Non
 # An activity's window is min(start_date) .. max(end_date or start_date) over its
 # date rows, so a run of dates counts as one span — the photo hunt runs from June
 # to September and is one activity, not four.
+
 
 class ActivitySpan(NamedTuple):
     """One activity with the window it occupies and how full it is."""
@@ -1397,18 +1588,26 @@ def _spans(db, having) -> list[ActivitySpan]:
     """
     first = func.min(ActivityDate.start_date)
     last = func.max(func.coalesce(ActivityDate.end_date, ActivityDate.start_date))
-    rows = (db.query(Activity, first.label("first"), last.label("last"))
-            .join(ActivityDate, ActivityDate.activity_id == Activity.id)
-            .filter(Activity.is_cancelled.is_(False))
-            .group_by(Activity.id)
-            .having(having(first, last))
-            .order_by(first.asc(), Activity.id.asc())
-            .all())
+    rows = (
+        db.query(Activity, first.label("first"), last.label("last"))
+        .join(ActivityDate, ActivityDate.activity_id == Activity.id)
+        .filter(Activity.is_cancelled.is_(False))
+        .group_by(Activity.id)
+        .having(having(first, last))
+        .order_by(first.asc(), Activity.id.asc())
+        .all()
+    )
     counts = registration_counts(db, [a.id for a, _f, _l in rows])
-    return [ActivitySpan(activity=a, start=f, end=l,
-                         registered=counts.get(a.id, (0, None))[0],
-                         capacity=counts.get(a.id, (0, None))[1])
-            for a, f, l in rows]
+    return [
+        ActivitySpan(
+            activity=a,
+            start=first,
+            end=last,
+            registered=counts.get(a.id, (0, None))[0],
+            capacity=counts.get(a.id, (0, None))[1],
+        )
+        for a, first, last in rows
+    ]
 
 
 def activities_active_between(db, start: date, end: date) -> list[ActivitySpan]:
@@ -1444,34 +1643,44 @@ def registration_counts(db, activity_ids: list[int]) -> dict[int, tuple[int, Opt
     if not activity_ids:
         return {}
     per_component = _booked_per_component(db, activity_ids)
-    caps = (db.query(ActivitySubRegistration.activity_id,
-                     func.sum(ActivitySubRegistration.max_participants),
-                     func.count(ActivitySubRegistration.max_participants))
-            .filter(ActivitySubRegistration.activity_id.in_(activity_ids))
-            .group_by(ActivitySubRegistration.activity_id)
-            .all())
-    capacity = {activity_id: (int(total) if capped else None)
-                for activity_id, total, capped in caps}
+    caps = (
+        db.query(
+            ActivitySubRegistration.activity_id,
+            func.sum(ActivitySubRegistration.max_participants),
+            func.count(ActivitySubRegistration.max_participants),
+        )
+        .filter(ActivitySubRegistration.activity_id.in_(activity_ids))
+        .group_by(ActivitySubRegistration.activity_id)
+        .all()
+    )
+    capacity = {
+        activity_id: (int(total) if capped else None) for activity_id, total, capped in caps
+    }
 
     booked: dict[int, int] = {}
     component_owner = dict(
         db.query(ActivitySubRegistration.id, ActivitySubRegistration.activity_id)
-        .filter(ActivitySubRegistration.activity_id.in_(activity_ids)).all())
+        .filter(ActivitySubRegistration.activity_id.in_(activity_ids))
+        .all()
+    )
     for component_id, quantity in per_component.items():
         activity_id = component_owner.get(component_id)
         if activity_id is not None:
             booked[activity_id] = booked.get(activity_id, 0) + quantity
     # Registrations that hang on no component still count as attendance.
-    loose = (db.query(Registration.activity_id, func.count(Registration.id))
-             .filter(Registration.activity_id.in_(activity_ids),
-                     Registration.component_id.is_(None))
-             .group_by(Registration.activity_id)
-             .all())
+    loose = (
+        db.query(Registration.activity_id, func.count(Registration.id))
+        .filter(Registration.activity_id.in_(activity_ids), Registration.component_id.is_(None))
+        .group_by(Registration.activity_id)
+        .all()
+    )
     for activity_id, count in loose:
         booked[activity_id] = booked.get(activity_id, 0) + int(count or 0)
 
-    return {activity_id: (booked.get(activity_id, 0), capacity.get(activity_id))
-            for activity_id in activity_ids}
+    return {
+        activity_id: (booked.get(activity_id, 0), capacity.get(activity_id))
+        for activity_id in activity_ids
+    }
 
 
 def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
@@ -1482,17 +1691,21 @@ def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
 
     if not activity_ids:
         return {}
-    item_sum = (db.query(RegistrationItem.registration_id.label("rid"),
-                         func.sum(RegistrationItem.quantity).label("q"))
-                .group_by(RegistrationItem.registration_id)
-                .subquery())
-    rows = (db.query(Registration.component_id,
-                     func.sum(func.coalesce(item_sum.c.q, 1)))
-            .outerjoin(item_sum, item_sum.c.rid == Registration.id)
-            .filter(Registration.activity_id.in_(activity_ids),
-                    Registration.component_id.isnot(None))
-            .group_by(Registration.component_id)
-            .all())
+    item_sum = (
+        db.query(
+            RegistrationItem.registration_id.label("rid"),
+            func.sum(RegistrationItem.quantity).label("q"),
+        )
+        .group_by(RegistrationItem.registration_id)
+        .subquery()
+    )
+    rows = (
+        db.query(Registration.component_id, func.sum(func.coalesce(item_sum.c.q, 1)))
+        .outerjoin(item_sum, item_sum.c.rid == Registration.id)
+        .filter(Registration.activity_id.in_(activity_ids), Registration.component_id.isnot(None))
+        .group_by(Registration.component_id)
+        .all()
+    )
     return {component_id: int(quantity or 0) for component_id, quantity in rows}
 
 
@@ -1541,9 +1754,12 @@ class OrganiserView(NamedTuple):
 def _organiser_rows(db, activity_id: int):
     from app.domains.activities.models import ActivityOrganiser
 
-    return (db.query(ActivityOrganiser)
-            .filter(ActivityOrganiser.activity_id == activity_id)
-            .order_by(ActivityOrganiser.sort_order, ActivityOrganiser.id).all())
+    return (
+        db.query(ActivityOrganiser)
+        .filter(ActivityOrganiser.activity_id == activity_id)
+        .order_by(ActivityOrganiser.sort_order, ActivityOrganiser.id)
+        .all()
+    )
 
 
 def organisers_for(db, activity_id: int) -> list:
@@ -1556,8 +1772,7 @@ def organisers_for(db, activity_id: int) -> list:
     person_ids = [r.person_id for r in rijen]
     personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
     contacten: dict[tuple[int, str | None], str] = {}
-    for detail in (db.query(ContactDetail)
-                   .filter(ContactDetail.person_id.in_(person_ids)).all()):
+    for detail in db.query(ContactDetail).filter(ContactDetail.person_id.in_(person_ids)).all():
         # CR-12 phase 2: the `.upper()` was a normalisation because the column
         # accepted any spelling. The code list does that now; `code_of` returns
         # the code, whether it comes back as a member or as a bare code.
@@ -1575,16 +1790,21 @@ def organisers_for(db, activity_id: int) -> list:
         # staat — precies wat dit issue moet voorkomen.
         email = rij.email_override or contacten.get((rij.person_id, CONTACT.EMAIL), "")
         mobile = rij.mobile_override or contacten.get((rij.person_id, CONTACT.MOBILE), "")
-        gezien.append(OrganiserView(
-            id=rij.id, person_id=rij.person_id, name=naam,
-            is_contact=bool(rij.is_contact),
-            email=email if rij.show_email else "",
-            mobile=mobile if rij.show_mobile else "",
-            email_override=rij.email_override or "",
-            mobile_override=rij.mobile_override or "",
-            show_email=bool(rij.show_email),
-            show_mobile=bool(rij.show_mobile),
-            sort_order=rij.sort_order))
+        gezien.append(
+            OrganiserView(
+                id=rij.id,
+                person_id=rij.person_id,
+                name=naam,
+                is_contact=bool(rij.is_contact),
+                email=email if rij.show_email else "",
+                mobile=mobile if rij.show_mobile else "",
+                email_override=rij.email_override or "",
+                mobile_override=rij.mobile_override or "",
+                show_email=bool(rij.show_email),
+                show_mobile=bool(rij.show_mobile),
+                sort_order=rij.sort_order,
+            )
+        )
     return gezien
 
 
@@ -1613,8 +1833,9 @@ def add_organiser(db, activity_id: int, person_id: int):
         raise LookupError("Activiteit niet gevonden")
     rijen = _organiser_rows(db, activity_id)
     if len(rijen) >= MAX_ORGANISERS:
-        raise ActiviteitFout(_(
-            "Een activiteit heeft hoogstens %(n)s organisatoren.") % {"n": MAX_ORGANISERS})
+        raise ActiviteitFout(
+            _("Een activiteit heeft hoogstens %(n)s organisatoren.") % {"n": MAX_ORGANISERS}
+        )
     if any(r.person_id == person_id for r in rijen):
         raise ActiviteitFout(_("Die persoon staat er al bij."))
     person = db.query(Person).filter(Person.id == person_id).first()
@@ -1627,8 +1848,7 @@ def add_organiser(db, activity_id: int, person_id: int):
 
     gebruikt = {r.sort_order for r in rijen}
     volgende = next(i for i in range(MAX_ORGANISERS) if i not in gebruikt)
-    rij = ActivityOrganiser(activity_id=activity_id, person_id=person_id,
-                            sort_order=volgende)
+    rij = ActivityOrganiser(activity_id=activity_id, person_id=person_id, sort_order=volgende)
     db.add(rij)
     db.commit()
     db.refresh(rij)

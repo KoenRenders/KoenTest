@@ -1,5 +1,6 @@
 """Facade van het workflow-component (#398). Taakcontract: één vorm, veel
 bronnen; de werkbank kent nul taak-types en filtert op rol (§20.5)."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -8,7 +9,11 @@ from typing import Optional, Sequence
 from sqlalchemy.orm import Session
 
 from app.domains.workflow.codes import (  # noqa: F401
-    RUN_STATUS, SUBJECT_TYPE, TASK_CATEGORY, TASK_KIND, TASK_STATUS,
+    RUN_STATUS,
+    SUBJECT_TYPE,
+    TASK_CATEGORY,
+    TASK_KIND,
+    TASK_STATUS,
 )
 from app.domains.workflow.models import (  # noqa: F401
     KERNEL_JOB_FAILED,
@@ -22,10 +27,22 @@ from app.domains.workflow.models import (  # noqa: F401
 )
 
 
-def create_task(db: Session, *, kind: str, title: str, subject_type: SubjectType | str,
-                subject_id: str, required_role: str = "ADMIN") -> WorkflowTask:
-    task = WorkflowTask(kind=kind, title=title, subject_type=subject_type,
-                        subject_id=subject_id, required_role=required_role)
+def create_task(
+    db: Session,
+    *,
+    kind: str,
+    title: str,
+    subject_type: SubjectType | str,
+    subject_id: str,
+    required_role: str = "ADMIN",
+) -> WorkflowTask:
+    task = WorkflowTask(
+        kind=kind,
+        title=title,
+        subject_type=subject_type,
+        subject_id=subject_id,
+        required_role=required_role,
+    )
     db.add(task)
     return task
 
@@ -54,8 +71,10 @@ def vervroeg_sweep(db: Session) -> None:
 def open_tasks(db: Session, roles: Sequence[str]) -> list[WorkflowTask]:
     return (
         db.query(WorkflowTask)
-        .filter(WorkflowTask.status == TaskStatus.OPEN,
-                WorkflowTask.required_role.in_(list(roles) or [""]))
+        .filter(
+            WorkflowTask.status == TaskStatus.OPEN,
+            WorkflowTask.required_role.in_(list(roles) or [""]),
+        )
         .order_by(WorkflowTask.created_at)
         .all()
     )
@@ -78,23 +97,24 @@ def tasks(db: Session, roles: Sequence[str], *, status: str = "open") -> list[Wo
     Afgehandelde taken staan nieuwste eerst — je zoekt wat je net deed. Open taken
     houden hun oudste-eerst, want daar is wachttijd het criterium.
     """
-    vraag = db.query(WorkflowTask).filter(
-        WorkflowTask.required_role.in_(list(roles) or [""]))
+    vraag = db.query(WorkflowTask).filter(WorkflowTask.required_role.in_(list(roles) or [""]))
     # Convert on the boundary (§B4.2): the screen sends a code or "all".
     if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value):
         vraag = vraag.filter(WorkflowTask.status == TaskStatus(status))
     if status == TaskStatus.DONE.value:
-        return vraag.order_by(WorkflowTask.done_at.desc().nullslast(),
-                              WorkflowTask.created_at.desc()).all()
-    return vraag.order_by(WorkflowTask.status,
-                          WorkflowTask.created_at).all()
+        return vraag.order_by(
+            WorkflowTask.done_at.desc().nullslast(), WorkflowTask.created_at.desc()
+        ).all()
+    return vraag.order_by(WorkflowTask.status, WorkflowTask.created_at).all()
 
 
 def open_count(db: Session, roles: Sequence[str]) -> int:
     return (
         db.query(WorkflowTask)
-        .filter(WorkflowTask.status == TaskStatus.OPEN,
-                WorkflowTask.required_role.in_(list(roles) or [""]))
+        .filter(
+            WorkflowTask.status == TaskStatus.OPEN,
+            WorkflowTask.required_role.in_(list(roles) or [""]),
+        )
         .count()
     )
 
@@ -103,8 +123,9 @@ def get_task(db: Session, task_id: int) -> Optional[WorkflowTask]:
     return db.query(WorkflowTask).filter(WorkflowTask.id == task_id).first()
 
 
-def close_task(db: Session, task_id: int, *, done_by: str,
-               decision: Optional[str] = None) -> Optional[WorkflowTask]:
+def close_task(
+    db: Session, task_id: int, *, done_by: str, decision: Optional[str] = None
+) -> Optional[WorkflowTask]:
     """Sluit een taak (idempotent: een al gesloten taak blijft gesloten).
     ``decision`` is het bewaarde besluit — een afwijzing is ook een beslissing."""
     task = get_task(db, task_id)
@@ -120,8 +141,15 @@ def close_task(db: Session, task_id: int, *, done_by: str,
 
 # ── Definities + instanties (fase 4b, #403) ────────────────────────────────────
 
-def start(db: Session, definition_code: str, *, subject_type: SubjectType | str,
-          subject_id: str, context: Optional[dict] = None):
+
+def start(
+    db: Session,
+    definition_code: str,
+    *,
+    subject_type: SubjectType | str,
+    subject_id: str,
+    context: Optional[dict] = None,
+):
     """Start een workflow-instantie en maak de taak van de eerste stap.
     ``context`` vult de titel-template van de stap (str.format)."""
     from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance
@@ -129,16 +157,18 @@ def start(db: Session, definition_code: str, *, subject_type: SubjectType | str,
     definition = db.get(WorkflowDefinition, definition_code)
     if definition is None or not definition.steps:
         raise ValueError(f"Onbekende of lege workflow-definitie '{definition_code}'")
-    instance = WorkflowInstance(definition_code=definition_code,
-                                subject_type=subject_type, subject_id=subject_id)
+    instance = WorkflowInstance(
+        definition_code=definition_code, subject_type=subject_type, subject_id=subject_id
+    )
     db.add(instance)
     db.flush()
     _create_step_task(db, definition, instance, 0, context or {})
     return instance
 
 
-def _create_step_task(db: Session, definition, instance, step_index: int,
-                      context: dict) -> WorkflowTask:
+def _create_step_task(
+    db: Session, definition, instance, step_index: int, context: dict
+) -> WorkflowTask:
     step = definition.steps[step_index]
     title = str(step.get("title", step.get("kind", "Taak")))
     try:
@@ -146,8 +176,11 @@ def _create_step_task(db: Session, definition, instance, step_index: int,
     except (KeyError, IndexError):
         pass
     task = create_task(
-        db, kind=str(step["kind"]), title=title,
-        subject_type=instance.subject_type, subject_id=instance.subject_id,
+        db,
+        kind=str(step["kind"]),
+        title=title,
+        subject_type=instance.subject_type,
+        subject_id=instance.subject_id,
         required_role=str(step.get("role", "ADMIN")),
     )
     task.instance_id = instance.id
@@ -167,14 +200,14 @@ def advance(db: Session, instance, *, context: Optional[dict] = None):
         instance.status = RunStatus.DONE
         instance.done_at = datetime.now(timezone.utc)
     else:
-        _create_step_task(db, definition, instance, instance.current_step,
-                          context or {})
+        _create_step_task(db, definition, instance, instance.current_step, context or {})
     db.flush()
     return instance
 
 
-def complete_task(db: Session, task_id: int, *, done_by: str,
-                  decision: Optional[str] = None) -> Optional[WorkflowTask]:
+def complete_task(
+    db: Session, task_id: int, *, done_by: str, decision: Optional[str] = None
+) -> Optional[WorkflowTask]:
     """Sluit een taak én — als hij bij een instantie hoort — zet de workflow
     verder ("een afwijzing is ook een beslissing": het besluit blijft bewaard,
     óók bij afwijzen; de volgende stap start hoe dan ook of de flow eindigt)."""

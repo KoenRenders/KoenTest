@@ -14,13 +14,20 @@ De eerste test hieronder is de kerntest die het issue noemt, en ze is met opzet
 **mechanisch**: zoek in de omschrijvingen naar een "of" die twee bronnen naast
 elkaar zet. Die mag er niet meer staan, en een nieuwe mag er niet bij komen.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from app.domains.reporting.api import Selection, run_validated
-from app.domains.reporting.universe import (BY_KEY, CLASSES, DIMENSION_BY_KEY,
-                                            HIERARCHIES, OBJECTS, joins_for)
+from app.domains.reporting.universe import (
+    BY_KEY,
+    CLASSES,
+    DIMENSION_BY_KEY,
+    HIERARCHIES,
+    OBJECTS,
+    joins_for,
+)
 from tests._reporting_seed import TENANT_A, seed
 
 
@@ -32,8 +39,16 @@ def situation(db_session):
 # De woorden waarmee een omschrijving een BRON aanwijst. Staan er twee van naast
 # een "of", dan geeft het object toe dat het twee dingen kan betekenen — precies
 # de vorm die dit issue opruimt.
-BRONWOORDEN = ("aanmaak", "inschrijf", "betaal", "inzend", "afhandel",
-               "gebeurtenis", "start", "eind")
+BRONWOORDEN = (
+    "aanmaak",
+    "inschrijf",
+    "betaal",
+    "inzend",
+    "afhandel",
+    "gebeurtenis",
+    "start",
+    "eind",
+)
 
 
 def _noemt_twee_bronnen(omschrijving: str) -> bool:
@@ -50,10 +65,12 @@ def test_no_description_names_two_sources():
     dingen kan betekenen. Zo'n zin is het spoor van een object dat per feit iets
     anders is, en het is het enige spoor dat er was.
     """
-    fouten = [f"{o.name} (`{o.key}`): {o.description}"
-              for o in OBJECTS if _noemt_twee_bronnen(o.description)]
-    assert not fouten, (
-        "omschrijvingen die twee bronnen noemen:\n" + "\n".join(fouten))
+    fouten = [
+        f"{o.name} (`{o.key}`): {o.description}"
+        for o in OBJECTS
+        if _noemt_twee_bronnen(o.description)
+    ]
+    assert not fouten, "omschrijvingen die twee bronnen noemen:\n" + "\n".join(fouten)
 
 
 def test_the_pattern_would_catch_the_old_description():
@@ -62,13 +79,11 @@ def test_the_pattern_would_catch_the_old_description():
     Dit is de letterlijke zin die in de universe stond vóór dit issue. Vangt het
     patroon die niet meer, dan is de poort een formaliteit geworden.
     """
-    oud = ("Kalenderjaar van de gebeurtenis (inschrijfdatum of aanmaakdatum van "
-           "de betaling).")
-    assert _noemt_twee_bronnen(oud), (
-        "het patroon hoort de oude omschrijving te herkennen")
-    assert not _noemt_twee_bronnen(
-        "Wanneer er betaald is. Opgerold tot maand."), (
-        "en een omschrijving met één bron hoort er níét in te vallen")
+    oud = "Kalenderjaar van de gebeurtenis (inschrijfdatum of aanmaakdatum van de betaling)."
+    assert _noemt_twee_bronnen(oud), "het patroon hoort de oude omschrijving te herkennen"
+    assert not _noemt_twee_bronnen("Wanneer er betaald is. Opgerold tot maand."), (
+        "en een omschrijving met één bron hoort er níét in te vallen"
+    )
 
 
 def test_the_time_class_is_gone():
@@ -84,19 +99,23 @@ def test_the_time_class_is_gone():
 def test_every_date_sits_with_its_subject():
     """De datums van een feit staan in de klasse van dat feit."""
     verwacht = {
-        "registration_date": "Activiteiten", "start_date": "Activiteiten",
-        "end_date": "Activiteiten", "payment_created": "Betalingen",
-        "paid_date": "Betalingen", "member_created": "Leden",
-        "form_created": "Formulieren", "submission_date": "Formulieren",
-        "task_created": "Taken", "done_date": "Taken",
+        "registration_date": "Activiteiten",
+        "start_date": "Activiteiten",
+        "end_date": "Activiteiten",
+        "payment_created": "Betalingen",
+        "paid_date": "Betalingen",
+        "member_created": "Leden",
+        "form_created": "Formulieren",
+        "submission_date": "Formulieren",
+        "task_created": "Taken",
+        "done_date": "Taken",
     }
     werkelijk = {h.key: h.klass for h in HIERARCHIES}
     assert werkelijk == verwacht, werkelijk
     assert BY_KEY["membership_year"].klass == "Leden"
 
 
-def test_the_same_grain_means_something_different_per_subject(db_session,
-                                                              situation):
+def test_the_same_grain_means_something_different_per_subject(db_session, situation):
     """Het punt van dit issue, als meting.
 
     Betalingen per aanmaakmaand en inschrijvingen per inschrijfmaand zijn twee
@@ -106,14 +125,15 @@ def test_the_same_grain_means_something_different_per_subject(db_session,
     betalingen = run_validated(
         db_session,
         Selection(object_keys=("payment_created_month", "payment_amount")),
-        tenant_id=TENANT_A).rows
+        tenant_id=TENANT_A,
+    ).rows
     inschrijvingen = run_validated(
         db_session,
         Selection(object_keys=("registration_date_month", "registration_count")),
-        tenant_id=TENANT_A).rows
+        tenant_id=TENANT_A,
+    ).rows
     assert betalingen and inschrijvingen
-    assert BY_KEY["payment_created_month"].name != \
-        BY_KEY["registration_date_month"].name
+    assert BY_KEY["payment_created_month"].name != BY_KEY["registration_date_month"].name
 
 
 def test_a_date_of_another_subject_is_refused(db_session, situation):
@@ -129,7 +149,8 @@ def test_a_date_of_another_subject_is_refused(db_session, situation):
         run_validated(
             db_session,
             Selection(object_keys=("paid_date_month", "membership_households")),
-            tenant_id=TENANT_A)
+            tenant_id=TENANT_A,
+        )
 
 
 def test_the_activity_end_date_is_not_joined_twice():
@@ -138,14 +159,15 @@ def test_the_activity_end_date_is_not_joined_twice():
     Twee namen voor dezelfde kolom is precies wat dit issue opruimt, en het stond
     er sinds #895 zonder dat iemand het zag.
     """
-    kalender = {v for v in joins_for("f_activities")
-                if DIMENSION_BY_KEY.get(v) is not None
-                and DIMENSION_BY_KEY[v].source == "d_date"}
+    kalender = {
+        v
+        for v in joins_for("f_activities")
+        if DIMENSION_BY_KEY.get(v) is not None and DIMENSION_BY_KEY[v].source == "d_date"
+    }
     assert kalender == {"d_activity_start", "d_activity_end"}, kalender
 
 
-def test_every_shipped_report_still_names_an_existing_object(db_session,
-                                                             situation):
+def test_every_shipped_report_still_names_an_existing_object(db_session, situation):
     """De sleutels wijzigden hier wél, anders dan bij #899.
 
     Een object veranderde van klasse én van betekenis, dus de bewaarde selecties
@@ -163,4 +185,5 @@ def test_every_shipped_report_still_names_an_existing_object(db_session,
         assert not onbekend, f"{rapport.builtin_key}: {onbekend}"
         for filter_ in selectie.filters:
             assert filter_.object_key in BY_KEY, (
-                f"{rapport.builtin_key}: filter op {filter_.object_key}")
+                f"{rapport.builtin_key}: filter op {filter_.object_key}"
+            )

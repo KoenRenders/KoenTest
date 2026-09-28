@@ -65,3 +65,222 @@ module = [
     "app.kernel.jobs", "app.kernel.operations",
 ]
 strict_equality = true
+
+# ── ruff: formatter and linter (#781) ────────────────────────────────────────
+# Decided 9 September 2026 (CLAUDE.md, *Code style*): ruff answers the style
+# questions once, so a review is about meaning. CI blocks on both
+# `ruff format --check` and `ruff check` (the `lint` job).
+[tool.ruff]
+# 100 and not 88: at both lengths the one-off pass rewrites the same 879 of 911
+# files, but 88 changes 81,318 diff lines against 68,844 at 100 (measured on
+# master, 28 September 2026).
+line-length = 100
+target-version = "py312"
+
+# Every migration merged before #781, FROZEN: this list may only shrink, never
+# grow. CLAUDE.md: "Never modify a migration that has already been merged to
+# master" — reformatting one changes no behaviour, but it is still a change to
+# history, and a review should see code, not 169 migration diffs. A migration
+# generated from here on is NOT on the list, so ruff formats and lints it like any
+# other file: an F821 in a migration that has yet to run is exactly what CI should
+# catch. `tests/test_ruff_migrations.py` holds both halves.
+extend-exclude = [
+    "alembic/versions/001_initial_schema.py",
+    "alembic/versions/002_add_activity_sub_registrations.py",
+    "alembic/versions/003_add_info_url_to_sub_registrations.py",
+    "alembic/versions/004_cr02_member_changes.py",
+    "alembic/versions/005_cr03_registration_forms.py",
+    "alembic/versions/006_remove_webshop.py",
+    "alembic/versions/007_add_indexes.py",
+    "alembic/versions/008_add_total_amount_to_registrations.py",
+    "alembic/versions/009_add_relation_type_to_member_persons.py",
+    "alembic/versions/010_merge_kind_relation_types.py",
+    "alembic/versions/011_add_payment_domains.py",
+    "alembic/versions/012_add_login_tokens.py",
+    "alembic/versions/013_remove_password_hash.py",
+    "alembic/versions/014_seed_admin_users.py",
+    "alembic/versions/015_add_team_name_required.py",
+    "alembic/versions/016_activity_components_products.py",
+    "alembic/versions/017_add_relation_type_codes.py",
+    "alembic/versions/018_add_payment_method_to_registrations.py",
+    "alembic/versions/019_add_component_id_to_registrations.py",
+    "alembic/versions/020_fix_registration_items_columns.py",
+    "alembic/versions/021_add_amount_paid_to_payment_records.py",
+    "alembic/versions/022_add_remarks_to_registrations.py",
+    "alembic/versions/023_add_price_check_constraint.py",
+    "alembic/versions/024_add_membership_valid_period.py",
+    "alembic/versions/025_add_external_numbers.py",
+    "alembic/versions/026_add_history_tables.py",
+    "alembic/versions/027_seed_cms_blocks.py",
+    "alembic/versions/028_cms_home_intro_placeholders.py",
+    "alembic/versions/029_rename_cms_placeholders_to_english.py",
+    "alembic/versions/030_add_media_assets.py",
+    "alembic/versions/031_widen_poster_url_to_text.py",
+    "alembic/versions/032_add_time_end_to_activities.py",
+    "alembic/versions/033_phase1_uniqueness_constraints.py",
+    "alembic/versions/034_member_login_tokens.py",
+    "alembic/versions/035_login_token_otp.py",
+    "alembic/versions/036_activity_members_only.py",
+    "alembic/versions/037_decouple_user_from_person.py",
+    "alembic/versions/038_registration_items_product_restrict.py",
+    "alembic/versions/039_phase3_price_quantity_checks.py",
+    "alembic/versions/040_phase5_optional_checks.py",
+    "alembic/versions/041_add_missing_indexes.py",
+    "alembic/versions/042_timestamps_timezone_aware.py",
+    "alembic/versions/043_activity_dates.py",
+    "alembic/versions/044_address_only_on_hoofdlid.py",
+    "alembic/versions/045_unique_gateway_payment_id.py",
+    "alembic/versions/046_drop_is_waitlist.py",
+    "alembic/versions/047_payment_structured_communication.py",
+    "alembic/versions/048_add_business_events.py",
+    "alembic/versions/049_seed_privacy_page.py",
+    "alembic/versions/050_add_show_in_nav_to_cms_pages.py",
+    "alembic/versions/051_payment_refund_ledger.py",
+    "alembic/versions/052_registration_item_history.py",
+    "alembic/versions/053_soft_delete_member_domain.py",
+    "alembic/versions/054_soft_delete_activities_payments_users.py",
+    "alembic/versions/055_audit_activities.py",
+    "alembic/versions/056_finance_role.py",
+    "alembic/versions/057_media_component_id.py",
+    "alembic/versions/058_member_persons_person_restrict.py",
+    "alembic/versions/059_chatbot_info.py",
+    "alembic/versions/060_login_token_attempts.py",
+    "alembic/versions/061_seed_stt_privacy_section.py",
+    "alembic/versions/062_email_log_and_form_engine.py",
+    "alembic/versions/063_form_sections.py",
+    "alembic/versions/064_form_option_branching.py",
+    "alembic/versions/065_form_contact_and_phone.py",
+    "alembic/versions/066_form_rating_scale.py",
+    "alembic/versions/067_form_rating_check_10.py",
+    "alembic/versions/068_product_pay_on_site.py",
+    "alembic/versions/069_hash_otp_codes.py",
+    "alembic/versions/070_kernel_jobs.py",
+    "alembic/versions/071_forms_schema.py",
+    "alembic/versions/072_workflow_tasks.py",
+    "alembic/versions/073_seed_berichten_form.py",
+    "alembic/versions/074_migrate_ideas_to_berichten.py",
+    "alembic/versions/075_mail_schema.py",
+    "alembic/versions/076_auth_schema.py",
+    "alembic/versions/077_api_keys.py",
+    "alembic/versions/078_mdm_schema.py",
+    "alembic/versions/079_payment_schema.py",
+    "alembic/versions/080_membership_schema.py",
+    "alembic/versions/081_activities_schema.py",
+    "alembic/versions/082_workflow_definitions.py",
+    "alembic/versions/083_cms_schema.py",
+    "alembic/versions/084_ai_schema.py",
+    "alembic/versions/085_media_analytics_schema.py",
+    "alembic/versions/086_tenancy_fundament.py",
+    "alembic/versions/087_tenant_config_rollen.py",
+    "alembic/versions/088_demo_seed_voorbeeldafdeling.py",
+    "alembic/versions/089_drop_business_events.py",
+    "alembic/versions/090_registration_history.py",
+    "alembic/versions/091_forms_slug_unique.py",
+    "alembic/versions/092_workflow_subject_id_tekst.py",
+    "alembic/versions/093_formulier_posities_uniek_per_ouder.py",
+    "alembic/versions/094_publiceer_de_siteblokken.py",
+    "alembic/versions/095_euroteken_voor_de_prijsplaceholder.py",
+    "alembic/versions/096_reporting_star_schema.py",
+    "alembic/versions/097_platform_tenant.py",
+    "alembic/versions/098_drop_payment_reconcile_queue.py",
+    "alembic/versions/099_reporting_saved_reports.py",
+    "alembic/versions/100_reporting_forms_and_operations.py",
+    "alembic/versions/101_reporting_reports_eight_to_ten.py",
+    "alembic/versions/102_reporting_payment_details.py",
+    "alembic/versions/103_reporting_payments_list_report.py",
+    "alembic/versions/104_reporting_operations_are_tasks.py",
+    "alembic/versions/105_reporting_tasks_instead_of_operations.py",
+    "alembic/versions/106_reporting_member_grain.py",
+    "alembic/versions/107_reporting_dashboard_reports.py",
+    "alembic/versions/108_reporting_board_member.py",
+    "alembic/versions/109_reporting_board_member_report.py",
+    "alembic/versions/110_reporting_address_dimension.py",
+    "alembic/versions/111_reporting_members_per_board_member.py",
+    "alembic/versions/112_reporting_one_address_line.py",
+    "alembic/versions/113_media_thumbs_up.py",
+    "alembic/versions/114_activity_slug.py",
+    "alembic/versions/115_reporting_leden_measures.py",
+    "alembic/versions/116_reporting_one_year_object.py",
+    "alembic/versions/117_reporting_dates_by_subject.py",
+    "alembic/versions/118_ai_call_log.py",
+    "alembic/versions/119_organization_world_attributes.py",
+    "alembic/versions/120_organization_footer_data.py",
+    "alembic/versions/121_organization_contact_block.py",
+    "alembic/versions/122_meetings_module.py",
+    "alembic/versions/123_media_tenant_logo.py",
+    "alembic/versions/124_organization_lists.py",
+    "alembic/versions/125_meeting_guests.py",
+    "alembic/versions/126_meeting_file_sent_stamps.py",
+    "alembic/versions/127_roles_per_workspace.py",
+    "alembic/versions/128_activity_registration_deadline.py",
+    "alembic/versions/129_newsletter_module.py",
+    "alembic/versions/130_ai_call_log_provider_and_cost.py",
+    "alembic/versions/131_newsletter_draft_reports.py",
+    "alembic/versions/132_home_intro_contact_button.py",
+    "alembic/versions/133_activity_organisers.py",
+    "alembic/versions/134_media_design_kinds.py",
+    "alembic/versions/135_activity_description.py",
+    "alembic/versions/136_designstudio_schema.py",
+    "alembic/versions/137_designstudio_two_presets.py",
+    "alembic/versions/138_activity_board_notes.py",
+    "alembic/versions/139_organiser_show_flags.py",
+    "alembic/versions/140_designstudio_round3.py",
+    "alembic/versions/141_home_intro_membership_band.py",
+    "alembic/versions/142_newsletter_preview_text.py",
+    "alembic/versions/143_2026_09_20_062539_designstudio_four_own_highlights.py",
+    "alembic/versions/144_2026_09_20_065547_registration_deadline_per_component.py",
+    "alembic/versions/145_2026_09_20_074133_sponsor_logo_chooses_the_footer.py",
+    "alembic/versions/146_2026_09_20_150848_designstudio_polaroid_corner.py",
+    "alembic/versions/147_2026_09_20_165122_activity_description_notes_and_.py",
+    "alembic/versions/148_2026_09_21_085722_person_names_in_the_reporting_person_.py",
+    "alembic/versions/149_2026_09_21_094703_the_registrant_reaches_the_reporting.py",
+    "alembic/versions/150_2026_09_21_224043_contact_types_say_which_of_them_are_.py",
+    "alembic/versions/151_2026_09_25_230812_language_codes_carry_the_labels_of_.py",
+    "alembic/versions/151_2026_09_26_061026_a_page_image_is_a_media_kind_of_its_own.py",
+    "alembic/versions/151_2026_09_26_063204_a_product_can_be_deactivated.py",
+    "alembic/versions/152_2026_09_25_230819_meeting_status_becomes_a_code_list_with_.py",
+    "alembic/versions/153_2026_09_26_001941_the_payment_vocabularies_become_code_.py",
+    "alembic/versions/154_2026_09_26_014501_master_data_and_roles_become_code_lists.py",
+    "alembic/versions/155_2026_09_26_045108_meetings_constants_become_code_lists.py",
+    "alembic/versions/156_2026_09_26_050603_newsletter_constants_become_code_lists.py",
+    "alembic/versions/157_2026_09_26_052050_design_studio_constants_become_code_.py",
+    "alembic/versions/158_2026_09_26_071916_workflow_constants_become_code_lists.py",
+    "alembic/versions/159_2026_09_26_073514_form_constants_become_code_lists.py",
+    "alembic/versions/160_2026_09_26_124129_mail_constants_become_code_lists.py",
+    "alembic/versions/161_2026_09_26_130003_activities_vocabularies_become_code_.py",
+    "alembic/versions/162_2026_09_26_131713_export_kind_and_history_operation_.py",
+    "alembic/versions/163_2026_09_26_144116_ai_call_log_vocabularies_become_code_.py",
+    "alembic/versions/164_2026_09_27_152744_media_kind_becomes_a_code_list.py",
+    "alembic/versions/165_2026_09_27_170441_kernel_job_status_and_workflow_subject_.py",
+    "alembic/versions/166_2026_09_28_043139_external_number_source_becomes_a_code_.py",
+    "alembic/versions/167_2026_09_28_045715_stub_payment_provider_code_seeded_.py",
+]
+# Honour the list also when a single file is passed (an editor, a pre-commit
+# hook, `--stdin-filename`), not only when ruff walks a directory.
+force-exclude = true
+
+[tool.ruff.lint]
+# The default set plus import order (#781). Deliberately NOT `N` (naming is the
+# #780 ratchet; N818 would hit the `*Fout` classes) and NOT `B008` (FastAPI's
+# `Depends()` in a default argument is the pattern, not a mistake).
+select = ["E4", "E7", "E9", "F", "I"]
+# E712 (`== True`): in a SQLAlchemy filter `Model.active == True` is a column
+# comparison that builds `active = true`, and the "fix" `is True` breaks the
+# query. `.is_(True)` is not the same either: `IS true` and `= true` differ on
+# NULL outside a WHERE, and that is no question for a formatting commit (#781).
+ignore = ["E712"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "tests", "tests_e2e"]
+# `backend/alembic/` is our migrations folder, not the alembic package; without
+# this, ruff files `from alembic import op` under first-party.
+known-third-party = ["alembic"]
+
+[tool.ruff.lint.per-file-ignores]
+# The test settings (DATABASE_URL, SECRET_KEY, APP_ENV) must be in the
+# environment BEFORE any app module is imported: app.database reads them at
+# import time. So conftest sets os.environ first and imports after.
+"tests/conftest.py" = ["E402"]
+# Pytest fixtures imported from another test module and requested by name as a
+# parameter: ruff reads each parameter as a redefinition of the import (F811).
+"tests/test_codes_phase3.py" = ["F811"]

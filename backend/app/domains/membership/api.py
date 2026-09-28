@@ -4,6 +4,7 @@ De geldigheidsregel ("mag deze persoon de ledenprijs?") en het
 hernieuwingsvenster leven hier op één plek (§19.3); andere componenten en de
 oude wereld gaan uitsluitend via deze module.
 """
+
 from app.domains.membership.models import Membership, MembershipHistory  # noqa: F401
 from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
@@ -20,41 +21,66 @@ from app.domains.membership.service import (  # noqa: F401
     LidgegevensFout,
     controleer_geboortedatum_en_geslacht,
     has_valid_membership,
+    is_member,
     members_valid_on,
     members_with_membership_for_year,
-    not_renewed_count,
-    renewal_years,
-    is_member,
     membership_coverage_until,
     membership_years,
+    not_renewed_count,
     open_renewal_payment,
     renewal_available,
     renewal_open,
+    renewal_years,
     set_relation_type,
     valid_membership_until,
 )
 
-
-
 __all__ = [
-    "Membership", "MembershipHistory",
-    "has_valid_membership", "is_member", "membership_coverage_until",
+    "Membership",
+    "MembershipHistory",
+    "has_valid_membership",
+    "is_member",
+    "membership_coverage_until",
     "open_renewal_payment",
-    "members_valid_on", "members_with_membership_for_year",
-    "membership_years", "not_renewed_count", "renewal_years",
-    "renewal_available", "renewal_open", "valid_membership_until",
+    "members_valid_on",
+    "members_with_membership_for_year",
+    "membership_years",
+    "not_renewed_count",
+    "renewal_years",
+    "renewal_available",
+    "renewal_open",
+    "valid_membership_until",
     # Verplichte lidgegevens (#681)
-    "LidgegevensFout", "controleer_geboortedatum_en_geslacht",
+    "LidgegevensFout",
+    "controleer_geboortedatum_en_geslacht",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
-    "add_person_to_family", "assign_board_member", "create_member",
-    "create_family_by_admin", "create_family_with_members", "parse_member_rows",
-    "FamilyCreate", "FamilyMemberCreate",
-    "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "family_label", "get_family",
-    "list_families", "update_person", "update_person_address",
+    "add_person_to_family",
+    "assign_board_member",
+    "create_member",
+    "create_family_by_admin",
+    "create_family_with_members",
+    "parse_member_rows",
+    "FamilyCreate",
+    "FamilyMemberCreate",
+    "create_membership_for_family",
+    "delete_family",
+    "delete_membership",
+    "delete_person",
+    "family_label",
+    "get_family",
+    "list_families",
+    "update_person",
+    "update_person_address",
     "update_person_contacts",
     # Schemas (#444)
-    "AddressUpdate", "BoardMemberAssign", "ContactsUpdate", "MemberCreate",
-    "MembershipCreate", "PersonAddToFamily", "PersonCreate", "PersonUpdate",
+    "AddressUpdate",
+    "BoardMemberAssign",
+    "ContactsUpdate",
+    "MemberCreate",
+    "MembershipCreate",
+    "PersonAddToFamily",
+    "PersonCreate",
+    "PersonUpdate",
     "PostalCodeResponse",
 ]
 
@@ -63,6 +89,7 @@ __all__ = [
 # De implementaties blijven in `household_router.py`: net als bij de
 # activiteiteninschrijving roept het scherm één domeinbewerking aan en doet het
 # zelf niets. Alleen de weg ernaartoe loopt nu via de facade (#635 I).
+
 
 def household_view(db, person):
     """Het gezin van de ingelogde persoon, zoals het portaal het toont."""
@@ -97,22 +124,19 @@ def household_add_email(db, person, person_id: int, email: str):
 
 
 def household_apply_email_rows(db, person, person_id: int, formulier):
-    from app.domains.membership.household_router import (
-        household_apply_email_rows as _impl)
+    from app.domains.membership.household_router import household_apply_email_rows as _impl
 
     return _impl(person_id, formulier, person=person, db=db)
 
 
 def household_make_email_primary(db, person, person_id: int, contact_id: int):
-    from app.domains.membership.household_router import (
-        household_make_email_primary as _impl)
+    from app.domains.membership.household_router import household_make_email_primary as _impl
 
     return _impl(person_id, contact_id, person=person, db=db)
 
 
 def household_remove_email(db, person, person_id: int, contact_id: int):
-    from app.domains.membership.household_router import (
-        household_remove_email as _impl)
+    from app.domains.membership.household_router import household_remove_email as _impl
 
     return _impl(person_id, contact_id, person=person, db=db)
 
@@ -147,12 +171,7 @@ def register_family(db, data, background_tasks):
 # handlers met `Depends` in hun signatuur — en bestond om een importcyclus te
 # vermijden. De cyclus is weg nu de implementatie in household_service woont, dat
 # zelf geen router importeert.
-from app.domains.membership.schemas_family import (  # noqa: F401
-    FamilyCreate,
-    FamilyMemberCreate,
-)
-from app.domains.membership.service import parse_member_rows  # noqa: F401
-from app.domains.membership.household_service import (  # noqa: F401
+from app.domains.membership.household_service import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
     add_person_to_family,
     assign_board_member,
     create_family_by_admin,
@@ -168,4 +187,11 @@ from app.domains.membership.household_service import (  # noqa: F401
     update_person,
     update_person_address,
     update_person_contacts,
+)
+from app.domains.membership.schemas_family import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
+    FamilyCreate,
+    FamilyMemberCreate,
+)
+from app.domains.membership.service import (  # noqa: E402, F401 — at the bottom on purpose: audit.service imports MembershipHistory from here at load time (cycle, see above)
+    parse_member_rows,
 )

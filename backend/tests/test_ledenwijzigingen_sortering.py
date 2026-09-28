@@ -4,8 +4,9 @@ De feed is een in Python samengevoegde lijst, dus de sortering en de
 whitelist leven in de route — deze tests toetsen dat het scherm heel blijft
 onder elke sleutel, ook een vijandige (#680: de reden, niet enkel de status).
 """
-from tests.conftest import SEEDED_ADMIN_EMAIL
+
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):

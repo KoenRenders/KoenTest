@@ -14,9 +14,8 @@ oorzaak maskeert het symptoom.
 Wat hier NIET gebeurt: de statuscode, de gebruikersmelding en het gedrag blijven
 gelijk. En de tokenwaarde wordt nooit gelogd, ook niet afgekort.
 """
-import logging
 
-import pytest
+import logging
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
@@ -38,8 +37,11 @@ def test_zonder_sessiecookie_no_cookie(client, db_session, caplog):
     activity, _c, _p = seed_activity_with_product(db_session)
     datum = activity.dates[0]
     with caplog.at_level(logging.WARNING, logger="app.auth.csrf"):
-        r = client.post(_pad(activity, datum), data={"start_date": "2032-01-01"},
-                        headers={"X-CSRF-Token": "wat dan ook"})
+        r = client.post(
+            _pad(activity, datum),
+            data={"start_date": "2032-01-01"},
+            headers={"X-CSRF-Token": "wat dan ook"},
+        )
     assert r.status_code == 403
     assert _reden(caplog) == "no_cookie"
 
@@ -61,8 +63,9 @@ def test_lege_header_apart_van_een_mismatch(client, db_session, caplog):
     datum = activity.dates[0]
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     with caplog.at_level(logging.WARNING, logger="app.auth.csrf"):
-        r = client.post(_pad(activity, datum), data={"start_date": "2032-01-01"},
-                        headers={"X-CSRF-Token": ""})
+        r = client.post(
+            _pad(activity, datum), data={"start_date": "2032-01-01"}, headers={"X-CSRF-Token": ""}
+        )
     assert r.status_code == 403
     assert _reden(caplog) == "empty_header"
 
@@ -72,8 +75,11 @@ def test_token_van_een_andere_sessie_mismatch(client, db_session, caplog):
     datum = activity.dates[0]
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     with caplog.at_level(logging.WARNING, logger="app.auth.csrf"):
-        r = client.post(_pad(activity, datum), data={"start_date": "2032-01-01"},
-                        headers={"X-CSRF-Token": csrf_token_for("een andere sessie")})
+        r = client.post(
+            _pad(activity, datum),
+            data={"start_date": "2032-01-01"},
+            headers={"X-CSRF-Token": csrf_token_for("een andere sessie")},
+        )
     assert r.status_code == 403
     assert _reden(caplog) == "mismatch"
 
@@ -88,10 +94,12 @@ def test_het_token_staat_nooit_in_het_log(client, db_session, caplog):
     geldig = csrf_token_for(waarde)
     vreemd = csrf_token_for("een andere sessie")
     with caplog.at_level(logging.WARNING, logger="app.auth.csrf"):
-        client.post(_pad(activity, datum), data={"start_date": "2032-01-01"},
-                    headers={"X-CSRF-Token": vreemd})
-    tekst = "\n".join(r.getMessage() + str(getattr(r, "csrf_fail", ""))
-                      for r in caplog.records)
+        client.post(
+            _pad(activity, datum),
+            data={"start_date": "2032-01-01"},
+            headers={"X-CSRF-Token": vreemd},
+        )
+    tekst = "\n".join(r.getMessage() + str(getattr(r, "csrf_fail", "")) for r in caplog.records)
     for stuk in (geldig, vreemd, waarde):
         assert stuk not in tekst, "een tokenwaarde staat in het log (#662)"
         assert stuk[:12] not in tekst, "een afgekorte tokenwaarde staat in het log"
@@ -104,8 +112,11 @@ def test_een_geldig_token_logt_niets(client, db_session, caplog):
     waarde = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, waarde)
     with caplog.at_level(logging.WARNING, logger="app.auth.csrf"):
-        r = client.post(_pad(activity, datum), data={"start_date": "2032-01-01"},
-                        headers={"X-CSRF-Token": csrf_token_for(waarde)})
+        r = client.post(
+            _pad(activity, datum),
+            data={"start_date": "2032-01-01"},
+            headers={"X-CSRF-Token": csrf_token_for(waarde)},
+        )
     assert r.status_code == 200
     assert _reden(caplog) is None
 
@@ -115,8 +126,9 @@ def test_csrf_fail_mag_in_een_json_logregel(caplog):
     from app.logging_config import EXTRA_VELDEN, JsonFormatter
 
     assert "csrf_fail" in EXTRA_VELDEN
-    record = logging.LogRecord("app.auth.csrf", logging.WARNING, "x", 1,
-                               "CSRF-controle geweigerd", None, None)
+    record = logging.LogRecord(
+        "app.auth.csrf", logging.WARNING, "x", 1, "CSRF-controle geweigerd", None, None
+    )
     record.csrf_fail = "mismatch"
     regel = JsonFormatter().format(record)
     assert '"csrf_fail": "mismatch"' in regel

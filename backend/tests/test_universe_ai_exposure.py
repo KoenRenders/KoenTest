@@ -19,6 +19,7 @@ Broken on purpose to check that they can go red, the #678 way:
   entire suite goes red rather than this file alone. That is the intended shape: a
   classification you can forget is no classification.
 """
+
 import pytest
 
 from app.domains.reporting.universe import OBJECTS, AiExposure
@@ -54,7 +55,8 @@ def test_a_tokenised_object_has_an_entity_id():
     assert not zonder, (
         f"deze objecten zijn admin_tokenised maar dragen geen entiteit-id: {zonder}. "
         f"Zonder id valt er niets te tokeniseren — declareer ze als `none`, of geef ze "
-        f"een `entity_sql`.")
+        f"een `entity_sql`."
+    )
 
 
 def test_the_three_values_are_all_in_use():
@@ -67,7 +69,8 @@ def test_the_three_values_are_all_in_use():
 
     assert in_gebruik == set(AiExposure), (
         f"niet elke waarde wordt gebruikt: {sorted(w.value for w in set(AiExposure) - in_gebruik)} "
-        f"ontbreekt — is de classificatie nog een afweging of een invuloefening?")
+        f"ontbreekt — is de classificatie nog een afweging of een invuloefening?"
+    )
 
 
 def test_the_objects_that_name_a_person_are_not_plain():
@@ -79,14 +82,22 @@ def test_the_objects_that_name_a_person_are_not_plain():
     `admin_plain`.
     """
     per_key = {o.key: o for o in OBJECTS}
-    persoonsnamen = ("member", "member_head_name", "member_partner_name", "address_line",
-                     "address_house_number", "address_bus", "board_member")
+    persoonsnamen = (
+        "member",
+        "member_head_name",
+        "member_partner_name",
+        "address_line",
+        "address_house_number",
+        "address_bus",
+        "board_member",
+    )
 
     for key in persoonsnamen:
         assert key in per_key, f"{key} bestaat niet meer — is deze lijst nog actueel?"
         assert per_key[key].ai_exposure is not AiExposure.PLAIN, (
             f"{key} wijst een persoon aan en staat op admin_plain; dan gaat een naam "
-            f"ongemaskeerd naar Mistral")
+            f"ongemaskeerd naar Mistral"
+        )
 
 
 def test_free_text_fields_reach_no_model():
@@ -100,10 +111,12 @@ def test_free_text_fields_reach_no_model():
 
     for key in ("payment_note", "task_detail", "payment_payable_label"):
         assert per_key[key].ai_exposure is AiExposure.NONE, (
-            f"{key} is vrije tekst en zou een model kunnen bereiken")
+            f"{key} is vrije tekst en zou een model kunnen bereiken"
+        )
 
 
 # ── Phase 2: a token needs a prefix as much as it needs an id ────────────────
+
 
 def _known_prefixes() -> set[str]:
     """De prefixen waarvoor de terugvertaling écht een opzoeking heeft.
@@ -145,8 +158,7 @@ def test_a_tokenised_object_declares_what_its_token_is_called():
     zonder = [o.key for o in tokenised if not o.token_prefix]
     assert not zonder, f"deze objecten worden getokeniseerd zonder prefix: {zonder}"
 
-    onbekend = {o.key: o.token_prefix for o in tokenised
-                if o.token_prefix not in _known_prefixes()}
+    onbekend = {o.key: o.token_prefix for o in tokenised if o.token_prefix not in _known_prefixes()}
     assert not onbekend, (
         "deze prefixen kent de terugvertaling niet, dus hun token wordt op het "
         f"scherm nooit een naam: {onbekend}. Voeg de opzoeking toe in "
@@ -161,6 +173,9 @@ def test_an_object_that_is_not_tokenised_carries_no_prefix():
     out as itself — the most expensive kind of wrong documentation, because it is
     in the code.
     """
-    fout = {o.key: o.token_prefix for o in OBJECTS
-            if o.token_prefix and o.ai_exposure is not AiExposure.TOKENISED}
+    fout = {
+        o.key: o.token_prefix
+        for o in OBJECTS
+        if o.token_prefix and o.ai_exposure is not AiExposure.TOKENISED
+    }
     assert not fout, f"prefix zonder tokenisatie: {fout}"

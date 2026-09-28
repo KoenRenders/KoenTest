@@ -53,6 +53,7 @@ De asserties verzamelen daarom álle ontbrekende gevallen vóór ze falen. Een l
 vol losse asserts laat de eerste de tweede verbergen, en dan lijkt één ongedekt
 geval er één terwijl het er twee zijn.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -69,48 +70,80 @@ TENANT = 7788
 def twee_kanten(db_session):
     """Vier rijen: twee waar scherm en status uit elkaar lopen, en twee met een
     NEGATIEF saldo — de gevallen van #668."""
-    from datetime import timedelta, timezone, datetime
+    from datetime import datetime, timedelta, timezone
 
     nu = datetime.now(timezone.utc)
     rest_open = PaymentRecord(
-        tenant_id=TENANT, payable_type="registration", payable_id=5001,
-        amount=Decimal("20.00"), amount_paid=Decimal("15.00"),
-        method="transfer", status="paid", type="charge",
-        created_at=nu - timedelta(days=10), paid_at=nu - timedelta(days=5))
+        tenant_id=TENANT,
+        payable_type="registration",
+        payable_id=5001,
+        amount=Decimal("20.00"),
+        amount_paid=Decimal("15.00"),
+        method="transfer",
+        status="paid",
+        type="charge",
+        created_at=nu - timedelta(days=10),
+        paid_at=nu - timedelta(days=5),
+    )
     vereffend = PaymentRecord(
-        tenant_id=TENANT, payable_type="registration", payable_id=5002,
-        amount=Decimal("10.00"), amount_paid=Decimal("10.00"),
-        method="transfer", status="pending", type="charge",
-        created_at=nu - timedelta(days=10))
+        tenant_id=TENANT,
+        payable_type="registration",
+        payable_id=5002,
+        amount=Decimal("10.00"),
+        amount_paid=Decimal("10.00"),
+        method="transfer",
+        status="pending",
+        type="charge",
+        created_at=nu - timedelta(days=10),
+    )
     # #668: een terugbetaling draagt een NEGATIEF bedrag, en een te veel betaalde
     # vordering levert eveneens een negatief saldo. Het scherm rekent daarom op de
     # ABSOLUTE waarde; een eenrichtingsvergelijking laat allebei uit het filter
     # vallen — veertien openstaande refunds destijds. Zonder deze twee rijen meet
     # deze test alleen het makkelijke geval, en dat is precies wat er misging.
     open_refund = PaymentRecord(
-        tenant_id=TENANT, payable_type="registration", payable_id=5003,
-        amount=Decimal("-5.00"), amount_paid=None,
-        method="transfer", status="pending", type="refund",
-        created_at=nu - timedelta(days=10))
+        tenant_id=TENANT,
+        payable_type="registration",
+        payable_id=5003,
+        amount=Decimal("-5.00"),
+        amount_paid=None,
+        method="transfer",
+        status="pending",
+        type="refund",
+        created_at=nu - timedelta(days=10),
+    )
     te_veel_betaald = PaymentRecord(
-        tenant_id=TENANT, payable_type="registration", payable_id=5004,
-        amount=Decimal("10.00"), amount_paid=Decimal("12.00"),
-        method="transfer", status="paid", type="charge",
-        created_at=nu - timedelta(days=10), paid_at=nu - timedelta(days=5))
+        tenant_id=TENANT,
+        payable_type="registration",
+        payable_id=5004,
+        amount=Decimal("10.00"),
+        amount_paid=Decimal("12.00"),
+        method="transfer",
+        status="paid",
+        type="charge",
+        created_at=nu - timedelta(days=10),
+        paid_at=nu - timedelta(days=5),
+    )
     db_session.add_all([rest_open, vereffend, open_refund, te_veel_betaald])
     db_session.commit()
-    return {"rest_open": rest_open, "vereffend": vereffend,
-            "open_refund": open_refund, "te_veel_betaald": te_veel_betaald}
+    return {
+        "rest_open": rest_open,
+        "vereffend": vereffend,
+        "open_refund": open_refund,
+        "te_veel_betaald": te_veel_betaald,
+    }
 
 
 def _openstaand(db, waarde: str) -> list[str]:
     """De betaal-id's die de rapportering onder *Openstaand = waarde* zet."""
     resultaat = run_validated(
         db,
-        Selection(object_keys=("payment_record", "payment_count"),
-                  filters=(Filter(object_key="payment_open",
-                                  operator=Operator.EQ, values=(waarde,)),)),
-        tenant_id=TENANT)
+        Selection(
+            object_keys=("payment_record", "payment_count"),
+            filters=(Filter(object_key="payment_open", operator=Operator.EQ, values=(waarde,)),),
+        ),
+        tenant_id=TENANT,
+    )
     return sorted(str(r["payment_record"]) for r in resultaat.rows)
 
 
@@ -127,8 +160,11 @@ def test_het_object_volgt_het_saldo_en_niet_de_status(db_session, twee_kanten):
     # tegenproef om, dan moet ze zeggen wélke gevallen niet gedekt zijn. Met een
     # lus vol asserts verbergt de eerste de tweede, en dan lijkt één ongedekt geval
     # er één — terwijl het er twee zijn.
-    ontbreekt = [naam for naam in ("rest_open", "open_refund", "te_veel_betaald")
-                 if str(twee_kanten[naam].id) not in ja]
+    ontbreekt = [
+        naam
+        for naam in ("rest_open", "open_refund", "te_veel_betaald")
+        if str(twee_kanten[naam].id) not in ja
+    ]
     assert not ontbreekt, f"horen bij Openstaand = Ja maar staan er niet: {ontbreekt}"
     assert str(twee_kanten["vereffend"].id) in nee, "vereffend hoort bij Nee"
     # En niets méér dan die vier: een object dat altijd Ja zegt, klopt hierboven.
@@ -143,6 +179,7 @@ def test_de_rapportering_zegt_hetzelfde_als_het_scherm(db_session, twee_kanten):
     tóch iets anders tonen dan de lijst waar het naar verwijst.
     """
     from app.domains.payment.api import enriched_records
+
     # `matches_zicht` staat niet op de facade — die exporteert `apply_zicht` voor
     # het scherm. Voor een vergelijking rij per rij is de regel zelf nodig; de
     # laaggate geldt voor productiecode.
@@ -150,8 +187,11 @@ def test_de_rapportering_zegt_hetzelfde_als_het_scherm(db_session, twee_kanten):
 
     ja = set(_openstaand(db_session, "Ja"))
     ids = {str(k.id) for k in twee_kanten.values()}
-    op_het_scherm = {str(r.id) for r in enriched_records(db_session)
-                     if str(r.id) in ids and matches_zicht(r, "openstaand")}
+    op_het_scherm = {
+        str(r.id)
+        for r in enriched_records(db_session)
+        if str(r.id) in ids and matches_zicht(r, "openstaand")
+    }
 
     assert ja == op_het_scherm
 
@@ -176,7 +216,6 @@ def test_het_object_staat_in_de_catalogus_en_is_bruikbaar(db_session, twee_kante
 
     # Groeperen: twee groepen, elk één rij — de waarden zijn Ja en Nee en niets anders.
     resultaat = run_validated(
-        db_session,
-        Selection(object_keys=("payment_open", "payment_count")),
-        tenant_id=TENANT)
+        db_session, Selection(object_keys=("payment_open", "payment_count")), tenant_id=TENANT
+    )
     assert {r["payment_open"] for r in resultaat.rows} == {"Ja", "Nee"}

@@ -34,6 +34,7 @@ ingrepen apart gedraaid):
   slaagt deze poort stil zodra er geen enkele meerrijige dimensie meer is — en
   dan bewaakt ze niets meer terwijl ze groen staat.
 """
+
 from __future__ import annotations
 
 import re
@@ -110,12 +111,14 @@ def test_de_poort_had_werkelijk_iets_te_controleren():
     """
     assert MEERRIJIG, (
         "geen enkele dimensie staat op multi_row — is de vlag verdwenen, of "
-        "hangt `d_activity_organiser` er niet meer? Dan bewaakt de poort niets.")
+        "hangt `d_activity_organiser` er niet meer? Dan bewaakt de poort niets."
+    )
 
     gecontroleerd = [f for f in _feiten_met_maten() if _bereikbaar(f) & MEERRIJIG]
     assert gecontroleerd, (
         f"{MEERRIJIG} hangt aan geen enkel feit met maten, dus de poort hierboven "
-        "heeft geen enkele maat bekeken.")
+        "heeft geen enkele maat bekeken."
+    )
     assert any(_maten_van(f) for f in gecontroleerd)
 
 
@@ -131,4 +134,5 @@ def test_de_keten_telt_mee_en_niet_alleen_de_directe_join():
 
     assert "d_person" in via_persoon, "de directe join ontbreekt"
     assert "d_address" in via_persoon, (
-        "d_address hangt aan d_person en hoort via de keten bereikbaar te zijn")
+        "d_address hangt aan d_person en hoort via de keten bereikbaar te zijn"
+    )

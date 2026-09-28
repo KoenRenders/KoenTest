@@ -22,6 +22,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `statisch_hash
 vervangen door `str(int(pad.stat().st_mtime))` → de aanraaktest valt om; de
 `Cache-Control` uit `_StatischeBestanden` gehaald → beide headertests vallen om.
 """
+
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,8 @@ def test_de_versie_volgt_de_inhoud(tmp_path: Path):
 
     bestand.write_bytes(b"console.log(2);")
     assert statisch_hash(bestand) != eerst, (
-        "een gewijzigd bestand houdt dezelfde versie — de browser haalt het nooit op")
+        "een gewijzigd bestand houdt dezelfde versie — de browser haalt het nooit op"
+    )
 
 
 def test_de_versie_volgt_de_wijzigingsdatum_niet(tmp_path: Path):
@@ -54,11 +56,13 @@ def test_de_versie_volgt_de_wijzigingsdatum_niet(tmp_path: Path):
     eerst = statisch_hash(bestand)
 
     import os
+
     st = bestand.stat()
     os.utime(bestand, (st.st_atime + 86400, st.st_mtime + 86400))
 
     assert statisch_hash(bestand) == eerst, (
-        "de versie hangt aan de wijzigingsdatum en niet aan de inhoud")
+        "de versie hangt aan de wijzigingsdatum en niet aan de inhoud"
+    )
 
 
 def test_een_ontbrekend_bestand_laat_de_pagina_renderen():

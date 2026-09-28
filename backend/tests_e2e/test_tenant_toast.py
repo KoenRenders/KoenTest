@@ -28,6 +28,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `toast_host()`
 zonder de vlag aangeroepen in admin_base.html en het oob-blok terug in
 admin_tenant.html — de eerste test valt om met nul kinderen in de host.
 """
+
 import os
 import sys
 
@@ -36,8 +37,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, htmx_afgerond, login_met_sessie,  # noqa: E402
-                                pagina_klaar)
+from tests_e2e.schermen import BASE, htmx_afgerond, login_met_sessie, pagina_klaar  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -72,7 +72,8 @@ def _open_editor(page):
     pagina_klaar(page)
     link = page.locator(
         "xpath=//a[starts-with(@href,'/admin/tenants/') and "
-        "translate(substring-after(@href,'/admin/tenants/'),'0123456789','')='']").first
+        "translate(substring-after(@href,'/admin/tenants/'),'0123456789','')='']"
+    ).first
     if link.count() == 0:
         _ontbreekt("geen tenant om te bewerken op deze omgeving")
     link.click()
@@ -82,7 +83,8 @@ def _open_editor(page):
 def test_de_bevestiging_is_zichtbaar_na_het_opslaan(admin_page):
     _open_editor(admin_page)
     assert admin_page.locator("#toasts > *").count() == 0, (
-        "er stond al een bevestiging vóór het opslaan")
+        "er stond al een bevestiging vóór het opslaan"
+    )
 
     # #997: read the result once the body swap has been answered and settled.
     with htmx_afgerond(admin_page):
@@ -91,7 +93,8 @@ def test_de_bevestiging_is_zichtbaar_na_het_opslaan(admin_page):
     toast = admin_page.locator("#toasts > *")
     assert toast.count() == 1, (
         "de bevestiging is geplaatst en meteen weggegooid — de host wordt bij een "
-        "body-swap zelf mee vervangen (#748)")
+        "body-swap zelf mee vervangen (#748)"
+    )
     assert toast.first.is_visible()
     assert "Opgeslagen" in toast.first.inner_text()
 
@@ -104,4 +107,5 @@ def test_de_navigatie_staat_er_nog_na_het_opslaan(admin_page):
         admin_page.get_by_role("button", name="Opslaan").first.click()
 
     assert admin_page.locator("#admin-nav-zijbalk").count() == 1, (
-        "de zijbalk is uit het lichaam verdwenen")
+        "de zijbalk is uit het lichaam verdwenen"
+    )
