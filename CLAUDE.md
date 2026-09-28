@@ -77,12 +77,15 @@ September 2026 review caught 26 Dutch function names that CI had let through.
 
 ## Code style
 
-Decided 9 September 2026, **not yet built** (corrected 27 September 2026):
-**ruff becomes the formatter and the linter**, and CI will block on both
-(`ruff format --check`, `ruff check`) — see #781 for the configuration and
-the one-off formatting commit, which rewrites 378 of 408 files and therefore
-runs only in the window between two releases, with no feature branch open
-(first step of v2.8.0). Only Claude writes
+Decided 9 September 2026, **built 28 September 2026** (#781, the first step of
+v2.8.0): **ruff is the formatter and the linter**, and CI blocks on both
+(`ruff format --check`, `ruff check`, the `lint` job). The one-off formatting
+commit rewrote 720 files in the window between two releases, with no feature
+branch open. **Rebase or `git pull` before new work** on any branch that
+predates it. The 169 migrations up to `167_2026_09_28_045715` are frozen out
+of ruff (`extend-exclude`, `force-exclude`), because a merged migration is
+never modified; that list may only shrink, and every new migration is
+formatted and linted like any other file (`test_ruff_migrations.py`). Only Claude writes
 code here, but two sessions have the same style questions as two people; ruff
 answers them once, up front, so a review is about meaning and never about
 quotes, line length or import order. Do not argue with the formatter and do
