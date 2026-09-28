@@ -8,7 +8,7 @@
 > #236 and in the template.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready** · **assigned by Koen to v2.8.0 on 27 September 2026** (tracker #1235; phases #755 (0a), #1248 (0b), #1254 (0c), #757 (1), #1249 (2), #1250 (3), #1251 (4); built by desktop-dev2, after v2.7.0 is on PROD and #781 is on `master`)
+**Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready; revision `1b22a9f5` approved by Koen on 28 September 2026** · **assigned by Koen to v2.8.0 on 27 September 2026** (tracker #1235; phases #755 (0a), #1248 (0b), #1254 (0c), #757 (1), #1249 (2), #1250 (3), #1251 (4); built by desktop-dev2, after v2.7.0 is on PROD and #781 is on `master`)
 **Applies to:** the domain layer of every module (`backend/app/domains/*`,
 `app/kernel`), the entrances to each aggregate (public form, JSON API, admin
 screen, import), and the shape a new module takes from its first commit.
@@ -52,17 +52,30 @@ where four were known.
 
 **The numbers.**
 
-| | 8–9 Sep 2026 | 27 Sep 2026 | direction |
-|---|---|---|---|
-| attribute validators (`@validates`) | 0 | **0** | — |
-| `CheckConstraint` on models | 1 | 5 (mostly #94 and CR-12) | ↑ |
-| `Enum` classes | 0 | 8, all `str, Enum` | ↑ (CR-12 converts them) |
-| `db` parameters without a type | 133 of 280 | **~200** | ↑ — *drifting the wrong way* |
-| `models.py` touching a session | — | 2 | — |
-| exception classes | 7 `*Fout` | 7 `*Fout` + **10 `*Error`** | two conventions side by side |
-| domain packages with `CONTRACT.md` / `api.py` | — | 14 / 16 of 17 | the shape exists, unenforced |
-| `required=True` promises in templates | 88 in 25 templates, server side **unmeasurable** | not re-measured (#755) | ? |
-| mutating UI routes that confirm / orderings without a tiebreaker | 2 of 91 / ~16–36 | not re-measured | outside this CR (#760, #761 — UI and query hygiene, not a rule's home; Koen, 27 Sep) |
+| | 8–9 Sep 2026 | 27 Sep 2026 | **28 Sep 2026 — master `0f389a23`, all of v2.7.0** | direction |
+|---|---|---|---|---|
+| attribute validators (`@validates`) | 0 | **0** | **0** (one hit is a docstring in `kernel/codes.py`) | — |
+| `CheckConstraint` on models | 1 | 5 (mostly #94 and CR-12) | 5 | ↑ |
+| `Enum` classes | 0 | 8, all `str, Enum` | **44 `CodeEnum` in the registry + `ExternalVocabulary` (the base of `MollieStatus`, itself a `CodeEnum` since #1280) = 45 subclasses by grep; 7 `TechnicalEnum`; 0 `str, Enum`** — CR-12 done | done |
+| `db` parameters without a type | 133 of 280 | **~200** | **207** | ↑ — *still drifting* |
+| `models.py` touching a session | — | 2 | 2 | — |
+| exception classes | 7 `*Fout` | 7 `*Fout` + **10 `*Error`** | 7 + 10 | two conventions side by side |
+| domain packages with `CONTRACT.md` / `api.py` / `codes.py` / `tests/` | — | 14 / 16 / — / 0 of 17 | 14 / 16 / **13** / 0 | `codes.py` came with CR-12; `tests/` still none |
+| `required=True` promises in templates | 88 in 25 templates, server side **unmeasurable** | 50 by dev2's spike | 179 `required` hits in 38 template files by grep — the spike's 50 is the figure that counts | ? |
+| mutating UI routes that confirm / orderings without a tiebreaker | 2 of 91 / ~16–36 | not re-measured | — | outside this CR (#760, #761) |
+
+Also on 28 September: 422 test files flat in `backend/tests/` (120
+single-domain, 228 multi-domain, 74 none — up from 391/107/205 in one
+day, v2.7.0's work); JSON routes: **124 as method × path on 97 distinct
+paths** (dev2, recursively over the running app's routers, 28 Sep — the
+unit the *JSON route with a caller* gate and the pruning use; the earlier
+113 and 117 counted decorators); 189 `db.commit()` in
+`app/domains`; 18 foreign constructions of `mdm` classes outside `mdm`
+(was 19); the direct cross-domain command calls unchanged in kind (mail ×2
+from the registration routes, `vervroeg_sweep` ×2 in `payment`, and
+`payment.api` reconcile/create calls from `activities` and `membership` —
+17 hits by grep, the gate counts). `follow_imports = "skip"` for
+`sqlalchemy.*` still stands (B4.8). Alembic head is migration 167.
 
 Reading: a lot was built since 10 September (reporting, CR-12, 57
 migrations) and the two typing numbers got **worse**, not better. That is
@@ -114,7 +127,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R10 | Full DDD machinery: separate domain objects, repositories. | Won't | CR-04, handover; Koen, 27 Sep 2026 | rich ORM entity is the style; see Non-goals |
 | R11 | CQRS — a separate write model (commands through the domain's rules) and a separate flat read model for reports. | Won't | Koen, 27 Sep 2026 | its win is that reads and writes scale apart, at very large scale; its price is two models kept in sync. Reporting (CR-06) reads the tables directly, and that suffices. |
 | R12 | A consequence in another domain after a state change (a mail, a workflow task) goes through a domain event, never through a direct call into that domain; the object says what happened, the service publishes it. | Must | Koen, 27 Sep 2026 | "de betaalcode weet niets van mail"; the dispatcher exists (`kernel/events.py`, §5.8) and is applied in three places, bypassed in at least nine |
-| R13 | This change alters **nothing in what the system does, except the explicitly named failure paths** (B7.1, column *failure paths that change*): the atomicity gap of B4.1 (today an order line stays deleted when reconciliation fails; afterwards everything rolls back), entrances that today bypass a rule the business already has (the #733 class — a JSON route that accepts what the form refuses), and #720 (a state that followed the action instead of the amounts). Everything else — every task, every mail, every screen — is identical before and after; events and methods reorganise *how*, never *what*. | Must | Koen, 27 Sep 2026 | "we gaan geen functionaliteit toevoegen of veranderen; puur technisch anders organiseren"; the failure-path exception decided 27 Sep after the review — honest, and it saves the argument when an e2e goes red |
+| R13 | This change alters **nothing in what the system does, except the explicitly named failure paths** (B7.1, column *failure paths that change*): the atomicity gap of B4.1 (today an order line stays deleted when reconciliation fails; afterwards everything rolls back), entrances that today bypass a rule the business already has (the #733 class — a JSON route that accepts what the form refuses), #720 (a state that followed the action instead of the amounts), and the charge of 0,00 that reconciliation leaves pending today (#673; Koen, 28 Sep). Everything else — every task, every mail, every screen — is identical before and after; events and methods reorganise *how*, never *what*. | Must | Koen, 27 Sep 2026 | "we gaan geen functionaliteit toevoegen of veranderen; puur technisch anders organiseren"; the failure-path exception decided 27 Sep after the review — honest, and it saves the argument when an e2e goes red |
 | R14 | A JSON route (`/api/v1`) exists because a machine caller exists, and that caller is named in the domain's `CONTRACT.md`. Routes without a caller are removed in this change. | Must | Koen, 27 Sep 2026 | "wel snoeien als onderdeel van deze change request"; not "everything also via JSON" — that doubles the doors the 8 September pain came through |
 | R15 | A domain's tests live with the domain (`domains/<c>/tests/`); flows through several domains live in `tests/integration/`; kernel, ui and gate tests stay in `backend/tests/`. The architecture document (§13.1) has said so since July; no domain has a `tests/` folder today. | Must | Koen, 27 Sep 2026 | option (a), in this CR |
 
@@ -383,7 +396,9 @@ this CR only keeps the door from rusting shut.
 **Is everything also available as JSON?** No, and it must not be (Koen, 27
 September, R14). The JSON door is the *machine contract* (architecture
 document §19.4): it exists for a named caller — an API-key user, the
-chatbot, an integration, one day an app. Measured: 113 JSON routes today,
+chatbot, an integration, one day an app. Measured: 124 JSON routes today
+(method × path, on 97 paths — the unit the gate and the pruning use; 113
+by decorator on 27 Sep),
 none in the five domains built after the React exit (`designstudio`,
 `meetings`, `newsletter`, `reporting`, `workflow`), 22 in `activities` and
 23 in `membership` — React's legacy. A convention "everything also via
@@ -513,8 +528,8 @@ classDiagram
   }
   class RegistrationItem {
     +quantity : int
-    +unit_price : Money
-    +line_total() Money
+    +product : ActivityProduct
+    +line_total(is_member) Money
   }
   class ActivityService {
     <<service — needs a session>>
@@ -526,7 +541,7 @@ classDiagram
     <<constraints at rest>>
     NOT NULL contact_name, contact_email
     CHECK quantity > 0
-    CHECK unit_price >= 0
+    CHECK price >= 0 on activity_products
   }
   Registration "1" *-- "*" RegistrationItem
   ActivityService ..> Registration : builds, calls check(), commits
@@ -536,7 +551,10 @@ classDiagram
 The four addresses in one picture: **validator** on the attribute (one
 field), **method** on the aggregate (several fields, already loaded),
 **service** for anything that needs other rows, **constraint** for what
-must hold at rest. The dashed line to the service is the boundary of B4.1:
+must hold at rest. A line stores no price: `registration_items` has
+`quantity` and `product_id` only, and `line_total()` reads the product's
+price — the member price when the registrant was a member on
+`registered_at` (dev2, 28 Sep; see B4.3). The dashed line to the service is the boundary of B4.1:
 the service reaches into the entity; the entity never reaches out.
 
 #### Drawing 4 — an order change, with events (UML sequence diagram)
@@ -588,10 +606,17 @@ adds nothing here: this CR changes no infrastructure and no tables.
 - **Env vars / settings:** none.
 - **Migrations:** only constraints (`NOT NULL`, `CHECK`) per aggregate phase;
   no new tables, no renames; `downgrade()` drops the constraint. That does
-  **not** make a phase image-revertible: after any migration no old image
-  starts — `startup.sh` runs `alembic upgrade head` and stops on *"Can't
-  locate revision"* (measured on #1203 for CR-12). Recovery is a DB restore,
-  the dump verified before the deploy, exactly as in CR-12.
+  **not** make a phase image-revertible: since #1203 (on `master` with
+  v2.7.0) `deploy.sh` refuses the automatic rollback when the release
+  carries a migration and stops for a restore instead — the old image would
+  not start (`alembic upgrade head`, *"Can't locate revision"*). Recovery is
+  a DB restore, the dump verified before the deploy, exactly as in CR-12.
+  **#1255 (expand/contract as the norm — decided by Koen on 28 September
+  2026, the norm from v2.8.0 on)** sharpens this: a new `CHECK`, `NOT NULL` or `UNIQUE` on
+  an *existing* column is **not additive** — the old app may still write a
+  value the new constraint refuses — so every migration of this CR is a
+  contract step by that definition unless it is *measured* that the old
+  app never violates it. B5.2 classifies each one.
 - **Data check before every constraint.** A `NOT NULL` on a column with one
   empty legacy row fails the migration on that environment. Each constraint
   migration counts the offending rows first and **aborts with the count**
@@ -747,8 +772,21 @@ said here so that "reads are free" is not read as permission.
 Sketched on `Registration` (from the handover), so the shape is concrete:
 `@validates("contact_name", "phone")` strips and refuses blank;
 `check()` refuses a missing team name when `self.component.team_name_required`;
-`total()` sums the items already loaded; `balance()` uses the payment records
-already loaded. The service keeps: is the component full, is this e-mail
+`total()` sums the items already loaded at the product's price for this
+registrant; `balance()` uses the payment records already loaded.
+
+**No price is stored per line** (dev2, 28 September, counting for B5.2:
+`registration_items` has `quantity` and `product_id`, nothing else). The
+unit price is derived every time, in `activities/totals.py` — the one
+place since #635 — as the product's `member_price` when the registrant had
+a valid membership on `registered_at`, else its `price`. So `total()`
+needs three things loaded and nothing queried: the items with their
+products, and the person with the memberships that
+`membership.api.has_valid_membership` reads (a cross-domain *read* through
+the facade, allowed by B4.1). Test 5 sets all three by hand. Storing the
+price on the line would be a new column and a functional change — a price
+frozen per line instead of derived on the day — which R13 excludes; if
+Koen ever wants that it is its own issue. The service keeps: is the component full, is this e-mail
 already registered, the transaction.
 
 **`check()` runs on flush, so nobody has to call it** (decided 27
@@ -918,6 +956,17 @@ parallel with phase 1 — independent, no schema, testable without a
 database; `StructuredCommunication.parse/validate` is missing functionality
 today, not a refactor.
 
+**A value object in a string context** (from CR-12 #1279, 28 September).
+CR-12 learned three times that a plain `Enum` in an f-string silently
+becomes `Class.MEMBER`; its answer is one base class whose `__str__` returns
+the code. The value objects of this CR have the same exposure: `Money`,
+`StructuredCommunication` and `ValidityPeriod` in an f-string, a log line or
+a mail body. Each defines `__str__` **deliberately** — `Money` as the
+formatted amount the screens show today (`kernel/geld.py`'s one function
+becomes that method), `StructuredCommunication` as the `+++…+++` form,
+`ValidityPeriod` as `from – to` — and `__repr__` for debugging. A value
+object without an explicit `__str__` is a B8 test failure, not a default.
+
 ### B4.8 Typing is a precondition, not a later phase
 
 The handover measured the untyped `db` parameters growing from 133 to ~200
@@ -926,6 +975,19 @@ the object is annotated (CR-12 B4.8). So per domain, in the phase that
 touches it: `db: Session` everywhere, `record: PaymentRecord` on the
 functions the rules pass through, `Mapped[]` on the columns the rules read.
 Shared with CR-12 phase 5; done once, whichever CR reaches the domain first.
+
+**What mypy enforces today: nothing on ORM attributes** (CR-12 #1273, 27
+September). `pyproject.toml` sets `follow_imports = "skip"` for
+`sqlalchemy.*`, so `Mapped` itself is `Any` and `strict_equality` is silent
+on any comparison with a mapped attribute — measured by dev1 on a
+`Mapped[MeetingStatus]` column with an annotated receiver. Whoever counts on
+mypy here to enforce anything counts on `Any`. So in this CR the
+annotations (`db: Session`, `record: PaymentRecord`) are still done — they
+are what makes mypy *able* to see, once the skip goes — but **no gate of
+B9.3 relies on mypy**; the *Typed* row is a mypy override that reports,
+and the AST gates enforce. Dropping the skip for `sqlalchemy.*` is a
+separate decision with its own cost (whatever SQLAlchemy 2.0's typing
+surfaces across 688 legacy columns); it is named here, not taken.
 
 ### B4.9 Domain events: the object says what happened, the service publishes (Koen, 27 September)
 
@@ -1047,13 +1109,60 @@ its data check (B3):
 | Phase | Table | Constraint |
 |---|---|---|
 | 1 | `activities.registrations` | `NOT NULL` **and** `CHECK (col <> '')` on `contact_name`, `contact_email`, `phone` — "not blank" is two constraints, `NOT NULL` alone lets `''` through a bulk path (AC1 names the mobile number, so `phone` is in); `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
-| 1 | `activities.registration_items` | `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)` |
+| 1 | `activities.registration_items` | `CHECK (quantity > 0)` — and no price constraint here: the line has no price column, the product's `price >= 0` in the next row covers it (dev2, 28 Sep) |
 | 1 | `activities.activity_sub_registrations`, `activities.activity_products` | `CHECK (price >= 0)`, `CHECK (member_price IS NULL OR member_price >= 0)`, `CHECK (max_participants IS NULL OR max_participants > 0)` — #94 phase 3 and 5, same schema, same migration; each with its data check |
-| 2 | `payment.payment_records` | the sign rule that respects refunds (#94 phase 2, #83): `CHECK ((type = 'charge' AND amount > 0) OR (type = 'refund' AND amount < 0))`; `CHECK (amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) OR (type = 'refund' AND amount_paid BETWEEN amount AND 0))` (CR-12 gives the closed `type` set) |
+| 2 | `payment.payment_records` | the sign rule that respects refunds (#94 phase 2, #83): `CHECK (deleted_at IS NOT NULL OR (type = 'charge' AND amount > 0) OR (type = 'refund' AND amount < 0))` — the sign rule holds for **living rows**, the same pattern as the partial UNIQUE under soft delete in B4.2 (dev2's finding and the master CLI's decision (C)+(A), 28 Sep: a soft-deleted row is still a row, so a CHECK over all rows would fail on the very row the clean-up just removed) — **in v2.8.0, made safe by a clean-up step in the same migration** (Koen, 28 Sep, on #1249; the first case under the agreement below): the migration first soft-deletes every charge of 0,00 with the same rule as (b), counts and reports the rows, and only then adds both CHECKs; `CHECK (amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) OR (type = 'refund' AND amount_paid BETWEEN amount AND 0))` stays in phase 2 with its count and holds for **all** rows, deleted included — measured: 0 violators (CR-12 gives the closed `type` set) |
 | 3 | `membership.memberships` | `CHECK (valid_from <= valid_to)`; `mdm.persons`: `NOT NULL` + `CHECK (<> '')` on `first_name`, `last_name` (a person always has a name) — **and deliberately no constraint on `date_of_birth` or `gender_code`**: the #681 rule (birth date and gender required) is a rule about a person *in a household*, not about a person — `create_person_for_circle` (#939) creates persons from the meeting circle without either, on purpose. It is a cross-object rule (the person's two fields *and* the fact of the household link), so its address is `MemberPerson.check()` — the link aggregate in `mdm`, fired on flush — never `NOT NULL` on `persons` (dev2, spike 1, 27 Sep); `mdm.contact_details`: partial unique — one `is_primary` per `(person_id, contact_type_code)` `WHERE deleted_at IS NULL` (#94 phase 5) |
 
 Validation layers: form → Pydantic (unchanged); meaning → the entity's
 validator/`check()` (new home); at rest → the constraints above.
+
+**Additive or contract, per migration (#1255's definition, 28 September).**
+A constraint on an existing column is additive only if the *old* app — the
+one still running during the deploy — never writes a value that violates
+it, and that is measured, not assumed: (a) the old app's writer paths are
+read, (b) the data on HDEV, UAT and PROD is counted (B3). Each phase issue
+carries the classification per constraint; each migration declares it
+(`ADDITIVE = True/False`, the #1255 attribute — #1255 is decided, so every
+migration of this CR carries it).
+
+| Constraint | Old-app-safe? | Why |
+|---|---|---|
+| `registrations.contact_name/contact_email/phone` `NOT NULL` + `<> ''` | **likely yes — measure** | since #1192 every writer (public form, JSON API, board screen) goes through `create_registration` → `controleer_inschrijfvelden`, which refuses blank; the import does not write registrations. Count the three columns on every environment before the deploy |
+| `registration_items.quantity > 0` | **likely yes — measure** | the router bounds `quantity` (`MAX_ITEM_QUANTITY`) and refuses 0; count |
+| `activity_sub_registrations` / `activity_products` prices `>= 0`, `max_participants > 0 OR NULL` | **likely yes — measure** | the admin forms refuse negatives; count |
+| `payment_records` sign rule | **no as such — made safe by a clean-up step in its own migration** (Koen, 28 Sep) | the old app writes charges positive and refunds negative by construction (`create_refund`), but `reconcile_charges` closes a partially paid charge on its paid amount — `amount = amount_paid` — and when that amount is 0,00 the charge stays as a pending row of 0,00 (#673's trap; one such row on HDEV). So the `CHECK` is not additive as such. Decided (Koen, 28 Sep, #1249, revised the same day): (a) the sign rule in code in phase 2 (validator, `mark_paid`), (b) `reconcile_charges` soft-deletes a charge that would close on 0,00, **and the `CHECK` in the same phase**, made safe by the migration itself: it first soft-deletes every existing charge of 0,00 with the same rule as (b) — counted and reported, today 0 on UAT and PROD, 1 on HDEV — and only then adds the CHECK. Two details make that hold (dev2, master CLI, 28 Sep): (b) soft-deletes **without** setting `amount` to 0 — the row keeps `amount > 0` with `amount_paid = 0`, so no 0,00 charge is ever written again — and the CHECK excludes deleted rows (`deleted_at IS NOT NULL OR …`), because a soft-deleted row is still a row and HDEV's existing 0,00 row cannot get its old amount back without reconstructing it from history. `compose up` replaces the container, so the old app writes nothing while the new one migrates; the only risk is a row already there, and the clean-up covers it. Going back to v2.7.0 after this migration means the dump, as for every release with a migration (#1203). The `amount_paid` bounds are measured separately: a refund's `amount_paid` is set by the treasurer, so count every row before that CHECK goes on |
+| `memberships` `valid_from <= valid_to` | **likely yes — measure** | the renewal code derives both from one date |
+| `contact_details` one primary per `(person, type)` | **measure** | today nothing enforces it; if any environment has two primaries, the constraint is a contract step or the data is fixed first |
+
+Where a constraint is **not** old-app-safe, this CR ships the validator and
+`check()` in the phase and **defers the constraint to the next release** —
+expand now, contract later — rather than breaking the running app. That is
+the only place where this CR's "all in one release" gives way, and it is
+per constraint, not per phase.
+
+**And the CR does not decide that on its own** (Koen, 28 September 2026,
+approving the revision: *"met de afspraak dat de constraints waarvoor het
+niet werkt aan mij worden voorgelegd ter goedkeuring"*). Every constraint
+that is not demonstrably safe for the old app is **put to Koen first**, per
+constraint, with the measurement beside it — the writer paths read, the
+counts per environment — and only after his approval does it move to the
+contract release. The phase issue lists them; the question to Koen names
+the constraint, what the old app could write, and what the data shows.
+
+**First case, decided the same day.** dev2 found, counting for phase 2,
+that the old app can leave a charge of 0,00 (`reconcile_charges` closing a
+charge on a paid amount of 0,00 — #673 named the trap, HDEV holds one).
+Put to Koen with the write path and the count; his answer on #1249 (28
+September): *"a + b allebei in v2.8.0"*, and the same day *"Ja, regel
+databank ook in v2.8"* — the rule in code, the write path closed **and the
+`CHECK`**, all in phase 2. What makes it safe is not a deferral but a
+clean-up step in the same migration: soft-delete every charge of 0,00 with
+the same rule as (b), count and report, then add the CHECK — written over
+living rows only, since a soft-deleted row is still a row (dev2, master
+CLI, the same day). So the first
+case under the agreement ended not as a contract step but as a constraint
+made safe by its own migration — the third answer the agreement allows.
 
 **Relation to #94 (DB-level integrity).** #94's phase 1 landed in 2026
 (migrations 033/053). Its phase 2 enum `CHECK`s are superseded by CR-12's
@@ -1089,11 +1198,11 @@ would lose less; it would not — corrected the same day.)
 | Phase | Delivers | Depends on |
 |---|---|---|
 | **0a — the meter, the listener and the simple gates** (#755; first on the branch, before any rebuild commit) | `test_rules_gate.py` + `rules_baseline.py`, the A2 numbers printed by the gate, `app/kernel/rules.py` (registry + the `before_flush` listener), the B9.1 rule added to `docs/code-style.md` (which CR-12 phase 0 created), `CLAUDE.md` pointer, exception aliases for the domains phase 1 touches; **the six simple gates**: *no session on an entity*, *module shape* (hard for new packages), *no commit in a handler* (part (a) of *one transaction*), *no network in a handler*, *JSON route with a caller*, *validator without constraint*; the **repository side** of the JSON-caller measurement (API-key users, chatbot, e2e, templates). Split off from the old phase 0 on 27 September after dev2's estimate: **3 to 5 CLI-days and about 2,000 lines of gate code** for the whole meter — too much for one issue | — |
-| **0b — the tests move** (#1248; one track, right after 0a) | all 391 test files placed per R15 in one commit series: 107 to their domains, 205 to `tests/integration/`, 70 stay; `testpaths` and root `conftest.py` adjusted; suite count identical before and after; the *tests with their domain* gate built hard here | 0a |
+| **0b — the tests move** (#1248; one track, right after 0a) | every test file placed per R15 in one commit series — single-domain files to their domains, multi-domain ones to `tests/integration/`, kernel/ui/gate files stay (**the count is the one measured right before the move; A2 carries the latest — 422 / 120 / 228 / 74 on 28 Sep — and no other section repeats it**); `testpaths` and root `conftest.py` adjusted; suite count identical before and after; the *tests with their domain* gate built hard here | 0a |
 | **0c — the heavy AST gates** (#1254; before phase 1, so the meter is complete before the first rebuild commit) | *promise kept* (with its spike: 50 promises measured by the spike, not 88 — the 8 September count probably included labels; 21 of the 50 cannot be walked from field name to column and go into the baseline **with a reason each**), *no foreign writes*, *one transaction per request* (parts (b) and (c)), *events, not calls*, *no rule in a router*, *English identifiers* (#780); and *one entrance rule* (its non-ORM discovery walk — the spike dev2 already ran, which found #681's six paths) and *one owner per derived value* — confirmed for 0c by the master CLI (27 Sep): the meter must be complete before the first rebuild commit, or phase 1 claims the `total()`/`balance()` improvement instead of the ratchet measuring it; **eight gates in 0c**; the **PROD access-log side** of the JSON-caller measurement (`app.log` on PROD does not rotate: one file since 10 September, so the window only grows) | 0a, 0b |
-| **1 — `Registration`** + value objects | #757 by the four addresses; the `before_flush` listener live on `Registration`; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0 |
-| **2 — `PaymentRecord`** | state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it; `create_refund` publishes `RefundDue(record_id, amount)`; `workflow/handlers.py` subscribes to both and does what the two `vervroeg_sweep` calls do today (`bevestig_betaling` → `PaymentReceived`, `create_refund` → `RefundDue`), which then go; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`; `create_payment_record` called from the registration routes becomes a `payment` handler on `RegistrationCreated` / `FamilyRegistered`** | 0, **CR-12 phase 1 on master** |
-| **3 — `Person` / `Member`** | membership and age rules on the objects; **the #681 rule moves to `MemberPerson.check()`** — today `membership/service.py::controleer_geboortedatum_en_geslacht` (a function every writer must remember) with a second copy in `mdm/import_service.py:225`; both go, the method stays (the `CLAUDE.md` duplication rule); `membership.api` keeps no wrapper for it — the flush listener fires it on every path, the import included; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0 |
+| **1 — `Registration`** + value objects | **starts from `create_registration` (#1192, on `master`): already the one implementation with two entrances (`register_for_activity` for form and JSON API, `board_register_for_activity` for the board) and already running `controleer_inschrijfvelden` on every path — so the #733-class entrance gap for registrations is closed before this phase; what remains is that it lives in `activities/router.py:800` (a rule at the door) and moves to `service.py`, and that #1284 (v2.7.0, one registration form for website and board with context builder and processing behind `activities/api.py`) must be on `master` first — phase 1 builds on that facade, not beside it**; #757 by the four addresses; the `before_flush` listener live on `Registration`; `total()`/`balance()` by delegate-then-move; `controleer_inschrijfvelden` moved; the entrances test; constraints of B5.2; `ActivityError` + alias; `Money`, `StructuredCommunication`, `ValidityPeriod` in the kernel (parallel); **`OrderChanged(registration_id, total_due)` published by the service after any change to the order lines — `payment/handlers.py` subscribes and reconciles; `activities` no longer calls `payment.api.reconcile_registration_charges` (`_herbereken` and `delete_registration`)** | 0a, 0b, 0c; #1284 on `master` |
+| **2 — `PaymentRecord`** | **the closed status/type/method sets of CR-12 are on `master` (dependency met); #1274's stub provider and the e2e payment chain (redirect, return, webhook, screen) are on `master` too — phase 2 tests `mark_paid`/`PaymentReceived` through the stub, not a Mollie mock, and the e2e chain stays green (AC8)**; state from amounts (`mark_paid`, `cancel`), guarded transitions, `Charge`/`Refund` only if the branching recurs; the #720 fix; `PaymentError` + alias; **`mark_paid` returns `PaymentReceived`, the service publishes it; `create_refund` publishes `RefundDue(record_id, amount)`; `workflow/handlers.py` subscribes to both and does what the two `vervroeg_sweep` calls do today (`bevestig_betaling` → `PaymentReceived`, `create_refund` → `RefundDue`), which then go; `_activate_membership` leaves `payment` and becomes `membership/handlers.py` on `PaymentReceived`; `create_payment_record` called from the registration routes becomes a `payment` handler on `RegistrationCreated` / `FamilyRegistered`; the sign rule (a) in code — validator and `mark_paid` — and (b) `reconcile_charges` soft-deleting a charge with `amount_paid = 0`, amount untouched (Koen, 28 Sep, #1249; the `CHECK` over living rows in the same migration, after its clean-up step, B5.2)** | 0a, 0b, 0c (CR-12 is on `master`: met) |
+| **3 — `Person` / `Member`** | **the `ContactTypes` constants exist (`mdm/codes.py`, `Code("EMAIL")` …, CR-12 phase 2) — no enum, as decided**; membership and age rules on the objects; **the #681 rule moves to `MemberPerson.check()`** — today `membership/service.py::controleer_geboortedatum_en_geslacht` (a function every writer must remember) with a second copy in `mdm/import_service.py:225`; both go, the method stays (the `CLAUDE.md` duplication rule); `membership.api` keeps no wrapper for it — the flush listener fires it on every path, the import included; `primary_contact(type)` (CR-12 gives `ContactType` constants); **household mutations (add/remove a person) move from `membership/household_router.py` to an `mdm` service behind `mdm.api` — master data is mutated by its owner (B2.5; Koen, 27 Sep: "gezin en personen is mdm")** | 0a, 0b, 0c |
 | **4 — sweep and close** | remaining domains' offenders removed from the baseline; the three packages missing a shape piece fixed; the two direct mail calls in the registration routes become `RegistrationConfirmed` + a mail handler; **JSON routes without a caller — in the repository and in the PROD access logs — removed, the remaining ones named in their `CONTRACT.md`** (R14); both mail handlers enqueue jobs (B4.1); `rules_baseline.py` deleted — every gate hard | 0b, 1–3 |
 
 ### B7.1 Per phase: issue and "Na de merge"
@@ -1101,10 +1210,10 @@ would lose less; it would not — corrected the same day.)
 | Phase | Issue title | Migration | Env vars | Data | Failure paths that change (R13) | Manual validation |
 |---|---|---|---|---|---|---|
 | 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, de B9.1-regel in `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
-| 0b | **#1248**: CR-13 fase 0b — tests bij hun domein: 391 bestanden geplaatst, `testpaths`, suite-telling gelijk; poort *tests with their domain* hard | none | none | none | none | CI only; the same count before and after |
+| 0b | **#1248**: CR-13 fase 0b — tests bij hun domein: alle testbestanden geplaatst (telling van vlak vóór de verhuizing, zie A2), `testpaths`, suite-telling gelijk; poort *tests with their domain* hard | none | none | none | none | CI only; the same count before and after |
 | 0c | **#1254**: CR-13 fase 0c — de zware AST-poorten (promise kept, no foreign writes, one transaction, events not calls, no rule in a router, #780; plus one entrance rule en one owner per derived value), de PROD-accesslogkant van de JSON-aanroepers | none | none | none | none | CI only; the full B9.2 table printed for the first time — the baseline of every phase after |
-| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route now refuses what the form refuses (#733 class) | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
-| 2 | CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2 | none | a count of records where `amount_paid > amount` before the CHECK | #720: a partial payment marked paid stays partially paid — the state follows the amounts | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers |
+| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route already refuses what the form refuses since #1192 — no longer a failure path of this phase; only the atomicity change remains | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
+| 2 | **#1249**: CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2; the sign `CHECK` (living rows only) preceded, in the same migration, by a clean-up that soft-deletes every charge of 0,00 the way (b) does — a history row with `source="migration"`, action `zero_charge_removed` — and reports the count; then both CHECKs (Koen, 28 Sep) | none | a count of records where `amount_paid > amount` before the bounds CHECK; the charges of 0,00 per environment (today 0 on UAT and PROD, 1 on HDEV), removed by the migration itself — no hand fix | #720: a partial payment marked paid stays partially paid — the state follows the amounts; **and (b) of #1249: a charge with `amount_paid = 0` is soft-deleted by `reconcile_charges`, its `amount` left untouched, instead of being closed on 0,00 and left pending — it disappears from the payment list, with a history row** (#673's trap; Koen, 28 Sep; the amount-untouched detail is (C), master CLI) | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers; reduce a fully paid order to nothing and see no 0,00 card |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | none expected; household mutations move domain, same behaviour | the family portal and the member list on HDEV |
 | 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler via jobs; ongebruikte JSON-routes gesnoeid | none | none | the list of removed routes, each with "no caller found in: repo, PROD access log <period>" | mail: a rolled-back registration no longer sends; the `MailRequested` handler no longer holds the transaction for SMTP | a registration on HDEV still gets its confirmation mail; the API-key users and the chatbot still work; AC7, AC9 |
 
@@ -1137,8 +1246,10 @@ look somewhere (#678).
    error and is refused on the next assignment.
 5. **Detached object — built without a single database round trip.** The
    aggregate is constructed in memory from bare attributes, its
-   relationships set by hand (`items=[...]`, `component=...`), never loaded
-   from a session; only then is every entity method called. A method that
+   relationships set by hand (`items=[...]` each with its `product`,
+   `component=...`, `person=...` with its memberships — `total()` reads
+   the member price through them, B4.3), never loaded from a session; only
+   then is every entity method called. A method that
    lazy-loads raises `DetachedInstanceError`. The first version said only
    "on a detached instance" — a fixture that touched `registration.items`
    first would have loaded the relationship and turned the test green while
@@ -1204,28 +1315,29 @@ first picture, the gate's count binds (the CR-12 rule):
 
 | Gate row | by hand, 8–27 Sep 2026 | gate, phase 0 | after this CR |
 |---|---|---|---|
-| attribute validators | 0 | — | one per field-level rule |
+| attribute validators | 0 (28 Sep: 0) | — | one per field-level rule |
 | check constraints on models | 5 | — | one per one-row validator (the *validator without constraint* gate at 0) |
 | template promises without a server-side counterpart | 88 promises by hand (8 Sep — probably counted labels too); **50 by the spike** (dev2, 27 Sep), of which 21 cannot be walked from field name to column and enter the baseline with a reason each | — | 0 |
 | writes to a mapped class outside a service, and non-ORM write paths that bypass the rules | unmeasured (four bypasses found by hand on 8 Sep; the router writes counted in phase 0) | — | 0 |
 | derived values computed outside their owner | unmeasured | — | 0 |
 | rules living in a router | unmeasured | — | 0 |
-| entities touching a session | 2 | — | 0 |
+| entities touching a session | 2 (28 Sep: 2) | — | 0 |
 | writes to another domain's mapped classes (constructor or attribute assignment outside the owner) | 21 (membership→mdm 19, mdm→membership 1, mdm→auth 1) + payment→membership by assignment | — | 0; hard for new modules from phase 0 |
 | commits outside the door service (in a handler, in a function another domain reaches through `api.py`, or mid-function) | 184 in domains / 13 in routers+UI / 3 in kernel — offenders unmeasured until the gate | — | 0 |
-| JSON routes without a named caller | 113 routes, callers unmeasured | — | 0 (removed or named) |
+| JSON routes without a named caller (unit: method × path) | 124 on 97 paths (28 Sep, dev2; the 113 of 27 Sep counted decorators), callers unmeasured | — | 0 (removed or named) |
 | single-field validators without their constraint | 0 of 0 today (no validators yet); measured from phase 1 | — | 0 |
 | direct calls into another domain's command functions (outside a handler) | at least 9 in 5 domain pairs, by hand (B4.9) | — | 0; hard for new modules from phase 0 |
 | packages missing the module shape | 3 of 17 miss `api.py`/`codes.py`/`CONTRACT.md`; 17 of 17 miss `tests/` | — | 0; hard for new ones from phase 0 |
-| single-domain test files still in `backend/tests/` | 107 (of 391; 205 multi-domain, 70 none) | measured in 0b, before the move | 0 the same day — hard from 0b, no ratchet |
-| untyped `db` parameters | ~200 | — | 0 in migrated domains |
+| single-domain test files still in `backend/tests/` | see A2 (28 Sep: 120 of 422) | measured in 0b, before the move | 0 the same day — hard from 0b, no ratchet |
+| untyped `db` parameters | ~200 (28 Sep: 207) | — | 0 in migrated domains |
 | Dutch identifiers in new code (#780) | 60 `def`/`class` names by a rough word list (9 Sep — the seed list is in #780 point 4: `controleer`, `bereken`, `haal`, `ontbreekt`, `fout`, `inschrijf`, `formulier`, `onderdeel`, `uniek`, `ouder`, …; the ±35 stems were never written down in full — dev2 builds the list, refines it on false positives, never grows the baseline) | the gate's count binds | baseline frozen in phase 0; only shrinks; 0 outside it |
 
 ### B9.3 The gate
 
 `backend/tests/test_rules_gate.py`, run by `backend-tests.yml` on every push
 and PR. Baselines in `rules_baseline.py` (frozen sets, entries may only be
-removed; deleted in phase 4).
+removed; deleted in phase 4) — the shape CR-12 used in `codes_baseline.py`
+until its phase 5 deleted it (read it from git history, not from `master`).
 
 | Gate | Looks at | Message on violation |
 |---|---|---|
@@ -1292,6 +1404,11 @@ difference between an exemption list and a burn-down.
   (dev2, 27 Sep):** 50 promises, not 88; 29 walk mechanically, 21 do not
   and go into the baseline with a reason each — the gate is mechanical for
   the 29 and a reasoned list for the 21.
+- **Found while counting for B5.2 (dev2, 28 Sep):** `registration_items`
+  has no `unit_price` column — the document's drawing 3 and two B5.2 rows
+  assumed one, and a read-only count failed on `column "unit_price" does
+  not exist`. Corrected: the price is derived from the product in
+  `totals.py`, the line CHECK is `quantity > 0` only (B4.3, B5.2).
 - To spike before phase 2: a `PaymentRecord` transition table on the real
   status values of CR-12 phase 1, against the 26 September data of HDEV
   (how many records are partially paid today).
@@ -1304,6 +1421,8 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 28 Sep 2026 | Revision `1b22a9f5` approved by Koen. #1255 (expand/contract) is the norm from v2.8.0. A constraint that is not demonstrably old-app-safe is put to Koen per constraint, with its measurement, before it moves to the contract release — the CR does not decide that itself. | Koen |
+| 28 Sep 2026 | Final revision against `master` `0f389a23` (Koen's request via the master CLI): A2 re-measured; phase 1 starts from `create_registration` (#1192) after #1284; phase 2 uses the #1274 stub; #1203 is fact; per-constraint additive/contract classification per #1255, with "validator now, constraint next release" where the old app is not safe. | Koen (asked), author (revised) |
 | 27 Sep 2026 | CR-13 assigned to **v2.8.0** (tracker #1235), built by desktop-dev2; order: v2.7.0 on PROD → #781 on `master` → the first CR-13 branch. **v2.8.0 paused by Koen later that day**; dev2 waits for his signal, the document keeps evolving. Phase issues #755 (0), #1248 (0b), #757 (1), #1249 (2), #1250 (3), #1251 (4). | Koen |
 | 27 Sep 2026 | #780 (the ratchet on Dutch identifiers) is built in CR-13 phase 0 as the fourteenth gate; #780 stays the issue that carries its measurement and closes with phase 0. | Koen |
 | 27 Sep 2026 | #94's remaining constraints (payment sign rule, component/product prices, `max_participants`, one primary contact) are placed in B5.2 by the B4.2 test; #94 keeps only its phase 4 (`ondelete`) and stays open for that. | author, on Koen's question |
@@ -1328,6 +1447,8 @@ difference between an exemption list and a burn-down.
 | 27 Sep 2026 | Rich ORM entity, no repositories; an entity never opens a session (gate). | Koen (confirmed 27 Sep), from his handover |
 | 27 Sep 2026 | All phases in **one release** (like CR-12 in v2.7.0); phase 0 is the first work on the branch so the baseline precedes the rebuild in time. | Koen |
 | 27 Sep 2026 | Validator and constraint in one issue; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | Koen (confirmed 27 Sep), from his handover |
+| 28 Sep 2026 | The payment sign rule: (a) in code, (b) the 0,00-charge write path closed, and the `CHECK` — all in phase 2 of v2.8.0. The migration soft-deletes every existing charge of 0,00 first (same rule as (b), counted and reported), then adds the CHECK. Revised the same day from "CHECK in the release after". | Koen, on #1249 |
+| 28 Sep 2026 | Within that decision: the sign CHECK excludes soft-deleted rows (`deleted_at IS NOT NULL OR …`) and (b) soft-deletes without zeroing `amount` — a soft-deleted row is still a row, so the plain CHECK would have failed on the row the clean-up removed (dev2's finding, options (C)+(A)). The bounds CHECK on `amount_paid` holds for all rows. | master CLI |
 
 ## Q&A log
 
@@ -1342,6 +1463,14 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q40 | 28 Sep 2026 | dev2, on `c92d69d9`: a soft-deleted charge of 0,00 is still a row, so "clean up, then CHECK" still fails on HDEV, and (b) as written (`amount = amount_paid = 0`, then soft-delete, one flush) is refused by the CHECK. | Master CLI: (C)+(A) — (b) keeps `amount`, only `amount_paid = 0` and `deleted_at` set; the sign CHECK is written over living rows. B5.2 (both tables, the first case), B7 and B7.1 phase 2, B11. |
+| Q39 | 28 Sep 2026 | dev2 → master CLI → Koen: the old app can write a charge of 0,00 (`reconcile_charges`, #673), so the phase-2 sign `CHECK` is not old-app-safe; (a) code only, (b) close the write path, or the CHECK anyway? | Koen on #1249: *"a + b allebei in v2.8.0"*, then the same day *"Ja, regel databank ook in v2.8"*: the CHECK too, in the same migration, after a clean-up step that soft-deletes every charge of 0,00 with the same rule as (b). No contract step, no hand fix on HDEV. B5.2 (both tables and the agreement's first case), B7 and B7.1 phase 2, R13, B11. |
+| Q38 | 28 Sep 2026 | dev2, on `1b22a9f5`: `registration_items` has no `unit_price` column; drawing 3, the B5.2 constraint row and the classification row assumed one. | The `unit_price` CHECK dropped (the product's `price >= 0` covers it, same phase); drawing 3 gives the line a `product` and `line_total(is_member)`; B4.3 states that the price is derived in `totals.py` — member price on `registered_at` — and that `total()` therefore needs items, products and the person's memberships loaded (test 5 sets them by hand); a stored line price would be a new column, outside this CR. |
+| Q37 | 28 Sep 2026 | Master CLI: Koen approves `1b22a9f5`; #1255 becomes the norm; one agreement added. | B5.2: every not-old-app-safe constraint goes to Koen for approval, per constraint and with the measurement, before it is deferred. #1255 marked decided wherever the document said it hung on him. |
+| Q36 | 28 Sep 2026 | dev2, on `dcd03036`: test counts stated in four places; JSON-route unit unclear (113/117 by decorator vs 124 method × path on 97 paths); phases 1–3 still "depends on 0"; 45 vs 44 `CodeEnum`. | All four fixed: counts live in A2 only, the unit is method × path (124/97), dependencies are 0a, 0b, 0c (+ #1284 for phase 1), 45 = 44 + `ExternalVocabulary`. |
+| Q35 | 28 Sep 2026 | Koen, via the master CLI: a last revision against `master` `0f389a23` (all of v2.7.0) before dev2 starts — do the phases' order and assumptions still hold, must the baseline be re-measured, what goes before or after #781? | Order holds (0a → 0b → 0c → 1 → 2 → 3 → 4); assumptions updated: CR-12 done (45 `CodeEnum`, closed status sets, `ContactTypes` constants, `code-style.md`), #1192's `create_registration` is phase 1's starting point and closes the #733 gap for registrations, #1284 must land first, #1274's stub is phase 2's test provider, #1203 is fact, #1255 makes every constraint a per-migration classification (B5.2). Baseline re-measured by hand on 28 Sep (A2 column); the gate re-measures in 0a and binds. Everything of CR-13 comes after #781; #1284 (v2.7.0) comes before it. |
+| Q34 | 28 Sep 2026 | From CR-12 #1279: does the "member in an f-string" class exist here? | Yes, for the value objects: each defines `__str__` deliberately (`Money` as the formatted amount, the OGM as `+++…+++`, the period as `from – to`); a value object without one fails a B8 test. |
+| Q33 | 27 Sep 2026 | Master CLI, from CR-12 #1273: `follow_imports = "skip"` for `sqlalchemy.*` makes `Mapped` `Any` — mypy enforces nothing on ORM attributes. | B4.8: named as the third source of `Any`; annotations stay as preparation, no gate relies on mypy; dropping the skip is a separate decision. |
 | Q32 | 27 Sep 2026 | Master CLI, from CR-12 #1268: a baseline-tolerated comparison on a column that became an enum went silently false; does the same threat exist here? | Yes — every phase changes types (method, value object, `Mapped[Money]`). B9.3: a type-changing commit walks the frozen offenders on that attribute; the baseline records the attribute per entry so the gate can go red on a type change by itself. |
 | Q31 | 27 Sep 2026 | Master CLI: phase 0 split after dev2's estimate (3–5 CLI-days, ~2,000 lines) into 0a (#755: meter, listener, six simple gates, repo side of the callers) and 0c (#1254: six heavy AST gates, PROD access-log side), order 0a → 0b → 0c → 1; the spike counted 50 promises (21 not walkable); PROD's `app.log` does not rotate. | Taken into B7/B7.1, B9.2 and B10. Two gates the split did not name — *one entrance rule* and *one owner per derived value* — placed in 0c by the author and confirmed by the master CLI the same day: eight gates in 0c. |
 | Q30 | 27 Sep 2026 | dev2, spike 1: the #681 rule (birth date and gender required) is a membership rule, not a `Person` rule — `create_person_for_circle` makes persons without them; does it go on `Member`/`MemberPerson` as `check()`, not on `Person`, and is that written down so nobody adds a `NOT NULL`? | Yes: `MemberPerson.check()` in `mdm` (the household link is master data, Koen 27 Sep), fired on flush; explicitly no constraint on `persons.date_of_birth`/`gender_code` (B5.2, B7 phase 3). The import's own copy goes with it. |

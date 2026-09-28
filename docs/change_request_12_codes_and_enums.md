@@ -129,8 +129,9 @@ One shape for every list, in three places with one job each: a **code
 table** (`<schema>.<list>_codes`) that says which values exist and is the
 target of a foreign key from every column that stores the value; a **label
 table** (`<schema>.<list>_labels`) keyed on `(code, language)` that carries
-the human text; and, only where Python branches on the value, a plain
-**`Enum`** whose members are checked against the active codes by a test. One
+the human text; and, only where Python branches on the value, a
+**`CodeEnum`** (a plain `Enum` subclass whose `str()` is the code, B4.3)
+whose members are checked against the codes by a test. One
 function in the kernel returns the label for a code in the active language,
 and one Jinja filter exposes it; the label dictionaries disappear. Placement
 follows Koen's rule (R6): one domain → that domain's schema; master data or
@@ -174,7 +175,7 @@ Alembic, mypy and pytest, already in use.
 | F2 | Every list has a code table with `code`, `sort_order`, `is_active`; retiring a value is `is_active = false`, never a delete, so history rows keep their FK target. | R1, R8 |
 | F3 | Every list has a label table `(code, language, value, description)`; `nl` is mandatory for every active code, `en` is seeded for every list in this change. | R2 |
 | F4 | Every mapped column that stores a list value carries a FK to the code table. History (`*_history`) tables are exempt: append-only snapshots must survive a retired code. | R1, R8 |
-| F5 | A list on which Python branches has a plain `Enum`; a test asserts members == **all** codes in the table (active and retired) after `alembic upgrade head`, so a retired code never reads back as a bare string. | R3, R4 |
+| F5 | A list on which Python branches has a `CodeEnum` (a plain `Enum` subclass, never `str, Enum`); a test asserts members == **all** codes in the table (active and retired) after `alembic upgrade head`, so a retired code never reads back as a bare string. | R3, R4 |
 | F6 | A single `code_label(list, code)` function, cached per process, using the request's `current_locale`; a Jinja filter of the same name. | R2, R4 |
 | F7 | Templates never compare a code to a literal; the view-model exposes what the template needs (label, tone, a boolean). | R4 |
 | F8 | Language keys in the label table are language codes (`nl`, `en`), not locales (`nl_BE`); the lookup takes the language part of the active locale. | R2 |
@@ -384,14 +385,46 @@ The question that decides: **does Python branch on this value?**
 - **No** (gender, contact type, relation type, language): code table + FK
   only. A row can be added by migration — later by a screen — without code.
 - **Yes** (payment status, charge/refund, payment method, newsletter and
-  meeting states, roles): code table + FK **and** a plain `Enum` in the domain
+  meeting states, roles): code table + FK **and** a `CodeEnum` in the domain
   that owns the table, exported through its `api.py`. A new value needs code
   anyway, so the enum costs nothing extra; the gate keeps it equal to the
   active codes.
 
 The enum stores its `.value` in the column through a `TypeDecorator`
-(`EnumColumn`) — never the member name (`PAID`) and never `str(member)`
-(`PaymentStatus.PAID`). Test 3 in B8 reads the column raw to prove it.
+(`EnumColumn`) — never the member name (`PAID`). Test 3 in B8 reads the
+column raw to prove it.
+
+**`str(member)` is the code** (decided 28 September 2026, after #1279 — the
+third regression of one class). Three times in one week an enum member
+silently became the string `PaymentProvider.MOLLIE` where the code was
+meant: in a template attribute (gate 12's case), in a comparison that went
+false (#1268), and in an f-string building Mollie's webhook URL
+(`gateway_service.create_payment`, `f".../webhooks/{provider_name}"` →
+`/webhooks/PaymentProvider.MOLLIE`, a 404 from Mollie; damage measured:
+none — no payment on HDEV since CR-12 runs there, UAT and PROD do not carry
+it). Python's default `Enum.__str__` returns `Class.MEMBER`, which is right
+for nothing in this codebase: a string context wants the code, always. So
+every `CodeList` enum — and the adapter enums for external vocabularies —
+inherits from one kernel base, `CodeEnum`, whose `__str__` and `__format__`
+return `.value` and whose `__repr__` keeps `PaymentProvider.MOLLIE` for
+debugging. Then an f-string, `str()`, `.format()`, a log line, a URL and a
+dict key all carry the code by construction, and the class of bug is gone
+rather than detected.
+
+Why not the two alternatives that were on the table: an **AST gate** on
+`FormattedValue`/`str()`/`format()` sees only names (B4.8) and would
+false-positive like every text gate; a **raising `__str__`** in dev/test/HDEV
+(gate 12's shape) treats a legitimate need — an identifier in a URL — as an
+error, forces `.value` ceremony everywhere, and its PROD "repair" mode
+returns exactly what `__str__` now returns by definition. What stays
+guarded: gate 12 still sees the member *object* in a template before
+`finalize` stringifies it, so a template that shows a code instead of a
+label is still red in dev/test/HDEV — the label rule (B4.4) is untouched,
+because `__str__` gives the code, never the label. And a raw code that
+reaches a screen through Python (`f"Status: {record.status}"`) is the
+existing raw-codes gate's business (#630). B8 gains a test: `f"{member}"`,
+`str(member)` and `"{}".format(member)` equal `member.value` for every
+`CodeList` enum; `repr` does not.
 
 **Member names are English; values are the stored codes, unchanged.**
 `RelationType.PRIMARY_MEMBER = "HOOFDLID"`, `LegalForm.COMPANY = "BEDRIJF"`,
@@ -568,6 +601,21 @@ something because `disallow_untyped_defs` is part of it — that flag forces
 `strict_equality` see the column. Phase 5 therefore carries the annotations
 as work, not as a side effect; the AST gate remains the gate throughout.
 
+**Measured in phase 5 (#1273), and it removes the bonus for now.**
+`strict_equality` does not catch `meeting.status == "sent"` even on a column
+declared `Mapped[MeetingStatus]` with an annotated receiver — dev1 tried, and
+mypy stayed silent. The cause is `follow_imports = "skip"` for
+`sqlalchemy.*` in `pyproject.toml`: with the import skipped, `Mapped` itself
+is `Any`, and every comparison with it is valid to mypy. So there are three
+sources of `Any`, not two: the legacy `Column()`, the untyped parameter, and
+the skipped SQLAlchemy import — and the third defeats the fix for the first
+two. The promise that `Mapped[]` plus annotations makes `strict_equality`
+bite is **false as long as the skip exists**; dev1 wrote that next to the
+override in `pyproject.toml`. What it would take: drop the skip for
+`sqlalchemy.*` (follow the SQLAlchemy 2.0 typing) and absorb whatever that
+surfaces — a separate decision, not this CR's. For CR-12 nothing changes:
+the AST gate is the gate, and it works.
+
 ### B4.9 The kernel API (what phase 0 builds)
 
 `app/kernel/codes.py`, small enough to read in one sitting. Names are the
@@ -582,6 +630,7 @@ contract; the dev CLI chooses the internals.
 | `code_labels(list_name, language=None)` | The ordered `(code, label)` pairs of the **active** codes, by `sort_order` — for select lists and report dimensions. |
 | `reset_label_cache()` | Clears the process cache; used by tests and by the future screen. |
 | Jinja filter `code_label` | Registered next to `install_jinja_i18n`: `{{ record.status \| code_label("payment_status") }}`. The *only* way a template turns a code into text. |
+| `CodeEnum` | The base class of every `CodeList` enum and of the adapter enums: plain `Enum` (not `str, Enum`), `__str__`/`__format__` → `.value`, `__repr__` → `Class.MEMBER` (B4.3, #1279). **On master since #1280 (PR #1282); all 44 code-list and adapter enums inherit from it; `TechnicalEnum` (the reporting enums, `str` mixins) deliberately untouched.** |
 | `TechnicalEnum`, `ExternalVocabulary` | Two marker base classes for an `Enum` that is deliberately **not** a code list: a technical distinction never stored or shown (the reporting engine's `Operator`, `Direction`, …), or an external party's vocabulary (Mollie's statuses, B4.10). The reason goes in the docstring; the gate below counts them. Any other `Enum` under `app/` must be in a `CodeList`. |
 | `tone(list_name, code)` | Reads the total tone mapping the owning domain registers with its `CodeList` (B4.5); Jinja filter `tone`. Both filters are registered by `install_jinja_codes(env)`, next to `install_jinja_i18n`. |
 | `install_enum_guard(env, *, strict)` | Hooks Jinja's `finalize` so no enum member ever reaches rendered output: strict → raises `EnumRendered` (dev, test, HDEV); non-strict → renders the member's code and logs once (UAT, PROD). Keeps the counter `rendered_under_the_guard` for the gate that proves it ran (B9.3, gate 12). Added after phase 3. |
@@ -601,7 +650,7 @@ were still being brought under the English rule at the time of writing.
   `expired`, `canceled`, …) on `gateway_payments.status` are Mollie's list:
   Mollie can add a value without our migration, and a FK would make the
   webhook fail on an unknown status at exactly the wrong moment. Therefore
-  **no code table, no FK, no label**, but a plain `Enum` in the adapter
+  **no code table, no FK, no label**, but a `CodeEnum` in the adapter
   (`providers/mollie.py`) for the statuses the adapter knows, an explicit
   branch for "unknown" (log, leave the record `pending`, never raise), and
   `MOLLIE_STATUS_MAP` typed from that enum to our `PaymentStatus`. The rule
@@ -715,7 +764,8 @@ today and do not change** (R8; B4.6 is the one exception). Dutch labels are
 the ones the screens show today; where two existed, the select-list word
 won (#779). The English labels were proposed by the analyst and
 **approved by Koen on 26 September 2026**; a later correction is a label
-row, not a design change. `Enum` names are English, plain `Enum`;
+row, not a design change. Enum names are English; every enum is a `CodeEnum`
+(B4.3 — the plain-`Enum` base with `str()` → code, since #1280);
 member names are English (B4.3), member values are the codes as stored.
 
 Schema names are the database schemas, which differ from the package name in
@@ -1073,6 +1123,17 @@ docstring.
 10. The gates of B9.3, each proven by one violation — for the enum gate: an
     unmarked `Enum` added to a domain module, red with its `module:Name`.
 
+**A gate that recognises classes by their base name breaks silently when a
+class is inserted between** (learned at #1280, 28 September). The enum gate
+recognised an enum by its base — `Enum`, `IntEnum`, `StrEnum`. When all 44
+code-list enums moved to `CodeEnum`, the gate saw none of them and stayed
+green: a gate that looks nowhere (#678), created not by a refactor of the
+gate but by a refactor of what it watched. Dev2 caught it and made the gate
+resolve the MRO (`issubclass(cls, Enum)`) instead of reading a name. The
+proof-of-run counters of phase 5 (the gate reports how many classes it saw)
+are what makes this class of silent break visible; every gate that walks
+classes carries one.
+
 **The violation must be additive** (learned in phase 0, PR #1186). Proving
 the "English member names" gate by *renaming* a member broke the import of
 `service.py`, the test never ran, and the run came back green — a fourth
@@ -1103,7 +1164,7 @@ before the conversion, as a test that can go red, not as a review.
 > it — in `mdm` when it is master data or used by more than one domain,
 > in `auth` when it is security vocabulary — with
 > a foreign key from every column that stores it, a label table per language,
-> and a plain `Enum` in the owning domain wherever Python branches on the
+> and a `CodeEnum` in the owning domain wherever Python branches on the
 > value. Labels come from `code_label()` and nowhere else; templates never compare
 > a code. An external party's vocabulary gets an `Enum` in its adapter and a
 > mapping to ours — never a code table: it is not our list.**
@@ -1134,7 +1195,7 @@ baseline the ratchets froze.
 | Gate row | grep, 25 Sep 2026 | **gate, phase 0** | **gate, phase 1** | after this CR |
 |---|---|---|---|---|
 | lists in the pattern (`CodeList`, derived ones included) — **target 50** (49 until the task category joined, 26 Sep). The gate does not know the target; it only measures `len(registry())`. The target lives here and nowhere else — twice in one day it had to change in B5.3, here *and* in a string in the gate, which is the signal to remove one place | 2 in the #924 shape | 2 | 7 | 49 |
-| … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, plain `Enum` |
+| … of which with an `Enum` | 2 (`str, Enum`) | 1 | 6 | one per branching list, a `CodeEnum` (all 44 since #1280) |
 | enum-carrying columns as `Mapped[]` | 0 of 688 | 1 | 7 | every column in a `CodeList` |
 | vocabulary columns without a FK (ratchet) | 43, rough count | 51 | 45 | 0 |
 | enums without a `CodeList` (ratchet) | 6 | 3 | 3 | 0 |
@@ -1209,6 +1270,11 @@ without a `CodeList` trips the enum gate, a new **`CodeList`** without
 labels trips the label gate. Whichever of the six a developer starts with,
 the other five are demanded. That is Koen's "1, 2, 3, 4, 5, 6 automatically".
 
+**Since 28 September the class of bug below is closed by construction, not
+by a gate** — `str(member)` is the code (B4.3, `CodeEnum`). Gate 12 stays,
+for the template case where the *label* was meant: it sees the member
+object before it is stringified.
+
 **The gap phase 3 exposed** (26 September 2026). None of the first eleven
 gates sees an enum member that is *rendered*: the template gate looks for a
 comparison with a literal, the loose-string gate for a comparison in Python
@@ -1247,6 +1313,18 @@ the output. Two consequences:
   entries on that column **in the same commit** and either fixes them
   (view-model boolean) or removes them; the phase issue lists them. That is
   a row in every "Na de merge" block from phase 2 on.
+
+**Scope of the rule: as long as a ratchet exists** (decided at phase 5,
+dev1's proposal, 27 September). After phase 5 the text gates hold no
+tolerated entries; a new comparison is red in the hard gate anyway, so the
+rule has nothing left to work on. What remains are the permanent exceptions
+(`FK_NOT_OUR_LIST`, `LOOSE_STRINGS_NOT_A_CODE`,
+`TEMPLATE_COMPARISONS_NOT_A_CODE`), which already carry a mandatory reason
+and the staleness rule; they get no extra attribute field — the gate would
+see only the attribute's *name* (B4.8) and would today hit three correct
+exceptions (`request.method`, the chat role `user`, Raakje's JSON). CR-13
+keeps the full rule, including the per-entry attribute in its baseline,
+because its ratchets live through several phases.
 
 **Two kinds of list, and they are not interchangeable** (phase 1, PR #1188).
 A **ratchet** promises zero: it holds today's offenders, may only shrink, is
@@ -1360,6 +1438,10 @@ value in an attribute.
 | Q4 | 25 Sep 2026 | Are `nl`/`en` the two languages, and is `fr` in scope? (Claude) | Koen: `nl` and `en` only. |
 | Q6 | 25 Sep 2026 | Gender: `O` (nl only, migration 001) next to `X` (en only, 004) — keep `X`, retire `O`? (Claude) | Koen (26 Sep): only `M`, `F`, `X`; `U` and `O` retired. |
 | Q7 | 25 Sep 2026 | The proposed English labels in B5.3 — any to correct? (Claude) | Koen (26 Sep): approved as proposed. |
+| Q38 | 28 Sep 2026 | Master CLI: `CodeEnum` is on master (#1280); the text still said "plain `Enum`" in several places; and the enum gate went blind when the base name changed. | Text aligned (seven places); the base-name pitfall in B8; `TechnicalEnum` untouched, as built. |
+| Q37 | 28 Sep 2026 | Master CLI, from #1279 (dev1): the third "member silently becomes a string" regression, now in the webhook URL — AST gate on f-strings, or a raising `__str__` like gate 12? | Neither: `__str__`/`__format__` return the code on one base class `CodeEnum` (B4.3). The AST gate false-positives on names; the raising form treats a legitimate need as an error and its PROD repair returns what `__str__` now returns anyway. Gate 12 keeps catching a member where a label was meant. |
+| Q36 | 27 Sep 2026 | Master CLI, from #1273 (dev1): `strict_equality` stays silent even on `Mapped[MeetingStatus]` — `follow_imports = "skip"` for `sqlalchemy.*` makes `Mapped` itself `Any`. | B4.8: a third source of `Any`; the mypy bonus is off until the skip goes, which is a separate decision; the AST gate is the gate. Same measurement written into CR-13 B4.8. |
+| Q35 | 27 Sep 2026 | Master CLI, at phase 5: does the enum-attribute rule survive the hard gates? | No — it applies while a ratchet exists; after phase 5 the hard gate is the rule, and the permanent exceptions get no extra field (the gate sees only names and would hit three correct exceptions). CR-13 keeps the full rule. |
 | Q34 | 27 Sep 2026 | Master CLI, from #1268 (dev1): two baseline-tolerated template comparisons on `relation_type` went silently false when phase 2 made the column an enum — primary-member field gone, required fields no longer required; ratchet green, gate 12 blind. | B9.3: a baseline entry whose attribute became an enum is red regardless of the baseline; each phase that converts a column walks the entries on it in the same commit. Same rule written into CR-13. |
 | Q33 | 27 Sep 2026 | Master CLI, from #1181: a third exemption dict (`TEMPLATE_COMPARISONS_NOT_A_CODE`); the ratchet after the leftovers stands at 0 / 3 / 13 / 49 of 50 (the media list follows the rebase) — to be copied from #1181's closing comment, not from the message; and the characterisation tests found two render regressions no gate saw. | Third dict named in B9.3 and B9.2; the figures wait for the closing comment (the document's own rule); B8 gains "a conversion that touches render paths gets a snapshot of the old output first". |
 | Q32 | 27 Sep 2026 | Is the AI-lists data question still open? (Koen, via Claude) | No: answered by Koen on 27 September in dev1's session and recorded on #1181 ("Na de merge — Data"); migration 163 built. Note 6 updated. |
