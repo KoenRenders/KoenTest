@@ -153,6 +153,10 @@ jobs:
       # aan (CR-07 §6.3: deze schakelaar én de tenantschakelaar uit seed_e2e.py).
       # De overlay zelf belt niemand: dicteren gaat via de mock-STT hierboven.
       ADMIN_CHAT_ENABLED: "true"
+      # #1274: online payments go to the stub provider, so the e2e can walk the
+      # whole chain (payment page, return, webhook, new state) without Mollie.
+      # Allowed here because APP_ENV is dev; refused on hdev/uat/prod.
+      PAYMENT_PROVIDER: stub
 
     steps:
       - uses: actions/checkout@v4
