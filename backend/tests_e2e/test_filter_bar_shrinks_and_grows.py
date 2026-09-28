@@ -34,6 +34,7 @@ Broken on purpose to check that these tests can go red (27 September 2026):
   e-mail log and the member changes (the hidden sort fields), and the
   workbench, whose second visible row gets its 12 px from `gap` now.
 """
+
 import os
 import sys
 
@@ -48,11 +49,24 @@ from tests_e2e.schermen import BASE, login_als_admin, pagina_klaar  # noqa: E402
 #: payments tab of the first activity in the list.
 TAB = "activiteit-tab"
 SCREENS = [
-    "/admin/tenants", "/admin/e-maillog", "/admin/vergaderingen", "/admin/organisaties",
-    "/admin/paginas", "/admin/ledenwijzigingen", "/admin/betalingen", TAB,
-    "/admin/formulieren", "/admin/werkbank", "/admin/rapporten", "/admin/ontwerpen",
-    "/admin/nieuwsbrieven/abonnees", "/admin/media?kind=activity_photo",
-    "/admin/gebruikers", "/admin/leden", "/admin/nieuwsbrieven", "/admin/activiteiten",
+    "/admin/tenants",
+    "/admin/e-maillog",
+    "/admin/vergaderingen",
+    "/admin/organisaties",
+    "/admin/paginas",
+    "/admin/ledenwijzigingen",
+    "/admin/betalingen",
+    TAB,
+    "/admin/formulieren",
+    "/admin/werkbank",
+    "/admin/rapporten",
+    "/admin/ontwerpen",
+    "/admin/nieuwsbrieven/abonnees",
+    "/admin/media?kind=activity_photo",
+    "/admin/gebruikers",
+    "/admin/leden",
+    "/admin/nieuwsbrieven",
+    "/admin/activiteiten",
     "/admin/design-system",
 ]
 
@@ -101,7 +115,8 @@ def _measure(page, screen: str, width: int) -> dict:
         path = page.evaluate(
             r"""Array.from(document.querySelectorAll('a[href]'))
                     .map(a => a.getAttribute('href'))
-                    .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null""")
+                    .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
+        )
         assert path, "no activity in the list to open the payments tab of"
         page.goto(f"{path}/betalingen")
     else:
@@ -122,11 +137,15 @@ def test_nothing_overlaps_on_a_phone(browser_page, screen):
     """Symptom 2: at 390 px no control overlaps what stands next to the form,
     and none sticks out of its own form."""
     m = _measure(browser_page, screen, 390)
-    clash = [(c["name"], n["name"]) for c in m["controls"] for n in m["neighbours"]
-             if _overlap(c, n)]
+    clash = [
+        (c["name"], n["name"]) for c in m["controls"] for n in m["neighbours"] if _overlap(c, n)
+    ]
     assert not clash, f"{screen}: control under a neighbour of the form: {clash}"
-    outside = [c["name"] for c in m["controls"]
-               if c["r"] > m["form"]["r"] + 1 or c["l"] < m["form"]["l"] - 1]
+    outside = [
+        c["name"]
+        for c in m["controls"]
+        if c["r"] > m["form"]["r"] + 1 or c["l"] < m["form"]["l"] - 1
+    ]
     assert not outside, f"{screen}: sticks out of the filter form: {outside}"
 
 
@@ -138,12 +157,13 @@ def test_on_a_desktop_the_button_stays_beside_the_form(browser_page, screen):
     their 1440 px geometry was compared before and after, and was identical."""
     m = _measure(browser_page, screen, 1440)
     assert m["inRow"] and m["neighbours"], (
-        f"{screen}: nothing next to the filter form — is the Raakje button on?")
+        f"{screen}: nothing next to the filter form — is the Raakje button on?"
+    )
     for n in m["neighbours"]:
         assert n["l"] >= m["form"]["r"], (
-            f"{screen}: {n['name']!r} wrapped under the form at 1440 px")
-        assert n["t"] < m["form"]["b"], (
-            f"{screen}: {n['name']!r} stands below the form at 1440 px")
+            f"{screen}: {n['name']!r} wrapped under the form at 1440 px"
+        )
+        assert n["t"] < m["form"]["b"], f"{screen}: {n['name']!r} stands below the form at 1440 px"
 
 
 @pytest.mark.parametrize("screen", ["/admin/betalingen", TAB])
@@ -153,10 +173,10 @@ def test_on_a_phone_the_button_takes_its_own_line(browser_page, screen):
     simply disappeared."""
     m = _measure(browser_page, screen, 390)
     assert m["inRow"] and m["neighbours"], (
-        f"{screen}: nothing next to the filter form — is the Raakje button on?")
+        f"{screen}: nothing next to the filter form — is the Raakje button on?"
+    )
     for n in m["neighbours"]:
-        assert n["t"] >= m["form"]["b"], (
-            f"{screen}: {n['name']!r} is not below the form at 390 px")
+        assert n["t"] >= m["form"]["b"], f"{screen}: {n['name']!r} is not below the form at 390 px"
         assert n["r"] <= 390, f"{screen}: {n['name']!r} sticks out of the screen"
 
 
@@ -167,7 +187,8 @@ def test_no_row_of_a_filter_bar_carries_a_margin(browser_page, screen):
     m = _measure(browser_page, screen, 1440)
     assert m["rowMargins"], f"{screen}: no visible row in the filter bar"
     assert all(x == 0 for x in m["rowMargins"]), (
-        f"{screen}: a row of the filter bar carries a top margin: {m['rowMargins']}")
+        f"{screen}: a row of the filter bar carries a top margin: {m['rowMargins']}"
+    )
 
 
 @pytest.mark.parametrize("screen", SCREENS)

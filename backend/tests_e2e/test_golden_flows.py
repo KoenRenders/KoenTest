@@ -5,6 +5,7 @@ Draait NIET in de gewone pytest-suite (testpaths=tests): vereist een live
 backend op E2E_BASE_URL (default http://localhost:8000) met gemigreerde DB en
 geseede postcodes. CI start uvicorn en draait `pytest tests_e2e`.
 """
+
 import os
 import time
 
@@ -74,7 +75,11 @@ def seeded_activities():
     import app.models  # noqa: F401  triggert load_all_models() → alle mappers geconfigureerd
     from app.database import SessionLocal
     from app.domains.activities.api import (
-        Activity, ActivityDate, ActivityProduct, ActivitySubRegistration)
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+    )
 
     db = SessionLocal()
     toekomst = date.today() + timedelta(days=30)
@@ -84,8 +89,12 @@ def seeded_activities():
     db.flush()
     db.add(ActivityDate(activity_id=team.id, start_date=toekomst))
     team_comp = ActivitySubRegistration(
-        activity_id=team.id, name="Ploegonderdeel",
-        team_name_required=True, price=Decimal("0"), is_free=True)
+        activity_id=team.id,
+        name="Ploegonderdeel",
+        team_name_required=True,
+        price=Decimal("0"),
+        is_free=True,
+    )
     db.add(team_comp)
     db.flush()
 
@@ -94,17 +103,18 @@ def seeded_activities():
     db.flush()
     db.add(ActivityDate(activity_id=prod_act.id, start_date=toekomst))
     prod_comp = ActivitySubRegistration(
-        activity_id=prod_act.id, name="Producten", price=Decimal("0"), is_free=True)
+        activity_id=prod_act.id, name="Producten", price=Decimal("0"), is_free=True
+    )
     db.add(prod_comp)
     db.flush()
     ticket = ActivityProduct(
-        component_id=prod_comp.id, name="Ticket", price=Decimal("10.00"), is_free=False)
+        component_id=prod_comp.id, name="Ticket", price=Decimal("10.00"), is_free=False
+    )
     db.add(ticket)
     db.flush()
 
     db.commit()
-    ids = {"team": (team.id, team_comp.id),
-           "prod": (prod_act.id, prod_comp.id, ticket.id)}
+    ids = {"team": (team.id, team_comp.id), "prod": (prod_act.id, prod_comp.id, ticket.id)}
     db.close()
     return ids
 
@@ -115,7 +125,7 @@ def _open_inschrijfform(page, aid: int, cid: int):
     # #inschrijf-<aid>-<cid>. Selecteer 'm precies op zijn hx-get.
     page.click(f'button[hx-get="/activiteiten/{aid}/inschrijven/{cid}"]')
     page.fill("#contact_name", "E2E Deelnemer")
-    page.fill("#contact_email", f"e2e+{int(time.time()*1000)}@example.com")
+    page.fill("#contact_email", f"e2e+{int(time.time() * 1000)}@example.com")
     page.fill("#phone", "0470000000")
 
 
@@ -160,8 +170,15 @@ def wizard_form_token():
         sec = FormSection(form_id=form.id, title=f"Sectie {i + 1}", position=i)
         db.add(sec)
         db.flush()
-        db.add(FormField(form_id=form.id, section_id=sec.id, field_type="text",
-                         label=f"Vraag {i + 1}", position=0))
+        db.add(
+            FormField(
+                form_id=form.id,
+                section_id=sec.id,
+                field_type="text",
+                label=f"Vraag {i + 1}",
+                position=0,
+            )
+        )
     db.commit()
     db.close()
     return token
@@ -195,8 +212,12 @@ def test_formulier_wizard_navigatie(page, wizard_form_token):
 
 def test_publieke_kern_bereikbaar(page):
     """Smoke: de publieke kernpagina's renderen server-side."""
-    for pad, tekst in (("/", "Raak"), ("/activiteiten", "Activiteiten"),
-                       ("/fotos", "Foto's"), ("/berichten", "")):
+    for pad, tekst in (
+        ("/", "Raak"),
+        ("/activiteiten", "Activiteiten"),
+        ("/fotos", "Foto's"),
+        ("/berichten", ""),
+    ):
         resp = page.goto(pad)
         assert resp is not None and resp.ok, pad
         if tekst:

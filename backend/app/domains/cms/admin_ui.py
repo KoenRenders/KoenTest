@@ -4,6 +4,7 @@ Lijst + aanmaken + bewerken (titel, slug, inhoud, publicatie, navigatie,
 volgorde) + verwijderen. Hergebruikt de bestaande cms-routerfuncties als
 servicelaag; toont de beschikbare placeholder-codes bij het bewerken.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -12,11 +13,12 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    admin_user_by_email, csrf_from_request,
-    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
+    csrf_from_request,
+    require_admin_ui,
+    require_csrf,
 )
-from app.ui import admin_nav, filterparams, is_fragment_request, templates
 from app.i18n import _
+from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -43,17 +45,23 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     pages = list(alle)
     term = q.strip().lower()
     if term:
-        pages = [p for p in pages
-                 if term in (p.title or "").lower() or term in (p.slug or "").lower()]
+        pages = [
+            p for p in pages if term in (p.title or "").lower() or term in (p.slug or "").lower()
+        ]
     if status == "published":
         pages = [p for p in pages if p.is_published]
     elif status == "draft":
         pages = [p for p in pages if not p.is_published]
     elif status == "in_nav":
         pages = [p for p in pages if p.show_in_nav]
-    return {"pages": pages, "q": q, "status": status,
-            "gefilterd": bool(term or status),
-            "eerste_id": eerste_id, "laatste_id": laatste_id}
+    return {
+        "pages": pages,
+        "q": q,
+        "status": status,
+        "gefilterd": bool(term or status),
+        "eerste_id": eerste_id,
+        "laatste_id": laatste_id,
+    }
 
 
 def _editor_ctx(request: Request, db: Session, page) -> dict:
@@ -73,48 +81,63 @@ def _editor_ctx(request: Request, db: Session, page) -> dict:
         # rather than fetched when the dialog opens — there is a handful of these,
         # and `meta()` already carries the thumbnail URL and the dimensions, so a
         # separate route would only add a second place that builds the same URL.
-        "page_images": [a for a in list_media(db, kind=PAGE_IMAGE_KIND)
-                        if a.get("is_active", True)],
+        "page_images": [
+            a for a in list_media(db, kind=PAGE_IMAGE_KIND) if a.get("is_active", True)
+        ],
         "csrf_token": csrf_from_request(request),
         "error": None,
     }
 
 
-def _detail_response(request: Request, db: Session, page_id: int, *,
-                     toast: bool = False):
+def _detail_response(request: Request, db: Session, page_id: int, *, toast: bool = False):
     from app.domains.cms.api import get_page_by_id
 
     page = get_page_by_id(db, page_id)
     if page is None:
         return HTMLResponse('<div id="cp-detail" hx-swap-oob="true"></div>')
-    return templates.TemplateResponse(request, "_cp_detail.html", {
-        **_editor_ctx(request, db, page), "toast_opgeslagen": toast})
+    return templates.TemplateResponse(
+        request, "_cp_detail.html", {**_editor_ctx(request, db, page), "toast_opgeslagen": toast}
+    )
 
 
 @router.get("/admin/paginas", response_class=HTMLResponse)
-def admin_paginas(request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui),
-                  q: str = "", status: str = ""):
-    sjabloon = ("_cp_kaarten.html" if is_fragment_request(request)
-                else "admin_paginas.html")
-    return templates.TemplateResponse(request, sjabloon, {
-        "nav_items": NAV, "csrf_token": csrf_from_request(request),
-        **_lijst_ctx(db, q, status)})
+def admin_paginas(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    q: str = "",
+    status: str = "",
+):
+    sjabloon = "_cp_kaarten.html" if is_fragment_request(request) else "admin_paginas.html"
+    return templates.TemplateResponse(
+        request,
+        sjabloon,
+        {"nav_items": NAV, "csrf_token": csrf_from_request(request), **_lijst_ctx(db, q, status)},
+    )
 
 
 @router.get("/admin/paginas/nieuw", response_class=HTMLResponse)
-def pagina_nieuw(request: Request, db: Session = Depends(get_db),
-                 email: str = Depends(require_admin_ui)):
+def pagina_nieuw(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
-    return templates.TemplateResponse(request, "admin_pagina_nieuw.html", {
-        "nav_items": NAV,
-        "csrf_token": csrf_from_request(request),
-    })
+    return templates.TemplateResponse(
+        request,
+        "admin_pagina_nieuw.html",
+        {
+            "nav_items": NAV,
+            "csrf_token": csrf_from_request(request),
+        },
+    )
 
 
 @router.get("/admin/paginas/{page_id}", response_class=HTMLResponse)
-def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
+def pagina_detail(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Een kaart opent de paginabrede editor (C1, #587); het opslaan daarbinnen
     blijft een htmx-fragment dat in #cp-detail landt."""
     if is_fragment_request(request):
@@ -124,15 +147,19 @@ def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
     page = get_page_by_id(db, page_id)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(request, "admin_pagina.html", {
-        "nav_items": NAV, **_editor_ctx(request, db, page)})
+    return templates.TemplateResponse(
+        request, "admin_pagina.html", {"nav_items": NAV, **_editor_ctx(request, db, page)}
+    )
 
 
-@router.post("/admin/paginas", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def pagina_aanmaken(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui),
-                    title: str = Form(""), slug: str = Form("")):
+@router.post("/admin/paginas", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def pagina_aanmaken(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+    slug: str = Form(""),
+):
     from app.domains.cms.api import create_page
     from app.schemas.cms import CmsPageCreate
 
@@ -141,23 +168,28 @@ def pagina_aanmaken(request: Request, db: Session = Depends(get_db),
     from app.domains.cms.api import SlugBestaatAl
 
     try:
-        nieuw = create_page(db, CmsPageCreate(title=title.strip(),
-                                              slug=slug.strip().lower()))
+        nieuw = create_page(db, CmsPageCreate(title=title.strip(), slug=slug.strip().lower()))
     except SlugBestaatAl:
         raise HTTPException(status_code=400, detail=_("Die slug bestaat al."))
     # Aanmaken opent meteen de editor: een verse pagina heeft nog inhoud nodig.
-    return Response(status_code=204,
-                    headers={"HX-Redirect": f"/admin/paginas/{nieuw.id}"})
+    return Response(status_code=204, headers={"HX-Redirect": f"/admin/paginas/{nieuw.id}"})
 
 
-@router.post("/admin/paginas/{page_id}", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui),
-                     title: str = Form(""), slug: str = Form(""),
-                     content: str = Form(""), is_published: str = Form(""),
-                     show_in_nav: str = Form(""),
-                     sort_order: str | None = Form(None)):
+@router.post(
+    "/admin/paginas/{page_id}", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def pagina_bijwerken(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    title: str = Form(""),
+    slug: str = Form(""),
+    content: str = Form(""),
+    is_published: str = Form(""),
+    show_in_nav: str = Form(""),
+    sort_order: str | None = Form(None),
+):
     from app.domains.cms.api import update_page
     from app.schemas.cms import CmsPageUpdate
 
@@ -174,9 +206,12 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
     # CmsPageUpdate slaat None-velden over (exclude_none) — booleans en content
     # moeten dus altijd een waarde meekrijgen, anders kun je nooit uitvinken.
     data = CmsPageUpdate(
-        title=title.strip() or None, slug=slug.strip().lower() or None,
-        content=content, is_published=bool(is_published),
-        show_in_nav=bool(show_in_nav), sort_order=volgorde,
+        title=title.strip() or None,
+        slug=slug.strip().lower() or None,
+        content=content,
+        is_published=bool(is_published),
+        show_in_nav=bool(show_in_nav),
+        sort_order=volgorde,
     )
     update_page(db, page_id, data)
     # Geen HX-Trigger meer voor de zijlijst: die master-detail-lijst bestond
@@ -186,11 +221,18 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
     return _detail_response(request, db, page_id, toast=True)
 
 
-@router.post("/admin/paginas/{page_id}/volgorde/{richting}",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def pagina_verplaatsen(page_id: int, richting: str, request: Request,
-                       db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/paginas/{page_id}/volgorde/{richting}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def pagina_verplaatsen(
+    page_id: int,
+    richting: str,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Eén plaats omhoog of omlaag (#745).
 
     De volgorde werd tot nu toe gezet door in élke pagina een getal te typen: om er
@@ -213,15 +255,26 @@ def pagina_verplaatsen(page_id: int, richting: str, request: Request,
     # dezelfde selectie terugkrijgt en niet plots de hele lijst.
     stand = filterparams(request)
     return templates.TemplateResponse(
-        request, "_cp_kaarten.html",
-        {"csrf_token": csrf_from_request(request),
-         **_lijst_ctx(db, stand.get("q", ""), stand.get("status", ""))})
+        request,
+        "_cp_kaarten.html",
+        {
+            "csrf_token": csrf_from_request(request),
+            **_lijst_ctx(db, stand.get("q", ""), stand.get("status", "")),
+        },
+    )
 
 
-@router.post("/admin/paginas/{page_id}/verwijderen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def pagina_verwijderen(page_id: int, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/paginas/{page_id}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def pagina_verwijderen(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     from app.domains.cms.api import delete_page
 
     delete_page(db, page_id)
@@ -230,8 +283,12 @@ def pagina_verwijderen(page_id: int, request: Request, db: Session = Depends(get
 
 
 @router.get("/admin/paginas/{page_id}/voorbeeld", response_class=HTMLResponse)
-def pagina_voorbeeld(page_id: int, request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
+def pagina_voorbeeld(
+    page_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
     publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
     dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
@@ -242,12 +299,18 @@ def pagina_voorbeeld(page_id: int, request: Request, db: Session = Depends(get_d
     page = get_page_by_id(db, page_id)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(request, "cms_pagina.html", {
-        **site_context(db, request), "page": page,
-        "content_html": render_cms_content(page.content or ""),
-        # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
-        # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
-        # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet
-        # belooft, is precies wat de sjabloon-poort tegenhoudt.
-        "toon_contactblok": page.slug == "privacy",
-        "concept": not page.is_published})
+    return templates.TemplateResponse(
+        request,
+        "cms_pagina.html",
+        {
+            **site_context(db, request),
+            "page": page,
+            "content_html": render_cms_content(page.content or ""),
+            # #924: het voorbeeld toont wat de bezoeker ziet, dus ook het contactblok
+            # op de privacypagina. Expliciet meegeven en niet aan de sjabloon
+            # overlaten: een sjabloon dat om iets vraagt wat zijn aanroeper niet
+            # belooft, is precies wat de sjabloon-poort tegenhoudt.
+            "toon_contactblok": page.slug == "privacy",
+            "concept": not page.is_published,
+        },
+    )

@@ -4,29 +4,59 @@ Opslag-adapter: vandaag LargeBinary in Postgres (mee in de ene backup);
 `MediaAsset.data`/`thumbnail` zijn de enige opslagvelden — een latere
 object-storage-adapter wisselt achter deze facade.
 """
+
+# CR-12 phase 4: the kind of a file as a code list.
+from app.domains.media.codes import MEDIA_KIND  # noqa: F401
 from app.domains.media.extraction import (  # noqa: F401
     EXTRACTABLE_KINDS,
     _extract_pdf_text_layer,
     extract_document_text,
     update_media_extracted_text,
 )
-from app.domains.media.models import MediaAsset, MediaKind, MediaThumbsUp, as_media_kind  # noqa: F401
-# CR-12 phase 4: the kind of a file as a code list.
-from app.domains.media.codes import MEDIA_KIND  # noqa: F401
+from app.domains.media.models import (  # noqa: F401
+    MediaAsset,
+    MediaKind,
+    MediaThumbsUp,
+    as_media_kind,
+)
 from app.domains.media.svg import SVG_CONTENT_TYPE  # noqa: F401  (#989)
 
 __all__ = [
-    "MediaFout", "VALID_KINDS", "UPLOADABLE_KINDS", "DESIGN_KINDS",
-    "DESIGN_IMAGE_KIND", "DESIGN_RENDER_KIND", "DOCUMENT_KINDS", "PAGE_IMAGE_KIND",
-    "SVG_CONTENT_TYPE", "add_document",
-    "tenant_logo", "activity_ids_with_media", "activity_image_path",
-    "activity_photo_covers", "delete_media",
-    "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
-    "thumb_counts", "thumbs_of_visitor", "toggle_thumb",
-    "MediaAsset", "MediaKind", "MediaThumbsUp", "MEDIA_KIND", "as_media_kind",
-    "EXTRACTABLE_KINDS", "extract_document_text",
-    "delete_activity_poster", "delete_component_info", "reextract_text",
-    "replace_activity_poster", "replace_component_info",
+    "MediaFout",
+    "VALID_KINDS",
+    "UPLOADABLE_KINDS",
+    "DESIGN_KINDS",
+    "DESIGN_IMAGE_KIND",
+    "DESIGN_RENDER_KIND",
+    "DOCUMENT_KINDS",
+    "PAGE_IMAGE_KIND",
+    "SVG_CONTENT_TYPE",
+    "add_document",
+    "tenant_logo",
+    "activity_ids_with_media",
+    "activity_image_path",
+    "activity_photo_covers",
+    "delete_media",
+    "list_activity_photos",
+    "list_media",
+    "move_media",
+    "update_media",
+    "upload_media",
+    "thumb_counts",
+    "thumbs_of_visitor",
+    "toggle_thumb",
+    "MediaAsset",
+    "MediaKind",
+    "MediaThumbsUp",
+    "MEDIA_KIND",
+    "as_media_kind",
+    "EXTRACTABLE_KINDS",
+    "extract_document_text",
+    "delete_activity_poster",
+    "delete_component_info",
+    "reextract_text",
+    "replace_activity_poster",
+    "replace_component_info",
     "update_media_extracted_text",
 ]
 
@@ -36,28 +66,28 @@ __all__ = [
 # leidt uiteindelijk terug naar deze facade. Staat de import bovenaan, dan is
 # `EXTRACTABLE_KINDS` nog niet gebonden wanneer de keten terugkomt. Onderaan wel.
 from app.domains.media.service import (  # noqa: F401
-    PAGE_IMAGE_KIND,
-    VALID_KINDS,
-    UPLOADABLE_KINDS,
-    DESIGN_KINDS,
     DESIGN_IMAGE_KIND,
+    DESIGN_KINDS,
     DESIGN_RENDER_KIND,
     DOCUMENT_KINDS,
-    add_document,
-    tenant_logo,
-    delete_activity_poster,
-    delete_component_info,
-    reextract_text,
-    replace_activity_poster,
-    replace_component_info,
+    PAGE_IMAGE_KIND,
+    UPLOADABLE_KINDS,
+    VALID_KINDS,
     MediaFout,
     activity_ids_with_media,
     activity_image_path,
     activity_photo_covers,
+    add_document,
+    delete_activity_poster,
+    delete_component_info,
     delete_media,
     list_activity_photos,
     list_media,
     move_media,
+    reextract_text,
+    replace_activity_poster,
+    replace_component_info,
+    tenant_logo,
     thumb_counts,
     thumbs_of_visitor,
     toggle_thumb,

@@ -4,10 +4,11 @@ De parsing zelf wordt voor de happy-path gemonkeypatcht (geen .xls nodig); de
 foutpaden (ongeldig bestand, .xlsx) gebruiken de echte parser. De upsert-logica
 is uitvoerig getest in test_member_import_upsert.py.
 """
+
 import pytest
 
-from app.domains.mdm.api import Member
 import app.domains.mdm.import_router as mi
+from app.domains.mdm.api import Member
 from tests.conftest import seed_postal_code
 
 PREVIEW = "/api/v1/admin/member-import/preview"
@@ -23,18 +24,28 @@ def _clear_pending():
 
 def _row(lidnr, voornaam, naam, relatie="HOOFDLID", email=None):
     return {
-        "lidnr": lidnr, "voornaam": voornaam, "naam": naam,
-        "straat": "milostraat", "huisnummer": "40", "busnummer": "",
-        "postcode": "2400", "gemeente": "Mol",
-        "email": email, "telefoon": None, "gsm": None,
-        "geboortedatum": None, "geslacht": None,
-        "bestuurslid": None, "_relatie": relatie,
+        "lidnr": lidnr,
+        "voornaam": voornaam,
+        "naam": naam,
+        "straat": "milostraat",
+        "huisnummer": "40",
+        "busnummer": "",
+        "postcode": "2400",
+        "gemeente": "Mol",
+        "email": email,
+        "telefoon": None,
+        "gsm": None,
+        "geboortedatum": None,
+        "geslacht": None,
+        "bestuurslid": None,
+        "_relatie": relatie,
     }
 
 
 def _fake_parse(families):
     def _inner(content):
         return families, {}, [], []
+
     return _inner
 
 

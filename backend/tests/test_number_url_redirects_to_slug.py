@@ -19,6 +19,7 @@ Broken on purpose to check that these tests can go red: the 307 changed to a 301
 test falls over, and that is the detail that quietly changes in a rewrite; the `activity_key
 != slug` guard dropped → the slug URL redirects to itself and the test hits a redirect loop.
 """
+
 from datetime import date
 
 import pytest
@@ -46,7 +47,8 @@ def test_the_number_url_redirects_to_the_slug(client, db_session):
 
     assert resp.status_code == 307, (
         f"{resp.status_code} — een permanente doorverwijzing wordt door de browser "
-        f"onthouden en krijg je nauwelijks nog weg")
+        f"onthouden en krijg je nauwelijks nog weg"
+    )
     assert resp.headers["location"] == "/activiteiten/zomerfeest-2026/fotos"
 
     gevolgd = client.get(f"/activiteiten/{activity.id}/fotos")
@@ -73,7 +75,8 @@ def test_the_slug_url_does_not_redirect_to_itself(client, db_session):
     resp = client.get("/activiteiten/kerstmarkt-2026/fotos", follow_redirects=False)
 
     assert resp.status_code == 200, (
-        f"{resp.status_code} — de slug-URL verwijst door, dus dit draait rond")
+        f"{resp.status_code} — de slug-URL verwijst door, dus dit draait rond"
+    )
 
 
 def test_an_admin_path_with_a_number_does_not_redirect(client, db_session):

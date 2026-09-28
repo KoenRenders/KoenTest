@@ -9,14 +9,13 @@ De regel bij meerdere treffers (bevestigd in #80):
     (bij voorkeur de hoofdlid-persoon),
   - treffers in verschillende gezinnen -> weigeren, want we mogen niet gokken.
 """
+
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.domains.mdm.api import Person, MemberPerson
-from app.domains.mdm.api import ContactDetail
-from app.domains.mdm.api import CONTACT, RelationType
+from app.domains.mdm.api import CONTACT, ContactDetail, Person, RelationType
 
 
 def find_persons_by_email(db: Session, email: str) -> List[Person]:
@@ -39,11 +38,7 @@ def resolve_household(db: Session, persons: List[Person]) -> Tuple[str, Optional
     """
     if not persons:
         return ("none", None)
-    member_ids = {
-        mp.member_id
-        for p in persons
-        for mp in p.member_persons
-    }
+    member_ids = {mp.member_id for p in persons for mp in p.member_persons}
     if not member_ids:
         return ("none", None)
     if len(member_ids) > 1:
@@ -63,6 +58,9 @@ def login_person_for_email(db: Session, email: str) -> Optional[Person]:
     if status != "ok":
         return None
     for p in persons:
-        if any(mp.member_id == member_id and mp.relation_type == RelationType.PRIMARY_MEMBER for mp in p.member_persons):
+        if any(
+            mp.member_id == member_id and mp.relation_type == RelationType.PRIMARY_MEMBER
+            for mp in p.member_persons
+        ):
             return p
     return persons[0]

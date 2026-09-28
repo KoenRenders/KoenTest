@@ -3,14 +3,18 @@
 docker-compose neemt álles na '=' als waarde (inclusief '# uitleg'); de
 field-validator moet dat wegsnijden zodat de hernieuwingslogica niet stilletjes
 uitvalt (#139)."""
+
 from app.config import Settings
 
 _STRONG = "a" * 32
 
 
 def test_md_inline_comment_wordt_gestript():
-    s = Settings(secret_key=_STRONG, app_env="dev",
-                 membership_renewal_start_md="06-01   # Vanaf wanneer hernieuwen")
+    s = Settings(
+        secret_key=_STRONG,
+        app_env="dev",
+        membership_renewal_start_md="06-01   # Vanaf wanneer hernieuwen",
+    )
     assert s.membership_renewal_start_md == "06-01"
 
 

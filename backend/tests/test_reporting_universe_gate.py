@@ -30,6 +30,7 @@ is a template over `{view}`, so every column it touches is literally
 And it refuses an empty scan: no objects, no joins or no views means the gate is
 looking at the wrong thing, not that everything is fine.
 """
+
 from __future__ import annotations
 
 import re
@@ -39,11 +40,11 @@ from sqlalchemy import text
 
 from app.domains.reporting.docs import DOC_PATH, render
 from app.domains.reporting.universe import (
-    DIMENSION_BY_KEY,
     CLASSES,
+    DIMENSION_BY_KEY,
     DIMENSIONS,
-    FACTS,
     FACT_BY_KEY,
+    FACTS,
     JOINS,
     OBJECTS,
     ObjectKind,
@@ -54,9 +55,12 @@ _COLUMN_REFERENCE = re.compile(r"\{view\}\.([a-z_][a-z0-9_]*)", re.IGNORECASE)
 
 
 def _schema_columns(db) -> dict[str, set[str]]:
-    rows = db.execute(text(
-        "SELECT table_name, column_name FROM information_schema.columns "
-        "WHERE table_schema = 'reporting'"))
+    rows = db.execute(
+        text(
+            "SELECT table_name, column_name FROM information_schema.columns "
+            "WHERE table_schema = 'reporting'"
+        )
+    )
     per_view: dict[str, set[str]] = {}
     for view, column in rows:
         per_view.setdefault(view, set()).add(column)
@@ -68,7 +72,8 @@ def test_the_gate_has_something_to_check(db_session):
     assert len(OBJECTS) >= 30, f"de universe telt {len(OBJECTS)} objecten"
     assert len(JOINS) >= 10, f"de joingraaf telt {len(JOINS)} verbanden"
     assert len(_schema_columns(db_session)) >= 10, (
-        "geen weergaven gevonden in schema 'reporting' — draaide de migratie?")
+        "geen weergaven gevonden in schema 'reporting' — draaide de migratie?"
+    )
 
 
 def test_every_object_resolves_against_the_database(db_session):
@@ -78,21 +83,22 @@ def test_every_object_resolves_against_the_database(db_session):
     for obj in OBJECTS:
         # Een rol-datum (#895) leest uit `d_date` onder een eigen alias, dus de
         # kolommen komen van de BRON en niet van de naam waaronder ze joint.
-        bron = DIMENSION_BY_KEY[obj.view].source if obj.view in DIMENSION_BY_KEY \
-            else obj.view
+        bron = DIMENSION_BY_KEY[obj.view].source if obj.view in DIMENSION_BY_KEY else obj.view
         columns = per_view.get(bron)
         if columns is None:
-            fouten.append(f"{obj.name} (`{obj.key}`) verwijst naar de weergave "
-                          f"{bron}, die niet bestaat")
+            fouten.append(
+                f"{obj.name} (`{obj.key}`) verwijst naar de weergave {bron}, die niet bestaat"
+            )
             continue
         for source in (obj.sql, obj.drill_sql or ""):
             for column in _COLUMN_REFERENCE.findall(source):
                 if column not in columns:
                     fouten.append(
-                        f"{obj.name} (`{obj.key}`) verwijst naar "
-                        f"{bron}.{column}, die niet bestaat")
-    assert not fouten, "objecten wijzen naar kolommen die er niet zijn:\n" + \
-        "\n".join(sorted(fouten))
+                        f"{obj.name} (`{obj.key}`) verwijst naar {bron}.{column}, die niet bestaat"
+                    )
+    assert not fouten, "objecten wijzen naar kolommen die er niet zijn:\n" + "\n".join(
+        sorted(fouten)
+    )
 
 
 def test_every_object_names_at_least_one_column(db_session):
@@ -101,10 +107,13 @@ def test_every_object_names_at_least_one_column(db_session):
     Without this rule a typo like `sum(amount)` — without the `{view}.` prefix —
     would slip past the resolver above, because there is nothing left to resolve.
     """
-    fouten = [f"{obj.name} (`{obj.key}`)" for obj in OBJECTS
-              if not _COLUMN_REFERENCE.findall(obj.sql)]
-    assert not fouten, ("elk object noemt minstens één {view}.kolom, anders kan de "
-                        f"gate hem niet toetsen: {fouten}")
+    fouten = [
+        f"{obj.name} (`{obj.key}`)" for obj in OBJECTS if not _COLUMN_REFERENCE.findall(obj.sql)
+    ]
+    assert not fouten, (
+        "elk object noemt minstens één {view}.kolom, anders kan de "
+        f"gate hem niet toetsen: {fouten}"
+    )
 
 
 def test_every_measure_belongs_to_a_fact_that_exists():
@@ -116,11 +125,11 @@ def test_every_measure_belongs_to_a_fact_that_exists():
         if not obj.fact:
             fouten.append(f"{obj.name} (`{obj.key}`) noemt geen feit")
         elif obj.fact not in FACT_BY_KEY:
-            fouten.append(f"{obj.name} (`{obj.key}`) noemt het onbekende feit "
-                          f"{obj.fact}")
+            fouten.append(f"{obj.name} (`{obj.key}`) noemt het onbekende feit {obj.fact}")
         elif obj.view != obj.fact:
-            fouten.append(f"{obj.name} (`{obj.key}`) aggregeert {obj.view} maar "
-                          f"hoort bij feit {obj.fact}")
+            fouten.append(
+                f"{obj.name} (`{obj.key}`) aggregeert {obj.view} maar hoort bij feit {obj.fact}"
+            )
     assert not fouten, "\n".join(fouten)
 
 
@@ -131,10 +140,12 @@ def test_every_object_declared_on_a_fact_names_that_fact():
     dimension view and look for a join that cannot exist.
     """
     fact_keys = set(FACT_BY_KEY)
-    fouten = [f"{obj.name} (`{obj.key}`)" for obj in OBJECTS
-              if obj.view in fact_keys and obj.fact != obj.view]
-    assert not fouten, ("objecten op een feitweergave moeten dat feit noemen: "
-                        f"{fouten}")
+    fouten = [
+        f"{obj.name} (`{obj.key}`)"
+        for obj in OBJECTS
+        if obj.view in fact_keys and obj.fact != obj.view
+    ]
+    assert not fouten, f"objecten op een feitweergave moeten dat feit noemen: {fouten}"
 
 
 def test_every_join_key_exists(db_session):
@@ -143,27 +154,34 @@ def test_every_join_key_exists(db_session):
     for join in JOINS:
         # Een rol-datum joint onder een eigen alias maar leest uit `d_date`
         # (#895), dus de kolommen worden bij de bron gezocht.
-        doel = (DIMENSION_BY_KEY[join.dimension].source
-                if join.dimension in DIMENSION_BY_KEY else join.dimension)
+        doel = (
+            DIMENSION_BY_KEY[join.dimension].source
+            if join.dimension in DIMENSION_BY_KEY
+            else join.dimension
+        )
         for view in (join.fact, doel):
             if view not in per_view:
-                fouten.append(f"join {join.fact} -> {join.dimension}: "
-                              f"{view} bestaat niet")
+                fouten.append(f"join {join.fact} -> {join.dimension}: {view} bestaat niet")
         for fact_column, dim_column in join.pairs:
             if fact_column not in per_view.get(join.fact, set()):
-                fouten.append(f"join {join.fact} -> {join.dimension}: "
-                              f"{join.fact}.{fact_column} bestaat niet")
+                fouten.append(
+                    f"join {join.fact} -> {join.dimension}: {join.fact}.{fact_column} bestaat niet"
+                )
             if dim_column not in per_view.get(doel, set()):
-                fouten.append(f"join {join.fact} -> {join.dimension}: "
-                              f"{doel}.{dim_column} bestaat niet")
+                fouten.append(
+                    f"join {join.fact} -> {join.dimension}: {doel}.{dim_column} bestaat niet"
+                )
     assert not fouten, "\n".join(sorted(fouten))
 
 
 def test_every_dimension_can_identify_its_own_row(db_session):
     """#761 again: the tiebreaker has to exist before it can be appended."""
     per_view = _schema_columns(db_session)
-    fouten = [f"{dim.key}.{dim.key_column}" for dim in DIMENSIONS
-              if dim.key_column not in per_view.get(dim.source, set())]
+    fouten = [
+        f"{dim.key}.{dim.key_column}"
+        for dim in DIMENSIONS
+        if dim.key_column not in per_view.get(dim.source, set())
+    ]
     assert not fouten, f"sleutelkolommen die niet bestaan: {fouten}"
 
 
@@ -302,8 +320,7 @@ def test_every_description_can_carry_its_weight():
 # result from a group of one naming itself. It does not protect a row list, which
 # identifies people by construction. That is what the role boundary is for.
 
-_ADMIN_UI = (Path(__file__).resolve().parents[1] / "app" / "domains" / "reporting"
-             / "admin_ui.py")
+_ADMIN_UI = Path(__file__).resolve().parents[1] / "app" / "domains" / "reporting" / "admin_ui.py"
 _REPORTING_UI = _ADMIN_UI.read_text(encoding="utf-8")
 
 
@@ -320,11 +337,12 @@ def test_every_reporting_route_sits_behind_require_admin_ui():
     """
     import re
 
-    routes = re.findall(r'@router\.(?:get|post)\((.*?)\)\n(?:async )?def (\w+)',
-                        _REPORTING_UI, re.S)
+    routes = re.findall(
+        r"@router\.(?:get|post)\((.*?)\)\n(?:async )?def (\w+)", _REPORTING_UI, re.S
+    )
     assert len(routes) >= 8, (
-        f"deze gate vond {len(routes)} routes in admin_ui.py — leest ze het goede "
-        "bestand? (#678)")
+        f"deze gate vond {len(routes)} routes in admin_ui.py — leest ze het goede bestand? (#678)"
+    )
 
     fouten = []
     for decorator, naam in routes:
@@ -335,9 +353,7 @@ def test_every_reporting_route_sits_behind_require_admin_ui():
         for zwakker in ("require_finance_ui", "require_operator_ui"):
             if zwakker in decorator or zwakker in signatuur:
                 fouten.append(f"{naam} gebruikt {zwakker}")
-    assert not fouten, (
-        "elke rapportageroute hoort achter require_admin_ui (CR-06 §7.3): "
-        f"{fouten}")
+    assert not fouten, f"elke rapportageroute hoort achter require_admin_ui (CR-06 §7.3): {fouten}"
 
 
 def test_no_per_object_role_fence_has_quietly_appeared():
@@ -388,4 +404,5 @@ def test_the_generated_document_matches_the_declaration():
     op_schijf = DOC_PATH.read_text(encoding="utf-8")
     assert op_schijf == render(), (
         "docs/reporting-universe.md loopt niet gelijk met universe.py. "
-        "Draai: python -m app.domains.reporting.docs")
+        "Draai: python -m app.domains.reporting.docs"
+    )

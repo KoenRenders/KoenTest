@@ -5,6 +5,7 @@ valid values in `models.py`, and twenty lines further on in another file a
 dictionary with the Dutch words. One shape now, and therefore one place where
 a new value is added.
 """
+
 from app.domains.newsletter.models import (
     Audience,
     AudienceCode,
@@ -34,16 +35,16 @@ from app.domains.newsletter.models import (
 from app.kernel.codes import CodeList, CodeSeed
 
 SUBSCRIBER_STATUS_CODES = (
-    CodeSeed(code="pending", nl="Wacht op bevestiging",
-             en="Awaiting confirmation", sort_order=10),
+    CodeSeed(code="pending", nl="Wacht op bevestiging", en="Awaiting confirmation", sort_order=10),
     CodeSeed(code="confirmed", nl="Bevestigd", en="Confirmed", sort_order=20),
-    CodeSeed(code="unsubscribed", nl="Uitgeschreven", en="Unsubscribed",
-             sort_order=30),
+    CodeSeed(code="unsubscribed", nl="Uitgeschreven", en="Unsubscribed", sort_order=30),
 )
 
 SUBSCRIBER_STATUS = CodeList(
-    name="subscriber_status", schema="newsletter",
-    codes=SubscriberStatusCode, labels=SubscriberStatusLabel,
+    name="subscriber_status",
+    schema="newsletter",
+    codes=SubscriberStatusCode,
+    labels=SubscriberStatusLabel,
     enum=SubscriberStatus,
     fk_from=("newsletter.subscribers.status",),
 )
@@ -55,22 +56,26 @@ SUBSCRIBER_SOURCE_CODES = (
 )
 
 SUBSCRIBER_SOURCE = CodeList(
-    name="subscriber_source", schema="newsletter",
-    codes=SubscriberSourceCode, labels=SubscriberSourceLabel,
+    name="subscriber_source",
+    schema="newsletter",
+    codes=SubscriberSourceCode,
+    labels=SubscriberSourceLabel,
     enum=SubscriberSource,
     fk_from=("newsletter.subscribers.source",),
 )
 
 AUDIENCE_CODES = (
     CodeSeed(code="members", nl="Leden", en="Members", sort_order=10),
-    CodeSeed(code="non_members", nl="Niet-leden", en="Non-members",
-             sort_order=20),
+    CodeSeed(code="non_members", nl="Niet-leden", en="Non-members", sort_order=20),
     CodeSeed(code="both", nl="Allebei", en="Both", sort_order=30),
 )
 
 AUDIENCE = CodeList(
-    name="audience", schema="newsletter",
-    codes=AudienceCode, labels=AudienceLabel, enum=Audience,
+    name="audience",
+    schema="newsletter",
+    codes=AudienceCode,
+    labels=AudienceLabel,
+    enum=Audience,
     fk_from=("newsletter.newsletters.audience",),
 )
 
@@ -81,20 +86,25 @@ LETTER_STATUS_CODES = (
 )
 
 LETTER_STATUS = CodeList(
-    name="letter_status", schema="newsletter",
-    codes=LetterStatusCode, labels=LetterStatusLabel, enum=LetterStatus,
+    name="letter_status",
+    schema="newsletter",
+    codes=LetterStatusCode,
+    labels=LetterStatusLabel,
+    enum=LetterStatus,
     fk_from=("newsletter.newsletters.status",),
 )
 
 REPLY_TO_MODE_CODES = (
-    CodeSeed(code="association", nl="Vereniging", en="Association",
-             sort_order=10),
+    CodeSeed(code="association", nl="Vereniging", en="Association", sort_order=10),
     CodeSeed(code="sender", nl="Afzender", en="Sender", sort_order=20),
 )
 
 REPLY_TO_MODE = CodeList(
-    name="reply_to_mode", schema="newsletter",
-    codes=ReplyToModeCode, labels=ReplyToModeLabel, enum=ReplyToMode,
+    name="reply_to_mode",
+    schema="newsletter",
+    codes=ReplyToModeCode,
+    labels=ReplyToModeLabel,
+    enum=ReplyToMode,
     fk_from=("newsletter.newsletters.reply_to_mode",),
 )
 
@@ -104,8 +114,11 @@ DELIVERY_KIND_CODES = (
 )
 
 DELIVERY_KIND = CodeList(
-    name="delivery_kind", schema="newsletter",
-    codes=DeliveryKindCode, labels=DeliveryKindLabel, enum=DeliveryKind,
+    name="delivery_kind",
+    schema="newsletter",
+    codes=DeliveryKindCode,
+    labels=DeliveryKindLabel,
+    enum=DeliveryKind,
     fk_from=("newsletter.deliveries.kind",),
 )
 
@@ -117,8 +130,11 @@ DELIVERY_STATUS_CODES = (
 )
 
 DELIVERY_STATUS = CodeList(
-    name="delivery_status", schema="newsletter",
-    codes=DeliveryStatusCode, labels=DeliveryStatusLabel, enum=DeliveryStatus,
+    name="delivery_status",
+    schema="newsletter",
+    codes=DeliveryStatusCode,
+    labels=DeliveryStatusLabel,
+    enum=DeliveryStatus,
     fk_from=("newsletter.deliveries.status",),
 )
 
@@ -128,7 +144,10 @@ MESSAGE_ROLE_CODES = (
 )
 
 MESSAGE_ROLE = CodeList(
-    name="message_role", schema="newsletter",
-    codes=MessageRoleCode, labels=MessageRoleLabel, enum=MessageRole,
+    name="message_role",
+    schema="newsletter",
+    codes=MessageRoleCode,
+    labels=MessageRoleLabel,
+    enum=MessageRole,
     fk_from=("newsletter.drafting_messages.role",),
 )

@@ -14,21 +14,32 @@ Het register groeit met elk scherm dat op een view-model overgaat (#635 raakt di
 routes toch). Een scherm dat er nog niet in staat, wordt hier niet gecontroleerd;
 dat is zichtbaar aan de lengte van dit register.
 """
+
 import pytest
 from jinja2 import meta
 
 from app.domains.activities.viewmodels import AdminActiviteitenView
-from app.domains.designstudio.viewmodels import (
-    DesignEditorView, DesignListView, DesignNewView)
+from app.domains.designstudio.viewmodels import DesignEditorView, DesignListView, DesignNewView
 from app.domains.mdm.viewmodels import LedenView
-from app.domains.payment.viewmodels import BetalingenView
 from app.domains.meetings.viewmodels import (
-    MeetingCircleView, MeetingDocumentView, MeetingItemView, MeetingListView,
-    MeetingNewView, MeetingSendView)
+    MeetingCircleView,
+    MeetingDocumentView,
+    MeetingItemView,
+    MeetingListView,
+    MeetingNewView,
+    MeetingSendView,
+)
 from app.domains.newsletter.viewmodels import (
-    NewsletterArchiveView, NewsletterComposeView, NewsletterListView,
-    NewsletterPickerView, NewsletterSendView, NewsletterSettingsView,
-    SubscriberImportView, SubscriberListView)
+    NewsletterArchiveView,
+    NewsletterComposeView,
+    NewsletterListView,
+    NewsletterPickerView,
+    NewsletterSendView,
+    NewsletterSettingsView,
+    SubscriberImportView,
+    SubscriberListView,
+)
+from app.domains.payment.viewmodels import BetalingenView
 from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
 from app.ui import templates
 
@@ -104,8 +115,7 @@ def _toegewezen_namen(boom) -> set[str]:
             if isinstance(doel, nodes.Name):
                 namen.add(doel.name)
             elif isinstance(doel, nodes.Tuple):
-                namen.update(item.name for item in doel.items
-                             if isinstance(item, nodes.Name))
+                namen.update(item.name for item in doel.items if isinstance(item, nodes.Name))
     return namen
 
 
@@ -115,8 +125,7 @@ def _gevraagde_namen(bestandsnaam: str) -> set[str]:
     return meta.find_undeclared_variables(boom) - _toegewezen_namen(boom)
 
 
-@pytest.mark.parametrize("bestandsnaam,model", sorted(
-    VIEWMODELS.items(), key=lambda kv: kv[0]))
+@pytest.mark.parametrize("bestandsnaam,model", sorted(VIEWMODELS.items(), key=lambda kv: kv[0]))
 def test_de_template_vraagt_niets_wat_het_view_model_niet_belooft(bestandsnaam, model):
     from dataclasses import fields
 

@@ -6,6 +6,7 @@ kloppen. Nu is een verkeerde of vergeten sleutel een fout in de route, en kan de
 gate (`tests/test_template_variables_gate.py`) bewijzen dat de template niets
 vraagt wat hier niet staat.
 """
+
 from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any

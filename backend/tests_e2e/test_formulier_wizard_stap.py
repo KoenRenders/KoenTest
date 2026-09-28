@@ -24,6 +24,7 @@ wizard springt gewoon door). Sinds #997 wachten de tests op het zichtbare gevolg
 van een klik in plaats van 300 ms; opnieuw gemeten: dan vallen de eerste drie om
 (geen markering, geen melding), de laatste twee blijven groen.
 """
+
 import os
 import re
 import sys
@@ -47,13 +48,11 @@ def vertakt_formulier():
 
     import app.models  # noqa: F401  load_all_models()
     from app.database import SessionLocal
-    from app.domains.forms.models import (Form, FormField, FormFieldOption,
-                                          FormSection)
+    from app.domains.forms.models import Form, FormField, FormFieldOption, FormSection
 
     db = SessionLocal()
     token = "e2e724-" + secrets.token_urlsafe(6)
-    form = Form(title="E2E Vertakt", status="open", is_anonymous=True,
-                share_token=token)
+    form = Form(title="E2E Vertakt", status="open", is_anonymous=True, share_token=token)
     db.add(form)
     db.flush()
     secties = []
@@ -63,16 +62,31 @@ def vertakt_formulier():
         secties.append(sec)
     db.flush()
 
-    keuze = FormField(form_id=form.id, section_id=secties[0].id, field_type="radio",
-                      label="Welke route?", position=0, required=True)
+    keuze = FormField(
+        form_id=form.id,
+        section_id=secties[0].id,
+        field_type="radio",
+        label="Welke route?",
+        position=0,
+        required=True,
+    )
     db.add(keuze)
     db.flush()
     db.add(FormFieldOption(field_id=keuze.id, label="A", position=0))
-    db.add(FormFieldOption(field_id=keuze.id, label="B", position=1,
-                           skip_to_section_id=secties[2].id))
+    db.add(
+        FormFieldOption(field_id=keuze.id, label="B", position=1, skip_to_section_id=secties[2].id)
+    )
     for sec, label in ((secties[1], "Waarom A?"), (secties[2], "Slotvraag")):
-        db.add(FormField(form_id=form.id, section_id=sec.id, field_type="text",
-                         label=label, position=0, required=True))
+        db.add(
+            FormField(
+                form_id=form.id,
+                section_id=sec.id,
+                field_type="text",
+                label=label,
+                position=0,
+                required=True,
+            )
+        )
     db.commit()
     db.close()
     return token
@@ -107,8 +121,9 @@ def test_een_leeg_verplicht_veld_houdt_de_stap_vast(page, vertakt_formulier):
     # #997: the marking is the sign that the click was handled; the step checks
     # after it are about that same handling.
     gemarkeerd = page.locator('[data-step="0"] [aria-invalid="true"]')
-    expect(gemarkeerd.first, "de onbeantwoorde vraag is niet gemarkeerd — dan lijkt "
-                             "de knop kapot").to_be_attached()
+    expect(
+        gemarkeerd.first, "de onbeantwoorde vraag is niet gemarkeerd — dan lijkt de knop kapot"
+    ).to_be_attached()
     assert _stap(page, 0).is_visible(), "de wizard sprong door met een leeg veld"
     assert not _stap(page, 1).is_visible()
 
@@ -128,11 +143,13 @@ def test_je_ziet_waarom_je_niet_verder_kan(page, vertakt_formulier):
     page.get_by_role("button", name="Volgende").click()
 
     melding = page.locator('[role="alert"]')
-    expect(melding.first, "er staat geen zichtbare melding — dan lijkt de knop "
-                          "kapot").to_be_visible()
+    expect(
+        melding.first, "er staat geen zichtbare melding — dan lijkt de knop kapot"
+    ).to_be_visible()
     blok = page.locator('[data-step="0"] [data-veld].border-red-600')
     assert blok.count() > 0, (
-        "de vraag zelf is niet gemarkeerd; een rode rand op een radio doet niets")
+        "de vraag zelf is niet gemarkeerd; een rode rand op een radio doet niets"
+    )
 
 
 def test_na_het_antwoorden_zijn_melding_en_markering_weg(page, vertakt_formulier):
@@ -148,10 +165,14 @@ def test_na_het_antwoorden_zijn_melding_en_markering_weg(page, vertakt_formulier
 
     expect(_stap(page, 1), "de wizard ging niet door na het antwoorden").to_be_visible()
     # Both must GO; `expect` waits for that and fails if they stay.
-    expect(page.locator('[role="alert"]:visible'),
-           "de melding blijft staan nadat de vraag beantwoord is").to_have_count(0)
-    expect(page.locator('[data-veld].border-red-600'),
-           "de markering blijft staan nadat de vraag beantwoord is").to_have_count(0)
+    expect(
+        page.locator('[role="alert"]:visible'),
+        "de melding blijft staan nadat de vraag beantwoord is",
+    ).to_have_count(0)
+    expect(
+        page.locator("[data-veld].border-red-600"),
+        "de markering blijft staan nadat de vraag beantwoord is",
+    ).to_have_count(0)
 
 
 def test_ingevuld_gaat_de_stap_wel_door(page, vertakt_formulier):
@@ -165,8 +186,7 @@ def test_ingevuld_gaat_de_stap_wel_door(page, vertakt_formulier):
     expect(_stap(page, 1), "de wizard blijft steken op een ingevulde stap").to_be_visible()
 
 
-def test_een_verplicht_veld_in_een_overgeslagen_sectie_blokkeert_niets(
-        page, vertakt_formulier):
+def test_een_verplicht_veld_in_een_overgeslagen_sectie_blokkeert_niets(page, vertakt_formulier):
     """De controle mag niet strenger zijn dan de server.
 
     Route B slaat sectie 2 over. Het verplichte veld daarin blijft dus leeg, en dat
@@ -182,6 +202,7 @@ def test_een_verplicht_veld_in_een_overgeslagen_sectie_blokkeert_niets(
     page.locator('[data-step="2"] input[type=text]').first.fill("Klaar")
     page.get_by_role("button", name="Verzenden").click()
 
-    expect(page.locator("body"), "het formulier is niet verzonden terwijl alle bereikte "
-                                 "velden ingevuld waren").to_contain_text(
-        re.compile("verzonden|bedankt", re.I))
+    expect(
+        page.locator("body"),
+        "het formulier is niet verzonden terwijl alle bereikte velden ingevuld waren",
+    ).to_contain_text(re.compile("verzonden|bedankt", re.I))

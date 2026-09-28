@@ -14,6 +14,7 @@ The document is English (CLAUDE.md: all new documentation is English). The objec
 *names* inside it stay Dutch, because those are what a board member sees in the
 objects pane — they are user-facing copy quoted in a document, not identifiers.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -58,23 +59,28 @@ def _escape(text: str) -> str:
 
 
 def _facts_section() -> list[str]:
-    lines = ["## Facts", "",
-             "A report is about exactly one fact — its measures decide the grain. "
-             "Measures from two facts in one selection are refused: they would "
-             "multiply each other (CR-06 §2.6).", "",
-             "The last column is how the fact counts the people a group covers. "
-             "It is a **declaration and nothing more** since 14 September 2026: "
-             "the small-cell threshold that used to read it has been removed, so "
-             "no query asks for this count today. It records which facts could "
-             "answer \"how many people are behind this group\", which stays true "
-             "whether or not a rule leans on it — the same honesty as the role "
-             "column below.", "",
-             "The role column is the role the fact's **flat dataset dump** will "
-             "need once the fence is built; see Roles below. Today every dump "
-             "sits behind `require_admin_ui` like the rest of the back office.",
-             "",
-             "| Fact | Name | Grain | Role | People | What it holds |",
-             "|---|---|---|---|---|---|"]
+    lines = [
+        "## Facts",
+        "",
+        "A report is about exactly one fact — its measures decide the grain. "
+        "Measures from two facts in one selection are refused: they would "
+        "multiply each other (CR-06 §2.6).",
+        "",
+        "The last column is how the fact counts the people a group covers. "
+        "It is a **declaration and nothing more** since 14 September 2026: "
+        "the small-cell threshold that used to read it has been removed, so "
+        "no query asks for this count today. It records which facts could "
+        'answer "how many people are behind this group", which stays true '
+        "whether or not a rule leans on it — the same honesty as the role "
+        "column below.",
+        "",
+        "The role column is the role the fact's **flat dataset dump** will "
+        "need once the fence is built; see Roles below. Today every dump "
+        "sits behind `require_admin_ui` like the rest of the back office.",
+        "",
+        "| Fact | Name | Grain | Role | People | What it holds |",
+        "|---|---|---|---|---|---|",
+    ]
     for fact in FACTS:
         mensen = f"`{_escape(fact.people_sql)}`" if fact.people_sql else "—"
         lines.append(
@@ -85,20 +91,22 @@ def _facts_section() -> list[str]:
 
 
 def _dimensions_section() -> list[str]:
-    lines = ["## Dimensions", "",
-             "| Dimension | Name | Identifying column |",
-             "|---|---|---|"]
+    lines = ["## Dimensions", "", "| Dimension | Name | Identifying column |", "|---|---|---|"]
     for dim in DIMENSIONS:
         lines.append(f"| `{dim.key}` | {_escape(dim.name)} | `{dim.key_column}` |")
     return lines + [""]
 
 
 def _joins_section() -> list[str]:
-    lines = ["## Join graph", "",
-             "Every join also matches on `tenant_id`, unconditionally — a "
-             "dimension row can never be borrowed from another tenant.", "",
-             "| Fact | Dimension | On |",
-             "|---|---|---|"]
+    lines = [
+        "## Join graph",
+        "",
+        "Every join also matches on `tenant_id`, unconditionally — a "
+        "dimension row can never be borrowed from another tenant.",
+        "",
+        "| Fact | Dimension | On |",
+        "|---|---|---|",
+    ]
     for join in JOINS:
         on = ", ".join(f"`{fact_col}` = `{dim_col}`" for fact_col, dim_col in join.pairs)
         lines.append(f"| `{join.fact}` | `{join.dimension}` | {on} |")
@@ -106,21 +114,24 @@ def _joins_section() -> list[str]:
 
 
 def _roles_section() -> list[str]:
-    lines = ["## Roles", "",
-             "Every object carries a role. In v2.3.0 these are **declared and not "
-             "enforced**: reporting sits behind `require_admin_ui`, the same door "
-             "as every other admin screen, and the engine applies no per-object "
-             "fence. The declaration records what must hold once that switch is "
-             "built — as its own change, with its own test. Half a fence suggests "
-             "a protection that is not there.", "",
-             "| Universe role | Meaning | Objects |",
-             "|---|---|---|"]
+    lines = [
+        "## Roles",
+        "",
+        "Every object carries a role. In v2.3.0 these are **declared and not "
+        "enforced**: reporting sits behind `require_admin_ui`, the same door "
+        "as every other admin screen, and the engine applies no per-object "
+        "fence. The declaration records what must hold once that switch is "
+        "built — as its own change, with its own test. Half a fence suggests "
+        "a protection that is not there.",
+        "",
+        "| Universe role | Meaning | Objects |",
+        "|---|---|---|",
+    ]
     meaning = {
         Role.ADMIN: "the default: what an admin screen already shows",
-        Role.FINANCE: "money — every measure formatted as money, and the "
-                      "Betalingen class",
+        Role.FINANCE: "money — every measure formatted as money, and the Betalingen class",
         Role.MEMBER_DETAILS: "person-level details; CR-06 §7.3 keeps these out of "
-                             "the universe, so nothing carries it yet",
+        "the universe, so nothing carries it yet",
     }
     for role in Role:
         count = sum(1 for o in OBJECTS if o.role is role)
@@ -129,29 +140,37 @@ def _roles_section() -> list[str]:
 
 
 def _objects_section() -> list[str]:
-    lines = ["## Objects", "",
-             "**sensitive** marks a dimension that cuts people into groups small "
-             "enough to recognise somebody by. Like the people-count above it is "
-             "**declared and not enforced**: the small-cell threshold that used to "
-             "read it was removed on 14 September 2026. Inside the back office a "
-             "report shows what it counted; what may not reach a language model is "
-             "decided by `AI` below, and a count is not personal data. **not "
-             "additive** is a declaration in the same sense: it records that a "
-             "measure cannot be summed across groups that were rolled together — "
-             "an average of averages is not an average — which stays true although "
-             "nothing rolls groups together today.", "",
-             "**AI** is how far the object may travel towards a language model "
-             "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
-             "token like `gezin-23`, `none` never. The field has no default in "
-             "the declaration — adding an object without deciding this is an "
-             "import error, not an oversight that ships.", ""]
+    lines = [
+        "## Objects",
+        "",
+        "**sensitive** marks a dimension that cuts people into groups small "
+        "enough to recognise somebody by. Like the people-count above it is "
+        "**declared and not enforced**: the small-cell threshold that used to "
+        "read it was removed on 14 September 2026. Inside the back office a "
+        "report shows what it counted; what may not reach a language model is "
+        "decided by `AI` below, and a count is not personal data. **not "
+        "additive** is a declaration in the same sense: it records that a "
+        "measure cannot be summed across groups that were rolled together — "
+        "an average of averages is not an average — which stays true although "
+        "nothing rolls groups together today.",
+        "",
+        "**AI** is how far the object may travel towards a language model "
+        "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
+        "token like `gezin-23`, `none` never. The field has no default in "
+        "the declaration — adding an object without deciding this is an "
+        "import error, not an oversight that ships.",
+        "",
+    ]
     for klass in CLASSES:
         members = [o for o in OBJECTS if o.klass == klass]
         if not members:
             continue
-        lines += [f"### {klass}", "",
-                  "| Key | Name | Type | Format | Role | AI | Source | Description |",
-                  "|---|---|---|---|---|---|---|---|"]
+        lines += [
+            f"### {klass}",
+            "",
+            "| Key | Name | Type | Format | Role | AI | Source | Description |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
         for obj in members:
             source = obj.sql.format(view=obj.view)
             blootstelling = obj.ai_exposure.value

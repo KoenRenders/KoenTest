@@ -28,6 +28,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 beeld én miniatuur); `keep_alpha` altijd waar gemaakt → de foto-test valt om
 met `image/png` en afwijking nul.
 """
+
 from __future__ import annotations
 
 from io import BytesIO
@@ -40,7 +41,7 @@ from app.domains.media.images import LOSSLESS_KINDS, process_image
 
 pytestmark = pytest.mark.ui_agnostisch
 
-BREEDTE, HOOGTE = 751, 261   # de maat van Koens logo; onder MAX_FULL, dus geen herschaling
+BREEDTE, HOOGTE = 751, 261  # de maat van Koens logo; onder MAX_FULL, dus geen herschaling
 
 
 def _lijnwerk() -> bytes:
@@ -64,11 +65,11 @@ def _kanaalafwijking(bron: bytes, uit: bytes) -> int:
     a = Image.open(BytesIO(bron)).convert("RGB")
     b = Image.open(BytesIO(uit)).convert("RGB")
     assert a.size == b.size, (a.size, b.size)
-    return max(abs(p - q) for pa, pb in zip(a.getdata(), b.getdata())
-               for p, q in zip(pa, pb))
+    return max(abs(p - q) for pa, pb in zip(a.getdata(), b.getdata()) for p, q in zip(pa, pb))
 
 
 # ── 1. Het logo komt er verliesvrij uit ──────────────────────────────────────
+
 
 @pytest.mark.parametrize("soort", ["sponsor", "tenant_logo"])
 def test_een_logo_wordt_niet_opnieuw_gecomprimeerd(soort):
@@ -80,8 +81,8 @@ def test_een_logo_wordt_niet_opnieuw_gecomprimeerd(soort):
 
     assert uit["content_type"] == "image/png", "een logo hoort niet als JPEG terug"
     assert _kanaalafwijking(bron, uit["data"]) == 0, (
-        "het logo is opnieuw gecomprimeerd: de pixels wijken af van wat er "
-        "opgeladen werd (#1131)")
+        "het logo is opnieuw gecomprimeerd: de pixels wijken af van wat er opgeladen werd (#1131)"
+    )
     assert (uit["width"], uit["height"]) == (BREEDTE, HOOGTE), "er is toch herschaald"
 
 
@@ -93,6 +94,7 @@ def test_de_miniatuur_volgt_dezelfde_weg(soort="sponsor"):
 
 
 # ── 2. En een foto blijft wél gecomprimeerd ──────────────────────────────────
+
 
 def test_een_activiteitsfoto_wordt_nog_altijd_hercodeerd():
     """De test die bewijst dat de uitzondering een uitzondering blijft.
@@ -106,12 +108,12 @@ def test_een_activiteitsfoto_wordt_nog_altijd_hercodeerd():
     uit = process_image(bron, kind="activity_photo")
 
     assert uit["content_type"] == "image/jpeg", (
-        "een activiteitsfoto hoort JPEG te blijven — anders is elke upload "
-        "verliesvrij geworden")
+        "een activiteitsfoto hoort JPEG te blijven — anders is elke upload verliesvrij geworden"
+    )
     assert uit["thumb_content_type"] == "image/jpeg"
     assert _kanaalafwijking(bron, uit["data"]) > 0, (
-        "de foto is niet hercodeerd; dan is de compressie stilzwijgend "
-        "uitgeschakeld voor alles")
+        "de foto is niet hercodeerd; dan is de compressie stilzwijgend uitgeschakeld voor alles"
+    )
 
 
 def test_de_uitzonderingslijst_blijft_een_uitzondering():
@@ -126,14 +128,20 @@ def test_de_uitzonderingslijst_blijft_een_uitzondering():
     afweging is dezelfde als hierboven — bytes tegen leesbaarheid — en ze valt
     dezelfde kant op omdat het er een handvol zijn, geen album.
     """
-    assert {k.value for k in LOSSLESS_KINDS} == {"design_render", "sponsor",
-                                                 "tenant_logo", "page_image"}, LOSSLESS_KINDS
+    assert {k.value for k in LOSSLESS_KINDS} == {
+        "design_render",
+        "sponsor",
+        "tenant_logo",
+        "page_image",
+    }, LOSSLESS_KINDS
     assert MediaKind.ACTIVITY_PHOTO not in LOSSLESS_KINDS
     assert MediaKind.DESIGN_IMAGE not in LOSSLESS_KINDS, (
-        "een foto ín een affiche mag wél JPEG worden (#1011)")
+        "een foto ín een affiche mag wél JPEG worden (#1011)"
+    )
 
 
 # ── 3. De hercodering blijft de beveiliging ──────────────────────────────────
+
 
 @pytest.mark.parametrize("soort", ["sponsor", "tenant_logo"])
 def test_een_logo_wordt_nog_steeds_heropend_en_ontdaan_van_metadata(soort):
@@ -145,9 +153,13 @@ def test_een_logo_wordt_nog_steeds_heropend_en_ontdaan_van_metadata(soort):
     """
     img = Image.new("RGB", (60, 40), (200, 30, 30))
     buf = BytesIO()
-    img.save(buf, format="JPEG", quality=95,
-             exif=b"Exif\x00\x00II*\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-             icc_profile=b"ICC-PROFIEL-VAN-DE-BRON")
+    img.save(
+        buf,
+        format="JPEG",
+        quality=95,
+        exif=b"Exif\x00\x00II*\x00\x08\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+        icc_profile=b"ICC-PROFIEL-VAN-DE-BRON",
+    )
     bron = buf.getvalue()
 
     uit = process_image(bron, kind=soort)

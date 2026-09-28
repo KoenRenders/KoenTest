@@ -6,9 +6,10 @@ form-builder openen. Deze tests dekken wat kapot kán: de filters (inclusief een
 gemanipuleerde status), de navigatie na aanmaken/verwijderen, en de toegangs-
 grens — niet de opmaak.
 """
-from tests.conftest import SEEDED_ADMIN_EMAIL
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import Form
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -65,8 +66,9 @@ def test_onbekende_status_filtert_niet(client, db_session):
 
 def test_aanmaken_stuurt_door_naar_de_builder(client, db_session):
     csrf = _login(client)
-    resp = client.post("/admin/formulieren", data={"title": "Nieuw kamp"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/formulieren", data={"title": "Nieuw kamp"}, headers={"X-CSRF-Token": csrf}
+    )
     form = db_session.query(Form).filter(Form.title == "Nieuw kamp").one()
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == f"/admin/formulieren/{form.id}"
@@ -78,8 +80,7 @@ def test_verwijderen_stuurt_terug_naar_de_lijst(client, db_session):
     csrf = _login(client)
     form = _maak(db_session, "Weg hiermee", "draft", "weg-1")
 
-    resp = client.post(f"/admin/formulieren/{form.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(f"/admin/formulieren/{form.id}/verwijderen", headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == "/admin/formulieren"
     assert db_session.query(Form).filter(Form.id == form.id).first() is None

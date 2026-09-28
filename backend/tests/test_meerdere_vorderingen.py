@@ -14,6 +14,7 @@ visuele ordening, geen hiërarchie: tussen twee charges bestaat geen `refund_of_
 — het zijn broers op dezelfde inschrijving, en het scherm markeert dat anders dan
 de refund-nesting.
 """
+
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
@@ -27,9 +28,13 @@ pytestmark = pytest.mark.ui_agnostisch
 
 
 def _charge(db, payable_id, amount, *, betaald=None, minuten=0):
-    rec = PaymentRecord(payable_type="registration", payable_id=payable_id,
-                        amount=Decimal(amount), method="transfer",
-                        status="paid" if betaald else "pending")
+    rec = PaymentRecord(
+        payable_type="registration",
+        payable_id=payable_id,
+        amount=Decimal(amount),
+        method="transfer",
+        status="paid" if betaald else "pending",
+    )
     if betaald is not None:
         rec.amount_paid = Decimal(betaald)
     db.add(rec)
@@ -84,7 +89,8 @@ def test_een_lege_vordering_komt_niet_op_het_scherm(db_session):
     assert ids == [echt.id]
     kaart = groepen[0]["kaarten"][0]
     assert kaart["is_extra"] is False, (
-        "de echte vordering hoort de hoofdkaart te zijn, niet een ingesprongen kind")
+        "de echte vordering hoort de hoofdkaart te zijn, niet een ingesprongen kind"
+    )
 
 
 def test_het_totaal_verandert_niet_door_de_herindeling(db_session):
@@ -96,6 +102,7 @@ def test_het_totaal_verandert_niet_door_de_herindeling(db_session):
     db_session.commit()
 
     from app.domains.payment.api import get_records_for
+
     records = get_records_for(db_session, "registration", 6733)
     groepen = group_cards(records)
 

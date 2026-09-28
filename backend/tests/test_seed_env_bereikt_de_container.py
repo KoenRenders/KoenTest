@@ -22,6 +22,7 @@ anders voorgoed groen.
 Kapotgemaakt om te controleren dat deze test rood kan worden: `SEED_OPERATOR_EMAILS`
 uit `docker-compose.uat.yml` gehaald → de test valt om en noemt bestand én variabele.
 """
+
 import re
 from pathlib import Path
 
@@ -32,15 +33,14 @@ pytestmark = pytest.mark.ui_agnostisch
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATIES = ROOT / "backend" / "alembic" / "versions"
-COMPOSE = ["docker-compose.hdev.yml", "docker-compose.uat.yml",
-           "docker-compose.prod.yml"]
+COMPOSE = ["docker-compose.hdev.yml", "docker-compose.uat.yml", "docker-compose.prod.yml"]
 
 
 def _gelezen_door_migraties() -> set[str]:
     bestanden = list(MIGRATIES.glob("*.py"))
     assert len(bestanden) > 50, (
-        f"maar {len(bestanden)} migraties gevonden — kijkt deze test wel in de "
-        "juiste map?")
+        f"maar {len(bestanden)} migraties gevonden — kijkt deze test wel in de juiste map?"
+    )
     namen: set[str] = set()
     for pad in bestanden:
         # Elke SEED_-naam als tekenreeks, en NIET alleen die binnen `os.getenv(...)`.
@@ -62,8 +62,7 @@ def _doorgegeven_aan_de_backend(bestand: str) -> set[str]:
     """
     config = yaml.safe_load((ROOT / bestand).read_text())
     omgeving = config["services"]["backend"]["environment"]
-    return set(omgeving) if isinstance(omgeving, dict) else {
-        r.split("=", 1)[0] for r in omgeving}
+    return set(omgeving) if isinstance(omgeving, dict) else {r.split("=", 1)[0] for r in omgeving}
 
 
 def test_elke_seed_variabele_bereikt_de_backend():
@@ -71,7 +70,8 @@ def test_elke_seed_variabele_bereikt_de_backend():
 
     assert gelezen, (
         "geen enkele SEED_-variabele gevonden in de migraties — deze gate kijkt "
-        "nergens en zou dus voorgoed groen staan (#678)")
+        "nergens en zou dus voorgoed groen staan (#678)"
+    )
 
     ontbreekt = {}
     for bestand in COMPOSE:
@@ -80,14 +80,15 @@ def test_elke_seed_variabele_bereikt_de_backend():
             ontbreekt[bestand] = mist
     assert not ontbreekt, (
         "deze variabelen worden door een migratie gelezen maar niet aan de backend "
-        f"doorgegeven, dus ze bereiken de container nooit: {ontbreekt}")
+        f"doorgegeven, dus ze bereiken de container nooit: {ontbreekt}"
+    )
 
 
 def test_de_drie_omgevingen_geven_dezelfde_seeds_door():
     """Anders werkt een rol-seed op HDEV en niet op PROD, en dat merk je pas daar."""
-    per_bestand = {b: _doorgegeven_aan_de_backend(b) & _gelezen_door_migraties()
-                   for b in COMPOSE}
+    per_bestand = {b: _doorgegeven_aan_de_backend(b) & _gelezen_door_migraties() for b in COMPOSE}
     waarden = list(per_bestand.values())
 
     assert all(v == waarden[0] for v in waarden), (
-        f"de omgevingen geven verschillende SEED_-variabelen door: {per_bestand}")
+        f"de omgevingen geven verschillende SEED_-variabelen door: {per_bestand}"
+    )

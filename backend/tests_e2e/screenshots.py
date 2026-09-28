@@ -17,6 +17,7 @@ Default output: ``./screenshots/``. Seed data ONLY — never point this at
 UAT or PROD (the admin session is minted locally, so it would not work
 there anyway; the rule stands regardless).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -104,8 +105,11 @@ def context_opties() -> dict:
     """
     from app.ui import SCREENSHOT_HEADER
 
-    return {"reduced_motion": "reduce", "locale": TAAL,
-            "extra_http_headers": {SCREENSHOT_HEADER: "1"}}
+    return {
+        "reduced_motion": "reduce",
+        "locale": TAAL,
+        "extra_http_headers": {SCREENSHOT_HEADER: "1"},
+    }
 
 
 @dataclass(frozen=True)
@@ -192,20 +196,31 @@ SCREENS: tuple[Screen, ...] = (
     # Public — judged phone-first.
     Screen("public-home", "/", admin=False),
     Screen("public-activiteiten", "/activiteiten", admin=False),
-    Screen("public-inschrijfmodal", "/activiteiten", admin=False, viewport_only=True,
-           action=_open_register_modal),
+    Screen(
+        "public-inschrijfmodal",
+        "/activiteiten",
+        admin=False,
+        viewport_only=True,
+        action=_open_register_modal,
+    ),
     Screen("public-word-lid", "/lid-worden", admin=False),
     Screen("public-formulier", "/formulier/tok-e2e-open", admin=False),
     # Admin — judged desktop-first.
     Screen("admin-dashboard", "/admin", admin=True),
     Screen("admin-betalingen", "/admin/betalingen", admin=True),
     Screen("admin-leden", "/admin/leden", admin=True),
-    Screen("admin-activiteit-detail", "/admin/activiteiten", admin=True,
-           action=lambda page: _open_first_link(
-               page, "E2E-activiteit", "**/admin/activiteiten/*")),
-    Screen("admin-formulierbouwer", "/admin/formulieren", admin=True,
-           action=lambda page: _open_first_link(
-               page, "E2E-formulier", "**/admin/formulieren/*")),
+    Screen(
+        "admin-activiteit-detail",
+        "/admin/activiteiten",
+        admin=True,
+        action=lambda page: _open_first_link(page, "E2E-activiteit", "**/admin/activiteiten/*"),
+    ),
+    Screen(
+        "admin-formulierbouwer",
+        "/admin/formulieren",
+        admin=True,
+        action=lambda page: _open_first_link(page, "E2E-formulier", "**/admin/formulieren/*"),
+    ),
     # The living component kit — review-round material.
     Screen("admin-design-system", "/admin/design-system", admin=True),
     # Ledenflow (#1183) — het beeldmateriaal voor de publieke uitlegpagina over
@@ -216,11 +231,15 @@ SCREENS: tuple[Screen, ...] = (
     # afdruk van het gezinsscherm daar zet naam en adres van een echt lid op een
     # publieke pagina — een lek dat geen grep vindt, want het zit in een afbeelding.
     Screen("leden-aanmelden", "/aanmelden", admin=False, sessie=None),
-    Screen("leden-aanmelden-code", "/aanmelden", admin=False, sessie=None,
-           action=_vraag_de_code),
+    Screen("leden-aanmelden-code", "/aanmelden", admin=False, sessie=None, action=_vraag_de_code),
     Screen("leden-gezin", "/leden/gezin", admin=False, sessie="lid"),
-    Screen("leden-gezin-bewerken", "/leden/gezin", admin=False, sessie="lid",
-           action=_bewerk_eerste_gezinslid),
+    Screen(
+        "leden-gezin-bewerken",
+        "/leden/gezin",
+        admin=False,
+        sessie="lid",
+        action=_bewerk_eerste_gezinslid,
+    ),
     # Een toestand die het seed-gezin niet kán tonen, met een eigen gezin: het
     # lopende lidmaatschap verbergt de vernieuwknop.
     #
@@ -240,10 +259,10 @@ SCREENS: tuple[Screen, ...] = (
     # scherm. Een tweede afdruk die hetzelfde toont met een ander gezin erop zou een
     # tweede plek voor één feit zijn — en lopen die twee ooit uit elkaar, dan weet
     # niemand welke de uitlegpagina hoort te gebruiken.
-    Screen("leden-verlengen-online-gelukt", "/leden/gezin", admin=False,
-           sessie="lid-vernieuwd"),
-    Screen("leden-verlengen-overschrijving", "/leden/gezin", admin=False,
-           sessie="lid-overschrijving"),
+    Screen("leden-verlengen-online-gelukt", "/leden/gezin", admin=False, sessie="lid-vernieuwd"),
+    Screen(
+        "leden-verlengen-overschrijving", "/leden/gezin", admin=False, sessie="lid-overschrijving"
+    ),
 )
 
 
@@ -255,9 +274,10 @@ def _sessiewaarden() -> dict[str, str]:
     stilletjes een leeg scherm te fotograferen.
     """
     from app.domains.auth.api import make_session_value
-
     from seed_e2e import (
-        MARKER_EMAIL, MARKER_EMAIL_OVERSCHRIJVING, MARKER_EMAIL_VERLOPEN,
+        MARKER_EMAIL,
+        MARKER_EMAIL_OVERSCHRIJVING,
+        MARKER_EMAIL_VERLOPEN,
         MARKER_EMAIL_VERNIEUWD,
     )
 
@@ -307,7 +327,8 @@ def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
     # #997: until no htmx swap is still running or settling, instead of one
     # guessed "settle beat". Without htmx on the page there is nothing to wait for.
     page.wait_for_function(
-        "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')")
+        "() => !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling')"
+    )
     name = f"{screen.key}-{width['width']}.png"
     target = out_dir / name
     page.screenshot(path=str(target), full_page=not screen.viewport_only)
@@ -321,9 +342,11 @@ def main(argv: list[str]) -> int:
 
     host = urlparse(BASE).hostname or ""
     if host not in ("localhost", "127.0.0.1", "::1"):
-        print(f"refused: E2E_BASE_URL points at {host!r} — this tool captures "
-              "seeded LOCAL screens only, never a live environment.",
-              file=sys.stderr)
+        print(
+            f"refused: E2E_BASE_URL points at {host!r} — this tool captures "
+            "seeded LOCAL screens only, never a live environment.",
+            file=sys.stderr,
+        )
         return 2
 
     out_dir = Path(argv[1]) if len(argv) > 1 else Path("screenshots")

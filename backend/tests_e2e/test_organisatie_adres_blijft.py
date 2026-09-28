@@ -13,6 +13,7 @@ lies inside the screen width, and the page does not scroll sideways.
 Broken on purpose to check that this test can go red: the `db.commit()` at the
 end of `save_organization` removed → after the reload the street is empty.
 """
+
 import os
 import secrets
 import sys
@@ -24,7 +25,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar  # noqa: E402
 
-ORGANISATION_ID = 1   # the legal entity: an editor, no site of its own
+ORGANISATION_ID = 1  # the legal entity: an editor, no site of its own
 WIDTH = 390
 
 
@@ -70,12 +71,15 @@ def test_the_address_is_still_there_after_a_reload(page):
     opslaan = page.get_by_role("button", name="Opslaan")
     box = opslaan.bounding_box()
     assert box and box["x"] >= 0 and box["x"] + box["width"] <= WIDTH, (
-        f"Opslaan lies outside the {WIDTH}px screen: {box}")
+        f"Opslaan lies outside the {WIDTH}px screen: {box}"
+    )
     assert page.evaluate("document.documentElement.scrollWidth") <= WIDTH, (
-        "the page scrolls sideways on a phone")
+        "the page scrolls sideways on a phone"
+    )
 
-    with page.expect_response(lambda r: r.request.method == "POST"
-                              and f"/admin/organisaties/{ORGANISATION_ID}" in r.url) as resp:
+    with page.expect_response(
+        lambda r: r.request.method == "POST" and f"/admin/organisaties/{ORGANISATION_ID}" in r.url
+    ) as resp:
         opslaan.click()
     assert resp.value.status == 200
 

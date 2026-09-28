@@ -4,6 +4,7 @@ What each screen gets from its route, typed, in one place, so
 `tests/test_template_variables_gate.py` can prove the templates ask for
 nothing that is not promised here.
 """
+
 from dataclasses import dataclass, field
 from typing import Any, Optional
 

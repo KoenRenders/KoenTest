@@ -2,6 +2,7 @@
 schrijft de foto-URLs met dubbele quotes; het x-data-attribuut moet daarom met
 ENKELE quotes afgebakend zijn, anders knipt de browser het attribuut af en werkt
 de lightbox (klikken op een foto) niet meer."""
+
 from app.domains.activities.api import Activity
 
 
@@ -11,8 +12,16 @@ def _activity_with_photo(db):
     a = Activity(name="Album")
     db.add(a)
     db.flush()
-    db.add(MediaAsset(kind="activity_photo", activity_id=a.id, is_active=True,
-                      data=b"\x89PNG", content_type="image/png", title="foto"))
+    db.add(
+        MediaAsset(
+            kind="activity_photo",
+            activity_id=a.id,
+            is_active=True,
+            data=b"\x89PNG",
+            content_type="image/png",
+            title="foto",
+        )
+    )
     db.flush()
     return a
 

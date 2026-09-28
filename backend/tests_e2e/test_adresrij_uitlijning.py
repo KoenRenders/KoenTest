@@ -20,6 +20,7 @@ weghalen is één regel; een veld zonder naam is onbruikbaar met een schermlezer
 Drie velden die alle drie "E-mailadres" heten zijn dat trouwens ook — vandaar
 het nummer.
 """
+
 import os
 import sys
 
@@ -64,8 +65,8 @@ def _kaart_in_bewerkmodus(browser, breedte: int):
     # Wachten op de TWEEDE rij en niet op de eerste: die bestond al, dus die
     # wachtvoorwaarde was meteen waar en de meting liep vóór de nieuwe rij er was.
     page.wait_for_function(
-        "n => document.querySelectorAll('[data-email-rij]').length > n",
-        arg=aantal, timeout=5_000)
+        "n => document.querySelectorAll('[data-email-rij]').length > n", arg=aantal, timeout=5_000
+    )
     return page
 
 
@@ -100,7 +101,8 @@ def test_het_label_staat_niet_op_elke_rij(kaart):
         .map(l => l.textContent.trim());
     }""")
     assert zichtbaar.count("E-mailadres") == 0, (
-        f"het label staat nog zichtbaar op de rijen: {zichtbaar}")
+        f"het label staat nog zichtbaar op de rijen: {zichtbaar}"
+    )
 
 
 def test_elk_veld_houdt_een_eigen_toegankelijke_naam(kaart):
@@ -115,8 +117,8 @@ def test_elk_veld_houdt_een_eigen_toegankelijke_naam(kaart):
 
     assert namen and all(namen), f"een veld zonder toegankelijke naam: {namen}"
     assert len(set(namen)) == len(namen), (
-        f"twee velden dragen dezelfde naam, dus ze zijn niet uit elkaar te "
-        f"houden: {namen}")
+        f"twee velden dragen dezelfde naam, dus ze zijn niet uit elkaar te houden: {namen}"
+    )
 
 
 def test_veld_badge_en_knoppen_staan_op_een_lijn(kaart):
@@ -142,8 +144,7 @@ def test_veld_badge_en_knoppen_staan_op_een_lijn(kaart):
     assert len(middens) >= 2, f"te weinig elementen om uit te lijnen: {middens}"
 
     waarden = {m["midden"] for m in middens}
-    assert len(waarden) == 1, (
-        f"de elementen van de rij staan niet op één lijn: {middens}")
+    assert len(waarden) == 1, f"de elementen van de rij staan niet op één lijn: {middens}"
 
 
 def test_twee_rijen_staan_verder_uit_elkaar_dan_hun_eigen_regels(kaart_telefoon):
@@ -207,14 +208,15 @@ def test_twee_rijen_staan_verder_uit_elkaar_dan_hun_eigen_regels(kaart_telefoon)
     }""")
     assert maten, "minder dan twee zichtbare rijen — niets om te groeperen"
     assert maten["gewrapt"] >= 0, (
-        f"geen enkele rij wrapt op deze breedte, dus deze test meet de "
-        f"groepering niet: {maten}")
+        f"geen enkele rij wrapt op deze breedte, dus deze test meet de groepering niet: {maten}"
+    )
     assert maten["binnen"] is not None and maten["binnen"] >= 0, (
         f"onzinnige binnenafstand ({maten['binnen']}) — dan toetst de vergelijking "
-        f"hieronder niets: {maten}")
-    assert maten["tussen"] >= 12, (
-        f"te weinig ruimte tussen twee rijen: {maten['tussen']} px")
+        f"hieronder niets: {maten}"
+    )
+    assert maten["tussen"] >= 12, f"te weinig ruimte tussen twee rijen: {maten['tussen']} px"
     assert maten["tussen"] >= 2 * maten["binnen"], (
         f"het gat tussen twee rijen ({maten['tussen']} px) is niet duidelijk "
         f"groter dan dat binnen een rij ({maten['binnen']} px) — dan hoort de "
-        "verwijderknop visueel bij de verkeerde rij")
+        "verwijderknop visueel bij de verkeerde rij"
+    )

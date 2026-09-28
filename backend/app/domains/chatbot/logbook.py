@@ -16,6 +16,7 @@ record of the call that was already made — and a refused call, whose route end
 an error path, is precisely the one worth keeping. It also keeps the commit out of
 the route, where the layer gate rightly does not want one (#635 rule 2).
 """
+
 from __future__ import annotations
 
 import logging
@@ -46,17 +47,25 @@ def sink_for(actor: str = "") -> Callable[..., None]:
     tenant in its context, and the row would otherwise land on the default one.
     """
 
-    def write(*, surface: AiSurface, capability: AiCapability = AiCapability.CHAT,
-              model: str, payload: str,
-              blocked_reason: str = "", usage: dict[str, int] | None = None,
-              provider: AiProvider | str | None = None, endpoint: str = "",
-              provider_request_id: str = "",
-              status: AiStatus | None = None, duration_ms: int | None = None,
-              cost_credits: Decimal | float | None = None,
-              cost_amount: Decimal | float | None = None,
-              cost_currency: str | None = None,
-              output_megapixels: Decimal | float | None = None,
-              tenant_id: int | None = None) -> None:
+    def write(
+        *,
+        surface: AiSurface,
+        capability: AiCapability = AiCapability.CHAT,
+        model: str,
+        payload: str,
+        blocked_reason: str = "",
+        usage: dict[str, int] | None = None,
+        provider: AiProvider | str | None = None,
+        endpoint: str = "",
+        provider_request_id: str = "",
+        status: AiStatus | None = None,
+        duration_ms: int | None = None,
+        cost_credits: Decimal | float | None = None,
+        cost_amount: Decimal | float | None = None,
+        cost_currency: str | None = None,
+        output_megapixels: Decimal | float | None = None,
+        tenant_id: int | None = None,
+    ) -> None:
         text = payload if len(payload) <= MAX_PAYLOAD else payload[:MAX_PAYLOAD] + _CUT
         counts = usage or {}
         status = status or (AiStatus.BLOCKED if blocked_reason else AiStatus.OK)

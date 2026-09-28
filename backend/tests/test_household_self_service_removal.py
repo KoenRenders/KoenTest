@@ -15,10 +15,11 @@ the second test falls over, and the member removes themselves from their own hou
 which leaves a household nobody can administer; and `soft_delete(mp)` skipped → the first
 falls over with the person still in the household.
 """
+
 import pytest
 
 from app.domains.auth.api import create_access_token
-from app.domains.mdm.api import MemberPerson, Person
+from app.domains.mdm.api import MemberPerson
 from tests.conftest import create_test_family
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -34,17 +35,22 @@ def _extra_person(db, member, first_name="Kind"):
     person = P(first_name=first_name, last_name="Testgezin")
     db.add(person)
     db.flush()
-    db.add(MemberPerson(member_id=member.id, person_id=person.id,
-                        relation_type="KIND"))
+    db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="KIND"))
     db.flush()
     return person
 
 
 def _in_household(db, member_id, person_id) -> bool:
-    return db.query(MemberPerson).filter(
-        MemberPerson.member_id == member_id,
-        MemberPerson.person_id == person_id,
-        MemberPerson.deleted_at.is_(None)).first() is not None
+    return (
+        db.query(MemberPerson)
+        .filter(
+            MemberPerson.member_id == member_id,
+            MemberPerson.person_id == person_id,
+            MemberPerson.deleted_at.is_(None),
+        )
+        .first()
+        is not None
+    )
 
 
 def test_removing_someone_from_your_own_household_works(client, db_session):
@@ -57,16 +63,20 @@ def test_removing_someone_from_your_own_household_works(client, db_session):
     kind = _extra_person(db_session, member)
     assert _in_household(db_session, member.id, kind.id), "opzet klopt niet (#678)"
 
-    resp = client.delete(f"/api/v1/member/household/persons/{kind.id}",
-                         headers=_member_headers("gezin-a@example.com"))
+    resp = client.delete(
+        f"/api/v1/member/household/persons/{kind.id}",
+        headers=_member_headers("gezin-a@example.com"),
+    )
 
     assert resp.status_code == 204, resp.text[:200]
     db_session.expire_all()
     assert not _in_household(db_session, member.id, kind.id), (
         "de persoon zit nog in het gezin — het verwijderen raakte het verkeerde record "
-        "of helemaal niets")
+        "of helemaal niets"
+    )
     assert _in_household(db_session, member.id, hoofdlid.id), (
-        "het hoofdlid is mee verdwenen — er is te veel verwijderd")
+        "het hoofdlid is mee verdwenen — er is te veel verwijderd"
+    )
 
 
 def test_you_cannot_remove_yourself(client, db_session):
@@ -78,15 +88,19 @@ def test_you_cannot_remove_yourself(client, db_session):
     member, hoofdlid = create_test_family(db_session, email="gezin-b@example.com")
     _extra_person(db_session, member)
 
-    resp = client.delete(f"/api/v1/member/household/persons/{hoofdlid.id}",
-                         headers=_member_headers("gezin-b@example.com"))
+    resp = client.delete(
+        f"/api/v1/member/household/persons/{hoofdlid.id}",
+        headers=_member_headers("gezin-b@example.com"),
+    )
 
     assert resp.status_code == 400, f"{resp.status_code} — {resp.text[:200]}"
     assert "jezelf" in resp.text, (
-        f"geweigerd om een andere reden dan de zelfverwijderregel: {resp.text[:200]}")
+        f"geweigerd om een andere reden dan de zelfverwijderregel: {resp.text[:200]}"
+    )
     db_session.expire_all()
     assert _in_household(db_session, member.id, hoofdlid.id), (
-        "het lid is toch uit zijn eigen gezin verdwenen")
+        "het lid is toch uit zijn eigen gezin verdwenen"
+    )
 
 
 def test_a_stranger_is_still_refused(client, db_session):
@@ -96,8 +110,10 @@ def test_a_stranger_is_still_refused(client, db_session):
     member_b, _ = create_test_family(db_session, email="gezin-d@example.com")
     vreemde = _extra_person(db_session, member_b, first_name="Vreemde")
 
-    resp = client.delete(f"/api/v1/member/household/persons/{vreemde.id}",
-                         headers=_member_headers("gezin-c@example.com"))
+    resp = client.delete(
+        f"/api/v1/member/household/persons/{vreemde.id}",
+        headers=_member_headers("gezin-c@example.com"),
+    )
 
     assert resp.status_code == 403
     db_session.expire_all()

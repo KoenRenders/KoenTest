@@ -29,6 +29,7 @@ Broken on purpose to check that these tests can go red:
   counter stuck at 1.
 - the visitor token rendered into the fragment → the privacy test falls over.
 """
+
 import pytest
 from sqlalchemy.exc import IntegrityError
 
@@ -53,17 +54,26 @@ def _photo(db, *, activity_id=901, title="foto"):
         db.flush()
         db.add(ActivityDate(activity_id=activity_id, start_date=date(2026, 7, 1)))
         db.flush()
-    asset = MediaAsset(kind="activity_photo", activity_id=activity_id, title=title,
-                       sort_order=0, is_active=True, content_type="image/jpeg",
-                       byte_size=10, width=100, height=100, data=b"x", thumbnail=b"y")
+    asset = MediaAsset(
+        kind="activity_photo",
+        activity_id=activity_id,
+        title=title,
+        sort_order=0,
+        is_active=True,
+        content_type="image/jpeg",
+        byte_size=10,
+        width=100,
+        height=100,
+        data=b"x",
+        thumbnail=b"y",
+    )
     db.add(asset)
     db.flush()
     return asset
 
 
 def _count(db, asset_id):
-    return db.query(MediaThumbsUp).filter(
-        MediaThumbsUp.asset_id == asset_id).count()
+    return db.query(MediaThumbsUp).filter(MediaThumbsUp.asset_id == asset_id).count()
 
 
 def test_clicking_twice_from_one_browser_leaves_one_thumb(client, db_session):
@@ -74,7 +84,8 @@ def test_clicking_twice_from_one_browser_leaves_one_thumb(client, db_session):
     eerste = client.post(f"/fotos/{foto.id}/duim")
     assert eerste.status_code == 200, eerste.text[:200]
     assert COOKIE in eerste.cookies or client.cookies.get(COOKIE), (
-        "er is geen bezoekerstoken gezet, dus 'één per bezoeker' bestaat niet")
+        "er is geen bezoekerstoken gezet, dus 'één per bezoeker' bestaat niet"
+    )
     assert ">1<" in eerste.text.replace(" ", ""), eerste.text
 
     # Zelfde browser: de client draagt de cookie mee. Dit is dus de tweede klik van
@@ -82,8 +93,7 @@ def test_clicking_twice_from_one_browser_leaves_one_thumb(client, db_session):
     tweede = client.post(f"/fotos/{foto.id}/duim")
 
     db_session.expire_all()
-    assert _count(db_session, foto.id) == 0, (
-        "nog eens klikken haalde het duimpje niet weg")
+    assert _count(db_session, foto.id) == 0, "nog eens klikken haalde het duimpje niet weg"
     assert ">0<" in tweede.text.replace(" ", "")
 
 
@@ -96,11 +106,12 @@ def test_the_cookie_is_only_set_on_a_click_and_not_on_a_page_view(client, db_ses
     """
     foto = _photo(db_session, activity_id=902)
 
-    resp = client.get(f"/activiteiten/902/fotos")
+    resp = client.get("/activiteiten/902/fotos")
 
     assert resp.status_code == 200
     assert COOKIE not in resp.cookies, (
-        "het bezoekerstoken wordt gezet bij het BEKIJKEN van een album")
+        "het bezoekerstoken wordt gezet bij het BEKIJKEN van een album"
+    )
     assert client.cookies.get(COOKIE) is None
     assert f"/fotos/{foto.id}/duim" in resp.text, "er is geen duimpje om op te klikken"
 
@@ -168,12 +179,14 @@ def test_a_thumb_of_another_tenant_does_not_show_up(client, db_session):
         from app.domains.media.api import thumb_counts
 
         assert thumb_counts(db_session, [foto.id]) == {}, (
-            "de duimpjes van een andere afdeling worden meegeteld")
+            "de duimpjes van een andere afdeling worden meegeteld"
+        )
     finally:
         current_tenant_id.reset(token)
 
 
 # ── #920: de rem hoort een script tegen te houden, geen bezoeker ────────────────
+
 
 def test_eleven_thumbs_in_one_minute_is_normal_use_and_must_work(client, db_session):
     """Koens geval op productie, letterlijk.
@@ -199,8 +212,8 @@ def test_eleven_thumbs_in_one_minute_is_normal_use_and_must_work(client, db_sess
     codes = [client.post(f"/fotos/{f.id}/duim").status_code for f in fotos]
 
     assert codes == [200] * 11, (
-        f"een bezoeker liep tegen de rem bij klik {codes.index(429) + 1} van de elf: "
-        f"{codes}")
+        f"een bezoeker liep tegen de rem bij klik {codes.index(429) + 1} van de elf: {codes}"
+    )
 
 
 def test_the_brake_still_exists_above_the_new_threshold(client, db_session):
@@ -228,8 +241,8 @@ def test_the_brake_still_exists_above_the_new_threshold(client, db_session):
     client.cookies.clear()
     over_de_grens = client.post(f"/fotos/{foto.id}/duim")
     assert over_de_grens.status_code == 429, (
-        "boven de drempel hoort de rem te knijpen; nu schrijft een script "
-        "ongelimiteerd rijen")
+        "boven de drempel hoort de rem te knijpen; nu schrijft een script ongelimiteerd rijen"
+    )
 
 
 # ── #922: een gedeelde link werkt ook zonder cookie ────────────────────────────
@@ -253,7 +266,9 @@ def platform_host(monkeypatch):
     invalidate_tenant_codes()
 
 
-def test_the_number_url_keeps_the_tenant_prefix_when_it_redirects(client, db_session, platform_host):
+def test_the_number_url_keeps_the_tenant_prefix_when_it_redirects(
+    client, db_session, platform_host
+):
     """Wie een link deelt die via het platformpad loopt, stuurt ontvangers zonder cookie.
 
     #890 liet de nummer-URL doorverwijzen naar de slug, maar zonder `path_for`: de prefix
@@ -277,14 +292,18 @@ def test_the_number_url_keeps_the_tenant_prefix_when_it_redirects(client, db_ses
     db_session.flush()
 
     client.cookies.clear()
-    antwoord = client.get("/raakmillegem/activiteiten/901/fotos",
-                          headers={"host": platform_host}, follow_redirects=False)
+    antwoord = client.get(
+        "/raakmillegem/activiteiten/901/fotos",
+        headers={"host": platform_host},
+        follow_redirects=False,
+    )
 
     assert antwoord.status_code == 307, antwoord.text[:200]
     bestemming = antwoord.headers["location"]
     assert bestemming.startswith("/raakmillegem/"), (
         f"de prefix viel weg bij de doorverwijzing: {bestemming} — een bezoeker zonder "
-        "cookie belandt zo op het platform in plaats van bij de afdeling")
+        "cookie belandt zo op het platform in plaats van bij de afdeling"
+    )
 
 
 def test_the_thumb_button_posts_to_a_prefixed_path(client, db_session, platform_host):
@@ -300,9 +319,9 @@ def test_the_thumb_button_posts_to_a_prefixed_path(client, db_session, platform_
         _photo(db_session, activity_id=902, title="duimpad")
 
     client.cookies.clear()
-    pagina = client.get("/raakmillegem/activiteiten/902/fotos",
-                        headers={"host": platform_host})
+    pagina = client.get("/raakmillegem/activiteiten/902/fotos", headers={"host": platform_host})
 
     assert pagina.status_code == 200, pagina.text[:200]
     assert 'hx-post="/raakmillegem/fotos/' in pagina.text, (
-        "de duim-knop post naar een pad zonder tenant-prefix; dan hangt hij aan de cookie")
+        "de duim-knop post naar een pad zonder tenant-prefix; dan hangt hij aan de cookie"
+    )

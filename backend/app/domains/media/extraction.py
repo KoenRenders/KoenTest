@@ -16,6 +16,7 @@ wordt overgeslagen, tenzij ``force=True`` (de 'Opnieuw lezen'-knop).
 Bronwaarheid blijft de DB: datum/prijs/locatie komen uit de structuurvelden en
 winnen altijd; de geëxtraheerde tekst vult enkel de zachte info aan.
 """
+
 from __future__ import annotations
 
 import base64
@@ -31,9 +32,15 @@ import httpx
 
 from app.config import settings
 from app.database import SessionLocal
+from app.domains.chatbot.api import (
+    AiCapability,
+    AiProvider,
+    AiStatus,
+    AiSurface,
+    ChatbotInfo,
+    sink_for,
+)
 from app.domains.media.models import MediaAsset, MediaKind
-from app.domains.chatbot.api import (AiCapability, AiProvider, AiStatus, AiSurface,
-                                     ChatbotInfo, sink_for)
 
 logger = logging.getLogger(__name__)
 
@@ -82,8 +89,7 @@ def _extract_pdf_text_layer(raw: bytes) -> str:
         return ""
 
 
-def _ocr_via_mistral(raw: bytes, content_type: str,
-                     tenant_id: Optional[int] = None) -> str:
+def _ocr_via_mistral(raw: bytes, content_type: str, tenant_id: Optional[int] = None) -> str:
     """Lees een afbeelding of scan-PDF uit via de Mistral OCR-API.
 
     Every call lands in the AI log (#978), failed ones included: the document
@@ -115,16 +121,29 @@ def _ocr_via_mistral(raw: bytes, content_type: str,
         status, request_id = AiStatus.OK, str(data.get("id") or "")
         pages_charged = (data.get("usage_info") or {}).get("pages_processed")
     finally:
-        _log_ocr(raw, content_type, tenant_id=tenant_id, status=status,
-                 request_id=request_id, pages_charged=pages_charged,
-                 duration_ms=int(round((time.monotonic() - begin) * 1000)))
+        _log_ocr(
+            raw,
+            content_type,
+            tenant_id=tenant_id,
+            status=status,
+            request_id=request_id,
+            pages_charged=pages_charged,
+            duration_ms=int(round((time.monotonic() - begin) * 1000)),
+        )
     pages = data.get("pages") or []
     return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
 
 
-def _log_ocr(raw: bytes, content_type: str, *, tenant_id: Optional[int],
-             status: AiStatus, request_id: str, duration_ms: int,
-             pages_charged: Optional[int] = None) -> None:
+def _log_ocr(
+    raw: bytes,
+    content_type: str,
+    *,
+    tenant_id: Optional[int],
+    status: AiStatus,
+    request_id: str,
+    duration_ms: int,
+    pages_charged: Optional[int] = None,
+) -> None:
     """One row in the AI log per OCR call, with its cost when Mistral says it (#1212).
 
     Mistral charges OCR per page and reports the count in
@@ -133,22 +152,31 @@ def _log_ocr(raw: bytes, content_type: str, *, tenant_id: Optional[int],
     call whose answer carries no count — a failed one — gets no cost: an
     estimate would be an invented amount, and the screen would add it up.
     """
-    cost = (Decimal(str(settings.ocr_price_per_page_usd)) * pages_charged
-            if pages_charged is not None else None)
+    cost = (
+        Decimal(str(settings.ocr_price_per_page_usd)) * pages_charged
+        if pages_charged is not None
+        else None
+    )
     try:
         sink_for()(
-            surface=AiSurface.ADMIN, capability=AiCapability.OCR, model=settings.ocr_model,
+            surface=AiSurface.ADMIN,
+            capability=AiCapability.OCR,
+            model=settings.ocr_model,
             payload=f"[document: {content_type}, {len(raw)} bytes]",
-            provider=AiProvider.MISTRAL, endpoint="ocr", provider_request_id=request_id,
-            status=status, duration_ms=duration_ms, tenant_id=tenant_id,
-            cost_amount=cost, cost_currency="USD" if cost is not None else None,
+            provider=AiProvider.MISTRAL,
+            endpoint="ocr",
+            provider_request_id=request_id,
+            status=status,
+            duration_ms=duration_ms,
+            tenant_id=tenant_id,
+            cost_amount=cost,
+            cost_currency="USD" if cost is not None else None,
         )
     except Exception:  # pragma: no cover - a log must not break the reading
         logger.exception("Kon de OCR-oproep niet loggen")
 
 
-def _select_text(raw: bytes, content_type: str,
-                 tenant_id: Optional[int] = None) -> str:
+def _select_text(raw: bytes, content_type: str, tenant_id: Optional[int] = None) -> str:
     """Kies het goedkoopste pad dat tekst oplevert (nog ongekuist).
 
     PDF met bruikbare tekstlaag → die tekst. Anders (scan/afbeelding) → OCR, mits
@@ -172,8 +200,7 @@ def _select_text(raw: bytes, content_type: str,
         return pdf_text  # val terug op wat we al hadden
 
 
-def extract_document_text(raw: bytes, content_type: str,
-                          tenant_id: Optional[int] = None) -> str:
+def extract_document_text(raw: bytes, content_type: str, tenant_id: Optional[int] = None) -> str:
     """Geëxtraheerde tekst, opgekuist voor de bot (#240).
 
     Kiest het goedkoopste pad (tekstlaag of OCR) en normaliseert het resultaat:
@@ -200,16 +227,11 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
         if asset.kind not in EXTRACTABLE_KINDS:
             return
 
-        row = (
-            db.query(ChatbotInfo)
-            .filter(ChatbotInfo.media_asset_id == asset_id)
-            .first()
-        )
+        row = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
         if row and row.extracted_text and not force:
             return  # al uitgelezen → niets te doen
 
-        text = extract_document_text(asset.data, asset.content_type,
-                                     tenant_id=asset.tenant_id)
+        text = extract_document_text(asset.data, asset.content_type, tenant_id=asset.tenant_id)
         if row is None:
             row = ChatbotInfo(media_asset_id=asset_id, title=asset.title)
             db.add(row)

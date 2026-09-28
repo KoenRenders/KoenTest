@@ -2,6 +2,7 @@
 CMS-slugpagina's en de betaal-resultaatpagina's. De SiteShell (navigatie +
 footer) komt uit app.ui.site_context().
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -11,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.cms.api import get_published_page, published_slugs
 from app.domains.cms.render import render_cms_content
-from app.ui import site_context, templates
 from app.i18n import _
+from app.ui import site_context, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,11 +35,18 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         # <platform-host>/<code>; zonder eigen host wordt haar adres afgeleid uit de
         # host waarop JIJ binnenkwam. Dat laatste is wat Koen zag misgaan: de kaart
         # "Raak Voorbeeldafdeling" wees naar het adres van Millegem.
-        afdelingen = [{"naam": tenant_display_name(db, tenant_id=u.id),
-                       "url": tenant_home_url(db, tenant_id=u.id, code=u.code)}
-                      for u in units]
-        return templates.TemplateResponse(request, "platform_landing.html", {
-            "afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]})
+        afdelingen = [
+            {
+                "naam": tenant_display_name(db, tenant_id=u.id),
+                "url": tenant_home_url(db, tenant_id=u.id, code=u.code),
+            }
+            for u in units
+        ]
+        return templates.TemplateResponse(
+            request,
+            "platform_landing.html",
+            {"afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]},
+        )
 
     # #727: `is_published` geldt ook voor de blokken die de site zelf invult. Er
     # stond een vinkje "Gepubliceerd" op het beheerscherm dat niets deed — uitzetten
@@ -49,34 +57,40 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     # Golf 11 (F31, #913): de lidmaatschapsband toont bedrag en geldigheid uit
     # dezelfde betaal-helpers als het Word-lid-scherm en de aanrekening zelf —
     # het tarief staat dus niet meer als tekst in de intro.
-    from app.domains.payment.api import (membership_price_for_date,
-                                         membership_valid_period)
+    from app.domains.payment.api import membership_price_for_date, membership_valid_period
 
     _van, tot = membership_valid_period()
-    return templates.TemplateResponse(request, "home.html", {
-        **site_context(db, request),
-        "intro_html": render_cms_content(intro.content or "") if intro else None,
-        "activities": list_activities(db, scope="upcoming"),
-        "scope": "upcoming",
-        "lidgeld": {"prijs": membership_price_for_date(), "tot": tot},
-        "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
-    })
+    return templates.TemplateResponse(
+        request,
+        "home.html",
+        {
+            **site_context(db, request),
+            "intro_html": render_cms_content(intro.content or "") if intro else None,
+            "activities": list_activities(db, scope="upcoming"),
+            "scope": "upcoming",
+            "lidgeld": {"prijs": membership_price_for_date(), "tot": tot},
+            "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
+        },
+    )
 
 
 @router.get("/betaling/succes", response_class=HTMLResponse)
 def betaling_succes(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "betaling_resultaat.html", {
-        **site_context(db, request), "gelukt": True})
+    return templates.TemplateResponse(
+        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": True}
+    )
 
 
 @router.get("/betaling/geannuleerd", response_class=HTMLResponse)
 def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "betaling_resultaat.html", {
-        **site_context(db, request), "gelukt": False})
+    return templates.TemplateResponse(
+        request, "betaling_resultaat.html", {**site_context(db, request), "gelukt": False}
+    )
 
 
 # ── Per-tenant SEO (5c, #406): robots + sitemap — verdwenen met de React-exit,
 # nu server-side en tenant-bewust. Demo/noindex-tenants worden niet geïndexeerd.
+
 
 @router.get("/robots.txt", response_class=PlainTextResponse)
 def robots(request: Request, db: Session = Depends(get_db)):
@@ -84,8 +98,9 @@ def robots(request: Request, db: Session = Depends(get_db)):
 
     if get_setting(db, "noindex") == "1":
         return "User-agent: *\nDisallow: /\n"
-    return (f"User-agent: *\nAllow: /\nDisallow: /admin\n"
-            f"Sitemap: {tenant_home_url(db)}/sitemap.xml\n")
+    return (
+        f"User-agent: *\nAllow: /\nDisallow: /admin\nSitemap: {tenant_home_url(db)}/sitemap.xml\n"
+    )
 
 
 @router.get("/sitemap.xml")
@@ -97,13 +112,14 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
     if get_setting(db, "noindex") == "1":
         raise HTTPException(status_code=404, detail=_("Geen sitemap voor deze tenant"))
     base = tenant_home_url(db)
-    paden = ["/", "/activiteiten", "/activiteiten/archief", "/fotos",
-             "/lid-worden", "/berichten"]
+    paden = ["/", "/activiteiten", "/activiteiten/archief", "/fotos", "/lid-worden", "/berichten"]
     paden += [f"/{slug}" for slug in published_slugs(db)]
     urls = "".join(f"<url><loc>{base}{pad}</loc></url>" for pad in paden)
-    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
-           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
-           f"{urls}</urlset>")
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{urls}</urlset>"
+    )
     return Response(content=xml, media_type="application/xml")
 
 
@@ -115,15 +131,21 @@ def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
     page = get_published_page(db, slug)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
-    return templates.TemplateResponse(request, "cms_pagina.html", {
-        **site_context(db, request), "page": page,
-        "content_html": render_cms_content(page.content or ""),
-        # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
-        # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
-        # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor
-        # een tweede afdeling die haar pagina anders noemt.
-        "toon_contactblok": slug == "privacy",
-        # De template toont een concept-banner; de publieke route serveert alleen
-        # gepubliceerde pagina's, dus hier altijd False. Expliciet meegeven i.p.v.
-        # de template laten raden — dat is de afspraak sinds #643.
-        "concept": False})
+    return templates.TemplateResponse(
+        request,
+        "cms_pagina.html",
+        {
+            **site_context(db, request),
+            "page": page,
+            "content_html": render_cms_content(page.content or ""),
+            # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
+            # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
+            # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor
+            # een tweede afdeling die haar pagina anders noemt.
+            "toon_contactblok": slug == "privacy",
+            # De template toont een concept-banner; de publieke route serveert alleen
+            # gepubliceerde pagina's, dus hier altijd False. Expliciet meegeven i.p.v.
+            # de template laten raden — dat is de afspraak sinds #643.
+            "concept": False,
+        },
+    )

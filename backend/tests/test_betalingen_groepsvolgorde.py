@@ -22,27 +22,36 @@ alle drie de kaarten er staan, gold voordien ook. En ze bewijzen dat de bedragen
 ná de herschikking identiek zijn — een presentatiewijziging die stilletjes een
 bedrag verschuift is erger dan de verwarring die ze oplost.
 """
+
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
 
-from app.domains.payment.api import PaymentRecord, get_records_for
+from app.domains.mdm.api import PaymentMethod
+from app.domains.payment.api import (
+    PayableType,
+    PaymentRecord,
+    PaymentStatus,
+    PaymentType,
+    get_records_for,
+)
 from app.domains.payment.service import group_cards
 from tests._invarianten import assert_saldo_klopt
-from app.domains.payment.api import PaymentType
-from app.domains.mdm.api import PaymentMethod
-from app.domains.payment.api import PayableType, PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def _rec(db, payable_id, amount, *, soort="charge", betaald=None, minuten=0,
-         refund_of=None):
-    rec = PaymentRecord(payable_type=PayableType.REGISTRATION, payable_id=payable_id,
-                        type=soort, amount=Decimal(amount), method=PaymentMethod.TRANSFER,
-                        status=PaymentStatus.PAID if betaald else "pending",
-                        refund_of_id=refund_of)
+def _rec(db, payable_id, amount, *, soort="charge", betaald=None, minuten=0, refund_of=None):
+    rec = PaymentRecord(
+        payable_type=PayableType.REGISTRATION,
+        payable_id=payable_id,
+        type=soort,
+        amount=Decimal(amount),
+        method=PaymentMethod.TRANSFER,
+        status=PaymentStatus.PAID if betaald else "pending",
+        refund_of_id=refund_of,
+    )
     if betaald is not None:
         rec.amount_paid = Decimal(betaald)
     db.add(rec)
@@ -55,14 +64,14 @@ def _rec(db, payable_id, amount, *, soort="charge", betaald=None, minuten=0,
 def _koens_geval(db, payable_id):
     """Precies wat Koen zag: 30 betaald, 10 terug te betalen, 10 bijkomend."""
     vordering = _rec(db, payable_id, "30.00", betaald="30.00", minuten=0)
-    terug = _rec(db, payable_id, "-10.00", soort="refund", minuten=5,
-                 refund_of=vordering.id)
+    terug = _rec(db, payable_id, "-10.00", soort="refund", minuten=5, refund_of=vordering.id)
     bijkomend = _rec(db, payable_id, "10.00", betaald="10.00", minuten=9)
     db.commit()
     return vordering, terug, bijkomend
 
 
 # ── 1. Volgorde ──────────────────────────────────────────────────────────────
+
 
 def test_binnen_een_groep_staat_de_oudste_vordering_bovenaan(db_session):
     """De positie ten opzichte van elkaar, niet de aanwezigheid."""
@@ -71,7 +80,8 @@ def test_binnen_een_groep_staat_de_oudste_vordering_bovenaan(db_session):
     kaarten = group_cards(get_records_for(db_session, "registration", 6820))[0]["kaarten"]
     ids = [k["charge"].id for k in kaarten]
     assert ids.index(vordering.id) < ids.index(bijkomend.id), (
-        "de bijkomende vordering staat vóór de vordering waar ze bij hoort")
+        "de bijkomende vordering staat vóór de vordering waar ze bij hoort"
+    )
 
 
 def test_tussen_groepen_blijft_de_nieuwste_bovenaan(db_session):
@@ -86,8 +96,9 @@ def test_tussen_groepen_blijft_de_nieuwste_bovenaan(db_session):
     _rec(db_session, 6822, "20.00", minuten=30)
     db_session.commit()
 
-    records = (get_records_for(db_session, "registration", 6821)
-               + get_records_for(db_session, "registration", 6822))
+    records = get_records_for(db_session, "registration", 6821) + get_records_for(
+        db_session, "registration", 6822
+    )
     groepen = group_cards(records)
     payables = [g["kaarten"][0]["charge"].payable_id for g in groepen]
     assert payables == [6822, 6821], "de nieuwste groep hoort bovenaan de lijst"
@@ -103,14 +114,16 @@ def test_de_twee_volgordes_gelden_tegelijk(db_session):
     nieuw_b = _rec(db_session, 6824, "10.00", minuten=30)
     db_session.commit()
 
-    records = (get_records_for(db_session, "registration", 6823)
-               + get_records_for(db_session, "registration", 6824))
+    records = get_records_for(db_session, "registration", 6823) + get_records_for(
+        db_session, "registration", 6824
+    )
     groepen = group_cards(records)
     volgorde = [[k["charge"].id for k in g["kaarten"]] for g in groepen]
     assert volgorde == [[oud_b.id, nieuw_b.id], [oud_a.id, nieuw_a.id]]
 
 
 # ── 2. De eerlijke totaalregel ───────────────────────────────────────────────
+
 
 def test_de_openstaande_terugvordering_krijgt_een_eigen_term(db_session):
     _vordering, _terug, _bijkomend = _koens_geval(db_session, 6825)
@@ -123,8 +136,15 @@ def test_een_uitbetaalde_terugvordering_staat_er_niet_meer_bij(db_session):
     """Alleen tonen wat nog actie vraagt: anders krijgt elke afgehandelde
     inschrijving een term die niets meer betekent."""
     vordering = _rec(db_session, 6826, "30.00", betaald="30.00", minuten=0)
-    _rec(db_session, 6826, "-10.00", soort="refund", betaald="-10.00", minuten=5,
-         refund_of=vordering.id)
+    _rec(
+        db_session,
+        6826,
+        "-10.00",
+        soort="refund",
+        betaald="-10.00",
+        minuten=5,
+        refund_of=vordering.id,
+    )
     db_session.commit()
 
     groep = group_cards(get_records_for(db_session, "registration", 6826))[0]
@@ -154,11 +174,11 @@ def test_een_te_veel_ontvangen_bedrag_is_geen_terugvordering(db_session):
 
     groep = group_cards(get_records_for(db_session, "registration", 6828))[0]
     assert groep["totaal"]["saldo"] < 0, "het saldo is negatief"
-    assert groep["terug_te_betalen"] == Decimal("0"), (
-        "maar er staat geen terugbetaling open")
+    assert groep["terug_te_betalen"] == Decimal("0"), "maar er staat geen terugbetaling open"
 
 
 # ── 3. De bedragen bewegen niet ──────────────────────────────────────────────
+
 
 def test_de_bedragen_zijn_identiek_na_de_herschikking(db_session):
     """De belangrijkste test van de drie punten samen."""
@@ -173,9 +193,9 @@ def test_de_bedragen_zijn_identiek_na_de_herschikking(db_session):
 
 # ── 4. Wat het scherm ervan toont ────────────────────────────────────────────
 
+
 def _login(client):
-    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                      make_session_value)
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -213,7 +233,8 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
     zonder = client.get("/admin/betalingen?context=all")
     assert zonder.status_code == 200
     assert "Nog uit te betalen" not in zonder.text, (
-        "een afgehandelde terugbetaling hoort de term niet te laten staan")
+        "een afgehandelde terugbetaling hoort de term niet te laten staan"
+    )
 
 
 def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_session):
@@ -240,7 +261,9 @@ def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_s
 # ── 5. De statusbadge staat op elke kaart uiterst rechts (#686) ──────────────
 
 # De badge kan sinds #996 een vinkje-icoon (svg) vóór het label dragen.
-BADGE = __import__("re").compile(r'rounded-full[^>]*">(?:<svg.*?</svg>)?([^<]*)</span>', __import__("re").S)
+BADGE = __import__("re").compile(
+    r'rounded-full[^>]*">(?:<svg.*?</svg>)?([^<]*)</span>', __import__("re").S
+)
 
 
 def _badges(html: str) -> list[str]:
@@ -254,8 +277,15 @@ def test_een_rij_draagt_een_badge_en_het_soort_in_de_subregel(client, db_session
     de contextsubregel — waarmee #686's doel (statusbadges op één lijn, de
     rechterkolom scanbaar) vanzelf geldt: er ís maar één badge per rij."""
     vordering = _rec(db_session, 6860, "30.00", betaald="30.00", minuten=0)
-    _rec(db_session, 6860, "-10.00", soort="refund", betaald="-10.00", minuten=5,
-         refund_of=vordering.id)
+    _rec(
+        db_session,
+        6860,
+        "-10.00",
+        soort="refund",
+        betaald="-10.00",
+        minuten=5,
+        refund_of=vordering.id,
+    )
     db_session.commit()
     _login(client)
 
@@ -269,8 +299,7 @@ def test_een_openstaande_terugbetaling_toont_dezelfde_volgorde(client, db_sessio
     """Niet alleen voor een vereffende kaart: het is de volgorde die vastligt, niet
     één toevallige statuscombinatie."""
     vordering = _rec(db_session, 6861, "30.00", betaald="30.00", minuten=0)
-    _rec(db_session, 6861, "-10.00", soort="refund", minuten=5,
-         refund_of=vordering.id)
+    _rec(db_session, 6861, "-10.00", soort="refund", minuten=5, refund_of=vordering.id)
     db_session.commit()
     _login(client)
 

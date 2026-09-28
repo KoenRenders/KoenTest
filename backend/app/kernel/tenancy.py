@@ -10,6 +10,7 @@ resolutie-middleware in ``main.py``: hostname → pad-prefix → default).
 die bewust over alle tenants werken). Een query die dwars over tenants moet
 (operator-rapportage) zet ``.execution_options(include_all_tenants=True)``.
 """
+
 from __future__ import annotations
 
 from contextvars import ContextVar
@@ -85,9 +86,9 @@ TENANT_CODES: dict[str, int] = {
 # hardgecodeerde TENANT_CODES het vangnet.
 
 
-def resolve_tenant(host: str | None, path: str,
-                   hostname_map: dict[str, str],
-                   codes: dict[str, int] | None = None) -> int:
+def resolve_tenant(
+    host: str | None, path: str, hostname_map: dict[str, str], codes: dict[str, int] | None = None
+) -> int:
     """Resolutievolgorde §7: hostname → pad-prefix → default (Millegem).
 
     ``hostname_map`` komt uit de settings (``TENANT_HOSTNAMES``), bv.
@@ -107,11 +108,15 @@ def resolve_tenant(host: str | None, path: str,
     return DEFAULT_TENANT_ID
 
 
-def resolve_request(host: str | None, path: str, cookie_code: str | None,
-                    hostname_map: dict[str, str],
-                    platform_hosts: set[str],
-                    codes: dict[str, int] | None = None,
-                    platform_tenant: int | None = None) -> tuple[int, str | None, bool]:
+def resolve_request(
+    host: str | None,
+    path: str,
+    cookie_code: str | None,
+    hostname_map: dict[str, str],
+    platform_hosts: set[str],
+    codes: dict[str, int] | None = None,
+    platform_tenant: int | None = None,
+) -> tuple[int, str | None, bool]:
     """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
     of None, platform-landing?).
 
@@ -138,7 +143,7 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
     genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")
     eerste = path.lstrip("/").split("/", 1)[0].lower()
     if eerste in codes:
-        rest = path.lstrip("/")[len(eerste):] or "/"
+        rest = path.lstrip("/")[len(eerste) :] or "/"
         return codes[eerste], rest, False
     code = hostname_map.get(genormaliseerd)
     if code in codes:

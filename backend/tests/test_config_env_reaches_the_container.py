@@ -39,6 +39,7 @@ Broken on purpose to check that this test can go red: removed `PLATFORM_HOSTS` f
 #917 repair: `ADMIN_CHAT_ENABLED` removed from `docker-compose.hdev.yml` → red, which
 is the exact failure that was missed before the regex was widened.
 """
+
 import ast
 import re
 from pathlib import Path
@@ -58,12 +59,18 @@ ENVIRONMENTS = ("dev", "hdev", "uat", "prod")
 def _settings_fields() -> set[str]:
     """The field names of `Settings`, as ENV NAMES (pydantic reads them uppercased)."""
     tree = ast.parse(CONFIG.read_text())
-    klass = next((n for n in ast.walk(tree)
-                  if isinstance(n, ast.ClassDef) and n.name == "Settings"), None)
+    klass = next(
+        (n for n in ast.walk(tree) if isinstance(n, ast.ClassDef) and n.name == "Settings"), None
+    )
     assert klass is not None, "class Settings not found in config.py"
-    fields = {n.target.id.upper() for n in klass.body
-              if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
-    assert len(fields) > 30, f"only {len(fields)} settings found — does this gate still read config.py?"
+    fields = {
+        n.target.id.upper()
+        for n in klass.body
+        if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)
+    }
+    assert len(fields) > 30, (
+        f"only {len(fields)} settings found — does this gate still read config.py?"
+    )
     return fields
 
 
@@ -77,7 +84,8 @@ def _documented(environment: str) -> set[str]:
     names = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]*)=", text, re.M))
     assert len(names) > 20, (
         f"{path.name} documents only {len(names)} variables — does this gate still "
-        "read the file it thinks it does? (#678)")
+        "read the file it thinks it does? (#678)"
+    )
     return names
 
 
@@ -92,13 +100,15 @@ def test_every_documented_backend_setting_is_passed_through(environment):
     fields = _settings_fields()
     passed_through = _backend_environment(environment)
 
-    missing = sorted(name for name in _documented(environment)
-                     if name in fields and name not in passed_through)
+    missing = sorted(
+        name for name in _documented(environment) if name in fields and name not in passed_through
+    )
 
     assert not missing, (
         f"these settings are in .env.{environment}.example and are read by the backend, "
         f"but docker-compose.{environment}.yml does not pass them through — so they "
-        f"never reach the container: {missing}")
+        f"never reach the container: {missing}"
+    )
 
 
 @pytest.mark.parametrize("environment", ENVIRONMENTS)
@@ -113,9 +123,11 @@ def test_a_documented_non_backend_variable_is_used_somewhere(environment):
     fields = _settings_fields()
     content = (ROOT / f"docker-compose.{environment}.yml").read_text()
 
-    unused = sorted(name for name in _documented(environment)
-                    if name not in fields and name not in content)
+    unused = sorted(
+        name for name in _documented(environment) if name not in fields and name not in content
+    )
 
     assert not unused, (
         f"these variables are in .env.{environment}.example but do not appear in "
-        f"docker-compose.{environment}.yml: {unused}")
+        f"docker-compose.{environment}.yml: {unused}"
+    )

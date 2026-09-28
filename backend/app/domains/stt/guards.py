@@ -4,6 +4,7 @@ In-memory en per proces (zelfde voorbehoud als ``app.limiter``). Bewust apart va
 de HTTP-limiters: een WebSocket kan geen ``HTTPException`` gooien, dus deze guards
 geven booleans terug en de route sluit de socket met een gepaste code.
 """
+
 from __future__ import annotations
 
 import time

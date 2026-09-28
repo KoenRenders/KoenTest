@@ -11,6 +11,7 @@ expects `paid` — and nothing breaks, not on write and not on read. The mistake
 ends up in the data, which is the expensive kind. `EnumColumn` exists to rule
 exactly that out, and this test is the proof that it does.
 """
+
 from datetime import date
 
 import pytest
@@ -33,8 +34,7 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 #: `meetings/admin_ui.py:STATUS_LABELS` as it stood on 25 September 2026.
 #: §B8.5: later phases assert against this that the screens show the same
 #: words. If one of these changes, that is a decision and not a detail.
-LABELS_BEFORE_CR12 = {"agenda": "Agenda", "report": "Verslag (bezig)",
-                      "sent": "Verslag verstuurd"}
+LABELS_BEFORE_CR12 = {"agenda": "Agenda", "report": "Verslag (bezig)", "sent": "Verslag verstuurd"}
 
 #: The tones as they were, for the same reason.
 TONES_BEFORE_CR12 = {"agenda": "blue", "report": "yellow", "sent": "green"}
@@ -50,6 +50,7 @@ def _clean_label_cache():
 
 # ── §B8.3 The round trip ─────────────────────────────────────────────────────
 
+
 def test_an_enum_member_lands_in_the_column_as_its_code(db_session):
     """Read raw, the column holds `sent` — not `SENT`, not `MeetingStatus.SENT`.
 
@@ -62,8 +63,8 @@ def test_an_enum_member_lands_in_the_column_as_its_code(db_session):
     db_session.flush()
 
     raw = db_session.execute(
-        text("SELECT status FROM meetings.meetings WHERE id = :id"),
-        {"id": meeting.id}).scalar_one()
+        text("SELECT status FROM meetings.meetings WHERE id = :id"), {"id": meeting.id}
+    ).scalar_one()
     assert raw == "sent"
     assert raw != "SENT", "the member name got stored — EnumColumn is not doing its job"
     assert "MeetingStatus" not in raw
@@ -73,14 +74,15 @@ def test_a_code_in_the_column_reads_back_as_the_member(db_session):
     """The other direction: what was already there comes back as a member."""
     meeting = create_meeting(db_session, meeting_date=date(2026, 11, 4))
     db_session.execute(
-        text("UPDATE meetings.meetings SET status = 'report' WHERE id = :id"),
-        {"id": meeting.id})
+        text("UPDATE meetings.meetings SET status = 'report' WHERE id = :id"), {"id": meeting.id}
+    )
     db_session.expire(meeting)
 
     assert meeting.status is MeetingStatus.REPORT
     assert meeting.status != "report", (
         "a plain Enum must NOT equal its string — if it does, it is a `str, Enum` "
-        "and every loose comparison stays quietly true")
+        "and every loose comparison stays quietly true"
+    )
 
 
 def test_a_value_outside_the_list_is_caught_on_read(db_session):
@@ -94,11 +96,12 @@ def test_a_value_outside_the_list_is_caught_on_read(db_session):
     The fixture's SAVEPOINT puts it back afterwards.
     """
     meeting = create_meeting(db_session, meeting_date=date(2026, 11, 5))
-    db_session.execute(text(
-        "ALTER TABLE meetings.meetings DROP CONSTRAINT fk_meetings_status_code"))
     db_session.execute(
-        text("UPDATE meetings.meetings SET status = 'kwijt' WHERE id = :id"),
-        {"id": meeting.id})
+        text("ALTER TABLE meetings.meetings DROP CONSTRAINT fk_meetings_status_code")
+    )
+    db_session.execute(
+        text("UPDATE meetings.meetings SET status = 'kwijt' WHERE id = :id"), {"id": meeting.id}
+    )
     db_session.expire(meeting)
 
     with pytest.raises(ValueError) as error:
@@ -109,6 +112,7 @@ def test_a_value_outside_the_list_is_caught_on_read(db_session):
 
 # ── §B8.2 and AC1 The foreign key holds ──────────────────────────────────────
 
+
 def test_the_database_refuses_a_status_that_does_not_exist(db_session):
     """AC1 on the pilot list: an unknown code does not get in, not even by raw SQL."""
     from sqlalchemy.exc import IntegrityError
@@ -117,10 +121,12 @@ def test_the_database_refuses_a_status_that_does_not_exist(db_session):
     with pytest.raises(IntegrityError):
         db_session.execute(
             text("UPDATE meetings.meetings SET status = 'verzonden' WHERE id = :id"),
-            {"id": meeting.id})
+            {"id": meeting.id},
+        )
 
 
 # ── §B8.4 One label per code per language ────────────────────────────────────
+
 
 def test_every_active_code_of_every_list_has_nl_and_en(db_session):
     """Exactly one non-empty text per language, for every list in the registry.
@@ -137,12 +143,18 @@ def test_every_active_code_of_every_list_has_nl_and_en(db_session):
     for lst in registry().values():
         for code, _label in code_labels(lst.name, language="nl"):
             for language in ("nl", "en"):
-                rows = db_session.execute(sql(
-                    f"SELECT value FROM {lst.labels_table} "
-                    f"WHERE code = :c AND language = :l"),
-                    {"c": code, "l": language}).scalars().all()
-                assert rows and rows[0], (
-                    f"`{lst.name}`.`{code}` has no {language} label row")
+                rows = (
+                    db_session.execute(
+                        sql(
+                            f"SELECT value FROM {lst.labels_table} "
+                            f"WHERE code = :c AND language = :l"
+                        ),
+                        {"c": code, "l": language},
+                    )
+                    .scalars()
+                    .all()
+                )
+                assert rows and rows[0], f"`{lst.name}`.`{code}` has no {language} label row"
                 assert code_label(lst.name, code, language=language) == rows[0]
 
 
@@ -153,8 +165,7 @@ def test_the_pilot_list_shows_the_same_dutch_words_as_before_cr12(db_session):
 
 
 def test_the_english_labels_are_seeded(db_session):
-    assert code_label("meeting_status", MeetingStatus.SENT, language="en") == \
-        "Report sent"
+    assert code_label("meeting_status", MeetingStatus.SENT, language="en") == "Report sent"
 
 
 def test_the_select_list_comes_in_sort_order(db_session):
@@ -164,16 +175,19 @@ def test_the_select_list_comes_in_sort_order(db_session):
     `is_active` filter; that one is checked where something *is* retired, in the
     retirement test below.
     """
-    assert [code for code, _ in code_labels("meeting_status", language="nl")] == \
-        ["agenda", "report", "sent"]
+    assert [code for code, _ in code_labels("meeting_status", language="nl")] == [
+        "agenda",
+        "report",
+        "sent",
+    ]
 
 
 def test_a_member_may_go_straight_into_the_label_function(db_session):
-    assert code_label("meeting_status", MeetingStatus.REPORT, language="nl") == \
-        "Verslag (bezig)"
+    assert code_label("meeting_status", MeetingStatus.REPORT, language="nl") == "Verslag (bezig)"
 
 
 # ── §B4.4 The fallbacks ──────────────────────────────────────────────────────
+
 
 def test_an_unknown_language_falls_back_to_dutch(db_session):
     assert code_label("meeting_status", "sent", language="de") == "Verslag verstuurd"
@@ -206,6 +220,7 @@ def test_the_active_language_comes_from_the_locale(db_session):
 
 # ── §B4.5 The tones ──────────────────────────────────────────────────────────
 
+
 def test_the_tones_are_the_ones_from_before_cr12():
     import app.main  # noqa: F401  — loads the UI module that registers them
 
@@ -214,6 +229,7 @@ def test_the_tones_are_the_ones_from_before_cr12():
 
 
 # ── §B8.6 The screen renders text ────────────────────────────────────────────
+
 
 def _login(client) -> dict:
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -241,6 +257,7 @@ def test_the_meeting_screen_shows_the_label_and_not_the_code(client, db_session)
 
 # ── The migration helper ─────────────────────────────────────────────────────
 
+
 def test_the_helper_refuses_an_fk_on_data_that_does_not_fit(db_session):
     """The guard before the foreign key names the value *and* the count.
 
@@ -254,16 +271,23 @@ def test_the_helper_refuses_an_fk_on_data_that_does_not_fit(db_session):
 
     from app.kernel.codes import create_code_list
 
-    db_session.execute(text(
-        "CREATE TABLE meetings.proef (id serial PRIMARY KEY, soort_code varchar(10))"))
-    db_session.execute(text(
-        "INSERT INTO meetings.proef (soort_code) VALUES ('een'), ('kwijt'), ('kwijt')"))
+    db_session.execute(
+        text("CREATE TABLE meetings.proef (id serial PRIMARY KEY, soort_code varchar(10))")
+    )
+    db_session.execute(
+        text("INSERT INTO meetings.proef (soort_code) VALUES ('een'), ('kwijt'), ('kwijt')")
+    )
     op = Operations(MigrationContext.configure(db_session.connection()))
 
     with pytest.raises(RuntimeError) as error:
-        create_code_list(op, schema="meetings", name="proef_soort",
-                         codes=(CodeSeed(code="een", nl="Een", en="One"),),
-                         fk_from=("meetings.proef.soort_code",), code_length=10)
+        create_code_list(
+            op,
+            schema="meetings",
+            name="proef_soort",
+            codes=(CodeSeed(code="een", nl="Een", en="One"),),
+            fk_from=("meetings.proef.soort_code",),
+            code_length=10,
+        )
     message = str(error.value)
     assert "'kwijt'×2" in message
     assert "meetings.proef.soort_code" in message
@@ -295,22 +319,33 @@ def test_retiring_deletes_nothing_and_keeps_the_fk_valid(db_session):
     db_session.flush()
     op = Operations(MigrationContext.configure(db_session.connection()))
 
-    retire_code(op, schema="meetings", name="meeting_status", code="sent",
-                used_by=("meetings.meetings.status",))
+    retire_code(
+        op,
+        schema="meetings",
+        name="meeting_status",
+        code="sent",
+        used_by=("meetings.meetings.status",),
+    )
 
-    row = db_session.execute(text(
-        "SELECT is_active FROM meetings.meeting_status_codes WHERE code = 'sent'"
-    )).all()
+    row = db_session.execute(
+        text("SELECT is_active FROM meetings.meeting_status_codes WHERE code = 'sent'")
+    ).all()
     assert row == [(False,)], "a retired code may not disappear, only switch off"
-    assert db_session.execute(text(
-        "SELECT code FROM meetings.meeting_status_codes WHERE is_active "
-        "ORDER BY sort_order")).scalars().all() == ["agenda", "report"]
-    assert db_session.execute(text(
-        "SELECT value FROM meetings.meeting_status_labels "
-        "WHERE code = 'sent' AND language = 'nl'")).scalar_one() == \
-        "Verslag verstuurd"
+    assert db_session.execute(
+        text("SELECT code FROM meetings.meeting_status_codes WHERE is_active ORDER BY sort_order")
+    ).scalars().all() == ["agenda", "report"]
+    assert (
+        db_session.execute(
+            text(
+                "SELECT value FROM meetings.meeting_status_labels "
+                "WHERE code = 'sent' AND language = 'nl'"
+            )
+        ).scalar_one()
+        == "Verslag verstuurd"
+    )
     assert MeetingStatus.SENT in list(MeetingStatus), (
-        "the member stays, otherwise this row reads back as a bare string")
+        "the member stays, otherwise this row reads back as a bare string"
+    )
     db_session.expire(meeting)
     assert meeting.status is MeetingStatus.SENT
 

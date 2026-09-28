@@ -18,10 +18,10 @@ een voorwaarde op haar titel. Een naamloze sectie is dus een geldige toestand.
 verschijnen. De derde test hieronder legt dat fundament vast — valt die aanname weg,
 dan klopt de keuze om direct te posten niet meer.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -34,11 +34,16 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, velden=None, secties=None):
-    r = client.post("/api/v1/forms", json={
-        "title": "Staart", "status": "draft",
-        "sections": secties if secties is not None else [],
-        "fields": velden or [],
-    }, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Staart",
+            "status": "draft",
+            "sections": secties if secties is not None else [],
+            "fields": velden or [],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     return r.json()
 
@@ -51,14 +56,14 @@ def _bouwer(client, form_id) -> str:
 
 # ── 1. Geen lege kaart meer ────────────────────────────────────────────────
 
+
 def test_zonder_losse_velden_staat_er_geen_lege_kaart(client, admin_headers):
     """Een kop met als enige inhoud een knop is een omhulsel om niets."""
     form = _formulier(client, admin_headers)
     _login(client)
     html = _bouwer(client, form["id"])
 
-    assert "Velden zonder sectie" not in html, (
-        "de kaart staat er terwijl er geen losse velden zijn")
+    assert "Velden zonder sectie" not in html, "de kaart staat er terwijl er geen losse velden zijn"
     # F16 (#996): een LEEG formulier toont de lege staat die bij de eerste
     # vraag begint; de losse knop hoort daar niet naast (twee ingangen voor
     # hetzelfde). Hij verschijnt pas zodra er secties zijn.
@@ -67,8 +72,9 @@ def test_zonder_losse_velden_staat_er_geen_lege_kaart(client, admin_headers):
 
 
 def test_met_losse_velden_blijft_de_kaart(client, admin_headers):
-    form = _formulier(client, admin_headers, [
-        {"field_type": "text", "label": "Los", "position": 0}])
+    form = _formulier(
+        client, admin_headers, [{"field_type": "text", "label": "Los", "position": 0}]
+    )
     _login(client)
     html = _bouwer(client, form["id"])
 
@@ -80,10 +86,10 @@ def test_met_losse_velden_blijft_de_kaart(client, admin_headers):
 
 # ── 2. Eén naam voor één begrip ────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("met_velden", [True, False])
-def test_er_is_maar_een_naam_voor_velden_zonder_sectie(client, admin_headers,
-                                                       met_velden):
-    """"Ongegroepeerd" is jargon dat elders in de app niet voorkomt, en de naam mag
+def test_er_is_maar_een_naam_voor_velden_zonder_sectie(client, admin_headers, met_velden):
+    """ "Ongegroepeerd" is jargon dat elders in de app niet voorkomt, en de naam mag
     niet afhangen van of de lijst toevallig leeg is."""
     velden = [{"field_type": "text", "label": "Los", "position": 0}] if met_velden else []
     form = _formulier(client, admin_headers, velden)
@@ -95,8 +101,8 @@ def test_er_is_maar_een_naam_voor_velden_zonder_sectie(client, admin_headers,
 
 # ── 3. Het fundament: een naamloze sectie is geldig ────────────────────────
 
-def test_een_sectie_zonder_titel_rendert_zonder_lege_kop(client, admin_headers,
-                                                         db_session):
+
+def test_een_sectie_zonder_titel_rendert_zonder_lege_kop(client, admin_headers, db_session):
     """Hierop leunt de keuze om de sectieknop meteen te laten posten.
 
     Valt deze aanname weg — bijvoorbeeld doordat iemand `add_section` een verplichte
@@ -108,13 +114,15 @@ def test_een_sectie_zonder_titel_rendert_zonder_lege_kop(client, admin_headers,
     form = _formulier(client, admin_headers)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/formulieren/{form['id']}/secties",
-                       data={"title": ""}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/formulieren/{form['id']}/secties",
+        data={"title": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200, resp.text[:300]
 
     db_session.expire_all()
-    sectie = db_session.query(FormSection).filter(
-        FormSection.form_id == form["id"]).one()
+    sectie = db_session.query(FormSection).filter(FormSection.form_id == form["id"]).one()
     assert sectie.title is None, "een lege titel werd niet als 'geen titel' bewaard"
 
     html = _bouwer(client, form["id"])
@@ -128,15 +136,19 @@ def test_een_naamloze_sectie_blijft_bewerkbaar(client, admin_headers, db_session
 
     form = _formulier(client, admin_headers)
     csrf = _login(client)
-    client.post(f"/admin/formulieren/{form['id']}/secties", data={"title": ""},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form['id']}/secties",
+        data={"title": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
     db_session.expire_all()
-    sectie = db_session.query(FormSection).filter(
-        FormSection.form_id == form["id"]).one()
+    sectie = db_session.query(FormSection).filter(FormSection.form_id == form["id"]).one()
 
-    resp = client.post(f"/admin/formulieren/{form['id']}/secties/{sectie.id}",
-                       data={"title": "Nu wel een naam"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/formulieren/{form['id']}/secties/{sectie.id}",
+        data={"title": "Nu wel een naam"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200, resp.text[:300]
 
     db_session.expire_all()
@@ -145,6 +157,7 @@ def test_een_naamloze_sectie_blijft_bewerkbaar(client, admin_headers, db_session
 
 # ── 4. De twee knoppen onderaan ────────────────────────────────────────────
 
+
 def test_de_sectieknop_staat_niet_meer_los_tussen_de_kaarten(client, admin_headers):
     """Geen invoerveld meer: de knop maakt de sectie aan, benoemen komt daarna."""
     form = _formulier(client, admin_headers)
@@ -152,8 +165,7 @@ def test_de_sectieknop_staat_niet_meer_los_tussen_de_kaarten(client, admin_heade
     html = _bouwer(client, form["id"])
 
     assert "+ Sectie toevoegen" in html
-    assert 'placeholder="Nieuwe sectie"' not in html, (
-        "de oude invoerbalk staat er nog")
+    assert 'placeholder="Nieuwe sectie"' not in html, "de oude invoerbalk staat er nog"
 
 
 def test_de_knop_voor_een_los_veld_is_dezelfde_vorm(client, admin_headers):
@@ -164,7 +176,7 @@ def test_de_knop_voor_een_los_veld_is_dezelfde_vorm(client, admin_headers):
     html = _bouwer(client, form["id"])
 
     start = html.index('id="fl-nieuw"')
-    vorm = html[html.rindex("<form", 0, start):html.index("</form>", start)]
+    vorm = html[html.rindex("<form", 0, start) : html.index("</form>", start)]
     for veld in ('name="label"', 'name="field_type"', 'name="help_text"'):
         assert veld in vorm, f"{veld} ontbreekt in de losse-veldvorm"
     assert 'name="section_id" value=""' in vorm, "het veld krijgt tóch een sectie"

@@ -15,12 +15,12 @@ Niet `hx-push-url="true"` op de balk: dat duwt de URL van het VERZOEK, en vier v
 de elf balken vragen een eigen `…/lijst`-route. Een F5 daarop geeft het kale
 fragment zonder schil.
 """
+
 from decimal import Decimal
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -38,10 +38,20 @@ def _login(client, db):
 
 
 def _twee_records(db):
-    lid = PaymentRecord(payable_type="membership", payable_id=6710,
-                        amount=Decimal("20.00"), method="transfer", status="pending")
-    insch = PaymentRecord(payable_type="registration", payable_id=6711,
-                          amount=Decimal("35.00"), method="transfer", status="pending")
+    lid = PaymentRecord(
+        payable_type="membership",
+        payable_id=6710,
+        amount=Decimal("20.00"),
+        method="transfer",
+        status="pending",
+    )
+    insch = PaymentRecord(
+        payable_type="registration",
+        payable_id=6711,
+        amount=Decimal("35.00"),
+        method="transfer",
+        status="pending",
+    )
     db.add_all([lid, insch])
     db.commit()
     return lid, insch
@@ -52,11 +62,14 @@ def test_de_filterbalk_duwt_het_paginapad_niet_het_fragment(client, db_session):
     _twee_records(db_session)
     _login(client, db_session)
 
-    r = client.get("/admin/betalingen/lijst?context=membership",
-                   headers={"HX-Request": "true", "X-Raak-Filter": "1"})
+    r = client.get(
+        "/admin/betalingen/lijst?context=membership",
+        headers={"HX-Request": "true", "X-Raak-Filter": "1"},
+    )
     assert r.status_code == 200
     assert r.headers.get("HX-Push-Url") == "/admin/betalingen?context=membership", (
-        "de geduwde URL hoort het paginapad te zijn, niet /lijst")
+        "de geduwde URL hoort het paginapad te zijn, niet /lijst"
+    )
 
 
 def test_zonder_de_filterbalk_wordt_er_niets_geduwd(client, db_session):
@@ -64,16 +77,18 @@ def test_zonder_de_filterbalk_wordt_er_niets_geduwd(client, db_session):
     _twee_records(db_session)
     _login(client, db_session)
 
-    r = client.get("/admin/betalingen/lijst?context=membership",
-                   headers={"HX-Request": "true"})
+    r = client.get("/admin/betalingen/lijst?context=membership", headers={"HX-Request": "true"})
     assert "HX-Push-Url" not in r.headers
 
 
-@pytest.mark.parametrize("stand,verborgen", [
-    ("context=membership", "35.00"),
-    ("status=pending", "35.00"),
-    ("q=zzz-bestaat-niet", "35.00"),
-])
+@pytest.mark.parametrize(
+    "stand,verborgen",
+    [
+        ("context=membership", "35.00"),
+        ("status=pending", "35.00"),
+        ("q=zzz-bestaat-niet", "35.00"),
+    ],
+)
 def test_de_filterstand_overleeft_een_mutatie(client, db_session, stand, verborgen):
     """Alle drie de filters lopen via dezelfde weg: werkt er één en de andere niet,
     dan is de fix half.
@@ -90,13 +105,18 @@ def test_de_filterstand_overleeft_een_mutatie(client, db_session, stand, verborg
     db_session.commit()
     csrf = _login(client, db_session)
 
-    r = client.post(f"/admin/betalingen/{lid.id}/bevestigen",
-                    headers={"X-CSRF-Token": csrf,
-                             "HX-Request": "true",
-                             "HX-Current-URL": f"http://testserver/admin/betalingen?{stand}"})
+    r = client.post(
+        f"/admin/betalingen/{lid.id}/bevestigen",
+        headers={
+            "X-CSRF-Token": csrf,
+            "HX-Request": "true",
+            "HX-Current-URL": f"http://testserver/admin/betalingen?{stand}",
+        },
+    )
     assert r.status_code == 200
     assert verborgen not in r.text and verborgen.replace(".", ",") not in r.text, (
-        f"met {stand} hoort {verborgen} niet in de lijst te staan")
+        f"met {stand} hoort {verborgen} niet in de lijst te staan"
+    )
 
 
 def test_de_query_string_wint_van_de_huidige_url(client, db_session):
@@ -105,11 +125,17 @@ def test_de_query_string_wint_van_de_huidige_url(client, db_session):
     _twee_records(db_session)
     _login(client, db_session)
 
-    r = client.get("/admin/betalingen/lijst?context=all",
-                   headers={"HX-Request": "true", "X-Raak-Filter": "1",
-                            "HX-Current-URL": "http://testserver/admin/betalingen?context=membership"})
+    r = client.get(
+        "/admin/betalingen/lijst?context=all",
+        headers={
+            "HX-Request": "true",
+            "X-Raak-Filter": "1",
+            "HX-Current-URL": "http://testserver/admin/betalingen?context=membership",
+        },
+    )
     assert "35.00" in r.text or "35,00" in r.text, (
-        "de nieuwe keuze uit de query-string werd overruled door de oude URL")
+        "de nieuwe keuze uit de query-string werd overruled door de oude URL"
+    )
 
 
 def test_een_gewone_get_leest_nog_uit_de_query_string(client, db_session):
@@ -124,8 +150,9 @@ def test_een_gewone_get_leest_nog_uit_de_query_string(client, db_session):
 
 def test_de_filterbalk_draagt_de_markering():
     kit = open("app/ui/templates/_macros.html", encoding="utf-8").read()
-    balk = kit[kit.index("{% macro filter_bar("):]
-    balk = balk[:balk.index("{%- endmacro %}")]
+    balk = kit[kit.index("{% macro filter_bar(") :]
+    balk = balk[: balk.index("{%- endmacro %}")]
     assert "X-Raak-Filter" in balk
     assert 'hx-push-url="true"' not in balk, (
-        "hx-push-url op de balk duwt de fragment-URL; dat is precies de valkuil")
+        "hx-push-url op de balk duwt de fragment-URL; dat is precies de valkuil"
+    )

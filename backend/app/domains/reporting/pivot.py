@@ -19,6 +19,7 @@ claims to describe.
 The layout below is only that: layout. It reads the four results and puts them in
 the shape the macro renders.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -88,17 +89,17 @@ class Pivot:
             "column_header": self.column_column.name if self.column_column else "",
             "column_values": self.column_values,
             "truncated": self.truncated,
-            "measures": [{"key": m.key, "name": m.name, "format": m.format}
-                         for m in self.measures],
+            "measures": [{"key": m.key, "name": m.name, "format": m.format} for m in self.measures],
             "rows": [
                 {
                     "labels": [_label(v) for v in row.labels],
-                    "cells": [[row.cells.get(waarde, {}).get(m.key)
-                               for m in self.measures]
-                              for waarde in self.column_values],
+                    "cells": [
+                        [row.cells.get(waarde, {}).get(m.key) for m in self.measures]
+                        for waarde in self.column_values
+                    ],
                     "total": [row.total.get(m.key) for m in self.measures],
                     "is_subtotal": row.is_subtotal,
-                "drillable": list(row.drillable),
+                    "drillable": list(row.drillable),
                 }
                 for row in self.rows
             ],
@@ -155,8 +156,7 @@ def check_column_cap(db: Session, selection: Selection, *, tenant_id: int) -> No
     """Refuse a column dimension that is too wide, before the wide query runs."""
     if selection.layout != Layout.PIVOT or not selection.pivot_column:
         return
-    sql, params = build_member_count_query(selection, selection.pivot_column,
-                                           tenant_id=tenant_id)
+    sql, params = build_member_count_query(selection, selection.pivot_column, tenant_id=tenant_id)
     aantal = db.execute(text(sql), params).scalar() or 0
     if aantal > MAX_PIVOT_COLUMNS:
         naam = BY_KEY[selection.pivot_column].name
@@ -211,16 +211,17 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
     if selection.pivot_column and selection.pivot_column not in selection.object_keys:
         raise SelectionError(
             f"'{BY_KEY[selection.pivot_column].name}' staat niet in het rapport, "
-            "dus kan het ook niet de kolomas zijn.")
+            "dus kan het ook niet de kolomas zijn."
+        )
 
     objects = [BY_KEY[k] for k in selection.object_keys]
     measures = [o for o in objects if o.is_measure]
-    row_objects = [o for o in objects
-                   if not o.is_measure and o.key != selection.pivot_column]
+    row_objects = [o for o in objects if not o.is_measure and o.key != selection.pivot_column]
     if not measures:
         raise SelectionError(
             "Kies minstens één maat: een draaitabel zonder maat heeft niets te "
-            "tonen in haar cellen.")
+            "tonen in haar cellen."
+        )
     # No row dimension is NOT refused (#877). `engine.py` says both shapes read
     # the same objects and the pivot only moves one of them to the column axis —
     # so a selection that gives €1059 in the table may not come back empty here.
@@ -235,15 +236,25 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
     # asking for it twice would be two queries for one answer.
     grid = run_selection(
         db,
-        Selection(object_keys=selection.object_keys, filters=selection.filters,
-                  sort=(), limit=selection.limit or 5000, offset=0),
-        tenant_id=tenant_id)
+        Selection(
+            object_keys=selection.object_keys,
+            filters=selection.filters,
+            sort=(),
+            limit=selection.limit or 5000,
+            offset=0,
+        ),
+        tenant_id=tenant_id,
+    )
 
     # The row totals: the same question without the column dimension. With no
     # column axis that IS the grid, so there is nothing to ask twice.
-    row_totals = grid if not selection.pivot_column else run_selection(
-        db, _without(selection, {selection.pivot_column}, limit=5000),
-        tenant_id=tenant_id)
+    row_totals = (
+        grid
+        if not selection.pivot_column
+        else run_selection(
+            db, _without(selection, {selection.pivot_column}, limit=5000), tenant_id=tenant_id
+        )
+    )
 
     row_keys = [o.key for o in row_objects]
     kolom_key = selection.pivot_column
@@ -259,12 +270,10 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
             waarde = _label(row.get(kolom_key))
             if waarde not in kolomwaarden:
                 kolomwaarden.append(waarde)
-            cellen.setdefault(_sleutel(row), {})[waarde] = {
-                k: row.get(k) for k in measure_keys}
+            cellen.setdefault(_sleutel(row), {})[waarde] = {k: row.get(k) for k in measure_keys}
         kolomwaarden.sort(key=_natural_key)
 
-    totalen = {_sleutel(row): {k: row.get(k) for k in measure_keys}
-               for row in row_totals.rows}
+    totalen = {_sleutel(row): {k: row.get(k) for k in measure_keys} for row in row_totals.rows}
 
     # Subtotals only make sense with more than one row dimension: with one, every
     # row is its own group and a subtotal would repeat the line above it.
@@ -273,40 +282,59 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
         weg = set(row_keys[1:])
         if selection.pivot_column:
             weg.add(selection.pivot_column)
-        groep = run_selection(db, _without(selection, weg, limit=5000),
-                              tenant_id=tenant_id)
-        subtotalen = {_label(row.get(row_keys[0])): {k: row.get(k)
-                                                     for k in measure_keys}
-                      for row in groep.rows}
+        groep = run_selection(db, _without(selection, weg, limit=5000), tenant_id=tenant_id)
+        subtotalen = {
+            _label(row.get(row_keys[0])): {k: row.get(k) for k in measure_keys}
+            for row in groep.rows
+        }
 
     rijen: list[PivotRow] = []
     vorige_groep: str | None = None
-    for sleutel in sorted(totalen,
-                          key=lambda s: tuple(_natural_key(deel) for deel in s)):
+    for sleutel in sorted(totalen, key=lambda s: tuple(_natural_key(deel) for deel in s)):
         # `sleutel` is empty when there is no row dimension (#877) — one cell with
         # the grand total. `subtotalen` is empty in that case too (they need more
         # than one row dimension), so the guard below never indexes it; the
         # explicit length check says so instead of leaving it to that coincidence.
-        if (subtotalen and len(sleutel) > 0 and vorige_groep is not None
-                and sleutel[0] != vorige_groep):
-            rijen.append(PivotRow(labels=[vorige_groep], cells={},
-                                  total=subtotalen.get(vorige_groep, {}),
-                                  is_subtotal=True))
-        rijen.append(PivotRow(
-            labels=list(sleutel),
-            cells=cellen.get(sleutel, {}),
-            total=totalen[sleutel],
-            drillable=[bool(_drill_target(row_objects[i])) and deel != ONBEKEND
-                       for i, deel in enumerate(sleutel)]))
+        if (
+            subtotalen
+            and len(sleutel) > 0
+            and vorige_groep is not None
+            and sleutel[0] != vorige_groep
+        ):
+            rijen.append(
+                PivotRow(
+                    labels=[vorige_groep],
+                    cells={},
+                    total=subtotalen.get(vorige_groep, {}),
+                    is_subtotal=True,
+                )
+            )
+        rijen.append(
+            PivotRow(
+                labels=list(sleutel),
+                cells=cellen.get(sleutel, {}),
+                total=totalen[sleutel],
+                drillable=[
+                    bool(_drill_target(row_objects[i])) and deel != ONBEKEND
+                    for i, deel in enumerate(sleutel)
+                ],
+            )
+        )
         vorige_groep = sleutel[0] if sleutel else None
     if subtotalen and vorige_groep is not None:
-        rijen.append(PivotRow(labels=[vorige_groep], cells={},
-                              total=subtotalen.get(vorige_groep, {}),
-                              is_subtotal=True))
+        rijen.append(
+            PivotRow(
+                labels=[vorige_groep],
+                cells={},
+                total=subtotalen.get(vorige_groep, {}),
+                is_subtotal=True,
+            )
+        )
 
     def _column(obj) -> Column:
-        return Column(key=obj.key, name=obj.name, kind=obj.kind,
-                      format=obj.format.value, drill=obj.drill)
+        return Column(
+            key=obj.key, name=obj.name, kind=obj.kind, format=obj.format.value, drill=obj.drill
+        )
 
     return Pivot(
         row_columns=[_column(o) for o in row_objects],

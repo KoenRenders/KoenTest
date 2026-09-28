@@ -5,6 +5,7 @@ publiceren ``MailRequested`` (synchroon, in-transactie — event-ladder trede 1)
 het mail-component is de abonnee en verstuurt + logt. De directe facade
 (``app.domains.mail.api``) blijft bestaan voor de rijkere, opgemaakte mails.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

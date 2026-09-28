@@ -19,12 +19,12 @@ onder hangt; de invariant is dat dat er precies één is.
    buiten de flex-rij gezet. `test_zoek_en_filters_staan_in_een_rij[/admin/activiteiten]`
    viel om met "2 directe kinderen"; na het terugzetten weer groen.
 """
+
 from html.parser import HTMLParser
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.ui import templates
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -33,8 +33,22 @@ pytestmark = pytest.mark.ui_serverrendered
 
 # ── De meter ─────────────────────────────────────────────────────────────────
 
-_VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-         "meta", "param", "source", "track", "wbr"}
+_VOID = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 
 # Alleen een control die de gebruiker ZIET telt mee. De verborgen velden van de
 # sorteerstand (e-maillog, ledenwijzigingen) en de recordscope staan bewust als
@@ -55,11 +69,11 @@ class _Regelmeter(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self._in_balk = False
-        self._diepte = 0        # diepte binnen het <form>; 0 = direct kind
-        self._svg = 0           # binnen een icoon niets tellen
-        self._kind = 0          # volgnummer van het lopende directe kind
+        self._diepte = 0  # diepte binnen het <form>; 0 = direct kind
+        self._svg = 0  # binnen een icoon niets tellen
+        self._kind = 0  # volgnummer van het lopende directe kind
         self._teller = 0
-        self.controls: list[tuple[int, str, str]] = []   # (kind, naam, type)
+        self.controls: list[tuple[int, str, str]] = []  # (kind, naam, type)
         self.gevonden = False
 
     def handle_starttag(self, tag, attrs):
@@ -91,7 +105,7 @@ class _Regelmeter(HTMLParser):
                 self._svg -= 1
             return
         self._diepte -= 1
-        if self._diepte < 0:        # de </form> zelf
+        if self._diepte < 0:  # de </form> zelf
             self._in_balk = False
 
 
@@ -100,11 +114,11 @@ def meet(html: str) -> list[tuple[int, str, str]]:
     meter = _Regelmeter()
     meter.feed(html)
     assert meter.gevonden, "geen ui.filter_bar in deze pagina gevonden"
-    return [(kind, naam, soort) for kind, naam, soort in meter.controls
-            if soort != "hidden"]
+    return [(kind, naam, soort) for kind, naam, soort in meter.controls if soort != "hidden"]
 
 
 # ── De schermen ──────────────────────────────────────────────────────────────
+
 
 def _login(client, db):
     """OPERATOR erbij: Organisaties en Tenants zijn OPERATOR-only (#581)."""
@@ -139,11 +153,17 @@ def _seed(db):
     activiteit = Activity(name="Fotoactiviteit")
     db.add(activiteit)
     db.flush()
-    db.add(ActivityDate(activity_id=activiteit.id,
-                        start_date=date.today() + timedelta(days=30)))
-    db.add(MediaAsset(kind="activity_photo", activity_id=activiteit.id,
-                      is_active=True, data=b"\x89PNG", content_type="image/png",
-                      title="foto"))
+    db.add(ActivityDate(activity_id=activiteit.id, start_date=date.today() + timedelta(days=30)))
+    db.add(
+        MediaAsset(
+            kind="activity_photo",
+            activity_id=activiteit.id,
+            is_active=True,
+            data=b"\x89PNG",
+            content_type="image/png",
+            title="foto",
+        )
+    )
     db.flush()
     return activiteit
 
@@ -183,7 +203,8 @@ def test_zoek_en_filters_staan_in_een_rij(client, db_session, pad, verwacht):
     assert len(regels) == 1, (
         f"{pad}: de controls hangen onder {len(regels)} directe kinderen van de "
         f"filterbalk ({sorted(regels)}) — elk kind is een eigen regel. "
-        f"Verdeling: {sorted(controls)}")
+        f"Verdeling: {sorted(controls)}"
+    )
 
 
 def test_het_zoekveld_wint_de_restbreedte(client, db_session):
@@ -197,26 +218,31 @@ def test_het_zoekveld_wint_de_restbreedte(client, db_session):
     from pathlib import Path
 
     app = Path(__file__).resolve().parents[1] / "app"
-    balken = [app / p for p in (
-        "domains/activities/templates/admin_activiteiten.html",
-        "domains/cms/templates/admin_paginas.html",
-        "domains/forms/templates/admin_formulieren.html",
-        "domains/reporting/templates/admin_rapporten.html",
-        "domains/mail/templates/email_log.html",
-        "ui/templates/admin_organisaties.html",
-        "ui/templates/admin_tenants.html",
-        "domains/mdm/templates/leden.html",
-        "domains/media/templates/admin_media.html",
-        "ui/templates/admin_ledenwijzigingen.html",
-        "domains/auth/templates/admin_gebruikers.html",
-    )]
+    balken = [
+        app / p
+        for p in (
+            "domains/activities/templates/admin_activiteiten.html",
+            "domains/cms/templates/admin_paginas.html",
+            "domains/forms/templates/admin_formulieren.html",
+            "domains/reporting/templates/admin_rapporten.html",
+            "domains/mail/templates/email_log.html",
+            "ui/templates/admin_organisaties.html",
+            "ui/templates/admin_tenants.html",
+            "domains/mdm/templates/leden.html",
+            "domains/media/templates/admin_media.html",
+            "ui/templates/admin_ledenwijzigingen.html",
+            "domains/auth/templates/admin_gebruikers.html",
+        )
+    ]
     for pad in balken:
-        assert pad.exists(), pad          # een verplaatst bestand mag niet stil overslaan
-        assert 'class="flex-1 min-w-[14rem]"' in pad.read_text(), \
+        assert pad.exists(), pad  # een verplaatst bestand mag niet stil overslaan
+        assert 'class="flex-1 min-w-[14rem]"' in pad.read_text(), (
             f"{pad.name}: het zoekveld mist de flex-1-wrapper van de referentie"
+        )
 
 
 # ── Media: de rij verspringt niet bij het wisselen van soort ─────────────────
+
 
 def test_media_blijft_een_rij_met_en_zonder_de_activiteitenlijst(client, db_session):
     """`activity_id` verschijnt alleen bij activiteitenfoto's (#891), dus de rij
@@ -230,12 +256,14 @@ def test_media_blijft_een_rij_met_en_zonder_de_activiteitenlijst(client, db_sess
     assert len({k for k, _n, _s in met}) == 1
 
     zonder = meet(client.get("/admin/media", params={"kind": "sponsor"}).text)
-    assert {n for _k, n, _s in zonder} == {"q", "kind"}, \
+    assert {n for _k, n, _s in zonder} == {"q", "kind"}, (
         "bij een sponsorlogo hoort er geen activiteitenfilter te staan"
-    assert len({k for k, _n, _s in zonder} ) == 1
+    )
+    assert len({k for k, _n, _s in zonder}) == 1
 
 
 # ── Gebruikers: de rollen zijn één keuzelijst geworden ───────────────────────
+
 
 def test_rollen_zijn_een_keuzelijst_met_leesbare_labels(client, db_session):
     """Het aantal rollen is data-gedreven — het groeit mee met `role_codes` — dus
@@ -247,8 +275,7 @@ def test_rollen_zijn_een_keuzelijst_met_leesbare_labels(client, db_session):
 
     controls = meet(html)
     rol = [(k, n, s) for k, n, s in controls if n == "rol"]
-    assert len(rol) == 1 and rol[0][2] == "", \
-        f"'rol' hoort één <select> te zijn, gemeten: {rol}"
+    assert len(rol) == 1 and rol[0][2] == "", f"'rol' hoort één <select> te zijn, gemeten: {rol}"
 
     # De labels: de omschrijving uit role_codes, niet de code zelf.
     from app.domains.auth.api import list_assignable_roles, role_options
@@ -279,8 +306,7 @@ def test_filteren_op_rol_levert_dezelfde_rijen_als_met_de_knoppen(client, db_ses
         db_session.flush()
         # Mét werkruimte: het scherm toont sinds #963 de rollen van de ACTIEVE
         # werkruimte, en een rij zonder tenant is platformbreed (alleen OPERATOR).
-        db_session.add(UserRole(user_id=gebruiker.id, role_code=rol,
-                                tenant_id=werkruimte))
+        db_session.add(UserRole(user_id=gebruiker.id, role_code=rol, tenant_id=werkruimte))
         db_session.flush()
 
     maak("penning@example.com", "FINANCE")
@@ -294,18 +320,18 @@ def test_filteren_op_rol_levert_dezelfde_rijen_als_met_de_knoppen(client, db_ses
     alles = client.get("/admin/gebruikers", headers=fragment).text
     assert "penning@example.com" in alles and "enkel-admin@example.com" in alles
 
-    finance = client.get("/admin/gebruikers", params={"rol": "FINANCE"},
-                         headers=fragment).text
+    finance = client.get("/admin/gebruikers", params={"rol": "FINANCE"}, headers=fragment).text
     assert "penning@example.com" in finance
-    assert "enkel-admin@example.com" not in finance, \
+    assert "enkel-admin@example.com" not in finance, (
         "wie geen FINANCE heeft, hoort weg te vallen bij filteren op FINANCE"
+    )
 
 
 # ── Tegenproef op de meter ───────────────────────────────────────────────────
 
+
 def _render(body: str) -> str:
-    return templates.env.from_string(
-        "{% import '_macros.html' as ui %}" + body).render()
+    return templates.env.from_string("{% import '_macros.html' as ui %}" + body).render()
 
 
 _OUDE_VORM = """
@@ -333,10 +359,12 @@ def test_de_meter_ziet_de_oude_vorm_als_twee_regels():
     ze toetst meteen dat `filter_bar` nog altijd per direct kind een regel maakt.
     """
     oud = meet(_render(_OUDE_VORM))
-    assert {k for k, _n, _s in oud} == {1, 2}, \
+    assert {k for k, _n, _s in oud} == {1, 2}, (
         f"de oude vorm hoort twee directe kinderen te hebben, gemeten: {oud}"
+    )
 
     nieuw = meet(_render(_NIEUWE_VORM))
-    assert {k for k, _n, _s in nieuw} == {1}, \
+    assert {k for k, _n, _s in nieuw} == {1}, (
         f"de nieuwe vorm hoort één direct kind te hebben, gemeten: {nieuw}"
+    )
     assert {n for _k, n, _s in nieuw} == {"q", "scope"}

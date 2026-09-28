@@ -5,6 +5,7 @@ forgotten key is an error in the route instead of an empty box on the screen, an
 `tests/test_template_variables_gate.py` can prove statically that the templates
 ask for nothing that is not promised here.
 """
+
 from dataclasses import dataclass, field
 from typing import Any
 

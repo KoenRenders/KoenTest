@@ -27,6 +27,7 @@ Prompts are English (the model reads English best; "football" and "torch"
 mistranslate — iteration 08) and always end with the house style suffix, so
 the drawing sits on a white ground in the Raak line-art look.
 """
+
 from __future__ import annotations
 
 import base64
@@ -67,15 +68,23 @@ POLL_TIMEOUT_SECONDS = 180
 # Koen, 20 September 2026: "kleuterachtig" — the first wording asked for a
 # "friendly hand-drawn style" and got nursery drawings. These ask for a
 # modern editorial line illustration with realistic proportions instead.
-_BASE = ("realistic proportions, adults look like adults, no cartoon exaggeration, no text, "
-         "no background scenery, pure white background, single subject centred, poster illustration")
+_BASE = (
+    "realistic proportions, adults look like adults, no cartoon exaggeration, no text, "
+    "no background scenery, pure white background, single subject centred, poster illustration"
+)
 STYLES = {
-    "lijn": (" — clean black ink line illustration in a modern editorial style, confident even lines, "
-             "no shading, no colour, " + _BASE),
-    "lijnkleur": (" — clean black ink line illustration in a modern editorial style, confident even lines, "
-                  "with a few flat colour accents in muted tones, no shading, " + _BASE),
-    "kleur": (" — flat vector illustration with bold black outlines and a limited palette of flat colours, "
-              "no gradients, no shading, " + _BASE),
+    "lijn": (
+        " — clean black ink line illustration in a modern editorial style, confident even lines, "
+        "no shading, no colour, " + _BASE
+    ),
+    "lijnkleur": (
+        " — clean black ink line illustration in a modern editorial style, confident even lines, "
+        "with a few flat colour accents in muted tones, no shading, " + _BASE
+    ),
+    "kleur": (
+        " — flat vector illustration with bold black outlines and a limited palette of flat colours, "
+        "no gradients, no shading, " + _BASE
+    ),
 }
 # The Dutch word for a style now comes from the `drawing_style` label table
 # (CR-12 phase 3); what stays here is the prompt fragment, which is a payload
@@ -86,8 +95,32 @@ STYLE_SUFFIX = STYLES["lijn"]
 # English best). The check is a stopword heuristic; a wrong guess only costs
 # one cheap Mistral call, and the translation is logged (#978) so it can be
 # read back next to the drawing it produced.
-_DUTCH = {"de", "het", "een", "en", "met", "van", "voor", "op", "in", "die", "dat", "naar", "twee", "drie",
-          "kinderen", "ouders", "mensen", "fiets", "wandelen", "aan", "bij", "zonder", "onder", "over"}
+_DUTCH = {
+    "de",
+    "het",
+    "een",
+    "en",
+    "met",
+    "van",
+    "voor",
+    "op",
+    "in",
+    "die",
+    "dat",
+    "naar",
+    "twee",
+    "drie",
+    "kinderen",
+    "ouders",
+    "mensen",
+    "fiets",
+    "wandelen",
+    "aan",
+    "bij",
+    "zonder",
+    "onder",
+    "over",
+}
 
 
 def looks_dutch(text: str) -> bool:
@@ -108,17 +141,26 @@ def translate_scene(scene: str, *, actor: str = "") -> tuple[str, bool]:
     # Through the seam like every other LLM call (test_ai_log_coverage_gate):
     # the guard logs the call — provider, model, cost, duration — under this
     # component's surface and the capability "translate".
-    rules = replace(admin_rules(lambda: set(), capability=AiCapability.TRANSLATE, scan_prompt_names=False), surface=SURFACE)
+    rules = replace(
+        admin_rules(lambda: set(), capability=AiCapability.TRANSLATE, scan_prompt_names=False),
+        surface=SURFACE,
+    )
     provider = GuardedProvider(get_provider(), rules, sink_for(actor))
     if provider.name == "mock":
         return text, False
-    answer = provider.complete([
-        {"role": "system", "content": "Translate the user's text from Dutch to English for an image-generation "
-                                      "prompt. Reply with the translation only, no quotes, no commentary."},
-        {"role": "user", "content": text[:600]},
-    ])
+    answer = provider.complete(
+        [
+            {
+                "role": "system",
+                "content": "Translate the user's text from Dutch to English for an image-generation "
+                "prompt. Reply with the translation only, no quotes, no commentary.",
+            },
+            {"role": "user", "content": text[:600]},
+        ]
+    )
     english = " ".join((answer.content or "").split()).strip('"')
     return english or text, bool(english)
+
 
 # The five settings live on `Settings` (app/config.py) like every other
 # per-host setting, so the compose files pass them and the #821/#917 gate sees
@@ -146,8 +188,9 @@ class Budget:
     def line(self) -> str:
         if not self.enabled:
             return "AI-beelden staan uit op deze server."
-        return (f"Deze maand: € {self.spent_eur:.2f} gebruikt van € {self.monthly_eur:.2f}"
-                + (f" (€ {self.reserved_eur:.2f} gereserveerd)" if self.reserved_eur else ""))
+        return f"Deze maand: € {self.spent_eur:.2f} gebruikt van € {self.monthly_eur:.2f}" + (
+            f" (€ {self.reserved_eur:.2f} gereserveerd)" if self.reserved_eur else ""
+        )
 
 
 def enabled() -> bool:
@@ -183,9 +226,12 @@ def check_budget(budget: Budget, *, platform_spent_eur: Decimal, cost_eur: Decim
     if budget.left_eur - cost_eur < 0:
         raise ImagingError(
             f"Het maandbudget voor AI-beelden is op: € {budget.spent_eur:.2f} gebruikt en "
-            f"€ {budget.reserved_eur:.2f} gereserveerd van € {budget.monthly_eur:.2f}.")
+            f"€ {budget.reserved_eur:.2f} gereserveerd van € {budget.monthly_eur:.2f}."
+        )
     if platform_spent_eur + budget.reserved_eur + cost_eur > budget.platform_eur:
-        raise ImagingError("Het platformplafond voor AI-beelden is bereikt; vraag het aan de beheerder.")
+        raise ImagingError(
+            "Het platformplafond voor AI-beelden is bereikt; vraag het aan de beheerder."
+        )
 
 
 def build_prompt(scene: str, style: str = "lijn", change: str = "") -> str:
@@ -203,7 +249,10 @@ def build_prompt(scene: str, style: str = "lijn", change: str = "") -> str:
         raise ImagingError("Onbekende stijl.")
     text = scene[:600]
     if change:
-        text += ". Keep the same composition and characters as the reference image; change only this: " + change[:300]
+        text += (
+            ". Keep the same composition and characters as the reference image; change only this: "
+            + change[:300]
+        )
     return text + STYLES[style]
 
 
@@ -212,6 +261,7 @@ def new_request_key() -> str:
 
 
 # ── The HTTP client ─────────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class Generated:
@@ -231,12 +281,24 @@ class BflClient:
         self.api_key = api_key or settings.bfl_api_key or ""
         self.timeout = timeout
 
-    def generate(self, prompt: str, *, width: int, height: int, seed: int | None,
-                 reference_png: bytes | None = None) -> Generated:
+    def generate(
+        self,
+        prompt: str,
+        *,
+        width: int,
+        height: int,
+        seed: int | None,
+        reference_png: bytes | None = None,
+    ) -> Generated:
         if not self.api_key:
             raise ImagingError("Geen BFL-sleutel op deze server.")
-        body: dict = {"prompt": prompt, "width": width, "height": height,
-                      "output_format": "png", "safety_tolerance": 2}
+        body: dict = {
+            "prompt": prompt,
+            "width": width,
+            "height": height,
+            "output_format": "png",
+            "safety_tolerance": 2,
+        }
         if seed is not None:
             body["seed"] = seed
         if reference_png:
@@ -249,7 +311,9 @@ class BflClient:
                 raise ImagingError(f"BFL weigerde de aanvraag ({first.status_code}).")
             task = first.json()
             request_id = str(task.get("id", ""))
-            polling_url = task.get("polling_url") or f"https://api.eu.bfl.ai/v1/get_result?id={request_id}"
+            polling_url = (
+                task.get("polling_url") or f"https://api.eu.bfl.ai/v1/get_result?id={request_id}"
+            )
             deadline = t0 + POLL_TIMEOUT_SECONDS
             while True:
                 if time.monotonic() > deadline:
@@ -266,7 +330,8 @@ class BflClient:
                     image = client.get(url)
                     image.raise_for_status()
                     return Generated(
-                        image=image.content, mime="image/png",
+                        image=image.content,
+                        mime="image/png",
                         seed=result.get("seed") if isinstance(result.get("seed"), int) else seed,
                         provider_request_id=request_id,
                         duration_ms=int((time.monotonic() - t0) * 1000),

@@ -2,6 +2,7 @@
 
 Zie `app/ui/viewmodel.py` voor het waarom: een dict is geen belofte.
 """
+
 from dataclasses import dataclass, field
 from typing import Any
 

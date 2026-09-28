@@ -28,6 +28,7 @@ Broken on purpose, restored after: the `run_report` spec appended to the public
 fails because the public dispatcher now answers "niet-geïmplementeerde tool"
 instead of the allowlist refusal, and the route test fails on that same answer.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -65,15 +66,17 @@ def _tool_packs() -> dict[str, set[str]]:
     assert PUBLIC_MODULE in packs, "the public pack was not found; the scan is wrong"
     assert len(packs) >= 2, (
         "only one tool pack found — the admin pack is missing from the scan, so "
-        "this gate would compare the public set with nothing (#678)")
+        "this gate would compare the public set with nothing (#678)"
+    )
     for module, names in packs.items():
         assert names, f"{module} declares an empty TOOL_SPECS; nothing to compare"
     return packs
 
 
 def _admin_tools() -> set[str]:
-    return set().union(*(names for module, names in _tool_packs().items()
-                         if module != PUBLIC_MODULE))
+    return set().union(
+        *(names for module, names in _tool_packs().items() if module != PUBLIC_MODULE)
+    )
 
 
 def _refusal(name: str) -> str:
@@ -83,12 +86,14 @@ def _refusal(name: str) -> str:
 
 # ── The toolsets are disjoint ────────────────────────────────────────────────
 
+
 def test_the_public_toolset_holds_no_admin_tool():
     shared = PUBLIC_TOOLS & _admin_tools()
     assert not shared, (
         "these admin tools are in the public Raakje's toolset: "
         f"{sorted(shared)} — the public bot must not be able to look up members, "
-        "payments, registrations or forms")
+        "payments, registrations or forms"
+    )
     assert {spec["function"]["name"] for spec in PUBLIC_SPECS} == PUBLIC_TOOLS
 
 
@@ -99,10 +104,12 @@ def test_the_public_dispatcher_refuses_every_admin_tool_by_name(db_session):
         out = json.loads(public_dispatch(name, FORGED_ARGUMENTS.get(name, {}), db_session))
         assert out == {"error": _refusal(name)}, (
             f"{name}: the public dispatcher answered {out!r} instead of the "
-            "allowlist refusal — is it in the allowlist, or did the refusal text move?")
+            "allowlist refusal — is it in the allowlist, or did the refusal text move?"
+        )
 
 
 # ── A public session cannot reach them, forged or not ───────────────────────
+
 
 class Forger:
     """A provider that asks for every admin tool, then answers."""
@@ -119,10 +126,12 @@ class Forger:
     def complete(self, messages, tools=None, tool_choice=None):
         self.calls.append([dict(m) for m in messages])
         if len(self.calls) == 1:
-            return AssistantMessage(tool_calls=[
-                ToolCall(id=f"forged-{i}", name=name,
-                         arguments=FORGED_ARGUMENTS.get(name, {}))
-                for i, name in enumerate(self.names)])
+            return AssistantMessage(
+                tool_calls=[
+                    ToolCall(id=f"forged-{i}", name=name, arguments=FORGED_ARGUMENTS.get(name, {}))
+                    for i, name in enumerate(self.names)
+                ]
+            )
         return AssistantMessage(content="klaar", usage={"prompt": 1, "completion": 1})
 
 
@@ -137,6 +146,7 @@ def spied_admin_tools(monkeypatch):
         def _entered(*args, **kwargs):
             reached.append(name)
             raise AssertionError(f"{name} was entered from the public Raakje")
+
         return _entered
 
     monkeypatch.setattr(assistant, "run_report", _spy("run_report"))
@@ -145,7 +155,8 @@ def spied_admin_tools(monkeypatch):
 
 
 def test_a_public_session_cannot_reach_an_admin_tool_even_when_forged(
-        client, db_session, monkeypatch, spied_admin_tools):
+    client, db_session, monkeypatch, spied_admin_tools
+):
     from app.config import settings
     from app.domains.chatbot import providers
 
@@ -154,20 +165,22 @@ def test_a_public_session_cannot_reach_an_admin_tool_even_when_forged(
     monkeypatch.setattr(settings, "chat_enabled", True)
     monkeypatch.setattr(providers, "get_provider", lambda model="": forger)
 
-    answer = client.post("/raakje/vraag",
-                         data={"vraag": "Hoeveel lidgeld staat er nog open?"})
+    answer = client.post("/raakje/vraag", data={"vraag": "Hoeveel lidgeld staat er nog open?"})
 
     assert answer.status_code == 200, answer.text[:300]
     assert len(forger.calls) == 2, "the loop did not come back after the forged calls"
     # What the loop handed back to the model for each forged call: the refusal,
     # and nothing that a tool could have produced.
-    tool_messages = {m["name"]: json.loads(m["content"])
-                     for m in forger.calls[1] if m.get("role") == "tool"}
+    tool_messages = {
+        m["name"]: json.loads(m["content"]) for m in forger.calls[1] if m.get("role") == "tool"
+    }
     assert set(tool_messages) == set(admin), sorted(tool_messages)
     for name in admin:
         assert tool_messages[name] == {"error": _refusal(name)}, (
-            f"{name}: the public loop handed the model {tool_messages[name]!r}")
+            f"{name}: the public loop handed the model {tool_messages[name]!r}"
+        )
     assert spied_admin_tools == [], (
-        f"admin tools entered from the public route: {spied_admin_tools}")
+        f"admin tools entered from the public route: {spied_admin_tools}"
+    )
     for name in admin:
         assert name not in answer.text, f"the refusal leaked the tool name {name} to the page"

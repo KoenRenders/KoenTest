@@ -7,6 +7,7 @@ tijdens het bewerken, waar `ui.upload_field()` diezelfde link al rendert.
 §2.12: de leeslink mag blijven — een bijlage kunnen openen zonder eerst te gaan
 bewerken is nuttig — maar dan uitsluitend achter `x-show="!edit"`.
 """
+
 import io
 import re
 
@@ -17,9 +18,11 @@ from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
-PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-       b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
-       b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _login(client):
@@ -30,10 +33,12 @@ def _login(client):
 
 def _upload_affiche(client, csrf, activity):
     """Een echte affiche opladen — zonder bijlage bestaat de leeslink niet."""
-    r = client.post(f"/admin/activiteiten/{activity.id}",
-                    data={"name": activity.name},
-                    files={"file": ("affiche.png", io.BytesIO(PNG), "image/png")},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/activiteiten/{activity.id}",
+        data={"name": activity.name},
+        files={"file": ("affiche.png", io.BytesIO(PNG), "image/png")},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200, r.text[:300]
 
 
@@ -56,11 +61,13 @@ def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_sessio
     # leeslink maar een <img>. De invariant gaat over de leeslink.
     regels = [r for r in _regels_met(html, "/api/v1/media/") if "<a " in r]
     assert len(regels) == 2, (
-        f"verwacht één leeslink en één in het uploadblok, kreeg er {len(regels)}")
+        f"verwacht één leeslink en één in het uploadblok, kreeg er {len(regels)}"
+    )
     lees = [r for r in regels if 'x-show="!edit"' in r]
     assert len(lees) == 1, (
         "de leeslink hangt niet aan de leesmodus en staat dus ook tijdens het "
-        f"bewerken op het scherm (#653):\n  " + "\n  ".join(regels))
+        "bewerken op het scherm (#653):\n  " + "\n  ".join(regels)
+    )
     assert "- poster" in html, "de leeslink toont de documenttitel niet"
 
 
@@ -78,10 +85,12 @@ def test_ook_de_locatie_hangt_aan_de_leesmodus(client, db_session):
 
     alineas = re.findall(r"<p\b[^>]*>(?:(?!</p>).)*Parochiezaal", html, re.S)
     assert len(alineas) == 1, (
-        "de locatie hoort precies één keer als tekst te staan — in de recordkop")
-    opening = alineas[0][:alineas[0].index(">") + 1]
+        "de locatie hoort precies één keer als tekst te staan — in de recordkop"
+    )
+    opening = alineas[0][: alineas[0].index(">") + 1]
     assert "x-show" not in opening, (
-        "de recordkop-regel hoort modusloos te zijn — hij zegt wat je bewerkt")
+        "de recordkop-regel hoort modusloos te zijn — hij zegt wat je bewerkt"
+    )
 
 
 def test_zonder_bijlage_geen_leeslink(client, db_session):

@@ -15,6 +15,7 @@ class PaymentResult:
 class PaymentStatusResult:
     """Status + (indien gerapporteerd) het bedrag/valuta van de provider, zodat we
     bij 'paid' het werkelijke bedrag kunnen vergelijken met het verwachte (#92)."""
+
     status: str
     amount: Optional[Decimal] = None
     currency: Optional[str] = None
@@ -29,9 +30,7 @@ class BaseProvider(ABC):
         redirect_url: str,
         webhook_url: str,
         metadata: dict,
-    ) -> PaymentResult:
-        ...
+    ) -> PaymentResult: ...
 
     @abstractmethod
-    def get_payment_details(self, provider_payment_id: str) -> PaymentStatusResult:
-        ...
+    def get_payment_details(self, provider_payment_id: str) -> PaymentStatusResult: ...

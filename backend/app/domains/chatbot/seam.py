@@ -61,6 +61,7 @@ a typo slips the name match, and a family name that is also a street name gives 
 false block. The first is why the payload log exists; the second is the safe side
 of the trade and is resolved by rephrasing.
 """
+
 from __future__ import annotations
 
 import json
@@ -119,6 +120,7 @@ def redact(text: str) -> str:
     text = _IBAN.sub(IBAN_PLACEHOLDER, text)
     return _PHONE.sub(PHONE_PLACEHOLDER, text)
 
+
 _ADMIN_MESSAGE = (
     "Deze vraag is niet verstuurd: er stond een persoonsgegeven in ({reden}). "
     "Raakje stuurt geen namen, e-mailadressen, telefoonnummers of "
@@ -161,33 +163,38 @@ class GuardRules:
 
 def public_rules() -> GuardRules:
     """The public bot: patterns only. Its contact path exists to collect a name."""
-    return GuardRules(surface=AiSurface.PUBLIC, match_names=False,
-                      match_email=False, message=_PUBLIC_MESSAGE)
+    return GuardRules(
+        surface=AiSurface.PUBLIC, match_names=False, match_email=False, message=_PUBLIC_MESSAGE
+    )
 
 
-def admin_rules(names: Callable[[], set[str]], *, capability: AiCapability,
-                scan_prompt_names: bool = True) -> GuardRules:
+def admin_rules(
+    names: Callable[[], set[str]], *, capability: AiCapability, scan_prompt_names: bool = True
+) -> GuardRules:
     """The back office: everything on. Nothing here is anybody's own name to give.
 
     ``scan_prompt_names=False`` is for a pack whose system prompt is rendered from
     a declaration rather than from stored content — see the module docstring, and
     prove it with a test before passing it.
     """
-    return GuardRules(surface=AiSurface.ADMIN, capability=capability,
-                      match_names=True, match_email=True,
-                      scan_prompt_names=scan_prompt_names, names=names)
+    return GuardRules(
+        surface=AiSurface.ADMIN,
+        capability=capability,
+        match_names=True,
+        match_email=True,
+        scan_prompt_names=scan_prompt_names,
+        names=names,
+    )
 
 
-def payload_text(messages: Sequence[dict[str, Any]], *,
-                 include_system: bool = True) -> str:
+def payload_text(messages: Sequence[dict[str, Any]], *, include_system: bool = True) -> str:
     """The outbound messages as one string, tool calls included.
 
     Serialised rather than walked field by field: a payload shape that grows a
     field would otherwise slip past the scan unread, which is exactly the class of
     mistake this guard exists for.
     """
-    selected = [m for m in messages
-                if include_system or m.get("role") != "system"]
+    selected = [m for m in messages if include_system or m.get("role") != "system"]
     return json.dumps(selected, ensure_ascii=False, default=str)
 
 
@@ -225,15 +232,17 @@ def _alleen_waarden(node: Any) -> Any:
     wie een veld bijbouwt, krijgt het gescand.
     """
     if isinstance(node, dict):
-        return [_alleen_waarden(waarde) for sleutel, waarde in node.items()
-                if sleutel not in _ETIKETVELDEN]
+        return [
+            _alleen_waarden(waarde)
+            for sleutel, waarde in node.items()
+            if sleutel not in _ETIKETVELDEN
+        ]
     if isinstance(node, list):
         return [_alleen_waarden(item) for item in node]
     return node
 
 
-def _naamscan_tekst(messages: Sequence[dict[str, Any]], *,
-                    include_system: bool) -> str:
+def _naamscan_tekst(messages: Sequence[dict[str, Any]], *, include_system: bool) -> str:
     """De tekst waarop de NAAM-controle kijkt: als `payload_text`, maar een
     tool-resultaat zonder zijn etiketten (#1154).
 
@@ -282,8 +291,7 @@ def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]
             # controle. De patroon-controles hierboven lezen nog wel de volle
             # payload — een e-mailadres in een kolomtitel is geen vals alarm maar
             # een fout die je wil zien.
-            whole = _naamscan_tekst(
-                messages, include_system=rules.scan_prompt_names).lower()
+            whole = _naamscan_tekst(messages, include_system=rules.scan_prompt_names).lower()
             words = {w for w in _WORD.findall(whole) if len(w) >= 3}
             hit = sorted(words & known)
             if hit:
@@ -304,8 +312,9 @@ class GuardedProvider(LLMProvider):
     one call you most want a record of is the one that never happened.
     """
 
-    def __init__(self, inner: LLMProvider, rules: GuardRules,
-                 sink: Optional[Callable[..., None]] = None) -> None:
+    def __init__(
+        self, inner: LLMProvider, rules: GuardRules, sink: Optional[Callable[..., None]] = None
+    ) -> None:
         self._inner = inner
         self._rules = rules
         self._sink = sink
@@ -321,7 +330,9 @@ class GuardedProvider(LLMProvider):
             reden = ", ".join(reasons)
             logger.warning(
                 "Naadwachter blokkeerde een uitgaande oproep (%s/%s): %s",
-                self._rules.surface, self._rules.capability or "-", reden,
+                self._rules.surface,
+                self._rules.capability or "-",
+                reden,
             )
             self._log(text, blocked_reason=reden)
             raise SeamBlocked(self._rules.message.format(reden=reden))
@@ -335,16 +346,24 @@ class GuardedProvider(LLMProvider):
             # still a call the provider may bill.
             self._log(text, status=AiStatus.ERROR, duration_ms=_ms_since(begin))
             raise
-        self._log(text, usage=getattr(reply, "usage", None),
-                  duration_ms=_ms_since(begin),
-                  provider_request_id=getattr(reply, "request_id", "") or "")
+        self._log(
+            text,
+            usage=getattr(reply, "usage", None),
+            duration_ms=_ms_since(begin),
+            provider_request_id=getattr(reply, "request_id", "") or "",
+        )
         return reply
 
-    def _log(self, text: str, *, blocked_reason: str = "",
-             usage: Optional[dict[str, int]] = None,
-             status: Optional[AiStatus] = None,
-             duration_ms: Optional[int] = None,
-             provider_request_id: str = "") -> None:
+    def _log(
+        self,
+        text: str,
+        *,
+        blocked_reason: str = "",
+        usage: Optional[dict[str, int]] = None,
+        status: Optional[AiStatus] = None,
+        duration_ms: Optional[int] = None,
+        provider_request_id: str = "",
+    ) -> None:
         if self._sink is None:
             return
         try:

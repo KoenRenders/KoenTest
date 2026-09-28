@@ -19,6 +19,7 @@ Rood gemaakt om te toetsen dát ze kunnen falen, elk apart gemeten: met
 met `_is_screenshot` op onvoorwaardelijk `True` — de banner overal weg — faalt de tweede
 (1 failed, 1 passed).
 """
+
 import os
 import sys
 
@@ -77,7 +78,8 @@ def test_een_opname_draagt_de_balk_niet(browser):
     """Met de instellingen van de tool — niet met een nagetypte header."""
     opties = context_opties()
     assert opties.get("extra_http_headers"), (
-        "de tool stuurt geen enkele header mee; de vlag uit #1238 is verdwenen")
+        "de tool stuurt geen enkele header mee; de vlag uit #1238 is verdwenen"
+    )
     assert BANNER not in _tekst_van_de_homepage(browser, **opties)
 
 

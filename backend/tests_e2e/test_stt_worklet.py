@@ -23,6 +23,7 @@ Wat overblijft is dus wat de worklet nog wél doet: het aantal samples ongemoeid
 (er wordt niets meer uitgedund), Float32 correct naar Int16 schalen, en de RMS
 berekenen op precies de stroom die verstuurd wordt.
 """
+
 import os
 import sys
 
@@ -33,8 +34,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE  # noqa: E402
 
-BRON = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "app", "static", "stt-pcm-worklet.js")
+BRON = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "app",
+    "static",
+    "stt-pcm-worklet.js",
+)
 
 # Voert de echte worklet uit met een gegeven ingangssnelheid en één blok sinus.
 PROEF = """([bron, rate, n]) => {
@@ -79,7 +84,8 @@ def test_de_worklet_dunt_niets_meer_uit(page):
         uit = _draai(page, rate, 384)
         assert uit["aantal"] == 384, (
             f"op {rate} Hz komen er {uit['aantal']} van de 384 samples uit — er wordt "
-            "weer herbemonsterd")
+            "weer herbemonsterd"
+        )
 
 
 def test_de_rms_hoort_bij_de_verstuurde_stroom(page):

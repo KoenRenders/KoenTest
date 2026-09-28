@@ -33,6 +33,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de tweede pogi
 vervangen door een vaste `16000` → de meldtest valt om; het `start`-bericht in de
 router genegeerd → de doorgeeftest valt om.
 """
+
 import json
 from pathlib import Path
 
@@ -44,8 +45,7 @@ from app.domains.stt import router as stt_mod
 pytestmark = pytest.mark.ui_agnostisch
 
 STT = (Path(__file__).resolve().parents[1] / "app/static/stt.js").read_text()
-WORKLET = (Path(__file__).resolve().parents[1]
-           / "app/static/stt-pcm-worklet.js").read_text()
+WORKLET = (Path(__file__).resolve().parents[1] / "app/static/stt-pcm-worklet.js").read_text()
 
 
 def test_de_browser_vraagt_zestien_khz_aan_de_bron():
@@ -57,7 +57,8 @@ def test_de_browser_vraagt_zestien_khz_aan_de_bron():
     assert "ideal: DOEL_RATE" in beperking
     assert "exact" not in beperking, (
         "een harde eis op de sample rate laat de spraakinvoer niet starten op een "
-        "apparaat dat die snelheid niet levert")
+        "apparaat dat die snelheid niet levert"
+    )
 
 
 def test_er_is_een_terugval_op_de_apparaatsnelheid():
@@ -68,7 +69,8 @@ def test_er_is_een_terugval_op_de_apparaatsnelheid():
     oploste.
     """
     assert "var opties = [{ sampleRate: DOEL_RATE }, null];" in STT, (
-        "er wordt maar één contextsnelheid geprobeerd")
+        "er wordt maar één contextsnelheid geprobeerd"
+    )
     assert "new AudioContext()" in STT, "de terugval zet nog steeds een vaste snelheid"
 
 
@@ -81,7 +83,8 @@ def test_de_worklet_herbemonstert_niet_meer():
     """
     assert "sampleRate" not in WORKLET, (
         "de worklet rekent weer met de sample rate — herbemonsteren hoort bij de "
-        "browser, die het mét een anti-aliasfilter doet")
+        "browser, die het mét een anti-aliasfilter doet"
+    )
     assert "DOEL_RATE" not in WORKLET
 
 
@@ -90,15 +93,20 @@ def test_de_browser_meldt_de_snelheid_die_hij_echt_stuurt():
     en zodra de terugval aanslaat, klopt ze niet meer."""
     assert '"start"' in STT and "sample_rate:" in STT
     assert "Math.round(self.ctx.sampleRate)" in STT, (
-        "de gemelde snelheid komt niet uit de context waarop de worklet draait")
+        "de gemelde snelheid komt niet uit de context waarop de worklet draait"
+    )
 
 
 def test_de_foutafhandeling_noemt_de_stap():
     """Vier stappen, vier meldingen. Ze hingen alle aan dezelfde catch, en dat is de
     reden dat de storing van #751 vier vermoedens kostte: de code kende de reden en
     zei niet wélke stap ze betrof."""
-    for stap in ("de audiocontext aanmaken", "de worklet laden",
-                 "de microfoon koppelen", "de audiograaf opzetten"):
+    for stap in (
+        "de audiocontext aanmaken",
+        "de worklet laden",
+        "de microfoon koppelen",
+        "de audiograaf opzetten",
+    ):
         assert stap in STT, f"de stap '{stap}' heeft geen eigen melding"
 
 
@@ -149,16 +157,14 @@ def test_de_gemelde_snelheid_gaat_naar_de_provider(client, gevraagde_snelheid):
     assert gevraagde_snelheid == [48000]
 
 
-def test_een_ongeloofwaardige_snelheid_valt_terug_op_de_instelling(client,
-                                                                  gevraagde_snelheid):
+def test_een_ongeloofwaardige_snelheid_valt_terug_op_de_instelling(client, gevraagde_snelheid):
     """De waarde komt uit de browser en gaat door naar een externe dienst, dus ze
     wordt begrensd. Zonder deze grens zet een geknutselde client er `999999999` in.
     """
     for onzin in (999_999_999, 0, -48000, "48000", None, True):
         gevraagde_snelheid.clear()
         _praat(client, "start", onzin)
-        assert gevraagde_snelheid == [settings.stt_sample_rate], (
-            f"{onzin!r} werd niet geweigerd")
+        assert gevraagde_snelheid == [settings.stt_sample_rate], f"{onzin!r} werd niet geweigerd"
 
 
 def test_een_client_die_niets_meldt_blijft_werken(client, gevraagde_snelheid):

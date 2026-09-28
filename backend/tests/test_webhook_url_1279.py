@@ -19,6 +19,7 @@ f-string → both tests failed, one on
 `http://localhost:8000/api/v1/payment-gateway/webhooks/PaymentProvider.MOLLIE`,
 the other on `PayableType.MEMBERSHIP #6`.
 """
+
 from decimal import Decimal
 
 from app.domains.payment.api import PayableType, create_payment_record
@@ -32,8 +33,11 @@ def _capture(monkeypatch) -> dict:
 
     def fake_create_payment(self, amount, description, redirect_url, webhook_url, metadata):
         seen.update(description=description, webhook_url=webhook_url)
-        return PaymentResult(provider_payment_id="tr_1279", status="pending",
-                             checkout_url="https://mollie.test/checkout/tr_1279")
+        return PaymentResult(
+            provider_payment_id="tr_1279",
+            status="pending",
+            checkout_url="https://mollie.test/checkout/tr_1279",
+        )
 
     monkeypatch.setattr(mollie.MollieProvider, "create_payment", fake_create_payment)
     return seen
@@ -46,9 +50,15 @@ def test_mollie_is_given_the_webhook_route_that_exists(client, db_session, monke
     from urllib.parse import urlsplit
 
     seen = _capture(monkeypatch)
-    create_payment_record(db_session, payable_type=PayableType.MEMBERSHIP, payable_id=5,
-                          amount=Decimal("10.00"), method="online",
-                          redirect_url="https://example.org/terug", description="Lidgeld")
+    create_payment_record(
+        db_session,
+        payable_type=PayableType.MEMBERSHIP,
+        payable_id=5,
+        amount=Decimal("10.00"),
+        method="online",
+        redirect_url="https://example.org/terug",
+        description="Lidgeld",
+    )
     path = urlsplit(seen["webhook_url"]).path
     assert path == "/api/v1/payment-gateway/webhooks/mollie", seen["webhook_url"]
     # The webhook is rate-limited per client, and earlier tests in the run used
@@ -59,12 +69,18 @@ def test_mollie_is_given_the_webhook_route_that_exists(client, db_session, monke
     mollie_webhook_limiter._calls.clear()
     answer = client.post(path, data={"id": "tr_unknown_1279"})
     assert answer.status_code == 200 and answer.json() == {"status": "ignored"}, (
-        f"Mollie's POST to {path} would get {answer.status_code}")
+        f"Mollie's POST to {path} would get {answer.status_code}"
+    )
 
 
 def test_the_fallback_description_carries_the_code(db_session, monkeypatch):
     seen = _capture(monkeypatch)
-    create_payment_record(db_session, payable_type=PayableType.MEMBERSHIP, payable_id=6,
-                          amount=Decimal("10.00"), method="online",
-                          redirect_url="https://example.org/terug")
+    create_payment_record(
+        db_session,
+        payable_type=PayableType.MEMBERSHIP,
+        payable_id=6,
+        amount=Decimal("10.00"),
+        method="online",
+        redirect_url="https://example.org/terug",
+    )
     assert seen["description"] == f"{PayableType.MEMBERSHIP.value} #6", seen["description"]

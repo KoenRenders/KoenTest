@@ -4,6 +4,7 @@ Read-only weergave van de gecureerde runtime/config-whitelist uit de
 admin-api-composer (`app.ui.admin_api`, #444 — nooit secrets). Umami-analytics komt hier server-side uit de
 settings i.p.v. NEXT_PUBLIC_*-variabelen.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Request
@@ -39,8 +40,9 @@ NAV = admin_nav("/admin/info")
 
 
 @router.get("/admin", response_class=HTMLResponse)
-def admin_dashboard(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+def admin_dashboard(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Dashboard-startpagina met de kerncijfers (URL-pariteit met React /admin).
 
     De cijfers komen sinds #848 uit de bewaarde rapporten van het
@@ -57,9 +59,12 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
     # scherm zegt eronder van wanneer de cijfers zijn.
     peilmoment = datetime.now()
     cijfers = dashboard_numbers(
-        db, [(sleutel, maat) for _l, sleutel, maat, _h, _g in DASHBOARD_TEGELS],
-        tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID, viewer=email,
-        today=peilmoment.date())
+        db,
+        [(sleutel, maat) for _l, sleutel, maat, _h, _g in DASHBOARD_TEGELS],
+        tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID,
+        viewer=email,
+        today=peilmoment.date(),
+    )
 
     def _toon(sleutel: str, geld: bool):
         getal = cijfers[sleutel].value
@@ -70,20 +75,32 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         return ("€ " + bedrag(getal)) if geld else getal
 
     tegels = [
-        {"label": label, "waarde": _toon(sleutel, geld),
-         "href": href,
-         "rapport_href": (f"/admin/rapporten/{cijfers[sleutel].report_id}"
-                          if cijfers[sleutel].report_id else None)}
+        {
+            "label": label,
+            "waarde": _toon(sleutel, geld),
+            "href": href,
+            "rapport_href": (
+                f"/admin/rapporten/{cijfers[sleutel].report_id}"
+                if cijfers[sleutel].report_id
+                else None
+            ),
+        }
         for label, sleutel, _maat, href, geld in DASHBOARD_TEGELS
     ]
     # #693: het dashboard zette een LEEG csrf-token in `hx-headers`. Landde je hier
     # en boostte je daarna naar een beheerscherm, dan hield de body die lege waarde
     # en faalde elke mutatie met een 403 — dezelfde fout als op de publieke schil,
     # en even stil.
-    return templates.TemplateResponse(request, "admin_dashboard.html", {
-        "nav_items": admin_nav("/admin"), "tegels": tegels,
-        "peilmoment": peilmoment,
-        "csrf_token": csrf_from_request(request)})
+    return templates.TemplateResponse(
+        request,
+        "admin_dashboard.html",
+        {
+            "nav_items": admin_nav("/admin"),
+            "tegels": tegels,
+            "peilmoment": peilmoment,
+            "csrf_token": csrf_from_request(request),
+        },
+    )
 
 
 def _werkruimte_namen(db) -> dict:
@@ -110,8 +127,9 @@ def _mijn_werkruimtes(db, email: str) -> list:
 
 
 @router.get("/admin/profiel", response_class=HTMLResponse)
-def admin_profiel(request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
+def admin_profiel(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Mijn profiel (golf 9, #913): read-only — e-mail, werkruimte, en sinds
     #963 de rollen pér werkruimte, met de platformbrede rollen apart."""
     from app.domains.auth.api import get_user_role_rows
@@ -122,31 +140,39 @@ def admin_profiel(request: Request, db: Session = Depends(get_db),
     for code, tenant in rows:
         if tenant is not None:
             per_werkruimte.setdefault(tenant, set()).add(code)
-    return templates.TemplateResponse(request, "admin_profiel.html", {
-        "nav_items": admin_nav(""), "profiel_email": email,
-        "profiel_platform_rollen": sorted(
-            {c for c, t in rows if t is None}),
-        "profiel_werkruimtes": [
-            {"naam": namen.get(t, f"Werkruimte #{t}"),
-             "rollen": sorted(codes)}
-            for t, codes in sorted(per_werkruimte.items())],
-        "csrf_token": csrf_from_request(request)})
+    return templates.TemplateResponse(
+        request,
+        "admin_profiel.html",
+        {
+            "nav_items": admin_nav(""),
+            "profiel_email": email,
+            "profiel_platform_rollen": sorted({c for c, t in rows if t is None}),
+            "profiel_werkruimtes": [
+                {"naam": namen.get(t, f"Werkruimte #{t}"), "rollen": sorted(codes)}
+                for t, codes in sorted(per_werkruimte.items())
+            ],
+            "csrf_token": csrf_from_request(request),
+        },
+    )
 
 
 @router.get("/admin/accountmenu", response_class=HTMLResponse)
-def admin_accountmenu(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui)):
+def admin_accountmenu(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """De inhoud van het accountmenu (#963): lui geladen zodra het menu
     opengaat, want of "Werkruimte wisselen" bestaat hangt aan de database en
     de schil-chrome mag geen query per paginaweergave kosten (dezelfde
     afweging als werkruimte_naam)."""
-    return templates.TemplateResponse(request, "_account_menu.html", {
-        "toon_wisselen": len(_mijn_werkruimtes(db, email)) > 1})
+    return templates.TemplateResponse(
+        request, "_account_menu.html", {"toon_wisselen": len(_mijn_werkruimtes(db, email)) > 1}
+    )
 
 
 @router.get("/admin/werkruimte-wisselen", response_class=HTMLResponse)
-def admin_werkruimte_wisselen(request: Request, db: Session = Depends(get_db),
-                              email: str = Depends(require_admin_ui)):
+def admin_werkruimte_wisselen(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """Kies een werkruimte (#963): elke werkruimte waar dit account een rol
     heeft, met de padprefix-link die de tenantkeuze zet (§7). De actieve
     werkruimte staat gemarkeerd i.p.v. weggelaten — je wil zien waar je bent."""
@@ -166,16 +192,21 @@ def admin_werkruimte_wisselen(request: Request, db: Session = Depends(get_db),
             return f"{tenant_base_url(db, tenant_id=t)}/admin"
         return f"/{codes.get(t, '')}/admin"
 
-    keuzes = [{"naam": naam, "actief": t == actief, "href": _href(t)}
-              for t, naam in _mijn_werkruimtes(db, email)]
-    return templates.TemplateResponse(request, "admin_werkruimte_wisselen.html", {
-        "nav_items": admin_nav(""), "keuzes": keuzes,
-        "csrf_token": csrf_from_request(request)})
+    keuzes = [
+        {"naam": naam, "actief": t == actief, "href": _href(t)}
+        for t, naam in _mijn_werkruimtes(db, email)
+    ]
+    return templates.TemplateResponse(
+        request,
+        "admin_werkruimte_wisselen.html",
+        {"nav_items": admin_nav(""), "keuzes": keuzes, "csrf_token": csrf_from_request(request)},
+    )
 
 
 @router.get("/admin/info", response_class=HTMLResponse)
-def admin_info(request: Request, db: Session = Depends(get_db),
-               email: str = Depends(require_admin_ui)):
+def admin_info(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     from app.kernel.tenant_config import tenant_umami_src, umami_tracking
     from app.ui.admin_api import get_system_info
 
@@ -189,9 +220,14 @@ def admin_info(request: Request, db: Session = Depends(get_db),
     # ook te bekijken wanneer het meten (nog) niet aan staat.
     losse_src = tenant_umami_src(db)
     umami_dashboard = losse_src.removesuffix("script.js") if losse_src else ""
-    return templates.TemplateResponse(request, "admin_info.html", {
-        "nav_items": NAV, "info": info,
-        "umami_actief": bool(umami_src and umami_website_id),
-        "umami_dashboard": umami_dashboard,
-        "umami_website_id": umami_website_id,
-    })
+    return templates.TemplateResponse(
+        request,
+        "admin_info.html",
+        {
+            "nav_items": NAV,
+            "info": info,
+            "umami_actief": bool(umami_src and umami_website_id),
+            "umami_dashboard": umami_dashboard,
+            "umami_website_id": umami_website_id,
+        },
+    )

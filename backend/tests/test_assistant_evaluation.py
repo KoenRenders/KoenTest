@@ -16,13 +16,16 @@ Would these tests be green if the subject were broken? The numbers come from
 the seed is deliberately large enough that the small-cell threshold does not merge
 the answers away. A broken join gives a different number, not an empty table.
 """
+
 import json
 
 import pytest
 
 from app.domains.reporting.assistant import dispatcher
 from app.domains.reporting.evaluation import (
-    AGGREGATE_QUESTIONS, CATEGORY_COHORT, QUESTIONS,
+    AGGREGATE_QUESTIONS,
+    CATEGORY_COHORT,
+    QUESTIONS,
 )
 from tests._assistant_seed import EXPECTED, TENANT, seed
 
@@ -65,14 +68,15 @@ def test_every_aggregate_question_still_has_an_answer(db_session, situatie):
             # De motor geeft geld als string terug; vergelijk op waarde.
             if isinstance(waarde, (int, float)) or hasattr(waarde, "quantize"):
                 assert str(gekregen) == str(waarde), (
-                    f"vraag {vraag.number}, kolom {key}: {gekregen} i.p.v. {waarde}")
+                    f"vraag {vraag.number}, kolom {key}: {gekregen} i.p.v. {waarde}"
+                )
             else:
                 assert gekregen == waarde, (
-                    f"vraag {vraag.number}, kolom {key}: {gekregen} i.p.v. {waarde}")
+                    f"vraag {vraag.number}, kolom {key}: {gekregen} i.p.v. {waarde}"
+                )
 
 
-def test_the_seeded_situation_is_the_one_that_was_written_down(db_session,
-                                                               situatie):
+def test_the_seeded_situation_is_the_one_that_was_written_down(db_session, situatie):
     """The seed's own numbers, checked before anything is graded against them.
 
     A harness resting on a seed nobody verified grades the seed. These four are
@@ -81,21 +85,26 @@ def test_the_seeded_situation_is_the_one_that_was_written_down(db_session,
     """
     dispatch = dispatcher(tenant_id=TENANT)
 
-    gezinnen = json.loads(dispatch("run_report",
-                                   {"objects": ["member_total_count"]}, db_session))
+    gezinnen = json.loads(dispatch("run_report", {"objects": ["member_total_count"]}, db_session))
     assert gezinnen["totals"]["member_total_count"] == EXPECTED["households"]
 
-    personen = json.loads(dispatch(
-        "run_report", {"objects": ["person_age_group", "membership_person_count"]},
-        db_session))
-    assert (personen["totals"]["membership_person_count"]
-            == EXPECTED["persons"])
-    assert {r["person_age_group"]: r["membership_person_count"]
-            for r in personen["rows"]} == EXPECTED["age_groups"]
+    personen = json.loads(
+        dispatch(
+            "run_report", {"objects": ["person_age_group", "membership_person_count"]}, db_session
+        )
+    )
+    assert personen["totals"]["membership_person_count"] == EXPECTED["persons"]
+    assert {
+        r["person_age_group"]: r["membership_person_count"] for r in personen["rows"]
+    } == EXPECTED["age_groups"]
 
-    geld = json.loads(dispatch(
-        "run_report", {"objects": ["payment_amount", "payment_amount_paid",
-                                   "payment_open_amount"]}, db_session))
+    geld = json.loads(
+        dispatch(
+            "run_report",
+            {"objects": ["payment_amount", "payment_amount_paid", "payment_open_amount"]},
+            db_session,
+        )
+    )
     totalen = geld["totals"]
     assert totalen["payment_amount_paid"] == str(EXPECTED["received"])
     assert totalen["payment_open_amount"] == str(EXPECTED["outstanding"])
@@ -112,22 +121,28 @@ def test_the_board_member_answer_is_a_token_and_not_a_name(db_session, situatie)
     """
     from app.domains.reporting.assistant import detokenise
 
-    out = json.loads(dispatcher(tenant_id=TENANT)(
-        "run_report", {"objects": ["board_member", "membership_households"],
-                       "sort": [{"object": "membership_households",
-                                 "direction": "desc"}]}, db_session))
+    out = json.loads(
+        dispatcher(tenant_id=TENANT)(
+            "run_report",
+            {
+                "objects": ["board_member", "membership_households"],
+                "sort": [{"object": "membership_households", "direction": "desc"}],
+            },
+            db_session,
+        )
+    )
     top = out["rows"][0]
     assert top["board_member"].startswith("persoon-")
     assert top["membership_households"] == EXPECTED["per_board_member"]["A"]
     assert "Bestuur" not in json.dumps(out)
 
     # En op het scherm staat wél een naam.
-    gerenderd = detokenise(db_session, f"Dat is {top['board_member']}.",
-                           tenant_id=TENANT)
+    gerenderd = detokenise(db_session, f"Dat is {top['board_member']}.", tenant_id=TENANT)
     assert "Bestuur" in gerenderd
 
 
 # ── Phase 3: the cohort convention lives in the prompt ───────────────────────
+
 
 def test_the_prompt_forbids_an_invented_probability(db_session):
     """Cohort reasoning is indicators and reasons, never a number (CR-07 §8).
@@ -166,10 +181,21 @@ def test_a_listing_answers_which_instead_of_how_many(db_session, situatie):
     its refusal and the catalogue repeats it, so the model does not have to spend a
     round finding out.
     """
-    out = json.loads(dispatcher(tenant_id=TENANT)(
-        "run_report", {"objects": ["member", "membership_year",
-                                   "membership_status", "membership_is_active"],
-                       "layout": "detail"}, db_session))
+    out = json.loads(
+        dispatcher(tenant_id=TENANT)(
+            "run_report",
+            {
+                "objects": [
+                    "member",
+                    "membership_year",
+                    "membership_status",
+                    "membership_is_active",
+                ],
+                "layout": "detail",
+            },
+            db_session,
+        )
+    )
     assert "error" not in out, out.get("error")
     assert len(out["rows"]) == EXPECTED["households"]
     assert all(str(r["member"]).startswith("gezin-") for r in out["rows"])

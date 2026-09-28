@@ -13,6 +13,7 @@ Deze test leest de opgemaakte HTML en toetst het paar leesregel/formulier per
 toggle. Dat de leesregel dan ook echt verdwijnt is Alpine-gedrag en wordt in
 tests_e2e/test_foutzichtbaarheid.py's zusterbestand in een echte browser bewezen.
 """
+
 import re
 
 import pytest
@@ -47,7 +48,8 @@ def test_de_datumregel_verdwijnt_tijdens_het_bewerken(client, db_session):
     assert regels, f"de datum {datum} staat niet als leesregel op het scherm"
     assert all('x-show="!edit"' in r for r in regels), (
         "de leesregel van de datum blijft staan tijdens het bewerken (#648):\n"
-        + "\n".join(r.strip()[:120] for r in regels))
+        + "\n".join(r.strip()[:120] for r in regels)
+    )
 
 
 def test_de_productregel_verdwijnt_tijdens_het_bewerken(client, db_session):
@@ -58,13 +60,16 @@ def test_de_productregel_verdwijnt_tijdens_het_bewerken(client, db_session):
 
     # Sinds golf 6 (#913) noemt óók de Verwijderen-knop in de actiebalk het
     # product — in zijn data-confirm-tekst. Dat is geen leesregel; eruit filteren.
-    regels = [r for r in html.splitlines()
-              if product.name in r and "<span" in r and "input" not in r
-              and "data-confirm" not in r]
+    regels = [
+        r
+        for r in html.splitlines()
+        if product.name in r and "<span" in r and "input" not in r and "data-confirm" not in r
+    ]
     assert regels, "de productnaam staat niet als leesregel op het scherm"
     assert all('x-show="!ed"' in r for r in regels), (
         "de leesregel van het product blijft staan tijdens het bewerken (#648):\n"
-        + "\n".join(r.strip()[:120] for r in regels))
+        + "\n".join(r.strip()[:120] for r in regels)
+    )
 
 
 def test_de_knop_blijft_staan_tijdens_het_bewerken(client, db_session):
@@ -81,11 +86,14 @@ def test_de_knop_blijft_staan_tijdens_het_bewerken(client, db_session):
     # bewerkmodus (x-show="!state") en het actiecluster — mét Annuleren — neemt
     # zijn plek in. De weg terug bestaat dus nog steeds, alleen als andere knop;
     # wat niet mag is een opener zónder x-show (die zou blijven staan en liegen).
-    knoppen = re.findall(r'(<button[^>]*)>((?:(?!</button>).)*Bewerken(?:(?!</button>).)*)</button>', html, re.S)
+    knoppen = re.findall(
+        r"(<button[^>]*)>((?:(?!</button>).)*Bewerken(?:(?!</button>).)*)</button>", html, re.S
+    )
     assert knoppen, "geen enkele bewerk-opener op het scherm"
     for attrs, _inhoud in knoppen:
         assert 'x-show="!' in attrs, (
-            f"een opener zonder x-show blijft in bewerkmodus staan en liegt: {attrs[:100]!r}")
+            f"een opener zonder x-show blijft in bewerkmodus staan en liegt: {attrs[:100]!r}"
+        )
     assert ">Annuleren<" in html, "geen Annuleren in het cluster — geen weg terug"
 
 
@@ -108,4 +116,5 @@ def test_de_koppen_blijven_wel_staan(client, db_session):
         m = re.search(rf"<{kop}[^>]*>(?:(?!</{kop}>).)*{re.escape(tekst)}", html, re.S)
         assert m, f"de {kop}-kop met {tekst!r} staat niet op het scherm"
         assert "x-show" not in m.group(0), (
-            f"de {kop}-kop is verborgen tijdens het bewerken; dat was niet de keuze")
+            f"de {kop}-kop is verborgen tijdens het bewerken; dat was niet de keuze"
+        )

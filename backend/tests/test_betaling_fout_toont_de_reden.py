@@ -24,12 +24,12 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal): in
 de eerste twee tests vallen om (400 in plaats van 200, en geen reden in de tekst),
 de andere twee blijven groen.
 """
+
 from decimal import Decimal
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -50,9 +50,15 @@ def _make_finance(db):
 
 
 def _betaalde_vordering(db, bedrag="10.00") -> PaymentRecord:
-    record = PaymentRecord(payable_type="membership", payable_id=1, type="charge",
-                           amount=Decimal(bedrag), amount_paid=Decimal(bedrag),
-                           method="transfer", status="paid")
+    record = PaymentRecord(
+        payable_type="membership",
+        payable_id=1,
+        type="charge",
+        amount=Decimal(bedrag),
+        amount_paid=Decimal(bedrag),
+        method="transfer",
+        status="paid",
+    )
     db.add(record)
     db.flush()
     return record
@@ -64,15 +70,19 @@ def test_een_te_hoge_terugbetaling_noemt_het_maximum(client, db_session):
     _make_finance(db_session)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/betalingen/{record.id}/refund",
-                       data={"amount": "100", "note": ""},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/refund",
+        data={"amount": "100", "note": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     # Deze twee horen samen — zie de docstring.
     assert resp.status_code == 200, (
-        "een 4xx wordt niet geswapt, dus de melding komt nooit op het scherm")
+        "een 4xx wordt niet geswapt, dus de melding komt nooit op het scherm"
+    )
     assert "10,00" in resp.text, (
-        "het maximum staat niet in de melding; dan blijft het 'probeer opnieuw'")
+        "het maximum staat niet in de melding; dan blijft het 'probeer opnieuw'"
+    )
     assert "terugbetalen" in resp.text
 
 
@@ -87,9 +97,11 @@ def test_de_generieke_zin_komt_er_niet_meer_aan_te_pas(client, db_session):
     _make_finance(db_session)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/betalingen/{record.id}/refund",
-                       data={"amount": "100", "note": ""},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/refund",
+        data={"amount": "100", "note": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert 'role="alert"' in resp.text, "de reden staat niet in de foutbanner"
     assert "Te betalen" in resp.text, "het lijstfragment is niet meegekomen"
@@ -101,9 +113,11 @@ def test_een_geslaagde_terugbetaling_toont_geen_banner(client, db_session):
     _make_finance(db_session)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/betalingen/{record.id}/refund",
-                       data={"amount": "10", "note": "Deels terug"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/refund",
+        data={"amount": "10", "note": "Deels terug"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 200, resp.text
     assert 'role="alert"' not in resp.text, "een geslaagde actie meldt geen fout"
@@ -115,7 +129,10 @@ def test_een_onbestaand_record_blijft_een_404(client, db_session):
     _make_finance(db_session)
     csrf = _login(client)
 
-    resp = client.post("/admin/betalingen/bestaat-niet/refund",
-                       data={"amount": "10"}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/betalingen/bestaat-niet/refund",
+        data={"amount": "10"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 404

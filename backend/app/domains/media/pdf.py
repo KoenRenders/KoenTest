@@ -18,6 +18,7 @@ the file size is already capped at upload, only the FIRST page is touched, and
 a failure to parse or render returns ``None`` instead of raising — an affiche
 without a picture is a letter without a picture, not a broken upload.
 """
+
 from __future__ import annotations
 
 import logging
@@ -27,7 +28,6 @@ from typing import Optional
 # Imported at module level on purpose: `check_imports.py` imports every module,
 # so a missing package breaks the build instead of the first poster upload.
 import pypdfium2
-from PIL import Image
 
 logger = logging.getLogger(__name__)
 

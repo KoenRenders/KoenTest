@@ -44,6 +44,7 @@ in `schrijf()` weggehaald → de eerste twee vallen om (de tekst staat er, het v
 beweegt niet); de `hx-on::after-request` die de hoogte terugzet weggehaald → de derde
 valt om.
 """
+
 import os
 import sys
 
@@ -52,8 +53,13 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Activiteitdetail, login_met_sessie,  # noqa: E402
-                                open_de_raakje_bel, pagina_klaar)
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Activiteitdetail,
+    login_met_sessie,
+    open_de_raakje_bel,
+    pagina_klaar,
+)
 from tests_e2e.test_beheer_flows import _admin_email, _ontbreekt  # noqa: E402
 
 PUBLIEK = "#raakje-widget-vraag"
@@ -75,13 +81,16 @@ def page():
     """
     with sync_playwright() as pw:
         exe = os.environ.get("E2E_CHROMIUM_PATH")
-        argumenten = ["--use-fake-device-for-media-stream",
-                      "--use-fake-ui-for-media-stream"]
-        browser = (pw.chromium.launch(executable_path=exe, args=argumenten) if exe
-                   else pw.chromium.launch(args=argumenten))
+        argumenten = ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"]
+        browser = (
+            pw.chromium.launch(executable_path=exe, args=argumenten)
+            if exe
+            else pw.chromium.launch(args=argumenten)
+        )
         ctx = browser.new_context(base_url=BASE, permissions=["microphone"])
-        ctx.add_init_script("delete window.SpeechRecognition;"
-                            " delete window.webkitSpeechRecognition;")
+        ctx.add_init_script(
+            "delete window.SpeechRecognition; delete window.webkitSpeechRecognition;"
+        )
         yield ctx.new_page()
         browser.close()
 
@@ -103,12 +112,15 @@ def _open(page, veld_selector: str = PUBLIEK):
         _open_de_overlay(page)
     veld = page.locator(veld_selector)
     natuurlijk = veld.bounding_box()["height"]
-    page.evaluate("""(s) => document.querySelector(s)
-        .dispatchEvent(new Event('input', { bubbles: true }))""", veld_selector)
+    page.evaluate(
+        """(s) => document.querySelector(s)
+        .dispatchEvent(new Event('input', { bubbles: true }))""",
+        veld_selector,
+    )
     # #997: the handler has run once it has set an inline height.
     page.wait_for_function(
-        "(s) => document.querySelector(s).style.height !== ''", arg=veld_selector,
-        timeout=5000)
+        "(s) => document.querySelector(s).style.height !== ''", arg=veld_selector, timeout=5000
+    )
     return veld, veld.bounding_box()["height"], natuurlijk
 
 
@@ -127,14 +139,15 @@ def _open_de_overlay(page):
     pagina_klaar(page)
     knop = page.get_by_role("button", name="AI · Activiteit")
     if knop.count() == 0:
-        _ontbreekt("geen AI · Activiteit-knop — staat de beheer-assistent aan "
-                   "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?")
+        _ontbreekt(
+            "geen AI · Activiteit-knop — staat de beheer-assistent aan "
+            "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?"
+        )
     knop.click()
     page.wait_for_selector(OVERLAY, state="visible", timeout=5000)
 
 
-def _hoogte_wordt(page, voorwaarde: str, arg, melding: str,
-                  veld_selector: str = PUBLIEK) -> None:
+def _hoogte_wordt(page, voorwaarde: str, arg, melding: str, veld_selector: str = PUBLIEK) -> None:
     """Wait until the field's height meets `voorwaarde` (`(h, a) => …`) — #997.
 
     The height must BECOME so; a timeout is the finding, reported as `melding`.
@@ -142,7 +155,10 @@ def _hoogte_wordt(page, voorwaarde: str, arg, melding: str,
     try:
         page.wait_for_function(
             f"a => ({voorwaarde})(document.querySelector('{veld_selector}')"
-            f".getBoundingClientRect().height, a)", arg=arg, timeout=5000)
+            f".getBoundingClientRect().height, a)",
+            arg=arg,
+            timeout=5000,
+        )
     except Exception as fout:
         raise AssertionError(melding) from fout
 
@@ -150,7 +166,8 @@ def _hoogte_wordt(page, voorwaarde: str, arg, melding: str,
 def _knop(page, veld_selector: str = PUBLIEK):
     knop = page.locator(f"[data-stt-target='{veld_selector}']")
     assert knop.count() == 1, (
-        "de spraakknop staat er niet — staat STT_MODE op een modus met provider?")
+        "de spraakknop staat er niet — staat STT_MODE op een modus met provider?"
+    )
     return knop
 
 
@@ -175,7 +192,9 @@ def _dicteer_tot_lang(page, hoogte_leeg, veld_selector: str = PUBLIEK):
              const v = document.querySelector(s);
              return v.value.length > 300 && v.offsetHeight > basis;
            }""",
-        arg=[hoogte_leeg, veld_selector], timeout=15000)
+        arg=[hoogte_leeg, veld_selector],
+        timeout=15000,
+    )
 
 
 def _stop_zoals_de_app(page):
@@ -200,8 +219,8 @@ def test_tijdens_het_dicteren_groeit_het_veld_mee(page):
     hoogte_vol = veld.bounding_box()["height"]
     _stop_zoals_de_app(page)
     assert hoogte_vol <= 130, (
-        f"het veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort het te "
-        "scrollen")
+        f"het veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort het te scrollen"
+    )
 
 
 def test_het_veld_volgt_ook_de_eindtekst(page):
@@ -216,10 +235,15 @@ def test_het_veld_volgt_ook_de_eindtekst(page):
 
     _stop_zoals_de_app(page)
     page.wait_for_function(
-        f"() => document.querySelector('{PUBLIEK}').value.length < 100", timeout=10000)
+        f"() => document.querySelector('{PUBLIEK}').value.length < 100", timeout=10000
+    )
 
-    _hoogte_wordt(page, "(h, a) => h === a", hoogte_leeg,
-                  "het veld blijft hoog terwijl de eindtekst op één regel past")
+    _hoogte_wordt(
+        page,
+        "(h, a) => h === a",
+        hoogte_leeg,
+        "het veld blijft hoog terwijl de eindtekst op één regel past",
+    )
 
 
 def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
@@ -227,26 +251,26 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
     groen wanneer het veld na gebruik nooit meer dichtgaat."""
     veld, hoogte_leeg, natuurlijk = _open(page)
     veld.fill("Ik heb een vrij lange vraag over het lidmaatschap. " * 4)
-    _hoogte_wordt(page, "(h, a) => h > a", hoogte_leeg,
-                  "voorwaarde van deze test: het veld groeit niet mee")
+    _hoogte_wordt(
+        page, "(h, a) => h > a", hoogte_leeg, "voorwaarde van deze test: het veld groeit niet mee"
+    )
 
     veld.press("Enter")
-    page.wait_for_function(
-        f"() => document.querySelector('{PUBLIEK}').value === ''", timeout=10000)
+    page.wait_for_function(f"() => document.querySelector('{PUBLIEK}').value === ''", timeout=10000)
     try:
         page.wait_for_function(
-            f"() => document.querySelector('{PUBLIEK}').style.height === 'auto'",
-            timeout=5000)
+            f"() => document.querySelector('{PUBLIEK}').style.height === 'auto'", timeout=5000
+        )
     except Exception as fout:
         raise AssertionError("de hoogte wordt na het verzenden niet teruggezet") from fout
 
     # De terugzetting gebeurt met `height = auto`, dus je landt op de natuurlijke
     # hoogte van 38 en niet op de 36 die de handler zou zetten. Waar het om gaat is
     # dat het veld weer één regel is en niet op zijn 120 px blijft staan.
-    assert veld.bounding_box()["height"] <= natuurlijk, (
-        "het veld blijft hoog terwijl het leeg is")
+    assert veld.bounding_box()["height"] <= natuurlijk, "het veld blijft hoog terwijl het leeg is"
     assert veld.evaluate("el => el.style.height") == "auto", (
-        "de hoogte wordt na het verzenden niet teruggezet")
+        "de hoogte wordt na het verzenden niet teruggezet"
+    )
 
 
 # ── De Raakje-overlay van het activiteitenscherm (#1075) ─────────────────────
@@ -257,6 +281,7 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
 # verborgen overlay geldt, en dat het veld daar even goed meegroeit, ziet alleen een
 # browser. (Dat de handler op één plek staat, bewijst tests/test_raakje_controls_shared.py.)
 
+
 def test_op_de_activiteit_overlay_groeit_het_veld_mee_tijdens_het_dicteren(page):
     veld, hoogte_leeg, _natuurlijk = _open(page, OVERLAY)
 
@@ -266,7 +291,8 @@ def test_op_de_activiteit_overlay_groeit_het_veld_mee_tijdens_het_dicteren(page)
     _stop_zoals_de_app(page)
     assert hoogte_vol <= 130, (
         f"het overlay-veld groeit ongeremd door ({hoogte_vol}px); boven ~120px hoort "
-        "het te scrollen")
+        "het te scrollen"
+    )
 
 
 def test_op_de_activiteit_overlay_volgt_het_veld_ook_de_eindtekst(page):
@@ -275,8 +301,13 @@ def test_op_de_activiteit_overlay_volgt_het_veld_ook_de_eindtekst(page):
 
     _stop_zoals_de_app(page)
     page.wait_for_function(
-        "(s) => document.querySelector(s).value.length < 100", arg=OVERLAY, timeout=10000)
+        "(s) => document.querySelector(s).value.length < 100", arg=OVERLAY, timeout=10000
+    )
 
-    _hoogte_wordt(page, "(h, a) => h === a", hoogte_leeg,
-                  "het overlay-veld blijft hoog terwijl de eindtekst op één regel past",
-                  OVERLAY)
+    _hoogte_wordt(
+        page,
+        "(h, a) => h === a",
+        hoogte_leeg,
+        "het overlay-veld blijft hoog terwijl de eindtekst op één regel past",
+        OVERLAY,
+    )

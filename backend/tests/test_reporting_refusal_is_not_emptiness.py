@@ -22,6 +22,7 @@ disguised as absence. The pattern is the subject, so the test below asserts the
 **element** and not the text: a test on the wording would pass again the day both
 become the same grey line.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -38,7 +39,7 @@ def situation(db_session):
 # What the two kit macros render. `role="alert"` is the banner's; the empty state
 # is a centred grey line. Asserting on these and not on the sentence is the point.
 BANNER = 'role="alert"'
-LEEG = 'text-gray-500 text-sm py-6 text-center'
+LEEG = "text-gray-500 text-sm py-6 text-center"
 
 
 def test_the_same_selection_totals_the_same_in_both_shapes(db_session, situation):
@@ -49,16 +50,16 @@ def test_the_same_selection_totals_the_same_in_both_shapes(db_session, situation
     """
     from app.domains.reporting.api import Selection, build_pivot, run_validated
 
-    tabel = run_validated(db_session,
-                          Selection(object_keys=("payment_amount",)),
-                          tenant_id=TENANT_A).rows[0]["payment_amount"]
-    kruis = build_pivot(db_session,
-                        Selection(object_keys=("payment_amount",),
-                                  layout="pivot"),
-                        tenant_id=TENANT_A)
+    tabel = run_validated(
+        db_session, Selection(object_keys=("payment_amount",)), tenant_id=TENANT_A
+    ).rows[0]["payment_amount"]
+    kruis = build_pivot(
+        db_session, Selection(object_keys=("payment_amount",), layout="pivot"), tenant_id=TENANT_A
+    )
     assert len(kruis.rows) == 1, "één cel"
     assert kruis.grand_total["payment_amount"] == tabel, (
-        f"tabel {tabel}, draaitabel {kruis.grand_total['payment_amount']}")
+        f"tabel {tabel}, draaitabel {kruis.grand_total['payment_amount']}"
+    )
     assert tabel, "er valt iets te tellen, anders meet deze test niets"
 
 
@@ -67,15 +68,16 @@ def test_a_refusal_is_drawn_as_a_banner(client, db_session, situation):
     login(client, db_session)
     fragment = client.get(
         "/admin/rapporten/paneel?object=payment_method&object=payment_payable_type"
-        "&layout=pivot&pivot_column=payment_method")
+        "&layout=pivot&pivot_column=payment_method"
+    )
     assert fragment.status_code == 200
     assert BANNER in fragment.text, (
         "een weigering hoort als foutmelding getekend te worden, niet als lege "
-        "staat — anders leest een instructie als 'er staat niets'")
+        "staat — anders leest een instructie als 'er staat niets'"
+    )
 
 
-def test_nothing_chosen_yet_is_drawn_as_an_empty_state(client, db_session,
-                                                       situation):
+def test_nothing_chosen_yet_is_drawn_as_an_empty_state(client, db_session, situation):
     """The other side of the distinction, so the fix is not "everything is an
     error now"."""
     login(client, db_session)
@@ -84,20 +86,22 @@ def test_nothing_chosen_yet_is_drawn_as_an_empty_state(client, db_session,
     assert LEEG in fragment.text
     assert BANNER not in fragment.text, (
         "nog niets gekozen is geen fout; wie dit als foutmelding tekent, leert "
-        "de gebruiker foutmeldingen negeren")
+        "de gebruiker foutmeldingen negeren"
+    )
 
 
-def test_a_result_with_no_rows_is_drawn_as_an_empty_state(client, db_session,
-                                                          situation):
+def test_a_result_with_no_rows_is_drawn_as_an_empty_state(client, db_session, situation):
     """Zero rows means the question was fine and there is no data."""
     login(client, db_session)
     fragment = client.get(
         "/admin/rapporten/paneel?object=membership_year"
         "&object=membership_households&filter=membership_year"
-        "&op_membership_year=eq&v_membership_year=1999")
+        "&op_membership_year=eq&v_membership_year=1999"
+    )
     assert fragment.status_code == 200
     assert BANNER not in fragment.text, (
-        "geen rijen is geen weigering: de vraag klopt, er is alleen geen data")
+        "geen rijen is geen weigering: de vraag klopt, er is alleen geen data"
+    )
 
 
 def test_the_two_are_not_the_same_element(client, db_session, situation):
@@ -114,11 +118,12 @@ def test_the_two_are_not_the_same_element(client, db_session, situation):
     login(client, db_session)
     weigering = client.get(
         "/admin/rapporten/paneel?object=payment_method&object=payment_payable_type"
-        "&layout=pivot&pivot_column=payment_method").text
+        "&layout=pivot&pivot_column=payment_method"
+    ).text
     leegte = client.get("/admin/rapporten/paneel").text
 
     assert BANNER in weigering and BANNER not in leegte
     assert LEEG in leegte
     assert (BANNER in weigering) != (BANNER in leegte), (
-        "worden weigering en leegte weer hetzelfde element, dan bewijst dit "
-        "bestand niets meer")
+        "worden weigering en leegte weer hetzelfde element, dan bewijst dit bestand niets meer"
+    )

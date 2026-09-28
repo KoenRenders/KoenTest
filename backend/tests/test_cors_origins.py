@@ -1,5 +1,6 @@
 """De dev-origin localhost:3000 hoort niet in de CORS-config van prod-achtige
 omgevingen (#271): onnodig aanvalsoppervlak op de prod-API."""
+
 from app.main import cors_origins
 
 

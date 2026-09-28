@@ -12,6 +12,7 @@ Broken on purpose to check that this test can go red: the `hx-headers` taken off
 `#betalingen-lijst` in `_betalingen_scherm.html` → after the confirmation the
 other activity's payment is in the list.
 """
+
 import os
 import re
 import secrets
@@ -54,12 +55,23 @@ def two_activities():
     for activity_id, component_id, product_id in ids:
         name = f"E2E {secrets.token_hex(3)}"
         names.append(name)
-        httpx.post(f"{BASE}/activiteiten/{activity_id}/inschrijven/{component_id}",
-                   data={"contact_name": name, "contact_email": "e2e-1247@example.org",
-                         "phone": "047", f"product_{product_id}": "1",
-                         "payment_method": "transfer"}, timeout=30)
-    return {"activity": ids[0][0], "mine": names[0], "other": names[1],
-            "session": make_session_value(email)}
+        httpx.post(
+            f"{BASE}/activiteiten/{activity_id}/inschrijven/{component_id}",
+            data={
+                "contact_name": name,
+                "contact_email": "e2e-1247@example.org",
+                "phone": "047",
+                f"product_{product_id}": "1",
+                "payment_method": "transfer",
+            },
+            timeout=30,
+        )
+    return {
+        "activity": ids[0][0],
+        "mine": names[0],
+        "other": names[1],
+        "session": make_session_value(email),
+    }
 
 
 @pytest.fixture(scope="module")
@@ -74,8 +86,7 @@ def page(two_activities):
 
 
 def _records(page) -> set[str]:
-    return set(re.findall(r"open === '([^']+)'",
-                          page.inner_html("#betalingen-lijst")))
+    return set(re.findall(r"open === '([^']+)'", page.inner_html("#betalingen-lijst")))
 
 
 def test_confirming_on_the_activity_tab_keeps_the_activity(page, two_activities):
@@ -88,14 +99,15 @@ def test_confirming_on_the_activity_tab_keeps_the_activity(page, two_activities)
     assert two_activities["other"] not in lijst.inner_text()
 
     lijst.get_by_text("Bevestig", exact=True).first.click()
-    with page.expect_response(lambda r: r.request.method == "POST"
-                              and r.url.endswith("/bevestigen")) as resp:
+    with page.expect_response(
+        lambda r: r.request.method == "POST" and r.url.endswith("/bevestigen")
+    ) as resp:
         page.get_by_role("button", name="Bevestigen").click()
     assert resp.value.status == 200
     htmx_stil(page)
 
     after = _records(page)
-    assert after == before, (
-        f"{len(before)} record(s) before the confirmation, {len(after)} after")
+    assert after == before, f"{len(before)} record(s) before the confirmation, {len(after)} after"
     assert two_activities["other"] not in lijst.inner_text(), (
-        "the other activity's payment came back: the scope was lost")
+        "the other activity's payment came back: the scope was lost"
+    )

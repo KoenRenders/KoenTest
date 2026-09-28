@@ -1,8 +1,8 @@
 from decimal import Decimal
-from pydantic_settings import BaseSettings
-from pydantic import field_validator, model_validator
 from typing import Optional
 
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings
 
 # Waarden die nooit als echte SECRET_KEY mogen dienen in uat/prod.
 WEAK_SECRET_KEYS = {
@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     # voor CI/dev (afhankelijkheidsvrij, geen netwerk). Hergebruikt MISTRAL_API_KEY.
     stt_provider: str = "voxtral"
     stt_model: str = "voxtral-mini-transcribe-realtime-2602"
-    stt_base_url: str = "wss://api.mistral.ai"   # server_url voor de mistralai[realtime]-SDK
+    stt_base_url: str = "wss://api.mistral.ai"  # server_url voor de mistralai[realtime]-SDK
     # TERUGVAL, geen eis (#772/#788). Wat vastligt is `pcm_s16le` mono; de SNELHEID
     # komt per sessie van de browser mee en gaat zo als `AudioFormat` naar Voxtral.
     # Gemeten op HDEV: een sessie op 48000 Hz leverde gewoon elf tekstdelen op. Deze
@@ -124,9 +124,9 @@ class Settings(BaseSettings):
     # adapter terug op autodetectie (geen fout). Leeg = niet meegeven.
     stt_language: str = "nl"
     # Vangrails (kosten/misbruik), defense-in-depth zoals de chat-limiters (#282):
-    stt_ws_max_handshakes_per_min: int = 10       # handshake-rate-limit per IP
-    stt_idle_timeout_seconds: int = 15            # geen audioframe binnen X s → sluit
-    stt_max_session_bytes: int = 8_000_000        # harde audio-cap per sessie (~PCM16)
+    stt_ws_max_handshakes_per_min: int = 10  # handshake-rate-limit per IP
+    stt_idle_timeout_seconds: int = 15  # geen audioframe binnen X s → sluit
+    stt_max_session_bytes: int = 8_000_000  # harde audio-cap per sessie (~PCM16)
     stt_daily_audio_budget_bytes: int = 80_000_000  # harde audio-cap per IP per dag
 
     # Documenttekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
@@ -202,9 +202,9 @@ class Settings(BaseSettings):
     # het volgende jaar (valid_to = 31 dec volgend jaar i.p.v. dit jaar).
     membership_price_full: Decimal = Decimal("35.00")
     membership_price_half: Decimal = Decimal("17.50")
-    membership_half_price_start_md: str = "04-16"   # MM-DD
-    membership_half_price_end_md: str = "09-16"     # MM-DD
-    membership_next_year_from_md: str = "09-17"     # MM-DD
+    membership_half_price_start_md: str = "04-16"  # MM-DD
+    membership_half_price_end_md: str = "09-16"  # MM-DD
+    membership_next_year_from_md: str = "09-17"  # MM-DD
 
     # Hernieuwingsdatum (MM-DD). Vanaf deze datum verschijnt de knop "Lidmaatschap
     # vernieuwen" ook voor leden met een nog-geldig lidmaatschap, zodat ze vroeg-
@@ -255,11 +255,12 @@ class Settings(BaseSettings):
         """
         if not isinstance(waarden, dict):
             return waarden
-        met_default = {naam for naam, veld in cls.model_fields.items()
-                       if not veld.is_required()}
-        return {naam: waarde for naam, waarde in waarden.items()
-                if not (isinstance(waarde, str) and not waarde.strip()
-                        and naam.lower() in met_default)}
+        met_default = {naam for naam, veld in cls.model_fields.items() if not veld.is_required()}
+        return {
+            naam: waarde
+            for naam, waarde in waarden.items()
+            if not (isinstance(waarde, str) and not waarde.strip() and naam.lower() in met_default)
+        }
 
     @field_validator(
         "membership_half_price_start_md",
@@ -293,19 +294,18 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"PAYMENT_PROVIDER=stub mag niet in APP_ENV={self.app_env}: de stub "
                 "markeert betalingen als betaald zonder geld. Enkel in "
-                f"{', '.join(PAYMENT_STUB_ENVIRONMENTS)}.")
+                f"{', '.join(PAYMENT_STUB_ENVIRONMENTS)}."
+            )
         if self.app_env in ("uat", "prod"):
             if self.secret_key in WEAK_SECRET_KEYS or len(self.secret_key) < 32:
                 raise ValueError(
                     "SECRET_KEY is zwak of niet gezet voor "
                     f"APP_ENV={self.app_env}. Genereer een sterke sleutel met "
-                    "python3 -c \"import secrets; print(secrets.token_hex(32))\" "
+                    'python3 -c "import secrets; print(secrets.token_hex(32))" '
                     "en zet die in .env."
                 )
             if self.debug:
-                raise ValueError(
-                    f"DEBUG mag niet aanstaan in APP_ENV={self.app_env}."
-                )
+                raise ValueError(f"DEBUG mag niet aanstaan in APP_ENV={self.app_env}.")
             if self.sql_echo:
                 raise ValueError(
                     f"SQL_ECHO mag niet aanstaan in APP_ENV={self.app_env}: "
@@ -316,4 +316,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-

@@ -11,23 +11,32 @@ de entiteit en het CMS-blok blijft eronder staan, zodat er bij de deploy niets
 verdwijnt. Of dat blok daarna weg mag, is een beslissing ná het bekijken van een
 omgeving.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.mdm.api import (Address, BankAccount, ContactDetail,
-                                 Organization, PostalCode)
+from app.domains.mdm.api import (
+    CONTACT,
+    Address,
+    BankAccount,
+    ContactDetail,
+    Organization,
+    PostalCode,
+)
 from app.kernel.tenant_config import _actieve_tenant
-from app.domains.mdm.api import CONTACT
 
 TENANT = _actieve_tenant(None)
 
 
 @pytest.fixture
 def organisatie(db_session):
-    return (db_session.query(Organization)
-            .filter(Organization.id == TENANT)
-            .execution_options(include_all_tenants=True).one())
+    return (
+        db_session.query(Organization)
+        .filter(Organization.id == TENANT)
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
 
 
 def _contact(db_session, organisatie, code: str, waarde: str) -> None:
@@ -36,9 +45,11 @@ def _contact(db_session, organisatie, code: str, waarde: str) -> None:
     `tenant_id` krijgt de eigenaar mee omdat de kolom NOT NULL is; hij is hier
     niet de scope — zie de docstring van `ContactDetail`.
     """
-    db_session.add(ContactDetail(tenant_id=TENANT,
-                                 organization_id=organisatie.id,
-                                 contact_type_code=code, value=waarde))
+    db_session.add(
+        ContactDetail(
+            tenant_id=TENANT, organization_id=organisatie.id, contact_type_code=code, value=waarde
+        )
+    )
 
 
 @pytest.fixture
@@ -51,11 +62,17 @@ def met_adres(db_session, organisatie):
     # Sinds #945 zijn contact en rekening rijen en geen kolommen.
     _contact(db_session, organisatie, "EMAIL", "bestuur@example.com")
     _contact(db_session, organisatie, "PHONE", "014 00 00 00")
-    db_session.add(BankAccount(organization_id=organisatie.id,
-                               iban="BE68 5390 0754 7034"))
-    db_session.add(Address(tenant_id=TENANT, organization_id=organisatie.id,
-                           street="Kerkstraat", house_number="12", bus_number="3",
-                           postal_code_id=pc.id))
+    db_session.add(BankAccount(organization_id=organisatie.id, iban="BE68 5390 0754 7034"))
+    db_session.add(
+        Address(
+            tenant_id=TENANT,
+            organization_id=organisatie.id,
+            street="Kerkstraat",
+            house_number="12",
+            bus_number="3",
+            postal_code_id=pc.id,
+        )
+    )
     db_session.commit()
     return organisatie
 
@@ -77,11 +94,15 @@ def test_what_the_tenant_wrote_stays(client, db_session, met_adres):
     """
     from app.domains.cms.api import CmsPage
 
-    pagina = (db_session.query(CmsPage)
-              .filter(CmsPage.slug == "site-footer").one_or_none())
+    pagina = db_session.query(CmsPage).filter(CmsPage.slug == "site-footer").one_or_none()
     if pagina is None:
-        pagina = CmsPage(tenant_id=TENANT, slug="site-footer", title="Footer",
-                         is_published=True, show_in_nav=False)
+        pagina = CmsPage(
+            tenant_id=TENANT,
+            slug="site-footer",
+            title="Footer",
+            is_published=True,
+            show_in_nav=False,
+        )
         db_session.add(pagina)
     pagina.content = "Elke woensdag open vanaf 19u."
     pagina.is_published = True
@@ -90,7 +111,8 @@ def test_what_the_tenant_wrote_stays(client, db_session, met_adres):
     html = client.get("/aanmelden").text
     assert "Elke woensdag open vanaf 19u." in html, (
         "wat de tenant zelf schreef hoort te blijven staan; verdwijnt het, dan "
-        "raakt een omgeving bij de deploy tekst kwijt die niemand terug kan halen")
+        "raakt een omgeving bij de deploy tekst kwijt die niemand terug kan halen"
+    )
     assert "Kerkstraat 12 bus 3" in html, "en het organisatieblok staat erbij"
 
 
@@ -100,22 +122,17 @@ def test_an_empty_organisation_renders_no_block(client, db_session, organisatie)
     De footer draagt onderaan al de naam van de site, dus een tweede kale naam
     voegt niets toe en roept de vraag op wat er mis is.
     """
-    db_session.query(ContactDetail).filter(
-        ContactDetail.organization_id == organisatie.id).delete()
-    db_session.query(BankAccount).filter(
-        BankAccount.organization_id == organisatie.id).delete()
-    db_session.query(Address).filter(
-        Address.organization_id == organisatie.id).delete()
+    db_session.query(ContactDetail).filter(ContactDetail.organization_id == organisatie.id).delete()
+    db_session.query(BankAccount).filter(BankAccount.organization_id == organisatie.id).delete()
+    db_session.query(Address).filter(Address.organization_id == organisatie.id).delete()
     db_session.commit()
 
     html = client.get("/aanmelden").text
     assert "Kerkstraat" not in html
 
 
-def test_the_social_links_come_from_the_organisation(client, db_session,
-                                                     organisatie):
-    _contact(db_session, organisatie, "INSTAGRAM",
-             "https://instagram.com/raakvoorbeeld")
+def test_the_social_links_come_from_the_organisation(client, db_session, organisatie):
+    _contact(db_session, organisatie, "INSTAGRAM", "https://instagram.com/raakvoorbeeld")
     db_session.commit()
     assert 'aria-label="Instagram"' in client.get("/aanmelden").text
 
@@ -141,11 +158,12 @@ def test_a_tenant_setting_no_longer_wins(client, db_session, organisatie):
 
     db_session.query(ContactDetail).filter(
         ContactDetail.organization_id == organisatie.id,
-        ContactDetail.contact_type_code == CONTACT.FACEBOOK).delete()
+        ContactDetail.contact_type_code == CONTACT.FACEBOOK,
+    ).delete()
     db_session.commit()
-    set_setting(db_session, "facebook_url", "https://facebook.com/oud",
-                tenant_id=TENANT)
+    set_setting(db_session, "facebook_url", "https://facebook.com/oud", tenant_id=TENANT)
     db_session.commit()
 
     assert 'aria-label="Facebook"' not in client.get("/aanmelden").text, (
-        "de tenant-instelling hoort niet meer mee te spelen")
+        "de tenant-instelling hoort niet meer mee te spelen"
+    )

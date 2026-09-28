@@ -19,6 +19,7 @@ so the estimate the editor shows and the width Inkscape draws agree within the
 tolerance measured in iteration 16 (the estimate lies a few percent above the
 ink width).
 """
+
 from __future__ import annotations
 
 import re
@@ -71,6 +72,7 @@ class Line:
     Iterating a line yields its runs, so a caller that only wants the text
     does not need to know about the break.
     """
+
     runs: tuple[Run, ...] = ()
     #: Follows a typed Enter (or a blank line), so the step onto it is
     #: :data:`BREAK_HEIGHT` instead of :data:`LINE_HEIGHT`.
@@ -90,6 +92,7 @@ class Line:
 @dataclass(frozen=True)
 class Block:
     """One typed line: a paragraph, a bullet, or a line after an Enter."""
+
     runs: tuple[Run, ...]
     bullet: bool = False
     #: Preceded by a blank line, so it gets a blank line before it.
@@ -116,8 +119,9 @@ def _metrics(font_path: str, weight: int) -> tuple[dict, dict, int]:
     return font.getBestCmap(), font["hmtx"], font["head"].unitsPerEm
 
 
-def text_width(text: str, size: float, *, bold: bool = False, tracking: float = 0.0,
-               font: Path = BODY_FONT) -> float:
+def text_width(
+    text: str, size: float, *, bold: bool = False, tracking: float = 0.0, font: Path = BODY_FONT
+) -> float:
     """Advance width of ``text`` at ``size`` (same unit as the result), from the
     ``hmtx`` table of the weight that is drawn (400 or 700), plus the slack
     Inkscape adds at small sizes (:data:`INK_SLACK_PER_MM`) — an upper bound
@@ -142,7 +146,7 @@ def parse(source: str) -> list[Block]:
     for raw in (source or "").replace("\r\n", "\n").split("\n"):
         line = raw.strip()
         if not line:
-            gap = bool(blocks)      # a blank line before the first line means nothing
+            gap = bool(blocks)  # a blank line before the first line means nothing
             continue
         bullet = bool(_BULLET.match(line))
         text = _BULLET.sub("", line, count=1) if bullet else line
@@ -156,7 +160,7 @@ def _runs(text: str) -> tuple[Run, ...]:
     pos = 0
     for m in _BOLD.finditer(text):
         if m.start() > pos:
-            runs.append(Run(text[pos:m.start()]))
+            runs.append(Run(text[pos : m.start()]))
         runs.append(Run(m.group(1), bold=True))
         pos = m.end()
     if pos < len(text):
@@ -164,7 +168,9 @@ def _runs(text: str) -> tuple[Run, ...]:
     return tuple(r for r in runs if r.text)
 
 
-def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float = 0.0) -> list[Line]:
+def wrap(
+    blocks: list[Block], *, width: float, size: float, bullet_indent: float = 0.0
+) -> list[Line]:
     """Wrap blocks into lines that fit ``width`` at ``size``. A bullet block
     gets its marker as the first run of its first line and continuation lines
     indented by ``bullet_indent`` (handled by the caller through an empty run).
@@ -190,16 +196,24 @@ def wrap(blocks: list[Block], *, width: float, size: float, bullet_indent: float
             ww = text_width(word, size, bold=bold)
             space = text_width(" ", size) if current else 0.0
             if current and current_w + space + ww > avail:
-                lines.append(Line(tuple(_line(current, bullet=block.bullet and first)),
-                                  after_break=bool(lines) and first))
+                lines.append(
+                    Line(
+                        tuple(_line(current, bullet=block.bullet and first)),
+                        after_break=bool(lines) and first,
+                    )
+                )
                 first = False
                 current, current_w = [], 0.0
                 space = 0.0
             current.append((word, bold))
             current_w += space + ww
         if current:
-            lines.append(Line(tuple(_line(current, bullet=block.bullet and first)),
-                              after_break=bool(lines) and first))
+            lines.append(
+                Line(
+                    tuple(_line(current, bullet=block.bullet and first)),
+                    after_break=bool(lines) and first,
+                )
+            )
     return lines
 
 
@@ -239,9 +253,17 @@ def text_height(source: str, *, width: float, size: float) -> float:
     return sum(ln.lead(size) for ln in _lines_of(source, width, size))
 
 
-def to_svg(source: str, *, x: float, y: float, width: float, size: float,
-           fill: str, max_lines: int | None = None,
-           element_id: str = "") -> tuple[str, int]:
+def to_svg(
+    source: str,
+    *,
+    x: float,
+    y: float,
+    width: float,
+    size: float,
+    fill: str,
+    max_lines: int | None = None,
+    element_id: str = "",
+) -> tuple[str, int]:
     """Render formatted text as one ``<text>`` element with ``<tspan>`` lines.
 
     Returns the SVG fragment and the number of lines it holds. Bold runs get
@@ -261,8 +283,10 @@ def to_svg(source: str, *, x: float, y: float, width: float, size: float,
         )
         parts.append(f'<tspan x="{x:.3f}" dy="{dy}">{inner or " "}</tspan>')
     id_attr = f' id="{element_id}"' if element_id else ""
-    fragment = (f'<text{id_attr} x="{x:.3f}" y="{y:.3f}" font-size="{size:.3f}" fill="{fill}" '
-                f'xml:space="preserve">{"".join(parts)}</text>')
+    fragment = (
+        f'<text{id_attr} x="{x:.3f}" y="{y:.3f}" font-size="{size:.3f}" fill="{fill}" '
+        f'xml:space="preserve">{"".join(parts)}</text>'
+    )
     return fragment, len(lines)
 
 

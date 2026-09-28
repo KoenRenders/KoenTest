@@ -30,17 +30,16 @@ de contactregel uit `FamilyCreate` gehaald → test 2 valt om; de `begin_nested`
 in `create_family_by_admin` vervangen door een kale aanroep → test 4b valt om met
 een half gezin in de databank.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
-                                 Person)
+from app.domains.mdm.api import Address, ContactDetail, Member, MemberPerson, Person, RelationType
 from app.domains.membership.api import Membership
-from tests.conftest import SEEDED_ADMIN_EMAIL, nieuw_lid_velden
-from app.domains.mdm.api import RelationType
 from app.kernel.codes import code_of
+from tests.conftest import SEEDED_ADMIN_EMAIL, nieuw_lid_velden
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -66,33 +65,35 @@ def _telling(db) -> tuple[int, int]:
 
 # ── 1. Eén POST, alles erin ──────────────────────────────────────────────────
 
+
 def test_een_post_maakt_gezin_hoofdlid_adres_en_contactgegevens(client, db_session):
     csrf = _login(client)
 
-    gezin = _gezin_uit(client.post("/admin/leden",
-                                   data=nieuw_lid_velden(db_session),
-                                   headers={"X-CSRF-Token": csrf}))
+    gezin = _gezin_uit(
+        client.post(
+            "/admin/leden", data=nieuw_lid_velden(db_session), headers={"X-CSRF-Token": csrf}
+        )
+    )
 
     db_session.expire_all()
     persoon = _persoon(db_session, "Nieuw")
-    koppeling = db_session.query(MemberPerson).filter(
-        MemberPerson.person_id == persoon.id).one()
+    koppeling = db_session.query(MemberPerson).filter(MemberPerson.person_id == persoon.id).one()
     assert koppeling.member_id == gezin and koppeling.relation_type == RelationType.PRIMARY_MEMBER
 
     adres = db_session.query(Address).filter(Address.person_id == persoon.id).one()
     assert (adres.street, adres.house_number) == ("Nieuwstraat", "7")
     assert adres.postal_code.postal_code == "2400"
 
-    contacten = {code_of(c.contact_type_code): c.value for c in
-                 db_session.query(ContactDetail).filter(
-                     ContactDetail.person_id == persoon.id).all()}
+    contacten = {
+        code_of(c.contact_type_code): c.value
+        for c in db_session.query(ContactDetail).filter(ContactDetail.person_id == persoon.id).all()
+    }
     assert contacten["EMAIL"] == "nieuw@example.com"
     assert contacten["MOBILE"] == "0470000000"
 
     # Het lidmaatschap hoorde bij dezelfde handeling en is meteen actief: er hangt
     # in de beheerkant geen betaling aan die het nog moet activeren.
-    lidmaatschap = db_session.query(Membership).filter(
-        Membership.member_id == gezin).one()
+    lidmaatschap = db_session.query(Membership).filter(Membership.member_id == gezin).one()
     assert lidmaatschap.is_active is True
     assert lidmaatschap.valid_from is not None and lidmaatschap.valid_to is not None
 
@@ -104,8 +105,14 @@ def test_het_scherm_is_een_formulier_met_een_opslaan_actie(client, db_session):
     html = client.get("/admin/leden/nieuw").text
 
     assert html.count('hx-post="/admin/leden"') == 1, "meer dan één opslaan-actie"
-    for veld in ('name="m0_first_name"', 'name="m0_email"', 'name="m0_mobile"',
-                 'name="street"', 'name="house_number"', 'name="postal_code"'):
+    for veld in (
+        'name="m0_first_name"',
+        'name="m0_email"',
+        'name="m0_mobile"',
+        'name="street"',
+        'name="house_number"',
+        'name="postal_code"',
+    ):
         assert veld in html, f"{veld} ontbreekt op het aanmaakscherm"
     # Een gezinslid erbij haalt een lege rij op; dat is geen opslag.
     assert 'hx-get="/admin/leden/nieuw/persoon-rij"' in html
@@ -113,14 +120,17 @@ def test_het_scherm_is_een_formulier_met_een_opslaan_actie(client, db_session):
 
 # ── 2. Dezelfde regel als publiek ────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("weg", ["m0_email", "m0_mobile"])
 def test_een_hoofdlid_zonder_email_of_gsm_wordt_geweigerd(client, db_session, weg):
     csrf = _login(client)
     voor = _telling(db_session)
 
-    antwoord = client.post("/admin/leden",
-                           data=nieuw_lid_velden(db_session, **{weg: None}),
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        "/admin/leden",
+        data=nieuw_lid_velden(db_session, **{weg: None}),
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert antwoord.status_code == 422
     reden = "E-mailadres" if weg == "m0_email" else "Mobiel nummer"
@@ -138,40 +148,54 @@ def test_de_reden_komt_uit_hetzelfde_schema_als_publiek(client, db_session):
     from app.domains.membership.api import FamilyCreate, FamilyMemberCreate
 
     with pytest.raises(ValidationError) as fout:
-        FamilyCreate(street="S", house_number="1", postal_code="2400",
-                     members=[FamilyMemberCreate(first_name="A", last_name="B",
-                                                 relation_type="HOOFDLID")])
+        FamilyCreate(
+            street="S",
+            house_number="1",
+            postal_code="2400",
+            members=[FamilyMemberCreate(first_name="A", last_name="B", relation_type="HOOFDLID")],
+        )
     schema_reden = str(fout.value.errors()[0]["msg"])
 
     csrf = _login(client)
-    antwoord = client.post("/admin/leden",
-                           data=nieuw_lid_velden(db_session, m0_email=None),
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        "/admin/leden",
+        data=nieuw_lid_velden(db_session, m0_email=None),
+        headers={"X-CSRF-Token": csrf},
+    )
     assert schema_reden.split(":")[-1].strip() in antwoord.text
 
 
 # ── 3. Hoofdlid plus twee gezinsleden, in één keer ───────────────────────────
 
+
 def test_een_gezin_met_twee_extra_leden_komt_in_een_keer_binnen(client, db_session):
     csrf = _login(client)
     velden = nieuw_lid_velden(
         db_session,
-        m1_first_name="Partner", m1_last_name="Lid", m1_date_of_birth="1981-02-02",
-        m1_gender_code="F", m1_relation_type="PARTNER",
-        m2_first_name="Kind", m2_last_name="Lid", m2_date_of_birth="2012-03-03",
-        m2_gender_code="M", m2_relation_type="KIND",
+        m1_first_name="Partner",
+        m1_last_name="Lid",
+        m1_date_of_birth="1981-02-02",
+        m1_gender_code="F",
+        m1_relation_type="PARTNER",
+        m2_first_name="Kind",
+        m2_last_name="Lid",
+        m2_date_of_birth="2012-03-03",
+        m2_gender_code="M",
+        m2_relation_type="KIND",
     )
 
-    gezin = _gezin_uit(client.post("/admin/leden", data=velden,
-                                   headers={"X-CSRF-Token": csrf}))
+    gezin = _gezin_uit(client.post("/admin/leden", data=velden, headers={"X-CSRF-Token": csrf}))
 
     db_session.expire_all()
-    rollen = {mp.person.first_name: mp.relation_type for mp in
-              db_session.query(MemberPerson).filter(
-                  MemberPerson.member_id == gezin).all()}
-    assert rollen == {"Nieuw": RelationType.PRIMARY_MEMBER,
-                      "Partner": RelationType.PARTNER,
-                      "Kind": RelationType.ADULT_CHILD}
+    rollen = {
+        mp.person.first_name: mp.relation_type
+        for mp in db_session.query(MemberPerson).filter(MemberPerson.member_id == gezin).all()
+    }
+    assert rollen == {
+        "Nieuw": RelationType.PRIMARY_MEMBER,
+        "Partner": RelationType.PARTNER,
+        "Kind": RelationType.ADULT_CHILD,
+    }
 
     # Het adres hangt aan het hoofdlid en aan niemand anders (#125).
     adressen = {a.person.first_name for a in db_session.query(Address).join(Person).all()}
@@ -180,17 +204,23 @@ def test_een_gezin_met_twee_extra_leden_komt_in_een_keer_binnen(client, db_sessi
 
 # ── 4. Halverwege mislukken laat niets achter ────────────────────────────────
 
+
 def test_een_ongeldig_tweede_gezinslid_laat_geen_half_gezin_achter(client, db_session):
     """Wat een beheerder echt kan intypen: een gezinslid zonder geboortedatum."""
     csrf = _login(client)
     voor = _telling(db_session)
 
-    antwoord = client.post("/admin/leden",
-                           data=nieuw_lid_velden(
-                               db_session,
-                               m1_first_name="Half", m1_last_name="Lid",
-                               m1_gender_code="F", m1_relation_type="PARTNER"),
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        "/admin/leden",
+        data=nieuw_lid_velden(
+            db_session,
+            m1_first_name="Half",
+            m1_last_name="Lid",
+            m1_gender_code="F",
+            m1_relation_type="PARTNER",
+        ),
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert antwoord.status_code == 422
     assert "Geboortedatum" in antwoord.text
@@ -218,10 +248,10 @@ def test_een_fout_na_de_eerste_rijen_laat_niets_achter(client, db_session, monke
     voor = _telling(db_session)
 
     with pytest.raises(RuntimeError):
-        client.post("/admin/leden", data=nieuw_lid_velden(db_session),
-                    headers={"X-CSRF-Token": csrf})
+        client.post(
+            "/admin/leden", data=nieuw_lid_velden(db_session), headers={"X-CSRF-Token": csrf}
+        )
 
     db_session.expire_all()
     assert _telling(db_session) == voor, "er staat een half gezin in de databank"
-    assert not db_session.query(Address).join(Person).filter(
-        Person.first_name == "Nieuw").all()
+    assert not db_session.query(Address).join(Person).filter(Person.first_name == "Nieuw").all()

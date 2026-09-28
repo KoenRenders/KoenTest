@@ -9,15 +9,15 @@ PNG met transparantie blijft PNG, net als de soorten in `LOSSLESS_KINDS`
 (logo's en gerenderde affiches — lijnwerk); al de rest wordt naar JPEG
 geschreven met nette compressie.
 """
+
 from io import BytesIO
-from typing import Optional
 
 from PIL import Image, ImageOps
 
 from app.domains.media.models import MediaKind, as_media_kind
 
-MAX_FULL = 1600       # langste zijde van het "volledige" beeld
-MAX_THUMB = 400       # langste zijde van de thumbnail
+MAX_FULL = 1600  # langste zijde van het "volledige" beeld
+MAX_THUMB = 400  # langste zijde van de thumbnail
 JPEG_QUALITY = 82
 
 # Per SOORT en niet per formaat (#1005, CR-10 §3.11). Een A3-affiche vraagt een
@@ -72,8 +72,9 @@ MAX_FULL_BY_KIND = {MediaKind.DESIGN_IMAGE: 4096, MediaKind.DESIGN_RENDER: 4096}
 # invisible, because the browser performs that same downscale anyway. Displayed at
 # 1600 px the difference is exactly zero. Its own MAX_FULL would cost bytes for
 # something nobody sees.
-LOSSLESS_KINDS = frozenset({MediaKind.DESIGN_RENDER, MediaKind.SPONSOR, MediaKind.TENANT_LOGO,
-                            MediaKind.PAGE_IMAGE})
+LOSSLESS_KINDS = frozenset(
+    {MediaKind.DESIGN_RENDER, MediaKind.SPONSOR, MediaKind.TENANT_LOGO, MediaKind.PAGE_IMAGE}
+)
 
 
 ALLOWED_CONTENT_TYPES = {
@@ -112,8 +113,9 @@ def _encode(img: Image.Image, *, keep_alpha: bool) -> tuple[bytes, str]:
         return buf.getvalue(), "image/png"
     if img.mode != "RGB":
         img = img.convert("RGB")
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True,
-             icc_profile=None)
+    img.save(
+        buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True, icc_profile=None
+    )
     return buf.getvalue(), "image/jpeg"
 
 
@@ -148,14 +150,17 @@ def process_image(raw: bytes, *, kind: MediaKind | str = "") -> dict:
 
     img = ImageOps.exif_transpose(img)
     media_kind = as_media_kind(kind)
-    keep_alpha = media_kind in LOSSLESS_KINDS or img.mode in ("RGBA", "LA") or (
-        img.mode == "P" and "transparency" in img.info
+    keep_alpha = (
+        media_kind in LOSSLESS_KINDS
+        or img.mode in ("RGBA", "LA")
+        or (img.mode == "P" and "transparency" in img.info)
     )
     if keep_alpha and img.mode != "RGBA":
         img = img.convert("RGBA")
 
-    full = _resized(img, MAX_FULL if media_kind is None
-                    else MAX_FULL_BY_KIND.get(media_kind, MAX_FULL))
+    full = _resized(
+        img, MAX_FULL if media_kind is None else MAX_FULL_BY_KIND.get(media_kind, MAX_FULL)
+    )
     thumb = _resized(img, MAX_THUMB)
 
     data, content_type = _encode(full, keep_alpha=keep_alpha)

@@ -4,6 +4,7 @@ Vendor-neutrale open standaard (ISO/IEC 26300), bewerkbaar in LibreOffice Calc, 
 basis-layout (vette kop met vulling, kolombreedtes). Vervangt de eerdere .xlsx-export.
 (verhuisd uit app/services/ods_export.py, #444)
 """
+
 from io import BytesIO
 
 from odf.opendocument import OpenDocumentSpreadsheet
@@ -23,8 +24,11 @@ def _is_number(v) -> bool:
 
 def _cell(value, stylename=None):
     if _is_number(value):
-        cell = TableCell(valuetype="float", value=str(value), stylename=stylename) \
-            if stylename else TableCell(valuetype="float", value=str(value))
+        cell = (
+            TableCell(valuetype="float", value=str(value), stylename=stylename)
+            if stylename
+            else TableCell(valuetype="float", value=str(value))
+        )
         cell.addElement(P(text=str(value)))
     else:
         # Native .ods: elke cel is type "string" en wordt door Calc/Excel nooit als
@@ -32,14 +36,27 @@ def _cell(value, stylename=None):
         # (#288). Geen apostrof-prefix: die hoort bij CSV en corrumpeerde hier
         # legitieme waarden (zichtbare ', mobiele nummers +32… → '+32…).
         text = "" if value is None else str(value)
-        cell = TableCell(valuetype="string", stylename=stylename) \
-            if stylename else TableCell(valuetype="string")
+        cell = (
+            TableCell(valuetype="string", stylename=stylename)
+            if stylename
+            else TableCell(valuetype="string")
+        )
         cell.addElement(P(text=text))
     return cell
 
 
-def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
-               col_widths=None, bold_last_row=False, intro_rows=None):
+def _add_sheet(
+    doc,
+    header_style,
+    bold_style,
+    sheet_idx,
+    name,
+    headers,
+    rows,
+    col_widths=None,
+    bold_last_row=False,
+    intro_rows=None,
+):
     """Voeg één blad toe aan het document. Kolomstijlen krijgen een blad-prefix
     (``s{idx}col{i}``) zodat ze niet botsen tussen bladen.
 
@@ -58,7 +75,7 @@ def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
             doc.automaticstyles.addElement(cs)
             table.addElement(TableColumn(stylename=cs))
 
-    for intro in (intro_rows or []):
+    for intro in intro_rows or []:
         ir = TableRow()
         for i, value in enumerate(intro):
             ir.addElement(_cell(value, stylename=bold_style if i == 0 else None))
@@ -99,9 +116,15 @@ def build_ods_multi(sheets) -> bytes:
 
     for i, s in enumerate(sheets):
         _add_sheet(
-            doc, header_style, bold_style, i,
-            s.get("name"), s["headers"], s["rows"],
-            col_widths=s.get("col_widths"), bold_last_row=s.get("bold_last_row", False),
+            doc,
+            header_style,
+            bold_style,
+            i,
+            s.get("name"),
+            s["headers"],
+            s["rows"],
+            col_widths=s.get("col_widths"),
+            bold_last_row=s.get("bold_last_row", False),
             intro_rows=s.get("intro_rows"),
         )
 
@@ -113,7 +136,14 @@ def build_ods_multi(sheets) -> bytes:
 def build_ods(sheet_name: str, headers, rows, *, col_widths=None, bold_last_row=False) -> bytes:
     """Bouw een .ods met één blad: vette kopregel + datarijen. ``col_widths`` in cm,
     ``bold_last_row`` voor een totaalrij. Dunne wrapper rond ``build_ods_multi``."""
-    return build_ods_multi([{
-        "name": sheet_name, "headers": headers, "rows": rows,
-        "col_widths": col_widths, "bold_last_row": bold_last_row,
-    }])
+    return build_ods_multi(
+        [
+            {
+                "name": sheet_name,
+                "headers": headers,
+                "rows": rows,
+                "col_widths": col_widths,
+                "bold_last_row": bold_last_row,
+            }
+        ]
+    )

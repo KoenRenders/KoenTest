@@ -18,6 +18,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten): de
 om op de vaste hoogte; de `{% if site_logo_url %}` rond de padding weggehaald →
 de woordmerk-test valt om, want dan krimpt ook die balk mee.
 """
+
 from __future__ import annotations
 
 import re
@@ -54,7 +55,8 @@ def test_de_logohoogte_wordt_uit_de_balk_afgeleid():
     kop = _header(_render(site_logo_url=LOGO))
 
     assert LOGOHOOGTE in kop, (
-        f"het logo heeft geen afgeleide hoogte; dan is de ruil een los getal: {kop[:400]}")
+        f"het logo heeft geen afgeleide hoogte; dan is de ruil een los getal: {kop[:400]}"
+    )
     for oud in ("h-10 md:h-12", "py-4 flex"):
         assert oud not in _zonder_commentaar(kop), f"{oud} staat er nog naast de variabele"
 
@@ -101,6 +103,6 @@ def test_het_aanraakvlak_van_de_menuknop_hangt_niet_aan_de_padding():
     knop = re.search(r"<button[^>]*aria-label[^>]*>", kop)
     assert knop, "de menuknop is niet gevonden"
     assert "min-w-11" in knop.group(0) and "min-h-11" in knop.group(0), (
-        "de menuknop draagt haar 44px-aanraakvlak niet meer")
-    assert "--lucht" not in knop.group(0), (
-        "het aanraakvlak hangt aan de padding en krimpt dus mee")
+        "de menuknop draagt haar 44px-aanraakvlak niet meer"
+    )
+    assert "--lucht" not in knop.group(0), "het aanraakvlak hangt aan de padding en krimpt dus mee"

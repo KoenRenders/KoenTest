@@ -15,6 +15,7 @@ Broken on purpose to check these tests can go red (run, then restored):
   - the two `<link>` lines taken out of `admin_base.html` → the head test fails
     for the admin page only.
 """
+
 from __future__ import annotations
 
 import re

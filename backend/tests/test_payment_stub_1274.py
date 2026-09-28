@@ -25,6 +25,7 @@ Broken on purpose (28 September 2026), one violation at a time:
 | `app.main` registering the stub routes always | "the real app asks the settings" |
 | the stub starting at *paid* | "a webhook before the payment leaves the record pending" |
 """
+
 import importlib
 from decimal import Decimal
 
@@ -45,6 +46,7 @@ STUB_PATH = "/api/v1/payment-gateway/webhooks/stub"
 
 # ── The brake at start-up ─────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("env", ["prod", "uat", "hdev"])
 def test_the_stub_does_not_start_outside_development(env):
     with pytest.raises(ValueError, match="PAYMENT_PROVIDER=stub"):
@@ -53,17 +55,21 @@ def test_the_stub_does_not_start_outside_development(env):
 
 @pytest.mark.parametrize("env", PAYMENT_STUB_ENVIRONMENTS)
 def test_the_stub_starts_in_development_and_the_tests(env):
-    assert Settings(app_env=env, payment_provider="stub",
-                    secret_key=STRONG_KEY).payment_stub_allowed
+    assert Settings(
+        app_env=env, payment_provider="stub", secret_key=STRONG_KEY
+    ).payment_stub_allowed
 
 
 def test_mollie_starts_on_prod():
     """The other side of the start-up brake: it may not catch the real one."""
-    assert Settings(app_env="prod", payment_provider="mollie",
-                    secret_key=STRONG_KEY).payment_provider == "mollie"
+    assert (
+        Settings(app_env="prod", payment_provider="mollie", secret_key=STRONG_KEY).payment_provider
+        == "mollie"
+    )
 
 
 # ── The brake when a provider is chosen ───────────────────────────────────────
+
 
 def test_on_prod_the_stub_is_refused_and_mollie_is_untouched(monkeypatch):
     """One function, both directions — the brake sits in the stub's branch."""
@@ -79,6 +85,7 @@ def test_in_the_tests_the_stub_is_chosen(monkeypatch):
 
 
 # ── The stub's pages exist only where the stub may ────────────────────────────
+
 
 def test_the_stub_routes_are_not_registered_where_the_stub_is_refused():
     from app.domains.payment.stub_router import include_stub_routes
@@ -112,6 +119,7 @@ def test_the_real_app_asks_the_settings_whether_to_register_them(monkeypatch):
 
 # ── The stub starts at open, and the webhook re-fetches ───────────────────────
 
+
 def test_a_webhook_before_the_payment_leaves_the_record_pending(db_session, monkeypatch):
     """The point of the stub: it can say something else than the webhook body.
     Its webhook carries only the id; the status comes from the stub, and the
@@ -122,10 +130,15 @@ def test_a_webhook_before_the_payment_leaves_the_record_pending(db_session, monk
 
     monkeypatch.setattr(settings, "app_env", "test")
     monkeypatch.setattr(settings, "payment_provider", "stub")
-    record = create_payment_record(db_session, payable_type=PayableType.MEMBERSHIP,
-                                   payable_id=7, amount=Decimal("15.00"), method="online",
-                                   redirect_url="https://example.org/terug",
-                                   description="Lidgeld")
+    record = create_payment_record(
+        db_session,
+        payable_type=PayableType.MEMBERSHIP,
+        payable_id=7,
+        amount=Decimal("15.00"),
+        method="online",
+        redirect_url="https://example.org/terug",
+        description="Lidgeld",
+    )
     gp = db_session.get(GatewayPayment, record.gateway_payment_id)
     assert gp.provider is PaymentProvider.STUB
     assert gp.checkout_url.startswith(stub.CHECKOUT_PATH + "/")

@@ -1,17 +1,25 @@
 """Workflow-embryo (#398, §5.7): de minimale kern — taken die sluiten door
 toestand. De volwaardige workflow-component (definities/instanties, fase 4b
 #403) groeit hieruit; het taakcontract (één vorm, veel bronnen) ligt hier vast."""
+
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, ForeignKey, Integer, JSON, String, Text,
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
-from app.kernel.tenancy import TenantMixin
 from app.domains.auth.api import Role
 from app.kernel.codes import CodeEnum, EnumColumn
+from app.kernel.tenancy import TenantMixin
 
 
 def _now_utc() -> datetime:
@@ -80,8 +88,9 @@ class WorkflowTask(TenantMixin, Base):
     id = Column(Integer, primary_key=True)
     # Task type, e.g. "payment.webhook_mismatch" — `category.subject` (#549).
     # A code, not an enum member; see the constants above for the reason.
-    kind = Column(String(100), ForeignKey("workflow.task_kind_codes.code"),
-                  nullable=False, index=True)
+    kind = Column(
+        String(100), ForeignKey("workflow.task_kind_codes.code"), nullable=False, index=True
+    )
     title = Column(String(300), nullable=False)
     # Soft-ref naar het onderwerp (waarde, geen FK — §6): bv. ("form_submission", "7").
     #
@@ -92,27 +101,38 @@ class WorkflowTask(TenantMixin, Base):
     # "payment_record" zei — het type zei iets wat de waarde niet was.
     subject_type: Mapped[SubjectType] = mapped_column(
         EnumColumn(SubjectType, length=50),
-        ForeignKey("workflow.subject_type_codes.code"), nullable=False)
+        ForeignKey("workflow.subject_type_codes.code"),
+        nullable=False,
+    )
     subject_id = Column(String(36), nullable=False)
     status: Mapped[TaskStatus] = mapped_column(
         EnumColumn(TaskStatus, length=10),
-        ForeignKey("workflow.task_status_codes.code"), nullable=False,
-        default=TaskStatus.OPEN, index=True)
+        ForeignKey("workflow.task_status_codes.code"),
+        nullable=False,
+        default=TaskStatus.OPEN,
+        index=True,
+    )
     # CR-12 phase 2: the same list as `auth.user_roles.role_code`, so the
     # same shape. The foreign key goes cross-schema to `auth.role_codes` —
     # the exception of §B2.4, and exactly why roles belong in `auth` and not
     # in whichever domain happens to use them.
     required_role: Mapped[Role] = mapped_column(
-        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
-        nullable=False, default=Role.ADMIN)
+        EnumColumn(Role, length=20),
+        ForeignKey("auth.role_codes.code"),
+        nullable=False,
+        default=Role.ADMIN,
+    )
     # "Een afwijzing is ook een beslissing": het bewaarde besluit bij afhandeling.
     decision = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), nullable=False,
-                        default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
     done_at = Column(DateTime(timezone=True), nullable=True)
     done_by = Column(String(255), nullable=True)
     # Gezet wanneer de taak een stap van een workflow-instantie is (fase 4b).
-    instance_id = Column(Integer, ForeignKey("workflow.workflow_instances.id"), nullable=True, index=True)
+    instance_id = Column(
+        Integer, ForeignKey("workflow.workflow_instances.id"), nullable=True, index=True
+    )
 
 
 class WorkflowDefinition(TenantMixin, Base):
@@ -126,8 +146,9 @@ class WorkflowDefinition(TenantMixin, Base):
     code = Column(String(50), primary_key=True)
     name = Column(String(200), nullable=False)
     steps = Column(JSON, nullable=False, default=list)
-    created_at = Column(DateTime(timezone=True), nullable=False,
-                        default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
 
 
 class WorkflowInstance(TenantMixin, Base):
@@ -140,21 +161,28 @@ class WorkflowInstance(TenantMixin, Base):
     id = Column(Integer, primary_key=True)
     # CR-12 phase 4 residue: the definition this run follows. Its table already
     # exists — the code is the primary key there — so this is a key, not a list.
-    definition_code = Column(String(50), ForeignKey("workflow.workflow_definitions.code"),
-                             nullable=False, index=True)
+    definition_code = Column(
+        String(50), ForeignKey("workflow.workflow_definitions.code"), nullable=False, index=True
+    )
     subject_type: Mapped[SubjectType] = mapped_column(
         EnumColumn(SubjectType, length=50),
-        ForeignKey("workflow.subject_type_codes.code"), nullable=False)
+        ForeignKey("workflow.subject_type_codes.code"),
+        nullable=False,
+    )
     # Tekst, net als bij de taak (#704): een instantie geeft dit door aan de taak
     # van elke stap, dus twee vormen voor hetzelfde begrip lopen daar samen.
     subject_id = Column(String(36), nullable=False)
     current_step = Column(Integer, nullable=False, default=0)
     status: Mapped[RunStatus] = mapped_column(
         EnumColumn(RunStatus, length=10),
-        ForeignKey("workflow.run_status_codes.code"), nullable=False,
-        default=RunStatus.RUNNING, index=True)
-    created_at = Column(DateTime(timezone=True), nullable=False,
-                        default=lambda: datetime.now(timezone.utc))
+        ForeignKey("workflow.run_status_codes.code"),
+        nullable=False,
+        default=RunStatus.RUNNING,
+        index=True,
+    )
+    created_at = Column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc)
+    )
     done_at = Column(DateTime(timezone=True), nullable=True)
 
 
@@ -176,15 +204,14 @@ class TaskStatusLabel(Base):
     __tablename__ = "task_status_labels"
     __table_args__ = {"schema": "workflow"}
 
-    code = Column(String(10), ForeignKey("workflow.task_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("workflow.task_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class SubjectTypeCode(Base):
@@ -205,15 +232,14 @@ class SubjectTypeLabel(Base):
     __tablename__ = "subject_type_labels"
     __table_args__ = {"schema": "workflow"}
 
-    code = Column(String(50), ForeignKey("workflow.subject_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(50), ForeignKey("workflow.subject_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class RunStatusCode(Base):
@@ -234,15 +260,14 @@ class RunStatusLabel(Base):
     __tablename__ = "run_status_labels"
     __table_args__ = {"schema": "workflow"}
 
-    code = Column(String(10), ForeignKey("workflow.run_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("workflow.run_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class TaskKindCode(Base):
@@ -263,15 +288,14 @@ class TaskKindLabel(Base):
     __tablename__ = "task_kind_labels"
     __table_args__ = {"schema": "workflow"}
 
-    code = Column(String(100), ForeignKey("workflow.task_kind_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(100), ForeignKey("workflow.task_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class TaskCategoryCode(Base):
@@ -292,12 +316,11 @@ class TaskCategoryLabel(Base):
     __tablename__ = "task_category_labels"
     __table_args__ = {"schema": "workflow"}
 
-    code = Column(String(50), ForeignKey("workflow.task_category_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(50), ForeignKey("workflow.task_category_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

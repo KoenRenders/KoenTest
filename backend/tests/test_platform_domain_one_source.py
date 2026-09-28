@@ -25,6 +25,7 @@ rather than in this sentence: it flagged `PLATFORM_WWW_DOMAIN`, which exists onl
 comment explaining that the block using it was removed. Comments are stripped before
 scanning now — a finding about prose is not a finding about configuration.
 """
+
 import os
 import re
 import subprocess
@@ -47,21 +48,28 @@ def _derive(tmp_path, values: dict[str, str | None]):
         checkout.mkdir()
         if value is not None:
             (checkout / f".env.{environment}").write_text(
-                f"SECRET_KEY=x\nPLATFORM_HOSTS={value}\nDEBUG=false\n")
+                f"SECRET_KEY=x\nPLATFORM_HOSTS={value}\nDEBUG=false\n"
+            )
 
     env = dict(os.environ)
     env["UAT_CHECKOUT_DIR"] = str(tmp_path / "uat")
     env["PROD_CHECKOUT_DIR"] = str(tmp_path / "prod")
     return subprocess.run(
-        ["bash", "-c", f'. "{SCRIPT}" && echo "UAT=$PLATFORM_UAT_DOMAIN" '
-                       f'&& echo "PROD=$PLATFORM_PROD_DOMAIN"'],
-        env=env, capture_output=True, text=True, timeout=60)
+        [
+            "bash",
+            "-c",
+            f'. "{SCRIPT}" && echo "UAT=$PLATFORM_UAT_DOMAIN" && echo "PROD=$PLATFORM_PROD_DOMAIN"',
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
 
 
 def test_the_proxy_domain_is_the_app_value(tmp_path):
     """The whole point: there is nothing to keep in sync, because it is one value."""
-    done = _derive(tmp_path, {"uat": "platform.uat.example.test",
-                              "prod": "platform.example.test"})
+    done = _derive(tmp_path, {"uat": "platform.uat.example.test", "prod": "platform.example.test"})
 
     assert done.returncode == 0, done.stderr
     assert "UAT=platform.uat.example.test" in done.stdout
@@ -71,8 +79,9 @@ def test_the_proxy_domain_is_the_app_value(tmp_path):
 def test_a_list_becomes_a_caddy_site_address(tmp_path):
     """`PLATFORM_HOSTS` is comma-separated; a Caddy site address separates hosts with a
     space. Both forms already exist, so this translates rather than inventing a third."""
-    done = _derive(tmp_path, {"uat": "a.example.test,b.example.test",
-                              "prod": "platform.example.test"})
+    done = _derive(
+        tmp_path, {"uat": "a.example.test,b.example.test", "prod": "platform.example.test"}
+    )
 
     assert "UAT=a.example.test b.example.test" in done.stdout, done.stdout
 
@@ -118,15 +127,17 @@ def test_the_site_blocks_use_exactly_what_the_script_exports():
         # Comments out first. The first version of this gate flagged
         # `PLATFORM_WWW_DOMAIN`, which exists only in a sentence explaining that the
         # block using it was removed — a finding about prose, not about config.
-        levend = "\n".join(r for r in parts.read_text().splitlines()
-                            if not r.lstrip().startswith("#"))
+        levend = "\n".join(
+            r for r in parts.read_text().splitlines() if not r.lstrip().startswith("#")
+        )
         used |= set(re.findall(r"\{\$(PLATFORM_\w+)\}", levend))
     assert used, "no site block references a platform domain at all"
 
     assert used <= exported, (
         f"these site blocks use a variable the derivation does not export: "
         f"{sorted(used - exported)} — that site address expands to nothing and makes the "
-        f"whole config invalid")
+        f"whole config invalid"
+    )
 
 
 def test_the_compose_file_passes_them_into_the_container():
@@ -140,7 +151,8 @@ def test_the_compose_file_passes_them_into_the_container():
 
     for environment in ENVIRONMENTS:
         assert f"PLATFORM_{environment.upper()}_DOMAIN" in names, (
-            f"the caddy service does not receive PLATFORM_{environment.upper()}_DOMAIN")
+            f"the caddy service does not receive PLATFORM_{environment.upper()}_DOMAIN"
+        )
 
 
 def test_the_example_env_no_longer_offers_a_second_place():

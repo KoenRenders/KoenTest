@@ -8,6 +8,7 @@ draft opens the composer, a letter that is (being) sent opens its archive. The
 status decides, so a bookmark never leads to an editor for something that
 already left.
 """
+
 from __future__ import annotations
 
 import logging
@@ -20,7 +21,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE,
+    csrf_token_for,
+    require_admin_ui,
+    require_csrf,
 )
 from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import (
@@ -52,22 +56,31 @@ MAX_ATTACHMENT_BYTES = 10_000_000
 # and are read with `code_label()`. What stays in Python is the **tone** of a
 # badge: a design-system decision, not a translation (§B4.5), registered here
 # next to the screen that draws it. Total by construction and by gate.
-register_tones(nb.LETTER_STATUS.name, {
-    nb.LetterStatus.DRAFT: "gray",
-    nb.LetterStatus.SENDING: "blue",
-    nb.LetterStatus.SENT: "green",
-})
-register_tones(nb.DELIVERY_STATUS.name, {
-    nb.DeliveryStatus.QUEUED: "gray",
-    nb.DeliveryStatus.SENT: "green",
-    nb.DeliveryStatus.FAILED: "yellow",
-    nb.DeliveryStatus.SKIPPED: "gray",
-})
-register_tones(nb.SUBSCRIBER_STATUS.name, {
-    nb.SubscriberStatus.CONFIRMED: "green",
-    nb.SubscriberStatus.PENDING: "yellow",
-    nb.SubscriberStatus.UNSUBSCRIBED: "gray",
-})
+register_tones(
+    nb.LETTER_STATUS.name,
+    {
+        nb.LetterStatus.DRAFT: "gray",
+        nb.LetterStatus.SENDING: "blue",
+        nb.LetterStatus.SENT: "green",
+    },
+)
+register_tones(
+    nb.DELIVERY_STATUS.name,
+    {
+        nb.DeliveryStatus.QUEUED: "gray",
+        nb.DeliveryStatus.SENT: "green",
+        nb.DeliveryStatus.FAILED: "yellow",
+        nb.DeliveryStatus.SKIPPED: "gray",
+    },
+)
+register_tones(
+    nb.SUBSCRIBER_STATUS.name,
+    {
+        nb.SubscriberStatus.CONFIRMED: "green",
+        nb.SubscriberStatus.PENDING: "yellow",
+        nb.SubscriberStatus.UNSUBSCRIBED: "gray",
+    },
+)
 
 
 def _csrf(request: Request) -> str:
@@ -113,11 +126,16 @@ def _raakje_enabled(db: Session) -> bool:
 
 # ── The list ─────────────────────────────────────────────────────────────────
 
-def _list_view(request: Request, db: Session, q: str = "",
-               error: Optional[str] = None) -> NewsletterListView:
+
+def _list_view(
+    request: Request, db: Session, q: str = "", error: Optional[str] = None
+) -> NewsletterListView:
     letters = nb.list_newsletters(db, query=q)
-    progress = {letter.id: nb.progress_of(db, letter) for letter in letters
-                if letter.status != nb.LetterStatus.DRAFT}
+    progress = {
+        letter.id: nb.progress_of(db, letter)
+        for letter in letters
+        if letter.status != nb.LetterStatus.DRAFT
+    }
     moments = {}
     for letter in letters:
         if letter.status == nb.LetterStatus.DRAFT:
@@ -127,27 +145,46 @@ def _list_view(request: Request, db: Session, q: str = "",
         else:
             moments[letter.id] = _("verstuurd %(m)s") % {"m": _moment(letter.send_finished_at)}
     return NewsletterListView(
-        letters=letters, q=q,
-        status_labels={l.id: code_label(nb.LETTER_STATUS.name, l.status, db=db) for l in letters},
-        status_tones={l.id: tone(nb.LETTER_STATUS.name, l.status) for l in letters},
-        audience_labels={l.id: (code_label(nb.AUDIENCE.name, l.audience, db=db) if l.audience
-                                else _("nog niet gekozen")) for l in letters},
-        progress=progress, moments=moments,
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        letters=letters,
+        q=q,
+        status_labels={
+            lt.id: code_label(nb.LETTER_STATUS.name, lt.status, db=db) for lt in letters
+        },
+        status_tones={lt.id: tone(nb.LETTER_STATUS.name, lt.status) for lt in letters},
+        audience_labels={
+            lt.id: (
+                code_label(nb.AUDIENCE.name, lt.audience, db=db)
+                if lt.audience
+                else _("nog niet gekozen")
+            )
+            for lt in letters
+        },
+        progress=progress,
+        moments=moments,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/nieuwsbrieven", response_class=HTMLResponse)
-def newsletter_list(request: Request, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui), q: str = ""):
+def newsletter_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+):
     view = _list_view(request, db, q=q)
     template = "_nb_lijst.html" if is_fragment_request(request) else "admin_nieuwsbrieven.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-@router.post("/admin/nieuwsbrieven", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def newsletter_create(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven", response_class=HTMLResponse, dependencies=[Depends(require_csrf)]
+)
+def newsletter_create(
+    request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
+):
     """A new, empty draft — the composer is its own full page (no modal)."""
     letter = nb.create_newsletter(db, created_by=email)
     return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
@@ -157,145 +194,224 @@ def newsletter_create(request: Request, db: Session = Depends(get_db),
 # Declared before `/{newsletter_id}`; the id also carries an `:int` converter,
 # so "abonnees" can never be read as a letter.
 
-def _subscriber_view(request: Request, db: Session, q: str = "", status: str = "",
-                     error: Optional[str] = None,
-                     notice: Optional[str] = None) -> SubscriberListView:
+
+def _subscriber_view(
+    request: Request,
+    db: Session,
+    q: str = "",
+    status: str = "",
+    error: Optional[str] = None,
+    notice: Optional[str] = None,
+) -> SubscriberListView:
     rows = nb.list_subscribers(db, query=q, status=status)
     return SubscriberListView(
-        subscribers=rows, counts=nb.subscriber_counts(db),
+        subscribers=rows,
+        counts=nb.subscriber_counts(db),
         status_options=code_labels(nb.SUBSCRIBER_STATUS.name, db=db),
         unsubscribable={s.id: s.status is not nb.SubscriberStatus.UNSUBSCRIBED for s in rows},
-        source_labels={s.id: (_("import %(d)s") % {"d": nb.short_date(s.imported_at.date())}
-                              if s.source == nb.SubscriberSource.IMPORT and s.imported_at
-                              else code_label(nb.SUBSCRIBER_SOURCE.name, s.source, db=db))
-                       for s in rows},
+        source_labels={
+            s.id: (
+                _("import %(d)s") % {"d": nb.short_date(s.imported_at.date())}
+                if s.source == nb.SubscriberSource.IMPORT and s.imported_at
+                else code_label(nb.SUBSCRIBER_SOURCE.name, s.source, db=db)
+            )
+            for s in rows
+        },
         moments={s.id: _moment(s.confirmed_at or s.created_at) for s in rows},
-        q=q, status=status, csrf_token=_csrf(request), error=error, notice=notice,
-        nav_items=admin_nav(NAV))
+        q=q,
+        status=status,
+        csrf_token=_csrf(request),
+        error=error,
+        notice=notice,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/nieuwsbrieven/abonnees", response_class=HTMLResponse)
-def subscriber_list(request: Request, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui), q: str = "",
-                    status: str = ""):
+def subscriber_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+    status: str = "",
+):
     view = _subscriber_view(request, db, q=q, status=status)
     template = "_nb_abonnees.html" if is_fragment_request(request) else "admin_abonnees.html"
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-@router.post("/admin/nieuwsbrieven/abonnees", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def subscriber_add(request: Request, db: Session = Depends(get_db),
-                   _email: str = Depends(require_admin_ui),
-                   subscriber_email: str = Form(""), first_name: str = Form("")):
+@router.post(
+    "/admin/nieuwsbrieven/abonnees",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def subscriber_add(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    subscriber_email: str = Form(""),
+    first_name: str = Form(""),
+):
     try:
         row = nb.add_by_admin(db, subscriber_email, first_name)
-        view = _subscriber_view(request, db, notice=_("%(adres)s staat op de lijst.")
-                                % {"adres": row.email})
+        view = _subscriber_view(
+            request, db, notice=_("%(adres)s staat op de lijst.") % {"adres": row.email}
+        )
     except nb.NewsletterError as exc:
         view = _subscriber_view(request, db, error=str(exc))
     return templates.TemplateResponse(request, "_nb_abonnees.html", view.as_context())
 
 
-@router.post("/admin/nieuwsbrieven/abonnees/{subscriber_id:int}/uitschrijven",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def subscriber_unsubscribe(subscriber_id: int, request: Request,
-                           db: Session = Depends(get_db),
-                           _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/abonnees/{subscriber_id:int}/uitschrijven",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def subscriber_unsubscribe(
+    subscriber_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     nb.unsubscribe_by_admin(db, subscriber_id)
-    return templates.TemplateResponse(request, "_nb_abonnees.html",
-                                      _subscriber_view(request, db).as_context())
+    return templates.TemplateResponse(
+        request, "_nb_abonnees.html", _subscriber_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/abonnees/{subscriber_id:int}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def subscriber_erase(subscriber_id: int, request: Request,
-                     db: Session = Depends(get_db),
-                     _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/abonnees/{subscriber_id:int}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def subscriber_erase(
+    subscriber_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """The right to erasure: the address disappears, also from the archive."""
     nb.erase(db, subscriber_id)
-    return templates.TemplateResponse(request, "_nb_abonnees.html",
-                                      _subscriber_view(request, db).as_context())
+    return templates.TemplateResponse(
+        request, "_nb_abonnees.html", _subscriber_view(request, db).as_context()
+    )
 
 
-def _import_view(request: Request, preview=None, text: str = "",
-                 error: Optional[str] = None) -> SubscriberImportView:
-    return SubscriberImportView(preview=preview, text=text, csrf_token=_csrf(request),
-                                error=error, nav_items=admin_nav(NAV))
+def _import_view(
+    request: Request, preview=None, text: str = "", error: Optional[str] = None
+) -> SubscriberImportView:
+    return SubscriberImportView(
+        preview=preview, text=text, csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV)
+    )
 
 
 @router.get("/admin/nieuwsbrieven/abonnees/import", response_class=HTMLResponse)
 def subscriber_import_screen(request: Request, _email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "admin_abonnees_import.html",
-                                      _import_view(request).as_context())
+    return templates.TemplateResponse(
+        request, "admin_abonnees_import.html", _import_view(request).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/abonnees/import", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-async def subscriber_import_preview(request: Request, db: Session = Depends(get_db),
-                                    _email: str = Depends(require_admin_ui),
-                                    file: UploadFile = File(...)):
+@router.post(
+    "/admin/nieuwsbrieven/abonnees/import",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def subscriber_import_preview(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    file: UploadFile = File(...),
+):
     """Step 1 → 2: read the file and show what would happen. Nothing is written."""
     data = await file.read(MAX_IMPORT_BYTES + 1)
     if len(data) > MAX_IMPORT_BYTES:
         return templates.TemplateResponse(
-            request, "_nb_import.html",
-            _import_view(request, error=_("Dit bestand is te groot voor een adressenlijst."))
-            .as_context())
+            request,
+            "_nb_import.html",
+            _import_view(
+                request, error=_("Dit bestand is te groot voor een adressenlijst.")
+            ).as_context(),
+        )
     try:
         text = data.decode("utf-8-sig")
     except UnicodeDecodeError:
         text = data.decode("latin-1")
     preview = nb.preview_import(db, text)
-    return templates.TemplateResponse(request, "_nb_import.html",
-                                      _import_view(request, preview=preview,
-                                                   text=text).as_context())
+    return templates.TemplateResponse(
+        request, "_nb_import.html", _import_view(request, preview=preview, text=text).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/abonnees/import/bevestigen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def subscriber_import_run(request: Request, db: Session = Depends(get_db),
-                          _email: str = Depends(require_admin_ui),
-                          text: str = Form("")):
+@router.post(
+    "/admin/nieuwsbrieven/abonnees/import/bevestigen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def subscriber_import_run(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    text: str = Form(""),
+):
     """Step 2 → done. The rules are applied again to the text, not to the
     numbers the preview showed: what is written is what is allowed now."""
     result = nb.run_import(db, text)
-    view = _subscriber_view(request, db, notice=_(
-        "%(n)s adressen toegevoegd. Gekende en uitgeschreven adressen bleven ongewijzigd.")
-        % {"n": len(result.new)})
+    view = _subscriber_view(
+        request,
+        db,
+        notice=_("%(n)s adressen toegevoegd. Gekende en uitgeschreven adressen bleven ongewijzigd.")
+        % {"n": len(result.new)},
+    )
     if request.headers.get("HX-Request"):
-        return Response(status_code=204,
-                        headers={"HX-Redirect": "/admin/nieuwsbrieven/abonnees"})
+        return Response(status_code=204, headers={"HX-Redirect": "/admin/nieuwsbrieven/abonnees"})
     return templates.TemplateResponse(request, "admin_abonnees.html", view.as_context())
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
 
-def _settings_view(request: Request, db: Session, notice: Optional[str] = None,
-                   error: Optional[str] = None) -> NewsletterSettingsView:
+
+def _settings_view(
+    request: Request, db: Session, notice: Optional[str] = None, error: Optional[str] = None
+) -> NewsletterSettingsView:
     from app.kernel.tenant_config import (
-        NEWSLETTER_DAILY_CAP_DEFAULT, tenant_newsletter_daily_cap,
-        tenant_newsletter_house_style)
+        NEWSLETTER_DAILY_CAP_DEFAULT,
+        tenant_newsletter_daily_cap,
+        tenant_newsletter_house_style,
+    )
 
     return NewsletterSettingsView(
         house_style=tenant_newsletter_house_style(db),
         daily_cap=tenant_newsletter_daily_cap(db),
         daily_cap_default=NEWSLETTER_DAILY_CAP_DEFAULT,
-        csrf_token=_csrf(request), notice=notice, error=error, nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        notice=notice,
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/nieuwsbrieven/instellingen", response_class=HTMLResponse)
-def settings_screen(request: Request, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "admin_nieuwsbrief_instellingen.html",
-                                      _settings_view(request, db).as_context())
+def settings_screen(
+    request: Request, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+):
+    return templates.TemplateResponse(
+        request, "admin_nieuwsbrief_instellingen.html", _settings_view(request, db).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/instellingen", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def settings_save(request: Request, db: Session = Depends(get_db),
-                  _email: str = Depends(require_admin_ui),
-                  house_style: str = Form(""), daily_cap: str = Form("")):
+@router.post(
+    "/admin/nieuwsbrieven/instellingen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def settings_save(
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    house_style: str = Form(""),
+    daily_cap: str = Form(""),
+):
     try:
         cap = int(daily_cap) if daily_cap.strip() else None
     except ValueError:
@@ -304,14 +420,19 @@ def settings_save(request: Request, db: Session = Depends(get_db),
         nb.save_settings(db, house_style=house_style, daily_cap=cap)
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
-            request, "_nb_instellingen.html",
-            _settings_view(request, db, error=str(exc)).as_context())
+            request,
+            "_nb_instellingen.html",
+            _settings_view(request, db, error=str(exc)).as_context(),
+        )
     return templates.TemplateResponse(
-        request, "_nb_instellingen.html",
-        _settings_view(request, db, notice=_("Bewaard.")).as_context())
+        request,
+        "_nb_instellingen.html",
+        _settings_view(request, db, notice=_("Bewaard.")).as_context(),
+    )
 
 
 # ── One letter ───────────────────────────────────────────────────────────────
+
 
 def _turns(messages: list) -> list[list]:
     """The conversation as turns — a question and its answer — newest first."""
@@ -324,10 +445,17 @@ def _turns(messages: list) -> list[list]:
     return list(reversed(turns))
 
 
-def _compose_view(request: Request, db: Session, letter, error: Optional[str] = None,
-                  notice: Optional[str] = None, raakje_error: Optional[str] = None,
-                  apply_html: str = "", apply_placement: str = "",
-                  apply_range: str = "") -> NewsletterComposeView:
+def _compose_view(
+    request: Request,
+    db: Session,
+    letter,
+    error: Optional[str] = None,
+    notice: Optional[str] = None,
+    raakje_error: Optional[str] = None,
+    apply_html: str = "",
+    apply_placement: str = "",
+    apply_range: str = "",
+) -> NewsletterComposeView:
     from app.domains.meetings.api import long_date, sent_reports
 
     counts = nb.audience_counts(db)
@@ -339,14 +467,22 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     options = [
         (audience.value, code_label(nb.AUDIENCE.name, audience, db=db), count, hint)
         for audience, count, hint in (
-            (nb.Audience.MEMBERS, str(counts.members),
-             _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
-             % {"j": datetime.now().year}),
-            (nb.Audience.NON_MEMBERS, str(counts.non_members),
-             _("Bevestigde abonnees; elke mail heeft een uitschrijflink")),
-            (nb.Audience.BOTH, str(counts.both),
-             _("Samengevoegd; %(d)s adressen stonden op beide lijsten")
-             % {"d": counts.overlap}),
+            (
+                nb.Audience.MEMBERS,
+                str(counts.members),
+                _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
+                % {"j": datetime.now().year},
+            ),
+            (
+                nb.Audience.NON_MEMBERS,
+                str(counts.non_members),
+                _("Bevestigde abonnees; elke mail heeft een uitschrijflink"),
+            ),
+            (
+                nb.Audience.BOTH,
+                str(counts.both),
+                _("Samengevoegd; %(d)s adressen stonden op beide lijsten") % {"d": counts.overlap},
+            ),
         )
     ]
     raakje = _raakje_enabled(db)
@@ -356,28 +492,48 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     messages = nb.messages_of(db, letter) if raakje else []
     if raakje:
         facts = nb.activity_facts(db, letter.draft_activity_ids, base_url=_base_url(db))
-        chosen = sorted((facts[i] for i in letter.draft_activity_ids if i in facts),
-                        key=lambda f: f.start)
+        chosen = sorted(
+            (facts[i] for i in letter.draft_activity_ids if i in facts), key=lambda f: f.start
+        )
         past = [f for f in chosen if f.is_past]
         coming = [f for f in chosen if not f.is_past]
-        reports = [(m.id, _("Verslag van %(d)s") % {"d": long_date(m.meeting_date)})
-                   for m in sent_reports(db)]
+        reports = [
+            (m.id, _("Verslag van %(d)s") % {"d": long_date(m.meeting_date)})
+            for m in sent_reports(db)
+        ]
     return NewsletterComposeView(
-        letter=letter, counts=counts, audience_options=options,
+        letter=letter,
+        counts=counts,
+        audience_options=options,
         audience=code_of(letter.audience) or "",
         saved_at=_moment(letter.updated_at),
-        raakje_enabled=raakje, past_activities=past, coming_activities=coming,
-        reports=reports, ticked_reports=list(letter.draft_meeting_ids or []),
+        raakje_enabled=raakje,
+        past_activities=past,
+        coming_activities=coming,
+        reports=reports,
+        ticked_reports=list(letter.draft_meeting_ids or []),
         turns=_turns(messages),
         by_author={m.id: m.role is nb.MessageRole.AUTHOR for m in messages},
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
-        csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
-        apply_html=apply_html, apply_placement=apply_placement, apply_range=apply_range,
-        nav_items=admin_nav(NAV))
+        csrf_token=_csrf(request),
+        error=error,
+        notice=notice,
+        raakje_error=raakje_error,
+        apply_html=apply_html,
+        apply_placement=apply_placement,
+        apply_range=apply_range,
+        nav_items=admin_nav(NAV),
+    )
 
 
-def _archive_view(request: Request, db: Session, letter, status: str = "",
-                  q: str = "", error: Optional[str] = None) -> NewsletterArchiveView:
+def _archive_view(
+    request: Request,
+    db: Session,
+    letter,
+    status: str = "",
+    q: str = "",
+    error: Optional[str] = None,
+) -> NewsletterArchiveView:
     progress = nb.progress_of(db, letter)
     deliveries = nb.deliveries_of(db, letter, status=status, query=q)
     return NewsletterArchiveView(
@@ -392,69 +548,110 @@ def _archive_view(request: Request, db: Session, letter, status: str = "",
         deliveries=deliveries,
         delivery_options=code_labels(nb.DELIVERY_STATUS.name, db=db),
         moments={d.id: _moment(d.sent_at) for d in deliveries},
-        status_filter=status, q=q, csrf_token=_csrf(request), error=error,
-        nav_items=admin_nav(NAV))
+        status_filter=status,
+        q=q,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
 @router.get("/admin/nieuwsbrieven/{newsletter_id:int}", response_class=HTMLResponse)
-def newsletter_screen(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui), status: str = "",
-                      q: str = ""):
+def newsletter_screen(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    status: str = "",
+    q: str = "",
+):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status == nb.LetterStatus.DRAFT:
-        return templates.TemplateResponse(request, "admin_nieuwsbrief.html",
-                                          _compose_view(request, db, letter).as_context())
+        return templates.TemplateResponse(
+            request, "admin_nieuwsbrief.html", _compose_view(request, db, letter).as_context()
+        )
     view = _archive_view(request, db, letter, status=status, q=q)
-    template = ("_nb_afleveringen.html" if is_fragment_request(request)
-                else "admin_nieuwsbrief_archief.html")
+    template = (
+        "_nb_afleveringen.html"
+        if is_fragment_request(request)
+        else "admin_nieuwsbrief_archief.html"
+    )
     return templates.TemplateResponse(request, template, view.as_context())
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/bewaren",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def newsletter_save(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui),
-                    subject: str = Form(""), body_html: str = Form(""),
-                    audience: str = Form(""), preview_text: str = Form("")):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/bewaren",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_save(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    subject: str = Form(""),
+    body_html: str = Form(""),
+    audience: str = Form(""),
+    preview_text: str = Form(""),
+):
     """Autosave: the status line comes back, nothing else is swapped — the
     editor must never be replaced under the author's fingers."""
     letter = _letter_or_404(db, newsletter_id)
     error = None
     try:
-        nb.update_draft(db, letter, subject=subject, body_html=body_html,
-                        audience=audience or None, preview_text=preview_text)
+        nb.update_draft(
+            db,
+            letter,
+            subject=subject,
+            body_html=body_html,
+            audience=audience or None,
+            preview_text=preview_text,
+        )
     except nb.NewsletterError as exc:
         error = str(exc)
     return templates.TemplateResponse(
-        request, "_nb_bewaard.html",
-        _compose_view(request, db, letter, error=error).as_context())
+        request, "_nb_bewaard.html", _compose_view(request, db, letter, error=error).as_context()
+    )
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/activiteiten",
-            response_class=HTMLResponse)
-def activity_picker(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui), q: str = "",
-                    purpose: str = "insert"):
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/activiteiten", response_class=HTMLResponse)
+def activity_picker(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    q: str = "",
+    purpose: str = "insert",
+):
     """The picker: every coming activity. `purpose` says what a click does —
     insert a line in the editor, or give the activity to Raakje."""
     letter = _letter_or_404(db, newsletter_id)
-    purpose = (purpose if purpose in ("insert", "calendar", "raakje", "raakje-voorbij")
-               else "insert")
+    purpose = purpose if purpose in ("insert", "calendar", "raakje", "raakje-voorbij") else "insert"
     spans = nb.insertable_activities(db, query=q, past=purpose == "raakje-voorbij")
     view = NewsletterPickerView(
-        letter=letter, spans=spans, q=q, purpose=purpose,
+        letter=letter,
+        spans=spans,
+        q=q,
+        purpose=purpose,
         dates={s.activity.id: nb.short_date(s.start) for s in spans},
         # The calendar opens with the coming weeks ticked; everything further
         # ahead is there to add (Koen, 19 September 2026).
         ticked=nb.calendar_default_ids(db) if purpose == "calendar" else [],
-        csrf_token=_csrf(request))
+        csrf_token=_csrf(request),
+    )
     return templates.TemplateResponse(request, "_nb_kiezer.html", view.as_context())
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}",
-            response_class=HTMLResponse)
-def insert_activity(newsletter_id: int, activity_id: int, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui)):
+@router.get(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/activiteit/{activity_id:int}",
+    response_class=HTMLResponse,
+)
+def insert_activity(
+    newsletter_id: int,
+    activity_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """The HTML snippet "Activiteit invoegen" puts at the cursor."""
     _letter_or_404(db, newsletter_id)
     facts = nb.activity_facts(db, [activity_id], base_url=_base_url(db))
@@ -469,10 +666,15 @@ def insert_activity(newsletter_id: int, activity_id: int, db: Session = Depends(
     return HTMLResponse(f"<div>{nb.activity_card_html(facts[activity_id])}</div>")
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender",
-            response_class=HTMLResponse)
-def insert_calendar(newsletter_id: int, db: Session = Depends(get_db),
-                    _email: str = Depends(require_admin_ui), ids: str = ""):
+@router.get(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/kalender", response_class=HTMLResponse
+)
+def insert_calendar(
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    ids: str = "",
+):
     """The calendar lines. `ids` holds the author's choice; empty means the
     coming weeks, the same list the picker ticks."""
     _letter_or_404(db, newsletter_id)
@@ -480,38 +682,51 @@ def insert_calendar(newsletter_id: int, db: Session = Depends(get_db),
     return HTMLResponse(nb.calendar_html(db, base_url=_base_url(db), activity_ids=chosen))
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting",
-            response_class=HTMLResponse)
-def insert_closing(newsletter_id: int, db: Session = Depends(get_db),
-                   _email: str = Depends(require_admin_ui)):
+@router.get(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/afsluiting", response_class=HTMLResponse
+)
+def insert_closing(
+    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/bijlage",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def insert_attachment(newsletter_id: int, db: Session = Depends(get_db),
-                            _email: str = Depends(require_admin_ui),
-                            file: UploadFile = File(...)):
-    """"Bijlage invoegen": the file is stored, the answer is the link that the
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/bijlage",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def insert_attachment(
+    newsletter_id: int,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    file: UploadFile = File(...),
+):
+    """ "Bijlage invoegen": the file is stored, the answer is the link that the
     editor puts at the cursor. A refusal answers 400 with the reason as text."""
     letter = _letter_or_404(db, newsletter_id)
     data = await file.read(MAX_ATTACHMENT_BYTES + 1)
     if len(data) > MAX_ATTACHMENT_BYTES:
         return HTMLResponse(_("Dit bestand is te groot (hoogstens 10 MB)."), status_code=400)
     try:
-        html = nb.add_attachment(db, letter, filename=file.filename or "",
-                                 content_type=file.content_type or "", data=data,
-                                 base_url=_base_url(db))
+        html = nb.add_attachment(
+            db,
+            letter,
+            filename=file.filename or "",
+            content_type=file.content_type or "",
+            data=data,
+            base_url=_base_url(db),
+        )
     except nb.NewsletterError as exc:
         return HTMLResponse(str(exc), status_code=400)
     return HTMLResponse(html)
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld",
-            response_class=HTMLResponse)
-def newsletter_preview(newsletter_id: int, db: Session = Depends(get_db),
-                       _email: str = Depends(require_admin_ui)):
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/voorbeeld", response_class=HTMLResponse)
+def newsletter_preview(
+    newsletter_id: int, db: Session = Depends(get_db), _email: str = Depends(require_admin_ui)
+):
     """The letter as it will arrive — markers expanded, styling applied.
 
     Needed since the activity block became a marker (Koen, 19 September 2026):
@@ -522,77 +737,116 @@ def newsletter_preview(newsletter_id: int, db: Session = Depends(get_db),
     """
     letter = _letter_or_404(db, newsletter_id)
     base = _base_url(db)
-    kind = (nb.DeliveryKind.SUBSCRIBER
-            if letter.audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
-            else nb.DeliveryKind.MEMBER)
-    unsubscribe = (f"{base}/nieuwsbrief/uitschrijven/test"
-                   if kind == nb.DeliveryKind.SUBSCRIBER else None)
-    return HTMLResponse(nb.render_mail(db, letter, kind=kind,
-                                       unsubscribe_url=unsubscribe, base_url=base))
+    kind = (
+        nb.DeliveryKind.SUBSCRIBER
+        if letter.audience in (nb.Audience.NON_MEMBERS, nb.Audience.BOTH)
+        else nb.DeliveryKind.MEMBER
+    )
+    unsubscribe = (
+        f"{base}/nieuwsbrief/uitschrijven/test" if kind == nb.DeliveryKind.SUBSCRIBER else None
+    )
+    return HTMLResponse(
+        nb.render_mail(db, letter, kind=kind, unsubscribe_url=unsubscribe, base_url=base)
+    )
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/testmail",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def newsletter_test_mail(newsletter_id: int, request: Request,
-                         db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/testmail",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_test_mail(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     letter = _letter_or_404(db, newsletter_id)
     try:
         outcome = nb.send_test(db, letter, to_email=email, base_url=_base_url(db))
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
-            request, "_nb_bewaard.html",
-            _compose_view(request, db, letter, error=str(exc)).as_context())
-    notice = (_("Testmail verstuurd naar %(adres)s.") % {"adres": email}
-              if outcome in ("sent", "logged")
-              else _("De testmail kon niet vertrekken. Kijk in de e-maillog waarom."))
+            request,
+            "_nb_bewaard.html",
+            _compose_view(request, db, letter, error=str(exc)).as_context(),
+        )
+    notice = (
+        _("Testmail verstuurd naar %(adres)s.") % {"adres": email}
+        if outcome in ("sent", "logged")
+        else _("De testmail kon niet vertrekken. Kijk in de e-maillog waarom.")
+    )
     return templates.TemplateResponse(
-        request, "_nb_bewaard.html",
-        _compose_view(request, db, letter, notice=notice).as_context())
+        request, "_nb_bewaard.html", _compose_view(request, db, letter, notice=notice).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/kopieren",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def newsletter_copy(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/kopieren",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_copy(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     letter = _letter_or_404(db, newsletter_id)
     copy = nb.copy_newsletter(db, letter, created_by=email)
     return _go(request, f"/admin/nieuwsbrieven/{copy.id}")
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/verwijderen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def newsletter_delete(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                      _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/verwijderen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def newsletter_delete(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     letter = _letter_or_404(db, newsletter_id)
     try:
         nb.delete_draft(db, letter)
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
-            request, "_nb_lijst.html", _list_view(request, db, error=str(exc)).as_context())
+            request, "_nb_lijst.html", _list_view(request, db, error=str(exc)).as_context()
+        )
     return _go(request, "/admin/nieuwsbrieven")
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────
 
-def _send_view(request: Request, db: Session, letter, email: str,
-               error: Optional[str] = None) -> NewsletterSendView:
+
+def _send_view(
+    request: Request, db: Session, letter, email: str, error: Optional[str] = None
+) -> NewsletterSendView:
     from app.kernel.tenant_config import tenant_newsletter_daily_cap
 
     count = len(nb.recipients_for(db, letter.audience)) if letter.audience else 0
     return NewsletterSendView(
         letter=letter,
         audience_label=code_label(nb.AUDIENCE.name, letter.audience or "", db=db),
-        recipient_count=count, days=nb.expected_days(db, count) if count else 0,
+        recipient_count=count,
+        days=nb.expected_days(db, count) if count else 0,
         blocked=bool(nb.unfilled_placeholders(letter.body_html)),
-        daily_cap=tenant_newsletter_daily_cap(db), reply_to_sender=email,
-        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+        daily_cap=tenant_newsletter_daily_cap(db),
+        reply_to_sender=email,
+        csrf_token=_csrf(request),
+        error=error,
+        nav_items=admin_nav(NAV),
+    )
 
 
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/versturen",
-            response_class=HTMLResponse)
-def send_screen(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)):
+@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/versturen", response_class=HTMLResponse)
+def send_screen(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     letter = _letter_or_404(db, newsletter_id)
     if letter.status != nb.LetterStatus.DRAFT:
         return RedirectResponse(f"/admin/nieuwsbrieven/{letter.id}", status_code=303)
@@ -600,25 +854,35 @@ def send_screen(newsletter_id: int, request: Request, db: Session = Depends(get_
     if not letter.audience:
         error = _("Kies eerst voor wie deze nieuwsbrief is.")
     error = error or nb.placeholder_refusal(letter.body_html)
-    return templates.TemplateResponse(request, "admin_nieuwsbrief_versturen.html",
-                                      _send_view(request, db, letter, email,
-                                                 error=error).as_context())
+    return templates.TemplateResponse(
+        request,
+        "admin_nieuwsbrief_versturen.html",
+        _send_view(request, db, letter, email, error=error).as_context(),
+    )
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/versturen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def send_letter(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui),
-                reply_to: str = Form(nb.ReplyToMode.ASSOCIATION)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/versturen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def send_letter(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    reply_to: str = Form(nb.ReplyToMode.ASSOCIATION),
+):
     """After a human read it (CR-05 §3.9) — never automatically."""
     letter = _letter_or_404(db, newsletter_id)
     try:
-        nb.start_sending(db, letter, sent_by=email, reply_to_mode=reply_to,
-                         base_url=_base_url(db))
+        nb.start_sending(db, letter, sent_by=email, reply_to_mode=reply_to, base_url=_base_url(db))
     except nb.NewsletterError as exc:
         return templates.TemplateResponse(
-            request, "_nb_versturen.html",
-            _send_view(request, db, letter, email, error=str(exc)).as_context())
+            request,
+            "_nb_versturen.html",
+            _send_view(request, db, letter, email, error=str(exc)).as_context(),
+        )
     return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
 
 
@@ -627,6 +891,7 @@ def send_letter(newsletter_id: int, request: Request, db: Session = Depends(get_
 # replaced from the server. Off — and 404 — when Raakje in the back office is
 # off for this tenant or this environment.
 
+
 def _raakje_letter(db: Session, newsletter_id: int):
     if not _raakje_enabled(db):
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
@@ -634,70 +899,114 @@ def _raakje_letter(db: Session, newsletter_id: int):
 
 
 def _panel(request: Request, db: Session, letter, **extra) -> HTMLResponse:
-    return templates.TemplateResponse(request, "_nb_raakje.html",
-                                      _compose_view(request, db, letter, **extra).as_context())
+    return templates.TemplateResponse(
+        request, "_nb_raakje.html", _compose_view(request, db, letter, **extra).as_context()
+    )
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def raakje_add_activity(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                        _email: str = Depends(require_admin_ui),
-                        activity_id: int = Form(...)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def raakje_add_activity(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    activity_id: int = Form(...),
+):
     letter = _raakje_letter(db, newsletter_id)
-    nb.set_draft_sources(db, letter,
-                         activity_ids=[*letter.draft_activity_ids, activity_id],
-                         meeting_ids=letter.draft_meeting_ids)
+    nb.set_draft_sources(
+        db,
+        letter,
+        activity_ids=[*letter.draft_activity_ids, activity_id],
+        meeting_ids=letter.draft_meeting_ids,
+    )
     return _panel(request, db, letter)
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit/{activity_id:int}/weg",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def raakje_remove_activity(newsletter_id: int, activity_id: int, request: Request,
-                           db: Session = Depends(get_db),
-                           _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit/{activity_id:int}/weg",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def raakje_remove_activity(
+    newsletter_id: int,
+    activity_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     letter = _raakje_letter(db, newsletter_id)
-    nb.set_draft_sources(db, letter,
-                         activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
-                         meeting_ids=letter.draft_meeting_ids)
+    nb.set_draft_sources(
+        db,
+        letter,
+        activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
+        meeting_ids=letter.draft_meeting_ids,
+    )
     return _panel(request, db, letter)
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/verslagen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def raakje_reports(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                         _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/verslagen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def raakje_reports(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """The ticked meeting reports — the input gate (CR-05 §3.11). Unticking
     every report keeps the report data out of the letter altogether."""
     letter = _raakje_letter(db, newsletter_id)
     form = await request.form()
     ticked = [int(str(v)) for v in form.getlist("meeting_id") if str(v).isdigit()]
-    nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids,
-                         meeting_ids=ticked)
+    nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids, meeting_ids=ticked)
     return _panel(request, db, letter)
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/vraag",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def raakje_ask(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-               email: str = Depends(require_admin_ui),
-               instruction: str = Form(""), body_html: str = Form(""),
-               selection: str = Form(""), selection_range: str = Form(""),
-               before_cursor: str = Form("")):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/vraag",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def raakje_ask(
+    newsletter_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    instruction: str = Form(""),
+    body_html: str = Form(""),
+    selection: str = Form(""),
+    selection_range: str = Form(""),
+    before_cursor: str = Form(""),
+):
     """One turn with Raakje. The current text is saved first, so the proposal
     works on what the author sees."""
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
 
     letter = _raakje_letter(db, newsletter_id)
     try:
-        nb.update_draft(db, letter, subject=letter.subject, body_html=body_html,
-                        audience=letter.audience)
+        nb.update_draft(
+            db, letter, subject=letter.subject, body_html=body_html, audience=letter.audience
+        )
     except nb.NewsletterError as exc:
         return _panel(request, db, letter, raakje_error=str(exc))
     admin_chat_char_budget.charge(request, max(len(instruction), 1), key=email)
     try:
-        turn = nb.ask_raakje(db, letter, instruction=instruction, actor=email,
-                             base_url=_base_url(db), selection=selection,
-                             selection_range=selection_range, before_cursor=before_cursor)
+        turn = nb.ask_raakje(
+            db,
+            letter,
+            instruction=instruction,
+            actor=email,
+            base_url=_base_url(db),
+            selection=selection,
+            selection_range=selection_range,
+            before_cursor=before_cursor,
+        )
     except (nb.DraftingError, SeamBlocked, ChatTimeout) as exc:
         nb.record_turn(db, letter, author_text=instruction, error=str(exc))
         return _panel(request, db, letter, raakje_error=str(exc))
@@ -710,11 +1019,18 @@ def raakje_ask(newsletter_id: int, request: Request, db: Session = Depends(get_d
     return _panel(request, db, letter)
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/toepassen",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def raakje_apply(newsletter_id: int, message_id: int, request: Request,
-                       db: Session = Depends(get_db),
-                       _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/toepassen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def raakje_apply(
+    newsletter_id: int,
+    message_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     """Apply a proposal. A marked sentence stays out unless it was ticked
     "klopt, behouden" (CR-05 §3.16)."""
     letter = _raakje_letter(db, newsletter_id)
@@ -725,21 +1041,39 @@ async def raakje_apply(newsletter_id: int, message_id: int, request: Request,
     keep = {int(str(v)) for v in form.getlist("keep") if str(v).isdigit()}
     placement = str(form.get("placement") or "replace")
     try:
-        applied = nb.apply_proposal(db, letter, message, keep=keep,
-                                    body_html=str(form.get("body_html") or ""),
-                                    base_url=_base_url(db), placement=placement)
+        applied = nb.apply_proposal(
+            db,
+            letter,
+            message,
+            keep=keep,
+            body_html=str(form.get("body_html") or ""),
+            base_url=_base_url(db),
+            placement=placement,
+        )
     except nb.DraftingError as exc:
         return _panel(request, db, letter, raakje_error=str(exc))
-    return _panel(request, db, letter, apply_html=applied.html,
-                  apply_placement=applied.placement,
-                  apply_range=",".join(str(n) for n in applied.range or []))
+    return _panel(
+        request,
+        db,
+        letter,
+        apply_html=applied.html,
+        apply_placement=applied.placement,
+        apply_range=",".join(str(n) for n in applied.range or []),
+    )
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren",
-             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def raakje_dismiss(newsletter_id: int, message_id: int, request: Request,
-                   db: Session = Depends(get_db),
-                   _email: str = Depends(require_admin_ui)):
+@router.post(
+    "/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def raakje_dismiss(
+    newsletter_id: int,
+    message_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+):
     letter = _raakje_letter(db, newsletter_id)
     message = nb.get_drafting_message(db, letter, message_id)
     if message is not None:

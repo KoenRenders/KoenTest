@@ -20,6 +20,7 @@ position) → test 2 falls over on the tie; the move check placed after
 `veld.label = label` in `update_field` → test 3 falls over on the label, which
 the refused edit had already put on the row.
 """
+
 import re
 
 import pytest
@@ -58,10 +59,17 @@ def form(db_session):
     db_session.flush()
     fields = {}
     for name, section, position, kind in (
-            ("keuze", sections[0], 0, "radio"), ("tekst", sections[0], 1, "text"),
-            ("daar", sections[1], 0, "text")):
-        field = FormField(form_id=f.id, section_id=section.id, field_type=kind,
-                          label=f"Vraag {name}", position=position)
+        ("keuze", sections[0], 0, "radio"),
+        ("tekst", sections[0], 1, "text"),
+        ("daar", sections[1], 0, "text"),
+    ):
+        field = FormField(
+            form_id=f.id,
+            section_id=section.id,
+            field_type=kind,
+            label=f"Vraag {name}",
+            position=position,
+        )
         db_session.add(field)
         fields[name] = field
     db_session.flush()
@@ -70,8 +78,9 @@ def form(db_session):
 
 def _move(client, csrf, form, field, section, **extra):
     data = {"label": field.label, "section_id": str(section.id), **extra}
-    return client.post(f"/admin/formulieren/{form.id}/velden/{field.id}", data=data,
-                       headers={"X-CSRF-Token": csrf})
+    return client.post(
+        f"/admin/formulieren/{form.id}/velden/{field.id}", data=data, headers={"X-CSRF-Token": csrf}
+    )
 
 
 def test_a_moved_question_keeps_its_id_and_its_answers(client, db_session, form):
@@ -79,8 +88,9 @@ def test_a_moved_question_keeps_its_id_and_its_answers(client, db_session, form)
     submission = FormSubmission(form_id=f.id, submitter_name="Proef")
     db_session.add(submission)
     db_session.flush()
-    answer = FormSubmissionAnswer(submission_id=submission.id,
-                                  field_id=fields["tekst"].id, value_text="bewaard")
+    answer = FormSubmissionAnswer(
+        submission_id=submission.id, field_id=fields["tekst"].id, value_text="bewaard"
+    )
     db_session.add(answer)
     db_session.flush()
     csrf = _login(client)
@@ -101,8 +111,10 @@ def test_it_lands_at_the_bottom_of_the_new_section(client, db_session, form):
     _move(client, csrf, f, fields["keuze"], sections[1])
 
     db_session.expire_all()
-    in_second = sorted((x for x in db_session.query(FormField).filter_by(
-        section_id=sections[1].id)), key=lambda x: x.position)
+    in_second = sorted(
+        (x for x in db_session.query(FormField).filter_by(section_id=sections[1].id)),
+        key=lambda x: x.position,
+    )
     assert [x.id for x in in_second] == [fields["daar"].id, fields["keuze"].id]
     assert len({x.position for x in in_second}) == len(in_second), "no tie"
     # …and the section it left keeps a gap-free order.
@@ -112,8 +124,14 @@ def test_it_lands_at_the_bottom_of_the_new_section(client, db_session, form):
 
 def test_a_move_that_breaks_a_jump_is_refused_by_name(client, db_session, form):
     f, sections, fields = form
-    db_session.add(FormFieldOption(field_id=fields["keuze"].id, label="Naar twee",
-                                   position=0, skip_to_section_id=sections[1].id))
+    db_session.add(
+        FormFieldOption(
+            field_id=fields["keuze"].id,
+            label="Naar twee",
+            position=0,
+            skip_to_section_id=sections[1].id,
+        )
+    )
     db_session.flush()
     csrf = _login(client)
 
@@ -133,8 +151,14 @@ def test_a_move_that_breaks_a_jump_is_refused_by_name(client, db_session, form):
 
 def test_a_move_that_touches_no_jump_works(client, db_session, form):
     f, sections, fields = form
-    db_session.add(FormFieldOption(field_id=fields["keuze"].id, label="Naar drie",
-                                   position=0, skip_to_section_id=sections[2].id))
+    db_session.add(
+        FormFieldOption(
+            field_id=fields["keuze"].id,
+            label="Naar drie",
+            position=0,
+            skip_to_section_id=sections[2].id,
+        )
+    )
     db_session.flush()
     csrf = _login(client)
 

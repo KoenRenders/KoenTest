@@ -78,6 +78,7 @@ worse than a red one. The violation has to be **additive**: a member added, not
 a member renamed. Same trap as a gate that looks nowhere (#678), only on the
 evidence side of it.
 """
+
 import ast
 import re
 from pathlib import Path
@@ -104,21 +105,50 @@ APP = BACKEND / "app"
 #: someone registers it. The review rule for a new `String` column with a
 #: literal default stays "is this a list?".
 VOCABULARY = {
-    "status", "type", "kind", "method", "role", "mode", "state",
-    "variant", "layout", "preset", "style", "audience", "provider",
-    "purpose", "direction", "format", "gender", "source",
+    "status",
+    "type",
+    "kind",
+    "method",
+    "role",
+    "mode",
+    "state",
+    "variant",
+    "layout",
+    "preset",
+    "style",
+    "audience",
+    "provider",
+    "purpose",
+    "direction",
+    "format",
+    "gender",
+    "source",
 }
 
 #: Suffixes that say the same thing on a column name.
-VOCABULARY_SUFFIXES = ("_status", "_type", "_kind", "_method", "_role",
-                       "_code", "_mode", "_state", "_purpose", "_variant")
+VOCABULARY_SUFFIXES = (
+    "_status",
+    "_type",
+    "_kind",
+    "_method",
+    "_role",
+    "_code",
+    "_mode",
+    "_state",
+    "_purpose",
+    "_variant",
+)
 
 
 def _is_exempt_table(table: str) -> bool:
     """History is append-only and must survive a retired code (§F4), and the
     code/label tables are the list itself."""
-    return (table.endswith("_history") or table.endswith("_codes")
-            or table.endswith("_labels") or table == "alembic_version")
+    return (
+        table.endswith("_history")
+        or table.endswith("_codes")
+        or table.endswith("_labels")
+        or table == "alembic_version"
+    )
 
 
 def _is_vocabulary(column_name: str) -> bool:
@@ -131,17 +161,17 @@ def _path(file: Path) -> str:
 
 # ── Source files, always through the helper (#678) ───────────────────────────
 
+
 def _python_files() -> list[Path]:
-    return bestanden(APP.rglob("*.py"), wat="the Python files under app/",
-                     minstens=100)
+    return bestanden(APP.rglob("*.py"), wat="the Python files under app/", minstens=100)
 
 
 def _template_files() -> list[Path]:
-    return bestanden(APP.rglob("*.html"), wat="the templates under app/",
-                     minstens=50)
+    return bestanden(APP.rglob("*.html"), wat="the templates under app/", minstens=50)
 
 
 # ── The collectors (also usable on their own to measure the table) ───────────
+
 
 def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
     """`Enum` classes with no `CodeList` and no marker → key: message.
@@ -156,8 +186,11 @@ def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
     # `reporting.universe.Role` as covered — a different class with the same
     # name. A gate that compares a name instead of a thing silently covers
     # too much, and that is worse than too little.
-    in_a_list = {(lst.enum.__module__, lst.enum.__name__)
-                 for lst in registry().values() if lst.enum is not None}
+    in_a_list = {
+        (lst.enum.__module__, lst.enum.__name__)
+        for lst in registry().values()
+        if lst.enum is not None
+    }
     markers = {TechnicalEnum.__name__, ExternalVocabulary.__name__}
     found: dict[str, str] = {}
     for file in _python_files():
@@ -180,14 +213,14 @@ def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
                 # code-list enum: they are the shape, not an instance of it.
                 # Without this line the kernel sits on its own ratchet.
                 continue
-            module = (str(file.relative_to(APP.parent))
-                      .removesuffix(".py").replace("/", "."))
+            module = str(file.relative_to(APP.parent)).removesuffix(".py").replace("/", ".")
             if (module, node.name) in in_a_list:
                 continue
             found[f"{_path(file)}:{node.name}"] = (
                 f"{_path(file)}:{node.lineno} — `{node.name}` is an Enum without a "
                 f"CodeList. Declare one (table + labels) or mark it "
-                f"TechnicalEnum/ExternalVocabulary with the reason.")
+                f"TechnicalEnum/ExternalVocabulary with the reason."
+            )
     return found
 
 
@@ -218,20 +251,21 @@ def collect_label_dictionaries() -> dict[str, str]:
                     continue
                 found[f"{_path(file)}:{target.id}"] = (
                     f"{_path(file)}:{node.lineno} — `{target.id}` puts labels in "
-                    f"Python. Use `code_label()` and a label table.")
+                    f"Python. Use `code_label()` and a label table."
+                )
     return found
 
 
 _TEMPLATE_COMPARISON = re.compile(
-    r"\.(?P<attr>[a-z_]+)\s*(?P<op>==|!=)\s*(?P<quote>['\"])(?P<value>[^'\"]*)(?P=quote)")
+    r"\.(?P<attr>[a-z_]+)\s*(?P<op>==|!=)\s*(?P<quote>['\"])(?P<value>[^'\"]*)(?P=quote)"
+)
 
 
 def collect_template_comparisons() -> dict[str, str]:
     """`.status == "paid"` and friends in a template → key: message."""
     found: dict[str, str] = {}
     for file in _template_files():
-        for number, line in enumerate(
-                file.read_text(encoding="utf-8").splitlines(), start=1):
+        for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), start=1):
             for hit in _TEMPLATE_COMPARISON.finditer(line):
                 attr = hit.group("attr")
                 if not _is_vocabulary(attr):
@@ -239,7 +273,8 @@ def collect_template_comparisons() -> dict[str, str]:
                 comparison = f"{attr}{hit.group('op')}{hit.group('value')}"
                 found[f"{_path(file)}:{comparison}"] = (
                     f"{_path(file)}:{number} — compares `{attr}` to a literal. "
-                    f"Expose what the screen needs on the view-model (§B4.7).")
+                    f"Expose what the screen needs on the view-model (§B4.7)."
+                )
     return found
 
 
@@ -277,13 +312,18 @@ def collect_loose_strings() -> dict[str, str]:
                     if not _is_vocabulary(attribute.attr):
                         continue
                     for value in _string_constants(other):
-                        sign = {ast.Eq: "==", ast.NotEq: "!=",
-                                ast.In: " in ", ast.NotIn: " not in "}[type(operator)]
+                        sign = {
+                            ast.Eq: "==",
+                            ast.NotEq: "!=",
+                            ast.In: " in ",
+                            ast.NotIn: " not in ",
+                        }[type(operator)]
                         comparison = f"{attribute.attr}{sign}{value}"
                         found[f"{_path(file)}:{comparison}"] = (
                             f"{_path(file)}:{node.lineno} — compares "
                             f"`{attribute.attr}` to {value!r}. Use the Enum member "
-                            f"of the list.")
+                            f"of the list."
+                        )
     return found
 
 
@@ -306,7 +346,8 @@ def collect_missing_fks() -> dict[str, str]:
                 continue
             found[key] = (
                 f"`{key}` stores a vocabulary but has no FK to a code table — "
-                f"declare a CodeList or add it to the ratchet with a reason.")
+                f"declare a CodeList or add it to the ratchet with a reason."
+            )
     return found
 
 
@@ -320,8 +361,13 @@ COLLECTORS = {
 
 
 #: Phase 5 (#1182): every gate reached zero and is hard. There is no ratchet left.
-HARD = ("FK_MISSING", "ENUM_WITHOUT_LIST", "LABEL_DICTIONARIES",
-        "TEMPLATE_COMPARISONS", "LOOSE_STRINGS")
+HARD = (
+    "FK_MISSING",
+    "ENUM_WITHOUT_LIST",
+    "LABEL_DICTIONARIES",
+    "TEMPLATE_COMPARISONS",
+    "LOOSE_STRINGS",
+)
 
 #: Per gate, the dict of permanent exceptions that belongs to it. Entries
 #: there are neither a violation nor progress: they are values somebody else
@@ -368,6 +414,7 @@ def _hard(name: str) -> None:
 
 # ── 1. FK coverage, registered (hard) ────────────────────────────────────────
 
+
 def test_every_registered_column_carries_its_fk(db_session):
     """What a `CodeList` promises in `fk_from` really is in the database.
 
@@ -380,17 +427,21 @@ def test_every_registered_column_carries_its_fk(db_session):
         for column in lst.fk_from:
             schema, table, column_name = column.split(".")
             fks = inspect(db_session.bind).get_foreign_keys(table, schema=schema)
-            hit = any(column_name in fk["constrained_columns"]
-                      and fk["referred_table"] == f"{lst.name}_codes"
-                      for fk in fks)
+            hit = any(
+                column_name in fk["constrained_columns"]
+                and fk["referred_table"] == f"{lst.name}_codes"
+                for fk in fks
+            )
             if not hit:
                 missing.append(
                     f"`{column}` is in the CodeList `{lst.name}` but carries no FK "
-                    f"to `{lst.codes_table}`")
+                    f"to `{lst.codes_table}`"
+                )
     assert not missing, "\n".join(missing)
 
 
 # ── 2. FK coverage, unregistered (hard since phase 5) ────────────────────────
+
 
 def test_no_vocabulary_column_without_an_fk():
     """The net: a `String` column storing a list without a code table."""
@@ -398,6 +449,7 @@ def test_no_vocabulary_column_without_an_fk():
 
 
 # ── 3. Label coverage (hard) ─────────────────────────────────────────────────
+
 
 def test_every_active_code_has_a_label_in_both_languages(db_session):
     """A screen may never render blank, and `en` is not a "later".
@@ -408,23 +460,32 @@ def test_every_active_code_has_a_label_in_both_languages(db_session):
     load_all_models()
     missing = []
     for lst in registry().values():
-        codes = db_session.execute(text(
-            f"SELECT code FROM {lst.codes_table} WHERE is_active")).scalars().all()
+        codes = (
+            db_session.execute(text(f"SELECT code FROM {lst.codes_table} WHERE is_active"))
+            .scalars()
+            .all()
+        )
         assert codes, f"`{lst.codes_table}` has no active code at all"
         for language in ("nl", "en"):
-            present = set(db_session.execute(text(
-                f"SELECT code FROM {lst.labels_table} "
-                f"WHERE language = :language AND value <> ''"),
-                {"language": language}).scalars().all())
+            present = set(
+                db_session.execute(
+                    text(
+                        f"SELECT code FROM {lst.labels_table} "
+                        f"WHERE language = :language AND value <> ''"
+                    ),
+                    {"language": language},
+                )
+                .scalars()
+                .all()
+            )
             for code in codes:
                 if code not in present:
-                    missing.append(
-                        f"`{lst.codes_table}`: code `{code}` has no "
-                        f"{language} label")
+                    missing.append(f"`{lst.codes_table}`: code `{code}` has no {language} label")
     assert not missing, "\n".join(missing)
 
 
 # ── 4. Enum = codes (hard) ───────────────────────────────────────────────────
+
 
 def test_every_enum_covers_exactly_its_codes(db_session):
     """Both directions, retired codes included.
@@ -438,22 +499,28 @@ def test_every_enum_covers_exactly_its_codes(db_session):
     for lst in registry().values():
         if lst.enum is None:
             continue
-        in_the_table = set(db_session.execute(text(
-            f"SELECT code FROM {lst.codes_table}")).scalars().all())
+        in_the_table = set(
+            db_session.execute(text(f"SELECT code FROM {lst.codes_table}")).scalars().all()
+        )
         in_the_enum = {member.value for member in lst.enum}
         for value in sorted(in_the_enum - in_the_table):
-            errors.append(f"`{lst.enum.__name__}` has a member with value `{value}` "
-                          f"and no row in `{lst.codes_table}`")
+            errors.append(
+                f"`{lst.enum.__name__}` has a member with value `{value}` "
+                f"and no row in `{lst.codes_table}`"
+            )
         for code in sorted(in_the_table - in_the_enum):
-            errors.append(f"`{lst.codes_table}` has code `{code}` with no member in "
-                          f"`{lst.enum.__name__}` — a retired code keeps its member "
-                          f"too. A list that is meant to grow by a row gets no enum "
-                          f"at all and names its codes with `Code` constants, the "
-                          f"way `contact_type` does")
+            errors.append(
+                f"`{lst.codes_table}` has code `{code}` with no member in "
+                f"`{lst.enum.__name__}` — a retired code keeps its member "
+                f"too. A list that is meant to grow by a row gets no enum "
+                f"at all and names its codes with `Code` constants, the "
+                f"way `contact_type` does"
+            )
     assert not errors, "\n".join(errors)
 
 
 # ── 5. Enum without a list (hard since phase 5) ────────────────────────────────────
+
 
 def test_no_new_enum_without_a_code_list():
     """Every `Enum` under `app/` belongs to a `CodeList` or carries its reason.
@@ -467,6 +534,7 @@ def test_no_new_enum_without_a_code_list():
 
 # ── 6. Tones total (hard) ────────────────────────────────────────────────────
 
+
 def test_every_tone_mapping_is_total():
     """A badge without a tone falls back to grey, and nobody notices."""
     load_all_models()
@@ -478,12 +546,15 @@ def test_every_tone_mapping_is_total():
             continue
         for member in lst.enum:
             if member.value not in lst.tones:
-                errors.append(f"`{lst.enum.__name__}.{member.name}` has no badge "
-                              f"tone in the mapping of `{lst.name}`")
+                errors.append(
+                    f"`{lst.enum.__name__}.{member.name}` has no badge "
+                    f"tone in the mapping of `{lst.name}`"
+                )
     assert not errors, "\n".join(errors)
 
 
 # ── 7-9. The three text gates (hard since phase 5) ───────────────────────────
+
 
 def test_no_label_dictionary_in_python():
     _hard("LABEL_DICTIONARIES")
@@ -506,11 +577,33 @@ def test_no_loose_string_comparison():
 #: the catalogue of §B5.3 gives `PARTNER` as the member name. A net that
 #: rejects a correct member costs more than it catches.
 DUTCH_WORDS = {
-    "HOOFDLID", "KIND", "GEZIN", "LID", "LEDEN", "BEDRIJF",
-    "VERENIGING", "FEITELIJKE", "VERSTUURD", "BETAALD", "OPENSTAAND",
-    "VEREFFEND", "GEANNULEERD", "MISLUKT", "AFWACHTING", "VERSLAG",
-    "OVERSCHRIJVING", "CONTANT", "LIJN", "KLEUR", "BEELD", "TEKST",
-    "EENVOUDIG", "AANWEZIG", "VERONTSCHULDIGD", "BIJLAGE", "SOORT",
+    "HOOFDLID",
+    "KIND",
+    "GEZIN",
+    "LID",
+    "LEDEN",
+    "BEDRIJF",
+    "VERENIGING",
+    "FEITELIJKE",
+    "VERSTUURD",
+    "BETAALD",
+    "OPENSTAAND",
+    "VEREFFEND",
+    "GEANNULEERD",
+    "MISLUKT",
+    "AFWACHTING",
+    "VERSLAG",
+    "OVERSCHRIJVING",
+    "CONTANT",
+    "LIJN",
+    "KLEUR",
+    "BEELD",
+    "TEKST",
+    "EENVOUDIG",
+    "AANWEZIG",
+    "VERONTSCHULDIGD",
+    "BIJLAGE",
+    "SOORT",
 }
 
 
@@ -530,15 +623,15 @@ def test_enum_members_of_a_code_list_have_english_names():
                 if word in DUTCH_WORDS:
                     errors.append(
                         f"`{lst.enum.__name__}.{member.name}`: member names are "
-                        f"English — the value `{member.value}` stays as it is stored")
+                        f"English — the value `{member.value}` stays as it is stored"
+                    )
     assert not errors, "\n".join(errors)
 
 
 # ── 11. Shape (hard) ─────────────────────────────────────────────────────────
 
 CODES_COLUMNS = {"code", "sort_order", "is_active", "created_at"}
-LABELS_COLUMNS = {"code", "language", "value", "description", "created_at",
-                  "updated_at"}
+LABELS_COLUMNS = {"code", "language", "value", "description", "created_at", "updated_at"}
 
 
 def test_every_list_has_the_shape_the_helper_writes(db_session):
@@ -553,27 +646,32 @@ def test_every_list_has_the_shape_the_helper_writes(db_session):
     errors = []
     for lst in registry().values():
         for table, expected in (
-                (f"{lst.name}_codes", CODES_COLUMNS | set(lst.extra_code_columns)),
-                (f"{lst.name}_labels", LABELS_COLUMNS)):
-            present = {c["name"] for c in
-                       inspector.get_columns(table, schema=lst.schema)}
+            (f"{lst.name}_codes", CODES_COLUMNS | set(lst.extra_code_columns)),
+            (f"{lst.name}_labels", LABELS_COLUMNS),
+        ):
+            present = {c["name"] for c in inspector.get_columns(table, schema=lst.schema)}
             if present != expected:
                 errors.append(
                     f"`{lst.schema}.{table}` has columns {sorted(present)}, "
                     f"expected {sorted(expected)} — an extra column on a code "
                     f"table is allowed, but it has to be declared in the "
-                    f"CodeList's `extra_code_columns` with the reason")
-        language_fk = [fk for fk in inspector.get_foreign_keys(
-                           f"{lst.name}_labels", schema=lst.schema)
-                       if fk["constrained_columns"] == ["language"]]
+                    f"CodeList's `extra_code_columns` with the reason"
+                )
+        language_fk = [
+            fk
+            for fk in inspector.get_foreign_keys(f"{lst.name}_labels", schema=lst.schema)
+            if fk["constrained_columns"] == ["language"]
+        ]
         if not language_fk or language_fk[0]["referred_table"] != "language_codes":
             errors.append(
                 f"`{lst.labels_table}.language` does not point at "
-                f"`mdm.language_codes` — then any spelling can end up in it")
+                f"`mdm.language_codes` — then any spelling can end up in it"
+            )
     assert not errors, "\n".join(errors)
 
 
 # ── The ratchet table (AC5) ──────────────────────────────────────────────────
+
 
 def _count_mapped_enum_columns() -> int:
     """Columns written as `Mapped[X] = mapped_column(EnumColumn(X))` (§B4.8).
@@ -588,12 +686,18 @@ def _count_mapped_enum_columns() -> int:
     total = 0
     for file in _python_files():
         for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
-            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
-                    and node.func.id == "mapped_column"):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "mapped_column"
+            ):
                 continue
             for child in ast.walk(node):
-                if (isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
-                        and child.func.id == "EnumColumn"):
+                if (
+                    isinstance(child, ast.Call)
+                    and isinstance(child.func, ast.Name)
+                    and child.func.id == "EnumColumn"
+                ):
                     total += 1
                     break
     return total
@@ -614,11 +718,13 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
     load_all_models()
     lists = registry()
     marked = sum(
-        1 for file in _python_files()
+        1
+        for file in _python_files()
         for node in ast.walk(ast.parse(file.read_text(encoding="utf-8")))
         if isinstance(node, ast.ClassDef)
         and {b.id for b in node.bases if isinstance(b, ast.Name)}
-        & {"TechnicalEnum", "ExternalVocabulary"})
+        & {"TechnicalEnum", "ExternalVocabulary"}
+    )
     rows = [
         ("lists in the pattern (CodeList) — see §B5.3", len(lists)),
         ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
@@ -630,29 +736,36 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         ("enums without a CodeList (hard)", len(_violations("ENUM_WITHOUT_LIST"))),
         ("enums marked technical/external (counted, not capped)", marked),
         ("label dictionaries in Python (hard)", len(_violations("LABEL_DICTIONARIES"))),
-        ("template comparisons on a code (hard)",
-         len(_violations("TEMPLATE_COMPARISONS"))),
+        ("template comparisons on a code (hard)", len(_violations("TEMPLATE_COMPARISONS"))),
         ("loose string comparisons in .py (hard)", len(_violations("LOOSE_STRINGS"))),
         # Derived from PERMANENT and not from a list of names: this row was
         # written with two dictionaries in it, phase 3 added a third, and the
         # number silently stayed behind. A table that is measured must be
         # measured from the same place the gate reads.
-        ("permanent exceptions — not our vocabulary (counted, not capped)",
-         sum(len(_permanent(name)) for name in PERMANENT)),
+        (
+            "permanent exceptions — not our vocabulary (counted, not capped)",
+            sum(len(_permanent(name)) for name in PERMANENT),
+        ),
         # The twelfth gate is a guard and not a sample, so its count is zero by
         # construction — every member that reaches the output raises. What is
         # worth reading is the second number: how many values the guard saw in
         # this run. Zero there would mean it ran nowhere, which reads exactly
         # like "found nothing" (#678).
         ("enum members rendered into a template (guard, raises)", 0),
-        ("values the enum guard inspected so far in this run",
-         kernel_codes.rendered_under_the_guard),
+        (
+            "values the enum guard inspected so far in this run",
+            kernel_codes.rendered_under_the_guard,
+        ),
     ]
     if db_session is not None:
         for language in ("nl", "en"):
-            total = sum(db_session.execute(text(
-                f"SELECT count(*) FROM {lst.labels_table} WHERE language = :lang"),
-                {"lang": language}).scalar_one() for lst in lists.values())
+            total = sum(
+                db_session.execute(
+                    text(f"SELECT count(*) FROM {lst.labels_table} WHERE language = :lang"),
+                    {"lang": language},
+                ).scalar_one()
+                for lst in lists.values()
+            )
             rows.append((f"label rows in `{language}`", total))
     return rows
 
@@ -675,6 +788,7 @@ def test_the_ratchet_table_is_measurable_and_gets_printed(capsys, db_session):
 
 # ── The gate can go red itself ───────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("name", [n for n in HARD if n in PERMANENT])
 def test_every_hard_gate_looks_somewhere(name):
     """#678 again, for a gate at zero: "found nothing" must not be the same as
@@ -686,7 +800,8 @@ def test_every_hard_gate_looks_somewhere(name):
     assert exempt, f"`{name}` has no exemption left to prove its walk with"
     assert found >= exempt, (
         f"`{name}` no longer finds its own exemptions — the collector has fallen "
-        f"silent: {sorted(exempt - found)}")
+        f"silent: {sorted(exempt - found)}"
+    )
 
 
 def test_the_enum_gate_looks_somewhere():
@@ -698,7 +813,8 @@ def test_the_enum_gate_looks_somewhere():
     in_lists = sum(1 for lst in registry().values() if lst.enum is not None)
     assert len(seen) >= in_lists > 10, (
         f"the enum walk recognised {len(seen)} enum classes, fewer than the "
-        f"{in_lists} code lists with an enum — it has fallen silent")
+        f"{in_lists} code lists with an enum — it has fallen silent"
+    )
 
 
 @pytest.mark.parametrize("name", sorted(PERMANENT))
@@ -721,6 +837,8 @@ def test_every_permanent_exception_still_has_a_target(name):
     stale = sorted(set(_permanent(name)) - found)
     assert not stale, (
         f"`codes_baseline.{PERMANENT[name]}` exempts something that no longer "
-        f"exists:\n  " + "\n  ".join(stale)
-        + f"\nRemove the entry. An exemption outlives the thing it excuses "
-          f"otherwise, and its reason stops being true without anybody noticing.")
+        f"exists:\n  "
+        + "\n  ".join(stale)
+        + "\nRemove the entry. An exemption outlives the thing it excuses "
+        "otherwise, and its reason stops being true without anybody noticing."
+    )

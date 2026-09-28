@@ -19,6 +19,7 @@ Broken on purpose to check that these tests can go red: `clear_session_cookie` s
 FINANCE-only branch changed to the workbench → that landing test falls over with the 403
 Koen would have hit.
 """
+
 import pytest
 
 from app.domains.auth.api import User, UserRole
@@ -65,15 +66,17 @@ def test_logging_out_really_ends_the_session(client, db_session, monkeypatch):
     resp = client.get("/afmelden", follow_redirects=False)
 
     assert resp.status_code == 302 and resp.headers["location"] == "/"
-    assert client.get("/admin/werkbank").status_code == 401, (
-        "de sessie werkt nog na het uitloggen")
+    assert client.get("/admin/werkbank").status_code == 401, "de sessie werkt nog na het uitloggen"
 
 
-@pytest.mark.parametrize("rollen,doel", [
-    (("ADMIN",), "/admin/werkbank"),
-    (("FINANCE",), "/admin/betalingen"),
-    ((), "/leden/gezin"),
-])
+@pytest.mark.parametrize(
+    "rollen,doel",
+    [
+        (("ADMIN",), "/admin/werkbank"),
+        (("FINANCE",), "/admin/betalingen"),
+        ((), "/leden/gezin"),
+    ],
+)
 def test_you_land_where_your_role_may_go(client, db_session, monkeypatch, rollen, doel):
     """#530: FINANCE-only hoort op betalingen uit te komen, want de werkbank zou 403'en.
 
@@ -88,8 +91,8 @@ def test_you_land_where_your_role_may_go(client, db_session, monkeypatch, rollen
 
     assert resp.status_code == 200, resp.text[:200]
     assert resp.headers.get("HX-Redirect") == doel, (
-        f"{rollen or 'geen rol'} landt op {resp.headers.get('HX-Redirect')} in plaats van "
-        f"{doel}")
+        f"{rollen or 'geen rol'} landt op {resp.headers.get('HX-Redirect')} in plaats van {doel}"
+    )
 
 
 def test_an_invalid_e_mail_address_is_refused_before_anything_is_sent(client, db_session):

@@ -5,11 +5,13 @@ het htmx-fragment verhuisde naar `/fragment`. De terugknop volgt A7: een
 gevalideerde interne retourcontext, met de activiteit van het record als
 canonieke fallback — nooit de Referer, nooit een extern adres.
 """
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -20,14 +22,21 @@ def _login(client):
 
 def _inschrijving(client, db_session, naam="Pagina Proef"):
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
-    client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                data={"contact_name": naam, "contact_email": "proef@example.com",
-                      "phone": "047", f"product_{product.id}": "1",
-                      "payment_method": "transfer"})
+        db_session, price="10.00", is_free=False
+    )
+    client.post(
+        f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+        data={
+            "contact_name": naam,
+            "contact_email": "proef@example.com",
+            "phone": "047",
+            f"product_{product.id}": "1",
+            "payment_method": "transfer",
+        },
+    )
     from app.domains.activities.api import Registration
-    reg = (db_session.query(Registration)
-           .filter(Registration.contact_name == naam).one())
+
+    reg = db_session.query(Registration).filter(Registration.contact_name == naam).one()
     return activity, component, reg
 
 
@@ -55,28 +64,30 @@ def test_terug_herstelt_de_meegegeven_lijstcontext(client, db_session):
     activity, component, reg = _inschrijving(client, db_session)
     _login(client)
     terug = f"/admin/activiteiten/{activity.id}?sort=naam&richting=asc"
-    html = client.get(f"/admin/inschrijvingen/{reg.id}",
-                      params={"terug": terug}).text
+    html = client.get(f"/admin/inschrijvingen/{reg.id}", params={"terug": terug}).text
     # Jinja escapet de & in het attribuut; de browser leest daar weer & uit.
     assert f'href="{terug.replace("&", "&amp;")}"' in html
 
 
-@pytest.mark.parametrize("kwaad", [
-    "https://evil.example/phish",   # absolute URL — open redirect
-    "//evil.example/phish",         # scheme-relatief: browser maakt er https:// van
-    "/admin\\@evil.example",        # backslash die browsers stil normaliseren
-    "/admin/%0d%0aSet-Cookie: x",   # al gedecodeerde controltekens
-    "",                             # niets meegegeven
-])
+@pytest.mark.parametrize(
+    "kwaad",
+    [
+        "https://evil.example/phish",  # absolute URL — open redirect
+        "//evil.example/phish",  # scheme-relatief: browser maakt er https:// van
+        "/admin\\@evil.example",  # backslash die browsers stil normaliseren
+        "/admin/%0d%0aSet-Cookie: x",  # al gedecodeerde controltekens
+        "",  # niets meegegeven
+    ],
+)
 def test_terug_valt_terug_op_de_canonieke_plek(client, db_session, kwaad):
     """Een vervalste `?terug=` wordt genegeerd: de knop wijst dan naar de
     activiteit van het record. Zou de validatie sneuvelen, dan staat het kwade
     adres letterlijk in de href en kleurt dit rood."""
     from urllib.parse import unquote
+
     activity, component, reg = _inschrijving(client, db_session)
     _login(client)
-    html = client.get(f"/admin/inschrijvingen/{reg.id}",
-                      params={"terug": unquote(kwaad)}).text
+    html = client.get(f"/admin/inschrijvingen/{reg.id}", params={"terug": unquote(kwaad)}).text
     assert f'href="/admin/activiteiten/{activity.id}"' in html
     if kwaad.startswith(("http", "//")):
         assert f'href="{kwaad}"' not in html
@@ -103,9 +114,11 @@ def test_teruglink_benoemt_de_herkomst(client, db_session):
     vervalste terug krijgt ook een canoniek label (de activiteitnaam)."""
     activity, component, reg = _inschrijving(client, db_session, naam="Label Proef")
     _login(client)
-    via_betalingen = client.get(f"/admin/inschrijvingen/{reg.id}",
-                                params={"terug": "/admin/betalingen"}).text
+    via_betalingen = client.get(
+        f"/admin/inschrijvingen/{reg.id}", params={"terug": "/admin/betalingen"}
+    ).text
     assert "← Betalingen" in via_betalingen
-    vervalst = client.get(f"/admin/inschrijvingen/{reg.id}",
-                          params={"terug": "https://evil.example"}).text
+    vervalst = client.get(
+        f"/admin/inschrijvingen/{reg.id}", params={"terug": "https://evil.example"}
+    ).text
     assert f"← {activity.name}" in vervalst

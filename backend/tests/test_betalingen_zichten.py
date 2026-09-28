@@ -5,13 +5,15 @@ ze combineren met EN). De tab-aantallen tellen over de zicht-loze basis; de
 export draagt het actieve zicht mee, anders exporteert "Openstaand" stil alles.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 from decimal import Decimal
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from app.domains.payment.api import PaymentRecord
+from tests.conftest import SEEDED_ADMIN_EMAIL
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -20,17 +22,39 @@ def _login(client):
 
 def _drie_boekingen(db):
     """Eén open vordering (Anna), één vereffende (Bram), één open refund (Cleo)."""
-    db.add(PaymentRecord(payable_type="registration", payable_id=9001,
-                         amount=Decimal("20.00"), method="transfer",
-                         status="pending", type="charge"))
+    db.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=9001,
+            amount=Decimal("20.00"),
+            method="transfer",
+            status="pending",
+            type="charge",
+        )
+    )
     # 17,53 en niet 15,00: de totaalrij van de openstaande export is toevallig
     # net 20,00 − 5,00 = 15,00, en dan bewijst "15,00 afwezig" niets meer.
-    db.add(PaymentRecord(payable_type="registration", payable_id=9002,
-                         amount=Decimal("17.53"), amount_paid=Decimal("17.53"),
-                         method="online", status="paid", type="charge"))
-    db.add(PaymentRecord(payable_type="registration", payable_id=9003,
-                         amount=Decimal("-5.00"), method="transfer",
-                         status="pending", type="refund"))
+    db.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=9002,
+            amount=Decimal("17.53"),
+            amount_paid=Decimal("17.53"),
+            method="online",
+            status="paid",
+            type="charge",
+        )
+    )
+    db.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=9003,
+            amount=Decimal("-5.00"),
+            method="transfer",
+            status="pending",
+            type="refund",
+        )
+    )
     db.commit()
 
 
@@ -44,11 +68,10 @@ def test_zicht_openstaand_snijdt_de_tabel(client, db_session):
     # bewust over de zicht-loze basis, dus elk bedrag staat ook op elk tab.
     def _rijen(zicht):
         html = client.get(f"/admin/betalingen/lijst?zicht={zicht}").text
-        return {n for n in (9001, 9002, 9003)
-                if f"/admin/inschrijvingen/{n}?" in html}
+        return {n for n in (9001, 9002, 9003) if f"/admin/inschrijvingen/{n}?" in html}
 
     assert _rijen("alle") == {9001, 9002, 9003}
-    assert _rijen("openstaand") == {9001, 9003}   # open vordering + open refund
+    assert _rijen("openstaand") == {9001, 9003}  # open vordering + open refund
     assert _rijen("betaald") == {9002}
     assert _rijen("terugbetaald") == {9003}
 
@@ -64,9 +87,14 @@ def test_tabaantallen_tellen_over_de_zichtloze_basis(client, db_session):
         assert stuk in html
     # 3 boekingen totaal, 2 open (vordering + refund), 1 vereffend, 1 refund.
     from app.domains.payment.api import count_zichten, enriched_records
+
     telling = count_zichten(enriched_records(db_session))
-    assert (telling["alle"], telling["openstaand"],
-            telling["betaald"], telling["terugbetaald"]) == (3, 2, 1, 1)
+    assert (
+        telling["alle"],
+        telling["openstaand"],
+        telling["betaald"],
+        telling["terugbetaald"],
+    ) == (3, 2, 1, 1)
 
 
 def test_zicht_combineert_met_de_statuskolom(client, db_session):
@@ -74,9 +102,16 @@ def test_zicht_combineert_met_de_statuskolom(client, db_session):
     twee dimensies en combineren met EN — open posten onder de mislukte
     betalingen blijft een stelbare vraag."""
     _drie_boekingen(db_session)
-    db_session.add(PaymentRecord(payable_type="registration", payable_id=9004,
-                                 amount=Decimal("40.00"), method="transfer",
-                                 status="failed", type="charge"))
+    db_session.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=9004,
+            amount=Decimal("40.00"),
+            method="transfer",
+            status="failed",
+            type="charge",
+        )
+    )
     db_session.commit()
     _login(client)
 
@@ -132,6 +167,7 @@ def test_uitklap_expressies_citeren_het_record_id(client, db_session):
     html = client.get("/admin/betalingen/lijst").text
     assert "open === '" in html and "terug === '" in html
     import re
+
     assert not re.search(r"open === [^'\"]", html.replace("open === '", ""))
 
 

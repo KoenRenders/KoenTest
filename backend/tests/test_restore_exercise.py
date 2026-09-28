@@ -31,6 +31,7 @@ Broken on purpose to check that these tests can go red:
 - the `trap` removed → both tests fall over on the throwaway database that
   stays behind: the script drops it through the trap only, on success too.
 """
+
 import gzip
 import os
 import shutil
@@ -67,14 +68,19 @@ INSERT INTO payment.payment_records VALUES (1), (2), (3), (4);
 #: psql carries on and the database looks restored — minus the persons.
 BROKEN_DUMP = GOOD_DUMP.replace(
     "INSERT INTO mdm.persons VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd'), (5, 'e');",
-    "INSERT INTO mdm.persons VALUES ('niet-een-getal', 'a');")
+    "INSERT INTO mdm.persons VALUES ('niet-een-getal', 'a');",
+)
 
 
 def _server_env() -> dict[str, str]:
     url = urlparse(os.environ["TEST_DATABASE_URL"].replace("+psycopg2", ""))
-    return {"PGHOST": url.hostname or "localhost", "PGPORT": str(url.port or 5432),
-            "PGPASSWORD": url.password or "", "POSTGRES_USER": url.username or "",
-            "POSTGRES_DB": url.path.lstrip("/")}
+    return {
+        "PGHOST": url.hostname or "localhost",
+        "PGPORT": str(url.port or 5432),
+        "PGPASSWORD": url.password or "",
+        "POSTGRES_USER": url.username or "",
+        "POSTGRES_DB": url.path.lstrip("/"),
+    }
 
 
 def _run(tmp_path: Path, dump_sql: str) -> subprocess.CompletedProcess:
@@ -95,16 +101,34 @@ def _run(tmp_path: Path, dump_sql: str) -> subprocess.CompletedProcess:
     (fakebin / "docker").chmod(0o755)
 
     env = dict(os.environ, PATH=f"{fakebin}:{os.environ['PATH']}", **_server_env())
-    return subprocess.run(["bash", "scripts/restore-test.sh", "hdev"], cwd=work, env=env,
-                          capture_output=True, text=True, timeout=120)
+    return subprocess.run(
+        ["bash", "scripts/restore-test.sh", "hdev"],
+        cwd=work,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
 
 def _restore_db_exists() -> bool:
     env = dict(os.environ, **_server_env())
     out = subprocess.run(
-        [PSQL, "-tA", "-U", env["POSTGRES_USER"], "-d", env["POSTGRES_DB"], "-c",
-         "SELECT count(*) FROM pg_database WHERE datname = 'restore_test'"],
-        env=env, capture_output=True, text=True, check=True)
+        [
+            PSQL,
+            "-tA",
+            "-U",
+            env["POSTGRES_USER"],
+            "-d",
+            env["POSTGRES_DB"],
+            "-c",
+            "SELECT count(*) FROM pg_database WHERE datname = 'restore_test'",
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     return out.stdout.strip() != "0"
 
 
@@ -114,10 +138,15 @@ def test_a_good_dump_is_restored_and_counted_by_schema(tmp_path):
     assert done.returncode == 0, done.stdout[-2000:] + done.stderr[-2000:]
     out = done.stdout
     assert "163_2026_09_26_144116" in out, "the exercise shows the dump's revision"
-    for table, count in (("mdm.members", 3), ("mdm.persons", 5),
-                         ("activities.registrations", 2), ("payment.payment_records", 4)):
-        assert any(table in line and line.rstrip().endswith(str(count))
-                   for line in out.splitlines()), f"{table} {count} not in:\n{out}"
+    for table, count in (
+        ("mdm.members", 3),
+        ("mdm.persons", 5),
+        ("activities.registrations", 2),
+        ("payment.payment_records", 4),
+    ):
+        assert any(
+            table in line and line.rstrip().endswith(str(count)) for line in out.splitlines()
+        ), f"{table} {count} not in:\n{out}"
     assert "geslaagd" in out
     assert not _restore_db_exists(), "the throwaway database is dropped afterwards"
 

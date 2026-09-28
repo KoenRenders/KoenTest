@@ -11,13 +11,17 @@ it. The roles the universe declares per object are not enforced. What has to hol
 here is therefore the door — no session, wrong role, right role — and the tenant
 filter on what comes out.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
 from io import BytesIO
 
 from app.domains.auth.api import (
-    SESSION_COOKIE, User, UserRole, make_session_value,
+    SESSION_COOKIE,
+    User,
+    UserRole,
+    make_session_value,
 )
 from tests._reporting_seed import EXPECTED, seed
 
@@ -89,7 +93,8 @@ def test_an_admin_gets_a_spreadsheet_with_this_tenant_s_rows(client, db_session)
 
     assert antwoord.status_code == 200
     assert antwoord.headers["content-type"].startswith(
-        "application/vnd.oasis.opendocument.spreadsheet")
+        "application/vnd.oasis.opendocument.spreadsheet"
+    )
     assert "rapportering-betalingen.ods" in antwoord.headers["content-disposition"]
 
     document = load(BytesIO(antwoord.content))
@@ -107,11 +112,12 @@ def test_the_download_and_the_report_agree_on_the_total(client, db_session):
 
     seed(db_session)
     report = run_selection(
-        db_session, Selection(object_keys=("payment_amount",)),
-        tenant_id=TENANT_A)
+        db_session, Selection(object_keys=("payment_amount",)), tenant_id=TENANT_A
+    )
     assert Decimal(report.rows[0]["payment_amount"]) == EXPECTED["payments"]["amount"]
 
     from app.domains.reporting.api import load_dataset
+
     dataset = load_dataset(db_session, "f_payments", tenant_id=TENANT_A)
     kolom = dataset.headers.index("amount")
     som = sum((Decimal(str(rij[kolom])) for rij in dataset.rows), Decimal("0"))

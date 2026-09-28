@@ -19,6 +19,7 @@ uitzondering zat dus op het pad dat je elke keer neemt.
 Derde keer deze maand dat een met de hand samengesteld adres context laat vallen
 (#922 verloor de tenant-prefix, #928 de slug).
 """
+
 from datetime import date
 
 import pytest
@@ -56,21 +57,29 @@ def activiteit(db_session):
     a = Activity(tenant_id=2, name="Zomerfeest")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(tenant_id=2, activity_id=a.id,
-                                start_date=date.today()))
+    db_session.add(ActivityDate(tenant_id=2, activity_id=a.id, start_date=date.today()))
     # Eén foto, want de filterdropdown toont enkel activiteiten die media hebben.
-    db_session.add(MediaAsset(tenant_id=2, kind="activity_photo", activity_id=a.id,
-                              content_type="image/jpeg", data=b"x"))
+    db_session.add(
+        MediaAsset(
+            tenant_id=2,
+            kind="activity_photo",
+            activity_id=a.id,
+            content_type="image/jpeg",
+            data=b"x",
+        )
+    )
     db_session.commit()
     return a
 
 
 # ── Het adres komt uit één plek ──────────────────────────────────────────────
 
+
 def test_the_address_carries_what_you_were_looking_at():
     assert _filterstand("activity_photo", "", 7) == "kind=activity_photo&activity_id=7"
     assert _filterstand("activity_photo", "zomer", 7) == (
-        "kind=activity_photo&q=zomer&activity_id=7")
+        "kind=activity_photo&q=zomer&activity_id=7"
+    )
     assert _filterstand("activity_photo") == "kind=activity_photo"
 
 
@@ -95,51 +104,51 @@ def test_no_screen_composes_this_address_by_hand():
     """
     from pathlib import Path
 
-    sjablonen = Path(__file__).resolve().parents[1] / "app" / "domains" / "media" \
-        / "templates"
+    sjablonen = Path(__file__).resolve().parents[1] / "app" / "domains" / "media" / "templates"
     bekeken = 0
     for pad in sjablonen.glob("*.html"):
         bekeken += 1
         tekst = pad.read_text(encoding="utf-8")
-        regels = [r for r in tekst.splitlines()
-                  if "/admin/media/nieuw?" in r and "filterstand" not in r
-                  and not r.strip().startswith("{#")]
-        assert not regels, (
-            f"{pad.name} stelt zelf een uploadadres samen: {regels[0].strip()}")
+        regels = [
+            r
+            for r in tekst.splitlines()
+            if "/admin/media/nieuw?" in r
+            and "filterstand" not in r
+            and not r.strip().startswith("{#")
+        ]
+        assert not regels, f"{pad.name} stelt zelf een uploadadres samen: {regels[0].strip()}"
     assert bekeken >= 3, (
-        f"deze poort keek naar {bekeken} sjablonen, te weinig om iets te bewijzen (#678)")
+        f"deze poort keek naar {bekeken} sjablonen, te weinig om iets te bewijzen (#678)"
+    )
 
 
 # ── Van de lijst naar het uploadscherm ───────────────────────────────────────
 
-def test_the_upload_button_carries_the_chosen_activity(client, db_session,
-                                                       activiteit):
+
+def test_the_upload_button_carries_the_chosen_activity(client, db_session, activiteit):
     """Punt 1, en het was één parameter: de voorselectie stond er al.
 
     `_lijst_ctx` las `activity_id` al uit de query en het uploadsjabloon had
     `selected` al. De knop gaf hem alleen nooit mee.
     """
     _login(client)
-    tekst = client.get(
-        f"/admin/media?kind=activity_photo&activity_id={activiteit.id}").text
+    tekst = client.get(f"/admin/media?kind=activity_photo&activity_id={activiteit.id}").text
 
     # `&amp;` en niet `&`: dat is hoe een href in HTML hoort te staan.
-    assert (f"/admin/media/nieuw?kind=activity_photo&amp;activity_id={activiteit.id}"
-            in tekst)
+    assert f"/admin/media/nieuw?kind=activity_photo&amp;activity_id={activiteit.id}" in tekst
 
 
 def test_the_upload_screen_preselects_that_activity(client, db_session, activiteit):
     _login(client)
-    tekst = client.get(
-        f"/admin/media/nieuw?kind=activity_photo&activity_id={activiteit.id}").text
+    tekst = client.get(f"/admin/media/nieuw?kind=activity_photo&activity_id={activiteit.id}").text
 
     assert f'value="{activiteit.id}" selected' in tekst
 
 
 # ── En terug ─────────────────────────────────────────────────────────────────
 
-def test_a_successful_upload_returns_to_the_same_list(client, db_session,
-                                                      activiteit):
+
+def test_a_successful_upload_returns_to_the_same_list(client, db_session, activiteit):
     """Punt 2. Het geslaagde pad was de uitzondering, niet de foutafhandeling.
 
     Kapotgemaakt om het rood te zien: de redirect terug op het kale `/admin/media`
@@ -148,18 +157,23 @@ def test_a_successful_upload_returns_to_the_same_list(client, db_session,
     csrf = _login(client)
     resp = client.post(
         "/admin/media",
-        data={"kind": "activity_photo", "activity_id": str(activiteit.id),
-              "q": "", "filter_activity_id": str(activiteit.id)},
+        data={
+            "kind": "activity_photo",
+            "activity_id": str(activiteit.id),
+            "q": "",
+            "filter_activity_id": str(activiteit.id),
+        },
         files={"files": ("foto.png", _png(), "image/png")},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == (
-        f"/admin/media?kind=activity_photo&activity_id={activiteit.id}")
+        f"/admin/media?kind=activity_photo&activity_id={activiteit.id}"
+    )
 
 
-def test_a_failed_upload_still_keeps_you_where_you_were(client, db_session,
-                                                        activiteit):
+def test_a_failed_upload_still_keeps_you_where_you_were(client, db_session, activiteit):
     """Dit deed het al goed, en daarom staat het hier.
 
     De foutafhandeling bouwde de filterstand al terug op terwijl het geslaagde pad
@@ -169,17 +183,21 @@ def test_a_failed_upload_still_keeps_you_where_you_were(client, db_session,
     csrf = _login(client)
     resp = client.post(
         "/admin/media",
-        data={"kind": "activity_photo", "activity_id": "",   # verplicht, dus fout
-              "q": "", "filter_activity_id": str(activiteit.id)},
+        data={
+            "kind": "activity_photo",
+            "activity_id": "",  # verplicht, dus fout
+            "q": "",
+            "filter_activity_id": str(activiteit.id),
+        },
         files={"files": ("foto.png", _png(), "image/png")},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 200
     assert f'value="{activiteit.id}" selected' in resp.text
 
 
-def test_a_sponsor_upload_returns_to_the_sponsor_list(client, db_session,
-                                                      activiteit):
+def test_a_sponsor_upload_returns_to_the_sponsor_list(client, db_session, activiteit):
     """Schakel je op het uploadscherm om, dan toont de lijst wat je net toevoegde.
 
     De terugkeer volgt de soort die je UPLOADDE en niet het filter waar je vandaan
@@ -188,10 +206,15 @@ def test_a_sponsor_upload_returns_to_the_sponsor_list(client, db_session,
     csrf = _login(client)
     resp = client.post(
         "/admin/media",
-        data={"kind": "sponsor", "title": "Bakkerij", "q": "",
-              "filter_activity_id": str(activiteit.id)},
+        data={
+            "kind": "sponsor",
+            "title": "Bakkerij",
+            "q": "",
+            "filter_activity_id": str(activiteit.id),
+        },
         files={"files": ("logo.png", _png(), "image/png")},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
 
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == "/admin/media?kind=sponsor"

@@ -14,6 +14,7 @@ the evaluation harness (`test_assistant_evaluation.py` and its by-hand run again
 a real key); these tests are about what leaves the building, which has to hold
 whichever model is on the other end.
 """
+
 import json
 
 import pytest
@@ -21,10 +22,17 @@ from sqlalchemy import text as sql_text
 
 from app.domains.chatbot.providers.base import AssistantMessage, ToolCall
 from app.domains.chatbot.seam import (
-    GuardedProvider, SeamBlocked, admin_rules, findings, public_rules,
+    GuardedProvider,
+    SeamBlocked,
+    admin_rules,
+    findings,
+    public_rules,
 )
 from app.domains.reporting.assistant import (
-    CAPABILITY, TOOL_SPECS, build_system_prompt, dispatcher,
+    CAPABILITY,
+    TOOL_SPECS,
+    build_system_prompt,
+    dispatcher,
 )
 
 TENANT = 2
@@ -51,8 +59,7 @@ class Recorder:
         self.calls.append([dict(m) for m in messages])
         if self._replies:
             return self._replies.pop(0)
-        return AssistantMessage(content="klaar", usage={"prompt": 11,
-                                                        "completion": 7})
+        return AssistantMessage(content="klaar", usage={"prompt": 11, "completion": 7})
 
     @property
     def text(self) -> str:
@@ -79,13 +86,17 @@ def _person(db, first: str, last: str):
     person = Person(tenant_id=TENANT, first_name=first, last_name=last)
     db.add(person)
     db.flush()
-    db.add(MemberPerson(tenant_id=TENANT, member_id=member.id,
-                        person_id=person.id, relation_type="HOOFDLID"))
+    db.add(
+        MemberPerson(
+            tenant_id=TENANT, member_id=member.id, person_id=person.id, relation_type="HOOFDLID"
+        )
+    )
     db.flush()
     return person
 
 
 # ── The exposure fence sits in the assistant, not in the engine ──────────────
+
 
 def test_free_text_never_reaches_a_model(db_session):
     """The `none` objects, refused by name and with a usable reason.
@@ -101,7 +112,7 @@ def test_free_text_never_reaches_a_model(db_session):
     Broken to see it red: `_REFUSED` emptied — the notes then come back as rows,
     and the test names the first object that got through.
     """
-    from app.domains.reporting.universe import AiExposure, OBJECTS
+    from app.domains.reporting.universe import OBJECTS, AiExposure
 
     dispatch = dispatcher(tenant_id=TENANT)
     vrije_tekst = [o for o in OBJECTS if o.ai_exposure is AiExposure.NONE]
@@ -131,11 +142,18 @@ def test_the_refusal_also_covers_a_filter_on_such_an_object(db_session):
     call then succeeds and this test fails on the missing refusal.
     """
     dispatch = dispatcher(tenant_id=TENANT)
-    out = json.loads(dispatch("run_report", {
-        "objects": ["payment_method", "payment_count"],
-        "filters": [{"object": "payment_note", "operator": "contains",
-                     "values": ["herinnering"]}],
-    }, db_session))
+    out = json.loads(
+        dispatch(
+            "run_report",
+            {
+                "objects": ["payment_method", "payment_count"],
+                "filters": [
+                    {"object": "payment_note", "operator": "contains", "values": ["herinnering"]}
+                ],
+            },
+            db_session,
+        )
+    )
     assert "error" in out and "Notitie" in out["error"]
 
 
@@ -154,8 +172,7 @@ def test_list_values_hands_back_tokens_and_never_names(db_session):
     persoon = _person(db_session, "Mira", "Vandenbulcke")
     _assign_board_member(db_session, persoon)
     dispatch = dispatcher(tenant_id=TENANT)
-    out = json.loads(dispatch("list_values", {"object": "board_member"},
-                              db_session))
+    out = json.loads(dispatch("list_values", {"object": "board_member"}, db_session))
     assert "Vandenbulcke" not in json.dumps(out)
     assert any(v.startswith("persoon-") for v in out["values"]), out
 
@@ -169,8 +186,7 @@ def test_the_query_panel_still_shows_what_the_assistant_refuses(db_session):
     """
     from app.domains.reporting.api import build_query
 
-    plan = build_query(_selection(["member_head_name", "member_total_count"]),
-                       tenant_id=TENANT)
+    plan = build_query(_selection(["member_head_name", "member_total_count"]), tenant_id=TENANT)
     assert plan.sql, "het paneel moet dit object gewoon kunnen tonen"
 
 
@@ -181,6 +197,7 @@ def _selection(keys):
 
 
 # ── Two allowlists, two dispatchers (CR-07 §6.2) ─────────────────────────────
+
 
 def test_the_public_bot_cannot_run_a_report(db_session):
     """The surfaces share a loop and nothing else.
@@ -197,13 +214,16 @@ def test_the_public_bot_cannot_run_a_report(db_session):
 
 def test_the_assistant_cannot_submit_an_idea(db_session):
     """And the other way round: the admin kit holds no write path at all."""
-    out = json.loads(dispatcher(tenant_id=TENANT)(
-        "submit_idea", {"name": "T", "content": "c", "email": "t@example.org"},
-        db_session))
+    out = json.loads(
+        dispatcher(tenant_id=TENANT)(
+            "submit_idea", {"name": "T", "content": "c", "email": "t@example.org"}, db_session
+        )
+    )
     assert "error" in out and "submit_idea" in out["error"]
 
 
 # ── The guard on the seam (CR-07 §5.8) ───────────────────────────────────────
+
 
 def test_a_name_from_the_administration_blocks_the_call(db_session):
     """The planted-name probe §5 asks for, end to end.
@@ -220,12 +240,11 @@ def test_a_name_from_the_administration_blocks_the_call(db_session):
     _person(db_session, "Mira", "Vandenbulcke")
     inner = Recorder()
     guarded = GuardedProvider(
-        inner, admin_rules(lambda: person_name_parts(db_session),
-                           capability=CAPABILITY))
+        inner, admin_rules(lambda: person_name_parts(db_session), capability=CAPABILITY)
+    )
 
     try:
-        guarded.complete([{"role": "user",
-                           "content": "Stopt het gezin Vandenbulcke dit jaar?"}])
+        guarded.complete([{"role": "user", "content": "Stopt het gezin Vandenbulcke dit jaar?"}])
         raise AssertionError("de wachter liet dit door")
     except SeamBlocked as geblokkeerd:
         assert "niet verstuurd" in str(geblokkeerd)
@@ -245,8 +264,8 @@ def test_the_blocked_message_does_not_repeat_the_name(db_session):
 
     _person(db_session, "Mira", "Vandenbulcke")
     guarded = GuardedProvider(
-        Recorder(), admin_rules(lambda: person_name_parts(db_session),
-                                capability=CAPABILITY))
+        Recorder(), admin_rules(lambda: person_name_parts(db_session), capability=CAPABILITY)
+    )
     try:
         guarded.complete([{"role": "user", "content": "Vandenbulcke?"}])
         raise AssertionError("niet geblokkeerd")
@@ -262,8 +281,7 @@ def test_the_public_bot_may_receive_a_name_and_an_email(db_session):
     Without this test that asymmetry survives exactly until someone tidies it up.
     """
     _person(db_session, "Mira", "Vandenbulcke")
-    messages = [{"role": "user",
-                 "content": "Ik ben Mira Vandenbulcke, mira@example.org"}]
+    messages = [{"role": "user", "content": "Ik ben Mira Vandenbulcke, mira@example.org"}]
     assert findings(messages, public_rules()) == []
 
 
@@ -274,12 +292,13 @@ def test_a_phone_number_or_an_account_number_stops_both_surfaces(db_session):
     so: any valid number would do, and this is a public repository, so the one
     number that is nobody's account is the right one to write down.
     """
-    for rules in (public_rules(),
-                  admin_rules(lambda: set(), capability=CAPABILITY)):
+    for rules in (public_rules(), admin_rules(lambda: set(), capability=CAPABILITY)):
         assert "een telefoonnummer" in findings(
-            [{"role": "user", "content": "bel me op 0473 12 34 56"}], rules)
+            [{"role": "user", "content": "bel me op 0473 12 34 56"}], rules
+        )
         assert "een rekeningnummer" in findings(
-            [{"role": "user", "content": "stort op BE68 5390 0754 7034"}], rules)
+            [{"role": "user", "content": "stort op BE68 5390 0754 7034"}], rules
+        )
 
 
 def test_the_system_prompt_is_exempt_from_the_pattern_check(db_session):
@@ -294,16 +313,13 @@ def test_the_system_prompt_is_exempt_from_the_pattern_check(db_session):
     The typed question and every tool result stay fully covered — those are the two
     channels along which administration data can actually leave.
     """
-    prompt = [{"role": "system",
-               "content": "IBAN: BE68 5390 0754 7034 · info@example.org"}]
+    prompt = [{"role": "system", "content": "IBAN: BE68 5390 0754 7034 · info@example.org"}]
     rules = admin_rules(lambda: set(), capability=CAPABILITY)
     assert findings(prompt, rules) == []
-    assert findings(prompt + [{"role": "user", "content": "BE68 5390 0754 7034"}],
-                    rules) != []
+    assert findings(prompt + [{"role": "user", "content": "BE68 5390 0754 7034"}], rules) != []
 
 
-def test_the_name_check_covers_the_system_prompt_unless_a_pack_earns_otherwise(
-        db_session):
+def test_the_name_check_covers_the_system_prompt_unless_a_pack_earns_otherwise(db_session):
     """The default is: scan everything. Deviating from it has to be argued.
 
     The system prompt is not always a fixed string. For the public bot it is built
@@ -325,8 +341,7 @@ def test_the_name_check_covers_the_system_prompt_unless_a_pack_earns_otherwise(
     _person(db_session, "Mira", "Vandenbulcke")
     from app.domains.mdm.api import person_name_parts
 
-    prompt = [{"role": "system",
-               "content": "Nota van het bestuur: Vandenbulcke belt nog terug."}]
+    prompt = [{"role": "system", "content": "Nota van het bestuur: Vandenbulcke belt nog terug."}]
     namen = lambda: person_name_parts(db_session)  # noqa: E731
 
     standaard = admin_rules(namen, capability=CAPABILITY)
@@ -336,8 +351,7 @@ def test_the_name_check_covers_the_system_prompt_unless_a_pack_earns_otherwise(
     verdiend = admin_rules(namen, capability=CAPABILITY, scan_prompt_names=False)
     assert findings(prompt, verdiend) == []
     # En wat de gebruiker typt blijft onverkort gescand, ook dan.
-    assert findings(prompt + [{"role": "user", "content": "Vandenbulcke?"}],
-                    verdiend) != []
+    assert findings(prompt + [{"role": "user", "content": "Vandenbulcke?"}], verdiend) != []
 
 
 def test_a_name_particle_does_not_make_every_sentence_suspect(db_session):
@@ -399,10 +413,16 @@ def leeg_logboek():
 
 
 def _log_rows(db):
-    return db.execute(sql_text(
-        "SELECT surface, capability, actor, model, payload, tokens_prompt, "
-        "tokens_completion, blocked_reason FROM ai.ai_call_log ORDER BY id"
-    )).mappings().all()
+    return (
+        db.execute(
+            sql_text(
+                "SELECT surface, capability, actor, model, payload, tokens_prompt, "
+                "tokens_completion, blocked_reason FROM ai.ai_call_log ORDER BY id"
+            )
+        )
+        .mappings()
+        .all()
+    )
 
 
 def test_every_outbound_call_lands_in_the_log_with_its_token_usage(db_session, leeg_logboek):
@@ -443,7 +463,8 @@ def test_a_blocked_call_is_logged_as_blocked(db_session, leeg_logboek):
     guarded = GuardedProvider(
         Recorder(),
         admin_rules(lambda: person_name_parts(db_session), capability=CAPABILITY),
-        sink_for("bestuur@example.org"))
+        sink_for("bestuur@example.org"),
+    )
     try:
         guarded.complete([{"role": "user", "content": "gezin Vandenbulcke?"}])
     except SeamBlocked:
@@ -459,6 +480,7 @@ def test_a_blocked_call_is_logged_as_blocked(db_session, leeg_logboek):
 
 # ── Caps (CR-07 §4.2) ────────────────────────────────────────────────────────
 
+
 def test_a_long_result_is_cut_and_says_so(db_session):
     """Cut with a marker, never silently.
 
@@ -469,8 +491,11 @@ def test_a_long_result_is_cut_and_says_so(db_session):
     from tests._reporting_seed import seed
 
     seed(db_session)
-    out = json.loads(dispatcher(tenant_id=TENANT, max_rows=1)(
-        "run_report", {"objects": ["payment_method", "payment_count"]}, db_session))
+    out = json.loads(
+        dispatcher(tenant_id=TENANT, max_rows=1)(
+            "run_report", {"objects": ["payment_method", "payment_count"]}, db_session
+        )
+    )
     assert out["row_count"] == 1
     assert "truncated" in out and "Verfijn" in out["truncated"]
 
@@ -481,14 +506,25 @@ def test_the_wall_clock_ends_a_stuck_conversation(db_session):
 
     from app.domains.chatbot.service import ChatTimeout, run_chat
 
-    slow = Recorder(replies=[AssistantMessage(
-        tool_calls=[ToolCall(id="1", name="list_values",
-                             arguments={"object": "payment_status"})])])
+    slow = Recorder(
+        replies=[
+            AssistantMessage(
+                tool_calls=[
+                    ToolCall(id="1", name="list_values", arguments={"object": "payment_status"})
+                ]
+            )
+        ]
+    )
     try:
-        run_chat(db_session, [{"role": "user", "content": "?"}], slow,
-                 max_rounds=3, tools=TOOL_SPECS,
-                 dispatch=dispatcher(tenant_id=TENANT),
-                 deadline=time.monotonic() - 1)
+        run_chat(
+            db_session,
+            [{"role": "user", "content": "?"}],
+            slow,
+            max_rounds=3,
+            tools=TOOL_SPECS,
+            dispatch=dispatcher(tenant_id=TENANT),
+            deadline=time.monotonic() - 1,
+        )
         raise AssertionError("de wandklok deed niets")
     except ChatTimeout as op:
         assert "te lang" in str(op)
@@ -496,6 +532,7 @@ def test_the_wall_clock_ends_a_stuck_conversation(db_session):
 
 
 # ── The catalogue (CR-07 §5.1) ───────────────────────────────────────────────
+
 
 def test_the_catalogue_is_rendered_from_the_declaration(db_session):
     """One source for the human document and the machine catalogue.

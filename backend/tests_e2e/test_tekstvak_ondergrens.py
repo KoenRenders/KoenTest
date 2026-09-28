@@ -26,6 +26,7 @@ gemeten, want ik dacht eerst dat één tegenproef beide zou vangen:
 De derde test blijft in beide gevallen groen; die bewaakt dat de reparatie geen
 ander scherm meesleurt.
 """
+
 import os
 import sys
 
@@ -105,7 +106,8 @@ def test_een_leeg_vak_opent_op_het_aantal_regels_dat_het_vroeg(admin_page):
 
         assert gemeten >= natuurlijk - SPELING, (
             f"{selector}: {gemeten}px terwijl rows drie regels ({natuurlijk}px) "
-            "vraagt — de placeholder wordt dan doorgesneden (#1037)")
+            "vraagt — de placeholder wordt dan doorgesneden (#1037)"
+        )
 
 
 def test_wissen_brengt_het_vak_niet_onder_zijn_ondergrens(admin_page):
@@ -123,7 +125,8 @@ def test_wissen_brengt_het_vak_niet_onder_zijn_ondergrens(admin_page):
 
     assert gegroeid > natuurlijk, "het vak groeit niet meer mee"
     assert na_wissen >= natuurlijk - SPELING, (
-        f"na wissen {na_wissen}px, onder de ondergrens van {natuurlijk}px")
+        f"na wissen {na_wissen}px, onder de ondergrens van {natuurlijk}px"
+    )
 
 
 def test_een_vak_dat_een_regel_vraagt_blijft_een_regel(admin_page):
@@ -144,7 +147,9 @@ def test_een_vak_dat_een_regel_vraagt_blijft_een_regel(admin_page):
     gemeten = veld.bounding_box()["height"]
 
     assert gemeten <= een_regel + SPELING, (
-        f"het eenregelige veld is {gemeten}px in plaats van {een_regel}px")
+        f"het eenregelige veld is {gemeten}px in plaats van {een_regel}px"
+    )
     assert een_regel < 50, (
         f"een 'regel' van {een_regel}px is geen regel meer — meet dit veld wel "
-        "wat het denkt te meten?")
+        "wat het denkt te meten?"
+    )

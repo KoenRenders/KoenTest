@@ -1,5 +1,6 @@
 """UI-fundament (#396): de shells en macro's renderen — de Jinja-rendertest
 uit §19.5.3c (één keer de kit testen verslaat elke pagina testen)."""
+
 from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
@@ -23,7 +24,8 @@ def test_shells_render():
     env = _env()
     for shell in ("admin_base.html",):
         html = env.get_template(shell).render(
-            nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}])
+            nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}]
+        )
         assert "htmx.min.js" in html and "alpine.min.js" in html and "app.css" in html
 
 
@@ -36,8 +38,8 @@ def test_macros_render_and_escape():
     )
     html = tpl.render(msg="<script>x</script>")
     assert "Opslaan" in html and "Concept" in html
-    assert "&lt;script&gt;" in html          # autoescape actief
-    assert 'text-red-600">*' in html          # verplicht-veld-conventie
+    assert "&lt;script&gt;" in html  # autoescape actief
+    assert 'text-red-600">*' in html  # verplicht-veld-conventie
 
 
 def test_admin_nav_info_onderaan_en_een_tenant_item():
@@ -46,8 +48,7 @@ def test_admin_nav_info_onderaan_en_een_tenant_item():
     hetzelfde object bestaan niet meer."""
     from app.ui import admin_nav
 
-    hrefs = [i["href"] for groep in admin_nav("/admin/werkbank")
-             for i in groep["items"]]
+    hrefs = [i["href"] for groep in admin_nav("/admin/werkbank") for i in groep["items"]]
     assert "/admin/instellingen" not in hrefs
     assert hrefs.index("/admin/tenants") < hrefs.index("/admin/info")
 
@@ -59,8 +60,9 @@ def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():
     link zelf blijft een contract."""
     env = _env()
     html = env.get_template("admin_base.html").render(
-        nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}])
-    assert "/afmelden" in html            # logout-link aanwezig (topbalk/mobiel menu)
+        nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}]
+    )
+    assert "/afmelden" in html  # logout-link aanwezig (topbalk/mobiel menu)
     assert "Uitloggen" in html
     assert "md:sticky" in html and "md:h-screen" in html  # sticky full-height aside
 

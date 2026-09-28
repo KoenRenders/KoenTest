@@ -27,6 +27,7 @@ Kapotgemaakt om te controleren dat deze test rood kan worden: `nav_oob` hard op
 True gezet (het gedrag van vóór #718) → de menubalk is na het toevoegen weg en de
 assert valt om.
 """
+
 import os
 import sys
 
@@ -35,8 +36,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Gezinsportaal,  # noqa: E402
-                                login_met_sessie)
+from tests_e2e.schermen import BASE, Gezinsportaal, login_met_sessie  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -77,6 +77,7 @@ def test_de_menubalk_staat_er_nog_na_een_body_swap(lid_page):
 
     assert balk.count() == 1, (
         "de menubalk is uit het lichaam verdwenen — htmx heeft haar out-of-band uit "
-        "het antwoord gelicht en de rest over het lichaam gelegd (#718)")
+        "het antwoord gelicht en de rest over het lichaam gelegd (#718)"
+    )
     assert balk.is_visible()
     assert balk.inner_text() == voor, "de menubalk is wél gebleven maar veranderd"

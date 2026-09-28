@@ -20,6 +20,7 @@ Broken on purpose to check that these tests can go red: set `KETEN_GATE=0` for u
 the rollback test falls over while the hdev test stays green; widened the startup window
 to the whole log → the scope test falls over.
 """
+
 import os
 import shutil
 import subprocess
@@ -42,8 +43,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
 """
 
 
-def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n",
-           log=HEALTHY_LOG):
+def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n", log=HEALTHY_LOG):
     """A throwaway checkout with the REAL deploy.sh and a fake outside world."""
     work = tmp_path / "checkout"
     (work / "tests").mkdir(parents=True)
@@ -53,8 +53,7 @@ def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n",
     (work / "deploy.sh").chmod(0o755)
 
     smoke_counter = tmp_path / "smoke-runs"
-    (work / "tests" / "run-all.sh").write_text(
-        f'#!/bin/sh\necho x >> "{smoke_counter}"\nexit 0\n')
+    (work / "tests" / "run-all.sh").write_text(f'#!/bin/sh\necho x >> "{smoke_counter}"\nexit 0\n')
     (work / "tests" / "run-all.sh").chmod(0o755)
 
     for name in (".env.hdev", ".env.uat", ".env.prod"):
@@ -73,16 +72,18 @@ def _build(tmp_path, *, heads="095 (head)\n", current="095 (head)\n",
         f'  *"alembic heads"*) cat "{tmp_path}/heads" ;;\n'
         f'  *"alembic current"*) cat "{tmp_path}/current" ;;\n'
         f'  *"logs backend"*) cat "{tmp_path}/backendlog" ;;\n'
-        'esac\nexit 0\n')
-    (fakebin / "curl").write_text('#!/bin/sh\nexit 0\n')
+        "esac\nexit 0\n"
+    )
+    (fakebin / "curl").write_text("#!/bin/sh\nexit 0\n")
     # `grep` answers one migration for every ref: the same alembic head on both
     # sides, so these rollback tests keep testing a release WITHOUT a migration.
     # With one, the rollback is skipped (#1203; test_deploy_rollback_migration.py).
     (fakebin / "git").write_text(
         '#!/bin/sh\ncase "$1" in describe) echo v0.0.0 ;; rev-parse) echo deadbee ;;\n'
         '  grep) case "$*" in *down_revision*) ;; *) echo "revision = \'095\'" ;; esac ;;\n'
-        'esac\nexit 0\n')
-    (fakebin / "sleep").write_text('#!/bin/sh\nexit 0\n')
+        "esac\nexit 0\n"
+    )
+    (fakebin / "sleep").write_text("#!/bin/sh\nexit 0\n")
     for f in fakebin.iterdir():
         f.chmod(0o755)
 
@@ -97,8 +98,7 @@ def _run(work, fakebin, environment, tmp_path, **extra_env):
     env["LOG_OUT"] = str(tmp_path / "deploy.log")
     env.update(extra_env)
     args = ["bash", "./deploy.sh", environment] + (["v0.0.0"] if environment != "hdev" else [])
-    return subprocess.run(args, cwd=work, env=env, capture_output=True, text=True,
-                          timeout=120)
+    return subprocess.run(args, cwd=work, env=env, capture_output=True, text=True, timeout=120)
 
 
 @pytest.mark.parametrize("environment", ["hdev", "uat", "prod"])
@@ -126,7 +126,8 @@ def test_two_heads_roll_uat_back(tmp_path):
     assert "2 heads" in done.stdout
     assert "Automatic rollback to v0.0.1" in done.stdout
     assert smoke_counter.read_text().count("x") == 2, (
-        "the rollback did not re-run the smoke test, or rolled back more than once")
+        "the rollback did not re-run the smoke test, or rolled back more than once"
+    )
 
 
 def test_two_heads_do_not_stop_hdev(tmp_path):
@@ -157,7 +158,8 @@ def test_a_traceback_at_startup_is_reported_but_does_not_roll_back(tmp_path):
     broken = HEALTHY_LOG.replace(
         "==> Starting API server...",
         "Traceback (most recent call last):\n  RuntimeError: seed failed\n"
-        "==> Starting API server...")
+        "==> Starting API server...",
+    )
     work, fakebin, _ = _build(tmp_path, log=broken)
 
     done = _run(work, fakebin, "prod", tmp_path, DEPLOY_PREV_REF="v0.0.1")
@@ -175,8 +177,9 @@ def test_traffic_after_startup_does_not_count(tmp_path):
     that would later become a rollback.
     """
     noise = HEALTHY_LOG + (
-        'ERROR:    Exception in ASGI application\n'
-        'Traceback (most recent call last):\n  ValueError: broken request\n')
+        "ERROR:    Exception in ASGI application\n"
+        "Traceback (most recent call last):\n  ValueError: broken request\n"
+    )
     work, fakebin, _ = _build(tmp_path, log=noise)
 
     done = _run(work, fakebin, "prod", tmp_path, DEPLOY_PREV_REF="v0.0.1")
@@ -184,14 +187,16 @@ def test_traffic_after_startup_does_not_count(tmp_path):
     assert done.returncode == 0
     assert "Clean start OK" in done.stdout
     assert "broken request" not in done.stdout, (
-        "traffic after 'Uvicorn running' falls inside the startup window")
+        "traffic after 'Uvicorn running' falls inside the startup window"
+    )
 
 
 def test_a_backend_that_never_starts_is_noticed(tmp_path):
     """The failure the smoke test really cannot see while Caddy still serves an old
     container: migrations started, but 'Uvicorn running' never arrives."""
     work, fakebin, _ = _build(
-        tmp_path, log="==> Running database migrations...\nINFO  [alembic] busy\n")
+        tmp_path, log="==> Running database migrations...\nINFO  [alembic] busy\n"
+    )
 
     done = _run(work, fakebin, "hdev", tmp_path)
 

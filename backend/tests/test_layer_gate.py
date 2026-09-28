@@ -34,14 +34,15 @@ De allowlist bevat de overtreders van vóór dit issue en krimpt per stap naar l
 (#635 stap I). Een regel toevoegen mag, maar niet stilzwijgend: het is een
 zichtbare diff in deze test, met de reden in de commit.
 """
+
 import ast
 import importlib
 import inspect
 from pathlib import Path
 
-from tests._bestanden import bestanden
-
 import pytest
+
+from tests._bestanden import bestanden
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
@@ -120,8 +121,7 @@ def _import_overtredingen(pad: Path) -> list[str]:
             continue
         for alias in node.names:
             if alias.name.startswith("_") and (node.module, alias.name) != VERTAALFUNCTIE:
-                fouten.append(f"regel {node.lineno}: private naam "
-                              f"{node.module}.{alias.name}")
+                fouten.append(f"regel {node.lineno}: private naam {node.module}.{alias.name}")
     return fouten
 
 
@@ -149,8 +149,10 @@ def _facade_namen(pad: Path) -> dict[str, set[str]]:
 
 
 def _melding(regel: str, treffers: dict[str, list[str]]) -> str:
-    blokken = [f"  {mod}:\n" + "\n".join(f"    {r}" for r in fouten)
-               for mod, fouten in sorted(treffers.items())]
+    blokken = [
+        f"  {mod}:\n" + "\n".join(f"    {r}" for r in fouten)
+        for mod, fouten in sorted(treffers.items())
+    ]
     return f"{regel}\n" + "\n".join(blokken)
 
 
@@ -165,7 +167,8 @@ def test_ui_importeert_geen_models_routers_of_private_namen():
         if fouten:
             treffers[mod] = fouten
     assert not treffers, _melding(
-        "Een UI-module importeert uit een domein enkel api.py (#635 regel 1):", treffers)
+        "Een UI-module importeert uit een domein enkel api.py (#635 regel 1):", treffers
+    )
 
 
 def test_ui_raakt_de_sessie_niet_zelf_aan():
@@ -179,8 +182,8 @@ def test_ui_raakt_de_sessie_niet_zelf_aan():
         if fouten:
             treffers[mod] = fouten
     assert not treffers, _melding(
-        "Zet de query/commit in <domein>/service.py en roep die aan (#635 regel 2):",
-        treffers)
+        "Zet de query/commit in <domein>/service.py en roep die aan (#635 regel 2):", treffers
+    )
 
 
 def test_de_facade_geeft_de_ui_geen_ormklassen_of_routerfuncties():
@@ -207,15 +210,15 @@ def test_de_facade_geeft_de_ui_geen_ormklassen_of_routerfuncties():
                     continue
                 if hasattr(obj, "__table__"):
                     fouten.append(f"{domein}.api.{naam} is een ORM-klasse")
-                elif (inspect.isfunction(obj)
-                      and obj.__module__.rsplit(".", 1)[-1].endswith("router")):
-                    fouten.append(f"{domein}.api.{naam} komt uit "
-                                  f"{obj.__module__} (routerfunctie)")
+                elif inspect.isfunction(obj) and obj.__module__.rsplit(".", 1)[-1].endswith(
+                    "router"
+                ):
+                    fouten.append(f"{domein}.api.{naam} komt uit {obj.__module__} (routerfunctie)")
         if fouten:
             treffers[mod] = fouten
     assert not treffers, _melding(
-        "Laat de service teruggeven wat het scherm nodig heeft (#635 regel 3):",
-        treffers)
+        "Laat de service teruggeven wat het scherm nodig heeft (#635 regel 3):", treffers
+    )
 
 
 def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
@@ -225,8 +228,7 @@ def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
     te noemen. De JSON-composer staat bij naam in JSON_IN_UI_PAKKET.
     """
     fouten = []
-    for pad in bestanden(APP.glob("ui/*.py"), wat="de modules in app/ui/",
-                         minstens=3):
+    for pad in bestanden(APP.glob("ui/*.py"), wat="de modules in app/ui/", minstens=3):
         if pad.name.endswith("_ui.py") or pad.name in JSON_IN_UI_PAKKET:
             continue
         if "APIRouter" in pad.read_text(encoding="utf-8"):
@@ -238,11 +240,15 @@ def _letterlijke_contexten(pad: Path) -> list[str]:
     """TemplateResponse-aanroepen met een dict-literal als context."""
     fouten = []
     for node in ast.walk(ast.parse(pad.read_text(encoding="utf-8"))):
-        if not (isinstance(node, ast.Call)
-                and getattr(node.func, "attr", None) == "TemplateResponse"):
+        if not (
+            isinstance(node, ast.Call) and getattr(node.func, "attr", None) == "TemplateResponse"
+        ):
             continue
-        context = node.args[2] if len(node.args) >= 3 else next(
-            (k.value for k in node.keywords if k.arg == "context"), None)
+        context = (
+            node.args[2]
+            if len(node.args) >= 3
+            else next((k.value for k in node.keywords if k.arg == "context"), None)
+        )
         if isinstance(context, ast.Dict):
             fouten.append(f"regel {node.lineno}: letterlijke dict als context")
     return fouten
@@ -266,5 +272,5 @@ def test_de_template_context_komt_uit_een_view_model():
         if fouten:
             treffers[mod] = fouten
     assert not treffers, _melding(
-        "Bouw een <Scherm>View(ViewModel) en geef .as_context() door (#643-F):",
-        treffers)
+        "Bouw een <Scherm>View(ViewModel) en geef .as_context() door (#643-F):", treffers
+    )

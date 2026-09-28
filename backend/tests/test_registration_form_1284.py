@@ -31,6 +31,7 @@ Broken on purpose (28 September 2026), one violation at a time:
 | the board's price refresh not carrying the quantities | the same test, on "the entered quantity was lost" |
 | the public channel given a price refresh too | only the board refreshes prices on the address |
 """
+
 import re
 from datetime import date
 from decimal import Decimal
@@ -63,8 +64,15 @@ def member(db_session):
 
     household, person = create_test_family(db_session, email=MEMBER)
     year = date.today().year
-    db_session.add(Membership(member_id=household.id, year=year, is_active=True,
-                              valid_from=date(year, 1, 1), valid_to=date(year, 12, 31)))
+    db_session.add(
+        Membership(
+            member_id=household.id,
+            year=year,
+            is_active=True,
+            valid_from=date(year, 1, 1),
+            valid_to=date(year, 12, 31),
+        )
+    )
     db_session.flush()
     return person
 
@@ -91,18 +99,28 @@ def _send(client, channel: str, act, data: dict, *, visitor_email: str | None = 
         client.cookies.clear()
         if visitor_email:
             client.cookies.set(SESSION_COOKIE, make_session_value(visitor_email))
-        return client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                           data=data, headers={"HX-Request": "true"})
+        return client.post(
+            f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+            data=data,
+            headers={"HX-Request": "true"},
+        )
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
-    return client.post(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw",
-                       data={"onderdeel": str(component.id), **data},
-                       headers={"HX-Request": "true", "X-CSRF-Token": csrf_token_for(value)})
+    return client.post(
+        f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw",
+        data={"onderdeel": str(component.id), **data},
+        headers={"HX-Request": "true", "X-CSRF-Token": csrf_token_for(value)},
+    )
 
 
 def _form(act, *, email: str, quantity: int = 1, method: str = "transfer") -> dict:
-    return {"contact_name": "Deelnemer 1284", "contact_email": email, "phone": "0470000000",
-            f"product_{act[2].id}": str(quantity), "payment_method": method}
+    return {
+        "contact_name": "Deelnemer 1284",
+        "contact_email": email,
+        "phone": "0470000000",
+        f"product_{act[2].id}": str(quantity),
+        "payment_method": method,
+    }
 
 
 def _saved(db, act) -> list:
@@ -112,9 +130,14 @@ def _saved(db, act) -> list:
 def _charged(db, registration) -> Decimal | None:
     from app.domains.payment.api import PayableType, PaymentRecord
 
-    record = db.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == PayableType.REGISTRATION,
-        PaymentRecord.payable_id == registration.id).one_or_none()
+    record = (
+        db.query(PaymentRecord)
+        .filter(
+            PaymentRecord.payable_type == PayableType.REGISTRATION,
+            PaymentRecord.payable_id == registration.id,
+        )
+        .one_or_none()
+    )
     return record.amount if record else None
 
 
@@ -128,6 +151,7 @@ def _landed(channel, resp, registration) -> None:
 
 
 # ── The same cases through both channels ──────────────────────────────────────
+
 
 @pytest.mark.parametrize("channel", CHANNELS)
 def test_a_free_registration(client, db_session, free, channel):
@@ -181,6 +205,7 @@ def test_an_invalid_address_is_refused(client, db_session, paid, channel):
 
 # ── Shown and charged are the same amount ─────────────────────────────────────
 
+
 @pytest.mark.parametrize("channel", CHANNELS)
 @pytest.mark.parametrize("who", [MEMBER, OTHER])
 def test_the_total_shown_is_the_amount_charged(client, db_session, paid, member, channel, who):
@@ -197,19 +222,25 @@ def test_the_total_shown_is_the_amount_charged(client, db_session, paid, member,
     else:
         value = make_session_value(SEEDED_ADMIN_EMAIL)
         client.cookies.set(SESSION_COOKIE, value)
-        shown = client.post(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/totaal",
-                            data={"onderdeel": str(component.id), **data},
-                            headers={"X-CSRF-Token": csrf_token_for(value)}).text
+        shown = client.post(
+            f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/totaal",
+            data={"onderdeel": str(component.id), **data},
+            headers={"X-CSRF-Token": csrf_token_for(value)},
+        ).text
     amount = re.search(r"€\s*([\d.,]+)", shown).group(1)
     shown_total = Decimal(amount.replace(".", "").replace(",", "."))
 
     _send(client, channel, paid, data, visitor_email=who)
     [reg] = _saved(db_session, paid)
-    assert shown_total == _charged(db_session, reg) == (
-        Decimal("12.00") if who == MEMBER else Decimal("20.00"))
+    assert (
+        shown_total
+        == _charged(db_session, reg)
+        == (Decimal("12.00") if who == MEMBER else Decimal("20.00"))
+    )
 
 
 # ── The channel-specific differences, and only those ──────────────────────────
+
 
 def _field_names(html: str) -> set[str]:
     return set(re.findall(r'<(?:input|select|textarea)[^>]*\sname="([^"]+)"', html))
@@ -224,11 +255,16 @@ def test_both_channels_render_the_same_fields(client, db_session, paid):
     public = client.get(f"/activiteiten/{activity.id}/inschrijven/{component.id}").text
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     board = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw").text
-    board_form = board[board.index('id="inschrijving-nieuw-form"'):]
+    board_form = board[board.index('id="inschrijving-nieuw-form"') :]
 
     public_fields = _field_names(public)
-    assert {"contact_name", "contact_email", "phone", "payment_method",
-            f"product_{product.id}"} <= public_fields, public_fields
+    assert {
+        "contact_name",
+        "contact_email",
+        "phone",
+        "payment_method",
+        f"product_{product.id}",
+    } <= public_fields, public_fields
     assert _field_names(board_form) - {"csrf_token", "onderdeel"} == public_fields
 
 
@@ -245,8 +281,13 @@ def test_a_back_office_product_is_offered_to_the_board_only(client, db_session, 
     from app.domains.activities.api import ActivityProduct
 
     activity, component, product = paid
-    hidden = ActivityProduct(component_id=component.id, name="Enkel bestuur",
-                             price=Decimal("5.00"), is_free=False, is_active=False)
+    hidden = ActivityProduct(
+        component_id=component.id,
+        name="Enkel bestuur",
+        price=Decimal("5.00"),
+        is_free=False,
+        is_active=False,
+    )
     db_session.add(hidden)
     db_session.flush()
     client.cookies.clear()
@@ -257,11 +298,13 @@ def test_a_back_office_product_is_offered_to_the_board_only(client, db_session, 
     assert f'name="product_{hidden.id}"' in board and "niet publiek" in board
 
 
-@pytest.mark.parametrize("channel, back", [
-    ("public", "/betaling/succes?registration={id}"),
-    ("board", "/admin/inschrijvingen/{id}")])
-def test_mollie_returns_each_channel_to_its_own_page(client, db_session, paid, channel,
-                                                     back, monkeypatch):
+@pytest.mark.parametrize(
+    "channel, back",
+    [("public", "/betaling/succes?registration={id}"), ("board", "/admin/inschrijvingen/{id}")],
+)
+def test_mollie_returns_each_channel_to_its_own_page(
+    client, db_session, paid, channel, back, monkeypatch
+):
     from app.domains.payment.providers import mollie
     from app.domains.payment.providers.base import PaymentResult
 
@@ -269,8 +312,11 @@ def test_mollie_returns_each_channel_to_its_own_page(client, db_session, paid, c
 
     def fake_create_payment(self, amount, description, redirect_url, webhook_url, metadata):
         seen["redirect_url"] = redirect_url
-        return PaymentResult(provider_payment_id="tr_1284", status="pending",
-                             checkout_url="https://mollie.test/checkout/tr_1284")
+        return PaymentResult(
+            provider_payment_id="tr_1284",
+            status="pending",
+            checkout_url="https://mollie.test/checkout/tr_1284",
+        )
 
     monkeypatch.setattr(mollie.MollieProvider, "create_payment", fake_create_payment)
     _send(client, channel, paid, _form(paid, email=OTHER, method="online"))
@@ -291,15 +337,20 @@ def test_the_public_form_never_prices_by_the_typed_address(client, db_session, p
 
 # ── Koen's answer: the board's rows follow the typed member address ──────────
 
+
 def _board_prices(client, act, email: str, quantity: int) -> str:
     activity, component, product = act
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     return client.post(
         f"/admin/activiteiten/{activity.id}/inschrijvingen/nieuw/prijzen",
-        data={"onderdeel": str(component.id), "contact_email": email,
-              f"product_{product.id}": str(quantity)},
-        headers={"X-CSRF-Token": csrf_token_for(value)}).text
+        data={
+            "onderdeel": str(component.id),
+            "contact_email": email,
+            f"product_{product.id}": str(quantity),
+        },
+        headers={"X-CSRF-Token": csrf_token_for(value)},
+    ).text
 
 
 def test_the_board_rows_follow_the_typed_member_address(client, db_session, paid, member):
@@ -311,7 +362,8 @@ def test_the_board_rows_follow_the_typed_member_address(client, db_session, paid
     assert "€10,00 / leden €6,00" in for_member, for_member[:600]
     assert "€12,00" in for_member and "ledenprijs" in for_member
     assert re.search(rf'name="product_{product.id}"[^>]*value="2"', for_member), (
-        "the entered quantity was lost in the refresh")
+        "the entered quantity was lost in the refresh"
+    )
     assert 'name="contact_email"' not in for_member, "the address field is part of the swap"
 
     for_guest = _board_prices(client, paid, OTHER, 2)

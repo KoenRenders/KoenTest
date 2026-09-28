@@ -14,6 +14,7 @@ dat niet verplicht is, wat de gebruiker even hard misleidt.
 De koppeling loopt via `label for=` ↔ `control id=`, niet via een telling: twee
 even grote verzamelingen kunnen nog altijd de verkeerde velden bevatten.
 """
+
 import re
 
 from tests.conftest import seed_postal_code
@@ -21,14 +22,13 @@ from tests.conftest import seed_postal_code
 # Het sterretje zoals de B2-conventie het voorschrijft (docs/ui-conventies.md:383).
 ROOD_STERRETJE = re.compile(r'class="text-red-600">\s*\*')
 LABEL = re.compile(r'<label\s+for="([^"]+)"[^>]*>(.*?)</label>', re.S)
-CONTROL = re.compile(r'<(input|select|textarea)\s([^>]*)>', re.S)
+CONTROL = re.compile(r"<(input|select|textarea)\s([^>]*)>", re.S)
 ID_ATTR = re.compile(r'\bid="([^"]+)"')
 
 
 def _gemarkeerd(html: str) -> set[str]:
     """Veld-id's waarvan het label een rood sterretje draagt."""
-    return {for_id for for_id, inhoud in LABEL.findall(html)
-            if ROOD_STERRETJE.search(inhoud)}
+    return {for_id for for_id, inhoud in LABEL.findall(html) if ROOD_STERRETJE.search(inhoud)}
 
 
 def _verplicht(html: str) -> set[str]:
@@ -36,7 +36,7 @@ def _verplicht(html: str) -> set[str]:
     ids = set()
     for _tag, attrs in CONTROL.findall(html):
         treffer = ID_ATTR.search(attrs)
-        if treffer and re.search(r'(?:^|\s)required(?:[\s=>]|$)', attrs):
+        if treffer and re.search(r"(?:^|\s)required(?:[\s=>]|$)", attrs):
             ids.add(treffer.group(1))
     return ids
 
@@ -64,13 +64,15 @@ def _radiogroepen(html: str) -> set[str]:
 def _controleer(html: str, *, minstens: set[str]) -> None:
     gemarkeerd, verplicht = _gemarkeerd(html), _verplicht(html)
     assert minstens <= verplicht, (
-        f"velden die verplicht horen te zijn, zijn het niet: {sorted(minstens - verplicht)}")
+        f"velden die verplicht horen te zijn, zijn het niet: {sorted(minstens - verplicht)}"
+    )
     assert verplicht - gemarkeerd == set(), (
-        "verplicht veld zonder rood sterretje (#646): "
-        f"{sorted(verplicht - gemarkeerd)}")
+        f"verplicht veld zonder rood sterretje (#646): {sorted(verplicht - gemarkeerd)}"
+    )
     assert gemarkeerd - verplicht - _radiogroepen(html) == set(), (
         "rood sterretje bij een veld dat niet verplicht is: "
-        f"{sorted(gemarkeerd - verplicht - _radiogroepen(html))}")
+        f"{sorted(gemarkeerd - verplicht - _radiogroepen(html))}"
+    )
 
 
 def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_session):
@@ -80,8 +82,7 @@ def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_sessio
     assert resp.status_code == 200
     # E-mail en GSM zijn de twee velden uit de melding; voornaam/achternaam
     # deden het al goed en horen mee in dezelfde vergelijking.
-    _controleer(resp.text,
-                minstens={"m0_first_name", "m0_last_name", "m0_email", "m0_mobile"})
+    _controleer(resp.text, minstens={"m0_first_name", "m0_last_name", "m0_email", "m0_mobile"})
 
 
 def test_bijkomend_lid_geboortedatum_en_geslacht_dragen_het_rode_sterretje(client, db_session):
@@ -101,10 +102,14 @@ def test_geen_grijs_sterretje_meer_in_de_labeltekst(client, db_session):
     """De concrete regressie: een `*` in de labeltekst erft `text-gray-700`.
     Elk sterretje in een label hoort in de rode span te zitten."""
     seed_postal_code(db_session, code="2400", municipality="Mol")
-    for html in (client.get("/lid-worden").text,
-                 client.get("/lid-worden/persoon-rij?index=1").text):
+    for html in (
+        client.get("/lid-worden").text,
+        client.get("/lid-worden/persoon-rij?index=1").text,
+    ):
         for for_id, inhoud in LABEL.findall(html):
-            zonder_rode_span = re.sub(r'<span class="text-red-600">.*?</span>', "",
-                                      inhoud, flags=re.S)
+            zonder_rode_span = re.sub(
+                r'<span class="text-red-600">.*?</span>', "", inhoud, flags=re.S
+            )
             assert "*" not in zonder_rode_span, (
-                f"sterretje buiten de rode span in het label van {for_id}")
+                f"sterretje buiten de rode span in het label van {for_id}"
+            )

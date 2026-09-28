@@ -22,6 +22,7 @@ you pick an object — fold three classes, choose one thing, and you face all 93
 lines again. So the fold travels in the panel state, and `test_the_fold_survives_
 choosing_an_object` is the test that says so.
 """
+
 from __future__ import annotations
 
 import re
@@ -51,18 +52,21 @@ def _objectknop(tekst: str, key: str) -> str:
     as well. Matching loosely would pass on the wrong element — and this whole
     file is about which button does what. So: `add` or `remove`, and pressed.
     """
-    knoppen = [m.group(0) for m in re.finditer(r"<button\b[^>]*>", tekst)
-               if f'value="{key}"' in m.group(0) and "aria-pressed" in m.group(0)
-               and ('name="add"' in m.group(0) or 'name="remove"' in m.group(0))]
-    assert len(knoppen) == 1, (
-        f"verwacht één objectknop voor {key}, gevonden {len(knoppen)}")
+    knoppen = [
+        m.group(0)
+        for m in re.finditer(r"<button\b[^>]*>", tekst)
+        if f'value="{key}"' in m.group(0)
+        and "aria-pressed" in m.group(0)
+        and ('name="add"' in m.group(0) or 'name="remove"' in m.group(0))
+    ]
+    assert len(knoppen) == 1, f"verwacht één objectknop voor {key}, gevonden {len(knoppen)}"
     return knoppen[0]
 
 
 # ── #876: een object uit de selectie klikken ────────────────────────────────
 
-def test_a_chosen_object_offers_remove_instead_of_add(client, db_session,
-                                                      situation):
+
+def test_a_chosen_object_offers_remove_instead_of_add(client, db_session, situation):
     """The whole bug: the button always sent `add`, even beside a ✓."""
     login(client, db_session)
     knop = _objectknop(_paneel(client, "?object=payment_amount"), "payment_amount")
@@ -79,14 +83,14 @@ def test_an_unchosen_object_still_offers_add(client, db_session, situation):
 
 def test_clicking_a_chosen_object_takes_it_out(client, db_session, situation):
     login(client, db_session)
-    tekst = _paneel(client, "?object=payment_amount&object=payment_method"
-                            "&remove=payment_amount")
+    tekst = _paneel(client, "?object=payment_amount&object=payment_method&remove=payment_amount")
     assert 'name="object" value="payment_amount"' not in tekst
     assert 'name="object" value="payment_method"' in tekst
 
 
 def test_the_state_is_announced_and_the_title_says_what_the_click_does(
-        client, db_session, situation):
+    client, db_session, situation
+):
     """The ✓ alone reads as "done", not as "click to undo"."""
     login(client, db_session)
     knop = _objectknop(_paneel(client, "?object=payment_amount"), "payment_amount")
@@ -94,24 +98,27 @@ def test_the_state_is_announced_and_the_title_says_what_the_click_does(
     assert "uit het rapport te halen" in knop
 
 
-def test_removing_an_object_leaves_its_filter_alone(client, db_session,
-                                                    situation):
+def test_removing_an_object_leaves_its_filter_alone(client, db_session, situation):
     """Two separate actions with two separate remove buttons.
 
     A click that silently drops a filter as well changes the result in a way
     nobody expects — and the filter has its own control right beside it.
     """
     login(client, db_session)
-    tekst = _paneel(client, "?object=payment_method&object=payment_amount"
-                            "&filter=payment_method&op_payment_method=eq"
-                            "&v_payment_method=Online&remove=payment_method")
+    tekst = _paneel(
+        client,
+        "?object=payment_method&object=payment_amount"
+        "&filter=payment_method&op_payment_method=eq"
+        "&v_payment_method=Online&remove=payment_method",
+    )
     assert 'name="object" value="payment_method"' not in tekst
     assert 'name="filter" value="payment_method"' in tekst, (
-        "de filter hoort te blijven staan; hij is een eigen keuze met een eigen "
-        "verwijderknop")
+        "de filter hoort te blijven staan; hij is een eigen keuze met een eigen verwijderknop"
+    )
 
 
 # ── #872: klassen in- en uitklappen ─────────────────────────────────────────
+
 
 def test_every_class_starts_open(client, db_session, situation):
     """Koen asked for default-open: the screen looks the way it does today."""
@@ -140,24 +147,23 @@ def test_the_fold_survives_choosing_an_object(client, db_session, situation):
     assert 'name="closed" value="Leden"' in tekst
     assert 'name="closed" value="Taken"' in tekst
     assert 'name="object" value="payment_amount"' in tekst, (
-        "en het gekozen object staat erin, anders meet deze test niets")
+        "en het gekozen object staat erin, anders meet deze test niets"
+    )
 
 
-def test_a_folded_class_shows_how_many_you_chose_in_it(client, db_session,
-                                                       situation):
+def test_a_folded_class_shows_how_many_you_chose_in_it(client, db_session, situation):
     """With the selection summary dropped at Koen's request, this is the only
     place a closed class still shows your choice."""
     login(client, db_session)
-    tekst = _paneel(client, "?object=payment_amount&object=payment_method"
-                            "&closed=Betalingen")
+    tekst = _paneel(client, "?object=payment_amount&object=payment_method&closed=Betalingen")
     # Two objects chosen, both in Betalingen, and that class is shut.
     assert ">2</span>" in tekst, (
         "een dichte klasse hoort te tonen hoeveel je erin koos; zonder dat "
-        "verbergt inklappen precies wat je wou overzien")
+        "verbergt inklappen precies wat je wou overzien"
+    )
 
 
-def test_folding_a_class_does_not_change_the_selection(client, db_session,
-                                                       situation):
+def test_folding_a_class_does_not_change_the_selection(client, db_session, situation):
     """Folding is a viewing preference. It may not touch the report."""
     login(client, db_session)
     query = "?object=payment_method&object=payment_amount"
@@ -184,6 +190,7 @@ def test_an_unknown_class_is_ignored(client, db_session, situation):
 
 # ── De beslissing zelf ──────────────────────────────────────────────────────
 
+
 def test_the_two_reversal_idioms_stay_apart(client, db_session, situation):
     """One decision, applied by kind of control and not by screen.
 
@@ -193,8 +200,9 @@ def test_the_two_reversal_idioms_stay_apart(client, db_session, situation):
     deliberate, not that one of them is.
     """
     login(client, db_session)
-    tekst = _paneel(client, "?object=payment_method&object=payment_payable_type"
-                            "&object=payment_amount&layout=pivot")
+    tekst = _paneel(
+        client,
+        "?object=payment_method&object=payment_payable_type&object=payment_amount&layout=pivot",
+    )
     assert 'name="set_column" value=""' in tekst, "de as: een expliciete 'geen'"
-    assert 'name="remove"' in _objectknop(tekst, "payment_method"), (
-        "het object: een tweede klik")
+    assert 'name="remove"' in _objectknop(tekst, "payment_method"), "het object: een tweede klik"

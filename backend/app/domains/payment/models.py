@@ -1,9 +1,18 @@
 import uuid as uuid_lib
 from datetime import datetime, timezone
+
 from sqlalchemy import (
-    JSON, Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String,
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
 from app.kernel.codes import CodeEnum, EnumColumn
@@ -86,15 +95,14 @@ class PaymentStatusLabel(Base):
     __tablename__ = "payment_status_labels"
     __table_args__ = {"schema": "payment"}
 
-    code = Column(String(20), ForeignKey("payment.payment_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("payment.payment_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class PaymentTypeCode(Base):
@@ -111,15 +119,14 @@ class PaymentTypeLabel(Base):
     __tablename__ = "payment_type_labels"
     __table_args__ = {"schema": "payment"}
 
-    code = Column(String(20), ForeignKey("payment.payment_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("payment.payment_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class PayableTypeCode(Base):
@@ -136,15 +143,14 @@ class PayableTypeLabel(Base):
     __tablename__ = "payable_type_labels"
     __table_args__ = {"schema": "payment"}
 
-    code = Column(String(50), ForeignKey("payment.payable_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(50), ForeignKey("payment.payable_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class PaymentProviderCode(Base):
@@ -161,15 +167,14 @@ class PaymentProviderLabel(Base):
     __tablename__ = "payment_provider_labels"
     __table_args__ = {"schema": "payment"}
 
-    code = Column(String(20), ForeignKey("payment.payment_provider_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("payment.payment_provider_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class PaymentRecord(TenantMixin, SoftDeleteMixin, Base):
@@ -182,26 +187,37 @@ class PaymentRecord(TenantMixin, SoftDeleteMixin, Base):
     # is what lets mypy see these four attributes' types at all. `EnumColumn`
     # writes `member.value`, so the column still holds `paid`, never `PAID`.
     payable_type: Mapped[PayableType] = mapped_column(
-        EnumColumn(PayableType, length=50), nullable=False, index=True)
+        EnumColumn(PayableType, length=50), nullable=False, index=True
+    )
     payable_id = Column(Integer, nullable=False, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     method: Mapped[PaymentMethod] = mapped_column(
-        EnumColumn(PaymentMethod, length=20), nullable=False)
+        EnumColumn(PaymentMethod, length=20), nullable=False
+    )
     status: Mapped[PaymentStatus] = mapped_column(
-        EnumColumn(PaymentStatus, length=20), nullable=False,
-        default=PaymentStatus.PENDING)
+        EnumColumn(PaymentStatus, length=20), nullable=False, default=PaymentStatus.PENDING
+    )
     type: Mapped[PaymentType] = mapped_column(
-        EnumColumn(PaymentType, length=10), nullable=False,
-        default=PaymentType.CHARGE)
+        EnumColumn(PaymentType, length=10), nullable=False, default=PaymentType.CHARGE
+    )
     # Een refund verwijst naar de charge die het terugdraait (self-FK).
     refund_of_id = Column(String(36), ForeignKey("payment.payment_records.id"), nullable=True)
-    gateway_payment_id = Column(String(36), ForeignKey("payment.gateway_payments.id"), nullable=True)
+    gateway_payment_id = Column(
+        String(36), ForeignKey("payment.gateway_payments.id"), nullable=True
+    )
     amount_paid = Column(Numeric(10, 2), nullable=True)
     note = Column(String(200), nullable=True)
     structured_communication = Column(String(20), nullable=True)  # OGM voor overschrijving (#157)
     paid_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     gateway_payment = relationship("GatewayPayment")
     refund_of = relationship("PaymentRecord", remote_side=[id])
@@ -213,7 +229,8 @@ class GatewayPayment(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid_lib.uuid4()))
     provider: Mapped[PaymentProvider] = mapped_column(
-        EnumColumn(PaymentProvider, length=20), nullable=False)
+        EnumColumn(PaymentProvider, length=20), nullable=False
+    )
     provider_payment_id = Column(String(100), nullable=True, index=True)
     amount = Column(Numeric(10, 2), nullable=False)
     currency = Column(String(3), default="EUR", nullable=False)
@@ -226,8 +243,15 @@ class GatewayPayment(TenantMixin, SoftDeleteMixin, Base):
     checkout_url = Column(String(500), nullable=True)
     description = Column(String(200), nullable=True)
     payment_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class PaymentRecordHistory(TenantMixin, Base):
@@ -242,7 +266,12 @@ class PaymentRecordHistory(TenantMixin, Base):
     action = Column(String(40), nullable=False)
     source = Column(String(30), nullable=False)
     actor = Column(String(255), nullable=True)
-    recorded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    recorded_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
 
     payment_record_id = Column(String(36), nullable=False, index=True)
     payable_type = Column(String(50), nullable=True)
@@ -251,9 +280,8 @@ class PaymentRecordHistory(TenantMixin, Base):
     amount_paid = Column(Numeric(10, 2), nullable=True)
     method = Column(String(20), nullable=True)
     status = Column(String(20), nullable=True)
-    type = Column(String(10), nullable=True)          # charge / refund (#83)
+    type = Column(String(10), nullable=True)  # charge / refund (#83)
     refund_of_id = Column(String(36), nullable=True)  # charge die deze refund terugdraait (#83)
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)
-

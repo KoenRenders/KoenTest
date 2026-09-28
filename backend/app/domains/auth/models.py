@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.database import Base
 from app.kernel.codes import CodeEnum, EnumColumn
 from app.soft_delete import SoftDeleteMixin
@@ -37,7 +38,6 @@ class Role(CodeEnum):
     USER = "USER"
 
 
-
 class User(SoftDeleteMixin, Base):
     __tablename__ = "users"
     __table_args__ = {"schema": "auth"}
@@ -50,8 +50,15 @@ class User(SoftDeleteMixin, Base):
     # (WHERE deleted_at IS NULL) — zie migratie 051.
     email = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
 
@@ -63,6 +70,7 @@ class UserRole(Base):
     partiële unieke indexen van migratie 127 bewaken de uniciteit. Bewust
     GEEN tenant-mixin: rollen worden expliciet gefilterd (NULL ∪ actieve
     werkruimte), nooit stil door de tenant-listener."""
+
     __tablename__ = "user_roles"
     __table_args__ = {"schema": "auth"}
 
@@ -74,10 +82,12 @@ class UserRole(Base):
     # service layer, and that is one layer too high for something a
     # permission check relies on.
     role_code: Mapped[Role] = mapped_column(
-        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"),
-        nullable=False)
+        EnumColumn(Role, length=20), ForeignKey("auth.role_codes.code"), nullable=False
+    )
     tenant_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
     user = relationship("User", back_populates="roles")
 
@@ -97,7 +107,9 @@ class ApiKey(Base):
     name = Column(String(100), nullable=False, unique=True)
     key_hash = Column(String(64), nullable=False, unique=True, index=True)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 
@@ -112,7 +124,9 @@ class LoginToken(Base):
     email = Column(String(255), nullable=True)
     token = Column(String(128), nullable=False, unique=True, index=True)
     # 6-cijferige code als alternatief voor de magic-link (cross-device login).
-    otp_code = Column(String(64), nullable=True, index=True)  # SHA-256-hash (#395), nooit de code zelf
+    otp_code = Column(
+        String(64), nullable=True, index=True
+    )  # SHA-256-hash (#395), nooit de code zelf
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
     # Pogingteller voor OTP-brute-force-lockout (#268): na MAX_OTP_ATTEMPTS foute
@@ -136,8 +150,9 @@ class RoleCode(Base):
     code = Column(String(20), primary_key=True)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 class RoleLabel(Base):
@@ -147,12 +162,15 @@ class RoleLabel(Base):
     __table_args__ = {"schema": "auth"}
 
     code = Column(String(20), ForeignKey("auth.role_codes.code"), primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

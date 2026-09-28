@@ -1,13 +1,14 @@
 """Veiligheids- en geldstroomtests: precies de grenzen waar een fout een lid
 geld kost of data lekt."""
 
-import pytest
-pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
-from tests.conftest import seed_postal_code, seed_activity_with_product
-from app.domains.payment.api import PayableType
-from app.domains.payment.api import PaymentStatus
+import pytest
+
+from app.domains.payment.api import PayableType, PaymentStatus
+from tests.conftest import seed_activity_with_product, seed_postal_code
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _family_payload(email="lid@example.com", street="Milostraat", postal="2400"):
@@ -18,9 +19,13 @@ def _family_payload(email="lid@example.com", street="Milostraat", postal="2400")
         "payment_method": "transfer",
         "members": [
             {
-                "last_name": "Janssens", "first_name": "An",
-                "email": email, "mobile": "0470123456",
-                "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID",
+                "last_name": "Janssens",
+                "first_name": "An",
+                "email": email,
+                "mobile": "0470123456",
+                "date_of_birth": "1980-01-01",
+                "gender_code": "M",
+                "relation_type": "HOOFDLID",
             }
         ],
     }
@@ -38,34 +43,50 @@ def test_membership_amount_is_server_side(client, db_session):
 def test_activity_negative_quantity_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
-        "component_id": comp.id,
-        "items": [{"product_id": product.id, "quantity": -1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "Test",
+            "phone": "0470000000",
+            "contact_email": "t@example.com",
+            "component_id": comp.id,
+            "items": [{"product_id": product.id, "quantity": -1}],
+        },
+    )
     assert resp.status_code == 400
 
 
 def test_activity_invalid_product_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
-        "component_id": comp.id,
-        "items": [{"product_id": product.id + 9999, "quantity": 1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "Test",
+            "phone": "0470000000",
+            "contact_email": "t@example.com",
+            "component_id": comp.id,
+            "items": [{"product_id": product.id + 9999, "quantity": 1}],
+        },
+    )
     assert resp.status_code == 400
 
 
 def test_activity_quantity_over_max_rejected(client, db_session):
     from app.config import settings
+
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
-        "component_id": comp.id,
-        "items": [{"product_id": product.id, "quantity": settings.max_item_quantity + 1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "Test",
+            "phone": "0470000000",
+            "contact_email": "t@example.com",
+            "component_id": comp.id,
+            "items": [{"product_id": product.id, "quantity": settings.max_item_quantity + 1}],
+        },
+    )
     assert resp.status_code == 400
 
 
@@ -86,7 +107,12 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
 
     # Zet het betaalrecord van die inschrijving op 'failed'.
     from app.domains.payment.api import PaymentRecord
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
+
+    rec = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
+        .first()
+    )
     rec.status = "failed"
     db_session.flush()
 
@@ -97,15 +123,21 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
 def test_activity_registration_limit_per_email(client, db_session):
     """Boven MAX_REGISTRATIONS_PER_EMAIL inschrijvingen → 409."""
     from app.config import settings
+
     _, comp, product = seed_activity_with_product(db_session, is_free=True)
     activity_id = comp.activity_id
 
     def register():
-        return client.post(f"/api/v1/activities/{activity_id}/register", json={
-            "contact_name": "Gezin", "phone": "0470000000", "contact_email": "gezin@example.com",
-            "component_id": comp.id,
-            "items": [{"product_id": product.id, "quantity": 1}],
-        })
+        return client.post(
+            f"/api/v1/activities/{activity_id}/register",
+            json={
+                "contact_name": "Gezin",
+                "phone": "0470000000",
+                "contact_email": "gezin@example.com",
+                "component_id": comp.id,
+                "items": [{"product_id": product.id, "quantity": 1}],
+            },
+        )
 
     for _ in range(settings.max_registrations_per_email):
         assert register().status_code == 200
@@ -117,28 +149,39 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
     """#158 — de limiet telt per onderdeel, niet per activiteit: vol zitten op
     onderdeel A mag inschrijven op onderdeel B van dezelfde activiteit niet blokkeren."""
     from decimal import Decimal
+
     from app.config import settings
-    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
+    from app.domains.activities.api import ActivityProduct, ActivitySubRegistration
 
     activity, comp_a, product_a = seed_activity_with_product(db_session, is_free=True)
     comp_b = ActivitySubRegistration(
-        activity_id=activity.id, name="Onderdeel B",
-        registration_type_code="INDIVIDUAL", price=Decimal("0"), is_free=True,
+        activity_id=activity.id,
+        name="Onderdeel B",
+        registration_type_code="INDIVIDUAL",
+        price=Decimal("0"),
+        is_free=True,
     )
     db_session.add(comp_b)
     db_session.flush()
-    product_b = ActivityProduct(component_id=comp_b.id, name="Product B", price=Decimal("0"), is_free=True)
+    product_b = ActivityProduct(
+        component_id=comp_b.id, name="Product B", price=Decimal("0"), is_free=True
+    )
     db_session.add(product_b)
     db_session.flush()
 
     email = "multi@example.com"
 
     def register(comp, product):
-        return client.post(f"/api/v1/activities/{activity.id}/register", json={
-            "contact_name": "Gezin", "phone": "0470000000", "contact_email": email,
-            "component_id": comp.id,
-            "items": [{"product_id": product.id, "quantity": 1}],
-        })
+        return client.post(
+            f"/api/v1/activities/{activity.id}/register",
+            json={
+                "contact_name": "Gezin",
+                "phone": "0470000000",
+                "contact_email": email,
+                "component_id": comp.id,
+                "items": [{"product_id": product.id, "quantity": 1}],
+            },
+        )
 
     for _ in range(settings.max_registrations_per_email):
         assert register(comp_a, product_a).status_code == 200
@@ -153,6 +196,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
     seed_postal_code(db_session)
     client.post("/api/v1/families", json=_family_payload(email="pay@example.com"))
     from app.domains.payment.api import PaymentRecord
+
     rec = db_session.query(PaymentRecord).first()
 
     resp = client.patch(
@@ -168,6 +212,7 @@ def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
     seed_postal_code(db_session)
     client.post("/api/v1/families", json=_family_payload(email="neg@example.com"))
     from app.domains.payment.api import PaymentRecord
+
     rec = db_session.query(PaymentRecord).first()
 
     resp = client.patch(
@@ -182,11 +227,16 @@ def test_activity_invalid_email_rejected(client, db_session):
     """Een ongeldig e-mailadres bij inschrijving wordt server-side geweigerd (422)."""
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
-    resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "X", "phone": "0470000000", "contact_email": "geen-email",
-        "component_id": comp.id,
-        "items": [{"product_id": product.id, "quantity": 1}],
-    })
+    resp = client.post(
+        f"/api/v1/activities/{activity_id}/register",
+        json={
+            "contact_name": "X",
+            "phone": "0470000000",
+            "contact_email": "geen-email",
+            "component_id": comp.id,
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code == 422
 
 
@@ -206,16 +256,35 @@ def test_pay_on_site_not_counted_in_total():
     """#373: een 'ter plaatse te betalen' (eigen budget) product telt — net als
     gratis — niet mee in het (Mollie-)totaal, maar staat wél als regel."""
     from types import SimpleNamespace as NS
+
     from app.domains.activities.api import compute_registration_total
 
-    betalend = NS(name="Diner", price=Decimal("30"), member_price=None, is_free=False, pay_on_site=False)
-    eigen = NS(name="Eten (eigen budget)", price=Decimal("15"), member_price=None, is_free=False, pay_on_site=True)
-    gratis = NS(name="Welkomstdrankje", price=Decimal("0"), member_price=None, is_free=True, pay_on_site=False)
-    reg = NS(person=None, registered_at=None, items=[
-        NS(product=betalend, quantity=1),
-        NS(product=eigen, quantity=2),
-        NS(product=gratis, quantity=1),
-    ])
+    betalend = NS(
+        name="Diner", price=Decimal("30"), member_price=None, is_free=False, pay_on_site=False
+    )
+    eigen = NS(
+        name="Eten (eigen budget)",
+        price=Decimal("15"),
+        member_price=None,
+        is_free=False,
+        pay_on_site=True,
+    )
+    gratis = NS(
+        name="Welkomstdrankje",
+        price=Decimal("0"),
+        member_price=None,
+        is_free=True,
+        pay_on_site=False,
+    )
+    reg = NS(
+        person=None,
+        registered_at=None,
+        items=[
+            NS(product=betalend, quantity=1),
+            NS(product=eigen, quantity=2),
+            NS(product=gratis, quantity=1),
+        ],
+    )
     total, lines = compute_registration_total(reg)
     assert total == Decimal("30")  # enkel het betalende product
     by_name = {line["name"]: line for line in lines}
@@ -240,6 +309,7 @@ def test_mollie_webhook_is_rate_limited(client):
     Een onbekend id geeft 200 "ignored"; boven de drempel volgt 429. De limiet is
     ruim gekozen zodat legitieme Mollie-bursts nooit geraakt worden."""
     from app.limiter import mollie_webhook_limiter
+
     mollie_webhook_limiter._calls.clear()  # deterministisch starten
 
     limit = mollie_webhook_limiter.max_calls
@@ -255,8 +325,7 @@ def test_login_rate_limited(client):
     """De login-limiter geeft 429 na te veel pogingen per minuut."""
     saw_429 = False
     for _ in range(11):
-        r = client.post("/api/v1/auth/request-login",
-                        json={"email": "ratelimit-test@example.com"})
+        r = client.post("/api/v1/auth/request-login", json={"email": "ratelimit-test@example.com"})
         if r.status_code == 429:
             saw_429 = True
             break
@@ -280,9 +349,13 @@ def test_admin_endpoints_require_auth(client):
 def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):
     """Het gateway-endpoint is admin-only (#146) en geeft nooit de betaallink terug."""
     from decimal import Decimal
+
     from app.domains.payment.api import GatewayPayment
+
     gp = GatewayPayment(
-        provider="mollie", provider_payment_id="tr_x", amount=Decimal("10.00"),
+        provider="mollie",
+        provider_payment_id="tr_x",
+        amount=Decimal("10.00"),
         # GatewayPayment.status stays a bare string: Mollie's list (§B4.10).
         status=PaymentStatus.PENDING.value,
         checkout_url="https://mollie.test/checkout/tr_x",
@@ -293,4 +366,7 @@ def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, 
 
     # Het React-only lees-endpoint is verwijderd (#407-O): elke variant is 404.
     assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 404
-    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers).status_code == 404
+    assert (
+        client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers).status_code
+        == 404
+    )

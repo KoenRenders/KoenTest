@@ -25,6 +25,7 @@ Die eerste regel is de reden dat deze poort verplaatst is naar `conftest`: als
 test alléén was ze nutteloos, want ze werd overstemd door precies het probleem dat
 ze moest uitleggen.
 """
+
 from __future__ import annotations
 
 import ast
@@ -44,7 +45,8 @@ def _schrijf(map_: Path, naam: str, revision: str, down: str | None) -> None:
         f'"""Verzonnen migratie voor de poorttest."""\n'
         f"revision = {revision!r}\ndown_revision = {onder}\n"
         "def upgrade() -> None: pass\ndef downgrade() -> None: pass\n",
-        encoding="utf-8")
+        encoding="utf-8",
+    )
 
 
 @pytest.fixture
@@ -97,8 +99,7 @@ def test_twee_heads_noemt_de_jongste(keten):
     tekst = "\n".join(problemen(lees_migraties(keten)))
     assert "2 heads" in tekst
     assert "De jongste is 021_andere_tak.py" in tekst
-    assert "down_revision = '020'" in tekst, (
-        "de melding noemt niet welke regel er moet veranderen")
+    assert "down_revision = '020'" in tekst, "de melding noemt niet welke regel er moet veranderen"
 
 
 def test_twee_heads_met_hetzelfde_volgnummer_wijst_geen_jongste_aan(keten):
@@ -142,6 +143,7 @@ def test_de_melding_zegt_dat_de_suite_niet_kapot_is(keten):
 
 # ── De echte reeks ─────────────────────────────────────────────────────────
 
+
 def test_de_echte_keten_klopt():
     """Dezelfde controle die `conftest` draait, als gewone test.
 
@@ -160,13 +162,13 @@ def test_de_bestaande_gemengde_nummering_is_onschadelijk():
     breken en niets opleveren.
     """
     migraties = lees_migraties()
-    assert all(m.revision for m in migraties), (
-        "elke migratie hoort een revision-id te hebben")
+    assert all(m.revision for m in migraties), "elke migratie hoort een revision-id te hebben"
     beginpunten = [m.naam for m in migraties if m.down_revision is None]
     assert len(beginpunten) == 1, f"verwacht één beginpunt, gevonden: {beginpunten}"
 
 
 # ── De generator van een nieuwe id ─────────────────────────────────────────
+
 
 def _generator():
     """De twee functies uit `env.py`, los uitgevoerd.
@@ -177,9 +179,11 @@ def _generator():
     """
     pad = ALEMBIC / "env.py"
     boom = ast.parse(pad.read_text(encoding="utf-8"))
-    stukken = [node for node in boom.body
-               if isinstance(node, ast.FunctionDef)
-               and node.name in ("_volgende_volgnummer", "_nieuwe_id")]
+    stukken = [
+        node
+        for node in boom.body
+        if isinstance(node, ast.FunctionDef) and node.name in ("_volgende_volgnummer", "_nieuwe_id")
+    ]
     assert len(stukken) == 2, "de id-generator van #951 staat niet meer in env.py"
     ruimte: dict = {"__file__": str(pad)}
     exec(compile(ast.Module(body=stukken, type_ignores=[]), str(pad), "exec"), ruimte)
@@ -192,6 +196,7 @@ def test_een_nieuwe_migratie_krijgt_een_tijdstempel_in_haar_id():
     Een tijdstempel tot op de seconde kan niet botsen tussen twee CLI's; het
     volgnummer ervoor houdt de map leesbaar en sorteerbaar.
     """
+
     class _Directief:
         rev_id = "wordt overschreven"
 
@@ -199,11 +204,12 @@ def test_een_nieuwe_migratie_krijgt_een_tijdstempel_in_haar_id():
     _generator()["_nieuwe_id"](None, None, [directief])
 
     assert re.fullmatch(r"\d{3}_\d{4}_\d{2}_\d{2}_\d{6}", directief.rev_id), (
-        f"een nieuwe id hoort <volgnummer>_<tijdstempel> te zijn, kreeg "
-        f"{directief.rev_id!r}")
+        f"een nieuwe id hoort <volgnummer>_<tijdstempel> te zijn, kreeg {directief.rev_id!r}"
+    )
     nummers = [m.volgnummer for m in lees_migraties()]
     assert int(directief.rev_id.split("_")[0]) == max(nummers) + 1, (
-        "het volgnummer loopt niet door op wat er staat — dan sorteert de map niet")
+        "het volgnummer loopt niet door op wat er staat — dan sorteert de map niet"
+    )
 
 
 def test_de_generator_laat_een_directive_zonder_id_met_rust():
@@ -213,6 +219,7 @@ def test_de_generator_laat_een_directive_zonder_id_met_rust():
     is dat precies op het moment dat iemand bewust een id kiest — bij het
     repareren van een botsing.
     """
+
     class _ZonderId:
         rev_id = None
 
@@ -253,7 +260,8 @@ def test_alembic_roept_de_generator_ook_echt_aan(tmp_path):
     naam = gemaakt[0].name
     assert re.match(r"\d{3}_\d{4}_\d{2}_\d{2}_\d{6}_", naam), (
         f"alembic gebruikte de generator niet — bestandsnaam is {naam!r}. "
-        "Staat `revision_environment = true` nog in alembic.ini?")
+        "Staat `revision_environment = true` nog in alembic.ini?"
+    )
     gemaakt_rev = Migratie(gemaakt[0]).revision
     assert re.fullmatch(r"\d{3}_\d{4}_\d{2}_\d{2}_\d{6}", gemaakt_rev)
 
@@ -268,7 +276,8 @@ def test_revision_environment_staat_aan():
     ini = (ALEMBIC.parent / "alembic.ini").read_text(encoding="utf-8")
     assert re.search(r"^revision_environment\s*=\s*true", ini, re.MULTILINE), (
         "zonder `revision_environment = true` draait env.py niet bij "
-        "`alembic revision`, en dan is de id-generator van #951 dood gewicht")
+        "`alembic revision`, en dan is de id-generator van #951 dood gewicht"
+    )
 
 
 def test_het_sjabloon_bestaat_en_zet_de_id_niet_zelf():
@@ -279,5 +288,8 @@ def test_het_sjabloon_bestaat_en_zet_de_id_niet_zelf():
     niet zelf verzinnen — anders zijn er twee plekken die de vorm bepalen.
     """
     mako = (ALEMBIC / "script.py.mako").read_text(encoding="utf-8")
-    assert "revision = ${repr(up_revision)}" in mako
-    assert "down_revision = ${repr(down_revision)}" in mako
+    # Since #781 the template turns alembic's `repr` into double quotes, so the
+    # generated file is already what `ruff format` writes. The value still comes
+    # from alembic, which is what this test holds; only the quoting after it moved.
+    assert "revision = ${repr(up_revision)" in mako
+    assert "down_revision = ${repr(down_revision)" in mako

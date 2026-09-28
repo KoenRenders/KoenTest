@@ -23,6 +23,7 @@ nullable met `ondelete="SET NULL"`. Verdwijnt een onderdeel, dan blijven zijn
 inschrijvingen bestaan zonder onderdeel. Een fix die alleen per onderdeel toont,
 maakt die onbereikbaar — onzichtbaar terwijl ze in de databank staan.
 """
+
 from decimal import Decimal
 
 import pytest
@@ -42,17 +43,25 @@ def _login(client):
 
 def _onderdeel(db, activity, naam):
     comp = ActivitySubRegistration(
-        activity_id=activity.id, name=naam, registration_type_code="INDIVIDUAL",
-        price=Decimal("0"), is_free=True)
+        activity_id=activity.id,
+        name=naam,
+        registration_type_code="INDIVIDUAL",
+        price=Decimal("0"),
+        is_free=True,
+    )
     db.add(comp)
     db.flush()
     return comp
 
 
 def _inschrijving(db, activity, naam, component=None):
-    reg = Registration(activity_id=activity.id, registration_type="INDIVIDUAL",
-                       contact_name=naam, contact_email=f"{naam}@example.com",
-                       component_id=component.id if component else None)
+    reg = Registration(
+        activity_id=activity.id,
+        registration_type="INDIVIDUAL",
+        contact_name=naam,
+        contact_email=f"{naam}@example.com",
+        component_id=component.id if component else None,
+    )
     db.add(reg)
     db.flush()
     return reg
@@ -69,8 +78,12 @@ def test_de_tab_groepeert_per_onderdeel(client, db_session):
     html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
     assert comp_a.name in html and "Tweede onderdeel" in html
     # Volgorde bewijst de groepering: A-kop, dan Anneke, dan B-kop, dan Bruno.
-    assert html.index(comp_a.name) < html.index("AnnekeA") \
-        < html.index("Tweede onderdeel") < html.index("BrunoB")
+    assert (
+        html.index(comp_a.name)
+        < html.index("AnnekeA")
+        < html.index("Tweede onderdeel")
+        < html.index("BrunoB")
+    )
     # Exportknop per groep (verhuisd van het Overzicht).
     assert f"/onderdelen/{comp_a.id}/export" in html
     assert f"/onderdelen/{comp_b.id}/export" in html
@@ -88,14 +101,16 @@ def test_het_overzicht_draagt_geen_inschrijvingenknoppen_meer(client, db_session
 
 def test_zonder_onderdelen_geen_kaart_wel_een_lege_toestand(client, db_session):
     """Geval (b): de gemelde spookkaart is weg en de sectie legt zichzelf uit."""
-    from app.domains.activities.api import Activity, ActivityDate
     from datetime import date, timedelta
+
+    from app.domains.activities.api import Activity, ActivityDate
 
     activity = Activity(name="Kale activiteit")
     db_session.add(activity)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=activity.id,
-                                start_date=date.today() + timedelta(days=10)))
+    db_session.add(
+        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+    )
     db_session.flush()
     _login(client)
 
@@ -106,14 +121,16 @@ def test_zonder_onderdelen_geen_kaart_wel_een_lege_toestand(client, db_session):
 def test_inschrijving_zonder_onderdeel_blijft_bereikbaar(client, db_session):
     """Geval (c): precies wat een naïeve fix stukmaakt. De tab draagt een groep
     "Zonder onderdeel" zodra zulke inschrijvingen bestaan."""
-    from app.domains.activities.api import Activity, ActivityDate
     from datetime import date, timedelta
+
+    from app.domains.activities.api import Activity, ActivityDate
 
     activity = Activity(name="Activiteit met wees")
     db_session.add(activity)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=activity.id,
-                                start_date=date.today() + timedelta(days=10)))
+    db_session.add(
+        ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10))
+    )
     db_session.flush()
     _inschrijving(db_session, activity, "WeesWillem")
     _login(client)
@@ -131,8 +148,9 @@ def test_een_verwijdering_keert_terug_naar_de_activiteit(client, db_session):
     csrf = _login(client)
 
     r = client.post(
-        f"/admin/activiteiten/{activity.id}/inschrijvingen/{reg_a.id}/verwijderen"
-        f"?vanuit=pagina", headers={"X-CSRF-Token": csrf})
+        f"/admin/activiteiten/{activity.id}/inschrijvingen/{reg_a.id}/verwijderen?vanuit=pagina",
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 204
     assert r.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
     tab = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
@@ -156,6 +174,5 @@ def test_de_volgorde_van_onderdelen_is_vastgelegd():
     """
     from app.domains.activities.api import Activity
 
-    namen = [getattr(k, "name", str(k))
-             for k in Activity.sub_registrations.property.order_by]
+    namen = [getattr(k, "name", str(k)) for k in Activity.sub_registrations.property.order_by]
     assert namen == ["sort_order", "id"], namen

@@ -10,12 +10,13 @@ van: `uq_contact_details_one_primary_per_type` (migratie 053) laat *hoogstens*
 één primair adres per persoon toe. Dat er ook *minstens* één is, is gedrag, en
 gedrag zonder test verdwijnt bij de eerstvolgende herschrijving.
 """
+
 from __future__ import annotations
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import ContactDetail, Person
+from app.domains.mdm.api import Person
 from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -41,14 +42,18 @@ def _login(client):
 def _adressen(db, person) -> dict[str, bool]:
     db.expire_all()
     person = db.query(Person).filter(Person.id == person.id).one()
-    return {c.value: bool(c.is_primary) for c in person.contact_details
-            if c.contact_type_code == "EMAIL"}
+    return {
+        c.value: bool(c.is_primary)
+        for c in person.contact_details
+        if c.contact_type_code == "EMAIL"
+    }
 
 
 def _rij_id(db, person, waarde: int | str) -> int:
     person = db.query(Person).filter(Person.id == person.id).one()
-    return next(c.id for c in person.contact_details
-                if c.contact_type_code == "EMAIL" and c.value == waarde)
+    return next(
+        c.id for c in person.contact_details if c.contact_type_code == "EMAIL" and c.value == waarde
+    )
 
 
 def _post(client, csrf, pad: str, **data):
@@ -56,6 +61,7 @@ def _post(client, csrf, pad: str, **data):
 
 
 # ── Toevoegen ───────────────────────────────────────────────────────────────
+
 
 def test_een_tweede_adres_erbij_zetten(client, db_session, gezin):
     """De handeling waar dit issue om begon.
@@ -66,9 +72,12 @@ def test_een_tweede_adres_erbij_zetten(client, db_session, gezin):
     member, person = gezin
     csrf = _login(client)
 
-    respons = _post(client, csrf,
-                    f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-                    extra_email=TWEEDE)
+    respons = _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
+        extra_email=TWEEDE,
+    )
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, TWEEDE: False}
 
@@ -102,14 +111,18 @@ def test_het_eerste_adres_van_een_persoon_wordt_meteen_hoofdadres(client, db_ses
     db_session.commit()
     csrf = _login(client)
 
-    _post(client, csrf,
-          f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-          extra_email=TWEEDE)
+    _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
+        extra_email=TWEEDE,
+    )
 
     assert _adressen(db_session, person) == {TWEEDE: True}
 
 
 # ── Hoofdadres aanwijzen ────────────────────────────────────────────────────
+
 
 def test_een_ander_adres_aanwijzen_verplaatst_het_hoofdadres(client, db_session, gezin):
     """Precies één blijft primair — het oude wordt een gewoon adres.
@@ -122,27 +135,40 @@ def test_een_ander_adres_aanwijzen_verplaatst_het_hoofdadres(client, db_session,
     """
     member, person = gezin
     csrf = _login(client)
-    _post(client, csrf, f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-          extra_email=TWEEDE)
+    _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
+        extra_email=TWEEDE,
+    )
     tweede_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(client, csrf,
-          f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/hoofd")
+    _post(
+        client, csrf, f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/hoofd"
+    )
 
     assert _adressen(db_session, person) == {HOOFD: False, TWEEDE: True}
 
 
 # ── Verwijderen ─────────────────────────────────────────────────────────────
 
+
 def test_een_extra_adres_verwijderen_laat_het_hoofdadres_staan(client, db_session, gezin):
     member, person = gezin
     csrf = _login(client)
-    _post(client, csrf, f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-          extra_email=TWEEDE)
+    _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
+        extra_email=TWEEDE,
+    )
     tweede_id = _rij_id(db_session, person, TWEEDE)
 
-    _post(client, csrf,
-          f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/verwijderen")
+    _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/verwijderen",
+    )
 
     assert _adressen(db_session, person) == {HOOFD: True}
 
@@ -173,7 +199,8 @@ def test_het_hoofdadres_verwijderen_wijst_er_geen_ander_aan(client, db_session, 
     _post(client, csrf, f"{pad}/{hoofd_id}/verwijderen")
 
     assert _adressen(db_session, person) == {TWEEDE: False, DERDE: False}, (
-        "er hoort geen nieuw hoofdadres aangewezen te worden")
+        "er hoort geen nieuw hoofdadres aangewezen te worden"
+    )
 
 
 def test_ook_het_laatste_adres_mag_weg(client, db_session, gezin):
@@ -189,14 +216,17 @@ def test_ook_het_laatste_adres_mag_weg(client, db_session, gezin):
     hoofd_id = _rij_id(db_session, person, HOOFD)
 
     respons = _post(
-        client, csrf,
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{hoofd_id}/verwijderen")
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{hoofd_id}/verwijderen",
+    )
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {}
 
 
 # ── Het scherm zelf ─────────────────────────────────────────────────────────
+
 
 def test_de_kaart_toont_alle_adressen_met_hun_rol(client, db_session, gezin):
     """Wat de beheerder ziet: elk adres, en welk het hoofdadres is.
@@ -207,8 +237,12 @@ def test_de_kaart_toont_alle_adressen_met_hun_rol(client, db_session, gezin):
     """
     member, person = gezin
     csrf = _login(client)
-    _post(client, csrf, f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
-          extra_email=TWEEDE)
+    _post(
+        client,
+        csrf,
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email",
+        extra_email=TWEEDE,
+    )
 
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert HOOFD in html and TWEEDE in html

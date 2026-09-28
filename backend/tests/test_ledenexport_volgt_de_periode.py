@@ -40,6 +40,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 De vierde test stond vanaf het begin groen en hoort dat ook: ze pint een
 gemeten eigenschap van de route vast, niet iets dat gerepareerd werd.
 """
+
 from __future__ import annotations
 
 import io
@@ -62,8 +63,10 @@ def _login(client):
 
 
 def _exportlinks(html: str) -> list[str]:
-    return [h.replace("&amp;", "&")
-            for h in re.findall(r'href="(/admin/ledenwijzigingen/export[^"]*)"', html)]
+    return [
+        h.replace("&amp;", "&")
+        for h in re.findall(r'href="(/admin/ledenwijzigingen/export[^"]*)"', html)
+    ]
 
 
 def _filterwissel(client, since: str) -> str:
@@ -73,9 +76,13 @@ def _filterwissel(client, since: str) -> str:
     wat daarbuiten moet bijwerken, moet erin meereizen.
     """
     antwoord = client.get(
-        "/admin/ledenwijzigingen", params={"since": since},
-        headers={"HX-Request": "true",
-                 "HX-Current-URL": "http://testserver/admin/ledenwijzigingen"})
+        "/admin/ledenwijzigingen",
+        params={"since": since},
+        headers={
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/ledenwijzigingen",
+        },
+    )
     assert antwoord.status_code == 200, antwoord.text
     return antwoord.text
 
@@ -103,15 +110,26 @@ def _twee_perioden(client, db_session) -> tuple[str, str]:
     seed_postal_code(db_session)
 
     def maak(voornaam: str) -> None:
-        resp = client.post("/api/v1/families", json={
-            "street": "Milostraat", "house_number": "40", "postal_code": "2400",
-            "payment_method": "transfer",
-            "members": [{"last_name": "Wijziging", "first_name": voornaam,
-                         "email": f"{voornaam.lower()}@example.com",
-                         "mobile": "0470111111",
-                         "date_of_birth": "1980-01-01", "gender_code": "M",
-                         "relation_type": "HOOFDLID"}],
-        })
+        resp = client.post(
+            "/api/v1/families",
+            json={
+                "street": "Milostraat",
+                "house_number": "40",
+                "postal_code": "2400",
+                "payment_method": "transfer",
+                "members": [
+                    {
+                        "last_name": "Wijziging",
+                        "first_name": voornaam,
+                        "email": f"{voornaam.lower()}@example.com",
+                        "mobile": "0470111111",
+                        "date_of_birth": "1980-01-01",
+                        "gender_code": "M",
+                        "relation_type": "HOOFDLID",
+                    }
+                ],
+            },
+        )
         assert resp.status_code == 201, resp.text
 
     maak("Oud")
@@ -153,14 +171,15 @@ def test_na_een_filterwissel_draagt_de_knop_de_nieuwe_periode(client, db_session
     pagina = client.get("/admin/ledenwijzigingen")
     assert pagina.status_code == 200
     standaard = (date.today() - timedelta(days=30)).isoformat()
-    assert _exportlinks(pagina.text) == [
-        f"/admin/ledenwijzigingen/export?since={standaard}"], \
+    assert _exportlinks(pagina.text) == [f"/admin/ledenwijzigingen/export?since={standaard}"], (
         "de paginakop hoort de standaardperiode te dragen"
+    )
 
     links = _exportlinks(_filterwissel(client, OUD))
     assert links, "geen exportlink in het fragment — de knop blijft op de oude periode staan"
-    assert links == [f"/admin/ledenwijzigingen/export?since={OUD}"], \
+    assert links == [f"/admin/ledenwijzigingen/export?since={OUD}"], (
         f"de exportknop draagt niet de gekozen periode: {links}"
+    )
 
 
 def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
@@ -178,8 +197,8 @@ def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
     tekst = _tekst_van_ods(breed.content)
     ontbreekt = [n for n in (vers, oud) if n not in tekst]
     assert not ontbreekt, (
-        f"sinds {OUD} horen beide wijzigingen in het bestand te staan, "
-        f"ontbreken: {ontbreekt}")
+        f"sinds {OUD} horen beide wijzigingen in het bestand te staan, ontbreken: {ontbreekt}"
+    )
 
     # En de tegenhanger: een korte periode laat de oude rij WEG. Zonder deze
     # helft zou een export die alles teruggeeft ook groen staan.
@@ -189,8 +208,7 @@ def test_het_bestand_bevat_de_rijen_van_de_gekozen_periode(client, db_session):
     assert smal.status_code == 200, smal.text
     tekst_smal = _tekst_van_ods(smal.content)
     assert vers in tekst_smal, "de wijziging van vandaag hoort er wél in te staan"
-    assert oud not in tekst_smal, \
-        "een export vanaf vandaag mag de wijziging uit 2020 niet bevatten"
+    assert oud not in tekst_smal, "een export vanaf vandaag mag de wijziging uit 2020 niet bevatten"
 
 
 def test_de_pagina_zet_de_knop_niet_dubbel(client, db_session):
@@ -201,10 +219,12 @@ def test_de_pagina_zet_de_knop_niet_dubbel(client, db_session):
     """
     _login(client)
     pagina = client.get("/admin/ledenwijzigingen")
-    assert len(_exportlinks(pagina.text)) == 1, \
+    assert len(_exportlinks(pagina.text)) == 1, (
         f"de volle pagina hoort één exportknop te tonen: {_exportlinks(pagina.text)}"
-    assert 'hx-swap-oob' not in pagina.text.split('id="lw-inhoud"')[0], \
+    )
+    assert "hx-swap-oob" not in pagina.text.split('id="lw-inhoud"')[0], (
         "de paginakop hoort geen out-of-band blok te dragen"
+    )
 
 
 def test_de_export_filtert_alleen_op_de_periode(client, db_session):
@@ -220,8 +240,10 @@ def test_de_export_filtert_alleen_op_de_periode(client, db_session):
 
     kaal = client.get(f"/admin/ledenwijzigingen/export?since={OUD}")
     met_filters = client.get(
-        f"/admin/ledenwijzigingen/export?since={OUD}&group=Persoon&actor=niemand")
+        f"/admin/ledenwijzigingen/export?since={OUD}&group=Persoon&actor=niemand"
+    )
     assert kaal.status_code == met_filters.status_code == 200
-    assert _tekst_van_ods(kaal.content) == _tekst_van_ods(met_filters.content), \
-        ("de export reageert op groep of actor — dan draagt de exportknop een "
-         "onvolledige selectie en moet ze die filters óók meenemen")
+    assert _tekst_van_ods(kaal.content) == _tekst_van_ods(met_filters.content), (
+        "de export reageert op groep of actor — dan draagt de exportknop een "
+        "onvolledige selectie en moet ze die filters óók meenemen"
+    )

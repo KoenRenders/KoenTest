@@ -16,6 +16,7 @@ niet kan tonen. De test hieronder toetst alle drie de toestanden náást elkaar 
 dat de knop er is bij het verlopen gezin bewijst pas iets als je ook ziet dat hij
 er níét is bij het gezin dat in orde is.
 """
+
 import os
 import sys
 
@@ -143,7 +144,8 @@ def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
     ouders = [t for t in teksten if "Theofiel" in t or "Marie" in t]
     kinderen = [t for t in teksten if "Annemieke" in t or "Rozemieke" in t]
     assert len(ouders) == 2 and len(kinderen) == 2, (
-        f"de vier kaarten zijn niet twee ouders en twee kinderen: {teksten!r}")
+        f"de vier kaarten zijn niet twee ouders en twee kinderen: {teksten!r}"
+    )
 
     for tekst, gsm in zip(sorted(ouders), (PARTNER_GSM, HOOFDLID_GSM)):
         assert "@" in tekst, f"de ouder mist een e-mailadres: {tekst!r}"
@@ -151,7 +153,8 @@ def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
     for tekst in kinderen:
         assert "@" not in tekst, (
             f"een meerderjarig kind draagt een e-mailadres: {tekst!r} — de verdeling "
-            "van Koen geeft die alleen aan de ouders")
+            "van Koen geeft die alleen aan de ouders"
+        )
 
     # Geslacht staat niet in de leesweergave; het bewerkformulier toont het, en dat is
     # het scherm van de afdruk `leden-gezin-bewerken`. Via JavaScript gelezen omdat die
@@ -161,7 +164,8 @@ def test_het_voorbeeldgezin_staat_volledig_op_de_afdruk(browser_page):
     # ook een LEEG formulier om een gezinslid toe te voegen, en dat leverde een vijfde,
     # lege keuzelijst — gemeten toen deze assertie er vijf vond.
     geslachten = page.locator("form[id^='pp-'] select[id$='-gender_code']").evaluate_all(
-        "els => els.map(e => e.value)")
+        "els => els.map(e => e.value)"
+    )
     assert len(geslachten) == 4, f"vier keuzelijsten verwacht, gezien: {geslachten!r}"
     assert all(geslachten), f"een gezinslid heeft geen geslacht: {geslachten!r}"
 
@@ -183,9 +187,11 @@ def test_de_geboortedatum_staat_belgisch_in_de_leesweergave(browser_page):
     page = _portaal(browser_page, MARKER_EMAIL)
     tekst = page.locator('div.space-y-4 div[x-show="!edit"]').first.inner_text()
     assert JOMMEKE_GEBOORTE.strftime("%d-%m-%Y") in tekst, (
-        f"de geboortedatum staat niet Belgisch op de kaart: {tekst!r}")
+        f"de geboortedatum staat niet Belgisch op de kaart: {tekst!r}"
+    )
     assert JOMMEKE_GEBOORTE.isoformat() not in tekst, (
-        f"de geboortedatum staat er nog in ISO-vorm bij: {tekst!r}")
+        f"de geboortedatum staat er nog in ISO-vorm bij: {tekst!r}"
+    )
 
 
 def test_de_voettekst_toont_geen_plaatshouders(browser_page):
@@ -205,8 +211,7 @@ def test_de_voettekst_toont_geen_plaatshouders(browser_page):
     browser_page.wait_for_selector("footer", timeout=5000)
     voet = browser_page.locator("footer").inner_text()
     for teken in ("\u00ab", "\u00bb"):
-        assert teken not in voet, (
-            f"de voettekst draagt nog een plaatshouder: {voet!r}")
+        assert teken not in voet, f"de voettekst draagt nog een plaatshouder: {voet!r}"
 
 
 def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
@@ -245,10 +250,12 @@ def test_er_staat_geen_naam_uit_de_ledenadministratie_op(browser_page):
         # hij betrapte onverwachte tekst waar namen gelezen worden — maar hij moet
         # wel de juiste plek lezen.
         namen = page.locator(
-            'div.space-y-4 div[x-show="!edit"] > span.font-semibold').all_inner_texts()
+            'div.space-y-4 div[x-show="!edit"] > span.font-semibold'
+        ).all_inner_texts()
         assert namen, f"geen gezinslid op het portaal van {email}"
         for naam in namen:
             assert any(naam.strip().endswith(a) for a in SEED_ACHTERNAMEN), (
                 f"{naam!r} draagt geen achternaam uit de seed "
                 f"({', '.join(SEED_ACHTERNAMEN)}) — dit portaal toont iemand uit "
-                "de ledenadministratie en hoort niet op een publieke pagina")
+                "de ledenadministratie en hoort niet op een publieke pagina"
+            )

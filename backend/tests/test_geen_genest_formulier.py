@@ -24,17 +24,21 @@ Kapotgemaakt om te controleren dat deze gate rood kan worden (gemeten): de
 Raakje-overlay terug binnen `{% call ui.filter_bar %}` gezet → rood met
 `/admin/betalingen` en het regelnummer van de binnenste `<form>`.
 """
+
 from __future__ import annotations
 
 from html.parser import HTMLParser
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests._reporting_seed import TENANT_A
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_activity_with_product, seed_postal_code)
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -115,7 +119,8 @@ def test_geen_enkel_scherm_rendert_een_formulier_in_een_formulier(client, scherm
         antwoord = client.get(pad)
         assert antwoord.status_code == 200, f"{pad} → {antwoord.status_code}"
         assert "<form" in antwoord.text, (
-            f"{pad} rendert geen enkel formulier — dan bewijst deze scan niets")
+            f"{pad} rendert geen enkel formulier — dan bewijst deze scan niets"
+        )
         meter = _Nesting()
         meter.feed(antwoord.text)
         for regel in meter.fouten:
@@ -124,8 +129,8 @@ def test_geen_enkel_scherm_rendert_een_formulier_in_een_formulier(client, scherm
     assert not fouten, (
         "Een <form> binnen een <form>: de browser gooit de binnenste tag weg, "
         "waarna zijn knoppen bij het buitenste formulier horen en zijn opmaak "
-        "verdwenen is (#1115). Zet het binnenste formulier ernaast:\n  "
-        + "\n  ".join(fouten))
+        "verdwenen is (#1115). Zet het binnenste formulier ernaast:\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_betalingen_overlay_staat_buiten_de_filterbalk(client, schermen):
@@ -141,4 +146,5 @@ def test_de_betalingen_overlay_staat_buiten_de_filterbalk(client, schermen):
     filterbalk = html.index('id="bt-filter"')
     einde = html.index("</form>", filterbalk)
     assert "AI · Betalingen" not in html[filterbalk:einde], (
-        "de Raakje-knop staat binnen het filterformulier; daar submit hij niets")
+        "de Raakje-knop staat binnen het filterformulier; daar submit hij niets"
+    )

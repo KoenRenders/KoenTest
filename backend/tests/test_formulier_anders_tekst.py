@@ -16,6 +16,7 @@ daarna twee keer weggooide, zonder melding.
 is dezelfde valkuil als bij #680, waar `assert status_code >= 400` elke 400 groen
 maakte.
 """
+
 import pytest
 
 from app.domains.forms.models import FormSubmissionAnswer
@@ -28,19 +29,24 @@ def _payload(veldtype: str, *, verplicht: bool = False) -> dict:
         "title": f"Anders-test ({veldtype})",
         "status": "open",
         "fields": [
-            {"field_type": veldtype, "label": "Waarom niet?", "position": 0,
-             "required": verplicht,
-             "options": [
-                 {"label": "Geen tijd", "position": 0},
-                 {"label": "Andere", "position": 1, "is_other": True},
-             ]},
+            {
+                "field_type": veldtype,
+                "label": "Waarom niet?",
+                "position": 0,
+                "required": verplicht,
+                "options": [
+                    {"label": "Geen tijd", "position": 0},
+                    {"label": "Andere", "position": 1, "is_other": True},
+                ],
+            },
         ],
     }
 
 
 def _bouw(client, admin_headers, veldtype: str, *, verplicht: bool = False):
-    form = client.post("/api/v1/forms", json=_payload(veldtype, verplicht=verplicht),
-                       headers=admin_headers).json()
+    form = client.post(
+        "/api/v1/forms", json=_payload(veldtype, verplicht=verplicht), headers=admin_headers
+    ).json()
     veld = form["fields"][0]
     anders = next(o for o in veld["options"] if o["is_other"])
     gewoon = next(o for o in veld["options"] if not o["is_other"])
@@ -58,15 +64,14 @@ def _verstuur(client, form, veld, *, gekozen=None, tekst=None):
 
 
 def _rijen(db, veld_id):
-    return (db.query(FormSubmissionAnswer)
-            .filter(FormSubmissionAnswer.field_id == veld_id).all())
+    return db.query(FormSubmissionAnswer).filter(FormSubmissionAnswer.field_id == veld_id).all()
 
 
 # ── 1. Tekst zonder vinkje wordt bewaard ─────────────────────────────────────
 
+
 @pytest.mark.parametrize("veldtype", ["checkbox", "radio"])
-def test_alleen_de_anders_tekst_levert_een_antwoord_op(client, admin_headers,
-                                                       db_session, veldtype):
+def test_alleen_de_anders_tekst_levert_een_antwoord_op(client, admin_headers, db_session, veldtype):
     """Het gemelde geval: typen zonder aanvinken.
 
     De statuscode zou ook vóór #683 in orde geweest zijn — het gaat om wat er in
@@ -80,11 +85,13 @@ def test_alleen_de_anders_tekst_levert_een_antwoord_op(client, admin_headers,
     rijen = _rijen(db_session, veld["id"])
     assert len(rijen) == 1, "de tekst is nergens bewaard"
     assert rijen[0].value_option_id == anders["id"], (
-        "de bijhorende optie hoort mee opgeslagen te worden")
+        "de bijhorende optie hoort mee opgeslagen te worden"
+    )
     assert rijen[0].value_text == "Op reis"
 
 
 # ── 2. Bij een radio vervangt de tekst de eerdere keuze ──────────────────────
+
 
 def test_bij_een_radio_blijft_precies_een_optie_over(client, admin_headers, db_session):
     """De keuze is exclusief, dus typen in "Anders" vervángt een eerdere optie.
@@ -119,9 +126,9 @@ def test_bij_een_checkbox_komt_de_anders_optie_erbij(client, admin_headers, db_s
 
 # ── 3. Leeg blijft leeg ──────────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("tekst", ["", "   "])
-def test_een_lege_anders_tekst_levert_geen_antwoord_op(client, admin_headers,
-                                                       db_session, tekst):
+def test_een_lege_anders_tekst_levert_geen_antwoord_op(client, admin_headers, db_session, tekst):
     """Geen lege rijen. Zonder deze test zou "tekst telt mee" een veld met een
     spatie erin als beantwoord kunnen laten gelden."""
     form, veld, _anders, _gewoon = _bouw(client, admin_headers, "checkbox")
@@ -133,12 +140,11 @@ def test_een_lege_anders_tekst_levert_geen_antwoord_op(client, admin_headers,
 
 # ── 4. De verplicht-regel schuift mee, maar niet te ver ──────────────────────
 
-def test_een_verplicht_veld_is_ingevuld_met_alleen_anders_tekst(client, admin_headers,
-                                                                db_session):
+
+def test_een_verplicht_veld_is_ingevuld_met_alleen_anders_tekst(client, admin_headers, db_session):
     """`has_value` bepaalt óók of een verplicht veld ingevuld is. Nu de tekst
     meetelt, is een verplicht veld met alleen "Anders" geldig — en dat hoort."""
-    form, veld, anders, _gewoon = _bouw(client, admin_headers, "checkbox",
-                                        verplicht=True)
+    form, veld, anders, _gewoon = _bouw(client, admin_headers, "checkbox", verplicht=True)
 
     resp = _verstuur(client, form, veld, tekst="Op reis")
     assert resp.status_code == 200, resp.text
@@ -146,12 +152,12 @@ def test_een_verplicht_veld_is_ingevuld_met_alleen_anders_tekst(client, admin_he
     assert len(rijen) == 1 and rijen[0].value_option_id == anders["id"]
 
 
-def test_een_verplicht_veld_blijft_leeg_met_een_lege_anders_tekst(client, admin_headers,
-                                                                  db_session):
+def test_een_verplicht_veld_blijft_leeg_met_een_lege_anders_tekst(
+    client, admin_headers, db_session
+):
     """De grens aan de andere kant. Zonder deze test zou "tekst telt mee" de
     verplicht-controle stilletjes kunnen uitschakelen."""
-    form, veld, _anders, _gewoon = _bouw(client, admin_headers, "checkbox",
-                                         verplicht=True)
+    form, veld, _anders, _gewoon = _bouw(client, admin_headers, "checkbox", verplicht=True)
 
     resp = _verstuur(client, form, veld, tekst="   ")
     assert "verplicht" in resp.text.lower(), resp.text
@@ -160,18 +166,24 @@ def test_een_verplicht_veld_blijft_leeg_met_een_lege_anders_tekst(client, admin_
 
 # ── 5. Tekst zonder "Anders"-optie is geen antwoord ──────────────────────────
 
-def test_tekst_op_een_veld_zonder_anders_optie_wordt_genegeerd(client, admin_headers,
-                                                               db_session):
+
+def test_tekst_op_een_veld_zonder_anders_optie_wordt_genegeerd(client, admin_headers, db_session):
     """Er is dan geen optie om de tekst aan te hangen.
 
     Zonder deze voorwaarde zou zo'n post `has_value` waar maken en verderop
     breken op `option_ids[0]` — een 500 in plaats van een genegeerd veld.
     """
     payload = {
-        "title": "Zonder Anders", "status": "open",
-        "fields": [{"field_type": "radio", "label": "Kies", "position": 0,
-                    "options": [{"label": "A", "position": 0},
-                                {"label": "B", "position": 1}]}],
+        "title": "Zonder Anders",
+        "status": "open",
+        "fields": [
+            {
+                "field_type": "radio",
+                "label": "Kies",
+                "position": 0,
+                "options": [{"label": "A", "position": 0}, {"label": "B", "position": 1}],
+            }
+        ],
     }
     form = client.post("/api/v1/forms", json=payload, headers=admin_headers).json()
     veld = form["fields"][0]
@@ -182,6 +194,7 @@ def test_tekst_op_een_veld_zonder_anders_optie_wordt_genegeerd(client, admin_hea
 
 
 # ── 6. Het scherm nodigt niet meer uit tot iets wat het weggooit ─────────────
+
 
 def test_het_scherm_koppelt_de_tekst_aan_het_vinkje(client, admin_headers):
     """Typen vinkt aan, en zodra "Anders" niet meer gekozen is wist het veld zich.
@@ -200,11 +213,12 @@ def test_het_scherm_koppelt_de_tekst_aan_het_vinkje(client, admin_headers):
 
 # ── 7. Het veld is breed genoeg om na te lezen (#687) ────────────────────────
 
+
 def _anders_input(html: str, veld_id: int) -> str:
     """De <input>-tag van het "Anders"-veld, als losse string."""
     merk = f'id="f{veld_id}_other"'
     start = html.rindex("<input", 0, html.index(merk))
-    return html[start:html.index(">", html.index(merk))]
+    return html[start : html.index(">", html.index(merk))]
 
 
 @pytest.mark.parametrize("veldtype", ["checkbox", "radio"])
@@ -228,7 +242,8 @@ def test_het_anders_veld_vult_de_rest_van_de_rij(client, admin_headers, veldtype
     assert "flex-1" in tag, f"het veld groeit niet mee met de rij: {tag}"
     assert "min-w-0" in tag, (
         "zonder min-w-0 weigert een flex-item onder zijn intrinsieke breedte te "
-        f"krimpen en loopt het alsnog over: {tag}")
+        f"krimpen en loopt het alsnog over: {tag}"
+    )
     assert "<textarea" not in tag, "één regel per optie is de opzet van deze lijst"
 
 
@@ -241,11 +256,12 @@ def test_de_optierij_mag_afbreken_op_een_smal_scherm(client, admin_headers, veld
 
     merk = f'id="f{veld["id"]}_other"'
     label_start = html.rindex("<label", 0, html.index(merk))
-    label_tag = html[label_start:html.index(">", label_start)]
+    label_tag = html[label_start : html.index(">", label_start)]
     assert "flex-wrap" in label_tag, label_tag
 
 
 # ── 8. De tekst verschijnt op het resultatenscherm (#691) ────────────────────
+
 
 def _resultaten(client, admin_headers, form_id: int) -> dict:
     r = client.get(f"/api/v1/forms/{form_id}/results", headers=admin_headers)
@@ -274,39 +290,43 @@ def test_de_anders_tekst_staat_bij_de_resultaten(client, admin_headers, db_sessi
 
     anders_optie = next(o for o in vraag["options"] if o["option_id"] == anders["id"])
     assert anders_optie["count"] == 2, (
-        "de teksten sturen de telling; die hoort op de optie te blijven")
+        "de teksten sturen de telling; die hoort op de optie te blijven"
+    )
 
 
 def test_de_presentatie_volgt_de_ods_export(client, admin_headers, db_session):
-    """"<optielabel>: <tekst>" — dezelfde vorm als `export.py`. Eén formulering voor
+    """ "<optielabel>: <tekst>" — dezelfde vorm als `export.py`. Eén formulering voor
     hetzelfde gegeven; een tweede bedenken maakt de twee schermen verschillend."""
     form, veld, anders, _gewoon = _bouw(client, admin_headers, "checkbox")
     _verstuur(client, form, veld, tekst="Op reis")
 
-    vraag = next(f for f in _resultaten(client, admin_headers, form["id"])["fields"]
-                 if f["field_id"] == veld["id"])
+    vraag = next(
+        f
+        for f in _resultaten(client, admin_headers, form["id"])["fields"]
+        if f["field_id"] == veld["id"]
+    )
     assert vraag["other_texts"] == [f"{anders['label']}: Op reis"]
 
 
-def test_een_gewone_optie_zonder_tekst_levert_geen_regel_op(client, admin_headers,
-                                                            db_session):
+def test_een_gewone_optie_zonder_tekst_levert_geen_regel_op(client, admin_headers, db_session):
     """De keerzijde: zonder deze test zou "zet elk antwoord in de lijst" ook slagen,
     en dan staat er onder elke keuzevraag een rij lege regels."""
     form, veld, _anders, gewoon = _bouw(client, admin_headers, "checkbox")
     _verstuur(client, form, veld, gekozen=gewoon["id"])
 
-    vraag = next(f for f in _resultaten(client, admin_headers, form["id"])["fields"]
-                 if f["field_id"] == veld["id"])
+    vraag = next(
+        f
+        for f in _resultaten(client, admin_headers, form["id"])["fields"]
+        if f["field_id"] == veld["id"]
+    )
     assert vraag["other_texts"] == []
-    assert next(o for o in vraag["options"]
-                if o["option_id"] == gewoon["id"])["count"] == 1
+    assert next(o for o in vraag["options"] if o["option_id"] == gewoon["id"])["count"] == 1
 
 
 def test_het_scherm_toont_de_tekst_onder_de_balken(client, admin_headers, db_session):
     """Het scherm zelf, niet alleen de JSON: het veld kan in het view-model staan
     zonder dat het sjabloon het rendert."""
-    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                      make_session_value)
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     form, veld, _anders, _gewoon = _bouw(client, admin_headers, "checkbox")

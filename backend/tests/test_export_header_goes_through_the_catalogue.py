@@ -19,24 +19,42 @@ over on the `ne` line; `N_(` taken off "dit jaar" in `SYMBOLIC_LABELS` → the
 catalogue test falls over after `scripts/i18n.sh`, because the word is no
 longer extracted.
 """
+
 from pathlib import Path
 
 import pytest
 
 from app.domains.reporting import exports
-from app.domains.reporting.engine import (SYMBOLIC_LABELS, SYMBOLIC_THIS_YEAR,
-                                          Filter, Operator, Selection)
+from app.domains.reporting.engine import (
+    SYMBOLIC_LABELS,
+    SYMBOLIC_THIS_YEAR,
+    Filter,
+    Operator,
+    Selection,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
 LOCALES = Path(__file__).resolve().parents[1] / "app" / "locales"
-OPERATOR_WORDS = ["is", "is niet", "is een van", "is kleiner dan", "is hoogstens",
-                  "is groter dan", "is minstens", "ligt tussen", "bevat"]
+OPERATOR_WORDS = [
+    "is",
+    "is niet",
+    "is een van",
+    "is kleiner dan",
+    "is hoogstens",
+    "is groter dan",
+    "is minstens",
+    "ligt tussen",
+    "bevat",
+]
 
 
 def _msgids(path: Path) -> set[str]:
-    return {line[len('msgid "'):-1] for line in path.read_text(encoding="utf-8").splitlines()
-            if line.startswith('msgid "')}
+    return {
+        line[len('msgid "') : -1]
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.startswith('msgid "')
+    }
 
 
 @pytest.mark.parametrize("catalogue", ["messages.pot", "nl_BE/LC_MESSAGES/messages.po"])
@@ -52,10 +70,15 @@ def test_every_header_word_reaches_the_header_through_underscore(monkeypatch):
     """A `_` that marks what it translates: every word must come out marked."""
     monkeypatch.setattr(exports, "_", lambda text: f"«{text}»")
     object_key = next(iter(exports.BY_KEY))
-    filters = [Filter(object_key=object_key, operator=op, values=("1", "2"))
-               for op in Operator]
-    filters.append(Filter(object_key=object_key, operator=Operator.EQ,
-                          values=("2026",), symbolic=SYMBOLIC_THIS_YEAR))
+    filters = [Filter(object_key=object_key, operator=op, values=("1", "2")) for op in Operator]
+    filters.append(
+        Filter(
+            object_key=object_key,
+            operator=Operator.EQ,
+            values=("2026",),
+            symbolic=SYMBOLIC_THIS_YEAR,
+        )
+    )
     lines = exports.filter_summary(Selection(object_keys=(object_key,), filters=tuple(filters)))
 
     for op, line in zip(Operator, lines):

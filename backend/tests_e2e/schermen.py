@@ -7,6 +7,7 @@ raakt in plaats van elke flow.
 
 De testfuncties lezen dan als scenario's, niet als klikinstructies.
 """
+
 import os
 from contextlib import contextmanager
 
@@ -90,7 +91,9 @@ def pagina_klaar(page, *, timeout: int = 10_000) -> None:
     """
     page.wait_for_function(
         "() => !!window.Alpine && [...document.querySelectorAll('[x-data]')]"
-        ".every(e => e._x_dataStack)", timeout=timeout)
+        ".every(e => e._x_dataStack)",
+        timeout=timeout,
+    )
     htmx_stil(page, timeout=timeout)
 
 
@@ -102,7 +105,9 @@ def htmx_stil(page, *, timeout: int = 10_000) -> None:
     """
     page.wait_for_function(
         "() => !!window.htmx && !document.querySelector("
-        "'.htmx-request, .htmx-swapping, .htmx-settling')", timeout=timeout)
+        "'.htmx-request, .htmx-swapping, .htmx-settling')",
+        timeout=timeout,
+    )
 
 
 def open_de_raakje_bel(page, pad: str = "/"):
@@ -132,10 +137,17 @@ def login_met_sessie(page, sessiewaarde: str) -> None:
     ook als gewoon lid ingelogd moet kunnen worden. De rol zit in de sessiewaarde,
     niet in deze functie.
     """
-    page.context.add_cookies([{
-        "name": "raak_session", "value": sessiewaarde,
-        "url": BASE, "http_only": True, "same_site": "Lax",
-    }])
+    page.context.add_cookies(
+        [
+            {
+                "name": "raak_session",
+                "value": sessiewaarde,
+                "url": BASE,
+                "http_only": True,
+                "same_site": "Lax",
+            }
+        ]
+    )
 
 
 def login_als_admin(page, email: str, sessiewaarde: str) -> None:
@@ -200,8 +212,8 @@ class Betalingenscherm:
         rij te kiezen die dat kán.
         """
         return self.page.locator(
-            "#betalingen-lijst tbody tr",
-            has=self.page.get_by_role("button", name=knoplabel)).first
+            "#betalingen-lijst tbody tr", has=self.page.get_by_role("button", name=knoplabel)
+        ).first
 
     def ogm_van(self, rij) -> str | None:
         """Sinds golf 10 staat de OGM kaal (mono) onder de naam, zonder
@@ -237,8 +249,7 @@ class Betalingenscherm:
         # Begin bij een VERSE lijst (#736): de helper wordt ook ná een bewerking
         # aangeroepen, en de tabel van dat moment kan al ververst zijn.
         self.open()
-        links = self.page.locator(
-            '#betalingen-lijst a[href*="/admin/inschrijvingen/"]')
+        links = self.page.locator('#betalingen-lijst a[href*="/admin/inschrijvingen/"]')
         hrefs: list[str] = []
         for i in range(links.count()):
             href = links.nth(i).get_attribute("href")
@@ -250,10 +261,9 @@ class Betalingenscherm:
             # her-resolven bij elke actie, en zodra Bewerken geklikt is verbergt
             # x-show hem — een has=Bewerken-paneel lost dan op naar niets.
             paneel = self.page.locator(
-                "div.bg-gray-50.border",
-                has=self.page.locator('form[id^="insch-form-"]')).first
-            if paneel.count() and paneel.get_by_role(
-                    "button", name="Bewerken").count():
+                "div.bg-gray-50.border", has=self.page.locator('form[id^="insch-form-"]')
+            ).first
+            if paneel.count() and paneel.get_by_role("button", name="Bewerken").count():
                 return paneel
         return None
 
@@ -370,8 +380,11 @@ class Ledenscherm:
         # #997: anchored on the detail and on the card's own heading. The old
         # `div has_text=… .last` also matched on the list page, which carries the
         # word too — before the detail had arrived, it found some other div.
-        return self.page.locator("#leden-detail div").filter(
-            has=self.page.locator("h3", has_text="Lidmaatschappen")).last
+        return (
+            self.page.locator("#leden-detail div")
+            .filter(has=self.page.locator("h3", has_text="Lidmaatschappen"))
+            .last
+        )
 
     def lidmaatschapskop(self):
         return self.page.locator("#leden-detail h3", has_text="Lidmaatschappen")
@@ -402,8 +415,11 @@ class Adminschil:
         self.page.evaluate("document.querySelector('aside').__raakMerk = 1")
 
     def zijbalk_is_nog_dezelfde(self) -> bool:
-        return bool(self.page.evaluate(
-            "!!(document.querySelector('aside') && document.querySelector('aside').__raakMerk)"))
+        return bool(
+            self.page.evaluate(
+                "!!(document.querySelector('aside') && document.querySelector('aside').__raakMerk)"
+            )
+        )
 
     def klik_in_de_zijbalk(self, href: str) -> None:
         with htmx_afgerond(self.page):
@@ -420,8 +436,10 @@ def controlhoogtes(page, container_selector: str) -> dict:
     browser kan dat meten.
     """
     hoogtes: dict = {}
-    velden = page.locator(f"{container_selector} input:not([type=checkbox]):not([type=hidden]), "
-                          f"{container_selector} select")
+    velden = page.locator(
+        f"{container_selector} input:not([type=checkbox]):not([type=hidden]), "
+        f"{container_selector} select"
+    )
     for i in range(velden.count()):
         veld = velden.nth(i)
         if not veld.is_visible():
@@ -459,7 +477,8 @@ class Activiteitdetail:
             pad = self.page.evaluate(
                 r"""Array.from(document.querySelectorAll('a[href]'))
                         .map(a => a.getAttribute('href'))
-                        .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null""")
+                        .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null"""
+            )
             if not pad:
                 return False
             self.page.goto(pad)
@@ -492,7 +511,8 @@ class Activiteitdetail:
         """
         self.page.evaluate(
             """document.body.setAttribute('hx-headers',
-                   JSON.stringify({'X-CSRF-Token': 'verlopen-token'}))""")
+                   JSON.stringify({'X-CSRF-Token': 'verlopen-token'}))"""
+        )
 
     def datum_leesregel(self):
         """De tekstregel met de datum — die hoort te verdwijnen tijdens bewerken (#648)."""

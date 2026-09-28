@@ -15,6 +15,7 @@ commits the violation:
   "Heropen verslag" walks that back — every send archives its own PDF, so the
   history keeps every version that ever went out.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -26,8 +27,9 @@ from sqlalchemy.orm import Session
 
 from app.domains.meetings.codes import SECTION_KIND
 from app.domains.meetings.models import (
-    Attendance,
     CARRY_OVER_SECTIONS,
+    STANDARD_SECTIONS,
+    Attendance,
     FilePurpose,
     Meeting,
     MeetingAttendance,
@@ -36,7 +38,6 @@ from app.domains.meetings.models import (
     MeetingItem,
     MeetingSection,
     MeetingStatus,
-    STANDARD_SECTIONS,
     SectionKind,
 )
 from app.i18n import _
@@ -70,38 +71,45 @@ def section_label(section: MeetingSection) -> str:
 
 # ── Reading ──────────────────────────────────────────────────────────────────
 
+
 def list_meetings(db: Session, limit: int = 50) -> list[Meeting]:
     """The meetings, newest first — the list screen."""
-    return (db.query(Meeting)
-            .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
-            .limit(limit).all())
+    return (
+        db.query(Meeting)
+        .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 def get_meeting(db: Session, meeting_id: int) -> Optional[Meeting]:
     return db.get(Meeting, meeting_id)
 
 
-def previous_meeting(db: Session, before: date,
-                     exclude_id: Optional[int] = None) -> Optional[Meeting]:
+def previous_meeting(
+    db: Session, before: date, exclude_id: Optional[int] = None
+) -> Optional[Meeting]:
     """The meeting whose report went out before this date.
 
     "Previous" is the last meeting that was actually *held and sent*, not merely
     the previous row: a draft agenda for next month must not become the boundary
     of this month's evaluation window.
     """
-    query = (db.query(Meeting)
-             .filter(Meeting.meeting_date < before,
-                     Meeting.report_sent_at.isnot(None)))
+    query = db.query(Meeting).filter(
+        Meeting.meeting_date < before, Meeting.report_sent_at.isnot(None)
+    )
     if exclude_id is not None:
         query = query.filter(Meeting.id != exclude_id)
     return query.order_by(Meeting.meeting_date.desc(), Meeting.id.desc()).first()
 
 
 def sections_of(db: Session, meeting: Meeting) -> list[MeetingSection]:
-    return (db.query(MeetingSection)
-            .filter(MeetingSection.meeting_id == meeting.id)
-            .order_by(MeetingSection.position.asc(), MeetingSection.id.asc())
-            .all())
+    return (
+        db.query(MeetingSection)
+        .filter(MeetingSection.meeting_id == meeting.id)
+        .order_by(MeetingSection.position.asc(), MeetingSection.id.asc())
+        .all()
+    )
 
 
 def items_of(db: Session, section: MeetingSection) -> list[MeetingItem]:
@@ -111,18 +119,26 @@ def items_of(db: Session, section: MeetingSection) -> list[MeetingItem]:
     into its place, also *between* existing points — and free items follow at the
     end in the order they were typed.
     """
-    return (db.query(MeetingItem)
-            .filter(MeetingItem.section_id == section.id)
-            .order_by(MeetingItem.sort_key.asc().nullslast(),
-                      MeetingItem.position.asc(), MeetingItem.id.asc())
-            .all())
+    return (
+        db.query(MeetingItem)
+        .filter(MeetingItem.section_id == section.id)
+        .order_by(
+            MeetingItem.sort_key.asc().nullslast(), MeetingItem.position.asc(), MeetingItem.id.asc()
+        )
+        .all()
+    )
 
 
 # ── Generating the agenda ────────────────────────────────────────────────────
 
-def create_meeting(db: Session, *, meeting_date: date,
-                   start_time: Optional[time] = None,
-                   location: Optional[str] = None) -> Meeting:
+
+def create_meeting(
+    db: Session,
+    *,
+    meeting_date: date,
+    start_time: Optional[time] = None,
+    location: Optional[str] = None,
+) -> Meeting:
     """A new meeting with its agenda already filled in.
 
     Time and location are prefilled from the previous meeting when the caller
@@ -135,8 +151,12 @@ def create_meeting(db: Session, *, meeting_date: date,
     if not location and previous is not None:
         location = previous.location
 
-    meeting = Meeting(meeting_date=meeting_date, start_time=start_time,
-                      location=location, status=MeetingStatus.AGENDA)
+    meeting = Meeting(
+        meeting_date=meeting_date,
+        start_time=start_time,
+        location=location,
+        status=MeetingStatus.AGENDA,
+    )
     db.add(meeting)
     db.flush()
     _seed_sections(db, meeting)
@@ -145,9 +165,14 @@ def create_meeting(db: Session, *, meeting_date: date,
     return meeting
 
 
-def update_meeting(db: Session, meeting: Meeting, *, meeting_date: date,
-                   start_time: Optional[time] = None,
-                   location: Optional[str] = None) -> Meeting:
+def update_meeting(
+    db: Session,
+    meeting: Meeting,
+    *,
+    meeting_date: date,
+    start_time: Optional[time] = None,
+    location: Optional[str] = None,
+) -> Meeting:
     """Verplaats of hernoem een vergadering — en stel de agenda opnieuw samen.
 
     Een vergadering een week opschuiven gebeurt (Koen, 14 september 2026), en dan
@@ -176,16 +201,14 @@ def _seed_sections(db: Session, meeting: Meeting) -> dict[SectionKind, MeetingSe
     """The five standard sections, in their fixed order. Misc is last (§3.17)."""
     sections = {}
     for position, kind in enumerate(STANDARD_SECTIONS):
-        section = MeetingSection(meeting_id=meeting.id, kind=kind,
-                                 position=position * 10)
+        section = MeetingSection(meeting_id=meeting.id, kind=kind, position=position * 10)
         db.add(section)
         sections[kind] = section
     db.flush()
     return sections
 
 
-def generate_agenda(db: Session, meeting: Meeting,
-                    previous: Optional[Meeting] = None) -> None:
+def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] = None) -> None:
     """Fill the generated sections from the data the portal already holds.
 
     Deterministic throughout — queries and carry-over, no LLM anywhere (§3.1).
@@ -213,14 +236,22 @@ def generate_agenda(db: Session, meeting: Meeting,
 
     # Evaluation: what ran or started since the previous meeting.
     if evaluation is not None:
-        _add_activities(db, meeting, evaluation,
-                        activities_active_between(db, since, meeting.meeting_date))
+        _add_activities(
+            db, meeting, evaluation, activities_active_between(db, since, meeting.meeting_date)
+        )
 
     # Upcoming: wat binnen de agendeerhorizon valt (§3.14, herzien 16 sep 2026).
     if upcoming is not None:
-        _add_activities(db, meeting, upcoming,
-                        [span for span in activities_from(db, meeting.meeting_date)
-                         if span.start <= _horizon(meeting.meeting_date)])
+        _add_activities(
+            db,
+            meeting,
+            upcoming,
+            [
+                span
+                for span in activities_from(db, meeting.meeting_date)
+                if span.start <= _horizon(meeting.meeting_date)
+            ],
+        )
 
     # Members: who joined since the previous meeting.
     members = by_kind.get(SectionKind.MEMBERS)
@@ -228,11 +259,17 @@ def generate_agenda(db: Session, meeting: Meeting,
         _replace_generated(db, members)
         window_end = meeting.meeting_date + timedelta(days=1)
         for position, new_member in enumerate(
-                new_members_between(db, _as_dt(since), _as_dt(window_end))):
-            db.add(MeetingItem(
-                meeting_id=meeting.id, section_id=members.id, position=position,
-                member_id=new_member["member_id"],
-                noted_steward_person_id=new_member["steward_person_id"]))
+            new_members_between(db, _as_dt(since), _as_dt(window_end))
+        ):
+            db.add(
+                MeetingItem(
+                    meeting_id=meeting.id,
+                    section_id=members.id,
+                    position=position,
+                    member_id=new_member["member_id"],
+                    noted_steward_person_id=new_member["steward_person_id"],
+                )
+            )
 
     # Ideas: carried over from the previous meeting, text and all.
     ideas = by_kind.get(SectionKind.IDEAS)
@@ -242,8 +279,7 @@ def generate_agenda(db: Session, meeting: Meeting,
     db.flush()
 
 
-def _add_activities(db: Session, meeting: Meeting, section: MeetingSection,
-                    spans) -> None:
+def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, spans) -> None:
     """Zet deze activiteiten in de sectie, zonder iets te verdubbelen.
 
     Overslaan wat er al staat is niet netjesheid maar noodzaak: bij het opnieuw
@@ -251,16 +287,23 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection,
     zonder deze controle zou er een tweede, leeg punt voor dezelfde activiteit
     naast komen te staan.
     """
-    aanwezig = {item.activity_id for item in
-                db.query(MeetingItem)
-                .filter(MeetingItem.meeting_id == meeting.id).all()
-                if item.activity_id}
+    aanwezig = {
+        item.activity_id
+        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
+        if item.activity_id
+    }
     for position, span in enumerate(spans):
         if span.activity.id in aanwezig:
             continue
-        db.add(MeetingItem(meeting_id=meeting.id, section_id=section.id,
-                           position=position, activity_id=span.activity.id,
-                           sort_key=span.start))
+        db.add(
+            MeetingItem(
+                meeting_id=meeting.id,
+                section_id=section.id,
+                position=position,
+                activity_id=span.activity.id,
+                sort_key=span.start,
+            )
+        )
         aanwezig.add(span.activity.id)
     db.flush()
 
@@ -274,8 +317,23 @@ def _horizon(vanaf: date) -> date:
     maand = vanaf.month - 1 + UPCOMING_MONTHS
     jaar = vanaf.year + maand // 12
     maand = maand % 12 + 1
-    dag = min(vanaf.day, [31, 29 if jaar % 4 == 0 and (jaar % 100 != 0 or jaar % 400 == 0)
-                          else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][maand - 1])
+    dag = min(
+        vanaf.day,
+        [
+            31,
+            29 if jaar % 4 == 0 and (jaar % 100 != 0 or jaar % 400 == 0) else 28,
+            31,
+            30,
+            31,
+            30,
+            31,
+            31,
+            30,
+            31,
+            30,
+            31,
+        ][maand - 1],
+    )
     return date(jaar, maand, dag)
 
 
@@ -293,15 +351,18 @@ def _replace_generated(db: Session, section: MeetingSection) -> None:
     db.flush()
 
 
-def _carry_over(db: Session, previous: Meeting, meeting: Meeting,
-                by_kind: dict[str, MeetingSection]) -> None:
+def _carry_over(
+    db: Session, previous: Meeting, meeting: Meeting, by_kind: dict[str, MeetingSection]
+) -> None:
     """Copy the previous meeting's ideas and misc items into this agenda.
 
     Only those two sections carry over (§3.6): everything else is regenerated
     from live data, so copying it would create a second, ageing truth.
     """
-    already = {item.carried_over_from for item in
-               db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()}
+    already = {
+        item.carried_over_from
+        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
+    }
     for section in sections_of(db, previous):
         if section.kind not in CARRY_OVER_SECTIONS:
             continue
@@ -311,9 +372,16 @@ def _carry_over(db: Session, previous: Meeting, meeting: Meeting,
         for item in items_of(db, section):
             if item.id in already:
                 continue
-            db.add(MeetingItem(meeting_id=meeting.id, section_id=target.id,
-                               position=item.position, title=item.title,
-                               notes=item.notes, carried_over_from=item.id))
+            db.add(
+                MeetingItem(
+                    meeting_id=meeting.id,
+                    section_id=target.id,
+                    position=item.position,
+                    title=item.title,
+                    notes=item.notes,
+                    carried_over_from=item.id,
+                )
+            )
 
 
 def _as_dt(day: date) -> datetime:
@@ -322,6 +390,7 @@ def _as_dt(day: date) -> datetime:
 
 
 # ── Editing the document ─────────────────────────────────────────────────────
+
 
 def _touch(db: Session, meeting: Meeting) -> None:
     """Any edit after the agenda went out means the minutes have started.
@@ -333,9 +402,15 @@ def _touch(db: Session, meeting: Meeting) -> None:
         meeting.status = MeetingStatus.REPORT
 
 
-def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
-             title: Optional[str] = None, activity_id: Optional[int] = None,
-             notes: Optional[str] = None) -> MeetingItem:
+def add_item(
+    db: Session,
+    meeting: Meeting,
+    section: MeetingSection,
+    *,
+    title: Optional[str] = None,
+    activity_id: Optional[int] = None,
+    notes: Optional[str] = None,
+) -> MeetingItem:
     """Add a point — linked to an activity, or free.
 
     A linked point gets the activity's start date as its sort key, so it lands
@@ -355,15 +430,28 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
     if activity_id is not None:
         from app.domains.activities.api import Activity, ActivityDate
 
-        sort_key = (db.query(func.min(ActivityDate.start_date))
-                    .filter(ActivityDate.activity_id == activity_id).scalar())
+        sort_key = (
+            db.query(func.min(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == activity_id)
+            .scalar()
+        )
         if db.get(Activity, activity_id) is None:
             raise MeetingError(_("Die activiteit bestaat niet."))
-    last = (db.query(func.max(MeetingItem.position))
-            .filter(MeetingItem.section_id == section.id).scalar() or 0)
-    item = MeetingItem(meeting_id=meeting.id, section_id=section.id,
-                       position=last + 1, title=title, notes=notes,
-                       activity_id=activity_id, sort_key=sort_key)
+    last = (
+        db.query(func.max(MeetingItem.position))
+        .filter(MeetingItem.section_id == section.id)
+        .scalar()
+        or 0
+    )
+    item = MeetingItem(
+        meeting_id=meeting.id,
+        section_id=section.id,
+        position=last + 1,
+        title=title,
+        notes=notes,
+        activity_id=activity_id,
+        sort_key=sort_key,
+    )
     db.add(item)
     _touch(db, meeting)
     db.commit()
@@ -371,14 +459,22 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
 
 
 def _al_op_de_agenda(db: Session, meeting: Meeting, activity_id: int) -> bool:
-    return db.query(MeetingItem).filter(
-        MeetingItem.meeting_id == meeting.id,
-        MeetingItem.activity_id == activity_id).first() is not None
+    return (
+        db.query(MeetingItem)
+        .filter(MeetingItem.meeting_id == meeting.id, MeetingItem.activity_id == activity_id)
+        .first()
+        is not None
+    )
 
 
-def update_item(db: Session, meeting: Meeting, item_id: int, *,
-                notes: Optional[str] = None,
-                title: Optional[str] = None) -> MeetingItem:
+def update_item(
+    db: Session,
+    meeting: Meeting,
+    item_id: int,
+    *,
+    notes: Optional[str] = None,
+    title: Optional[str] = None,
+) -> MeetingItem:
     """Write the minutes on one point. `None` means "left alone", not "cleared"."""
     _refuse_when_sent(meeting)
     item = _item_of(db, meeting, item_id)
@@ -397,8 +493,9 @@ def update_item(db: Session, meeting: Meeting, item_id: int, *,
     return item
 
 
-def set_noted_steward(db: Session, meeting: Meeting, item_id: int,
-                      person_id: Optional[int]) -> MeetingItem:
+def set_noted_steward(
+    db: Session, meeting: Meeting, item_id: int, person_id: Optional[int]
+) -> MeetingItem:
     """Note which steward a new member gets — or take the note back out.
 
     Its own function and not a keyword on `update_item`, because there the
@@ -442,8 +539,9 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
         raise MeetingError(_("Geef de sectie een naam."))
     misc = next((s for s in sections_of(db, meeting) if s.kind == SectionKind.MISC), None)
     position = (misc.position - 1) if misc is not None else 100
-    section = MeetingSection(meeting_id=meeting.id, kind=SectionKind.CUSTOM,
-                             title=title, position=position)
+    section = MeetingSection(
+        meeting_id=meeting.id, kind=SectionKind.CUSTOM, title=title, position=position
+    )
     db.add(section)
     if misc is not None:
         # Keep Varia last even after several custom sections: push it along.
@@ -453,9 +551,14 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
     return section
 
 
-def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = None,
-                   guest_id: Optional[int] = None,
-                   status: Optional[Attendance] = None) -> None:
+def set_attendance(
+    db: Session,
+    meeting: Meeting,
+    *,
+    person_id: Optional[int] = None,
+    guest_id: Optional[int] = None,
+    status: Optional[Attendance] = None,
+) -> None:
     """Tick someone present, excused, or neither — iemand uit de kring of een gast.
 
     `None` als status verwijdert de rij in plaats van een derde toestand te
@@ -467,17 +570,22 @@ def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = 
         raise MeetingError(_("Onbekende aanwezigheid."))
     if (person_id is None) == (guest_id is None):
         raise MeetingError(_("Geef één persoon of één gast op."))
-    vraag = db.query(MeetingAttendance).filter(
-        MeetingAttendance.meeting_id == meeting.id)
-    vraag = (vraag.filter(MeetingAttendance.person_id == person_id) if person_id
-             else vraag.filter(MeetingAttendance.guest_id == guest_id))
+    vraag = db.query(MeetingAttendance).filter(MeetingAttendance.meeting_id == meeting.id)
+    vraag = (
+        vraag.filter(MeetingAttendance.person_id == person_id)
+        if person_id
+        else vraag.filter(MeetingAttendance.guest_id == guest_id)
+    )
     row = vraag.first()
     if status is None:
         if row is not None:
             db.delete(row)
     elif row is None:
-        db.add(MeetingAttendance(meeting_id=meeting.id, person_id=person_id,
-                                 guest_id=guest_id, status=status))
+        db.add(
+            MeetingAttendance(
+                meeting_id=meeting.id, person_id=person_id, guest_id=guest_id, status=status
+            )
+        )
     else:
         row.status = status
     _touch(db, meeting)
@@ -495,8 +603,7 @@ def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
     happens on the boundary.
     """
     uit = {}
-    for row in (db.query(MeetingAttendance)
-                .filter(MeetingAttendance.meeting_id == meeting.id).all()):
+    for row in db.query(MeetingAttendance).filter(MeetingAttendance.meeting_id == meeting.id).all():
         sleutel = f"p{row.person_id}" if row.person_id else f"g{row.guest_id}"
         uit[sleutel] = row.status
     return uit
@@ -504,10 +611,19 @@ def attendance_of(db: Session, meeting: Meeting) -> dict[str, Attendance]:
 
 # ── Files ────────────────────────────────────────────────────────────────────
 
-def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
-             data: bytes, on_agenda_mail: bool = True,
-             on_report_mail: bool = True, purpose: FilePurpose = FilePurpose.ATTACHMENT,
-             commit: bool = True) -> MeetingFile:
+
+def add_file(
+    db: Session,
+    meeting: Meeting,
+    *,
+    filename: str,
+    content_type: str,
+    data: bytes,
+    on_agenda_mail: bool = True,
+    on_report_mail: bool = True,
+    purpose: FilePurpose = FilePurpose.ATTACHMENT,
+    commit: bool = True,
+) -> MeetingFile:
     """Store an attachment with the meeting (bytes and all, see models.py).
 
     `commit=False` for the caller that is building a larger transaction — the
@@ -515,12 +631,16 @@ def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
     """
     if not data:
         raise MeetingError(_("Het bestand is leeg."))
-    record = MeetingFile(meeting_id=meeting.id, purpose=purpose,
-                         filename=filename[:255],
-                         content_type=content_type or "application/octet-stream",
-                         byte_size=len(data), data=data,
-                         on_agenda_mail=on_agenda_mail,
-                         on_report_mail=on_report_mail)
+    record = MeetingFile(
+        meeting_id=meeting.id,
+        purpose=purpose,
+        filename=filename[:255],
+        content_type=content_type or "application/octet-stream",
+        byte_size=len(data),
+        data=data,
+        on_agenda_mail=on_agenda_mail,
+        on_report_mail=on_report_mail,
+    )
     db.add(record)
     if commit:
         db.commit()
@@ -529,8 +649,7 @@ def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
     return record
 
 
-def set_file_mailing(db: Session, meeting: Meeting, file_id: int, *,
-                     mail: str) -> None:
+def set_file_mailing(db: Session, meeting: Meeting, file_id: int, *, mail: str) -> None:
     """Zet aan of uit of deze bijlage met de agenda- dan wel de verslagmail meegaat.
 
     Gevraagd door Koen op 14 september: het gebeurt dat er één bijlage bij de
@@ -613,14 +732,14 @@ def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
     if record.purpose == FilePurpose.SENT_PDF:
         raise MeetingError(_("Een verstuurde PDF blijft bewaard."))
     if file_is_sent(meeting, record):
-        raise MeetingError(
-            _("Deze bijlage is al meegestuurd — ze blijft bewaard."))
+        raise MeetingError(_("Deze bijlage is al meegestuurd — ze blijft bewaard."))
     db.delete(record)
     db.commit()
 
 
-def files_of(db: Session, meeting: Meeting,
-             purpose: Optional[FilePurpose] = FilePurpose.ATTACHMENT) -> list[MeetingFile]:
+def files_of(
+    db: Session, meeting: Meeting, purpose: Optional[FilePurpose] = FilePurpose.ATTACHMENT
+) -> list[MeetingFile]:
     query = db.query(MeetingFile).filter(MeetingFile.meeting_id == meeting.id)
     if purpose is not None:
         query = query.filter(MeetingFile.purpose == purpose)
@@ -634,8 +753,10 @@ def get_file(db: Session, meeting_id: int, file_id: int) -> Optional[MeetingFile
 
 # ── Recipients ───────────────────────────────────────────────────────────────
 
-def add_extra_recipient(db: Session, meeting: Meeting, email: str,
-                        name: Optional[str] = None) -> None:
+
+def add_extra_recipient(
+    db: Session, meeting: Meeting, email: str, name: Optional[str] = None
+) -> None:
     """Nodig een gast uit voor deze ene vergadering: naam en adres.
 
     Hij krijgt de mails én hij staat in de aanwezigheidslijst — wie mee aan tafel
@@ -645,21 +766,31 @@ def add_extra_recipient(db: Session, meeting: Meeting, email: str,
     email = (email or "").strip()
     if "@" not in email:
         raise MeetingError(_("Dat is geen e-mailadres."))
-    exists = (db.query(MeetingExtraRecipient)
-              .filter(MeetingExtraRecipient.meeting_id == meeting.id,
-                      func.lower(MeetingExtraRecipient.email) == email.lower())
-              .first())
+    exists = (
+        db.query(MeetingExtraRecipient)
+        .filter(
+            MeetingExtraRecipient.meeting_id == meeting.id,
+            func.lower(MeetingExtraRecipient.email) == email.lower(),
+        )
+        .first()
+    )
     if exists is None:
-        db.add(MeetingExtraRecipient(meeting_id=meeting.id, email=email,
-                                     name=(name or "").strip() or None))
+        db.add(
+            MeetingExtraRecipient(
+                meeting_id=meeting.id, email=email, name=(name or "").strip() or None
+            )
+        )
         db.commit()
 
 
 def extra_recipients_of(db: Session, meeting: Meeting) -> list[MeetingExtraRecipient]:
     """De losse adressen van deze vergadering, in de volgorde van toevoegen."""
-    return (db.query(MeetingExtraRecipient)
-            .filter(MeetingExtraRecipient.meeting_id == meeting.id)
-            .order_by(MeetingExtraRecipient.id.asc()).all())
+    return (
+        db.query(MeetingExtraRecipient)
+        .filter(MeetingExtraRecipient.meeting_id == meeting.id)
+        .order_by(MeetingExtraRecipient.id.asc())
+        .all()
+    )
 
 
 def remove_extra_recipient(db: Session, meeting: Meeting, recipient_id: int) -> None:
@@ -719,9 +850,18 @@ def recipients_for(db: Session, meeting: Meeting) -> Recipients:
 
 # ── Sending ──────────────────────────────────────────────────────────────────
 
-def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
-                      body_html: str, reply_to: Optional[str],
-                      pdf: bytes, pdf_filename: str) -> None:
+
+def send_meeting_mail(
+    db: Session,
+    meeting: Meeting,
+    *,
+    kind: str,
+    subject: str,
+    body_html: str,
+    reply_to: Optional[str],
+    pdf: bytes,
+    pdf_filename: str,
+) -> None:
     """Mail the agenda or the report: one mail, the whole circle in To.
 
     Deliberately the opposite of the newsletter's per-recipient campaign path
@@ -746,14 +886,26 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
             attachments.append((record.filename, record.content_type, record.data))
             meegestuurd.append(record)
 
-    send_with_attachments(to_emails=recipients.emails, subject=subject,
-                          body_html=body_html, attachments=attachments,
-                          reply_to=reply_to, email_type="meeting")
+    send_with_attachments(
+        to_emails=recipients.emails,
+        subject=subject,
+        body_html=body_html,
+        attachments=attachments,
+        reply_to=reply_to,
+        email_type="meeting",
+    )
 
     # Archiveren en stempelen in ÉÉN commit: anders kan een crash ertussen een
     # bewaarde PDF achterlaten bij een vergadering die "niet verstuurd" heet.
-    add_file(db, meeting, filename=pdf_filename, content_type="application/pdf",
-             data=pdf, purpose=FilePurpose.SENT_PDF, commit=False)
+    add_file(
+        db,
+        meeting,
+        filename=pdf_filename,
+        content_type="application/pdf",
+        data=pdf,
+        purpose=FilePurpose.SENT_PDF,
+        commit=False,
+    )
     now = datetime.now(timezone.utc)
     # Per bijlage vastleggen dát ze mee was, en met wélke mail. Zonder dit stempel
     # blijft er van een afgesloten vergadering alleen een aanvinkvakje over, en dat
@@ -786,11 +938,11 @@ def reopen(db: Session, meeting: Meeting) -> None:
 
 def _refuse_when_sent(meeting: Meeting) -> None:
     if meeting.status == MeetingStatus.SENT:
-        raise MeetingError(
-            _("Het verslag is verstuurd. Heropen het eerst om nog te wijzigen."))
+        raise MeetingError(_("Het verslag is verstuurd. Heropen het eerst om nog te wijzigen."))
 
 
 # ── The members header ───────────────────────────────────────────────────────
+
 
 @dataclass(frozen=True)
 class MemberStanding:
@@ -813,31 +965,51 @@ def member_standing(db: Session, today: Optional[date] = None) -> MemberStanding
     December); from 1 January the new year's count is the whole story, because
     renewals and new members both land in it.
     """
-    from app.domains.membership.api import (members_with_membership_for_year,
-                                            renewal_open, renewal_years)
+    from app.domains.membership.api import (
+        members_with_membership_for_year,
+        renewal_open,
+        renewal_years,
+    )
 
     if today is None:
         today = date.today()
     total = len(members_with_membership_for_year(db, today.year))
     if not renewal_open(today):
-        return MemberStanding(year=today.year, total=total, renewal_running=False,
-                              renewal_year=None, renewed=None, to_renew=None)
+        return MemberStanding(
+            year=today.year,
+            total=total,
+            renewal_running=False,
+            renewal_year=None,
+            renewed=None,
+            to_renew=None,
+        )
     reference, target = renewal_years(today)
     if target == today.year:
         # The campaign is about the year we are already counting: its progress is
         # the total itself, so showing it twice would only invite comparison.
-        return MemberStanding(year=today.year, total=total, renewal_running=False,
-                              renewal_year=None, renewed=None, to_renew=None)
+        return MemberStanding(
+            year=today.year,
+            total=total,
+            renewal_running=False,
+            renewal_year=None,
+            renewed=None,
+            to_renew=None,
+        )
     return MemberStanding(
-        year=today.year, total=total, renewal_running=True, renewal_year=target,
+        year=today.year,
+        total=total,
+        renewal_running=True,
+        renewal_year=target,
         renewed=len(members_with_membership_for_year(db, target)),
-        to_renew=len(members_with_membership_for_year(db, reference)))
+        to_renew=len(members_with_membership_for_year(db, reference)),
+    )
 
 
 # ── The document, ready to show ──────────────────────────────────────────────
 # Built here and not in the screen: the same structure feeds the HTML page and
 # the PDF, and a second builder is how the two start disagreeing about what a
 # meeting says.
+
 
 @dataclass(frozen=True)
 class DocumentItem:
@@ -854,7 +1026,7 @@ class DocumentItem:
     # flags rather than a vocabulary (CR-12 phase 4, §B5.3).
     is_activity: bool
     is_member: bool
-    source_url: Optional[str]      # where the source chip goes
+    source_url: Optional[str]  # where the source chip goes
     is_full: bool
     steward_person_id: Optional[int]
     # De naam erbij, niet alleen het id: het verslag drukt "wijkmeester: Ivo
@@ -900,33 +1072,45 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
     sections = sections_of(db, meeting)
     all_items = {s.id: items_of(db, s) for s in sections}
 
-    activity_ids = [i.activity_id for items in all_items.values() for i in items
-                    if i.activity_id]
+    activity_ids = [i.activity_id for items in all_items.values() for i in items if i.activity_id]
     activities = {}
     counts = {}
     times = {}
     if activity_ids:
-        activities = {a.id: a for a in
-                      db.query(Activity).filter(Activity.id.in_(activity_ids)).all()}
+        activities = {
+            a.id: a for a in db.query(Activity).filter(Activity.id.in_(activity_ids)).all()
+        }
         counts = registration_counts(db, activity_ids)
         times = _start_times(db, activity_ids)
 
-    member_ids = [i.member_id for items in all_items.values() for i in items
-                  if i.member_id]
+    member_ids = [i.member_id for items in all_items.values() for i in items if i.member_id]
     member_labels = _member_labels(db, member_ids)
-    steward_names = _person_names(db, [i.noted_steward_person_id
-                                       for items in all_items.values() for i in items
-                                       if i.noted_steward_person_id])
+    steward_names = _person_names(
+        db,
+        [
+            i.noted_steward_person_id
+            for items in all_items.values()
+            for i in items
+            if i.noted_steward_person_id
+        ],
+    )
 
     out = []
     for section in sections:
-        items = [_present(item, activities, counts, member_labels, times,
-                          steward_names)
-                 for item in all_items[section.id]]
-        out.append(DocumentSection(
-            id=section.id, kind=section.kind, label=section_label(section),
-            subtitle=_subtitle_for(section.kind), items=items,
-            can_add=meeting.status != MeetingStatus.SENT))
+        items = [
+            _present(item, activities, counts, member_labels, times, steward_names)
+            for item in all_items[section.id]
+        ]
+        out.append(
+            DocumentSection(
+                id=section.id,
+                kind=section.kind,
+                label=section_label(section),
+                subtitle=_subtitle_for(section.kind),
+                items=items,
+                can_add=meeting.status != MeetingStatus.SENT,
+            )
+        )
     return out
 
 
@@ -954,11 +1138,14 @@ def _start_times(db: Session, activity_ids: list[int]) -> dict[int, object]:
     """
     from app.domains.activities.api import ActivityDate
 
-    rijen = (db.query(ActivityDate)
-             .filter(ActivityDate.activity_id.in_(activity_ids))
-             .order_by(ActivityDate.activity_id.asc(),
-                       ActivityDate.start_date.asc(), ActivityDate.id.asc())
-             .all())
+    rijen = (
+        db.query(ActivityDate)
+        .filter(ActivityDate.activity_id.in_(activity_ids))
+        .order_by(
+            ActivityDate.activity_id.asc(), ActivityDate.start_date.asc(), ActivityDate.id.asc()
+        )
+        .all()
+    )
     eerste: dict[int, object] = {}
     for rij in rijen:
         eerste.setdefault(rij.activity_id, rij.start_time)
@@ -972,13 +1159,20 @@ def _person_names(db: Session, person_ids: list[int]) -> dict[int, str]:
     ids = [p for p in person_ids if p]
     if not ids:
         return {}
-    return {p.id: f"{p.first_name} {p.last_name}".strip()
-            for p in db.query(Person).filter(Person.id.in_(ids)).all()}
+    return {
+        p.id: f"{p.first_name} {p.last_name}".strip()
+        for p in db.query(Person).filter(Person.id.in_(ids)).all()
+    }
 
 
-def _present(item: MeetingItem, activities: dict, counts: dict,
-             member_labels: dict, times: Optional[dict] = None,
-             steward_names: Optional[dict] = None) -> DocumentItem:
+def _present(
+    item: MeetingItem,
+    activities: dict,
+    counts: dict,
+    member_labels: dict,
+    times: Optional[dict] = None,
+    steward_names: Optional[dict] = None,
+) -> DocumentItem:
     """One stored item as it reads on screen.
 
     An activity point renders **name | date time location · N ingeschreven** and
@@ -1003,26 +1197,45 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
             shown = f"{booked}/{capacity}" if capacity else str(booked)
             parts.append(_("%s ingeschreven") % shown)
         return DocumentItem(
-            id=item.id, label=activity.name, meta=" · ".join(parts),
-            notes=item.notes or "", is_activity=True, is_member=False,
+            id=item.id,
+            label=activity.name,
+            meta=" · ".join(parts),
+            notes=item.notes or "",
+            is_activity=True,
+            is_member=False,
             source_url=f"/admin/activiteiten/{activity.id}",
             is_full=bool(capacity and booked >= capacity),
-            steward_person_id=None, activity_id=activity.id)
+            steward_person_id=None,
+            activity_id=activity.id,
+        )
 
     if item.member_id:
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
         naam = (steward_names or {}).get(item.noted_steward_person_id or 0, "")
         return DocumentItem(
-            id=item.id, label=label, meta=address, notes=item.notes or "",
-            is_activity=False, is_member=True,
+            id=item.id,
+            label=label,
+            meta=address,
+            notes=item.notes or "",
+            is_activity=False,
+            is_member=True,
             source_url=f"/admin/leden/gezin/{item.member_id}",
-            is_full=False, steward_person_id=item.noted_steward_person_id,
-            steward_name=naam)
+            is_full=False,
+            steward_person_id=item.noted_steward_person_id,
+            steward_name=naam,
+        )
 
-    return DocumentItem(id=item.id, label=item.title or _("Punt"), meta="",
-                        notes=item.notes or "", is_activity=False, is_member=False,
-                        source_url=None,
-                        is_full=False, steward_person_id=None)
+    return DocumentItem(
+        id=item.id,
+        label=item.title or _("Punt"),
+        meta="",
+        notes=item.notes or "",
+        is_activity=False,
+        is_member=False,
+        source_url=None,
+        is_full=False,
+        steward_person_id=None,
+    )
 
 
 def _member_labels(db: Session, member_ids: list[int]) -> dict[int, tuple[str, str]]:
@@ -1031,13 +1244,16 @@ def _member_labels(db: Session, member_ids: list[int]) -> dict[int, tuple[str, s
     A household has no name of its own (§3.20), so the label is built from the
     person relations — the same shape the board writes in its report.
     """
-    from app.domains.mdm.api import Member, MemberPerson, Person
+    from app.domains.mdm.api import MemberPerson, Person
 
     if not member_ids:
         return {}
-    rows = (db.query(MemberPerson, Person)
-            .join(Person, Person.id == MemberPerson.person_id)
-            .filter(MemberPerson.member_id.in_(member_ids)).all())
+    rows = (
+        db.query(MemberPerson, Person)
+        .join(Person, Person.id == MemberPerson.person_id)
+        .filter(MemberPerson.member_id.in_(member_ids))
+        .all()
+    )
     people: dict[int, list] = {}
     for link, person in rows:
         people.setdefault(link.member_id, []).append((link.relation_type, person))
@@ -1049,10 +1265,8 @@ def _member_labels(db: Session, member_ids: list[int]) -> dict[int, tuple[str, s
         partner = next((p for relation, p in entries if relation == "PARTNER"), None)
         if head is None and entries:
             head = entries[0][1]
-        names = [f"{p.first_name} {p.last_name}".strip()
-                 for p in (head, partner) if p is not None]
-        out[member_id] = (" – ".join(names) or _("Nieuw lid"),
-                          _address_line(head))
+        names = [f"{p.first_name} {p.last_name}".strip() for p in (head, partner) if p is not None]
+        out[member_id] = (" – ".join(names) or _("Nieuw lid"), _address_line(head))
     return out
 
 
@@ -1061,8 +1275,7 @@ def _address_line(person) -> str:
     address = getattr(person, "address", None)
     if address is None:
         return ""
-    return " ".join(part for part in [address.street, address.house_number]
-                    if part).strip()
+    return " ".join(part for part in [address.street, address.house_number] if part).strip()
 
 
 # Hoe ver de kiezer terugkijkt onder "Evaluatie". Een jaar, omdat de reden om
@@ -1081,10 +1294,13 @@ class ReportPoint:
 def sent_reports(db: Session, limit: int = 24) -> list[Meeting]:
     """The reports that went out, newest first — what the newsletter composer
     may tick as a whole (Koen, 17 September 2026)."""
-    return (db.query(Meeting)
-            .filter(Meeting.status == MeetingStatus.SENT)
-            .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
-            .limit(limit).all())
+    return (
+        db.query(Meeting)
+        .filter(Meeting.status == MeetingStatus.SENT)
+        .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+        .limit(limit)
+        .all()
+    )
 
 
 def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
@@ -1103,17 +1319,23 @@ def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
             for item in section.items:
                 if item.is_member:
                     continue
-                points.append(ReportPoint(meeting_id=meeting.id,
-                                          meeting_date=meeting.meeting_date,
-                                          section=section.label, item=item))
+                points.append(
+                    ReportPoint(
+                        meeting_id=meeting.id,
+                        meeting_date=meeting.meeting_date,
+                        section=section.label,
+                        item=item,
+                    )
+                )
     return points
 
 
 EVALUATION_LOOKBACK = timedelta(days=365)
 
 
-def addable_activities(db: Session, meeting: Meeting, query: str = "",
-                       section_id: Optional[int] = None) -> list:
+def addable_activities(
+    db: Session, meeting: Meeting, query: str = "", section_id: Optional[int] = None
+) -> list:
     """Activities that could still be added to this agenda, per section.
 
     The picker behind "Punt toevoegen" (§3.19). **What it offers follows the
@@ -1129,22 +1351,34 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
     """
     from app.domains.activities.api import activities_active_between, activities_from
 
-    present = {item.activity_id for item in
-               db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
-               if item.activity_id}
+    present = {
+        item.activity_id
+        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
+        if item.activity_id
+    }
     section = db.get(MeetingSection, section_id) if section_id else None
     kind = getattr(section, "kind", None)
 
     if kind == SectionKind.EVALUATION:
         # Meest recente eerst: wat je onder evaluatie zoekt, is bijna altijd van
         # de voorbije weken.
-        spans = list(reversed(activities_active_between(
-            db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date)))
+        spans = list(
+            reversed(
+                activities_active_between(
+                    db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date
+                )
+            )
+        )
     elif kind == SectionKind.UPCOMING:
         spans = activities_from(db, meeting.meeting_date)
     else:
-        spans = list(reversed(activities_active_between(
-            db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date)))
+        spans = list(
+            reversed(
+                activities_active_between(
+                    db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date
+                )
+            )
+        )
         spans += activities_from(db, meeting.meeting_date)
 
     query = (query or "").strip().lower()
@@ -1167,12 +1401,12 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
 class Participant:
     """Iemand die bij deze vergadering hoort: uit de kring, of een gast."""
 
-    key: str            # `p<id>` of `g<id>` — personen en gasten tellen apart
+    key: str  # `p<id>` of `g<id>` — personen en gasten tellen apart
     name: str
     person_id: Optional[int]
     guest_id: Optional[int]
     is_guest: bool
-    in_circle: bool     # False = stond ooit aangevinkt maar zit niet (meer) in de kring
+    in_circle: bool  # False = stond ooit aangevinkt maar zit niet (meer) in de kring
 
 
 def participants_of(db: Session, meeting: Meeting) -> list[Participant]:
@@ -1193,25 +1427,41 @@ def participants_of(db: Session, meeting: Meeting) -> list[Participant]:
     for entry in organization_circle(db, on_day=meeting.meeting_date):
         sleutel = f"p{entry.person.id}"
         gezien.add(sleutel)
-        uit.append(Participant(
-            key=sleutel,
-            name=f"{entry.person.first_name} {entry.person.last_name}".strip(),
-            person_id=entry.person.id, guest_id=None, is_guest=False,
-            in_circle=True))
+        uit.append(
+            Participant(
+                key=sleutel,
+                name=f"{entry.person.first_name} {entry.person.last_name}".strip(),
+                person_id=entry.person.id,
+                guest_id=None,
+                is_guest=False,
+                in_circle=True,
+            )
+        )
 
     # Personen die aangevinkt staan maar niet (meer) in de kring zitten.
-    ontbrekend = [int(k[1:]) for k in aangevinkt
-                  if k.startswith("p") and k not in gezien]
+    ontbrekend = [int(k[1:]) for k in aangevinkt if k.startswith("p") and k not in gezien]
     if ontbrekend:
         for person in db.query(Person).filter(Person.id.in_(ontbrekend)).all():
-            uit.append(Participant(
-                key=f"p{person.id}",
-                name=f"{person.first_name} {person.last_name}".strip(),
-                person_id=person.id, guest_id=None, is_guest=False,
-                in_circle=False))
+            uit.append(
+                Participant(
+                    key=f"p{person.id}",
+                    name=f"{person.first_name} {person.last_name}".strip(),
+                    person_id=person.id,
+                    guest_id=None,
+                    is_guest=False,
+                    in_circle=False,
+                )
+            )
 
     for gast in extra_recipients_of(db, meeting):
-        uit.append(Participant(key=f"g{gast.id}", name=gast.name or gast.email,
-                               person_id=None, guest_id=gast.id, is_guest=True,
-                               in_circle=True))
+        uit.append(
+            Participant(
+                key=f"g{gast.id}",
+                name=gast.name or gast.email,
+                person_id=None,
+                guest_id=gast.id,
+                is_guest=True,
+                in_circle=True,
+            )
+        )
     return uit

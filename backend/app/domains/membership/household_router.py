@@ -15,6 +15,7 @@ De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
 
 (verhuisd uit app/routers/member_household.py, #444)
 """
+
 import logging
 from datetime import date
 from typing import Optional
@@ -22,22 +23,26 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import require_member
 from app.database import get_db
-from app.domains.mdm.api import Member, Person, MemberPerson, RelationType
-from app.domains.mdm.api import ContactDetail
-from app.domains.mdm.api import PostalCode
 from app.domains.audit.api import (
-    snapshot_person,
-    snapshot_member_person,
     snapshot_address,
     snapshot_contact_detail,
+    snapshot_member_person,
+    snapshot_person,
 )
-from app.domains.membership.service import (LidgegevensFout,
-                                            controleer_geboortedatum_en_geslacht)
-from app.soft_delete import soft_delete
+from app.domains.auth.api import require_member
+from app.domains.mdm.api import (
+    CONTACT,
+    ContactDetail,
+    Member,
+    MemberPerson,
+    Person,
+    PostalCode,
+    RelationType,
+)
+from app.domains.membership.service import LidgegevensFout, controleer_geboortedatum_en_geslacht
 from app.i18n import _
-from app.domains.mdm.api import CONTACT
+from app.soft_delete import soft_delete
 
 logger = logging.getLogger(__name__)
 
@@ -68,9 +73,10 @@ def _person_payload(p: Person):
     # beheerscherm, zodat de twee sjablonen hetzelfde lezen.
     emails = [
         {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
-        for c in sorted((c for c in p.contact_details
-                         if c.contact_type_code == CONTACT.EMAIL and c.value),
-                        key=lambda c: (not c.is_primary, c.id or 0))
+        for c in sorted(
+            (c for c in p.contact_details if c.contact_type_code == CONTACT.EMAIL and c.value),
+            key=lambda c: (not c.is_primary, c.id or 0),
+        )
     ]
     address = None
     if p.address:
@@ -106,8 +112,9 @@ def _person_payload(p: Person):
 
 
 @router.post("/member/household/renew-membership")
-def renew_membership(person=Depends(require_member), db: Session = Depends(get_db),
-                     payment_method: str = "online"):
+def renew_membership(
+    person=Depends(require_member), db: Session = Depends(get_db), payment_method: str = "online"
+):
     """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
     betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
     hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
@@ -117,24 +124,29 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     """
     from datetime import date
 
-    from app.domains.membership.api import Membership
+    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.api import (
+        Membership,
+        has_valid_membership,
+        membership_coverage_until,
+    )
     from app.domains.payment.api import (
+        create_payment_record,
         membership_price_for_date,
         membership_valid_period,
-        create_payment_record,
     )
-    from app.domains.audit.api import snapshot_membership
-    from app.config import settings
-    from app.domains.membership.api import has_valid_membership, membership_coverage_until
 
     member = _member_for(person, db)
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
+    actor = next(
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
+    )
 
     today = date.today()
 
     # Controleer of de hernieuwingscampagne open is.
     # Hernieuwingsvenster-regel op één plek (§19.3): membership-facade.
     from app.domains.membership.api import renewal_open as _renewal_open
+
     renewal_window_open = _renewal_open(today)
 
     # Doeljaar van de hernieuwing. Heeft het lid al een geldig lidmaatschap, dan
@@ -156,8 +168,11 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     is_full_year = (valid_from.month, valid_from.day) == (1, 1)
     from app.kernel.tenant_config import tenant_membership_config
 
-    amount = (tenant_membership_config(db)["price_full"] if is_full_year
-              else membership_price_for_date(today))
+    amount = (
+        tenant_membership_config(db)["price_full"]
+        if is_full_year
+        else membership_price_for_date(today)
+    )
 
     if has_valid_membership(person) and not renewal_window_open:
         raise HTTPException(status_code=409, detail=_("Je hebt al een geldig lidmaatschap."))
@@ -184,14 +199,21 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     if membership and membership.is_active:
         raise HTTPException(
             status_code=409,
-            detail=_("Je hebt je lidmaatschap voor %(year)s al vernieuwd.") % {"year": valid_to.year},
+            detail=_("Je hebt je lidmaatschap voor %(year)s al vernieuwd.")
+            % {"year": valid_to.year},
         )
     if membership:
         membership.valid_from = valid_from
         membership.valid_to = valid_to
         db.flush()
-        snapshot_membership(db, membership, operation="update", action="membership_renewal_started",
-                            source="member_self", actor=actor)
+        snapshot_membership(
+            db,
+            membership,
+            operation="update",
+            action="membership_renewal_started",
+            source="member_self",
+            actor=actor,
+        )
     else:
         membership = Membership(
             member_id=member.id,
@@ -202,10 +224,18 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         )
         db.add(membership)
         db.flush()
-        snapshot_membership(db, membership, operation="insert", action="membership_renewal_started",
-                            source="member_self", actor=actor)
+        snapshot_membership(
+            db,
+            membership,
+            operation="insert",
+            action="membership_renewal_started",
+            source="member_self",
+            actor=actor,
+        )
 
-    description = f"Raak Millegem lidmaatschap {valid_to.year} – {person.last_name} {person.first_name}"
+    description = (
+        f"Raak Millegem lidmaatschap {valid_to.year} – {person.last_name} {person.first_name}"
+    )
     from app.kernel.tenant_config import tenant_base_url
 
     redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
@@ -229,7 +259,12 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     if payment_method == "online":
         if payment_record.gateway_payment_id:
             from app.domains.payment.api import GatewayPayment
-            gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+
+            gp = (
+                db.query(GatewayPayment)
+                .filter(GatewayPayment.id == payment_record.gateway_payment_id)
+                .first()
+            )
             if gp:
                 checkout_url = gp.checkout_url
         # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
@@ -283,7 +318,9 @@ def update_person(
 
     # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
     # worden nooit aangeraakt.
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
+    actor = next(
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
+    )
     nieuw: dict = {}
     for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
         if field not in data:
@@ -299,7 +336,8 @@ def update_person(
     try:
         controleer_geboortedatum_en_geslacht(
             nieuw.get("date_of_birth", target.date_of_birth),
-            nieuw.get("gender_code", target.gender_code))
+            nieuw.get("gender_code", target.gender_code),
+        )
     except LidgegevensFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
@@ -311,8 +349,14 @@ def update_person(
             setattr(target, field, new_val)
             changed = True
     if changed:
-        snapshot_person(db, target, operation="update", action="person_updated",
-                        source="member_self", actor=actor)
+        snapshot_person(
+            db,
+            target,
+            operation="update",
+            action="person_updated",
+            source="member_self",
+            actor=actor,
+        )
 
     # Adres
     if "address" in data and data["address"] and target.address:
@@ -329,34 +373,64 @@ def update_person(
         if "postal_code" in adat and adat["postal_code"]:
             pc = db.query(PostalCode).filter(PostalCode.postal_code == adat["postal_code"]).first()
             if not pc:
-                raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": adat['postal_code']})
+                raise HTTPException(
+                    status_code=422,
+                    detail=_("Onbekende postcode: %(postal_code)s")
+                    % {"postal_code": adat["postal_code"]},
+                )
             a.postal_code_id = pc.id
             addr_changed = True
         if addr_changed:
-            snapshot_address(db, a, operation="update", action="address_updated",
-                             source="member_self", actor=actor)
+            snapshot_address(
+                db,
+                a,
+                operation="update",
+                action="address_updated",
+                source="member_self",
+                actor=actor,
+            )
 
     # Contactgegevens
     def _upsert(type_code, value: Optional[str]):
-        existing = next((c for c in target.contact_details
-                         if c.contact_type_code == type_code), None)
+        existing = next(
+            (c for c in target.contact_details if c.contact_type_code == type_code), None
+        )
         if value:
             if existing:
                 if existing.value != value:
                     existing.value = value
                     db.flush()
-                    snapshot_contact_detail(db, existing, operation="update", action="contacts_updated",
-                                            source="member_self", actor=actor)
+                    snapshot_contact_detail(
+                        db,
+                        existing,
+                        operation="update",
+                        action="contacts_updated",
+                        source="member_self",
+                        actor=actor,
+                    )
             else:
-                contact = ContactDetail(person_id=target.id, contact_type_code=type_code,
-                                        value=value, is_primary=True)
+                contact = ContactDetail(
+                    person_id=target.id, contact_type_code=type_code, value=value, is_primary=True
+                )
                 target.contact_details.append(contact)
                 db.flush()
-                snapshot_contact_detail(db, contact, operation="insert", action="contacts_updated",
-                                        source="member_self", actor=actor)
+                snapshot_contact_detail(
+                    db,
+                    contact,
+                    operation="insert",
+                    action="contacts_updated",
+                    source="member_self",
+                    actor=actor,
+                )
         elif existing:
-            snapshot_contact_detail(db, existing, operation="delete", action="contacts_updated",
-                                    source="member_self", actor=actor)
+            snapshot_contact_detail(
+                db,
+                existing,
+                operation="delete",
+                action="contacts_updated",
+                source="member_self",
+                actor=actor,
+            )
             target.contact_details.remove(existing)
 
     if "email" in data:
@@ -378,15 +452,16 @@ def add_person(
     db: Session = Depends(get_db),
 ):
     member = _member_for(person, db)
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
+    actor = next(
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
+    )
 
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
     if not first_name or not last_name:
         raise HTTPException(status_code=422, detail=_("Voornaam en achternaam zijn verplicht."))
     try:
-        controleer_geboortedatum_en_geslacht(data.get("date_of_birth"),
-                                             data.get("gender_code"))
+        controleer_geboortedatum_en_geslacht(data.get("date_of_birth"), data.get("gender_code"))
     except LidgegevensFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
@@ -398,26 +473,48 @@ def add_person(
     )
     db.add(new_person)
     db.flush()
-    snapshot_person(db, new_person, operation="insert", action="person_created",
-                    source="member_self", actor=actor)
+    snapshot_person(
+        db,
+        new_person,
+        operation="insert",
+        action="person_created",
+        source="member_self",
+        actor=actor,
+    )
 
     # Relatietype wordt altijd door het systeem bepaald, nooit door het lid.
     mp = MemberPerson(member_id=member.id, person_id=new_person.id, relation_type="KIND")
     db.add(mp)
     db.flush()
-    snapshot_member_person(db, mp, operation="insert", action="person_added_to_family",
-                           source="member_self", actor=actor)
+    snapshot_member_person(
+        db,
+        mp,
+        operation="insert",
+        action="person_added_to_family",
+        source="member_self",
+        actor=actor,
+    )
 
     # Geen adres voor extra gezinsleden: het adres hoort enkel bij het hoofdlid (#125).
 
     for type_code, key in [("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")]:
         if data.get(key):
-            contact = ContactDetail(person_id=new_person.id, contact_type_code=type_code,
-                                    value=data[key], is_primary=True)
+            contact = ContactDetail(
+                person_id=new_person.id,
+                contact_type_code=type_code,
+                value=data[key],
+                is_primary=True,
+            )
             db.add(contact)
             db.flush()
-            snapshot_contact_detail(db, contact, operation="insert", action="contacts_updated",
-                                    source="member_self", actor=actor)
+            snapshot_contact_detail(
+                db,
+                contact,
+                operation="insert",
+                action="contacts_updated",
+                source="member_self",
+                actor=actor,
+            )
 
     db.commit()
     db.refresh(new_person)
@@ -436,6 +533,7 @@ def add_person(
 # Zonder die controle kon een lid met een persoon-id van iemand anders diens
 # adressen beheren.
 
+
 def _lid_en_doel(person, person_id: int, db: Session) -> Person:
     member = _member_for(person, db)
     target = db.query(Person).filter(Person.id == person_id).first()
@@ -446,26 +544,26 @@ def _lid_en_doel(person, person_id: int, db: Session) -> Person:
 
 
 def _actor_van(person) -> str | None:
-    return next((c.value for c in person.contact_details
-                 if c.contact_type_code == CONTACT.EMAIL), None)
+    return next(
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
+    )
 
 
 @router.post("/member/household/persons/{person_id}/emails", status_code=201)
-def household_add_email(person_id: int, data: dict,
-                        person=Depends(require_member),
-                        db: Session = Depends(get_db)):
+def household_add_email(
+    person_id: int, data: dict, person=Depends(require_member), db: Session = Depends(get_db)
+):
     from app.domains.mdm.api import add_email_address
 
     _lid_en_doel(person, person_id, db)
-    add_email_address(db, person_id, (data or {}).get("email") or "",
-                      actor=_actor_van(person))
+    add_email_address(db, person_id, (data or {}).get("email") or "", actor=_actor_van(person))
     return {"ok": True}
 
 
 @router.post("/member/household/persons/{person_id}/emails/rows")
-def household_apply_email_rows(person_id: int, formulier,
-                               person=Depends(require_member),
-                               db: Session = Depends(get_db)):
+def household_apply_email_rows(
+    person_id: int, formulier, person=Depends(require_member), db: Session = Depends(get_db)
+):
     """De e-mailrijen uit het portaalformulier toepassen (#1219).
 
     Dezelfde gezinsgrens als elke andere portaalbewerking: zonder
@@ -480,9 +578,9 @@ def household_apply_email_rows(person_id: int, formulier,
 
 
 @router.post("/member/household/persons/{person_id}/emails/{contact_id}/primary")
-def household_make_email_primary(person_id: int, contact_id: int,
-                                 person=Depends(require_member),
-                                 db: Session = Depends(get_db)):
+def household_make_email_primary(
+    person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
+):
     from app.domains.mdm.api import make_email_primary
 
     _lid_en_doel(person, person_id, db)
@@ -490,11 +588,10 @@ def household_make_email_primary(person_id: int, contact_id: int,
     return {"ok": True}
 
 
-@router.delete("/member/household/persons/{person_id}/emails/{contact_id}",
-               status_code=204)
-def household_remove_email(person_id: int, contact_id: int,
-                           person=Depends(require_member),
-                           db: Session = Depends(get_db)):
+@router.delete("/member/household/persons/{person_id}/emails/{contact_id}", status_code=204)
+def household_remove_email(
+    person_id: int, contact_id: int, person=Depends(require_member), db: Session = Depends(get_db)
+):
     from app.domains.mdm.api import remove_email_address
 
     _lid_en_doel(person, person_id, db)
@@ -516,14 +613,24 @@ def remove_person(
 
     # Een lid mag zichzelf niet uit het gezin verwijderen.
     if target.id == person.id:
-        raise HTTPException(status_code=400, detail=_("Je kan jezelf niet uit het gezin verwijderen."))
+        raise HTTPException(
+            status_code=400, detail=_("Je kan jezelf niet uit het gezin verwijderen.")
+        )
 
-    actor = next((c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None)
+    actor = next(
+        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
+    )
 
     mp = next((m for m in target.member_persons if m.member_id == member.id), None)
     if mp:
-        snapshot_member_person(db, mp, operation="delete", action="person_removed_from_family",
-                               source="member_self", actor=actor)
+        snapshot_member_person(
+            db,
+            mp,
+            operation="delete",
+            action="person_removed_from_family",
+            source="member_self",
+            actor=actor,
+        )
         soft_delete(mp)
 
     db.commit()

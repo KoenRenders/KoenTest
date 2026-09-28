@@ -19,6 +19,7 @@ Broken on purpose (27 September 2026): both templates set back to
 `p.relation_type == "HOOFDLID"` → the admin and the portal test failed, each
 on its lost hidden HOOFDLID field; the partner test stayed green, as it should.
 """
+
 import re
 
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
@@ -34,7 +35,8 @@ def test_the_admin_form_keeps_the_main_member_a_main_member(client, db_session):
     assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"
     assert HIDDEN in html, "the main member's form lost its hidden HOOFDLID field"
     assert f'id="lp{person.id}-relation_type"' not in html, (
-        "the main member is offered a relation select, as if it could stop being the main member")
+        "the main member is offered a relation select, as if it could stop being the main member"
+    )
 
 
 def test_the_portal_keeps_the_main_member_fields(client, db_session):
@@ -44,14 +46,16 @@ def test_the_portal_keeps_the_main_member_fields(client, db_session):
     assert f'id="p{person.id}-first_name"' in html, "the person's edit fields are not on the page"
     assert HIDDEN in html, "the portal form lost the main member's hidden HOOFDLID field"
     assert re.search(rf'id="p{person.id}-mobile"[^>]*required', html), (
-        "mobile is no longer required for the main member")
+        "mobile is no longer required for the main member"
+    )
 
 
 def test_a_partner_is_not_a_main_member(client, db_session):
     """The other half: without it, a template that always said "main member"
     would pass the two tests above."""
-    member, person = create_test_family(db_session, email="partner-1268@example.org",
-                                        relation_type="PARTNER")
+    member, person = create_test_family(
+        db_session, email="partner-1268@example.org", relation_type="PARTNER"
+    )
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert f'id="lp{person.id}-first_name"' in html, "the person's edit fields are not on the page"

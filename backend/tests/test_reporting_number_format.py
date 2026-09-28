@@ -23,6 +23,7 @@ Not touched: the ODS export. It writes `Decimal` as `float` so Calc gets a numbe
 you can add up; turning that into text would make it useless to the treasurer.
 `test_the_export_still_writes_numbers_and_not_text` holds that line.
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -45,7 +46,8 @@ def test_every_declared_format_has_a_rendering():
     gedeclareerd = {f.value for f in Format}
     assert gedeclareerd == set(FORMATTERS), (
         f"zonder weergave: {sorted(gedeclareerd - set(FORMATTERS))}; "
-        f"onbekend in de universe: {sorted(set(FORMATTERS) - gedeclareerd)}")
+        f"onbekend in de universe: {sorted(set(FORMATTERS) - gedeclareerd)}"
+    )
 
 
 def test_the_gate_goes_red_when_a_format_loses_its_rendering():
@@ -59,10 +61,11 @@ def test_the_gate_goes_red_when_a_format_loses_its_rendering():
     FORMATTERS.pop("days")
     try:
         assert {f.value for f in Format} != set(FORMATTERS), (
-            "met een weggehaalde soort hoort de gate te falen")
-        assert meetwaarde(Decimal("12.1000000000000000"), "days") == \
-            "12.1000000000000000", (
-            "en dan valt hij terug op de ruwe waarde — precies wat Koen zag")
+            "met een weggehaalde soort hoort de gate te falen"
+        )
+        assert meetwaarde(Decimal("12.1000000000000000"), "days") == "12.1000000000000000", (
+            "en dan valt hij terug op de ruwe waarde — precies wat Koen zag"
+        )
     finally:
         FORMATTERS.clear()
         FORMATTERS.update(origineel)
@@ -110,13 +113,13 @@ def test_a_days_measure_is_not_printed_raw(client, db_session, situation):
     """
     login(client, db_session)
     fragment = client.get(
-        "/admin/rapporten/paneel?object=payment_method"
-        "&object=payment_days_to_paid")
+        "/admin/rapporten/paneel?object=payment_method&object=payment_days_to_paid"
+    )
     assert fragment.status_code == 200
     assert "0E-20" not in fragment.text
     assert "0000000" not in fragment.text, (
-        "een rauwe Decimal op het scherm; de opmaak van deze soort wordt "
-        "genegeerd")
+        "een rauwe Decimal op het scherm; de opmaak van deze soort wordt genegeerd"
+    )
 
 
 def test_all_three_shapes_format_a_days_measure(client, db_session, situation):
@@ -135,12 +138,16 @@ def test_all_three_shapes_format_a_days_measure(client, db_session, situation):
     maten = "&object=payment_amount&object=payment_days_to_paid"
     vormen = {
         "platte tabel": f"/admin/rapporten/paneel?object=payment_method{maten}",
-        "draaitabel": (f"/admin/rapporten/paneel?object=payment_method"
-                       f"&object=payment_payable_type{maten}"
-                       "&layout=pivot&pivot_column=payment_payable_type"),
-        "kolomloze draaitabel": (f"/admin/rapporten/paneel?object=payment_method"
-                                 f"{maten}&layout=pivot&pivot_column="
-                                 "&no_column=1"),
+        "draaitabel": (
+            f"/admin/rapporten/paneel?object=payment_method"
+            f"&object=payment_payable_type{maten}"
+            "&layout=pivot&pivot_column=payment_payable_type"
+        ),
+        "kolomloze draaitabel": (
+            f"/admin/rapporten/paneel?object=payment_method"
+            f"{maten}&layout=pivot&pivot_column="
+            "&no_column=1"
+        ),
     }
     for naam, url in vormen.items():
         fragment = client.get(url)
@@ -149,11 +156,11 @@ def test_all_three_shapes_format_a_days_measure(client, db_session, situation):
         assert "0000000" not in fragment.text, f"rauwe Decimal in de {naam}"
         assert "€" in fragment.text, (
             f"de geldkolom hoort ook in de {naam} opgemaakt te zijn — staat die "
-            "er niet, dan toetst deze ronde niets")
+            "er niet, dan toetst deze ronde niets"
+        )
 
 
-def test_the_totals_row_formats_the_same_way_as_the_rows(client, db_session,
-                                                         situation):
+def test_the_totals_row_formats_the_same_way_as_the_rows(client, db_session, situation):
     """The formatting used to sit in three places, each with its own money branch.
 
     Three copies round differently on the day one of them is edited, so this
@@ -161,13 +168,15 @@ def test_the_totals_row_formats_the_same_way_as_the_rows(client, db_session,
     """
     login(client, db_session)
     fragment = client.get(
-        "/admin/rapporten/paneel?object=payment_method&object=payment_amount").text
+        "/admin/rapporten/paneel?object=payment_method&object=payment_amount"
+    ).text
     # The money format writes a comma and a euro sign, in the rows and in the
     # totals row alike. Counting is enough: if one branch reverts to raw, the
     # euro signs no longer match the number of money cells.
     assert fragment.count("€") >= 2, "zowel de rijen als de totaalrij"
     assert ".00" not in fragment.replace(".000", ""), (
-        "een punt als decimaalteken hoort er niet te staan (#735)")
+        "een punt als decimaalteken hoort er niet te staan (#735)"
+    )
 
 
 def test_the_export_still_writes_numbers_and_not_text(db_session, situation):
@@ -180,14 +189,13 @@ def test_the_export_still_writes_numbers_and_not_text(db_session, situation):
     import io
     import zipfile
 
-    from app.domains.reporting.api import (Selection, build_report_ods,
-                                           run_validated)
+    from app.domains.reporting.api import Selection, build_report_ods, run_validated
 
     selectie = Selection(object_keys=("payment_method", "payment_amount"))
     resultaat = run_validated(db_session, selectie, tenant_id=TENANT_A)
-    inhoud = build_report_ods(db_session, resultaat, selectie,
-                              title="Test", tenant_id=TENANT_A)
+    inhoud = build_report_ods(db_session, resultaat, selectie, title="Test", tenant_id=TENANT_A)
     with zipfile.ZipFile(io.BytesIO(inhoud)) as zf:
         xml = zf.read("content.xml").decode()
     assert 'office:value-type="float"' in xml, (
-        "bedragen horen als getal in het blad te staan, niet als tekst")
+        "bedragen horen als getal in het blad te staan, niet als tekst"
+    )

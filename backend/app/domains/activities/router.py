@@ -1,60 +1,57 @@
 import logging
 from datetime import date
-from sqlalchemy import or_, and_, func, nulls_last
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
-
-logger = logging.getLogger(__name__)
+from sqlalchemy import func, nulls_last
 from sqlalchemy.orm import Session, selectinload
 
-from app.domains.auth.api import get_current_admin, get_current_member
 from app.database import get_db
 from app.domains.activities.codes import INDIVIDUAL
-from app.domains.activities.models import ActivityDate, Activity, Registration, RegistrationItem
-from app.domains.auth.api import User
-from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
-from app.schemas.activity import (
-    RegistrationContactUpdate,
-    ActivityCreate,
-    ActivityUpdate,
-    ActivityResponse,
-    ActivityDateCreate,
-    ActivityDateUpdate,
-    ActivityDateResponse,
-    ComponentCreate,
-    ComponentUpdate,
-    ComponentResponse,
-    ProductCreate,
-    ProductUpdate,
-    ProductResponse,
-    RegistrationCreate,
-    RegistrationResponse,
-    RegistrationItemCreate,
-    RegistrationItemUpdate,
+from app.domains.activities.models import (
+    Activity,
+    ActivityDate,
+    ActivityProduct,
+    ActivitySubRegistration,
+    Registration,
+    RegistrationItem,
 )
-from app.domains.mail.api import send_activity_registration_confirmation
-from app.domains.mdm.api import PaymentMethod
 from app.domains.activities.totals import compute_registration_total
-from app.config import settings
-from app.domains.payment.api import (
-    PayableType, create_payment_record, registration_balance,
-    reconcile_registration_charges,
-)
 from app.domains.audit.api import (
-    snapshot_registration,
     snapshot_registration_item,
-    snapshot_activity,
-    snapshot_activity_date,
-    snapshot_component,
-    snapshot_product,
 )
-from app.domains.activities.export import build_component_export_ods
-from app.soft_delete import soft_delete
-from app.limiter import registration_limiter
+from app.domains.auth.api import User, get_current_admin, get_current_member
+from app.domains.mail.api import send_activity_registration_confirmation
+from app.domains.mdm.api import CONTACT, PaymentMethod
+from app.domains.payment.api import (
+    PayableType,
+    create_payment_record,
+    registration_balance,
+)
 from app.i18n import _
 from app.kernel.clock import belgian_today
-from app.domains.mdm.api import CONTACT
+from app.limiter import registration_limiter
+from app.schemas.activity import (
+    ActivityCreate,
+    ActivityDateCreate,
+    ActivityDateResponse,
+    ActivityDateUpdate,
+    ActivityResponse,
+    ActivityUpdate,
+    ComponentCreate,
+    ComponentResponse,
+    ComponentUpdate,
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+    RegistrationContactUpdate,
+    RegistrationCreate,
+    RegistrationItemCreate,
+    RegistrationItemUpdate,
+    RegistrationResponse,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["activities"])
 
@@ -149,10 +146,18 @@ def _build_response(
     # relevante deel. Admin (all_dates) toont altijd álle datums.
     if for_archive:
         relevant = [d for d in sorted_dates if not _is_future(d, today)]
-        sort_date = relevant[-1].start_date if relevant else (sorted_dates[-1].start_date if sorted_dates else None)
+        sort_date = (
+            relevant[-1].start_date
+            if relevant
+            else (sorted_dates[-1].start_date if sorted_dates else None)
+        )
     else:
         relevant = [d for d in sorted_dates if _is_future(d, today)]
-        sort_date = relevant[0].start_date if relevant else (sorted_dates[0].start_date if sorted_dates else None)
+        sort_date = (
+            relevant[0].start_date
+            if relevant
+            else (sorted_dates[0].start_date if sorted_dates else None)
+        )
     shown = sorted_dates if all_dates else relevant
     resp = ActivityResponse.model_validate(activity)
     resp.dates = [ActivityDateResponse.model_validate(d) for d in shown]
@@ -175,14 +180,15 @@ def _build_response(
 
 # ── Activities ────────────────────────────────────────────────────────────────
 
+
 @router.get("/activities", response_model=List[ActivityResponse])
 def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
     """Eén endpoint met een scope-param (#136):
-      - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
-        de eerstvolgende datum; enkel de toekomstige datums worden getoond.
-      - ``archived``: activiteiten met ≥1 voorbije datum, gesorteerd op de meest
-        recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
-      - ``all`` (admin): álle activiteiten met álle datums.
+    - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
+      de eerstvolgende datum; enkel de toekomstige datums worden getoond.
+    - ``archived``: activiteiten met ≥1 voorbije datum, gesorteerd op de meest
+      recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
+    - ``all`` (admin): álle activiteiten met álle datums.
     """
     today = belgian_today()
     effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
@@ -196,12 +202,14 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         has_past = (
             db.query(ActivityDate.id)
             .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
-            .correlate(Activity).exists()
+            .correlate(Activity)
+            .exists()
         )
         sort_sq = (
             db.query(func.max(ActivityDate.start_date))
             .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
-            .correlate(Activity).scalar_subquery()
+            .correlate(Activity)
+            .scalar_subquery()
         )
         activities = base.filter(has_past).order_by(sort_sq.desc()).all()
     elif scope == "all":
@@ -212,12 +220,14 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         upcoming_sort = (
             db.query(func.min(ActivityDate.start_date))
             .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
-            .correlate(Activity).scalar_subquery()
+            .correlate(Activity)
+            .scalar_subquery()
         )
         past_sort = (
             db.query(func.max(ActivityDate.start_date))
             .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
-            .correlate(Activity).scalar_subquery()
+            .correlate(Activity)
+            .scalar_subquery()
         )
         activities = base.order_by(
             nulls_last(upcoming_sort.asc()),
@@ -228,12 +238,14 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         has_future = (
             db.query(ActivityDate.id)
             .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
-            .correlate(Activity).exists()
+            .correlate(Activity)
+            .exists()
         )
         sort_sq = (
             db.query(func.min(ActivityDate.start_date))
             .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
-            .correlate(Activity).scalar_subquery()
+            .correlate(Activity)
+            .scalar_subquery()
         )
         activities = base.filter(has_future).order_by(sort_sq.asc()).all()
 
@@ -244,10 +256,16 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         if scope == "archived":
             # Archiefkaarten tonen enkel voorbije datums → status altijd Voorbij/Geannuleerd.
             status = "Geannuleerd" if a.is_cancelled else "Voorbij"
-            result.append(_build_response(a, today, for_archive=True, reg_count=reg_count, status=status))
+            result.append(
+                _build_response(a, today, for_archive=True, reg_count=reg_count, status=status)
+            )
         else:
             info = compute_activity_status(a, reg_count)
-            result.append(_build_response(a, today, all_dates=(scope == "all"), reg_count=reg_count, status=info["status"]))
+            result.append(
+                _build_response(
+                    a, today, all_dates=(scope == "all"), reg_count=reg_count, status=info["status"]
+                )
+            )
     if scope != "archived":
         _mark_full(result, _component_occupancy(db, [a.id for a in activities]))
         _mark_card_deadline(result)
@@ -275,8 +293,7 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
         db.query(Activity)
         .options(
             selectinload(Activity.dates),
-            selectinload(Activity.sub_registrations).selectinload(
-                ActivitySubRegistration.products),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
         )
         .filter(Activity.id == activity_id)
         .first()
@@ -286,8 +303,9 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
     today = belgian_today()
     reg_count = _registration_counts(db, [activity.id]).get(activity.id, 0)
     info = compute_activity_status(activity, reg_count)
-    resp = _build_response(activity, today, all_dates=True, reg_count=reg_count,
-                           status=info["status"])
+    resp = _build_response(
+        activity, today, all_dates=True, reg_count=reg_count, status=info["status"]
+    )
     # Beide helpers nemen een lijst id's en zijn batched; met één id werken ze
     # even goed. Nagekeken omdat een berekening die stilzwijgend van de volledige
     # lijst afhangt, hier een lege bezetting zou geven.
@@ -309,10 +327,15 @@ def create_activity(
 
     try:
         nieuw = service.create_activity(
-            db, name=data.name, location=data.location, poster_url=data.poster_url,
+            db,
+            name=data.name,
+            location=data.location,
+            poster_url=data.poster_url,
             description=data.description,
-            members_only=bool(data.members_only), dates=data.dates, actor=admin.email,
-            )
+            members_only=bool(data.members_only),
+            dates=data.dates,
+            actor=admin.email,
+        )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     activity = service._activity_met_boom(db, nieuw.id)
@@ -337,8 +360,9 @@ def update_activity(
     if activity is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     info = compute_activity_status(activity)
-    return _build_response(activity, belgian_today(), status=info["status"],
-                           reg_count=info["registration_count"])
+    return _build_response(
+        activity, belgian_today(), status=info["status"], reg_count=info["registration_count"]
+    )
 
 
 @router.delete("/activities/{activity_id}")
@@ -355,6 +379,7 @@ def delete_activity(
 
 
 # ── Activity dates ────────────────────────────────────────────────────────────
+
 
 @router.post("/activities/{activity_id}/dates", response_model=ActivityDateResponse)
 def add_activity_date(
@@ -387,9 +412,9 @@ def update_activity_date(
     from app.domains.activities import service
 
     try:
-        ad = service.update_activity_date(db, activity_id, date_id,
-                                          data.model_dump(exclude_unset=True),
-                                          actor=admin.email)
+        ad = service.update_activity_date(
+            db, activity_id, date_id, data.model_dump(exclude_unset=True), actor=admin.email
+        )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     if ad is None:
@@ -412,6 +437,7 @@ def delete_activity_date(
 
 
 # ── Components (Onderdelen) ───────────────────────────────────────────────────
+
 
 @router.post("/activities/{activity_id}/components", response_model=ComponentResponse)
 def add_component(
@@ -438,9 +464,9 @@ def update_component(
 ):
     from app.domains.activities import service
 
-    component = service.update_component(db, activity_id, component_id,
-                                         data.model_dump(exclude_unset=True),
-                                         actor=admin.email)
+    component = service.update_component(
+        db, activity_id, component_id, data.model_dump(exclude_unset=True), actor=admin.email
+    )
     if component is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
     return component
@@ -462,7 +488,10 @@ def delete_component(
 
 # ── Products ──────────────────────────────────────────────────────────────────
 
-@router.post("/activities/{activity_id}/components/{component_id}/products", response_model=ProductResponse)
+
+@router.post(
+    "/activities/{activity_id}/components/{component_id}/products", response_model=ProductResponse
+)
 def add_product(
     activity_id: int,
     component_id: int,
@@ -473,8 +502,7 @@ def add_product(
     from app.domains.activities import service
 
     try:
-        product = service.add_product(db, activity_id, component_id, data,
-                                      actor=admin.email)
+        product = service.add_product(db, activity_id, component_id, data, actor=admin.email)
     except service.ActiviteitFout as fout:
         # De regel is een domeinregel; enkel de statuscode hoort hier.
         raise HTTPException(status_code=422, detail=str(fout))
@@ -483,7 +511,10 @@ def add_product(
     return product
 
 
-@router.put("/activities/{activity_id}/components/{component_id}/products/{product_id}", response_model=ProductResponse)
+@router.put(
+    "/activities/{activity_id}/components/{component_id}/products/{product_id}",
+    response_model=ProductResponse,
+)
 def update_product(
     activity_id: int,
     component_id: int,
@@ -495,9 +526,9 @@ def update_product(
     from app.domains.activities import service
 
     try:
-        product = service.update_product(db, component_id, product_id,
-                                         data.model_dump(exclude_unset=True),
-                                         actor=admin.email)
+        product = service.update_product(
+            db, component_id, product_id, data.model_dump(exclude_unset=True), actor=admin.email
+        )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
     if product is None:
@@ -522,6 +553,7 @@ def delete_product(
 
 # ── Registrations ─────────────────────────────────────────────────────────────
 
+
 def _enrich_registration(reg, activity):
     """Verrijkte inschrijving zoals het scherm ze toont — implementatie in de
     service (#679, batch 6)."""
@@ -540,14 +572,16 @@ def get_registrations(
 ):
     from app.domains.activities import service
 
-    regs = service.registrations_for(db, activity_id, component_id=component_id,
-                                     without_component=without_component)
+    regs = service.registrations_for(
+        db, activity_id, component_id=component_id, without_component=without_component
+    )
     if regs is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     return regs
 
 
 # ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
+
 
 @router.get("/activities/{activity_id}/components/{component_id}/export")
 def export_component_ods(
@@ -574,6 +608,7 @@ def export_component_ods(
 
 # ── Bestelregels bewerken (admin) + audit (#84) ───────────────────────────────
 
+
 def _load_activity_or_404(db: Session, activity_id: int) -> Activity:
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -581,28 +616,40 @@ def _load_activity_or_404(db: Session, activity_id: int) -> Activity:
     return activity
 
 
-def _load_registration_or_404(db: Session, activity: Activity, registration_id: int) -> Registration:
-    reg = db.query(Registration).filter(
-        Registration.id == registration_id,
-        Registration.activity_id == activity.id,
-    ).first()
+def _load_registration_or_404(
+    db: Session, activity: Activity, registration_id: int
+) -> Registration:
+    reg = (
+        db.query(Registration)
+        .filter(
+            Registration.id == registration_id,
+            Registration.activity_id == activity.id,
+        )
+        .first()
+    )
     if not reg:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     return reg
 
 
-def _validate_order_product(db: Session, activity: Activity, reg: Registration, product_id: int) -> ActivityProduct:
+def _validate_order_product(
+    db: Session, activity: Activity, reg: Registration, product_id: int
+) -> ActivityProduct:
     """Een bestelregel mag enkel een product van dit onderdeel/deze activiteit bevatten."""
     product = db.query(ActivityProduct).filter(ActivityProduct.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail=_("Product not found"))
-    comp = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == product.component_id
-    ).first()
+    comp = (
+        db.query(ActivitySubRegistration)
+        .filter(ActivitySubRegistration.id == product.component_id)
+        .first()
+    )
     if not comp or comp.activity_id != activity.id:
         raise HTTPException(status_code=400, detail=_("Product hoort niet bij deze activiteit."))
     if reg.component_id is not None and product.component_id != reg.component_id:
-        raise HTTPException(status_code=400, detail=_("Product hoort niet bij het onderdeel van deze inschrijving."))
+        raise HTTPException(
+            status_code=400, detail=_("Product hoort niet bij het onderdeel van deze inschrijving.")
+        )
     return product
 
 
@@ -637,9 +684,9 @@ def add_order_line(
 
     activity = _load_activity_or_404(db, activity_id)
     try:
-        reg = service.add_order_line(db, activity_id, registration_id,
-                                     data.product_id, data.quantity,
-                                     actor=admin.email)
+        reg = service.add_order_line(
+            db, activity_id, registration_id, data.product_id, data.quantity, actor=admin.email
+        )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=400, detail=str(fout))
     if reg is None:
@@ -660,9 +707,15 @@ def update_order_line(
 
     activity = _load_activity_or_404(db, activity_id)
     try:
-        reg = service.update_order_line(db, activity_id, registration_id, item_id,
-                                        product_id=data.product_id,
-                                        quantity=data.quantity, actor=admin.email)
+        reg = service.update_order_line(
+            db,
+            activity_id,
+            registration_id,
+            item_id,
+            product_id=data.product_id,
+            quantity=data.quantity,
+            actor=admin.email,
+        )
     except service.ActiviteitFout as fout:
         raise HTTPException(status_code=400, detail=str(fout))
     if reg is None:
@@ -681,8 +734,7 @@ def delete_order_line(
     from app.domains.activities import service
 
     activity = _load_activity_or_404(db, activity_id)
-    reg = service.delete_order_line(db, activity_id, registration_id, item_id,
-                                    actor=admin.email)
+    reg = service.delete_order_line(db, activity_id, registration_id, item_id, actor=admin.email)
     if reg is None:
         raise HTTPException(status_code=404, detail=_("Order line not found"))
     return _order_edit_result(db, activity, reg, actor=admin.email)
@@ -713,8 +765,8 @@ def update_registration_remarks(
 
     activity = _load_activity_or_404(db, activity_id)
     reg = service.update_registration_contact(
-        db, activity_id, registration_id, data.model_dump(exclude_unset=True),
-        actor=admin.email)
+        db, activity_id, registration_id, data.model_dump(exclude_unset=True), actor=admin.email
+    )
     if reg is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _enrich_registration(reg, activity)
@@ -737,8 +789,7 @@ def delete_registration(
     from app.domains.activities import service
 
     _load_activity_or_404(db, activity_id)
-    if not service.delete_registration(db, activity_id, registration_id,
-                                       actor=admin.email):
+    if not service.delete_registration(db, activity_id, registration_id, actor=admin.email):
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     return {"status": "deleted", "registration_id": registration_id}
 
@@ -758,11 +809,13 @@ def get_public_registrations(
     for reg in activity.registrations:
         if reg.component_id == component_id:
             qty = sum(item.quantity for item in reg.items) if reg.items else 1
-            result.append({
-                "contact_name": reg.contact_name or "",
-                "quantity": qty,
-                "team_name": reg.team_name,
-            })
+            result.append(
+                {
+                    "contact_name": reg.contact_name or "",
+                    "quantity": qty,
+                    "team_name": reg.team_name,
+                }
+            )
     return result
 
 
@@ -777,12 +830,22 @@ def _inschrijver(current_member) -> str:
 
     if current_member is None:
         return PUBLIEKE_ACTOR
-    mail = next((c.value for c in getattr(current_member, "contact_details", [])
-                 if c.contact_type_code == CONTACT.EMAIL), None)
+    mail = next(
+        (
+            c.value
+            for c in getattr(current_member, "contact_details", [])
+            if c.contact_type_code == CONTACT.EMAIL
+        ),
+        None,
+    )
     return mail or PUBLIEKE_ACTOR
 
 
-@router.post("/activities/{activity_id}/register", response_model=RegistrationResponse, dependencies=[Depends(registration_limiter)])
+@router.post(
+    "/activities/{activity_id}/register",
+    response_model=RegistrationResponse,
+    dependencies=[Depends(registration_limiter)],
+)
 def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,
@@ -792,16 +855,26 @@ def register_for_activity(
 ):
     """The public way in: the registration hangs on whoever is signed in."""
     return create_registration(
-        db, activity_id, data, background_tasks,
+        db,
+        activity_id,
+        data,
+        background_tasks,
         person_id=current_member.id if current_member else None,
-        actor=_inschrijver(current_member))
+        actor=_inschrijver(current_member),
+    )
 
 
-def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
-                        background_tasks: BackgroundTasks, *,
-                        person_id: int | None, actor: str,
-                        backoffice_products: bool = False,
-                        return_path: str = "/betaling/succes?registration={registration_id}"):
+def create_registration(
+    db: Session,
+    activity_id: int,
+    data: RegistrationCreate,
+    background_tasks: BackgroundTasks,
+    *,
+    person_id: int | None,
+    actor: str,
+    backoffice_products: bool = False,
+    return_path: str = "/betaling/succes?registration={registration_id}",
+):
     """Create one registration: the ONE implementation (#1192).
 
     Two ways in, one body. The public form and the JSON API go through
@@ -851,33 +924,38 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
 
     # #1053: mét het onderdeel, want de deadline hoort daar. Zonder dat argument
     # zou de strengste datum van de activiteit ook de andere onderdelen sluiten.
-    onderdeel = next((c for c in activity.sub_registrations
-                      if c.id == data.component_id), None)
+    onderdeel = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
     weigering = registration_refusal(activity, component=onderdeel)
     if weigering:
         raise HTTPException(status_code=400, detail=weigering)
 
     if data.contact_email:
-        existing_count = db.query(Registration).filter(
-            Registration.activity_id == activity_id,
-            Registration.component_id == data.component_id,
-            func.lower(Registration.contact_email) == data.contact_email.lower(),
-        ).count()
+        existing_count = (
+            db.query(Registration)
+            .filter(
+                Registration.activity_id == activity_id,
+                Registration.component_id == data.component_id,
+                func.lower(Registration.contact_email) == data.contact_email.lower(),
+            )
+            .count()
+        )
         from app.kernel.tenant_config import tenant_max_registrations_per_email
+
         max_regs = tenant_max_registrations_per_email(db)
         if existing_count >= max_regs:
             raise HTTPException(
                 status_code=409,
-                detail=_("Er zijn al %(max)s inschrijvingen met dit "
-                         "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt.")
+                detail=_(
+                    "Er zijn al %(max)s inschrijvingen met dit "
+                    "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt."
+                )
                 % {"max": max_regs},
             )
 
-    valid_product_ids = {
-        p.id for comp in activity.sub_registrations for p in comp.products
-    }
+    valid_product_ids = {p.id for comp in activity.sub_registrations for p in comp.products}
 
     from app.kernel.tenant_config import tenant_max_item_quantity
+
     max_qty = tenant_max_item_quantity(db)
     for item_data in data.items:
         if item_data.product_id not in valid_product_ids:
@@ -888,37 +966,41 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
         if item_data.quantity < 0 or item_data.quantity > max_qty:
             raise HTTPException(
                 status_code=400,
-                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.") % {"max": max_qty},
+                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.")
+                % {"max": max_qty},
             )
 
     # #1191: an inactive product is absent from the form, but this endpoint is an
     # entrance of its own — the rule therefore lives in the service, next to the
     # other product rule. The back office keeps booking inactive products.
-    from app.domains.activities.service import (ActiviteitFout as _Fout,
-                                                check_publicly_bookable)
+    from app.domains.activities.service import ActiviteitFout as _Fout
+    from app.domains.activities.service import check_publicly_bookable
+
     try:
         if not backoffice_products:
-            check_publicly_bookable(
-                activity, [i.product_id for i in data.items if i.quantity > 0])
+            check_publicly_bookable(activity, [i.product_id for i in data.items if i.quantity > 0])
     except _Fout as fout:
         raise HTTPException(status_code=400, detail=str(fout))
 
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
 
-    component = next(
-        (c for c in activity.sub_registrations if c.id == data.component_id), None
-    ) if data.component_id else None
+    component = (
+        next((c for c in activity.sub_registrations if c.id == data.component_id), None)
+        if data.component_id
+        else None
+    )
 
     # #733: naam, mobiel nummer en — als het onderdeel er een vraagt — de ploegnaam
     # zijn verplicht. Het formulier zette daar `required` op, maar dat is vorm en
     # geen betekenis: dit endpoint kwam er zonder mobiel of ploegnaam gewoon door.
     # De regel staat in de servicelaag, zodat ze ook geldt voor het beheerscherm dat
     # achteraf corrigeert.
-    from app.domains.activities.service import (ActiviteitFout,
-                                                controleer_inschrijfvelden)
+    from app.domains.activities.service import ActiviteitFout, controleer_inschrijfvelden
+
     try:
-        controleer_inschrijfvelden(component, contact_name=data.contact_name,
-                                   phone=data.phone, team_name=data.team_name)
+        controleer_inschrijfvelden(
+            component, contact_name=data.contact_name, phone=data.phone, team_name=data.team_name
+        )
     except ActiviteitFout as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
@@ -966,8 +1048,11 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
             # een persoon te hangen; hem hier weglaten liet de auditregel ongetekend
             # terwijl we wisten wie het was.
             snapshot_registration_item(
-                db, item,
-                operation="insert", action="order_created", source="registration",
+                db,
+                item,
+                operation="insert",
+                action="order_created",
+                source="registration",
                 actor=actor,
             )
 
@@ -986,8 +1071,7 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
         method = PaymentMethod(data.payment_method)
         from app.kernel.tenant_config import tenant_base_url
 
-        redirect_url = (f"{tenant_base_url(db)}"
-                        f"{return_path.format(registration_id=registration.id)}")
+        redirect_url = f"{tenant_base_url(db)}{return_path.format(registration_id=registration.id)}"
         description = f"Inschrijving {activity.name} – {data.contact_name}"
         try:
             payment_record = create_payment_record(
@@ -1002,7 +1086,12 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
             )
             if method == PaymentMethod.ONLINE and payment_record.gateway_payment_id:
                 from app.domains.payment.api import GatewayPayment
-                gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+
+                gp = (
+                    db.query(GatewayPayment)
+                    .filter(GatewayPayment.id == payment_record.gateway_payment_id)
+                    .first()
+                )
                 if gp:
                     checkout_url = gp.checkout_url
         except Exception as e:
@@ -1011,14 +1100,18 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
                 db.rollback()
                 raise HTTPException(
                     status_code=502,
-                    detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
+                    detail=_(
+                        "De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."
+                    ),
                 )
 
         if method == PaymentMethod.ONLINE and not checkout_url:
             db.rollback()
             raise HTTPException(
                 status_code=502,
-                detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
+                detail=_(
+                    "De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."
+                ),
             )
 
     # Business-event (#152): inschrijving voltooid. Geen PII — enkel niet-

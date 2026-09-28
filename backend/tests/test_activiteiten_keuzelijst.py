@@ -9,6 +9,7 @@ Wat hier vastligt is niet de snelheid maar het gedrag dat de snelle variant moet
 behouden: élke activiteit staat in de lijst — ook die zonder media, want dat was
 de hele reden voor `scope="all"` (#476) — en het jaar dat erbij staat.
 """
+
 from datetime import date, timedelta
 
 import pytest
@@ -26,8 +27,11 @@ def _activiteit(db, naam: str, *dagen_offsets: int):
     db.add(activiteit)
     db.flush()
     for offset in dagen_offsets:
-        db.add(ActivityDate(activity_id=activiteit.id,
-                            start_date=date.today() + timedelta(days=offset)))
+        db.add(
+            ActivityDate(
+                activity_id=activiteit.id, start_date=date.today() + timedelta(days=offset)
+            )
+        )
     db.flush()
     return activiteit
 
@@ -118,7 +122,6 @@ def test_het_scherm_gebruikt_de_lichte_variant(client, db_session):
 
 def test_de_dropdown_toont_alle_activiteiten_op_het_scherm(client, db_session):
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
-
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     _activiteit(db_session, "Zichtbaar in de keuzelijst", -20)

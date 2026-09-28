@@ -9,17 +9,23 @@ de knop toch niets.
 
 Selectors staan in `schermen.py`, zodat een UI-port één bestand raakt i.p.v. elke flow.
 """
+
 import os
 import sys
-import time
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Adminschil, Betalingenscherm,  # noqa: E402
-                                Inschrijvingsdetail, Ledenscherm, login_als_admin)
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Adminschil,
+    Betalingenscherm,
+    Inschrijvingsdetail,
+    Ledenscherm,
+    login_als_admin,
+)
 
 
 def _ontbreekt(reden: str) -> None:
@@ -136,8 +142,7 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     # (measured), so the check passed before the detail was there. Now it waits
     # for the section heading inside the detail.
     admin_page.locator("#leden-lijst a").first.click()
-    expect(leden.lidmaatschapskop(),
-           "geen lidmaatschapssectie op het gezinsdetail").to_be_visible()
+    expect(leden.lidmaatschapskop(), "geen lidmaatschapssectie op het gezinsdetail").to_be_visible()
 
     knop = leden.lidmaatschap_verwijderknop()
     if knop.count() == 0:
@@ -151,7 +156,8 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     Betalingenscherm(admin_page).open()
     inhoud = admin_page.content()
     assert "Terug te betalen" in inhoud or "Terugbetaling" in inhoud, (
-        "na het schrappen staat er geen terugbetaling op de betalingenpagina")
+        "na het schrappen staat er geen terugbetaling op de betalingenpagina"
+    )
 
 
 # ── #634: navigatie zonder herlaad en zichtbaar wachten ──────────────────────
@@ -180,8 +186,12 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     # geen XHR en zou expect_response gewoon in een timeout lopen zonder te zeggen
     # waarom.
     antwoorden = []
-    admin_page.on("response", lambda r: antwoorden.append(
-        (r.request.resource_type, r.url, {k.lower(): v for k, v in r.headers.items()})))
+    admin_page.on(
+        "response",
+        lambda r: antwoorden.append(
+            (r.request.resource_type, r.url, {k.lower(): v for k, v in r.headers.items()})
+        ),
+    )
 
     # Toestand vlak vóór de klik: is htmx geladen, draagt de body de boost, en
     # heeft htmx de link daadwerkelijk verwerkt? Dat onderscheidt "htmx ontbreekt"
@@ -209,11 +219,13 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     assert xhr, (
         f"geen XHR voor de navigatie → hx-boost sloeg niet aan.\n"
         f"  verzoeksoorten: {soorten}\n  toestand vóór de klik: {diag}\n"
-        f"  JS-fouten: {fouten}")
+        f"  JS-fouten: {fouten}"
+    )
     assert "document" not in soorten, (
         f"na de gebooste XHR volgde alsnog een volledige navigatie "
         f"(verzoeksoorten: {soorten}) — een vangnet in ui.htmx_ux() sloeg ten "
-        f"onrechte aan.\n  JS-fouten: {fouten}")
+        f"onrechte aan.\n  JS-fouten: {fouten}"
+    )
     _soort, _url, kop = xhr[-1]
     assert kop.get("hx-reselect") == "#main", f"geen HX-Reselect op het antwoord: {kop}"
     assert kop.get("hx-retarget") == "#main", f"geen HX-Retarget op het antwoord: {kop}"
@@ -241,10 +253,10 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     })()""")
     assert na["mainAanwezig"], f"#main is na de swap verdwenen: {na}"
     assert na["h1"] and "ctiviteiten" in na["h1"], f"#main toont het oude scherm: {na}"
-    assert "/admin/activiteiten" in admin_page.url, (
-        f"de URL is niet meegegaan: {admin_page.url}")
+    assert "/admin/activiteiten" in admin_page.url, f"de URL is niet meegegaan: {admin_page.url}"
     assert admin_page.title() != titel_voor, (
-        f"de tabtitel volgde de navigatie niet (blijft {titel_voor!r}); {na}")
+        f"de tabtitel volgde de navigatie niet (blijft {titel_voor!r}); {na}"
+    )
     assert not fouten, f"JS-fouten tijdens de navigatie: {fouten}"
 
 
@@ -263,9 +275,9 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
 
     def onderschep(route):
         gezien["wachtstand"] = admin_page.evaluate(
-            "document.querySelectorAll('.htmx-request').length > 0")
-        gezien["balk"] = admin_page.evaluate(
-            "document.body.classList.contains('htmx-loading')")
+            "document.querySelectorAll('.htmx-request').length > 0"
+        )
+        gezien["balk"] = admin_page.evaluate("document.body.classList.contains('htmx-loading')")
         route.continue_()
 
     admin_page.route("**/admin/betalingen/**", onderschep)
@@ -318,5 +330,6 @@ def test_bewerken_vervangt_de_datumregel(admin_page):
 
     # Both must BECOME so; `expect` waits for it instead of guessing a time.
     expect(scherm.datumregel(), "het bewerkformulier ging niet open").to_be_visible()
-    expect(leesregel, f"de leesregel {datum!r} blijft staan naast het "
-                      f"bewerkformulier (#648)").to_be_hidden()
+    expect(
+        leesregel, f"de leesregel {datum!r} blijft staan naast het bewerkformulier (#648)"
+    ).to_be_hidden()

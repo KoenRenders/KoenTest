@@ -6,11 +6,12 @@ Invarianten:
 - de betaalmail bevat voor een overschrijving IBAN + OGM + bedrag (whitelist via
   config), en niets daarvan voor online.
 """
+
 from decimal import Decimal
 
-from app.domains.payment.structured_communication import generate_structured_communication
-from app.domains.payment.api import create_payment_record
 from app.domains.mail import service as email_mod
+from app.domains.payment.api import create_payment_record
+from app.domains.payment.structured_communication import generate_structured_communication
 
 
 def _mod97_ok(ogm: str) -> bool:
@@ -50,6 +51,7 @@ def test_cash_payment_has_no_ogm(db_session):
 
 def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch):
     from app.config import settings
+
     monkeypatch.setattr(settings, "payment_iban", "BE68 5390 0754 7034")
     monkeypatch.setattr(settings, "payment_beneficiary", "Raak Millegem")
 

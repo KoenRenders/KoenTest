@@ -17,6 +17,7 @@ meldingen op die de **reparatie** benoemen. `conftest` roept hem aan vóór
 `alembic upgrade head` — daar ontstaat de schade, dus daar hoort de melding — en
 `test_migratieketen_gate.py` toetst hem apart.
 """
+
 from __future__ import annotations
 
 import ast
@@ -44,9 +45,11 @@ class Migratie:
             if not isinstance(node, ast.Assign):
                 continue
             for doel in node.targets:
-                if (isinstance(doel, ast.Name)
-                        and doel.id in ("revision", "down_revision")
-                        and isinstance(node.value, ast.Constant)):
+                if (
+                    isinstance(doel, ast.Name)
+                    and doel.id in ("revision", "down_revision")
+                    and isinstance(node.value, ast.Constant)
+                ):
                     setattr(self, doel.id, node.value.value)
 
     @property
@@ -64,8 +67,7 @@ class Migratie:
 
 
 def lees_migraties(map_: Path = VERSIES) -> list[Migratie]:
-    paden = bestanden(map_.glob("[0-9]*.py"),
-                      wat="de migraties in alembic/versions", minstens=20)
+    paden = bestanden(map_.glob("[0-9]*.py"), wat="de migraties in alembic/versions", minstens=20)
     return [Migratie(p) for p in paden]
 
 
@@ -89,7 +91,8 @@ def problemen(migraties: list[Migratie] | None = None) -> list[str]:
                 f"{' en '.join(sorted(namen))}.\n"
                 "  Geef de jongste een eigen id (een tijdstempel — zie "
                 "alembic/README.md) en laat haar via down_revision onder de "
-                "andere hangen.")
+                "andere hangen."
+            )
 
     bekend = {m.revision for m in migraties}
     for migratie in migraties:
@@ -97,32 +100,37 @@ def problemen(migraties: list[Migratie] | None = None) -> list[str]:
             uit.append(
                 f"{migratie.naam} hangt onder {migratie.down_revision!r}, en dat "
                 "is nergens een revision.\n"
-                "  Meestal is de voorganger hernoemd of nooit mee gecommit.")
+                "  Meestal is de voorganger hernoemd of nooit mee gecommit."
+            )
 
     verwezen = {m.down_revision for m in migraties if m.down_revision}
     heads = [m for m in migraties if m.revision not in verwezen]
     if len(heads) > 1:
         op_leeftijd = sorted(heads, key=lambda m: (m.volgnummer, m.revision or ""))
-        namen = "\n".join(f"    {m.naam} (revision={m.revision!r})"
-                          for m in op_leeftijd)
+        namen = "\n".join(f"    {m.naam} (revision={m.revision!r})" for m in op_leeftijd)
         jongste = op_leeftijd[-1]
         gelijk = [m for m in op_leeftijd if m.volgnummer == jongste.volgnummer]
         if len(gelijk) > 1:
-            advies = ("  Ze dragen hetzelfde volgnummer, dus er is geen jongste "
-                      "aan te wijzen. Kies er één en laat de andere eronder "
-                      "hangen — de volgorde maakt hier niet uit, zolang er maar "
-                      "één head overblijft.")
+            advies = (
+                "  Ze dragen hetzelfde volgnummer, dus er is geen jongste "
+                "aan te wijzen. Kies er één en laat de andere eronder "
+                "hangen — de volgorde maakt hier niet uit, zolang er maar "
+                "één head overblijft."
+            )
         else:
-            advies = (f"  De jongste is {jongste.naam}. Zet daarin "
-                      f"down_revision = {op_leeftijd[-2].revision!r}.\n"
-                      "  Dat is de hele reparatie: hernoemen hoeft niet, want "
-                      "alembic leest de bestandsnaam niet.")
-        uit.append(f"De keten heeft {len(heads)} heads in plaats van één:\n"
-                   f"{namen}\n{advies}")
+            advies = (
+                f"  De jongste is {jongste.naam}. Zet daarin "
+                f"down_revision = {op_leeftijd[-2].revision!r}.\n"
+                "  Dat is de hele reparatie: hernoemen hoeft niet, want "
+                "alembic leest de bestandsnaam niet."
+            )
+        uit.append(f"De keten heeft {len(heads)} heads in plaats van één:\n{namen}\n{advies}")
     return uit
 
 
 def melding(fouten: list[str]) -> str:
-    kop = ("De migratieketen klopt niet (#951). Dit is géén kapotte suite — het "
-           "is een tak die onder een verouderde head hangt:")
+    kop = (
+        "De migratieketen klopt niet (#951). Dit is géén kapotte suite — het "
+        "is een tak die onder een verouderde head hangt:"
+    )
     return "\n\n".join(["", kop, *fouten, ""])

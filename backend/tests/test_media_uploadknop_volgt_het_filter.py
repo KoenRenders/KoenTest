@@ -27,6 +27,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - `_filterstand` de activiteit ook bij een sponsorlogo laten meesturen → de
   laatste test valt om, die de regel uit die docstring bewaakt.
 """
+
 from __future__ import annotations
 
 import re
@@ -46,8 +47,7 @@ def _login(client):
 
 
 def _uploadlinks(html: str) -> list[str]:
-    return [h.replace("&amp;", "&")
-            for h in re.findall(r'href="(/admin/media/nieuw[^"]*)"', html)]
+    return [h.replace("&amp;", "&") for h in re.findall(r'href="(/admin/media/nieuw[^"]*)"', html)]
 
 
 def _chipklik(client, kind: str, extra: str = "") -> str:
@@ -58,15 +58,14 @@ def _chipklik(client, kind: str, extra: str = "") -> str:
     """
     antwoord = client.get(
         f"/admin/media?kind={kind}{extra}",
-        headers={"HX-Request": "true",
-                 "HX-Current-URL": "http://testserver/admin/media"})
+        headers={"HX-Request": "true", "HX-Current-URL": "http://testserver/admin/media"},
+    )
     assert antwoord.status_code == 200
     return antwoord.text
 
 
 @pytest.mark.parametrize("kind", SOORTEN)
-def test_na_een_chipklik_wijst_de_knop_naar_de_gekozen_soort(client, db_session,
-                                                              kind):
+def test_na_een_chipklik_wijst_de_knop_naar_de_gekozen_soort(client, db_session, kind):
     """De test die het gemelde gedrag vangt.
 
     Bewust ná een paginalading met een ANDERE soort: dat is de volgorde waarin
@@ -74,13 +73,15 @@ def test_na_een_chipklik_wijst_de_knop_naar_de_gekozen_soort(client, db_session,
     staan.
     """
     _login(client)
-    client.get("/admin/media")            # laadt met activity_photo als standaard
+    client.get("/admin/media")  # laadt met activity_photo als standaard
 
     fragment = _chipklik(client, kind)
 
     links = _uploadlinks(fragment)
-    assert links, ("het fragment draagt geen uploadknop — dan blijft de knop op "
-                   "de pagina staan zoals ze bij het laden gebouwd werd")
+    assert links, (
+        "het fragment draagt geen uploadknop — dan blijft de knop op "
+        "de pagina staan zoals ze bij het laden gebouwd werd"
+    )
     assert all(f"kind={kind}" in link for link in links), links
 
 
@@ -114,6 +115,7 @@ def test_de_pagina_zet_de_knop_niet_dubbel(client, db_session):
 
 # ── Punt 3: uploaden vanaf een activiteit ────────────────────────────────────
 
+
 def test_vanaf_een_activiteit_staat_die_activiteit_al_ingevuld(client, db_session):
     """De handeling die Koen het vaakst doet (#1138 punt 3).
 
@@ -132,14 +134,14 @@ def test_vanaf_een_activiteit_staat_die_activiteit_al_ingevuld(client, db_sessio
     kop = client.get(f"/admin/activiteiten/{activiteit.id}").text
     links = _uploadlinks(kop)
 
-    assert links == [f"/admin/media/nieuw?kind=activity_photo"
-                     f"&activity_id={activiteit.id}"], links
+    assert links == [f"/admin/media/nieuw?kind=activity_photo&activity_id={activiteit.id}"], links
 
     # En de bestemming doet er ook iets mee: soort én activiteit staan gekozen.
     formulier = client.get(links[0]).text
     assert re.search(r'<option value="activity_photo" selected', formulier)
     assert re.search(rf'<option value="{activiteit.id}"[^>]*selected', formulier), (
-        "de activiteit staat niet voorgekozen in het uploadformulier")
+        "de activiteit staat niet voorgekozen in het uploadformulier"
+    )
 
 
 def test_een_sponsorlogo_krijgt_geen_activiteit_mee(client, db_session):

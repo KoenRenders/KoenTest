@@ -20,6 +20,7 @@ het uitlezen van de cellen en de datums verschilt per formaat (Excel bewaart een
 serienummer, ODS een ISO-datum).
 (verhuisd uit app/services/ledenrapport.py, #444)
 """
+
 import io
 import re
 import zipfile
@@ -43,26 +44,33 @@ RELATIE_ORDER = {"HOOFDLID": 0, "PARTNER": 1, "KIND": 2}
 # koptekst i.p.v. op een vaste positie, zodat extra of herschikte kolommen de
 # import niet meer kapotmaken. Sleutels zijn genormaliseerde (lowercase) koppen.
 _HEADER_ALIASES: dict[str, set[str]] = {
-    "lidnr":         {"lidnummer"},
-    "voornaam":      {"voornaam"},
-    "naam":          {"naam"},
-    "straat":        {"straat"},
-    "huisnummer":    {"huisnummer"},
-    "busnummer":     {"busnummer"},
-    "postcode":      {"postcode"},
-    "gemeente":      {"gemeente"},
-    "email":         {"e-mail adres", "e-mailadres", "email", "e-mail"},
-    "telefoon":      {"telefoon"},
-    "gsm":           {"gsm"},
+    "lidnr": {"lidnummer"},
+    "voornaam": {"voornaam"},
+    "naam": {"naam"},
+    "straat": {"straat"},
+    "huisnummer": {"huisnummer"},
+    "busnummer": {"busnummer"},
+    "postcode": {"postcode"},
+    "gemeente": {"gemeente"},
+    "email": {"e-mail adres", "e-mailadres", "email", "e-mail"},
+    "telefoon": {"telefoon"},
+    "gsm": {"gsm"},
     "geboortedatum": {"geboortedatum"},
-    "geslacht":      {"geslacht"},
-    "bestuurslid":   {"verantwoordelijk bestuurslid2", "verantwoordelijk bestuurslid", "bestuurslid"},
-    "soort":         {"soort lid", "soort"},
+    "geslacht": {"geslacht"},
+    "bestuurslid": {"verantwoordelijk bestuurslid2", "verantwoordelijk bestuurslid", "bestuurslid"},
+    "soort": {"soort lid", "soort"},
 }
 # Verplicht aanwezig om een geldige header-rij te zijn (en voor een correcte import).
 _REQUIRED_FIELDS = {
-    "lidnr", "voornaam", "naam", "straat", "huisnummer", "postcode",
-    "gemeente", "geboortedatum", "soort",
+    "lidnr",
+    "voornaam",
+    "naam",
+    "straat",
+    "huisnummer",
+    "postcode",
+    "gemeente",
+    "geboortedatum",
+    "soort",
 }
 
 
@@ -134,6 +142,7 @@ def _locate_header(text_rows: list[list[str]]) -> tuple[dict[str, int], int]:
 def _row_from_cells(cells: list, colmap: dict[str, int], *, to_text, to_date) -> dict:
     """Bouw één genormaliseerde rij-dict door per veld de juiste kolom te lezen
     (op naam, via ``colmap``). ``to_text``/``to_date`` zijn format-specifiek."""
+
     def g(field: str) -> str:
         i = colmap.get(field)
         return to_text(cells[i]) if i is not None and i < len(cells) else ""
@@ -142,25 +151,26 @@ def _row_from_cells(cells: list, colmap: dict[str, int], *, to_text, to_date) ->
     geboortedatum = to_date(cells[gb_i]) if gb_i is not None and gb_i < len(cells) else None
 
     return {
-        "lidnr":         g("lidnr").strip(),
-        "voornaam":      normalize(g("voornaam")),
-        "naam":          normalize(g("naam")),
-        "straat":        normalize(g("straat")),
-        "huisnummer":    normalize(g("huisnummer")),
-        "busnummer":     normalize(g("busnummer")),
-        "postcode":      g("postcode").strip(),
-        "gemeente":      normalize(g("gemeente")),
-        "email":         normalize(g("email")).lower() or None,
-        "telefoon":      clean_phone(g("telefoon")),
-        "gsm":           clean_phone(g("gsm")),
+        "lidnr": g("lidnr").strip(),
+        "voornaam": normalize(g("voornaam")),
+        "naam": normalize(g("naam")),
+        "straat": normalize(g("straat")),
+        "huisnummer": normalize(g("huisnummer")),
+        "busnummer": normalize(g("busnummer")),
+        "postcode": g("postcode").strip(),
+        "gemeente": normalize(g("gemeente")),
+        "email": normalize(g("email")).lower() or None,
+        "telefoon": clean_phone(g("telefoon")),
+        "gsm": clean_phone(g("gsm")),
         "geboortedatum": geboortedatum,
-        "geslacht":      parse_gender(g("geslacht")),
-        "bestuurslid":   normalize(g("bestuurslid")) or None,
-        "soort":         normalize(g("soort")).lower(),   # lid / partner / kind
+        "geslacht": parse_gender(g("geslacht")),
+        "bestuurslid": normalize(g("bestuurslid")) or None,
+        "soort": normalize(g("soort")).lower(),  # lid / partner / kind
     }
 
 
 # ── Excel (.xls) ─────────────────────────────────────────────────────────────
+
 
 def _xls_date(serial, datemode: int) -> date | None:
     """Converteer een Excel-datumserienummer naar een Python date."""
@@ -185,18 +195,20 @@ def _rows_from_xls(content: bytes) -> list[dict]:
     rows = []
     for raw in raw_rows[data_start:]:
         row = _row_from_cells(raw, colmap, to_text=_xls_str, to_date=to_date)
-        if row["lidnr"]:            # lege/voet-rijen overslaan
+        if row["lidnr"]:  # lege/voet-rijen overslaan
             rows.append(row)
     return rows
 
 
 # ── OpenDocument (.ods) ──────────────────────────────────────────────────────
 
+
 def _ods_cell_text(cell) -> str:
     """Tekstinhoud van een ODS-cel (lege string bij None)."""
     if cell is None:
         return ""
     from odf import teletype
+
     return teletype.extractText(cell)
 
 
@@ -205,6 +217,7 @@ def _ods_date(cell) -> date | None:
     if cell is None:
         return None
     from odf.namespaces import OFFICENS
+
     dv = cell.getAttrNS(OFFICENS, "date-value")
     if dv:
         try:
@@ -225,10 +238,11 @@ def _ods_expand_cells(tr) -> list:
     kolomindexen kloppen (ODS comprimeert herhaalde/lege cellen)."""
     from odf.namespaces import TABLENS
     from odf.table import TableCell
+
     out: list = []
     for c in tr.getElementsByType(TableCell):
         rep = c.getAttrNS(TABLENS, "number-columns-repeated")
-        n = min(int(rep), 128) if rep else 1   # cap tegen enorme herhaal-runs
+        n = min(int(rep), 128) if rep else 1  # cap tegen enorme herhaal-runs
         out.extend([c] * n)
     return out
 
@@ -237,6 +251,7 @@ def _find_ods_sheet(doc):
     """Sheet 'Sheet1' uit het document, met terugval op het eerste blad."""
     from odf.namespaces import TABLENS
     from odf.table import Table
+
     tables = doc.getElementsByType(Table)
     if not tables:
         raise ValueError("Geen blad gevonden in het .ods-bestand.")
@@ -249,6 +264,7 @@ def _find_ods_sheet(doc):
 def _rows_from_ods(content: bytes) -> list[dict]:
     from odf.opendocument import load
     from odf.table import TableRow
+
     doc = load(io.BytesIO(content))
     sheet = _find_ods_sheet(doc)
     cell_rows = [_ods_expand_cells(tr) for tr in sheet.getElementsByType(TableRow)]
@@ -258,18 +274,19 @@ def _rows_from_ods(content: bytes) -> list[dict]:
     rows = []
     for cells in cell_rows[data_start:]:
         row = _row_from_cells(cells, colmap, to_text=_ods_cell_text, to_date=_ods_date)
-        if row["lidnr"]:            # lege/voet-rijen overslaan
+        if row["lidnr"]:  # lege/voet-rijen overslaan
             rows.append(row)
     return rows
 
 
 # ── Format-detectie + publieke readers ───────────────────────────────────────
 
+
 def _detect_format(content: bytes) -> str:
     """Bepaal het rapportformaat uit de bytes: 'xls', 'ods', 'xlsx' of 'unknown'."""
-    if content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":   # OLE2 → oud Excel
+    if content[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":  # OLE2 → oud Excel
         return "xls"
-    if content[:4] == b"PK\x03\x04":                          # ZIP → ods of xlsx
+    if content[:4] == b"PK\x03\x04":  # ZIP → ods of xlsx
         try:
             with zipfile.ZipFile(io.BytesIO(content)) as z:
                 names = z.namelist()
@@ -303,12 +320,12 @@ def read_ledenrapport(path: str) -> list[dict]:
 
 # ── Groeperen + indexen (format-onafhankelijk) ───────────────────────────────
 
+
 def group_families(rows: list[dict]) -> list[list[dict]]:
     """Groepeer personen per adres. Sorteer per gezin: HOOFDLID eerst."""
     fams: dict[tuple, list[dict]] = defaultdict(list)
     for r in rows:
-        key = (r["straat"].lower(), r["huisnummer"].lower(),
-               r["busnummer"].lower(), r["postcode"])
+        key = (r["straat"].lower(), r["huisnummer"].lower(), r["busnummer"].lower(), r["postcode"])
         r["_relatie"] = RELATIE_MAP.get(r["soort"], "KIND")
         fams[key].append(r)
     result = []
@@ -332,9 +349,7 @@ def build_bestuurslid_index(rows: list[dict]) -> dict[str, list[dict]]:
 
 def all_board_member_names(rows: list[dict]) -> list[str]:
     """Gesorteerde, unieke lijst van genormaliseerde bestuurslid-namen."""
-    return sorted(set(
-        normalize(r["bestuurslid"]) for r in rows if r["bestuurslid"]
-    ))
+    return sorted(set(normalize(r["bestuurslid"]) for r in rows if r["bestuurslid"]))
 
 
 def parse_families(content: bytes):

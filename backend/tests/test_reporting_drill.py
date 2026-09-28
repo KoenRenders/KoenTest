@@ -22,6 +22,7 @@ The consequence is testable, and it is the point of the second test here: **the
 grand total does not move when you drill.** Adding a level splits rows; it adds and
 subtracts nothing.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,8 +39,7 @@ def situation(db_session):
     return seed(db_session)
 
 
-BASIS = ("object=payment_created_year&object=payment_amount&layout=pivot"
-         "&pivot_column=&no_column=1")
+BASIS = "object=payment_created_year&object=payment_amount&layout=pivot&pivot_column=&no_column=1"
 
 
 def _paneel(client, query: str):
@@ -53,12 +53,12 @@ def test_a_year_label_is_clickable_in_the_crosstab(db_session, situation):
     kruis = build_pivot(
         db_session,
         Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
-        tenant_id=TENANT_A)
+        tenant_id=TENANT_A,
+    )
     assert kruis.row_drill == ["payment_created_quarter"], kruis.row_drill
 
 
-def test_the_drill_button_carries_the_url_it_posts_to(client, db_session,
-                                                      situation):
+def test_the_drill_button_carries_the_url_it_posts_to(client, db_session, situation):
     """The thing that was missing, and the reason it went unnoticed.
 
     The button rendered with the right name and the right value, and the tests in
@@ -78,7 +78,8 @@ def test_the_drill_button_carries_the_url_it_posts_to(client, db_session,
     assert knoppen, "er hoort een drill-knop te staan"
     for knop in knoppen:
         assert "hx-get=" in knop.split(">")[0], (
-            "een drill-knop zonder hx-get doet niets — de markup is dan decor")
+            "een drill-knop zonder hx-get doet niets — de markup is dan decor"
+        )
 
 
 def test_the_deepest_level_offers_no_further_drill(db_session, situation):
@@ -86,38 +87,44 @@ def test_the_deepest_level_offers_no_further_drill(db_session, situation):
     kruis = build_pivot(
         db_session,
         Selection(object_keys=("payment_created_day", "payment_amount"), layout="pivot"),
-        tenant_id=TENANT_A)
+        tenant_id=TENANT_A,
+    )
     assert kruis.row_drill == [""]
 
 
-def test_drilling_adds_a_column_and_keeps_the_one_above(client, db_session,
-                                                       situation):
+def test_drilling_adds_a_column_and_keeps_the_one_above(client, db_session, situation):
     """Koen's objection, as an assertion: er komt een kolom bij."""
     login(client, db_session)
     tekst = _paneel(client, f"{BASIS}&drill=payment_created_quarter|2026")
     assert 'name="object" value="payment_created_year"' in tekst, (
-        "het jaar blijft staan; drillen vervangt niet")
+        "het jaar blijft staan; drillen vervangt niet"
+    )
     assert 'name="object" value="payment_created_quarter"' in tekst
 
 
-def test_the_new_level_comes_right_after_its_parent(client, db_session,
-                                                    situation):
+def test_the_new_level_comes_right_after_its_parent(client, db_session, situation):
     """Kolomvolgorde is rijgroepering: jaar, dan kwartaal, dan de rest.
 
     Achteraan aanschuiven zou de subtotalen op de verkeerde as zetten en een
     tabel opleveren die klopt en niets zegt.
     """
     login(client, db_session)
-    tekst = _paneel(client, "object=payment_created_year&object=payment_method"
-                            "&object=payment_amount&layout=pivot&pivot_column="
-                            "&no_column=1&drill=payment_created_quarter|2026")
+    tekst = _paneel(
+        client,
+        "object=payment_created_year&object=payment_method"
+        "&object=payment_amount&layout=pivot&pivot_column="
+        "&no_column=1&drill=payment_created_quarter|2026",
+    )
     volgorde = re.findall(r'name="object" value="([^"]+)"', tekst)
-    assert volgorde == ["payment_created_year", "payment_created_quarter",
-                        "payment_method", "payment_amount"], volgorde
+    assert volgorde == [
+        "payment_created_year",
+        "payment_created_quarter",
+        "payment_method",
+        "payment_amount",
+    ], volgorde
 
 
-def test_the_click_offers_a_filter_and_filters_nothing(client, db_session,
-                                                       situation):
+def test_the_click_offers_a_filter_and_filters_nothing(client, db_session, situation):
     """De tweede helft, en allebei de kanten worden getoetst.
 
     Alleen "het filter staat er" zou slagen terwijl het rapport stilzwijgend
@@ -129,7 +136,8 @@ def test_the_click_offers_a_filter_and_filters_nothing(client, db_session,
     login(client, db_session)
     met = _paneel(client, f"{BASIS}&drill=payment_created_quarter|2026")
     assert 'name="filter" value="payment_created_year"' in met, (
-        "het filter voor de aangeklikte datum hoort te verschijnen")
+        "het filter voor de aangeklikte datum hoort te verschijnen"
+    )
 
     # En dat het niets filtert, op de naad waar de staat een selectie wordt: een
     # filter zonder waarde hoort de query niet te bereiken. De motor weigert een
@@ -142,13 +150,11 @@ def test_the_click_offers_a_filter_and_filters_nothing(client, db_session,
     # De hele querystring en niet een dict: `object` komt meermaals voor, en een
     # dict houdt er één van over — dan vindt het drillen zijn ouder niet.
     staat = _read_state(QueryParams(f"{BASIS}&drill=payment_created_quarter|2026"))
-    assert "payment_created_year" in staat["filters"], (
-        "het filter hoort in de staat te staan")
+    assert "payment_created_year" in staat["filters"], "het filter hoort in de staat te staan"
     assert not staat["values"].get("payment_created_year"), "en zonder waarde"
 
     selectie = _selection(staat)
-    assert selectie.filters == (), (
-        "een leeg filter hoort de query niet te bereiken")
+    assert selectie.filters == (), "een leeg filter hoort de query niet te bereiken"
     assert "payment_created_quarter" in selectie.object_keys
 
 
@@ -162,28 +168,35 @@ def test_the_grand_total_does_not_move_when_you_drill(db_session, situation):
 
     jaar = build_pivot(
         db_session,
-        Selection(object_keys=("payment_created_year", "payment_amount"),
-                  layout="pivot"),
-        tenant_id=TENANT_A)
+        Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
+        tenant_id=TENANT_A,
+    )
     jaar_kwartaal = build_pivot(
         db_session,
-        Selection(object_keys=("payment_created_year", "payment_created_quarter",
-                               "payment_amount"), layout="pivot"),
-        tenant_id=TENANT_A)
+        Selection(
+            object_keys=("payment_created_year", "payment_created_quarter", "payment_amount"),
+            layout="pivot",
+        ),
+        tenant_id=TENANT_A,
+    )
 
     assert jaar.grand_total == jaar_kwartaal.grand_total, (
-        f"eindtotaal per jaar {jaar.grand_total}, met kwartaal erbij "
-        f"{jaar_kwartaal.grand_total}")
+        f"eindtotaal per jaar {jaar.grand_total}, met kwartaal erbij {jaar_kwartaal.grand_total}"
+    )
     assert jaar.grand_total, "er valt iets te tellen"
     assert any(r.is_subtotal for r in jaar_kwartaal.rows), (
-        "met twee rijdimensies horen er subtotalen per jaar te staan")
+        "met twee rijdimensies horen er subtotalen per jaar te staan"
+    )
 
 
 def test_the_way_back_up_is_offered(client, db_session, situation):
     login(client, db_session)
-    tekst = _paneel(client, "object=payment_created_year"
-                            "&object=payment_created_quarter&object=payment_amount"
-                            "&layout=pivot")
+    tekst = _paneel(
+        client,
+        "object=payment_created_year"
+        "&object=payment_created_quarter&object=payment_amount"
+        "&layout=pivot",
+    )
     assert 'name="rollup" value="payment_created_quarter"' in tekst
     assert "Terug omhoog" in tekst
 
@@ -196,14 +209,11 @@ def test_a_single_level_offers_no_way_up(client, db_session, situation):
     """
     login(client, db_session)
     assert 'name="rollup"' not in _paneel(client, BASIS)
-    diep = _paneel(client, "object=payment_created_quarter&object=payment_amount"
-                           "&layout=pivot")
-    assert 'name="rollup"' not in diep, (
-        "ook een kwartaal zonder jaar erboven kan niet oprollen")
+    diep = _paneel(client, "object=payment_created_quarter&object=payment_amount&layout=pivot")
+    assert 'name="rollup"' not in diep, "ook een kwartaal zonder jaar erboven kan niet oprollen"
 
 
-def test_the_new_level_lands_where_its_parent_stood(client, db_session,
-                                                    situation):
+def test_the_new_level_lands_where_its_parent_stood(client, db_session, situation):
     """#915, en het is één zin met twee kanten.
 
     Stond het hogere niveau in de rijen, dan komt het nieuwe er in de rijen bij.
@@ -219,23 +229,30 @@ def test_the_new_level_lands_where_its_parent_stood(client, db_session,
     login(client, db_session)
 
     # De ouder stond in de RIJEN: het kind komt er ook in de rijen bij.
-    in_rijen = _paneel(client, "object=payment_created_year&object=payment_amount"
-                               "&layout=pivot&drill=payment_created_quarter|2026")
+    in_rijen = _paneel(
+        client,
+        "object=payment_created_year&object=payment_amount"
+        "&layout=pivot&drill=payment_created_quarter|2026",
+    )
     assert 'name="pivot_column" value=""' in in_rijen, (
-        "het kwartaal hoort een tweede rijkolom te worden, geen kolomas")
+        "het kwartaal hoort een tweede rijkolom te worden, geen kolomas"
+    )
     assert 'name="object" value="payment_created_quarter"' in in_rijen
 
     # De ouder stond op de KOLOMAS: daar komt het kind.
-    op_de_as = _paneel(client, "object=payment_method"
-                               "&object=payment_created_year&object=payment_amount"
-                               "&layout=pivot&pivot_column=payment_created_year"
-                               "&drill=payment_created_quarter|2026")
+    op_de_as = _paneel(
+        client,
+        "object=payment_method"
+        "&object=payment_created_year&object=payment_amount"
+        "&layout=pivot&pivot_column=payment_created_year"
+        "&drill=payment_created_quarter|2026",
+    )
     assert 'name="pivot_column" value="payment_created_quarter"' in op_de_as, (
-        "stond de ouder op de kolomas, dan hoort het kind daar te landen")
+        "stond de ouder op de kolomas, dan hoort het kind daar te landen"
+    )
 
 
-def test_one_click_on_the_crosstab_still_picks_an_axis(client, db_session,
-                                                       situation):
+def test_one_click_on_the_crosstab_still_picks_an_axis(client, db_session, situation):
     """Dit issue beperkt wanneer de terugval vuurt; het haalt haar niet weg.
 
     Eén klik op *Draaitabel* zonder gekozen kolomas hoort nog steeds een
@@ -243,23 +260,28 @@ def test_one_click_on_the_crosstab_still_picks_an_axis(client, db_session,
     kwijt te raken bij een reparatie als deze.
     """
     login(client, db_session)
-    tekst = _paneel(client, "object=payment_method&object=payment_payable_type"
-                            "&object=payment_amount&set_layout=pivot")
+    tekst = _paneel(
+        client,
+        "object=payment_method&object=payment_payable_type&object=payment_amount&set_layout=pivot",
+    )
     assert 'name="pivot_column" value="payment_payable_type"' in tekst
 
 
 def test_drilling_leaves_the_sort_alone(client, db_session, situation):
     """Er verhuist niets, dus er valt niets te verslepen."""
     login(client, db_session)
-    tekst = _paneel(client, "object=payment_created_year&object=payment_method"
-                            "&object=payment_amount&sort=payment_created_year"
-                            "&dir=asc&layout=pivot"
-                            "&drill=payment_created_quarter|2026")
+    tekst = _paneel(
+        client,
+        "object=payment_created_year&object=payment_method"
+        "&object=payment_amount&sort=payment_created_year"
+        "&dir=asc&layout=pivot"
+        "&drill=payment_created_quarter|2026",
+    )
     assert 'name="sort" value="payment_created_year"' in tekst
 
 
 def test_a_detail_level_is_skipped_when_drilling():
-    """"Maand voluit" sits between month and day and cannot be grouped on (#852).
+    """ "Maand voluit" sits between month and day and cannot be grouped on (#852).
 
     Drilling into a dead end would be worse than no drill at all, so the step
     skips detail levels.
@@ -278,9 +300,12 @@ def test_drilling_works_on_a_role_date_too(client, db_session, situation):
     stayed green while clicking a payment date gave an error banner.
     """
     login(client, db_session)
-    tekst = _paneel(client, "object=paid_date_year&object=payment_amount"
-                            "&layout=pivot&pivot_column=&no_column=1"
-                            "&drill=paid_date_quarter|2026")
+    tekst = _paneel(
+        client,
+        "object=paid_date_year&object=payment_amount"
+        "&layout=pivot&pivot_column=&no_column=1"
+        "&drill=paid_date_quarter|2026",
+    )
     assert 'name="object" value="paid_date_quarter"' in tekst
     assert 'name="filter" value="paid_date_year"' in tekst
 
@@ -294,7 +319,7 @@ def test_drilling_an_unrelated_value_does_nothing(client, db_session, situation)
 
 
 def test_an_unknown_label_is_not_drillable(db_session, situation):
-    """"Onbekend" is the label for an EMPTY value, and there is nothing below it.
+    """ "Onbekend" is the label for an EMPTY value, and there is nothing below it.
 
     Found by the browser test, and it is the kind of fault a markup test cannot
     see: the button rendered, the click fired, and the server got a filter asking
@@ -308,21 +333,21 @@ def test_an_unknown_label_is_not_drillable(db_session, situation):
     from sqlalchemy import text
 
     # Geen enkele betaling betaald: elke betaaldatum is dan leeg.
-    db_session.execute(text(
-        "UPDATE payment.payment_records SET paid_at = NULL WHERE tenant_id = :t"),
-        {"t": TENANT_A})
+    db_session.execute(
+        text("UPDATE payment.payment_records SET paid_at = NULL WHERE tenant_id = :t"),
+        {"t": TENANT_A},
+    )
     db_session.commit()
 
     kruis = build_pivot(
         db_session,
-        Selection(object_keys=("paid_date_year", "payment_amount"),
-                  layout="pivot"),
-        tenant_id=TENANT_A)
+        Selection(object_keys=("paid_date_year", "payment_amount"), layout="pivot"),
+        tenant_id=TENANT_A,
+    )
     assert kruis.rows, "er zijn betalingen, dus er is een rij"
     for rij in kruis.rows:
         if rij.labels and rij.labels[0] == "Onbekend":
-            assert rij.drillable == [False], (
-                "op 'Onbekend' hoort niet doorgeklikt te kunnen worden")
+            assert rij.drillable == [False], "op 'Onbekend' hoort niet doorgeklikt te kunnen worden"
             break
     else:
         pytest.fail("geen 'Onbekend'-rij, dus deze test meet niets")
@@ -333,6 +358,8 @@ def test_a_real_value_stays_drillable(db_session, situation):
     kruis = build_pivot(
         db_session,
         Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
-        tenant_id=TENANT_A)
+        tenant_id=TENANT_A,
+    )
     assert any(rij.drillable == [True] for rij in kruis.rows), (
-        "een echt jaartal hoort doorklikbaar te blijven")
+        "een echt jaartal hoort doorklikbaar te blijven"
+    )

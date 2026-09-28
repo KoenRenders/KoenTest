@@ -13,6 +13,7 @@ Gebruik:
 
     publish(SubmissionCreated(submission_id=7), db)
 """
+
 from __future__ import annotations
 
 import logging

@@ -16,16 +16,16 @@ container reports — for the same reason as the 00:30 test of #974: otherwise t
 counterproof with `date.today()` depends on the real date of the machine running
 the suite.
 """
+
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import text
 
-from app.domains.activities.api import (Activity, ActivityDate,
-                                        ActivitySubRegistration)
+from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
 
-LAST_DAY = date(2027, 7, 15)            # zomer: Brussel = UTC+2
+LAST_DAY = date(2027, 7, 15)  # zomer: Brussel = UTC+2
 # 00:30 in Brussels on the 16th = 22:30 UTC on the 15th.
 AFTER_MIDNIGHT = datetime(2027, 7, 15, 22, 30, tzinfo=timezone.utc)
 
@@ -42,7 +42,7 @@ def _pin(monkeypatch, instant_utc: datetime) -> None:
     class _Datum(date):
         @classmethod
         def today(cls):
-            return instant_utc.date()      # wat een UTC-container zegt
+            return instant_utc.date()  # wat een UTC-container zegt
 
     monkeypatch.setattr(clock, "datetime", _Klok)
     for module in (router, service, ui):
@@ -56,16 +56,23 @@ def _activity(db, name, *, last_day=LAST_DAY, closes_on=None, cancelled=False):
     db.add(ActivityDate(activity_id=a.id, start_date=last_day))
     # #1053: de uiterste inschrijfdatum staat op het onderdeel. Eén onderdeel hier,
     # dus dezelfde toestand als voorheen.
-    db.add(ActivitySubRegistration(activity_id=a.id, name="Deelname",
-                                   registration_type_code="INDIVIDUAL",
-                                   registration_closes_on=closes_on,
-                                   price=Decimal("0"), is_free=True))
+    db.add(
+        ActivitySubRegistration(
+            activity_id=a.id,
+            name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            registration_closes_on=closes_on,
+            price=Decimal("0"),
+            is_free=True,
+        )
+    )
     db.flush()
     return a
 
 
 def test_after_midnight_the_activity_is_in_the_archive_although_utc_says_otherwise(
-        client, db_session, monkeypatch):
+    client, db_session, monkeypatch
+):
     """The test that matters (#977).
 
     Broken to see it red: `today = belgian_today()` in `list_activities` put back
@@ -82,8 +89,7 @@ def test_after_midnight_the_activity_is_in_the_archive_although_utc_says_otherwi
     assert "Zomerbowling" in archief
 
 
-def test_a_shared_link_after_midnight_goes_to_the_archive(client, db_session,
-                                                          monkeypatch):
+def test_a_shared_link_after_midnight_goes_to_the_archive(client, db_session, monkeypatch):
     """Sinds golf 12 rendert het deeladres de pagina zelf; de Belgische
     middernachtblik (#977) bepaalt nu de terug-link en de scope."""
     a = _activity(db_session, "Zomerbowling")
@@ -95,21 +101,19 @@ def test_a_shared_link_after_midnight_goes_to_the_archive(client, db_session,
     assert 'href="/activiteiten/archief"' in resp.text
 
 
-def test_a_passed_deadline_reads_afgesloten_and_not_open(client, db_session,
-                                                         monkeypatch):
+def test_a_passed_deadline_reads_afgesloten_and_not_open(client, db_session, monkeypatch):
     """Koen, 16 September 2026: an activity that takes no more registrations is not
     "Open", even though it has not taken place yet.
 
     Before #977 this card read "Open" in its title next to "Inschrijvingen
     afgesloten" at its component — the contradiction this issue removes.
     """
-    _activity(db_session, "Wijndomein", last_day=LAST_DAY + timedelta(days=30),
-              closes_on=LAST_DAY)
+    _activity(db_session, "Wijndomein", last_day=LAST_DAY + timedelta(days=30), closes_on=LAST_DAY)
     _pin(monkeypatch, datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc))
 
     html = client.get("/activiteiten").text
     start = html.index("Wijndomein")
-    kop = html[start:start + 400]
+    kop = html[start : start + 400]
 
     assert "Afgesloten" in kop
     assert ">Open<" not in kop.replace(" ", "")
@@ -120,25 +124,36 @@ def test_the_admin_does_not_count_a_closed_activity_as_open(db_session, monkeypa
     from app.domains.activities.router import list_activities
 
     _activity(db_session, "Open ding", last_day=LAST_DAY + timedelta(days=30))
-    _activity(db_session, "Dicht ding", last_day=LAST_DAY + timedelta(days=30),
-              closes_on=LAST_DAY)
+    _activity(db_session, "Dicht ding", last_day=LAST_DAY + timedelta(days=30), closes_on=LAST_DAY)
     _pin(monkeypatch, datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc))
 
-    lijst = [a for a in list_activities(scope="all", db=db_session)
-             if a.name in ("Open ding", "Dicht ding")]
+    lijst = [
+        a
+        for a in list_activities(scope="all", db=db_session)
+        if a.name in ("Open ding", "Dicht ding")
+    ]
 
     assert _kpi(lijst)["kpi_open"] == 1
 
 
-@pytest.mark.parametrize("instant, closes_on, cancelled, last_day", [
-    (datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc), None, False, LAST_DAY),
-    (datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc), LAST_DAY, False,
-     LAST_DAY + timedelta(days=30)),
-    (datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc), None, True, LAST_DAY),
-    (AFTER_MIDNIGHT, None, False, LAST_DAY),
-], ids=["open", "afgesloten", "geannuleerd", "voorbij-na-middernacht"])
+@pytest.mark.parametrize(
+    "instant, closes_on, cancelled, last_day",
+    [
+        (datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc), None, False, LAST_DAY),
+        (
+            datetime(2027, 7, 20, 10, 0, tzinfo=timezone.utc),
+            LAST_DAY,
+            False,
+            LAST_DAY + timedelta(days=30),
+        ),
+        (datetime(2027, 7, 1, 10, 0, tzinfo=timezone.utc), None, True, LAST_DAY),
+        (AFTER_MIDNIGHT, None, False, LAST_DAY),
+    ],
+    ids=["open", "afgesloten", "geannuleerd", "voorbij-na-middernacht"],
+)
 def test_the_label_and_the_registration_rule_never_disagree(
-        db_session, monkeypatch, instant, closes_on, cancelled, last_day):
+    db_session, monkeypatch, instant, closes_on, cancelled, last_day
+):
     """Same activity, same moment: the label and the rule give one answer.
 
     Walked over every state, so a new reason to close that is added to
@@ -150,21 +165,24 @@ def test_the_label_and_the_registration_rule_never_disagree(
     Broken to see it red: `compute_activity_status` given back its own
     past/cancelled/open calculation — the "afgesloten" case then reads "Open".
     """
-    from app.domains.activities.router import compute_activity_status
     from app.domains.activities.api import REGISTRATION_STATE
+    from app.domains.activities.router import compute_activity_status
     from app.domains.activities.service import RegistrationState, registration_state
     from app.kernel.codes import code_label
 
-    a = _activity(db_session, "Proef", last_day=last_day, closes_on=closes_on,
-                  cancelled=cancelled)
+    a = _activity(db_session, "Proef", last_day=last_day, closes_on=closes_on, cancelled=cancelled)
     _pin(monkeypatch, instant)
 
     toestand = registration_state(a)
     assert compute_activity_status(a, 0)["status"] == code_label(
-        REGISTRATION_STATE.name, toestand, db=db_session)
+        REGISTRATION_STATE.name, toestand, db=db_session
+    )
     # And every state has a label row — otherwise `code_label` falls back to
     # the code and the badge reads "closed" instead of "Afgesloten".
-    labelled = {row[0] for row in db_session.execute(text(
-        "SELECT code FROM activities.registration_state_labels "
-        "WHERE language = 'nl'")).all()}
+    labelled = {
+        row[0]
+        for row in db_session.execute(
+            text("SELECT code FROM activities.registration_state_labels WHERE language = 'nl'")
+        ).all()
+    }
     assert {m.value for m in RegistrationState} <= labelled

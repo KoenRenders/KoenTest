@@ -32,12 +32,12 @@ Broken on purpose to check that these tests can go red:
 - the board route creating the `Registration` itself instead of calling the
   facade → test 5 falls over (the spy sees no call).
 """
+
 import pytest
 
 from app.domains.activities.api import Registration
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_activity_with_product)
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -61,28 +61,35 @@ def board(client, db_session):
 
 @pytest.fixture
 def activity(db_session):
-    activiteit, onderdeel, product = seed_activity_with_product(db_session, price="0",
-                                                               is_free=True)
+    activiteit, onderdeel, product = seed_activity_with_product(db_session, price="0", is_free=True)
     return activiteit, onderdeel, product
 
 
 def _add(client, board, activity, **fields):
     activiteit, onderdeel, product = activity
-    data = {"onderdeel": str(onderdeel.id), "contact_name": "Bestuur Raak",
-            "contact_email": "bestuur-1192@example.org", "phone": "0470000000",
-            f"product_{product.id}": "8", "remarks": "Acht namen van de papieren lijst",
-            **fields}
-    return client.post(f"/admin/activiteiten/{activiteit.id}/inschrijvingen/nieuw",
-                       data=data, headers={"X-CSRF-Token": board["csrf"],
-                                           "HX-Request": "true"})
+    data = {
+        "onderdeel": str(onderdeel.id),
+        "contact_name": "Bestuur Raak",
+        "contact_email": "bestuur-1192@example.org",
+        "phone": "0470000000",
+        f"product_{product.id}": "8",
+        "remarks": "Acht namen van de papieren lijst",
+        **fields,
+    }
+    return client.post(
+        f"/admin/activiteiten/{activiteit.id}/inschrijvingen/nieuw",
+        data=data,
+        headers={"X-CSRF-Token": board["csrf"], "HX-Request": "true"},
+    )
 
 
 def _registrations(db, activity):
     return db.query(Registration).filter(Registration.activity_id == activity[0].id).all()
 
 
-def test_the_board_adds_a_registration_that_shows_like_any_other(client, db_session,
-                                                                 board, activity):
+def test_the_board_adds_a_registration_that_shows_like_any_other(
+    client, db_session, board, activity
+):
     resp = _add(client, board, activity)
 
     assert resp.status_code == 200, resp.text[:300]
@@ -94,26 +101,24 @@ def test_the_board_adds_a_registration_that_shows_like_any_other(client, db_sess
 
 
 @pytest.mark.parametrize("missing", ["contact_email", "phone"])
-def test_the_required_fields_hold_for_the_board_too(client, db_session, board,
-                                                    activity, missing):
+def test_the_required_fields_hold_for_the_board_too(client, db_session, board, activity, missing):
     resp = _add(client, board, activity, **{missing: ""})
 
     assert "Vul naam, e-mailadres en mobiel nummer in." in resp.text, resp.text[:400]
     assert _registrations(db_session, activity) == []
 
 
-def test_the_registration_does_not_hang_on_the_board_member(client, db_session,
-                                                            board, activity):
+def test_the_registration_does_not_hang_on_the_board_member(client, db_session, board, activity):
     _add(client, board, activity)
 
     [reg] = _registrations(db_session, activity)
     assert reg.person_id is None, (
         f"the registration hangs on person {reg.person_id}, the board member who "
-        f"sent the form (person {board['person_id']})")
+        f"sent the form (person {board['person_id']})"
+    )
 
 
-def test_the_limit_per_address_holds_for_the_board_too(client, db_session, board,
-                                                        activity):
+def test_the_limit_per_address_holds_for_the_board_too(client, db_session, board, activity):
     """#1284: the tenant's limit, with the public form's message. The way out is
     the public one: one registration with a quantity, the names in the remarks."""
     from app.kernel.tenant_config import tenant_max_registrations_per_email
@@ -129,8 +134,9 @@ def test_the_limit_per_address_holds_for_the_board_too(client, db_session, board
     assert len(_registrations(db_session, activity)) == limit
 
 
-def test_the_board_route_uses_the_one_implementation(client, db_session, board,
-                                                     activity, monkeypatch):
+def test_the_board_route_uses_the_one_implementation(
+    client, db_session, board, activity, monkeypatch
+):
     from app.domains.activities import router
 
     calls = []

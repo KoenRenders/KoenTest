@@ -28,6 +28,7 @@ teruggezet op `prod-frontend`; een `{$NIEUW_DOMAIN}`-blok zonder regel in het
 voorbeeldbestand; `{$PLATFORM_PROD_DOMAIN}` vervangen door het omgevingsloze
 `{$PLATFORM_DOMAIN}`; en `PLATFORM_WWW_DOMAIN` terug in het voorbeeldbestand.
 """
+
 import re
 from pathlib import Path
 
@@ -53,7 +54,8 @@ def test_prod_gaat_rechtstreeks_naar_de_backend():
     assert "reverse_proxy prod-backend:8000" in config
     assert "prod-frontend" not in config, (
         "PROD wordt weer naar de frontend-container gestuurd; die bestaat niet meer "
-        "sinds de React-exit (#405) en de site valt dan stil")
+        "sinds de React-exit (#405) en de site valt dan stil"
+    )
 
 
 def test_elke_domeinvariabele_heeft_een_bekende_bron():
@@ -86,13 +88,16 @@ def test_elke_domeinvariabele_heeft_een_bekende_bron():
     afgeleid = (CADDY / "platform-domains.sh").read_text()
     assert "export" in afgeleid, "de afleiding exporteert niets — dan is bron 2 leeg"
 
-    ontbreekt = sorted(v for v in gebruikt
-                       if not re.search(rf"^{v}=", VOORBEELD, re.M)
-                       and not re.search(rf"\b{v}\b", afgeleid))
+    ontbreekt = sorted(
+        v
+        for v in gebruikt
+        if not re.search(rf"^{v}=", VOORBEELD, re.M) and not re.search(rf"\b{v}\b", afgeleid)
+    )
     assert not ontbreekt, (
         "deze variabelen staan in de Caddy-config maar worden nergens gezet — niet in "
         ".env.caddy.example en niet afgeleid door caddy/platform-domains.sh, dus "
-        f"niemand weet dat ze op de server moeten staan: {ontbreekt}")
+        f"niemand weet dat ze op de server moeten staan: {ontbreekt}"
+    )
 
 
 def test_het_platform_heeft_een_eigen_naam_per_omgeving():
@@ -113,8 +118,8 @@ def test_het_platform_heeft_een_eigen_naam_per_omgeving():
     assert "{$PLATFORM_UAT_DOMAIN}" in uat and "uat-backend:8000" in uat
     assert "{$PLATFORM_PROD_DOMAIN}" in prod and "prod-backend:8000" in prod
     assert "{$PLATFORM_DOMAIN}" not in uat + prod, (
-        "de omgevingsloze naam is terug; dan is niet meer te zien welke omgeving "
-        "hij bedient")
+        "de omgevingsloze naam is terug; dan is niet meer te zien welke omgeving hij bedient"
+    )
 
 
 def test_er_is_geen_www_variabele_meer_voor_het_platform():
@@ -128,12 +133,16 @@ def test_er_is_geen_www_variabele_meer_voor_het_platform():
     """
     # Zonder commentaar: het bestand mag de naam wél NOEMEN om uit te leggen waarom
     # ze weg is. Wat niet mag, is een blok dat haar nog gebruikt.
-    alles = "".join(_zonder_commentaar((CADDY / "parts" / f).read_text())
-                    for f in ("sites-uat.caddy", "sites-prod.caddy"))
+    alles = "".join(
+        _zonder_commentaar((CADDY / "parts" / f).read_text())
+        for f in ("sites-uat.caddy", "sites-prod.caddy")
+    )
 
     assert "PLATFORM_WWW_DOMAIN" not in alles
     assert "PLATFORM_WWW_DOMAIN" not in VOORBEELD, (
         "de variabele staat nog in .env.caddy.example terwijl geen enkel blok haar "
-        "gebruikt — dan zet iemand haar op de server en denkt dat het iets doet")
+        "gebruikt — dan zet iemand haar op de server en denkt dat het iets doet"
+    )
     assert "leeg is fataal" in PROD, (
-        "de reden waarom je zo'n variabele niet leegzet staat niet in het bestand")
+        "de reden waarom je zo'n variabele niet leegzet staat niet in het bestand"
+    )

@@ -4,6 +4,7 @@ De realtime-SDK toont in haar voorbeelden geen language-parameter; wij geven hem
 mee als de SDK hem accepteert en vallen anders (TypeError) terug op autodetectie —
 zonder te crashen. De echte SDK staat niet in CI, dus we injecteren een nep-module.
 """
+
 import asyncio
 import sys
 import types
@@ -75,6 +76,7 @@ async def _empty_audio():
 def _collect(provider):
     async def run():
         return [ev async for ev in provider.stream(_empty_audio())]
+
     return asyncio.run(run())
 
 

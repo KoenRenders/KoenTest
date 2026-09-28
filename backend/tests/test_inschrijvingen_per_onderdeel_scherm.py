@@ -16,7 +16,6 @@ Vervolg op #650. Drie dingen tegelijk:
 Gekozen: de rij wijkt voor het paneel (§2.8, zoals de betaalkaart). Het alternatief
 — de rij compact maken — laat twee leesweergaven bestaan en dus twee bewerkstanden.
 """
-from decimal import Decimal
 
 import pytest
 
@@ -34,11 +33,18 @@ def _login(client):
 
 def _met_inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, price="10.00")
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "remarks": "Komt wat later toe",
-        "items": [{"product_id": product.id, "quantity": 2}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "remarks": "Komt wat later toe",
+            "items": [{"product_id": product.id, "quantity": 2}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     return activity, comp, resp.json()["id"]
 
@@ -75,8 +81,7 @@ def test_geen_inline_paneel_meer(client, db_session):
 
     # `x-show="open"` bestaat nu wél — voor de groep-dichtklap; wat weg moet
     # blijven is het rij-paneel met zijn negatie en de disclosure-machinerie.
-    assert 'x-show="!open"' not in html, (
-        "het inline rij-paneel is terug — ronde 2 haalde het weg")
+    assert 'x-show="!open"' not in html, "het inline rij-paneel is terug — ronde 2 haalde het weg"
     assert "detail_disclosure" not in html and "insch-det-" not in html
 
 
@@ -100,8 +105,8 @@ def test_de_macro_belooft_geen_bewerken_meer():
     """De wortel van de naamsverwarring: detail_disclosure vouwt open, ze bewerkt
     niets. De enige aanroeper gaf zijn label al mee, dus dit raakt vandaag niets."""
     kit = open("app/ui/templates/_macros.html", encoding="utf-8").read()
-    macro = kit[kit.index("{% macro detail_disclosure("):]
-    macro = macro[:macro.index("{%- endmacro %}")]
+    macro = kit[kit.index("{% macro detail_disclosure(") :]
+    macro = macro[: macro.index("{%- endmacro %}")]
     assert 'label or _("Details")' in macro
 
 
@@ -120,6 +125,7 @@ def test_het_paneel_heeft_een_bewerkstand(client, db_session):
     # Kop-herziening golf 6 (#913): de opener draagt x-show="!edit" op de knop
     # zelf (klasse ertussen), met het cluster ernaast als bewerkstand.
     import re as _re
+
     assert len(_re.findall(r'<button[^>]*x-show="!edit"[^>]*>Bewerken</button>', paneel)) == 1
     # Leesregel én invulveld: precies één van elk.
     assert paneel.count('value="An Janssens"') == 1

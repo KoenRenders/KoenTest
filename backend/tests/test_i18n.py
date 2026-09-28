@@ -1,5 +1,6 @@
 """Taalbeleid-fundament (#407-T): catalogus compileert en _() volgt de
 actieve taal (passthrough voor onbekende msgids)."""
+
 from pathlib import Path
 
 
@@ -15,6 +16,7 @@ def test_catalogus_compileert():
         with open(po, "rb") as fh:
             catalog = read_po(fh)
         import io
+
         write_mo(io.BytesIO(), catalog)  # faalt bij een kapotte catalogus
 
 

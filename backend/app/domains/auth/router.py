@@ -1,59 +1,12 @@
-import hashlib
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from sqlalchemy import func
+from pydantic import BaseModel  # noqa: E402
 from sqlalchemy.orm import Session
 
-from app.domains.auth.service import (
-    create_access_token,
-    get_current_identity,
-    get_user_roles,
-    require_member,
-)
 from app.database import get_db
-from app.domains.auth.models import User
-from app.domains.auth.models import LoginToken
-from app.schemas.auth import (
-    MagicLinkRequest,
-    OtpVerifyRequest,
-    TokenResponse,
-    AuthMeResponse,
-    MemberMeResponse,
-)
-from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
-from app.domains.auth.member_identity import (
-    find_persons_by_email,
-    resolve_household,
-    login_person_for_email,
-)
-from app.config import settings
-from app.limiter import login_limiter
-from app.domains.auth.session import set_session_cookie as _set_ui_session_cookie
-
-
-def _set_ui_session(response: Response, email: str,
-                    request: Request | None = None) -> None:
-    """Naast het JWT ook een HttpOnly-sessiecookie (#398): de server-rendered
-    schermen (werkbank e.v.) lezen díe — nooit localStorage.
-
-    `request` gaat mee sinds #865: de Secure-vlag volgt de verbinding en niet meer
-    de naam van de omgeving.
-    """
-    _set_ui_session_cookie(response, email, request)
-
-logger = logging.getLogger(__name__)
-
-router = APIRouter(tags=["auth"])
-
-# Gebruikersbeheer (backoffice-accounts + rollen) hoort bij het auth-component;
-# de composer mount enkel deze router.
-from app.domains.auth.users import router as _users_router  # noqa: E402
-from app.i18n import _
-
-router.include_router(_users_router)
 
 # Eén bron voor de OTP-regels: ze horen bij de aanmeldstap (auth/login.py) en
 # worden hier alleen hergebruikt, zodat router en scherm dezelfde grenzen hanteren.
@@ -65,7 +18,54 @@ from app.domains.auth.login import (  # noqa: E402,F401
     check_otp,
     start_login,
 )
+from app.domains.auth.member_identity import (
+    login_person_for_email,
+)
+from app.domains.auth.models import (
+    ApiKey,  # noqa: E402
+    LoginToken,
+)
+from app.domains.auth.service import (  # noqa: E402
+    create_access_token,
+    get_current_admin,
+    get_current_identity,
+    get_user_roles,
+    hash_api_key,
+    require_member,
+)
+from app.domains.auth.session import set_session_cookie as _set_ui_session_cookie
 
+# Gebruikersbeheer (backoffice-accounts + rollen) hoort bij het auth-component;
+# de composer mount enkel deze router.
+from app.domains.auth.users import router as _users_router  # noqa: E402
+from app.domains.mdm.api import CONTACT
+from app.i18n import _
+from app.limiter import login_limiter
+from app.schemas.auth import (
+    AuthMeResponse,
+    MagicLinkRequest,
+    MemberMeResponse,
+    OtpVerifyRequest,
+    TokenResponse,
+)
+
+
+def _set_ui_session(response: Response, email: str, request: Request | None = None) -> None:
+    """Naast het JWT ook een HttpOnly-sessiecookie (#398): de server-rendered
+    schermen (werkbank e.v.) lezen díe — nooit localStorage.
+
+    `request` gaat mee sinds #865: de Secure-vlag volgt de verbinding en niet meer
+    de naam van de omgeving.
+    """
+    _set_ui_session_cookie(response, email, request)
+
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["auth"])
+
+
+router.include_router(_users_router)
 
 
 # ── Eén login-flow voor iedereen ───────────────────────────────────────────────
@@ -76,8 +76,6 @@ from app.domains.auth.login import (  # noqa: E402,F401
 # per request, afgeleid — hier sturen we enkel een link/code naar wie gekend is.
 
 
-
-
 @router.post("/auth/request-login", status_code=200, dependencies=[Depends(login_limiter)])
 def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
     start_login(db, body.email.strip())
@@ -86,8 +84,7 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/auth/verify-login", response_model=TokenResponse)
-def verify_login(token: str, request: Request, response: Response,
-                 db: Session = Depends(get_db)):
+def verify_login(token: str, request: Request, response: Response, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     login_token = (
         db.query(LoginToken)
@@ -95,7 +92,9 @@ def verify_login(token: str, request: Request, response: Response,
         .first()
     )
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige of verlopen inloglink."))
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige of verlopen inloglink.")
+        )
 
     login_token.used = True
     db.commit()
@@ -103,11 +102,12 @@ def verify_login(token: str, request: Request, response: Response,
     return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
 
 
-
-
-@router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
-def verify_otp(body: OtpVerifyRequest, request: Request, response: Response,
-               db: Session = Depends(get_db)):
+@router.post(
+    "/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)]
+)
+def verify_otp(
+    body: OtpVerifyRequest, request: Request, response: Response, db: Session = Depends(get_db)
+):
     email = body.email.strip()
     if not check_otp(db, email, body.code):
         # Generieke melding: lek geen onderscheid tussen "geen token", "code fout"
@@ -141,8 +141,11 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
         (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), ""
     )
     phone = next(
-        (c.value for c in person.contact_details
-         if c.contact_type_code in (CONTACT.MOBILE, CONTACT.PHONE)),
+        (
+            c.value
+            for c in person.contact_details
+            if c.contact_type_code in (CONTACT.MOBILE, CONTACT.PHONE)
+        ),
         None,
     )
     from app.domains.membership.api import renewal_available as _renewal_available
@@ -169,12 +172,6 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
 # Beheer door een admin; de key zelf wordt exact één keer teruggegeven bij het
 # aanmaken en daarna alleen gehasht bewaard.
 
-from pydantic import BaseModel  # noqa: E402
-
-from app.domains.auth.models import ApiKey  # noqa: E402
-from app.domains.auth.service import get_current_admin, hash_api_key  # noqa: E402
-from app.domains.mdm.api import CONTACT
-
 
 class ApiKeyCreate(BaseModel):
     name: str
@@ -194,8 +191,7 @@ def list_api_keys(db: Session = Depends(get_db), _=Depends(get_current_admin)):
 
 
 @router.post("/auth/api-keys", status_code=201)
-def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db),
-                   _=Depends(get_current_admin)):
+def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=400, detail=_("Naam is verplicht."))
@@ -211,8 +207,7 @@ def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db),
 
 
 @router.delete("/auth/api-keys/{key_id}", status_code=204)
-def revoke_api_key(key_id: int, db: Session = Depends(get_db),
-                   _=Depends(get_current_admin)):
+def revoke_api_key(key_id: int, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     entry = db.query(ApiKey).filter(ApiKey.id == key_id).first()
     if entry is None:
         raise HTTPException(status_code=404, detail=_("API-key niet gevonden."))

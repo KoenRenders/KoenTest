@@ -28,17 +28,22 @@ overgetypte set van de zes sleutels → test 2 valt om (de toegevoegde tegel
 beschermt niets), terwijl 1, 3 en 4 groen blijven — precies het verschil tussen
 afleiden en overschrijven.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.reporting import service
-from app.domains.reporting.api import (SavedReportError, delete_report,
-                                       get_saved_report, list_saved_reports,
-                                       may_delete, save_report,
-                                       selection_from_dict)
+from app.domains.reporting.api import (
+    SavedReportError,
+    delete_report,
+    get_saved_report,
+    list_saved_reports,
+    may_delete,
+    save_report,
+    selection_from_dict,
+)
 from tests._reporting_seed import TENANT_A, seed
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -46,7 +51,7 @@ pytestmark = pytest.mark.ui_serverrendered
 ADMIN = "bestuur@example.com"
 ANDER = "penningmeester@example.com"
 TEGEL_SLEUTEL = "dashboard_members"
-GEWOON_SLEUTEL = "revenue_per_month"   # meegeleverd, voedt geen tegel
+GEWOON_SLEUTEL = "revenue_per_month"  # meegeleverd, voedt geen tegel
 
 
 @pytest.fixture
@@ -68,8 +73,11 @@ def _login(client, db, email=ADMIN) -> str:
 
 
 def _meegeleverd(db, sleutel: str):
-    rapport = [r for r in list_saved_reports(db, tenant_id=TENANT_A, viewer=ADMIN)
-               if r.builtin_key == sleutel]
+    rapport = [
+        r
+        for r in list_saved_reports(db, tenant_id=TENANT_A, viewer=ADMIN)
+        if r.builtin_key == sleutel
+    ]
     assert rapport, f"geen meegeleverd rapport met sleutel {sleutel}"
     return rapport[0]
 
@@ -80,8 +88,10 @@ def _verwijderroute(rapport) -> str:
 
 # ── 1. De grens: tegelrapport vast, ander meegeleverd rapport vrij ───────────
 
+
 def test_een_tegelrapport_toont_geen_verwijderknop_en_de_service_weigert(
-        client, db_session, situatie):
+    client, db_session, situatie
+):
     tegel = _meegeleverd(db_session, TEGEL_SLEUTEL)
     csrf = _login(client, db_session)
 
@@ -99,12 +109,10 @@ def test_een_tegelrapport_toont_geen_verwijderknop_en_de_service_weigert(
     assert antwoord.status_code == 422
     assert "Gezinnen" in antwoord.text
     db_session.expire_all()
-    assert get_saved_report(db_session, tegel.id, tenant_id=TENANT_A,
-                            viewer=ADMIN) is not None
+    assert get_saved_report(db_session, tegel.id, tenant_id=TENANT_A, viewer=ADMIN) is not None
 
 
-def test_een_ander_meegeleverd_rapport_is_wel_te_verwijderen(client, db_session,
-                                                            situatie):
+def test_een_ander_meegeleverd_rapport_is_wel_te_verwijderen(client, db_session, situatie):
     gewoon = _meegeleverd(db_session, GEWOON_SLEUTEL)
     csrf = _login(client, db_session)
 
@@ -116,21 +124,25 @@ def test_een_ander_meegeleverd_rapport_is_wel_te_verwijderen(client, db_session,
     antwoord = client.post(_verwijderroute(gewoon), headers={"X-CSRF-Token": csrf})
     assert antwoord.status_code == 204
     db_session.expire_all()
-    assert get_saved_report(db_session, gewoon.id, tenant_id=TENANT_A,
-                            viewer=ADMIN) is None
+    assert get_saved_report(db_session, gewoon.id, tenant_id=TENANT_A, viewer=ADMIN) is None
 
 
 # ── 2. Afgeleid, niet overgeschreven ─────────────────────────────────────────
 
-def test_de_bescherming_is_afgeleid_uit_de_tegellijst(client, db_session, situatie,
-                                                     monkeypatch):
+
+def test_de_bescherming_is_afgeleid_uit_de_tegellijst(client, db_session, situatie, monkeypatch):
     """Een tegel erbij beschermt zijn rapport meteen — nergens iets bijgewerkt."""
     gewoon = _meegeleverd(db_session, GEWOON_SLEUTEL)
     assert may_delete(gewoon, actor=ADMIN) is True, "voorwaarde: vandaag vrij"
 
-    monkeypatch.setattr(service, "DASHBOARD_TEGELS", service.DASHBOARD_TEGELS + [
-        ("Omzet per maand", GEWOON_SLEUTEL, "payment_amount", "/admin/betalingen", True),
-    ])
+    monkeypatch.setattr(
+        service,
+        "DASHBOARD_TEGELS",
+        service.DASHBOARD_TEGELS
+        + [
+            ("Omzet per maand", GEWOON_SLEUTEL, "payment_amount", "/admin/betalingen", True),
+        ],
+    )
 
     assert may_delete(gewoon, actor=ADMIN) is False
     with pytest.raises(SavedReportError) as fout:
@@ -154,6 +166,7 @@ def test_het_dashboard_leest_dezelfde_lijst(client, db_session, situatie):
 
 # ── 3. Het bewerkscherm noemt de tegel ───────────────────────────────────────
 
+
 def test_het_paneel_van_een_tegelrapport_noemt_de_tegel(client, db_session, situatie):
     _login(client, db_session)
     tegel = client.get(f"/admin/rapporten/{_meegeleverd(db_session, TEGEL_SLEUTEL).id}")
@@ -165,12 +178,17 @@ def test_het_paneel_van_een_tegelrapport_noemt_de_tegel(client, db_session, situ
 
 # ── 4. Van iemand anders: onverwijderbaar, zoals voorheen ────────────────────
 
-def test_een_rapport_van_iemand_anders_blijft_onverwijderbaar(client, db_session,
-                                                              situatie):
+
+def test_een_rapport_van_iemand_anders_blijft_onverwijderbaar(client, db_session, situatie):
     selectie = selection_from_dict({"objects": ["payment_amount"]})
-    van_ander = save_report(db_session, tenant_id=TENANT_A, owner=ANDER,
-                            name="Van de penningmeester", selection=selectie,
-                            is_shared=True)
+    van_ander = save_report(
+        db_session,
+        tenant_id=TENANT_A,
+        owner=ANDER,
+        name="Van de penningmeester",
+        selection=selectie,
+        is_shared=True,
+    )
     csrf = _login(client, db_session)
 
     assert may_delete(van_ander, actor=ADMIN) is False

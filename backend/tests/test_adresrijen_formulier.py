@@ -10,6 +10,7 @@ Hybride, zo beslist: **tekst** gaat mee met Opslaan; **verwijderen** en
 **hoofdadres aanduiden** blijven eigen knoppen, want dat zijn losse
 beslissingen met een eigen betekenis in het auditspoor.
 """
+
 from __future__ import annotations
 
 import re
@@ -30,8 +31,11 @@ JUIST = "tweede@example.com"
 @pytest.fixture
 def gezin(db_session):
     member, person = create_test_family(db_session, email=HOOFD)
-    db_session.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                                 value=TIKFOUT, is_primary=False))
+    db_session.add(
+        ContactDetail(
+            person_id=person.id, contact_type_code="EMAIL", value=TIKFOUT, is_primary=False
+        )
+    )
     db_session.commit()
     return member, person
 
@@ -45,26 +49,40 @@ def _login(client):
 def _adressen(db, person) -> dict[str, bool]:
     db.expire_all()
     person = db.query(Person).filter(Person.id == person.id).one()
-    return {c.value: bool(c.is_primary) for c in person.contact_details
-            if c.contact_type_code == "EMAIL"}
+    return {
+        c.value: bool(c.is_primary)
+        for c in person.contact_details
+        if c.contact_type_code == "EMAIL"
+    }
 
 
 def _rij_id(db, person, waarde: str) -> int:
     person = db.query(Person).filter(Person.id == person.id).one()
-    return next(c.id for c in person.contact_details
-                if c.contact_type_code == "EMAIL" and c.value == waarde)
+    return next(
+        c.id for c in person.contact_details if c.contact_type_code == "EMAIL" and c.value == waarde
+    )
 
 
 def _opslaan(client, csrf, member, person, **extra):
-    data = {"first_name": person.first_name, "last_name": person.last_name,
-            "date_of_birth": "1990-01-01", "gender_code": "M",
-            "relation_type": "HOOFDLID", "phone": "", "mobile": ""}
+    data = {
+        "first_name": person.first_name,
+        "last_name": person.last_name,
+        "date_of_birth": "1990-01-01",
+        "gender_code": "M",
+        "relation_type": "HOOFDLID",
+        "phone": "",
+        "mobile": "",
+    }
     data.update(extra)
-    return client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-                       data=data, headers={"X-CSRF-Token": csrf})
+    return client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
+        data=data,
+        headers={"X-CSRF-Token": csrf},
+    )
 
 
 # ── 1. Het gemelde geval ────────────────────────────────────────────────────
+
 
 def test_een_tikfout_corrigeer_je_door_te_typen(client, db_session, gezin):
     """De vraag waar dit issue mee begon.
@@ -77,12 +95,12 @@ def test_een_tikfout_corrigeer_je_door_te_typen(client, db_session, gezin):
     csrf = _login(client)
     rij_id = _rij_id(db_session, person, TIKFOUT)
 
-    respons = _opslaan(client, csrf, member, person,
-                       **{f"email_existing_{rij_id}": JUIST})
+    respons = _opslaan(client, csrf, member, person, **{f"email_existing_{rij_id}": JUIST})
 
     assert respons.status_code == 200
     assert _adressen(db_session, person) == {HOOFD: True, JUIST: False}, (
-        "het gecorrigeerde adres hoort de tikfout te vervangen, met dezelfde rol")
+        "het gecorrigeerde adres hoort de tikfout te vervangen, met dezelfde rol"
+    )
 
 
 def test_het_veld_staat_echt_op_het_scherm(client, db_session, gezin):
@@ -97,14 +115,15 @@ def test_het_veld_staat_echt_op_het_scherm(client, db_session, gezin):
 
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert re.search(rf'name="email_existing_{rij_id}"', html), (
-        "er staat geen invoerveld voor het bestaande adres in het formulier")
+        "er staat geen invoerveld voor het bestaande adres in het formulier"
+    )
     assert f'value="{TIKFOUT}"' in html
 
 
 # ── 2. Een rij die nog niet bestaat ─────────────────────────────────────────
 
-def test_een_nieuwe_rij_draagt_geen_knop_die_een_id_nodig_heeft(client, db_session,
-                                                                gezin):
+
+def test_een_nieuwe_rij_draagt_geen_knop_die_een_id_nodig_heeft(client, db_session, gezin):
     """De val: tot het lid opgeslagen is, heeft die rij geen id.
 
     Een hoofdadres-knop zou dan een verzoek op een onbestaand id sturen — hij
@@ -118,13 +137,14 @@ def test_een_nieuwe_rij_draagt_geen_knop_die_een_id_nodig_heeft(client, db_sessi
     _login(client)
 
     fragment = client.get(
-        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email-rij?index=7").text
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email-rij?index=7"
+    ).text
 
     assert 'name="email_new_7"' in fragment, f"geen veld in de lege rij: {fragment}"
     assert "/hoofd" not in fragment, (
-        f"een nog niet opgeslagen rij biedt een hoofdadres-knop aan: {fragment}")
-    assert "hx-post" not in fragment, (
-        f"een nog niet opgeslagen rij stuurt een verzoek: {fragment}")
+        f"een nog niet opgeslagen rij biedt een hoofdadres-knop aan: {fragment}"
+    )
+    assert "hx-post" not in fragment, f"een nog niet opgeslagen rij stuurt een verzoek: {fragment}"
 
 
 def test_een_nieuwe_rij_wordt_bij_opslaan_een_adres(client, db_session, gezin):
@@ -134,7 +154,10 @@ def test_een_nieuwe_rij_wordt_bij_opslaan_een_adres(client, db_session, gezin):
     _opslaan(client, csrf, member, person, email_new_0="derde@example.com")
 
     assert _adressen(db_session, person) == {
-        HOOFD: True, TIKFOUT: False, "derde@example.com": False}
+        HOOFD: True,
+        TIKFOUT: False,
+        "derde@example.com": False,
+    }
 
 
 def test_een_lege_nieuwe_rij_levert_niets_op(client, db_session, gezin):
@@ -148,6 +171,7 @@ def test_een_lege_nieuwe_rij_levert_niets_op(client, db_session, gezin):
 
 
 # ── 3. De markering is een herkomst, geen positie ───────────────────────────
+
 
 def test_het_eerste_adres_van_een_mens_wordt_het_hoofdadres(client, db_session):
     """Koen, 26 september 2026: *"Als je maar 1 adres invoert is dat het hoofdadres."*
@@ -172,7 +196,9 @@ def test_het_eerste_adres_van_een_mens_wordt_het_hoofdadres(client, db_session):
     # En een tweede krijgt hem niet.
     _opslaan(client, csrf, member, person, email_new_0="tweede@example.com")
     assert _adressen(db_session, person) == {
-        "eerste@example.com": True, "tweede@example.com": False}
+        "eerste@example.com": True,
+        "tweede@example.com": False,
+    }
 
 
 def test_de_markering_volgt_de_volgorde_niet(client, db_session, gezin):
@@ -188,17 +214,19 @@ def test_de_markering_volgt_de_volgorde_niet(client, db_session, gezin):
     tweede_id = _rij_id(db_session, person, TIKFOUT)
     client.post(
         f"/admin/leden/gezin/{member.id}/persoon/{person.id}/email/{tweede_id}/hoofd",
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
     assert _adressen(db_session, person) == {HOOFD: False, TIKFOUT: True}
 
-    _opslaan(client, csrf, member, person,
-             **{f"email_existing_{tweede_id}": TIKFOUT})
+    _opslaan(client, csrf, member, person, **{f"email_existing_{tweede_id}": TIKFOUT})
 
     assert _adressen(db_session, person) == {HOOFD: False, TIKFOUT: True}, (
-        "het opslaan heeft de markering verplaatst naar de eerste rij")
+        "het opslaan heeft de markering verplaatst naar de eerste rij"
+    )
 
 
 # ── 4. Wat niet mag veranderen ──────────────────────────────────────────────
+
 
 def test_opslaan_zonder_e_mailveld_wist_het_hoofdadres_niet(client, db_session, gezin):
     """De val bij het weghalen van het losse e-mailveld uit de veldenset.

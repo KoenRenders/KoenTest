@@ -4,6 +4,7 @@ Caps de berichtlengte en de geschiedenis hier (vorm), zodat 'pagina-droppen'
 al op de HTTP-laag een nette 422 geeft. De inhoudelijke vangrails (dagbudget,
 rate) zitten in de router via de limiters; de business-loop in de service.
 """
+
 from __future__ import annotations
 
 from typing import Literal

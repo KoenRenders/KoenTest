@@ -28,6 +28,7 @@ while the standard-port test stays green (it expects no port); and the fallback 
 `FRONTEND_URL` removed → only the background-task test falls over, which is the half that
 would otherwise go missing silently.
 """
+
 import pytest
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -50,14 +51,14 @@ def hdev_like(monkeypatch):
     invalidate_tenant_codes()
 
 
-def test_the_card_of_an_afdeling_with_its_own_host_keeps_the_port(client, db_session,
-                                                                  hdev_like):
+def test_the_card_of_an_afdeling_with_its_own_host_keeps_the_port(client, db_session, hdev_like):
     """The measured case: without the port this link is dead, and it is the very card you
     click to check #860."""
     html = client.get("/", headers={"host": f"{PLATFORM_HOST}:8081"}).text
 
     assert f"//{AFDELING_HOST}:8081" in html, (
-        f"the derived address lost the port, so the link is dead on this environment")
+        "the derived address lost the port, so the link is dead on this environment"
+    )
 
 
 def test_robots_and_sitemap_keep_the_port(client, db_session, hdev_like):

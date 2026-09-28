@@ -5,6 +5,7 @@ forgotten key is an error in the route instead of an empty box on the screen,
 and `tests/test_template_variables_gate.py` can prove statically that the
 templates ask for nothing that is not promised here.
 """
+
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -116,7 +117,7 @@ class MeetingSendView(ViewModel):
     """`admin_vergadering_verstuur.html` — the deliberate stop before sending."""
 
     meeting: Any
-    kind: str                      # "agenda" | "report"
+    kind: str  # "agenda" | "report"
     kind_label: str
     subject: str
     body: str

@@ -5,6 +5,7 @@ absolute URL van een niet-prod-omgeving lekken — anders wijst de inloglink
 (magic-link) of de Mollie-redirect op HDEV/UAT naar productie. `tenant_base_url`
 is de enige bron van die origin; in niet-prod wint de env FRONTEND_URL altijd.
 """
+
 import pytest
 
 from app.config import settings

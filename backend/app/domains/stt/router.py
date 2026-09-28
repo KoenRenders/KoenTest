@@ -15,6 +15,7 @@ Vangrails (defense-in-depth, #282): handshake-rate-limit per IP, idle-timeout,
 harde audio-cap per sessie én per IP/dag — een vastgelopen of misbruikte socket
 kan zo nooit ongelimiteerd Voxtral-minuten opstoken.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -40,8 +41,8 @@ router = APIRouter(tags=["stt"])
 # de HTTP-statussen, zodat de client de reden kan onderscheiden.
 _WS_POLICY = 1008
 _WS_NORMAL = 1000
-_WS_IDLE = 4408           # ~ HTTP 408 Request Timeout
-_WS_SESSION_CAP = 4413    # ~ HTTP 413 Payload Too Large
+_WS_IDLE = 4408  # ~ HTTP 408 Request Timeout
+_WS_SESSION_CAP = 4413  # ~ HTTP 413 Payload Too Large
 
 # #772: grenzen waarbinnen een door de CLIENT gemelde sample rate geloofwaardig is.
 # De waarde komt uit de browser en gaat door naar een externe dienst, dus ze wordt
@@ -59,6 +60,7 @@ class _Grens(Exception):
     vandaar deze interne uitzondering in plaats van een tweede exemplaar van de
     afsluitcode.
     """
+
 
 # Module-globale vangrails (per proces; reset-baar in tests).
 handshake_limiter = HandshakeRateLimiter(settings.stt_ws_max_handshakes_per_min)
@@ -79,18 +81,28 @@ def _tenant_of(websocket: WebSocket) -> int:
     from app.domains.mdm.api import platform_tenant_id, tenant_codes
     from app.kernel.tenancy import parse_hostname_map, resolve_request
 
-    platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",")
-                      if h.strip()}
+    platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
     tenant, _pad, _landing = resolve_request(
-        websocket.headers.get("host"), websocket.url.path,
+        websocket.headers.get("host"),
+        websocket.url.path,
         websocket.cookies.get("raak_tenant"),
-        parse_hostname_map(settings.tenant_hostnames), platform_hosts,
-        tenant_codes(), platform_tenant_id())
+        parse_hostname_map(settings.tenant_hostnames),
+        platform_hosts,
+        tenant_codes(),
+        platform_tenant_id(),
+    )
     return tenant
 
 
-def _log_ai_call(websocket: WebSocket, provider, *, status: AiStatus, duration_ms: int,
-                 audio_bytes: int, sample_rate: int) -> None:
+def _log_ai_call(
+    websocket: WebSocket,
+    provider,
+    *,
+    status: AiStatus,
+    duration_ms: int,
+    audio_bytes: int,
+    sample_rate: int,
+) -> None:
     """One row in the AI log per dictation session (#978).
 
     The audio is not stored; its size and rate are — that is what the session
@@ -100,12 +112,14 @@ def _log_ai_call(websocket: WebSocket, provider, *, status: AiStatus, duration_m
 
     try:
         sink_for()(
-            surface=AiSurface.PUBLIC, capability=AiCapability.DICTATION,
+            surface=AiSurface.PUBLIC,
+            capability=AiCapability.DICTATION,
             model=getattr(provider, "model", "") or provider.name,
             payload=f"[audio: {audio_bytes} bytes, {sample_rate} Hz]",
             provider=getattr(provider, "vendor", "") or provider.name,
             endpoint=getattr(provider, "endpoint", ""),
-            status=status, duration_ms=duration_ms,
+            status=status,
+            duration_ms=duration_ms,
             tenant_id=_tenant_of(websocket),
         )
     except Exception:  # a log must not break the socket
@@ -179,12 +193,14 @@ async def stt_voxtral(websocket: WebSocket) -> None:
             await websocket.close(code=_WS_NORMAL, reason="Klaar")
             return
         gemeld = ctrl.get("sample_rate")
-        if isinstance(gemeld, int) and not isinstance(gemeld, bool) \
-                and _MIN_SAMPLE_RATE <= gemeld <= _MAX_SAMPLE_RATE:
+        if (
+            isinstance(gemeld, int)
+            and not isinstance(gemeld, bool)
+            and _MIN_SAMPLE_RATE <= gemeld <= _MAX_SAMPLE_RATE
+        ):
             sample_rate = gemeld
         elif gemeld is not None:
-            logger.warning("STT: ongeldige sample_rate %r; val terug op %d",
-                           gemeld, sample_rate)
+            logger.warning("STT: ongeldige sample_rate %r; val terug op %d", gemeld, sample_rate)
     logger.info("STT-sessie: %d Hz", sample_rate)
 
     provider = get_stt_provider(sample_rate=sample_rate)
@@ -228,19 +244,28 @@ async def stt_voxtral(websocket: WebSocket) -> None:
         if provider_fout is not None:
             return  # al gemeld, mét de snelheid erbij
         if deltas:
-            logger.info("STT-sessie klaar: %d Hz, %d tekstdelen, %d audiobytes",
-                        sample_rate, deltas, session_bytes)
+            logger.info(
+                "STT-sessie klaar: %d Hz, %d tekstdelen, %d audiobytes",
+                sample_rate,
+                deltas,
+                session_bytes,
+            )
         elif spraak_gehoord is False:
             logger.info(
                 "STT-sessie zonder tekst: %d Hz, %d audiobytes — de browser hoorde "
                 "zelf geen spraak (VAD onder de drempel), dus dit zegt niets over de "
-                "provider", sample_rate, session_bytes)
+                "provider",
+                sample_rate,
+                session_bytes,
+            )
         else:
             logger.warning(
                 "STT-sessie zonder tekst: %d Hz, %d audiobytes — de provider gaf geen "
                 "fout en dus aanvaardde ze het formaat, maar herkende geen spraak%s",
-                sample_rate, session_bytes,
-                " (de browser hoorde wél spraak)" if spraak_gehoord else "")
+                sample_rate,
+                session_bytes,
+                " (de browser hoorde wél spraak)" if spraak_gehoord else "",
+            )
 
     pump_task = asyncio.create_task(pump_transcripts())
     try:
@@ -291,10 +316,14 @@ async def stt_voxtral(websocket: WebSocket) -> None:
         except Exception:
             pump_task.cancel()
         _log_uitkomst()
-        _log_ai_call(websocket, provider,
-                     status=AiStatus.ERROR if provider_fout else AiStatus.OK,
-                     duration_ms=int(round((time.monotonic() - begin) * 1000)),
-                     audio_bytes=session_bytes, sample_rate=sample_rate)
+        _log_ai_call(
+            websocket,
+            provider,
+            status=AiStatus.ERROR if provider_fout else AiStatus.OK,
+            duration_ms=int(round((time.monotonic() - begin) * 1000)),
+            audio_bytes=session_bytes,
+            sample_rate=sample_rate,
+        )
         if websocket.application_state == WebSocketState.CONNECTED:
             try:
                 await websocket.close(code=close_code, reason=close_reason)

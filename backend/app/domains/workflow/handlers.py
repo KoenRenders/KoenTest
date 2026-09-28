@@ -8,6 +8,7 @@
   (titel = sleutel); zero-touch als ontwerpdoel — een lege werkbank is gezond.
   Kill-switch: settings.workbench_enabled.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,65 +39,110 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
     if event.form_slug != BERICHTEN_SLUG:
         return
     afzender = event.submitter_name or "onbekende afzender"
-    api.start(db, "bericht", subject_type="form_submission",
-              subject_id=str(event.submission_id), context={"afzender": afzender})
+    api.start(
+        db,
+        "bericht",
+        subject_type="form_submission",
+        subject_id=str(event.submission_id),
+        context={"afzender": afzender},
+    )
 
 
 def _sweep_sources(db: Session) -> list[dict]:
     """De taak-kandidaten van de 4 sweep-bronnen (behartigen is event-gedreven)."""
     from app.domains.mail.api import EmailLog, MailStatus
     from app.domains.payment.api import (
-        GatewayPayment, PaymentRecord, PaymentStatus, PaymentType,
+        GatewayPayment,
+        PaymentRecord,
+        PaymentStatus,
+        PaymentType,
     )
     from app.kernel.jobs import JobStatus, KernelJob
 
     kandidaten: list[dict] = []
 
     # 1. Refund-bevestiging (consolidatie): pending refunds wachten op FINANCE.
-    for r in (db.query(PaymentRecord)
-              .filter(PaymentRecord.type == PaymentType.REFUND,
-                      PaymentRecord.status == PaymentStatus.PENDING).all()):
-        kandidaten.append(dict(
-            kind=PAYMENT_CONFIRM_REFUND,
-            title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
-            # #704: het record-id, niet het payable — `subject_type` zegt
-            # "payment_record" en de waarde hoort dat te zijn.
-            subject_type="payment_record", subject_id=str(r.id), role="FINANCE"))
+    for r in (
+        db.query(PaymentRecord)
+        .filter(
+            PaymentRecord.type == PaymentType.REFUND, PaymentRecord.status == PaymentStatus.PENDING
+        )
+        .all()
+    ):
+        kandidaten.append(
+            dict(
+                kind=PAYMENT_CONFIRM_REFUND,
+                title=f"Refund {r.id} bevestigen ({r.payable_type.value} #{r.payable_id})",
+                # #704: het record-id, niet het payable — `subject_type` zegt
+                # "payment_record" en de waarde hoort dat te zijn.
+                subject_type="payment_record",
+                subject_id=str(r.id),
+                role="FINANCE",
+            )
+        )
 
     # 2. Definitief gefaalde mails (na de mail.retry-pogingen).
-    failed_mail_jobs = {j.payload.get("email_log_id")
-                       for j in db.query(KernelJob)
-                       .filter(KernelJob.name == "mail.retry", KernelJob.status == JobStatus.FAILED).all()}
+    failed_mail_jobs = {
+        j.payload.get("email_log_id")
+        for j in db.query(KernelJob)
+        .filter(KernelJob.name == "mail.retry", KernelJob.status == JobStatus.FAILED)
+        .all()
+    }
     for log_id in sorted(x for x in failed_mail_jobs if x):
         log = db.get(EmailLog, log_id)
         if log is None or log.status is MailStatus.SENT:
             continue
-        kandidaten.append(dict(
-            kind=MAIL_PERMANENTLY_FAILED,
-            title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
-            subject_type="email_log", subject_id=str(log.id), role="ADMIN"))
+        kandidaten.append(
+            dict(
+                kind=MAIL_PERMANENTLY_FAILED,
+                title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
+                subject_type="email_log",
+                subject_id=str(log.id),
+                role="ADMIN",
+            )
+        )
 
     # 3. Webhook-mismatch: gateway zegt paid, het grootboek (nog) niet.
-    rows = (db.query(GatewayPayment, PaymentRecord)
-            .join(PaymentRecord, PaymentRecord.gateway_payment_id == GatewayPayment.id)
-            # `GatewayPayment.status` carries Mollie's word (§B4.10) and so
-            # stays a string; `PaymentRecord.status` is our list.
-            .filter(GatewayPayment.status == PaymentStatus.PAID.value,
-                    PaymentRecord.status != PaymentStatus.PAID).all())
+    rows = (
+        db.query(GatewayPayment, PaymentRecord)
+        .join(PaymentRecord, PaymentRecord.gateway_payment_id == GatewayPayment.id)
+        # `GatewayPayment.status` carries Mollie's word (§B4.10) and so
+        # stays a string; `PaymentRecord.status` is our list.
+        .filter(
+            GatewayPayment.status == PaymentStatus.PAID.value,
+            PaymentRecord.status != PaymentStatus.PAID,
+        )
+        .all()
+    )
     for gp, record in rows:
-        kandidaten.append(dict(
-            kind=PAYMENT_WEBHOOK_MISMATCH,
-            title=(f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
-                   f"record {record.id[:8]}… is {record.status.value}"),
-            subject_type="payment_record", subject_id=str(record.id), role="FINANCE"))
+        kandidaten.append(
+            dict(
+                kind=PAYMENT_WEBHOOK_MISMATCH,
+                title=(
+                    f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, "
+                    f"record {record.id[:8]}… is {record.status.value}"
+                ),
+                subject_type="payment_record",
+                subject_id=str(record.id),
+                role="FINANCE",
+            )
+        )
 
     # 4. Definitief gefaalde jobs (behalve mail.retry — bron 2 dekt die met context).
-    for j in (db.query(KernelJob)
-              .filter(KernelJob.status == JobStatus.FAILED, KernelJob.name != "mail.retry").all()):
-        kandidaten.append(dict(
-            kind=KERNEL_JOB_FAILED,
-            title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
-            subject_type="kernel_job", subject_id=str(j.id), role="ADMIN"))
+    for j in (
+        db.query(KernelJob)
+        .filter(KernelJob.status == JobStatus.FAILED, KernelJob.name != "mail.retry")
+        .all()
+    ):
+        kandidaten.append(
+            dict(
+                kind=KERNEL_JOB_FAILED,
+                title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
+                subject_type="kernel_job",
+                subject_id=str(j.id),
+                role="ADMIN",
+            )
+        )
 
     return kandidaten
 
@@ -108,10 +154,14 @@ def _sweep_sources(db: Session) -> list[dict]:
 #
 # (#824: `payment.wees_record` used to be listed here too, for the same reason. That
 # mechanism is gone entirely.)
-SWEEP_SOORTEN = frozenset({
-    "payment.refund_bevestigen", "mail.definitief_gefaald",
-    "payment.webhook_mismatch", "kernel.job_gefaald",
-})
+SWEEP_SOORTEN = frozenset(
+    {
+        "payment.refund_bevestigen",
+        "mail.definitief_gefaald",
+        "payment.webhook_mismatch",
+        "kernel.job_gefaald",
+    }
+)
 
 
 @job("workflow.sweep")
@@ -128,10 +178,14 @@ def sweep(db: Session, payload: dict) -> None:
             if kandidaat["title"] in bestaande:
                 continue
             logger.warning("werkbank-sweep: nieuwe taak — %s", kandidaat["title"])
-            api.create_task(db, kind=kandidaat["kind"], title=kandidaat["title"],
-                            subject_type=kandidaat["subject_type"],
-                            subject_id=kandidaat["subject_id"],
-                            required_role=kandidaat["role"])
+            api.create_task(
+                db,
+                kind=kandidaat["kind"],
+                title=kandidaat["title"],
+                subject_type=kandidaat["subject_type"],
+                subject_id=kandidaat["subject_id"],
+                required_role=kandidaat["role"],
+            )
 
         # Andersom (#675): een open taak die niet meer in de kandidatenlijst staat,
         # heeft haar aanleiding verloren — de refund is uitbetaald, de mismatch is
@@ -147,9 +201,14 @@ def sweep(db: Session, payload: dict) -> None:
         for taak in open_taken:
             if taak.kind in SWEEP_SOORTEN and taak.title not in geldig:
                 logger.warning("werkbank-sweep: aanleiding weg — %s", taak.title)
-                api.close_task(db, taak.id, done_by="systeem",
-                               decision=_("Automatisch gesloten: de aanleiding voor "
-                                          "deze taak bestaat niet meer."))
+                api.close_task(
+                    db,
+                    taak.id,
+                    done_by="systeem",
+                    decision=_(
+                        "Automatisch gesloten: de aanleiding voor deze taak bestaat niet meer."
+                    ),
+                )
                 gesloten = True
         # close_task zet enkel de velden; het wegschrijven hoort bij de aanroeper.
         # Zonder deze flush blijft de wijziging in de sessie hangen tot iets anders
@@ -158,5 +217,4 @@ def sweep(db: Session, payload: dict) -> None:
         if gesloten:
             db.flush()
     if not payload.get("once"):
-        enqueue(db, "workflow.sweep", {},
-                run_at=datetime.now(timezone.utc) + SWEEP_INTERVAL)
+        enqueue(db, "workflow.sweep", {}, run_at=datetime.now(timezone.utc) + SWEEP_INTERVAL)

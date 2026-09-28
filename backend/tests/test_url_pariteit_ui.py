@@ -1,11 +1,12 @@
 """React-exit 405-e (stap 1): URL-pariteit — fotopagina's, admin-dashboard en
 redirects van de oude React-paden."""
+
 import io
 
 from PIL import Image
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -13,11 +14,13 @@ def _login(client):
 
 
 def test_redirects_oude_paden(client):
-    for pad, doel in (("/archief", "/activiteiten/archief"),
-                      ("/admin/login", "/aanmelden"),
-                      ("/admin/emails", "/admin/e-maillog"),
-                      ("/admin/login/verify?token=abc", "/login/verify?token=abc"),
-                      ("/leden/login/verify?token=abc", "/login/verify?token=abc")):
+    for pad, doel in (
+        ("/archief", "/activiteiten/archief"),
+        ("/admin/login", "/aanmelden"),
+        ("/admin/emails", "/admin/e-maillog"),
+        ("/admin/login/verify?token=abc", "/login/verify?token=abc"),
+        ("/leden/login/verify?token=abc", "/login/verify?token=abc"),
+    ):
         resp = client.get(pad, follow_redirects=False)
         assert resp.status_code == 302, pad
         assert resp.headers["location"] == doel, pad
@@ -36,10 +39,17 @@ def test_fotos_paginas(client, db_session):
     db_session.add(ActivityDate(activity_id=act.id, start_date=gisteren))
     buf = io.BytesIO()
     Image.new("RGB", (30, 20), (10, 120, 200)).save(buf, format="PNG")
-    db_session.add(MediaAsset(kind="activity_photo", activity_id=act.id,
-                              is_active=True, data=buf.getvalue(),
-                              thumbnail=buf.getvalue(), content_type="image/png",
-                              sort_order=0))
+    db_session.add(
+        MediaAsset(
+            kind="activity_photo",
+            activity_id=act.id,
+            is_active=True,
+            data=buf.getvalue(),
+            thumbnail=buf.getvalue(),
+            content_type="image/png",
+            sort_order=0,
+        )
+    )
     db_session.flush()
 
     overzicht = client.get("/fotos")
@@ -55,6 +65,5 @@ def test_admin_dashboard(client):
     _login(client)
     resp = client.get("/admin")
     assert resp.status_code == 200
-    for label in ("Dashboard", "Actieve gezinnen", "Komende activiteiten",
-                  "Openstaand saldo"):
+    for label in ("Dashboard", "Actieve gezinnen", "Komende activiteiten", "Openstaand saldo"):
         assert label in resp.text, label

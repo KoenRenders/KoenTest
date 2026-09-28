@@ -21,10 +21,10 @@ knop veranderd is. En de laatste test is een **regressietest, geen vormtest**: h
 élke opslag stil omviel — `bool(Form(""))` is False. Een herindeling is precies
 wanneer zoiets opnieuw sneuvelt.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -37,10 +37,15 @@ def _login(client):
 
 
 def _formulier(client, admin_headers, slug=None):
-    r = client.post("/api/v1/forms", json={
-        "title": "Kop", "status": "draft",
-        "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
-    }, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Kop",
+            "status": "draft",
+            "fields": [{"field_type": "text", "label": "Vraag", "position": 0}],
+        },
+        headers=admin_headers,
+    )
     assert r.status_code == 200, r.text
     form = r.json()
     if slug:
@@ -50,10 +55,11 @@ def _formulier(client, admin_headers, slug=None):
         waarde = make_session_value(SEEDED_ADMIN_EMAIL)
         csrf = csrf_token_for(waarde)
         client.cookies.set(SESSION_COOKIE, waarde)
-        resp = client.post(f"/admin/formulieren/{form['id']}/instellingen",
-                           data={"title": form["title"], "status": "draft",
-                                 "slug": slug},
-                           headers={"X-CSRF-Token": csrf})
+        resp = client.post(
+            f"/admin/formulieren/{form['id']}/instellingen",
+            data={"title": form["title"], "status": "draft", "slug": slug},
+            headers={"X-CSRF-Token": csrf},
+        )
         assert resp.status_code == 200, resp.text[:300]
     return form
 
@@ -85,6 +91,7 @@ def _instellingenknop(html: str) -> str:
 
 # ── 1. Bewerken/Annuleren ──────────────────────────────────────────────────
 
+
 def test_de_instellingenknop_is_een_bewerktoggle(client, admin_headers):
     form = _formulier(client, admin_headers)
     _login(client)
@@ -108,13 +115,14 @@ def test_de_oude_knop_is_verdwenen(client, admin_headers):
 
 # ── 2. De links op één regel ───────────────────────────────────────────────
 
+
 def test_beide_links_staan_op_een_regel(client, admin_headers):
     form = _formulier(client, admin_headers, slug="kopregel")
     _login(client)
     html = _bouwer(client, form["id"])
 
     start = html.index("Deellink:")
-    regel = html[html.rindex("<p", 0, start):html.index("</p>", start)]
+    regel = html[html.rindex("<p", 0, start) : html.index("</p>", start)]
     assert "/f/kopregel" in regel, "de leesbare link staat in een eigen blok"
     assert "inzendingen" in regel
 
@@ -126,13 +134,14 @@ def test_zonder_slug_blijft_de_regel_heel(client, admin_headers):
     html = _bouwer(client, form["id"])
 
     start = html.index("Deellink:")
-    regel = html[html.rindex("<p", 0, start):html.index("</p>", start)]
+    regel = html[html.rindex("<p", 0, start) : html.index("</p>", start)]
     assert "/f/" not in regel, "er staat een leesbare link zonder slug"
     assert "Leesbare link" not in regel
     assert "inzendingen" in regel
 
 
 # ── 3. De tekstvakken ──────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("veld_id", ["fbd", "fbc"])
 def test_de_tekstvakken_volgen_de_kitstandaard(client, admin_headers, veld_id):
@@ -141,30 +150,35 @@ def test_de_tekstvakken_volgen_de_kitstandaard(client, admin_headers, veld_id):
     html = _bouwer(client, form["id"])
 
     start = html.index(f'id="{veld_id}"')
-    tag = html[html.rindex("<textarea", 0, start):html.index(">", start)]
+    tag = html[html.rindex("<textarea", 0, start) : html.index(">", start)]
     assert 'rows="4"' in tag, f"{veld_id} wijkt af van de kit: {tag}"
 
 
 def test_de_sectie_omschrijving_blijft_bewust_korter(client, admin_headers):
     """Geen inconsistentie: de omschrijving van een sectie is een korte toelichting
     boven een groep vragen, geen lopende tekst."""
-    r = client.post("/api/v1/forms", json={
-        "title": "Met sectie", "status": "draft",
-        "sections": [{"title": "Een", "position": 0}],
-        "fields": [{"field_type": "text", "label": "V", "position": 0,
-                    "section_index": 0}],
-    }, headers=admin_headers)
+    r = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Met sectie",
+            "status": "draft",
+            "sections": [{"title": "Een", "position": 0}],
+            "fields": [{"field_type": "text", "label": "V", "position": 0, "section_index": 0}],
+        },
+        headers=admin_headers,
+    )
     form = r.json()
     _login(client)
     html = _bouwer(client, form["id"])
 
     sectie = sorted(form["sections"], key=lambda s: s["position"])[0]
     start = html.index(f'id="sd-{sectie["id"]}"')
-    tag = html[html.rindex("<textarea", 0, start):html.index(">", start)]
+    tag = html[html.rindex("<textarea", 0, start) : html.index(">", start)]
     assert 'rows="2"' in tag, tag
 
 
 # ── 4. De volgorde van de velden ───────────────────────────────────────────
+
 
 def test_de_korte_velden_staan_bij_elkaar(client, admin_headers):
     """Titel · Leesbare link → Status · Max. inzendingen → vinkjes → de tekstvakken."""
@@ -172,9 +186,18 @@ def test_de_korte_velden_staan_bij_elkaar(client, admin_headers):
     _login(client)
     html = _bouwer(client, form["id"])
 
-    plek = {naam: html.index(f'name="{naam}"')
-            for naam in ("title", "slug", "status", "max_submissions",
-                         "send_confirmation", "description", "confirmation_message")}
+    plek = {
+        naam: html.index(f'name="{naam}"')
+        for naam in (
+            "title",
+            "slug",
+            "status",
+            "max_submissions",
+            "send_confirmation",
+            "description",
+            "confirmation_message",
+        )
+    }
     assert plek["title"] < plek["slug"] < plek["status"] < plek["max_submissions"]
     assert plek["max_submissions"] < plek["send_confirmation"]
     assert plek["send_confirmation"] < plek["description"] < plek["confirmation_message"]
@@ -187,14 +210,16 @@ def test_het_vinkjesblok_zweeft_niet_meer(client, admin_headers):
     html = _bouwer(client, form["id"])
 
     start = html.index('name="send_confirmation"')
-    blok = html[html.rindex("<div", 0, start):start]
+    blok = html[html.rindex("<div", 0, start) : start]
     assert "pt-5" not in blok, blok
 
 
 # ── 5. Regressie: de vier vinkjes ──────────────────────────────────────────
 
-@pytest.mark.parametrize("naam", ["send_confirmation", "allow_edit", "is_anonymous",
-                                  "requires_login"])
+
+@pytest.mark.parametrize(
+    "naam", ["send_confirmation", "allow_edit", "is_anonymous", "requires_login"]
+)
 def test_alle_vier_de_vinkjes_staan_er_nog(client, admin_headers, naam):
     """Geen vormtest maar een regressietest. `requires_login` ontbrak ooit (#629) en
     dan viel die beveiligingsinstelling bij élke opslag stil om, want een niet
@@ -212,16 +237,20 @@ def test_opslaan_laat_requires_login_staan(client, admin_headers, db_session):
 
     form = _formulier(client, admin_headers)
     csrf = _login(client)
-    client.post(f"/admin/formulieren/{form['id']}/instellingen",
-                data={"title": "Kop", "status": "draft", "requires_login": "1"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form['id']}/instellingen",
+        data={"title": "Kop", "status": "draft", "requires_login": "1"},
+        headers={"X-CSRF-Token": csrf},
+    )
     db_session.expire_all()
     assert db_session.get(Form, form["id"]).requires_login is True
 
     # En een tweede opslag zónder het vakje zet hem uit — dát is de bedoelde
     # betekenis van een niet-verstuurd vakje, en het onderscheid met #629.
-    client.post(f"/admin/formulieren/{form['id']}/instellingen",
-                data={"title": "Kop", "status": "draft"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/formulieren/{form['id']}/instellingen",
+        data={"title": "Kop", "status": "draft"},
+        headers={"X-CSRF-Token": csrf},
+    )
     db_session.expire_all()
     assert db_session.get(Form, form["id"]).requires_login is False

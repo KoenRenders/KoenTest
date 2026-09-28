@@ -8,16 +8,22 @@ from pathlib import Path
 
 from app.config import settings
 
-
 # Extra-velden die in een JSON-logregel mogen belanden (#645). Bewust een
 # allowlist en geen vrije dump van `record.__dict__`: een logregel mag nooit per
 # ongeluk een e-mailadres, een naam of een querystring meedragen. Wie een veld
 # toevoegt, doet dat hier — zichtbaar in de diff.
-EXTRA_VELDEN = ("duration_ms", "method", "path", "route", "status", "slow",
-                # #662: wélk van de drie CSRF-gevallen faalde. Nooit de
-                # tokenwaarde zelf — dat is een beveiligingstoken en deze logs
-                # worden opgehaald met `raak fetch`.
-                "csrf_fail")
+EXTRA_VELDEN = (
+    "duration_ms",
+    "method",
+    "path",
+    "route",
+    "status",
+    "slow",
+    # #662: wélk van de drie CSRF-gevallen faalde. Nooit de
+    # tokenwaarde zelf — dat is een beveiligingstoken en deze logs
+    # worden opgehaald met `raak fetch`.
+    "csrf_fail",
+)
 
 
 class JsonFormatter(logging.Formatter):
@@ -62,7 +68,9 @@ def app_log_file() -> Path | None:
         if settings.app_env in ("hdev", "uat", "prod"):
             logging.getLogger(__name__).warning(
                 "APP_LOG_DIR=%s does not exist or is not writable — the application "
-                "log will not survive this deploy (#766).", directory)
+                "log will not survive this deploy (#766).",
+                directory,
+            )
         return None
     return path / "app.log"
 
@@ -95,9 +103,12 @@ def configure_logging() -> None:
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(level)
         file_handler.setFormatter(
-            JsonFormatter() if settings.log_format == "json"
-            else logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s",
-                                   datefmt="%Y-%m-%dT%H:%M:%S"))
+            JsonFormatter()
+            if settings.log_format == "json"
+            else logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%Y-%m-%dT%H:%M:%S"
+            )
+        )
         logging.getLogger().addHandler(file_handler)
 
     # Verlaag ruis van drukke third-party loggers

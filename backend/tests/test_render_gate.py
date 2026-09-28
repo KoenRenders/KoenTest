@@ -12,21 +12,28 @@ renderen — dat is nu net wat er gebeurde.
 De pagina's komen uit `_ADMIN_NAV`, zodat een nieuw menu-item automatisch meegetest
 wordt zonder dat iemand deze lijst moet bijwerken.
 """
+
 import re
-from pathlib import Path
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value
 from app.ui import _ADMIN_NAV
-from tests.conftest import (SEEDED_ADMIN_EMAIL, create_test_family,
-                            seed_activity_with_product, seed_postal_code)
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    seed_activity_with_product,
+    seed_postal_code,
+)
 
 pytestmark = pytest.mark.ui_serverrendered
 
 # hx-post=&#34;…&#34; — htmx ziet dan geen bruikbare waarde en de knop is inert.
-GEESCAPED = re.compile(r'\b(hx-(?:post|get|put|delete|target|swap|trigger)|data-confirm)=&#(?:34|39);')
+GEESCAPED = re.compile(
+    r"\b(hx-(?:post|get|put|delete|target|swap|trigger)|data-confirm)=&#(?:34|39);"
+)
 # Elementen met een htmx-verzoek, om hun doel te kunnen nakijken.
 HX_ELEMENT = re.compile(r"<[^>]*\shx-(?:post|get|put|delete)=[\"'][^\"']*[\"'][^>]*>")
 HX_TARGET = re.compile(r"hx-target=[\"']([^\"']*)[\"']")
@@ -60,39 +67,64 @@ def gevulde_admin(client, db_session):
     member, person = create_test_family(db_session, email="rendergate@example.com")
     activity, comp, product = seed_activity_with_product(db_session, is_free=False)
 
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 2}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 2}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     reg_id = resp.json()["id"]
 
     # Eén openstaande en één betaalde charge, zodat zowel "Bevestig betaald" als
     # "Terugbetalen…" en de editors in de HTML staan.
-    db_session.add(PaymentRecord(
-        payable_type="registration", payable_id=reg_id, type="charge",
-        amount=Decimal("20.00"), amount_paid=Decimal("20.00"), method="transfer",
-        status="paid"))
+    db_session.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=reg_id,
+            type="charge",
+            amount=Decimal("20.00"),
+            amount_paid=Decimal("20.00"),
+            method="transfer",
+            status="paid",
+        )
+    )
     # Een lidmaatschap, zodat het gezinsdetail zijn lidmaatschapsrijen rendert — daar
     # zitten de verwijderknoppen met confirm_attrs, het toneel van #514.
     from datetime import date
 
     jaar = date.today().year
-    db_session.add(Membership(member_id=member.id, year=jaar, is_active=True,
-                              valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
+    db_session.add(
+        Membership(
+            member_id=member.id,
+            year=jaar,
+            is_active=True,
+            valid_from=date(jaar, 1, 1),
+            valid_to=date(jaar, 12, 31),
+        )
+    )
 
     # Ook een formulier en een CMS-pagina: hun editors dragen de knoppen met
     # aria-labels en bevestigingen, en die vielen buiten de eerste versie van deze
     # gate — precies waar nog ge-escapete attributen bleken te staan.
-    formulier = Form(title="Rendergate-formulier", share_token="tok-rendergate",
-                     status="draft")
+    formulier = Form(title="Rendergate-formulier", share_token="tok-rendergate", status="draft")
     pagina = CmsPage(title="Rendergate-pagina", slug="rendergate", content="<p>x</p>")
     db_session.add_all([formulier, pagina])
     db_session.commit()
 
     _login(client, db_session)
-    return {"member": member.id, "activity": activity.id, "registration": reg_id,
-            "formulier": formulier.id, "pagina": pagina.id}
+    return {
+        "member": member.id,
+        "activity": activity.id,
+        "registration": reg_id,
+        "formulier": formulier.id,
+        "pagina": pagina.id,
+    }
 
 
 def _admin_gets_zonder_parameter() -> list[str]:
@@ -179,11 +211,13 @@ def _open(client, pad: str):
 
 
 def _paginas(ids) -> list[str]:
-    detail = [f"/admin/leden/gezin/{ids['member']}",
-              f"/admin/activiteiten/{ids['activity']}",
-              f"/admin/inschrijvingen/{ids['registration']}",
-              f"/admin/formulieren/{ids['formulier']}",
-              f"/admin/paginas/{ids['pagina']}"]
+    detail = [
+        f"/admin/leden/gezin/{ids['member']}",
+        f"/admin/activiteiten/{ids['activity']}",
+        f"/admin/inschrijvingen/{ids['registration']}",
+        f"/admin/formulieren/{ids['formulier']}",
+        f"/admin/paginas/{ids['pagina']}",
+    ]
     return _admin_gets_zonder_parameter() + detail
 
 
@@ -195,7 +229,7 @@ def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
         if html is None:
             continue
         for treffer in GEESCAPED.finditer(html):
-            regel = html[:treffer.start()].count("\n") + 1
+            regel = html[: treffer.start()].count("\n") + 1
             fouten.append(f"{pad} (regel {regel}): {treffer.group(0)}")
     assert not fouten, (
         "Ge-escapete attributen in de gerenderde HTML — htmx ziet ze niet en de knop "
@@ -240,19 +274,17 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
             # lezen.
             if volledige_pagina and re.fullmatch(r"#[\w\-]+", waarde):
                 if f'id="{waarde[1:]}"' not in html:
-                    fouten.append(
-                        f"{pad}: doel {waarde} bestaat niet op deze pagina")
+                    fouten.append(f"{pad}: doel {waarde} bestaat niet op deze pagina")
     assert not fouten, (
         "Onbruikbare hx-target — htmx zoekt het doel vóór het verzoek vertrekt, dus "
-        "een onvindbaar doel maakt de knop volledig inert (#695):\n  "
-        + "\n  ".join(fouten))
+        "een onvindbaar doel maakt de knop volledig inert (#695):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_geen_hx_confirm_in_de_output(client, gevulde_admin):
     """Bevestiging gaat sinds #595 via de in-app modal; hx-confirm toont het native
     browser-confirm. De lint-gate dekt de templates, dit de gerenderde output."""
-    fouten = [pad for pad in _paginas(gevulde_admin)
-              if "hx-confirm" in (_open(client, pad) or "")]
+    fouten = [pad for pad in _paginas(gevulde_admin) if "hx-confirm" in (_open(client, pad) or "")]
     assert not fouten, f"hx-confirm in de output van: {fouten}"
 
 
@@ -277,10 +309,16 @@ def test_de_gate_ziet_ook_de_aanmaakschermen(client, gevulde_admin):
     handlijst zonder dat iets rood wordt.
     """
     gezien = set(_paginas(gevulde_admin))
-    for pad in ("/admin/media/nieuw", "/admin/gebruikers/nieuw",
-                "/admin/activiteiten/nieuw", "/admin/formulieren/nieuw",
-                "/admin/paginas/nieuw", "/admin/leden/nieuw"):
+    for pad in (
+        "/admin/media/nieuw",
+        "/admin/gebruikers/nieuw",
+        "/admin/activiteiten/nieuw",
+        "/admin/formulieren/nieuw",
+        "/admin/paginas/nieuw",
+        "/admin/leden/nieuw",
+    ):
         assert pad in gezien, f"{pad} valt buiten de rendergate"
     assert len(gezien) >= 20, (
         f"de gate ziet er nog maar {len(gezien)}; kwam de paginalijst terug uit een "
-        "handgeschreven opsomming?")
+        "handgeschreven opsomming?"
+    )

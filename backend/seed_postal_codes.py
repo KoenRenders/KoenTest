@@ -1,4 +1,5 @@
 """Seed postal codes from docs/postal_codes_seed.csv."""
+
 import csv
 import os
 import sys
@@ -8,8 +9,8 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
-from app.domains.registry import load_all_models
 from app.domains.mdm.api import PostalCode
+from app.domains.registry import load_all_models
 
 load_all_models()
 

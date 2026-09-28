@@ -21,12 +21,18 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal): per
 scherm `toast=True` teruggezet op de standaard → de eerste test van dat scherm valt
 om; `toast_opgeslagen` onvoorwaardelijk op True in het sjabloon → de tweede valt om.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
-from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
-from app.domains.auth.api import Role
+from app.domains.auth.api import (
+    SESSION_COOKIE,
+    Role,
+    User,
+    UserRole,
+    csrf_token_for,
+    make_session_value,
+)
+from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -49,12 +55,15 @@ def _operator(db):
 
 # ── CMS-pagina ───────────────────────────────────────────────────────────────
 
+
 def _pagina(db):
     from app.domains.cms.models import CmsPage
 
-    pagina = CmsPage(slug="toast-test", title="Toasttest", share_token=None,
-                     content="<p>hoi</p>") if False else CmsPage(
-        slug="toast-test", title="Toasttest", content="<p>hoi</p>")
+    pagina = (
+        CmsPage(slug="toast-test", title="Toasttest", share_token=None, content="<p>hoi</p>")
+        if False
+        else CmsPage(slug="toast-test", title="Toasttest", content="<p>hoi</p>")
+    )
     db.add(pagina)
     db.flush()
     return pagina
@@ -64,9 +73,16 @@ def test_een_pagina_opslaan_bevestigt(client, db_session):
     pagina = _pagina(db_session)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/paginas/{pagina.id}", headers=hdr, data={
-        "title": "Toasttest", "slug": "toast-test", "content": "<p>hoi</p>",
-        "sort_order": "0"})
+    resp = client.post(
+        f"/admin/paginas/{pagina.id}",
+        headers=hdr,
+        data={
+            "title": "Toasttest",
+            "slug": "toast-test",
+            "content": "<p>hoi</p>",
+            "sort_order": "0",
+        },
+    )
 
     assert resp.status_code == 200, resp.text
     assert OOB in resp.text, "een geslaagde opslag zegt niets"
@@ -84,12 +100,18 @@ def test_een_pagina_openen_bevestigt_niets(client, db_session):
 
 # ── Activiteit ───────────────────────────────────────────────────────────────
 
+
 def _activiteit(client, db, admin_headers):
     from datetime import date, timedelta
 
-    resp = client.post("/api/v1/activities", headers=admin_headers, json={
-        "name": "Toastactiviteit",
-        "dates": [{"start_date": (date.today() + timedelta(days=30)).isoformat()}]})
+    resp = client.post(
+        "/api/v1/activities",
+        headers=admin_headers,
+        json={
+            "name": "Toastactiviteit",
+            "dates": [{"start_date": (date.today() + timedelta(days=30)).isoformat()}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"]
 
@@ -98,21 +120,24 @@ def test_een_activiteit_opslaan_bevestigt(client, db_session, admin_headers):
     activity_id = _activiteit(client, db_session, admin_headers)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/activiteiten/{activity_id}", headers=hdr,
-                       data={"name": "Toastactiviteit", "location": "Zaal"})
+    resp = client.post(
+        f"/admin/activiteiten/{activity_id}",
+        headers=hdr,
+        data={"name": "Toastactiviteit", "location": "Zaal"},
+    )
 
     assert resp.status_code == 200, resp.text
     assert OOB in resp.text
 
 
-def test_een_deelactie_op_de_activiteit_bevestigt_niet(client, db_session,
-                                                       admin_headers):
+def test_een_deelactie_op_de_activiteit_bevestigt_niet(client, db_session, admin_headers):
     """De grens uit #717: een datum toevoegen is geen afsluitende opslag."""
     activity_id = _activiteit(client, db_session, admin_headers)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/activiteiten/{activity_id}/datums", headers=hdr,
-                       data={"start_date": "2030-05-05"})
+    resp = client.post(
+        f"/admin/activiteiten/{activity_id}/datums", headers=hdr, data={"start_date": "2030-05-05"}
+    )
 
     assert resp.status_code == 200, resp.text
     assert OOB not in resp.text, "een deelactie hoort niet te bevestigen"
@@ -120,17 +145,23 @@ def test_een_deelactie_op_de_activiteit_bevestigt_niet(client, db_session,
 
 # ── Gezin ────────────────────────────────────────────────────────────────────
 
+
 def test_een_persoon_opslaan_bevestigt(client, db_session):
     """De afsluitende "Opslaan" van een gezinslid."""
     member, person = create_test_family(db_session, email="toast@example.com")
     hdr = _login(client)
 
-    resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-                       headers=hdr, data={
-                           "first_name": person.first_name,
-                           "last_name": person.last_name,
-                           "date_of_birth": person.date_of_birth.isoformat(),
-                           "gender_code": "M", "relation_type": "HOOFDLID"})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
+        headers=hdr,
+        data={
+            "first_name": person.first_name,
+            "last_name": person.last_name,
+            "date_of_birth": person.date_of_birth.isoformat(),
+            "gender_code": "M",
+            "relation_type": "HOOFDLID",
+        },
+    )
 
     assert resp.status_code == 200, resp.text
     assert OOB in resp.text
@@ -146,6 +177,7 @@ def test_een_gezin_openen_bevestigt_niets(client, db_session):
 
 
 # ── Tenant ───────────────────────────────────────────────────────────────────
+
 
 def test_tenantinstellingen_opslaan_bevestigt(client, db_session):
     """#748: hier staat de toast ÍN de host, niet als out-of-band broer ernaast.
@@ -164,13 +196,11 @@ def test_tenantinstellingen_opslaan_bevestigt(client, db_session):
     hdr = _login(client)
     tenant = list_units(db_session, alleen_actief=False)[0]
 
-    resp = client.post(f"/admin/tenants/{tenant.id}", headers=hdr,
-                       data={"site_name": "Raak"})
+    resp = client.post(f"/admin/tenants/{tenant.id}", headers=hdr, data={"site_name": "Raak"})
 
     assert resp.status_code == 200, resp.text
-    assert OOB not in resp.text, (
-        "een out-of-band toast overleeft een body-swap niet (#748)")
-    host = resp.text[resp.text.index('id="toasts"'):]
+    assert OOB not in resp.text, "een out-of-band toast overleeft een body-swap niet (#748)"
+    host = resp.text[resp.text.index('id="toasts"') :]
     assert "Opgeslagen" in host[:600], "de bevestiging staat niet in de host"
 
 

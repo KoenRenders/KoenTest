@@ -22,6 +22,7 @@ Broken on purpose to check that these tests can go red: removed the `PGOPTIONS` 
 from `cmd_psql` → the read-only tests fall over; removed the `case` check on the
 environment → the refusal test falls over.
 """
+
 import os
 import subprocess
 from pathlib import Path
@@ -53,7 +54,8 @@ def _environment(tmp_path):
     fake = fakebin / "docker"
     fake.write_text(
         f'#!/bin/sh\necho "docker $@" >> "{trace}"\n'
-        'case "$*" in *"ps -q db"*) echo fakecontainer ;; esac\nexit 0\n')
+        'case "$*" in *"ps -q db"*) echo fakecontainer ;; esac\nexit 0\n'
+    )
     fake.chmod(0o755)
 
     env["PATH"] = f"{fakebin}:{env['PATH']}"
@@ -62,8 +64,14 @@ def _environment(tmp_path):
 
 def _run(tmp_path, *args, stdin=""):
     env, trace = _environment(tmp_path)
-    done = subprocess.run(["bash", str(RAAKCTL), *args], env=env, input=stdin,
-                          capture_output=True, text=True, timeout=60)
+    done = subprocess.run(
+        ["bash", str(RAAKCTL), *args],
+        env=env,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     return done, (trace.read_text() if trace.exists() else "")
 
 
@@ -74,8 +82,7 @@ def test_reading_is_read_only_by_default(environment, tmp_path):
     done, invocations = _run(tmp_path, "psql", environment, "-c", "SELECT 1")
 
     assert done.returncode == 0, done.stderr
-    assert READ_ONLY in invocations, (
-        f"the session does not run read-only:\n{invocations}")
+    assert READ_ONLY in invocations, f"the session does not run read-only:\n{invocations}"
     assert f"docker-compose.{environment}.yml" in invocations, "wrong environment"
     assert "SELECT 1" in invocations
 
@@ -101,8 +108,9 @@ def test_writing_on_prod_needs_a_confirmation(tmp_path):
 def test_writing_on_prod_is_allowed_with_confirm(tmp_path):
     """Otherwise the previous test is indistinguishable from "prod cannot do anything at
     all"."""
-    done, invocations = _run(tmp_path, "psql", "prod", "--write", "--confirm",
-                             "-c", "UPDATE x SET y=1")
+    done, invocations = _run(
+        tmp_path, "psql", "prod", "--write", "--confirm", "-c", "UPDATE x SET y=1"
+    )
 
     assert done.returncode == 0, done.stderr
     assert READ_ONLY not in invocations
@@ -115,8 +123,7 @@ def test_an_unknown_environment_is_refused_before_anything_happens(tmp_path):
 
     assert done.returncode != 0
     assert "produktie" in done.stderr
-    assert invocations == "", (
-        f"something was already executed before the refusal:\n{invocations}")
+    assert invocations == "", f"something was already executed before the refusal:\n{invocations}"
 
 
 def test_another_database_can_be_chosen(tmp_path):
@@ -126,8 +133,7 @@ def test_another_database_can_be_chosen(tmp_path):
     exists — an example pointing at a vanished database sends the next reader up the
     garden path.
     """
-    _done, invocations = _run(tmp_path, "psql", "uat", "--db", "umami_uat",
-                              "-c", "SELECT 1")
+    _done, invocations = _run(tmp_path, "psql", "uat", "--db", "umami_uat", "-c", "SELECT 1")
 
     assert "RAAKCTL_DB=umami_uat" in invocations
 
@@ -143,7 +149,8 @@ def test_an_sql_file_goes_in_over_stdin(tmp_path):
     assert done.returncode == 0, done.stderr
     assert "exec -T" in invocations, "without -T a non-interactive session hangs"
     assert str(query) not in invocations, (
-        "the path was handed to psql; inside the container it does not exist")
+        "the path was handed to psql; inside the container it does not exist"
+    )
 
 
 def test_a_missing_sql_file_is_reported_immediately(tmp_path):
@@ -157,11 +164,12 @@ def test_a_missing_sql_file_is_reported_immediately(tmp_path):
 def test_the_verb_appears_in_the_help_text(tmp_path):
     """#678: a test that finds nothing and is green anyway guards nothing."""
     env, _trace = _environment(tmp_path)
-    done = subprocess.run(["bash", str(RAAKCTL), "help"], env=env,
-                          capture_output=True, text=True, timeout=60)
+    done = subprocess.run(
+        ["bash", str(RAAKCTL), "help"], env=env, capture_output=True, text=True, timeout=60
+    )
     help_text = done.stdout + done.stderr
 
     assert "raakctl psql" in help_text, "the verb is not in the help"
     assert "READ-ONLY" in help_text, (
-        "the help does not say that reading is the default — then you expect a write "
-        "session")
+        "the help does not say that reading is the default — then you expect a write session"
+    )

@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
 from pydantic import BaseModel, field_validator
 
-
 # ── Admin: schrijven ────────────────────────────────────────────────────────────
+
 
 class FormFieldOptionIn(BaseModel):
     # id van een bestaande optie (bij bewerken); leeg = nieuwe optie. Zo blijven
@@ -83,6 +84,7 @@ class FormUpdate(FormCreate):
 
 
 # ── Admin: lezen ────────────────────────────────────────────────────────────────
+
 
 class FormFieldOptionOut(BaseModel):
     id: int
@@ -162,6 +164,7 @@ class FormSummary(BaseModel):
 
 
 # ── Publiek: lezen + indienen ───────────────────────────────────────────────────
+
 
 class PublicFieldOption(BaseModel):
     id: int
@@ -244,6 +247,7 @@ class SubmissionResult(BaseModel):
 
 
 # ── Wijzig-flow (lezen via edit_token) ──────────────────────────────────────────
+
 
 class SubmissionAnswerOut(BaseModel):
     field_id: int

@@ -22,16 +22,14 @@ vergetelheid er ongemerkt bij komen — zo zijn deze vier ontstaan.
 Vanaf nu schrijven de publieke wegen `PUBLIEKE_ACTOR`, en betekent **leeg = fout**.
 Bestaande rijen blijven leeg: die kunnen we niet met terugwerkende kracht duiden.
 """
+
 import ast
-from datetime import date, timedelta
-from decimal import Decimal
 from pathlib import Path
 
 import pytest
 
 from app.domains.audit.api import PUBLIEKE_ACTOR
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_postal_code
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -62,6 +60,7 @@ def _snapshots_zonder_actor() -> list[str]:
 
 # ── 1. De gate ─────────────────────────────────────────────────────────────
 
+
 def test_elke_snapshot_tekent_zijn_actor():
     """Zonder bewaking komt de volgende ingang er weer zonder actor bij — precies
     zo zijn de vier ontstaan die dit issue rechtzet.
@@ -79,30 +78,44 @@ def test_elke_snapshot_tekent_zijn_actor():
     assert not fouten, (
         "Elke snapshot hoort te zeggen wie de handeling deed. Is er niemand "
         "aangemeld, geef dan `actor=PUBLIEKE_ACTOR` mee — leeg betekent sinds #713 "
-        "dat we het niet weten, en dat is een fout:\n  " + "\n  ".join(fouten))
+        "dat we het niet weten, en dat is een fout:\n  " + "\n  ".join(fouten)
+    )
 
 
 # ── 2. De publieke weg markeert zichzelf ───────────────────────────────────
+
 
 def test_een_publieke_gezinsaanvraag_draagt_de_publieke_markering(client, db_session):
     from app.domains.mdm.api import MemberHistory
 
     seed_postal_code(db_session)
-    resp = client.post("/api/v1/families", json={
-        "street": "Milostraat", "house_number": "40", "postal_code": "2400",
-        "payment_method": "transfer",
-        "members": [{"last_name": "Publiek", "first_name": "Peter",
-                     "email": "peter713@example.com", "mobile": "0470000000",
-                     "date_of_birth": "1980-01-01", "gender_code": "M",
-                     "relation_type": "HOOFDLID"}],
-    })
+    resp = client.post(
+        "/api/v1/families",
+        json={
+            "street": "Milostraat",
+            "house_number": "40",
+            "postal_code": "2400",
+            "payment_method": "transfer",
+            "members": [
+                {
+                    "last_name": "Publiek",
+                    "first_name": "Peter",
+                    "email": "peter713@example.com",
+                    "mobile": "0470000000",
+                    "date_of_birth": "1980-01-01",
+                    "gender_code": "M",
+                    "relation_type": "HOOFDLID",
+                }
+            ],
+        },
+    )
     assert resp.status_code == 201, resp.text
 
-    rijen = (db_session.query(MemberHistory)
-             .filter(MemberHistory.action == "family_registered").all())
+    rijen = (
+        db_session.query(MemberHistory).filter(MemberHistory.action == "family_registered").all()
+    )
     assert rijen, "geen auditregel"
-    assert all(r.actor == PUBLIEKE_ACTOR for r in rijen), (
-        [r.actor for r in rijen])
+    assert all(r.actor == PUBLIEKE_ACTOR for r in rijen), [r.actor for r in rijen]
 
 
 def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_session):
@@ -112,19 +125,29 @@ def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_sessi
     from tests.conftest import seed_activity_with_product
 
     activity, comp, product = seed_activity_with_product(db_session, price="10.00")
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An", "phone": "0470000000", "contact_email": "an713@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An",
+            "phone": "0470000000",
+            "contact_email": "an713@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
 
-    rijen = (db_session.query(RegistrationItemHistory)
-             .filter(RegistrationItemHistory.action == "order_created").all())
-    assert rijen and all(r.actor == PUBLIEKE_ACTOR for r in rijen), (
-        [r.actor for r in rijen])
+    rijen = (
+        db_session.query(RegistrationItemHistory)
+        .filter(RegistrationItemHistory.action == "order_created")
+        .all()
+    )
+    assert rijen and all(r.actor == PUBLIEKE_ACTOR for r in rijen), [r.actor for r in rijen]
 
 
 # ── 3. De beheerdersweg tekent met een naam ────────────────────────────────
+
 
 def test_nieuw_lid_via_het_beheerscherm_draagt_de_beheerder(client, db_session):
     """Dit was de duidelijkste van de vier: de actor was bekend en verdween."""
@@ -132,35 +155,37 @@ def test_nieuw_lid_via_het_beheerscherm_draagt_de_beheerder(client, db_session):
     from tests.conftest import nieuw_lid_velden
 
     csrf = _login(client)
-    resp = client.post("/admin/leden", data=nieuw_lid_velden(db_session),
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/leden", data=nieuw_lid_velden(db_session), headers={"X-CSRF-Token": csrf}
+    )
     assert resp.status_code == 204, resp.text[:300]
 
     # #1110: beide wegen naar een nieuw gezin schrijven sinds de unificatie
     # dezelfde handeling — `family_registered`. WIE het deed staat in de actor en
     # de bron, en dat is precies wat deze test bewaakt.
-    for model, actie in ((MemberHistory, "family_registered"),
-                         (PersonHistory, "family_registered")):
+    for model, actie in (
+        (MemberHistory, "family_registered"),
+        (PersonHistory, "family_registered"),
+    ):
         rijen = db_session.query(model).filter(model.action == actie).all()
         assert rijen, f"geen auditregel voor {actie}"
-        assert all(r.actor == SEEDED_ADMIN_EMAIL for r in rijen), (
-            [r.actor for r in rijen])
+        assert all(r.actor == SEEDED_ADMIN_EMAIL for r in rijen), [r.actor for r in rijen]
 
 
 def test_die_handeling_heet_geen_systeemactie_meer(client, db_session):
     """`source="system"` bij een beheerdersactie maakte het aan géén van beide velden
     herkenbaar. Een systeemactie is iets wat vanzelf gebeurt; dit niet."""
     from app.domains.mdm.api import MemberHistory
-
     from tests.conftest import nieuw_lid_velden
 
     csrf = _login(client)
-    client.post("/admin/leden",
-                data=nieuw_lid_velden(db_session, m0_first_name="Bron",
-                                      m0_last_name="Test"),
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        "/admin/leden",
+        data=nieuw_lid_velden(db_session, m0_first_name="Bron", m0_last_name="Test"),
+        headers={"X-CSRF-Token": csrf},
+    )
 
-    rijen = (db_session.query(MemberHistory)
-             .filter(MemberHistory.action == "family_registered").all())
-    assert rijen and all(r.source == "admin_manual" for r in rijen), (
-        [r.source for r in rijen])
+    rijen = (
+        db_session.query(MemberHistory).filter(MemberHistory.action == "family_registered").all()
+    )
+    assert rijen and all(r.source == "admin_manual" for r in rijen), [r.source for r in rijen]

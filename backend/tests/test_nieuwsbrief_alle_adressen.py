@@ -11,6 +11,7 @@ Met één adres per persoon kon niemand het verschil zien. Dat is precies het so
 belofte dat pas onwaar wordt wanneer de wereld verandert, en dan merkt niemand
 het, want er staat geen test op het verschil.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -27,12 +28,16 @@ DERDE = "derde@example.com"
 
 
 def _extra(db, person, waarde, *, primair=False):
-    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                         value=waarde, is_primary=primair))
+    db.add(
+        ContactDetail(
+            person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=primair
+        )
+    )
     db.flush()
 
 
 # ── De nieuwsbrief: alles ───────────────────────────────────────────────────
+
 
 def test_de_nieuwsbrief_gaat_naar_elk_adres_van_het_lid(db_session):
     """Het gemelde geval.
@@ -46,7 +51,8 @@ def test_de_nieuwsbrief_gaat_naar_elk_adres_van_het_lid(db_session):
     db_session.commit()
 
     assert email_addresses_of_members(db_session, [member.id]) == [HOOFD, TWEEDE], (
-        "de nieuwsbrief hoort naar beide adressen te gaan")
+        "de nieuwsbrief hoort naar beide adressen te gaan"
+    )
 
 
 def test_een_gedeelde_mailbox_krijgt_de_brief_een_keer(db_session):
@@ -65,14 +71,14 @@ def test_een_gedeelde_mailbox_krijgt_de_brief_een_keer(db_session):
     from tests.conftest import create_test_person
 
     partner = create_test_person(db_session, first_name="Partner")
-    db_session.add(MemberPerson(member_id=member.id, person_id=partner.id,
-                                relation_type="PARTNER"))
+    db_session.add(MemberPerson(member_id=member.id, person_id=partner.id, relation_type="PARTNER"))
     db_session.flush()
     _extra(db_session, partner, HOOFD.upper(), primair=True)
     db_session.commit()
 
     assert email_addresses_of_members(db_session, [member.id]) == [HOOFD], (
-        "een gedeelde mailbox hoort één keer in de verzendlijst te staan")
+        "een gedeelde mailbox hoort één keer in de verzendlijst te staan"
+    )
 
 
 def test_de_lijst_is_twee_keer_dezelfde_lijst(db_session):
@@ -91,6 +97,7 @@ def test_de_lijst_is_twee_keer_dezelfde_lijst(db_session):
 
 
 # ── Eén adres tonen: het hoofdadres ────────────────────────────────────────
+
 
 def test_een_scherm_toont_het_hoofdadres(db_session):
     """`_email_of` voedt schermen die ÉÉN adres tonen — de vergaderkring, `member_me`.
@@ -112,17 +119,17 @@ def test_een_scherm_toont_het_hoofdadres(db_session):
         if c.contact_type_code == "EMAIL":
             person.contact_details.remove(c)
     db_session.flush()
-    _extra(db_session, person, TWEEDE)              # laagste id, niet primair
+    _extra(db_session, person, TWEEDE)  # laagste id, niet primair
     _extra(db_session, person, HOOFD, primair=True)  # hoogste id, wél primair
     db_session.commit()
     db_session.expire_all()
     db_session.refresh(person)
 
-    volgorde = [c.value for c in person.contact_details
-                if c.contact_type_code == "EMAIL"]
+    volgorde = [c.value for c in person.contact_details if c.contact_type_code == "EMAIL"]
     assert volgorde[:1] == [TWEEDE], (
         f"opzet klopt niet: het extra adres hoort vooraan te staan, gekregen "
-        f"{volgorde} — zonder die volgorde toetst deze test de fout niet")
+        f"{volgorde} — zonder die volgorde toetst deze test de fout niet"
+    )
 
     assert _email_of(person) == HOOFD
 

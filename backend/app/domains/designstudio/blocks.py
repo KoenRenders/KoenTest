@@ -12,6 +12,7 @@ Every text that can overflow horizontally gets an ``id`` and a maximum width
 in :attr:`Plan.boxes`; the renderer checks those with the font metrics first
 and with Inkscape as the authority (``--query-all``) before a version is made.
 """
+
 from __future__ import annotations
 
 import base64
@@ -31,6 +32,7 @@ HAND = "Caveat"
 @dataclass
 class Plan:
     """Everything the SVG template needs, computed before drawing."""
+
     width: float
     height: float
     frame: float
@@ -40,18 +42,19 @@ class Plan:
     title: list[dict] = field(default_factory=list)
     joiner: dict | None = None
     bar: dict | None = None
-    left: str = ""      # SVG fragments, already positioned
+    left: str = ""  # SVG fragments, already positioned
     right: str = ""
     full: str = ""
     band: dict = field(default_factory=dict)
     logos: str = ""
-    lockup: dict = field(default_factory=dict)   # x, y, width of the lockup in the band
+    lockup: dict = field(default_factory=dict)  # x, y, width of the lockup in the band
     boxes: dict[str, float] = field(default_factory=dict)  # text id → max width in mm
     violations: list[str] = field(default_factory=list)
     band_y: float = 0.0
 
 
 # ── Helpers the template and the blocks share ─────────────────────────────
+
 
 def data_uri(image: ImageBytes) -> str:
     return f"data:{image.mime};base64," + base64.b64encode(image.data).decode()
@@ -65,8 +68,9 @@ def data_uri(image: ImageBytes) -> str:
 CROP_TOLERANCE = 1.6
 
 
-def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0,
-               tolerance: float = CROP_TOLERANCE) -> str:
+def aspect_for(
+    image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0, tolerance: float = CROP_TOLERANCE
+) -> str:
     """Map the focal point to SVG's nine-point crop. When the box is much
     wider than the picture (an Instagram hero squeezed by the rest of the
     page), the picture is shown whole instead of cut in half — a drawing on
@@ -79,17 +83,23 @@ def aspect_for(image: ImageBytes, box_w: float = 0.0, box_h: float = 0.0,
     return f"x{fx}Y{fy} slice"
 
 
-def speckle_pattern(pid: str, seed: int, base: str, white: str, w: float = 300, h: float = 80) -> str:
+def speckle_pattern(
+    pid: str, seed: int, base: str, white: str, w: float = 300, h: float = 80
+) -> str:
     """One tile large enough to cover a whole title: a tiled pattern shows
     hairline seams in poppler-based viewers (Okular) and on some printers."""
     rnd = random.Random(seed)
     n = int(w * h / 144 * 34)
     dots = "".join(
         f'<circle cx="{rnd.uniform(0, w):.2f}" cy="{rnd.uniform(0, h):.2f}" '
-        f'r="{rnd.choice((0.18, 0.25, 0.32, 0.42)):.2f}"/>' for _ in range(n))
-    return (f'<pattern id="{pid}" patternUnits="userSpaceOnUse" x="0" y="50" width="{w}" height="{h}">'
-            f'<rect width="{w}" height="{h}" fill="{base}"/>'
-            f'<g fill="{white}" fill-opacity="0.85">{dots}</g></pattern>')
+        f'r="{rnd.choice((0.18, 0.25, 0.32, 0.42)):.2f}"/>'
+        for _ in range(n)
+    )
+    return (
+        f'<pattern id="{pid}" patternUnits="userSpaceOnUse" x="0" y="50" width="{w}" height="{h}">'
+        f'<rect width="{w}" height="{h}" fill="{base}"/>'
+        f'<g fill="{white}" fill-opacity="0.85">{dots}</g></pattern>'
+    )
 
 
 def rough_band(x: float, y: float, w: float, h: float, seed: int = 11, jag: float = 1.6) -> str:
@@ -101,8 +111,15 @@ def rough_band(x: float, y: float, w: float, h: float, seed: int = 11, jag: floa
     return "M" + " L".join(f"{a:.2f} {c:.2f}" for a, c in top + right + bottom + left) + " Z"
 
 
-def fit_size(text: str, max_width: float, max_size: float, min_size: float,
-             *, tracking_per_em: float = 0.0, bold: bool = True) -> float:
+def fit_size(
+    text: str,
+    max_width: float,
+    max_size: float,
+    min_size: float,
+    *,
+    tracking_per_em: float = 0.0,
+    bold: bool = True,
+) -> float:
     """The largest font size at which ``text`` fits ``max_width``, between the
     two bounds. Below ``min_size`` the planner reports a violation instead."""
     size = max_size
@@ -113,18 +130,31 @@ def fit_size(text: str, max_width: float, max_size: float, min_size: float,
     return min_size
 
 
-def text_el(eid: str, text: str, x: float, y: float, size: float, fill: str, *,
-            weight: str = "600", anchor: str = "start", tracking: float = 0.0,
-            family: str = FONT, extra: str = "") -> str:
+def text_el(
+    eid: str,
+    text: str,
+    x: float,
+    y: float,
+    size: float,
+    fill: str,
+    *,
+    weight: str = "600",
+    anchor: str = "start",
+    tracking: float = 0.0,
+    family: str = FONT,
+    extra: str = "",
+) -> str:
     ls = f' letter-spacing="{tracking:.2f}"' if tracking else ""
     fam = f' font-family="{family}"' if family != FONT else ""
-    return (f'<text id="{eid}" x="{x:.3f}" y="{y:.3f}" font-size="{size:.3f}" font-weight="{weight}" '
-            f'fill="{fill}" text-anchor="{anchor}"{ls}{fam}{extra}>{escape(text)}</text>')
+    return (
+        f'<text id="{eid}" x="{x:.3f}" y="{y:.3f}" font-size="{size:.3f}" font-weight="{weight}" '
+        f'fill="{fill}" text-anchor="{anchor}"{ls}{fam}{extra}>{escape(text)}</text>'
+    )
 
 
 # ── The blocks ────────────────────────────────────────────────────────────
 
-ROW_H = 27.5   # six rows (two automatic, four own) sit easily in the left column of A3
+ROW_H = 27.5  # six rows (two automatic, four own) sit easily in the left column of A3
 #: One size, upper case, bold for every icon row (Koen, 20 September 2026).
 ROW_TEXT = 7.4
 #: Except the two rows the simple layout derives from the activity itself,
@@ -174,8 +204,16 @@ QR_BOX = QR_MM + 2
 QR_BLOCK = QR_BOX + 6
 
 
-def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: float,
-                   *, index_offset: int = 0, size: float = ROW_TEXT) -> tuple[str, float]:
+def highlight_rows(
+    plan: Plan,
+    content: PosterContent,
+    x: float,
+    y: float,
+    w: float,
+    *,
+    index_offset: int = 0,
+    size: float = ROW_TEXT,
+) -> tuple[str, float]:
     """Icon + one or two lines each, a dotted rule between rows."""
     pal = plan.pal
     out: list[str] = []
@@ -184,7 +222,9 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     accents = (pal["tile"], pal["accent3"], pal["accent2"], pal["tile"], pal["accent"], pal["tile"])
     for i, hl in enumerate(content.highlights, start=index_offset):
         # The first line is drawn bold: wrap on the bold metrics so it fits too.
-        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size)
+        lines = richtext.wrap(
+            richtext.parse("**" + hl.text.replace("*", "").upper() + "**"), width=text_w, size=size
+        )
         if len(lines) > 2:
             plan.violations.append(f"Kernpunt {i + 1} past niet in twee regels op deze breedte")
             lines = lines[:2]
@@ -203,14 +243,24 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
             plan.boxes[eid] = text_w
             ly += line_step
         if i - index_offset < len(content.highlights) - 1:
-            out.append(f'<line x1="{x}" y1="{y + 23.5}" x2="{x + w}" y2="{y + 23.5}" stroke="{pal["ink"]}" '
-                       f'stroke-width="0.4" stroke-dasharray="0.5 1.2" stroke-linecap="round"/>')
+            out.append(
+                f'<line x1="{x}" y1="{y + 23.5}" x2="{x + w}" y2="{y + 23.5}" stroke="{pal["ink"]}" '
+                f'stroke-width="0.4" stroke-dasharray="0.5 1.2" stroke-linecap="round"/>'
+            )
         y += ROW_H
     return "".join(out), y
 
 
-def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float,
-                *, icon: float = ICON_S, max_size: float = 10.5) -> tuple[str, float]:
+def welcome_row(
+    plan: Plan,
+    content: PosterContent,
+    x: float,
+    y: float,
+    w: float,
+    *,
+    icon: float = ICON_S,
+    max_size: float = 10.5,
+) -> tuple[str, float]:
     """Always on the poster (Koen, 19 September 2026): "IEDEREEN WELKOM!" —
     or "ENKEL LEDEN" when the activity is members-only."""
     pal = plan.pal
@@ -219,30 +269,38 @@ def welcome_row(plan: Plan, content: PosterContent, x: float, y: float, w: float
     text_x = x + icon + 5
     text_w = w - icon - 5
     size = fit_size(text, text_w, max_size, 6)
-    out.append(text_el("t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"))
+    out.append(
+        text_el(
+            "t-welcome-0", text, text_x, y + icon / 2 + size * 0.36, size, pal["ink"], weight="bold"
+        )
+    )
     plan.boxes["t-welcome-0"] = text_w
     return "".join(out), y + icon + 5
 
 
 def welcome_badge(plan: Plan, content: PosterContent, x: float, y: float) -> tuple[str, float]:
-    """"IEDEREEN WELKOM!" as an accent, not a row (Koen, 20 September 2026):
+    """ "IEDEREEN WELKOM!" as an accent, not a row (Koen, 20 September 2026):
     one line on a brush stroke in the light green, with three sparkle
     strokes; "ENKEL LEDEN" the same on the red. Sits above the tile."""
     pal = plan.pal
     members_only = content.members_only
     text = "ENKEL LEDEN" if members_only else "IEDEREEN WELKOM!"
-    size = 8.5   # "iets kleiner" (Koen, 20 September 2026)
+    size = 8.5  # "iets kleiner" (Koen, 20 September 2026)
     tw = richtext.text_width(text, size, bold=True, tracking=0.2)
     band_w = tw + 12
     brush = pal["accent4"] if members_only else pal["accent3"]
     ink = pal["white"] if members_only else pal["ink"]
-    out = [f'<path d="{rough_band(x, y, band_w, 12, seed=plan.seed + 7, jag=2.0)}" fill="{brush}" '
-           f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
-           text_el("t-welcome-0", text, x + 6, y + 8.6, size, ink, weight="bold", tracking=0.2)]
+    out = [
+        f'<path d="{rough_band(x, y, band_w, 12, seed=plan.seed + 7, jag=2.0)}" fill="{brush}" '
+        f'fill-opacity="{1 if members_only else 0.45}" filter="url(#rough)"/>',
+        text_el("t-welcome-0", text, x + 6, y + 8.6, size, ink, weight="bold", tracking=0.2),
+    ]
     plan.boxes["t-welcome-0"] = band_w - 8
     sx = x + band_w + 2.5
-    out.append(f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.0" stroke-linecap="round" fill="none">'
-               f'<path d="M{sx:.1f} {y + 3:.1f} l3.2 -2.8 M{sx + 1:.1f} {y + 6.3:.1f} l4 0 M{sx:.1f} {y + 9.5:.1f} l3.2 2.8"/></g>')
+    out.append(
+        f'<g stroke="{brush if members_only else pal["ink"]}" stroke-width="1.0" stroke-linecap="round" fill="none">'
+        f'<path d="M{sx:.1f} {y + 3:.1f} l3.2 -2.8 M{sx + 1:.1f} {y + 6.3:.1f} l4 0 M{sx:.1f} {y + 9.5:.1f} l3.2 2.8"/></g>'
+    )
     return "".join(out), y + 12
 
 
@@ -263,7 +321,9 @@ def full_bleed_floor(image: ImageBytes, box_w: float, cap: float, floor: float) 
     return max(floor, edge) if edge <= cap else floor
 
 
-def hero_height(image: ImageBytes, box_w: float, available: float, *, cap: float, floor: float) -> float:
+def hero_height(
+    image: ImageBytes, box_w: float, available: float, *, cap: float, floor: float
+) -> float:
     """The height the picture wants at this width, clamped to what is left.
 
     Koen, 20 September 2026: a photo he had cropped shorter still filled a
@@ -277,32 +337,47 @@ def hero_height(image: ImageBytes, box_w: float, available: float, *, cap: float
     return max(floor, min(wanted, cap, max(available, floor)))
 
 
-def main_image_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float) -> tuple[str, float]:
+def main_image_block(
+    plan: Plan, image: ImageBytes, x: float, y: float, w: float, h: float
+) -> tuple[str, float]:
     """The hero photo or drawing with a ragged edge: the filter sits on a mask,
     never on the image (a displaced photo looks warped; a displaced mask looks
     torn)."""
     mask_id = "ragmask-main"
-    out = (f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
-           f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
-           f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
-           f'preserveAspectRatio="{aspect_for(image, w, h)}" '
-           f'mask="url(#{mask_id})" href="{data_uri(image)}"/>')
+    out = (
+        f'<mask id="{mask_id}" maskUnits="userSpaceOnUse" x="0" y="0" width="{plan.width}" height="{plan.height}">'
+        f'<rect x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" fill="white" filter="url(#ragged)"/></mask>'
+        f'<image x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+        f'preserveAspectRatio="{aspect_for(image, w, h)}" '
+        f'mask="url(#{mask_id})" href="{data_uri(image)}"/>'
+    )
     return out, y + h
 
 
-def polaroid_block(plan: Plan, image: ImageBytes, x: float, y: float, w: float, angle: float = -4) -> tuple[str, float]:
+def polaroid_block(
+    plan: Plan, image: ImageBytes, x: float, y: float, w: float, angle: float = -4
+) -> tuple[str, float]:
     h = w * 0.72
     cx, cy = x + w / 2, y + h / 2
-    out = (f'<g transform="rotate({angle} {cx:.2f} {cy:.2f})">'
-           f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="#000000" fill-opacity="0.25" transform="translate(1.5 1.8)" filter="url(#paint)"/>'
-           f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="{plan.pal["white"]}"/>'
-           f'<image x="{x + 2.5}" y="{y + 2.5}" width="{w - 5}" height="{h - 5:.2f}" preserveAspectRatio="{aspect_for(image)}" '
-           f'href="{data_uri(image)}"/></g>')
+    out = (
+        f'<g transform="rotate({angle} {cx:.2f} {cy:.2f})">'
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="#000000" fill-opacity="0.25" transform="translate(1.5 1.8)" filter="url(#paint)"/>'
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="{plan.pal["white"]}"/>'
+        f'<image x="{x + 2.5}" y="{y + 2.5}" width="{w - 5}" height="{h - 5:.2f}" preserveAspectRatio="{aspect_for(image)}" '
+        f'href="{data_uri(image)}"/></g>'
+    )
     return out, y + h + 2
 
 
-def polaroid_on(plan: Plan, image: ImageBytes, rect: tuple[float, float, float, float],
-                corner: str, width: float, *, angle: float = 4) -> tuple[str, float]:
+def polaroid_on(
+    plan: Plan,
+    image: ImageBytes,
+    rect: tuple[float, float, float, float],
+    corner: str,
+    width: float,
+    *,
+    angle: float = 4,
+) -> tuple[str, float]:
     """The polaroid on one corner of the main picture, and the bottom it
     reaches.
 
@@ -315,11 +390,15 @@ def polaroid_on(plan: Plan, image: ImageBytes, rect: tuple[float, float, float, 
     h = width * 0.72
     x = rx + 6 if corner.endswith("_left") else rx + rw - width - 6
     y = ry + 6 if corner.startswith("top_") else max(ry + 6, ry + rh - h + 10)
-    frag, _below = polaroid_block(plan, image, x, y, width, angle=angle if corner.endswith("_right") else -angle)
+    frag, _below = polaroid_block(
+        plan, image, x, y, width, angle=angle if corner.endswith("_right") else -angle
+    )
     return frag, max(ry + rh, y + h)
 
 
-def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float) -> tuple[str, float]:
+def dates_grid(
+    plan: Plan, content: PosterContent, x: float, y: float, w: float
+) -> tuple[str, float]:
     """Up to twelve dates in two columns, the heading on a coloured lid.
     Print only: a feed image carries one line instead (Koen, 20 Sep 2026)."""
     pal = plan.pal
@@ -328,25 +407,42 @@ def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float)
     rows = (len(dates) + cols - 1) // cols
     col_w = (w - 4 * cols) / cols
     h = 10 + rows * 14 + 3
-    out = [f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>',
-           f'<rect x="{x}" y="{y}" width="{w}" height="10" fill="{pal["tile"]}"/>',
-           text_el("t-dates-head", content.dates_heading or "DATA", x + w / 2, y + 7.3, 7.4,
-                   pal["white"] if pal["tile"] != pal["accent"] else pal["ink"], weight="bold", anchor="middle", tracking=0.2)]
+    out = [
+        f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>',
+        f'<rect x="{x}" y="{y}" width="{w}" height="10" fill="{pal["tile"]}"/>',
+        text_el(
+            "t-dates-head",
+            content.dates_heading or "DATA",
+            x + w / 2,
+            y + 7.3,
+            7.4,
+            pal["white"] if pal["tile"] != pal["accent"] else pal["ink"],
+            weight="bold",
+            anchor="middle",
+            tracking=0.2,
+        ),
+    ]
     plan.boxes["t-dates-head"] = w - 8
     for i, d in enumerate(dates):
         col, row = i // rows, i % rows
         cx, cy = x + 4 + col * (col_w + 4), y + 13 + row * 14
         out.append(icon_svg("calendar", fg=pal["white"], bg=pal["tile"], x=cx, y=cy + 1.5, size=8))
         eid = f"t-date-{i}"
-        out.append(text_el(eid, d, cx + 11, cy + 8, 6.4, pal["accent4"], weight="bold", tracking=0.1))
+        out.append(
+            text_el(eid, d, cx + 11, cy + 8, 6.4, pal["accent4"], weight="bold", tracking=0.1)
+        )
         plan.boxes[eid] = col_w - 12
         if row < rows - 1:
-            out.append(f'<line x1="{cx}" y1="{cy + 13.5}" x2="{cx + col_w - 4}" y2="{cy + 13.5}" stroke="{pal["ink"]}" '
-                       f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
+            out.append(
+                f'<line x1="{cx}" y1="{cy + 13.5}" x2="{cx + col_w - 4}" y2="{cy + 13.5}" stroke="{pal["ink"]}" '
+                f'stroke-width="0.3" stroke-dasharray="0.4 1"/>'
+            )
     for c in range(1, cols):
         vx = x + 4 + c * (col_w + 4) - 2
-        out.append(f'<line x1="{vx:.2f}" y1="{y + 12}" x2="{vx:.2f}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
-                   f'stroke-width="0.3" stroke-dasharray="0.4 1"/>')
+        out.append(
+            f'<line x1="{vx:.2f}" y1="{y + 12}" x2="{vx:.2f}" y2="{y + h - 3}" stroke="{pal["ink"]}" '
+            f'stroke-width="0.3" stroke-dasharray="0.4 1"/>'
+        )
     return "".join(out), y + h + 3
 
 
@@ -359,34 +455,84 @@ def tagline_block(plan: Plan, text: str, x_right: float, y: float, w: float) -> 
         size = fit_size(text, w - 30, 10, 7, bold=True)
         tw = richtext.text_width(text, size, bold=True, font=richtext.HAND_FONT)
     x0 = x_right - tw
-    out = [text_el("t-tagline", text, x_right, y + 9.5, size, pal["accent"] if pal["accent"] != pal["white"] else pal["ink"],
-                   weight="bold", anchor="end", family=HAND)]
+    out = [
+        text_el(
+            "t-tagline",
+            text,
+            x_right,
+            y + 9.5,
+            size,
+            pal["accent"] if pal["accent"] != pal["white"] else pal["ink"],
+            weight="bold",
+            anchor="end",
+            family=HAND,
+        )
+    ]
     plan.boxes["t-tagline"] = w - 30
     ink = pal["ink"]
-    out.append(f'<path d="M{x0 - 22:.1f} {y + 1.5} C {x0 - 18:.1f} {y + 8.5}, {x0 - 12:.1f} {y + 10.5}, {x0 - 4:.1f} {y + 6.5} '
-               f'M{x0 - 10:.1f} {y + 3.5} L{x0 - 4:.1f} {y + 6.5} L{x0 - 9:.1f} {y + 10.5}" fill="none" stroke="{ink}" '
-               f'stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>')
-    out.append(f'<path d="M{x0 + 2:.1f} {y + 11.6} C {x0 + tw * 0.4:.1f} {y + 10.8}, {x0 + tw * 0.75:.1f} {y + 12.6}, {x_right:.1f} {y + 11.2}" '
-               f'fill="none" stroke="{ink}" stroke-width="0.6" stroke-linecap="round"/>')
+    out.append(
+        f'<path d="M{x0 - 22:.1f} {y + 1.5} C {x0 - 18:.1f} {y + 8.5}, {x0 - 12:.1f} {y + 10.5}, {x0 - 4:.1f} {y + 6.5} '
+        f'M{x0 - 10:.1f} {y + 3.5} L{x0 - 4:.1f} {y + 6.5} L{x0 - 9:.1f} {y + 10.5}" fill="none" stroke="{ink}" '
+        f'stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round"/>'
+    )
+    out.append(
+        f'<path d="M{x0 + 2:.1f} {y + 11.6} C {x0 + tw * 0.4:.1f} {y + 10.8}, {x0 + tw * 0.75:.1f} {y + 12.6}, {x_right:.1f} {y + 11.2}" '
+        f'fill="none" stroke="{ink}" stroke-width="0.6" stroke-linecap="round"/>'
+    )
     return "".join(out), y + 12.5
 
 
-def richtext_block(plan: Plan, eid: str, source: str, x: float, y: float, w: float, size: float,
-                   *, boxed: bool = False, heading: str = "", trailing: float = 5.0) -> tuple[str, float]:
+def richtext_block(
+    plan: Plan,
+    eid: str,
+    source: str,
+    x: float,
+    y: float,
+    w: float,
+    size: float,
+    *,
+    boxed: bool = False,
+    heading: str = "",
+    trailing: float = 5.0,
+) -> tuple[str, float]:
     pal = plan.pal
     pad = 4 if boxed else 0
     inner_w = w - 2 * pad
     head_h = 8 if heading else 0
-    h = (2 * pad + head_h + richtext.text_height(source, width=inner_w, size=size)
-         + (1.5 if boxed else 0))
+    h = (
+        2 * pad
+        + head_h
+        + richtext.text_height(source, width=inner_w, size=size)
+        + (1.5 if boxed else 0)
+    )
     out = []
     if boxed:
-        out.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>')
+        out.append(
+            f'<rect x="{x}" y="{y}" width="{w}" height="{h:.2f}" fill="{pal["white"]}" stroke="{pal["ink"]}" stroke-width="0.6"/>'
+        )
     if heading:
-        out.append(text_el(f"{eid}-head", heading, x + pad, y + pad + 5.5, 6.4, pal["ink"], weight="bold", tracking=0.2))
+        out.append(
+            text_el(
+                f"{eid}-head",
+                heading,
+                x + pad,
+                y + pad + 5.5,
+                6.4,
+                pal["ink"],
+                weight="bold",
+                tracking=0.2,
+            )
+        )
         plan.boxes[f"{eid}-head"] = inner_w
-    frag, _ = richtext.to_svg(source, x=x + pad, y=y + pad + head_h + size, width=inner_w, size=size,
-                              fill=pal["ink"], element_id=eid)
+    frag, _ = richtext.to_svg(
+        source,
+        x=x + pad,
+        y=y + pad + head_h + size,
+        width=inner_w,
+        size=size,
+        fill=pal["ink"],
+        element_id=eid,
+    )
     plan.boxes[eid] = inner_w
     out.append(frag)
     return "".join(out), y + h + trailing
@@ -402,8 +548,14 @@ LOGO_H = 19.2
 LOGO_RATIO = 2.0
 
 
-def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: float, h: float,
-               ratio: float = LOGO_RATIO) -> str:
+def logo_strip(
+    plan: Plan,
+    logos: tuple[ImageBytes, ...],
+    x_right: float,
+    y: float,
+    h: float,
+    ratio: float = LOGO_RATIO,
+) -> str:
     """Sponsor logos, right-aligned, each at most ``ratio`` times as wide as
     it is high.
 
@@ -422,13 +574,16 @@ def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: flo
     for i, logo in enumerate(logos[:2]):
         w = h * ratio
         x -= w
-        out.append(f'<image id="logo-{i}" x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
-                   f'preserveAspectRatio="xMaxYMid meet" href="{data_uri(logo)}"/>')
+        out.append(
+            f'<image id="logo-{i}" x="{x:.2f}" y="{y:.2f}" width="{w:.2f}" height="{h:.2f}" '
+            f'preserveAspectRatio="xMaxYMid meet" href="{data_uri(logo)}"/>'
+        )
         x -= 6
     return "".join(out)
 
 
 # ── The planner ───────────────────────────────────────────────────────────
+
 
 def _dates_grid_height(n: int) -> float:
     rows = (n + 1) // 2
@@ -439,7 +594,9 @@ def _richtext_height(source: str, w: float, size: float) -> float:
     return richtext.text_height(source, width=w, size=size) + 5
 
 
-def fit_richtext_size(source: str, w: float, available: float, *, max_size: float, min_size: float) -> float:
+def fit_richtext_size(
+    source: str, w: float, available: float, *, max_size: float, min_size: float
+) -> float:
     """The largest body size whose wrapped text still fits ``available``.
 
     Koen, 20 September 2026: his Bowlen poster was "vrij leeg" — the text sat
@@ -485,13 +642,19 @@ def fact_rows(content: PosterContent) -> tuple[Highlight, ...]:
     matter most.
     """
     when = when_line(content)
-    return tuple(hl for hl in (Highlight("calendar", when, True) if when else None,
-                               Highlight("map-pin", content.location) if content.location else None)
-                 if hl is not None)
+    return tuple(
+        hl
+        for hl in (
+            Highlight("calendar", when, True) if when else None,
+            Highlight("map-pin", content.location) if content.location else None,
+        )
+        if hl is not None
+    )
 
 
-def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4,
-                           size: float = ROW_TEXT) -> float:
+def _two_column_highlights(
+    p: Plan, content: PosterContent, y: float, cols, limit_n: int = 4, size: float = ROW_TEXT
+) -> float:
     shown = content.highlights[:limit_n]
     col_y: list[float] = [y, y]
     for i, hl in enumerate(shown):
@@ -505,8 +668,9 @@ def _two_column_highlights(p: Plan, content: PosterContent, y: float, cols, limi
     return max(col_y)
 
 
-def plan_affiche(content: PosterContent, *, layout: str, width: float, height: float,
-                 pal: dict[str, str]) -> Plan:
+def plan_affiche(
+    content: PosterContent, *, layout: str, width: float, height: float, pal: dict[str, str]
+) -> Plan:
     """Round 3 (Koen, 19 September 2026): the title at the top over the full
     width, both lines the same size; the lockup in the band at the bottom
     left; one picture fills the whole right column; "iedereen welkom" always;
@@ -537,7 +701,7 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     # end some ten millimetres, and on a wide one-line title that put the
     # letters against the frame (Koen, 21 September 2026: "hij komt tot bijna
     # tegen de paarse balk bovenaan").
-    base1 = frame + 14 + size * 0.72          # cap height ≈ 0.72 em
+    base1 = frame + 14 + size * 0.72  # cap height ≈ 0.72 em
     step = size * 1.08
     baselines = [base1 + i * step for i in range(len(lines))]
     for i, text in enumerate(lines):
@@ -548,9 +712,19 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         else:
             anchor = "start" if i == 0 else "end"
             x = 17 if i == 0 else width - 17
-        p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": baselines[i], "size": size,
-                        "anchor": anchor, "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
-                        "stroke": pal["tile"] if i == 0 else pal["accent4"]})
+        p.title.append(
+            {
+                "id": f"t-title-{i}",
+                "text": text,
+                "x": x,
+                "y": baselines[i],
+                "size": size,
+                "anchor": anchor,
+                "tracking": -0.016 * size,
+                "pattern": f"sp{i + 1}",
+                "stroke": pal["tile"] if i == 0 else pal["accent4"],
+            }
+        )
         p.boxes[f"t-title-{i}"] = line_widths[i]
     if with_badge:
         p.joiner = {"text": content.title_joiner, "cx": 44, "cy": baselines[1] - size * 0.36}
@@ -559,8 +733,15 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     if content.bar_text:
         bar_w = 130.0
         bsize = fit_size(content.bar_text, bar_w - 12, 12.5, 7, tracking_per_em=0.024)
-        p.bar = {"path": rough_band(width - frame - 8 - bar_w, y_after_title, bar_w, 17, seed=content.seed + 3),
-                 "text": content.bar_text, "x": width - frame - 8 - bar_w / 2, "y": y_after_title + 12.3, "size": bsize}
+        p.bar = {
+            "path": rough_band(
+                width - frame - 8 - bar_w, y_after_title, bar_w, 17, seed=content.seed + 3
+            ),
+            "text": content.bar_text,
+            "x": width - frame - 8 - bar_w / 2,
+            "y": y_after_title + 12.3,
+            "size": bsize,
+        }
         p.boxes["t-bar"] = bar_w - 12
         y_after_title += 17
     top_y: float = y_after_title + 10
@@ -591,24 +772,58 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             # 133. Shrinking it is what put two sizes in one band; the second
             # line keeps every row in the one size (Koen, 21 September 2026).
             parts = [part for part in (c.name, c.mobile, c.email) if part]
-            row = {"id": f"t-contact-{i}", "icon": "users", "bg": pal["accent"], "fg": pal["ink"],
-                   "text": " · ".join(parts), "size": BAND_TEXT, "colour": pal["white"]}
+            row = {
+                "id": f"t-contact-{i}",
+                "icon": "users",
+                "bg": pal["accent"],
+                "fg": pal["ink"],
+                "text": " · ".join(parts),
+                "size": BAND_TEXT,
+                "colour": pal["white"],
+            }
             if len(parts) > 1 and richtext.text_width(str(row["text"]), BAND_TEXT) > row_w:
                 row["text"] = " · ".join(parts[:-1])
                 rows.append(row)
                 # The address alone, under the name, with no icon of its own:
                 # it is the same contact, not a second one.
-                rows.append({"id": f"t-contact-{i}-b", "icon": "", "bg": pal["accent"], "fg": pal["ink"],
-                             "text": parts[-1], "size": BAND_TEXT, "colour": pal["white"]})
+                rows.append(
+                    {
+                        "id": f"t-contact-{i}-b",
+                        "icon": "",
+                        "bg": pal["accent"],
+                        "fg": pal["ink"],
+                        "text": parts[-1],
+                        "size": BAND_TEXT,
+                        "colour": pal["white"],
+                    }
+                )
             else:
                 rows.append(row)
     else:
         if content.email:
-            rows.append({"id": "t-email", "icon": "mail", "bg": pal["accent2"], "fg": pal["white"],
-                         "text": content.email, "size": BAND_TEXT, "colour": pal["white"]})
+            rows.append(
+                {
+                    "id": "t-email",
+                    "icon": "mail",
+                    "bg": pal["accent2"],
+                    "fg": pal["white"],
+                    "text": content.email,
+                    "size": BAND_TEXT,
+                    "colour": pal["white"],
+                }
+            )
         if content.association_mobile:
-            rows.append({"id": "t-mobile", "icon": "mobile", "bg": pal["accent"], "fg": pal["ink"],
-                         "text": content.association_mobile, "size": BAND_TEXT, "colour": pal["white"]})
+            rows.append(
+                {
+                    "id": "t-mobile",
+                    "icon": "mobile",
+                    "bg": pal["accent"],
+                    "fg": pal["ink"],
+                    "text": content.association_mobile,
+                    "size": BAND_TEXT,
+                    "colour": pal["white"],
+                }
+            )
     # Registering closes the band, in the accent colour, under the ways to
     # reach us rather than above them. The organisers of the bowling read the
     # old order as "mail one of these to register" — which is exactly what
@@ -629,20 +844,33 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     inschrijven = content.registration
     samen = bool(inschrijven and content.deadline_text and content.website)
     if inschrijven and content.deadline_text:
-        rows.append({"id": "t-deadline", "icon": "ticket", "bg": pal["accent"], "fg": pal["ink"],
-                     "text": f"{content.deadline_text} via" if samen else content.deadline_text,
-                     "size": BAND_TEXT, "colour": pal["accent"]})
+        rows.append(
+            {
+                "id": "t-deadline",
+                "icon": "ticket",
+                "bg": pal["accent"],
+                "fg": pal["ink"],
+                "text": f"{content.deadline_text} via" if samen else content.deadline_text,
+                "size": BAND_TEXT,
+                "colour": pal["accent"],
+            }
+        )
     if content.website:
-        rows.append({"id": "t-website",
-                     "icon": ("" if samen else "ticket") if inschrijven else "globe",
-                     "bg": pal["accent"] if inschrijven else pal["accent3"],
-                     "fg": pal["ink"] if inschrijven else pal["white"],
-                     "text": (content.website if samen else f"Inschrijven via {content.website}")
-                             if inschrijven else content.website,
-                     "size": BAND_TEXT,
-                     # Registering is the band's call to action; a bare
-                     # address belongs with the ways to reach us.
-                     "colour": pal["accent"] if inschrijven else pal["white"]})
+        rows.append(
+            {
+                "id": "t-website",
+                "icon": ("" if samen else "ticket") if inschrijven else "globe",
+                "bg": pal["accent"] if inschrijven else pal["accent3"],
+                "fg": pal["ink"] if inschrijven else pal["white"],
+                "text": (content.website if samen else f"Inschrijven via {content.website}")
+                if inschrijven
+                else content.website,
+                "size": BAND_TEXT,
+                # Registering is the band's call to action; a bare
+                # address belongs with the ways to reach us.
+                "colour": pal["accent"] if inschrijven else pal["white"],
+            }
+        )
     # Where each row sits, measured from the first. A row that continues the
     # one above it (no icon of its own) steps closer; a row that starts
     # something of its own takes the full step. The last row drops one more
@@ -664,8 +892,10 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     p.band_y = band_y
     ch = max(band_h + 2, lockup_h + 7)
     # The paper: the frame's inner rectangle minus the corner tile bottom-left.
-    p.paper_path = (f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
-                    f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z")
+    p.paper_path = (
+        f"M{x0} {y0} H{x1} V{y1} H{x0 + cw} V{y1 - ch + r} "
+        f"A{r} {r} 0 0 0 {x0 + cw - r} {y1 - ch} H{x0} Z"
+    )
     # The lockup sits flush: the R starts on the paper's left edge, the
     # baseline's bottom on the frame's bottom bar (Koen, 20 September 2026).
     tile_top = y1 - ch
@@ -680,13 +910,23 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # Only a row too long for its width drops below the one size.
         row["size"] = fit_size(str(row["text"]), row_w, float(row["size"]), 4.4, bold=False)  # type: ignore[arg-type]
         p.boxes[str(row["id"])] = row_w
-    p.band = {"path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
-              "y": band_y, "h": band_h, "rows": rows, "label": content.more_info_label,
-              "icon_x": col_x, "text_x": text_left,
-              "row_step": BAND_ROW_STEP, "cont_step": BAND_CONT_STEP,
-              "qr_x": qr_left, "qr_y": band_y + (band_h - QR_BLOCK) / 2, "qr_caption": "Scan voor meer info",
-              "qr_box": QR_BOX, "qr_mm": QR_MM,
-              "row_y": band_y + 2}
+    p.band = {
+        "path": rough_band(band_x, band_y, x1 - 2 - band_x, band_h, seed=content.seed + 5, jag=2.5),
+        "y": band_y,
+        "h": band_h,
+        "rows": rows,
+        "label": content.more_info_label,
+        "icon_x": col_x,
+        "text_x": text_left,
+        "row_step": BAND_ROW_STEP,
+        "cont_step": BAND_CONT_STEP,
+        "qr_x": qr_left,
+        "qr_y": band_y + (band_h - QR_BLOCK) / 2,
+        "qr_caption": "Scan voor meer info",
+        "qr_box": QR_BOX,
+        "qr_mm": QR_MM,
+        "row_y": band_y + 2,
+    }
 
     # ── Content between title and band ─────────────────────────────────────
     limit: float = band_y - 3
@@ -732,11 +972,23 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         # presets use — date left, place right (Koen, 20 September 2026).
         top_rows = fact_rows(content)
         if top_rows:
-            y = _two_column_highlights(p, PosterContent(duo_code=content.duo_code, highlights=top_rows),
-                                       y, ((lx, lw), (rx, rw)), size=ROW_TEXT_FACTS) + 3
+            y = (
+                _two_column_highlights(
+                    p,
+                    PosterContent(duo_code=content.duo_code, highlights=top_rows),
+                    y,
+                    ((lx, lw), (rx, rw)),
+                    size=ROW_TEXT_FACTS,
+                )
+                + 3
+            )
         # What the text needs at its smallest, so the picture cannot take the
         # whole column.
-        min_h = _richtext_height(content.explanation_md, full_w, min_text) if content.explanation_md else 0.0
+        min_h = (
+            _richtext_height(content.explanation_md, full_w, min_text)
+            if content.explanation_md
+            else 0.0
+        )
         if content.main_image:
             hero_top = y
             space = left_limit - y - 2 * BLOCK_GAP - (10 if content.inset_image else 0)
@@ -746,27 +998,55 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             # the overflow — it does not turn the hero into a letterboxed
             # block to make the numbers work.
             frag, y = main_image_block(
-                p, content.main_image, lx, y, full_w,
-                hero_height(content.main_image, full_w, space - min_h, cap=hero_cap,
-                            floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor)))
+                p,
+                content.main_image,
+                lx,
+                y,
+                full_w,
+                hero_height(
+                    content.main_image,
+                    full_w,
+                    space - min_h,
+                    cap=hero_cap,
+                    floor=full_bleed_floor(content.main_image, full_w, hero_cap, hero_floor),
+                ),
+            )
             p.full += frag
             if content.inset_image:
                 # The polaroid lies on the big picture, in the chosen corner;
                 # the big picture stays the same size with or without it.
-                frag, bottom = polaroid_on(p, content.inset_image, (lx, hero_top, full_w, y - hero_top),
-                                           content.inset_corner, polaroid_w)
+                frag, bottom = polaroid_on(
+                    p,
+                    content.inset_image,
+                    (lx, hero_top, full_w, y - hero_top),
+                    content.inset_corner,
+                    polaroid_w,
+                )
                 p.full += frag
                 y = bottom
             y += BLOCK_GAP
         if content.explanation_md:
             # The real room under the picture: the block starts 2 mm lower
             # and must end before the welcome badge.
-            text_size = fit_richtext_size(content.explanation_md, full_w, left_limit - y - 4,
-                                          max_size=max_text, min_size=min_text)
+            text_size = fit_richtext_size(
+                content.explanation_md,
+                full_w,
+                left_limit - y - 4,
+                max_size=max_text,
+                min_size=min_text,
+            )
             # Nothing follows this block but the welcome badge, which keeps
             # its own margin, so it does not need a trailing gap of its own.
-            frag, y = richtext_block(p, "t-rt-explanation", content.explanation_md, lx, y + 2, full_w,
-                                     text_size, trailing=0.0)
+            frag, y = richtext_block(
+                p,
+                "t-rt-explanation",
+                content.explanation_md,
+                lx,
+                y + 2,
+                full_w,
+                text_size,
+                trailing=0.0,
+            )
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
         p.full += frag
@@ -782,17 +1062,28 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         hl_rows = (n + 1) // 2
         series = len(content.dates) > 1
         if content.logos:
-            left_limit -= 22   # the logo strip sits in the flow's way on a feed image
+            left_limit -= 22  # the logo strip sits in the flow's way on a feed image
         below = hl_rows * ROW_H + 6 + (ROW_H if series else 0) + (10 if content.inset_image else 0)
         if content.main_image:
             avail = left_limit - y - below
             hero_top = y
-            frag, y = main_image_block(p, content.main_image, lx, y, full_w,
-                                       hero_height(content.main_image, full_w, avail, cap=120.0, floor=50.0))
+            frag, y = main_image_block(
+                p,
+                content.main_image,
+                lx,
+                y,
+                full_w,
+                hero_height(content.main_image, full_w, avail, cap=120.0, floor=50.0),
+            )
             p.full += frag
             if content.inset_image:
-                frag, bottom = polaroid_on(p, content.inset_image, (lx, hero_top, full_w, y - hero_top),
-                                           content.inset_corner, 84.0)
+                frag, bottom = polaroid_on(
+                    p,
+                    content.inset_image,
+                    (lx, hero_top, full_w, y - hero_top),
+                    content.inset_corner,
+                    84.0,
+                )
                 p.full += frag
                 y = bottom
             y += 6
@@ -801,8 +1092,10 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             # Koen, 20 September 2026: nobody reads twelve dates while
             # scrolling, and the QR already leads to the site. One row in the
             # highlights' own typography, over the full width.
-            summary = PosterContent(duo_code=content.duo_code,
-                                    highlights=(Highlight("calendar", when_line(content), True),))
+            summary = PosterContent(
+                duo_code=content.duo_code,
+                highlights=(Highlight("calendar", when_line(content), True),),
+            )
             frag, y = highlight_rows(p, summary, lx, y, full_w, index_offset=6)
             p.full += frag
         frag, _wy = welcome_badge(p, content, lx, welcome_y)
@@ -829,7 +1122,9 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
                 right.append(frag)
             if content.explanation_md:
-                frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry + 2, rw, 7.2)
+                frag, ry = richtext_block(
+                    p, "t-rt-explanation", content.explanation_md, rx, ry + 2, rw, 7.2
+                )
                 right.append(frag)
         else:
             # The picture takes what the other right-hand blocks leave.
@@ -846,12 +1141,20 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             hero_rect: tuple[float, float, float, float] | None = None
             if content.main_image:
                 hero_top = ry - 2
-                frag, ry = main_image_block(p, content.main_image, rx + 3, hero_top, rw - 8,
-                                            hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0))
+                frag, ry = main_image_block(
+                    p,
+                    content.main_image,
+                    rx + 3,
+                    hero_top,
+                    rw - 8,
+                    hero_height(content.main_image, rw - 8, hero_h, cap=240.0, floor=60.0),
+                )
                 right.append(frag)
                 hero_rect = (rx + 3, hero_top, rw - 8, ry - hero_top)
             if content.inset_image and hero_rect:
-                frag, ry = polaroid_on(p, content.inset_image, hero_rect, content.inset_corner, 105.0)
+                frag, ry = polaroid_on(
+                    p, content.inset_image, hero_rect, content.inset_corner, 105.0
+                )
                 right.append(frag)
             elif content.inset_image:
                 frag, ry = polaroid_block(p, content.inset_image, rx, ry + 2, 105.0)
@@ -865,10 +1168,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
                 frag, ry = tagline_block(p, content.tagline, rx + rw, ry, rw)
                 right.append(frag)
             if content.explanation_md:
-                frag, ry = richtext_block(p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4)
+                frag, ry = richtext_block(
+                    p, "t-rt-explanation", content.explanation_md, rx, ry, rw, 6.4
+                )
                 right.append(frag)
         for name, bottom, bound in (("links", ly, left_limit), ("rechts", ry, limit)):
-            if bottom > bound + 0.5:   # half a millimetre is rounding, not overflow
-                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - bound:.0f} mm te veel")
+            if bottom > bound + 0.5:  # half a millimetre is rounding, not overflow
+                p.violations.append(
+                    f"Te veel inhoud in de kolom {name}: {bottom - bound:.0f} mm te veel"
+                )
     p.left, p.right = "".join(left), "".join(right)
     return p

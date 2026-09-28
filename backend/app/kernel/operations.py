@@ -9,6 +9,7 @@ columns stay plain strings and a value test replaces the key.
 It lives in the kernel and in `public`, next to `kernel_jobs`, because no
 single domain owns it: every domain with a history table writes it.
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -47,15 +48,14 @@ class KernelOperationLabel(Base):
 
     __tablename__ = "kernel_operation_labels"
 
-    code = Column(String(10), ForeignKey("kernel_operation_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("kernel_operation_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 #: The words `audit/changes.py:_OPERATION_LABELS` held (§B8.5).
@@ -66,8 +66,11 @@ OPERATION_CODES = (
 )
 
 OPERATION = CodeList(
-    name="kernel_operation", schema="public",
-    codes=KernelOperationCode, labels=KernelOperationLabel, enum=Operation,
+    name="kernel_operation",
+    schema="public",
+    codes=KernelOperationCode,
+    labels=KernelOperationLabel,
+    enum=Operation,
     # Deliberately no `fk_from`: the history exemption (§B4.10, F4).
     derived=True,
 )

@@ -16,6 +16,7 @@ gate failed naming `app/domains/activities/templates/_aa_kaarten.html:15`. And
 the pattern broken (`%d/%m-%Y`) → it failed on "does not even find the one
 allowed strftime", instead of passing everything.
 """
+
 import re
 from pathlib import Path
 
@@ -46,11 +47,13 @@ def test_the_short_date_is_formatted_in_one_place():
     source = [h for h in hits if h.startswith(f"{_SOURCE.relative_to(APP.parent)}:")]
     assert source, (
         "the gate does not even find the one allowed strftime in app/i18n.py — "
-        "its pattern or its path is broken, so it would pass anything")
+        "its pattern or its path is broken, so it would pass anything"
+    )
     others = [h for h in hits if h not in source]
     assert not others, (
         "a short date written by hand; use the `kortedatum` or `short_datetime` "
-        f"filter in a template, or `app.i18n.short_date` / `short_datetime` in Python: {others}")
+        f"filter in a template, or `app.i18n.short_date` / `short_datetime` in Python: {others}"
+    )
 
 
 def test_short_datetime_reads_as_the_hand_written_format_did():

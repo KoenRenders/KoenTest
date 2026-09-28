@@ -15,17 +15,19 @@ kring → vergadering → notuleren → bijlagen → versturen → heropenen. E�
 doorloop plus een paar gerichte tests op de punten waar een fout geld of
 geloofwaardigheid kost.
 """
+
 from datetime import date, time
 
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import ContactDetail, Organization, OrganizationPerson, Person
 from app.domains.meetings.api import (
+    Attendance,
     FilePurpose,
     MeetingStatus,
+    SectionKind,
     attendance_of,
     document_of,
     extra_recipients_of,
@@ -34,8 +36,6 @@ from app.domains.meetings.api import (
     sections_of,
 )
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.meetings.api import SectionKind
-from app.domains.meetings.api import Attendance
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -57,9 +57,14 @@ def _kringlid(db, voornaam="Mon", achternaam="Essers", email="mon@example.org"):
     db.add(person)
     db.flush()
     db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
-    db.add(OrganizationPerson(person_id=person.id, organization_id=organisatie.id,
-                              relation_type="BOARD_MEETING",
-                              start_date=date(2020, 1, 1)))
+    db.add(
+        OrganizationPerson(
+            person_id=person.id,
+            organization_id=organisatie.id,
+            relation_type="BOARD_MEETING",
+            start_date=date(2020, 1, 1),
+        )
+    )
     db.flush()
     return person
 
@@ -85,8 +90,9 @@ def postbus(monkeypatch):
     helemaal uit, en meldt hij "er vertrok geen mail" terwijl de mail vertrok.
     """
     verzonden = []
-    monkeypatch.setattr("app.domains.mail.api.send_with_attachments",
-                        lambda **kw: verzonden.append(kw))
+    monkeypatch.setattr(
+        "app.domains.mail.api.send_with_attachments", lambda **kw: verzonden.append(kw)
+    )
     return verzonden
 
 
@@ -106,9 +112,12 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     _activiteit(db_session, "Zomerkamp", date(2027, 6, 20), time(10, 0))
 
     # 1. Een vergadering aanmaken — de agenda komt er meteen bij.
-    aangemaakt = client.post("/admin/vergaderingen", headers=headers, data={
-        "meeting_date": "2026-10-01", "start_time": "20:00",
-        "location": "Miloheem — zaal 1"}, follow_redirects=False)
+    aangemaakt = client.post(
+        "/admin/vergaderingen",
+        headers=headers,
+        data={"meeting_date": "2026-10-01", "start_time": "20:00", "location": "Miloheem — zaal 1"},
+        follow_redirects=False,
+    )
     assert aangemaakt.status_code in (200, 204, 303), aangemaakt.text[:200]
     meeting = _laatste_vergadering(db_session)
     assert meeting.location == "Miloheem — zaal 1"
@@ -119,74 +128,107 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     assert "Rumproefavond" in [i.label for i in secties[SectionKind.UPCOMING].items]
 
     # 2. Een gast uitnodigen — hij komt in de aanwezigheidslijst én bij de mail.
-    client.post(f"/admin/vergaderingen/{meeting.id}/gast", headers=headers,
-                data={"guest_name": "Alexander W.", "guest_email": "gast@example.org"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/gast",
+        headers=headers,
+        data={"guest_name": "Alexander W.", "guest_email": "gast@example.org"},
+    )
     gasten = extra_recipients_of(db_session, meeting)
     assert [g.name for g in gasten] == ["Alexander W."]
 
     # 3. Aanwezigheid: één klik is aanwezig, twee is verontschuldigd.
     persoon = db_session.query(Person).filter(Person.last_name == "Essers").first()
-    client.post(f"/admin/vergaderingen/{meeting.id}/aanwezigheid", headers=headers,
-                data={"person_id": str(persoon.id), "current": ""})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
+        headers=headers,
+        data={"person_id": str(persoon.id), "current": ""},
+    )
     assert attendance_of(db_session, meeting) == {f"p{persoon.id}": Attendance.PRESENT}
-    client.post(f"/admin/vergaderingen/{meeting.id}/aanwezigheid", headers=headers,
-                data={"person_id": str(persoon.id), "current": "present"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
+        headers=headers,
+        data={"person_id": str(persoon.id), "current": "present"},
+    )
     assert attendance_of(db_session, meeting) == {f"p{persoon.id}": Attendance.EXCUSED}
-    client.post(f"/admin/vergaderingen/{meeting.id}/aanwezigheid", headers=headers,
-                data={"guest_id": str(gasten[0].id), "current": ""})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
+        headers=headers,
+        data={"guest_id": str(gasten[0].id), "current": ""},
+    )
     assert attendance_of(db_session, meeting)[f"g{gasten[0].id}"] == Attendance.PRESENT
 
     # 4. Notuleren op een bestaand punt.
     punt = secties[SectionKind.EVALUATION].items[0]
-    client.post(f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}", headers=headers,
-                data={"notes": "<div>Uitverkocht, 300 tickets.</div>"})
-    opnieuw = next(i for s in document_of(db_session, meeting) for i in s.items
-                   if i.id == punt.id)
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
+        headers=headers,
+        data={"notes": "<div>Uitverkocht, 300 tickets.</div>"},
+    )
+    opnieuw = next(i for s in document_of(db_session, meeting) for i in s.items if i.id == punt.id)
     assert "300 tickets" in opnieuw.notes
 
     # 5. Een eigen sectie, en daarin een vrij punt.
-    client.post(f"/admin/vergaderingen/{meeting.id}/sectie", headers=headers,
-                data={"title": "Jaarplanning 2027"})
-    eigen = next(s for s in sections_of(db_session, meeting)
-                 if s.title == "Jaarplanning 2027")
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/sectie",
+        headers=headers,
+        data={"title": "Jaarplanning 2027"},
+    )
+    eigen = next(s for s in sections_of(db_session, meeting) if s.title == "Jaarplanning 2027")
     labels = [s.kind for s in sections_of(db_session, meeting)]
     assert labels[-1] == SectionKind.MISC, "Varia hoort het laatste te blijven"
-    client.post(f"/admin/vergaderingen/{meeting.id}/punt", headers=headers,
-                data={"section_id": str(eigen.id), "title": "Kalender vastleggen"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt",
+        headers=headers,
+        data={"section_id": str(eigen.id), "title": "Kalender vastleggen"},
+    )
     getoond = next(s for s in document_of(db_session, meeting) if s.id == eigen.id)
     assert [i.label for i in getoond.items] == ["Kalender vastleggen"]
 
     # 6. Een activiteit van buiten de horizon alsnog agenderen.
     upcoming = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
-    vooraf = [i.label for i in next(s for s in document_of(db_session, meeting)
-                                    if s.kind == SectionKind.UPCOMING).items]
+    vooraf = [
+        i.label
+        for i in next(
+            s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING
+        ).items
+    ]
     assert "Zomerkamp" not in vooraf, "juni 2027 valt buiten de drie maanden"
     kerst = db_session.query(Activity).filter(Activity.name == "Zomerkamp").first()
-    client.post(f"/admin/vergaderingen/{meeting.id}/punt", headers=headers,
-                data={"section_id": str(upcoming.id), "activity_id": str(kerst.id)})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt",
+        headers=headers,
+        data={"section_id": str(upcoming.id), "activity_id": str(kerst.id)},
+    )
     na = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     assert [i.label for i in na.items].count("Zomerkamp") == 1
 
     # En een tweede keer toevoegen levert geen dubbel punt op.
-    nogmaals = client.post(f"/admin/vergaderingen/{meeting.id}/punt", headers=headers,
-                           data={"section_id": str(upcoming.id),
-                                 "activity_id": str(kerst.id)})
+    nogmaals = client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt",
+        headers=headers,
+        data={"section_id": str(upcoming.id), "activity_id": str(kerst.id)},
+    )
     assert "staat al" in nogmaals.text
     na = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     assert [i.label for i in na.items].count("Zomerkamp") == 1
 
     # 7. Een bijlage uploaden — via multipart, zoals het formulier het doet.
-    client.post(f"/admin/vergaderingen/{meeting.id}/bijlage", headers=headers,
-                files={"file": ("draaiboek.pdf", b"%PDF-1.4 draaiboek", "application/pdf")},
-                data={"csrf_token": "x"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/bijlage",
+        headers=headers,
+        files={"file": ("draaiboek.pdf", b"%PDF-1.4 draaiboek", "application/pdf")},
+        data={"csrf_token": "x"},
+    )
     bijlagen = files_of(db_session, meeting)
     assert [f.filename for f in bijlagen] == ["draaiboek.pdf"]
 
     # 8. De agenda versturen: één mail, de kring plus de gast, de PDF erbij.
-    verstuurd = client.post(f"/admin/vergaderingen/{meeting.id}/verstuur",
-                            headers=headers, follow_redirects=False,
-                            data={"kind": "agenda", "subject": "Agenda 1 oktober",
-                                  "body": "Hallo allemaal"})
+    verstuurd = client.post(
+        f"/admin/vergaderingen/{meeting.id}/verstuur",
+        headers=headers,
+        follow_redirects=False,
+        data={"kind": "agenda", "subject": "Agenda 1 oktober", "body": "Hallo allemaal"},
+    )
     assert verstuurd.status_code in (200, 204, 303), verstuurd.text[:300]
     assert len(postbus) == 1, "er vertrok geen mail"
     assert set(postbus[0]["to_emails"]) == {"mon@example.org", "gast@example.org"}
@@ -195,39 +237,49 @@ def test_de_hele_weg_van_een_secretaris(client, db_session, postbus):
     assert get_meeting(db_session, meeting.id).agenda_sent_at is not None
 
     # 9. Een tweede bijlage die alleen bij het verslag hoort.
-    client.post(f"/admin/vergaderingen/{meeting.id}/bijlage", headers=headers,
-                files={"file": ("gemeente.pdf", b"%PDF-1.4 gemeente", "application/pdf")})
-    gemeente = next(f for f in files_of(db_session, meeting)
-                    if f.filename == "gemeente.pdf")
-    client.post(f"/admin/vergaderingen/{meeting.id}/bijlage/{gemeente.id}/meesturen",
-                headers=headers, data={"mail": "agenda"})
-    assert not next(f for f in files_of(db_session, meeting)
-                    if f.id == gemeente.id).on_agenda_mail
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/bijlage",
+        headers=headers,
+        files={"file": ("gemeente.pdf", b"%PDF-1.4 gemeente", "application/pdf")},
+    )
+    gemeente = next(f for f in files_of(db_session, meeting) if f.filename == "gemeente.pdf")
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/bijlage/{gemeente.id}/meesturen",
+        headers=headers,
+        data={"mail": "agenda"},
+    )
+    assert not next(f for f in files_of(db_session, meeting) if f.id == gemeente.id).on_agenda_mail
 
     # 10. Het verslag versturen, met die extra bijlage erbij.
-    client.post(f"/admin/vergaderingen/{meeting.id}/verstuur", headers=headers,
-                follow_redirects=False,
-                data={"kind": "report", "subject": "Verslag 1 oktober",
-                      "body": "Hoi allemaal"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/verstuur",
+        headers=headers,
+        follow_redirects=False,
+        data={"kind": "report", "subject": "Verslag 1 oktober", "body": "Hoi allemaal"},
+    )
     assert len(postbus) == 2
     namen = [naam for naam, _t, _d in postbus[1]["attachments"]]
     assert namen[0].startswith("verslag-")
     assert "gemeente.pdf" in namen and "draaiboek.pdf" in namen
     ververst = get_meeting(db_session, meeting.id)
-    assert (ververst.report_sent_at is not None
-            and ververst.status == MeetingStatus.SENT)
+    assert ververst.report_sent_at is not None and ververst.status == MeetingStatus.SENT
     assert len(files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)) == 2
 
     # 11. Een verstuurd verslag ligt vast — tot je het heropent.
-    geweigerd = client.post(f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
-                            headers=headers, data={"notes": "<div>nog iets</div>"})
+    geweigerd = client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
+        headers=headers,
+        data={"notes": "<div>nog iets</div>"},
+    )
     assert "verstuurd" in geweigerd.text.lower()
     client.post(f"/admin/vergaderingen/{meeting.id}/heropen", headers=headers)
     assert get_meeting(db_session, meeting.id).status == MeetingStatus.REPORT
-    client.post(f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}", headers=headers,
-                data={"notes": "<div>correctie achteraf</div>"})
-    hersteld = next(i for s in document_of(db_session, meeting) for i in s.items
-                    if i.id == punt.id)
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/punt/{punt.id}",
+        headers=headers,
+        data={"notes": "<div>correctie achteraf</div>"},
+    )
+    hersteld = next(i for s in document_of(db_session, meeting) for i in s.items if i.id == punt.id)
     assert "correctie achteraf" in hersteld.notes
 
 
@@ -251,14 +303,19 @@ def test_versturen_zonder_csrf_token_gaat_niet(client, db_session):
     # te negeren.
     headers = _login(client)
     _kringlid(db_session)
-    vergadering = client.post("/admin/vergaderingen", headers=headers,
-                              data={"meeting_date": "2026-10-01"},
-                              follow_redirects=False)
+    vergadering = client.post(
+        "/admin/vergaderingen",
+        headers=headers,
+        data={"meeting_date": "2026-10-01"},
+        follow_redirects=False,
+    )
     assert vergadering.status_code in (200, 204, 303)
     meeting = _laatste_vergadering(db_session)
 
-    zonder = client.post(f"/admin/vergaderingen/{meeting.id}/verstuur",
-                         data={"kind": "report", "subject": "x", "body": "y"})
+    zonder = client.post(
+        f"/admin/vergaderingen/{meeting.id}/verstuur",
+        data={"kind": "report", "subject": "x", "body": "y"},
+    )
     assert zonder.status_code == 403, "versturen zonder token hoort te weigeren"
     assert get_meeting(db_session, meeting.id).report_sent_at is None
 
@@ -271,20 +328,33 @@ def test_datum_verschuiven_via_het_scherm(client, db_session):
     """
     headers = _login(client)
     _activiteit(db_session, "Rumproefavond", date(2026, 10, 5), time(20, 0))
-    client.post("/admin/vergaderingen", headers=headers,
-                data={"meeting_date": "2026-10-01"}, follow_redirects=False)
+    client.post(
+        "/admin/vergaderingen",
+        headers=headers,
+        data={"meeting_date": "2026-10-01"},
+        follow_redirects=False,
+    )
     meeting = _laatste_vergadering(db_session)
-    assert "Rumproefavond" in [i.label for s in document_of(db_session, meeting)
-                               for i in s.items if s.kind == SectionKind.UPCOMING]
+    assert "Rumproefavond" in [
+        i.label
+        for s in document_of(db_session, meeting)
+        for i in s.items
+        if s.kind == SectionKind.UPCOMING
+    ]
 
-    client.post(f"/admin/vergaderingen/{meeting.id}/bewerken", headers=headers,
-                follow_redirects=False,
-                data={"meeting_date": "2026-10-08", "start_time": "20:30",
-                      "location": "Miloheem — zaal 2"})
+    client.post(
+        f"/admin/vergaderingen/{meeting.id}/bewerken",
+        headers=headers,
+        follow_redirects=False,
+        data={"meeting_date": "2026-10-08", "start_time": "20:30", "location": "Miloheem — zaal 2"},
+    )
 
     ververst = get_meeting(db_session, meeting.id)
     assert ververst.meeting_date == date(2026, 10, 8)
     assert ververst.start_time == time(20, 30)
-    assert "Rumproefavond" in [i.label for s in document_of(db_session, ververst)
-                               for i in s.items if s.kind == SectionKind.EVALUATION], \
-        "de activiteit valt nu vóór de vergadering en hoort bij de evaluatie"
+    assert "Rumproefavond" in [
+        i.label
+        for s in document_of(db_session, ververst)
+        for i in s.items
+        if s.kind == SectionKind.EVALUATION
+    ], "de activiteit valt nu vóór de vergadering en hoort bij de evaluatie"

@@ -9,6 +9,7 @@ Twee dingen worden hier vastgelegd: dat de duur als **veld** in de JSON-regel
 staat, en dat de allowlist die dat regelt geen vrije dump is — een logregel mag
 nooit per ongeluk een e-mailadres of querystring meedragen.
 """
+
 import json
 import logging
 
@@ -20,16 +21,18 @@ pytestmark = pytest.mark.ui_agnostisch
 
 
 def _regel(**extra) -> dict:
-    record = logging.LogRecord("app.main", logging.INFO, __file__, 1,
-                               "GET /admin/leden -> 200 (412.3 ms)", (), None)
+    record = logging.LogRecord(
+        "app.main", logging.INFO, __file__, 1, "GET /admin/leden -> 200 (412.3 ms)", (), None
+    )
     for k, v in extra.items():
         setattr(record, k, v)
     return json.loads(JsonFormatter().format(record))
 
 
 def test_de_duur_staat_als_veld_in_de_json_regel():
-    uit = _regel(duration_ms=412.3, method="GET", path="/admin/leden",
-                 route="/admin/leden", status=200)
+    uit = _regel(
+        duration_ms=412.3, method="GET", path="/admin/leden", route="/admin/leden", status=200
+    )
 
     assert uit["duration_ms"] == 412.3
     assert uit["route"] == "/admin/leden"
@@ -57,8 +60,18 @@ def test_alleen_velden_uit_de_allowlist_komen_erin():
 def test_de_allowlist_bevat_geen_persoonsgegevens():
     """Wie een veld toevoegt, doet dat zichtbaar — en niet een dat een naam of
     adres kan bevatten."""
-    verdacht = {"email", "user", "gebruiker", "naam", "name", "query", "body",
-                "cookie", "session", "token"}
+    verdacht = {
+        "email",
+        "user",
+        "gebruiker",
+        "naam",
+        "name",
+        "query",
+        "body",
+        "cookie",
+        "session",
+        "token",
+    }
     assert not (verdacht & set(EXTRA_VELDEN))
 
 

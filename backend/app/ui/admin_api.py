@@ -4,6 +4,7 @@ Composer-module naast changes_ui/system_ui: leest cross-domain via de facades
 (dashboard-tellers) en de gecureerde settings-whitelist (systeeminfo — nooit
 secrets). (verhuisd uit app/routers/admin.py, #444)
 """
+
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -12,7 +13,11 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.domains.activities.api import ActivityDate
 from app.domains.auth.api import User, get_current_admin
+from app.domains.mdm.api import Member
+from app.domains.membership.api import Membership
+from app.domains.payment.api import PaymentRecord, current_membership_counts
 
 
 def _open_tasks(db):
@@ -21,12 +26,6 @@ def _open_tasks(db):
 
     return open_count(db, ["ADMIN", "FINANCE"])
 
-
-from app.domains.activities.api import ActivityDate
-from app.domains.membership.api import Membership
-from app.domains.mdm.api import Member
-from app.domains.payment.api import PaymentRecord
-from app.domains.payment.api import current_membership_counts
 
 router = APIRouter(tags=["admin"])
 
@@ -43,18 +42,19 @@ def get_stats(
     return {
         "members": db.query(func.count(Member.id)).scalar(),
         "active_members": db.query(func.count(Membership.id))
-            .filter(Membership.year == today.year, Membership.is_active == True)
-            .scalar(),
+        .filter(Membership.year == today.year, Membership.is_active == True)
+        .scalar(),
         "active_member_households": active_member_households,
         "active_member_persons": active_member_persons,
         "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
-            .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
-            .scalar(),
+        .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
+        .scalar(),
         "open_tasks": _open_tasks(db),
         "outstanding_balance": float(
             db.query(func.coalesce(func.sum(PaymentRecord.amount), 0))
             .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
-            .scalar() or 0
+            .scalar()
+            or 0
         ),
     }
 

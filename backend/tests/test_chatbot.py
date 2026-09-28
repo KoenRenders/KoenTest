@@ -7,19 +7,21 @@ Bewaakt de invarianten die ertoe doen:
 - de HTTP-vangrails (per-bericht cap, geschiedenis, laatste = user) werken;
 - de provider is aantoonbaar swapbaar (Mock loopt de volledige tool-loop af).
 """
+
 import json
 from datetime import date, timedelta
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.forms.models import FormSubmission
-from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
 from app.domains.chatbot.context import build_system_prompt
-
+from app.domains.chatbot.tools import ALLOWED_TOOLS, execute_tool
+from app.domains.forms.models import FormSubmission
 
 # ── Security-grens van de tools ──────────────────────────────────────────────
 
+
 def _page(db, **kw):
     from app.domains.cms.api import CmsPage
+
     defaults = {"title": "Pagina", "slug": "p", "content": "inhoud", "is_published": True}
     page = CmsPage(**{**defaults, **kw})
     db.add(page)
@@ -98,8 +100,8 @@ def test_membership_duration_next_year_after_cutoff(monkeypatch):
 
 def test_cms_page_can_be_excluded(db_session):
     """chatbot_info-rij met is_active=false → pagina niet naar de bot (opt-out)."""
-    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
+    from app.domains.chatbot.models import ChatbotInfo
 
     page = _page(db_session, slug="geheim", content="GEHEIME PAGINATEKST")
     db_session.add(ChatbotInfo(cms_page_id=page.id, is_active=False))
@@ -108,8 +110,8 @@ def test_cms_page_can_be_excluded(db_session):
 
 
 def test_cms_override_replaces_content(db_session):
-    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
+    from app.domains.chatbot.models import ChatbotInfo
 
     page = _page(db_session, slug="over", content="ORIGINELE INHOUD")
     db_session.add(ChatbotInfo(cms_page_id=page.id, text_override="BOT-SPECIFIEKE TEKST"))
@@ -120,8 +122,8 @@ def test_cms_override_replaces_content(db_session):
 
 
 def test_free_note_added_to_context(db_session):
-    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
+    from app.domains.chatbot.models import ChatbotInfo
 
     db_session.add(ChatbotInfo(title="Praktisch", text_addition="We zijn een KWB-vereniging."))
     db_session.flush()
@@ -144,6 +146,7 @@ def test_execute_tool_rejects_unknown_tool(db_session):
 
 
 # ── submit_idea hergebruikt het berichten-schrijfpad (#398) ─────────────────
+
 
 def test_submit_idea_creates_bericht_submission(db_session):
     from app.domains.workflow.models import WorkflowTask
@@ -198,6 +201,7 @@ def test_submit_idea_rejects_invalid_email(db_session):
 
 # ── get_activities: komend (default) én verleden (when='past') ───────────────
 
+
 def _activity(db, name, when, *, cancelled=False):
     a = Activity(name=name, is_cancelled=cancelled)
     db.add(a)
@@ -233,8 +237,8 @@ def test_past_returns_only_past_most_recent_first(db_session):
     out = json.loads(execute_tool("get_activities", {"when": "past"}, db_session))
     names = [a["name"] for a in out["activities"]]
     assert out["when"] == "past"
-    assert "Toekomstfeest" not in names          # geen toekomst
-    assert "Afgelast verleden" not in names       # geannuleerd telt niet
+    assert "Toekomstfeest" not in names  # geen toekomst
+    assert "Afgelast verleden" not in names  # geannuleerd telt niet
     assert names == ["Recent voorbij", "Lang geleden"]  # meest recent eerst
 
 
@@ -248,6 +252,7 @@ def test_past_respects_limit(db_session):
 
 # ── System-prompt: temporeel anker (#249) ────────────────────────────────────
 
+
 def test_system_prompt_includes_today(db_session):
     """De prompt geeft de datum van vandaag mee, zodat het model verleden/toekomst
     kan onderscheiden en geen voorbije datum als 'eerstvolgende' verzint."""
@@ -257,6 +262,7 @@ def test_system_prompt_includes_today(db_session):
 
 
 # ── Vorm-validatie: cap enkel op bezoeker-berichten (#251) ───────────────────
+
 
 def test_long_assistant_message_in_history_is_allowed():
     """Een lang bot-antwoord in de geschiedenis mag — anders blokkeert één lang
@@ -303,6 +309,7 @@ def test_submit_idea_lands_in_werkbank(db_session):
 
 # ── Anti-hallucinatie (lagen 1–4) ────────────────────────────────────────────
 
+
 def test_activity_detail_marks_empty_fields_as_unspecified(db_session):
     """Laag 2: lege velden komen expliciet als 'niet vermeld' terug, zodat de bot
     de afwezigheid als feit ziet i.p.v. te verzinnen."""
@@ -347,15 +354,18 @@ def test_activity_question_forces_a_tool_call():
             seen[self.key] = tool_choice
             return AssistantMessage(content="ok")
 
-    run_public_chat(None, [{"role": "user", "content": "Wat staat er op de agenda?"}],
-                    FakeProvider("activiteit"))
-    run_public_chat(None, [{"role": "user", "content": "hallo"}],
-                    FakeProvider("begroeting"))
+    run_public_chat(
+        None,
+        [{"role": "user", "content": "Wat staat er op de agenda?"}],
+        FakeProvider("activiteit"),
+    )
+    run_public_chat(None, [{"role": "user", "content": "hallo"}], FakeProvider("begroeting"))
     assert seen["activiteit"] == "any"
     assert seen["begroeting"] is None
 
 
 # ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────
+
 
 def test_message_over_cap_is_rejected_422(client):
     from app.config import settings
@@ -374,6 +384,7 @@ def test_last_message_must_be_user(client):
 
 
 # ── Provider-swap: Mock loopt de volledige tool-loop af ──────────────────────
+
 
 def _collect_sse(text: str) -> str:
     parts = []

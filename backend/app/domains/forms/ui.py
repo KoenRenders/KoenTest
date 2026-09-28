@@ -5,6 +5,7 @@
 op dat ene formulier; de generieke htmx-render van álle formulieren volgt met
 de React-exit (#405).
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
@@ -12,11 +13,11 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.limiter import form_submit_limiter
-from app.ui import templates
 from app.domains.forms.api import FieldType
 from app.domains.forms.screenfields import screen_fields
 from app.i18n import _
+from app.limiter import form_submit_limiter
+from app.ui import templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,12 +35,12 @@ def berichten_page(request: Request, db: Session = Depends(get_db)):
     from app.ui import site_context
 
     form = _berichten_form(db)
-    return templates.TemplateResponse(request, "berichten.html", {
-        **site_context(db, request), "form": form, "error": None})
+    return templates.TemplateResponse(
+        request, "berichten.html", {**site_context(db, request), "form": form, "error": None}
+    )
 
 
-@router.post("/berichten", response_class=HTMLResponse,
-             dependencies=[Depends(form_submit_limiter)])
+@router.post("/berichten", response_class=HTMLResponse, dependencies=[Depends(form_submit_limiter)])
 def berichten_submit(
     request: Request,
     background_tasks: BackgroundTasks,
@@ -52,9 +53,16 @@ def berichten_submit(
     naam, email, bericht = naam.strip(), email.strip(), bericht.strip()
     if form is None:
         return templates.TemplateResponse(
-            request, "_berichten_form.html",
-            {"form": None, "error": _("Berichten zijn tijdelijk niet beschikbaar."),
-             "naam": naam, "email": email, "bericht": bericht})
+            request,
+            "_berichten_form.html",
+            {
+                "form": None,
+                "error": _("Berichten zijn tijdelijk niet beschikbaar."),
+                "naam": naam,
+                "email": email,
+                "bericht": bericht,
+            },
+        )
     # De invariant staat in de service (#635-2), niet hier: hij gold voor élke
     # ingang, maar stond drie keer geschreven — en de API-ingang riep hem niet aan.
     # Het scherm vangt de fout op en toont ze in de banner i.p.v. een 422 te laten
@@ -65,14 +73,22 @@ def berichten_submit(
         assert_submitter(form, naam, email, message=bericht, require_message=True)
     except HTTPException:
         return templates.TemplateResponse(
-            request, "_berichten_form.html",
-            {"form": form, "error": _("Vul je naam, een geldig e-mailadres en je bericht in."),
-             "naam": naam, "email": email, "bericht": bericht})
+            request,
+            "_berichten_form.html",
+            {
+                "form": form,
+                "error": _("Vul je naam, een geldig e-mailadres en je bericht in."),
+                "naam": naam,
+                "email": email,
+                "bericht": bericht,
+            },
+        )
 
     from app.domains.forms.api import submit_bericht
 
-    submit_bericht(db, naam=naam, email=email or None, bericht=bericht,
-                   background_tasks=background_tasks)
+    submit_bericht(
+        db, naam=naam, email=email or None, bericht=bericht, background_tasks=background_tasks
+    )
     # Terug naar de homepage met een bedankt-flash (#451) i.p.v. op /berichten
     # blijven hangen; htmx doet een volledige navigatie op de HX-Redirect-header.
     return HTMLResponse("", headers={"HX-Redirect": "/?bericht=verzonden"})
@@ -84,6 +100,7 @@ def berichten_submit(
 # door de servicelaag afgehandeld (overgeslagen secties tellen niet als
 # verplicht, zie build_answers/_traversed_field_ids). Wijzig-flow via
 # /formulier/{token}/edit/{edit_token} (zelfde template, voorgevuld).
+
 
 def _answers_from_form(form_model, form_data) -> list:
     """Vertaal geposte f{field_id}-waarden naar AnswerIn-payloads."""
@@ -106,22 +123,23 @@ def _answers_from_form(form_model, form_data) -> list:
             option_ids = [int(v) for v in raw if str(v).isdigit()]
             anders = (form_data.get(f"{key}_other") or "").strip() or None
             if option_ids or anders:
-                answers.append(AnswerIn(field_id=field.id, option_ids=option_ids,
-                                        other_text=anders))
+                answers.append(
+                    AnswerIn(field_id=field.id, option_ids=option_ids, other_text=anders)
+                )
         elif field.field_type in (FieldType.SELECT, FieldType.RADIO):
             raw = form_data.get(key)
             anders = (form_data.get(f"{key}_other") or "").strip() or None
             gekozen = [int(raw)] if (raw and str(raw).isdigit()) else []
             if gekozen or anders:
-                answers.append(AnswerIn(field_id=field.id, option_ids=gekozen,
-                                        other_text=anders))
+                answers.append(AnswerIn(field_id=field.id, option_ids=gekozen, other_text=anders))
         elif field.field_type is FieldType.NUMBER:
             raw_num = form_data.get(key)
             num_text = raw_num.strip() if isinstance(raw_num, str) else ""
             if num_text:
                 try:
-                    answers.append(AnswerIn(field_id=field.id,
-                                            number=Decimal(num_text.replace(",", "."))))
+                    answers.append(
+                        AnswerIn(field_id=field.id, number=Decimal(num_text.replace(",", ".")))
+                    )
                 except InvalidOperation:
                     answers.append(AnswerIn(field_id=field.id, text=num_text))
         elif field.field_type is FieldType.RATING:
@@ -142,8 +160,7 @@ def _prefill_from_session(db, request, submitter_name, submitter_email):
     if submitter_name or submitter_email or request is None:
         return submitter_name, submitter_email
     try:
-        from app.domains.auth.api import (
-            SESSION_COOKIE, login_person_for_email, read_session_value)
+        from app.domains.auth.api import SESSION_COOKIE, login_person_for_email, read_session_value
 
         email = read_session_value(request.cookies.get(SESSION_COOKIE))
         if not email:
@@ -157,22 +174,34 @@ def _prefill_from_session(db, request, submitter_name, submitter_email):
         return submitter_name, submitter_email
 
 
-def _form_render_ctx(db, form_model, request, *, values=None, error=None,
-                     submitter_name="", submitter_email="",
-                     fout_veld_id=None) -> dict:
+def _form_render_ctx(
+    db,
+    form_model,
+    request,
+    *,
+    values=None,
+    error=None,
+    submitter_name="",
+    submitter_email="",
+    fout_veld_id=None,
+) -> dict:
     from app.ui import site_context
 
     submitter_name, submitter_email = _prefill_from_session(
-        db, request, submitter_name, submitter_email)
+        db, request, submitter_name, submitter_email
+    )
 
     # Veldenlijst in weergavevolgorde: secties (op positie) met hun velden,
     # daarna de ongegroepeerde velden.
     sections = sorted(form_model.sections, key=lambda s: (s.position, s.id))
     grouped = []
     for section in sections:
-        grouped.append({"section": section,
-                        "fields": screen_fields(
-                            f for f in form_model.fields if f.section_id == section.id)})
+        grouped.append(
+            {
+                "section": section,
+                "fields": screen_fields(f for f in form_model.fields if f.section_id == section.id),
+            }
+        )
     loose = screen_fields(f for f in form_model.fields if f.section_id is None)
 
     # Stap-per-stap-wizard (#454): enkel bij ≥2 secties en geen losse velden —
@@ -188,26 +217,35 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
             for f in (fld for fld in form_model.fields if fld.section_id == section.id):
                 for o in f.options:
                     if o.skip_to_section_id is not None or o.skip_to_end:
-                        skips.append({
-                            "opt": o.id,
-                            "section": idx_by_id.get(o.skip_to_section_id),
-                            "end": bool(o.skip_to_end),
-                        })
-            wizard_steps.append({
-                "id": section.id,
-                "end": bool(section.next_is_end),
-                "next": idx_by_id.get(section.next_section_id)
-                        if section.next_section_id is not None else None,
-                "skips": skips,
-                # #724: welke velden van déze stap verplicht zijn. Het HTML-attribuut
-                # `required` staat er bewust niet op (#688) — de browser valideert het
-                # hele formulier bij verzending, ook de stappen die je nooit ziet —
-                # dus de wizard heeft die lijst zelf nodig om per stap te kunnen
-                # controleren. Een `info`-blok is geen vraag.
-                "req": [f.id for f in form_model.fields
-                        if f.section_id == section.id and f.required
-                        and f.field_type is not FieldType.INFO],
-            })
+                        skips.append(
+                            {
+                                "opt": o.id,
+                                "section": idx_by_id.get(o.skip_to_section_id),
+                                "end": bool(o.skip_to_end),
+                            }
+                        )
+            wizard_steps.append(
+                {
+                    "id": section.id,
+                    "end": bool(section.next_is_end),
+                    "next": idx_by_id.get(section.next_section_id)
+                    if section.next_section_id is not None
+                    else None,
+                    "skips": skips,
+                    # #724: welke velden van déze stap verplicht zijn. Het HTML-attribuut
+                    # `required` staat er bewust niet op (#688) — de browser valideert het
+                    # hele formulier bij verzending, ook de stappen die je nooit ziet —
+                    # dus de wizard heeft die lijst zelf nodig om per stap te kunnen
+                    # controleren. Een `info`-blok is geen vraag.
+                    "req": [
+                        f.id
+                        for f in form_model.fields
+                        if f.section_id == section.id
+                        and f.required
+                        and f.field_type is not FieldType.INFO
+                    ],
+                }
+            )
 
     # #724: openen op de stap van het gemelde veld. De foutweg rendert deze pagina
     # opnieuw en Alpine initialiseert het component vers — dus zonder dit stond je
@@ -219,10 +257,17 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
             start_step = idx_by_id.get(veld.section_id, 0)
 
     return {
-        **site_context(db, request), "form": form_model, "grouped": grouped,
-        "loose_fields": loose, "values": values or {}, "error": error,
-        "submitter_name": submitter_name, "submitter_email": submitter_email,
-        "wizard": wizard, "wizard_steps": wizard_steps, "start_step": start_step,
+        **site_context(db, request),
+        "form": form_model,
+        "grouped": grouped,
+        "loose_fields": loose,
+        "values": values or {},
+        "error": error,
+        "submitter_name": submitter_name,
+        "submitter_email": submitter_email,
+        "wizard": wizard,
+        "wizard_steps": wizard_steps,
+        "start_step": start_step,
     }
 
 
@@ -256,32 +301,42 @@ def formulier_op_slug(slug: str, request: Request, db: Session = Depends(get_db)
     if form_model is None:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden."))
     assert_open_for_submission(db, form_model)
-    return templates.TemplateResponse(request, "formulier.html",
-                                      _form_render_ctx(db, form_model, request))
+    return templates.TemplateResponse(
+        request, "formulier.html", _form_render_ctx(db, form_model, request)
+    )
 
 
 @router.get("/formulier/{share_token}", response_class=HTMLResponse)
 def formulier_page(share_token: str, request: Request, db: Session = Depends(get_db)):
     form_model = _load_open_form(db, share_token)
-    return templates.TemplateResponse(request, "formulier.html",
-                                      _form_render_ctx(db, form_model, request))
+    return templates.TemplateResponse(
+        request, "formulier.html", _form_render_ctx(db, form_model, request)
+    )
 
 
-@router.post("/formulier/{share_token}", response_class=HTMLResponse,
-             dependencies=[Depends(form_submit_limiter)])
-async def formulier_submit(share_token: str, request: Request,
-                           background_tasks: BackgroundTasks,
-                           db: Session = Depends(get_db)):
+@router.post(
+    "/formulier/{share_token}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(form_submit_limiter)],
+)
+async def formulier_submit(
+    share_token: str,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     from app.domains.forms.api import submit_public_form
     from app.domains.forms.schemas import SubmissionIn
 
     form_model = _load_open_form(db, share_token)
     form_data = await request.form()
-    values = {k: form_data.getlist(k) if len(form_data.getlist(k)) > 1 else (form_data.get(k) or "")
-              for k in form_data.keys()}
-    naam = (form_data.get("submitter_name") or "")
+    values = {
+        k: form_data.getlist(k) if len(form_data.getlist(k)) > 1 else (form_data.get(k) or "")
+        for k in form_data.keys()
+    }
+    naam = form_data.get("submitter_name") or ""
     naam = naam.strip() if isinstance(naam, str) else ""
-    email = (form_data.get("submitter_email") or "")
+    email = form_data.get("submitter_email") or ""
     email = email.strip() if isinstance(email, str) else ""
 
     # Zelfde invariant, zelfde functie (#635-2).
@@ -290,34 +345,60 @@ async def formulier_submit(share_token: str, request: Request,
     try:
         assert_submitter(form_model, naam, email)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, request, values=values,
-                               error=str(exc.detail),
-                               submitter_name=naam, submitter_email=email)
+        ctx = _form_render_ctx(
+            db,
+            form_model,
+            request,
+            values=values,
+            error=str(exc.detail),
+            submitter_name=naam,
+            submitter_email=email,
+        )
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
-    payload = SubmissionIn(submitter_name=naam or None, submitter_email=email or None,
-                           answers=_answers_from_form(form_model, form_data))
+    payload = SubmissionIn(
+        submitter_name=naam or None,
+        submitter_email=email or None,
+        answers=_answers_from_form(form_model, form_data),
+    )
     try:
         result = submit_public_form(db, share_token, payload, background_tasks)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, request, values=values, error=str(exc.detail),
-                               submitter_name=naam, submitter_email=email,
-                               fout_veld_id=getattr(exc, "veld_id", None))
+        ctx = _form_render_ctx(
+            db,
+            form_model,
+            request,
+            values=values,
+            error=str(exc.detail),
+            submitter_name=naam,
+            submitter_email=email,
+            fout_veld_id=getattr(exc, "veld_id", None),
+        )
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
     from app.ui import site_context
-    return templates.TemplateResponse(request, "formulier_klaar.html", {
-        **site_context(db, request), "form": form_model, "updated": False,
-        # De sleutel-URL, ook bij een formulier mét slug (#690/#928): bewerken
-        # bestaat alleen onder deze route. Een slug verandert wat je deelt, niet
-        # waarlangs een inzending bewerkt wordt.
-        "edit_link": (f"/formulier/{share_token}/edit/{result.edit_token}"
-                      if result.edit_token else None)})
+
+    return templates.TemplateResponse(
+        request,
+        "formulier_klaar.html",
+        {
+            **site_context(db, request),
+            "form": form_model,
+            "updated": False,
+            # De sleutel-URL, ook bij een formulier mét slug (#690/#928): bewerken
+            # bestaat alleen onder deze route. Een slug verandert wat je deelt, niet
+            # waarlangs een inzending bewerkt wordt.
+            "edit_link": (
+                f"/formulier/{share_token}/edit/{result.edit_token}" if result.edit_token else None
+            ),
+        },
+    )
 
 
 @router.get("/formulier/{share_token}/edit/{edit_token}", response_class=HTMLResponse)
-def formulier_edit_page(share_token: str, edit_token: str, request: Request,
-                        db: Session = Depends(get_db)):
+def formulier_edit_page(
+    share_token: str, edit_token: str, request: Request, db: Session = Depends(get_db)
+):
     from app.domains.forms.api import get_submission_by_edit_token
 
     submission = get_submission_by_edit_token(db, edit_token)
@@ -341,17 +422,26 @@ def formulier_edit_page(share_token: str, edit_token: str, request: Request,
             values[key] = str(answer.value_number)
         elif answer.value_text is not None:
             values[key] = answer.value_text
-    ctx = _form_render_ctx(db, form_model, request, values=values,
-                           submitter_name=submission.submitter_name or "",
-                           submitter_email=submission.submitter_email or "")
+    ctx = _form_render_ctx(
+        db,
+        form_model,
+        request,
+        values=values,
+        submitter_name=submission.submitter_name or "",
+        submitter_email=submission.submitter_email or "",
+    )
     ctx["edit_token"] = edit_token
     return templates.TemplateResponse(request, "formulier.html", ctx)
 
 
-@router.post("/formulier/{share_token}/edit/{edit_token}", response_class=HTMLResponse,
-             dependencies=[Depends(form_submit_limiter)])
-async def formulier_edit_submit(share_token: str, edit_token: str, request: Request,
-                                db: Session = Depends(get_db)):
+@router.post(
+    "/formulier/{share_token}/edit/{edit_token}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(form_submit_limiter)],
+)
+async def formulier_edit_submit(
+    share_token: str, edit_token: str, request: Request, db: Session = Depends(get_db)
+):
     from app.domains.forms.api import update_public_submission
     from app.domains.forms.schemas import SubmissionIn
 
@@ -361,18 +451,30 @@ async def formulier_edit_submit(share_token: str, edit_token: str, request: Requ
     naam = naam.strip() if isinstance(naam, str) else ""
     email = form_data.get("submitter_email")
     email = email.strip() if isinstance(email, str) else ""
-    payload = SubmissionIn(submitter_name=naam or None, submitter_email=email or None,
-                           answers=_answers_from_form(form_model, form_data))
+    payload = SubmissionIn(
+        submitter_name=naam or None,
+        submitter_email=email or None,
+        answers=_answers_from_form(form_model, form_data),
+    )
     try:
         update_public_submission(db, edit_token, payload)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, request,
-                               fout_veld_id=getattr(exc, "veld_id", None),
-                               error=str(exc.detail),
-                               submitter_name=naam, submitter_email=email)
+        ctx = _form_render_ctx(
+            db,
+            form_model,
+            request,
+            fout_veld_id=getattr(exc, "veld_id", None),
+            error=str(exc.detail),
+            submitter_name=naam,
+            submitter_email=email,
+        )
         ctx["edit_token"] = edit_token
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
     from app.ui import site_context
-    return templates.TemplateResponse(request, "formulier_klaar.html", {
-        **site_context(db, request), "form": form_model, "updated": True, "edit_link": None})
+
+    return templates.TemplateResponse(
+        request,
+        "formulier_klaar.html",
+        {**site_context(db, request), "form": form_model, "updated": True, "edit_link": None},
+    )

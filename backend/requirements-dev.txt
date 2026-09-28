@@ -13,3 +13,7 @@ PyYAML==6.0.3
 
 # Static type checking (mypy in CI; symmetrie met `tsc --noEmit` op de frontend).
 mypy==2.1.0
+
+# Formatter and linter (#781). Pinned: a new ruff release can move the format,
+# and that must be a deliberate bump, not a red CI run on an unrelated push.
+ruff==0.16.9

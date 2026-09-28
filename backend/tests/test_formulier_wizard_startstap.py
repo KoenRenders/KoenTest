@@ -17,6 +17,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal):
     wizard opent weer op stap 0;
   * de `required`-controle in `forms/service.py` overgeslagen → de tweede valt om.
 """
+
 import re
 
 import pytest
@@ -27,14 +28,24 @@ pytestmark = pytest.mark.ui_serverrendered
 def _wizardformulier(client, admin_headers):
     """Twee secties: de eerste vrijblijvend, de tweede met een verplichte vraag."""
     payload = {
-        "title": "Wizard met verplicht veld", "status": "open",
-        "sections": [{"title": "Eerst", "position": 0},
-                     {"title": "Daarna", "position": 1}],
+        "title": "Wizard met verplicht veld",
+        "status": "open",
+        "sections": [{"title": "Eerst", "position": 0}, {"title": "Daarna", "position": 1}],
         "fields": [
-            {"field_type": "text", "label": "Vrijblijvend", "position": 0,
-             "required": False, "section_index": 0},
-            {"field_type": "text", "label": "Moet ingevuld", "position": 1,
-             "required": True, "section_index": 1},
+            {
+                "field_type": "text",
+                "label": "Vrijblijvend",
+                "position": 0,
+                "required": False,
+                "section_index": 0,
+            },
+            {
+                "field_type": "text",
+                "label": "Moet ingevuld",
+                "position": 1,
+                "required": True,
+                "section_index": 1,
+            },
         ],
     }
     resp = client.post("/api/v1/forms", json=payload, headers=admin_headers)
@@ -49,19 +60,24 @@ def _startstap(html: str) -> int:
     return int(treffer.group(1))
 
 
-def test_de_wizard_opent_op_de_stap_van_het_gemelde_veld(client, admin_headers,
-                                                         db_session):
+def test_de_wizard_opent_op_de_stap_van_het_gemelde_veld(client, admin_headers, db_session):
     form = _wizardformulier(client, admin_headers)
     verplicht = next(f for f in form["fields"] if f["required"])
 
-    resp = client.post(f"/formulier/{form['share_token']}", data={
-        "submitter_name": "Jan", "submitter_email": "jan@example.com",
-        f"f{form['fields'][0]['id']}": "iets"})
+    resp = client.post(
+        f"/formulier/{form['share_token']}",
+        data={
+            "submitter_name": "Jan",
+            "submitter_email": "jan@example.com",
+            f"f{form['fields'][0]['id']}": "iets",
+        },
+    )
 
     assert resp.status_code == 200, resp.text
     assert verplicht["label"] in resp.text, "de melding noemt het veld niet"
     assert _startstap(resp.text) == 1, (
-        "de wizard opent op stap 0 — een melding over een vraag die je niet ziet")
+        "de wizard opent op stap 0 — een melding over een vraag die je niet ziet"
+    )
 
 
 def test_zonder_fout_begint_de_wizard_gewoon_vooraan(client, admin_headers):
@@ -73,8 +89,7 @@ def test_zonder_fout_begint_de_wizard_gewoon_vooraan(client, admin_headers):
     assert _startstap(resp.text) == 0
 
 
-def test_rechtstreeks_verzenden_wordt_nog_steeds_geweigerd(client, admin_headers,
-                                                           db_session):
+def test_rechtstreeks_verzenden_wordt_nog_steeds_geweigerd(client, admin_headers, db_session):
     """De stapcontrole in de browser vervángt de server niet.
 
     Zonder deze test zou #724 ook "opgelost" zijn door alleen JavaScript toe te
@@ -84,14 +99,16 @@ def test_rechtstreeks_verzenden_wordt_nog_steeds_geweigerd(client, admin_headers
 
     form = _wizardformulier(client, admin_headers)
 
-    resp = client.post(f"/formulier/{form['share_token']}", data={
-        "submitter_name": "Jan", "submitter_email": "jan@example.com"})
+    resp = client.post(
+        f"/formulier/{form['share_token']}",
+        data={"submitter_name": "Jan", "submitter_email": "jan@example.com"},
+    )
 
     assert resp.status_code == 200, "de foutweg rendert de pagina opnieuw"
     assert "verplicht" in resp.text.lower()
-    assert db_session.query(FormSubmission).filter(
-        FormSubmission.form_id == form["id"]).count() == 0, (
-        "de onvolledige inzending is toch bewaard")
+    assert (
+        db_session.query(FormSubmission).filter(FormSubmission.form_id == form["id"]).count() == 0
+    ), "de onvolledige inzending is toch bewaard"
 
 
 def test_de_stappen_dragen_hun_verplichte_velden(client, admin_headers):
@@ -107,5 +124,6 @@ def test_de_stappen_dragen_hun_verplichte_velden(client, admin_headers):
 
     stappen = re.search(r"formWizard\((\[.*?\]),\s*\d+\)", html)
     assert stappen, "de stappenlijst staat niet in de pagina"
-    assert f'"req": [{verplicht["id"]}]' in stappen.group(1).replace("&#34;", '"') \
-        or f'&#34;req&#34;: [{verplicht["id"]}]' in stappen.group(1), stappen.group(1)
+    assert f'"req": [{verplicht["id"]}]' in stappen.group(1).replace(
+        "&#34;", '"'
+    ) or f"&#34;req&#34;: [{verplicht['id']}]" in stappen.group(1), stappen.group(1)

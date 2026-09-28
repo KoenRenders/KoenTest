@@ -6,6 +6,7 @@ import httpx
 from app.config import settings
 from app.domains.payment.models import PaymentStatus
 from app.kernel.codes import ExternalVocabulary
+
 from .base import BaseProvider, PaymentResult, PaymentStatusResult
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,9 @@ def our_status(reported: str) -> PaymentStatus:
     except ValueError:
         logger.warning(
             "unknown Mollie status %r — leaving the record pending; add it to "
-            "MollieStatus and MOLLIE_STATUS_MAP if it is a real state", reported)
+            "MollieStatus and MOLLIE_STATUS_MAP if it is a real state",
+            reported,
+        )
         return PaymentStatus.PENDING
 
 

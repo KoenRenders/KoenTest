@@ -30,6 +30,7 @@ verwijderen ervan. Daarom leest `_tabknop` de `hx-get` én de `hx-headers` nu ui
 de gerenderde opmaak; wat de browser zou versturen, komt uit het scherm en niet
 uit dit bestand.
 """
+
 from __future__ import annotations
 
 import re
@@ -82,24 +83,30 @@ def _tabknop(html: str, zicht: str) -> tuple[str, dict]:
 
 def _actief_tabblad(html: str) -> str | None:
     """Welk tabblad draagt de actieve opmaak? Eén per antwoord."""
-    actief = [z for z, klasse in
-              re.findall(r'zicht=(\w+)[^>]*class="([^"]*)"', html)
-              if "font-semibold" in klasse]
+    actief = [
+        z
+        for z, klasse in re.findall(r'zicht=(\w+)[^>]*class="([^"]*)"', html)
+        if "font-semibold" in klasse
+    ]
     return actief[0] if actief else None
 
 
 @pytest.fixture
 def openstaande_betaling(db_session):
-    rij = PaymentRecord(payable_type="registration", payable_id=4242,
-                        amount=Decimal("20.00"), method="transfer",
-                        status="pending", type="charge")
+    rij = PaymentRecord(
+        payable_type="registration",
+        payable_id=4242,
+        amount=Decimal("20.00"),
+        method="transfer",
+        status="pending",
+        type="charge",
+    )
     db_session.add(rij)
     db_session.commit()
     return rij
 
 
-def test_de_tab_zet_zijn_zicht_in_de_adresbalk(client, db_session,
-                                                openstaande_betaling):
+def test_de_tab_zet_zijn_zicht_in_de_adresbalk(client, db_session, openstaande_betaling):
     """De reparatie zelf: een tabklik pusht het pagina-adres mét zicht.
 
     Zonder deze kop weet het volgende verzoek niet waar je stond — en dat
@@ -109,19 +116,25 @@ def test_de_tab_zet_zijn_zicht_in_de_adresbalk(client, db_session,
     pagina = client.get("/admin/betalingen").text
     url, koppen = _tabknop(pagina, "openstaand")
 
-    antwoord = client.get(url, headers={**koppen, "HX-Request": "true",
-                                        "HX-Current-URL":
-                                        "http://testserver/admin/betalingen"})
+    antwoord = client.get(
+        url,
+        headers={
+            **koppen,
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/betalingen",
+        },
+    )
 
     assert antwoord.headers.get("HX-Push-Url") == "/admin/betalingen?zicht=openstaand", (
         "de tabknop draagt geen X-Raak-Filter, dus de middleware duwt niets — en "
-        f"dan weet het volgende verzoek niet waar je stond. Koppen: {koppen}")
+        f"dan weet het volgende verzoek niet waar je stond. Koppen: {koppen}"
+    )
 
 
 @pytest.mark.parametrize("zicht", ZICHTEN)
-def test_een_bevestiging_laat_je_op_hetzelfde_tabblad(client, db_session,
-                                                       openstaande_betaling,
-                                                       zicht):
+def test_een_bevestiging_laat_je_op_hetzelfde_tabblad(
+    client, db_session, openstaande_betaling, zicht
+):
     """Koens melding, voor elk tabblad — hij vroeg expliciet om de andere ook.
 
     De volgorde is de zijne: pagina laden, tabblad kiezen, bevestigen. De URL
@@ -132,17 +145,23 @@ def test_een_bevestiging_laat_je_op_hetzelfde_tabblad(client, db_session,
     pagina = client.get("/admin/betalingen").text
     url, koppen = _tabknop(pagina, zicht)
 
-    tabklik = client.get(url, headers={**koppen, "HX-Request": "true",
-                                       "HX-Current-URL":
-                                       "http://testserver/admin/betalingen"})
+    tabklik = client.get(
+        url,
+        headers={
+            **koppen,
+            "HX-Request": "true",
+            "HX-Current-URL": "http://testserver/admin/betalingen",
+        },
+    )
     # Wat de browser hierna in de adresbalk heeft staan — en dus meestuurt.
     geduwd = tabklik.headers.get("HX-Push-Url", "/admin/betalingen")
 
-    na = client.post(f"/admin/betalingen/{openstaande_betaling.id}/bevestigen",
-                     headers={**kop, "HX-Request": "true",
-                              "HX-Current-URL": f"http://testserver{geduwd}"})
+    na = client.post(
+        f"/admin/betalingen/{openstaande_betaling.id}/bevestigen",
+        headers={**kop, "HX-Request": "true", "HX-Current-URL": f"http://testserver{geduwd}"},
+    )
 
     assert na.status_code == 200, na.text[:300]
     assert _actief_tabblad(na.text) == zicht, (
-        f"na de bevestiging staat '{_actief_tabblad(na.text)}' actief in plaats "
-        f"van '{zicht}'")
+        f"na de bevestiging staat '{_actief_tabblad(na.text)}' actief in plaats van '{zicht}'"
+    )

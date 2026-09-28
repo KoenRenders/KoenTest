@@ -26,10 +26,10 @@ niet uit die van de context.
 Rood gemaakt om te toetsen dát ze kunnen falen: met `env` uit `launch_opties()` gehaald
 verhoogt de pijltoets weer de maand en falen beide tests.
 """
+
 import os
 import sys
 
-import pytest
 from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,7 +47,6 @@ MAAND_VOORAAN = "1955-11-30"
 def _eerste_segment(launch_kwargs: dict, context_kwargs: dict) -> dict:
     """Open het bewerkformulier van het eerste gezinslid en duw op het datumveld."""
     from app.domains.auth.api import make_session_value
-
     from seed_e2e import MARKER_EMAIL
 
     with sync_playwright() as pw:
@@ -57,9 +56,9 @@ def _eerste_segment(launch_kwargs: dict, context_kwargs: dict) -> dict:
             opstart["executable_path"] = exe
         browser = pw.chromium.launch(**opstart)
         try:
-            context = browser.new_context(base_url=BASE,
-                                          viewport={"width": 1440, "height": 900},
-                                          **context_kwargs)
+            context = browser.new_context(
+                base_url=BASE, viewport={"width": 1440, "height": 900}, **context_kwargs
+            )
             page = context.new_page()
             login_met_sessie(page, make_session_value(MARKER_EMAIL))
             page.goto("/leden/gezin")
@@ -70,8 +69,11 @@ def _eerste_segment(launch_kwargs: dict, context_kwargs: dict) -> dict:
             voor = veld.input_value()
             veld.click()
             page.keyboard.press("ArrowUp")
-            return {"voor": voor, "na": veld.input_value(),
-                    "taal": page.evaluate("navigator.language")}
+            return {
+                "voor": voor,
+                "na": veld.input_value(),
+                "taal": page.evaluate("navigator.language"),
+            }
         finally:
             browser.close()
 
@@ -81,13 +83,16 @@ def test_de_opname_zet_de_dag_vooraan():
     meting = _eerste_segment(launch_opties(), context_opties())
     assert meting["voor"] == GEZAAIDE_DATUM, (
         f"het veld draagt niet de gezaaide geboortedatum maar {meting['voor']!r} — "
-        "deze test meet dan iets anders dan ze denkt")
+        "deze test meet dan iets anders dan ze denkt"
+    )
     assert meting["na"] == DAG_VOORAAN, (
         f"de pijltoets verhoogde {meting['voor']} naar {meting['na']}: het eerste "
-        "segment is niet de dag, dus de afdruk draagt nog de Amerikaanse volgorde")
+        "segment is niet de dag, dus de afdruk draagt nog de Amerikaanse volgorde"
+    )
     assert meting["taal"] == "nl-BE", (
         f"navigator.language staat op {meting['taal']!r} — de pagina zelf formatteert "
-        "dan nog in een andere taal dan het datumveld")
+        "dan nog in een andere taal dan het datumveld"
+    )
 
 
 def test_zonder_de_taal_van_de_tool_staat_de_maand_vooraan():
@@ -100,4 +105,5 @@ def test_zonder_de_taal_van_de_tool_staat_de_maand_vooraan():
     meting = _eerste_segment({}, {"reduced_motion": "reduce"})
     assert meting["na"] == MAAND_VOORAAN, (
         f"een browser zonder de taal van de tool verhoogde {meting['voor']} naar "
-        f"{meting['na']}; verwacht was de maand — meet deze test nog wat ze zegt?")
+        f"{meting['na']}; verwacht was de maand — meet deze test nog wat ze zegt?"
+    )

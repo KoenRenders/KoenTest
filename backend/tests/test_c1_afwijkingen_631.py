@@ -1,9 +1,9 @@
 """Drie kleine C1-afwijkingen op zichtbare plekken (#631)."""
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, Role, User, UserRole, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
-from app.domains.auth.api import Role
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -24,8 +24,9 @@ def test_de_kpi_rij_staat_na_de_titel(client, db_session):
     _login(client, db_session)
     html = client.get("/admin/activiteiten").text
 
-    assert html.index("<h1") < html.index("Open inschrijvingen"), \
+    assert html.index("<h1") < html.index("Open inschrijvingen"), (
         "de KPI-rij hoort ná de paginatitel te staan"
+    )
 
 
 def test_de_kpi_rij_staat_ook_op_leden_na_de_titel(client, db_session):
@@ -47,14 +48,19 @@ def test_de_verstuurknop_van_de_widget_heeft_een_aria_label():
 
     # #1075: de knop staat sinds het gedeelde bedieningsdeel in
     # `_raakje_controls.html` (compact-variant); de widget roept dat aan.
-    tpl = (Path(__file__).resolve().parents[1] / "app" / "domains" / "chatbot"
-           / "templates" / "_raakje_controls.html").read_text()
+    tpl = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "domains"
+        / "chatbot"
+        / "templates"
+        / "_raakje_controls.html"
+    ).read_text()
     # #570: het teken ➤ is een kit-icoon geworden — losse tekens renderen per
     # lettertype en OS anders. De regel die deze test bewaakt verandert daar niet
     # door: een knop zonder leesbare tekst heeft een aria-label nodig, of het nu een
     # glyph of een SVG is.
-    knop = [r for r in tpl.splitlines()
-            if "btn_primary" in r and 'ui.icon("send")' in r]
+    knop = [r for r in tpl.splitlines() if "btn_primary" in r and 'ui.icon("send")' in r]
     assert knop, "de verstuurknop is niet gevonden"
     assert "aria_label" in knop[0], "een schermlezer leest anders niets voor"
 
@@ -63,10 +69,17 @@ def test_albumtitels_staan_in_ink(client, db_session):
     """Sinds #621 draagt een kaarttitel `text-ink`; merkblauw is voor koppen en
     chrome. De publieke fotoalbums waren blijven staan."""
     from pathlib import Path
-    tpl = (Path(__file__).resolve().parents[1] / "app" / "domains" / "media"
-           / "templates" / "fotos.html").read_text()
-    assert 'font-semibold text-blue-700' not in tpl
-    assert 'font-semibold text-ink' in tpl
+
+    tpl = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "domains"
+        / "media"
+        / "templates"
+        / "fotos.html"
+    ).read_text()
+    assert "font-semibold text-blue-700" not in tpl
+    assert "font-semibold text-ink" in tpl
 
 
 def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_session):
@@ -76,13 +89,15 @@ def test_de_kpi_kaarten_zien_er_op_beide_schermen_hetzelfde_uit(client, db_sessi
     seed_activity_with_product(db_session)
     _login(client, db_session)
 
-    for pad, label in (("/admin/activiteiten", "Open inschrijvingen"),
-                       ("/admin/leden", "Actieve gezinnen")):
+    for pad, label in (
+        ("/admin/activiteiten", "Open inschrijvingen"),
+        ("/admin/leden", "Actieve gezinnen"),
+    ):
         html = client.get(pad).text
-        kaart = html[html.index(label) - 600:html.index(label) + 200]
+        kaart = html[html.index(label) - 600 : html.index(label) + 200]
         # Sinds #996 delen beide schermen de kengetallenBAND (witte kaart,
         # kolommen op md+, compacte regels mobiel) — zelfde vorm als Betalingen.
         assert "border-gray-200 bg-white" in kaart, f"{pad}: KPI-kaart is niet wit"
         # Label bóven het cijfer: het label staat eerder in de HTML dan de waarde.
-        na_label = html[html.index(label):]
+        na_label = html[html.index(label) :]
         assert "text-3xl" in na_label[:300], f"{pad}: het cijfer hoort ná het label"

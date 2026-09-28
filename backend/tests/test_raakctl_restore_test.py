@@ -34,6 +34,7 @@ seen failing on its own assertion:
 | `rc=0` added after the exit code is taken | "a failed exercise says failed" |
 | a `--confirm` demand for prod added | "prod needs no confirmation", "that environment's checkout" (prod), --list |
 """
+
 import os
 import subprocess
 from pathlib import Path
@@ -93,15 +94,21 @@ def _run(tmp_path, *args, code=0, dumps=(), stdin=""):
         f = tmp_path / environment / "backups" / name
         f.write_bytes(b"x" * 2048)
         os.utime(f, (mtime, mtime))
-    done = subprocess.run(["bash", str(RAAKCTL), *args], env=env, input=stdin,
-                          capture_output=True, text=True, timeout=60)
+    done = subprocess.run(
+        ["bash", str(RAAKCTL), *args],
+        env=env,
+        input=stdin,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     return done, (trace.read_text() if trace.exists() else "")
 
 
 # ── Only dumps inside backups/ ────────────────────────────────────────────────
 
-@pytest.mark.parametrize("dump", ["../prod/backups/x.sql.gz", "/etc/passwd",
-                                  "sub/x.sql.gz"])
+
+@pytest.mark.parametrize("dump", ["../prod/backups/x.sql.gz", "/etc/passwd", "sub/x.sql.gz"])
 def test_a_dump_outside_backups_is_refused_before_the_script_runs(dump, tmp_path):
     done, invocations = _run(tmp_path, "restore-test", "uat", dump)
 
@@ -128,15 +135,22 @@ def test_an_unknown_environment_is_refused(tmp_path):
 
 # ── --list ────────────────────────────────────────────────────────────────────
 
+
 def test_list_shows_the_newest_first_with_time_and_size(tmp_path):
     """The names sort the other way round from the times, so an alphabetical list
     cannot pass for a newest-first one."""
-    done, invocations = _run(tmp_path, "restore-test", "prod", "--list", dumps=[
-        ("prod", "a-newest.sql.gz", 1_790_000_000),
-        ("prod", "b-middle.sql.gz", 1_780_000_000),
-        ("prod", "c-oldest.sql.gz", 1_770_000_000),
-        ("uat", "z-other-environment.sql.gz", 1_800_000_000),
-    ])
+    done, invocations = _run(
+        tmp_path,
+        "restore-test",
+        "prod",
+        "--list",
+        dumps=[
+            ("prod", "a-newest.sql.gz", 1_790_000_000),
+            ("prod", "b-middle.sql.gz", 1_780_000_000),
+            ("prod", "c-oldest.sql.gz", 1_770_000_000),
+            ("uat", "z-other-environment.sql.gz", 1_800_000_000),
+        ],
+    )
 
     assert done.returncode == 0, done.stderr
     lines = done.stdout.strip().splitlines()
@@ -159,17 +173,23 @@ def test_list_says_so_when_there_are_no_dumps(tmp_path):
 
 # ── The script of that environment's checkout ─────────────────────────────────
 
+
 @pytest.mark.parametrize("environment", ["hdev", "uat", "prod"])
 def test_the_script_of_that_environments_checkout_runs(environment, tmp_path):
-    done, invocations = _run(tmp_path, "restore-test", environment, "chosen.sql.gz",
-                             dumps=[(environment, "chosen.sql.gz", 1_790_000_000)])
+    done, invocations = _run(
+        tmp_path,
+        "restore-test",
+        environment,
+        "chosen.sql.gz",
+        dumps=[(environment, "chosen.sql.gz", 1_790_000_000)],
+    )
 
     assert done.returncode == 0, done.stderr
     checkout = tmp_path / environment
     backups = checkout / "backups"
     assert invocations.strip() == (
-        f"cwd={checkout} args={environment} {backups / 'chosen.sql.gz'} "
-        f"backup_dir={backups}"), invocations
+        f"cwd={checkout} args={environment} {backups / 'chosen.sql.gz'} backup_dir={backups}"
+    ), invocations
 
 
 def test_without_a_dump_the_script_picks_the_newest_itself(tmp_path):
@@ -190,14 +210,20 @@ def test_prod_needs_no_confirmation(tmp_path):
 
 # ── The fixed summary ─────────────────────────────────────────────────────────
 
+
 def _summary(stdout: str) -> list[str]:
     assert "== restore-test summary ==" in stdout, stdout
     return stdout.split("== restore-test summary ==", 1)[1].strip().splitlines()
 
 
 def test_a_good_exercise_ends_in_the_fixed_summary(tmp_path):
-    done, _ = _run(tmp_path, "restore-test", "uat", "chosen.sql.gz",
-                   dumps=[("uat", "chosen.sql.gz", 1_790_000_000)])
+    done, _ = _run(
+        tmp_path,
+        "restore-test",
+        "uat",
+        "chosen.sql.gz",
+        dumps=[("uat", "chosen.sql.gz", 1_790_000_000)],
+    )
 
     assert done.returncode == 0, done.stderr
     summary = _summary(done.stdout)
@@ -222,6 +248,7 @@ def test_a_failed_exercise_says_failed_and_exits_non_zero(tmp_path):
 
 
 # ── Findable ──────────────────────────────────────────────────────────────────
+
 
 def test_the_verb_appears_in_the_help_text(tmp_path):
     done, _ = _run(tmp_path, "help")

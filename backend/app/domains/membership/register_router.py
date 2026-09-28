@@ -1,61 +1,60 @@
 """Gezinnen, personen en lidmaatschappen: publieke gezinsregistratie +
 admin-CRUD (verhuisd uit app/routers/members.py, #444).
 """
+
 import logging
-import time
 from datetime import date
 from typing import List, Optional
 
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session, joinedload, selectinload
+from sqlalchemy import and_, func
+from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.domains.membership.models import Membership
-from app.domains.mdm.api import Member, Person, MemberPerson
-from app.domains.mdm.api import PostalCode
-from app.domains.mdm.api import ContactDetail
-from app.domains.auth.api import User
-from app.domains.membership.schemas_member import (
-    MemberCreate,
-    MemberResponse,
-    PersonCreate,
-    PersonResponse,
-    PersonUpdate,
-    PersonAddToFamily,
-    PersonListItem,
-    MembershipCreate,
-    MembershipResponse,
-    FamilyMemberResponse,
-    FamilyResponse,
-    FamilyRegisteredResponse,
-    PostalCodeResponse,
-    PaginatedFamiliesResponse,
-    PaginatedMembersResponse,
-    AddressUpdate,
-    ContactsUpdate,
-    BoardMemberAssign,
-)
-from app.domains.membership import household_service as _service
-from app.domains.membership.schemas_family import FamilyCreate
-from app.domains.payment.api import create_payment_record, membership_price_for_date
+
 # #1110: het schrijven van een gezin staat in household_service, dus de snapshots
 # daarvan ook. Wat hier rest is het lidmaatschap dat deze router zelf bijwerkt.
 from app.domains.audit.api import (  # noqa: F401
     PUBLIEKE_ACTOR,
     snapshot_membership,
 )
-from app.soft_delete import soft_delete
+from app.domains.auth.api import User, get_current_admin
 from app.domains.mail.api import send_registration_confirmation
-from app.config import settings
-from app.limiter import registration_limiter
+from app.domains.mdm.api import (
+    CONTACT,
+    ContactDetail,
+    Member,
+    MemberPerson,
+    PaymentMethod,
+    Person,
+    PostalCode,
+    RelationType,
+)
+from app.domains.membership import household_service as _service
+from app.domains.membership.models import Membership
+from app.domains.membership.schemas_family import FamilyCreate
+from app.domains.membership.schemas_member import (
+    AddressUpdate,
+    BoardMemberAssign,
+    ContactsUpdate,
+    FamilyMemberResponse,
+    FamilyRegisteredResponse,
+    FamilyResponse,
+    MemberCreate,
+    MemberResponse,
+    MembershipCreate,
+    MembershipResponse,
+    PaginatedFamiliesResponse,
+    PaginatedMembersResponse,
+    PersonAddToFamily,
+    PersonListItem,
+    PersonUpdate,
+)
+from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
-from app.domains.mdm.api import PaymentMethod
-from app.domains.mdm.api import CONTACT, RelationType
+from app.limiter import registration_limiter
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["members"])
 
@@ -68,7 +67,13 @@ def list_members(
     _admin: User = Depends(get_current_admin),
 ):
     total = db.query(Member).count()
-    members = db.query(Member).order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    members = (
+        db.query(Member)
+        .order_by(Member.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
     return PaginatedMembersResponse(
         items=members,
         total=total,
@@ -134,7 +139,14 @@ def create_membership(
         # nooit als 'geldig' (valid_membership_until vereist valid_from/valid_to). #143
         existing.valid_from = existing.valid_from or date(data.year, 1, 1)
         existing.valid_to = existing.valid_to or date(data.year, 12, 31)
-        snapshot_membership(db, existing, operation="update", action="membership_updated", source="admin_update", actor=admin.email)
+        snapshot_membership(
+            db,
+            existing,
+            operation="update",
+            action="membership_updated",
+            source="admin_update",
+            actor=admin.email,
+        )
         db.commit()
         db.refresh(existing)
         return existing
@@ -148,7 +160,14 @@ def create_membership(
     )
     db.add(membership)
     db.flush()
-    snapshot_membership(db, membership, operation="insert", action="membership_created", source="admin_manual", actor=admin.email)
+    snapshot_membership(
+        db,
+        membership,
+        operation="insert",
+        action="membership_created",
+        source="admin_manual",
+        actor=admin.email,
+    )
     db.commit()
     db.refresh(membership)
     return membership
@@ -162,10 +181,12 @@ def list_families(
     # beloofde "naam of e-mail" terwijl dezelfde `list_families` sinds #1165 ook
     # op de straat zoekt — een tweede plek voor hetzelfde feit die stil verouderde.
     q: Optional[str] = Query(
-        None,
-        description=f"Zoek op {_service.family_search_hint()} van een gezinslid"),
+        None, description=f"Zoek op {_service.family_search_hint()} van een gezinslid"
+    ),
     status: Optional[str] = Query(None, description="actief | opgezegd (lidmaatschap vandaag)"),
-    membership_year: Optional[int] = Query(None, description="Enkel gezinnen met een lidmaatschap dat dit jaar dekt"),
+    membership_year: Optional[int] = Query(
+        None, description="Enkel gezinnen met een lidmaatschap dat dit jaar dekt"
+    ),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -189,11 +210,9 @@ def get_family(
     return _service.get_family(db, family_id=family_id, _admin=_admin)
 
 
-
-
-
-
-@router.post("/families/{family_id}/memberships", status_code=201, response_model=MembershipResponse)
+@router.post(
+    "/families/{family_id}/memberships", status_code=201, response_model=MembershipResponse
+)
 def create_membership_for_family(
     family_id: int,
     data: MembershipCreate,
@@ -289,8 +308,6 @@ def add_person_to_family(
     )
 
 
-
-
 @router.delete("/memberships/{membership_id}", status_code=204)
 def delete_membership(
     membership_id: int,
@@ -315,8 +332,15 @@ def assign_board_member(
     )
 
 
-@router.post("/families", status_code=201, response_model=FamilyRegisteredResponse, dependencies=[Depends(registration_limiter)])
-def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+@router.post(
+    "/families",
+    status_code=201,
+    response_model=FamilyRegisteredResponse,
+    dependencies=[Depends(registration_limiter)],
+)
+def register_family(
+    data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)
+):
     """Public endpoint: register a new family (member household).
 
     Het schrijven zelf — gezin, personen, adres, contactgegevens, lidmaatschap —
@@ -339,42 +363,59 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     if hoofdlid_email:
         existing_memberships = (
             db.query(Membership)
-            .join(MemberPerson, and_(
-                MemberPerson.member_id == Membership.member_id,
-                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
-            ))
-            .join(ContactDetail, and_(
-                ContactDetail.person_id == MemberPerson.person_id,
-                ContactDetail.contact_type_code == CONTACT.EMAIL,
-                func.lower(ContactDetail.value) == hoofdlid_email.lower(),
-            ))
+            .join(
+                MemberPerson,
+                and_(
+                    MemberPerson.member_id == Membership.member_id,
+                    MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
+                ),
+            )
+            .join(
+                ContactDetail,
+                and_(
+                    ContactDetail.person_id == MemberPerson.person_id,
+                    ContactDetail.contact_type_code == CONTACT.EMAIL,
+                    func.lower(ContactDetail.value) == hoofdlid_email.lower(),
+                ),
+            )
             .filter(Membership.year == today.year)
             .all()
         )
         if existing_memberships:
             from app.domains.payment.api import PayableType, PaymentRecord, PaymentStatus
+
             for ms in existing_memberships:
-                recs = db.query(PaymentRecord).filter(
-                    PaymentRecord.payable_type == PayableType.MEMBERSHIP,
-                    PaymentRecord.payable_id == ms.id,
-                ).all()
-                if not recs or any(r.status in (PaymentStatus.PAID,
-                                                PaymentStatus.PENDING)
-                                   for r in recs):
+                recs = (
+                    db.query(PaymentRecord)
+                    .filter(
+                        PaymentRecord.payable_type == PayableType.MEMBERSHIP,
+                        PaymentRecord.payable_id == ms.id,
+                    )
+                    .all()
+                )
+                if not recs or any(
+                    r.status in (PaymentStatus.PAID, PaymentStatus.PENDING) for r in recs
+                ):
                     raise HTTPException(
                         status_code=409,
-                        detail=_("Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. "
-                                 "Neem contact op met het bestuur als dit niet klopt.") % {"year": today.year},
+                        detail=_(
+                            "Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. "
+                            "Neem contact op met het bestuur als dit niet klopt."
+                        )
+                        % {"year": today.year},
                     )
 
     member, membership = _service.create_family_with_members(
-        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today)
+        db, data, actor=PUBLIEKE_ACTOR, source="registration", today=today
+    )
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
 
     # Payment
     amount = membership_price_for_date(today)
     hoofdlid = data.members[0]
-    description = f"Raak Millegem lidmaatschap {today.year} – {hoofdlid.last_name} {hoofdlid.first_name}"
+    description = (
+        f"Raak Millegem lidmaatschap {today.year} – {hoofdlid.last_name} {hoofdlid.first_name}"
+    )
     from app.kernel.tenant_config import tenant_base_url
 
     redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
@@ -399,10 +440,14 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     db.commit()
 
     checkout_url = None
-    if data.payment_method == PaymentMethod.ONLINE.value \
-            and payment_record.gateway_payment_id:
+    if data.payment_method == PaymentMethod.ONLINE.value and payment_record.gateway_payment_id:
         from app.domains.payment.api import GatewayPayment
-        gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+
+        gp = (
+            db.query(GatewayPayment)
+            .filter(GatewayPayment.id == payment_record.gateway_payment_id)
+            .first()
+        )
         if gp:
             checkout_url = gp.checkout_url
 
@@ -420,6 +465,9 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
         except Exception as e:
             logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)
 
-    status = ("pending_payment" if data.payment_method == PaymentMethod.ONLINE.value
-              else "registered")
-    return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)
+    status = (
+        "pending_payment" if data.payment_method == PaymentMethod.ONLINE.value else "registered"
+    )
+    return FamilyRegisteredResponse(
+        id=member.id, status=status, checkout_url=checkout_url, amount=amount
+    )

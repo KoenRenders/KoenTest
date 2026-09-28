@@ -26,6 +26,7 @@ vallen **beide** tests om — de afstanden kloppen niet meer én de trefzones ra
 niet meer. Dat ze samen omvallen is geen dubbeling: bij `space-y-1` faalt de tweede op
 een gat van 4 px waar de eerste alleen ziet dat het wit niet meer klopt.
 """
+
 import os
 import secrets
 import sys
@@ -67,24 +68,25 @@ def formulier():
     """Eén sectie, twee vragen met opties — genoeg voor alle drie de afstanden."""
     import app.models  # noqa: F401  load_all_models()
     from app.database import SessionLocal
-    from app.domains.forms.models import (Form, FormField, FormFieldOption,
-                                          FormSection)
+    from app.domains.forms.models import Form, FormField, FormFieldOption, FormSection
 
     db = SessionLocal()
     token = "e2e774-" + secrets.token_urlsafe(6)
-    form = Form(title="E2E Afstanden", status="open", is_anonymous=True,
-                share_token=token)
+    form = Form(title="E2E Afstanden", status="open", is_anonymous=True, share_token=token)
     db.add(form)
     db.flush()
     sec = FormSection(form_id=form.id, title="Over de activiteit", position=0)
     db.add(sec)
     db.flush()
-    for pos, (label, soort, opties) in enumerate((
-        ("Hoe heb je het ervaren?", "radio", ("Heel goed", "Goed", "Matig")),
-        ("Wat nam je mee?", "checkbox", ("Regenjas", "Verrekijker")),
-    )):
-        veld = FormField(form_id=form.id, section_id=sec.id, label=label,
-                         field_type=soort, position=pos)
+    for pos, (label, soort, opties) in enumerate(
+        (
+            ("Hoe heb je het ervaren?", "radio", ("Heel goed", "Goed", "Matig")),
+            ("Wat nam je mee?", "checkbox", ("Regenjas", "Verrekijker")),
+        )
+    ):
+        veld = FormField(
+            form_id=form.id, section_id=sec.id, label=label, field_type=soort, position=pos
+        )
         db.add(veld)
         db.flush()
         for i, tekst in enumerate(opties):
@@ -114,13 +116,16 @@ def test_de_drie_afstanden_staan_op_16_20_en_30(meting):
 
     wit_tussen = [d + 2 * p for d in meting["doos_tussen"]]
     assert wit_tussen == [TUSSEN_ANTWOORDEN] * len(wit_tussen), (
-        f"tussen twee antwoorden staat {wit_tussen} px wit i.p.v. {TUSSEN_ANTWOORDEN}")
+        f"tussen twee antwoorden staat {wit_tussen} px wit i.p.v. {TUSSEN_ANTWOORDEN}"
+    )
     assert meting["doos_vraag"] + p == VRAAG_NAAR_ANTWOORD, (
         f"tussen de vraag en haar eerste antwoord staat {meting['doos_vraag'] + p} px "
-        f"wit i.p.v. {VRAAG_NAAR_ANTWOORD}")
+        f"wit i.p.v. {VRAAG_NAAR_ANTWOORD}"
+    )
     assert meting["doos_volgende"] + p == NAAR_VOLGENDE_VRAAG, (
         f"tussen het laatste antwoord en de volgende vraag staat "
-        f"{meting['doos_volgende'] + p} px wit i.p.v. {NAAR_VOLGENDE_VRAAG}")
+        f"{meting['doos_volgende'] + p} px wit i.p.v. {NAAR_VOLGENDE_VRAAG}"
+    )
 
 
 def test_de_trefzones_raken_elkaar(meting):
@@ -132,6 +137,8 @@ def test_de_trefzones_raken_elkaar(meting):
     """
     assert meting["doos_tussen"] == [0] * len(meting["doos_tussen"]), (
         f"er zit {meting['doos_tussen']} px tussen de klikvlakken; negatief is een "
-        "overlap (dan wint de onderste rij), positief is een dode zone")
+        "overlap (dan wint de onderste rij), positief is een dode zone"
+    )
     assert meting["hoogte"] >= 32, (
-        f"een trefzone van {meting['hoogte']} px is te krap voor een vinger")
+        f"een trefzone van {meting['hoogte']} px is te krap voor een vinger"
+    )

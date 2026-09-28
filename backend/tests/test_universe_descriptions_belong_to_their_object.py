@@ -20,6 +20,7 @@ put the shifted text back and it is there.
 Broken to see it red: `activity` given back the revenue text — the first row
 names it.
 """
+
 import pytest
 
 from app.domains.reporting.universe import BY_KEY
@@ -44,7 +45,9 @@ def test_the_description_is_about_this_object(key, hoort, hoort_niet):
     tekst = BY_KEY[key].description
     assert hoort.lower() in tekst.lower(), (
         f"de beschrijving van `{key}` ({BY_KEY[key].name}) gaat niet over dit "
-        f"object: {tekst[:120]!r}")
+        f"object: {tekst[:120]!r}"
+    )
     assert hoort_niet.lower() not in tekst.lower(), (
         f"de beschrijving van `{key}` ({BY_KEY[key].name}) bevat "
-        f"{hoort_niet!r} — dat is de tekst van een buurobject (#980)")
+        f"{hoort_niet!r} — dat is de tekst van een buurobject (#980)"
+    )

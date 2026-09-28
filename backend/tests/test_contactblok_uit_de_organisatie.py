@@ -15,15 +15,18 @@ De opruiming kijkt naar wat een alinea **is** en niet naar hoe vaak er iets in
 staat. Een e-mailadres komt in een link twee keer voor — in `mailto:` en als
 linktekst — dus tellen en vervangen breekt de link.
 """
+
 from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
 
-import pytest
-
-MIGRATIE = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-            / "121_organization_contact_block.py")
+MIGRATIE = (
+    Path(__file__).resolve().parents[1]
+    / "alembic"
+    / "versions"
+    / "121_organization_contact_block.py"
+)
 
 
 def _opruimer():
@@ -33,17 +36,27 @@ def _opruimer():
     return module
 
 
-WAARDEN = ["Raak Voorbeeld", "bestuur@raakvoorbeeld.example", "014 00 00 00",
-           "BE68 5390 0754 7034", "GKCCBEBB", "Kerkstraat 12",
-           "2400 Mol", "Mol", "Kerkstraat"]
+WAARDEN = [
+    "Raak Voorbeeld",
+    "bestuur@raakvoorbeeld.example",
+    "014 00 00 00",
+    "BE68 5390 0754 7034",
+    "GKCCBEBB",
+    "Kerkstraat 12",
+    "2400 Mol",
+    "Mol",
+    "Kerkstraat",
+]
 
 
 def test_a_pure_contact_paragraph_goes():
     m = _opruimer()
-    inhoud = ('<p>Raak Voorbeeld</p>'
-              '<p>Kerkstraat 12, 2400 Mol</p>'
-              '<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
-              'bestuur@raakvoorbeeld.example</a></p>')
+    inhoud = (
+        "<p>Raak Voorbeeld</p>"
+        "<p>Kerkstraat 12, 2400 Mol</p>"
+        '<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
+        "bestuur@raakvoorbeeld.example</a></p>"
+    )
     assert m._opgeruimd(inhoud, WAARDEN).strip() == ""
 
 
@@ -54,8 +67,9 @@ def test_a_paragraph_with_anything_else_stays():
     de alinea staan — ook als er een adres of een e-mailadres in zit.
     """
     m = _opruimer()
-    inhoud = ('<p>Je kan ons bereiken via bestuur@raakvoorbeeld.example, '
-              'elke woensdag vanaf 19u.</p>')
+    inhoud = (
+        "<p>Je kan ons bereiken via bestuur@raakvoorbeeld.example, elke woensdag vanaf 19u.</p>"
+    )
     assert m._opgeruimd(inhoud, WAARDEN) == inhoud
 
 
@@ -69,11 +83,13 @@ def test_headings_are_never_touched():
 def test_the_rest_of_the_page_survives():
     """Wat een afdeling zelf schreef blijft gewoon staan en werken."""
     m = _opruimer()
-    inhoud = ('<h2>Privacyverklaring</h2>'
-              '<p>Wij verwerken je gegevens zorgvuldig.</p>'
-              '<p>Raak Voorbeeld</p>'
-              '<p>Kerkstraat 12</p>'
-              '<p>Je rechten oefen je uit via een schriftelijk verzoek.</p>')
+    inhoud = (
+        "<h2>Privacyverklaring</h2>"
+        "<p>Wij verwerken je gegevens zorgvuldig.</p>"
+        "<p>Raak Voorbeeld</p>"
+        "<p>Kerkstraat 12</p>"
+        "<p>Je rechten oefen je uit via een schriftelijk verzoek.</p>"
+    )
     uit = m._opgeruimd(inhoud, WAARDEN)
     assert "Wij verwerken je gegevens zorgvuldig." in uit
     assert "Je rechten oefen je uit" in uit
@@ -89,9 +105,11 @@ def test_a_mailto_link_is_not_broken_halfway():
     staan.
     """
     m = _opruimer()
-    inhoud = ('<p>Vragen? Schrijf naar '
-              '<a href="mailto:bestuur@raakvoorbeeld.example">bestuur@raakvoorbeeld.example</a> '
-              'en we antwoorden binnen de week.</p>')
+    inhoud = (
+        "<p>Vragen? Schrijf naar "
+        '<a href="mailto:bestuur@raakvoorbeeld.example">bestuur@raakvoorbeeld.example</a> '
+        "en we antwoorden binnen de week.</p>"
+    )
     uit = m._opgeruimd(inhoud, WAARDEN)
     assert uit == inhoud, "deze alinea zegt méér dan het adres, dus ze blijft"
     assert 'href="mailto:bestuur@raakvoorbeeld.example"' in uit
@@ -100,7 +118,7 @@ def test_a_mailto_link_is_not_broken_halfway():
 def test_running_it_twice_changes_nothing():
     """Idempotent: na de eerste run staan de waarden er niet meer."""
     m = _opruimer()
-    inhoud = ('<p>Raak Voorbeeld</p><p>Iets wat blijft staan.</p>')
+    inhoud = "<p>Raak Voorbeeld</p><p>Iets wat blijft staan.</p>"
     een = m._opgeruimd(inhoud, WAARDEN)
     assert m._opgeruimd(een, WAARDEN) == een
 
@@ -130,30 +148,42 @@ def test_the_privacy_page_shows_the_block(client, db_session):
     de gegevens gewoon verdwenen zijn.
     """
     from app.domains.cms.api import CmsPage
-    from app.domains.mdm.api import (Address, ContactDetail, Organization,
-                                     PostalCode)
+    from app.domains.mdm.api import Address, ContactDetail, Organization, PostalCode
     from app.kernel.tenant_config import _actieve_tenant
 
     tenant = _actieve_tenant(None)
-    organisatie = (db_session.query(Organization)
-                   .filter(Organization.id == tenant)
-                   .execution_options(include_all_tenants=True).one())
+    organisatie = (
+        db_session.query(Organization)
+        .filter(Organization.id == tenant)
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
     # Sinds #945 is het e-mailadres een rij en geen kolom. `organisatie.email = …`
     # zou hier geruisloos een Python-attribuut zetten dat nooit in de databank
     # belandt — precies het soort stille nuloperatie waar deze week vol mee zat.
-    db_session.add(ContactDetail(tenant_id=tenant, organization_id=organisatie.id,
-                                 contact_type_code="EMAIL",
-                                 value="bestuur@example.com"))
+    db_session.add(
+        ContactDetail(
+            tenant_id=tenant,
+            organization_id=organisatie.id,
+            contact_type_code="EMAIL",
+            value="bestuur@example.com",
+        )
+    )
     pc = db_session.query(PostalCode).first()
     if pc is None:
         pc = PostalCode(postal_code="2400", municipality="Mol")
         db_session.add(pc)
         db_session.flush()
-    db_session.add(Address(tenant_id=tenant, organization_id=organisatie.id,
-                           street="Kerkstraat", house_number="12",
-                           postal_code_id=pc.id))
-    pagina = (db_session.query(CmsPage)
-              .filter(CmsPage.slug == "privacy").one_or_none())
+    db_session.add(
+        Address(
+            tenant_id=tenant,
+            organization_id=organisatie.id,
+            street="Kerkstraat",
+            house_number="12",
+            postal_code_id=pc.id,
+        )
+    )
+    pagina = db_session.query(CmsPage).filter(CmsPage.slug == "privacy").one_or_none()
     if pagina is None:
         pagina = CmsPage(tenant_id=tenant, slug="privacy", title="Privacy")
         db_session.add(pagina)
@@ -173,9 +203,13 @@ def test_another_page_does_not_get_the_block(client, db_session):
     from app.domains.cms.api import CmsPage
     from app.kernel.tenant_config import _actieve_tenant
 
-    pagina = CmsPage(tenant_id=_actieve_tenant(None), slug="werking",
-                     title="Werking", content="<p>Hoe we werken.</p>",
-                     is_published=True)
+    pagina = CmsPage(
+        tenant_id=_actieve_tenant(None),
+        slug="werking",
+        title="Werking",
+        content="<p>Hoe we werken.</p>",
+        is_published=True,
+    )
     db_session.add(pagina)
     db_session.commit()
 
@@ -194,8 +228,10 @@ def test_a_short_value_inside_a_long_one_does_not_break_the_match():
     misgaat.
     """
     m = _opruimer()
-    blok = ('<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
-            'bestuur@raakvoorbeeld.example</a></p>')
+    blok = (
+        '<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
+        "bestuur@raakvoorbeeld.example</a></p>"
+    )
     assert m._opgeruimd(blok, WAARDEN).strip() == ""
     # En omgekeerd gesorteerd zou het blijven staan: dat is wat er misging.
     assert m._rest_na_de_waarden(m._kale_tekst(blok), WAARDEN) == ""

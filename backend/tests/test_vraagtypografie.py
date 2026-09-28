@@ -28,6 +28,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `ui.vraag` ter
 op `ui.label` in formulier.html → de eerste test valt om op de vraagstijl; de
 `space-y-6` terug op `space-y-4` → de ritmetest valt om.
 """
+
 from pathlib import Path
 
 import pytest
@@ -39,22 +40,22 @@ MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html")
 # macro rendert. De opmaak van een vraag staat dus daar; de pagina eromheen (de
 # `space-y` tussen de vragen, de sectietitel) staat nog in formulier.html.
 _FORMS = Path(__file__).resolve().parents[1] / "app/domains/forms/templates"
-FORMULIER = ((_FORMS / "formulier.html").read_text()
-             + (_FORMS / "_formulier_veld.html").read_text())
+FORMULIER = (_FORMS / "formulier.html").read_text() + (_FORMS / "_formulier_veld.html").read_text()
 
 
 def test_de_drie_niveaus_zijn_onderscheiden():
     """Sectietitel, vraag en optie verschillen in grootte én gewicht."""
-    vraagstijl = MACROS[MACROS.index("{% macro vraag("):]
-    vraagstijl = vraagstijl[:vraagstijl.index("{%- endmacro %}")]
+    vraagstijl = MACROS[MACROS.index("{% macro vraag(") :]
+    vraagstijl = vraagstijl[: vraagstijl.index("{%- endmacro %}")]
     assert "text-base" in vraagstijl and "font-semibold" in vraagstijl
     assert "text-ink" in vraagstijl, (
-        "de vraag hoort in volle inktkleur; in grijs staat ze onder haar eigen "
-        "antwoorden")
+        "de vraag hoort in volle inktkleur; in grijs staat ze onder haar eigen antwoorden"
+    )
 
     assert "ui.vraag(f.label" in FORMULIER, "het formulier gebruikt de vraagstijl niet"
     assert '<h2 class="text-lg font-bold' in FORMULIER, (
-        "de sectietitel staat niet één stap boven de vraag")
+        "de sectietitel staat niet één stap boven de vraag"
+    )
 
 
 def test_de_labelstijl_blijft_wat_ze_was():
@@ -64,8 +65,8 @@ def test_de_labelstijl_blijft_wat_ze_was():
     samenvoegen. Ze bestaan naast elkaar omdat ze twee verschillende verhoudingen
     dienen.
     """
-    labelstijl = MACROS[MACROS.index("{% macro label("):]
-    labelstijl = labelstijl[:labelstijl.index("{%- endmacro %}")]
+    labelstijl = MACROS[MACROS.index("{% macro label(") :]
+    labelstijl = labelstijl[: labelstijl.index("{%- endmacro %}")]
     assert "text-sm font-medium text-gray-700" in labelstijl
 
 
@@ -87,7 +88,8 @@ def test_het_ritme_zet_de_ruimte_boven_de_vraag():
     """
     assert "space-y-[22px]" in FORMULIER, "de vragen staan niet verder uit elkaar"
     assert '<div class="mt-3" x-data' in FORMULIER, (
-        "de optiegroep zet geen ruimte tussen de vraag en haar antwoorden")
+        "de optiegroep zet geen ruimte tussen de vraag en haar antwoorden"
+    )
 
 
 def test_de_trefzone_van_een_antwoord_is_de_hele_regel():
@@ -102,10 +104,14 @@ def test_de_trefzone_van_een_antwoord_is_de_hele_regel():
     Kapotgemaakt om te controleren dat deze test rood kan worden: `py-2` terug naar
     niets → beide asserts vallen om.
     """
-    labels = [r for r in FORMULIER.splitlines()
-              if '<label class="flex flex-wrap items-center gap-2 text-sm' in r]
+    labels = [
+        r
+        for r in FORMULIER.splitlines()
+        if '<label class="flex flex-wrap items-center gap-2 text-sm' in r
+    ]
     assert len(labels) == 2, (
-        f"verwacht een radio- en een checkbox-optielabel, gevonden: {len(labels)}")
+        f"verwacht een radio- en een checkbox-optielabel, gevonden: {len(labels)}"
+    )
     for regel in labels:
         assert "py-2" in regel, f"de trefzone is niet hoger dan de tekstregel: {regel.strip()}"
         assert "-my-" not in regel, "negatieve marges laten de trefzones overlappen"
@@ -143,4 +149,5 @@ def test_de_markering_verschuift_de_vraag_niet():
     # blijft: de rand staat er altijd, alleen de kleur wisselt.
     assert 'class="border-l-4 border-transparent pl-3 -ml-4"' in FORMULIER
     assert "'border-l-4', 'border-red-600', 'pl-3'" not in FORMULIER, (
-        "de markering voegt de rand nog steeds toe in plaats van hem te kleuren")
+        "de markering voegt de rand nog steeds toe in plaats van hem te kleuren"
+    )

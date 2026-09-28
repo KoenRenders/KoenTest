@@ -6,13 +6,15 @@ die komt uit de querystring, om dezelfde reden als er geen vrije SQL is — en
 elke ordening eindigt op id (#761). Default datum/asc is exact de bewaarde
 #285-volgorde, dus zonder klik verandert er niets.
 """
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
 import re
 
-from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -23,13 +25,19 @@ def _login(client):
 
 def _drie_inschrijvingen(client, db_session):
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     for naam in ("Carla Sorteer", "Anna Sorteer", "Bert Sorteer"):
-        client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                    data={"contact_name": naam,
-                          "contact_email": "sort@example.com", "phone": "047",
-                          f"product_{product.id}": "1",
-                          "payment_method": "transfer"})
+        client.post(
+            f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+            data={
+                "contact_name": naam,
+                "contact_email": "sort@example.com",
+                "phone": "047",
+                f"product_{product.id}": "1",
+                "payment_method": "transfer",
+            },
+        )
     return activity, component
 
 
@@ -48,10 +56,8 @@ def test_sorteren_op_naam_is_alfabetisch(client, db_session):
     _login(client)
     basis = f"/admin/activiteiten/{activity.id}/inschrijvingen"
 
-    assert _namen(client.get(f"{basis}?sort=naam&richting=asc").text) == \
-        ["Anna", "Bert", "Carla"]
-    assert _namen(client.get(f"{basis}?sort=naam&richting=desc").text) == \
-        ["Carla", "Bert", "Anna"]
+    assert _namen(client.get(f"{basis}?sort=naam&richting=asc").text) == ["Anna", "Bert", "Carla"]
+    assert _namen(client.get(f"{basis}?sort=naam&richting=desc").text) == ["Carla", "Bert", "Anna"]
 
 
 def test_onbekende_sleutel_valt_terug_op_de_default(client, db_session):
@@ -68,8 +74,9 @@ def test_onbekende_sleutel_valt_terug_op_de_default(client, db_session):
 def test_actieve_kop_draagt_chevron_en_ariasort(client, db_session):
     activity, component = _drie_inschrijvingen(client, db_session)
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}"
-                      f"/inschrijvingen?sort=naam&richting=asc").text
+    html = client.get(
+        f"/admin/activiteiten/{activity.id}/inschrijvingen?sort=naam&richting=asc"
+    ).text
     assert 'aria-sort="ascending"' in html
     # De chevron-up van ui.icon() — het svg-pad, want de naam staat niet in de
     # output (zelfde toets als de golf 3-referentie).
@@ -86,13 +93,14 @@ def test_verwijderen_keert_terug_naar_de_activiteit(client, db_session):
 
     activity, component = _drie_inschrijvingen(client, db_session)
     csrf = _login(client)
-    weg = (db_session.query(Registration)
-           .filter(Registration.contact_name == "Bert Sorteer").one())
+    weg = db_session.query(Registration).filter(Registration.contact_name == "Bert Sorteer").one()
     resp = client.post(
-        f"/admin/activiteiten/{activity.id}/inschrijvingen/{weg.id}"
-        f"/verwijderen?vanuit=pagina", headers={"X-CSRF-Token": csrf})
+        f"/admin/activiteiten/{activity.id}/inschrijvingen/{weg.id}/verwijderen?vanuit=pagina",
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 204
     assert resp.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
-    tab = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen"
-                     f"?sort=naam&richting=desc").text
+    tab = client.get(
+        f"/admin/activiteiten/{activity.id}/inschrijvingen?sort=naam&richting=desc"
+    ).text
     assert _namen(tab) == ["Carla", "Anna"]

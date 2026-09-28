@@ -1,4 +1,5 @@
 """Events die het forms-component publiceert (contract, zie forms/CONTRACT.md)."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

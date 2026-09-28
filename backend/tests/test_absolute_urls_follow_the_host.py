@@ -55,9 +55,9 @@ Broken on purpose to check that these tests can go red:
   with her own host falls back to `<platform-host>/raakmillegem`, which works but weakens
   her canonical address.
 """
+
 import pytest
 
-from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -90,20 +90,24 @@ def captured_mail(monkeypatch):
     return sent
 
 
-def test_the_login_link_points_at_the_host_you_arrived_on(client, db_session,
-                                                          platform_host, captured_mail):
+def test_the_login_link_points_at_the_host_you_arrived_on(
+    client, db_session, platform_host, captured_mail
+):
     """Koen's case, and the test closest to the complaint."""
-    resp = client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL},
-                       headers={"host": platform_host})
+    resp = client.post(
+        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+    )
 
     assert resp.status_code == 200
     assert captured_mail, "no mail was sent"
     assert f"//{platform_host}/login/verify" in captured_mail["html"], (
-        f"the login link does not point at the platform host:\n{captured_mail['html']}")
+        f"the login link does not point at the platform host:\n{captured_mail['html']}"
+    )
 
 
-def test_a_base_url_from_another_environment_is_still_ignored(client, db_session,
-                                                              platform_host, captured_mail):
+def test_a_base_url_from_another_environment_is_still_ignored(
+    client, db_session, platform_host, captured_mail
+):
     """The brake from #477, and the proof that it still works.
 
     A production address in a non-prod database — after a restore or a seed — must never
@@ -116,21 +120,26 @@ def test_a_base_url_from_another_environment_is_still_ignored(client, db_session
     # On the PLATFORM tenant, because that is the tenant this request resolves to.
     # Storing it on another tenant would make this test pass without proving anything —
     # the value would simply never be read.
-    set_setting(db_session, "base_url", "https://raakmillegem.be",
-                tenant_id=platform_tenant_id(db=db_session))
+    set_setting(
+        db_session,
+        "base_url",
+        "https://raakmillegem.be",
+        tenant_id=platform_tenant_id(db=db_session),
+    )
     db_session.flush()
 
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL},
-                headers={"host": platform_host})
+    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host})
 
     assert "raakmillegem.be" not in captured_mail["html"], (
         "a production address from the database leaked into a login link on a test "
-        "environment — that is exactly what #477 exists to prevent")
+        "environment — that is exactly what #477 exists to prevent"
+    )
     assert f"//{platform_host}/" in captured_mail["html"]
 
 
-def test_a_base_url_this_environment_serves_is_accepted(client, db_session,
-                                                        captured_mail, monkeypatch):
+def test_a_base_url_this_environment_serves_is_accepted(
+    client, db_session, captured_mail, monkeypatch
+):
     """The counterpart, and without it the previous test cannot be told apart from "the
     stored value is never used".
 
@@ -144,12 +153,14 @@ def test_a_base_url_this_environment_serves_is_accepted(client, db_session,
     set_setting(db_session, "base_url", "https://eigen.example.test")
     db_session.flush()
 
-    client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL},
-                headers={"host": "eigen.example.test"})
+    client.post(
+        "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": "eigen.example.test"}
+    )
 
     assert "//eigen.example.test/login/verify" in captured_mail["html"], (
         f"the stored base_url of an afdeling with its own domain was ignored:\n"
-        f"{captured_mail['html']}")
+        f"{captured_mail['html']}"
+    )
 
 
 def test_on_production_the_stored_base_url_stays_leading(db_session, monkeypatch):
@@ -165,8 +176,7 @@ def test_on_production_the_stored_base_url_stays_leading(db_session, monkeypatch
     assert tenant_base_url(db_session) == "https://raakmillegem.be"
 
 
-def test_an_afdeling_without_its_own_domain_derives_its_address(client, db_session,
-                                                                platform_host):
+def test_an_afdeling_without_its_own_domain_derives_its_address(client, db_session, platform_host):
     """Koen: *"I should not even have to fill that in."* Storing it by hand would put the
     same fact in two places, and then it is not a question whether they drift but when.
 
@@ -176,11 +186,13 @@ def test_an_afdeling_without_its_own_domain_derives_its_address(client, db_sessi
 
     assert f"//{platform_host}/raakvoorbeeldafdeling" in html, (
         "the card of an afdeling without its own domain does not derive its address from "
-        "this platform host")
+        "this platform host"
+    )
 
 
 def test_the_derivation_uses_the_incoming_host_and_not_just_any_platform_host(
-        client, db_session, monkeypatch):
+    client, db_session, monkeypatch
+):
     """`PLATFORM_HOSTS` is a list, so "a platform host" and "the host you came in on" can
     differ — and then a card sends you away from the site you are looking at.
 
@@ -191,8 +203,7 @@ def test_the_derivation_uses_the_incoming_host_and_not_just_any_platform_host(
     from app.config import settings
     from app.domains.mdm.api import invalidate_tenant_codes
 
-    monkeypatch.setattr(settings, "platform_hosts",
-                        f"eerste.example.test,{PLATFORM_HOST}")
+    monkeypatch.setattr(settings, "platform_hosts", f"eerste.example.test,{PLATFORM_HOST}")
     invalidate_tenant_codes()
     try:
         html = client.get("/", headers={"host": PLATFORM_HOST}).text
@@ -202,7 +213,8 @@ def test_the_derivation_uses_the_incoming_host_and_not_just_any_platform_host(
     assert f"//{PLATFORM_HOST}/raakvoorbeeldafdeling" in html
     assert "eerste.example.test" not in html, (
         "the derivation took the first host from the configuration instead of the one "
-        "this request arrived on")
+        "this request arrived on"
+    )
 
 
 def test_the_mollie_redirect_comes_back_on_the_same_host(client, db_session, platform_host):
@@ -215,12 +227,14 @@ def test_the_mollie_redirect_comes_back_on_the_same_host(client, db_session, pla
     resp = client.get("/robots.txt", headers={"host": platform_host})
 
     assert platform_host in resp.text, (
-        "robots.txt points at another host, so every absolute URL built this way does")
+        "robots.txt points at another host, so every absolute URL built this way does"
+    )
     assert tenant_base_url(db_session) is not None
 
 
 def test_an_afdeling_with_its_own_host_keeps_her_own_address_on_a_card(
-        client, db_session, platform_host, monkeypatch):
+    client, db_session, platform_host, monkeypatch
+):
     """The two questions diverge here, and this is the one Koen raised.
 
     Standing on the platform host, the card of an afdeling with her own domain must point
@@ -238,7 +252,8 @@ def test_an_afdeling_with_its_own_host_keeps_her_own_address_on_a_card(
         invalidate_tenant_codes()
 
     assert "//millegem.example.test" in html, (
-        "the card of an afdeling with her own host does not point at her own domain")
+        "the card of an afdeling with her own host does not point at her own domain"
+    )
     assert f"//{PLATFORM_HOST}/raakmillegem" not in html
     # And the counterpart in the same response: an afdeling WITHOUT its own host still
     # derives from the host you arrived on.
@@ -246,7 +261,8 @@ def test_an_afdeling_with_its_own_host_keeps_her_own_address_on_a_card(
 
 
 def test_the_return_url_follows_the_incoming_host_even_with_an_own_domain(
-        client, db_session, platform_host, captured_mail, monkeypatch):
+    client, db_session, platform_host, captured_mail, monkeypatch
+):
     """The other half of the split: "where do you bring me back" is not "where does this
     tenant live". You arrived on the platform host, so that is where you return."""
     from app.config import settings
@@ -255,11 +271,12 @@ def test_the_return_url_follows_the_incoming_host_even_with_an_own_domain(
     monkeypatch.setattr(settings, "tenant_hostnames", "millegem.example.test=raakmillegem")
     invalidate_tenant_codes()
     try:
-        client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL},
-                    headers={"host": platform_host})
+        client.post(
+            "/aanmelden", data={"email": SEEDED_ADMIN_EMAIL}, headers={"host": platform_host}
+        )
     finally:
         invalidate_tenant_codes()
 
     assert f"//{platform_host}/login/verify" in captured_mail["html"], (
-        "the login link sent you to a tenant's own domain instead of back to the host you "
-        "were on")
+        "the login link sent you to a tenant's own domain instead of back to the host you were on"
+    )

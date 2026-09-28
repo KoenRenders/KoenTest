@@ -8,14 +8,14 @@ gevolg.
 De invariant die telt is niet dat de velden bewaard worden, maar dat dit **geen geld
 raakt** en dat de correctie **verklaarbaar** blijft in het audit-logboek.
 """
+
 from datetime import date
-from decimal import Decimal
 
 import pytest
 
 from app.domains.activities.api import Registration
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for, make_session_value)
-from app.domains.payment.api import PaymentRecord, get_records_for
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.payment.api import get_records_for
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -29,10 +29,17 @@ def _login(client):
 
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "fout@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "fout@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"]
 
@@ -41,9 +48,16 @@ def test_contactgegevens_worden_bewaard_en_genormaliseerd(client, db_session):
     reg_id = _inschrijving(client, db_session)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "  An Peeters  ", "contact_email": "juist@example.com",
-        "phone": "0470000000", "remarks": "   "})
+    resp = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "  An Peeters  ",
+            "contact_email": "juist@example.com",
+            "phone": "0470000000",
+            "remarks": "   ",
+        },
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -58,8 +72,11 @@ def test_ongeldig_e_mailadres_wordt_geweigerd(client, db_session):
     reg_id = _inschrijving(client, db_session)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An", "contact_email": "geen-adres", "phone": "", "remarks": ""})
+    resp = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={"contact_name": "An", "contact_email": "geen-adres", "phone": "", "remarks": ""},
+    )
 
     # Bewust 200 met een zichtbare foutbanner i.p.v. 422: htmx swapt een 422 niet,
     # dus de gebruiker zou niets zien gebeuren. "Leesbare fout" betekent dat ze op
@@ -77,15 +94,32 @@ def test_de_correctie_staat_in_het_auditlogboek(client, db_session):
 
     reg_id = _inschrijving(client, db_session)
     hdr = _login(client)
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "juist@example.com",
-        "phone": "0470000000", "remarks": ""})
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "nogjuister@example.com",
-        "phone": "0470000000", "remarks": ""})
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "An Janssens",
+            "contact_email": "juist@example.com",
+            "phone": "0470000000",
+            "remarks": "",
+        },
+    )
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "An Janssens",
+            "contact_email": "nogjuister@example.com",
+            "phone": "0470000000",
+            "remarks": "",
+        },
+    )
 
-    rijen = [r for r in all_changes_since(db_session, date.today())
-             if r["entity"] == "Inschrijving" and r["entity_id"] == reg_id]
+    rijen = [
+        r
+        for r in all_changes_since(db_session, date.today())
+        if r["entity"] == "Inschrijving" and r["entity_id"] == reg_id
+    ]
     assert rijen, "geen audit-rij voor de correctie"
     samen = " ".join(r["summary"] for r in rijen)
     assert "juist@example.com" in samen and "nogjuister@example.com" in samen
@@ -101,9 +135,16 @@ def test_de_correctie_raakt_het_geld_niet(client, db_session):
     bedragen = [(r.id, r.amount, r.structured_communication) for r in voor]
     aantal_regels = len(db_session.get(Registration, reg_id).items)
 
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "Andere Naam", "contact_email": "ander@example.com",
-        "phone": "0470000000", "remarks": "nota"})
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "Andere Naam",
+            "contact_email": "ander@example.com",
+            "phone": "0470000000",
+            "remarks": "nota",
+        },
+    )
 
     db_session.expire_all()
     na = get_records_for(db_session, "registration", reg_id)
@@ -114,16 +155,20 @@ def test_de_correctie_raakt_het_geld_niet(client, db_session):
 def test_alleen_de_opmerking_posten_laat_de_contactgegevens_staan(client, db_session):
     """De oude #283-aanroep blijft werken: wat niet meegestuurd wordt, verandert niet."""
     from app.domains.activities.router import update_registration_remarks
-    from app.schemas.activity import RegistrationContactUpdate
     from app.domains.auth.api import User
+    from app.schemas.activity import RegistrationContactUpdate
 
     reg_id = _inschrijving(client, db_session)
     reg = db_session.get(Registration, reg_id)
     admin = db_session.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
 
-    update_registration_remarks(reg.activity_id, reg_id,
-                                RegistrationContactUpdate(remarks="enkel dit"),
-                                db=db_session, admin=admin)
+    update_registration_remarks(
+        reg.activity_id,
+        reg_id,
+        RegistrationContactUpdate(remarks="enkel dit"),
+        db=db_session,
+        admin=admin,
+    )
 
     db_session.expire_all()
     reg = db_session.get(Registration, reg_id)

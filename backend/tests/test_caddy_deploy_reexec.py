@@ -31,6 +31,7 @@ nieuwe scriptinhoud neer" — en dat is precies de aanname waar #796 op rust.
 Kapotgemaakt om te controleren dat deze test rood kan worden: het re-exec-blok terug
 onder de ref-afleiding gezet → de oude melding verschijnt en de test valt om.
 """
+
 import os
 import subprocess
 from pathlib import Path
@@ -77,7 +78,8 @@ def _bouw(tmp_path):
         f'    cp "{nieuw_pad}" "{checkout}/deploy-caddy.sh"\n'
         "  fi\n"
         "done\n"
-        "exit 0\n")
+        "exit 0\n"
+    )
     (nepbin / "docker").write_text("#!/bin/sh\nexit 0\n")
     for f in nepbin.iterdir():
         f.chmod(0o755)
@@ -92,8 +94,14 @@ def _draai(tmp_path):
     env["PATH"] = f"{nepbin}:{env['PATH']}"
     env["PROD_CHECKOUT_DIR"] = str(tmp_path / "bestaat-niet")
     env["UAT_CHECKOUT_DIR"] = str(tmp_path / "bestaat-niet")
-    return subprocess.run(["bash", "./deploy-caddy.sh"], cwd=checkout, env=env,
-                          capture_output=True, text=True, timeout=120)
+    return subprocess.run(
+        ["bash", "./deploy-caddy.sh"],
+        cwd=checkout,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
 
 def test_het_script_werkt_zichzelf_bij_voor_het_beslist(tmp_path):
@@ -102,10 +110,12 @@ def test_het_script_werkt_zichzelf_bij_voor_het_beslist(tmp_path):
 
     assert NIEUWE_MELDING in uitvoer, (
         "de melding van de nieuwe versie ontbreekt — het script is niet tot de "
-        f"beslissing gekomen:\n{uitvoer[-2000:]}")
+        f"beslissing gekomen:\n{uitvoer[-2000:]}"
+    )
     assert OUDE_MELDING not in uitvoer, (
         "de OUDE scriptversie heeft beslist; de re-exec staat nog onder de "
-        f"beslissingen:\n{uitvoer[-2000:]}")
+        f"beslissingen:\n{uitvoer[-2000:]}"
+    )
 
 
 def test_de_reexec_gebeurt_precies_een_keer(tmp_path):
@@ -116,4 +126,5 @@ def test_de_reexec_gebeurt_precies_een_keer(tmp_path):
     trace = klaar.stderr
 
     assert trace.count("export CADDY_REEXEC=1") == 1, (
-        f"de re-exec is niet precies één keer gebeurd:\n{trace[-2000:]}")
+        f"de re-exec is niet precies één keer gebeurd:\n{trace[-2000:]}"
+    )

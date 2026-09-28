@@ -3,15 +3,13 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
+from app.domains.auth.api import User, get_current_admin
 from app.domains.cms import service as _service
 from app.domains.cms.models import CmsPage
-from app.domains.mdm.api import GenderCode, RelationTypeCode
-from app.domains.auth.api import User
-from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 from app.domains.cms.render import render_cms_content
 from app.i18n import _
+from app.schemas.cms import CmsPageCreate, CmsPageResponse, CmsPageUpdate
 
 router = APIRouter(tags=["cms"])
 

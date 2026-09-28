@@ -5,6 +5,7 @@ export log is an audit trail — but it is a closed vocabulary that a column
 stores, so it gets the shape every other one has, and its words are ready the
 day a screen lists the exports.
 """
+
 from app.domains.reporting.models import ExportKind, ExportKindCode, ExportKindLabel
 from app.kernel.codes import CodeList, CodeSeed
 
@@ -15,7 +16,10 @@ EXPORT_KIND_CODES = (
 )
 
 EXPORT_KIND = CodeList(
-    name="export_kind", schema="reporting",
-    codes=ExportKindCode, labels=ExportKindLabel, enum=ExportKind,
+    name="export_kind",
+    schema="reporting",
+    codes=ExportKindCode,
+    labels=ExportKindLabel,
+    enum=ExportKind,
     fk_from=("reporting.export_log.kind",),
 )

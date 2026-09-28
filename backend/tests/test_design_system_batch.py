@@ -4,6 +4,7 @@ Snelle, DB-loze tests op de kit-macro's + shells. De bredere rendering-integrite
 is al gedekt door de scherm-tests (test_betalingen_ui, test_workflow_component, …);
 hier nagelen we de nieuwe conventies vast zodat ze niet terugdriften.
 """
+
 from pathlib import Path
 
 from app.ui import templates
@@ -17,9 +18,18 @@ def _render(body: str) -> str:
 
 # ── #593 iconen ───────────────────────────────────────────────────────────────
 
+
 def test_icon_macro_rendert_svg():
-    for naam in ("download", "upload", "file-text", "search", "chevron-up",
-                 "chevron-down", "arrow-up", "arrow-down"):
+    for naam in (
+        "download",
+        "upload",
+        "file-text",
+        "search",
+        "chevron-up",
+        "chevron-down",
+        "arrow-up",
+        "arrow-down",
+    ):
         out = _render("{{ ui.icon('%s') }}" % naam)
         assert "<svg" in out and "<path" in out or "<circle" in out, naam
 
@@ -40,8 +50,9 @@ def test_geen_glyph_iconen_meer_in_templates():
     fouten = []
     # De kit (_macros.html) mag de glyphs in zijn doc-comments noemen; enkel de
     # scherm-templates worden op resterend glyph-gebruik gecontroleerd.
-    for pad in ([p for p in (APP / "ui" / "templates").rglob("*.html") if p.name != "_macros.html"]
-                + [p for d in (APP / "domains").glob("*/templates") for p in d.rglob("*.html")]):
+    for pad in [
+        p for p in (APP / "ui" / "templates").rglob("*.html") if p.name != "_macros.html"
+    ] + [p for d in (APP / "domains").glob("*/templates") for p in d.rglob("*.html")]:
         for nr, regel in enumerate(pad.read_text().splitlines(), 1):
             if "{#" in regel or "#}" in regel:
                 continue  # documentatie-comments mogen de glyph noemen
@@ -52,12 +63,14 @@ def test_geen_glyph_iconen_meer_in_templates():
 
 # ── #594 reorder ──────────────────────────────────────────────────────────────
 
+
 def test_reorder_gebruikt_icon_svg():
     out = _render("{{ ui.reorder(up_attrs='hx-post=\"/x\"', down_attrs='hx-post=\"/y\"') }}")
     assert out.count("<svg") == 2 and "▲" not in out and "▼" not in out
 
 
 # ── #595 bevestig-modal ───────────────────────────────────────────────────────
+
 
 def test_confirm_attrs_levert_data_confirm():
     fn = templates.env.globals["confirm_attrs"]
@@ -80,12 +93,13 @@ def test_beide_shells_hebben_de_confirm_host():
 
 # ── #596 rij-acties + geen statusstreep ───────────────────────────────────────
 
+
 def test_row_actions_verbergt_extra_achter_menu():
     acts = "['<button>A</button>', '<button>B</button>', '<button>C</button>']"
     out = _render("{{ ui.row_actions(actions=%s, delete_attrs='hx-post=\"/d\"') }}" % acts)
     assert "A" in out and "B" in out and "C" in out
-    assert "⋯" in out                    # ⋯-menu aanwezig want >2 acties
-    assert "Verwijderen" in out               # delete altijd, en laatst
+    assert "⋯" in out  # ⋯-menu aanwezig want >2 acties
+    assert "Verwijderen" in out  # delete altijd, en laatst
 
 
 def test_betalingen_lijst_heeft_geen_statusstreep():
@@ -100,13 +114,15 @@ def test_betalingen_lijst_heeft_geen_statusstreep():
 
 # ── #597 werkbank full-page ───────────────────────────────────────────────────
 
+
 def test_werkbank_lijst_klikt_door_naar_full_page():
     inhoud = (APP / "domains" / "workflow" / "templates" / "_werkbank_lijst.html").read_text()
-    assert 'href="/admin/werkbank/taken/' in inhoud       # doorklik-link
-    assert 'hx-target="#taak-' not in inhoud              # geen inline uitklap meer
+    assert 'href="/admin/werkbank/taken/' in inhoud  # doorklik-link
+    assert 'hx-target="#taak-' not in inhoud  # geen inline uitklap meer
 
 
 # ── #598 microcopy ────────────────────────────────────────────────────────────
+
 
 def test_header_woordmerk_is_raak():
     """Header-woordmerk = 'RaaK' (kapitale R/K, aa vergroot), niet 'RAAK' via uppercase (#605).
@@ -117,8 +133,8 @@ def test_header_woordmerk_is_raak():
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
     assert 'R<span class="text-[1.3em]">aa</span>K' in site
     for regel in site.splitlines():
-        if '>aa</span>K' in regel:
-            assert "uppercase" not in regel   # geen all-caps meer op het woordmerk
+        if ">aa</span>K" in regel:
+            assert "uppercase" not in regel  # geen all-caps meer op het woordmerk
 
 
 def test_link_tint_token_en_cms_link():
@@ -130,8 +146,8 @@ def test_link_tint_token_en_cms_link():
     gebruikt hem.
     """
     build = (Path(__file__).resolve().parents[2] / "scripts" / "build-css.sh").read_text()
-    assert "--c-link:35 103 189" in build                       # de ene bron (= #2367bd)
-    assert "--link:rgb(var(--c-link))" in build                 # leesbare alias
+    assert "--c-link:35 103 189" in build  # de ene bron (= #2367bd)
+    assert "--link:rgb(var(--c-link))" in build  # leesbare alias
     assert "link: 'rgb(var(--c-link) / <alpha-value>)'" in build  # Tailwind text-link-utility
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
     assert ".cms-content a{color:var(--link)" in site and "underline" in site
@@ -153,6 +169,7 @@ def test_create_schermen_gebruiken_opslaan():
 
 # ── golf 4 (#913): tabs op het dict-contract ─────────────────────────────────
 
+
 def test_tabs_rendert_labels_hrefs_en_een_actieve():
     """De macro pakte tuples uit terwijl de enige aanroeper dicts gaf: Jinja
     itereerde dan over de sléutels, dus elke tab heette "href", linkte naar
@@ -160,10 +177,11 @@ def test_tabs_rendert_labels_hrefs_en_een_actieve():
     dan stond "Gegevens" nergens en "href" wél als tekst."""
     html = _render(
         '{{ ui.tabs([{"label": "Gegevens", "href": "/a", "active": True},'
-        '            {"label": "Historiek", "href": "/b", "active": False}]) }}')
-    assert '>Gegevens</a>' in html and '>Historiek</a>' in html
+        '            {"label": "Historiek", "href": "/b", "active": False}]) }}'
+    )
+    assert ">Gegevens</a>" in html and ">Historiek</a>" in html
     assert 'href="/a"' in html and 'href="/b"' in html
-    assert '>href</a>' not in html
+    assert ">href</a>" not in html
     assert html.count("border-blue-700") == 1, "precies één tab is actief"
 
 

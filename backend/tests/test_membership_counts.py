@@ -5,14 +5,15 @@ zijn (``is_active`` én ``valid_from <= dag <= valid_to``); soft-deleted records
 tellen nooit mee. Dezelfde telling voedt zowel de chatbot-context als het
 admin-dashboard, dus die mogen elkaar niet tegenspreken.
 """
+
 from datetime import date, timedelta
 
 from app.domains.payment.api import current_membership_counts
 
 
 def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=None):
+    from app.domains.mdm.api import Member, MemberPerson, Person
     from app.domains.membership.api import Membership
-    from app.domains.mdm.api import Member, Person, MemberPerson
 
     today = date.today()
     member = Member()
@@ -25,11 +26,15 @@ def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=Non
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type="HOOFDLID"))
         persons.append(p)
-    db.add(Membership(
-        member_id=member.id, year=today.year, is_active=is_active,
-        valid_from=valid_from or date(today.year, 1, 1),
-        valid_to=valid_to or date(today.year, 12, 31),
-    ))
+    db.add(
+        Membership(
+            member_id=member.id,
+            year=today.year,
+            is_active=is_active,
+            valid_from=valid_from or date(today.year, 1, 1),
+            valid_to=valid_to or date(today.year, 12, 31),
+        )
+    )
     db.flush()
     return member, persons
 
@@ -39,8 +44,12 @@ def test_counts_only_today_valid_memberships(db_session):
     today = date.today()
     _household(db, 2)  # geldig heel jaar → telt
     _household(db, 1)  # geldig heel jaar → telt
-    _household(db, 5, valid_from=today - timedelta(days=60), valid_to=today - timedelta(days=1))  # verlopen
-    _household(db, 5, valid_from=today + timedelta(days=1), valid_to=today + timedelta(days=60))  # toekomstig
+    _household(
+        db, 5, valid_from=today - timedelta(days=60), valid_to=today - timedelta(days=1)
+    )  # verlopen
+    _household(
+        db, 5, valid_from=today + timedelta(days=1), valid_to=today + timedelta(days=60)
+    )  # toekomstig
     _household(db, 5, is_active=False)  # inactief
 
     households, persons = current_membership_counts(db, today)
@@ -63,8 +72,8 @@ def test_counts_exclude_soft_deleted_person(db_session):
 
 
 def test_counts_exclude_soft_deleted_membership(db_session):
-    from app.soft_delete import soft_delete
     from app.domains.membership.api import Membership
+    from app.soft_delete import soft_delete
 
     db = db_session
     today = date.today()

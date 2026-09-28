@@ -23,6 +23,7 @@ overlay-aanroep terug binnen `{% call ui.filter_bar %}` → test 1 valt om, want
 komt geen antwoord; de `paintAll()` in `tts.js` terug naar `paint()` → test 2 valt
 om op de tweede knop.
 """
+
 import os
 import sys
 
@@ -56,8 +57,10 @@ def _als_beheerder(page, pad: str):
 def _open_overlay(page, label: str):
     knop = page.get_by_role("button", name=label)
     if knop.count() == 0:
-        _ontbreekt(f"geen {label}-knop — staat de beheer-assistent aan "
-                   "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?")
+        _ontbreekt(
+            f"geen {label}-knop — staat de beheer-assistent aan "
+            "(ADMIN_CHAT_ENABLED én de tenantschakelaar)?"
+        )
     knop.first.click()
 
 
@@ -74,9 +77,9 @@ def test_vraag_op_betalingen_levert_een_antwoord(page):
     # Het antwoord komt onderaan het gesprek. De mock-provider antwoordt zonder
     # netwerk, maar de lus doet er even over.
     antwoord = page.locator("#bt-raakje-gesprek [data-raakje-answer]")
-    expect(antwoord.first,
-           "Vraag leverde geen antwoord — doet de knop weer niets? (#1115)").to_be_visible(
-        timeout=30000)
+    expect(
+        antwoord.first, "Vraag leverde geen antwoord — doet de knop weer niets? (#1115)"
+    ).to_be_visible(timeout=30000)
 
 
 def test_de_drie_controls_eindigen_op_dezelfde_onderrand(page):
@@ -98,7 +101,8 @@ def test_de_drie_controls_eindigen_op_dezelfde_onderrand(page):
     laagste = max(y for _n, y in onder)
     assert laagste - hoogste <= 2, (
         "veld, microfoon en knop eindigen niet op dezelfde onderrand: "
-        + ", ".join(f"{naam} {y:.0f}px" for naam, y in onder))
+        + ", ".join(f"{naam} {y:.0f}px" for naam, y in onder)
+    )
 
 
 def _toggle_van(page, gesprek_id: str):
@@ -115,9 +119,8 @@ def test_twee_raakjes_op_een_pagina_delen_een_voorleesstand(page):
     in de kop van hun modal en zijn dus alleen zichtbaar wanneer die open staat;
     daarom de omweg langs openen en sluiten in plaats van twee knoppen naast elkaar.
     """
-    from tests_e2e.schermen import Activiteitdetail
-
     from app.domains.auth.api import make_session_value
+    from tests_e2e.schermen import Activiteitdetail
 
     login_met_sessie(page, make_session_value(_admin_email()))
     if not Activiteitdetail(page).open_eerste():
@@ -143,4 +146,5 @@ def test_twee_raakjes_op_een_pagina_delen_een_voorleesstand(page):
     van_betalingen = _toggle_van(page, "bt-raakje-gesprek")
     expect(van_betalingen).to_be_visible()
     assert van_betalingen.get_attribute("aria-pressed") == na, (
-        "de tweede voorleesknop staat op de oude stand; één pagina, één stand (#1115)")
+        "de tweede voorleesknop staat op de oude stand; één pagina, één stand (#1115)"
+    )

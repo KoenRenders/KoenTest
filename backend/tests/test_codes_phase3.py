@@ -47,6 +47,7 @@ the filter dropdown on the same page carries the word. Asserting the presence
 of a word proves nothing about *where* it is; the test now looks at rendered
 text — `>confirmed<` — which is what a code on a screen actually looks like.
 """
+
 import re
 
 import pytest
@@ -91,50 +92,75 @@ from tests.test_designstudio_service import activity, design  # noqa: F401 - fix
 #: "same word" to keep, and inventing one would turn this snapshot into a
 #: second place where the words live.
 LABELS_BEFORE_CR12 = {
-    "letter_status": {"draft": "Concept", "sending": "Wordt verstuurd",
-                      "sent": "Verstuurd"},
-    "audience": {"members": "Leden", "non_members": "Niet-leden",
-                 "both": "Allebei"},
-    "delivery_status": {"queued": "In de wachtrij", "sent": "Verstuurd",
-                        "failed": "Mislukt", "skipped": "Overgeslagen"},
-    "subscriber_status": {"confirmed": "Bevestigd",
-                          "pending": "Wacht op bevestiging",
-                          "unsubscribed": "Uitgeschreven"},
-    "section_kind": {"EVALUATION": "Evaluatie voorbije activiteiten",
-                     "UPCOMING": "Volgende activiteiten",
-                     "MEMBERS": "Leden",
-                     "IDEAS": "Programma-ideeën",
-                     "MISC": "Varia"},
+    "letter_status": {"draft": "Concept", "sending": "Wordt verstuurd", "sent": "Verstuurd"},
+    "audience": {"members": "Leden", "non_members": "Niet-leden", "both": "Allebei"},
+    "delivery_status": {
+        "queued": "In de wachtrij",
+        "sent": "Verstuurd",
+        "failed": "Mislukt",
+        "skipped": "Overgeslagen",
+    },
+    "subscriber_status": {
+        "confirmed": "Bevestigd",
+        "pending": "Wacht op bevestiging",
+        "unsubscribed": "Uitgeschreven",
+    },
+    "section_kind": {
+        "EVALUATION": "Evaluatie voorbije activiteiten",
+        "UPCOMING": "Volgende activiteiten",
+        "MEMBERS": "Leden",
+        "IDEAS": "Programma-ideeën",
+        "MISC": "Varia",
+    },
     "design_status": {"draft": "Ontwerp", "final": "Definitief"},
     "layout": {"print_a": "Print (A3/A4)", "feed_portrait": "Instagram (4:5)"},
     "preset": {
         "eenvoudig": "Eenvoudig — één grote foto en de tekst van de activiteit "
-                     "over de volle breedte",
-        "beeld": "Met beeld — foto of tekening rechts, kernpunten links, "
-                 "omschrijving eronder",
-        "tekst": "Tekst — geen beeld, kernpunten links, omschrijving rechts"},
-    "inset_corner": {"top_left": "Linksboven", "top_right": "Rechtsboven",
-                     "bottom_left": "Linksonder", "bottom_right": "Rechtsonder"},
-    "generation_status": {"requested": "Bezig…", "fetched": "Klaar",
-                          "picked": "Gekozen", "discarded": "Niet gekozen",
-                          "refused": "Geweigerd (moderatie)", "failed": "Mislukt"},
-    "drawing_style": {"lijn": "Lijntekening (zwart-wit)",
-                      "lijnkleur": "Lijntekening met kleuraccenten",
-                      "kleur": "Kleurtekening (vlakke kleuren)"},
+        "over de volle breedte",
+        "beeld": "Met beeld — foto of tekening rechts, kernpunten links, omschrijving eronder",
+        "tekst": "Tekst — geen beeld, kernpunten links, omschrijving rechts",
+    },
+    "inset_corner": {
+        "top_left": "Linksboven",
+        "top_right": "Rechtsboven",
+        "bottom_left": "Linksonder",
+        "bottom_right": "Rechtsonder",
+    },
+    "generation_status": {
+        "requested": "Bezig…",
+        "fetched": "Klaar",
+        "picked": "Gekozen",
+        "discarded": "Niet gekozen",
+        "refused": "Geweigerd (moderatie)",
+        "failed": "Mislukt",
+    },
+    "drawing_style": {
+        "lijn": "Lijntekening (zwart-wit)",
+        "lijnkleur": "Lijntekening met kleuraccenten",
+        "kleur": "Kleurtekening (vlakke kleuren)",
+    },
 }
 
 #: The nineteen lists of this phase, with the enum that belongs to each.
 PHASE_3_LISTS = {
-    "subscriber_status": SubscriberStatus, "subscriber_source": SubscriberSource,
-    "audience": Audience, "letter_status": LetterStatus,
-    "reply_to_mode": ReplyToMode, "delivery_kind": DeliveryKind,
-    "delivery_status": DeliveryStatus, "message_role": MessageRole,
+    "subscriber_status": SubscriberStatus,
+    "subscriber_source": SubscriberSource,
+    "audience": Audience,
+    "letter_status": LetterStatus,
+    "reply_to_mode": ReplyToMode,
+    "delivery_kind": DeliveryKind,
+    "delivery_status": DeliveryStatus,
+    "message_role": MessageRole,
     "meeting_status": None,  # the phase-0 pilot; counted, not rebuilt here
-    "section_kind": SectionKind, "attendance": Attendance,
+    "section_kind": SectionKind,
+    "attendance": Attendance,
     "file_purpose": FilePurpose,
-    "design_status": DesignStatus, "layout": Layout,
-    "render_variant": RenderVariant, "generation_status": GenerationStatus,
-    "preset": Preset, "inset_corner": InsetCorner,
+    "design_status": DesignStatus,
+    "layout": Layout,
+    "render_variant": RenderVariant,
+    "generation_status": GenerationStatus,
+    "preset": Preset,
+    "inset_corner": InsetCorner,
     "drawing_style": DrawingStyle,
 }
 
@@ -148,6 +174,7 @@ def _clean_label_cache():
 
 # ── §B8.5 / AC3 The same Dutch words as before ───────────────────────────────
 
+
 @pytest.mark.parametrize("code_list", sorted(LABELS_BEFORE_CR12))
 def test_every_screen_shows_the_same_dutch_word_as_before(db_session, code_list):
     """AC3, and the point of this phase: the source of the word changed, the
@@ -159,7 +186,8 @@ def test_every_screen_shows_the_same_dutch_word_as_before(db_session, code_list)
     """
     for code, before in LABELS_BEFORE_CR12[code_list].items():
         assert code_label(code_list, code, language="nl", db=db_session) == before, (
-            f"`{code_list}` code {code!r} used to read {before!r}")
+            f"`{code_list}` code {code!r} used to read {before!r}"
+        )
 
 
 @pytest.mark.parametrize("code_list", sorted(PHASE_3_LISTS))
@@ -167,22 +195,27 @@ def test_every_list_of_this_phase_is_registered_with_both_languages(db_session, 
     entry = registry()[code_list]
     for language in ("nl", "en"):
         rows = db_session.execute(
-            text(f"SELECT count(*) FROM {entry.labels_table} WHERE language = :l"),
-            {"l": language}).scalar_one()
-        codes = db_session.execute(
-            text(f"SELECT count(*) FROM {entry.codes_table}")).scalar_one()
+            text(f"SELECT count(*) FROM {entry.labels_table} WHERE language = :l"), {"l": language}
+        ).scalar_one()
+        codes = db_session.execute(text(f"SELECT count(*) FROM {entry.codes_table}")).scalar_one()
         assert rows == codes, f"`{code_list}` has {codes} codes but {rows} `{language}` labels"
 
 
-@pytest.mark.parametrize("code_list, enum_cls",
-                         sorted((k, v) for k, v in PHASE_3_LISTS.items() if v is not None))
+@pytest.mark.parametrize(
+    "code_list, enum_cls", sorted((k, v) for k, v in PHASE_3_LISTS.items() if v is not None)
+)
 def test_the_enum_of_every_list_covers_exactly_its_codes(db_session, code_list, enum_cls):
-    codes = {row[0] for row in db_session.execute(
-        text(f"SELECT code FROM {registry()[code_list].codes_table}")).all()}
+    codes = {
+        row[0]
+        for row in db_session.execute(
+            text(f"SELECT code FROM {registry()[code_list].codes_table}")
+        ).all()
+    }
     assert {m.value for m in enum_cls} == codes
 
 
 # ── §B8.2 / AC1 The database refuses what is not a code ──────────────────────
+
 
 def _rows_for_the_refusal_test(db, design):
     """One real row per table, so the `UPDATE` below can only fail on the
@@ -229,7 +262,8 @@ NOT_A_CODE = [
 
 @pytest.mark.parametrize("table, column, value", NOT_A_CODE)
 def test_a_value_that_is_not_a_code_never_reaches_the_column(
-        db_session, design, table, column, value):  # noqa: F811
+    db_session, design, table, column, value
+):  # noqa: F811
     """AC1 per domain: the value does not get in, not even by raw SQL.
 
     And it fails **for the right reason**: SQLSTATE 23503 is a foreign-key
@@ -239,11 +273,12 @@ def test_a_value_that_is_not_a_code_never_reaches_the_column(
     ids = _rows_for_the_refusal_test(db_session, design)
     with pytest.raises(IntegrityError) as caught:
         db_session.execute(
-            text(f"UPDATE {table} SET {column} = :v WHERE id = :i"),
-            {"v": value, "i": ids[table]})
+            text(f"UPDATE {table} SET {column} = :v WHERE id = :i"), {"v": value, "i": ids[table]}
+        )
     assert caught.value.orig.pgcode == "23503", (
         f"{table}.{column} refused {value!r} with SQLSTATE "
-        f"{caught.value.orig.pgcode}, not with a foreign key (23503)")
+        f"{caught.value.orig.pgcode}, not with a foreign key (23503)"
+    )
     db_session.rollback()
 
 
@@ -273,28 +308,34 @@ DROPPED_CHECKS = [
 def test_a_check_that_says_what_the_foreign_key_says_is_gone(db_session, schema, table, constraint):
     """Two guards on one value is how they drift: a new code gets a row and
     the check still refuses it, months later, from a migration nobody reads."""
-    names = {c["name"] for c in inspect(db_session.bind).get_check_constraints(
-        table, schema=schema)}
+    names = {
+        c["name"] for c in inspect(db_session.bind).get_check_constraints(table, schema=schema)
+    }
     assert constraint not in names
 
 
-@pytest.mark.parametrize("table, constraint", [
-    ("designs", "ck_design_focus"),
-    ("design_renditions", "ck_design_rendition_owner"),
-    ("newsletters", "ck_newsletter_sent_has_audience"),
-])
+@pytest.mark.parametrize(
+    "table, constraint",
+    [
+        ("designs", "ck_design_focus"),
+        ("design_renditions", "ck_design_rendition_owner"),
+        ("newsletters", "ck_newsletter_sent_has_audience"),
+    ],
+)
 def test_a_check_that_spans_two_columns_stays(db_session, table, constraint):
     """A foreign key says "this value is in that list". These say something a
     list cannot: that two numbers are within bounds, that a variant matches
     whether there is a version, that an audience is chosen before sending.
     """
     schema = "designstudio" if table != "newsletters" else "newsletter"
-    names = {c["name"] for c in inspect(db_session.bind).get_check_constraints(
-        table, schema=schema)}
+    names = {
+        c["name"] for c in inspect(db_session.bind).get_check_constraints(table, schema=schema)
+    }
     assert constraint in names
 
 
 # ── §B8.4 The column stores the code, never the member name ──────────────────
+
 
 def test_the_columns_of_this_phase_store_the_code(db_session, design):
     """The reason `EnumColumn` exists. `sa.Enum(SomeEnum)` would write `DRAFT`
@@ -304,9 +345,10 @@ def test_the_columns_of_this_phase_store_the_code(db_session, design):
     design.preset = Preset.TEXT
     design.inset_corner = InsetCorner.TOP_LEFT
     db_session.flush()
-    row = db_session.execute(text(
-        "SELECT status, preset, inset_corner FROM designstudio.designs WHERE id = :i"),
-        {"i": design.id}).one()
+    row = db_session.execute(
+        text("SELECT status, preset, inset_corner FROM designstudio.designs WHERE id = :i"),
+        {"i": design.id},
+    ).one()
     assert tuple(row) == ("final", "tekst", "top_left")
     db_session.expire(design)
     assert design.status is DesignStatus.FINAL
@@ -325,6 +367,7 @@ def test_a_code_assigned_as_a_string_becomes_the_member_at_once(db_session, desi
 
 # ── §B8.6 The screen shows a word, not a code ────────────────────────────────
 
+
 def test_the_subscriber_screen_shows_words_and_the_filter_carries_codes(client, db_session):
     """AC2: nothing on the screen reads like a database value.
 
@@ -341,16 +384,18 @@ def test_the_subscriber_screen_shows_words_and_the_filter_carries_codes(client, 
     client.cookies.set(SESSION_COOKIE, sess)
     page = client.get("/admin/nieuwsbrieven/abonnees")
     assert page.status_code == 200
-    assert 'value="confirmed"' in page.text          # the filter carries the code
-    assert "SubscriberStatus." not in page.text      # never a member
+    assert 'value="confirmed"' in page.text  # the filter carries the code
+    assert "SubscriberStatus." not in page.text  # never a member
     # The badge itself. `"Bevestigd" in page.text` is not enough: the filter
     # option carries that word too, so the badge could render the raw code
     # and the assertion would still pass. This one looks at rendered text —
     # `>confirmed<` — and that is what a code on the screen looks like.
     assert not re.search(r">\s*confirmed\s*<", page.text), (
-        "the subscriber badge renders the code instead of the word")
+        "the subscriber badge renders the code instead of the word"
+    )
     assert re.search(r">\s*Bevestigd\s*<", page.text), (
-        "the subscriber badge should read `Bevestigd`")
+        "the subscriber badge should read `Bevestigd`"
+    )
 
 
 def test_the_design_list_shows_the_preset_and_the_status_in_words(client, db_session, design):
@@ -383,8 +428,9 @@ def test_the_attendance_button_comes_back_green_after_one_click(client, db_sessi
     from app.domains.meetings.api import create_meeting
     from tests.test_vergadering_routes import _kringlid
 
-    person = _kringlid(db_session, voornaam="Aanwezig", achternaam="Persoon",
-                       email="aanwezig@example.org")
+    person = _kringlid(
+        db_session, voornaam="Aanwezig", achternaam="Persoon", email="aanwezig@example.org"
+    )
     meeting = create_meeting(db_session, meeting_date=date(2026, 11, 10))
     db_session.commit()
 
@@ -393,16 +439,18 @@ def test_the_attendance_button_comes_back_green_after_one_click(client, db_sessi
     response = client.post(
         f"/admin/vergaderingen/{meeting.id}/aanwezigheid",
         headers={"X-CSRF-Token": csrf_token_for(sess)},
-        data={"person_id": str(person.id), "current": ""})
+        data={"person_id": str(person.id), "current": ""},
+    )
     assert response.status_code == 200
     assert 'name="current" value="present"' in response.text, (
-        "the form must send back the CODE, not the member")
+        "the form must send back the CODE, not the member"
+    )
     assert "Attendance." not in response.text
-    assert "bg-green-50" in response.text, (
-        "the button should come back green after one click")
+    assert "bg-green-50" in response.text, "the button should come back green after one click"
 
 
 # ── §B4.10 What deliberately did NOT become a code list ──────────────────────
+
 
 def test_the_brand_assets_of_the_design_studio_stay_out_of_the_pattern():
     """Icons, colour duos, paper sizes and template keys have a payload — an
@@ -414,11 +462,13 @@ def test_the_brand_assets_of_the_design_studio_stay_out_of_the_pattern():
     """
     from app.domains.designstudio import brand, icons, service
 
-    assert not ({"duo", "icon", "paper_size", "template_key", "size"}
-                & set(registry())), "a brand asset became a code list"
+    assert not ({"duo", "icon", "paper_size", "template_key", "size"} & set(registry())), (
+        "a brand asset became a code list"
+    )
     assert icons.ICONS and brand.DUOS, "the assets moved out of their modules"
     assert service.FILE_SIZE_LABELS["feed"] == "portrait", (
-        "the file-name fragment is not a translation")
+        "the file-name fragment is not a translation"
+    )
 
 
 def test_the_preset_reaches_the_renderer_as_a_member(db_session, design):

@@ -34,15 +34,14 @@ The session check below therefore stays as a guard for a future path that *does*
 first (that is exactly how #792 bit us), but it is labelled for what it is instead of
 being sold as proof.
 """
+
 from decimal import Decimal
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
-from app.domains.payment.api import PaymentRecord
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
+from app.domains.payment.api import PaymentRecord, PaymentStatus, PaymentType
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -59,13 +58,26 @@ def _login(client, db, *roles):
     return {"X-CSRF-Token": csrf_token_for(value)}
 
 
-def _charge(db, *, amount="25.00", status="pending", payable_id=7701, paid=None,
-            method="transfer", gateway_id=None):
-    record = PaymentRecord(payable_type="membership", payable_id=payable_id,
-                           amount=Decimal(amount), method=method, status=status,
-                           type="charge",
-                           amount_paid=Decimal(paid) if paid is not None else None,
-                           gateway_payment_id=gateway_id)
+def _charge(
+    db,
+    *,
+    amount="25.00",
+    status="pending",
+    payable_id=7701,
+    paid=None,
+    method="transfer",
+    gateway_id=None,
+):
+    record = PaymentRecord(
+        payable_type="membership",
+        payable_id=payable_id,
+        amount=Decimal(amount),
+        method=method,
+        status=status,
+        type="charge",
+        amount_paid=Decimal(paid) if paid is not None else None,
+        gateway_payment_id=gateway_id,
+    )
     db.add(record)
     db.flush()
     return record
@@ -73,13 +85,17 @@ def _charge(db, *, amount="25.00", status="pending", payable_id=7701, paid=None,
 
 # ── A. de drie penningmeester-mutaties ───────────────────────────────────────
 
+
 def test_the_status_route_changes_the_status(client, db_session):
     """Het gelukkige pad, en zonder dat bewijst de weigering hieronder niets."""
     headers = _login(client, db_session)
     record = _charge(db_session, status="pending")
 
-    resp = client.post(f"/admin/betalingen/{record.id}/status", headers=headers,
-                       data={"status": "cancelled", "note": "per mail geannuleerd"})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/status",
+        headers=headers,
+        data={"status": "cancelled", "note": "per mail geannuleerd"},
+    )
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.refresh(record)
@@ -106,13 +122,17 @@ def test_a_rejected_status_is_refused_in_words(client, db_session):
     headers = _login(client, db_session)
     record = _charge(db_session, status="pending")
 
-    resp = client.post(f"/admin/betalingen/{record.id}/status", headers=headers,
-                       data={"status": "verzonnen", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/status",
+        headers=headers,
+        data={"status": "verzonnen", "note": ""},
+    )
 
     assert "Ongeldige status" in resp.text, resp.text[:300]
     # Déze query is de assertie: in pending-rollback gooit ze PendingRollbackError.
     assert isinstance(db_session.query(PaymentRecord).count(), int), (
-        "de sessie staat in pending-rollback — de mutatie draaide niet terug")
+        "de sessie staat in pending-rollback — de mutatie draaide niet terug"
+    )
 
 
 def test_the_delete_route_takes_the_record_out_of_the_balance(client, db_session):
@@ -123,20 +143,27 @@ def test_the_delete_route_takes_the_record_out_of_the_balance(client, db_session
     record = _charge(db_session, status="paid", paid="25.00", payable_id=7702)
     assert net_paid(db_session, "membership", 7702) == Decimal("25.00")
 
-    resp = client.post(f"/admin/betalingen/{record.id}/verwijderen", headers=headers,
-                       data={"note": "dubbel geboekt"})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/verwijderen",
+        headers=headers,
+        data={"note": "dubbel geboekt"},
+    )
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.expire_all()
     assert net_paid(db_session, "membership", 7702) == Decimal("0.00"), (
-        "het verwijderde record telt nog mee in het saldo")
+        "het verwijderde record telt nog mee in het saldo"
+    )
 
 
-@pytest.mark.parametrize("pad,data", [
-    ("status", {"status": "cancelled"}),
-    ("verwijderen", {"note": "weg"}),
-    ("verversen", {}),
-])
+@pytest.mark.parametrize(
+    "pad,data",
+    [
+        ("status", {"status": "cancelled"}),
+        ("verwijderen", {"note": "weg"}),
+        ("verversen", {}),
+    ],
+)
 def test_only_finance_may_mutate(client, db_session, pad, data):
     """`require_finance_mutation` op alle drie. ADMIN mag kijken en exporteren maar
     niet muteren (#83/#530) — en dat onderscheid is precies wat hier ongedekt was."""
@@ -162,8 +189,10 @@ def test_only_finance_may_mutate(client, db_session, pad, data):
 
 # ── B. de handmatige Mollie-verversing ───────────────────────────────────────
 
-def test_the_manual_refresh_takes_its_status_from_mollie(client, db_session,
-                                                         admin_headers, mock_mollie):
+
+def test_the_manual_refresh_takes_its_status_from_mollie(
+    client, db_session, admin_headers, mock_mollie
+):
     """Het vangnet voor een gemiste webhook, en het endpoint waarvan de veiligheid ís
     dat het de status bij Mollie ópvraagt in plaats van iets te geloven."""
     from app.domains.auth.api import User, UserRole
@@ -174,24 +203,29 @@ def test_the_manual_refresh_takes_its_status_from_mollie(client, db_session,
         db_session.add(UserRole(user_id=user.id, role_code="FINANCE"))
     db_session.flush()
 
-    gp = GatewayPayment(provider="mollie", provider_payment_id="tr_test_123",
-                        amount=Decimal("25.00"), status="pending",
-                        checkout_url="https://mollie.test/x", description="Test",
-                        payment_metadata={})
+    gp = GatewayPayment(
+        provider="mollie",
+        provider_payment_id="tr_test_123",
+        amount=Decimal("25.00"),
+        status="pending",
+        checkout_url="https://mollie.test/x",
+        description="Test",
+        payment_metadata={},
+    )
     db_session.add(gp)
     db_session.flush()
-    record = _charge(db_session, status="pending", payable_id=7704, method="online",
-                     gateway_id=gp.id)
+    record = _charge(
+        db_session, status="pending", payable_id=7704, method="online", gateway_id=gp.id
+    )
 
-    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh",
-                       headers=admin_headers)
+    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh", headers=admin_headers)
 
     assert resp.status_code == 200, resp.text[:300]
     db_session.expire_all()
-    assert db_session.query(PaymentRecord).filter(
-        PaymentRecord.id == record.id).one().status == PaymentStatus.PAID, (
-        "de status is niet toegepast, dus de handmatige tegenhanger van de webhook doet "
-        "niets")
+    assert (
+        db_session.query(PaymentRecord).filter(PaymentRecord.id == record.id).one().status
+        == PaymentStatus.PAID
+    ), "de status is niet toegepast, dus de handmatige tegenhanger van de webhook doet niets"
 
 
 def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session, admin_headers):
@@ -205,8 +239,7 @@ def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session, admin_head
     db_session.flush()
     record = _charge(db_session, status="pending", payable_id=7705)
 
-    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh",
-                       headers=admin_headers)
+    resp = client.post(f"/api/v1/payment-status/records/{record.id}/refresh", headers=admin_headers)
 
     assert resp.status_code == 400
     assert "online" in resp.text.lower()
@@ -214,14 +247,18 @@ def test_a_transfer_cannot_be_refreshed_at_mollie(client, db_session, admin_head
 
 # ── C. drie foutpaden rond bedragen ──────────────────────────────────────────
 
+
 def test_an_unreadable_amount_is_refused_in_words(client, db_session):
     """`_ingetypt_bedrag` gooit BetalingFout("Ongeldig bedrag") — een regel die door
     geen enkele test uitgevoerd werd."""
     headers = _login(client, db_session)
     record = _charge(db_session, status="pending", payable_id=7706)
 
-    resp = client.post(f"/admin/betalingen/{record.id}/bijwerken", headers=headers,
-                       data={"amount_paid": "abc", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/bijwerken",
+        headers=headers,
+        data={"amount_paid": "abc", "note": ""},
+    )
 
     assert "Ongeldig bedrag" in resp.text, resp.text[:300]
     # Niet `refresh`: een afgewezen mutatie draait terug tot het SAVEPOINT van deze
@@ -234,13 +271,16 @@ def test_a_refund_without_an_amount_is_refused(client, db_session):
     headers = _login(client, db_session)
     record = _charge(db_session, status="paid", paid="25.00", payable_id=7707)
 
-    resp = client.post(f"/admin/betalingen/{record.id}/refund", headers=headers,
-                       data={"amount": "", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/refund", headers=headers, data={"amount": "", "note": ""}
+    )
 
     assert "Ongeldig bedrag" in resp.text, resp.text[:300]
-    assert not db_session.query(PaymentRecord).filter(
-        PaymentRecord.type == PaymentType.REFUND, PaymentRecord.payable_id == 7707).all(), (
-        "er is een terugbetaling aangemaakt zonder bedrag")
+    assert (
+        not db_session.query(PaymentRecord)
+        .filter(PaymentRecord.type == PaymentType.REFUND, PaymentRecord.payable_id == 7707)
+        .all()
+    ), "er is een terugbetaling aangemaakt zonder bedrag"
 
 
 def test_too_large_an_amount_is_refused_with_the_limit_in_the_message(client, db_session):
@@ -249,9 +289,13 @@ def test_too_large_an_amount_is_refused_with_the_limit_in_the_message(client, db
     headers = _login(client, db_session)
     record = _charge(db_session, status="pending", payable_id=7708, amount="25.00")
 
-    resp = client.post(f"/admin/betalingen/{record.id}/bijwerken", headers=headers,
-                       data={"amount_paid": "99.00", "note": ""})
+    resp = client.post(
+        f"/admin/betalingen/{record.id}/bijwerken",
+        headers=headers,
+        data={"amount_paid": "99.00", "note": ""},
+    )
 
     assert "tussen" in resp.text or "Meer dan" in resp.text, resp.text[:300]
     assert isinstance(db_session.query(PaymentRecord).count(), int), (
-        "de sessie staat in pending-rollback — de bevestiging draaide niet terug")
+        "de sessie staat in pending-rollback — de bevestiging draaide niet terug"
+    )

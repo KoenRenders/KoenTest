@@ -30,11 +30,11 @@ Broken on purpose to see them go red, in this order:
   - `EXPECTED_SQL_SITES` raised to a file count nothing reaches
     → the proof-of-coverage assertion fires instead of the gate silently passing.
 """
+
 import re
+from pathlib import Path
 
 from tests._bestanden import bestanden
-
-from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
 MIGRATIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
@@ -43,8 +43,8 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 # a new entry means a new process reading a read model, which is the thing this
 # gate exists to catch. Add one only with the reasoning written down.
 ALLOWED_IMPORTERS = {
-    "app.main",              # route registration
-    "app.ui.system_ui",      # the dashboard tiles
+    "app.main",  # route registration
+    "app.ui.system_ui",  # the dashboard tiles
 }
 # Deliberately not on the list: the assistant (CR-07 §4.1). Its capability pack
 # lives *inside* reporting (`reporting/assistant.py`), because reporting imports
@@ -82,16 +82,12 @@ EXPECTED_SQL_SITES = 20
 
 
 def _module_name(path: Path) -> str:
-    return ".".join(path.relative_to(APP.parent).with_suffix("").parts).removesuffix(
-        ".__init__"
-    )
+    return ".".join(path.relative_to(APP.parent).with_suffix("").parts).removesuffix(".__init__")
 
 
 def test_only_the_allowed_consumers_import_reporting():
     offenders = []
-    for path in bestanden(
-        APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100
-    ):
+    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100):
         module = _module_name(path)
         if module.startswith("app.domains.reporting"):
             continue  # the domain itself
@@ -157,6 +153,5 @@ def test_the_reporting_schema_is_addressed_only_from_its_own_domain():
     )
     assert not offenders, (
         "deze bestanden spreken het schema `reporting.` rechtstreeks aan, buiten "
-        "het reporting-domein en zijn migraties: " + ", ".join(sorted(offenders))
-        + "\n" + _RULE
+        "het reporting-domein en zijn migraties: " + ", ".join(sorted(offenders)) + "\n" + _RULE
     )

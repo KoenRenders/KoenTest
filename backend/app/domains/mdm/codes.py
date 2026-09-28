@@ -9,6 +9,7 @@ Phase 0 declared the language list; phase 1 adds the payment method. The four
 single-language code tables already here (`gender`, `contact_type`,
 `relation_type`, `legal_form`) are split into the codes/labels shape in phase 2.
 """
+
 from app.domains.mdm.models import (
     ContactTypeCode,
     ContactTypeLabel,
@@ -64,8 +65,7 @@ LANGUAGE = CodeList(
 
 PAYMENT_METHOD_CODES = (
     CodeSeed(code="online", nl="Online", en="Online", sort_order=10),
-    CodeSeed(code="transfer", nl="Overschrijving", en="Bank transfer",
-             sort_order=20),
+    CodeSeed(code="transfer", nl="Overschrijving", en="Bank transfer", sort_order=20),
     CodeSeed(code="cash", nl="Cash", en="Cash", sort_order=30),
 )
 
@@ -78,8 +78,7 @@ PAYMENT_METHOD = CodeList(
     # The two columns that store a payment method, in two different schemas.
     # This is the cross-schema foreign key §B2.4 allows, and the reason the
     # list sits in `mdm` rather than in `payment`.
-    fk_from=("payment.payment_records.method",
-             "activities.registrations.payment_method"),
+    fk_from=("payment.payment_records.method", "activities.registrations.payment_method"),
 )
 
 
@@ -97,8 +96,7 @@ GENDER_CODES = (
     CodeSeed(code="X", nl="X", en="X", sort_order=30),
     # Retired (Koen, 26 September 2026): the list is M, F, X and nothing more.
     # The label stays, so an existing person with this code still renders.
-    CodeSeed(code="U", nl="Onbekend", en="Unknown", sort_order=90,
-             is_active=False),
+    CodeSeed(code="U", nl="Onbekend", en="Unknown", sort_order=90, is_active=False),
 )
 
 GENDER = CodeList(
@@ -171,8 +169,7 @@ CONTACT_TYPE = CodeList(
 RELATION_TYPE_CODES = (
     CodeSeed(code="HOOFDLID", nl="Hoofdlid", en="Primary member", sort_order=10),
     CodeSeed(code="PARTNER", nl="Partner", en="Partner", sort_order=20),
-    CodeSeed(code="KIND", nl="(meerderjarig) kind", en="Adult child",
-             sort_order=30),
+    CodeSeed(code="KIND", nl="(meerderjarig) kind", en="Adult child", sort_order=30),
 )
 
 RELATION_TYPE = CodeList(
@@ -186,8 +183,12 @@ RELATION_TYPE = CodeList(
 
 LEGAL_FORM_CODES = (
     CodeSeed(code="VZW", nl="vzw", en="Non-profit association", sort_order=10),
-    CodeSeed(code="FEITELIJKE_VERENIGING", nl="Feitelijke vereniging",
-             en="Unincorporated association", sort_order=20),
+    CodeSeed(
+        code="FEITELIJKE_VERENIGING",
+        nl="Feitelijke vereniging",
+        en="Unincorporated association",
+        sort_order=20,
+    ),
     CodeSeed(code="BEDRIJF", nl="Bedrijf", en="Company", sort_order=30),
 )
 
@@ -219,8 +220,7 @@ ORGANIZATION_TYPE = CodeList(
 #: the gates include them. The `en` rows of the identification schemes were
 #: missing and are added in the same migration.
 ORGANIZATION_RELATION_TYPE_CODES = (
-    CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting",
-             sort_order=10),
+    CodeSeed(code="BOARD_MEETING", nl="Bestuursvergadering", en="Board meeting", sort_order=10),
 )
 
 ORGANIZATION_RELATION_TYPE = CodeList(
@@ -233,13 +233,22 @@ ORGANIZATION_RELATION_TYPE = CodeList(
 )
 
 IDENTIFICATION_SCHEME_CODES = (
-    CodeSeed(code="KBO", nl="Ondernemingsnummer", en="Enterprise number",
-             sort_order=10,
-             description_nl="Belgisch ondernemingsnummer (KBO)",
-             description_en="Belgian enterprise number (KBO)"),
-    CodeSeed(code="VAT", nl="Btw-nummer", en="VAT number", sort_order=20,
-             description_nl="Btw-identificatienummer",
-             description_en="VAT identification number"),
+    CodeSeed(
+        code="KBO",
+        nl="Ondernemingsnummer",
+        en="Enterprise number",
+        sort_order=10,
+        description_nl="Belgisch ondernemingsnummer (KBO)",
+        description_en="Belgian enterprise number (KBO)",
+    ),
+    CodeSeed(
+        code="VAT",
+        nl="Btw-nummer",
+        en="VAT number",
+        sort_order=20,
+        description_nl="Btw-identificatienummer",
+        description_en="VAT identification number",
+    ),
 )
 
 IDENTIFICATION_SCHEME = CodeList(
@@ -252,8 +261,12 @@ IDENTIFICATION_SCHEME = CodeList(
 )
 
 EXTERNAL_SOURCE_CODES = (
-    CodeSeed(code="ledenadministratie", nl="Ledenadministratie",
-             en="Member administration", sort_order=10),
+    CodeSeed(
+        code="ledenadministratie",
+        nl="Ledenadministratie",
+        en="Member administration",
+        sort_order=10,
+    ),
 )
 
 

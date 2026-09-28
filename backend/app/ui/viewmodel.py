@@ -22,6 +22,7 @@ Ook een fragment krijgt een view-model. Dat voelt zwaar voor twee variabelen, ma
 juist de fragmenten worden vanuit meerdere routes gerenderd — daar loopt het
 gemakkelijkst iets mis.
 """
+
 from dataclasses import dataclass, fields
 from typing import Any
 

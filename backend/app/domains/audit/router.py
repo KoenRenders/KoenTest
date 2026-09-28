@@ -2,6 +2,7 @@
 
 (verhuisd uit app/routers/admin.py, #444)
 """
+
 from datetime import date
 from typing import Optional
 
@@ -16,6 +17,7 @@ router = APIRouter(tags=["admin"])
 
 # ── Ledendata-wijzigingen sinds datum (#82) ───────────────────────────────────
 
+
 @router.get("/member-changes")
 def list_member_changes(
     since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
@@ -25,6 +27,7 @@ def list_member_changes(
     """Alle ledendata-wijzigingen sinds `since`, voor manuele overname in Raak
     Nationaal. Admin-only; bevat persoonsdata."""
     from app.domains.audit.changes import member_changes_since
+
     return member_changes_since(db, since)
 
 
@@ -35,16 +38,20 @@ def export_member_changes(
     _admin: User = Depends(get_current_admin),
 ):
     """Dezelfde wijzigingen als .ods-download (OpenDocument)."""
-    from app.domains.audit.changes import member_changes_since, build_member_changes_ods
+    from app.domains.audit.changes import build_member_changes_ods, member_changes_since
+
     content = build_member_changes_ods(member_changes_since(db, since))
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.ods"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.ods"'
+        },
     )
 
 
 # ── Uniforme Wijzigingen/audit-feed (#189) ────────────────────────────────────
+
 
 @router.get("/changes")
 def list_all_changes(
@@ -57,5 +64,6 @@ def list_all_changes(
     """Uniforme audit-feed: alle wijzigingen (leden, activiteiten, inschrijvingen,
     betalingen) sinds `since`, optioneel gefilterd op objectgroep en/of actor.
     Admin-only; bevat persoonsdata."""
-    from app.domains.audit.changes import all_changes_since, GROUPS
+    from app.domains.audit.changes import GROUPS, all_changes_since
+
     return {"groups": GROUPS, "rows": all_changes_since(db, since, group=group, actor=actor)}

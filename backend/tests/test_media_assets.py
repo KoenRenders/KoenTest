@@ -1,5 +1,6 @@
 """Tests voor de assetbibliotheek: upload (admin), publiek serveren met caching,
 en de sponsor-/foto-endpoints."""
+
 from io import BytesIO
 
 from PIL import Image

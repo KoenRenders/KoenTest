@@ -50,6 +50,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
   het model klopt wél. Dat is precies het verschil tussen "bewaard" en "zichtbaar"
   waar dit issue over gaat.
 """
+
 import os
 import sys
 
@@ -85,7 +86,8 @@ def editor():
 def _leeg(page):
     page.evaluate("() => document.getElementById('cp-trix').editor.loadHTML('')")
     page.wait_for_function(
-        "() => !document.querySelector('#cp-trix figure.attachment')", timeout=5000)
+        "() => !document.querySelector('#cp-trix figure.attachment')", timeout=5000
+    )
 
 
 def _voeg_in(page, maat: str, alt: str):
@@ -101,7 +103,8 @@ def _voeg_in(page, maat: str, alt: str):
     dialoog.get_by_role("button", name="Invoegen", exact=True).click()
     page.wait_for_function(
         f"() => document.querySelector('#cp-trix figure[data-trix-attachment*=\\\"{alt}\\\"]')",
-        timeout=5000)
+        timeout=5000,
+    )
 
 
 @pytest.fixture
@@ -118,6 +121,7 @@ def pagina_met_beeld(editor):
 
 # ── 1. De knop leest als een knop ───────────────────────────────────────────
 
+
 def test_de_bewerkknop_heeft_een_eigen_achtergrond(editor, pagina_met_beeld):
     """Het gemelde gebrek. Zonder eigen achtergrond hangt de leesbaarheid af van
     de foto eronder, en die kan donker zijn."""
@@ -129,11 +133,11 @@ def test_de_bewerkknop_heeft_een_eigen_achtergrond(editor, pagina_met_beeld):
 
     assert stijl["achtergrond"] not in ("rgba(0, 0, 0, 0)", "transparent"), (
         f"de knop heeft geen eigen achtergrond ({stijl['achtergrond']}) en leest "
-        "dus als kale tekst over het beeld — precies de melding van #1230")
+        "dus als kale tekst over het beeld — precies de melding van #1230"
+    )
 
 
-def test_de_bewerkknop_staat_op_dezelfde_hoogte_als_het_kruisje(editor,
-                                                                pagina_met_beeld):
+def test_de_bewerkknop_staat_op_dezelfde_hoogte_als_het_kruisje(editor, pagina_met_beeld):
     """Dezelfde hoogte en dezelfde bovenkant: de twee horen als één bediening te
     lezen. De breedte verschilt, want in de ene staat een woord en in de andere
     een symbool."""
@@ -145,13 +149,14 @@ def test_de_bewerkknop_staat_op_dezelfde_hoogte_als_het_kruisje(editor,
               bewerken: doos(document.querySelector('[data-raak-beeld-bewerken]'))};
     }""")
 
-    assert m["bewerken"]["hoogte"] == m["kruisje"]["hoogte"], (
-        f"de knoppen zijn niet even hoog: {m}")
+    assert m["bewerken"]["hoogte"] == m["kruisje"]["hoogte"], f"de knoppen zijn niet even hoog: {m}"
     assert abs(m["bewerken"]["top"] - m["kruisje"]["top"]) <= 1, (
-        f"de knoppen staan niet op dezelfde bovenkant: {m}")
+        f"de knoppen staan niet op dezelfde bovenkant: {m}"
+    )
     assert m["bewerken"]["links"] >= m["kruisje"]["rechts"], (
         f"de knoppen overlappen elkaar: {m} — een trefvlak over een knop die "
-        "iets wist, is gevaarlijker dan een kleine knop")
+        "iets wist, is gevaarlijker dan een kleine knop"
+    )
 
 
 def test_de_bewerkknop_heeft_een_toegankelijke_naam(editor, pagina_met_beeld):
@@ -166,10 +171,12 @@ def test_de_bewerkknop_heeft_een_toegankelijke_naam(editor, pagina_met_beeld):
     assert naam, "de bewerkknop heeft geen toegankelijke naam"
     assert len(naam) > 2, (
         f"de naam {naam!r} is te kort om iets te zeggen; is het een symboolknop "
-        "geworden, geef haar dan een aria-label")
+        "geworden, geef haar dan een aria-label"
+    )
 
 
 # ── 2. De maat is in de editor te zien ──────────────────────────────────────
+
 
 def _breedtes(page) -> dict:
     return page.evaluate("""() => {
@@ -191,17 +198,20 @@ def test_klein_is_in_de_editor_smaller_dan_half_en_vol(editor, pagina_met_beeld)
     gaat om de VERHOUDING, niet om een pixelmaat.
     """
     _leeg(editor)
-    for maat, alt in (("Klein", "Beeld klein"), ("Half", "Beeld half"),
-                      ("Volle breedte", "Beeld vol")):
+    for maat, alt in (
+        ("Klein", "Beeld klein"),
+        ("Half", "Beeld half"),
+        ("Volle breedte", "Beeld vol"),
+    ):
         _voeg_in(editor, maat, alt)
 
     m = _breedtes(editor)
 
     assert m["Beeld klein"] < m["Beeld half"] < m["Beeld vol"], (
         f"de drie maten zijn in de editor niet oplopend: {m} — je kiest klein en "
-        "ziet groot, precies de tweede melding van #1230")
-    assert m["Beeld vol"] > m["editor"] * 0.8, (
-        f"volle breedte vult de editor niet: {m}")
+        "ziet groot, precies de tweede melding van #1230"
+    )
+    assert m["Beeld vol"] > m["editor"] * 0.8, f"volle breedte vult de editor niet: {m}"
 
 
 def test_de_maat_wijzigen_verandert_de_weergave_meteen(editor, pagina_met_beeld):
@@ -221,15 +231,15 @@ def test_de_maat_wijzigen_verandert_de_weergave_meteen(editor, pagina_met_beeld)
         """() => {
              const f = document.querySelector('#cp-trix figure.attachment');
              return f && JSON.parse(f.getAttribute('data-trix-attachment')).size === 'klein';
-           }""", timeout=5000)
+           }""",
+        timeout=5000,
+    )
 
     na = _breedtes(editor)["Beeld half"]
-    assert na < voor, (
-        f"de weergave veranderde niet mee: {voor} px → {na} px")
+    assert na < voor, f"de weergave veranderde niet mee: {voor} px → {na} px"
 
 
-def test_een_onbekende_maat_levert_ook_in_de_editor_niets_op(editor,
-                                                             pagina_met_beeld):
+def test_een_onbekende_maat_levert_ook_in_de_editor_niets_op(editor, pagina_met_beeld):
     """Punt 7, en het is de reden dat de editor uit dezelfde opgeslagen waarde
     leest in plaats van een eigen vertaling te maken."""
     _leeg(editor)
@@ -240,9 +250,11 @@ def test_een_onbekende_maat_levert_ook_in_de_editor_niets_op(editor,
         size: 'reus', width: 240, height: 150 }));
     }""")
     editor.wait_for_function(
-        "() => document.querySelector('#cp-trix figure.attachment')", timeout=5000)
+        "() => document.querySelector('#cp-trix figure.attachment')", timeout=5000
+    )
 
     m = _breedtes(editor)
     assert m["Stiekem"] > m["editor"] * 0.8, (
         f"een onbekende maat kreeg toch opmaak: {m} — dan bestaat er een tweede, "
-        "soepelere vertaling naast de vaste lijst van #1207")
+        "soepelere vertaling naast de vaste lijst van #1207"
+    )

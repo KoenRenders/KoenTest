@@ -6,11 +6,11 @@ Survivorship (§6): een Person wordt nooit hard verwijderd bij een merge —
 ``superseded_by_id`` wijst naar de overlever; ``service.resolve()`` slaat de
 keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 """
+
 from datetime import datetime, timezone
 from typing import Optional
 
-
-from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
+from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -80,15 +80,20 @@ class RelationType(CodeEnum):
 
 class Member(TenantMixin, SoftDeleteMixin, Base):
     """Household grouping — dynamic, can change over time."""
+
     __tablename__ = "members"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
     board_member_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
-    member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
+    member_persons = relationship(
+        "MemberPerson", back_populates="member", cascade="all, delete-orphan"
+    )
     # Bewust GEEN memberships-relatie hier: lidmaatschap is een ander domein
     # (fase 4a). Membership definieert de koppeling via een backref, zodat de
     # masterdata standalone geladen kan worden (§6, soft-ref-richting).
@@ -97,6 +102,7 @@ class Member(TenantMixin, SoftDeleteMixin, Base):
 
 class Person(TenantMixin, SoftDeleteMixin, Base):
     """Stable, permanent individual entity."""
+
     __tablename__ = "persons"
     __table_args__ = {"schema": "mdm"}
 
@@ -109,18 +115,25 @@ class Person(TenantMixin, SoftDeleteMixin, Base):
     # naar de eind-overlever (platgeslagen keten → resolve() is O(1)).
     superseded_by_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     member_persons = relationship("MemberPerson", back_populates="person")
     address = relationship("Address", back_populates="person", uselist=False)
-    contact_details = relationship("ContactDetail", back_populates="person", cascade="all, delete-orphan")
-    external_numbers = relationship("ExternalNumber", back_populates="person", cascade="all, delete-orphan")
+    contact_details = relationship(
+        "ContactDetail", back_populates="person", cascade="all, delete-orphan"
+    )
+    external_numbers = relationship(
+        "ExternalNumber", back_populates="person", cascade="all, delete-orphan"
+    )
     # Bewust GEEN registrations-relatie: activiteiten zijn een ander domein;
     # Registration definieert de koppeling via een backref (zelfde regel).
 
 
 class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     """Junction table linking persons to member households."""
+
     __tablename__ = "member_persons"
     __table_args__ = {"schema": "mdm"}
 
@@ -131,10 +144,14 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     person_id = Column(Integer, ForeignKey("mdm.persons.id", ondelete="RESTRICT"), nullable=False)
     relation_type: Mapped[RelationType] = mapped_column(
         EnumColumn(RelationType, length=10),
-        ForeignKey("mdm.relation_type_codes.code"), nullable=False,
-        default=RelationType.PRIMARY_MEMBER)
+        ForeignKey("mdm.relation_type_codes.code"),
+        nullable=False,
+        default=RelationType.PRIMARY_MEMBER,
+    )
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     member = relationship("Member", back_populates="member_persons")
     person = relationship("Person", back_populates="member_persons")
@@ -161,14 +178,22 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True)
+    organization_id = Column(
+        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
+    )
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
-    relation_type = Column(String(30), ForeignKey("mdm.organization_relation_type_codes.code"),
-                           nullable=False, default="BOARD_MEETING")
+    relation_type = Column(
+        String(30),
+        ForeignKey("mdm.organization_relation_type_codes.code"),
+        nullable=False,
+        default="BOARD_MEETING",
+    )
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     organization = relationship("Organization")
     person = relationship("Person")
@@ -207,13 +232,16 @@ class OrganizationRelationTypeLabel(Base):
     __tablename__ = "organization_relation_type_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(30), ForeignKey("mdm.organization_relation_type_codes.code"),
-                  primary_key=True)
+    code = Column(
+        String(30), ForeignKey("mdm.organization_relation_type_codes.code"), primary_key=True
+    )
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class Address(TenantMixin, SoftDeleteMixin, Base):
@@ -229,14 +257,15 @@ class Address(TenantMixin, SoftDeleteMixin, Base):
     # zoeken op `person_id = X` en zien de organisatierijen niet — dat is wat deze
     # uitbreiding contained maakt.
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
-                             nullable=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
     street = Column(String(255), nullable=False)
     house_number = Column(String(10), nullable=False)
     bus_number = Column(String(10), nullable=True)
     postal_code_id = Column(Integer, ForeignKey("mdm.postal_codes.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     person = relationship("Person", back_populates="address")
     postal_code = relationship("PostalCode")
@@ -283,8 +312,7 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
-                             nullable=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
     # No enum, unlike the other lists of this change request (Koen,
     # 26 September 2026). #1160 made the public footer data-driven: a fifth
     # social network is one row and not a code change. An enum column would
@@ -292,13 +320,15 @@ class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     # removed. The code names the kinds it distinguishes with named constants
     # (`CONTACT.EMAIL`, `CONTACT.MOBILE` in `codes.py`); the foreign key
     # guards that the value is in the list.
-    contact_type_code = Column(String(10),
-                               ForeignKey("mdm.contact_type_codes.code"),
-                               nullable=False)
+    contact_type_code = Column(
+        String(10), ForeignKey("mdm.contact_type_codes.code"), nullable=False
+    )
     value = Column(String(255), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     person = relationship("Person", back_populates="contact_details")
 
@@ -311,7 +341,9 @@ class PostalCode(Base):
     postal_code = Column(String(4), nullable=False, index=True)
     municipality = Column(String(100), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
@@ -321,6 +353,7 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
     Genormaliseerd zodat één persoon meerdere externe nummers (uit
     verschillende bronsystemen) kan hebben.
     """
+
     __tablename__ = "external_numbers"
     __table_args__ = {"schema": "mdm"}
 
@@ -331,11 +364,17 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
     # migration 053 as it is. The default is the code as a literal because
     # `mdm.codes` imports this module; `EXTERNAL.MEMBER_ADMINISTRATION`
     # is the same value, and the code list's seed is where it is defined.
-    source = Column(String(50), ForeignKey("mdm.external_source_codes.code"),
-                    nullable=False, default="ledenadministratie")
+    source = Column(
+        String(50),
+        ForeignKey("mdm.external_source_codes.code"),
+        nullable=False,
+        default="ledenadministratie",
+    )
     external_id = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     # Uniciteit op (source, external_id) is partieel (WHERE deleted_at IS NULL) — zie migratie 050.
 
@@ -370,14 +409,18 @@ class Organization(SoftDeleteMixin, Base):
     # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
     org_type: Mapped[OrganizationType] = mapped_column(
         EnumColumn(OrganizationType, length=10),
-        ForeignKey("mdm.organization_type_codes.code"), nullable=False,
-        default=OrganizationType.ACCOUNT)
+        ForeignKey("mdm.organization_type_codes.code"),
+        nullable=False,
+        default=OrganizationType.ACCOUNT,
+    )
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     # ── Wat de organisatie is in de wereld (#924) ────────────────────────────
     # Rechtsvorm uit `mdm.legal_form_codes` (#779-patroon). Leeg voor PLATFORM:
@@ -387,8 +430,8 @@ class Organization(SoftDeleteMixin, Base):
     # die laat maar één taal per code toe — zie de migratie. De geldige waarden
     # staan in `LegalForm` hieronder.
     legal_form: Mapped[Optional[LegalForm]] = mapped_column(
-        EnumColumn(LegalForm, length=30),
-        ForeignKey("mdm.legal_form_codes.code"), nullable=True)
+        EnumColumn(LegalForm, length=30), ForeignKey("mdm.legal_form_codes.code"), nullable=True
+    )
 
     parent = relationship("Organization", remote_side=[id])
 
@@ -430,8 +473,9 @@ class BankAccount(SoftDeleteMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
-                             nullable=False, index=True)
+    organization_id = Column(
+        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
+    )
     iban = Column(String(40), nullable=False)
     bic = Column(String(20), nullable=True)
     # UBL `cac:PayeeFinancialAccount/cbc:Name`: op wiens naam de rekening staat.
@@ -439,7 +483,9 @@ class BankAccount(SoftDeleteMixin, Base):
     # Welke rekening de eerste is waar er één getoond wordt (footer, overschrijving).
     sort_order = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     organization = relationship("Organization")
 
@@ -465,15 +511,17 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
-                             nullable=False, index=True)
-    scheme = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"),
-                    nullable=False)
+    organization_id = Column(
+        Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True
+    )
+    scheme = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"), nullable=False)
     value = Column(String(50), nullable=False)
     country = Column(String(2), nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
     organization = relationship("Organization")
 
@@ -517,15 +565,14 @@ class PaymentMethodLabel(Base):
     __tablename__ = "payment_method_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(20), ForeignKey("mdm.payment_method_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("mdm.payment_method_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class LanguageCode(Base):
@@ -566,8 +613,9 @@ class LanguageLabel(Base):
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class IdentificationScheme(Base):
@@ -606,13 +654,15 @@ class IdentificationSchemeLabel(Base):
     __tablename__ = "identification_scheme_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"),
-                  primary_key=True)
+    code = Column(String(20), ForeignKey("mdm.identification_scheme_codes.code"), primary_key=True)
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
+
 
 class LegalFormCode(Base):
     """Which codes exist — the target of the foreign key (CR-12 phase 2)."""
@@ -632,15 +682,14 @@ class LegalFormLabel(Base):
     __tablename__ = "legal_form_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(30), ForeignKey("mdm.legal_form_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(30), ForeignKey("mdm.legal_form_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class OrganizationTypeCode(Base):
@@ -661,15 +710,14 @@ class OrganizationTypeLabel(Base):
     __tablename__ = "organization_type_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(20), ForeignKey("mdm.organization_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("mdm.organization_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class GenderCode(Base):
@@ -702,15 +750,14 @@ class ExternalSourceLabel(Base):
     __tablename__ = "external_source_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(50), ForeignKey("mdm.external_source_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(50), ForeignKey("mdm.external_source_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class GenderLabel(Base):
@@ -719,15 +766,14 @@ class GenderLabel(Base):
     __tablename__ = "gender_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(10), ForeignKey("mdm.gender_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("mdm.gender_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class ContactTypeCode(Base):
@@ -758,15 +804,14 @@ class ContactTypeLabel(Base):
     __tablename__ = "contact_type_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(10), ForeignKey("mdm.contact_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("mdm.contact_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class RelationTypeCode(Base):
@@ -787,27 +832,27 @@ class RelationTypeLabel(Base):
     __tablename__ = "relation_type_labels"
     __table_args__ = {"schema": "mdm"}
 
-    code = Column(String(10), ForeignKey("mdm.relation_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(10), ForeignKey("mdm.relation_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 # ── History (append-only; geen FK's — overleeft het verdwijnen van de bron) ────
+
 
 class HistoryMixin:
     """Gedeelde audit-metadata voor alle history-tabellen."""
 
     id = Column(Integer, primary_key=True, index=True)
-    operation = Column(String(10), nullable=False)   # insert / update / delete
-    action = Column(String(40), nullable=False)       # semantische business-actie
-    source = Column(String(30), nullable=False)       # system / registration / mollie / ...
-    actor = Column(String(255), nullable=True)        # admin-e-mail of None
+    operation = Column(String(10), nullable=False)  # insert / update / delete
+    action = Column(String(40), nullable=False)  # semantische business-actie
+    source = Column(String(30), nullable=False)  # system / registration / mollie / ...
+    actor = Column(String(255), nullable=True)  # admin-e-mail of None
     recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 

@@ -24,6 +24,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 valt om op beide breedtes; `min-w-11 min-h-11` van de menuknop vervangen door de
 padding-variabele → `test_het_aanraakvlak_blijft` valt om op 16 px.
 """
+
 import os
 import sys
 
@@ -40,7 +41,7 @@ TELEFOON = {"width": 390, "height": 844}
 # Gemeten vóór de wijziging. De balk mag niet veranderen; het logo moet erboven.
 BALK = {"breed": 80.0, "telefoon": 76.0}
 OUD_LOGO = {"breed": 48.0, "telefoon": 40.0}
-AANRAAKVLAK = 44.0          # #804: de ondergrens voor een vinger
+AANRAAKVLAK = 44.0  # #804: de ondergrens voor een vinger
 BALK_ZONDER_LOGO = {"breed": 71.0, "telefoon": 76.0}
 
 
@@ -69,8 +70,12 @@ def logo_in_de_kopbalk():
 
     db = SessionLocal()
     try:
-        asset = MediaAsset(kind="tenant_logo", title="Logo voor de meting",
-                           content_type="image/png", data=_logo_bytes())
+        asset = MediaAsset(
+            kind="tenant_logo",
+            title="Logo voor de meting",
+            content_type="image/png",
+            data=_logo_bytes(),
+        )
         db.add(asset)
         db.commit()
         nummer = asset.id
@@ -113,7 +118,8 @@ def test_de_balk_blijft_even_hoog(page, logo_in_de_kopbalk):
         hoogte = _kopbalk(page, viewport)["height"]
         assert abs(hoogte - BALK[naam]) <= 1, (
             f"de kopbalk is op {naam} {hoogte:.0f}px geworden in plaats van "
-            f"{BALK[naam]:.0f}px (#1156)")
+            f"{BALK[naam]:.0f}px (#1156)"
+        )
 
 
 def test_het_logo_is_groter(page, logo_in_de_kopbalk):
@@ -131,12 +137,14 @@ def test_het_logo_is_groter(page, logo_in_de_kopbalk):
 
         assert hoogte > OUD_LOGO[naam], (
             f"het logo is op {naam} niet gegroeid: {hoogte:.0f}px, was "
-            f"{OUD_LOGO[naam]:.0f}px (#1156)")
+            f"{OUD_LOGO[naam]:.0f}px (#1156)"
+        )
         # En het is de balk die de ruimte geeft: wat overblijft na de padding
         # boven en onder. Gemeten 64px breed en 60px op een telefoon.
         assert abs(hoogte - (balk["height"] - 16)) <= 1, (
             f"het logo ({hoogte:.0f}px) vult de balk ({balk['height']:.0f}px) niet "
-            "tot op de padding na; dan is de hoogte niet meer afgeleid")
+            "tot op de padding na; dan is de hoogte niet meer afgeleid"
+        )
 
 
 def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):
@@ -152,10 +160,12 @@ def test_het_aanraakvlak_van_de_menuknop_blijft(page, logo_in_de_kopbalk):
     vlak = knop.bounding_box()
     assert vlak["height"] >= AANRAAKVLAK, (
         f"het aanraakvlak is {vlak['height']:.0f}px hoog geworden; onder de "
-        f"{AANRAAKVLAK:.0f}px van #804")
+        f"{AANRAAKVLAK:.0f}px van #804"
+    )
     assert vlak["width"] >= AANRAAKVLAK, (
         f"het aanraakvlak is {vlak['width']:.0f}px breed geworden; onder de "
-        f"{AANRAAKVLAK:.0f}px van #804")
+        f"{AANRAAKVLAK:.0f}px van #804"
+    )
 
 
 def test_zonder_logo_blijft_de_kopbalk_zoals_ze_was(page, logo_in_de_kopbalk):
@@ -190,7 +200,8 @@ def test_zonder_logo_blijft_de_kopbalk_zoals_ze_was(page, logo_in_de_kopbalk):
             assert abs(balk["height"] - BALK_ZONDER_LOGO[naam]) <= 1, (
                 f"de woordmerk-balk is op {naam} {balk['height']:.0f}px geworden in "
                 f"plaats van {BALK_ZONDER_LOGO[naam]:.0f}px; die tak hoort niet mee "
-                "te veranderen (#1156)")
+                "te veranderen (#1156)"
+            )
     finally:
         db = SessionLocal()
         try:

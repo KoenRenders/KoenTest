@@ -21,7 +21,7 @@ Rood gemaakt om te bewijzen dat de vergelijking meet: `flex-wrap` teruggezet in
 `list_meta` → `test_de_macro_rendert_exact_de_oude_markup` viel om met het
 klassenverschil in de diff. Weggehaald → groen.
 """
-import re
+
 from pathlib import Path
 
 import pytest
@@ -30,8 +30,14 @@ from app.ui import templates
 
 pytestmark = pytest.mark.ui_serverrendered
 
-BETALINGEN_LIJST = (Path(__file__).resolve().parents[1] / "app" / "domains"
-                    / "payment" / "templates" / "_betalingen_lijst.html")
+BETALINGEN_LIJST = (
+    Path(__file__).resolve().parents[1]
+    / "app"
+    / "domains"
+    / "payment"
+    / "templates"
+    / "_betalingen_lijst.html"
+)
 
 # De markup zoals ze vóór #1103 in `_betalingen_lijst.html` stond, letterlijk.
 # Dit is het ijkpunt: niet "wat de macro nu doet", maar wat het scherm toonde.
@@ -48,8 +54,7 @@ NIEUWE_AANROEP = """\
 
 
 def _render(body: str, **ctx) -> str:
-    return templates.env.from_string(
-        "{% import '_macros.html' as ui %}" + body).render(**ctx)
+    return templates.env.from_string("{% import '_macros.html' as ui %}" + body).render(**ctx)
 
 
 def test_de_macro_rendert_exact_de_oude_markup():
@@ -65,7 +70,8 @@ def test_de_macro_rendert_exact_de_oude_markup():
 
     assert nieuw == oud, (
         "de macro-aanroep is niet gelijkwaardig aan de markup die ze vervangt:\n"
-        f"  oud:    {oud!r}\n  nieuw:  {nieuw!r}")
+        f"  oud:    {oud!r}\n  nieuw:  {nieuw!r}"
+    )
     # En hij toetst echt iets: de telling staat er.
     assert "7 boekingen" in nieuw
 
@@ -76,8 +82,9 @@ def test_het_betalingenscherm_gebruikt_de_macro():
     bron = BETALINGEN_LIJST.read_text()
 
     assert "ui.list_meta(" in bron, "Betalingen roept de kit-macro niet aan"
-    assert 'flex items-center justify-between gap-3 text-[11px]' not in bron, \
+    assert "flex items-center justify-between gap-3 text-[11px]" not in bron, (
         "de handgeschreven meta-regel staat er nog"
+    )
 
 
 def test_de_kit_kent_de_meta_regel_maar_een_keer():
@@ -95,11 +102,13 @@ def test_de_kit_kent_de_meta_regel_maar_een_keer():
     handtekening = "my-2.5 flex items-center justify-between gap-3"
 
     treffers = sorted(
-        pad.relative_to(app) for pad in app.rglob("*.html")
-        if handtekening in pad.read_text())
+        pad.relative_to(app) for pad in app.rglob("*.html") if handtekening in pad.read_text()
+    )
 
     assert treffers, (
         f"de klassenreeks {handtekening!r} komt nergens meer voor — deze test "
-        "kijkt dus naar niets; pas de handtekening aan of herstel de macro")
+        "kijkt dus naar niets; pas de handtekening aan of herstel de macro"
+    )
     assert treffers == [Path("ui/templates/_macros.html")], (
-        f"de meta-regel staat op meer dan één plek: {treffers}")
+        f"de meta-regel staat op meer dan één plek: {treffers}"
+    )

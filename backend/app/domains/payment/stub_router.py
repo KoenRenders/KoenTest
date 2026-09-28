@@ -11,6 +11,7 @@ not a refusal — they are never registered: `include_stub_routes` adds them onl
 when `settings.payment_stub_allowed`. A pretend payment page on PROD would be a
 page that marks registrations paid without money.
 """
+
 from __future__ import annotations
 
 from html import escape

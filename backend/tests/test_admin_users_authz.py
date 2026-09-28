@@ -6,9 +6,9 @@ rollen beheren — met name de ADMIN-rol toekennen — mag enkel een ADMIN; ande
 een FINANCE-account zichzelf via dit server-rendered scherm naar ADMIN escaleren
 (de JSON-API dwong dit al af, het UI-pad omzeilde het).
 """
+
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import (
-    SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value)
 
 
 def _session(client, email):
@@ -39,10 +39,10 @@ def test_finance_kan_geen_admin_aanmaken(client, db_session):
     resp = client.post(
         "/admin/gebruikers",
         data={"email": "nieuw-admin@example.com", "role_codes": "ADMIN"},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 403
-    assert db_session.query(User).filter(
-        User.email == "nieuw-admin@example.com").first() is None
+    assert db_session.query(User).filter(User.email == "nieuw-admin@example.com").first() is None
 
 
 def test_operator_kan_gebruiker_wel_verwijderen(client, db_session):
@@ -53,8 +53,9 @@ def test_operator_kan_gebruiker_wel_verwijderen(client, db_session):
     slachtoffer = _make_backoffice(db_session, "victim@example.com", "FINANCE")
     _make_backoffice(db_session, "op@example.com", "OPERATOR")
     csrf = _session(client, "op@example.com")
-    resp = client.post(f"/admin/gebruikers/{slachtoffer.id}/verwijderen",
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/gebruikers/{slachtoffer.id}/verwijderen", headers={"X-CSRF-Token": csrf}
+    )
     assert resp.status_code == 200
 
 

@@ -5,6 +5,7 @@ zelf "€" moet typen, kan het vergeten — en dat gebeurde ook. Op HDEV las de
 publieke lidmaatschapstekst "bedraagt 35,00 … 17,50" terwijl PROD "€35,00"
 toonde. Deze test legt het formaat vast zodat de regressie niet terugkeert.
 """
+
 import pytest
 
 from app.domains.cms.render import _format_price, render_cms_content

@@ -3,16 +3,22 @@
 Buitenstaanders (schermen, andere componenten) gebruiken uitsluitend deze
 functies; models/service/router zijn intern. Contract in CONTRACT.md.
 """
-from __future__ import annotations
 
-from sqlalchemy.orm import Session
+from __future__ import annotations
 
 import logging
 
+from sqlalchemy.orm import Session
+
 from app.domains.forms.codes import FIELD_TYPE, FORM_STATUS  # noqa: F401
 from app.domains.forms.models import (  # noqa: F401
-    FieldType, Form, FormField, FormStatus, FormSubmission,
+    FieldType,
+    Form,
+    FormField,
+    FormStatus,
+    FormSubmission,
 )
+
 # CR-12 phase 4: a field as a screen renders it — the design-system page draws
 # its examples through the same adapter as the public form.
 from app.domains.forms.screenfields import screen_fields  # noqa: F401
@@ -35,19 +41,18 @@ def submission_count(db: Session, form_id: int) -> int:
     return _impl(db, form_id)
 
 
-def submit_bericht(db: Session, *, naam: str, email: str | None, bericht: str,
-                   background_tasks=None) -> int | None:
+def submit_bericht(
+    db: Session, *, naam: str, email: str | None, bericht: str, background_tasks=None
+) -> int | None:
     """Hét schrijfpad voor een bericht (#398): inzending op het geseede
     'berichten'-formulier + SubmissionCreated (→ behartigen-taak) + optionele
     bevestigingsmail. Geeft het submission-id terug, of None als het formulier
     ontbreekt. Gebruikt door /berichten (ui) én de chatbot — geen tweede weg."""
     from app.domains.forms.schemas import AnswerIn
     from app.domains.forms.service import build_answers
+    from app.domains.mail.api import send_form_confirmation
     from app.kernel.contracts.forms import SubmissionCreated
     from app.kernel.events import publish
-    from app.domains.mail.api import send_form_confirmation
-
-    from app.domains.forms.service import assert_submitter
 
     form = db.query(Form).filter(Form.slug == "berichten").first()
     if form is None or not form.fields:
@@ -57,23 +62,32 @@ def submit_bericht(db: Session, *, naam: str, email: str | None, bericht: str,
     # ontbrekend adres kwam er langs de zijdeur toch in.
     assert_submitter(form, naam, email, message=bericht, require_message=True)
     answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
-    submission = FormSubmission(form_id=form.id, submitter_name=naam,
-                                submitter_email=email or None)
+    submission = FormSubmission(form_id=form.id, submitter_name=naam, submitter_email=email or None)
     for row in answers:
         submission.answers.append(row)
     db.add(submission)
     db.flush()
-    publish(SubmissionCreated(
-        form_id=form.id, form_slug=form.slug, submission_id=submission.id,
-        submitter_name=naam, submitter_email=email or None), db)
+    publish(
+        SubmissionCreated(
+            form_id=form.id,
+            form_slug=form.slug,
+            submission_id=submission.id,
+            submitter_name=naam,
+            submitter_email=email or None,
+        ),
+        db,
+    )
     db.commit()
 
     if form.send_confirmation and email:
         try:
             send_form_confirmation(
-                to_email=email, form_title=form.title, name=naam,
+                to_email=email,
+                form_title=form.title,
+                name=naam,
                 confirmation_message=form.confirmation_message,
-                background_tasks=background_tasks)
+                background_tasks=background_tasks,
+            )
         except Exception as exc:  # pragma: no cover
             logger.warning("Bevestigingsmail bericht kon niet verstuurd worden: %s", exc)
     return submission.id
@@ -101,8 +115,14 @@ def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
         elif ans.value_number is not None:
             waarde = f"{ans.value_number}"
         elif ans.value_option_id is not None:
-            optie = next((o for o in (ans.field.options if ans.field else [])
-                          if o.id == ans.value_option_id), None)
+            optie = next(
+                (
+                    o
+                    for o in (ans.field.options if ans.field else [])
+                    if o.id == ans.value_option_id
+                ),
+                None,
+            )
             waarde = optie.label if optie else ""
         elif ans.value_rating is not None:
             waarde = str(ans.value_rating)
@@ -133,10 +153,11 @@ from app.domains.forms.service import (  # noqa: E402,F401
     add_option,
     add_section,
     apply_definition,
-    assert_submitter,
     assert_geen_id_vorm,
     assert_slug_vrij,
+    assert_submitter,
     create_form,
+    deellink_pad,
     delete_field,
     delete_form,
     delete_option,
@@ -152,22 +173,21 @@ from app.domains.forms.service import (  # noqa: E402,F401
     move_field,
     move_option,
     move_section,
-    deellink_pad,
     normaliseer_slug,
+    submission_url,
     update_field,
     update_form_settings,
     update_option,
     update_section,
     update_settings,
     validate_definition,
-    submission_url,
 )
-
 
 # ── Doorgangen waarvan de implementatie in de router blijft ──────────────────
 # De publieke inzendflow is één domeinbewerking die het scherm alleen aanroept —
 # hetzelfde patroon als de activiteiteninschrijving, die #635 expliciet als "zo
 # hoort het" aanmerkt. Alleen de weg ernaartoe loopt via deze facade.
+
 
 def submit_public_form(db, share_token: str, payload, background_tasks):
     """Een publieke inzending verwerken."""

@@ -5,6 +5,7 @@ forgotten key is an error in the route instead of an empty box on the screen,
 and `tests/test_template_variables_gate.py` can prove statically that the
 templates ask for nothing that is not promised here.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from app.ui.viewmodel import ViewModel
 @dataclass(frozen=True)
 class DesignRow:
     """One line of the list: the design and the facts around it, flat."""
+
     id: int
     activity_id: int
     activity_name: str
@@ -32,6 +34,7 @@ class DesignRow:
 class ImageOption:
     """A picture the unit can put in a slot: an activity photo, an uploaded
     design image or a fetched AI variant."""
+
     id: int
     thumb_url: str
     label: str
@@ -163,8 +166,8 @@ class DesignEditorView(ViewModel):
     ai_prompt: str
     ai_style: str
     style_options: list[tuple[str, str]]
-    style_texts: dict[str, str]      # what the model is told per style, shown so nobody guesses
-    ai_pending: bool                 # variants still under way → the grid polls
+    style_texts: dict[str, str]  # what the model is told per style, shown so nobody guesses
+    ai_pending: bool  # variants still under way → the grid polls
 
     csrf_token: str
     error: Optional[str] = None

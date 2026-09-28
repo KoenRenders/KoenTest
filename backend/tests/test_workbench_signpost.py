@@ -31,6 +31,7 @@ Broken on purpose to check that these tests can go red: removed `payment_record`
 `SUBJECTS_WITH_OWN_SCREEN` → the first two fall over; made `_subject_url` return `None`
 → the link tests fall over.
 """
+
 from datetime import datetime, timezone
 from decimal import Decimal
 
@@ -54,29 +55,38 @@ def _login(client, db):
 def _task(db, kind: str, subject_type: str, subject_id: str):
     from app.domains.workflow.api import create_task
 
-    task = create_task(db, kind=kind, title=f"test {kind}",
-                       subject_type=subject_type, subject_id=subject_id,
-                       required_role="FINANCE")
+    task = create_task(
+        db,
+        kind=kind,
+        title=f"test {kind}",
+        subject_type=subject_type,
+        subject_id=subject_id,
+        required_role="FINANCE",
+    )
     db.flush()
     return task
 
 
 def _detail(client, task):
-    return client.get(f"/admin/werkbank/taken/{task.id}",
-                      headers={"HX-Request": "true"}).text
+    return client.get(f"/admin/werkbank/taken/{task.id}", headers={"HX-Request": "true"}).text
 
 
 def _payment_record(db):
-    record = PaymentRecord(payable_type="registration", payable_id=8221,
-                           type="charge", amount=Decimal("10.00"), method="transfer",
-                           status="pending", created_at=datetime.now(timezone.utc))
+    record = PaymentRecord(
+        payable_type="registration",
+        payable_id=8221,
+        type="charge",
+        amount=Decimal("10.00"),
+        method="transfer",
+        status="pending",
+        created_at=datetime.now(timezone.utc),
+    )
     db.add(record)
     db.flush()
     return record
 
 
-@pytest.mark.parametrize("kind", ["payment.refund_bevestigen",
-                                  "payment.webhook_mismatch"])
+@pytest.mark.parametrize("kind", ["payment.refund_bevestigen", "payment.webhook_mismatch"])
 def test_a_payment_task_is_a_signpost(client, db_session, kind):
     _login(client, db_session)
     task = _task(db_session, kind, "payment_record", str(_payment_record(db_session).id))
@@ -85,7 +95,8 @@ def test_a_payment_task_is_a_signpost(client, db_session, kind):
 
     assert "Afgehandeld" not in html, (
         "marking a payment 'handled' from the workbench is pointless; on a mismatch it "
-        "would also hide that the money is still not booked")
+        "would also hide that the money is still not booked"
+    )
     assert "Besluit" not in html
     assert "Ga naar het onderwerp" in html, "the link is not the primary action"
 
@@ -99,7 +110,8 @@ def test_a_judgement_task_remains_the_workplace(client, db_session):
     html = _detail(client, task)
 
     assert "Afgehandeld" in html and "Besluit" in html, (
-        "a task you can only judge has lost its workplace")
+        "a task you can only judge has lost its workplace"
+    )
 
 
 def test_a_failed_job_shows_its_data_in_place(client, db_session):
@@ -107,27 +119,34 @@ def test_a_failed_job_shows_its_data_in_place(client, db_session):
     from app.kernel.jobs import KernelJob
 
     _login(client, db_session)
-    job = KernelJob(name="test.job", payload={}, status="failed",
-                    run_at=datetime.now(timezone.utc), attempts=5, max_attempts=5,
-                    last_error="ZeroDivisionError: division by zero")
+    job = KernelJob(
+        name="test.job",
+        payload={},
+        status="failed",
+        run_at=datetime.now(timezone.utc),
+        attempts=5,
+        max_attempts=5,
+        last_error="ZeroDivisionError: division by zero",
+    )
     db_session.add(job)
     db_session.flush()
     task = _task(db_session, "kernel.job_gefaald", "kernel_job", str(job.id))
 
     html = _detail(client, task)
 
-    assert "test.job" in html and "ZeroDivisionError" in html, (
-        "you cannot see what you are judging")
+    assert "test.job" in html and "ZeroDivisionError" in html, "you cannot see what you are judging"
     assert "Bekijk het onderwerp" not in html, (
-        "there is no screen for a kernel job; a button to one is a dead link")
+        "there is no screen for a kernel job; a button to one is a dead link"
+    )
 
 
 def test_a_mail_task_points_at_the_e_mail_log(client, db_session):
     from app.domains.mail.api import EmailLog
 
     _login(client, db_session)
-    log = EmailLog(recipient="someone@example.com", subject="Test",
-                   email_type="other", status="failed")
+    log = EmailLog(
+        recipient="someone@example.com", subject="Test", email_type="other", status="failed"
+    )
     db_session.add(log)
     db_session.flush()
     task = _task(db_session, "mail.definitief_gefaald", "email_log", str(log.id))
@@ -135,7 +154,8 @@ def test_a_mail_task_points_at_the_e_mail_log(client, db_session):
     html = _detail(client, task)
 
     assert "/admin/e-maillog?recipient=someone%40example.com" in html, (
-        "the mail task does not point at the log of that recipient")
+        "the mail task does not point at the log of that recipient"
+    )
     assert "Afgehandeld" in html, "a mail task remains a workplace"
 
 
@@ -143,18 +163,17 @@ def test_a_message_task_points_at_the_submissions(client, db_session):
     from app.domains.forms.models import Form, FormSubmission
 
     _login(client, db_session)
-    form = Form(title="Test form", status="open", is_anonymous=True,
-                share_token="w822")
+    form = Form(title="Test form", status="open", is_anonymous=True, share_token="w822")
     db_session.add(form)
     db_session.flush()
     submission = FormSubmission(form_id=form.id, submitter_name="Someone")
     db_session.add(submission)
     db_session.flush()
-    task = _task(db_session, "bericht.behartigen", "form_submission",
-                 str(submission.id))
+    task = _task(db_session, "bericht.behartigen", "form_submission", str(submission.id))
 
     html = _detail(client, task)
 
     assert f"/admin/formulieren/{form.id}/inzendingen" in html, (
-        "the message task does not point at the submissions of its own form")
+        "the message task does not point at the submissions of its own form"
+    )
     assert "Afgehandeld" in html, "a message task remains a workplace"

@@ -10,10 +10,12 @@ De opmaak zelf toetsen we niet; wél de twee cascade-eigenschappen die stuk wár
 die bij een volgende bewerking van build-css.sh makkelijk opnieuw sneuvelen.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 import re
 from pathlib import Path
+
+import pytest
+
+pytestmark = pytest.mark.ui_serverrendered
 
 APP_CSS = Path(__file__).resolve().parents[1] / "app" / "static" / "app.css"
 BASIS = re.compile(r"html :where\(input\[type=[\"']?text[\"']?\][^{]*\)\{([^}]*)\}")

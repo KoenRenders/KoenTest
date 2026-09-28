@@ -18,6 +18,7 @@ verruimd tot `€(\\s|&nbsp;)*` zonder de placeholder erachter → de tweede tes
 (de losse euro verdwijnt); de `regexp_replace` vervangen door een no-op → de eerste
 en de derde vallen om.
 """
+
 import importlib.util
 from pathlib import Path
 
@@ -28,10 +29,15 @@ from app.domains.cms.render import render_cms_content
 
 pytestmark = pytest.mark.ui_serverrendered
 
+
 def _migratie_095():
     """Op pad inladen — `alembic/versions` is geen package."""
-    pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "095_euroteken_voor_de_prijsplaceholder.py")
+    pad = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "095_euroteken_voor_de_prijsplaceholder.py"
+    )
     spec = importlib.util.spec_from_file_location("migratie_095", pad)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -57,9 +63,11 @@ def _schoon(db_session):
 
 def test_de_euro_voor_de_placeholder_verdwijnt_uit_de_render(db_session):
     """Het bewijs staat op wat de bezoeker ziet, niet op wat er opgeslagen is."""
-    pagina = _pagina(db_session, "e807-intro",
-                     "<p>Het lidmaatschap bedraagt €{{membership_price_full}} "
-                     "voor een gezin.</p>")
+    pagina = _pagina(
+        db_session,
+        "e807-intro",
+        "<p>Het lidmaatschap bedraagt €{{membership_price_full}} voor een gezin.</p>",
+    )
     voor = render_cms_content(pagina.content)
     assert "€€" in voor, f"de fout is niet nagebootst: {voor}"
 
@@ -70,11 +78,14 @@ def test_de_euro_voor_de_placeholder_verdwijnt_uit_de_render(db_session):
     assert "€" in na, f"nu is het euroteken helemaal weg: {na}"
 
 
-@pytest.mark.parametrize("inhoud", [
-    "<p>Vanaf € 5 per deelnemer.</p>",
-    "<p>Wij rekenen €, geen dollars.</p>",
-    "<p>Het bedrag (€) staat op de bevestiging.</p>",
-])
+@pytest.mark.parametrize(
+    "inhoud",
+    [
+        "<p>Vanaf € 5 per deelnemer.</p>",
+        "<p>Wij rekenen €, geen dollars.</p>",
+        "<p>Het bedrag (€) staat op de bevestiging.</p>",
+    ],
+)
 def test_een_euro_die_niet_voor_een_placeholder_staat_blijft(db_session, inhoud):
     """De tegenproef, en zonder haar bewijst de vorige test niets.
 
@@ -86,15 +97,18 @@ def test_een_euro_die_niet_voor_een_placeholder_staat_blijft(db_session, inhoud)
     _schoon(db_session)
 
     assert db_session.get(type(pagina), pagina.id).content == inhoud, (
-        "de opschoning is te gulzig en raakt gewone tekst")
+        "de opschoning is te gulzig en raakt gewone tekst"
+    )
 
 
 def test_een_tweede_run_verandert_niets(db_session):
     """Idempotent. Een datamigratie draait op elke omgeving opnieuw bij een herstel
     of een replay, en dan mag ze niet verder knippen dan de eerste keer."""
-    pagina = _pagina(db_session, "e807-tweemaal",
-                     "<p>Lidgeld €{{membership_price_full}}, half "
-                     "€ {{ membership_price_half }}.</p>")
+    pagina = _pagina(
+        db_session,
+        "e807-tweemaal",
+        "<p>Lidgeld €{{membership_price_full}}, half € {{ membership_price_half }}.</p>",
+    )
 
     _schoon(db_session)
     na_een = db_session.get(type(pagina), pagina.id).content
@@ -103,7 +117,8 @@ def test_een_tweede_run_verandert_niets(db_session):
 
     assert na_een == na_twee, "de tweede run wijzigt de tekst opnieuw"
     assert "€{{" not in na_een and "€ {{" not in na_een, (
-        f"de variant met spatie of zonder is blijven staan: {na_een}")
+        f"de variant met spatie of zonder is blijven staan: {na_een}"
+    )
 
 
 def test_de_seedmigraties_blijven_ongemoeid():
@@ -118,4 +133,5 @@ def test_de_seedmigraties_blijven_ongemoeid():
 
     assert "€{{membership_price_full}}" in seed, (
         "028 is gewijzigd; een gemergede migratie hoort onaangeroerd te blijven — "
-        "de correctie hoort in een nieuwe stap")
+        "de correctie hoort in een nieuwe stap"
+    )

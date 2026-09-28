@@ -12,6 +12,7 @@ verklaart dat. `test_a_family_is_not_found_on_the_street_it_left` is daarom de
 belangrijkste test van dit bestand: het gewone zoekgeval staat óók groen mét de
 val erin.
 """
+
 from __future__ import annotations
 
 import re
@@ -19,8 +20,7 @@ from datetime import date
 
 import pytest
 
-from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
-                                 Organization, Person)
+from app.domains.mdm.api import Address, ContactDetail, MemberPerson, Organization
 from app.domains.membership.household_service import list_families
 from app.kernel.tenant_config import _actieve_tenant
 from app.soft_delete import soft_delete
@@ -37,18 +37,21 @@ def postcode(db_session):
     return seed_postal_code(db_session)
 
 
-def _gezin(db, postcode, *, voornaam="Tine", achternaam="Peeters",
-           email="tine@example.com", straat=NIEUW):
+def _gezin(
+    db, postcode, *, voornaam="Tine", achternaam="Peeters", email="tine@example.com", straat=NIEUW
+):
     """Eén gezin met één persoon, een e-mailadres en een adres."""
     member = create_test_member(db)
-    person = create_test_person(db, first_name=voornaam, last_name=achternaam,
-                                date_of_birth=date(1985, 5, 5))
-    db.add(MemberPerson(member_id=member.id, person_id=person.id,
-                        relation_type="HOOFDLID"))
-    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                         value=email, is_primary=True))
-    db.add(Address(person_id=person.id, street=straat, house_number="12",
-                   postal_code_id=postcode.id))
+    person = create_test_person(
+        db, first_name=voornaam, last_name=achternaam, date_of_birth=date(1985, 5, 5)
+    )
+    db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
+    db.add(
+        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True)
+    )
+    db.add(
+        Address(person_id=person.id, street=straat, house_number="12", postal_code_id=postcode.id)
+    )
     db.flush()
     return member, person
 
@@ -66,6 +69,7 @@ def _zoek(db, term: str) -> set[int]:
 
 # ── 1. De uitbreiding zelf ──────────────────────────────────────────────────
 
+
 def test_searching_on_a_street_finds_the_family_living_there(db_session, postcode):
     """Rood vóór de wijziging: zonder de nieuwe tak in de `OR` levert dit niets op.
 
@@ -77,8 +81,14 @@ def test_searching_on_a_street_finds_the_family_living_there(db_session, postcod
 
     assert member.id in _zoek(db_session, NIEUW)
     # En niet élk gezin komt terug: de zoekterm doet echt iets.
-    ander, _q = _gezin(db_session, postcode, voornaam="Bram", achternaam="Claes",
-                       email="bram@example.com", straat="Vaartkom")
+    ander, _q = _gezin(
+        db_session,
+        postcode,
+        voornaam="Bram",
+        achternaam="Claes",
+        email="bram@example.com",
+        straat="Vaartkom",
+    )
     db_session.commit()
     treffers = _zoek(db_session, NIEUW)
     assert member.id in treffers and ander.id not in treffers
@@ -95,11 +105,13 @@ def test_the_house_number_is_deliberately_not_searchable(db_session, postcode):
     db_session.commit()
 
     assert _zoek(db_session, f"{NIEUW} 12") == set(), (
-        "de zoekterm hoort niet opgesplitst te worden; enkel de straatnaam telt")
+        "de zoekterm hoort niet opgesplitst te worden; enkel de straatnaam telt"
+    )
     assert member.id in _zoek(db_session, NIEUW)
 
 
 # ── 2. De val (de belangrijkste test van dit bestand) ───────────────────────
+
 
 def test_a_family_is_not_found_on_the_street_it_left(db_session, postcode):
     """Een verhuisd gezin hoort niet op zijn oude straat te verschijnen.
@@ -130,22 +142,25 @@ def test_a_family_is_not_found_on_the_street_it_left(db_session, postcode):
     member, person = _gezin(db_session, postcode, straat=OUD)
     db_session.commit()
     assert member.id in _zoek(db_session, OUD), (
-        "opzet klopt niet: het gezin wordt niet eens op zijn eigen straat gevonden")
+        "opzet klopt niet: het gezin wordt niet eens op zijn eigen straat gevonden"
+    )
 
     # De verhuizing: oude rij stempelen, nieuwe rij erbij — precies wat de
     # partiële uniciteit op `person_id` (migratie 050) toelaat.
-    oud_adres = (db_session.query(Address)
-                 .filter(Address.person_id == person.id).one())
+    oud_adres = db_session.query(Address).filter(Address.person_id == person.id).one()
     soft_delete(oud_adres)
-    db_session.add(Address(person_id=person.id, street=NIEUW, house_number="3",
-                           postal_code_id=postcode.id))
+    db_session.add(
+        Address(person_id=person.id, street=NIEUW, house_number="3", postal_code_id=postcode.id)
+    )
     db_session.commit()
 
     assert member.id in _zoek(db_session, NIEUW), (
-        "na de verhuizing hoort het gezin op zijn NIEUWE straat gevonden te worden")
+        "na de verhuizing hoort het gezin op zijn NIEUWE straat gevonden te worden"
+    )
     assert member.id not in _zoek(db_session, OUD), (
         "het gezin wordt teruggevonden op de straat waar het vertrokken is — "
-        "de join filtert niet op deleted_at")
+        "de join filtert niet op deleted_at"
+    )
 
 
 def test_an_address_of_an_organisation_is_no_family_hit(db_session, postcode):
@@ -158,17 +173,26 @@ def test_an_address_of_an_organisation_is_no_family_hit(db_session, postcode):
     # De bestaande tenantorganisatie en geen verzonnen rij: die draagt een `code`
     # en een soort, en het gaat hier juist om een adres dat in de ECHTE vorm aan
     # een organisatie hangt.
-    org = (db_session.query(Organization)
-           .filter(Organization.id == _actieve_tenant(None))
-           .execution_options(include_all_tenants=True).one())
-    db_session.add(Address(organization_id=org.id, street="Zetelstraat",
-                           house_number="1", postal_code_id=postcode.id))
+    org = (
+        db_session.query(Organization)
+        .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
+    db_session.add(
+        Address(
+            organization_id=org.id,
+            street="Zetelstraat",
+            house_number="1",
+            postal_code_id=postcode.id,
+        )
+    )
     db_session.commit()
 
     assert _zoek(db_session, "Zetelstraat") == set(), (
-        "een organisatieadres hoort geen gezinstreffer op te leveren")
-    assert member.id in _zoek(db_session, NIEUW), (
-        "en de gewone gezinstreffer moet blijven werken")
+        "een organisatieadres hoort geen gezinstreffer op te leveren"
+    )
+    assert member.id in _zoek(db_session, NIEUW), "en de gewone gezinstreffer moet blijven werken"
 
 
 # ── 3. Wat vandaag gevonden wordt, blijft gevonden ─────────────────────────
@@ -176,12 +200,16 @@ def test_an_address_of_an_organisation_is_no_family_hit(db_session, postcode):
 # Eén test per tak van de `OR`. Samen in één test zou een herschrijving die
 # stilzwijgend één kolom laat vallen nog altijd groen staan op de andere drie.
 
-@pytest.mark.parametrize("term, tak", [
-    ("Tine", "voornaam"),
-    ("Peeters", "achternaam"),
-    ("Tine Peeters", "volledige naam"),
-    ("tine@example.com", "e-mail"),
-])
+
+@pytest.mark.parametrize(
+    "term, tak",
+    [
+        ("Tine", "voornaam"),
+        ("Peeters", "achternaam"),
+        ("Tine Peeters", "volledige naam"),
+        ("tine@example.com", "e-mail"),
+    ],
+)
 def test_the_existing_branches_keep_working(db_session, postcode, term, tak):
     """Het is een `OR`, dus de uitbreiding kan alleen resultaten TOEVOEGEN.
 
@@ -203,17 +231,17 @@ def test_a_family_without_an_address_is_still_found_by_name(db_session, postcode
     want die gezinnen hébben een adres.
     """
     member = create_test_member(db_session)
-    person = create_test_person(db_session, first_name="Adresloos",
-                                last_name="Janssens")
-    db_session.add(MemberPerson(member_id=member.id, person_id=person.id,
-                                relation_type="HOOFDLID"))
+    person = create_test_person(db_session, first_name="Adresloos", last_name="Janssens")
+    db_session.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))
     db_session.commit()
 
-    assert (db_session.query(Address)
-            .filter(Address.person_id == person.id).count() == 0), "opzet klopt niet"
+    assert db_session.query(Address).filter(Address.person_id == person.id).count() == 0, (
+        "opzet klopt niet"
+    )
     assert member.id in _zoek(db_session, "Adresloos"), (
         "een gezin zonder adres verdwijnt uit de zoekresultaten — de join hoort "
-        "een OUTER join te zijn")
+        "een OUTER join te zijn"
+    )
 
 
 # ── 4. De zoeksuggestie belooft precies wat het veld doet (#1167) ───────────
@@ -239,12 +267,14 @@ def _suggestie() -> str:
     """De grijze tekst in het zoekveld van /admin/leden, uit het sjabloon."""
     from pathlib import Path
 
-    pad = (Path(__file__).resolve().parents[1] / "app" / "domains" / "mdm"
-           / "templates" / "leden.html")
+    pad = (
+        Path(__file__).resolve().parents[1] / "app" / "domains" / "mdm" / "templates" / "leden.html"
+    )
     treffers = PLACEHOLDER.findall(pad.read_text())
     assert len(treffers) == 1, (
         f"één zoeksuggestie verwacht in leden.html, {len(treffers)} gevonden: "
-        f"{treffers} — de test leest het verkeerde veld of er staan er nu twee")
+        f"{treffers} — de test leest het verkeerde veld of er staan er nu twee"
+    )
     return treffers[0]
 
 
@@ -255,8 +285,7 @@ def _begrippen_uit(suggestie: str) -> set[str]:
     return {d for d in delen if d}
 
 
-def test_the_search_hint_names_exactly_the_fields_that_are_searched(
-        db_session, postcode):
+def test_the_search_hint_names_exactly_the_fields_that_are_searched(db_session, postcode):
     """Het punt van #1167: de suggestie mag niets beloven wat niet meezoekt.
 
     De koppeling loopt langs BEGRIPPEN, en die set moet gelijk zijn aan wat er
@@ -278,30 +307,35 @@ def test_the_search_hint_names_exactly_the_fields_that_are_searched(
     assert set(SEARCHED_FIELDS) == set(BEGRIPPEN), (
         f"SEARCHED_FIELDS zegt {sorted(SEARCHED_FIELDS)} en bewezen doorzoekbaar "
         f"is {sorted(BEGRIPPEN)}; zet er een probeerwaarde bij die het bewijst, "
-        "of haal het veld uit de bron")
+        "of haal het veld uit de bron"
+    )
 
     genoemd = _begrippen_uit(_suggestie())
     assert genoemd == set(BEGRIPPEN), (
         f"de suggestie noemt {sorted(genoemd)} en de bewezen velden zijn "
         f"{sorted(BEGRIPPEN)}; een suggestie die meer belooft dan het veld doet "
-        "is erger dan een verouderde")
+        "is erger dan een verouderde"
+    )
 
-    member, _p = _gezin(db_session, postcode, voornaam="Miet",
-                        achternaam="Vandevelde",
-                        email="penningmeester@example.com",
-                        straat="Populierendreef")
+    member, _p = _gezin(
+        db_session,
+        postcode,
+        voornaam="Miet",
+        achternaam="Vandevelde",
+        email="penningmeester@example.com",
+        straat="Populierendreef",
+    )
     db_session.commit()
 
     for begrip, waarde in BEGRIPPEN.items():
         assert member.id in _zoek(db_session, waarde), (
-            f"de suggestie noemt {begrip!r}, maar zoeken op {waarde!r} vindt "
-            "het gezin niet")
+            f"de suggestie noemt {begrip!r}, maar zoeken op {waarde!r} vindt het gezin niet"
+        )
 
 
 def test_the_members_screen_carries_the_hint(client, db_session):
     """En de tekst staat ook echt op het scherm, niet alleen in het sjabloon."""
-    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                      make_session_value)
+    from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     waarde = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -310,7 +344,6 @@ def test_the_members_screen_carries_the_hint(client, db_session):
 
     html = client.get("/admin/leden").text
     assert _suggestie() in html, "de zoeksuggestie staat niet op /admin/leden"
-
 
 
 def test_the_api_description_makes_the_same_promise(db_session, postcode):
@@ -336,12 +369,12 @@ def test_the_api_description_makes_the_same_promise(db_session, postcode):
     q = next(p for p in parameters if p["name"] == "q")
     omschrijving = q["description"]
 
-    kern = omschrijving.removeprefix("Zoek op ").removesuffix(
-        " van een gezinslid").strip()
+    kern = omschrijving.removeprefix("Zoek op ").removesuffix(" van een gezinslid").strip()
     genoemd = {d.strip() for stuk in kern.split(",") for d in stuk.split(" of ")}
     assert genoemd == set(BEGRIPPEN), (
         f"de API-omschrijving noemt {sorted(genoemd)} en de bewezen velden zijn "
-        f"{sorted(BEGRIPPEN)}; volledige tekst: {omschrijving!r}")
+        f"{sorted(BEGRIPPEN)}; volledige tekst: {omschrijving!r}"
+    )
 
 
 def test_the_screen_and_the_api_promise_the_same_fields():
@@ -356,10 +389,10 @@ def test_the_screen_and_the_api_promise_the_same_fields():
     Rood bewezen: één woord uit de schermsuggestie gehaald → faalt met het
     verschil tussen de twee verzamelingen.
     """
-    from app.domains.membership.household_service import (SEARCHED_FIELDS,
-                                                          family_search_hint)
+    from app.domains.membership.household_service import SEARCHED_FIELDS, family_search_hint
 
     assert _begrippen_uit(_suggestie()) == set(SEARCHED_FIELDS), (
-        "de zoeksuggestie op het scherm en de API beloven niet dezelfde velden")
+        "de zoeksuggestie op het scherm en de API beloven niet dezelfde velden"
+    )
     # En de opsomming zelf: komma's, "of" vóór het laatste, geen afsluitende komma.
     assert family_search_hint() == "naam, straatnaam of e-mail"

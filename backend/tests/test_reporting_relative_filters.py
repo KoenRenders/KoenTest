@@ -17,6 +17,7 @@ selection and a tenant and nothing else; resolution happens one layer up. That
 keeps `ik` a filter value and stops it becoming a role fence — a different
 question, still open (CR-06 §5.1).
 """
+
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -24,9 +25,18 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app.domains.reporting.api import (
-    SYMBOLIC_ME, SYMBOLIC_THIS_YEAR, SYMBOLIC_TODAY, Filter, Operator, Selection,
-    SelectionError, is_personal, resolve_selection, run_validated,
-    selection_from_dict, selection_to_dict,
+    SYMBOLIC_ME,
+    SYMBOLIC_THIS_YEAR,
+    SYMBOLIC_TODAY,
+    Filter,
+    Operator,
+    Selection,
+    SelectionError,
+    is_personal,
+    resolve_selection,
+    run_validated,
+    selection_from_dict,
+    selection_to_dict,
 )
 from tests._reporting_seed import TENANT_A, seed
 
@@ -37,28 +47,31 @@ def situation(db_session):
 
 
 def _members_this_year() -> Selection:
-    """"How many members do we have this year", saved as a relative report."""
+    """ "How many members do we have this year", saved as a relative report."""
     return Selection(
         object_keys=("membership_year", "membership_households"),
-        filters=(Filter("membership_year", Operator.EQ, (), SYMBOLIC_THIS_YEAR),))
+        filters=(Filter("membership_year", Operator.EQ, (), SYMBOLIC_THIS_YEAR),),
+    )
 
 
 # ── The reason this issue exists (#847 test 1) ───────────────────────────────
+
 
 def test_the_same_saved_report_moves_with_the_year(db_session, situation):
     """Two "now" moments, two answers, one stored report."""
     _y0, y1, y2, _y3 = situation["years"]
 
-    vorig = run_validated(db_session, _members_this_year(), tenant_id=TENANT_A,
-                          today=date(y1, 6, 1))
-    dit = run_validated(db_session, _members_this_year(), tenant_id=TENANT_A,
-                        today=date(y2, 6, 1))
+    vorig = run_validated(
+        db_session, _members_this_year(), tenant_id=TENANT_A, today=date(y1, 6, 1)
+    )
+    dit = run_validated(db_session, _members_this_year(), tenant_id=TENANT_A, today=date(y2, 6, 1))
 
     assert [r["membership_year"] for r in vorig.rows] == [y1]
     assert [r["membership_year"] for r in dit.rows] == [y2]
     assert vorig.rows[0]["membership_households"] != dit.rows[0]["membership_households"], (
         "de seed heeft 1 gezin in het ene jaar en 2 in het andere — het getal "
-        "beweegt mee, niet alleen het label")
+        "beweegt mee, niet alleen het label"
+    )
 
 
 def test_a_literal_value_does_not_move(db_session, situation):
@@ -67,39 +80,49 @@ def test_a_literal_value_does_not_move(db_session, situation):
     _y0, y1, y2, _y3 = situation["years"]
     vast = Selection(
         object_keys=("membership_year", "membership_households"),
-        filters=(Filter("membership_year", Operator.EQ, (str(y1),)),))
+        filters=(Filter("membership_year", Operator.EQ, (str(y1),)),),
+    )
 
-    vroeg = run_validated(db_session, vast, tenant_id=TENANT_A,
-                          today=date(y1, 6, 1))
-    laat = run_validated(db_session, vast, tenant_id=TENANT_A,
-                         today=date(y2, 6, 1))
+    vroeg = run_validated(db_session, vast, tenant_id=TENANT_A, today=date(y1, 6, 1))
+    laat = run_validated(db_session, vast, tenant_id=TENANT_A, today=date(y2, 6, 1))
     assert [r["membership_year"] for r in vroeg.rows] == [y1]
     assert [r["membership_year"] for r in laat.rows] == [y1], (
-        "een hardgezette waarde blijft staan waar ze stond")
+        "een hardgezette waarde blijft staan waar ze stond"
+    )
 
 
 def test_today_resolves_to_the_day_it_runs(db_session, situation):
     selectie = Selection(
         object_keys=("payment_created_day", "payment_amount"),
-        filters=(Filter("payment_created_day", Operator.LTE, (), SYMBOLIC_TODAY),))
+        filters=(Filter("payment_created_day", Operator.LTE, (), SYMBOLIC_TODAY),),
+    )
     opgelost = resolve_selection(selectie, today=date(2026, 3, 4))
     assert opgelost.filters[0].values == ("2026-03-04",)
     # And it still runs against the database.
-    assert run_validated(db_session, selectie, tenant_id=TENANT_A,
-                         today=date(2026, 3, 4)) is not None
+    assert (
+        run_validated(db_session, selectie, tenant_id=TENANT_A, today=date(2026, 3, 4)) is not None
+    )
 
 
 # ── `ik` (#847 test 3) ───────────────────────────────────────────────────────
+
 
 def _closed_task(db, *, by: str, days_ago: int = 3):
     from app.domains.workflow.api import WorkflowTask
 
     nu = datetime.now(timezone.utc)
     taak = WorkflowTask(
-        tenant_id=TENANT_A, kind="kernel.job_gefaald", title="Klaar",
-        subject_type="kernel_job", subject_id=f"s{days_ago}", status="done",
-        required_role="ADMIN", created_at=nu - timedelta(days=days_ago + 2),
-        done_at=nu - timedelta(days=days_ago), done_by=by)
+        tenant_id=TENANT_A,
+        kind="kernel.job_gefaald",
+        title="Klaar",
+        subject_type="kernel_job",
+        subject_id=f"s{days_ago}",
+        status="done",
+        required_role="ADMIN",
+        created_at=nu - timedelta(days=days_ago + 2),
+        done_at=nu - timedelta(days=days_ago),
+        done_by=by,
+    )
     db.add(taak)
     db.commit()
     return taak
@@ -117,12 +140,11 @@ def test_the_same_report_shows_each_person_their_own_rows(db_session, situation)
 
     mijn_taken = Selection(
         object_keys=("task_done_by", "task_count"),
-        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),))
+        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),),
+    )
 
-    anna = run_validated(db_session, mijn_taken, tenant_id=TENANT_A,
-                         viewer="anna@example.com")
-    bram = run_validated(db_session, mijn_taken, tenant_id=TENANT_A,
-                         viewer="bram@example.com")
+    anna = run_validated(db_session, mijn_taken, tenant_id=TENANT_A, viewer="anna@example.com")
+    bram = run_validated(db_session, mijn_taken, tenant_id=TENANT_A, viewer="bram@example.com")
 
     assert [r["task_done_by"] for r in anna.rows] == ["anna@example.com"]
     assert anna.rows[0]["task_count"] == 1
@@ -134,7 +156,8 @@ def test_a_personal_report_without_anybody_signed_in_says_so(db_session, situati
     """Falling back to "everybody" would be the worst possible default."""
     mijn_taken = Selection(
         object_keys=("task_done_by", "task_count"),
-        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),))
+        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),),
+    )
     with pytest.raises(SelectionError) as exc:
         run_validated(db_session, mijn_taken, tenant_id=TENANT_A, viewer="")
     assert "aangemelde gebruiker" in str(exc.value)
@@ -142,15 +165,16 @@ def test_a_personal_report_without_anybody_signed_in_says_so(db_session, situati
 
 def test_a_personal_report_is_marked_as_personal():
     """#847 point 2: somebody shares a link and the receiver has to understand."""
-    assert is_personal(Selection(
-        object_keys=("task_done_by", "task_count"),
-        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),)))
+    assert is_personal(
+        Selection(
+            object_keys=("task_done_by", "task_count"),
+            filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),),
+        )
+    )
     assert not is_personal(_members_this_year())
 
 
-def test_the_panel_offers_the_relative_values_and_marks_the_report(client,
-                                                                   db_session,
-                                                                   situation):
+def test_the_panel_offers_the_relative_values_and_marks_the_report(client, db_session, situation):
     """A user has to be able to BUILD such a report, not only open a seeded one.
 
     Which is why this asserts three things at once: the option is offered where it
@@ -165,40 +189,42 @@ def test_the_panel_offers_the_relative_values_and_marks_the_report(client,
 
     fragment = client.get(
         "/admin/rapporten/paneel?object=task_done_by&object=task_count"
-        "&filter=task_done_by&op_task_done_by=eq&v_task_done_by=@ik")
+        "&filter=task_done_by&op_task_done_by=eq&v_task_done_by=@ik"
+    )
     assert fragment.status_code == 200
     assert 'value="@ik"' in fragment.text, "de keuze staat in de lijst"
     assert "toont jouw eigen gegevens" in fragment.text, (
-        "en het scherm zegt dat het rapport per persoon verschilt")
+        "en het scherm zegt dat het rapport per persoon verschilt"
+    )
     # On the TABLE and not on the whole fragment: the filter dropdown lists every
     # value the dimension has, which is what a dropdown is for and what CR-06 §7.3
     # allows an admin to see. What must be personal is the result.
-    tabel = fragment.text[fragment.text.index("<tbody"):
-                          fragment.text.index("</tbody>")]
+    tabel = fragment.text[fragment.text.index("<tbody") : fragment.text.index("</tbody>")]
     assert "anna@example.com" in tabel
     assert "bram@example.com" not in tabel, "anna ziet alleen haar eigen taak"
 
 
-def test_a_year_filter_offers_this_year_and_a_municipality_does_not(client,
-                                                                    db_session,
-                                                                    situation):
+def test_a_year_filter_offers_this_year_and_a_municipality_does_not(client, db_session, situation):
     """Offering all three everywhere would let somebody filter a gemeente on today."""
     from tests.test_reporting_panel_ui import login
 
     login(client, db_session)
     jaar = client.get(
         "/admin/rapporten/paneel?object=membership_year"
-        "&object=membership_households&filter=membership_year")
+        "&object=membership_households&filter=membership_year"
+    )
     assert 'value="@dit_jaar"' in jaar.text
     assert 'value="@vandaag"' not in jaar.text
 
     gemeente = client.get(
         "/admin/rapporten/paneel?object=member_municipality"
-        "&object=membership_households&filter=member_municipality")
+        "&object=membership_households&filter=member_municipality"
+    )
     assert "@dit_jaar" not in gemeente.text and "@vandaag" not in gemeente.text
 
 
 # ── Where identity may and may not enter (#847 tests 4 and 5) ────────────────
+
 
 def test_the_engine_still_knows_no_identity_and_no_clock():
     """The signature test of #832, restated because #847 brings identity back.
@@ -216,7 +242,8 @@ def test_the_engine_still_knows_no_identity_and_no_clock():
     assert_engine_signature()
     resolutie = set(inspect.signature(resolve_selection).parameters)
     assert resolutie == {"selection", "today", "viewer"}, (
-        "identiteit en de klok komen hier binnen, en alleen hier")
+        "identiteit en de klok komen hier binnen, en alleen hier"
+    )
 
 
 def test_resolving_does_not_touch_what_was_saved(db_session, situation):
@@ -245,7 +272,8 @@ def test_resolving_ik_twice_does_not_lose_the_viewer(db_session, situation):
     """
     mijn = Selection(
         object_keys=("task_done_by", "task_count"),
-        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),))
+        filters=(Filter("task_done_by", Operator.EQ, (), SYMBOLIC_ME),),
+    )
 
     eerst = resolve_selection(mijn, viewer="anna@example.com")
     assert eerst.filters[0].values == ("anna@example.com",)
@@ -268,27 +296,35 @@ def test_a_relative_value_survives_being_saved_and_read_back():
 
 def test_an_unknown_relative_value_is_refused_by_name():
     with pytest.raises(SelectionError) as exc:
-        selection_from_dict({
-            "objects": ["membership_year", "membership_households"],
-            "filters": [{"object": "membership_year", "operator": "eq",
-                         "values": [], "symbolic": "vorige_maand"}],
-        })
+        selection_from_dict(
+            {
+                "objects": ["membership_year", "membership_households"],
+                "filters": [
+                    {
+                        "object": "membership_year",
+                        "operator": "eq",
+                        "values": [],
+                        "symbolic": "vorige_maand",
+                    }
+                ],
+            }
+        )
     assert "'vorige_maand'" in str(exc.value)
 
 
 def test_a_report_saved_before_this_change_still_reads_literally():
     """Every filter saved before #847 has no `symbolic` key, and must not gain one."""
-    oud = selection_from_dict({
-        "objects": ["membership_year", "membership_households"],
-        "filters": [{"object": "membership_year", "operator": "eq",
-                     "values": ["2026"]}],
-    })
+    oud = selection_from_dict(
+        {
+            "objects": ["membership_year", "membership_households"],
+            "filters": [{"object": "membership_year", "operator": "eq", "values": ["2026"]}],
+        }
+    )
     assert oud.filters[0].symbolic == ""
     assert resolve_selection(oud, today=date(2030, 1, 1)).filters[0].values == ("2026",)
 
 
-def test_the_export_header_says_both_what_it_means_and_what_it_was(db_session,
-                                                                   situation):
+def test_the_export_header_says_both_what_it_means_and_what_it_was(db_session, situation):
     """A sheet that says only "dit jaar" cannot be checked a year later; one that
     says only "2026" hides that it moves."""
     from app.domains.reporting.api import filter_summary

@@ -21,6 +21,7 @@ hoogte in #677 naar één plek ging: veertien plaatsen repareren lost dít geval
 een helper sluit de fout uit. Een nieuwe gate die deze functie gebruikt, KAN de
 controle niet vergeten.
 """
+
 from pathlib import Path
 from typing import Iterable
 

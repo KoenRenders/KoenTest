@@ -1,9 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
-import jwt
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -22,7 +22,9 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
+        expire = datetime.now(timezone.utc) + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
@@ -226,15 +228,13 @@ def require_api_key(request: Request, db: Session = Depends(get_db)):
 
     raw = request.headers.get(API_KEY_HEADER)
     if not raw:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=_("API-key ontbreekt"))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("API-key ontbreekt"))
     entry = (
         db.query(ApiKey)
         .filter(ApiKey.key_hash == hash_api_key(raw), ApiKey.is_active == True)
         .first()
     )
     if entry is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail=_("Ongeldige API-key"))
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige API-key"))
     entry.last_used_at = datetime.now(timezone.utc)
     return entry

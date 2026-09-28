@@ -22,6 +22,7 @@ Broken to see them red (measured):
   because `_encode` has two `save()` calls and one test only walks one of them
   (measured: breaking the PNG branch left the JPEG test green).
 """
+
 from io import BytesIO
 
 import pytest
@@ -61,12 +62,15 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def _upload(client, csrf, kind, bytes_, naam="beeld.jpg", type_="image/jpeg",
-            titel=None, **extra):
+def _upload(client, csrf, kind, bytes_, naam="beeld.jpg", type_="image/jpeg", titel=None, **extra):
     data = {"kind": kind, "title": titel or f"proef-{kind}"}
     data.update(extra)
-    return client.post("/admin/media", files={"files": (naam, bytes_, type_)},
-                       data=data, headers={"X-CSRF-Token": csrf})
+    return client.post(
+        "/admin/media",
+        files={"files": (naam, bytes_, type_)},
+        data=data,
+        headers={"X-CSRF-Token": csrf},
+    )
 
 
 def _asset(db, titel):
@@ -75,6 +79,7 @@ def _asset(db, titel):
 
 
 # ── De grens hangt aan de soort ──────────────────────────────────────────────
+
 
 def test_the_same_source_gives_4096_as_design_and_1600_as_photo():
     bron = _jpeg()
@@ -97,10 +102,10 @@ def test_the_route_passes_the_kind_along(client, db_session):
     """Via de route, want daar wordt de grens echt gebruikt."""
     csrf = _login(client)
 
-    assert _upload(client, csrf, "design_image", _jpeg(),
-                   titel="ontwerp-groot").status_code == 204
-    assert _upload(client, csrf, "activity_photo", _jpeg(), titel="foto-groot",
-                   activity_id="").status_code in (200, 204)
+    assert _upload(client, csrf, "design_image", _jpeg(), titel="ontwerp-groot").status_code == 204
+    assert _upload(
+        client, csrf, "activity_photo", _jpeg(), titel="foto-groot", activity_id=""
+    ).status_code in (200, 204)
 
     ontwerp = _asset(db_session, "ontwerp-groot")
     assert max(ontwerp.width, ontwerp.height) == 4096
@@ -108,10 +113,11 @@ def test_the_route_passes_the_kind_along(client, db_session):
 
 # ── De hercodering blijft, en die is de beveiliging ──────────────────────────
 
+
 def test_a_design_image_loses_its_exif_and_colour_profile():
     exif = Image.Exif()
-    exif[0x010F] = "Camera van de fotograaf"      # Make
-    exif[0x9286] = "Geheime opmerking"            # UserComment
+    exif[0x010F] = "Camera van de fotograaf"  # Make
+    exif[0x9286] = "Geheime opmerking"  # UserComment
     icc = b"\x00\x00\x02\x0cADBE" + b"\x00" * 100  # genoeg om terug te vinden
 
     bron = _jpeg(px=2000, exif=exif.tobytes(), icc=icc)
@@ -139,7 +145,8 @@ def test_a_transparent_design_image_loses_its_profile_too():
     exif[0x9286] = "Geheime opmerking in een png"
     buf = BytesIO()
     Image.new("RGBA", (2000, 1000), (0, 93, 41, 200)).save(
-        buf, format="PNG", icc_profile=icc, exif=exif.tobytes())
+        buf, format="PNG", icc_profile=icc, exif=exif.tobytes()
+    )
     bron = buf.getvalue()
     with Image.open(BytesIO(bron)) as origineel:
         assert origineel.info.get("icc_profile"), "de bron droeg geen profiel"
@@ -160,8 +167,7 @@ def test_the_type_comes_from_the_content_and_not_from_the_name(client, db_sessio
 
     # PNG-bytes onder een .jpg-naam: Pillow leest de inhoud, en de uitvoer is
     # wat de inhoud toelaat (transparantie → PNG).
-    resp = _upload(client, csrf, "design_image", _png(), naam="zogezegd.jpg",
-                   titel="inhoud-wint")
+    resp = _upload(client, csrf, "design_image", _png(), naam="zogezegd.jpg", titel="inhoud-wint")
     assert resp.status_code == 204
     assert _asset(db_session, "inhoud-wint").content_type == "image/png"
 
@@ -173,8 +179,7 @@ def test_html_that_claims_to_be_an_image_is_refused(client, db_session):
     with pytest.raises(ImageError):
         process_image(rommel, kind="design_image")
 
-    resp = _upload(client, csrf, "design_image", rommel, naam="doe-alsof.jpg",
-                   titel="geen-beeld")
+    resp = _upload(client, csrf, "design_image", rommel, naam="doe-alsof.jpg", titel="geen-beeld")
     assert resp.status_code == 200, "de upload hoort geweigerd te worden"
     assert _asset(db_session, "geen-beeld") is None
 
@@ -187,6 +192,7 @@ def test_a_design_image_keeps_its_thumbnail():
 
 # ── design_render komt niet via een upload ───────────────────────────────────
 
+
 def test_a_render_cannot_be_uploaded(client, db_session):
     csrf = _login(client)
 
@@ -198,14 +204,19 @@ def test_a_render_cannot_be_uploaded(client, db_session):
 
 
 def test_the_upload_kinds_are_exactly_what_may_come_in():
-    from app.domains.media.api import (DESIGN_IMAGE_KIND, DESIGN_RENDER_KIND,
-                                       UPLOADABLE_KINDS, VALID_KINDS)
+    from app.domains.media.api import (
+        DESIGN_IMAGE_KIND,
+        DESIGN_RENDER_KIND,
+        UPLOADABLE_KINDS,
+        VALID_KINDS,
+    )
 
     assert DESIGN_IMAGE_KIND in UPLOADABLE_KINDS
     assert DESIGN_RENDER_KIND not in UPLOADABLE_KINDS
     assert UPLOADABLE_KINDS == VALID_KINDS | {DESIGN_IMAGE_KIND}
     assert DESIGN_IMAGE_KIND not in VALID_KINDS, (
-        "een design-beeld hoort bij zijn activiteit, niet in de mediabibliotheek")
+        "een design-beeld hoort bij zijn activiteit, niet in de mediabibliotheek"
+    )
 
 
 def test_a_design_image_may_hang_on_an_activity(client, db_session):
@@ -216,8 +227,14 @@ def test_a_design_image_may_hang_on_an_activity(client, db_session):
     db_session.flush()
     csrf = _login(client)
 
-    resp = _upload(client, csrf, "design_image", _jpeg(px=800), titel="bij-activiteit",
-                   activity_id=str(activiteit.id))
+    resp = _upload(
+        client,
+        csrf,
+        "design_image",
+        _jpeg(px=800),
+        titel="bij-activiteit",
+        activity_id=str(activiteit.id),
+    )
 
     assert resp.status_code == 204
     assert _asset(db_session, "bij-activiteit").activity_id == activiteit.id

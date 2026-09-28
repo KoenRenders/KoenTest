@@ -4,12 +4,13 @@ Tabs Overzicht · Inschrijvingen N · Betalingen N: elke tab toont een bestaand
 lijstscherm in de scope van dit record. Betalingen alleen met FINANCE (#544);
 de tab navigeert naar het gewone betalingenscherm in `?activiteit=`-scope.
 """
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
+import pytest
+
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
-                                  csrf_token_for, make_session_value)
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client):
@@ -27,12 +28,19 @@ def _make_finance(db):
 
 def _activiteit_met_inschrijvingen(client, db_session, namen=("Rec Anna", "Rec Bert")):
     activity, component, product = seed_activity_with_product(
-        db_session, price="10.00", is_free=False)
+        db_session, price="10.00", is_free=False
+    )
     for naam in namen:
-        client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}",
-                    data={"contact_name": naam, "contact_email": "rec@example.com",
-                          "phone": "047", f"product_{product.id}": "1",
-                          "payment_method": "transfer"})
+        client.post(
+            f"/activiteiten/{activity.id}/inschrijven/{component.id}",
+            data={
+                "contact_name": naam,
+                "contact_email": "rec@example.com",
+                "phone": "047",
+                f"product_{product.id}": "1",
+                "payment_method": "transfer",
+            },
+        )
     return activity, component
 
 
@@ -99,7 +107,8 @@ def test_inschrijvingen_tab_sorteert_en_valt_veilig_terug(client, db_session):
     import re
 
     activity, component = _activiteit_met_inschrijvingen(
-        client, db_session, namen=("Rec Carla", "Rec Anna", "Rec Bert"))
+        client, db_session, namen=("Rec Carla", "Rec Anna", "Rec Bert")
+    )
     _login(client)
     basis = f"/admin/activiteiten/{activity.id}/inschrijvingen"
 
@@ -110,8 +119,7 @@ def test_inschrijvingen_tab_sorteert_en_valt_veilig_terug(client, db_session):
                 gezien.append(n)
         return gezien
 
-    assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == \
-        ["Anna", "Bert", "Carla"]
+    assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == ["Anna", "Bert", "Carla"]
     resp = client.get(f"{basis}?sort=x);DROP--&richting=zijwaarts")
     assert resp.status_code == 200
     assert namen(resp.text) == ["Carla", "Anna", "Bert"]  # inschrijfvolgorde
@@ -122,16 +130,14 @@ def test_de_lijstfragmenten_bestaan_niet_meer(client, db_session):
     oude fragmentadres hoort niet stil iets anders te gaan betekenen."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
-    assert client.get(
-        f"/admin/activiteiten/{activity.id}/inschrijvingen/fragment"
-    ).status_code == 404
+    assert (
+        client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/fragment").status_code == 404
+    )
 
 
 def test_betalingen_activiteitscope_toont_enkel_deze_activiteit(client, db_session):
-    a1, _c1 = _activiteit_met_inschrijvingen(client, db_session,
-                                             namen=("Rec Anna",))
-    a2, _c2 = _activiteit_met_inschrijvingen(client, db_session,
-                                             namen=("Ander Feest",))
+    a1, _c1 = _activiteit_met_inschrijvingen(client, db_session, namen=("Rec Anna",))
+    a2, _c2 = _activiteit_met_inschrijvingen(client, db_session, namen=("Ander Feest",))
     _make_finance(db_session)
     db_session.commit()
     _login(client)
@@ -147,8 +153,7 @@ def test_betalingen_activiteitscope_toont_enkel_deze_activiteit(client, db_sessi
 
 
 def test_betalingen_activiteitscope_vervalst_id_lekt_niets(client, db_session):
-    a1, _c1 = _activiteit_met_inschrijvingen(client, db_session,
-                                             namen=("Rec Anna",))
+    a1, _c1 = _activiteit_met_inschrijvingen(client, db_session, namen=("Rec Anna",))
     _make_finance(db_session)
     db_session.commit()
     _login(client)
@@ -195,12 +200,12 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     voorbij = Activity(name="Voorbije proef", slug="voorbije-proef")
     db_session.add_all([komend, voorbij])
     db_session.flush()
-    db_session.add_all([
-        ActivityDate(activity_id=komend.id,
-                     start_date=date.today() + timedelta(days=10)),
-        ActivityDate(activity_id=voorbij.id,
-                     start_date=date.today() - timedelta(days=10)),
-    ])
+    db_session.add_all(
+        [
+            ActivityDate(activity_id=komend.id, start_date=date.today() + timedelta(days=10)),
+            ActivityDate(activity_id=voorbij.id, start_date=date.today() - timedelta(days=10)),
+        ]
+    )
     db_session.flush()
 
     r1 = client.get("/activiteiten/komende-proef")
@@ -212,8 +217,7 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     # Ook op nummer, en onbekend is een nette 404.
     r3 = client.get(f"/activiteiten/{komend.id}")
     assert r3.status_code == 200 and "Komende proef" in r3.text
-    assert client.get("/activiteiten/bestaat-niet",
-                      follow_redirects=False).status_code == 404
+    assert client.get("/activiteiten/bestaat-niet", follow_redirects=False).status_code == 404
 
 
 def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
@@ -222,9 +226,11 @@ def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
     mét de nieuwe naam."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     csrf = _login(client)
-    r = client.post(f"/admin/activiteiten/{activity.id}",
-                    data={"name": "Vernieuwde naam", "location": "Elders"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/activiteiten/{activity.id}",
+        data={"name": "Vernieuwde naam", "location": "Elders"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200
     assert 'id="aa-recordkop" hx-swap-oob="true"' in r.text
     assert 'id="aa-rail" hx-swap-oob="true"' in r.text
@@ -237,8 +243,8 @@ def test_raakje_knop_volgt_de_beheerassistent_schakelaar(client, db_session, mon
     eigen vlag. Zolang het record-endpoint er niet is toont de overlay een
     nette uitgeschakelde staat."""
     from app.config import settings
-    from app.kernel.tenant_config import set_setting
     from app.kernel.tenancy import DEFAULT_TENANT_ID
+    from app.kernel.tenant_config import set_setting
 
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)

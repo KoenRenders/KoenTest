@@ -6,14 +6,15 @@ dezelfde payable-verzameling van het gezin (inschrijvingen van zijn personen,
 incl. de e-mail-terugval voor gastinschrijvingen); de Wijzigingen-tab verviel
 op Koens vraag (15 sep).
 """
+
 from decimal import Decimal
 
 import pytest
-pytestmark = pytest.mark.ui_serverrendered
 
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
-                                  csrf_token_for, make_session_value)
+
+pytestmark = pytest.mark.ui_serverrendered
 
 
 def _login(client, email=SEEDED_ADMIN_EMAIL):
@@ -32,25 +33,44 @@ def _gezin(db, achternaam="Recordmans", voornaam="Rita"):
     from app.domains.payment.api import PaymentRecord
 
     m = Member()
-    db.add(m); db.flush()
+    db.add(m)
+    db.flush()
     p = Person(first_name=voornaam, last_name=achternaam)
-    db.add(p); db.flush()
-    db.add(MemberPerson(member_id=m.id, person_id=p.id,
-                        relation_type="HOOFDLID"))
+    db.add(p)
+    db.flush()
+    db.add(MemberPerson(member_id=m.id, person_id=p.id, relation_type="HOOFDLID"))
     ms = Membership(member_id=m.id, year=2026, is_active=True)
-    db.add(ms); db.flush()
-    db.add(PaymentRecord(payable_type="membership", payable_id=ms.id,
-                         amount=Decimal("35.00"), method="transfer",
-                         status="pending"))
+    db.add(ms)
+    db.flush()
+    db.add(
+        PaymentRecord(
+            payable_type="membership",
+            payable_id=ms.id,
+            amount=Decimal("35.00"),
+            method="transfer",
+            status="pending",
+        )
+    )
     activity, comp, _prod = seed_activity_with_product(db)
-    reg = Registration(activity_id=activity.id, registration_type="INDIVIDUAL",
-                       contact_name=f"{voornaam} {achternaam}",
-                       contact_email=f"{achternaam.lower()}@example.com",
-                       component_id=comp.id, person_id=p.id)
-    db.add(reg); db.flush()
-    db.add(PaymentRecord(payable_type="registration", payable_id=reg.id,
-                         amount=Decimal("10.00"), method="transfer",
-                         status="pending"))
+    reg = Registration(
+        activity_id=activity.id,
+        registration_type="INDIVIDUAL",
+        contact_name=f"{voornaam} {achternaam}",
+        contact_email=f"{achternaam.lower()}@example.com",
+        component_id=comp.id,
+        person_id=p.id,
+    )
+    db.add(reg)
+    db.flush()
+    db.add(
+        PaymentRecord(
+            payable_type="registration",
+            payable_id=reg.id,
+            amount=Decimal("10.00"),
+            method="transfer",
+            status="pending",
+        )
+    )
     db.flush()
     return m, p, ms, reg
 
@@ -62,7 +82,7 @@ def test_recordkop_draagt_label_tabs_en_verwijderen(client, db_session):
     html = client.get(f"/admin/leden/gezin/{m.id}").text
 
     assert "Recordmans Rita" in html  # gezinslabel = hoofdlid, zoals de lijst
-    assert f"{_('Gezin') if False else 'Gezin'} #{m.id}" in html
+    assert f"Gezin #{m.id}" in html
     assert ">Overzicht</a>" in html
     # De Wijzigingen-tab verviel op Koens vraag (15 sep); Inschrijvingen
     # kwam ervoor in de plaats — met het aantal (één inschrijving gezaaid).
@@ -98,10 +118,10 @@ def test_betalingen_tab_toont_lidgeld_en_inschrijving(client, db_session):
     _login(client)
     html = client.get(f"/admin/leden/gezin/{m.id}/betalingen").text
 
-    assert "Recordmans" in html          # de recordkop én de kaarten
-    assert "Lidmaatschap" in html        # de membership-payable overleeft de scope
-    assert "Anderman" not in html        # het andere gezin blijft buiten beeld
-    assert "Voor gezin:" not in html     # ingebed: de kop zegt al waar je bent
+    assert "Recordmans" in html  # de recordkop én de kaarten
+    assert "Lidmaatschap" in html  # de membership-payable overleeft de scope
+    assert "Anderman" not in html  # het andere gezin blijft buiten beeld
+    assert "Voor gezin:" not in html  # ingebed: de kop zegt al waar je bent
     assert f'name="gezin" value="{m.id}"' in html  # scope overleeft filters
 
 
@@ -125,14 +145,13 @@ def test_inschrijvingen_tab_groepeert_per_activiteit(client, db_session):
     _login(client)
     html = client.get(f"/admin/leden/gezin/{m.id}/inschrijvingen").text
 
-    assert "Rita Recordmans" in html          # de rij (contact_name)
+    assert "Rita Recordmans" in html  # de rij (contact_name)
     assert "Anderman" not in html, "een ander gezin lekt de scope in"
     assert f'href="/admin/activiteiten/{reg.activity_id}"' in html  # groepskop
     assert ">Details<" in html
     assert f"/admin/inschrijvingen/{reg.id}?terug=" in html
     # De oude Wijzigingen-tab is echt weg, niet enkel verstopt.
-    assert client.get(
-        f"/admin/leden/gezin/{m.id}/wijzigingen").status_code == 404
+    assert client.get(f"/admin/leden/gezin/{m.id}/wijzigingen").status_code == 404
 
 
 def test_leesmodus_toont_ook_het_geslacht(client, db_session):
@@ -154,7 +173,8 @@ def test_family_label_valt_terug_op_het_nummer(db_session):
     from app.domains.membership.api import family_label, get_family
 
     m = Member()
-    db_session.add(m); db_session.flush()
+    db_session.add(m)
+    db_session.flush()
 
     assert family_label(get_family(db_session, m.id)) == f"Gezin #{m.id}"
 
@@ -174,7 +194,7 @@ def test_mijn_profiel_toont_rollen_per_werkruimte(client, db_session):
     _login(client)
     html = client.get("/admin/profiel").text
     assert SEEDED_ADMIN_EMAIL in html
-    assert "Raak Millegem" in html            # de werkruimte-rij (migratie 126)
+    assert "Raak Millegem" in html  # de werkruimte-rij (migratie 126)
     assert "ADMIN" in html and "FINANCE" in html
     assert "Platformbreed" in html and "OPERATOR" in html
     assert "#963" in html
@@ -186,11 +206,17 @@ def test_opslaan_ververst_de_kop_out_of_band(client, db_session):
     m, p, _ms, _reg = _gezin(db_session)
     db_session.commit()
     csrf = _login(client)
-    r = client.post(f"/admin/leden/gezin/{m.id}/persoon/{p.id}",
-                    data={"first_name": "Rita", "last_name": "Nieuwnaam",
-                          "date_of_birth": "1980-01-01", "gender_code": "M",
-                          "relation_type": "HOOFDLID"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/leden/gezin/{m.id}/persoon/{p.id}",
+        data={
+            "first_name": "Rita",
+            "last_name": "Nieuwnaam",
+            "date_of_birth": "1980-01-01",
+            "gender_code": "M",
+            "relation_type": "HOOFDLID",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200
     assert 'id="gezin-recordkop" hx-swap-oob="true"' in r.text
     assert "Nieuwnaam Rita" in r.text
@@ -206,7 +232,8 @@ def test_inschrijvingen_tab_overleeft_geschrapte_activiteit(client, db_session):
 
     m, p, _ms, reg = _gezin(db_session)
     db_session.query(Activity).filter(Activity.id == reg.activity_id).update(
-        {"deleted_at": datetime.now(timezone.utc)})
+        {"deleted_at": datetime.now(timezone.utc)}
+    )
     db_session.commit()
     _login(client)
     r = client.get(f"/admin/leden/gezin/{m.id}/inschrijvingen")
@@ -222,22 +249,30 @@ def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
     from app.domains.activities.api import Registration
 
     m, p, _ms, reg = _gezin(db_session)
-    extra = Registration(activity_id=reg.activity_id,
-                         registration_type="INDIVIDUAL",
-                         contact_name="Aaa Eerst",
-                         contact_email="recordmans@example.com",
-                         component_id=reg.component_id, person_id=p.id)
-    db_session.add(extra); db_session.commit()
+    extra = Registration(
+        activity_id=reg.activity_id,
+        registration_type="INDIVIDUAL",
+        contact_name="Aaa Eerst",
+        contact_email="recordmans@example.com",
+        component_id=reg.component_id,
+        person_id=p.id,
+    )
+    db_session.add(extra)
+    db_session.commit()
     _login(client)
     basis = f"/admin/leden/gezin/{m.id}/inschrijvingen"
 
     def namen(html):
         return re.findall(r">(Aaa Eerst|Rita Recordmans)</a>", html)
 
-    assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == \
-        ["Aaa Eerst", "Rita Recordmans"]
-    assert namen(client.get(f"{basis}?sort=naam&richting=desc").text) == \
-        ["Rita Recordmans", "Aaa Eerst"]
+    assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == [
+        "Aaa Eerst",
+        "Rita Recordmans",
+    ]
+    assert namen(client.get(f"{basis}?sort=naam&richting=desc").text) == [
+        "Rita Recordmans",
+        "Aaa Eerst",
+    ]
     # Vervalste parameters vallen veilig terug en lekken niet in de links.
     veilig = client.get(f"{basis}?sort=x);DROP--&richting=zijwaarts")
     assert veilig.status_code == 200 and "DROP" not in veilig.text
@@ -250,10 +285,8 @@ def test_beide_tabs_renderen_het_gedeelde_sjabloon():
     from pathlib import Path
 
     basis = Path(__file__).resolve().parents[1] / "app" / "domains"
-    act = (basis / "activities" / "templates"
-           / "admin_activiteit_inschrijvingen.html").read_text()
-    gez = (basis / "mdm" / "templates"
-           / "admin_gezin_inschrijvingen.html").read_text()
+    act = (basis / "activities" / "templates" / "admin_activiteit_inschrijvingen.html").read_text()
+    gez = (basis / "mdm" / "templates" / "admin_gezin_inschrijvingen.html").read_text()
     for pagina in (act, gez):
         assert '{% include "_inschrijvingen_groepen.html" %}' in pagina
         assert "<table" not in pagina, "de tabel hoort alleen in het gedeelde sjabloon"

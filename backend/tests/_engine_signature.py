@@ -15,6 +15,7 @@ what you may see?"** — `tenant_id` does and is the fence; a role or a viewer w
 and is refused; `with_entities` does not, it changes the shape a row comes back
 in (CR-07 §5.2).
 """
+
 import inspect
 
 ALLOWED = {"selection", "tenant_id", "with_entities"}

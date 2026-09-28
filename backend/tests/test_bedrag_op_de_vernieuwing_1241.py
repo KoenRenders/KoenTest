@@ -18,6 +18,7 @@ is niet van het scherm maar van de sjabloon.
 Rood te maken door het filter van één van beide regels te halen: dan staat er `20.00` en
 faalt die test op de punt.
 """
+
 from __future__ import annotations
 
 from datetime import date
@@ -48,16 +49,35 @@ def _gezin_met_lopende_vernieuwing(db, method: str):
 
     member, person = create_test_family(db, email=LID)
     jaar = date.today().year
-    db.add(Membership(member_id=member.id, year=jaar, is_active=True,
-                      valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
-    vernieuwing = Membership(member_id=member.id, year=jaar + 1, is_active=False,
-                             valid_from=date(jaar + 1, 1, 1),
-                             valid_to=date(jaar + 1, 12, 31))
+    db.add(
+        Membership(
+            member_id=member.id,
+            year=jaar,
+            is_active=True,
+            valid_from=date(jaar, 1, 1),
+            valid_to=date(jaar, 12, 31),
+        )
+    )
+    vernieuwing = Membership(
+        member_id=member.id,
+        year=jaar + 1,
+        is_active=False,
+        valid_from=date(jaar + 1, 1, 1),
+        valid_to=date(jaar + 1, 12, 31),
+    )
     db.add(vernieuwing)
     db.flush()
-    db.add(PaymentRecord(payable_type="membership", payable_id=vernieuwing.id,
-                         type="charge", amount=BEDRAG, method=method, status="pending",
-                         structured_communication="+++000/0000/55532+++"))
+    db.add(
+        PaymentRecord(
+            payable_type="membership",
+            payable_id=vernieuwing.id,
+            type="charge",
+            amount=BEDRAG,
+            method=method,
+            status="pending",
+            structured_communication="+++000/0000/55532+++",
+        )
+    )
     db.commit()
     return person
 
@@ -73,18 +93,19 @@ def _portaal(client, db, method: str) -> str:
 def test_de_overschrijving_toont_het_bedrag_met_een_komma(client, db_session):
     html = _portaal(client, db_session, "transfer")
     assert "Vernieuwing geregistreerd" in html, (
-        "het blok met de betaalinstructies staat er niet; deze test meet dan niets")
+        "het blok met de betaalinstructies staat er niet; deze test meet dan niets"
+    )
     assert BELGISCH in html, f"geen {BELGISCH} op het scherm"
     assert AMERIKAANS not in html, (
-        f"het bedrag staat er (ook) als {AMERIKAANS} — een punt op een Belgische "
-        "betaalinstructie")
+        f"het bedrag staat er (ook) als {AMERIKAANS} — een punt op een Belgische betaalinstructie"
+    )
 
 
 def test_de_lopende_online_betaling_toont_het_bedrag_met_een_komma(client, db_session):
     """De tak die op geen enkele afdruk staat, en juist daarom hier."""
     html = _portaal(client, db_session, "online")
     assert "Je vernieuwing loopt nog" in html, (
-        "het blok voor een niet-afgeronde online betaling staat er niet; deze test "
-        "meet dan niets")
+        "het blok voor een niet-afgeronde online betaling staat er niet; deze test meet dan niets"
+    )
     assert BELGISCH in html, f"geen {BELGISCH} op het scherm"
     assert AMERIKAANS not in html, f"het bedrag staat er (ook) als {AMERIKAANS}"

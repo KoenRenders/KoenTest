@@ -14,6 +14,7 @@ Discovery via de **filesystem-glob** i.p.v. ``pkgutil``: namespace-packages zond
 NIET opgesomd, maar wél door de glob — zo kan geen enkel domein-model gemist
 worden (dat gebeurde met media: MediaAsset bleef ongeregistreerd, #449).
 """
+
 import importlib
 from pathlib import Path
 

@@ -1,10 +1,11 @@
 """Formulieren-admin: resultaten-tab (geaggregeerde statistiek) + JSON-export
 (#454). De aggregatie zelf komt uit compute_results; hier testen we dat de
 admin-UI-routes ze correct ontsluiten (auth, telling, gemiddelde, JSON-vorm)."""
+
 import json
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from tests.conftest import SEEDED_ADMIN_EMAIL
 from tests.test_forms import _create_form, _field_id, _option_id
 
 
@@ -16,12 +17,15 @@ def _login(client):
 
 def _submit(client, form, *, checkbox_opt, rating):
     body = {
-        "submitter_name": "Jan", "submitter_email": "jan@example.com",
+        "submitter_name": "Jan",
+        "submitter_email": "jan@example.com",
         "answers": [
             {"field_id": _field_id(form, "Email"), "text": "jan@example.com"},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
-            {"field_id": _field_id(form, "Zaterdag namiddag"),
-             "option_ids": [_option_id(form, "Zaterdag namiddag", checkbox_opt)]},
+            {
+                "field_id": _field_id(form, "Zaterdag namiddag"),
+                "option_ids": [_option_id(form, "Zaterdag namiddag", checkbox_opt)],
+            },
             {"field_id": _field_id(form, "Tevredenheid"), "rating": rating},
         ],
     }

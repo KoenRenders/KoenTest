@@ -20,6 +20,7 @@ Rood gemaakt om te toetsen dát ze kunnen falen: met `and not is_screenshot()` u
 `site_base.html` en `admin_base.html` gehaald faalt (1) in beide schillen; met de
 `app_env != "dev"`-poort uit `app.ui._is_screenshot` gehaald faalt (3).
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, User, UserRole, make_session_value

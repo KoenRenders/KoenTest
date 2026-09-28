@@ -8,18 +8,18 @@ Bewaakt de invarianten die ertoe doen:
   uitlezen (force) raakt override/addition niet;
 - de bot krijgt de effectieve tekst (poster + reglement) via get_activity_detail.
 """
+
 import json
 
+import app.domains.media.extraction as mx
 from app.config import settings
-from app.domains.activities.api import Activity
-from app.domains.activities.api import ActivitySubRegistration
-from app.domains.media.api import MediaAsset
+from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.chatbot.tools import execute_tool
-import app.domains.media.extraction as mx
-
+from app.domains.media.api import MediaAsset
 
 # ── Routing: tekstlaag vs OCR ────────────────────────────────────────────────
+
 
 def test_pdf_with_text_layer_skips_ocr(monkeypatch):
     monkeypatch.setattr(mx, "_extract_pdf_text_layer", lambda raw: "x" * 200)
@@ -46,8 +46,11 @@ def test_image_without_key_returns_empty(monkeypatch):
 
 # ── Opkuis vóór de bot (#240) ────────────────────────────────────────────────
 
+
 def test_clean_strips_ocr_image_placeholders():
-    raw = "# Titel\n\n![img-0.jpeg](img-0.jpeg)\n\nVAN JUNI\n\n![img-1.jpeg](img-1.jpeg)\n\n## ROUTE"
+    raw = (
+        "# Titel\n\n![img-0.jpeg](img-0.jpeg)\n\nVAN JUNI\n\n![img-1.jpeg](img-1.jpeg)\n\n## ROUTE"
+    )
     out = mx._clean_extracted_text(raw)
     assert "img-0.jpeg" not in out
     assert "![" not in out
@@ -83,10 +86,14 @@ def test_extract_document_text_cleans_ocr_output(monkeypatch):
 
 # ── update_media_extracted_text → chatbot_info-rij ───────────────────────────
 
+
 def _poster(db, activity, data=b"posterbytes", content_type="image/png"):
     asset = MediaAsset(
-        kind="activity_poster", activity_id=activity.id,
-        data=data, content_type=content_type, byte_size=len(data),
+        kind="activity_poster",
+        activity_id=activity.id,
+        data=data,
+        content_type=content_type,
+        byte_size=len(data),
     )
     db.add(asset)
     db.flush()
@@ -127,7 +134,7 @@ def test_extraction_creates_chatbot_info_row_and_skips_unless_force(db_session, 
     db_session.refresh(row)
     assert row.extracted_text == "Verse OCR."
     assert row.text_override == "Handmatig gecorrigeerd."  # behouden
-    assert row.text_addition == "Honden welkom."           # behouden
+    assert row.text_addition == "Honden welkom."  # behouden
 
 
 def test_non_extractable_kind_creates_no_row(db_session, monkeypatch):
@@ -135,17 +142,23 @@ def test_non_extractable_kind_creates_no_row(db_session, monkeypatch):
     db_session.add(a)
     db_session.flush()
     photo = MediaAsset(
-        kind="activity_photo", activity_id=a.id,
-        data=b"img", content_type="image/png", byte_size=3,
+        kind="activity_photo",
+        activity_id=a.id,
+        data=b"img",
+        content_type="image/png",
+        byte_size=3,
     )
     db_session.add(photo)
     db_session.flush()
     monkeypatch.setattr(mx, "extract_document_text", lambda raw, ct, **_k: "ZOU NIET MOGEN")
     mx.update_media_extracted_text(photo.id, db=db_session)
-    assert db_session.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == photo.id).first() is None
+    assert (
+        db_session.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == photo.id).first() is None
+    )
 
 
 # ── effective_text: override vervangt, addition vult aan ─────────────────────
+
 
 def test_effective_text_override_and_addition():
     row = ChatbotInfo(extracted_text="machine", text_addition="extra")
@@ -156,26 +169,37 @@ def test_effective_text_override_and_addition():
 
 # ── Bot-feed: poster + reglement via get_activity_detail ─────────────────────
 
+
 def test_get_activity_detail_includes_poster_and_component_text(db_session):
     a = Activity(name="Quiz")
     db_session.add(a)
     db_session.flush()
     poster = MediaAsset(
-        kind="activity_poster", activity_id=a.id,
-        data=b"p", content_type="image/png", byte_size=1,
+        kind="activity_poster",
+        activity_id=a.id,
+        data=b"p",
+        content_type="image/png",
+        byte_size=1,
     )
     db_session.add(poster)
     sub = ActivitySubRegistration(activity_id=a.id, name="Hoofdquiz")
     db_session.add(sub)
     db_session.flush()
     info = MediaAsset(
-        kind="component_info", component_id=sub.id,
-        data=b"i", content_type="application/pdf", byte_size=1,
+        kind="component_info",
+        component_id=sub.id,
+        data=b"i",
+        content_type="application/pdf",
+        byte_size=1,
     )
     db_session.add(info)
     db_session.flush()
-    db_session.add(ChatbotInfo(media_asset_id=poster.id, extracted_text="Inschrijven per ploeg van 4."))
-    db_session.add(ChatbotInfo(media_asset_id=info.id, extracted_text="Reglement: max 6 personen per ploeg."))
+    db_session.add(
+        ChatbotInfo(media_asset_id=poster.id, extracted_text="Inschrijven per ploeg van 4.")
+    )
+    db_session.add(
+        ChatbotInfo(media_asset_id=info.id, extracted_text="Reglement: max 6 personen per ploeg.")
+    )
     db_session.flush()
 
     out = json.loads(execute_tool("get_activity_detail", {"activity_id": a.id}, db_session))

@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 from datetime import date as Date
 from typing import List, Optional
+
 from pydantic import BaseModel
 
 
@@ -25,6 +27,7 @@ class AuthMeResponse(BaseModel):
     `member_name` komen uit het leden-domein (e-mail -> Person), volledig los
     van het rollensysteem.
     """
+
     email: str
     roles: List[str] = []
     is_admin: bool = False

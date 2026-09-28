@@ -14,6 +14,7 @@ No CSRF token on these POSTs, like every other public form: there is no
 session to tie it to. The rate limiter and the per-address brake in the
 service carry the abuse protection.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -25,7 +26,6 @@ from app.domains.newsletter import api as nb
 from app.domains.newsletter.viewmodels import PublicNewsletterView
 from app.limiter import newsletter_signup_limiter
 from app.ui import site_context, templates
-from app.domains.newsletter.api import SubscriberStatus
 
 router = APIRouter(include_in_schema=False)
 
@@ -33,11 +33,19 @@ router = APIRouter(include_in_schema=False)
 TEST_TOKEN = "test"
 
 
-def _page(request: Request, db: Session, state: str, *, email: str = "",
-          token: str = "", error: str | None = None,
-          template: str = "nieuwsbrief.html") -> HTMLResponse:
-    view = PublicNewsletterView(state=state, email=email, token=token, error=error,
-                                site=site_context(db, request))
+def _page(
+    request: Request,
+    db: Session,
+    state: str,
+    *,
+    email: str = "",
+    token: str = "",
+    error: str | None = None,
+    template: str = "nieuwsbrief.html",
+) -> HTMLResponse:
+    view = PublicNewsletterView(
+        state=state, email=email, token=token, error=error, site=site_context(db, request)
+    )
     return templates.TemplateResponse(request, template, view.as_context())
 
 
@@ -52,11 +60,16 @@ def signup_page(request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "form")
 
 
-@router.post("/nieuwsbrief", response_class=HTMLResponse,
-             dependencies=[Depends(newsletter_signup_limiter)])
-def signup(request: Request, db: Session = Depends(get_db),
-           email: str = Form(""), first_name: str = Form(""),
-           website: str = Form("")):
+@router.post(
+    "/nieuwsbrief", response_class=HTMLResponse, dependencies=[Depends(newsletter_signup_limiter)]
+)
+def signup(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Form(""),
+    first_name: str = Form(""),
+    website: str = Form(""),
+):
     """The form, from the footer or from the page itself.
 
     ``website`` is a honeypot: invisible to people, filled in by simple bots. A
@@ -68,11 +81,11 @@ def signup(request: Request, db: Session = Depends(get_db),
         return _page(request, db, "sent", email=email.strip(), template=template)
     base = _base_url(db)
     try:
-        nb.subscribe_public(db, email, first_name,
-                            lambda token: f"{base}/nieuwsbrief/bevestigen/{token}")
+        nb.subscribe_public(
+            db, email, first_name, lambda token: f"{base}/nieuwsbrief/bevestigen/{token}"
+        )
     except nb.NewsletterError as exc:
-        return _page(request, db, "form", email=email.strip(), error=str(exc),
-                     template=template)
+        return _page(request, db, "form", email=email.strip(), error=str(exc), template=template)
     return _page(request, db, "sent", email=email.strip().lower(), template=template)
 
 
@@ -84,8 +97,11 @@ def confirm_page(token: str, request: Request, db: Session = Depends(get_db)):
     return _page(request, db, "confirm", email=subscriber.email, token=token)
 
 
-@router.post("/nieuwsbrief/bevestigen/{token}", response_class=HTMLResponse,
-             dependencies=[Depends(newsletter_signup_limiter)])
+@router.post(
+    "/nieuwsbrief/bevestigen/{token}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(newsletter_signup_limiter)],
+)
 def confirm(token: str, request: Request, db: Session = Depends(get_db)):
     subscriber = nb.confirm(db, token)
     if subscriber is None:
@@ -100,8 +116,9 @@ def unsubscribe_page(token: str, request: Request, db: Session = Depends(get_db)
     subscriber = nb.subscriber_by_unsubscribe_token(db, token)
     if subscriber is None:
         return _page(request, db, "invalid")
-    state = ("unsubscribed" if subscriber.status == nb.SubscriberStatus.UNSUBSCRIBED
-             else "unsubscribe")
+    state = (
+        "unsubscribed" if subscriber.status == nb.SubscriberStatus.UNSUBSCRIBED else "unsubscribe"
+    )
     return _page(request, db, state, email=subscriber.email, token=token)
 
 
@@ -115,8 +132,7 @@ async def unsubscribe(token: str, request: Request, db: Session = Depends(get_db
     form = await request.form()
     one_click = form.get("List-Unsubscribe") == "One-Click"
     if token == TEST_TOKEN:
-        return (PlainTextResponse("test") if one_click
-                else _page(request, db, "test"))
+        return PlainTextResponse("test") if one_click else _page(request, db, "test")
     subscriber = nb.unsubscribe(db, token)
     if one_click:
         return PlainTextResponse("ok" if subscriber is not None else "unknown")
@@ -125,10 +141,13 @@ async def unsubscribe(token: str, request: Request, db: Session = Depends(get_db
     return _page(request, db, "unsubscribed", email=subscriber.email, token=token)
 
 
-@router.post("/nieuwsbrief/opnieuw/{token}", response_class=HTMLResponse,
-             dependencies=[Depends(newsletter_signup_limiter)])
+@router.post(
+    "/nieuwsbrief/opnieuw/{token}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(newsletter_signup_limiter)],
+)
 def resubscribe(token: str, request: Request, db: Session = Depends(get_db)):
-    """"Per ongeluk? Toch opnieuw inschrijven" on the unsubscribe page."""
+    """ "Per ongeluk? Toch opnieuw inschrijven" on the unsubscribe page."""
     subscriber = nb.resubscribe(db, token)
     if subscriber is None:
         return _page(request, db, "invalid")

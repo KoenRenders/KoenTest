@@ -1,5 +1,6 @@
 """Fase 5c (#406): pad-prefix-routing + tenant-cookie, platform-landing,
 per-tenant robots/sitemap en de demo-seed."""
+
 from app.domains.forms.models import FormStatus
 from app.kernel.tenancy import (
     DEFAULT_TENANT_ID,
@@ -13,21 +14,33 @@ def test_resolve_request_volgorde():
     hosts = {"raakmillegem.be": "raakmillegem"}
     platform = {"platform.example"}
     # pad-prefix wint en herschrijft het pad
-    assert resolve_request("platform.example", "/raakvoorbeeldafdeling/activiteiten",
-                           None, hosts, platform) == (TENANT_VOORBEELD_ID, "/activiteiten", False)
+    assert resolve_request(
+        "platform.example", "/raakvoorbeeldafdeling/activiteiten", None, hosts, platform
+    ) == (TENANT_VOORBEELD_ID, "/activiteiten", False)
     assert resolve_request("platform.example", "/raakmillegem", None, hosts, platform) == (
-        TENANT_MILLEGEM_ID, "/", False)
+        TENANT_MILLEGEM_ID,
+        "/",
+        False,
+    )
     # hostname
     assert resolve_request("www.raakmillegem.be", "/x", None, hosts, platform) == (
-        TENANT_MILLEGEM_ID, None, False)
+        TENANT_MILLEGEM_ID,
+        None,
+        False,
+    )
     # cookie houdt navigatie op de tenant (enkel platform-hosts)
-    assert resolve_request("platform.example", "/activiteiten", "raakvoorbeeldafdeling",
-                           hosts, platform) == (TENANT_VOORBEELD_ID, None, False)
-    assert resolve_request("raakmillegem.be", "/activiteiten", "raakvoorbeeldafdeling",
-                           hosts, platform) == (TENANT_MILLEGEM_ID, None, False)
+    assert resolve_request(
+        "platform.example", "/activiteiten", "raakvoorbeeldafdeling", hosts, platform
+    ) == (TENANT_VOORBEELD_ID, None, False)
+    assert resolve_request(
+        "raakmillegem.be", "/activiteiten", "raakvoorbeeldafdeling", hosts, platform
+    ) == (TENANT_MILLEGEM_ID, None, False)
     # platform-wortel = landing
     assert resolve_request("platform.example", "/", None, hosts, platform) == (
-        DEFAULT_TENANT_ID, None, True)
+        DEFAULT_TENANT_ID,
+        None,
+        True,
+    )
 
 
 def test_prefix_navigatie_en_cookie(client, monkeypatch):
@@ -76,11 +89,19 @@ def test_demo_seed_aanwezig(client, db_session):
     from app.domains.activities.api import Activity
     from app.domains.forms.models import Form
 
-    namen = {a.name for a in (db_session.query(Activity)
-                              .execution_options(include_all_tenants=True)
-                              .filter(Activity.tenant_id == TENANT_VOORBEELD_ID))}
+    namen = {
+        a.name
+        for a in (
+            db_session.query(Activity)
+            .execution_options(include_all_tenants=True)
+            .filter(Activity.tenant_id == TENANT_VOORBEELD_ID)
+        )
+    }
     assert {"Voorbeeldquiz", "Demowandeling"} <= namen
-    demo_form = (db_session.query(Form)
-                 .execution_options(include_all_tenants=True)
-                 .filter(Form.share_token == "demo-formulier").one())
+    demo_form = (
+        db_session.query(Form)
+        .execution_options(include_all_tenants=True)
+        .filter(Form.share_token == "demo-formulier")
+        .one()
+    )
     assert demo_form.status is FormStatus.OPEN and demo_form.tenant_id == TENANT_VOORBEELD_ID

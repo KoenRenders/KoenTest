@@ -1,8 +1,9 @@
 """Publiek formulier: voorinvullen van naam/e-mail voor een ingelogd lid (#454).
 Een niet-ingelogde bezoeker krijgt lege velden; een ingelogd lid ziet zijn naam
 en e-mail al ingevuld (zonder een reeds getypte waarde te overschrijven)."""
-from tests.conftest import create_test_family
+
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from tests.conftest import create_test_family
 from tests.test_forms import _create_form
 
 

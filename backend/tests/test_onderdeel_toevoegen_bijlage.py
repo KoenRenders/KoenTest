@@ -17,6 +17,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen:
     faalt op de ontbrekende `info_asset_url`;
   * label teruggezet op "Info-URL" → test_het_url_label_zegt_dat_het_extern_is faalt.
 """
+
 import io
 
 import pytest
@@ -26,9 +27,11 @@ from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
-PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
-       b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
-       b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+    b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+    b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _login(client):
@@ -46,30 +49,33 @@ def _toevoegvorm(html: str, activity_id: int) -> str:
     """
     anker = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen"')
     start = html.rindex("<form", 0, anker)
-    return html[start:html.index("</form>", start)]
+    return html[start : html.index("</form>", start)]
 
 
 def _nieuw_onderdeel(db_session, activity_id: int, naam: str):
     from app.domains.activities.api import ActivitySubRegistration
 
     db_session.expire_all()
-    return (db_session.query(ActivitySubRegistration)
-            .filter(ActivitySubRegistration.activity_id == activity_id,
-                    ActivitySubRegistration.name == naam)
-            .one())
+    return (
+        db_session.query(ActivitySubRegistration)
+        .filter(
+            ActivitySubRegistration.activity_id == activity_id, ActivitySubRegistration.name == naam
+        )
+        .one()
+    )
 
 
 def test_toevoegvorm_kan_een_bestand_versturen(client, db_session):
     """De kern van #715 op het scherm: uploadveld én een vorm die het meestuurt."""
     activity, _c, _p = seed_activity_with_product(db_session)
     _login(client)
-    vorm = _toevoegvorm(client.get(f"/admin/activiteiten/{activity.id}").text,
-                        activity.id)
+    vorm = _toevoegvorm(client.get(f"/admin/activiteiten/{activity.id}").text, activity.id)
 
     assert 'name="file"' in vorm, "de toevoegvorm heeft geen uploadveld (#715)"
     assert "multipart/form-data" in vorm, (
         "de toevoegvorm kan geen bestand versturen — zonder enctype/hx-encoding "
-        "stuurt htmx het bestand niet mee en verdwijnt het stil")
+        "stuurt htmx het bestand niet mee en verdwijnt het stil"
+    )
 
 
 def test_toevoegen_met_bestand(client, db_session):
@@ -81,13 +87,15 @@ def test_toevoegen_met_bestand(client, db_session):
         f"/admin/activiteiten/{activity.id}/onderdelen",
         data={"name": "Met bijlage", "max_participants": "12"},
         files={"file": ("info.png", io.BytesIO(PNG), "image/png")},
-        headers={"X-CSRF-Token": csrf})
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200, r.text[:300]
 
     nieuw = _nieuw_onderdeel(db_session, activity.id, "Met bijlage")
     assert nieuw.max_participants == 12, "de gewone velden zijn niet bewaard"
     assert nieuw.info_asset_url, (
-        "de bijlage is niet bewaard bij het aanmaken (#715) — de POST slaagde wel")
+        "de bijlage is niet bewaard bij het aanmaken (#715) — de POST slaagde wel"
+    )
 
 
 def test_toevoegen_zonder_bestand_blijft_werken(client, db_session):
@@ -95,9 +103,11 @@ def test_toevoegen_zonder_bestand_blijft_werken(client, db_session):
     activity, _c, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/activiteiten/{activity.id}/onderdelen",
-                    data={"name": "Zonder bijlage"},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/activiteiten/{activity.id}/onderdelen",
+        data={"name": "Zonder bijlage"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200, r.text[:300]
 
     nieuw = _nieuw_onderdeel(db_session, activity.id, "Zonder bijlage")
@@ -110,13 +120,14 @@ def test_een_geweigerd_bestand_toont_een_fout(client, db_session):
     activity, _c, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
 
-    r = client.post(f"/admin/activiteiten/{activity.id}/onderdelen",
-                    data={"name": "Fout bestand"},
-                    files={"file": ("foto.heic", b"nonsense", "image/heic")},
-                    headers={"X-CSRF-Token": csrf})
+    r = client.post(
+        f"/admin/activiteiten/{activity.id}/onderdelen",
+        data={"name": "Fout bestand"},
+        files={"file": ("foto.heic", b"nonsense", "image/heic")},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert r.status_code == 200
-    assert "bestandstype" in r.text.lower(), (
-        "een geweigerd bestand mislukt stil bij het aanmaken")
+    assert "bestandstype" in r.text.lower(), "een geweigerd bestand mislukt stil bij het aanmaken"
 
 
 def test_het_url_label_zegt_dat_het_extern_is(client, db_session):
@@ -131,5 +142,6 @@ def test_het_url_label_zegt_dat_het_extern_is(client, db_session):
     # Toevoegen én bewerken: één per onderdeel plus die van de toevoegvorm.
     assert html.count(">Externe info-URL<") == len(activity.sub_registrations) + 1
     assert ">Info-URL<" not in html, (
-        "er staat nog een oud, onbepaald 'Info-URL'-label op het scherm")
+        "er staat nog een oud, onbepaald 'Info-URL'-label op het scherm"
+    )
     assert component.id  # de kaart bestaat; het label hierboven is dus geteld

@@ -21,6 +21,7 @@ A refusal names the object and says what to do instead. That is not politeness:
 the model reads the refusal and routes around it, so "niet toegelaten" costs a
 round and "gebruik Gemeente in plaats van Adres" costs none.
 """
+
 from __future__ import annotations
 
 import json
@@ -69,16 +70,10 @@ SCAN_PROMPT_NAMES = False
 # Objects that never travel to a model. Free text cannot be classified field by
 # field and there is no token to put on it, so there is no version of the question
 # in which it may go — which is what the refusal says.
-_REFUSED = {
-    key: obj for key, obj in BY_KEY.items()
-    if obj.ai_exposure is AiExposure.NONE
-}
+_REFUSED = {key: obj for key, obj in BY_KEY.items() if obj.ai_exposure is AiExposure.NONE}
 
 # Objects that travel as a token instead of as themselves.
-_TOKENISED = {
-    key: obj for key, obj in BY_KEY.items()
-    if obj.ai_exposure is AiExposure.TOKENISED
-}
+_TOKENISED = {key: obj for key, obj in BY_KEY.items() if obj.ai_exposure is AiExposure.TOKENISED}
 
 
 def _refusal(key: str) -> str:
@@ -111,7 +106,8 @@ def _refusal(key: str) -> str:
 # voorvoegsel dat op een ander eindigt niet half matcht.
 _PREFIXES = sorted(
     {obj.token_prefix for obj in _TOKENISED.values() if obj.token_prefix},
-    key=len, reverse=True,
+    key=len,
+    reverse=True,
 )
 _TOKEN = re.compile(rf"\b({'|'.join(_PREFIXES)})-(\d+)\b")
 
@@ -119,8 +115,10 @@ _TOKEN = re.compile(rf"\b({'|'.join(_PREFIXES)})-(\d+)\b")
 # lookup per prefix, against the dimension view — the same view the value came
 # from, so there is no second definition of "the name of a household".
 _LABEL_SQL = {
-    "gezin": ("SELECT member_id, head_name FROM reporting.d_member "
-              "WHERE tenant_id = :tenant AND member_id = ANY(:ids)"),
+    "gezin": (
+        "SELECT member_id, head_name FROM reporting.d_member "
+        "WHERE tenant_id = :tenant AND member_id = ANY(:ids)"
+    ),
     # Sinds #1132 ÉÉN bron. Dit was een groeiende samenvoeging: `d_person` droeg
     # bewust geen naam, dus een naam stond alleen in de weergaven waar een rol hem
     # rechtvaardigde — bestuurslid, en sinds #1077 organisator. Elke nieuwe rol was
@@ -136,18 +134,22 @@ _LABEL_SQL = {
     # bestuurslid loste vóór #1132 dus wél op en nu niet meer. Dat is één randgeval
     # tegenover iedereen die er nu bij komt; de duurzame oplossing is het omleggen
     # van verwijzingen bij een merge, niet een tweede tak hier.
-    "persoon": ("SELECT person_id, person_name FROM reporting.d_person "
-                "WHERE tenant_id = :tenant AND person_id = ANY(:ids) "
-                "AND person_name <> ''"),
+    "persoon": (
+        "SELECT person_id, person_name FROM reporting.d_person "
+        "WHERE tenant_id = :tenant AND person_id = ANY(:ids) "
+        "AND person_name <> ''"
+    ),
     # #1135: één opzoeking voor twee bronnen. Die samenvoeging gebeurt in de
     # WEERGAVE en niet hier — `registrant_name` is al de persoon óf de
     # contactnaam — zodat deze kant niet hoeft te weten dat er twee zijn.
     # `DISTINCT` omdat het feit een rij per inschrijvingsREGEL draagt en één
     # inschrijving er meerdere kan hebben.
-    "inschrijving": ("SELECT DISTINCT registration_id, registrant_name "
-                     "FROM reporting.f_registrations "
-                     "WHERE tenant_id = :tenant AND registration_id = ANY(:ids) "
-                     "AND registrant_name <> ''"),
+    "inschrijving": (
+        "SELECT DISTINCT registration_id, registrant_name "
+        "FROM reporting.f_registrations "
+        "WHERE tenant_id = :tenant AND registration_id = ANY(:ids) "
+        "AND registrant_name <> ''"
+    ),
 }
 
 
@@ -171,8 +173,9 @@ def _tokenise_rows(result, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     tool-resultaat nog een keer op namen, dus een toekomstig object dat wél een
     naam zonder id zou opleveren, blokkeert de oproep in plaats van mee te reizen.
     """
-    kolommen = [(c.key, _TOKENISED[c.key].token_prefix)
-                for c in result.columns if c.key in _TOKENISED]
+    kolommen = [
+        (c.key, _TOKENISED[c.key].token_prefix) for c in result.columns if c.key in _TOKENISED
+    ]
     if not kolommen:
         return rows
     bron = {**result.drill_aliases, **result.entity_aliases}
@@ -263,8 +266,7 @@ def _name_index(db: Session, *, tenant_id: int) -> dict[str, set[str]]:
     the ambiguity costs is spelled out in `scrub_question`.
     """
     index: dict[str, set[str]] = {}
-    for prefix, entiteit, naam in db.execute(sql_text(_NAME_SQL),
-                                             {"tenant": tenant_id}):
+    for prefix, entiteit, naam in db.execute(sql_text(_NAME_SQL), {"tenant": tenant_id}):
         token = f"{prefix}-{entiteit}"
         volledig = (naam or "").strip().lower()
         if not volledig:
@@ -337,15 +339,14 @@ def scrub_question(db: Session, text: str, *, tenant_id: int) -> str:
 
     woorden = [w for w in _WORD.findall(text.lower()) if len(w) >= 3]
     kandidaten = sorted(
-        {naam for naam in index if any(w in naam.split() or w == naam
-                                       for w in woorden)},
-        key=len, reverse=True,
+        {naam for naam in index if any(w in naam.split() or w == naam for w in woorden)},
+        key=len,
+        reverse=True,
     )
     resultaat = text
     for naam in kandidaten:
         vervanging = _token_voor(index[naam])
-        resultaat = re.sub(rf"\b{re.escape(naam)}\b", vervanging, resultaat,
-                           flags=re.IGNORECASE)
+        resultaat = re.sub(rf"\b{re.escape(naam)}\b", vervanging, resultaat, flags=re.IGNORECASE)
     return resultaat
 
 
@@ -422,20 +423,30 @@ def _tokenised_values(db: Session, obj, *, tenant_id: int) -> dict[str, Any]:
     from app.domains.reporting.universe import physical_view
 
     bron = obj.entity_source.format(view=physical_view(obj.view))
-    sql = (f"SELECT DISTINCT {bron} AS entiteit "
-           f"FROM reporting.{physical_view(obj.view)} "
-           "WHERE tenant_id = :tenant AND " + bron + " IS NOT NULL "
-           "ORDER BY 1 LIMIT :limit")
-    rijen = db.execute(sql_text(sql), {"tenant": tenant_id,
-                                       "limit": OFFER_LIMIT + 1}).all()
+    sql = (
+        f"SELECT DISTINCT {bron} AS entiteit "
+        f"FROM reporting.{physical_view(obj.view)} "
+        "WHERE tenant_id = :tenant AND " + bron + " IS NOT NULL "
+        "ORDER BY 1 LIMIT :limit"
+    )
+    rijen = db.execute(sql_text(sql), {"tenant": tenant_id, "limit": OFFER_LIMIT + 1}).all()
     if len(rijen) > OFFER_LIMIT:
-        return {"object": obj.key, "values": [],
-                "note": ("Te veel verschillende waarden om op te sommen. Groepeer "
-                         "erop in plaats van erop te filteren.")}
-    return {"object": obj.key,
-            "values": [f"{obj.token_prefix}-{rij[0]}" for rij in rijen],
-            "note": ("Dit zijn tokens, geen namen. Je kan ermee filteren op "
-                     "'Gezin' (member); de beheerder ziet er de echte naam van.")}
+        return {
+            "object": obj.key,
+            "values": [],
+            "note": (
+                "Te veel verschillende waarden om op te sommen. Groepeer "
+                "erop in plaats van erop te filteren."
+            ),
+        }
+    return {
+        "object": obj.key,
+        "values": [f"{obj.token_prefix}-{rij[0]}" for rij in rijen],
+        "note": (
+            "Dit zijn tokens, geen namen. Je kan ermee filteren op "
+            "'Gezin' (member); de beheerder ziet er de echte naam van."
+        ),
+    }
 
 
 # ── The catalogue: what the model knows before it starts ─────────────────────
@@ -484,8 +495,9 @@ def render_catalogue() -> str:
         "## Feiten",
     ]
     for fact in FACTS:
-        lines.append(f"- `{fact.key}` — {fact.name}. Korrel: {fact.grain}. "
-                     f"{_for_model(fact.description)}")
+        lines.append(
+            f"- `{fact.key}` — {fact.name}. Korrel: {fact.grain}. {_for_model(fact.description)}"
+        )
 
     lines += ["", "## Objecten", ""]
     for klass in CLASSES:
@@ -503,7 +515,8 @@ def render_catalogue() -> str:
                 gezien.add(hier.key)
                 niveaus = ", ".join(
                     f"`{k}` ({BY_KEY[k].name.split(chr(0x203A))[-1].strip()})"
-                    for k in hier.level_keys if k in BY_KEY
+                    for k in hier.level_keys
+                    if k in BY_KEY
                 )
                 basis = _for_model(obj.description.split(" Opgerold")[0])
                 lines.append(f"- {hier.name} — {basis} Niveaus: {niveaus}.")
@@ -511,16 +524,20 @@ def render_catalogue() -> str:
             soort = "maat" if obj.is_measure else "dimensie"
             feit = f", feit {obj.fact}" if obj.fact else ""
             if obj.key in _REFUSED:
-                lines.append(f"- `{obj.key}` — {obj.name} ({soort}{feit}). "
-                             "GEWEIGERD: vrije tekst, gaat nooit naar een model.")
+                lines.append(
+                    f"- `{obj.key}` — {obj.name} ({soort}{feit}). "
+                    "GEWEIGERD: vrije tekst, gaat nooit naar een model."
+                )
             elif obj.key in _TOKENISED:
                 lines.append(
                     f"- `{obj.key}` — {obj.name} ({soort}{feit}). "
                     f"{_for_model(obj.description)} Je krijgt hiervan een TOKEN "
-                    f"({obj.token_prefix}-<id>), nooit een naam.")
+                    f"({obj.token_prefix}-<id>), nooit een naam."
+                )
             else:
-                lines.append(f"- `{obj.key}` — {obj.name} ({soort}{feit}). "
-                             f"{_for_model(obj.description)}")
+                lines.append(
+                    f"- `{obj.key}` — {obj.name} ({soort}{feit}). {_for_model(obj.description)}"
+                )
         lines.append("")
 
     lines += [
@@ -624,8 +641,7 @@ def build_system_prompt(scope: Optional["Scope"] = None) -> str:
 
     Al de rest komt nog steeds via een tool, wiens resultaat WÉL gescand wordt.
     """
-    return SYSTEM_PROMPT.format(catalogue=render_catalogue(),
-                                scope=scope.prompt if scope else "")
+    return SYSTEM_PROMPT.format(catalogue=render_catalogue(), scope=scope.prompt if scope else "")
 
 
 # ── The tools ────────────────────────────────────────────────────────────────
@@ -649,8 +665,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
                         "type": "array",
                         "items": {"type": "string"},
                         "description": (
-                            "De objectsleutels, dimensies en maten door elkaar. "
-                            "Minstens één."
+                            "De objectsleutels, dimensies en maten door elkaar. Minstens één."
                         ),
                     },
                     "filters": {
@@ -662,11 +677,21 @@ TOOL_SPECS: list[dict[str, Any]] = [
                                 "object": {"type": "string"},
                                 "operator": {
                                     "type": "string",
-                                    "enum": ["eq", "ne", "in", "lt", "lte", "gt",
-                                             "gte", "between", "contains"],
+                                    "enum": [
+                                        "eq",
+                                        "ne",
+                                        "in",
+                                        "lt",
+                                        "lte",
+                                        "gt",
+                                        "gte",
+                                        "between",
+                                        "contains",
+                                    ],
                                 },
                                 "values": {
-                                    "type": "array", "items": {"type": "string"},
+                                    "type": "array",
+                                    "items": {"type": "string"},
                                 },
                             },
                             "required": ["object", "operator", "values"],
@@ -688,8 +713,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
                             "type": "object",
                             "properties": {
                                 "object": {"type": "string"},
-                                "direction": {"type": "string",
-                                              "enum": ["asc", "desc"]},
+                                "direction": {"type": "string", "enum": ["asc", "desc"]},
                             },
                             "required": ["object"],
                         },
@@ -711,8 +735,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "object": {"type": "string",
-                               "description": "De sleutel van de dimensie."},
+                    "object": {"type": "string", "description": "De sleutel van de dimensie."},
                 },
                 "required": ["object"],
             },
@@ -731,21 +754,24 @@ def _check_exposure(keys: list[str]) -> str:
     return ""
 
 
-def run_report(db: Session, arguments: dict[str, Any], *,
-               tenant_id: int, max_rows: int,
-               scope: Optional["Scope"] = None) -> dict[str, Any]:
+def run_report(
+    db: Session,
+    arguments: dict[str, Any],
+    *,
+    tenant_id: int,
+    max_rows: int,
+    scope: Optional["Scope"] = None,
+) -> dict[str, Any]:
     objects = [str(k) for k in (arguments.get("objects") or [])]
     if not objects:
         return {"error": "Geef minstens één object mee."}
     if scope is not None:
-        arguments, weigering = _scope_report(db, arguments, tenant_id=tenant_id,
-                                             scope=scope)
+        arguments, weigering = _scope_report(db, arguments, tenant_id=tenant_id, scope=scope)
         if weigering:
             return weigering
 
     filters = arguments.get("filters") or []
-    filter_keys = [str(f.get("object") or "") for f in filters
-                   if isinstance(f, dict)]
+    filter_keys = [str(f.get("object") or "") for f in filters if isinstance(f, dict)]
     geweigerd = _check_exposure(objects + filter_keys)
     if geweigerd:
         return {"error": geweigerd}
@@ -773,23 +799,20 @@ def run_report(db: Session, arguments: dict[str, Any], *,
         # `with_entities`: the engine adds the hidden entity id the tokenisation
         # needs (CR-07 §5.2). The panel asks for the same selection without it —
         # see `build_query` for why that difference is deliberate.
-        result = run_validated(db, selection, tenant_id=tenant_id,
-                               with_entities=True)
+        result = run_validated(db, selection, tenant_id=tenant_id, with_entities=True)
     except SelectionError as fout:
         # The engine's refusals already name the object and the reason (#680), so
         # they go to the model verbatim — it reads them and tries something else.
         return {"error": str(fout) + _wat_bestaat_er_wel(str(fout), objects)}
 
     zichtbaar = _tokenise_rows(result, result.rows[:max_rows])
-    rows = [
-        {c.key: row.get(c.key) for c in result.columns}
-        for row in zichtbaar
-    ]
+    rows = [{c.key: row.get(c.key) for c in result.columns} for row in zichtbaar]
     out: dict[str, Any] = {
         "columns": [{"key": c.key, "name": c.name} for c in result.columns],
         "rows": rows,
-        "totals": {c.key: result.totals.get(c.key) for c in result.columns
-                   if c.key in result.totals},
+        "totals": {
+            c.key: result.totals.get(c.key) for c in result.columns if c.key in result.totals
+        },
         "row_count": len(rows),
     }
     if len(result.rows) > max_rows:
@@ -834,20 +857,21 @@ def _wat_bestaat_er_wel(melding: str, gevraagd: list[str]) -> str:
     bekend = [BY_KEY[k] for k in gevraagd if k in BY_KEY]
     weergaven = {obj.view for obj in bekend}
     if weergaven:
-        sleutels = sorted(o.key for o in OBJECTS
-                          if o.view in weergaven and o.in_pane)
+        sleutels = sorted(o.key for o in OBJECTS if o.view in weergaven and o.in_pane)
         if sleutels:
-            return (" Op dit onderwerp bestaan wél: "
-                    + ", ".join(sleutels[:_HINT_MAX]) + "."
-                    + (" (en meer — zie de catalogus)"
-                       if len(sleutels) > _HINT_MAX else ""))
-    return (" Bestaat er voor dit onderwerp niets, zeg dat dan in plaats van een "
-            "andere sleutel te proberen. De klassen in het universum zijn: "
-            + ", ".join(CLASSES) + ".")
+            return (
+                " Op dit onderwerp bestaan wél: "
+                + ", ".join(sleutels[:_HINT_MAX])
+                + "."
+                + (" (en meer — zie de catalogus)" if len(sleutels) > _HINT_MAX else "")
+            )
+    return (
+        " Bestaat er voor dit onderwerp niets, zeg dat dan in plaats van een "
+        "andere sleutel te proberen. De klassen in het universum zijn: " + ", ".join(CLASSES) + "."
+    )
 
 
-def list_values(db: Session, arguments: dict[str, Any], *,
-                tenant_id: int) -> dict[str, Any]:
+def list_values(db: Session, arguments: dict[str, Any], *, tenant_id: int) -> dict[str, Any]:
     key = str(arguments.get("object") or "")
     obj = BY_KEY.get(key)
     if obj is None:
@@ -862,12 +886,15 @@ def list_values(db: Session, arguments: dict[str, Any], *,
         return _tokenised_values(db, obj, tenant_id=tenant_id)
 
     fact = population_of([key])
-    values = dimension_values(db, key, tenant_id=tenant_id,
-                              fact=fact.key if fact else "")
+    values = dimension_values(db, key, tenant_id=tenant_id, fact=fact.key if fact else "")
     if not values:
-        return {"object": key, "values": [],
-                "note": ("Te veel verschillende waarden om op te sommen — filter "
-                         "met operator 'contains'.")}
+        return {
+            "object": key,
+            "values": [],
+            "note": (
+                "Te veel verschillende waarden om op te sommen — filter met operator 'contains'."
+            ),
+        }
     return {"object": key, "values": values}
 
 
@@ -922,13 +949,14 @@ def scope_for_activity(db: Session, activity_id: int, *, tenant_id: int) -> Scop
     tonen.
     """
     naam = _activity_label(db, tenant_id=tenant_id, activity_id=activity_id)
-    return Scope(activity_id=activity_id,
-                 facts=ACTIVITY_FACTS,
-                 filters=({"object": "activity_id", "operator": "eq",
-                           "values": [str(activity_id)]},),
-                 prompt=SCOPE_PROMPT.format(
-                     activity_name=f"«{naam}»" if naam else "(naam onbekend)",
-                     activity_id=activity_id))
+    return Scope(
+        activity_id=activity_id,
+        facts=ACTIVITY_FACTS,
+        filters=({"object": "activity_id", "operator": "eq", "values": [str(activity_id)]},),
+        prompt=SCOPE_PROMPT.format(
+            activity_name=f"«{naam}»" if naam else "(naam onbekend)", activity_id=activity_id
+        ),
+    )
 
 
 class ScopeNietOverdraagbaar(ValueError):
@@ -950,9 +978,9 @@ _ZICHT_FILTER: dict[str, dict[str, Any]] = {
     "alle": {},
     "openstaand": {"object": "payment_open", "operator": "eq", "values": ["Ja"]},
     "betaald": {"object": "payment_status", "operator": "eq", "values": ["Betaald"]},
-    "terugbetaald": {"object": "payment_type", "operator": "eq",
-                     "values": ["Terugbetaling"]},
+    "terugbetaald": {"object": "payment_type", "operator": "eq", "values": ["Terugbetaling"]},
 }
+
 
 #: De statuskeuzelijst van het scherm draagt codes; het universum draagt labels.
 #: CR-12 phase 1: a fourth copy of the same four words used to live here, next
@@ -968,6 +996,7 @@ def _status_label(code: str) -> str | None:
     except ValueError:
         return None
 
+
 _BETALINGEN_PROMPT = """
 DIT GESPREK GAAT OVER DE SELECTIE OP HET BETALINGENSCHERM: {selectie}. Elk rapport \
 wordt op de server tot die selectie beperkt; je hoeft er niet zelf op te filteren, \
@@ -977,8 +1006,7 @@ dan.
 """
 
 
-def scope_for_payments(stand: dict[str, str], db: Session, *,
-                       tenant_id: int) -> Scope:
+def scope_for_payments(stand: dict[str, str], db: Session, *, tenant_id: int) -> Scope:
     """De selectie van het betalingenscherm als scope (#1060).
 
     `stand` is de filterstand zoals het scherm zélf hem leest (`ui.filterparams`):
@@ -1020,23 +1048,19 @@ def scope_for_payments(stand: dict[str, str], db: Session, *,
     status = (stand.get("status") or "all").strip()
     status_label = _status_label(status)
     if status_label:
-        filters.append({"object": "payment_status", "operator": "eq",
-                        "values": [status_label]})
+        filters.append({"object": "payment_status", "operator": "eq", "values": [status_label]})
         beschrijving.append(f"status '{status_label}'")
 
     context = (stand.get("context") or "all").strip()
     if context == "membership":
-        filters.append({"object": "payment_payable_type", "operator": "eq",
-                        "values": ["Lidgeld"]})
+        filters.append({"object": "payment_payable_type", "operator": "eq", "values": ["Lidgeld"]})
         beschrijving.append("alleen lidgeld")
     elif context.startswith("year-") or context.startswith("comp-"):
-        raise ScopeNietOverdraagbaar(
-            "de contextfilter van dit scherm (per jaar of per onderdeel)")
+        raise ScopeNietOverdraagbaar("de contextfilter van dit scherm (per jaar of per onderdeel)")
 
     if (stand.get("q") or "").strip():
         raise ScopeNietOverdraagbaar("de zoekterm")
-    for sleutel, wat in (("gezin", "de gezinsfilter"),
-                         ("inschrijving", "de inschrijvingsfilter")):
+    for sleutel, wat in (("gezin", "de gezinsfilter"), ("inschrijving", "de inschrijvingsfilter")):
         if (stand.get(sleutel) or "").strip():
             raise ScopeNietOverdraagbaar(wat)
 
@@ -1045,19 +1069,20 @@ def scope_for_payments(stand: dict[str, str], db: Session, *,
     # toch niet overdraagbaar blijkt.
     activiteit = (stand.get("activiteit") or "").strip()
     if activiteit.isdigit():
-        filters.append({"object": "activity_id", "operator": "eq",
-                        "values": [activiteit]})
+        filters.append({"object": "activity_id", "operator": "eq", "values": [activiteit]})
         # De naam erbij, het nummer erbij — zie SCOPE_PROMPT. "activiteit 77" is
         # het enige wat de beheerder niet kan plaatsen, en het model kon er ook
         # niets anders van maken dan wat het kreeg.
         naam = _activity_label(db, tenant_id=tenant_id, activity_id=int(activiteit))
-        beschrijving.append(f"activiteit «{naam}» (nummer {activiteit})" if naam
-                            else f"activiteit {activiteit}")
+        beschrijving.append(
+            f"activiteit «{naam}» (nummer {activiteit})" if naam else f"activiteit {activiteit}"
+        )
 
-    return Scope(facts=frozenset({"f_payments"}),
-                 filters=tuple(filters),
-                 prompt=_BETALINGEN_PROMPT.format(
-                     selectie=", ".join(beschrijving)))
+    return Scope(
+        facts=frozenset({"f_payments"}),
+        filters=tuple(filters),
+        prompt=_BETALINGEN_PROMPT.format(selectie=", ".join(beschrijving)),
+    )
 
 
 # ── Activity scope (#975) ────────────────────────────────────────────────────
@@ -1095,20 +1120,28 @@ def _outside_scope(what: str, scope: Optional["Scope"] = None) -> dict[str, Any]
     Het model leest de weigering en stuurt bij: "geen verband met d_activity" kost
     een ronde, "dit gesprek gaat over één activiteit" kost er geen.
     """
-    waarover = ("Dit gesprek gaat over één activiteit"
-                if scope is None or scope.is_record
-                else "Dit gesprek gaat over de selectie op het scherm")
+    waarover = (
+        "Dit gesprek gaat over één activiteit"
+        if scope is None or scope.is_record
+        else "Dit gesprek gaat over de selectie op het scherm"
+    )
     hier = "deze activiteit" if scope is None or scope.is_record else "deze selectie"
-    return {"error": (
-        f"{waarover}; {what} valt daarbuiten. Beantwoord "
-        f"de vraag voor {hier}, of zeg dat ze hier niet te beantwoorden is.")}
+    return {
+        "error": (
+            f"{waarover}; {what} valt daarbuiten. Beantwoord "
+            f"de vraag voor {hier}, of zeg dat ze hier niet te beantwoorden is."
+        )
+    }
 
 
 def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
-    return db.execute(sql_text(
-        "SELECT activity_name FROM reporting.d_activity "
-        "WHERE tenant_id = :t AND activity_id = :a"),
-        {"t": tenant_id, "a": activity_id}).scalar()
+    return db.execute(
+        sql_text(
+            "SELECT activity_name FROM reporting.d_activity "
+            "WHERE tenant_id = :t AND activity_id = :a"
+        ),
+        {"t": tenant_id, "a": activity_id},
+    ).scalar()
 
 
 def _activity_label(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
@@ -1136,8 +1169,9 @@ def _activity_label(db: Session, *, tenant_id: int, activity_id: int) -> Optiona
     return scrub_question(db, naam, tenant_id=tenant_id)
 
 
-def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
-                  scope: "Scope") -> tuple[dict[str, Any], Optional[dict]]:
+def _scope_report(
+    db: Session, arguments: dict[str, Any], *, tenant_id: int, scope: "Scope"
+) -> tuple[dict[str, Any], Optional[dict]]:
     """The arguments of `run_report`, bound to the activity — or a refusal.
 
     Three things, in order:
@@ -1154,8 +1188,9 @@ def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
     """
     objects = [str(k) for k in (arguments.get("objects") or [])]
     fact = population_of(objects)
-    feiten: set[str] = ({fact.key} if fact else
-                        {f for k in objects if k in BY_KEY and (f := BY_KEY[k].fact)})
+    feiten: set[str] = (
+        {fact.key} if fact else {f for k in objects if k in BY_KEY and (f := BY_KEY[k].fact)}
+    )
     buiten = sorted(f for f in feiten if scope.facts and f not in scope.facts)
     if buiten:
         namen = ", ".join(next((x.name for x in FACTS if x.key == f), f) for f in buiten)
@@ -1178,8 +1213,9 @@ def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
                     return {}, _outside_scope("een andere activiteit", scope)
             else:
                 if eigen_naam is None:
-                    eigen_naam = _activity_name(db, tenant_id=tenant_id,
-                                                activity_id=record_id) or ""
+                    eigen_naam = (
+                        _activity_name(db, tenant_id=tenant_id, activity_id=record_id) or ""
+                    )
                 if any(w.lower() != eigen_naam.lower() for w in waarden):
                     return {}, _outside_scope("een andere activiteit", scope)
 
@@ -1191,8 +1227,9 @@ def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
     return gebonden, None
 
 
-def _scoped_values(db: Session, arguments: dict[str, Any], *, tenant_id: int,
-                   scope: "Scope", max_rows: int) -> dict[str, Any]:
+def _scoped_values(
+    db: Session, arguments: dict[str, Any], *, tenant_id: int, scope: "Scope", max_rows: int
+) -> dict[str, Any]:
     """`list_values` within the scope: the groups of a scoped count.
 
     The plain `list_values` reads a whole dimension — every activity's components,
@@ -1209,8 +1246,9 @@ def _scoped_values(db: Session, arguments: dict[str, Any], *, tenant_id: int,
     for fact, maat in SCOPE_COUNT_MEASURE.items():
         if scope.facts and fact not in scope.facts:
             continue
-        antwoord = run_report(db, {"objects": [key, maat]}, tenant_id=tenant_id,
-                              max_rows=max_rows, scope=scope)
+        antwoord = run_report(
+            db, {"objects": [key, maat]}, tenant_id=tenant_id, max_rows=max_rows, scope=scope
+        )
         if "error" not in antwoord:
             waarden = [r.get(key) for r in antwoord.get("rows", [])]
             return {"object": key, "values": [w for w in waarden if w is not None]}
@@ -1218,8 +1256,9 @@ def _scoped_values(db: Session, arguments: dict[str, Any], *, tenant_id: int,
     return fout or _outside_scope(f"'{obj.name}'", scope)
 
 
-def _scoped_read_tool(db: Session, name: str, arguments: dict[str, Any], *,
-                      activity_id: int) -> str:
+def _scoped_read_tool(
+    db: Session, name: str, arguments: dict[str, Any], *, activity_id: int
+) -> str:
     """The public read tools, bound to the activity.
 
     `get_activities` is the treacherous one: it returns a LIST by nature. Unbound,
@@ -1232,15 +1271,13 @@ def _scoped_read_tool(db: Session, name: str, arguments: dict[str, Any], *,
     if name == "get_activity_detail":
         gevraagd = args.get("activity_id")
         if gevraagd not in (None, "", activity_id, str(activity_id)):
-            return json.dumps(_outside_scope("een andere activiteit"),
-                              ensure_ascii=False)
+            return json.dumps(_outside_scope("een andere activiteit"), ensure_ascii=False)
         args["activity_id"] = activity_id
         return execute_read_tool(name, args, db)
 
     resultaat = json.loads(execute_read_tool(name, args, db))
     if isinstance(resultaat, dict) and isinstance(resultaat.get("activities"), list):
-        resultaat["activities"] = [a for a in resultaat["activities"]
-                                   if a.get("id") == activity_id]
+        resultaat["activities"] = [a for a in resultaat["activities"] if a.get("id") == activity_id]
     return json.dumps(resultaat, ensure_ascii=False, default=str)
 
 
@@ -1258,8 +1295,8 @@ def tool_specs() -> list[dict[str, Any]]:
 
 # ── Dispatch (the security boundary of this pack) ─────────────────────────────
 
-def dispatcher(*, tenant_id: int, max_rows: int = 0,
-               scope: Optional["Scope"] = None):
+
+def dispatcher(*, tenant_id: int, max_rows: int = 0, scope: Optional["Scope"] = None):
     """A dispatcher bound to one tenant — the shape the shared loop expects.
 
     The tenant is bound here and cannot be reached by the model: it comes from the
@@ -1290,15 +1327,12 @@ def dispatcher(*, tenant_id: int, max_rows: int = 0,
                 # een lijstscherm zegt niets over wélke activiteit je mag lezen.
                 record_id = scope.activity_id if scope else None
                 if record_id is not None:
-                    return _scoped_read_tool(db, name, args,
-                                             activity_id=record_id)
+                    return _scoped_read_tool(db, name, args, activity_id=record_id)
                 return execute_read_tool(name, args, db)
             if name == "run_report":
-                result = run_report(db, args, tenant_id=tenant_id, max_rows=cap,
-                                    scope=scope)
+                result = run_report(db, args, tenant_id=tenant_id, max_rows=cap, scope=scope)
             elif scope is not None:
-                result = _scoped_values(db, args, tenant_id=tenant_id,
-                                        scope=scope, max_rows=cap)
+                result = _scoped_values(db, args, tenant_id=tenant_id, scope=scope, max_rows=cap)
             else:
                 result = list_values(db, args, tenant_id=tenant_id)
         except (TypeError, ValueError) as exc:

@@ -1,7 +1,21 @@
 from datetime import datetime, timezone
 from typing import Optional
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text, event
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    Time,
+    event,
+)
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
 from app.kernel.codes import CodeEnum, EnumColumn
@@ -19,6 +33,7 @@ def _single_asset(obj, kind, fk_attr):
     if sess is None or obj.id is None:
         return None
     from app.domains.media.api import MediaAsset
+
     return (
         sess.query(MediaAsset)
         .filter(MediaAsset.kind == kind, getattr(MediaAsset, fk_attr) == obj.id)
@@ -79,8 +94,12 @@ class ActivityOrganiser(TenantMixin, Base):
     __table_args__ = {"schema": "activities"}
 
     id = Column(Integer, primary_key=True, index=True)
-    activity_id = Column(Integer, ForeignKey("activities.activities.id", ondelete="CASCADE"),
-                         nullable=False, index=True)
+    activity_id = Column(
+        Integer,
+        ForeignKey("activities.activities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     person_id = Column(Integer, nullable=False)
     sort_order = Column(Integer, nullable=False, default=0)
     is_contact = Column(Boolean, nullable=False, default=False)
@@ -91,8 +110,9 @@ class ActivityOrganiser(TenantMixin, Base):
     # ledenwaarde" — niet "toon niets"; daarvoor zijn deze twee.
     show_email = Column(Boolean, nullable=False, default=True)
     show_mobile = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True),
-                        default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
     activity = relationship("Activity", back_populates="organisers")
 
@@ -102,7 +122,9 @@ class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
     __table_args__ = {"schema": "activities"}
 
     id = Column(Integer, primary_key=True, index=True)
-    activity_id = Column(Integer, ForeignKey("activities.activities.id", ondelete="CASCADE"), nullable=False)
+    activity_id = Column(
+        Integer, ForeignKey("activities.activities.id", ondelete="CASCADE"), nullable=False
+    )
     start_date = Column(Date, nullable=False)
     end_date = Column(Date, nullable=True)
     start_time = Column(Time, nullable=True)
@@ -128,12 +150,10 @@ class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
         from app.i18n import _ as translate
 
         if self.end_date and self.start_date and self.end_date < self.start_date:
-            raise ActiviteitFout(translate(
-                "De einddatum ligt vóór de begindatum."))
+            raise ActiviteitFout(translate("De einddatum ligt vóór de begindatum."))
         one_day = self.end_date is None or self.end_date == self.start_date
         if one_day and self.start_time and self.end_time and self.end_time <= self.start_time:
-            raise ActiviteitFout(translate(
-                "Het einduur ligt niet na het beginuur."))
+            raise ActiviteitFout(translate("Het einduur ligt niet na het beginuur."))
 
 
 # The rule applies at EVERY entrance, not only at the two screens that exist today
@@ -171,20 +191,32 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # weg en deze begint leeg, onder een naam die niet met de oude te verwarren
     # is. Wat de bezoeker mag lezen is `description` hierboven.
     board_notes = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     organisers = relationship(
-        "ActivityOrganiser", back_populates="activity", cascade="all, delete-orphan",
+        "ActivityOrganiser",
+        back_populates="activity",
+        cascade="all, delete-orphan",
         # GEEN id-tiebreak nodig, en dat is gemeten (#1068): migratie 133 legt een
         # unieke sleutel op (activity_id, sort_order) plus een CHECK op 0/1/2, dus
         # twee organisatoren kunnen geen gelijke `sort_order` hebben. Zonder
         # gelijkstand is er niets om willekeurig te ordenen. Zie
         # `test_sorteervolgorde_gelijkstand.py`, dat die sleutel vastlegt — valt
         # hij weg, dan geldt deze redenering niet meer.
-        order_by="ActivityOrganiser.sort_order")
+        order_by="ActivityOrganiser.sort_order",
+    )
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
-    registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
+    registrations = relationship(
+        "Registration", back_populates="activity", cascade="all, delete-orphan"
+    )
     # De id is de tiebreak, en dat is geen franje: `sort_order` staat standaard op 0,
     # dus twee onderdelen die je achter elkaar toevoegt zijn gelijk gerangschikt en
     # Postgres mag ze dan in om het even welke volgorde teruggeven. Dat gebeurde ook:
@@ -192,7 +224,12 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     # eerste, terwijl dezelfde code lokaal de invoegvolgorde gaf. Met de id erbij is
     # de volgorde overal dezelfde — en sinds #1053 draagt elk onderdeel zijn eigen
     # uiterste datum, dus een wisselende volgorde is ook op de publieke kaart zichtbaar.
-    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order, ActivitySubRegistration.id")
+    sub_registrations = relationship(
+        "ActivitySubRegistration",
+        back_populates="activity",
+        cascade="all, delete-orphan",
+        order_by="ActivitySubRegistration.sort_order, ActivitySubRegistration.id",
+    )
 
     @property
     def poster_asset_url(self):
@@ -220,11 +257,13 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.activities.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
-    registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    registered_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
     # CR-12 phase 4: the list moved into this schema, so the key is allowed now.
-    registration_type = Column(String(10),
-                               ForeignKey("activities.registration_type_codes.code"),
-                               nullable=False)
+    registration_type = Column(
+        String(10), ForeignKey("activities.registration_type_codes.code"), nullable=False
+    )
 
     contact_name = Column(String(200), nullable=True)
     contact_email = Column(String(255), nullable=True)
@@ -234,13 +273,20 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     # so the same shape — `mdm.payment_method_codes` with an FK. Nullable:
     # a free registration has no payment method.
     payment_method: Mapped[Optional[PaymentMethod]] = mapped_column(
-        EnumColumn(PaymentMethod, length=20), nullable=True)
-    component_id = Column(Integer, ForeignKey("activities.activity_sub_registrations.id", ondelete="SET NULL"), nullable=True)
+        EnumColumn(PaymentMethod, length=20), nullable=True
+    )
+    component_id = Column(
+        Integer,
+        ForeignKey("activities.activity_sub_registrations.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     remarks = Column(Text, nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", backref="registrations")
-    items = relationship("RegistrationItem", back_populates="registration", cascade="all, delete-orphan")
+    items = relationship(
+        "RegistrationItem", back_populates="registration", cascade="all, delete-orphan"
+    )
 
 
 class RegistrationItem(TenantMixin, SoftDeleteMixin, Base):
@@ -258,6 +304,7 @@ class RegistrationItem(TenantMixin, SoftDeleteMixin, Base):
 
 class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     """A component (onderdeel) of an activity. Each component can have products."""
+
     __tablename__ = "activity_sub_registrations"
     __table_args__ = {"schema": "activities"}
 
@@ -269,9 +316,12 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     external_registrations_url = Column(String(500), nullable=True)
     info_url = Column(String(500), nullable=True)
     # CR-12 phase 4: the list moved into this schema, so the key is allowed now.
-    registration_type_code = Column(String(10),
-                                    ForeignKey("activities.registration_type_codes.code"),
-                                    nullable=False, default="INDIVIDUAL")
+    registration_type_code = Column(
+        String(10),
+        ForeignKey("activities.registration_type_codes.code"),
+        nullable=False,
+        default="INDIVIDUAL",
+    )
     max_participants = Column(Integer, nullable=True)
     # #1053: the last day on which a NEW registration for THIS component is
     # accepted, inclusive, in Belgian time. A date and not a timestamp: what the
@@ -285,17 +335,30 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     is_free = Column(Boolean, default=True, nullable=False)
     team_name_required = Column(Boolean, default=False, nullable=False)
     sort_order = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
     activity = relationship("Activity", back_populates="sub_registrations")
-    products = relationship("ActivityProduct", back_populates="component", cascade="all, delete-orphan", order_by="ActivityProduct.sort_order, ActivityProduct.id")  # id als tiebreak, #1068
+    products = relationship(
+        "ActivityProduct",
+        back_populates="component",
+        cascade="all, delete-orphan",
+        order_by="ActivityProduct.sort_order, ActivityProduct.id",
+    )  # id als tiebreak, #1068
 
     def _info_asset(self):
         sess = object_session(self)
         if sess is None or self.id is None:
             return None
         from app.domains.media.api import MediaAsset, MediaKind
+
         return (
             sess.query(MediaAsset)
             .filter(MediaAsset.kind == MediaKind.COMPONENT_INFO, MediaAsset.component_id == self.id)
@@ -317,11 +380,14 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
 
 class ActivityProduct(TenantMixin, SoftDeleteMixin, Base):
     """A product (inschrijvingsoptie) within an activity component."""
+
     __tablename__ = "activity_products"
     __table_args__ = {"schema": "activities"}
 
     id = Column(Integer, primary_key=True, index=True)
-    component_id = Column(Integer, ForeignKey("activities.activity_sub_registrations.id"), nullable=False)
+    component_id = Column(
+        Integer, ForeignKey("activities.activity_sub_registrations.id"), nullable=False
+    )
     name = Column(String(255), nullable=False)
     price = Column(Numeric(10, 2), nullable=False, default=0)
     member_price = Column(Numeric(10, 2), nullable=True)
@@ -344,7 +410,9 @@ class ActivityProduct(TenantMixin, SoftDeleteMixin, Base):
     is_active = Column(Boolean, default=True, nullable=False, server_default="true")
     max_participants = Column(Integer, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
     component = relationship("ActivitySubRegistration", back_populates="products")
 
@@ -357,13 +425,19 @@ class HistoryMixin:
     action = Column(String(40), nullable=False)
     source = Column(String(30), nullable=False)
     actor = Column(String(255), nullable=True)
-    recorded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
+    recorded_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        nullable=False,
+        index=True,
+    )
 
 
 class RegistrationItemHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van bestelregels (#84): elke insert/update/delete van een
     RegistrationItem, zodat wijzigingen aan een bestelling ná betaling traceerbaar
     zijn (bv. product wisselen naar een helper-variant, of een regel verwijderen)."""
+
     __tablename__ = "registration_item_history"
     __table_args__ = {"schema": "activities"}
 
@@ -381,6 +455,7 @@ class RegistrationHistory(TenantMixin, HistoryMixin, Base):
     bestelregels hebben hun eigen historie (RegistrationItemHistory) — deze tabel
     gaat enkel over wie de inschrijver is en wat hij meegaf.
     """
+
     __tablename__ = "registration_history"
     __table_args__ = {"schema": "activities"}
 
@@ -393,6 +468,7 @@ class RegistrationHistory(TenantMixin, HistoryMixin, Base):
 
 class ActivityHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van activiteiten (#189), incl. soft-delete."""
+
     __tablename__ = "activity_history"
     __table_args__ = {"schema": "activities"}
 
@@ -402,6 +478,7 @@ class ActivityHistory(TenantMixin, HistoryMixin, Base):
 
 class ActivityDateHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van activiteitdatums (#189)."""
+
     __tablename__ = "activity_date_history"
     __table_args__ = {"schema": "activities"}
 
@@ -413,6 +490,7 @@ class ActivityDateHistory(TenantMixin, HistoryMixin, Base):
 
 class ComponentHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van onderdelen (activity_sub_registration) (#189)."""
+
     __tablename__ = "component_history"
     __table_args__ = {"schema": "activities"}
 
@@ -425,6 +503,7 @@ class ComponentHistory(TenantMixin, HistoryMixin, Base):
 
 class ProductHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van producten (activity_product) (#189)."""
+
     __tablename__ = "product_history"
     __table_args__ = {"schema": "activities"}
 
@@ -449,8 +528,9 @@ class RegistrationTypeCode(Base):
     code = Column(String(10), primary_key=True)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 class RegistrationTypeLabel(Base):
@@ -459,16 +539,21 @@ class RegistrationTypeLabel(Base):
     __tablename__ = "registration_type_labels"
     __table_args__ = {"schema": "activities"}
 
-    code = Column(String(10), ForeignKey("activities.registration_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(10), ForeignKey("activities.registration_type_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
 
 
 class RegistrationStateCode(Base):
@@ -486,8 +571,9 @@ class RegistrationStateCode(Base):
     code = Column(String(10), primary_key=True)
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
 
 
 class RegistrationStateLabel(Base):
@@ -496,13 +582,18 @@ class RegistrationStateLabel(Base):
     __tablename__ = "registration_state_labels"
     __table_args__ = {"schema": "activities"}
 
-    code = Column(String(10), ForeignKey("activities.registration_state_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(10), ForeignKey("activities.registration_state_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
-                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

@@ -14,6 +14,7 @@ Schema ``newsletter``. Three shapes decide everything here:
   several days works through those rows; someone who unsubscribes in between is
   skipped when their own row comes up (CR-05 §4).
 """
+
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -38,8 +39,6 @@ from app.soft_delete import SoftDeleteMixin
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
-
-
 
 
 # What an erased address becomes in the archive. Not a code and not a list:
@@ -124,15 +123,16 @@ class SubscriberStatusLabel(Base):
     __tablename__ = "subscriber_status_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.subscriber_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(20), ForeignKey("newsletter.subscriber_status_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class SubscriberSourceCode(Base):
@@ -153,15 +153,16 @@ class SubscriberSourceLabel(Base):
     __tablename__ = "subscriber_source_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.subscriber_source_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(20), ForeignKey("newsletter.subscriber_source_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class AudienceCode(Base):
@@ -182,15 +183,14 @@ class AudienceLabel(Base):
     __tablename__ = "audience_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.audience_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.audience_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class LetterStatusCode(Base):
@@ -211,15 +211,14 @@ class LetterStatusLabel(Base):
     __tablename__ = "letter_status_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.letter_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.letter_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class ReplyToModeCode(Base):
@@ -240,15 +239,14 @@ class ReplyToModeLabel(Base):
     __tablename__ = "reply_to_mode_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.reply_to_mode_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.reply_to_mode_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class DeliveryKindCode(Base):
@@ -269,15 +267,14 @@ class DeliveryKindLabel(Base):
     __tablename__ = "delivery_kind_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.delivery_kind_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.delivery_kind_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class DeliveryStatusCode(Base):
@@ -298,15 +295,14 @@ class DeliveryStatusLabel(Base):
     __tablename__ = "delivery_status_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.delivery_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.delivery_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class MessageRoleCode(Base):
@@ -327,15 +323,14 @@ class MessageRoleLabel(Base):
     __tablename__ = "message_role_labels"
     __table_args__ = {"schema": "newsletter"}
 
-    code = Column(String(20), ForeignKey("newsletter.message_role_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("newsletter.message_role_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class Subscriber(TenantMixin, Base):
@@ -357,11 +352,15 @@ class Subscriber(TenantMixin, Base):
     first_name = Column(String(100), nullable=True)
     status: Mapped[SubscriberStatus] = mapped_column(
         EnumColumn(SubscriberStatus, length=20),
-        ForeignKey("newsletter.subscriber_status_codes.code"), nullable=False,
-        default=SubscriberStatus.PENDING)
+        ForeignKey("newsletter.subscriber_status_codes.code"),
+        nullable=False,
+        default=SubscriberStatus.PENDING,
+    )
     source: Mapped[SubscriberSource] = mapped_column(
         EnumColumn(SubscriberSource, length=20),
-        ForeignKey("newsletter.subscriber_source_codes.code"), nullable=False)
+        ForeignKey("newsletter.subscriber_source_codes.code"),
+        nullable=False,
+    )
     consented_at = Column(DateTime(timezone=True), nullable=True)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
     unsubscribed_at = Column(DateTime(timezone=True), nullable=True)
@@ -376,8 +375,9 @@ class Subscriber(TenantMixin, Base):
     # crosses into the mdm schema.
     person_id = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class Newsletter(TenantMixin, SoftDeleteMixin, Base):
@@ -395,15 +395,17 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     body_html = Column(Text, nullable=False, default="")
     # Empty in a draft on purpose: there is no default audience (CR-05 §3.2).
     audience: Mapped[Optional[Audience]] = mapped_column(
-        EnumColumn(Audience, length=20),
-        ForeignKey("newsletter.audience_codes.code"), nullable=True)
+        EnumColumn(Audience, length=20), ForeignKey("newsletter.audience_codes.code"), nullable=True
+    )
     status: Mapped[LetterStatus] = mapped_column(
         EnumColumn(LetterStatus, length=20),
-        ForeignKey("newsletter.letter_status_codes.code"), nullable=False,
-        default=LetterStatus.DRAFT)
-    copied_from_id = Column(Integer, ForeignKey("newsletter.newsletters.id",
-                                                ondelete="SET NULL"),
-                            nullable=True)
+        ForeignKey("newsletter.letter_status_codes.code"),
+        nullable=False,
+        default=LetterStatus.DRAFT,
+    )
+    copied_from_id = Column(
+        Integer, ForeignKey("newsletter.newsletters.id", ondelete="SET NULL"), nullable=True
+    )
     created_by = Column(String(255), nullable=True)
     # What Raakje works from (CR-05 §3.15): the chosen activities — past and
     # coming, told apart by their date — and the ticked meeting reports. Soft
@@ -414,7 +416,9 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     # Frozen at send time: who sent, where replies go.
     reply_to_mode: Mapped[Optional[ReplyToMode]] = mapped_column(
         EnumColumn(ReplyToMode, length=20),
-        ForeignKey("newsletter.reply_to_mode_codes.code"), nullable=True)
+        ForeignKey("newsletter.reply_to_mode_codes.code"),
+        nullable=True,
+    )
     reply_to_address = Column(String(255), nullable=True)
     # The public origin the links in this letter point to, frozen when sending
     # starts. The send runs in a background job, where no request tells which
@@ -427,14 +431,17 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
     # The next moment the queue may continue, when it paused for the day.
     paused_until = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
-    deliveries = relationship("Delivery", back_populates="newsletter",
-                              cascade="all, delete-orphan")
-    messages = relationship("DraftingMessage", back_populates="newsletter",
-                            cascade="all, delete-orphan",
-                            order_by="DraftingMessage.id")
+    deliveries = relationship("Delivery", back_populates="newsletter", cascade="all, delete-orphan")
+    messages = relationship(
+        "DraftingMessage",
+        back_populates="newsletter",
+        cascade="all, delete-orphan",
+        order_by="DraftingMessage.id",
+    )
 
 
 class Delivery(TenantMixin, Base):
@@ -447,21 +454,29 @@ class Delivery(TenantMixin, Base):
     )
 
     id = Column(Integer, primary_key=True, index=True)
-    newsletter_id = Column(Integer, ForeignKey("newsletter.newsletters.id",
-                                               ondelete="CASCADE"),
-                           nullable=False, index=True)
+    newsletter_id = Column(
+        Integer,
+        ForeignKey("newsletter.newsletters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     email = Column(String(255), nullable=False)
     # Decides whether an unsubscribe link goes along (CR-05 §3.4).
     kind: Mapped[DeliveryKind] = mapped_column(
         EnumColumn(DeliveryKind, length=20),
-        ForeignKey("newsletter.delivery_kind_codes.code"), nullable=False)
-    subscriber_id = Column(Integer, ForeignKey("newsletter.subscribers.id",
-                                               ondelete="SET NULL"),
-                           nullable=True)
+        ForeignKey("newsletter.delivery_kind_codes.code"),
+        nullable=False,
+    )
+    subscriber_id = Column(
+        Integer, ForeignKey("newsletter.subscribers.id", ondelete="SET NULL"), nullable=True
+    )
     status: Mapped[DeliveryStatus] = mapped_column(
         EnumColumn(DeliveryStatus, length=20),
-        ForeignKey("newsletter.delivery_status_codes.code"), nullable=False,
-        default=DeliveryStatus.QUEUED, index=True)
+        ForeignKey("newsletter.delivery_status_codes.code"),
+        nullable=False,
+        default=DeliveryStatus.QUEUED,
+        index=True,
+    )
     sent_at = Column(DateTime(timezone=True), nullable=True, index=True)
     error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
@@ -481,12 +496,17 @@ class DraftingMessage(TenantMixin, Base):
     __table_args__ = {"schema": "newsletter"}
 
     id = Column(Integer, primary_key=True, index=True)
-    newsletter_id = Column(Integer, ForeignKey("newsletter.newsletters.id",
-                                               ondelete="CASCADE"),
-                           nullable=False, index=True)
+    newsletter_id = Column(
+        Integer,
+        ForeignKey("newsletter.newsletters.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     role: Mapped[MessageRole] = mapped_column(
         EnumColumn(MessageRole, length=20),
-        ForeignKey("newsletter.message_role_codes.code"), nullable=False)
+        ForeignKey("newsletter.message_role_codes.code"),
+        nullable=False,
+    )
     text = Column(Text, nullable=False, default="")
     # Raakje's proposal: the operations, the marks, and whether it was applied.
     proposal = Column(JSON, nullable=True)

@@ -23,6 +23,7 @@ Broken to see it red (measured): `sink_for(actor)` removed from the
 file; the `sink_for` call removed from the STT route → rule 2 fails; a file
 with "api.mistral.ai" in it added under `app/` → rule 3 fails.
 """
+
 import ast
 from pathlib import Path
 
@@ -43,8 +44,7 @@ FACTORIES = {"domains/chatbot/providers/factory.py", "domains/stt/providers/fact
 
 
 def _python():
-    return bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
-                     minstens=100)
+    return bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100)
 
 
 def _rel(pad: Path) -> str:
@@ -72,8 +72,11 @@ def test_every_chat_provider_is_wrapped_with_a_sink():
         for g in _calls(tree, "GuardedProvider"):
             args = list(g.args) + [k.value for k in g.keywords]
             eerste = g.args[0] if g.args else None
-            if isinstance(eerste, ast.Call) and _naam(eerste) == "get_provider" and any(
-                    isinstance(a, ast.Call) and _naam(a) == "sink_for" for a in args):
+            if (
+                isinstance(eerste, ast.Call)
+                and _naam(eerste) == "get_provider"
+                and any(isinstance(a, ast.Call) and _naam(a) == "sink_for" for a in args)
+            ):
                 gewikkeld.add(id(eerste))
         for call in _calls(tree, "get_provider"):
             gezien += 1
@@ -82,8 +85,8 @@ def test_every_chat_provider_is_wrapped_with_a_sink():
     assert gezien >= 4, f"only {gezien} get_provider calls found — is the gate looking?"
     assert not fouten, (
         "A chat provider must be built as GuardedProvider(get_provider(…), rules, "
-        "sink_for(…)) — otherwise its calls are missing from the AI log:\n  "
-        + "\n  ".join(fouten))
+        "sink_for(…)) — otherwise its calls are missing from the AI log:\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_every_dictation_provider_is_logged_by_its_route():
@@ -102,20 +105,24 @@ def test_every_dictation_provider_is_logged_by_its_route():
 
 def test_a_module_that_reaches_a_vendor_is_known():
     gevonden = {
-        _rel(pad) for pad in _python()
+        _rel(pad)
+        for pad in _python()
         if _rel(pad) != "config.py"
         and any(m in pad.read_text(encoding="utf-8") for m in VENDOR_MARKERS)
     }
     assert gevonden - set(DIRECT) == set(), (
         "New code reaches an AI vendor. Decide how its calls reach the AI log, "
         "test it in test_ai_call_log_cost.py, and add it to DIRECT: "
-        f"{sorted(gevonden - set(DIRECT))}")
+        f"{sorted(gevonden - set(DIRECT))}"
+    )
     assert set(DIRECT) - gevonden == set(), (
-        f"DIRECT names files that no longer reach a vendor: {sorted(set(DIRECT) - gevonden)}")
+        f"DIRECT names files that no longer reach a vendor: {sorted(set(DIRECT) - gevonden)}"
+    )
 
 
 def test_the_ocr_function_writes_the_log_itself():
     tree = ast.parse((APP / "domains/media/extraction.py").read_text(encoding="utf-8"))
-    ocr = next(n for n in ast.walk(tree)
-               if isinstance(n, ast.FunctionDef) and n.name == "_ocr_via_mistral")
+    ocr = next(
+        n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name == "_ocr_via_mistral"
+    )
     assert _calls(ocr, "_log_ocr"), "_ocr_via_mistral no longer writes the AI log"

@@ -9,6 +9,7 @@ Regels:
 - Unmerge kan: de vorige toestand staat als snapshot in ``person_history``
   (action ``person_merged``), en ``unmerge_person`` zet de pointer(s) terug.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,10 +19,10 @@ from typing import Iterable, NamedTuple, Optional
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.domains.mdm.codes import CONTACT
 from app.domains.mdm.models import Person, PersonHistory
 from app.kernel.contracts.mdm import EntityMerged
 from app.kernel.events import publish
-from app.domains.mdm.codes import CONTACT
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +43,9 @@ def resolve(db: Session, person_id: int) -> Optional[Person]:
     return survivor if survivor is not None else person
 
 
-def merge_persons(db: Session, source_id: int, target_id: int,
-                  actor: Optional[str] = None) -> Person:
+def merge_persons(
+    db: Session, source_id: int, target_id: int, actor: Optional[str] = None
+) -> Person:
     """Voeg ``source`` samen in ``target``; geeft de overlever terug.
 
     Survivorship: de target wint; de source blijft bestaan met een pointer.
@@ -67,24 +69,33 @@ def merge_persons(db: Session, source_id: int, target_id: int,
         raise MergeError("Doelpersoon is al opgeslokt door de bron.")
 
     # Snapshot vóór de wijziging — dit is het unmerge-anker.
-    db.add(PersonHistory(
-        person_id=source.id, operation="update", action="person_merged",
-        source="admin_manual", actor=actor,
-        last_name=source.last_name, first_name=source.first_name,
-        date_of_birth=source.date_of_birth, gender_code=source.gender_code,
-    ))
+    db.add(
+        PersonHistory(
+            person_id=source.id,
+            operation="update",
+            action="person_merged",
+            source="admin_manual",
+            actor=actor,
+            last_name=source.last_name,
+            first_name=source.first_name,
+            date_of_birth=source.date_of_birth,
+            gender_code=source.gender_code,
+        )
+    )
 
     # Keten platslaan: alles wat al naar de bron wees, wijst nu naar de overlever.
-    (db.query(Person)
-       .filter(Person.superseded_by_id == source.id)
-       .update({Person.superseded_by_id: target.id}, synchronize_session=False))
+    (
+        db.query(Person)
+        .filter(Person.superseded_by_id == source.id)
+        .update({Person.superseded_by_id: target.id}, synchronize_session=False)
+    )
     source.superseded_by_id = target.id
 
     db.flush()
-    publish(EntityMerged(entity_type="person", source_id=source.id,
-                         target_id=target.id), db)
-    logger.info("MDM: persoon #%s samengevoegd in #%s (door %s)",
-                source.id, target.id, actor or "system")
+    publish(EntityMerged(entity_type="person", source_id=source.id, target_id=target.id), db)
+    logger.info(
+        "MDM: persoon #%s samengevoegd in #%s (door %s)", source.id, target.id, actor or "system"
+    )
     return target
 
 
@@ -95,20 +106,27 @@ def unmerge_person(db: Session, source_id: int, actor: Optional[str] = None) -> 
     source = db.get(Person, source_id)
     if source is None or source.superseded_by_id is None:
         raise MergeError("Deze persoon is niet samengevoegd.")
-    db.add(PersonHistory(
-        person_id=source.id, operation="update", action="person_unmerged",
-        source="admin_manual", actor=actor,
-        last_name=source.last_name, first_name=source.first_name,
-        date_of_birth=source.date_of_birth, gender_code=source.gender_code,
-    ))
+    db.add(
+        PersonHistory(
+            person_id=source.id,
+            operation="update",
+            action="person_unmerged",
+            source="admin_manual",
+            actor=actor,
+            last_name=source.last_name,
+            first_name=source.first_name,
+            date_of_birth=source.date_of_birth,
+            gender_code=source.gender_code,
+        )
+    )
     source.superseded_by_id = None
     db.flush()
-    logger.info("MDM: merge van persoon #%s teruggedraaid (door %s)",
-                source.id, actor or "system")
+    logger.info("MDM: merge van persoon #%s teruggedraaid (door %s)", source.id, actor or "system")
     return source
 
 
 # ── Codelijsten voor formulieren (#635 I) ────────────────────────────────────
+
 
 #: What a dropdown needs: the code and the word next to it. Since CR-12
 #: phase 2 that comes from `code_labels()`, so from the label table and in
@@ -150,8 +168,7 @@ def admin_code_lists(db) -> dict:
     returns one row per active code, in the unit's language and in
     `sort_order`.
     """
-    return {"gender_codes": _choices("gender"),
-            "relation_types": _choices("relation_type")}
+    return {"gender_codes": _choices("gender"), "relation_types": _choices("relation_type")}
 
 
 def list_persons(db):
@@ -166,8 +183,9 @@ def list_persons(db):
 _LIKE_SPECIAAL = str.maketrans({"\\": "\\\\", "%": "\\%", "_": "\\_"})
 
 
-def search_persons(db, query: str, *, members_only: bool = False,
-                   exclude_ids: Iterable[int] = (), limit: int = 15) -> list:
+def search_persons(
+    db, query: str, *, members_only: bool = False, exclude_ids: Iterable[int] = (), limit: int = 15
+) -> list:
     """Persons whose "first last" contains `query`, case-insensitively (#1006).
 
     One search for every caller: the meeting circle and, from CR-10 on, the
@@ -190,15 +208,16 @@ def search_persons(db, query: str, *, members_only: bool = False,
         return []
     patroon = f"%{naald.translate(_LIKE_SPECIAAL)}%"
     vraag = db.query(Person).filter(
-        func.lower(Person.first_name + " " + Person.last_name).like(patroon, escape="\\"))
+        func.lower(Person.first_name + " " + Person.last_name).like(patroon, escape="\\")
+    )
     if members_only:
-        vraag = vraag.filter(db.query(MemberPerson.id)
-                             .filter(MemberPerson.person_id == Person.id).exists())
+        vraag = vraag.filter(
+            db.query(MemberPerson.id).filter(MemberPerson.person_id == Person.id).exists()
+        )
     uitgesloten = list(exclude_ids)
     if uitgesloten:
         vraag = vraag.filter(~Person.id.in_(uitgesloten))
-    return (vraag.order_by(Person.last_name, Person.first_name, Person.id)
-            .limit(limit).all())
+    return vraag.order_by(Person.last_name, Person.first_name, Person.id).limit(limit).all()
 
 
 def is_member(db, person_id: int) -> bool:
@@ -210,8 +229,9 @@ def is_member(db, person_id: int) -> bool:
     """
     from app.domains.mdm.models import MemberPerson
 
-    return db.query(db.query(MemberPerson.id)
-                    .filter(MemberPerson.person_id == person_id).exists()).scalar()
+    return db.query(
+        db.query(MemberPerson.id).filter(MemberPerson.person_id == person_id).exists()
+    ).scalar()
 
 
 def list_postal_codes(db):
@@ -232,14 +252,56 @@ def list_postal_codes(db):
 # gewoon woord is (Bos, Mol, De Groot) blijft staan; dat is de bekende valse
 # blokkade en die kant is de veilige.
 NAME_PARTICLES = {
-    "van", "de", "den", "der", "des", "het", "ten", "ter", "tot", "toe",
-    "op", "in", "aan", "uit", "bij", "onder", "over", "voor",
-    "vande", "vanden", "vander", "vandel", "vanhet",
-    "le", "la", "les", "du", "des", "da", "di", "del", "della", "dos", "das",
-    "el", "al", "bin", "ibn", "abu",
-    "von", "zu", "zur", "vom",
-    "mac", "mc", "san", "santa", "saint",
+    "van",
+    "de",
+    "den",
+    "der",
+    "des",
+    "het",
+    "ten",
+    "ter",
+    "tot",
+    "toe",
+    "op",
+    "in",
+    "aan",
+    "uit",
+    "bij",
+    "onder",
+    "over",
+    "voor",
+    "vande",
+    "vanden",
+    "vander",
+    "vandel",
+    "vanhet",
+    "le",
+    "la",
+    "les",
+    "du",
+    "des",
+    "da",
+    "di",
+    "del",
+    "della",
+    "dos",
+    "das",
+    "el",
+    "al",
+    "bin",
+    "ibn",
+    "abu",
+    "von",
+    "zu",
+    "zur",
+    "vom",
+    "mac",
+    "mc",
+    "san",
+    "santa",
+    "saint",
 }
+
 
 def person_name_parts(db: Session) -> set[str]:
     """Every first and last name of this tenant's people, lowercased.
@@ -329,16 +391,20 @@ def _email_of(person: Person) -> Optional[str]:
     (`email_addresses_of_members`), a confirmation to the address its form
     carried.
     """
-    adressen = [c for c in getattr(person, "contact_details", []) or []
-                if c.contact_type_code == CONTACT.EMAIL and c.value]
+    adressen = [
+        c
+        for c in getattr(person, "contact_details", []) or []
+        if c.contact_type_code == CONTACT.EMAIL and c.value
+    ]
     for contact in adressen:
         if contact.is_primary:
             return contact.value
     return adressen[0].value if adressen else None
 
 
-def organization_circle(db: Session, *, relation_type: str = BOARD_MEETING,
-                        on_day: Optional[date] = None) -> list[CirclePerson]:
+def organization_circle(
+    db: Session, *, relation_type: str = BOARD_MEETING, on_day: Optional[date] = None
+) -> list[CirclePerson]:
     """Who is in this organisation's circle today, alphabetically.
 
     A relation counts when it has started and has not ended: ending one
@@ -349,49 +415,62 @@ def organization_circle(db: Session, *, relation_type: str = BOARD_MEETING,
 
     if on_day is None:
         on_day = date.today()
-    rows = (db.query(OrganizationPerson, Person)
-            .join(Person, Person.id == OrganizationPerson.person_id)
-            .filter(OrganizationPerson.relation_type == relation_type,
-                    or_(OrganizationPerson.start_date.is_(None),
-                        OrganizationPerson.start_date <= on_day),
-                    # `>` en niet `>=`: de einddatum is de dag waaróp iemand de
-                    # kring verlaat, niet zijn laatste dag erin. Met `>=` bleef
-                    # wie je vandaag verwijderde nog tot morgen in de lijst staan
-                    # — en dan lijkt de knop stuk (gemeld door Koen, 15 sep 2026).
-                    or_(OrganizationPerson.end_date.is_(None),
-                        OrganizationPerson.end_date > on_day))
-            .order_by(Person.first_name.asc(), Person.last_name.asc(),
-                      Person.id.asc())
-            .all())
-    return [CirclePerson(relation_id=relation.id, person=person,
-                         email=_email_of(person))
-            for relation, person in rows]
+    rows = (
+        db.query(OrganizationPerson, Person)
+        .join(Person, Person.id == OrganizationPerson.person_id)
+        .filter(
+            OrganizationPerson.relation_type == relation_type,
+            or_(OrganizationPerson.start_date.is_(None), OrganizationPerson.start_date <= on_day),
+            # `>` en niet `>=`: de einddatum is de dag waaróp iemand de
+            # kring verlaat, niet zijn laatste dag erin. Met `>=` bleef
+            # wie je vandaag verwijderde nog tot morgen in de lijst staan
+            # — en dan lijkt de knop stuk (gemeld door Koen, 15 sep 2026).
+            or_(OrganizationPerson.end_date.is_(None), OrganizationPerson.end_date > on_day),
+        )
+        .order_by(Person.first_name.asc(), Person.last_name.asc(), Person.id.asc())
+        .all()
+    )
+    return [
+        CirclePerson(relation_id=relation.id, person=person, email=_email_of(person))
+        for relation, person in rows
+    ]
 
 
-def add_to_circle(db: Session, person_id: int, *, organization_id: int,
-                  relation_type: str = BOARD_MEETING,
-                  on_day: Optional[date] = None):
+def add_to_circle(
+    db: Session,
+    person_id: int,
+    *,
+    organization_id: int,
+    relation_type: str = BOARD_MEETING,
+    on_day: Optional[date] = None,
+):
     """Put a person in the circle. Idempotent: an existing open relation is
     returned unchanged, so a double click does not create a second row."""
     from app.domains.mdm.models import OrganizationPerson
 
-    existing = (db.query(OrganizationPerson)
-                .filter(OrganizationPerson.person_id == person_id,
-                        OrganizationPerson.relation_type == relation_type,
-                        OrganizationPerson.end_date.is_(None))
-                .first())
+    existing = (
+        db.query(OrganizationPerson)
+        .filter(
+            OrganizationPerson.person_id == person_id,
+            OrganizationPerson.relation_type == relation_type,
+            OrganizationPerson.end_date.is_(None),
+        )
+        .first()
+    )
     if existing is not None:
         return existing
     relation = OrganizationPerson(
-        person_id=person_id, organization_id=organization_id,
-        relation_type=relation_type, start_date=on_day or date.today())
+        person_id=person_id,
+        organization_id=organization_id,
+        relation_type=relation_type,
+        start_date=on_day or date.today(),
+    )
     db.add(relation)
     db.commit()
     return relation
 
 
-def end_circle_relation(db: Session, relation_id: int,
-                        on_day: Optional[date] = None) -> None:
+def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = None) -> None:
     """Beëindig iemands plaats in de kring — einddatum, nooit verwijderd.
 
     De datum is de dag waaróp hij vertrekt: vanaf dat moment staat hij niet meer
@@ -417,20 +496,23 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     this module's job — that happens in the national administration and returns
     through the import.
     """
-    from app.domains.mdm.models import (Address, Member, MemberPerson, Person,
-                                        PostalCode)
+    from app.domains.mdm.models import Address, Member, MemberPerson, Person, PostalCode
 
-    members = (db.query(Member)
-               .filter(Member.created_at >= start, Member.created_at < end)
-               .order_by(Member.created_at.asc(), Member.id.asc())
-               .all())
+    members = (
+        db.query(Member)
+        .filter(Member.created_at >= start, Member.created_at < end)
+        .order_by(Member.created_at.asc(), Member.id.asc())
+        .all()
+    )
     if not members:
         return []
     ids = [m.id for m in members]
-    links = (db.query(MemberPerson, Person)
-             .join(Person, Person.id == MemberPerson.person_id)
-             .filter(MemberPerson.member_id.in_(ids))
-             .all())
+    links = (
+        db.query(MemberPerson, Person)
+        .join(Person, Person.id == MemberPerson.person_id)
+        .filter(MemberPerson.member_id.in_(ids))
+        .all()
+    )
     by_member: dict[int, list] = {}
     for link, person in links:
         by_member.setdefault(link.member_id, []).append((link.relation_type, person))
@@ -438,9 +520,12 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     person_ids = [p.id for _link, p in links]
     addresses = {}
     if person_ids:
-        for address, postal in (db.query(Address, PostalCode)
-                                .outerjoin(PostalCode, PostalCode.id == Address.postal_code_id)
-                                .filter(Address.person_id.in_(person_ids)).all()):
+        for address, postal in (
+            db.query(Address, PostalCode)
+            .outerjoin(PostalCode, PostalCode.id == Address.postal_code_id)
+            .filter(Address.person_id.in_(person_ids))
+            .all()
+        ):
             addresses[address.person_id] = (address, postal)
 
     out = []
@@ -450,19 +535,23 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
         partner = next((p for relation, p in people if relation == "PARTNER"), None)
         if head is None and people:
             head = people[0][1]
-        names = [f"{p.first_name} {p.last_name}".strip()
-                 for p in (head, partner) if p is not None]
+        names = [f"{p.first_name} {p.last_name}".strip() for p in (head, partner) if p is not None]
         address, postal = addresses.get(getattr(head, "id", None), (None, None))
         street = ""
         if address is not None:
-            street = " ".join(part for part in
-                              [address.street, address.house_number] if part).strip()
+            street = " ".join(
+                part for part in [address.street, address.house_number] if part
+            ).strip()
             if postal is not None and postal.municipality:
                 street = f"{street}, {postal.municipality}".strip(", ")
-        out.append({"member_id": member.id,
-                    "label": " – ".join(names) or f"gezin {member.id}",
-                    "address": street,
-                    "steward_person_id": member.board_member_id})
+        out.append(
+            {
+                "member_id": member.id,
+                "label": " – ".join(names) or f"gezin {member.id}",
+                "address": street,
+                "steward_person_id": member.board_member_id,
+            }
+        )
     return out
 
 
@@ -479,8 +568,7 @@ def _persoon_of_404(db: Session, person_id: int):
     return person
 
 
-def add_email_address(db: Session, person_id: int, value: str, *,
-                      actor: Optional[str] = None):
+def add_email_address(db: Session, person_id: int, value: str, *, actor: Optional[str] = None):
     """Zet er een e-mailadres bij (#1174). Het eerste adres wordt het hoofdadres.
 
     De nieuwsbriefverantwoordelijke heeft een tiental adressen die het portaal
@@ -508,14 +596,19 @@ def add_email_address(db: Session, person_id: int, value: str, *,
     # invoert wordt het hoofdadres, tenzij er al een is. Niet "de eerste rij" maar
     # "er is er nog geen" — de markering is een herkomst en geen positie.
     wordt_hoofd = not _heeft_hoofdadres(person)
-    rij = ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                        value=waarde, is_primary=wordt_hoofd)
+    rij = ContactDetail(
+        person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
+    )
     db.add(rij)
     db.flush()
     snapshot_contact_detail(
-        db, rij, operation="insert",
+        db,
+        rij,
+        operation="insert",
         action="email_promoted" if wordt_hoofd else "email_added",
-        source="admin_update", actor=actor)
+        source="admin_update",
+        actor=actor,
+    )
     db.commit()
     db.refresh(person)
     return person
@@ -527,12 +620,12 @@ def _heeft_hoofdadres(person) -> bool:
     Eén plek, want twee invoerwegen stellen dezelfde vraag: de rijen in het
     ledenformulier en de losse toevoegknop van de JSON-API.
     """
-    return any(c.is_primary for c in person.contact_details
-               if c.contact_type_code == CONTACT.EMAIL)
+    return any(c.is_primary for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL)
 
 
-def apply_email_rows(db: Session, person_id: int, formulier, *,
-                     actor: Optional[str] = None) -> None:
+def apply_email_rows(
+    db: Session, person_id: int, formulier, *, actor: Optional[str] = None
+) -> None:
     """Pas de e-mailadres-RIJEN uit een ledenformulier toe (#1219).
 
     Tot dit issue waren de adressen drie losse acties: toevoegen, hoofdadres
@@ -571,8 +664,7 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
     from app.domains.mdm.models import ContactDetail
 
     person = _persoon_of_404(db, person_id)
-    bestaand = {c.id: c for c in person.contact_details
-                if c.contact_type_code == CONTACT.EMAIL}
+    bestaand = {c.id: c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL}
 
     def _waarde(sleutel: str) -> str:
         ruw = formulier.get(sleutel)
@@ -587,20 +679,30 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
                 continue
             rij = bestaand.get(rij_id)
             if rij is None:
-                continue          # niet van deze persoon, of net al weggehaald
+                continue  # niet van deze persoon, of net al weggehaald
             waarde = _waarde(sleutel)
             if not waarde:
-                snapshot_contact_detail(db, rij, operation="delete",
-                                        action="email_removed",
-                                        source="admin_update", actor=actor)
+                snapshot_contact_detail(
+                    db,
+                    rij,
+                    operation="delete",
+                    action="email_removed",
+                    source="admin_update",
+                    actor=actor,
+                )
                 person.contact_details.remove(rij)
                 gewijzigd = True
             elif waarde != rij.value:
                 rij.value = waarde
                 db.flush()
-                snapshot_contact_detail(db, rij, operation="update",
-                                        action="email_edited",
-                                        source="admin_update", actor=actor)
+                snapshot_contact_detail(
+                    db,
+                    rij,
+                    operation="update",
+                    action="email_edited",
+                    source="admin_update",
+                    actor=actor,
+                )
                 gewijzigd = True
         elif sleutel.startswith("email_new_"):
             waarde = _waarde(sleutel)
@@ -609,20 +711,27 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
             # Dezelfde waarde twee keer bij één persoon is een vergissing en geen
             # tweede geval; hoofdletterongevoelig, want een mens typt zijn eigen
             # adres niet twee keer identiek.
-            al_er = {(c.value or "").strip().lower()
-                     for c in person.contact_details
-                     if c.contact_type_code == CONTACT.EMAIL}
+            al_er = {
+                (c.value or "").strip().lower()
+                for c in person.contact_details
+                if c.contact_type_code == CONTACT.EMAIL
+            }
             if waarde.lower() in al_er:
                 continue
             wordt_hoofd = not _heeft_hoofdadres(person)
-            rij = ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                                value=waarde, is_primary=wordt_hoofd)
+            rij = ContactDetail(
+                person_id=person.id, contact_type_code="EMAIL", value=waarde, is_primary=wordt_hoofd
+            )
             db.add(rij)
             db.flush()
             snapshot_contact_detail(
-                db, rij, operation="insert",
+                db,
+                rij,
+                operation="insert",
                 action="email_promoted" if wordt_hoofd else "email_added",
-                source="admin_update", actor=actor)
+                source="admin_update",
+                actor=actor,
+            )
             gewijzigd = True
 
     if gewijzigd:
@@ -639,8 +748,9 @@ def apply_email_rows(db: Session, person_id: int, formulier, *,
         db.commit()
 
 
-def make_email_primary(db: Session, person_id: int, contact_id: int, *,
-                       actor: Optional[str] = None):
+def make_email_primary(
+    db: Session, person_id: int, contact_id: int, *, actor: Optional[str] = None
+):
     """Wijs dit adres aan als hoofdadres; het oude wordt een gewoon adres.
 
     In één beweging, en het oude wordt EERST teruggezet: de databank staat maar
@@ -667,20 +777,27 @@ def make_email_primary(db: Session, person_id: int, contact_id: int, *,
         if rij.is_primary:
             rij.is_primary = False
             db.flush()
-            snapshot_contact_detail(db, rij, operation="update",
-                                    action="email_demoted", source="admin_update",
-                                    actor=actor)
+            snapshot_contact_detail(
+                db,
+                rij,
+                operation="update",
+                action="email_demoted",
+                source="admin_update",
+                actor=actor,
+            )
     doel.is_primary = True
     db.flush()
-    snapshot_contact_detail(db, doel, operation="update", action="email_promoted",
-                            source="admin_update", actor=actor)
+    snapshot_contact_detail(
+        db, doel, operation="update", action="email_promoted", source="admin_update", actor=actor
+    )
     db.commit()
     db.refresh(person)
     return person
 
 
-def remove_email_address(db: Session, person_id: int, contact_id: int, *,
-                         actor: Optional[str] = None):
+def remove_email_address(
+    db: Session, person_id: int, contact_id: int, *, actor: Optional[str] = None
+):
     """Haal een e-mailadres weg (#1174).
 
     **Ook het laatste adres mag weg.** Ik had daar eerst een grendel op gezet —
@@ -705,9 +822,10 @@ def remove_email_address(db: Session, person_id: int, contact_id: int, *,
     from app.domains.audit.api import snapshot_contact_detail
 
     person = _persoon_of_404(db, person_id)
-    adressen = sorted((c for c in person.contact_details
-                       if c.contact_type_code == CONTACT.EMAIL),
-                      key=lambda c: c.id or 0)
+    adressen = sorted(
+        (c for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL),
+        key=lambda c: c.id or 0,
+    )
     doel = next((c for c in adressen if c.id == contact_id), None)
     if doel is None:
         from fastapi import HTTPException
@@ -715,8 +833,9 @@ def remove_email_address(db: Session, person_id: int, contact_id: int, *,
         from app.i18n import _
 
         raise HTTPException(status_code=404, detail=_("Adres niet gevonden"))
-    snapshot_contact_detail(db, doel, operation="delete", action="email_removed",
-                            source="admin_update", actor=actor)
+    snapshot_contact_detail(
+        db, doel, operation="delete", action="email_removed", source="admin_update", actor=actor
+    )
     person.contact_details.remove(doel)
     db.flush()
     db.commit()
@@ -724,10 +843,18 @@ def remove_email_address(db: Session, person_id: int, contact_id: int, *,
     return person
 
 
-def upsert_primary_contact(db: Session, person, type_code: str,
-                           value: Optional[str], *, action: str, source: str,
-                           is_primary: bool = True, apply: bool = True,
-                           actor: Optional[str] = None) -> None:
+def upsert_primary_contact(
+    db: Session,
+    person,
+    type_code: str,
+    value: Optional[str],
+    *,
+    action: str,
+    source: str,
+    is_primary: bool = True,
+    apply: bool = True,
+    actor: Optional[str] = None,
+) -> None:
     """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
 
     Deze functie stond twee keer: in `mdm/import_service` voor het
@@ -754,8 +881,7 @@ def upsert_primary_contact(db: Session, person, type_code: str,
     from app.domains.audit.api import snapshot_contact_detail
     from app.domains.mdm.models import ContactDetail
 
-    van_dit_type = [c for c in person.contact_details
-                    if c.contact_type_code == type_code]
+    van_dit_type = [c for c in person.contact_details if c.contact_type_code == type_code]
     hoofd = next((c for c in van_dit_type if c.is_primary), None)
 
     if value:
@@ -769,8 +895,9 @@ def upsert_primary_contact(db: Session, person, type_code: str,
                 if apply:
                     zelfde.is_primary = is_primary
                     db.flush()
-                    snapshot_contact_detail(db, zelfde, operation="update",
-                                            action=action, source=source, actor=actor)
+                    snapshot_contact_detail(
+                        db, zelfde, operation="update", action=action, source=source, actor=actor
+                    )
                 return
             if apply:
                 # `db.add` en NIET `person.contact_details.append`. Appenden vult de
@@ -781,12 +908,17 @@ def upsert_primary_contact(db: Session, person, type_code: str,
                 # voegen — `uq_addresses_person_id`. Acht bestaande importtests
                 # vielen erop om. De import deed dit altijd al met `db.add`; die
                 # vorm is hier de veilige.
-                nieuw = ContactDetail(person_id=person.id, contact_type_code=type_code,
-                                      value=value, is_primary=is_primary)
+                nieuw = ContactDetail(
+                    person_id=person.id,
+                    contact_type_code=type_code,
+                    value=value,
+                    is_primary=is_primary,
+                )
                 db.add(nieuw)
                 db.flush()
-                snapshot_contact_detail(db, nieuw, operation="insert",
-                                        action=action, source=source, actor=actor)
+                snapshot_contact_detail(
+                    db, nieuw, operation="insert", action=action, source=source, actor=actor
+                )
             return
         if hoofd.value == value and hoofd.is_primary == is_primary:
             return
@@ -794,14 +926,16 @@ def upsert_primary_contact(db: Session, person, type_code: str,
             hoofd.value = value
             hoofd.is_primary = is_primary
             db.flush()
-            snapshot_contact_detail(db, hoofd, operation="update",
-                                    action=action, source=source, actor=actor)
+            snapshot_contact_detail(
+                db, hoofd, operation="update", action=action, source=source, actor=actor
+            )
         return
 
     if hoofd is None or not apply:
         return
-    snapshot_contact_detail(db, hoofd, operation="delete",
-                            action=action, source=source, actor=actor)
+    snapshot_contact_detail(
+        db, hoofd, operation="delete", action=action, source=source, actor=actor
+    )
     person.contact_details.remove(hoofd)
     db.flush()
     # **Geen promotie.** Er blijft dan géén hoofdcontact over, en dat is een
@@ -850,10 +984,12 @@ def email_addresses_of_members(db: Session, member_ids) -> list[str]:
     ids = list(member_ids or [])
     if not ids:
         return []
-    persons = (db.query(Person)
-               .join(MemberPerson, MemberPerson.person_id == Person.id)
-               .filter(MemberPerson.member_id.in_(ids))
-               .all())
+    persons = (
+        db.query(Person)
+        .join(MemberPerson, MemberPerson.person_id == Person.id)
+        .filter(MemberPerson.member_id.in_(ids))
+        .all()
+    )
     addresses = set()
     for person in persons:
         for contact in getattr(person, "contact_details", []) or []:
@@ -868,23 +1004,31 @@ def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
     Betalingen N (dat laatste alleen voor wie betalingen mag zien, #544).
     De Wijzigingen-tab verviel op Koens vraag (15 sep). Lokale imports:
     auth en payment importeren zelf uit mdm."""
-    from app.i18n import _
     from app.domains.auth.api import may_view_payments
     from app.domains.payment.api import count_records_for_family
+    from app.i18n import _
 
     tabs = [
-        {"label": _("Overzicht"),
-         "href": f"/admin/leden/gezin/{family.id}",
-         "active": actief == "overzicht"},
-        {"label": _("Inschrijvingen") + f" {family_registration_count(db, family.id)}",
-         "href": f"/admin/leden/gezin/{family.id}/inschrijvingen",
-         "active": actief == "inschrijvingen"},
+        {
+            "label": _("Overzicht"),
+            "href": f"/admin/leden/gezin/{family.id}",
+            "active": actief == "overzicht",
+        },
+        {
+            "label": _("Inschrijvingen") + f" {family_registration_count(db, family.id)}",
+            "href": f"/admin/leden/gezin/{family.id}/inschrijvingen",
+            "active": actief == "inschrijvingen",
+        },
     ]
     if may_view_payments(db, viewer_email):
         n = count_records_for_family(db, family.id)
-        tabs.append({"label": _("Betalingen") + f" {n}",
-                     "href": f"/admin/leden/gezin/{family.id}/betalingen",
-                     "active": actief == "betalingen"})
+        tabs.append(
+            {
+                "label": _("Betalingen") + f" {n}",
+                "href": f"/admin/leden/gezin/{family.id}/betalingen",
+                "active": actief == "betalingen",
+            }
+        )
     return tabs
 
 
@@ -894,39 +1038,45 @@ def _family_registration_ids(db, family_id: int) -> list[int]:
     de ene bron voor "hoort deze inschrijving bij dit gezin")."""
     from app.domains.payment.api import PayableType, family_payables
 
-    return [i for t, i in family_payables(db, family_id)
-            if t == PayableType.REGISTRATION]
+    return [i for t, i in family_payables(db, family_id) if t == PayableType.REGISTRATION]
 
 
 def family_registration_count(db, family_id: int) -> int:
     """Het getal op de Inschrijvingen-tab: één COUNT, zonder geschrapte
     inschrijvingen — dit is een deelnamelijst, geen financieel feit."""
     from sqlalchemy import func
+
     from app.domains.activities.api import Registration
 
     ids = _family_registration_ids(db, family_id)
     if not ids:
         return 0
-    return db.query(func.count(Registration.id)).filter(
-        Registration.id.in_(ids)).scalar() or 0
+    return db.query(func.count(Registration.id)).filter(Registration.id.in_(ids)).scalar() or 0
 
 
-def family_registrations(db, family_id: int, sort: str = "datum",
-                         richting: str = "asc") -> list[dict]:
+def family_registrations(
+    db, family_id: int, sort: str = "datum", richting: str = "asc"
+) -> list[dict]:
     """De inschrijvingen van een gezin, per activiteit gegroepeerd (feedback
     15 sep, verving de Wijzigingen-tab): recentste activiteit eerst. De
     groepen volgen het contract van `_inschrijvingen_groepen.html` — het
     gedeelde sjabloon met de activiteitstab (unificatie, zelfde dag) — en
     binnen elke groep sorteert dezelfde whitelist-helper als daar."""
     from app.domains.activities.api import (
-        Registration, enrich_registration, sorteer_inschrijvingen,
+        Registration,
+        enrich_registration,
+        sorteer_inschrijvingen,
     )
 
     ids = _family_registration_ids(db, family_id)
     if not ids:
         return []
-    regs = (db.query(Registration).filter(Registration.id.in_(ids))
-            .order_by(Registration.id.desc()).all())
+    regs = (
+        db.query(Registration)
+        .filter(Registration.id.in_(ids))
+        .order_by(Registration.id.desc())
+        .all()
+    )
     per_activiteit: dict = {}
     for reg in regs:
         # Defensief: een inschrijving waarvan de activiteit niet meer zichtbaar
@@ -934,27 +1084,38 @@ def family_registrations(db, family_id: int, sort: str = "datum",
         # ook niet in een deelnamelijst.
         if reg.activity is None:
             continue
-        per_activiteit.setdefault(reg.activity, []).append(
-            enrich_registration(reg, reg.activity))
+        per_activiteit.setdefault(reg.activity, []).append(enrich_registration(reg, reg.activity))
 
     def _laatste_datum(activity):
-        datums = [(d.end_date or d.start_date) for d in activity.dates
-                  if d.start_date or d.end_date]
+        datums = [
+            (d.end_date or d.start_date) for d in activity.dates if d.start_date or d.end_date
+        ]
         return max(datums) if datums else None
 
-    groepen = [{"naam": a.name, "aantal": len(rijen),
-                "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
-                "titel_url": f"/admin/activiteiten/{a.id}",
-                "export_href": None, "datum": _laatste_datum(a)}
-               for a, rijen in per_activiteit.items()]
-    groepen.sort(key=lambda g: (g["datum"] is not None, g["datum"] or date.min),
-                 reverse=True)
+    groepen = [
+        {
+            "naam": a.name,
+            "aantal": len(rijen),
+            "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
+            "titel_url": f"/admin/activiteiten/{a.id}",
+            "export_href": None,
+            "datum": _laatste_datum(a),
+        }
+        for a, rijen in per_activiteit.items()
+    ]
+    groepen.sort(key=lambda g: (g["datum"] is not None, g["datum"] or date.min), reverse=True)
     return groepen
 
 
-def create_person_for_circle(db: Session, *, first_name: str, last_name: str,
-                             email: str, organization_id: int,
-                             relation_type: str = BOARD_MEETING):
+def create_person_for_circle(
+    db: Session,
+    *,
+    first_name: str,
+    last_name: str,
+    email: str,
+    organization_id: int,
+    relation_type: str = BOARD_MEETING,
+):
     """Een persoon aanmaken die aan de organisatie hangt en aan géén gezin (#939).
 
     De vergaderkring bevat mensen die geen lid zijn — de afdelingsondersteuner van
@@ -978,9 +1139,11 @@ def create_person_for_circle(db: Session, *, first_name: str, last_name: str,
     db.add(person)
     db.flush()
     if email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                             value=email, is_primary=True))
+        db.add(
+            ContactDetail(
+                person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True
+            )
+        )
         db.flush()
-    add_to_circle(db, person.id, organization_id=organization_id,
-                  relation_type=relation_type)
+    add_to_circle(db, person.id, organization_id=organization_id, relation_type=relation_type)
     return person

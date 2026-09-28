@@ -4,6 +4,7 @@ Elk van deze schermen zag er goed uit tot je erop klikte, of gebruikte een tweed
 kopie van iets dat de kit al doet. De gate-regels in `test_ui_conventions_gate.py`
 houden de klasse tegen; deze tests leggen het concrete gedrag vast.
 """
+
 from pathlib import Path
 
 import pytest
@@ -14,6 +15,7 @@ APP = Path(__file__).resolve().parents[1] / "app"
 
 
 # ── #639: adres bewerken houdt zijn knop ─────────────────────────────────────
+
 
 def test_adres_bewerken_houdt_zijn_knop_tijdens_het_bewerken():
     """De knop zat binnen `x-show="!edit"` en verdween zodra je begon te bewerken.
@@ -32,16 +34,17 @@ def test_adres_bewerken_houdt_zijn_knop_tijdens_het_bewerken():
     # De oude vorm: een eigen knop die de modus alleen aanzet, binnen het blok dat
     # door diezelfde modus verborgen wordt.
     assert '_("Adres bewerken"), attrs=' not in adresblok, (
-        "weer een eigen knop i.p.v. ui.edit_toggle()")
+        "weer een eigen knop i.p.v. ui.edit_toggle()"
+    )
     assert '@click="edit = true"' not in adresblok, (
-        "een knop die de bewerkmodus alleen aanzet heeft geen weg terug")
+        "een knop die de bewerkmodus alleen aanzet heeft geen weg terug"
+    )
 
 
 def test_de_adresknop_toont_beide_standen(client, db_session):
     """Gerenderd, niet alleen in de template: het scherm moet allebei bevatten."""
-    from tests.conftest import create_test_family, seed_postal_code
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
-    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
 
     seed_postal_code(db_session)
     member, _person = create_test_family(db_session, email="adres@example.com")
@@ -54,6 +57,7 @@ def test_de_adresknop_toont_beide_standen(client, db_session):
 
 
 # ── #640: e-maillogpreview via de kit-modal ──────────────────────────────────
+
 
 def test_email_log_gebruikt_de_kit_modal():
     """Een tweede kopie van de overlay-markup loopt stil uit de pas met het
@@ -71,21 +75,25 @@ def test_de_preview_behoudt_de_opmaak_van_523(client, db_session):
     from app.domains.mail.models import EmailLog
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
-    db_session.add(EmailLog(recipient="ann@example.com", subject="Bevestiging",
-                            status="sent", body="<p>Dag Ann</p>"))
+    db_session.add(
+        EmailLog(
+            recipient="ann@example.com", subject="Bevestiging", status="sent", body="<p>Dag Ann</p>"
+        )
+    )
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     html = client.get("/admin/e-maillog").text
 
     assert "Bevestiging" in html
-    assert "text-lg font-semibold" in html            # onderwerp (via ui.modal)
-    assert "text-sm text-gray-500 leading-relaxed" in html   # meta-regel
+    assert "text-lg font-semibold" in html  # onderwerp (via ui.modal)
+    assert "text-sm text-gray-500 leading-relaxed" in html  # meta-regel
     assert "ann@example.com" in html
     assert 'srcdoc="&lt;p&gt;Dag Ann&lt;/p&gt;"' in html or "srcdoc=" in html
 
 
 # ── #641: submit-microcopy en het veldtype in gewone taal ────────────────────
+
 
 def test_de_form_builder_zegt_gewoon_opslaan(client, db_session):
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
@@ -119,22 +127,22 @@ def test_het_veldtype_staat_in_gewone_taal(client, db_session):
     formulier = Form(title="Veldtypes", share_token="tok-veldtypes", status="draft")
     db_session.add(formulier)
     db_session.flush()
-    db_session.add(FormField(form_id=formulier.id, label="Toelichting",
-                             field_type="textarea", position=1))
+    db_session.add(
+        FormField(form_id=formulier.id, label="Toelichting", field_type="textarea", position=1)
+    )
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
     html = client.get(f"/admin/formulieren/{formulier.id}").text
 
     assert "Lange tekst" in html
-    assert ">textarea<" not in html            # niet als badge- of optietekst
-    assert 'value="textarea"' in html          # de code blijft wél de waarde
+    assert ">textarea<" not in html  # niet als badge- of optietekst
+    assert 'value="textarea"' in html  # de code blijft wél de waarde
 
 
 def test_lidmaatschapsjaar_toevoegen_heet_toevoegen(client, db_session):
-    from tests.conftest import create_test_family, seed_postal_code
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
-    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from tests.conftest import SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code
 
     seed_postal_code(db_session)
     member, _person = create_test_family(db_session, email="jaar@example.com")

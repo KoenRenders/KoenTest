@@ -8,6 +8,7 @@ new foreign key says, so it goes; the status never had one.
 1..5 to *Zeer slecht* … *Zeer goed*: a Likert scale, not a vocabulary. It is
 copy and stays behind `_()`.
 """
+
 from app.domains.forms.models import (
     FieldType,
     FieldTypeCode,
@@ -25,8 +26,11 @@ FORM_STATUS_CODES = (
 )
 
 FORM_STATUS = CodeList(
-    name="form_status", schema="form",
-    codes=FormStatusCode, labels=FormStatusLabel, enum=FormStatus,
+    name="form_status",
+    schema="form",
+    codes=FormStatusCode,
+    labels=FormStatusLabel,
+    enum=FormStatus,
     fk_from=("form.forms.status",),
 )
 
@@ -42,8 +46,7 @@ FIELD_TYPE_CODES = (
     CodeSeed(code="email", nl="E-mailadres", en="E-mail address", sort_order=40),
     CodeSeed(code="select", nl="Keuzelijst", en="Dropdown", sort_order=50),
     CodeSeed(code="radio", nl="Eén keuze", en="One choice", sort_order=60),
-    CodeSeed(code="checkbox", nl="Meerdere keuzes", en="Several choices",
-             sort_order=70),
+    CodeSeed(code="checkbox", nl="Meerdere keuzes", en="Several choices", sort_order=70),
     CodeSeed(code="rating", nl="Score", en="Score", sort_order=80),
     # `info` was not in that dictionary — an info block is not a choice in the
     # builder — so here the word does come from the catalogue.
@@ -52,7 +55,10 @@ FIELD_TYPE_CODES = (
 )
 
 FIELD_TYPE = CodeList(
-    name="field_type", schema="form",
-    codes=FieldTypeCode, labels=FieldTypeLabel, enum=FieldType,
+    name="field_type",
+    schema="form",
+    codes=FieldTypeCode,
+    labels=FieldTypeLabel,
+    enum=FieldType,
     fk_from=("form.form_fields.field_type",),
 )

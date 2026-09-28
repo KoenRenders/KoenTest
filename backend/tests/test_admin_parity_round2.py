@@ -2,9 +2,10 @@
 - E-maillog: zoeken op ontvanger + leesbare type/status-labels.
 - Media: activiteit koppelen bij upload via een naam-dropdown (niet een vrij ID).
 """
-from tests.conftest import SEEDED_ADMIN_EMAIL
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mail.models import EmailLog
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 
 def _login(client):
@@ -14,8 +15,11 @@ def _login(client):
 
 
 def _seed_email(db, recipient, email_type="membership_confirmation", status="sent"):
-    db.add(EmailLog(recipient=recipient, subject="Test", email_type=email_type,
-                    status=status, body="x"))
+    db.add(
+        EmailLog(
+            recipient=recipient, subject="Test", email_type=email_type, status=status, body="x"
+        )
+    )
     db.flush()
 
 
@@ -48,6 +52,7 @@ def test_emaillog_has_recipient_search_box(client, db_session):
 
 def test_media_upload_has_activity_dropdown(client, db_session):
     from tests.conftest import seed_activity_with_product
+
     seed_activity_with_product(db_session)
     db_session.commit()
     _login(client)

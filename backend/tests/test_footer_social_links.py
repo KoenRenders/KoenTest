@@ -11,12 +11,12 @@ netwerk?) hoort in de bron, en een waarde die geen URL is hoort nooit in een
 ``href``. Elke test hieronder is tegen de reparatie in gedraaid; wat er dan
 omviel staat in zijn docstring.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.mdm.api import (ContactDetail, ContactTypeCode, Organization)
-from app.domains.mdm.api import ContactTypeLabel
+from app.domains.mdm.api import ContactDetail, ContactTypeCode, ContactTypeLabel, Organization
 from app.kernel.tenant_config import _actieve_tenant
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -26,15 +26,23 @@ MOBIEL = "0470 99 88 77"
 
 @pytest.fixture
 def organisatie(db_session):
-    return (db_session.query(Organization)
-            .filter(Organization.id == _actieve_tenant(None))
-            .execution_options(include_all_tenants=True).one())
+    return (
+        db_session.query(Organization)
+        .filter(Organization.id == _actieve_tenant(None))
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
 
 
 def _contact(db_session, organisatie, code: str, waarde: str) -> None:
-    db_session.add(ContactDetail(tenant_id=organisatie.id,
-                                 organization_id=organisatie.id,
-                                 contact_type_code=code, value=waarde))
+    db_session.add(
+        ContactDetail(
+            tenant_id=organisatie.id,
+            organization_id=organisatie.id,
+            contact_type_code=code,
+            value=waarde,
+        )
+    )
 
 
 def _codes(db_session, organisatie) -> list[str]:
@@ -44,6 +52,7 @@ def _codes(db_session, organisatie) -> list[str]:
 
 
 # ── 1. Het gemelde geval ────────────────────────────────────────────────────
+
 
 def test_the_mobile_number_is_not_a_social_icon(db_session, organisatie, client):
     """Het scherm dat Koen op PROD zag: vier iconen, waarvan één het gsm-nummer.
@@ -75,13 +84,15 @@ def test_the_mobile_number_is_not_a_social_icon(db_session, organisatie, client)
 
     codes = _codes(db_session, organisatie)
     assert "MOBILE" not in codes, (
-        f"het gsm-nummer hoort niet tussen de sociale iconen; gekregen: {codes}")
+        f"het gsm-nummer hoort niet tussen de sociale iconen; gekregen: {codes}"
+    )
     assert len(codes) == 3, f"drie netwerken verwacht, gekregen: {codes}"
 
     html = client.get("/aanmelden").text
     assert MOBIEL not in html, (
         "het mobiele nummer staat publiek in de opmaak — het contactblok toont "
-        "bewust alleen Telefoon")
+        "bewust alleen Telefoon"
+    )
 
 
 def test_the_three_real_networks_survive_in_a_fixed_order(db_session, organisatie):
@@ -97,7 +108,8 @@ def test_the_three_real_networks_survive_in_a_fixed_order(db_session, organisati
     db_session.commit()
 
     assert _codes(db_session, organisatie) == ["FACEBOOK", "INSTAGRAM", "TIKTOK"], (
-        "de volgorde komt van de code en niet van de invoervolgorde van de rijen")
+        "de volgorde komt van de code en niet van de invoervolgorde van de rijen"
+    )
 
 
 # ── 2. De bron classificeert, niet het scherm ───────────────────────────────
@@ -105,6 +117,7 @@ def test_the_three_real_networks_survive_in_a_fixed_order(db_session, organisati
 # Dat een VIJFDE netwerk nog altijd één rij is (de belofte van #945) staat in
 # `test_organisatie_lijsten.py::test_a_fifth_network_is_only_a_row_in_the_code_list`
 # en niet hier — die test bestond al en hoort bij het issue dat de vorm koos.
+
 
 def test_every_contact_type_is_classified(db_session):
     """De poort op de bron: een contactsoort zonder classificatie bestaat niet.
@@ -121,17 +134,18 @@ def test_every_contact_type_is_classified(db_session):
     De eerste assertie is er omdat een poort die niets vindt ook niets afkeurt
     (zie MEMORY: een poort telt eerst haar treffers).
     """
-    rijen = (db_session.query(ContactTypeCode)
-             .execution_options(include_all_tenants=True).all())
+    rijen = db_session.query(ContactTypeCode).execution_options(include_all_tenants=True).all()
     assert len(rijen) >= 7, (
         f"de poort kijkt naar niets: {len(rijen)} contactsoorten gevonden, "
-        "de seeds leveren er zeven")
+        "de seeds leveren er zeven"
+    )
 
     ongeclassificeerd = sorted(r.code for r in rijen if r.is_social_network is None)
     assert not ongeclassificeerd, (
         f"contactsoort(en) niet geclassificeerd: {ongeclassificeerd} — zet "
         "`is_social_network` in de migratie die de soort toevoegt, anders weet "
-        "de footer niet of ze een icoon verdient")
+        "de footer niet of ze een icoon verdient"
+    )
 
 
 def test_an_unclassified_type_stays_out_of_the_footer(db_session, organisatie):
@@ -143,30 +157,31 @@ def test_an_unclassified_type_stays_out_of_the_footer(db_session, organisatie):
     """
     # CR-12 phase 2: code and label are two rows. `is_social_network` stays
     # NULL, and that is exactly what this test wants: not classified.
-    db_session.add(ContactTypeCode(code="SIGNAL", sort_order=81,
-                                   is_active=True))
-    db_session.add(ContactTypeLabel(code="SIGNAL", language="nl",
-                                    value="Signal"))
+    db_session.add(ContactTypeCode(code="SIGNAL", sort_order=81, is_active=True))
+    db_session.add(ContactTypeLabel(code="SIGNAL", language="nl", value="Signal"))
     db_session.flush()
     _contact(db_session, organisatie, "SIGNAL", "https://signal.example/raak")
     db_session.commit()
 
     assert "SIGNAL" not in _codes(db_session, organisatie), (
-        "een contactsoort die niet zegt dat ze een netwerk is, hoort niet tussen "
-        "de iconen te staan")
+        "een contactsoort die niet zegt dat ze een netwerk is, hoort niet tussen de iconen te staan"
+    )
 
 
 # ── 3. Een waarde die geen URL is, wordt nooit een href ─────────────────────
 
-@pytest.mark.parametrize("waarde", [
-    "0470 99 88 77",                 # het gemelde geval
-    "www.facebook.com/raak",         # vergeten schema — leest als relatief pad
-    "/raakvoorbeeld",                # al een pad
-    "raak@example.com",              # geen link maar een adres
-    "javascript:alert(1)",           # en geen ander schema dan http(s)
-])
-def test_a_value_that_is_no_url_never_becomes_a_link(db_session, organisatie,
-                                                     client, waarde):
+
+@pytest.mark.parametrize(
+    "waarde",
+    [
+        "0470 99 88 77",  # het gemelde geval
+        "www.facebook.com/raak",  # vergeten schema — leest als relatief pad
+        "/raakvoorbeeld",  # al een pad
+        "raak@example.com",  # geen link maar een adres
+        "javascript:alert(1)",  # en geen ander schema dan http(s)
+    ],
+)
+def test_a_value_that_is_no_url_never_becomes_a_link(db_session, organisatie, client, waarde):
     """De tweede helft van #1160, en ze hangt aan de LINK en niet aan de soort.
 
     Ook een écht netwerk met een verkeerd ingevulde waarde levert anders een
@@ -180,7 +195,8 @@ def test_a_value_that_is_no_url_never_becomes_a_link(db_session, organisatie,
     db_session.commit()
 
     assert _codes(db_session, organisatie) == [], (
-        f"{waarde!r} is geen absolute http(s)-URL en hoort dus geen href te worden")
+        f"{waarde!r} is geen absolute http(s)-URL en hoort dus geen href te worden"
+    )
     assert f'href="{waarde}"' not in client.get("/aanmelden").text
 
 

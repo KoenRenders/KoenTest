@@ -31,6 +31,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 valt om, want de adreskaart zit weer in het antwoord; de aanmaak van een adres in
 `update_person_address` weggehaald → 1 valt om met de 404 van vroeger.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,9 +39,8 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import Address, Person, PostalCode
+from app.domains.mdm.api import Address, Person, PostalCode, RelationType
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.mdm.api import RelationType
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -78,11 +78,15 @@ def _gezin_zonder_adres(db) -> int:
 def _hoofdlid_id(db, family_id: int) -> int:
     from app.domains.membership.api import get_family
 
-    return next(m.id for m in get_family(db, family_id).members
-                if m.relation_type == RelationType.PRIMARY_MEMBER)
+    return next(
+        m.id
+        for m in get_family(db, family_id).members
+        if m.relation_type == RelationType.PRIMARY_MEMBER
+    )
 
 
 # ── 1. Adres op een nieuw gezin ──────────────────────────────────────────────
+
 
 def test_een_nieuw_gezin_krijgt_een_adres(client, db_session):
     _postcode(db_session)
@@ -90,12 +94,19 @@ def test_een_nieuw_gezin_krijgt_een_adres(client, db_session):
     gezin = _gezin_zonder_adres(db_session)
     hoofdlid = _hoofdlid_id(db_session, gezin)
     assert db_session.query(Address).filter(Address.person_id == hoofdlid).first() is None, (
-        "voorwaarde: het aangemaakte gezin heeft nog geen adresrij")
+        "voorwaarde: het aangemaakte gezin heeft nog geen adresrij"
+    )
 
-    antwoord = client.post(f"/admin/leden/gezin/{gezin}/adres",
-                           data={"street": "Nieuwstraat", "house_number": "7",
-                                 "bus_number": "", "postal_code": "2400"},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/leden/gezin/{gezin}/adres",
+        data={
+            "street": "Nieuwstraat",
+            "house_number": "7",
+            "bus_number": "",
+            "postal_code": "2400",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200, antwoord.text[:300]
 
     db_session.expire_all()
@@ -112,23 +123,31 @@ def test_een_adres_zonder_straat_op_een_nieuw_gezin_wordt_geweigerd(client, db_s
     _postcode(db_session)
     csrf = _login(client)
     gezin = _gezin_zonder_adres(db_session)
-    antwoord = client.post(f"/admin/leden/gezin/{gezin}/adres",
-                           data={"street": "", "house_number": "7", "postal_code": "2400"},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/leden/gezin/{gezin}/adres",
+        data={"street": "", "house_number": "7", "postal_code": "2400"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 422
-    assert db_session.query(Address).filter(
-        Address.person_id == _hoofdlid_id(db_session, gezin)).first() is None
+    assert (
+        db_session.query(Address)
+        .filter(Address.person_id == _hoofdlid_id(db_session, gezin))
+        .first()
+        is None
+    )
 
 
 # ── 2 en 3. Een deelactie raakt alleen haar eigen kaart ──────────────────────
+
 
 def _forms_met_doel(html: str) -> list[tuple[str, str, str]]:
     """(hx-post, hx-target, hx-swap) van elke vorm en knop binnen het detail."""
     gevonden = []
     for tag in re.findall(r"<(?:form|button)\b[^>]*hx-post=[^>]*>", html):
         attrs = dict(re.findall(r'(hx-[a-z-]+)="([^"]*)"', tag))
-        gevonden.append((attrs.get("hx-post", ""), attrs.get("hx-target", ""),
-                         attrs.get("hx-swap", "")))
+        gevonden.append(
+            (attrs.get("hx-post", ""), attrs.get("hx-target", ""), attrs.get("hx-swap", ""))
+        )
     return gevonden
 
 
@@ -136,8 +155,11 @@ def test_elke_deelactie_richt_zich_op_haar_eigen_kaart(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
     gezin = _gezin_zonder_adres(db_session)
-    client.post(f"/admin/leden/gezin/{gezin}/lidmaatschappen", data={"year": "2030"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/leden/gezin/{gezin}/lidmaatschappen",
+        data={"year": "2030"},
+        headers={"X-CSRF-Token": csrf},
+    )
     hoofdlid = _hoofdlid_id(db_session, gezin)
 
     html = client.get(f"/admin/leden/gezin/{gezin}").text
@@ -150,11 +172,11 @@ def test_elke_deelactie_richt_zich_op_haar_eigen_kaart(client, db_session):
         "/personen": "#persoon-toevoegen",
         "/bestuurslid": "#bestuurslid-kaart",
         "/lidmaatschappen": "#lidmaatschappen-kaart",
-        "/lidmaatschappen/": "#lidmaatschappen-kaart",   # verwijderknop
+        "/lidmaatschappen/": "#lidmaatschappen-kaart",  # verwijderknop
     }
     for post, target, swap in doelen:
         if re.fullmatch(r"/admin/leden/gezin/\d+/verwijderen", post):
-            continue   # het gezin zelf verwijderen (kop) — geen kaartactie
+            continue  # het gezin zelf verwijderen (kop) — geen kaartactie
         assert target != "#leden-detail", f"{post} vervangt nog het hele blok"
         assert swap == "outerHTML", f"{post}: {swap!r}"
         past = [doel for staart, doel in verwacht.items() if staart in post]
@@ -168,16 +190,23 @@ def test_persoon_toevoegen_raakt_de_adreskaart_niet(client, db_session):
     csrf = _login(client)
     gezin = _gezin_zonder_adres(db_session)
 
-    antwoord = client.post(f"/admin/leden/gezin/{gezin}/personen",
-                           data={"first_name": "Partner", "last_name": "Erbij",
-                                 "date_of_birth": "1985-05-05", "gender_code": "F",
-                                 "relation_type": "PARTNER"},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/leden/gezin/{gezin}/personen",
+        data={
+            "first_name": "Partner",
+            "last_name": "Erbij",
+            "date_of_birth": "1985-05-05",
+            "gender_code": "F",
+            "relation_type": "PARTNER",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200, antwoord.text[:300]
     assert "Partner Erbij" in antwoord.text
     assert 'id="persoon-toevoegen"' in antwoord.text, "de toevoegkaart komt vers terug"
     assert 'id="adres-kaart"' not in antwoord.text and 'id="adres-form"' not in antwoord.text, (
-        "het antwoord bevat de adreskaart: htmx vervangt ze en de getypte tekst is weg")
+        "het antwoord bevat de adreskaart: htmx vervangt ze en de getypte tekst is weg"
+    )
     assert 'id="leden-detail"' not in antwoord.text
     # De bestuurslidlijst noemt elke persoon en reist daarom oob mee.
     assert 'id="bestuurslid-kaart"' in antwoord.text and 'hx-swap-oob="true"' in antwoord.text
@@ -188,14 +217,23 @@ def test_persoon_verwijderen_laat_de_kaart_verdwijnen(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
     gezin = _gezin_zonder_adres(db_session)
-    client.post(f"/admin/leden/gezin/{gezin}/personen",
-                data={"first_name": "Weg", "last_name": "Ermee", "date_of_birth": "1985-05-05",
-                      "gender_code": "F", "relation_type": "PARTNER"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/leden/gezin/{gezin}/personen",
+        data={
+            "first_name": "Weg",
+            "last_name": "Ermee",
+            "date_of_birth": "1985-05-05",
+            "gender_code": "F",
+            "relation_type": "PARTNER",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     partner = db_session.query(Person).filter(Person.first_name == "Weg").one()
 
-    antwoord = client.post(f"/admin/leden/gezin/{gezin}/persoon/{partner.id}/verwijderen",
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/leden/gezin/{gezin}/persoon/{partner.id}/verwijderen",
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200
     assert f'id="persoon-{partner.id}"' not in antwoord.text, "de kaart hoort te verdwijnen"
     assert 'id="bestuurslid-kaart"' in antwoord.text and "Ermee Weg" not in antwoord.text
@@ -203,32 +241,42 @@ def test_persoon_verwijderen_laat_de_kaart_verdwijnen(client, db_session):
 
 # ── 4. Een naam die elders staat, verandert daar mee ─────────────────────────
 
+
 def test_een_naamswijziging_reist_oob_naar_kop_en_bestuurslidlijst(client, db_session):
     _postcode(db_session)
     csrf = _login(client)
     gezin = _gezin_zonder_adres(db_session)
     hoofdlid = _hoofdlid_id(db_session, gezin)
 
-    antwoord = client.post(f"/admin/leden/gezin/{gezin}/persoon/{hoofdlid}",
-                           data={"first_name": "Rita", "last_name": "Nieuwnaam",
-                                 "date_of_birth": "1980-01-01", "gender_code": "M",
-                                 "relation_type": "HOOFDLID"},
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/leden/gezin/{gezin}/persoon/{hoofdlid}",
+        data={
+            "first_name": "Rita",
+            "last_name": "Nieuwnaam",
+            "date_of_birth": "1980-01-01",
+            "gender_code": "M",
+            "relation_type": "HOOFDLID",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200
     assert f'id="persoon-{hoofdlid}"' in antwoord.text
     kop = antwoord.text.index('id="gezin-recordkop" hx-swap-oob="true"')
     assert "Nieuwnaam" in antwoord.text[kop:]
     lijst = antwoord.text.index('id="bestuurslid-kaart"')
-    assert 'hx-swap-oob="true"' in antwoord.text[lijst:lijst + 200]
+    assert 'hx-swap-oob="true"' in antwoord.text[lijst : lijst + 200]
     assert "Nieuwnaam Rita" in antwoord.text[lijst:]
 
 
 # ── 5. De postcodelijst liegt niet ───────────────────────────────────────────
 
+
 def _postcode_opties(html: str) -> list[tuple[str, bool]]:
     select = re.search(r'<select[^>]*name="postal_code"[\s\S]*?</select>', html).group(0)
-    return [(waarde, "selected" in tag) for tag, waarde in
-            re.findall(r'(<option value="([^"]*)"[^>]*>)', select)]
+    return [
+        (waarde, "selected" in tag)
+        for tag, waarde in re.findall(r'(<option value="([^"]*)"[^>]*>)', select)
+    ]
 
 
 def test_de_postcodelijst_toont_geen_waarde_zonder_adres(client, db_session):
@@ -239,10 +287,13 @@ def test_de_postcodelijst_toont_geen_waarde_zonder_adres(client, db_session):
     opties = _postcode_opties(client.get(f"/admin/leden/gezin/{gezin}").text)
     assert opties[0] == ("", True), opties[:3]
     assert not any(gekozen for waarde, gekozen in opties if waarde), (
-        "een postcode staat als gekozen terwijl het gezin er geen heeft")
+        "een postcode staat als gekozen terwijl het gezin er geen heeft"
+    )
 
-    client.post(f"/admin/leden/gezin/{gezin}/adres",
-                data={"street": "Nieuwstraat", "house_number": "7", "postal_code": "2400"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/leden/gezin/{gezin}/adres",
+        data={"street": "Nieuwstraat", "house_number": "7", "postal_code": "2400"},
+        headers={"X-CSRF-Token": csrf},
+    )
     opties = _postcode_opties(client.get(f"/admin/leden/gezin/{gezin}").text)
     assert ("2400", True) in opties and ("", False) in opties

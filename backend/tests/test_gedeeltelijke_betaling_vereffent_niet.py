@@ -32,17 +32,16 @@ scripts/test-local.sh):
     van, want daar is het teken positief. Dat die ene test het enige verschil maakt,
     is precies waarom hij er staat.
 """
+
 from datetime import date
 from decimal import Decimal
 
 import pytest
 
 from app.domains.membership.api import Membership
-from app.domains.payment.api import PaymentRecord
-from app.domains.payment.service import (confirm_manual_payment, create_refund,
-                                         derived_status)
+from app.domains.payment.api import PaymentRecord, PaymentStatus
+from app.domains.payment.service import confirm_manual_payment, create_refund, derived_status
 from tests.conftest import create_test_member
-from app.domains.payment.api import PaymentStatus
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -58,8 +57,14 @@ def _lidmaatschap(db) -> Membership:
 
 
 def _vordering(db, ms: Membership, bedrag="35.00") -> PaymentRecord:
-    record = PaymentRecord(payable_type="membership", payable_id=ms.id, type="charge",
-                           amount=Decimal(bedrag), method="transfer", status="pending")
+    record = PaymentRecord(
+        payable_type="membership",
+        payable_id=ms.id,
+        type="charge",
+        amount=Decimal(bedrag),
+        method="transfer",
+        status="pending",
+    )
     db.add(record)
     db.flush()
     return record
@@ -67,13 +72,13 @@ def _vordering(db, ms: Membership, bedrag="35.00") -> PaymentRecord:
 
 # ── De badge volgt de cijfers ────────────────────────────────────────────────
 
+
 def test_gedeeltelijk_bevestigen_laat_de_vordering_openstaan(db_session):
     """Het gemelde geval: € 10,00 op € 35,00."""
     ms = _lidmaatschap(db_session)
     record = _vordering(db_session, ms)
 
-    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("10.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("10.00"), actor="test")
 
     assert record.status == PaymentStatus.PENDING, "een gedeeltelijke betaling vereffent niets"
     assert derived_status(record) == "partial"
@@ -85,8 +90,7 @@ def test_volledig_bevestigen_vereffent_wel(db_session):
     ms = _lidmaatschap(db_session)
     record = _vordering(db_session, ms)
 
-    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("35.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("35.00"), actor="test")
 
     assert record.status == PaymentStatus.PAID
     assert derived_status(record) == "paid"
@@ -105,6 +109,7 @@ def test_bevestigen_zonder_bedrag_boekt_het_volle_bedrag(db_session):
 
 # ── Het gevolg dat geld en rechten raakt ─────────────────────────────────────
 
+
 def test_een_gedeeltelijke_betaling_activeert_het_lidmaatschap_niet(db_session):
     """De belangrijkste test van dit issue.
 
@@ -114,12 +119,12 @@ def test_een_gedeeltelijke_betaling_activeert_het_lidmaatschap_niet(db_session):
     ms = _lidmaatschap(db_session)
     record = _vordering(db_session, ms)
 
-    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("10.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("10.00"), actor="test")
 
     db_session.expire_all()
     assert db_session.get(Membership, ms.id).is_active is False, (
-        "een deelbetaling mag geen geldig lidmaatschap opleveren")
+        "een deelbetaling mag geen geldig lidmaatschap opleveren"
+    )
 
 
 def test_een_volledige_betaling_activeert_het_lidmaatschap_wel(db_session):
@@ -131,14 +136,14 @@ def test_een_volledige_betaling_activeert_het_lidmaatschap_wel(db_session):
     ms = _lidmaatschap(db_session)
     record = _vordering(db_session, ms)
 
-    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("35.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, record.id, amount_paid=Decimal("35.00"), actor="test")
 
     db_session.expire_all()
     assert db_session.get(Membership, ms.id).is_active is True
 
 
 # ── Het teken: een terugbetaling draagt een negatief bedrag ──────────────────
+
 
 def test_een_gedeeltelijk_uitbetaalde_terugbetaling_blijft_openstaan(db_session):
     """Zonder tekengevoeligheid keert het oordeel hier precies om (#219).
@@ -148,13 +153,12 @@ def test_een_gedeeltelijk_uitbetaalde_terugbetaling_blijft_openstaan(db_session)
     """
     ms = _lidmaatschap(db_session)
     charge = _vordering(db_session, ms, bedrag="30.00")
-    confirm_manual_payment(db_session, charge.id, amount_paid=Decimal("30.00"),
-                           actor="test")
-    refund = create_refund(db_session, charge.id, Decimal("20.00"),
-                           note="test", actor="test", settled=False)
+    confirm_manual_payment(db_session, charge.id, amount_paid=Decimal("30.00"), actor="test")
+    refund = create_refund(
+        db_session, charge.id, Decimal("20.00"), note="test", actor="test", settled=False
+    )
 
-    confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-5.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-5.00"), actor="test")
 
     assert refund.status == PaymentStatus.PENDING, "een deels uitbetaalde terugbetaling is niet af"
     # Bij een refund wint "moet nog uitbetaald worden" van "deels": `derived_status`
@@ -168,12 +172,11 @@ def test_een_volledig_uitbetaalde_terugbetaling_is_af(db_session):
     """De tegenhanger op dezelfde as."""
     ms = _lidmaatschap(db_session)
     charge = _vordering(db_session, ms, bedrag="30.00")
-    confirm_manual_payment(db_session, charge.id, amount_paid=Decimal("30.00"),
-                           actor="test")
-    refund = create_refund(db_session, charge.id, Decimal("20.00"),
-                           note="test", actor="test", settled=False)
+    confirm_manual_payment(db_session, charge.id, amount_paid=Decimal("30.00"), actor="test")
+    refund = create_refund(
+        db_session, charge.id, Decimal("20.00"), note="test", actor="test", settled=False
+    )
 
-    confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-20.00"),
-                           actor="test")
+    confirm_manual_payment(db_session, refund.id, amount_paid=Decimal("-20.00"), actor="test")
 
     assert refund.status == PaymentStatus.PAID

@@ -1,4 +1,3 @@
-from app.domains.mdm.api import OrganizationType
 """Tenants aanmaken en instellen (#635 G).
 
 Deze regels stonden volledig inline in `app/ui/tenants_ui.py`: de slug-vorm, de
@@ -12,17 +11,25 @@ Nu los testbaar, zonder scherm. De service woont in `domains/mdm/` en niet in de
 kernel: `Organization` woont daar, en de kernel mag per laagmodel (§8) niet uit een
 domein importeren — die grens wordt door `test_import_boundaries.py` bewaakt.
 """
+
 import pytest
 
-from app.domains.mdm.api import (TenantFout, create_tenant, list_units,
-                                 secrets_gezet, update_tenant_settings)
+from app.domains.mdm.api import (
+    OrganizationType,
+    TenantFout,
+    create_tenant,
+    list_units,
+    secrets_gezet,
+    update_tenant_settings,
+)
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
 def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
-    org = create_tenant(db_session, name="Raak Voorbeeld", code="voorbeeld",
-                        base_url="https://voorbeeld.example")
+    org = create_tenant(
+        db_session, name="Raak Voorbeeld", code="voorbeeld", base_url="https://voorbeeld.example"
+    )
 
     from app.kernel.tenant_config import get_setting
 
@@ -39,8 +46,7 @@ def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
     assert org.id in {u.id for u in list_units(db_session)}
 
 
-@pytest.mark.parametrize("code", ["", "Met Hoofdletters", "met_underscore",
-                                  "met spatie", "ümlaut"])
+@pytest.mark.parametrize("code", ["", "Met Hoofdletters", "met_underscore", "met spatie", "ümlaut"])
 def test_een_ongeldige_code_wordt_geweigerd(db_session, code):
     """De code is de sleutel waarmee een verzoek naar zijn tenant resolvet."""
     with pytest.raises(TenantFout):
@@ -71,24 +77,28 @@ def _tenant(db):
 def test_een_geheime_sleutel_blijft_staan_als_het_veld_leeg_is(db_session):
     """De regel die geld kost als ze wegvalt."""
     tenant = _tenant(db_session)
-    update_tenant_settings(db_session, tenant, {"mollie_api_key": "live_geheim"},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(
+        db_session, tenant, {"mollie_api_key": "live_geheim"}, known=GEWOON, secret=GEHEIM
+    )
     assert secrets_gezet(db_session, tenant, GEHEIM) == {"mollie_api_key": True}
 
     # Iemand slaat het scherm opnieuw op zonder de sleutel opnieuw in te typen.
-    update_tenant_settings(db_session, tenant, {"mollie_api_key": "", "tagline": "Nieuw"},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(
+        db_session, tenant, {"mollie_api_key": "", "tagline": "Nieuw"}, known=GEWOON, secret=GEHEIM
+    )
 
     assert secrets_gezet(db_session, tenant, GEHEIM) == {"mollie_api_key": True}
 
 
 def test_wissen_gebeurt_expliciet(db_session):
     tenant = _tenant(db_session)
-    update_tenant_settings(db_session, tenant, {"mollie_api_key": "live_geheim"},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(
+        db_session, tenant, {"mollie_api_key": "live_geheim"}, known=GEWOON, secret=GEHEIM
+    )
 
-    update_tenant_settings(db_session, tenant, {"mollie_api_key_wissen": "1"},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(
+        db_session, tenant, {"mollie_api_key_wissen": "1"}, known=GEWOON, secret=GEHEIM
+    )
 
     assert secrets_gezet(db_session, tenant, GEHEIM) == {"mollie_api_key": False}
 
@@ -99,12 +109,10 @@ def test_een_gewone_sleutel_mag_wel_leeggemaakt_worden(db_session):
     from app.kernel.tenant_config import get_setting
 
     tenant = _tenant(db_session)
-    update_tenant_settings(db_session, tenant, {"tagline": "Iets"},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(db_session, tenant, {"tagline": "Iets"}, known=GEWOON, secret=GEHEIM)
     assert get_setting(db_session, "tagline", tenant_id=tenant) == "Iets"
 
-    update_tenant_settings(db_session, tenant, {"tagline": ""},
-                           known=GEWOON, secret=GEHEIM)
+    update_tenant_settings(db_session, tenant, {"tagline": ""}, known=GEWOON, secret=GEHEIM)
     assert not get_setting(db_session, "tagline", tenant_id=tenant)
 
 
@@ -113,9 +121,11 @@ def test_het_scherm_raakt_de_sessie_niet_meer_aan():
     import ast
     from pathlib import Path
 
-    bron = (Path(__file__).resolve().parents[1] / "app" / "ui" / "tenants_ui.py")
+    bron = Path(__file__).resolve().parents[1] / "app" / "ui" / "tenants_ui.py"
     boom = ast.parse(bron.read_text())
-    gebruik = [f"db.{n.attr}" for n in ast.walk(boom)
-               if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)
-               and n.value.id == "db"]
+    gebruik = [
+        f"db.{n.attr}"
+        for n in ast.walk(boom)
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "db"
+    ]
     assert not gebruik, gebruik

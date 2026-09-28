@@ -151,12 +151,14 @@ Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists i
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 import re
 from pathlib import Path
 
+import pytest
+
 from tests._bestanden import bestanden
+
+pytestmark = pytest.mark.ui_serverrendered
 
 APP = Path(__file__).resolve().parents[1] / "app"
 
@@ -166,7 +168,8 @@ APP = Path(__file__).resolve().parents[1] / "app"
 TEMPLATES = bestanden(
     (APP / "ui" / "templates").rglob("*.html"),
     (p for d in (APP / "domains").glob("*/templates") for p in d.rglob("*.html")),
-    wat="alle Jinja-templates van de kit en de domeinen", minstens=50,
+    wat="alle Jinja-templates van de kit en de domeinen",
+    minstens=50,
 )
 
 # (bestandsnaam, regel-fragment) → reden. Leeg is het doel.
@@ -197,9 +200,11 @@ BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
 BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
 # Een hint-alinea (§2.4: text-xs + een gedempte tint) binnen een kolom van een
 # flexvorm die op de onderkant uitlijnt — #656.
-HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
-ITEMS_END = re.compile(r'\bitems-end\b')
-FLEX_OPEN = re.compile(r'<(div|form)\b')
+HINT_ALINEA = re.compile(
+    r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b'
+)
+ITEMS_END = re.compile(r"\bitems-end\b")
+FLEX_OPEN = re.compile(r"<(div|form)\b")
 # Een handgeschreven formulier-control: de kit zet zijn rand via `_control_base`,
 # dus een losse `border-gray-300` op een input/select/textarea betekent dat het
 # scherm de kit omzeilt (#659).
@@ -253,8 +258,7 @@ def test_geen_donkerblauw_buiten_de_tokens():
     """blue-800/900 met de hand = titelkleur-drift (#486). Merkblauw is blue-700."""
     fouten = _overtredingen(DONKERBLAUW)
     assert not fouten, (
-        "Gebruik blue-700 (merkblauw) of het token brand-ocean-hover:\n  "
-        + "\n  ".join(fouten)
+        "Gebruik blue-700 (merkblauw) of het token brand-ocean-hover:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -271,8 +275,7 @@ def test_geen_browserdialogen():
     """alert()/confirm() zijn vervangen door ui.toast() en ui.modal() (§2.9)."""
     fouten = _overtredingen(JS_DIALOOG)
     assert not fouten, (
-        "Gebruik ui.toast() voor feedback en ui.modal() voor bevestiging:\n  "
-        + "\n  ".join(fouten)
+        "Gebruik ui.toast() voor feedback en ui.modal() voor bevestiging:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -293,12 +296,10 @@ def test_glyph_knoppen_hebben_aria_label():
             # `aria_label=` is sinds #622 de voorkeursvorm: als macro-parameter
             # schrijft Jinja het attribuut zelf, i.p.v. het in een attrs-string te
             # concateneren waar `_()` de escaping sloopt.
-            if GLYPH_KNOP.search(regel) and not (
-                    "aria-label" in regel or "aria_label" in regel):
+            if GLYPH_KNOP.search(regel) and not ("aria-label" in regel or "aria_label" in regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
     assert not fouten, (
-        "Geef symbool-knoppen een aria_label=_(\"…\") op de knopmacro:\n  "
-        + "\n  ".join(fouten)
+        'Geef symbool-knoppen een aria_label=_("…") op de knopmacro:\n  ' + "\n  ".join(fouten)
     )
 
 
@@ -306,9 +307,8 @@ def test_geen_hx_confirm():
     """hx-confirm toont het native browser-confirm(); bevestiging gaat via de
     in-app modal (data-confirm + ui.confirm_host(), #595)."""
     fouten = _overtredingen(HX_CONFIRM)
-    assert not fouten, (
-        "Gebruik confirm_attrs()/data-confirm i.p.v. hx-confirm:\n  "
-        + "\n  ".join(fouten)
+    assert not fouten, "Gebruik confirm_attrs()/data-confirm i.p.v. hx-confirm:\n  " + "\n  ".join(
+        fouten
     )
 
 
@@ -320,14 +320,33 @@ def test_de_kit_levert_de_beloofde_macros():
     """
     kit = (APP / "ui" / "templates" / "_macros.html").read_text()
     beloofd = [
-        "page_header", "section_header", "card", "nested_panel", "tabs",
-        "search", "grouped_filter", "pager", "row_actions", "reorder",
-        "empty_state", "loading", "badge", "modal",
-        "toast", "toast_host", "success_banner", "error_banner",
+        "page_header",
+        "section_header",
+        "card",
+        "nested_panel",
+        "tabs",
+        "search",
+        "grouped_filter",
+        "pager",
+        "row_actions",
+        "reorder",
+        "empty_state",
+        "loading",
+        "badge",
+        "modal",
+        "toast",
+        "toast_host",
+        "success_banner",
+        "error_banner",
         "person_fields",
-        "btn_primary", "btn_secondary", "btn_outline", "btn_danger",
+        "btn_primary",
+        "btn_secondary",
+        "btn_outline",
+        "btn_danger",
         # P13 (golf 5, #913): relatienavigatie.
-        "relatie_chips", "scope_regel", "spronglink",
+        "relatie_chips",
+        "scope_regel",
+        "spronglink",
     ]
     ontbreekt = [m for m in beloofd if f"macro {m}(" not in kit]
     assert not ontbreekt, f"Beloofd in ui-conventies.md §5.1 maar niet in de kit: {ontbreekt}"
@@ -357,14 +376,13 @@ def test_geen_kale_select():
         tekst = _zonder_commentaar(pad)
         for treffer in re.finditer(r"<select\b", tekst):
             eind = tekst.find(">", treffer.start())
-            tag = tekst[treffer.start():eind + 1] if eind != -1 else tekst[treffer.start():]
+            tag = tekst[treffer.start() : eind + 1] if eind != -1 else tekst[treffer.start() :]
             if any(m in tag for m in SELECT_OK):
                 continue
-            regel = tekst[:treffer.start()].count("\n") + 1
+            regel = tekst[: treffer.start()].count("\n") + 1
             fouten.append(f"{pad.relative_to(APP)}:{regel}: {tag.strip()[:90]}")
-    assert not fouten, (
-        "Gebruik ui.select_control() / ui.grouped_filter():\n  "
-        + "\n  ".join(fouten)
+    assert not fouten, "Gebruik ui.select_control() / ui.grouped_filter():\n  " + "\n  ".join(
+        fouten
     )
 
 
@@ -376,8 +394,9 @@ def _zonder_commentaar(pad) -> str:
     Nodig omdat het commentaar bij een fix juist het FOUTE patroon toont — zowel bij
     select_control() als bij _inschrijving_detail.html, waar staat waarom de
     attributen niet meer in een {% set %} zitten."""
-    return re.sub(r"\{#.*?#\}", lambda m: re.sub(r"[^\n]", " ", m.group(0)),
-                  pad.read_text(), flags=re.S)
+    return re.sub(
+        r"\{#.*?#\}", lambda m: re.sub(r"[^\n]", " ", m.group(0)), pad.read_text(), flags=re.S
+    )
 
 
 MARKUP_CONCAT = re.compile(r"~\s*_\(|_\((?:[^()]|\([^()]*\))*\)\s*~")
@@ -413,14 +432,17 @@ def test_geen_geescapete_attribuutstrings():
     for pad in TEMPLATES:
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             if "attrs=" in regel and MARKUP_CONCAT.search(regel):
-                fouten.append(f"{pad.relative_to(APP)}:{nr}: ~ _() in een attrs-string "
-                              f"→ gebruik confirm=/aria_label= op de knopmacro")
+                fouten.append(
+                    f"{pad.relative_to(APP)}:{nr}: ~ _() in een attrs-string "
+                    f"→ gebruik confirm=/aria_label= op de knopmacro"
+                )
             if ATTR_IN_SET.search(regel):
-                fouten.append(f"{pad.relative_to(APP)}:{nr}: attributen in een "
-                              f"{{% set %}} → schrijf ze letterlijk of geef ze via attrs=")
+                fouten.append(
+                    f"{pad.relative_to(APP)}:{nr}: attributen in een "
+                    f"{{% set %}} → schrijf ze letterlijk of geef ze via attrs="
+                )
     assert not fouten, (
-        "Ge-escapete attributen maken de knop inert (#514/#613/#616):\n  "
-        + "\n  ".join(fouten)
+        "Ge-escapete attributen maken de knop inert (#514/#613/#616):\n  " + "\n  ".join(fouten)
     )
 
 
@@ -434,18 +456,29 @@ def test_bewerk_knoppen_tonen_beide_standen():
             if HANDMATIGE_TOGGLE.search(regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
     assert not fouten, (
-        "Gebruik ui.edit_toggle(state) i.p.v. een knop met één stand:\n  "
-        + "\n  ".join(fouten)
+        "Gebruik ui.edit_toggle(state) i.p.v. een knop met één stand:\n  " + "\n  ".join(fouten)
     )
 
 
 # ── C1-lijstschermen: actie in de kop, kaarttitel in ink (#621) ──────────────
-LIJSTSCHERMEN = ["admin_activiteiten.html", "admin_formulieren.html",
-                 "admin_paginas.html", "admin_media.html",
-                 "admin_gebruikers.html", "admin_tenants.html", "leden.html"]
-KAARTFRAGMENTEN = ("_aa_kaarten.html", "_fb_kaarten.html", "_cp_kaarten.html",
-                   "_tn_kaarten.html", "_leden_lijst.html", "_me_lijst.html",
-                   "_gu_lijst.html")
+LIJSTSCHERMEN = [
+    "admin_activiteiten.html",
+    "admin_formulieren.html",
+    "admin_paginas.html",
+    "admin_media.html",
+    "admin_gebruikers.html",
+    "admin_tenants.html",
+    "leden.html",
+]
+KAARTFRAGMENTEN = (
+    "_aa_kaarten.html",
+    "_fb_kaarten.html",
+    "_cp_kaarten.html",
+    "_tn_kaarten.html",
+    "_leden_lijst.html",
+    "_me_lijst.html",
+    "_gu_lijst.html",
+)
 
 
 def test_lijstschermen_zetten_de_actie_in_de_kop():
@@ -477,8 +510,7 @@ def test_kaarttitels_staan_niet_in_merkblauw():
             if "font-semibold" in regel and "text-blue-700" in regel:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
     assert not fouten, (
-        "Gebruik text-ink voor de recordnaam, ink-soft voor de metadata:\n  "
-        + "\n  ".join(fouten)
+        "Gebruik text-ink voor de recordnaam, ink-soft voor de metadata:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -503,9 +535,11 @@ def test_woordmerk_schaalt_op_de_fontmetriek():
 
 def _sociale_iconen() -> list[str]:
     """De drie inline SVG's in de footer van de publieke schil."""
-    return [regel for regel in _zonder_commentaar(SITE_BASE).splitlines()
-            if "<svg" in regel and 'fill="currentColor"' in regel
-            and 'aria-hidden="true"' in regel]
+    return [
+        regel
+        for regel in _zonder_commentaar(SITE_BASE).splitlines()
+        if "<svg" in regel and 'fill="currentColor"' in regel and 'aria-hidden="true"' in regel
+    ]
 
 
 def test_sociale_footer_iconen_zijn_32px():
@@ -537,14 +571,17 @@ def test_de_bijgesneden_viewboxen_blijven_staan():
     iets faalt. Dit is de derde keer dat we aan deze iconen sleutelen; zonder
     vangnet is er een vierde.
     """
-    verwacht = {'viewBox="0 0 24 24"': "Facebook (vult zijn vak al volledig)",
-                'viewBox="2.15 2.16 19.7 20.72"': "Instagram (omtrek, 82% breed)",
-                'viewBox="3.8 3 15.85 18.39"': "TikTok (66% breed)"}
+    verwacht = {
+        'viewBox="0 0 24 24"': "Facebook (vult zijn vak al volledig)",
+        'viewBox="2.15 2.16 19.7 20.72"': "Instagram (omtrek, 82% breed)",
+        'viewBox="3.8 3 15.85 18.39"': "TikTok (66% breed)",
+    }
     sociale = _sociale_iconen()
     for waarde, waarom in verwacht.items():
         assert any(waarde in r for r in sociale), (
             f"de viewBox van {waarom} staat niet meer op {waarde} — is ze "
-            "teruggezet, dan oogt dat icoon weer kleiner dan de andere (#744)")
+            "teruggezet, dan oogt dat icoon weer kleiner dan de andere (#744)"
+        )
 
 
 def test_de_term_reglement_is_vervallen():
@@ -556,7 +593,7 @@ def test_de_term_reglement_is_vervallen():
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             if "reglement" in regel.lower():
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
-    assert not fouten, "Gebruik \"info\" i.p.v. \"reglement\":\n  " + "\n  ".join(fouten)
+    assert not fouten, 'Gebruik "info" i.p.v. "reglement":\n  ' + "\n  ".join(fouten)
 
 
 def test_geen_aanmaak_modal_in_de_admin():
@@ -574,8 +611,9 @@ def test_geen_aanmaak_modal_in_de_admin():
     fouten = []
     for pad in TEMPLATES:
         naam = pad.name
-        if not (naam.startswith("admin_") or naam in ("leden.html", "betalingen.html",
-                                                      "werkbank.html")):
+        if not (
+            naam.startswith("admin_") or naam in ("leden.html", "betalingen.html", "werkbank.html")
+        ):
             continue
         tekst = _zonder_commentaar(pad)
         if "{% call ui.modal(" not in tekst:
@@ -583,8 +621,8 @@ def test_geen_aanmaak_modal_in_de_admin():
         # Een modal is enkel fout als er ook een aanmaak-hx-post in dezelfde template staat.
         if re.search(r'hx-post="/admin/[a-z-]+"', tekst):
             fouten.append(f"{pad.relative_to(APP)}: aanmaakformulier in een modal")
-    assert not fouten, (
-        "Aanmaken opent een volledige-pagina-editor (#627):\n  " + "\n  ".join(fouten)
+    assert not fouten, "Aanmaken opent een volledige-pagina-editor (#627):\n  " + "\n  ".join(
+        fouten
     )
 
 
@@ -595,8 +633,7 @@ INFINITIEF = re.compile(r'_\("(Verwijder|Annuleer)"\)')
 # for: the code goes through the label table before it reaches the badge.
 # Without this exception the gate would reject the correct solution and block
 # the very pattern it means to enforce.
-RAUWE_BADGE = re.compile(
-    r'badge\(\s*[a-z_]+\.(status|kind|method)\b(?!\s*\|\s*code_label)')
+RAUWE_BADGE = re.compile(r"badge\(\s*[a-z_]+\.(status|kind|method)\b(?!\s*\|\s*code_label)")
 # Leveranciersnamen die in een knoplabel niets te zoeken hebben.
 LEVERANCIERS = ("Mollie", "Stripe", "Umami", "Mistral", "Voxtral", "Gmail")
 KNOPLABEL = re.compile(r'btn_\w+\(\s*_\("([^"]+)"\)')
@@ -609,10 +646,8 @@ def test_terminologie_is_infinitief():
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             m = INFINITIEF.search(regel)
             if m:
-                fouten.append(f"{pad.relative_to(APP)}:{nr}: _(\"{m.group(1)}\")")
-    assert not fouten, (
-        "Gebruik de infinitief (Verwijderen/Annuleren):\n  " + "\n  ".join(fouten)
-    )
+                fouten.append(f'{pad.relative_to(APP)}:{nr}: _("{m.group(1)}")')
+    assert not fouten, "Gebruik de infinitief (Verwijderen/Annuleren):\n  " + "\n  ".join(fouten)
 
 
 def test_geen_leveranciersnaam_in_een_knoplabel():
@@ -627,9 +662,7 @@ def test_geen_leveranciersnaam_in_een_knoplabel():
             for m in KNOPLABEL.finditer(regel):
                 if any(naam in m.group(1) for naam in LEVERANCIERS):
                     fouten.append(f"{pad.relative_to(APP)}:{nr}: {m.group(1)!r}")
-    assert not fouten, (
-        "Beschrijf de handeling, niet de leverancier:\n  " + "\n  ".join(fouten)
-    )
+    assert not fouten, "Beschrijf de handeling, niet de leverancier:\n  " + "\n  ".join(fouten)
 
 
 def test_geen_rauwe_db_waarde_in_een_badge():
@@ -644,8 +677,7 @@ def test_geen_rauwe_db_waarde_in_een_badge():
     # DB-code maar een server-side gezet Nederlands label ("Open" / "Voorbij" /
     # "Geannuleerd", activities/router.py:76-80). Daar valt niets te mappen.
     # Sinds golf 12 rendert ook de activiteitspagina datzelfde label.
-    TOEGESTAAN = {("_activiteiten_cards.html", "a.status"),
-                  ("activiteit.html", "a.status")}
+    TOEGESTAAN = {("_activiteiten_cards.html", "a.status"), ("activiteit.html", "a.status")}
 
     fouten = []
     for pad in TEMPLATES:
@@ -658,8 +690,7 @@ def test_geen_rauwe_db_waarde_in_een_badge():
                 continue
             fouten.append(f"{pad.relative_to(APP)}:{nr}: badge(….{m.group(1)})")
     assert not fouten, (
-        "Map naar een leesbaar label vóór je het in een badge zet:\n  "
-        + "\n  ".join(fouten)
+        "Map naar een leesbaar label vóór je het in een badge zet:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -677,9 +708,9 @@ def test_symboolknoppen_hebben_een_aria_label_ook_publiek():
             for m in GLYPH_BUTTON.finditer(regel):
                 inhoud = m.group("inhoud").strip()
                 if not inhoud or inhoud.isascii() and inhoud.isalnum():
-                    continue          # gewone tekst of leeg (Alpine vult die)
+                    continue  # gewone tekst of leeg (Alpine vult die)
                 if any(c.isalnum() for c in inhoud):
-                    continue          # bevat leesbare tekst
+                    continue  # bevat leesbare tekst
                 if "aria-label" in m.group("attrs"):
                     continue
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: <button>{inhoud}</button>")
@@ -704,8 +735,7 @@ def test_kpi_kaarten_zijn_wit():
             if "rounded-xl" in regel and "bg-blue-50" in regel:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:70]}")
     assert not fouten, (
-        "KPI-kaarten zijn wit met een rand (bg-white border border-line):\n  "
-        + "\n  ".join(fouten)
+        "KPI-kaarten zijn wit met een rand (bg-white border border-line):\n  " + "\n  ".join(fouten)
     )
 
 
@@ -736,8 +766,9 @@ def test_de_schillen_dragen_hx_boost():
         assert 'hx-boost="true"' in body, f"{naam}: <body> mist hx-boost"
         for verboden in ("hx-target=", "hx-select=", "hx-swap="):
             assert verboden not in body, (
-                f"{naam}: {verboden} op de <body> erft naar elke htmx-actie in de app")
-        assert 'id="main"' in tekst, f"{naam}: geen element met id=\"main\" om in te swappen"
+                f"{naam}: {verboden} op de <body> erft naar elke htmx-actie in de app"
+            )
+        assert 'id="main"' in tekst, f'{naam}: geen element met id="main" om in te swappen'
 
 
 def test_downloads_en_afmelden_staan_buiten_de_boost():
@@ -748,7 +779,7 @@ def test_downloads_en_afmelden_staan_buiten_de_boost():
             if not GEEN_HTML_ANTWOORD.search(regel):
                 continue
             # De macro-aanroep kan over twee regels lopen: attrs staat dan onder de href.
-            venster = "\n".join(_zonder_commentaar(pad).splitlines()[nr - 1:nr + 2])
+            venster = "\n".join(_zonder_commentaar(pad).splitlines()[nr - 1 : nr + 2])
             # target="_blank" is al genoeg: htmx boost geen link met een target.
             if 'hx-boost="false"' in venster or 'target="_blank"' in venster:
                 continue
@@ -768,13 +799,12 @@ def test_geen_scriptbestand_buiten_een_schil():
     """
     fouten = [
         f"{pad.relative_to(APP)}: {regel.strip()[:90]}"
-        for pad in TEMPLATES if pad.name not in SCHILLEN
+        for pad in TEMPLATES
+        if pad.name not in SCHILLEN
         for regel in _zonder_commentaar(pad).splitlines()
         if "<script src=" in regel
     ]
-    assert not fouten, (
-        "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
-    )
+    assert not fouten, "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
 
 
 def test_geen_metadata_emoji_in_de_templates():
@@ -788,13 +818,12 @@ def test_geen_metadata_emoji_in_de_templates():
     fouten = []
     for pad in TEMPLATES:
         if pad.name == "_macros.html":
-            continue        # daar staan de iconen zelf, en de toelichting erbij
+            continue  # daar staan de iconen zelf, en de toelichting erbij
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             if METADATA_GLYPH.search(regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:70]}")
     assert not fouten, (
-        'Gebruik ui.icon("mail"/"phone"/"mobile"/"map-pin"/"calendar"):\n  '
-        + "\n  ".join(fouten)
+        'Gebruik ui.icon("mail"/"phone"/"mobile"/"map-pin"/"calendar"):\n  ' + "\n  ".join(fouten)
     )
 
 
@@ -812,8 +841,7 @@ def test_lege_toestanden_komen_uit_de_kit():
             if "italic" in regel and ("Geen " in regel or "Nog geen " in regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
     assert not fouten, (
-        "Gebruik ui.empty_state(...) — niet schuin, één component:\n  "
-        + "\n  ".join(fouten)
+        "Gebruik ui.empty_state(...) — niet schuin, één component:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -841,9 +869,7 @@ def test_submit_heet_opslaan():
             m = EIGEN_OPSLAAN.search(regel)
             if m:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {m.group(1)!r}")
-    assert not fouten, (
-        'Een admin-submit heet "Opslaan" (§2.12):\n  ' + "\n  ".join(fouten)
-    )
+    assert not fouten, 'Een admin-submit heet "Opslaan" (§2.12):\n  ' + "\n  ".join(fouten)
 
 
 def test_het_verplicht_sterretje_zit_niet_in_de_labeltekst():
@@ -972,6 +998,7 @@ def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
     per vorm en niet per kolom: ruimer dan strikt nodig, maar een hint binnen zo'n
     vorm hoort sowieso een eigen regel te zijn.
     """
+
     def blok_van(tekst: str, pos: int) -> str:
         """Het element dat `items-end` draagt, tot zijn eigen sluittag.
 
@@ -985,11 +1012,11 @@ def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
         start = opens[-1]
         tag = start.group(1)
         diepte = 0
-        for t in re.finditer(rf"<{tag}\b|</{tag}>", tekst[start.start():]):
+        for t in re.finditer(rf"<{tag}\b|</{tag}>", tekst[start.start() :]):
             diepte += -1 if t.group(0).startswith(f"</{tag}") else 1
             if diepte == 0:
-                return tekst[start.start():start.start() + t.end()]
-        return tekst[start.start():]
+                return tekst[start.start() : start.start() + t.end()]
+        return tekst[start.start() :]
 
     fouten = []
     for pad in TEMPLATES:
@@ -998,7 +1025,7 @@ def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
             for tag in HINT_ALINEA.findall(blok_van(tekst, m.start())):
                 if "w-full" in tag:
                     continue
-                nr = tekst[:m.start()].count("\n") + 1
+                nr = tekst[: m.start()].count("\n") + 1
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {tag[:90]}")
     assert not fouten, (
         "Zet de hint als eigen regel in de vorm (w-full order-last), niet in een "
@@ -1030,15 +1057,17 @@ def test_formuliervelden_komen_uit_de_kit():
         if pad.name == "_macros.html":
             continue
         naam = str(pad.relative_to(APP))
-        aantal = sum(1 for tag in HANDGESCHREVEN_CONTROL.findall(pad.read_text())
-                     if "border-gray-300" in tag)
+        aantal = sum(
+            1 for tag in HANDGESCHREVEN_CONTROL.findall(pad.read_text()) if "border-gray-300" in tag
+        )
         toegestaan = CONTROL_ALLOWLIST.get(naam, 0)
         if aantal > toegestaan:
-            fouten.append(f"{naam}: {aantal} handgeschreven controls "
-                          f"(toegestaan: {toegestaan})")
+            fouten.append(f"{naam}: {aantal} handgeschreven controls (toegestaan: {toegestaan})")
         elif aantal < toegestaan:
-            fouten.append(f"{naam}: nog {aantal} van de {toegestaan} — verlaag het "
-                          "getal in CONTROL_ALLOWLIST (of haal de regel weg)")
+            fouten.append(
+                f"{naam}: nog {aantal} van de {toegestaan} — verlaag het "
+                "getal in CONTROL_ALLOWLIST (of haal de regel weg)"
+            )
     assert not fouten, (
         "Gebruik ui.input_control() / ui.select_control() / ui.field_* (#659):\n  "
         + "\n  ".join(fouten)
@@ -1120,13 +1149,14 @@ def test_elk_bewerkformulier_heeft_annuleren_naast_opslaan():
     for pad in TEMPLATES:
         for stuk in vorm.findall(_zonder_commentaar(pad)):
             if '_("Opslaan")' in stuk and '_("Annuleren")' not in stuk:
-                regel = _zonder_commentaar(pad)[:_zonder_commentaar(pad).index(stuk)].count("\n") + 1
+                regel = (
+                    _zonder_commentaar(pad)[: _zonder_commentaar(pad).index(stuk)].count("\n") + 1
+                )
                 fouten.append(f"{pad.relative_to(APP)}:{regel}")
     assert not fouten, (
         "Elk formulier met [Opslaan] hoort ook [Annuleren] te tonen (§2.8). Bij een "
         "toggle-paneel sluit Annuleren het paneel; bij een rij die altijd openstaat "
-        "laadt hij het lijstfragment opnieuw, zodat het typwerk vervalt:\n  "
-        + "\n  ".join(fouten)
+        "laadt hij het lijstfragment opnieuw, zodat het typwerk vervalt:\n  " + "\n  ".join(fouten)
     )
 
 
@@ -1150,8 +1180,9 @@ def test_geen_losse_glyphs_meer_voor_verwijderen_en_bewerken():
             for macro in ("btn_danger", "btn_secondary", "btn_primary", "btn_outline"):
                 if f'{macro}("{glyph}"' in tekst:
                     fouten.append(
-                        f"{pad.relative_to(APP)}: {macro}(\"{glyph}\") — gebruik "
-                        f'lead_icon="{hoort}" met een leeg label')
+                        f'{pad.relative_to(APP)}: {macro}("{glyph}") — gebruik '
+                        f'lead_icon="{hoort}" met een leeg label'
+                    )
     assert not fouten, "Losse glyphs op knoppen (§1.5, #698):\n  " + "\n  ".join(fouten)
 
 
@@ -1164,12 +1195,14 @@ def test_een_symboolknop_krijgt_ook_een_tooltip():
     volgende het niet vergeten.
     """
     macros = (APP / "ui" / "templates" / "_macros.html").read_text(encoding="utf-8")
-    kop = macros[macros.index("{% macro button("):macros.index("{% macro btn_primary(")]
+    kop = macros[macros.index("{% macro button(") : macros.index("{% macro btn_primary(")]
     assert 'title="{{ aria_label }}"' in kop, (
-        "de button-macro zet geen tooltip; dan moet elke symboolknop het zelf doen")
+        "de button-macro zet geen tooltip; dan moet elke symboolknop het zelf doen"
+    )
     assert "{% if not label %}" in kop, (
         "de tooltip hoort alleen op een knop zonder zichtbare tekst — anders "
-        "herhaalt hij wat er al staat")
+        "herhaalt hij wat er al staat"
+    )
 
 
 def test_een_kruisje_betekent_alleen_sluiten():
@@ -1193,14 +1226,18 @@ def test_een_kruisje_betekent_alleen_sluiten():
         tekst = _zonder_commentaar(pad)
         for treffer in knop.finditer(tekst):
             tag = treffer.group(0)
-            if 'aria-label="{{ _("Sluiten") }}"' in tag or "_('Sluiten')" in tag \
-                    or 'aria-label="Sluiten"' in tag:
+            if (
+                'aria-label="{{ _("Sluiten") }}"' in tag
+                or "_('Sluiten')" in tag
+                or 'aria-label="Sluiten"' in tag
+            ):
                 continue
-            regel = tekst[:treffer.start()].count("\n") + 1
+            regel = tekst[: treffer.start()].count("\n") + 1
             fouten.append(f"{pad.relative_to(APP)}:{regel}")
     assert not fouten, (
         "Een × betekent in deze app SLUITEN. Gebruik `ui.icon('trash-2')` voor "
-        "verwijderen (§1.5, #698/#706):\n  " + "\n  ".join(fouten))
+        "verwijderen (§1.5, #698/#706):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_echte_sluitknoppen_blijven_bestaan():
@@ -1214,13 +1251,13 @@ def test_de_echte_sluitknoppen_blijven_bestaan():
     gevonden = 0
     for pad in TEMPLATES:
         tekst = _zonder_commentaar(pad)
-        for treffer in re.finditer(r"<button\b[^>]*>\s*(?:&times;|×)\s*</button>",
-                                   tekst, re.S):
+        for treffer in re.finditer(r"<button\b[^>]*>\s*(?:&times;|×)\s*</button>", tekst, re.S):
             if "Sluiten" in treffer.group(0):
                 gevonden += 1
     assert gevonden >= 4, (
         f"nog maar {gevonden} sluitknoppen met een kruisje; de vorige regel is "
-        "waarschijnlijk te breed toegepast")
+        "waarschijnlijk te breed toegepast"
+    )
 
 
 # Alleen de twee schillen die sinds #714 navigatie out-of-band sturen. Bewust een
@@ -1255,7 +1292,8 @@ def test_de_schil_stuurt_navigatie_alleen_out_of_band_bij_een_boost():
     assert not fouten, (
         "Out-of-band zonder voorwaarde in een schil: htmx haalt dit element uit "
         "élk antwoord, ook uit een volledige pagina die naar `body` geswapt wordt "
-        "(#718). Hang het aan `_oob`:\n  " + "\n  ".join(fouten))
+        "(#718). Hang het aan `_oob`:\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_out_of_band_navigatie_bestaat_nog():
@@ -1266,16 +1304,21 @@ def test_de_out_of_band_navigatie_bestaat_nog():
     navigatie meer, precies de bug die #714 oploste. Beide schillen renderen hun
     navigatie twee keer (breed + mobiel), dus vier in totaal.
     """
-    gevonden = sum(_zonder_commentaar(APP / "ui" / "templates" / schil).count("hx-swap-oob")
-                   for schil in NAV_SCHILLEN)
+    gevonden = sum(
+        _zonder_commentaar(APP / "ui" / "templates" / schil).count("hx-swap-oob")
+        for schil in NAV_SCHILLEN
+    )
     assert gevonden >= 4, (
         f"nog maar {gevonden} out-of-band navigatiecontainers; #714 is "
-        "waarschijnlijk stilletjes teruggedraaid")
+        "waarschijnlijk stilletjes teruggedraaid"
+    )
 
 
 # Een knop-aanroep in een actierij. `row_actions` telt mee: dat is er ook één.
-ACTIEKNOP = re.compile(r'ui\.btn_(?:secondary|primary|danger|ghost)\('
-                       r'|ui\.edit_toggle\(|ui\.row_actions\(')
+ACTIEKNOP = re.compile(
+    r"ui\.btn_(?:secondary|primary|danger|ghost)\("
+    r"|ui\.edit_toggle\(|ui\.row_actions\("
+)
 BEWERKKNOP = re.compile(r'ui\.edit_toggle\(|btn_\w+\(_\("Bewerken"\)')
 VERWIJDERKNOP = re.compile(r'btn_danger\(_\("Verwijderen"\)')
 
@@ -1313,14 +1356,15 @@ def test_bewerken_staat_direct_links_van_verwijderen():
                     if tussen:
                         fouten.append(
                             f"{pad.relative_to(APP)}:{i + 1}→{j + 1}: knop op regel "
-                            + ", ".join(str(t) for t in tussen))
+                            + ", ".join(str(t) for t in tussen)
+                        )
                     break
                 if ACTIEKNOP.search(regels[j]):
                     tussen.append(j + 1)
     assert not fouten, (
         "Tussen Bewerken en Verwijderen hoort niets te staan — anders verschuift "
-        "de onomkeerbare knop mee met de toestand van het scherm (#722):\n  "
-        + "\n  ".join(fouten))
+        "de onomkeerbare knop mee met de toestand van het scherm (#722):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_assets_dragen_een_inhoudsversie():
@@ -1342,7 +1386,8 @@ def test_assets_dragen_een_inhoudsversie():
     for pad in TEMPLATES:
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
             asset = 'src="/static/' in regel or (
-                "stylesheet" in regel and 'href="/static/' in regel)
+                "stylesheet" in regel and 'href="/static/' in regel
+            )
             if asset:
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
     assert not fouten, (
@@ -1372,7 +1417,7 @@ def test_de_hamburger_is_een_icoon_en_geen_teken():
         if "\u2630" in regel
     ]
     assert not fouten, (
-        "Gebruik `ui.icon(\"menu\")` in plaats van het tekstteken; een teken erft "
+        'Gebruik `ui.icon("menu")` in plaats van het tekstteken; een teken erft '
         "dikte en hoogte van het lettertype van het toestel:\n  " + "\n  ".join(fouten)
     )
 
@@ -1428,14 +1473,17 @@ def test_verborgen_beginstand_met_id_staat_ook_in_de_servermarkup():
         tekst = _zonder_commentaar(pad)
         for m in re.finditer(r"<(?:div|form|section|tbody|span|p)\b[^>]*>", tekst, re.S):
             tag = m.group(0)
-            if re.search(r'(?<![-\w])id="', tag) and "x-show=" in tag \
-                    and 'style="display: none"' not in tag:
-                nr = tekst[:m.start()].count("\n") + 1
+            if (
+                re.search(r'(?<![-\w])id="', tag)
+                and "x-show=" in tag
+                and 'style="display: none"' not in tag
+            ):
+                nr = tekst[: m.start()].count("\n") + 1
                 fouten.append(f"{pad.relative_to(APP)}:{nr}")
     assert not fouten, (
         'Element met id én x-show zonder letterlijke style="display: none" — '
-        "htmx' settle wist anders de Alpine-stand na een swap (#726):\n  "
-        + "\n  ".join(fouten))
+        "htmx' settle wist anders de Alpine-stand na een swap (#726):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
@@ -1454,8 +1502,7 @@ def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
     ]
     assert not fouten, (
         "Gebruik `ui.rich_text(...)` in plaats van een losse `<trix-editor>`; zo "
-        "delen alle schermen hetzelfde verborgen veld en dezelfde balk:\n  "
-        + "\n  ".join(fouten)
+        "delen alle schermen hetzelfde verborgen veld en dezelfde balk:\n  " + "\n  ".join(fouten)
     )
     kit = (APP / "ui" / "templates" / "_macros.html").read_text()
     assert "<trix-editor" in kit, "de macro zelf is verdwenen — dan bewaakt deze regel niets"
@@ -1489,13 +1536,16 @@ def _vaste_wachttijden(pad: Path) -> list[tuple[int, str]]:
     import tokenize
 
     bron = pad.read_text(encoding="utf-8")
-    commentaar = {tok.start[0]: tok.string.lstrip("# ").strip()
-                  for tok in tokenize.generate_tokens(io.StringIO(bron).readline)
-                  if tok.type == tokenize.COMMENT}
+    commentaar = {
+        tok.start[0]: tok.string.lstrip("# ").strip()
+        for tok in tokenize.generate_tokens(io.StringIO(bron).readline)
+        if tok.type == tokenize.COMMENT
+    }
     return [
         (node.lineno, commentaar.get(node.lineno, ""))
         for node in ast.walk(ast.parse(bron))
-        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
         and node.func.attr == "wait_for_timeout"
     ]
 
@@ -1520,16 +1570,21 @@ def test_een_e2e_wacht_niet_op_de_klok():
         if zonder_reden:
             fouten += [f"{pad.name}:{nr} — geen reden op de regel" for nr in zonder_reden]
         if len(gevonden) > toegestaan:
-            fouten.append(f"{pad.name}: {len(gevonden)} vaste wachttijden, "
-                          f"{toegestaan} toegestaan in VASTE_WACHTTIJDEN")
+            fouten.append(
+                f"{pad.name}: {len(gevonden)} vaste wachttijden, "
+                f"{toegestaan} toegestaan in VASTE_WACHTTIJDEN"
+            )
         elif len(gevonden) < toegestaan:
-            fouten.append(f"{pad.name}: nog {len(gevonden)} over, de lijst zegt "
-                          f"{toegestaan} — laat VASTE_WACHTTIJDEN mee krimpen")
+            fouten.append(
+                f"{pad.name}: nog {len(gevonden)} over, de lijst zegt "
+                f"{toegestaan} — laat VASTE_WACHTTIJDEN mee krimpen"
+            )
     onbekend = set(VASTE_WACHTTIJDEN) - {p.name for p in bestanden_e2e}
     fouten += [f"{naam}: staat in VASTE_WACHTTIJDEN maar bestaat niet" for naam in onbekend]
     assert not fouten, (
         "Wacht op iets dat gebeurt (`expect(...)`, `htmx_afgerond`, "
-        "`netwerk_bijgewerkt`), niet op de klok:\n  " + "\n  ".join(fouten))
+        "`netwerk_bijgewerkt`), niet op de klok:\n  " + "\n  ".join(fouten)
+    )
 
 
 # Rauwe <textarea>'s buiten de kit, per bestand het aantal en de reden. De lijst
@@ -1537,9 +1592,11 @@ def test_een_e2e_wacht_niet_op_de_klok():
 # `ui.textarea_control` en groeit dan vanzelf mee — een rauwe <textarea> krijgt
 # dat gedrag nooit en holt de standaard stil uit.
 RAUWE_TEXTAREAS: dict[str, tuple[int, str]] = {
-    "domains/newsletter/templates/_nb_import.html":
-        (1, "verborgen payload-drager (hidden aria-hidden) tussen voorbeeld en "
-            "bevestigings-POST — geen invoerveld, dus geen kit-stijl of groei"),
+    "domains/newsletter/templates/_nb_import.html": (
+        1,
+        "verborgen payload-drager (hidden aria-hidden) tussen voorbeeld en "
+        "bevestigings-POST — geen invoerveld, dus geen kit-stijl of groei",
+    ),
 }
 
 
@@ -1561,8 +1618,7 @@ def test_meerregelige_velden_gaan_via_de_kitmacro():
         if rel == "ui/templates/_macros.html":  # de macro rendert hem zelf
             continue
         tekst = _zonder_commentaar(pad)
-        treffers = [tekst[:m.start()].count("\n") + 1
-                    for m in re.finditer(r"<textarea\b", tekst)]
+        treffers = [tekst[: m.start()].count("\n") + 1 for m in re.finditer(r"<textarea\b", tekst)]
         if not treffers:
             continue
         geteld[rel] = len(treffers)
@@ -1570,15 +1626,20 @@ def test_meerregelige_velden_gaan_via_de_kitmacro():
         if len(treffers) > toegestaan:
             fouten += [f"{rel}:{nr}" for nr in treffers[toegestaan:]]
         elif len(treffers) < toegestaan:
-            fouten.append(f"{rel}: nog {len(treffers)} over, de lijst zegt "
-                          f"{toegestaan} — laat RAUWE_TEXTAREAS mee krimpen")
+            fouten.append(
+                f"{rel}: nog {len(treffers)} over, de lijst zegt "
+                f"{toegestaan} — laat RAUWE_TEXTAREAS mee krimpen"
+            )
     for rel in set(RAUWE_TEXTAREAS) - set(geteld):
-        fouten.append(f"{rel}: staat in RAUWE_TEXTAREAS maar heeft geen rauwe "
-                      "<textarea> meer — laat de lijst mee krimpen")
+        fouten.append(
+            f"{rel}: staat in RAUWE_TEXTAREAS maar heeft geen rauwe "
+            "<textarea> meer — laat de lijst mee krimpen"
+        )
     assert not fouten, (
         "Een meerregelig veld gaat via ui.textarea_control (groeit standaard "
         "mee, #1027); een bewuste uitzondering krijgt een reden in "
-        "RAUWE_TEXTAREAS:\n  " + "\n  ".join(fouten))
+        "RAUWE_TEXTAREAS:\n  " + "\n  ".join(fouten)
+    )
 
 
 def _oproepen(tekst: str, naam: str) -> list[tuple[int, str]]:
@@ -1593,7 +1654,7 @@ def _oproepen(tekst: str, naam: str) -> list[tuple[int, str]]:
         while i < len(tekst) and diepte:
             diepte += (tekst[i] == "(") - (tekst[i] == ")")
             i += 1
-        gevonden.append((tekst[:m.start()].count("\n") + 1, tekst[m.end():i - 1]))
+        gevonden.append((tekst[: m.start()].count("\n") + 1, tekst[m.end() : i - 1]))
     return gevonden
 
 
@@ -1615,7 +1676,7 @@ def test_annuleren_gaat_ergens_heen():
     geteld = 0
     for pad in TEMPLATES:
         rel = str(pad.relative_to(APP))
-        if rel == "ui/templates/_macros.html":   # daar wordt de macro gedefinieerd
+        if rel == "ui/templates/_macros.html":  # daar wordt de macro gedefinieerd
             continue
         for regel, argumenten in _oproepen(_zonder_commentaar(pad), "action_bar"):
             geteld += 1
@@ -1623,12 +1684,14 @@ def test_annuleren_gaat_ergens_heen():
                 fouten.append(f"{rel}:{regel}")
     assert geteld >= 10, (
         f"maar {geteld} action_bar-oproepen gevonden — de zoekopdracht mist er, "
-        "een gate die nergens kijkt bewaakt niets")
+        "een gate die nergens kijkt bewaakt niets"
+    )
     assert not fouten, (
         "Annuleren rendert zonder href en zonder handler, dus hij doet niets "
         "(#1089). Geef `cancel_href` mee (eigen pagina: terug naar de "
         "leesweergave) of `cancel_attrs` (htmx-vlak: de hx-get die het vlak "
-        "opnieuw ophaalt):\n  " + "\n  ".join(fouten))
+        "opnieuw ophaalt):\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_een_verwijderknop_kiest_haar_maat():
@@ -1656,10 +1719,12 @@ def test_een_verwijderknop_kiest_haar_maat():
                 fouten.append(f"{rel}:{regel}")
     assert geteld >= 10, (
         f"maar {geteld} btn_danger-oproepen gevonden — de zoekopdracht mist er, "
-        "een gate die nergens kijkt bewaakt niets")
+        "een gate die nergens kijkt bewaakt niets"
+    )
     assert not fouten, (
         "btn_danger zonder size= valt stil terug op md — de #616-fout. Kies de "
-        "maat op de aanroep (sm in een cluster, md erbuiten):\n  " + "\n  ".join(fouten))
+        "maat op de aanroep (sm in een cluster, md erbuiten):\n  " + "\n  ".join(fouten)
+    )
 
 
 # #1091 regel 3 — de bevroren uitzonderingen op "een bewerkvlak bouwt zijn
@@ -1669,24 +1734,23 @@ def test_een_verwijderknop_kiest_haar_maat():
 # #1090 haalde de gebruikersrij, het rapportpaneel, de organisatoren en de
 # optierij van de formulierbouwer eraf; dit is wat er rest.
 HANDGEROLDE_CLUSTERS = {
-    "domains/payment/templates/_betalingen_lijst.html":
-        "bouwt het patroon correct na (Verwijderen apart links, Annuleren, Opslaan, "
-        "alles sm) omdat de rij óók 'Status verversen' en een invoerveld draagt, "
-        "wat action_bar niet kent — bij een volgende wijziging aan de volgorde "
-        "moet dit bestand apart mee",
-    "ui/templates/design_system.html":
-        "de kitpagina demonstreert het rauwe knoppenpaar naast de actiebalk; "
-        "documentatie, geen scherm",
+    "domains/payment/templates/_betalingen_lijst.html": "bouwt het patroon correct na (Verwijderen apart links, Annuleren, Opslaan, "
+    "alles sm) omdat de rij óók 'Status verversen' en een invoerveld draagt, "
+    "wat action_bar niet kent — bij een volgende wijziging aan de volgorde "
+    "moet dit bestand apart mee",
+    "ui/templates/design_system.html": "de kitpagina demonstreert het rauwe knoppenpaar naast de actiebalk; "
+    "documentatie, geen scherm",
 }
 
 
 def _handgerold_cluster(tekst: str) -> bool:
     """Een Opslaan-/Bewaren-knop én een Annuleren-knop die niet uit `action_bar`
     komen — het herkenningspunt van een met de hand gebouwd cluster."""
-    opslaan = any('_("Opslaan")' in arg or '_("Bewaren")' in arg
-                  for _r, arg in _oproepen(tekst, "btn_primary"))
-    annuleren = any('_("Annuleren")' in arg
-                    for _r, arg in _oproepen(tekst, "btn_secondary"))
+    opslaan = any(
+        '_("Opslaan")' in arg or '_("Bewaren")' in arg
+        for _r, arg in _oproepen(tekst, "btn_primary")
+    )
+    annuleren = any('_("Annuleren")' in arg for _r, arg in _oproepen(tekst, "btn_secondary"))
     return opslaan and annuleren
 
 
@@ -1719,7 +1783,8 @@ def test_een_bewerkvlak_bouwt_zijn_cluster_met_action_bar():
     assert not fouten, (
         "Een bewerkvlak bouwt zijn knoppenrij met losse knoppen — gebruik "
         "ui.action_bar (§2.4). Kan dat echt niet, zet het bestand dan mét reden in "
-        "HANDGEROLDE_CLUSTERS:\n  " + "\n  ".join(fouten))
+        "HANDGEROLDE_CLUSTERS:\n  " + "\n  ".join(fouten)
+    )
 
 
 def test_de_uitzonderingslijst_wijst_nergens_dood_heen():
@@ -1741,7 +1806,8 @@ def test_de_uitzonderingslijst_wijst_nergens_dood_heen():
     assert not dood, (
         "Deze uitzonderingen wijzen naar een scherm dat geen handgerold cluster "
         "meer heeft (of niet meer bestaat); haal ze uit HANDGEROLDE_CLUSTERS zodat "
-        "de ratchet niet terug kan:\n  " + "\n  ".join(dood))
+        "de ratchet niet terug kan:\n  " + "\n  ".join(dood)
+    )
 
 
 def test_een_sluittag_draagt_geen_attributen():
@@ -1773,9 +1839,10 @@ def test_een_sluittag_draagt_geen_attributen():
     for pad in TEMPLATES:
         tekst = _zonder_commentaar(pad)
         for m in sluittag_met_attributen.finditer(tekst):
-            regel = tekst[:m.start()].count("\n") + 1
+            regel = tekst[: m.start()].count("\n") + 1
             fouten.append(f"{pad.relative_to(APP)}:{regel}: {m.group(0).strip()}…")
     assert not fouten, (
         "Een sluittag met iets anders dan `>` erachter: de tag is niet afgesloten en "
         "de attributen die volgen, belanden op een sluittag waar ze niets doen "
-        "(#1101):\n  " + "\n  ".join(fouten))
+        "(#1101):\n  " + "\n  ".join(fouten)
+    )

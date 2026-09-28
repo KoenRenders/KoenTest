@@ -8,17 +8,16 @@ place that also passes the tenant.
 it explicitly and both hand it to the engine as a bind value; there is no code
 path here that queries a reporting view without it.
 """
+
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from datetime import date
-import logging
 from typing import Any, Sequence
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-
-logger = logging.getLogger(__name__)
 
 from app.domains.reporting.engine import (
     SYMBOLIC_ME,
@@ -30,13 +29,14 @@ from app.domains.reporting.engine import (
     Selection,
     SelectionError,
     build_query,
-    values_from_fact_sql,
     selection_from_dict,
     selection_to_dict,
+    values_from_fact_sql,
 )
 from app.domains.reporting.models import ExportKind, ExportLog, SavedReport
-from app.domains.reporting.universe import (BY_KEY, FACT_BY_KEY, Fact,
-                                           UniverseObject, physical_view)
+from app.domains.reporting.universe import BY_KEY, FACT_BY_KEY, Fact, UniverseObject, physical_view
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -72,8 +72,9 @@ class Dataset:
     rows: list[list[Any]]
 
 
-def run_selection(db: Session, selection: Selection, *,
-                  tenant_id: int, with_entities: bool = False) -> ReportResult:
+def run_selection(
+    db: Session, selection: Selection, *, tenant_id: int, with_entities: bool = False
+) -> ReportResult:
     """Execute one selection and return its rows plus the totals row.
 
     Two statements, not one: the totals row is the same aggregate over the whole
@@ -94,9 +95,14 @@ def run_selection(db: Session, selection: Selection, *,
 
     # Wat je vraagt is wat je krijgt: er wordt niets meer samengevoegd (zie de
     # uitleg bij de verwijderde drempel in `engine.py`).
-    return ReportResult(columns=plan.columns, rows=rows, totals=totals,
-                        fact=plan.fact, drill_aliases=plan.drill_aliases,
-                        entity_aliases=plan.entity_aliases)
+    return ReportResult(
+        columns=plan.columns,
+        rows=rows,
+        totals=totals,
+        fact=plan.fact,
+        drill_aliases=plan.drill_aliases,
+        entity_aliases=plan.entity_aliases,
+    )
 
 
 def _fact_or_refuse(fact_key: str) -> Fact:
@@ -125,8 +131,7 @@ def fact_columns(db: Session, fact_key: str) -> list[str]:
     return [row[0] for row in result]
 
 
-def load_dataset(db: Session, fact_key: str, *, tenant_id: int,
-                 limit: int = 20000) -> Dataset:
+def load_dataset(db: Session, fact_key: str, *, tenant_id: int, limit: int = 20000) -> Dataset:
     """A whole fact for this tenant, flat — the dataset behind the reports.
 
     Every column of the view, under the view's own names. Those names are the ones
@@ -138,19 +143,17 @@ def load_dataset(db: Session, fact_key: str, *, tenant_id: int,
     columns = fact_columns(db, fact.key)
     if not columns:
         # A fact whose view is gone is a broken deployment, not an empty report.
-        raise SelectionError(
-            f"De weergave reporting.{fact.key} bestaat niet. Draaide de migratie?"
-        )
+        raise SelectionError(f"De weergave reporting.{fact.key} bestaat niet. Draaide de migratie?")
 
     quoted = ", ".join(f'"{c}"' for c in columns)
     order = ", ".join(f'"{c}"' for c in fact.dataset_key) or quoted
-    sql = (f"SELECT {quoted} FROM reporting.{fact.key} "
-           f"WHERE tenant_id = :tenant_id ORDER BY {order} LIMIT :limit")
+    sql = (
+        f"SELECT {quoted} FROM reporting.{fact.key} "
+        f"WHERE tenant_id = :tenant_id ORDER BY {order} LIMIT :limit"
+    )
     result = db.execute(text(sql), {"tenant_id": tenant_id, "limit": limit})
     rows = [list(row) for row in result]
     return Dataset(fact=fact, headers=columns, rows=rows)
-
-
 
 
 # ── The values a dimension can take ──────────────────────────────────────────
@@ -165,8 +168,7 @@ def load_dataset(db: Session, fact_key: str, *, tenant_id: int,
 OFFER_LIMIT = 60
 
 
-def dimension_values(db: Session, object_key: str, *, tenant_id: int,
-                     fact: str = "") -> list[str]:
+def dimension_values(db: Session, object_key: str, *, tenant_id: int, fact: str = "") -> list[str]:
     """The distinct values of one dimension for this tenant, in reading order.
 
     Empty when there are more than `OFFER_LIMIT` of them: that is the signal to
@@ -189,8 +191,7 @@ def dimension_values(db: Session, object_key: str, *, tenant_id: int,
         except SelectionError:
             # Het object hoort niet bij dit feit; dan is er niets te bieden.
             return []
-        rijen = db.execute(text(sql), {"tenant_id": tenant_id,
-                                       "limit": OFFER_LIMIT + 1}).all()
+        rijen = db.execute(text(sql), {"tenant_id": tenant_id, "limit": OFFER_LIMIT + 1}).all()
         if len(rijen) > OFFER_LIMIT:
             return []
         return [str(rij[0]) for rij in rijen]
@@ -201,13 +202,14 @@ def dimension_values(db: Session, object_key: str, *, tenant_id: int,
     expression = obj.sql.format(view=bron)
     # A code list carries its own reading order; anything else sorts on itself.
     order = "2" if _has_column(db, bron, "sort_order") else "1"
-    sort_column = (", MIN(sort_order) AS sort_order"
-                   if _has_column(db, bron, "sort_order") else "")
+    sort_column = ", MIN(sort_order) AS sort_order" if _has_column(db, bron, "sort_order") else ""
     rows = db.execute(
-        text(f"SELECT {expression} AS value{sort_column} "
-             f"FROM reporting.{physical_view(obj.view)} "
-             f"WHERE tenant_id = :tenant_id AND {expression} IS NOT NULL "
-             f"GROUP BY {expression} ORDER BY {order} LIMIT :limit"),
+        text(
+            f"SELECT {expression} AS value{sort_column} "
+            f"FROM reporting.{physical_view(obj.view)} "
+            f"WHERE tenant_id = :tenant_id AND {expression} IS NOT NULL "
+            f"GROUP BY {expression} ORDER BY {order} LIMIT :limit"
+        ),
         {"tenant_id": tenant_id, "limit": OFFER_LIMIT + 1},
     ).all()
     if len(rows) > OFFER_LIMIT:
@@ -216,11 +218,16 @@ def dimension_values(db: Session, object_key: str, *, tenant_id: int,
 
 
 def _has_column(db: Session, view: str, column: str) -> bool:
-    return bool(db.execute(
-        text("SELECT 1 FROM information_schema.columns "
-             "WHERE table_schema = 'reporting' AND table_name = :v "
-             "  AND column_name = :c"),
-        {"v": view, "c": column}).scalar())
+    return bool(
+        db.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'reporting' AND table_name = :v "
+                "  AND column_name = :c"
+            ),
+            {"v": view, "c": column},
+        ).scalar()
+    )
 
 
 # The operators that name a value from the dimension. A range or a search term is
@@ -228,8 +235,7 @@ def _has_column(db: Session, view: str, column: str) -> bool:
 _VALUE_OPERATORS = (Operator.EQ, Operator.NE, Operator.IN)
 
 
-def validate_filter_values(db: Session, selection: Selection, *,
-                           tenant_id: int) -> None:
+def validate_filter_values(db: Session, selection: Selection, *, tenant_id: int) -> None:
     """Refuse a filter value a CLOSED list does not have — before a query runs.
 
     CR-06 §7.5: object keys, filter values and layout are validated against the
@@ -267,15 +273,16 @@ def validate_filter_values(db: Session, selection: Selection, *,
         onbekend = [v for v in flt.values if v not in toegestaan]
         if onbekend:
             raise SelectionError(
-                f"'{onbekend[0]}' is geen waarde van '{obj.name}'. "
-                f"Kies er een uit de lijst."
+                f"'{onbekend[0]}' is geen waarde van '{obj.name}'. Kies er een uit de lijst."
             )
 
 
 # ── Resolving "now" and "me" (#847) ──────────────────────────────────────────
 
-def resolve_selection(selection: Selection, *, today: date | None = None,
-                      viewer: str = "") -> Selection:
+
+def resolve_selection(
+    selection: Selection, *, today: date | None = None, viewer: str = ""
+) -> Selection:
     """Replace every symbolic filter value with what it means right now.
 
     **This is where identity and the clock enter, and nowhere deeper.**
@@ -316,16 +323,22 @@ def resolve_selection(selection: Selection, *, today: date | None = None,
                     continue
                 raise SelectionError(
                     "Dit rapport filtert op de aangemelde gebruiker, en er is er "
-                    "geen. Meld je aan en open het opnieuw.")
+                    "geen. Meld je aan en open het opnieuw."
+                )
             waarden = (viewer,)
         else:  # pragma: no cover - `selection_from_dict` refuses anything else
             raise SelectionError(f"Onbekende relatieve waarde: '{flt.symbolic}'.")
         opgelost.append(Filter(flt.object_key, flt.operator, waarden, flt.symbolic))
 
     return Selection(
-        object_keys=selection.object_keys, filters=tuple(opgelost),
-        sort=selection.sort, limit=selection.limit, offset=selection.offset,
-        layout=selection.layout, pivot_column=selection.pivot_column)
+        object_keys=selection.object_keys,
+        filters=tuple(opgelost),
+        sort=selection.sort,
+        limit=selection.limit,
+        offset=selection.offset,
+        layout=selection.layout,
+        pivot_column=selection.pivot_column,
+    )
 
 
 def is_personal(selection: Selection) -> bool:
@@ -337,18 +350,24 @@ def is_personal(selection: Selection) -> bool:
     return any(f.symbolic == SYMBOLIC_ME for f in selection.filters)
 
 
-def run_validated(db: Session, selection: Selection, *, tenant_id: int,
-                  today: date | None = None, viewer: str = "",
-                  with_entities: bool = False) -> ReportResult:
+def run_validated(
+    db: Session,
+    selection: Selection,
+    *,
+    tenant_id: int,
+    today: date | None = None,
+    viewer: str = "",
+    with_entities: bool = False,
+) -> ReportResult:
     """Resolve, validate, run. The panel's single entry point — and the
     assistant's, which is the point: one path to one number (CR-07 §4.2)."""
     concreet = resolve_selection(selection, today=today, viewer=viewer)
     validate_filter_values(db, concreet, tenant_id=tenant_id)
-    return run_selection(db, concreet, tenant_id=tenant_id,
-                         with_entities=with_entities)
+    return run_selection(db, concreet, tenant_id=tenant_id, with_entities=with_entities)
 
 
 # ── Saved reports (CR-06 §5) ─────────────────────────────────────────────────
+
 
 class SavedReportError(ValueError):
     """A saved report that cannot be saved, with the reason in the message."""
@@ -362,26 +381,33 @@ def _visible(db: Session, tenant_id: int):
     context (a script, a test) and a report list that silently spans tenants is
     exactly the leak CR-06 §7.1 is about.
     """
-    return (db.query(SavedReport)
-            .filter(SavedReport.tenant_id == tenant_id,
-                    SavedReport.deleted_at.is_(None))
-            .execution_options(include_all_tenants=True))
+    return (
+        db.query(SavedReport)
+        .filter(SavedReport.tenant_id == tenant_id, SavedReport.deleted_at.is_(None))
+        .execution_options(include_all_tenants=True)
+    )
 
 
-def list_saved_reports(db: Session, *, tenant_id: int, viewer: str,
-                       q: str = "", owner: str = "all",
-                       shared: str = "all") -> list[SavedReport]:
+def list_saved_reports(
+    db: Session,
+    *,
+    tenant_id: int,
+    viewer: str,
+    q: str = "",
+    owner: str = "all",
+    shared: str = "all",
+) -> list[SavedReport]:
     """The reports this person may open, filtered as the list screen asks.
 
     Sorted by name and then by id: the name is what a board member scans for, and
     the id is the unique tail that keeps the order the same after an edit (#761).
     """
     query = _visible(db, tenant_id).filter(
-        (SavedReport.is_shared.is_(True)) | (SavedReport.owner_email == viewer))
+        (SavedReport.is_shared.is_(True)) | (SavedReport.owner_email == viewer)
+    )
     if q:
         needle = f"%{q.strip()}%"
-        query = query.filter(SavedReport.name.ilike(needle)
-                             | SavedReport.description.ilike(needle))
+        query = query.filter(SavedReport.name.ilike(needle) | SavedReport.description.ilike(needle))
     if owner == "mine":
         query = query.filter(SavedReport.owner_email == viewer)
     elif owner == "builtin":
@@ -393,8 +419,9 @@ def list_saved_reports(db: Session, *, tenant_id: int, viewer: str,
     return query.order_by(SavedReport.name, SavedReport.id).all()
 
 
-def get_saved_report(db: Session, report_id: int, *, tenant_id: int,
-                     viewer: str) -> SavedReport | None:
+def get_saved_report(
+    db: Session, report_id: int, *, tenant_id: int, viewer: str
+) -> SavedReport | None:
     """One report, or None — including when it belongs to another tenant.
 
     None and not a refusal: the route turns it into a 404, and a 404 is the right
@@ -408,8 +435,7 @@ def get_saved_report(db: Session, report_id: int, *, tenant_id: int,
     return report
 
 
-def _check_name(db: Session, name: str, *, tenant_id: int,
-                exclude_id: int | None = None) -> str:
+def _check_name(db: Session, name: str, *, tenant_id: int, exclude_id: int | None = None) -> str:
     schoon = (name or "").strip()
     if not schoon:
         raise SavedReportError("Geef het rapport een naam.")
@@ -423,15 +449,24 @@ def _check_name(db: Session, name: str, *, tenant_id: int,
     return schoon
 
 
-def save_report(db: Session, *, tenant_id: int, owner: str, name: str,
-                selection: Selection, description: str = "",
-                is_shared: bool = True) -> SavedReport:
+def save_report(
+    db: Session,
+    *,
+    tenant_id: int,
+    owner: str,
+    name: str,
+    selection: Selection,
+    description: str = "",
+    is_shared: bool = True,
+) -> SavedReport:
     """Store a new report. Commits — the transaction boundary lives here (#635)."""
     schoon = _check_name(db, name, tenant_id=tenant_id)
     report = SavedReport(
-        tenant_id=tenant_id, name=schoon,
+        tenant_id=tenant_id,
+        name=schoon,
         description=(description or "").strip() or None,
-        owner_email=owner, selection=selection_to_dict(selection),
+        owner_email=owner,
+        selection=selection_to_dict(selection),
         is_shared=is_shared,
     )
     db.add(report)
@@ -439,9 +474,16 @@ def save_report(db: Session, *, tenant_id: int, owner: str, name: str,
     return report
 
 
-def update_report(db: Session, report: SavedReport, *, editor: str, name: str,
-                  selection: Selection, description: str = "",
-                  is_shared: bool = True) -> SavedReport:
+def update_report(
+    db: Session,
+    report: SavedReport,
+    *,
+    editor: str,
+    name: str,
+    selection: Selection,
+    description: str = "",
+    is_shared: bool = True,
+) -> SavedReport:
     """Change an existing report. Only its owner may — a shipped report has none.
 
     A report without an owner (one of the seven that ship with the release) is
@@ -451,10 +493,9 @@ def update_report(db: Session, report: SavedReport, *, editor: str, name: str,
     """
     if report.owner_email is not None and report.owner_email != editor:
         raise SavedReportError(
-            "Dit rapport is van iemand anders. Gebruik 'Kopiëren' om je eigen "
-            "versie te maken.")
-    report.name = _check_name(db, name, tenant_id=report.tenant_id,
-                              exclude_id=report.id)
+            "Dit rapport is van iemand anders. Gebruik 'Kopiëren' om je eigen versie te maken."
+        )
+    report.name = _check_name(db, name, tenant_id=report.tenant_id, exclude_id=report.id)
     report.description = (description or "").strip() or None
     report.selection = selection_to_dict(selection)
     report.is_shared = is_shared
@@ -463,7 +504,7 @@ def update_report(db: Session, report: SavedReport, *, editor: str, name: str,
 
 
 def copy_report(db: Session, report: SavedReport, *, owner: str) -> SavedReport:
-    """"Kopiëren": your own copy, which never touches the original.
+    """ "Kopiëren": your own copy, which never touches the original.
 
     The copy is private by default. Sharing is a decision, and copying something
     to try it out is not the moment to make it for somebody.
@@ -474,8 +515,12 @@ def copy_report(db: Session, report: SavedReport, *, owner: str) -> SavedReport:
         naam = f"{report.name} (kopie {nummer})"
         nummer += 1
     kopie = SavedReport(
-        tenant_id=report.tenant_id, name=naam[:120], description=report.description,
-        owner_email=owner, selection=report.selection, is_shared=False,
+        tenant_id=report.tenant_id,
+        name=naam[:120],
+        description=report.description,
+        owner_email=owner,
+        selection=report.selection,
+        is_shared=False,
     )
     db.add(kopie)
     db.commit()
@@ -504,8 +549,8 @@ def delete_report(db: Session, report: SavedReport, *, actor: str) -> None:
     tegel = dashboard_tile_of(report)
     if tegel is not None:
         raise SavedReportError(
-            f"Dit rapport voedt de dashboardtegel «{tegel}» en kan niet verwijderd "
-            "worden.")
+            f"Dit rapport voedt de dashboardtegel «{tegel}» en kan niet verwijderd worden."
+        )
     soft_delete(report)
     db.commit()
 
@@ -518,8 +563,7 @@ def mark_run(db: Session, report: SavedReport) -> None:
     db.commit()
 
 
-def selection_of(report: SavedReport, *, limit: int = 200,
-                 offset: int = 0) -> Selection:
+def selection_of(report: SavedReport, *, limit: int = 200, offset: int = 0) -> Selection:
     """The stored selection, validated against today's universe.
 
     A report that references an object which no longer exists fails here with that
@@ -541,19 +585,35 @@ def classes_of(report: SavedReport) -> list[str]:
 
 # ── The export trail (CR-06 §7.6) ────────────────────────────────────────────
 
-def log_export(db: Session, *, tenant_id: int, actor: str | None, kind: ExportKind,
-               subject: str, row_count: int, filters: object = None,
-               saved_report_id: int | None = None) -> None:
+
+def log_export(
+    db: Session,
+    *,
+    tenant_id: int,
+    actor: str | None,
+    kind: ExportKind,
+    subject: str,
+    row_count: int,
+    filters: object = None,
+    saved_report_id: int | None = None,
+) -> None:
     """One row per export: who took what out, with which filters, how many rows.
 
     Commits on its own. An export that succeeded and a trail that did not is the
     one outcome this must never produce, and the export itself writes nothing
     else, so there is no transaction to join.
     """
-    db.add(ExportLog(
-        tenant_id=tenant_id, actor=actor, kind=kind, subject=subject[:200],
-        row_count=row_count, filters=filters, saved_report_id=saved_report_id,
-    ))
+    db.add(
+        ExportLog(
+            tenant_id=tenant_id,
+            actor=actor,
+            kind=kind,
+            subject=subject[:200],
+            row_count=row_count,
+            filters=filters,
+            saved_report_id=saved_report_id,
+        )
+    )
     db.commit()
 
 
@@ -577,18 +637,30 @@ class TileNumber:
 # "Leden" counted no members. `geld=True` on the last: that tile shows an
 # amount, through the house money formatter (§735).
 DASHBOARD_TEGELS: list[tuple[str, str, str, str, bool]] = [
-    ("Gezinnen", "dashboard_members", "member_total_count",
-     "/admin/leden", False),
-    ("Actieve gezinnen", "dashboard_active_members", "membership_active_count",
-     "/admin/leden", False),
-    ("Personen (actief lid)", "dashboard_member_persons", "membership_person_unique",
-     "/admin/leden", False),
-    ("Komende activiteiten", "dashboard_upcoming_activities", "activity_count",
-     "/admin/activiteiten", False),
-    ("Open taken (werkbank)", "dashboard_open_tasks", "task_count",
-     "/admin/werkbank", False),
-    ("Openstaand saldo", "dashboard_outstanding", "payment_amount",
-     "/admin/betalingen", True),
+    ("Gezinnen", "dashboard_members", "member_total_count", "/admin/leden", False),
+    (
+        "Actieve gezinnen",
+        "dashboard_active_members",
+        "membership_active_count",
+        "/admin/leden",
+        False,
+    ),
+    (
+        "Personen (actief lid)",
+        "dashboard_member_persons",
+        "membership_person_unique",
+        "/admin/leden",
+        False,
+    ),
+    (
+        "Komende activiteiten",
+        "dashboard_upcoming_activities",
+        "activity_count",
+        "/admin/activiteiten",
+        False,
+    ),
+    ("Open taken (werkbank)", "dashboard_open_tasks", "task_count", "/admin/werkbank", False),
+    ("Openstaand saldo", "dashboard_outstanding", "payment_amount", "/admin/betalingen", True),
 ]
 
 
@@ -613,9 +685,14 @@ def may_delete(report: SavedReport, *, actor: str) -> bool:
     return dashboard_tile_of(report) is None
 
 
-def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
-                      tenant_id: int, viewer: str = "",
-                      today: date | None = None) -> dict[str, TileNumber]:
+def dashboard_numbers(
+    db: Session,
+    wanted: Sequence[tuple[str, str]],
+    *,
+    tenant_id: int,
+    viewer: str = "",
+    today: date | None = None,
+) -> dict[str, TileNumber]:
     """Run one shipped report per tile and return its single number (#848).
 
     The dashboard is a **consumer** of reporting now, not a second implementation.
@@ -628,9 +705,11 @@ def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
     The failure is logged, and the tile shows a dash, which is visibly different
     from a zero.
     """
-    reports = {r.builtin_key: r for r in
-               list_saved_reports(db, tenant_id=tenant_id, viewer=viewer)
-               if r.builtin_key}
+    reports = {
+        r.builtin_key: r
+        for r in list_saved_reports(db, tenant_id=tenant_id, viewer=viewer)
+        if r.builtin_key
+    }
 
     uitkomst: dict[str, TileNumber] = {}
     for sleutel, maat in wanted:
@@ -643,9 +722,9 @@ def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
             # Golf 7 (#913, B3): één peilmoment voor álle tegels. Zonder deze
             # doorlus loste elke tegel "vandaag" apart op, en rond middernacht
             # konden zes tegels elkaar tegenspreken.
-            resultaat = run_validated(db, selection_of(rapport),
-                                      tenant_id=tenant_id, viewer=viewer,
-                                      today=today)
+            resultaat = run_validated(
+                db, selection_of(rapport), tenant_id=tenant_id, viewer=viewer, today=today
+            )
             waarde = resultaat.rows[0].get(maat) if resultaat.rows else None
         except SelectionError as exc:
             logger.warning("dashboard tile %s could not run: %s", sleutel, exc)

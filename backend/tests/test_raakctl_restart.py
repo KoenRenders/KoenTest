@@ -18,6 +18,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `compose "$env
 build` toegevoegd aan `cmd_restart` → de vangrailtest valt om met die regel erbij;
 het `--confirm`-blok weggehaald → de UAT-test valt om.
 """
+
 import os
 import subprocess
 from pathlib import Path
@@ -53,8 +54,9 @@ def _omgeving(tmp_path):
 
 def _draai(tmp_path, *args):
     env, spoor = _omgeving(tmp_path)
-    klaar = subprocess.run(["bash", str(RAAKCTL), *args], env=env,
-                           capture_output=True, text=True, timeout=60)
+    klaar = subprocess.run(
+        ["bash", str(RAAKCTL), *args], env=env, capture_output=True, text=True, timeout=60
+    )
     return klaar, (spoor.read_text() if spoor.exists() else "")
 
 
@@ -66,7 +68,8 @@ def test_restart_stopt_en_start_zonder_te_bouwen(tmp_path):
     assert "up -d" in aanroepen, "de stack is niet opnieuw gestart"
     for verboden in (" build", " pull", "git "):
         assert verboden not in aanroepen, (
-            f"restart voerde '{verboden.strip()}' uit — dat hoort bij deploy:\n{aanroepen}")
+            f"restart voerde '{verboden.strip()}' uit — dat hoort bij deploy:\n{aanroepen}"
+        )
 
 
 def test_restart_kan_een_enkele_service(tmp_path):
@@ -93,10 +96,12 @@ def test_uat_vraagt_een_bevestiging(tmp_path):
 def test_de_hulptekst_noemt_het_verschil_met_deploy(tmp_path):
     """Daar zit de verwarring, dus daar hoort het antwoord te staan."""
     env, _spoor = _omgeving(tmp_path)
-    klaar = subprocess.run(["bash", str(RAAKCTL), "help"], env=env,
-                           capture_output=True, text=True, timeout=60)
+    klaar = subprocess.run(
+        ["bash", str(RAAKCTL), "help"], env=env, capture_output=True, text=True, timeout=60
+    )
     hulp = klaar.stdout + klaar.stderr
 
     assert "restart" in hulp, "het verb staat niet in de hulp"
     assert "no git, no build" in hulp, (
-        "de hulp zegt niet dat restart geen deploy is — precies de verwarring")
+        "de hulp zegt niet dat restart geen deploy is — precies de verwarring"
+    )

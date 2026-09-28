@@ -3,28 +3,33 @@ uit het saldo) en refund-correctie. Geldkritisch: elke actie moet het netto-
 ontvangen bedrag correct beïnvloeden en een history-snapshot laten.
 """
 
-
 from decimal import Decimal
 
 import pytest
 
 from app.domains.payment.api import (
-    PaymentRecord, PaymentRecordHistory,
-    create_refund, net_paid, set_payment_status, void_payment_record,
+    PaymentRecord,
+    PaymentRecordHistory,
+    PaymentStatus,
+    create_refund,
+    net_paid,
+    set_payment_status,
+    void_payment_record,
 )
 from tests._invarianten import assert_saldo_klopt
-from app.domains.payment.api import PaymentStatus
-
 
 pytestmark = pytest.mark.ui_agnostisch
 
 
 def _seed_charge(db, *, payable_id=1, amount="18.00", amount_paid="18.00", status="paid"):
     charge = PaymentRecord(
-        payable_type="registration", payable_id=payable_id,
+        payable_type="registration",
+        payable_id=payable_id,
         amount=Decimal(amount),
         amount_paid=Decimal(amount_paid) if amount_paid is not None else None,
-        method="transfer", status=status, type="charge",
+        method="transfer",
+        status=status,
+        type="charge",
     )
     db.add(charge)
     db.flush()
@@ -32,8 +37,11 @@ def _seed_charge(db, *, payable_id=1, amount="18.00", amount_paid="18.00", statu
 
 
 def _history(db, record_id):
-    return db.query(PaymentRecordHistory).filter(
-        PaymentRecordHistory.payment_record_id == record_id).all()
+    return (
+        db.query(PaymentRecordHistory)
+        .filter(PaymentRecordHistory.payment_record_id == record_id)
+        .all()
+    )
 
 
 def test_set_status_to_pending_clears_paid_and_stops_counting(db_session):

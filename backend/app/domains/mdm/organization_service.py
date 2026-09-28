@@ -23,13 +23,14 @@ tweede btw-nummer past in het model en niet in dit formulier. Staat er toch een
 tweede, dan bewerkt dit de EERSTE (op `sort_order`, dan `id`) en laat het de rest
 ongemoeid — nooit stilzwijgend overschrijven of verwijderen.
 """
+
 from __future__ import annotations
 
 from typing import Mapping
 
-from app.i18n import _
-from app.domains.mdm.tenant_service import OngeldigeInstelling
 from app.domains.mdm.codes import CONTACT
+from app.domains.mdm.tenant_service import OngeldigeInstelling
+from app.i18n import _
 from app.kernel.codes import Code, code_of
 
 # #924: wat de organisatie IS, tegenover wat de site instelt. Twee assen, dus twee
@@ -89,12 +90,17 @@ ALLE_ORGANISATIEVELDEN: tuple[str, ...] = (
 def _organisatie(db, organization_id: int):
     from app.domains.mdm.models import Organization
 
-    return (db.query(Organization).filter(Organization.id == organization_id)
-            .execution_options(include_all_tenants=True).one_or_none())
+    return (
+        db.query(Organization)
+        .filter(Organization.id == organization_id)
+        .execution_options(include_all_tenants=True)
+        .one_or_none()
+    )
 
 
-def _zet_lijstrij(db, model, filters: dict, kolom: str, waarde: str | None,
-                  standaard: dict | None = None) -> None:
+def _zet_lijstrij(
+    db, model, filters: dict, kolom: str, waarde: str | None, standaard: dict | None = None
+) -> None:
     """Eén rij per soort: schrijf, maak aan, of verwijder als de waarde leeg is.
 
     De drie lijsten van #945 worden vandaag met één rij per soort bewerkt. Leeg
@@ -102,9 +108,13 @@ def _zet_lijstrij(db, model, filters: dict, kolom: str, waarde: str | None,
     lege waarde is een derde toestand die nergens iets betekent en die een
     volgende lezer als "ingevuld" telt.
     """
-    rij = (db.query(model).filter_by(**filters)
-           .filter(model.deleted_at.is_(None))
-           .execution_options(include_all_tenants=True).first())
+    rij = (
+        db.query(model)
+        .filter_by(**filters)
+        .filter(model.deleted_at.is_(None))
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
     if not waarde:
         if rij is not None:
             db.delete(rij)
@@ -154,8 +164,7 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     Het formulier is hetzelfde gebleven — één invoer per soort — maar het schrijft
     nu rijen. Een lege waarde wist de rij; zie :func:`_zet_lijstrij`.
     """
-    from app.domains.mdm.models import (ContactDetail, LegalForm,
-                                        OrganizationIdentification)
+    from app.domains.mdm.models import ContactDetail, LegalForm, OrganizationIdentification
 
     rij = _organisatie(db, organization_id)
     if rij is None:
@@ -168,9 +177,14 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
     if "name" in form:
         naam = (form.get("name") or "").strip()
         if not naam:
-            raise OngeldigeInstelling({"name": _(
-                "De naam van de organisatie mag niet leeg zijn: hij staat in de "
-                "paginatitel, de afzender van je mails en de footer.")})
+            raise OngeldigeInstelling(
+                {
+                    "name": _(
+                        "De naam van de organisatie mag niet leeg zijn: hij staat in de "
+                        "paginatitel, de afzender van je mails en de footer."
+                    )
+                }
+            )
         rij.name = naam
 
     geldig = {vorm.value for vorm in LegalForm}
@@ -185,23 +199,29 @@ def _write_organization_details(db, organization_id: int, form: Mapping) -> None
         if veld not in form:
             continue
         _zet_lijstrij(
-            db, ContactDetail,
+            db,
+            ContactDetail,
             {"organization_id": organization_id, "contact_type_code": code},
-            "value", (form.get(veld) or "").strip() or None,
+            "value",
+            (form.get(veld) or "").strip() or None,
             # De KOLOM heet `tenant_id` en draagt hier de eigenaar, niet de scope
             # — zie de docstring van `ContactDetail`. (Bij het verplaatsen van deze
             # module hernoemde een blinde zoek-en-vervang ook deze sleutel; de
             # tests vielen er meteen over, wat precies is waar ze voor zijn.)
-            standaard={"tenant_id": organization_id, "person_id": None})
+            standaard={"tenant_id": organization_id, "person_id": None},
+        )
 
     for veld, schema in IDENTIFICATIEVELDEN:
         if veld not in form:
             continue
         _zet_lijstrij(
-            db, OrganizationIdentification,
+            db,
+            OrganizationIdentification,
             {"organization_id": organization_id, "scheme": schema},
-            "value", (form.get(veld) or "").strip() or None,
-            standaard={"country": "BE"})
+            "value",
+            (form.get(veld) or "").strip() or None,
+            standaard={"country": "BE"},
+        )
 
     _bewaar_rekening(db, organization_id, form)
 
@@ -218,14 +238,18 @@ def _bewaar_rekening(db, organization_id: int, form: Mapping) -> None:
 
     if not any(veld in form for veld, _ in REKENINGVELDEN):
         return
-    rekening = (db.query(BankAccount)
-                .filter(BankAccount.organization_id == organization_id,
-                        BankAccount.deleted_at.is_(None))
-                .order_by(BankAccount.sort_order, BankAccount.id)
-                .execution_options(include_all_tenants=True).first())
-    waarden = {kolom: ((form.get(veld) or "").strip() or None)
-               for veld, kolom in REKENINGVELDEN
-               if veld in form}
+    rekening = (
+        db.query(BankAccount)
+        .filter(BankAccount.organization_id == organization_id, BankAccount.deleted_at.is_(None))
+        .order_by(BankAccount.sort_order, BankAccount.id)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
+    waarden = {
+        kolom: ((form.get(veld) or "").strip() or None)
+        for veld, kolom in REKENINGVELDEN
+        if veld in form
+    }
     iban = waarden.get("iban", rekening.iban if rekening else None)
     if not iban:
         if rekening is not None:
@@ -247,8 +271,7 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     ziet nog altijd één plat woordenboek — het scherm hoeft niet te weten welke
     tabel welk veld draagt.
     """
-    from app.domains.mdm.models import (BankAccount, ContactDetail,
-                                        OrganizationIdentification)
+    from app.domains.mdm.models import BankAccount, ContactDetail, OrganizationIdentification
 
     leeg = {key: "" for key in ALLE_ORGANISATIEVELDEN}
     rij = _organisatie(db, organization_id)
@@ -261,32 +284,45 @@ def organization_details(db, organization_id: int) -> dict[str, str]:
     # code and the template compares it with the selected value.
     uit["legal_form"] = code_of(rij.legal_form) or ""
 
-    contacten = {c.contact_type_code: c.value for c in
-                 db.query(ContactDetail)
-                 .filter(ContactDetail.organization_id == organization_id,
-                         ContactDetail.deleted_at.is_(None))
-                 .execution_options(include_all_tenants=True).all()}
+    contacten = {
+        c.contact_type_code: c.value
+        for c in db.query(ContactDetail)
+        .filter(
+            ContactDetail.organization_id == organization_id, ContactDetail.deleted_at.is_(None)
+        )
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
     for veld, code in CONTACTVELDEN:
         uit[veld] = contacten.get(code) or ""
 
-    nummers = {i.scheme: i.value for i in
-               db.query(OrganizationIdentification)
-               .filter(OrganizationIdentification.organization_id == organization_id,
-                       OrganizationIdentification.deleted_at.is_(None))
-               .execution_options(include_all_tenants=True).all()}
+    nummers = {
+        i.scheme: i.value
+        for i in db.query(OrganizationIdentification)
+        .filter(
+            OrganizationIdentification.organization_id == organization_id,
+            OrganizationIdentification.deleted_at.is_(None),
+        )
+        .execution_options(include_all_tenants=True)
+        .all()
+    }
     for veld, schema in IDENTIFICATIEVELDEN:
         uit[veld] = nummers.get(schema) or ""
 
-    rekening = (db.query(BankAccount)
-                .filter(BankAccount.organization_id == organization_id,
-                        BankAccount.deleted_at.is_(None))
-                .order_by(BankAccount.sort_order, BankAccount.id)
-                .execution_options(include_all_tenants=True).first())
+    rekening = (
+        db.query(BankAccount)
+        .filter(BankAccount.organization_id == organization_id, BankAccount.deleted_at.is_(None))
+        .order_by(BankAccount.sort_order, BankAccount.id)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
     for veld, kolom in REKENINGVELDEN:
         uit[veld] = (getattr(rekening, kolom, None) or "") if rekening else ""
     return uit
 
+
 # ── De organisaties zelf, en de codelijsten eromheen (#971) ──────────────────
+
 
 def organization_options(db) -> list[dict]:
     """Élke organisatie, ook die geen tenant is.
@@ -302,15 +338,26 @@ def organization_options(db) -> list[dict]:
     """
     from app.domains.mdm.models import Organization
 
-    rijen = (db.query(Organization)
-             .filter(Organization.deleted_at.is_(None))
-             .order_by(Organization.org_type, Organization.name)
-             .execution_options(include_all_tenants=True).all())
-    return [{"id": r.id, "code": r.code, "name": r.name,
-             # The code, not the member: these are plain dicts for a screen,
-             # and a member equals no string it is compared with (CR-12 phase 2).
-             "org_type": code_of(r.org_type), "is_active": r.is_active,
-             "legal_form": r.legal_form or ""} for r in rijen]
+    rijen = (
+        db.query(Organization)
+        .filter(Organization.deleted_at.is_(None))
+        .order_by(Organization.org_type, Organization.name)
+        .execution_options(include_all_tenants=True)
+        .all()
+    )
+    return [
+        {
+            "id": r.id,
+            "code": r.code,
+            "name": r.name,
+            # The code, not the member: these are plain dicts for a screen,
+            # and a member equals no string it is compared with (CR-12 phase 2).
+            "org_type": code_of(r.org_type),
+            "is_active": r.is_active,
+            "legal_form": r.legal_form or "",
+        }
+        for r in rijen
+    ]
 
 
 def legal_form_options(db, taal: str = "nl") -> list[tuple[str, str]]:
@@ -344,6 +391,7 @@ def legal_form_options(db, taal: str = "nl") -> list[tuple[str, str]]:
 # een vastgelegde UI-beslissing (CLAUDE.md) en geen keuze die hier opnieuw gemaakt
 # wordt.
 
+
 def organization_address(db, organization_id: int) -> dict[str, str]:
     """Het eerste adres van deze organisatie, als platte waarden.
 
@@ -353,16 +401,21 @@ def organization_address(db, organization_id: int) -> dict[str, str]:
     from app.domains.mdm.models import Address
 
     leeg = {"street": "", "house_number": "", "bus_number": "", "postal_code": ""}
-    rij = (db.query(Address)
-           .filter(Address.organization_id == organization_id,
-                   Address.deleted_at.is_(None))
-           .order_by(Address.id)
-           .execution_options(include_all_tenants=True).first())
+    rij = (
+        db.query(Address)
+        .filter(Address.organization_id == organization_id, Address.deleted_at.is_(None))
+        .order_by(Address.id)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
     if rij is None:
         return leeg
-    return {"street": rij.street or "", "house_number": rij.house_number or "",
-            "bus_number": rij.bus_number or "",
-            "postal_code": rij.postal_code.postal_code if rij.postal_code else ""}
+    return {
+        "street": rij.street or "",
+        "house_number": rij.house_number or "",
+        "bus_number": rij.bus_number or "",
+        "postal_code": rij.postal_code.postal_code if rij.postal_code else "",
+    }
 
 
 def update_organization_address(db, organization_id: int, form: Mapping) -> None:
@@ -383,11 +436,13 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
     bus = (form.get("bus_number") or "").strip()
     postcode = (form.get("postal_code") or "").strip()
 
-    rij = (db.query(Address)
-           .filter(Address.organization_id == organization_id,
-                   Address.deleted_at.is_(None))
-           .order_by(Address.id)
-           .execution_options(include_all_tenants=True).first())
+    rij = (
+        db.query(Address)
+        .filter(Address.organization_id == organization_id, Address.deleted_at.is_(None))
+        .order_by(Address.id)
+        .execution_options(include_all_tenants=True)
+        .first()
+    )
 
     if not straat and not nummer:
         if rij is not None:
@@ -400,8 +455,11 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
         fouten["street"] = _("Vul een straat in.")
     if not nummer:
         fouten["house_number"] = _("Vul een huisnummer in.")
-    pc = (db.query(PostalCode).filter(PostalCode.postal_code == postcode).first()
-          if postcode else None)
+    pc = (
+        db.query(PostalCode).filter(PostalCode.postal_code == postcode).first()
+        if postcode
+        else None
+    )
     if pc is None:
         fouten["postal_code"] = _("Kies een postcode uit de lijst.")
     if fouten or pc is None:
@@ -412,10 +470,13 @@ def update_organization_address(db, organization_id: int, form: Mapping) -> None
         raise OngeldigeInstelling(fouten)
 
     if rij is None:
-        rij = Address(organization_id=organization_id, person_id=None,
-                      # `tenant_id` is hier de eigenaar en niet de scope — zie de
-                      # moduledocstring en die van `ContactDetail`.
-                      tenant_id=organization_id)
+        rij = Address(
+            organization_id=organization_id,
+            person_id=None,
+            # `tenant_id` is hier de eigenaar en niet de scope — zie de
+            # moduledocstring en die van `ContactDetail`.
+            tenant_id=organization_id,
+        )
         db.add(rij)
     rij.street = straat
     rij.house_number = nummer

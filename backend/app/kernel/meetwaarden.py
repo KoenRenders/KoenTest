@@ -23,6 +23,7 @@ Geen domeinkennis: de soort komt binnen als tekst, niet als de enum van de
 rapportagelaag. Zo mag de UI-kit deze functie gebruiken zonder de universe te
 kennen.
 """
+
 from decimal import Decimal, InvalidOperation
 
 from app.kernel.geld import bedrag

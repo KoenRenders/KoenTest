@@ -4,12 +4,16 @@ Activiteiten, onderdelen, producten en registraties (3-level, alle
 reg_form_types). De totaalberekening (`compute_registration_total`) leeft
 uitsluitend hier — server-side, één plek (§19.3).
 """
+
 # Volgorde bewust: eerst de modellen binden, dan pas de services — zo kan een
 # component dat middenin deze import (indirect) terugverwijst de modelnamen al
 # vinden (zelfde patroon als payment.api).
 from app.domains.activities.codes import (  # noqa: F401
-    INDIVIDUAL, REGISTRATION_STATE, REGISTRATION_TYPE,
+    INDIVIDUAL,
+    REGISTRATION_STATE,
+    REGISTRATION_TYPE,
 )
+from app.domains.activities.export import build_component_export_ods  # noqa: F401
 from app.domains.activities.models import (  # noqa: F401
     Activity,
     ActivityDate,
@@ -20,13 +24,67 @@ from app.domains.activities.models import (  # noqa: F401
     ComponentHistory,
     ProductHistory,
     Registration,
-    RegistrationItem,
     RegistrationHistory,
+    RegistrationItem,
     RegistrationItemHistory,
 )
+from app.domains.activities.registration_form import (  # noqa: F401
+    Channel,
+    Outcome,
+    OutcomeKind,
+    board_channel,
+    contact_refusal,
+    form_context,
+    form_quantities,
+    is_member,
+    opening_quantity,
+    public_channel,
+    submit,
+    total_context,
+)
+from app.domains.activities.service import (  # noqa: F401
+    INSCHRIJVING_SORT_VELDEN,
+    MAX_ORGANISERS,
+    ActivityOption,
+    ActivitySpan,
+    OrganiserView,
+    RegistrationState,
+    activities_active_between,
+    activities_from,
+    activity_by_key,
+    activity_options,
+    add_organiser,
+    board_notes,
+    booked_per_component,
+    check_publicly_bookable,
+    get_activity,
+    get_component,
+    get_registration,
+    inschrijving_kop_ctx,
+    inschrijving_tabs,
+    organisers_for,
+    publicly_bookable_products,
+    record_kop_ctx,
+    record_tabs,
+    registration_contact_names,
+    registration_count_for,
+    registration_counts,
+    registration_ids_for,
+    registration_refusal,
+    registration_state,
+    registrations_for,
+    registrations_without_component_count,
+    remove_organiser,
+    slug_is_vrij,
+    slugify,
+    sorteer_inschrijvingen,
+    update_organiser,
+)
 from app.domains.activities.totals import (  # noqa: F401
-    compute_registration_total, quote_lines, quote_registration)
-
+    compute_registration_total,
+    quote_lines,
+    quote_registration,
+)
 
 # ── Facade-doorgangen naar de registratieflow ────────────────────────────────
 # De implementatie van deze drie blijft in `router.py`. Dat is een bewuste keuze:
@@ -35,6 +93,7 @@ from app.domains.activities.totals import (  # noqa: F401
 # domeinbewerking aan. Wat wél moest veranderen is de weg ernaartoe: een
 # UI-module importeert uit een domein enkel `api.py`, nooit rechtstreeks de
 # router. Vandaar deze doorgangen, met `db` vooraan zoals elders in de service.
+
 
 def list_activities(db, scope: str = "upcoming"):
     """Publieke activiteitenlijst (upcoming/archived/all) — facade-doorgang
@@ -91,8 +150,7 @@ def enrich_registration(registration, activity):
     return _impl(registration, activity)
 
 
-def move_within(db, siblings, item_id: int, richting: str,
-                attr: str = "sort_order") -> None:
+def move_within(db, siblings, item_id: int, richting: str, attr: str = "sort_order") -> None:
     """Herorden broers/zussen en leg het vast.
 
     De kernel-helper commit bewust niet (hij weet niets van transacties); dat
@@ -112,18 +170,17 @@ def public_registrations(db, activity_id: int, component_id: int):
     return _impl(activity_id, component_id=component_id, db=db)
 
 
-def register_for_activity(db, activity_id: int, data, background_tasks,
-                          current_member=None):
+def register_for_activity(db, activity_id: int, data, background_tasks, current_member=None):
     """De inschrijfflow: volzet-controle, regelitems, totaal, betaalrecord en
     bevestigingsmail. Eén domeinbewerking; het scherm vult alleen het formulier in."""
     from app.domains.activities.router import register_for_activity as _impl
 
-    return _impl(activity_id, data, background_tasks, db=db,
-                 current_member=current_member)
+    return _impl(activity_id, data, background_tasks, db=db, current_member=current_member)
 
 
-def board_register_for_activity(db, activity_id: int, data, background_tasks, *,
-                                actor: str, person_id: int | None):
+def board_register_for_activity(
+    db, activity_id: int, data, background_tasks, *, actor: str, person_id: int | None
+):
     """The board adds a registration for somebody else (#1192, #1284).
 
     The same implementation as the public way (`router.create_registration`).
@@ -135,88 +192,86 @@ def board_register_for_activity(db, activity_id: int, data, background_tasks, *,
     """
     from app.domains.activities.router import create_registration
 
-    return create_registration(db, activity_id, data, background_tasks,
-                               person_id=person_id, actor=actor,
-                               backoffice_products=True,
-                               return_path="/admin/inschrijvingen/{registration_id}")
-from app.domains.activities.registration_form import (  # noqa: F401
-    Channel,
-    Outcome,
-    OutcomeKind,
-    board_channel,
-    contact_refusal,
-    form_context,
-    form_quantities,
-    is_member,
-    opening_quantity,
-    public_channel,
-    submit,
-    total_context,
-)
-from app.domains.activities.export import build_component_export_ods  # noqa: F401
+    return create_registration(
+        db,
+        activity_id,
+        data,
+        background_tasks,
+        person_id=person_id,
+        actor=actor,
+        backoffice_products=True,
+        return_path="/admin/inschrijvingen/{registration_id}",
+    )
 
-from app.domains.activities.service import (  # noqa: F401
-    MAX_ORGANISERS,
-    OrganiserView,
-    add_organiser,
-    organisers_for,
-    board_notes,
-    remove_organiser,
-    update_organiser,
-    RegistrationState,
-    registration_refusal,
-    registration_state,
-    ActivitySpan,
-    activities_active_between,
-    activities_from,
-    registration_counts,
-    activity_by_key,
-    slug_is_vrij,
-    slugify,
-    ActivityOption,
-    activity_options,
-    get_activity,
-    get_component,
-    get_registration,
-    inschrijving_kop_ctx,
-    INSCHRIJVING_SORT_VELDEN,
-    sorteer_inschrijvingen,
-    inschrijving_tabs,
-    booked_per_component,
-    record_kop_ctx,
-    record_tabs,
-    registration_contact_names,
-    registration_count_for,
-    registration_ids_for,
-    registrations_for,
-    registrations_without_component_count,
-    publicly_bookable_products,
-    check_publicly_bookable,
-)
 
 __all__ = [
-    "Channel", "Outcome", "OutcomeKind", "board_channel", "contact_refusal", "form_context",
-    "form_quantities", "is_member", "opening_quantity", "public_channel", "submit",
+    "Channel",
+    "Outcome",
+    "OutcomeKind",
+    "board_channel",
+    "contact_refusal",
+    "form_context",
+    "form_quantities",
+    "is_member",
+    "opening_quantity",
+    "public_channel",
+    "submit",
     "total_context",
-    "RegistrationState", "registration_refusal", "registration_state",
-    "INDIVIDUAL", "REGISTRATION_STATE", "REGISTRATION_TYPE",
-    "ActivityOption", "activity_options", "get_activity", "get_component",
-    "INSCHRIJVING_SORT_VELDEN", "booked_per_component", "get_registration",
-    "inschrijving_kop_ctx", "sorteer_inschrijvingen",
-    "inschrijving_tabs", "record_tabs", "record_kop_ctx",
-    "registration_contact_names", "registration_count_for",
-    "registration_ids_for", "registrations_for",
+    "RegistrationState",
+    "registration_refusal",
+    "registration_state",
+    "INDIVIDUAL",
+    "REGISTRATION_STATE",
+    "REGISTRATION_TYPE",
+    "ActivityOption",
+    "activity_options",
+    "get_activity",
+    "get_component",
+    "INSCHRIJVING_SORT_VELDEN",
+    "booked_per_component",
+    "get_registration",
+    "inschrijving_kop_ctx",
+    "sorteer_inschrijvingen",
+    "inschrijving_tabs",
+    "record_tabs",
+    "record_kop_ctx",
+    "registration_contact_names",
+    "registration_count_for",
+    "registration_ids_for",
+    "registrations_for",
     "registrations_without_component_count",
-    "publicly_bookable_products", "check_publicly_bookable",
-    "Activity", "ActivityDate", "ActivityDateHistory", "ActivityHistory",
-    "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
-    "ProductHistory", "Registration", "RegistrationItem",
-    "RegistrationHistory", "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
+    "publicly_bookable_products",
+    "check_publicly_bookable",
+    "Activity",
+    "ActivityDate",
+    "ActivityDateHistory",
+    "ActivityHistory",
+    "ActivityProduct",
+    "ActivitySubRegistration",
+    "ComponentHistory",
+    "ProductHistory",
+    "Registration",
+    "RegistrationItem",
+    "RegistrationHistory",
+    "RegistrationItemHistory",
+    "build_component_export_ods",
+    "compute_registration_total",
     "quote_registration",
-    "enrich_registration", "get_activity_detail", "list_activities", "move_within",
-    "public_registrations", "register_for_activity",
-    "MAX_ORGANISERS", "OrganiserView", "add_organiser", "organisers_for", "board_notes",
-    "remove_organiser", "update_organiser",
-    "ActivitySpan", "activities_active_between", "activities_from",
+    "enrich_registration",
+    "get_activity_detail",
+    "list_activities",
+    "move_within",
+    "public_registrations",
+    "register_for_activity",
+    "MAX_ORGANISERS",
+    "OrganiserView",
+    "add_organiser",
+    "organisers_for",
+    "board_notes",
+    "remove_organiser",
+    "update_organiser",
+    "ActivitySpan",
+    "activities_active_between",
+    "activities_from",
     "registration_counts",
 ]

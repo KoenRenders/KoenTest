@@ -13,13 +13,14 @@ De vorige twee kopieën waren al uit elkaar gelopen — het scherm kende `failed
 Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de repo.
 (verhuisd uit app/services/payments_export.py, #444)
 """
+
 from decimal import Decimal
 from typing import Optional
 
+from app.domains.mdm.api import RelationType
 from app.domains.payment.api import PayableType, PaymentRecord
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods
-from app.domains.mdm.api import RelationType
 
 # CR-12 phase 1: `_METHOD`, `_STATUS` and `_TYPE` used to stand here — three
 # Dutch dictionaries that said the same as the screens next to them, with their
@@ -32,11 +33,13 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
 
     Verrijking haalt bewust óók soft-deleted entiteiten op (een betaling is een
     financieel feit; toon de bewaarde naam)."""
+
     def q(model):
         return db.query(model).execution_options(include_deleted=True)
 
     if r.payable_type == PayableType.REGISTRATION:
-        from app.domains.activities.api import Registration, Activity
+        from app.domains.activities.api import Activity, Registration
+
         reg = q(Registration).filter(Registration.id == r.payable_id).first()
         if reg:
             act = q(Activity).filter(Activity.id == reg.activity_id).first()
@@ -44,16 +47,21 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
             label = " — ".join(p for p in parts if p) or f"Inschrijving #{r.payable_id}"
             return label, None, reg.component_id
     elif r.payable_type == PayableType.MEMBERSHIP:
-        from app.domains.membership.api import Membership
         from app.domains.mdm.api import MemberPerson, Person
+        from app.domains.membership.api import Membership
+
         ms = q(Membership).filter(Membership.id == r.payable_id).first()
         name = None
         year = ms.year if ms else None
         if ms:
-            mp = q(MemberPerson).filter(
-                MemberPerson.member_id == ms.member_id,
-                MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
-            ).first()
+            mp = (
+                q(MemberPerson)
+                .filter(
+                    MemberPerson.member_id == ms.member_id,
+                    MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
+                )
+                .first()
+            )
             if mp:
                 p = q(Person).filter(Person.id == mp.person_id).first()
                 if p:
@@ -63,10 +71,16 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
     return f"{r.payable_type.value} #{r.payable_id}", None, None
 
 
-def build_payments_export_ods(db, context: str = "all", status: str = "all",
-                              q: str = "", openstaand: bool = False,
-                              registration_id: str = "",
-                              payables=None, zicht: str = "alle") -> bytes:
+def build_payments_export_ods(
+    db,
+    context: str = "all",
+    status: str = "all",
+    q: str = "",
+    openstaand: bool = False,
+    registration_id: str = "",
+    payables=None,
+    zicht: str = "alle",
+) -> bytes:
     """Bouw de .ods met de (gefilterde) betalingen & vorderingen + totaalrij. Bytes terug.
 
     De filter is `payment.service.matches_filter` — dezelfde functie die het scherm
@@ -80,24 +94,41 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
     # haar mee, anders exporteert een gescopeerd scherm stil álle betalingen.
     scope = (registration_id or "").strip()
     if scope:
-        records = [r for r in records
-                   if r.payable_type == PayableType.REGISTRATION
-                   and str(r.payable_id) == scope]
+        records = [
+            r
+            for r in records
+            if r.payable_type == PayableType.REGISTRATION and str(r.payable_id) == scope
+        ]
     if payables is not None:
-        records = [r for r in records
-                   if (r.payable_type, r.payable_id) in payables]
+        records = [r for r in records if (r.payable_type, r.payable_id) in payables]
 
-    headers = ["Waarvoor", "Soort", "Type", "Betaalwijze", "Status", "Mededeling (OGM)",
-               "Te betalen", "Betaald", "Saldo", "Betaald op", "Notitie"]
+    headers = [
+        "Waarvoor",
+        "Soort",
+        "Type",
+        "Betaalwijze",
+        "Status",
+        "Mededeling (OGM)",
+        "Te betalen",
+        "Betaald",
+        "Saldo",
+        "Betaald op",
+        "Notitie",
+    ]
     rows = []
     tot_due = Decimal("0")
     tot_paid = Decimal("0")
     for r in records:
         label, membership_year, component_id = _enrich(db, r)
-        if not matches_filter(r, context=context, status=status, q=q,
-                              openstaand=openstaand,
-                              membership_year=membership_year,
-                              component_id=component_id):
+        if not matches_filter(
+            r,
+            context=context,
+            status=status,
+            q=q,
+            openstaand=openstaand,
+            membership_year=membership_year,
+            component_id=component_id,
+        ):
             continue
         # Golf 10 (#913): het actieve statustab-zicht geldt ook in de export —
         # anders exporteert "Openstaand" stil alles.
@@ -107,22 +138,38 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
         paid = Decimal(str(r.amount_paid)) if r.amount_paid is not None else Decimal("0")
         tot_due += amount
         tot_paid += paid
-        rows.append([
-            label,
-            "Lidgeld" if r.payable_type == PayableType.MEMBERSHIP else "Activiteit",
-            code_label("payment_type", r.type),
-            code_label("payment_method", r.method),
-            code_label("payment_status", r.status),
-            r.structured_communication or "",
-            float(amount),
-            float(paid),
-            float(amount - paid),
-            r.paid_at.date().isoformat() if r.paid_at else "",
-            r.note or "",
-        ])
-    rows.append(["Totaal", "", "", "", "", "",
-                 float(tot_due), float(tot_paid), float(tot_due - tot_paid), "", ""])
+        rows.append(
+            [
+                label,
+                "Lidgeld" if r.payable_type == PayableType.MEMBERSHIP else "Activiteit",
+                code_label("payment_type", r.type),
+                code_label("payment_method", r.method),
+                code_label("payment_status", r.status),
+                r.structured_communication or "",
+                float(amount),
+                float(paid),
+                float(amount - paid),
+                r.paid_at.date().isoformat() if r.paid_at else "",
+                r.note or "",
+            ]
+        )
+    rows.append(
+        [
+            "Totaal",
+            "",
+            "",
+            "",
+            "",
+            "",
+            float(tot_due),
+            float(tot_paid),
+            float(tot_due - tot_paid),
+            "",
+            "",
+        ]
+    )
 
     col_widths = [6.0, 2.5, 3.0, 3.5, 3.5, 4.5, 3.0, 3.0, 3.0, 3.0, 6.0]
-    return build_ods("Betalingen en vorderingen", headers, rows,
-                     col_widths=col_widths, bold_last_row=True)
+    return build_ods(
+        "Betalingen en vorderingen", headers, rows, col_widths=col_widths, bold_last_row=True
+    )

@@ -13,6 +13,7 @@ Schema ``designstudio``. Three shapes decide the tables:
 - **No cross-schema foreign keys.** ``activity_id``, ``media_asset_id`` and
   ``ai_call_log_id`` are soft references (§8, ``test_schema_boundaries``).
 """
+
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -125,15 +126,14 @@ class DesignStatusLabel(Base):
     __tablename__ = "design_status_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.design_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("designstudio.design_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class LayoutCode(Base):
@@ -154,15 +154,14 @@ class LayoutLabel(Base):
     __tablename__ = "layout_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.layout_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("designstudio.layout_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class RenderVariantCode(Base):
@@ -183,15 +182,16 @@ class RenderVariantLabel(Base):
     __tablename__ = "render_variant_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.render_variant_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(20), ForeignKey("designstudio.render_variant_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class GenerationStatusCode(Base):
@@ -212,15 +212,16 @@ class GenerationStatusLabel(Base):
     __tablename__ = "generation_status_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.generation_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(
+        String(20), ForeignKey("designstudio.generation_status_codes.code"), primary_key=True
+    )
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class PresetCode(Base):
@@ -241,15 +242,14 @@ class PresetLabel(Base):
     __tablename__ = "preset_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.preset_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("designstudio.preset_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class InsetCornerCode(Base):
@@ -270,15 +270,14 @@ class InsetCornerLabel(Base):
     __tablename__ = "inset_corner_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.inset_corner_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("designstudio.inset_corner_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class DrawingStyleCode(Base):
@@ -299,15 +298,14 @@ class DrawingStyleLabel(Base):
     __tablename__ = "drawing_style_labels"
     __table_args__ = {"schema": "designstudio"}
 
-    code = Column(String(20), ForeignKey("designstudio.drawing_style_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("designstudio.drawing_style_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(200), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class Design(TenantMixin, Base):
@@ -320,13 +318,17 @@ class Design(TenantMixin, Base):
     template_version = Column(Integer, nullable=False, default=1)
     preset: Mapped[Preset] = mapped_column(
         EnumColumn(Preset, length=20),
-        ForeignKey("designstudio.preset_codes.code"), nullable=False,
-        default=Preset.PICTURE)
+        ForeignKey("designstudio.preset_codes.code"),
+        nullable=False,
+        default=Preset.PICTURE,
+    )
     duo_code = Column(String(60), nullable=False)
     status: Mapped[DesignStatus] = mapped_column(
         EnumColumn(DesignStatus, length=20),
-        ForeignKey("designstudio.design_status_codes.code"), nullable=False,
-        default=DesignStatus.DRAFT)
+        ForeignKey("designstudio.design_status_codes.code"),
+        nullable=False,
+        default=DesignStatus.DRAFT,
+    )
 
     # Design text — never a copy of a fact. Round 3 (Koen, 19 September 2026)
     # cut it to three: the subtitle bar, the handwritten line and
@@ -345,32 +347,59 @@ class Design(TenantMixin, Base):
     # top_left | top_right | bottom_left | bottom_right.
     inset_corner: Mapped[InsetCorner] = mapped_column(
         EnumColumn(InsetCorner, length=20),
-        ForeignKey("designstudio.inset_corner_codes.code"), nullable=False,
-        default=InsetCorner.BOTTOM_RIGHT)
+        ForeignKey("designstudio.inset_corner_codes.code"),
+        nullable=False,
+        default=InsetCorner.BOTTOM_RIGHT,
+    )
     third_image_id = Column(Integer, nullable=True)
 
-    published_version_id = Column(Integer, nullable=True)  # → designstudio.design_versions (set after insert)
+    published_version_id = Column(
+        Integer, nullable=True
+    )  # → designstudio.design_versions (set after insert)
     created_by = Column(String(255), nullable=False, default="")
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
-    highlights = relationship("DesignHighlight", back_populates="design",
-                              cascade="all, delete-orphan", order_by="DesignHighlight.sort_order")
-    logos = relationship("DesignLogo", back_populates="design",
-                         cascade="all, delete-orphan", order_by="DesignLogo.sort_order")
-    versions = relationship("DesignVersion", back_populates="design",
-                            cascade="all, delete-orphan", order_by="DesignVersion.number")
-    edited_svgs = relationship("DesignRendition", back_populates="design",
-                               primaryjoin="and_(DesignRendition.design_id == Design.id, "
-                                           "DesignRendition.version_id.is_(None))",
-                               cascade="all, delete-orphan", viewonly=False)
-    generations = relationship("ImageGeneration", back_populates="design",
-                               cascade="all, delete-orphan", order_by="ImageGeneration.id")
+    highlights = relationship(
+        "DesignHighlight",
+        back_populates="design",
+        cascade="all, delete-orphan",
+        order_by="DesignHighlight.sort_order",
+    )
+    logos = relationship(
+        "DesignLogo",
+        back_populates="design",
+        cascade="all, delete-orphan",
+        order_by="DesignLogo.sort_order",
+    )
+    versions = relationship(
+        "DesignVersion",
+        back_populates="design",
+        cascade="all, delete-orphan",
+        order_by="DesignVersion.number",
+    )
+    edited_svgs = relationship(
+        "DesignRendition",
+        back_populates="design",
+        primaryjoin="and_(DesignRendition.design_id == Design.id, "
+        "DesignRendition.version_id.is_(None))",
+        cascade="all, delete-orphan",
+        viewonly=False,
+    )
+    generations = relationship(
+        "ImageGeneration",
+        back_populates="design",
+        cascade="all, delete-orphan",
+        order_by="ImageGeneration.id",
+    )
 
 
 class DesignHighlight(TenantMixin, Base):
     """One icon line ("Gezellig samen wandelen en praten"), at most four of
     the unit's own — date and place come by themselves (Koen, 20 Sep 2026)."""
+
     __tablename__ = "design_highlights"
     __table_args__ = (
         UniqueConstraint("design_id", "sort_order", name="uq_design_highlight_order"),
@@ -379,7 +408,12 @@ class DesignHighlight(TenantMixin, Base):
     )
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
+    design_id = Column(
+        Integer,
+        ForeignKey("designstudio.designs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     sort_order = Column(Integer, nullable=False)
     icon_code = Column(String(30), nullable=False)
     text = Column(String(90), nullable=False)
@@ -390,6 +424,7 @@ class DesignHighlight(TenantMixin, Base):
 
 class DesignLogo(TenantMixin, Base):
     """The logo strip: at most two sponsor assets (Mona; Mol when borrowing)."""
+
     __tablename__ = "design_logos"
     __table_args__ = (
         UniqueConstraint("design_id", "sort_order", name="uq_design_logo_order"),
@@ -398,7 +433,12 @@ class DesignLogo(TenantMixin, Base):
     )
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
+    design_id = Column(
+        Integer,
+        ForeignKey("designstudio.designs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     media_asset_id = Column(Integer, nullable=False)  # soft ref → media.media_assets (kind sponsor)
     sort_order = Column(Integer, nullable=False)
 
@@ -408,6 +448,7 @@ class DesignLogo(TenantMixin, Base):
 class DesignVersion(TenantMixin, Base):
     """One "definitief": numbered, with the facts fingerprint of that moment and
     every rendition. Publishing points ``Design.published_version_id`` here."""
+
     __tablename__ = "design_versions"
     __table_args__ = (
         UniqueConstraint("design_id", "number", name="uq_design_version_number"),
@@ -415,7 +456,12 @@ class DesignVersion(TenantMixin, Base):
     )
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
+    design_id = Column(
+        Integer,
+        ForeignKey("designstudio.designs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     number = Column(Integer, nullable=False)
     facts_fingerprint = Column(String(64), nullable=False)
     # The sponsor assets this version carried, for the yearly count (R11).
@@ -424,72 +470,114 @@ class DesignVersion(TenantMixin, Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
     design = relationship("Design", back_populates="versions")
-    renditions = relationship("DesignRendition", back_populates="version",
-                              cascade="all, delete-orphan", order_by="DesignRendition.id")
+    renditions = relationship(
+        "DesignRendition",
+        back_populates="version",
+        cascade="all, delete-orphan",
+        order_by="DesignRendition.id",
+    )
 
 
 class DesignRendition(TenantMixin, Base):
     """A rendered file of a version — or, with ``version_id`` empty, the
     hand-edited SVG uploaded on the draft for one layout."""
+
     __tablename__ = "design_renditions"
     __table_args__ = (
-        CheckConstraint("layout_code IN ('print_a', 'feed_portrait')", name="ck_design_rendition_layout"),
+        CheckConstraint(
+            "layout_code IN ('print_a', 'feed_portrait')", name="ck_design_rendition_layout"
+        ),
         {"schema": "designstudio"},
     )
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
-    version_id = Column(Integer, ForeignKey("designstudio.design_versions.id", ondelete="CASCADE"), nullable=True, index=True)
+    design_id = Column(
+        Integer,
+        ForeignKey("designstudio.designs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    version_id = Column(
+        Integer,
+        ForeignKey("designstudio.design_versions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
     layout_code: Mapped[Layout] = mapped_column(
-        EnumColumn(Layout, length=20),
-        ForeignKey("designstudio.layout_codes.code"), nullable=False)
+        EnumColumn(Layout, length=20), ForeignKey("designstudio.layout_codes.code"), nullable=False
+    )
     variant: Mapped[RenderVariant] = mapped_column(
         EnumColumn(RenderVariant, length=20),
-        ForeignKey("designstudio.render_variant_codes.code"), nullable=False)
+        ForeignKey("designstudio.render_variant_codes.code"),
+        nullable=False,
+    )
     size_code = Column(String(20), nullable=False, default="")
-    media_asset_id = Column(Integer, nullable=False)  # soft ref → media.media_assets (kind design_render)
+    media_asset_id = Column(
+        Integer, nullable=False
+    )  # soft ref → media.media_assets (kind design_render)
     # For a hand-edited SVG: the fingerprint of the facts when it was uploaded,
     # so a later change can be named rather than silently re-rendered.
     facts_fingerprint = Column(String(64), nullable=True)
     min_effective_dpi = Column(Integer, nullable=True)
     rendered_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
-    design = relationship("Design", back_populates="edited_svgs", foreign_keys=[design_id],
-                          overlaps="renditions,version")
-    version = relationship("DesignVersion", back_populates="renditions", overlaps="design,edited_svgs")
+    design = relationship(
+        "Design",
+        back_populates="edited_svgs",
+        foreign_keys=[design_id],
+        overlaps="renditions,version",
+    )
+    version = relationship(
+        "DesignVersion", back_populates="renditions", overlaps="design,edited_svgs"
+    )
 
 
 class ImageGeneration(TenantMixin, Base):
     """One generated variant. The provider, prompt, cost and duration live in
     ``ai.ai_call_log`` (#978); this row holds what the design needs: which call,
     which seed, where the bytes went, and the state."""
+
     __tablename__ = "image_generations"
     __table_args__ = (
         CheckConstraint(
             "status IN ('requested','fetched','picked','discarded','refused','failed')",
-            name="ck_image_generation_status"),
+            name="ck_image_generation_status",
+        ),
         {"schema": "designstudio"},
     )
 
     id = Column(Integer, primary_key=True)
-    design_id = Column(Integer, ForeignKey("designstudio.designs.id", ondelete="CASCADE"), nullable=False, index=True)
-    request_key = Column(String(64), nullable=False, index=True)  # one per click: four rows share it
+    design_id = Column(
+        Integer,
+        ForeignKey("designstudio.designs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    request_key = Column(
+        String(64), nullable=False, index=True
+    )  # one per click: four rows share it
     ai_call_log_id = Column(Integer, nullable=True)  # soft ref → ai.ai_call_log
     seed = Column(Integer, nullable=True)
-    scene = Column(Text, nullable=False, default="")        # what was asked, for "wat wil je anders?"
+    scene = Column(Text, nullable=False, default="")  # what was asked, for "wat wil je anders?"
     style: Mapped[DrawingStyle] = mapped_column(
         EnumColumn(DrawingStyle, length=20),
-        ForeignKey("designstudio.drawing_style_codes.code"), nullable=False,
-        default=DrawingStyle.LINE)
+        ForeignKey("designstudio.drawing_style_codes.code"),
+        nullable=False,
+        default=DrawingStyle.LINE,
+    )
     width = Column(Integer, nullable=False)
     height = Column(Integer, nullable=False)
     status: Mapped[GenerationStatus] = mapped_column(
         EnumColumn(GenerationStatus, length=20),
-        ForeignKey("designstudio.generation_status_codes.code"), nullable=False,
-        default=GenerationStatus.REQUESTED)
+        ForeignKey("designstudio.generation_status_codes.code"),
+        nullable=False,
+        default=GenerationStatus.REQUESTED,
+    )
     failure_reason = Column(Text, nullable=False, default="")
     media_asset_id = Column(Integer, nullable=True)  # the fetched variant (kind design_image)
-    reserved_cents = Column(Integer, nullable=False, default=0)  # budget reservation until the cost is known
+    reserved_cents = Column(
+        Integer, nullable=False, default=0
+    )  # budget reservation until the cost is known
     requested_by = Column(String(255), nullable=False, default="")
     requested_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     finished_at = Column(DateTime(timezone=True), nullable=True)

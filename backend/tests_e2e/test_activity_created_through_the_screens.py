@@ -24,6 +24,7 @@ admin screen, each an additive change to the route:
   - `product_toevoegen` returns the detail without calling `add_product` →
     fails at "step 3 (product toevoegen)".
 """
+
 import os
 import re
 import sys
@@ -39,9 +40,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
 
-PRICE_TYPED = "12,50"      # as a Belgian board member types it
+PRICE_TYPED = "12,50"  # as a Belgian board member types it
 PRICE = Decimal("12.50")
-PRICE_SHOWN = "€12,50"     # as the public form renders it
+PRICE_SHOWN = "€12,50"  # as the public form renders it
 
 
 @contextmanager
@@ -92,14 +93,21 @@ def _count_in_a_fresh_session(name: str):
     db = SessionLocal()
     try:
         activities = db.query(Activity).filter(Activity.name == name).all()
-        components = (db.query(ActivitySubRegistration)
-                      .filter(ActivitySubRegistration.activity_id.in_([a.id for a in activities]))
-                      .all())
-        products = (db.query(ActivityProduct)
-                    .filter(ActivityProduct.component_id.in_([c.id for c in components]))
-                    .all())
-        return ([a.id for a in activities], [c.name for c in components],
-                [(p.name, p.price, p.is_free, p.is_active) for p in products])
+        components = (
+            db.query(ActivitySubRegistration)
+            .filter(ActivitySubRegistration.activity_id.in_([a.id for a in activities]))
+            .all()
+        )
+        products = (
+            db.query(ActivityProduct)
+            .filter(ActivityProduct.component_id.in_([c.id for c in components]))
+            .all()
+        )
+        return (
+            [a.id for a in activities],
+            [c.name for c in components],
+            [(p.name, p.price, p.is_free, p.is_active) for p in products],
+        )
     finally:
         db.close()
 
@@ -140,14 +148,20 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
         with _step("step 2 (onderdeel toevoegen)"):
             page.get_by_role("button", name="+ Onderdeel").click()
             page.fill("#nc-name", component)
-            add_component = page.locator(f"form[hx-post='/admin/activiteiten/{activity_id}/onderdelen']")
+            add_component = page.locator(
+                f"form[hx-post='/admin/activiteiten/{activity_id}/onderdelen']"
+            )
             with htmx_afgerond(page):
                 add_component.get_by_role("button", name="Toevoegen").click()
             product_form = page.locator(
-                f"form[hx-post^='/admin/activiteiten/{activity_id}/onderdelen/'][hx-post$='/producten']")
+                f"form[hx-post^='/admin/activiteiten/{activity_id}/onderdelen/'][hx-post$='/producten']"
+            )
             expect(product_form).to_have_count(1)
-            component_id = int(re.search(r"/onderdelen/(\d+)/producten",
-                                         product_form.get_attribute("hx-post")).group(1))
+            component_id = int(
+                re.search(
+                    r"/onderdelen/(\d+)/producten", product_form.get_attribute("hx-post")
+                ).group(1)
+            )
             expect(page.locator("#aa-detail")).to_contain_text(component)
 
         with _step("step 3 (product toevoegen)"):
@@ -160,7 +174,9 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
 
         with _step("step 4 (publiek zichtbaar, met product en prijs)"):
             page.goto("/activiteiten")
-            register = page.locator(f'button[hx-get="/activiteiten/{activity_id}/inschrijven/{component_id}"]')
+            register = page.locator(
+                f'button[hx-get="/activiteiten/{activity_id}/inschrijven/{component_id}"]'
+            )
             expect(register).to_have_count(1)
             register.click()
             form = page.locator(f"#inschrijf-{activity_id}-{component_id}")

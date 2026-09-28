@@ -26,6 +26,7 @@ ruimte) → de eerste twee vallen om; `max-w-[var(--leesbreedte)]` op de
 omschrijving terug naar `max-w-2xl` → de afleidingstest valt om, want dan staat
 de leesbreedte weer op twee plaatsen.
 """
+
 from __future__ import annotations
 
 import re
@@ -37,8 +38,14 @@ from app.domains.media.api import MediaAsset
 
 pytestmark = pytest.mark.ui_serverrendered
 
-SJABLOON = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
-            / "templates" / "activiteit.html")
+SJABLOON = (
+    Path(__file__).resolve().parents[1]
+    / "app"
+    / "domains"
+    / "activities"
+    / "templates"
+    / "activiteit.html"
+)
 # De som die het blok breed maakt. Eén uitdrukking, drie variabelen.
 BLOKBREEDTE = "calc(var(--leesbreedte)_+_var(--tussenruimte)_+_var(--affiche))"
 
@@ -47,19 +54,31 @@ def _activiteit(db, naam: str, *, met_affiche: bool, omschrijving: str = "Tekst.
     from datetime import date, timedelta
     from decimal import Decimal
 
-    from app.domains.activities.api import (Activity, ActivityDate,
-                                            ActivitySubRegistration)
+    from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
 
     a = Activity(name=naam, description=omschrijving)
     db.add(a)
     db.flush()
     db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=14)))
-    db.add(ActivitySubRegistration(activity_id=a.id, name="Deelname",
-                                   registration_type_code="INDIVIDUAL",
-                                   price=Decimal("0"), is_free=True))
+    db.add(
+        ActivitySubRegistration(
+            activity_id=a.id,
+            name="Deelname",
+            registration_type_code="INDIVIDUAL",
+            price=Decimal("0"),
+            is_free=True,
+        )
+    )
     if met_affiche:
-        db.add(MediaAsset(kind="activity_poster", activity_id=a.id, title="Affiche",
-                          content_type="image/png", data=b"png"))
+        db.add(
+            MediaAsset(
+                kind="activity_poster",
+                activity_id=a.id,
+                title="Affiche",
+                content_type="image/png",
+                data=b"png",
+            )
+        )
     db.commit()
     return a
 
@@ -73,6 +92,7 @@ def _rij(html: str) -> str:
 
 # ── 1. Het blok staat gecentreerd, en zijn breedte is afgeleid ───────────────
 
+
 def test_met_affiche_staat_het_blok_gecentreerd(client, db_session):
     a = _activiteit(db_session, "Bowlen", met_affiche=True)
 
@@ -81,7 +101,8 @@ def test_met_affiche_staat_het_blok_gecentreerd(client, db_session):
     assert "md:mx-auto" in rij, "het blok wordt niet gecentreerd"
     assert BLOKBREEDTE in rij, (
         "de rij heeft geen afgeleide breedte; dan neemt de linkerkolom weer alle "
-        f"ruimte en staat de affiche los van de tekst: {rij}")
+        f"ruimte en staat de affiche los van de tekst: {rij}"
+    )
 
 
 def test_de_breedte_is_de_som_van_maten_die_elders_gebruikt_worden(client, db_session):
@@ -99,15 +120,20 @@ def test_de_breedte_is_de_som_van_maten_die_elders_gebruikt_worden(client, db_se
     bron = re.sub(r"\{#.*?#\}", "", SJABLOON.read_text(), flags=re.S)
 
     # De drie maten worden één keer gezet…
-    for variabele, waarde in (("--leesbreedte", "42rem"), ("--tussenruimte", "2rem"),
-                              ("--affiche", "18rem")):
+    for variabele, waarde in (
+        ("--leesbreedte", "42rem"),
+        ("--tussenruimte", "2rem"),
+        ("--affiche", "18rem"),
+    ):
         assert bron.count(f"[{variabele}:{waarde}]") == 1, variabele
     assert bron.count("lg:[--affiche:20rem]") == 1, "de brede variant van de affiche"
 
     # …en elders alleen nog gelézen.
     assert "max-w-[var(--leesbreedte)]" in bron, "de omschrijving leest de leesbreedte niet"
     assert "md:w-[var(--affiche)]" in bron, "de affichekolom leest haar breedte niet"
-    assert "md:gap-8" in bron, "de tussenruimte van de rij hoort gelijk te blijven aan --tussenruimte"
+    assert "md:gap-8" in bron, (
+        "de tussenruimte van de rij hoort gelijk te blijven aan --tussenruimte"
+    )
 
     # En de oude, losse maten staan er niet meer naast.
     for oud in ("max-w-2xl", "md:w-72", "lg:w-80"):
@@ -120,8 +146,9 @@ def test_de_leesbreedte_van_de_omschrijving_is_ongewijzigd(client, db_session):
     Het probleem was de kolom, niet de tekst — een regel over de volle
     schermbreedte leest slecht.
     """
-    a = _activiteit(db_session, "Leesbreedte", met_affiche=True,
-                    omschrijving="Een avond voor het hele dorp.")
+    a = _activiteit(
+        db_session, "Leesbreedte", met_affiche=True, omschrijving="Een avond voor het hele dorp."
+    )
     html = client.get(f"/activiteiten/{a.id}").text
 
     omschrijving = re.search(r'<div class="mt-5 [^"]*">Een avond', html)
@@ -131,6 +158,7 @@ def test_de_leesbreedte_van_de_omschrijving_is_ongewijzigd(client, db_session):
 
 
 # ── 2. Zonder affiche blijft de pagina zoals ze was ──────────────────────────
+
 
 def test_zonder_affiche_geen_gecentreerd_blok_en_geen_lege_kolom(client, db_session):
     """Bewuste keuze (#1143): geen rechterkolom, dus niets om naast te staan.
@@ -149,6 +177,7 @@ def test_zonder_affiche_geen_gecentreerd_blok_en_geen_lege_kolom(client, db_sess
 
 
 # ── 3. Mobiel raakt dit niets ────────────────────────────────────────────────
+
 
 def test_op_mobiel_blijft_de_affiche_boven_de_omschrijving(client, db_session):
     """80% van het bezoek is mobiel; daar is er één kolom en staat de affiche al
@@ -172,15 +201,18 @@ def test_op_mobiel_blijft_de_affiche_boven_de_omschrijving(client, db_session):
     # verschil niet.
     for klasse in re.findall(r"\S*mx-auto|\S*max-w-\[calc\(", rij):
         assert klasse.startswith("md:"), (
-            f"{klasse} geldt ook op een telefoon; daar is er maar één kolom")
+            f"{klasse} geldt ook op een telefoon; daar is er maar één kolom"
+        )
 
 
 def test_een_korte_omschrijving_verandert_de_blokbreedte_niet(client, db_session):
     """Twee zinnen naast een affiche van volle hoogte trekken niets scheef: de
     breedte komt uit de drie maten en niet uit de inhoud."""
     kort = _activiteit(db_session, "Kort", met_affiche=True, omschrijving="Twee zinnen. Meer niet.")
-    lang = _activiteit(db_session, "Lang", met_affiche=True,
-                       omschrijving="Een lange omschrijving. " * 60)
+    lang = _activiteit(
+        db_session, "Lang", met_affiche=True, omschrijving="Een lange omschrijving. " * 60
+    )
 
-    assert _rij(client.get(f"/activiteiten/{kort.id}").text) == \
-        _rij(client.get(f"/activiteiten/{lang.id}").text)
+    assert _rij(client.get(f"/activiteiten/{kort.id}").text) == _rij(
+        client.get(f"/activiteiten/{lang.id}").text
+    )

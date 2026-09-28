@@ -16,6 +16,7 @@ platform-context ECHT. Zonder die opzet slaagt zo'n test leeg: `path_for` doet d
 niets en de assertie bevestigt alleen zichzelf. Dat is precies hoe het bij de
 foto's (#889) misging.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -67,6 +68,7 @@ def platform_host(monkeypatch):
 
 # ── De regel zelf ────────────────────────────────────────────────────────────
 
+
 def test_a_form_with_a_slug_shares_the_readable_link(db_session):
     assert deellink_pad(_form(db_session, slug="zomerfeest")) == "/f/zomerfeest"
 
@@ -86,8 +88,7 @@ def test_the_rule_lives_in_one_place(db_session):
     """
     from pathlib import Path
 
-    sjablonen = Path(__file__).resolve().parents[1] / "app" / "domains" / "forms" \
-        / "templates"
+    sjablonen = Path(__file__).resolve().parents[1] / "app" / "domains" / "forms" / "templates"
     bekeken = 0
     for pad in sjablonen.glob("*.html"):
         tekst = pad.read_text(encoding="utf-8")
@@ -95,12 +96,15 @@ def test_the_rule_lives_in_one_place(db_session):
             continue  # het formulier post naar zijn eigen sleutelroute; zie hieronder
         bekeken += 1
         assert "share_token" not in tekst or "blijft werken" in tekst, (
-            f"{pad.name} stelt zelf een deellink samen — dat hoort via deellink_pad")
+            f"{pad.name} stelt zelf een deellink samen — dat hoort via deellink_pad"
+        )
     assert bekeken >= 3, (
-        f"deze poort keek naar {bekeken} sjablonen, te weinig om iets te bewijzen (#678)")
+        f"deze poort keek naar {bekeken} sjablonen, te weinig om iets te bewijzen (#678)"
+    )
 
 
 # ── Op het scherm ────────────────────────────────────────────────────────────
+
 
 def test_the_card_shows_the_readable_link_once_there_is_a_slug(client, db_session):
     _login(client)
@@ -109,8 +113,7 @@ def test_the_card_shows_the_readable_link_once_there_is_a_slug(client, db_sessio
     tekst = client.get("/admin/formulieren").text
 
     assert "/f/zomerfeest" in tekst
-    assert f"/formulier/{TOKEN}" not in tekst, (
-        "met een slug is de leesbare link de getoonde link")
+    assert f"/formulier/{TOKEN}" not in tekst, "met een slug is de leesbare link de getoonde link"
 
 
 def test_the_card_falls_back_to_the_key_url(client, db_session):
@@ -146,11 +149,11 @@ def test_the_builder_shows_only_the_key_url_without_a_slug(client, db_session):
     tekst = client.get(f"/admin/formulieren/{form.id}").text
 
     assert "/formulier/zonderslug2" in tekst
-    assert "blijft werken" not in tekst, (
-        "zonder slug is er niets om naast te zetten")
+    assert "blijft werken" not in tekst, "zonder slug is er niets om naast te zetten"
 
 
 # ── De belofte: de sleutel-URL blijft bereikbaar ─────────────────────────────
+
 
 def test_the_key_url_still_answers_when_a_slug_exists(client, db_session):
     """De kern van #690, en de reden dat dit issue bestaat.
@@ -171,8 +174,8 @@ def test_the_key_url_still_answers_when_a_slug_exists(client, db_session):
 
 # ── De prefix ────────────────────────────────────────────────────────────────
 
-def test_the_shared_link_carries_the_afdeling_prefix(client, db_session,
-                                                    platform_host):
+
+def test_the_shared_link_carries_the_afdeling_prefix(client, db_session, platform_host):
     """Een deellink zonder prefix komt bij de verkeerde afdeling uit (#889).
 
     Hij wordt geopend zonder de cookie die onthield waar je zat — een andere
@@ -188,14 +191,12 @@ def test_the_shared_link_carries_the_afdeling_prefix(client, db_session,
     _login(client)
     _form(db_session, slug="zomerfeest")
 
-    tekst = client.get("/raakmillegem/admin/formulieren",
-                       headers={"host": PLATFORM_HOST}).text
+    tekst = client.get("/raakmillegem/admin/formulieren", headers={"host": PLATFORM_HOST}).text
 
     assert "/raakmillegem/f/zomerfeest" in tekst
 
 
-def test_the_edit_link_in_the_mail_points_at_where_the_afdeling_lives(db_session,
-                                                                     monkeypatch):
+def test_the_edit_link_in_the_mail_points_at_where_the_afdeling_lives(db_session, monkeypatch):
     """De link die het gebouw verlaat (#928) — en wat hier NIET aan de hand was.
 
     Eerste aanname: `tenant_base_url` zou op een platform-host de pad-prefix
@@ -214,7 +215,9 @@ def test_the_edit_link_in_the_mail_points_at_where_the_afdeling_lives(db_session
     """
     from app.config import settings
     from app.kernel.tenancy import (
-        current_origin, current_platform_host, current_tenant_code,
+        current_origin,
+        current_platform_host,
+        current_tenant_code,
     )
     from app.kernel.tenant_config import tenant_base_url, tenant_home_url
 
@@ -228,13 +231,13 @@ def test_the_edit_link_in_the_mail_points_at_where_the_afdeling_lives(db_session
         assert tenant_home_url(db_session) == "https://platform.example/raakmillegem"
 
         # Mét eigen domein lopen ze uiteen, en dan telt welke je kiest.
-        monkeypatch.setattr(settings, "tenant_hostnames",
-                            "raakmillegem.example=raakmillegem")
+        monkeypatch.setattr(settings, "tenant_hostnames", "raakmillegem.example=raakmillegem")
         assert tenant_base_url(db_session) == "https://platform.example/raakmillegem"
         # `in` en niet `endswith`: het adres draagt de omgevingspoort mee (#863),
         # dus op dev staat er `:3000` achter.
         assert "raakmillegem.example" in tenant_home_url(db_session), (
-            "de mail hoort naar het adres van de afdeling te wijzen")
+            "de mail hoort naar het adres van de afdeling te wijzen"
+        )
     finally:
         current_tenant_code.reset(code)
         current_platform_host.reset(host)
@@ -246,12 +249,14 @@ def test_the_mail_uses_the_home_url(db_session):
     alleen iets over twee helpers die niemand aanroept."""
     from pathlib import Path
 
-    ruw = (Path(__file__).resolve().parents[1] / "app" / "domains" / "forms"
-           / "router.py").read_text(encoding="utf-8")
+    ruw = (
+        Path(__file__).resolve().parents[1] / "app" / "domains" / "forms" / "router.py"
+    ).read_text(encoding="utf-8")
     # Commentaar eerst weg. De uitleg bóven deze regel noemt `tenant_base_url` met
     # opzet — ze legt uit waarom het die niet is — en een scan die dat als code
     # leest, is dezelfde valse treffer die de #866-poort ooit rood maakte.
     bron = "\n".join(regel.split("#", 1)[0] for regel in ruw.splitlines())
     assert "tenant_home_url(db)}/formulier/" in bron
     assert "tenant_base_url" not in bron, (
-        "de mailroute stelt zijn adres nog met `tenant_base_url` samen")
+        "de mailroute stelt zijn adres nog met `tenant_base_url` samen"
+    )

@@ -7,6 +7,8 @@ als servicelaag. Ze dragen de regels die tellen — een onbekend adres krijgt g�
 signaal, een adres bij meerdere gezinnen krijgt uitleg in plaats van een link, en
 de pogingteller met lockout (#268) — dus ze horen in de service.
 """
+
+import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -18,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.domains.auth.member_identity import find_persons_by_email, resolve_household
 from app.domains.auth.models import LoginToken, User
-import hashlib
+from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
 
 MAGIC_LINK_EXPIRE_MINUTES = 15
 # Brute-force-rem op de 6-cijferige OTP (#268): na zoveel foute codes op één token
@@ -38,7 +40,7 @@ def _hash_otp(code: str) -> str:
     10^6-ruimte offline triviaal te bruteforcen zijn.
     """
     return hashlib.sha256(f"{settings.secret_key}:{code}".encode()).hexdigest()
-from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
+
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,11 @@ def start_login(db: Session, email: str) -> None:
             LoginToken.used == False,
             LoginToken.expires_at > datetime.now(timezone.utc),
         ).update({LoginToken.used: True}, synchronize_session=False)
-        db.add(LoginToken(email=email, token=token, otp_code=_hash_otp(otp_code), expires_at=expires_at))
+        db.add(
+            LoginToken(
+                email=email, token=token, otp_code=_hash_otp(otp_code), expires_at=expires_at
+            )
+        )
         db.commit()
         from app.kernel.tenant_config import tenant_base_url
 
@@ -126,11 +132,11 @@ def consume_magic_link(db: Session, token: str) -> Optional[str]:
     onderscheid dat iets zou verklappen.
     """
     nu = datetime.now(timezone.utc)
-    login_token = (db.query(LoginToken)
-                   .filter(LoginToken.token == token,
-                           LoginToken.used.is_(False),
-                           LoginToken.email.isnot(None))
-                   .first())
+    login_token = (
+        db.query(LoginToken)
+        .filter(LoginToken.token == token, LoginToken.used.is_(False), LoginToken.email.isnot(None))
+        .first()
+    )
     if login_token is None:
         return None
     if login_token.expires_at.replace(tzinfo=timezone.utc) < nu:

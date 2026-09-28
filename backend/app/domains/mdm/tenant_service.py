@@ -17,10 +17,10 @@ De schrijffuncties committen zélf. Dat is de regel uit #635-2: de transactiegre
 ligt in de service, niet in het scherm — zo geldt ze voor élke ingang en niet
 alleen voor de route die er toevallig aan dacht.
 """
+
 import re
 from typing import Iterable, Mapping
 
-from app.i18n import _
 from app.domains.mdm.models import OrganizationType
 
 _CODE = re.compile(r"[a-z0-9-]+")
@@ -32,8 +32,7 @@ class TenantFout(ValueError):
     welk sjabloon erbij hoort."""
 
 
-def create_tenant(db, *, name: str, code: str, parent_id: int | None = None,
-                  base_url: str = ""):
+def create_tenant(db, *, name: str, code: str, parent_id: int | None = None, base_url: str = ""):
     """Maak een tenant (een `UNIT`-organisatie) met haar basisinstellingen.
 
     De code is de sleutel waarmee een binnenkomend verzoek naar zijn tenant
@@ -49,13 +48,12 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None,
     code = (code or "").strip().lower()
     if not name or not _CODE.fullmatch(code):
         raise TenantFout(
-            "Naam én een geldige code (kleine letters, cijfers, streepjes) zijn verplicht.")
+            "Naam én een geldige code (kleine letters, cijfers, streepjes) zijn verplicht."
+        )
     if db.query(Organization).filter(Organization.code == code).first():
         raise TenantFout("Die code bestaat al.")
 
-
-    org = Organization(org_type="UNIT", code=code, name=name,
-                       parent_id=parent_id, is_active=True)
+    org = Organization(org_type="UNIT", code=code, name=name, parent_id=parent_id, is_active=True)
     db.add(org)
     db.flush()
 
@@ -79,8 +77,7 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None,
 # gaf een `decimal.InvalidOperation` in `tenant_membership_config`, en die hangt
 # onder `site_context` — dus 500 op de homepage.
 BEDRAG_SLEUTELS = ("membership_price_full", "membership_price_half")
-GEHEEL_SLEUTELS = ("payment_term_days", "max_item_quantity",
-                   "max_registrations_per_email")
+GEHEEL_SLEUTELS = ("payment_term_days", "max_item_quantity", "max_registrations_per_email")
 
 
 class OngeldigeInstelling(TenantFout):
@@ -121,8 +118,9 @@ def _als_geheel(ruw: str) -> str:
     return str(int(ruw))
 
 
-def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
-                           known: Iterable[str], secret: Iterable[str]) -> None:
+def update_tenant_settings(
+    db, tenant_id: int, form: Mapping, *, known: Iterable[str], secret: Iterable[str]
+) -> None:
     """Schrijf de instellingen van één tenant weg.
 
     Twee soorten sleutels, met verschillende semantiek:
@@ -138,8 +136,7 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
     schrijven: anders staat de helft van het formulier in de databank en de andere
     helft niet, en dan is de toestand na een tikfout onduidelijker dan ervoor.
     """
-    from app.kernel.tenant_config import (SITE_HEADER_COLOR_KEY, header_color_problem,
-                                          set_setting)
+    from app.kernel.tenant_config import SITE_HEADER_COLOR_KEY, header_color_problem, set_setting
 
     def _tekst(key: str) -> str:
         waarde = form.get(key)
@@ -201,9 +198,12 @@ def platform_org(db):
     """
     from app.domains.mdm.models import Organization
 
-    return (db.query(Organization)
-            .filter(Organization.org_type == OrganizationType.PLATFORM)
-            .order_by(Organization.id).first())
+    return (
+        db.query(Organization)
+        .filter(Organization.org_type == OrganizationType.PLATFORM)
+        .order_by(Organization.id)
+        .first()
+    )
 
 
 def list_manageable_tenants(db, *, alleen_actief: bool = False):
@@ -224,8 +224,12 @@ def list_accounts(db):
     """De accounts waar een tenant onder kan hangen."""
     from app.domains.mdm.models import Organization
 
-    return (db.query(Organization).filter(Organization.org_type == OrganizationType.ACCOUNT)
-            .order_by(Organization.id).all())
+    return (
+        db.query(Organization)
+        .filter(Organization.org_type == OrganizationType.ACCOUNT)
+        .order_by(Organization.id)
+        .all()
+    )
 
 
 def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
@@ -238,9 +242,14 @@ def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
     """
     from app.kernel.tenant_config import TenantSetting
 
-    gezet = {rij.key for rij in
-             db.query(TenantSetting.key)
-             .filter(TenantSetting.tenant_id == tenant_id,
-                     TenantSetting.key.in_(list(keys)),
-                     TenantSetting.value_encrypted.isnot(None)).all()}
+    gezet = {
+        rij.key
+        for rij in db.query(TenantSetting.key)
+        .filter(
+            TenantSetting.tenant_id == tenant_id,
+            TenantSetting.key.in_(list(keys)),
+            TenantSetting.value_encrypted.isnot(None),
+        )
+        .all()
+    }
     return {key: key in gezet for key in keys}

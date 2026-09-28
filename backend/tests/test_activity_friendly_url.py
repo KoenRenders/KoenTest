@@ -33,13 +33,13 @@ Broken on purpose to check that these tests can go red:
   collision test falls over: the board member then gets an address they never chose and
   never see.
 """
+
 from datetime import date
 
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -97,7 +97,8 @@ def test_exactly_one_address_is_canonical(client, db_session):
     for html, bron in ((van_nummer, "de nummer-URL"), (van_slug, "de slug-URL")):
         canonical = html.split('rel="canonical" href="', 1)[1].split('"', 1)[0]
         assert canonical.endswith("/activiteiten/kerstmarkt-2026/fotos"), (
-            f"{bron} wijst niet naar de slug als canoniek adres: {canonical}")
+            f"{bron} wijst niet naar de slug als canoniek adres: {canonical}"
+        )
 
 
 def test_renaming_does_not_move_the_slug(client, db_session):
@@ -110,15 +111,23 @@ def test_renaming_does_not_move_the_slug(client, db_session):
     headers = _login(client, db_session)
     activity = _activity(db_session, name="Zomerfeest", slug="zomerfeest-2026")
 
-    resp = client.post(f"/admin/activiteiten/{activity.id}", headers=headers,
-                       data={"name": "Zomerfeest editie 2", "location": "",
-                             "poster_url": "", "slug": "zomerfeest-2026"})
+    resp = client.post(
+        f"/admin/activiteiten/{activity.id}",
+        headers=headers,
+        data={
+            "name": "Zomerfeest editie 2",
+            "location": "",
+            "poster_url": "",
+            "slug": "zomerfeest-2026",
+        },
+    )
 
     assert resp.status_code == 200, resp.text[:200]
     db_session.refresh(activity)
     assert activity.name == "Zomerfeest editie 2", "de naam is niet gewijzigd"
     assert activity.slug == "zomerfeest-2026", (
-        "de slug is meeveranderd met de naam — dan is elke gedeelde link dood")
+        "de slug is meeveranderd met de naam — dan is elke gedeelde link dood"
+    )
     assert client.get("/activiteiten/zomerfeest-2026/fotos").status_code == 200
 
 
@@ -129,9 +138,11 @@ def test_a_collision_is_refused_visibly(client, db_session):
     _activity(db_session, name="Eerste", slug="zelfde-adres")
     tweede = _activity(db_session, name="Tweede", slug=None)
 
-    resp = client.post(f"/admin/activiteiten/{tweede.id}", headers=headers,
-                       data={"name": "Tweede", "location": "", "poster_url": "",
-                             "slug": "zelfde-adres"})
+    resp = client.post(
+        f"/admin/activiteiten/{tweede.id}",
+        headers=headers,
+        data={"name": "Tweede", "location": "", "poster_url": "", "slug": "zelfde-adres"},
+    )
 
     assert "al in gebruik" in resp.text, resp.text[:300]
     db_session.refresh(tweede)
@@ -151,7 +162,8 @@ def test_two_tenants_may_share_a_slug(db_session):
     token = current_tenant_id.set(7)
     try:
         assert slug_is_vrij(db_session, "buurtfeest"), (
-            "de slug van een andere afdeling blokkeert deze afdeling")
+            "de slug van een andere afdeling blokkeert deze afdeling"
+        )
     finally:
         current_tenant_id.reset(token)
 
@@ -171,8 +183,7 @@ def test_the_proposal_comes_from_the_name_at_creation(db_session):
     """Bij het AANMAKEN wel een voorstel — daarna nooit meer."""
     from app.domains.activities import service
 
-    nieuw = service.create_activity(db_session, name="Quiz van de Buurt 2026",
-                                    actor="test")
+    nieuw = service.create_activity(db_session, name="Quiz van de Buurt 2026", actor="test")
 
     assert nieuw.slug == "quiz-van-de-buurt-2026", nieuw.slug
 

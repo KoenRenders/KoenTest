@@ -22,6 +22,7 @@ gave the second tenant id 2 — and `DEFAULT_TENANT_ID` IS 2, so "you stay on th
 afdeling" held no matter what happened. With an empty `platform_hosts` it stayed green.
 Hence `OTHER_TENANT = 7` below: an id that cannot be anything else.
 """
+
 import pytest
 
 from app.kernel.tenancy import DEFAULT_TENANT_ID, resolve_request
@@ -51,12 +52,14 @@ def test_you_stay_on_the_same_afdeling_after_a_path_without_prefix():
     assert tenant == OTHER_TENANT and path == "/activiteiten" and not landing
 
     # The way the navigation does it: absolute, without a prefix, WITH the cookie.
-    tenant_after, _path, _l = _resolve("platform.voorbeeld.test", "/activiteiten",
-                                       cookie="raakvoorbeeld")
+    tenant_after, _path, _l = _resolve(
+        "platform.voorbeeld.test", "/activiteiten", cookie="raakvoorbeeld"
+    )
 
     assert tenant_after == OTHER_TENANT, (
         "after a single click you are on a different afdeling — with a registration "
-        "form for the wrong association")
+        "form for the wrong association"
+    )
 
 
 def test_the_root_of_a_platform_host_is_the_landing_page():
@@ -72,8 +75,7 @@ def test_a_path_prefix_works_without_platform_hosts():
     independent of `PLATFORM_HOSTS`. Without this test a later "simplification" could
     reverse that order without anything failing.
     """
-    tenant, path, landing = _resolve("whatever.test", "/raakvoorbeeld/activiteiten",
-                                     platform=set())
+    tenant, path, landing = _resolve("whatever.test", "/raakvoorbeeld/activiteiten", platform=set())
 
     assert tenant == OTHER_TENANT and path == "/activiteiten" and not landing
 
@@ -85,8 +87,9 @@ def test_a_cookie_does_not_apply_on_an_ordinary_host():
     afdeling — the same kind of confusion, but in the place where the visitor most
     needs to be certain where they are.
     """
-    tenant, _path, _landing = _resolve("www.voorbeeld.test", "/activiteiten",
-                                       cookie="raakvoorbeeld")
+    tenant, _path, _landing = _resolve(
+        "www.voorbeeld.test", "/activiteiten", cookie="raakvoorbeeld"
+    )
 
     assert tenant == DEFAULT_TENANT_ID
 
@@ -99,13 +102,16 @@ def test_the_landing_page_carries_no_brand_and_points_at_no_afdeling(client):
     """
     from pathlib import Path
 
-    template = (Path(__file__).resolve().parents[1]
-                / "app/ui/templates/platform_landing.html").read_text()
-    visible = "\n".join(r for r in template.splitlines()
-                        if not r.lstrip().startswith("{#") and "#821" not in r)
+    template = (
+        Path(__file__).resolve().parents[1] / "app/ui/templates/platform_landing.html"
+    ).read_text()
+    visible = "\n".join(
+        r for r in template.splitlines() if not r.lstrip().startswith("{#") and "#821" not in r
+    )
 
     assert '_("Digital Platform")' in visible
     assert '_("Raak Digital Platform")' not in visible
     assert "Millegem" not in visible, (
-        "the landing page points at one of its own afdelingen for administration")
+        "the landing page points at one of its own afdelingen for administration"
+    )
     assert "/aanmelden" in visible, "there is no entrance for the platform administrator"

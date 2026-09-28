@@ -7,11 +7,12 @@ sinds #667 kan de applicatie er geen meer maken. Wat ervan overblijft is een
 invariant in de TESTS (`_invarianten.assert_geen_wezen`) — voorkomen in plaats van
 signaleren.
 """
+
 from decimal import Decimal
 
 from app.domains.payment.api import GatewayPayment, PaymentRecord, handle_gateway_update
 from app.kernel.contracts.payment import PaymentSettled
-from app.kernel.events import subscribe, _subscribers
+from app.kernel.events import _subscribers, subscribe
 
 
 def _gateway_payment(db, amount="10.00"):
@@ -22,9 +23,13 @@ def _gateway_payment(db, amount="10.00"):
 
 
 def _record(db, gp=None, payable_type="registration", payable_id=999_999, amount="10.00"):
-    rec = PaymentRecord(payable_type=payable_type, payable_id=payable_id,
-                        amount=Decimal(amount), method="online",
-                        gateway_payment_id=gp.id if gp else None)
+    rec = PaymentRecord(
+        payable_type=payable_type,
+        payable_id=payable_id,
+        amount=Decimal(amount),
+        method="online",
+        gateway_payment_id=gp.id if gp else None,
+    )
     db.add(rec)
     db.flush()
     return rec
@@ -49,5 +54,3 @@ def test_payment_settled_published_once_for_repeated_webhook(db_session):
         assert rec.paid_at == eerste_paid_at and rec.amount_paid == Decimal("10.00")
     finally:
         _subscribers[PaymentSettled].remove(_handler)
-
-

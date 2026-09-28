@@ -9,6 +9,7 @@ Deze test kijkt niet naar klassen (dat breekt bij elke herstyling) maar naar wat
 een formulier bruikbaar maakt: de velden bestaan, dragen hun naam, en de
 verplichte zijn verplicht.
 """
+
 import pytest
 
 from tests.conftest import seed_activity_with_product, seed_postal_code
@@ -20,15 +21,23 @@ def test_word_lid_heeft_zijn_velden_nog(client, db_session):
     seed_postal_code(db_session, code="2400", municipality="Mol")
     html = client.get("/lid-worden").text
 
-    for naam in ("m0_first_name", "m0_last_name", "m0_email", "m0_mobile",
-                 "street", "house_number", "bus_number", "postal_code"):
+    for naam in (
+        "m0_first_name",
+        "m0_last_name",
+        "m0_email",
+        "m0_mobile",
+        "street",
+        "house_number",
+        "bus_number",
+        "postal_code",
+    ):
         assert f'name="{naam}"' in html, f"veld {naam} is verdwenen"
     # De postcode blijft een dropdown (vaste UI-beslissing), met echte opties.
     assert "<select" in html and "2400" in html
     # Verplichte velden zijn nog verplicht — dat attribuut zat vóór de omzetting
     # in de handgeschreven tag.
     for naam in ("street", "house_number"):
-        blok = html[html.index(f'name="{naam}"'):]
+        blok = html[html.index(f'name="{naam}"') :]
         assert " required" in blok[:400], f"{naam} is zijn required kwijt"
 
 
@@ -42,6 +51,6 @@ def test_inschrijven_heeft_zijn_velden_nog(client, db_session):
     # Het aantalveld per product draagt zijn htmx-koppeling naar de totaalregel:
     # die attributen gingen bij de omzetting door `attrs` en zijn makkelijk kwijt.
     assert f'name="product_{product.id}"' in html
-    blok = html[html.index(f'name="product_{product.id}"'):]
+    blok = html[html.index(f'name="product_{product.id}"') :]
     for stuk in ("hx-post=", "/totaal", "hx-include=", "hx-trigger="):
         assert stuk in blok[:900], f"het aantalveld mist {stuk} — geen live totaal meer"

@@ -25,6 +25,7 @@ Broken on purpose to check these tests can go red (run, then restored):
   - `set +x` removed from summary_print → five tests fail with "the summary block is
     interleaved with other output: '+ for key in ...'" (deploy.sh runs with set -x).
 """
+
 import os
 import shutil
 import subprocess
@@ -38,8 +39,15 @@ ROOT = Path(__file__).resolve().parents[2]
 
 # The contract. A reader of the block depends on these names, in this order; a
 # change here is a new version of the block (v2), not an edit.
-CONTRACT = ["environment", "commit", "alembic_heads", "alembic_current",
-            "migrations_applied", "clean_start", "smoke"]
+CONTRACT = [
+    "environment",
+    "commit",
+    "alembic_heads",
+    "alembic_current",
+    "migrations_applied",
+    "clean_start",
+    "smoke",
+]
 BEGIN = "=== DEPLOY SUMMARY v1 ==="
 END = "=== END DEPLOY SUMMARY ==="
 
@@ -61,7 +69,8 @@ def _build(tmp_path, *, log, heads="095 (head)\n", smoke_exit=0):
     (work / "tests" / "run-all.sh").write_text(
         "#!/bin/sh\n"
         f'[ -n "$SMOKE_RESULT_FILE" ] && echo "{counts}" > "$SMOKE_RESULT_FILE"\n'
-        f"exit {smoke_exit}\n")
+        f"exit {smoke_exit}\n"
+    )
     (work / "tests" / "run-all.sh").chmod(0o755)
     for name in (".env.hdev", ".env.uat", ".env.prod"):
         (work / name).write_text("FRONTEND_URL=http://site.test\n")
@@ -74,13 +83,15 @@ def _build(tmp_path, *, log, heads="095 (head)\n", smoke_exit=0):
         '#!/bin/sh\ncase "$*" in\n'
         f'  *"alembic heads"*|*"alembic current"*) cat "{tmp_path}/heads" ;;\n'
         f'  *"logs backend"*) cat "{tmp_path}/backendlog" ;;\n'
-        "esac\nexit 0\n")
+        "esac\nexit 0\n"
+    )
     (fakebin / "curl").write_text("#!/bin/sh\nexit 0\n")
     (fakebin / "sleep").write_text("#!/bin/sh\nexit 0\n")
     (fakebin / "git").write_text(
         '#!/bin/sh\ncase "$1" in describe) echo v2.7.0 ;; rev-parse) echo deadbee ;;\n'
         '  grep) case "$*" in *down_revision*) ;; *) echo "revision = \'095\'" ;; esac ;;\n'
-        "esac\nexit 0\n")
+        "esac\nexit 0\n"
+    )
     for f in fakebin.iterdir():
         f.chmod(0o755)
     return work, fakebin
@@ -91,8 +102,14 @@ def _run(work, fakebin, tmp_path, script, *args):
     env["PATH"] = f"{fakebin}:{env['PATH']}"
     env["DEPLOY_REEXEC"] = "1"
     env["LOG_OUT"] = str(tmp_path / "out.log")
-    return subprocess.run(["bash", f"./{script}", *args], cwd=work, env=env,
-                          capture_output=True, text=True, timeout=120)
+    return subprocess.run(
+        ["bash", f"./{script}", *args],
+        cwd=work,
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
 
 
 def _blocks(output: str) -> list[dict]:
@@ -108,7 +125,8 @@ def _blocks(output: str) -> list[dict]:
             # The block must read on its own: a trace line or any other output
             # between the markers is a failure, not something to skip over.
             assert "=" in line and not line.startswith("+"), (
-                f"the summary block is interleaved with other output: {line!r}")
+                f"the summary block is interleaved with other output: {line!r}"
+            )
             key, value = line.split("=", 1)
             current[key] = value
     return found
@@ -162,10 +180,11 @@ def test_no_migrations_is_an_empty_measurement(tmp_path):
 
 
 def test_applied_migrations_are_named_in_order(tmp_path):
-    upgrades = ("INFO  [alembic.runtime.migration] Running upgrade 094 -> 095, one\n"
-                "INFO  [alembic.runtime.migration] Running upgrade 095 -> 096, two\n")
-    work, fakebin = _build(tmp_path, log=STARTUP.format(upgrades=upgrades),
-                           heads="096 (head)\n")
+    upgrades = (
+        "INFO  [alembic.runtime.migration] Running upgrade 094 -> 095, one\n"
+        "INFO  [alembic.runtime.migration] Running upgrade 095 -> 096, two\n"
+    )
+    work, fakebin = _build(tmp_path, log=STARTUP.format(upgrades=upgrades), heads="096 (head)\n")
     block = _one_block(_run(work, fakebin, tmp_path, "deploy.sh", "hdev"))
     assert block["migrations_applied"] == "095,096", block
 
@@ -198,7 +217,8 @@ def test_the_real_smoke_runner_writes_its_counts(tmp_path):
     (tests / "smoke" / "b_fails.sh").write_text("exit 1\n")
     result = tmp_path / "result"
     env = dict(os.environ, SMOKE_RESULT_FILE=str(result))
-    subprocess.run(["bash", str(tests / "run-all.sh")], env=env, capture_output=True,
-                   text=True, timeout=60)
+    subprocess.run(
+        ["bash", str(tests / "run-all.sh")], env=env, capture_output=True, text=True, timeout=60
+    )
     assert result.exists(), "run-all.sh wrote no result file"
     assert result.read_text().strip() == "passed=1 failed=1 skipped=0"

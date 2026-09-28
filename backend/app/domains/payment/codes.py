@@ -11,6 +11,7 @@ distinction is worth stating because the two sit in the same table: *which*
 providers we support is our list and gets a code table; *what those providers
 report back* is theirs and gets an adapter enum plus a mapping.
 """
+
 from app.domains.payment.models import (
     PayableType,
     PayableTypeCode,
@@ -58,8 +59,7 @@ PAYMENT_TYPE = CodeList(
 )
 
 PAYABLE_TYPE_CODES = (
-    CodeSeed(code="registration", nl="Inschrijving", en="Registration",
-             sort_order=10),
+    CodeSeed(code="registration", nl="Inschrijving", en="Registration", sort_order=10),
     CodeSeed(code="membership", nl="Lidmaatschap", en="Membership", sort_order=20),
 )
 
@@ -78,8 +78,13 @@ PAYMENT_PROVIDER_CODES = (
     # `gateway_payments.provider` would refuse a stub payment in development
     # otherwise — but on every environment, PROD included, it is not an active
     # code, so no list ever offers it. The real brake is in the code.
-    CodeSeed(code="stub", nl="Testbetaling (enkel ontwikkeling)",
-             en="Test payment (development only)", sort_order=90, is_active=False),
+    CodeSeed(
+        code="stub",
+        nl="Testbetaling (enkel ontwikkeling)",
+        en="Test payment (development only)",
+        sort_order=90,
+        is_active=False,
+    ),
 )
 
 PAYMENT_PROVIDER = CodeList(

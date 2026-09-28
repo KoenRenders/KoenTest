@@ -1,12 +1,13 @@
 """OTP-login hardening (#268): per-account pogingteller + lockout, en hoogstens
 één levende OTP per e-mailadres."""
-from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import LoginToken
-from app.domains.auth.router import MAX_OTP_ATTEMPTS
-from app.limiter import login_limiter
+
 # De OTP-generator woont sinds #635 I in auth/login.py (de aanmeldstap is service,
 # geen router); patchen doe je waar de implementatie staat.
 from app.domains.auth import login as auth_login
+from app.domains.auth.api import LoginToken
+from app.domains.auth.router import MAX_OTP_ATTEMPTS
+from app.limiter import login_limiter
+from tests.conftest import SEEDED_ADMIN_EMAIL
 
 FIXED_OTP = "424242"
 

@@ -10,43 +10,33 @@ Toont en beheert alles wat naar de chatbot gaat, in drie groepen:
 Alle endpoints zijn admin-gated. Het effectieve gedrag zit in
 ``app/domains/chatbot/context.py`` en ``tools.py``.
 """
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.domains.activities.api import Activity
-from app.domains.activities.api import ActivitySubRegistration
-from app.domains.media.api import MediaAsset
+from app.domains.auth.api import User, get_current_admin
 from app.domains.chatbot import info_service as _service
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
-from app.domains.auth.api import User
-from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
-from app.domains.media.api import EXTRACTABLE_KINDS
+from app.domains.media.api import EXTRACTABLE_KINDS, MediaAsset
 from app.i18n import _
+from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 router = APIRouter(tags=["chatbot-info"], dependencies=[Depends(get_current_admin)])
 
 
-
-
-
-
 @router.get("/admin/chatbot-info")
-def list_chatbot_info(db: Session = Depends(get_db),
-                      _admin: User = Depends(get_current_admin)):
+def list_chatbot_info(db: Session = Depends(get_db), _admin: User = Depends(get_current_admin)):
     return _service.list_chatbot_info(db)
-
-
 
 
 @router.put("/admin/chatbot-info/media/{asset_id}")
 def upsert_media_info(
-    asset_id: int, data: ChatbotInfoEdit,
-    db: Session = Depends(get_db), _admin: User = Depends(get_current_admin),
+    asset_id: int,
+    data: ChatbotInfoEdit,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
 ):
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not asset or asset.kind not in EXTRACTABLE_KINDS:
@@ -63,8 +53,10 @@ def upsert_media_info(
 
 @router.put("/admin/chatbot-info/cms/{page_id}")
 def upsert_cms_info(
-    page_id: int, data: ChatbotInfoEdit,
-    db: Session = Depends(get_db), _admin: User = Depends(get_current_admin),
+    page_id: int,
+    data: ChatbotInfoEdit,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
@@ -80,15 +72,19 @@ def upsert_cms_info(
 
 
 @router.post("/admin/chatbot-info/notes", status_code=201)
-def create_note(data: NoteCreate, db: Session = Depends(get_db),
-                _admin: User = Depends(get_current_admin)):
+def create_note(
+    data: NoteCreate, db: Session = Depends(get_db), _admin: User = Depends(get_current_admin)
+):
     return _service.create_note(db, data)
 
 
 @router.patch("/admin/chatbot-info/{row_id}")
-def update_row(row_id: int, data: ChatbotInfoEdit,
-               db: Session = Depends(get_db),
-               _admin: User = Depends(get_current_admin)):
+def update_row(
+    row_id: int,
+    data: ChatbotInfoEdit,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
     try:
         return _service.update_row(db, row_id, data)
     except LookupError:
@@ -96,8 +92,9 @@ def update_row(row_id: int, data: ChatbotInfoEdit,
 
 
 @router.delete("/admin/chatbot-info/{row_id}", status_code=204)
-def delete_row(row_id: int, db: Session = Depends(get_db),
-               _admin: User = Depends(get_current_admin)):
+def delete_row(
+    row_id: int, db: Session = Depends(get_db), _admin: User = Depends(get_current_admin)
+):
     try:
         _service.delete_row(db, row_id)
     except LookupError:

@@ -19,12 +19,12 @@ become a detour via *Jaar* — a hierarchy you can only enter from the top takes
 something that works today. That is the second test below, and it is the one that
 would fail if this were built as a drill-only tree.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.reporting.api import (BY_KEY, Selection, classes_with_objects,
-                                       run_validated)
+from app.domains.reporting.api import BY_KEY, Selection, classes_with_objects, run_validated
 from app.domains.reporting.universe import HIERARCHIES, HIERARCHY_OF, OBJECTS
 from tests._reporting_seed import TENANT_A, seed
 from tests.test_reporting_panel_ui import login
@@ -42,8 +42,12 @@ def _datumregels() -> list:
     onderwerp. Het aantal dat #899 terugbracht wordt dus over de klassen geteld en
     niet meer binnen één ervan.
     """
-    return [entry for _naam, objecten in classes_with_objects()
-            for entry in objecten if hasattr(entry, "level_keys")]
+    return [
+        entry
+        for _naam, objecten in classes_with_objects()
+        for entry in objecten
+        if hasattr(entry, "level_keys")
+    ]
 
 
 def test_every_date_is_one_line_and_not_four():
@@ -59,8 +63,7 @@ def test_every_date_is_one_line_and_not_four():
     """
     regels = _datumregels()
     niveaus = sum(len(r.level_keys) for r in regels)
-    assert len(regels) == 10, (
-        f"{len(regels)} datumregels: {[r.name for r in regels]}")
+    assert len(regels) == 10, f"{len(regels)} datumregels: {[r.name for r in regels]}"
     assert niveaus >= 40, f"{niveaus} niveaus achter {len(regels)} regels"
 
 
@@ -73,22 +76,20 @@ def test_a_level_is_still_directly_selectable(db_session, situation):
     rijen = run_validated(
         db_session,
         Selection(object_keys=("paid_date_month", "payment_amount_paid")),
-        tenant_id=TENANT_A).rows
+        tenant_id=TENANT_A,
+    ).rows
     assert rijen and "paid_date_month" in rijen[0]
 
 
-def test_the_panel_offers_every_level_as_its_own_button(client, db_session,
-                                                        situation):
+def test_the_panel_offers_every_level_as_its_own_button(client, db_session, situation):
     """One line, four buttons — not one button you have to drill into."""
     login(client, db_session)
     tekst = client.get("/admin/rapporten/paneel").text
-    for sleutel in ("paid_date_year", "paid_date_quarter", "paid_date_month",
-                    "paid_date_day"):
+    for sleutel in ("paid_date_year", "paid_date_quarter", "paid_date_month", "paid_date_day"):
         assert f'value="{sleutel}"' in tekst, sleutel
 
 
-def test_the_level_buttons_read_as_levels_and_not_as_repeats(client, db_session,
-                                                             situation):
+def test_the_level_buttons_read_as_levels_and_not_as_repeats(client, db_session, situation):
     """The role is on the line; the buttons carry only their level.
 
     "Betaaldatum" once with *Jaar · Kwartaal · Maand · Datum* beside it, instead of
@@ -98,7 +99,8 @@ def test_the_level_buttons_read_as_levels_and_not_as_repeats(client, db_session,
     login(client, db_session)
     tekst = client.get("/admin/rapporten/paneel").text
     assert tekst.count("Betaaldatum › ") == 0, (
-        "de rol staat één keer op de regel, niet vier keer op de knoppen")
+        "de rol staat één keer op de regel, niet vier keer op de knoppen"
+    )
     assert "Betaaldatum" in tekst
 
 
@@ -122,18 +124,20 @@ def test_no_time_object_is_left_outside_a_hierarchy():
     # Alleen wat uit de KALENDER komt. Een `member_since` of een `activity_year`
     # is een jaartal uit het feit zelf en heeft geen niveaus eronder; die in een
     # hiërarchie duwen zou vier lege beloftes maken.
-    uit_de_kalender = {k for k, d in DIMENSION_BY_KEY.items()
-                       if d.source == "d_date"}
-    los = [o.key for o in OBJECTS
-           if o.view in uit_de_kalender and o.key not in HIERARCHY_OF
-           and o.key != "membership_year"]
+    uit_de_kalender = {k for k, d in DIMENSION_BY_KEY.items() if d.source == "d_date"}
+    los = [
+        o.key
+        for o in OBJECTS
+        if o.view in uit_de_kalender and o.key not in HIERARCHY_OF and o.key != "membership_year"
+    ]
     assert not los, (
         f"kalenderobjecten zonder hiërarchie: {los} — zet ze in een hiërarchie, "
-        "of de lijst groeit terug naar losse niveaus")
+        "of de lijst groeit terug naar losse niveaus"
+    )
 
 
 def test_the_full_month_label_is_gone():
-    """"Maand voluit" was a leftover from before the roles (#901).
+    """ "Maand voluit" was a leftover from before the roles (#901).
 
     It existed only on the shared date and on none of the four roles, and since
     #852 it cannot be grouped on. `2026-03` sorts chronologically by itself and
@@ -150,10 +154,12 @@ def test_the_roles_of_895_still_roll_up_on_every_level(db_session, situation):
     Grouping a date column into a tidier list must not make any of it
     unreachable — that would trade a real capability for a shorter screen.
     """
-    for sleutel, klasse in (("done_date_year", "Taken"),
-                            ("start_date_month", "Activiteiten"),
-                            ("end_date_quarter", "Activiteiten"),
-                            ("paid_date_day", "Betalingen")):
+    for sleutel, klasse in (
+        ("done_date_year", "Taken"),
+        ("start_date_month", "Activiteiten"),
+        ("end_date_quarter", "Activiteiten"),
+        ("paid_date_day", "Betalingen"),
+    ):
         obj = BY_KEY[sleutel]
         assert obj.klass == klasse, f"{sleutel} staat in {obj.klass}"
         assert sleutel in HIERARCHY_OF, sleutel

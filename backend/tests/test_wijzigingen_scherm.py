@@ -6,14 +6,16 @@ rij i.p.v. een badge te dragen, tegen §2.10 en tegen de B6-regel uit #596. En h
 scherm had geen paginering, terwijl §2.5 dat voorschrijft zodra een lijst kan groeien.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 import re
 
-from tests.conftest import SEEDED_ADMIN_EMAIL
+import pytest
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.mdm.api import Person
 from app.ui import PER_PAGE_DEFAULT as PER_PAGE
+from tests.conftest import SEEDED_ADMIN_EMAIL
+
+pytestmark = pytest.mark.ui_serverrendered
 
 _TH_BLOK = re.compile(r"<th[^>]*>(.*?)</th>", re.S)
 
@@ -50,8 +52,14 @@ def _wijzigingen(db, aantal):
         person = Person(first_name=f"Test{i}", last_name="Wijziging")
         db.add(person)
         db.flush()
-        snapshot_person(db, person, operation="insert", action="person_created",
-                        source="test", actor="tester@example.com")
+        snapshot_person(
+            db,
+            person,
+            operation="insert",
+            action="person_created",
+            source="test",
+            actor="tester@example.com",
+        )
     db.commit()
 
 
@@ -63,8 +71,7 @@ def test_details_staat_voor_object_actor(client, db_session):
 
     assert "Details" in koppen
     for later in ("Object", "Actor"):
-        assert koppen.index("Details") < koppen.index(later), \
-            f"Details hoort vóór {later} te staan"
+        assert koppen.index("Details") < koppen.index(later), f"Details hoort vóór {later} te staan"
 
 
 def test_persoon_staat_voor_details(client, db_session):
@@ -89,16 +96,17 @@ def test_operatie_is_een_badge_zonder_rijkleur(client, db_session):
     _login(client)
     html = client.get("/admin/ledenwijzigingen").text
 
-    assert "rounded-full" in html                      # er staan badges
+    assert "rounded-full" in html  # er staan badges
     for tint in ("bg-green-50", "bg-yellow-50", "bg-red-50"):
         assert f'<tr class="{tint}' not in html
-        assert f"{tint}\"" not in html.split("<tbody")[1].split("</tbody>")[0]
+        assert f'{tint}"' not in html.split("<tbody")[1].split("</tbody>")[0]
 
 
 def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, db_session):
     """De regel die anders stilletjes terugkruipt: het object staat in zijn eigen
     kolom, dus de samenvatting hoeft "(person #90)" niet te herhalen."""
     from datetime import date
+
     from app.domains.audit.api import all_changes_since
 
     _wijzigingen(db_session, 3)
@@ -108,8 +116,9 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     # Python niet.
     for r in rijen:
         assert (r["summary"] or "").strip(), f"lege samenvatting voor {r['entity']}"
-        assert f"#{r['entity_id']}" not in (r["summary"] or ""), \
+        assert f"#{r['entity_id']}" not in (r["summary"] or ""), (
             "de samenvatting herhaalt het object — dat staat in de Object-kolom"
+        )
 
 
 def test_paginering_toont_vijftig_per_pagina_en_behoudt_de_filters(client, db_session):

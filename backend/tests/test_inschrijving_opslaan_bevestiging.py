@@ -24,13 +24,13 @@ geen `toast=`):
   * de drie tests die het zwijgen van de andere wegen bewaken blijven groen — die
     hangen aan de andere kant van de vlag en horen niet mee te bewegen.
 """
+
 from html.parser import HTMLParser
 
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
 from app.domains.activities.api import RegistrationItem
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 # Deze tests hangen aan de gerenderde Jinja/htmx-stand (de `edit`-vlag in de
@@ -53,23 +53,34 @@ def _login(client):
 
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
-    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "component_id": comp.id, "payment_method": "transfer",
-        "items": [{"product_id": product.id, "quantity": 1}]})
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "component_id": comp.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
     assert resp.status_code in (200, 201), resp.text
     return resp.json()["id"], product
 
 
 def _opslaan(client, reg_id, hdr, **velden):
-    data = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-            "remarks": ""}
+    data = {
+        "contact_name": "An Janssens",
+        "phone": "0470000000",
+        "contact_email": "an@example.com",
+        "remarks": "",
+    }
     data.update(velden)
-    return client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
-                       headers=hdr, data=data)
+    return client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data=data)
 
 
 # ── Het succespad ────────────────────────────────────────────────────────────
+
 
 def test_opslaan_sluit_het_paneel(client, db_session):
     """Openblijven gaf hetzelfde scherm terug als vóór de klik."""
@@ -106,6 +117,7 @@ def test_de_toast_staat_top_level_in_het_antwoord(client, db_session):
 
 # ── De foutweg blijft zoals ze was ───────────────────────────────────────────
 
+
 def test_een_validatiefout_houdt_het_paneel_open_zonder_toast(client, db_session):
     """Je bent dan nog bezig; dichtklappen zou de fout uit beeld halen."""
     reg_id, _product = _inschrijving(client, db_session)
@@ -119,6 +131,7 @@ def test_een_validatiefout_houdt_het_paneel_open_zonder_toast(client, db_session
 
 # ── De #613-3-invariant: de tussenacties blijven open en zwijgen ─────────────
 
+
 def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     """`/totaal`, `/regels` en `/regels/{id}/verwijderen` zijn geen afsluiting.
 
@@ -128,13 +141,19 @@ def test_de_tussenacties_houden_het_paneel_open(client, db_session):
     """
     reg_id, product = _inschrijving(client, db_session)
     hdr = _login(client)
-    item_id = (db_session.query(RegistrationItem)
-               .filter(RegistrationItem.registration_id == reg_id).one().id)
+    item_id = (
+        db_session.query(RegistrationItem)
+        .filter(RegistrationItem.registration_id == reg_id)
+        .one()
+        .id
+    )
 
     wegen = [
         (f"/admin/inschrijvingen/{reg_id}/totaal", {f"quantity_{item_id}": "3"}),
-        (f"/admin/inschrijvingen/{reg_id}/regels",
-         {"product_id": str(product.id), "quantity": "1"}),
+        (
+            f"/admin/inschrijvingen/{reg_id}/regels",
+            {"product_id": str(product.id), "quantity": "1"},
+        ),
         (f"/admin/inschrijvingen/{reg_id}/regels/{item_id}/verwijderen", {}),
     ]
     for pad, data in wegen:
@@ -157,8 +176,22 @@ def test_de_detailroute_levert_geen_toast(client, db_session):
 
 # ── Hulpje ───────────────────────────────────────────────────────────────────
 
-_VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
-         "meta", "param", "source", "track", "wbr"}
+_VOID = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "param",
+    "source",
+    "track",
+    "wbr",
+}
 
 
 class _Dieptemeter(HTMLParser):

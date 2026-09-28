@@ -1,7 +1,9 @@
+import os
+import sys
 from logging.config import fileConfig
-from sqlalchemy import engine_from_config, pool
+
 from alembic import context
-import os, sys
+from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
@@ -38,9 +40,12 @@ if database_url:
 
 def run_migrations_offline():
     url = config.get_main_option("sqlalchemy.url")
-    context.configure(url=url, target_metadata=target_metadata,
-                      literal_binds=True,
-                      process_revision_directives=_nieuwe_id)
+    context.configure(
+        url=url,
+        target_metadata=target_metadata,
+        literal_binds=True,
+        process_revision_directives=_nieuwe_id,
+    )
     with context.begin_transaction():
         context.run_migrations()
 
@@ -52,13 +57,17 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata,
-                          process_revision_directives=_nieuwe_id)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            process_revision_directives=_nieuwe_id,
+        )
         with context.begin_transaction():
             context.run_migrations()
 
 
 # ── De id van een nieuwe migratie (#951) ─────────────────────────────────────
+
 
 def _volgende_volgnummer() -> int:
     """Het hoogste volgnummer in `versions/`, plus één.
@@ -70,8 +79,7 @@ def _volgende_volgnummer() -> int:
     from pathlib import Path
 
     map_ = Path(__file__).resolve().parent / "versions"
-    nummers = [int(m.group(1)) for p in map_.glob("*.py")
-               if (m := re.match(r"(\d+)_", p.name))]
+    nummers = [int(m.group(1)) for p in map_.glob("*.py") if (m := re.match(r"(\d+)_", p.name))]
     return (max(nummers) + 1) if nummers else 1
 
 

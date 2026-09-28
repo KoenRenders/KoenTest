@@ -22,6 +22,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen:
   * `team_name` uit de lijst in `inschrijving_opslaan` gehaald → dezelfde test faalt;
   * `toon_ploegnaam` hard op False → de twee scherm-tests falen.
 """
+
 import pytest
 
 from app.domains.activities.api import Registration
@@ -41,9 +42,14 @@ def _inschrijving(client, db, *, ploegnaam="A-team 1", vraagt_ploegnaam=True):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
     comp.team_name_required = vraagt_ploegnaam
     db.flush()
-    payload = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-               "component_id": comp.id, "payment_method": "transfer",
-               "items": [{"product_id": product.id, "quantity": 1}]}
+    payload = {
+        "contact_name": "An Janssens",
+        "phone": "0470000000",
+        "contact_email": "an@example.com",
+        "component_id": comp.id,
+        "payment_method": "transfer",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    }
     if ploegnaam is not None:
         payload["team_name"] = ploegnaam
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json=payload)
@@ -55,9 +61,17 @@ def test_de_ploegnaam_wordt_bewaard(client, db_session):
     reg_id = _inschrijving(client, db_session)
     hdr = _login(client)
 
-    resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "team_name": "B-team 2", "remarks": ""})
+    resp = client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "team_name": "B-team 2",
+            "remarks": "",
+        },
+    )
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
@@ -74,9 +88,17 @@ def test_leeg_opslaan_wordt_null(client, db_session):
     reg_id = _inschrijving(client, db_session, vraagt_ploegnaam=False)
     hdr = _login(client)
 
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
-        "team_name": "   ", "remarks": ""})
+    client.post(
+        f"/admin/inschrijvingen/{reg_id}/opslaan",
+        headers=hdr,
+        data={
+            "contact_name": "An Janssens",
+            "phone": "0470000000",
+            "contact_email": "an@example.com",
+            "team_name": "   ",
+            "remarks": "",
+        },
+    )
 
     db_session.expire_all()
     assert db_session.get(Registration, reg_id).team_name is None
@@ -105,6 +127,7 @@ def test_het_veld_staat_er_ook_als_de_vlag_intussen_af_staat(client, db_session)
     staan en moet corrigeerbaar blijven."""
     reg_id = _inschrijving(client, db_session, ploegnaam="Blijft staan")
     from app.domains.activities.api import ActivitySubRegistration
+
     reg = db_session.get(Registration, reg_id)
     db_session.get(ActivitySubRegistration, reg.component_id).team_name_required = False
     db_session.flush()
@@ -112,7 +135,8 @@ def test_het_veld_staat_er_ook_als_de_vlag_intussen_af_staat(client, db_session)
     _login(client)
     html = client.get(f"/admin/inschrijvingen/{reg_id}").text
     assert 'name="team_name"' in html, (
-        "een bewaarde ploegnaam is onbewerkbaar zodra de vlag afgaat (#716)")
+        "een bewaarde ploegnaam is onbewerkbaar zodra de vlag afgaat (#716)"
+    )
     assert "Blijft staan" in html
 
 

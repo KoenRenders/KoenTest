@@ -9,12 +9,14 @@ Invarianten:
 """
 
 import pytest
-pytestmark = pytest.mark.ui_agnostisch
+
 from app.domains.auth.api import create_access_token
-from tests.test_membership_pricing import seed_household
-from tests.test_functional_regression import _family_payload
-from tests.conftest import seed_postal_code
 from app.domains.payment.api import PayableType
+from tests.conftest import seed_postal_code
+from tests.test_functional_regression import _family_payload
+from tests.test_membership_pricing import seed_household
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _headers(email):
@@ -25,13 +27,15 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
     from datetime import date
+
     from app.domains.membership.api import has_valid_membership
 
     member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
     year = date.today().year
     resp = client.post(
         f"/api/v1/families/{member.id}/memberships",
-        headers=admin_headers, json={"year": year, "is_active": True},
+        headers=admin_headers,
+        json={"year": year, "is_active": True},
     )
     assert resp.status_code == 201, resp.text
     body = resp.json()
@@ -44,19 +48,29 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     """Een handmatig bevestigde lidmaatschap-betaling (cash/overschrijving) moet het
     lidmaatschap activeren — net als de Mollie-webhook (#143)."""
     seed_postal_code(db_session)
-    assert client.post("/api/v1/families", json=_family_payload(email="manualpay@example.com")).status_code == 201
+    assert (
+        client.post(
+            "/api/v1/families", json=_family_payload(email="manualpay@example.com")
+        ).status_code
+        == 201
+    )
 
-    from app.domains.payment.api import PaymentRecord
     from app.domains.membership.api import Membership
+    from app.domains.payment.api import PaymentRecord
 
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
+    rec = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
+        .first()
+    )
     assert rec is not None
     ms = db_session.query(Membership).first()
     assert ms.is_active is False  # nog niet betaald
 
     resp = client.patch(
         f"/api/v1/payment-status/records/{rec.id}",
-        headers=admin_headers, json={"status": "paid"},
+        headers=admin_headers,
+        json={"status": "paid"},
     )
     assert resp.status_code == 200, resp.text
 
@@ -75,9 +89,14 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
 
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
+
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     assert ms is not None and ms.is_active is False  # pas actief na betaling
-    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).first()
+    rec = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
+        .first()
+    )
     assert rec.payable_id == ms.id
 
 
@@ -147,7 +166,11 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     memberships = db_session.query(Membership).filter(Membership.member_id == member.id).all()
     years = [m.year for m in memberships]
     assert len(years) == len(set(years))  # geen duplicaat (member_id, year)
-    rec_count = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP).count()
+    rec_count = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
+        .count()
+    )
     assert rec_count == 1
 
 
@@ -156,6 +179,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     vroeg hernieuwen. De nieuwe periode dekt het JAAR ná de huidige geldigheid —
     niet het lopende jaar (anders botst uq_memberships_member_year). Regressie #134-flow."""
     from datetime import date
+
     from app.config import settings
     from app.domains.membership.api import Membership
 
@@ -174,12 +198,16 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     assert resp.status_code == 200, resp.text
 
     # Er moet nu een lidmaatschap voor volgend jaar bestaan, naast dat van dit jaar.
-    years = {ms.year for ms in db_session.query(Membership).filter(Membership.member_id == member.id).all()}
+    years = {
+        ms.year
+        for ms in db_session.query(Membership).filter(Membership.member_id == member.id).all()
+    }
     assert this_year in years
     assert this_year + 1 in years
 
     # Een hernieuwing dekt een vol jaar → altijd volle prijs (geen halve-prijs-venster).
     from app.domains.payment.api import PaymentRecord
+
     rec = (
         db_session.query(PaymentRecord)
         .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP)
@@ -192,14 +220,19 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
 def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     email = "activate@example.com"
     _member, person = seed_household(db_session, email, with_membership=False)
-    assert client.post("/api/v1/member/household/renew-membership", headers=_headers(email)).status_code == 200
+    assert (
+        client.post(
+            "/api/v1/member/household/renew-membership", headers=_headers(email)
+        ).status_code
+        == 200
+    )
 
     # Mollie roept de webhook met de provider_payment_id (mock = tr_test_123).
     hook = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_test_123"})
     assert hook.status_code == 200, hook.text
 
-    from app.domains.membership.api import Membership
-    from app.domains.membership.api import has_valid_membership
+    from app.domains.membership.api import Membership, has_valid_membership
+
     ms = db_session.query(Membership).first()
     db_session.refresh(ms)
     assert ms.is_active is True

@@ -1,11 +1,10 @@
 """Tests voor de centrale e-maillog (#328)."""
-from datetime import datetime, timezone, timedelta
 
-import pytest
+from datetime import datetime, timedelta, timezone
 
 from app.database import SessionLocal
+from app.domains.mail.api import EmailType, MailStatus, purge_old_email_logs, send_form_confirmation
 from app.domains.mail.models import EmailLog
-from app.domains.mail.api import EmailType, MailStatus, send_form_confirmation, purge_old_email_logs
 from app.kernel.jobs import JobStatus
 
 
@@ -36,10 +35,17 @@ def test_send_logs_sent(monkeypatch):
     monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
 
     class _FakeSMTP:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def login(self, *a): pass
-        def sendmail(self, *a): pass
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def login(self, *a):
+            pass
+
+        def sendmail(self, *a):
+            pass
 
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", lambda *a, **k: _FakeSMTP())
 
@@ -76,8 +82,9 @@ def test_failed_send_enqueues_retry_job(monkeypatch):
 
     monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
     monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
-    monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL",
-                        lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down")))
+    monkeypatch.setattr(
+        email_mod.smtplib, "SMTP_SSL", lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down"))
+    )
 
     recipient = "retry-enqueue@example.com"
     send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="T")
@@ -85,9 +92,10 @@ def test_failed_send_enqueues_retry_job(monkeypatch):
 
     s = SessionLocal()
     try:
-        jobs = (s.query(KernelJob).filter(KernelJob.name == "mail.retry").all())
-        assert any(j.payload.get("email_log_id") == log_id and j.status is JobStatus.PENDING
-                   for j in jobs)
+        jobs = s.query(KernelJob).filter(KernelJob.name == "mail.retry").all()
+        assert any(
+            j.payload.get("email_log_id") == log_id and j.status is JobStatus.PENDING for j in jobs
+        )
     finally:
         s.close()
 
@@ -100,18 +108,26 @@ def test_retry_job_resends_and_marks_sent(monkeypatch):
     # 1. Verzending faalt → log 'failed' + retry-job gepland.
     monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
     monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
-    monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL",
-                        lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down")))
+    monkeypatch.setattr(
+        email_mod.smtplib, "SMTP_SSL", lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down"))
+    )
     recipient = "retry-resend@example.com"
     send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="T")
     log_id = _logs_for(recipient)[0].id
 
     # 2. Bij de retry doet SMTP het weer → job draait, log wordt 'sent'.
     class _FakeSMTP:
-        def __enter__(self): return self
-        def __exit__(self, *a): return False
-        def login(self, *a): pass
-        def sendmail(self, *a): pass
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def login(self, *a):
+            pass
+
+        def sendmail(self, *a):
+            pass
 
     monkeypatch.setattr(mail_handlers.smtplib, "SMTP_SSL", lambda *a, **k: _FakeSMTP())
 
@@ -120,8 +136,12 @@ def test_retry_job_resends_and_marks_sent(monkeypatch):
         run_due_jobs(s)
         row = s.get(EmailLog, log_id)
         assert row.status is MailStatus.SENT and row.error_message is None
-        job_row = (s.query(KernelJob).filter(KernelJob.name == "mail.retry")
-                   .order_by(KernelJob.id.desc()).first())
+        job_row = (
+            s.query(KernelJob)
+            .filter(KernelJob.name == "mail.retry")
+            .order_by(KernelJob.id.desc())
+            .first()
+        )
         assert job_row.status is JobStatus.DONE
     finally:
         s.close()
@@ -138,17 +158,25 @@ def test_admin_endpoint_lists_and_filters(client, admin_headers):
     body = resp.json()
     assert "items" in body and "total" in body
     # Filter op type levert enkel form_confirmation op.
-    resp2 = client.get("/api/v1/admin/email-log?email_type=form_confirmation", headers=admin_headers)
+    resp2 = client.get(
+        "/api/v1/admin/email-log?email_type=form_confirmation", headers=admin_headers
+    )
     assert all(i["email_type"] == "form_confirmation" for i in resp2.json()["items"])
 
 
 def test_purge_respects_retention(db_session):
     old = EmailLog(
-        recipient="old@example.com", subject="oud", email_type="other", status="sent",
+        recipient="old@example.com",
+        subject="oud",
+        email_type="other",
+        status="sent",
         created_at=datetime.now(timezone.utc) - timedelta(days=400),
     )
     recent = EmailLog(
-        recipient="recent@example.com", subject="nieuw", email_type="other", status="sent",
+        recipient="recent@example.com",
+        subject="nieuw",
+        email_type="other",
+        status="sent",
         created_at=datetime.now(timezone.utc) - timedelta(days=10),
     )
     db_session.add_all([old, recent])
@@ -162,26 +190,37 @@ def test_purge_respects_retention(db_session):
 
 
 def test_purge_zero_retention_keeps_all(db_session):
-    db_session.add(EmailLog(
-        recipient="keep@example.com", subject="x", email_type="other", status="sent",
-        created_at=datetime.now(timezone.utc) - timedelta(days=1000),
-    ))
+    db_session.add(
+        EmailLog(
+            recipient="keep@example.com",
+            subject="x",
+            email_type="other",
+            status="sent",
+            created_at=datetime.now(timezone.utc) - timedelta(days=1000),
+        )
+    )
     db_session.flush()
     assert purge_old_email_logs(db_session, retention_days=0) == 0
 
 
 def test_admin_can_delete_email_log(client, admin_headers, db_session):
-    row = EmailLog(recipient="to-delete@example.com", subject="x", email_type="other", status="sent")
+    row = EmailLog(
+        recipient="to-delete@example.com", subject="x", email_type="other", status="sent"
+    )
     db_session.add(row)
     db_session.flush()
     log_id = row.id
     # Geen token → geweigerd.
     assert client.delete(f"/api/v1/admin/email-log/{log_id}").status_code == 401
     # Admin → verwijderd.
-    assert client.delete(f"/api/v1/admin/email-log/{log_id}", headers=admin_headers).status_code == 204
+    assert (
+        client.delete(f"/api/v1/admin/email-log/{log_id}", headers=admin_headers).status_code == 204
+    )
     assert db_session.query(EmailLog).filter(EmailLog.id == log_id).first() is None
     # Onbekende id → 404.
-    assert client.delete("/api/v1/admin/email-log/99999999", headers=admin_headers).status_code == 404
+    assert (
+        client.delete("/api/v1/admin/email-log/99999999", headers=admin_headers).status_code == 404
+    )
 
 
 def test_mail_requested_event_sends_and_logs(db_session):
@@ -192,8 +231,12 @@ def test_mail_requested_event_sends_and_logs(db_session):
     from app.kernel.events import publish
 
     recipient = "event-mail@example.com"
-    publish(MailRequested(to_email=recipient, subject="Event-test",
-                          body_html="<p>hallo</p>", email_type="other"), db_session)
+    publish(
+        MailRequested(
+            to_email=recipient, subject="Event-test", body_html="<p>hallo</p>", email_type="other"
+        ),
+        db_session,
+    )
     rows = _logs_for(recipient)
     assert len(rows) == 1
     assert rows[0].subject == "Event-test" and rows[0].status is MailStatus.SKIPPED

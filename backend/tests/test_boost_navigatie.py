@@ -18,10 +18,10 @@ mogelijk maakt, en dat je in Python volledig kan nagaan:
    dezelfde `HX-Request`-header. Het scherm liep daardoor leeg — htmx zocht
    `#main` in een fragment dat het niet bevatte.
 """
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -44,7 +44,7 @@ def test_gebooste_navigatie_krijgt_de_swap_instructies(client):
     assert r.headers["HX-Retarget"] == "#main"
     assert r.headers["HX-Reselect"] == "#main"
     assert r.headers["HX-Reswap"].startswith("outerHTML")
-    assert 'id="main"' in r.text          # het doel bestaat ook echt
+    assert 'id="main"' in r.text  # het doel bestaat ook echt
 
 
 def test_publieke_schil_boost_op_dezelfde_manier(client):
@@ -63,7 +63,8 @@ def test_een_gewone_htmx_actie_krijgt_ze_niet(client):
     assert r.status_code == 200
     for header in SWAP_HEADERS:
         assert header not in r.headers, (
-            f"{header} op een niet-gebooste actie: die zou #main zoeken in een fragment")
+            f"{header} op een niet-gebooste actie: die zou #main zoeken in een fragment"
+        )
 
 
 def test_een_gewoon_paginaverzoek_krijgt_ze_niet(client):
@@ -91,9 +92,17 @@ def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client):
     scherm, zonder foutmelding.
     """
     _login(client)
-    for pad in ("/admin/leden", "/admin/activiteiten", "/admin/paginas",
-                "/admin/formulieren", "/admin/gebruikers", "/admin/werkbank",
-                "/admin/media", "/admin/tenants", "/admin/ledenwijzigingen"):
+    for pad in (
+        "/admin/leden",
+        "/admin/activiteiten",
+        "/admin/paginas",
+        "/admin/formulieren",
+        "/admin/gebruikers",
+        "/admin/werkbank",
+        "/admin/media",
+        "/admin/tenants",
+        "/admin/ledenwijzigingen",
+    ):
         geboost = client.get(pad, headers=BOOST)
         assert geboost.status_code == 200, pad
         assert 'id="main"' in geboost.text, f"{pad} gaf een fragment op een gebooste navigatie"
@@ -102,8 +111,13 @@ def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client):
 
 # De schermen die écht op "is dit een htmx-verzoek?" vertakken — niet elk
 # lijstscherm doet dat (/admin/leden rendert altijd de hele pagina).
-FRAGMENTSCHERMEN = ("/admin/paginas", "/admin/formulieren", "/admin/activiteiten",
-                    "/admin/gebruikers", "/admin/tenants")
+FRAGMENTSCHERMEN = (
+    "/admin/paginas",
+    "/admin/formulieren",
+    "/admin/activiteiten",
+    "/admin/gebruikers",
+    "/admin/tenants",
+)
 
 
 @pytest.mark.parametrize("pad", FRAGMENTSCHERMEN)

@@ -6,6 +6,7 @@ posities nog op hun default staan: dan valt er niets te wisselen en gebeurt er
 stil niets. De gedeelde helper normaliseert eerst, en dat gedrag wordt hier
 vastgelegd zonder scherm en zonder databank.
 """
+
 from types import SimpleNamespace
 
 import pytest

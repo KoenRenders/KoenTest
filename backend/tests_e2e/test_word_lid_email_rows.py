@@ -12,6 +12,7 @@ It also measures the rows as rendered: the page does not scroll sideways, the
 "hoofdadres" label sits level with its field, the primary row has no remove
 button, and the added row's remove button lies inside the viewport.
 """
+
 import os
 import sys
 import uuid
@@ -45,15 +46,19 @@ def _stored_addresses(first: str):
 
     db = SessionLocal()
     try:
-        person_id = (db.query(ContactDetail.person_id)
-                     .filter(ContactDetail.value == first).scalar())
+        person_id = db.query(ContactDetail.person_id).filter(ContactDetail.value == first).scalar()
         if person_id is None:
             return None, {}
-        member_id = (db.query(MemberPerson.member_id)
-                     .filter(MemberPerson.person_id == person_id).scalar())
-        rows = (db.query(ContactDetail)
-                .filter(ContactDetail.person_id == person_id,
-                        ContactDetail.contact_type_code == "EMAIL").all())
+        member_id = (
+            db.query(MemberPerson.member_id).filter(MemberPerson.person_id == person_id).scalar()
+        )
+        rows = (
+            db.query(ContactDetail)
+            .filter(
+                ContactDetail.person_id == person_id, ContactDetail.contact_type_code == "EMAIL"
+            )
+            .all()
+        )
         return member_id, {r.value: bool(r.is_primary) for r in rows}
     finally:
         db.close()
@@ -102,15 +107,22 @@ def test_a_second_address_on_a_phone_is_stored_beside_the_primary_one(phone):
                   removeWidth: remove && Math.round(remove.width)};
         }""")
         assert geometry["scrollWidth"] <= PHONE, f"the form scrolls sideways: {geometry}"
-        assert geometry["badgeMid"] is not None, f"no 'hoofdadres' label on the first row: {geometry}"
+        assert geometry["badgeMid"] is not None, (
+            f"no 'hoofdadres' label on the first row: {geometry}"
+        )
         assert not geometry["firstHasRemove"], "the primary row must not be removable"
         assert geometry["badgeRight"] <= PHONE, f"the label sticks out: {geometry}"
-        assert geometry["removeRight"] is not None and geometry["removeWidth"] > 40 \
-            and geometry["removeRight"] <= PHONE, f"the added row's remove button is unusable: {geometry}"
+        assert (
+            geometry["removeRight"] is not None
+            and geometry["removeWidth"] > 40
+            and geometry["removeRight"] <= PHONE
+        ), f"the added row's remove button is unusable: {geometry}"
         # The label sits level with its field when they share a line; on a wrap it
         # sits below it. Either way it belongs to that row, not to the next one.
-        assert (abs(geometry["badgeMid"] - geometry["inputMid"]) <= 2
-                or geometry["badgeMid"] > geometry["inputMid"]), f"label out of line: {geometry}"
+        assert (
+            abs(geometry["badgeMid"] - geometry["inputMid"]) <= 2
+            or geometry["badgeMid"] > geometry["inputMid"]
+        ), f"label out of line: {geometry}"
 
         # ── Register ──
         page.fill("#m0_first_name", "E2E")

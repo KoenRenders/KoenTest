@@ -50,6 +50,7 @@ one actually knocked over — not what it was expected to:
   picker test. That is the proof the picker test needed: the four above never
   touch it.
 """
+
 from __future__ import annotations
 
 import re
@@ -58,10 +59,9 @@ from io import BytesIO
 import pytest
 from PIL import Image, ImageDraw
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.cms.render import image_attributes_from_attachment, render_cms_content
-from app.domains.media.api import MediaAsset, PAGE_IMAGE_KIND
+from app.domains.media.api import PAGE_IMAGE_KIND, MediaAsset
 from app.domains.media.images import process_image
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -75,8 +75,8 @@ ALT = "Schermafdruk van het aanmeldformulier"
 # height}))`. Copied from the measurement, entity escaping included — the JSON
 # sits in a double-quoted attribute, so Trix escapes its quotes as `&quot;`.
 INGEVOEGD = (
-    '<div><figure data-trix-attachment="{&quot;alt&quot;:&quot;' + ALT + '&quot;,'
-    '&quot;contentType&quot;:&quot;image&quot;,&quot;height&quot;:400,'
+    '<div><figure data-trix-attachment="{&quot;alt&quot;:&quot;' + ALT + "&quot;,"
+    "&quot;contentType&quot;:&quot;image&quot;,&quot;height&quot;:400,"
     '&quot;url&quot;:&quot;/api/v1/media/7&quot;,&quot;width&quot;:640}" '
     'data-trix-content-type="image" '
     'data-trix-attributes="{&quot;presentation&quot;:&quot;gallery&quot;}" '
@@ -90,8 +90,9 @@ INGEVOEGD = (
 # proves the alt does not decay — it is the second save, not the first, where an
 # alt stored on the <img> would have been lost.
 NA_EEN_RONDGANG = (
-    '<div>&nbsp;erbij<figure data-trix-attachment="{&quot;alt&quot;:&quot;' + ALT
-    + '&quot;,&quot;contentType&quot;:&quot;image&quot;,&quot;height&quot;:400,'
+    '<div>&nbsp;erbij<figure data-trix-attachment="{&quot;alt&quot;:&quot;'
+    + ALT
+    + "&quot;,&quot;contentType&quot;:&quot;image&quot;,&quot;height&quot;:400,"
     '&quot;url&quot;:&quot;/api/v1/media/7&quot;,&quot;width&quot;:640}" '
     'data-trix-content-type="image" class="attachment attachment--preview">'
     '<img src="/api/v1/media/7" width="640" height="400">'
@@ -120,8 +121,7 @@ def _afwijking(bron: bytes, uit: bytes) -> int:
     a = Image.open(BytesIO(bron)).convert("RGB")
     b = Image.open(BytesIO(uit)).convert("RGB")
     assert a.size == b.size, (a.size, b.size)
-    return max(abs(p - q) for pa, pb in zip(a.getdata(), b.getdata())
-               for p, q in zip(pa, pb))
+    return max(abs(p - q) for pa, pb in zip(a.getdata(), b.getdata()) for p, q in zip(pa, pb))
 
 
 def _login(client, db):
@@ -136,16 +136,27 @@ def _login(client, db):
 
 def _asset(db, *, kind: str, title: str, activity_id: int | None = None) -> MediaAsset:
     beeld = b"\x89PNG\r\n\x1a\n" + b"\x00" * 32
-    asset = MediaAsset(kind=kind, activity_id=activity_id, title=title, data=beeld,
-                       content_type="image/png", thumbnail=beeld,
-                       thumb_content_type="image/png", width=640, height=400,
-                       byte_size=len(beeld), sort_order=0, is_active=True)
+    asset = MediaAsset(
+        kind=kind,
+        activity_id=activity_id,
+        title=title,
+        data=beeld,
+        content_type="image/png",
+        thumbnail=beeld,
+        thumb_content_type="image/png",
+        width=640,
+        height=400,
+        byte_size=len(beeld),
+        sort_order=0,
+        is_active=True,
+    )
     db.add(asset)
     db.flush()
     return asset
 
 
 # ── 1. Lossless ──────────────────────────────────────────────────────────────
+
 
 def test_a_page_image_is_stored_losslessly():
     """The reason the kind exists: the lettering has to stay readable."""
@@ -155,13 +166,16 @@ def test_a_page_image_is_stored_losslessly():
 
     assert uit["content_type"] == "image/png", (
         "een schermafdruk is als JPEG bewaard — dan staan de artefacten rond de "
-        "letters die #1131 op het MONA-logo liet zien")
+        "letters die #1131 op het MONA-logo liet zien"
+    )
     assert uit["thumb_content_type"] == "image/png"
     assert _afwijking(bron, uit["data"]) == 0, (
-        "de pixels wijken af van wat er opgeladen werd, dus er is hercodeerd")
+        "de pixels wijken af van wat er opgeladen werd, dus er is hercodeerd"
+    )
 
 
 # ── 2. The image survives the sanitiser ──────────────────────────────────────
+
 
 def test_the_inserted_image_survives_sanitisation():
     """The allowlist is where this would die silently: visible in the editor,
@@ -169,21 +183,23 @@ def test_the_inserted_image_survives_sanitisation():
     html = render_cms_content(INGEVOEGD)
 
     assert '<img src="/api/v1/media/7"' in html, (
-        f"de afbeelding is bij het saneren verdwenen:\n{html}")
+        f"de afbeelding is bij het saneren verdwenen:\n{html}"
+    )
     assert "<figure" not in html and "data-trix-attachment" not in html, (
-        f"de trix-omhulling staat nog in de publieke HTML:\n{html}")
+        f"de trix-omhulling staat nog in de publieke HTML:\n{html}"
+    )
     assert "figcaption" not in html, f"het bijschrift-element staat er nog:\n{html}"
 
 
 # ── 3. And it carries its alt ────────────────────────────────────────────────
+
 
 def test_the_inserted_image_carries_its_alt():
     """A how-to page without alternative text is unusable with a screen reader,
     so this is a requirement and not a nicety."""
     html = render_cms_content(INGEVOEGD)
 
-    assert f'alt="{ALT}"' in html, (
-        f"de alt uit de bijlage staat niet op de <img>:\n{html}")
+    assert f'alt="{ALT}"' in html, f"de alt uit de bijlage staat niet op de <img>:\n{html}"
 
 
 def test_the_alt_survives_a_round_trip_through_the_editor():
@@ -195,15 +211,15 @@ def test_the_alt_survives_a_round_trip_through_the_editor():
     """
     html = render_cms_content(NA_EEN_RONDGANG)
 
-    assert f'alt="{ALT}"' in html, (
-        f"de alt is na een rondgang door de editor verdwenen:\n{html}")
+    assert f'alt="{ALT}"' in html, f"de alt is na een rondgang door de editor verdwenen:\n{html}"
     assert '<img src="/api/v1/media/7"' in html
 
 
 def test_an_alt_typed_in_the_html_source_wins():
     """Somebody who edits the HTML source by hand made a deliberate choice."""
-    eigen = INGEVOEGD.replace('<img src="/api/v1/media/7"',
-                              '<img alt="Eigen tekst" src="/api/v1/media/7"')
+    eigen = INGEVOEGD.replace(
+        '<img src="/api/v1/media/7"', '<img alt="Eigen tekst" src="/api/v1/media/7"'
+    )
 
     html = render_cms_content(eigen)
 
@@ -216,7 +232,7 @@ def test_a_file_attachment_is_not_turned_into_an_image():
     become one — the rewrite only touches image attachments."""
     pdf = (
         '<div><figure data-trix-attachment="{&quot;alt&quot;:&quot;Verslag&quot;,'
-        '&quot;contentType&quot;:&quot;application/pdf&quot;,'
+        "&quot;contentType&quot;:&quot;application/pdf&quot;,"
         '&quot;url&quot;:&quot;/api/v1/media/9&quot;}" '
         'class="attachment attachment--file"><img src="/api/v1/media/9">'
         "</figure></div>"
@@ -225,7 +241,8 @@ def test_a_file_attachment_is_not_turned_into_an_image():
     uit = image_attributes_from_attachment(pdf)
 
     assert 'alt="Verslag"' not in uit, (
-        "een bestandsbijlage is als afbeelding behandeld en heeft nu een alt")
+        "een bestandsbijlage is als afbeelding behandeld en heeft nu een alt"
+    )
     assert uit == pdf, "een niet-beeldbijlage hoort onaangeroerd te blijven"
 
 
@@ -237,6 +254,7 @@ def test_html_without_an_attachment_is_returned_unchanged():
 
 
 # ── 4. The kind stays in its own lane ────────────────────────────────────────
+
 
 def test_a_page_image_is_offered_by_the_media_library(client, db_session):
     """Uploading is the only way in, so the library has to offer the kind.
@@ -257,18 +275,19 @@ def test_a_page_image_is_offered_by_the_media_library(client, db_session):
 
     code = PAGE_IMAGE_KIND.value
     lijst = client.get(f"/admin/media?kind={code}").text
-    assert re.search(rf'<option value="{code}"[^>]*>\s*Pagina-afbeelding\s*</option>',
-                     lijst), (
-        "the filter list does not offer the kind under its one full name (#1194)")
+    assert re.search(rf'<option value="{code}"[^>]*>\s*Pagina-afbeelding\s*</option>', lijst), (
+        "the filter list does not offer the kind under its one full name (#1194)"
+    )
     assert ">Pagina<" not in lijst, "the stopgap short label of #1173 came back"
 
     nieuw = client.get("/admin/media/nieuw").text
     assert f'value="{code}"' in nieuw, (
-        "de soort staat niet in de keuzelijst van het uploadscherm, dus ze is "
-        "niet op te laden")
+        "de soort staat niet in de keuzelijst van het uploadscherm, dus ze is niet op te laden"
+    )
     assert "Pagina-afbeelding" in nieuw, (
         "de uploadlijst hoort de VOLLE naam te tonen — daar kies je wát je "
-        "oplaadt, en daar is de ruimte er wel")
+        "oplaadt, en daar is de ruimte er wel"
+    )
 
 
 def test_a_page_image_is_not_offered_as_an_activity_photo_or_a_logo(db_session):
@@ -283,8 +302,7 @@ def test_a_page_image_is_not_offered_as_an_activity_photo_or_a_logo(db_session):
 
     activity, _c, _p = seed_activity_with_product(db_session)
     pagina_beeld = _asset(db_session, kind=PAGE_IMAGE_KIND, title="Schermafdruk")
-    foto = _asset(db_session, kind="activity_photo", title="Foto",
-                  activity_id=activity.id)
+    foto = _asset(db_session, kind="activity_photo", title="Foto", activity_id=activity.id)
     logo = _asset(db_session, kind="sponsor", title="Sponsorlogo")
 
     class _Design:
@@ -294,16 +312,19 @@ def test_a_page_image_is_not_offered_as_an_activity_photo_or_a_logo(db_session):
     logos = sponsor_options(db_session)
 
     assert foto.id in [b["id"] for b in beelden], (
-        "de activiteitenfoto-keuzelijst is leeg, dus deze test bewijst niets")
-    assert logo.id in [m["id"] for m in logos], (
-        "de logokiezer is leeg, dus deze test bewijst niets")
+        "de activiteitenfoto-keuzelijst is leeg, dus deze test bewijst niets"
+    )
+    assert logo.id in [m["id"] for m in logos], "de logokiezer is leeg, dus deze test bewijst niets"
     assert pagina_beeld.id not in [b["id"] for b in beelden], (
-        "een pagina-afbeelding duikt op in de activiteitenfoto-keuzelijst")
+        "een pagina-afbeelding duikt op in de activiteitenfoto-keuzelijst"
+    )
     assert pagina_beeld.id not in [m["id"] for m in logos], (
-        "een pagina-afbeelding duikt op in de logokiezer van de Design Studio")
+        "een pagina-afbeelding duikt op in de logokiezer van de Design Studio"
+    )
 
 
 # ── 5. The editor offers the library, and still refuses a dropped file ───────
+
 
 def test_the_editor_offers_the_library_to_insert_from(client, db_session):
     from app.domains.cms.api import CmsPage
@@ -318,7 +339,8 @@ def test_the_editor_offers_the_library_to_insert_from(client, db_session):
 
     assert "insertPageImage" in html, "de invoegknop heeft geen invoegfunctie"
     assert f'data-url="/api/v1/media/{beeld.id}"' in html, (
-        "de bibliotheek staat niet in de kiezer, dus er is niets te kiezen")
+        "de bibliotheek staat niet in de kiezer, dus er is niets te kiezen"
+    )
     assert 'id="cp-alt"' in html, "het alt-veld ontbreekt in de kiezer"
 
 
@@ -336,7 +358,9 @@ def test_the_editor_still_refuses_a_dropped_file():
     fragment = (app / "domains/cms/templates/_cp_detail.html").read_text(encoding="utf-8")
 
     assert "trix-file-accept" in schil and "preventDefault" in schil, (
-        "de beheerschil onderschept geen bestanden meer in de editor")
+        "de beheerschil onderschept geen bestanden meer in de editor"
+    )
     assert 'type="file"' not in fragment, (
         "de pagina-editor heeft een eigen uploadveld gekregen — invoegen hoort "
-        "uit de bibliotheek te komen")
+        "uit de bibliotheek te komen"
+    )

@@ -25,14 +25,14 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (gemeten):
 - de samengevoegde kolom op `string_agg` zonder filter op `is_contact` zetten →
   de test die telt wie er in de regel staat, valt om.
 """
+
 from __future__ import annotations
 
 from datetime import date
 
 import pytest
-from sqlalchemy import text
 
-from app.domains.reporting.api import BY_KEY, Selection, run_validated
+from app.domains.reporting.api import Selection, run_validated
 
 TENANT = 8811
 
@@ -44,23 +44,35 @@ def activiteit(db_session):
     from app.domains.activities.models import ActivityOrganiser
     from app.domains.mdm.api import Person
 
-    a = Activity(tenant_id=TENANT, name="Brood en Spelen",
-                 description="Een namiddag vol brood en spelen.",
-                 board_notes="Zaal vragen aan de parochie. Niet doorsturen.")
+    a = Activity(
+        tenant_id=TENANT,
+        name="Brood en Spelen",
+        description="Een namiddag vol brood en spelen.",
+        board_notes="Zaal vragen aan de parochie. Niet doorsturen.",
+    )
     db_session.add(a)
     db_session.flush()
 
     mensen = {}
-    for voornaam, contact, orde in (("Jan", True, 0), ("Marie", True, 1),
-                                    ("Stil", False, 2)):
-        persoon = Person(tenant_id=TENANT, first_name=voornaam,
-                         last_name="Trekker", date_of_birth=date(1980, 1, 1),
-                         gender_code="M")
+    for voornaam, contact, orde in (("Jan", True, 0), ("Marie", True, 1), ("Stil", False, 2)):
+        persoon = Person(
+            tenant_id=TENANT,
+            first_name=voornaam,
+            last_name="Trekker",
+            date_of_birth=date(1980, 1, 1),
+            gender_code="M",
+        )
         db_session.add(persoon)
         db_session.flush()
-        db_session.add(ActivityOrganiser(tenant_id=TENANT, activity_id=a.id,
-                                         person_id=persoon.id,
-                                         is_contact=contact, sort_order=orde))
+        db_session.add(
+            ActivityOrganiser(
+                tenant_id=TENANT,
+                activity_id=a.id,
+                person_id=persoon.id,
+                is_contact=contact,
+                sort_order=orde,
+            )
+        )
         mensen[voornaam] = persoon
     db_session.commit()
     return {"activiteit": a, "mensen": mensen}
@@ -74,14 +86,16 @@ def _rij(db, *objecten) -> dict:
     # zelf nodig heeft: de drie nieuwe velden en de naam staan allemaal op de
     # dimensie `d_activity`, en uit alleen dimensies valt geen lijst te maken.
     resultaat = run_validated(
-        db, Selection(object_keys=tuple(objecten) + ("activity_last_date",),
-                      layout="detail"),
-        tenant_id=TENANT)
+        db,
+        Selection(object_keys=tuple(objecten) + ("activity_last_date",), layout="detail"),
+        tenant_id=TENANT,
+    )
     assert resultaat.rows, "geen rij — draaide de migratie?"
     return resultaat.rows[0]
 
 
 # ── De drie velden komen door ────────────────────────────────────────────────
+
 
 def test_de_omschrijving_staat_in_het_rapport(db_session, activiteit):
     rij = _rij(db_session, "activity", "activity_description")
@@ -111,8 +125,8 @@ def test_een_leeg_veld_wordt_leeg_en_niet_de_vorige_waarde(db_session, activitei
 
 # ── De organisatoren, in twee vormen ─────────────────────────────────────────
 
-def test_de_samengevoegde_regel_toont_de_affichenamen_in_volgorde(db_session,
-                                                                   activiteit):
+
+def test_de_samengevoegde_regel_toont_de_affichenamen_in_volgorde(db_session, activiteit):
     """Eén rij per activiteit, en alleen wie op de affiche komt.
 
     'Stil' is organisator zonder aangevinkt te zijn: die hoort hier niet in, want
@@ -126,8 +140,10 @@ def test_de_samengevoegde_regel_toont_de_affichenamen_in_volgorde(db_session,
 def test_de_dimensie_geeft_een_rij_per_organisator(db_session, activiteit):
     """Eigen korrel: hier staat óók wie niet op de affiche komt."""
     resultaat = run_validated(
-        db_session, Selection(object_keys=("activity_organiser", "activity_count")),
-        tenant_id=TENANT)
+        db_session,
+        Selection(object_keys=("activity_organiser", "activity_count")),
+        tenant_id=TENANT,
+    )
 
     namen = sorted(r["activity_organiser"] for r in resultaat.rows)
     assert namen == ["Jan Trekker", "Marie Trekker", "Stil Trekker"]
@@ -143,9 +159,11 @@ def test_zonder_organisatoren_blijft_de_kolom_leeg_zonder_fout(db_session):
 
     resultaat = run_validated(
         db_session,
-        Selection(object_keys=("activity", "activity_organisers",
-                               "activity_last_date"), layout="detail"),
-        tenant_id=TENANT)
+        Selection(
+            object_keys=("activity", "activity_organisers", "activity_last_date"), layout="detail"
+        ),
+        tenant_id=TENANT,
+    )
     rijen = {r["activity"]: r["activity_organisers"] for r in resultaat.rows}
 
     assert "Zonder trekkers" in rijen
@@ -154,6 +172,7 @@ def test_zonder_organisatoren_blijft_de_kolom_leeg_zonder_fout(db_session):
 
 # ── Wat er naar een taalmodel mag ────────────────────────────────────────────
 
+
 def _dispatch(db):
     from app.domains.reporting.assistant import dispatcher
 
@@ -161,20 +180,22 @@ def _dispatch(db):
 
 
 def _vraag(db, object_key: str) -> str:
-    import json
 
     return _dispatch(db)(
         "run_report",
-        {"objects": ["activity", object_key, "activity_last_date"],
-         "layout": "detail"}, db)
+        {"objects": ["activity", object_key, "activity_last_date"], "layout": "detail"},
+        db,
+    )
 
 
-@pytest.mark.parametrize("object_key,woord", [
-    ("activity_board_notes", "parochie"),
-    ("activity_organisers", "Trekker"),
-])
-def test_deze_velden_bereiken_geen_enkel_taalmodel(db_session, activiteit,
-                                                    object_key, woord):
+@pytest.mark.parametrize(
+    "object_key,woord",
+    [
+        ("activity_board_notes", "parochie"),
+        ("activity_organisers", "Trekker"),
+    ],
+)
+def test_deze_velden_bereiken_geen_enkel_taalmodel(db_session, activiteit, object_key, woord):
     """Langs de ECHTE weg: de dispatcher weigert vóór er een query draait.
 
     Niet de enum-waarde vergeleken — die blijft kloppen als niemand haar leest.
@@ -193,8 +214,8 @@ def test_een_organisator_reist_als_token_en_niet_als_naam(db_session, activiteit
     import json
 
     ruw = _dispatch(db_session)(
-        "run_report", {"objects": ["activity_organiser", "activity_count"]},
-        db_session)
+        "run_report", {"objects": ["activity_organiser", "activity_count"]}, db_session
+    )
     antwoord = json.loads(ruw)
 
     waarden = [r["activity_organiser"] for r in antwoord.get("rows", [])]

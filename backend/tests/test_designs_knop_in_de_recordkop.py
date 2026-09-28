@@ -33,6 +33,7 @@ structuurtest hieronder telt de directe kinderen van de kopregel; tegenproef: de
 omhullende div weggehaald → hij valt om met drie kinderen. Met de beheer-assistent uit
 is het paar één knop, en die staat nog steeds rechts (zelfde omhulling).
 """
+
 import pytest
 
 from app.domains.activities.api import Activity
@@ -57,9 +58,12 @@ def _login(client):
 def _ontwerp(db, activiteit):
     from app.domains.designstudio.api import create_design
 
-    ontwerp = create_design(db, activity_id=activiteit.id,
-                            duo_code="dark_green-golden_yellow",
-                            created_by=SEEDED_ADMIN_EMAIL)
+    ontwerp = create_design(
+        db,
+        activity_id=activiteit.id,
+        duo_code="dark_green-golden_yellow",
+        created_by=SEEDED_ADMIN_EMAIL,
+    )
     db.flush()
     return ontwerp
 
@@ -72,6 +76,7 @@ def _kop(client, activiteit) -> str:
 
 # ── Eén label, drie bestemmingen ─────────────────────────────────────────────
 
+
 def test_zonder_ontwerp_wijst_de_knop_naar_aanmaken(client, db_session, activiteit):
     _login(client)
     html = _kop(client, activiteit)
@@ -80,8 +85,7 @@ def test_zonder_ontwerp_wijst_de_knop_naar_aanmaken(client, db_session, activite
     assert f'href="/admin/ontwerpen/nieuw?activity_id={activiteit.id}"' in html
 
 
-def test_met_precies_een_ontwerp_wijst_de_knop_naar_dat_ontwerp(client, db_session,
-                                                                 activiteit):
+def test_met_precies_een_ontwerp_wijst_de_knop_naar_dat_ontwerp(client, db_session, activiteit):
     """De gewone handeling — "laat me mijn affiche zien" — is één klik korter.
 
     De prijs staat in het issue en is bewust aanvaard: je ziet de lijst dan niet
@@ -97,8 +101,7 @@ def test_met_precies_een_ontwerp_wijst_de_knop_naar_dat_ontwerp(client, db_sessi
     assert f'href="/admin/ontwerpen?activity_id={activiteit.id}"' not in html
 
 
-def test_met_twee_ontwerpen_wijst_de_knop_naar_de_gefilterde_lijst(client, db_session,
-                                                                    activiteit):
+def test_met_twee_ontwerpen_wijst_de_knop_naar_de_gefilterde_lijst(client, db_session, activiteit):
     _ontwerp(db_session, activiteit)
     _ontwerp(db_session, activiteit)
     _login(client)
@@ -129,6 +132,7 @@ def test_het_label_verandert_nooit(client, db_session, activiteit):
 
 # ── Naast elkaar (#1087) ─────────────────────────────────────────────────────
 
+
 def _directe_kinderen_van_de_kopregel(html: str) -> list[str]:
     """De directe kind-elementen van de kopregel, als openingstags.
 
@@ -149,7 +153,7 @@ def _directe_kinderen_van_de_kopregel(html: str) -> list[str]:
             if self.diepte is None and "justify-between" in klassen and "mb-2" in klassen:
                 self.diepte = len(self.stapel)
             elif self.diepte is not None and len(self.stapel) == self.diepte + 1:
-                self.kinderen.append(f"<{tag} class=\"{klassen}\">")
+                self.kinderen.append(f'<{tag} class="{klassen}">')
             if tag not in ("input", "br", "img", "path", "meta", "link", "hr"):
                 self.stapel.append(tag)
 
@@ -176,8 +180,9 @@ def assistent_aan(db_session, monkeypatch):
     db_session.flush()
 
 
-def test_met_beide_knoppen_heeft_de_kopregel_twee_kinderen(client, db_session, activiteit,
-                                                           assistent_aan):
+def test_met_beide_knoppen_heeft_de_kopregel_twee_kinderen(
+    client, db_session, activiteit, assistent_aan
+):
     """Titelblok links, knoppenpaar rechts. Drie kinderen is de fout van #1087."""
     _login(client)
     html = _kop(client, activiteit)
@@ -188,8 +193,7 @@ def test_met_beide_knoppen_heeft_de_kopregel_twee_kinderen(client, db_session, a
     assert "Design Studio" not in kinderen[0] and "gap-2" in kinderen[1]
 
 
-def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session,
-                                                              activiteit):
+def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session, activiteit):
     """Eén knop in dezelfde omhulling: ook dan twee kinderen, en de knop in het
     tweede."""
     _login(client)
@@ -203,9 +207,9 @@ def test_zonder_assistent_staat_de_ene_knop_nog_steeds_rechts(client, db_session
 
 # ── De StrictUndefined-val ───────────────────────────────────────────────────
 
+
 @pytest.mark.parametrize("tab", ["inschrijvingen", "betalingen"])
-def test_de_andere_tabs_renderen_en_dragen_dezelfde_knop(client, db_session,
-                                                          activiteit, tab):
+def test_de_andere_tabs_renderen_en_dragen_dezelfde_knop(client, db_session, activiteit, tab):
     """De kop wordt door vier sjablonen ingesloten; de context kwam van twee
     plekken. Zonder deze test valt dat pas op HDEV op — als een FOUT, want de
     templates renderen onder StrictUndefined.

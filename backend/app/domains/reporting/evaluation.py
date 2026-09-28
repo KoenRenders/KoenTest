@@ -26,6 +26,7 @@ Questions 7 and 8 are cohort reasoning (§8) and carry no expected number: what 
 graded there is the SHAPE of the answer — indicators and reasons, never an
 invented percentage.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -57,76 +58,88 @@ QUESTIONS: tuple[Question, ...] = (
         number=1,
         text="Hoeveel mensen namen deel aan de Quiz?",
         must_contain="6 deelnemers aan de Quiz",
-        selection={"objects": ["activity", "registration_quantity"],
-                   "sort": [{"object": "registration_quantity",
-                             "direction": "desc"}]},
+        selection={
+            "objects": ["activity", "registration_quantity"],
+            "sort": [{"object": "registration_quantity", "direction": "desc"}],
+        },
         expect_top={"activity": "Quiz", "registration_quantity": 6},
     ),
     Question(
         number=2,
         text="Welke activiteiten trekken de meeste deelnemers?",
         must_contain="Quiz (6) vóór Wandeling (5)",
-        selection={"objects": ["activity", "registration_quantity"],
-                   "sort": [{"object": "registration_quantity",
-                             "direction": "desc"}]},
+        selection={
+            "objects": ["activity", "registration_quantity"],
+            "sort": [{"object": "registration_quantity", "direction": "desc"}],
+        },
         expect_top={"activity": "Quiz", "registration_quantity": 6},
     ),
     Question(
         number=3,
         text="Wat is de omzet per activiteit?",
-        must_contain=("Quiz €30 en Wandeling €20, én het woord 'gefactureerd' of "
-                      "'te betalen' — de standaardbetekenis moet benoemd zijn"),
-        selection={"objects": ["activity", "payment_amount"],
-                   "sort": [{"object": "payment_amount", "direction": "desc"}]},
+        must_contain=(
+            "Quiz €30 en Wandeling €20, én het woord 'gefactureerd' of "
+            "'te betalen' — de standaardbetekenis moet benoemd zijn"
+        ),
+        selection={
+            "objects": ["activity", "payment_amount"],
+            "sort": [{"object": "payment_amount", "direction": "desc"}],
+        },
         expect_top={"activity": "Quiz", "payment_amount": Decimal("30.00")},
     ),
     Question(
         number=4,
         text="In welke straat wonen de meeste leden?",
         must_contain="Dorpsstraat, met 12 personen",
-        selection={"objects": ["address_street", "membership_person_count"],
-                   "sort": [{"object": "membership_person_count",
-                             "direction": "desc"}]},
-        expect_top={"address_street": "Dorpsstraat",
-                    "membership_person_count": 12},
+        selection={
+            "objects": ["address_street", "membership_person_count"],
+            "sort": [{"object": "membership_person_count", "direction": "desc"}],
+        },
+        expect_top={"address_street": "Dorpsstraat", "membership_person_count": 12},
     ),
     Question(
         number=5,
         text="Welk bestuurslid heeft de meeste leden?",
-        must_contain=("het bestuurslid met 5 gezinnen, bij naam — op het scherm "
-                      "staat een naam, in de payload een token"),
-        selection={"objects": ["board_member", "membership_households"],
-                   "sort": [{"object": "membership_households",
-                             "direction": "desc"}]},
+        must_contain=(
+            "het bestuurslid met 5 gezinnen, bij naam — op het scherm "
+            "staat een naam, in de payload een token"
+        ),
+        selection={
+            "objects": ["board_member", "membership_households"],
+            "sort": [{"object": "membership_households", "direction": "desc"}],
+        },
         expect_top={"membership_households": 5},
     ),
     Question(
         number=6,
         text="Wat is de verdeling per leeftijdsgroep?",
         must_contain="drie groepen van 9: 6-12, 26-40 en 41-60",
-        selection={"objects": ["person_age_group", "membership_person_count"],
-                   "sort": [{"object": "membership_person_count",
-                             "direction": "desc"}]},
+        selection={
+            "objects": ["person_age_group", "membership_person_count"],
+            "sort": [{"object": "membership_person_count", "direction": "desc"}],
+        },
         expect_top={"membership_person_count": 9},
     ),
     Question(
         number=7,
         text="Welke leden vernieuwen volgend jaar waarschijnlijk niet?",
-        must_contain=("indicatoren en redenen — 'elk jaar lid sinds X, dit jaar "
-                      "niet vernieuwd, geen inschrijvingen' — en GEEN percentage"),
+        must_contain=(
+            "indicatoren en redenen — 'elk jaar lid sinds X, dit jaar "
+            "niet vernieuwd, geen inschrijvingen' — en GEEN percentage"
+        ),
         category=CATEGORY_COHORT,
     ),
     Question(
         number=8,
         text="Wie komt er waarschijnlijk naar de Quiz?",
-        must_contain=("patronen uit eerdere inschrijvingen, per gezin benoemd, "
-                      "zonder verzonnen kans"),
+        must_contain=(
+            "patronen uit eerdere inschrijvingen, per gezin benoemd, zonder verzonnen kans"
+        ),
         category=CATEGORY_COHORT,
     ),
 )
 
-AGGREGATE_QUESTIONS = tuple(q for q in QUESTIONS
-                            if q.category == CATEGORY_AGGREGATE)
+AGGREGATE_QUESTIONS = tuple(q for q in QUESTIONS if q.category == CATEGORY_AGGREGATE)
 
 
 def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> str:
@@ -139,25 +152,43 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
 
     from app.config import settings
     from app.domains.chatbot.api import (
-        GuardedProvider, admin_rules, get_provider, run_chat, sink_for,
+        GuardedProvider,
+        admin_rules,
+        get_provider,
+        run_chat,
+        sink_for,
     )
     from app.domains.reporting.assistant import (
-        CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, tool_specs,
-        detokenise, dispatcher, scan_names, scrub_question,
+        CAPABILITY,
+        SCAN_PROMPT_NAMES,
+        build_system_prompt,
+        detokenise,
+        dispatcher,
+        scan_names,
+        scrub_question,
+        tool_specs,
     )
 
-    messages = [{"role": "system", "content": build_system_prompt()},
-                {"role": "user",
-                 "content": scrub_question(db, question.text, tenant_id=tenant_id)}]
+    messages = [
+        {"role": "system", "content": build_system_prompt()},
+        {"role": "user", "content": scrub_question(db, question.text, tenant_id=tenant_id)},
+    ]
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: scan_names(db), capability=CAPABILITY,
-                    scan_prompt_names=SCAN_PROMPT_NAMES),
-        sink_for(actor))
-    antwoord = run_chat(db, messages, provider,
-                        max_rounds=settings.admin_chat_max_tool_rounds,
-                        tools=tool_specs(), dispatch=dispatcher(tenant_id=tenant_id),
-                        deadline=time.monotonic() + settings.admin_chat_timeout_seconds)
+        admin_rules(
+            lambda: scan_names(db), capability=CAPABILITY, scan_prompt_names=SCAN_PROMPT_NAMES
+        ),
+        sink_for(actor),
+    )
+    antwoord = run_chat(
+        db,
+        messages,
+        provider,
+        max_rounds=settings.admin_chat_max_tool_rounds,
+        tools=tool_specs(),
+        dispatch=dispatcher(tenant_id=tenant_id),
+        deadline=time.monotonic() + settings.admin_chat_timeout_seconds,
+    )
     return detokenise(db, antwoord, tenant_id=tenant_id)
 
 

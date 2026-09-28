@@ -9,6 +9,7 @@ zelf kijkt en een uitzonderingslijst draagt die alleen mag krimpen. Wat hier
 overblijft is de plaatsregel: het cluster mag niet in een `x-show="!…"`-wrapper
 staan.
 """
+
 from pathlib import Path
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -41,8 +42,9 @@ def test_het_cluster_zit_nooit_in_een_verborgen_leeswrapper():
             elif t.startswith("<div"):
                 stapel.append('x-show="!' in t)
             elif any(stapel):
-                regel = tekst[:token.start()].count("\n") + 1
+                regel = tekst[: token.start()].count("\n") + 1
                 fouten.append(f"{pad.relative_to(APP)}:{regel}")
     assert not fouten, (
-        "action_bar binnen een x-show=\"!…\"-wrapper — de knoppen verdwijnen "
-        f"in bewerkmodus: {fouten}")
+        'action_bar binnen een x-show="!…"-wrapper — de knoppen verdwijnen '
+        f"in bewerkmodus: {fouten}"
+    )

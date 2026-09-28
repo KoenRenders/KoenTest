@@ -11,6 +11,7 @@ haar label naar het oude id bleef wijzen. In die tak wees het label dus naar iet
 wat er niet is: klikken zette de cursor nergens, en een schermlezer koppelt het
 veld aan geen enkel label.
 """
+
 import re
 
 import pytest
@@ -31,10 +32,11 @@ def test_elk_label_wijst_naar_een_veld_in_dezelfde_tak():
         m = LABEL.search(regel)
         if not m:
             continue
-        volgende = "\n".join(regels[nr + 1:nr + 4])
+        volgende = "\n".join(regels[nr + 1 : nr + 4])
         ids = CONTROL.findall(volgende)
         if not ids:
             continue  # label zonder control eronder — niet dit soort veld
         assert m.group(1) == ids[0], (
             f"regel {nr + 1}: het label wijst naar '{m.group(1)}…' terwijl het veld "
-            f"eronder '{ids[0]}…' heet — in deze tak bestaat dat id niet")
+            f"eronder '{ids[0]}…' heet — in deze tak bestaat dat id niet"
+        )

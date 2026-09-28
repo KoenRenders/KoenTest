@@ -60,6 +60,7 @@ helemaal niet doorgeeft. Vandaag heeft dat geen gevolg — niets leest hem via d
 omgeving, `Settings` valt terug op zijn standaard — maar het is dezelfde vorm
 als #821. Gemeld, niet hier gerepareerd.
 """
+
 import ast
 from pathlib import Path
 
@@ -95,16 +96,18 @@ _LEZERS = {"getenv": 0, "get": 0}
 
 
 def _modules() -> list[Path]:
-    return bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
-                     minstens=100)
+    return bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100)
 
 
 def _constanten(boom: ast.AST) -> dict[str, str]:
     """Modulebrede `NAAM = "TEKST"`, zodat een naam via een constante meetelt."""
     namen = {}
     for node in ast.walk(boom):
-        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) \
-                and isinstance(node.value.value, str):
+        if (
+            isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Constant)
+            and isinstance(node.value.value, str)
+        ):
             for doel in node.targets:
                 if isinstance(doel, ast.Name):
                     namen[doel.id] = node.value.value
@@ -150,8 +153,7 @@ def gelezen_namen(bron: str) -> set[str]:
         is_getenv = functie.attr == "getenv"
         if not (is_getenv or _is_environ(functie.value)):
             continue
-        if is_getenv and not (isinstance(functie.value, ast.Name)
-                              and functie.value.id in ("os",)):
+        if is_getenv and not (isinstance(functie.value, ast.Name) and functie.value.id in ("os",)):
             continue
         if node.args:
             naam = _naam_van(node.args[0], constanten)
@@ -186,7 +188,7 @@ def _documented(environment: str) -> set[str]:
 
 # ── De zelftest: kan deze poort wel zien? ────────────────────────────────────
 
-VOORBEELD = '''
+VOORBEELD = """
 import os
 from os import environ
 
@@ -198,7 +200,7 @@ getenv = os.getenv("VIA_GETENV")
 via_constante = os.environ.get(ENV_KEY)
 losse_import = environ.get("LOSSE_IMPORT")
 geen_env = {"nep": 1}.get("NIET_MEETELLEN")
-'''
+"""
 
 
 def test_de_poort_ziet_alle_vier_de_vormen():
@@ -209,11 +211,17 @@ def test_de_poort_ziet_alle_vier_de_vormen():
     """
     gezien = gelezen_namen(VOORBEELD)
 
-    assert gezien == {"RECHTSTREEKS", "MET_HAAKJES", "VIA_GETENV",
-                      "VIA_EEN_CONSTANTE", "LOSSE_IMPORT"}, gezien
+    assert gezien == {
+        "RECHTSTREEKS",
+        "MET_HAAKJES",
+        "VIA_GETENV",
+        "VIA_EEN_CONSTANTE",
+        "LOSSE_IMPORT",
+    }, gezien
 
 
 # ── De regel ─────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("environment", ENVIRONMENTS)
 def test_wat_de_code_leest_komt_de_container_binnen(environment):
@@ -221,12 +229,15 @@ def test_wat_de_code_leest_komt_de_container_binnen(environment):
 
     ontbreekt = sorted(
         f"{naam} (gelezen in {pad})"
-        for naam, pad in _gelezen_in_app().items() if naam not in doorgegeven)
+        for naam, pad in _gelezen_in_app().items()
+        if naam not in doorgegeven
+    )
 
     assert not ontbreekt, (
         f"de backend leest deze variabelen, maar docker-compose.{environment}.yml "
         f"geeft ze niet door — de backend heeft geen env_file, dus ze bereiken de "
-        f"container nooit: {ontbreekt}")
+        f"container nooit: {ontbreekt}"
+    )
 
 
 def test_wat_de_code_leest_staat_ergens_beschreven():
@@ -240,15 +251,19 @@ def test_wat_de_code_leest_staat_ergens_beschreven():
 
     ontbreekt = sorted(
         f"{naam} (gelezen in {pad})"
-        for naam, pad in _gelezen_in_app().items() if naam not in beschreven)
+        for naam, pad in _gelezen_in_app().items()
+        if naam not in beschreven
+    )
 
     assert not ontbreekt, (
         "deze variabelen worden gelezen maar staan in geen enkel "
         f".env.*.example — dan weet niemand dat ze bestaan, ook niet wie de "
-        f"server beheert: {ontbreekt}")
+        f"server beheert: {ontbreekt}"
+    )
 
 
 def test_de_uitzonderingen_dragen_elk_een_reden():
     zonder_reden = sorted(n for n, reden in UITZONDERINGEN.items() if not reden.strip())
     assert not zonder_reden, (
-        f"een uitzondering zonder reden is een gat, geen uitzondering: {zonder_reden}")
+        f"een uitzondering zonder reden is een gat, geen uitzondering: {zonder_reden}"
+    )

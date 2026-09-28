@@ -37,6 +37,7 @@ through `build_query`, the refusal named that object, and the same selection in
 the list shape went through untouched. That is what the first two tests do on
 every run.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -55,12 +56,11 @@ def situation(db_session):
 def test_grouping_on_a_detail_is_refused_and_says_which_one():
     """The gate. Breaking it is the point: this selection used to work."""
     with pytest.raises(SelectionError) as exc:
-        build_query(
-            Selection(object_keys=("payment_ogm", "payment_amount")),
-            tenant_id=TENANT_A)
+        build_query(Selection(object_keys=("payment_ogm", "payment_amount")), tenant_id=TENANT_A)
     melding = str(exc.value)
     assert "OGM" in melding or "Gestructureerde" in melding, (
-        f"de melding hoort te zeggen wélk object het betreft: {melding}")
+        f"de melding hoort te zeggen wélk object het betreft: {melding}"
+    )
     assert "detail" in melding.lower()
     assert "lijst" in melding.lower(), "en wat je er dan mee doet"
 
@@ -69,13 +69,12 @@ def test_the_same_objects_in_a_list_are_fine():
     """The other half of the proof: it is the grouping that is refused, not the
     object. A list is exactly where a detail belongs."""
     plan = build_query(
-        Selection(object_keys=("payment_ogm", "payment_note"), layout="detail"),
-        tenant_id=TENANT_A)
+        Selection(object_keys=("payment_ogm", "payment_note"), layout="detail"), tenant_id=TENANT_A
+    )
     assert "structured_communication" in plan.sql or plan.sql
 
 
-def test_the_free_text_detail_is_the_one_that_would_have_lied(db_session,
-                                                              situation):
+def test_the_free_text_detail_is_the_one_that_would_have_lied(db_session, situation):
     """Why `payment_note` and not `payment_ogm` carries this issue.
 
     An OGM is unique per payment, so grouping on it gives one row each — untidy,
@@ -85,19 +84,30 @@ def test_the_free_text_detail_is_the_one_that_would_have_lied(db_session,
     """
     from sqlalchemy import text
 
-    db_session.execute(text(
-        "UPDATE payment.payment_records SET note = 'Zelfde notitie' "
-        "WHERE tenant_id = :t AND deleted_at IS NULL"), {"t": TENANT_A})
+    db_session.execute(
+        text(
+            "UPDATE payment.payment_records SET note = 'Zelfde notitie' "
+            "WHERE tenant_id = :t AND deleted_at IS NULL"
+        ),
+        {"t": TENANT_A},
+    )
     db_session.commit()
 
-    rijen = list(db_session.execute(text(
-        "SELECT note, COUNT(*) AS aantal, SUM(amount) AS som "
-        "FROM reporting.f_payments WHERE tenant_id = :t AND note <> '' "
-        "GROUP BY note"), {"t": TENANT_A}))
+    rijen = list(
+        db_session.execute(
+            text(
+                "SELECT note, COUNT(*) AS aantal, SUM(amount) AS som "
+                "FROM reporting.f_payments WHERE tenant_id = :t AND note <> '' "
+                "GROUP BY note"
+            ),
+            {"t": TENANT_A},
+        )
+    )
     assert rijen, "de seed heeft betalingen"
     assert any(rij.aantal > 1 for rij in rijen), (
         "twee betalingen met dezelfde notitie vallen samen in één rij — dat is "
-        "het geval waarvoor deze gate bestaat")
+        "het geval waarvoor deze gate bestaat"
+    )
 
 
 def test_every_shipped_report_groups_only_on_dimensions(db_session, situation):
@@ -110,15 +120,16 @@ def test_every_shipped_report_groups_only_on_dimensions(db_session, situation):
     """
     from app.domains.reporting.api import list_saved_reports, selection_from_dict
 
-    rapporten = [r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
-                                               viewer="") if r.builtin_key]
+    rapporten = [
+        r for r in list_saved_reports(db_session, tenant_id=TENANT_A, viewer="") if r.builtin_key
+    ]
     assert len(rapporten) >= 19, "de meegeleverde rapporten staan er"
 
     fouten = []
     for rapport in rapporten:
         selectie = selection_from_dict(rapport.selection)
         if selectie.layout == "detail":
-            continue          # a list is where a detail belongs
+            continue  # a list is where a detail belongs
         for key in selectie.object_keys:
             obj = BY_KEY.get(key)
             if obj is not None and obj.kind is ObjectKind.DETAIL:
@@ -136,12 +147,15 @@ def test_the_kind_is_worth_keeping_because_thirteen_objects_carry_it():
     """
     details = [o for o in OBJECTS if o.kind is ObjectKind.DETAIL]
     assert len(details) >= 6, (
-        f"nog maar {len(details)} details — is de afweging uit #852 nog dezelfde?")
+        f"nog maar {len(details)} details — is de afweging uit #852 nog dezelfde?"
+    )
     assert BY_KEY["task_done_by"].kind is ObjectKind.DIMENSION, (
         "'Afgehandeld door' is een sleutel en de as van de werklijst uit #847; "
-        "als detail zou de gate die werklijst weigeren")
+        "als detail zou de gate die werklijst weigeren"
+    )
     assert sum(1 for o in details if o.view == "f_payments") >= 5, (
-        "het merendeel hoort bij de betalingenlijst")
+        "het merendeel hoort bij de betalingenlijst"
+    )
 
 
 def test_a_detail_in_a_pivot_is_refused_too(db_session, situation):
@@ -153,8 +167,12 @@ def test_a_detail_in_a_pivot_is_refused_too(db_session, situation):
     from app.domains.reporting.api import build_pivot
 
     with pytest.raises(SelectionError):
-        build_pivot(db_session,
-                    Selection(object_keys=("payment_method", "payment_note",
-                                           "payment_amount"),
-                              layout="pivot", pivot_column="payment_method"),
-                    tenant_id=TENANT_A)
+        build_pivot(
+            db_session,
+            Selection(
+                object_keys=("payment_method", "payment_note", "payment_amount"),
+                layout="pivot",
+                pivot_column="payment_method",
+            ),
+            tenant_id=TENANT_A,
+        )

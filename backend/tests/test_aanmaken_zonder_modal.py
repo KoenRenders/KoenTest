@@ -9,10 +9,10 @@ context van een lijst → modal; een vorm die je moet overzien of een object waa
 verderwerkt → volledig scherm. De publieke activiteitinschrijving blijft daarom een
 modal (#601) — die uitzondering wordt hier expliciet bewaakt.
 """
+
 import pytest
 
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered

@@ -9,6 +9,7 @@ tests meteen ook de volledige migratieketen. Per test draait alles in een
 geneste transactie (SAVEPOINT) die achteraf teruggedraaid wordt, zodat tests
 elkaar niet beïnvloeden ondanks de `db.commit()` in de endpoints.
 """
+
 import os
 
 # Moet vóór het importeren van app-modules gezet worden: app.database leest deze
@@ -26,15 +27,13 @@ os.environ.setdefault("JOBS_ENABLED", "false")
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import event
 from sqlalchemy.orm import sessionmaker
-from fastapi.testclient import TestClient
 
-from app.database import engine, Base
-from app.main import app
-from app.database import get_db
+from app.database import engine, get_db
 from app.domains.auth.api import create_access_token
-
+from app.main import app
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
 # placeholder-default van SEED_ADMIN_EMAILS — echte adressen staan nooit in deze
@@ -49,7 +48,25 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "ai", "media", "analytics", "reporting", "meetings", "newsletter", "designstudio", "public"):
+        for schema in (
+            "form",
+            "workflow",
+            "mail",
+            "auth",
+            "mdm",
+            "payment",
+            "membership",
+            "activities",
+            "cms",
+            "ai",
+            "media",
+            "analytics",
+            "reporting",
+            "meetings",
+            "newsletter",
+            "designstudio",
+            "public",
+        ):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     # #951: eerst de keten lezen, dan pas draaien. Klopt ze niet, dan valt de
@@ -72,14 +89,17 @@ def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
     hetzelfde IP. Reset ze per test zodat ze elkaars tellingen niet erven."""
     from app.limiter import (
-        registration_limiter, login_limiter, chat_limiter,
+        chat_limiter,
         form_submit_limiter,
+        login_limiter,
+        registration_limiter,
     )
-    for lim in (registration_limiter, login_limiter, chat_limiter,
-                form_submit_limiter):
+
+    for lim in (registration_limiter, login_limiter, chat_limiter, form_submit_limiter):
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
     from app.domains.chatbot.router import chat_char_budget
+
     chat_char_budget._usage.clear()
     yield
 
@@ -109,6 +129,7 @@ def db_session(_migrate_schema):
 @pytest.fixture
 def client(db_session):
     """TestClient die dezelfde geïsoleerde sessie deelt met de endpoints."""
+
     def _override_get_db():
         yield db_session
 
@@ -150,14 +171,21 @@ def mock_mollie(monkeypatch):
 # ── Factories (#130) ───────────────────────────────────────────────────────────
 # Generieke bouwstenen voor testdata; overschrijf velden via kwargs.
 
+
 def create_test_person(db, **kwargs):
     from datetime import date
+
     from app.domains.mdm.api import Person
+
     # `gender_code` hoort erbij sinds #681: geboortedatum én geslacht zijn verplicht
     # voor élk lid, dus een testpersoon zonder geslacht is geen geldig lid meer en
     # zou op elke bewerkweg afketsen.
-    defaults = {"first_name": "Test", "last_name": "Persoon",
-                "date_of_birth": date(1990, 1, 1), "gender_code": "M"}
+    defaults = {
+        "first_name": "Test",
+        "last_name": "Persoon",
+        "date_of_birth": date(1990, 1, 1),
+        "gender_code": "M",
+    }
     person = Person(**{**defaults, **kwargs})
     db.add(person)
     db.flush()
@@ -166,6 +194,7 @@ def create_test_person(db, **kwargs):
 
 def create_test_member(db, **kwargs):
     from app.domains.mdm.api import Member
+
     member = Member(**kwargs)
     db.add(member)
     db.flush()
@@ -174,20 +203,24 @@ def create_test_member(db, **kwargs):
 
 def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID"):
     """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact."""
-    from app.domains.mdm.api import MemberPerson
-    from app.domains.mdm.api import ContactDetail
+    from app.domains.mdm.api import ContactDetail, MemberPerson
+
     member = create_test_member(db)
     person = create_test_person(db)
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation_type))
-    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True))
+    db.add(
+        ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True)
+    )
     db.flush()
     return member, person
 
 
 # ── Seed-helpers ──────────────────────────────────────────────────────────────
 
+
 def seed_postal_code(db, code="2400", municipality="Mol"):
     from app.domains.mdm.api import PostalCode
+
     pc = PostalCode(postal_code=code, municipality=municipality)
     db.add(pc)
     db.flush()
@@ -208,11 +241,16 @@ def nieuw_lid_velden(db=None, **overrides) -> dict:
         if db.query(PostalCode).filter(PostalCode.postal_code == "2400").first() is None:
             seed_postal_code(db)
     velden = {
-        "m0_first_name": "Nieuw", "m0_last_name": "Lid",
-        "m0_date_of_birth": "1980-01-01", "m0_gender_code": "M",
-        "m0_email": "nieuw@example.com", "m0_mobile": "0470000000",
+        "m0_first_name": "Nieuw",
+        "m0_last_name": "Lid",
+        "m0_date_of_birth": "1980-01-01",
+        "m0_gender_code": "M",
+        "m0_email": "nieuw@example.com",
+        "m0_mobile": "0470000000",
         "m0_relation_type": "HOOFDLID",
-        "street": "Nieuwstraat", "house_number": "7", "bus_number": "",
+        "street": "Nieuwstraat",
+        "house_number": "7",
+        "bus_number": "",
         "postal_code": "2400",
     }
     velden.update(overrides)
@@ -223,24 +261,34 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     """Maak een activiteit met één onderdeel en één (betalend) product."""
     from datetime import date, timedelta
     from decimal import Decimal
-    from app.domains.activities.api import Activity
-    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 
-    from app.domains.activities.api import ActivityDate
+    from app.domains.activities.api import (
+        Activity,
+        ActivityDate,
+        ActivityProduct,
+        ActivitySubRegistration,
+    )
+
     activity = Activity(name="Testactiviteit")
     db.add(activity)
     db.flush()
     db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
     db.flush()
     comp = ActivitySubRegistration(
-        activity_id=activity.id, name="Onderdeel", registration_type_code="INDIVIDUAL",
-        price=Decimal("0"), is_free=True, max_participants=max_participants,
+        activity_id=activity.id,
+        name="Onderdeel",
+        registration_type_code="INDIVIDUAL",
+        price=Decimal("0"),
+        is_free=True,
+        max_participants=max_participants,
     )
     db.add(comp)
     db.flush()
     product = ActivityProduct(
-        component_id=comp.id, name="Testproduct",
-        price=Decimal(price), is_free=is_free,
+        component_id=comp.id,
+        name="Testproduct",
+        price=Decimal(price),
+        is_free=is_free,
     )
     db.add(product)
     db.flush()

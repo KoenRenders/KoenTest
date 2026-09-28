@@ -10,6 +10,7 @@ objects resolve to, so a spreadsheet somebody builds on this export keeps lining
 up with the universe. Giving the same data a second vocabulary here would make
 every future question "which name did you mean?".
 """
+
 from __future__ import annotations
 
 import logging
@@ -22,7 +23,11 @@ from sqlalchemy.orm import Session
 
 from app.domains.reporting.chart import chart_data
 from app.domains.reporting.engine import (
-    BY_KEY, SYMBOLIC_LABELS, Layout, Selection, build_detail_query,
+    BY_KEY,
+    SYMBOLIC_LABELS,
+    Layout,
+    Selection,
+    build_detail_query,
 )
 from app.domains.reporting.service import Dataset, ReportResult, load_dataset
 from app.i18n import _
@@ -52,8 +57,7 @@ def _cell(value: Any) -> Any:
     return value
 
 
-def build_dataset_ods(db: Session, fact_key: str, *,
-                      tenant_id: int) -> tuple[Dataset, bytes]:
+def build_dataset_ods(db: Session, fact_key: str, *, tenant_id: int) -> tuple[Dataset, bytes]:
     """The whole fact as an .ods. Returns the dataset too, so a caller can log it.
 
     An unknown fact travels out as ``SelectionError`` — the route turns it into a
@@ -68,8 +72,12 @@ def build_dataset_ods(db: Session, fact_key: str, *,
     # honestly promise. No e-mail address and no filter values: these logs are
     # fetched off the server with `raak fetch`, and the allowlist in
     # `logging_config` exists exactly so a log line cannot carry a person.
-    logger.info("reporting dataset export: fact=%s tenant=%s rows=%s",
-                dataset.fact.key, tenant_id, len(rows))
+    logger.info(
+        "reporting dataset export: fact=%s tenant=%s rows=%s",
+        dataset.fact.key,
+        tenant_id,
+        len(rows),
+    )
     return dataset, content
 
 
@@ -90,30 +98,42 @@ def filter_summary(selection: Selection) -> list[str]:
     # catalogue. The object names (`obj.name`) do not yet: they come from the
     # universe, which carries every report name — a question of its own.
     woorden = {
-        "eq": _("is"), "ne": _("is niet"), "in": _("is een van"),
-        "lt": _("is kleiner dan"), "lte": _("is hoogstens"), "gt": _("is groter dan"),
-        "gte": _("is minstens"), "between": _("ligt tussen"), "contains": _("bevat"),
+        "eq": _("is"),
+        "ne": _("is niet"),
+        "in": _("is een van"),
+        "lt": _("is kleiner dan"),
+        "lte": _("is hoogstens"),
+        "gt": _("is groter dan"),
+        "gte": _("is minstens"),
+        "between": _("ligt tussen"),
+        "contains": _("bevat"),
     }
     regels = []
     for flt in selection.filters:
         obj = BY_KEY.get(flt.object_key)
         naam = obj.name if obj else flt.object_key
-        waarden = f" {_('en')} ".join(flt.values) if flt.operator.value == "between" \
+        waarden = (
+            f" {_('en')} ".join(flt.values)
+            if flt.operator.value == "between"
             else ", ".join(flt.values)
+        )
         if flt.symbolic:
             # Both, and in this order: what it means and what that was at the
             # moment of export. A sheet that says only "dit jaar" cannot be
             # checked a year later; one that says only "2026" hides that it moves.
-            label = (_(SYMBOLIC_LABELS[flt.symbolic]) if flt.symbolic in SYMBOLIC_LABELS
-                     else flt.symbolic)
+            label = (
+                _(SYMBOLIC_LABELS[flt.symbolic])
+                if flt.symbolic in SYMBOLIC_LABELS
+                else flt.symbolic
+            )
             waarden = f"{label} ({waarden})" if waarden else label
-        regels.append(f"{naam} {woorden.get(flt.operator.value, flt.operator.value)} "
-                      f"{waarden}")
+        regels.append(f"{naam} {woorden.get(flt.operator.value, flt.operator.value)} {waarden}")
     return regels
 
 
-def _detail_rows(db: Session, selection: Selection, *,
-                 tenant_id: int) -> tuple[list[str], list[list[Any]]]:
+def _detail_rows(
+    db: Session, selection: Selection, *, tenant_id: int
+) -> tuple[list[str], list[list[Any]]]:
     """Sheet 2: the fact rows behind the report, filtered exactly the same way."""
     plan = build_detail_query(selection, tenant_id=tenant_id)
     result = db.execute(text(plan.sql), plan.params)
@@ -122,8 +142,9 @@ def _detail_rows(db: Session, selection: Selection, *,
     return headers, rows
 
 
-def build_report_ods(db: Session, result: ReportResult, selection: Selection, *,
-                     title: str, tenant_id: int) -> bytes:
+def build_report_ods(
+    db: Session, result: ReportResult, selection: Selection, *, title: str, tenant_id: int
+) -> bytes:
     """The report as a spreadsheet: sheet 1 the table, sheet 2 the rows behind it.
 
     Sheet 1 is what is on the screen — same columns, same order, same totals row —
@@ -139,27 +160,31 @@ def build_report_ods(db: Session, result: ReportResult, selection: Selection, *,
 
     headers = [column.name for column in result.columns]
     rows: list[list[Any]] = [
-        [_cell(row.get(column.key)) for column in result.columns]
-        for row in result.rows
+        [_cell(row.get(column.key)) for column in result.columns] for row in result.rows
     ]
     if result.totals:
-        rows.append([
-            "Totaal" if index == 0 else _cell(result.totals.get(column.key, ""))
-            for index, column in enumerate(result.columns)
-        ])
+        rows.append(
+            [
+                "Totaal" if index == 0 else _cell(result.totals.get(column.key, ""))
+                for index, column in enumerate(result.columns)
+            ]
+        )
 
     bladen = [
-        {"name": title[:31] or "Rapport", "headers": headers, "rows": rows,
-         "intro_rows": intro, "bold_last_row": bool(result.totals)},
+        {
+            "name": title[:31] or "Rapport",
+            "headers": headers,
+            "rows": rows,
+            "intro_rows": intro,
+            "bold_last_row": bool(result.totals),
+        },
     ]
     if selection.layout != Layout.DETAIL:
         # Sheet 2 is the rows behind an aggregate. A listing IS those rows, so a
         # second sheet would be the same table twice — and a spreadsheet with a
         # duplicate invites somebody to add the two together.
-        detail_headers, detail_rows = _detail_rows(db, selection,
-                                                   tenant_id=tenant_id)
-        bladen.append({"name": "Detail", "headers": detail_headers,
-                       "rows": detail_rows})
+        detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
+        bladen.append({"name": "Detail", "headers": detail_headers, "rows": detail_rows})
     return build_ods_multi(bladen)
 
 
@@ -170,8 +195,9 @@ def report_filename(title: str) -> str:
     return f"rapport-{slug}.ods"
 
 
-def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
-                    tenant_id: int, chart=None) -> bytes:
+def build_pivot_ods(
+    db: Session, pivot, selection: Selection, *, title: str, tenant_id: int, chart=None
+) -> bytes:
     """The crosstab as a spreadsheet: sheet 1 the pivot, sheet 2 the rows behind it.
 
     Sheet 1 is what is on the screen, subtotals included, with the report's name
@@ -213,7 +239,7 @@ def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
         uit += [""] * (len(pivot["row_headers"]) - len(rij["labels"]))
         if rij["is_subtotal"]:
             uit[0] = f"Subtotaal — {rij['labels'][0]}"
-        for cel in (rij["cells"] or [[None] * breed for _ in kolommen]):
+        for cel in rij["cells"] or [[None] * breed for _kolom in kolommen]:
             uit += [_cell(waarde) for waarde in cel]
         uit += [_cell(waarde) for waarde in rij["total"]]
         rijen.append(uit)
@@ -226,15 +252,24 @@ def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
 
     detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
     bladen = [
-        {"name": title[:31] or "Draaitabel", "headers": kop, "rows": rijen,
-         "intro_rows": intro, "bold_last_row": True},
+        {
+            "name": title[:31] or "Draaitabel",
+            "headers": kop,
+            "rows": rijen,
+            "intro_rows": intro,
+            "bold_last_row": True,
+        },
         {"name": "Detail", "headers": detail_headers, "rows": detail_rows},
     ]
     if chart is not None:
         # Sheet 3: the series exactly as they were drawn (CR-06 §5). A bar you
         # can only measure with a ruler is not evidence; the number behind it is.
         data = chart_data(chart)
-        bladen.append({"name": "Grafiek", "headers": data.headers,
-                       "rows": [[_cell(waarde) for waarde in rij]
-                                for rij in data.rows]})
+        bladen.append(
+            {
+                "name": "Grafiek",
+                "headers": data.headers,
+                "rows": [[_cell(waarde) for waarde in rij] for rij in data.rows],
+            }
+        )
     return build_ods_multi(bladen)

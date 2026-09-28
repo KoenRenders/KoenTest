@@ -8,6 +8,7 @@ the server tests showed the attribute moved, not that htmx reads it there.
 No data-dependent skips: a flow that skips itself when the data is not right
 covers exactly nothing (#939).
 """
+
 import os
 import sys
 
@@ -16,8 +17,12 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, htmx_afgerond, login_als_admin,  # noqa: E402
-                                netwerk_bijgewerkt)
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_afgerond,
+    login_als_admin,
+    netwerk_bijgewerkt,
+)
 
 TELEFOON = {"width": 390, "height": 844}
 
@@ -46,7 +51,9 @@ def _klikbaar(page, selector: str) -> None:
                     const r = el.getBoundingClientRect();
                     const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
                     return hit === el || el.contains(hit); }""",
-        arg=selector, timeout=5_000)
+        arg=selector,
+        timeout=5_000,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -95,7 +102,9 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
     eerste.click()
     page.wait_for_function(
         "naam => document.getElementById('nb-trix').editor.getDocument().toString().includes(naam)",
-        arg=naam, timeout=5_000)
+        arg=naam,
+        timeout=5_000,
+    )
 
     # Autosave waits 1.5 s after the last change; leaving the editor saves at once
     # (`trix-blur`). #997: wait for that save to be answered, not for 2.5 s.
@@ -180,16 +189,21 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
     page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
     page.wait_for_selector("#nb-trix", timeout=10_000)
     _klikbaar(page, "#nb-trix")
-    page.evaluate("() => document.getElementById('nb-trix').editor.loadHTML('<div>Een twee drie.</div>')")
+    page.evaluate(
+        "() => document.getElementById('nb-trix').editor.loadHTML('<div>Een twee drie.</div>')"
+    )
 
     def pas_toe(html, plaats, bereik=""):
-        page.evaluate("""([html, plaats, bereik]) => {
+        page.evaluate(
+            """([html, plaats, bereik]) => {
             const t = document.createElement('template');
             t.id = 'nb-toepassen'; t.setAttribute('data-plaatsing', plaats);
             t.setAttribute('data-bereik', bereik); t.innerHTML = html;
             document.body.appendChild(t);
             document.body.dispatchEvent(new CustomEvent('htmx:afterSettle'));
-        }""", [html, plaats, bereik])
+        }""",
+            [html, plaats, bereik],
+        )
 
     tekst = "() => document.getElementById('nb-trix').editor.getDocument().toString()"
     page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([4, 8])")

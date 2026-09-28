@@ -75,15 +75,19 @@ class EmailLog(TenantMixin, Base):
     subject = Column(String(500), nullable=False)
     email_type: Mapped[EmailType] = mapped_column(
         EnumColumn(EmailType, length=40),
-        ForeignKey("mail.email_type_codes.code"), nullable=False,
-        default=EmailType.OTHER)
+        ForeignKey("mail.email_type_codes.code"),
+        nullable=False,
+        default=EmailType.OTHER,
+    )
     # Volledige inhoud bewaard (afgesproken met Koen) — persoonsgegevens, dus
     # admin-only + bewaartermijn via EMAIL_LOG_RETENTION_DAYS.
     body = Column(Text, nullable=True)
     status: Mapped[MailStatus] = mapped_column(
         EnumColumn(MailStatus, length=20),
-        ForeignKey("mail.mail_status_codes.code"), nullable=False,
-        default=MailStatus.SENT)
+        ForeignKey("mail.mail_status_codes.code"),
+        nullable=False,
+        default=MailStatus.SENT,
+    )
     error_message = Column(Text, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
@@ -111,15 +115,14 @@ class EmailTypeLabel(Base):
     __tablename__ = "email_type_labels"
     __table_args__ = {"schema": "mail"}
 
-    code = Column(String(40), ForeignKey("mail.email_type_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(40), ForeignKey("mail.email_type_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )
 
 
 class MailStatusCode(Base):
@@ -140,12 +143,11 @@ class MailStatusLabel(Base):
     __tablename__ = "mail_status_labels"
     __table_args__ = {"schema": "mail"}
 
-    code = Column(String(20), ForeignKey("mail.mail_status_codes.code"),
-                  primary_key=True)
-    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
-                      primary_key=True)
+    code = Column(String(20), ForeignKey("mail.mail_status_codes.code"), primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"), primary_key=True)
     value = Column(String(150), nullable=False)
     description = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
-                        nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
+    )

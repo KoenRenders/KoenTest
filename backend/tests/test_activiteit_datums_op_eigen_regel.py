@@ -18,7 +18,7 @@ halverwege af te breken. Daar gaat de derde test over.
 Deze tests renderen de macro met echte datums in plaats van naar klassenamen te
 kijken: de vraag is of de datums op aparte regels staan, niet welke opmaak dat doet.
 """
-from datetime import date, time
+
 from pathlib import Path
 
 import pytest
@@ -39,21 +39,20 @@ def test_de_datums_staan_niet_meer_aan_elkaar_geplakt():
     dan staan de datums weer achter elkaar.
     """
     bron = _kaart_bron()
-    datumblok = bron[bron.index('ui.icon("calendar"'):]
-    datumblok = datumblok[:datumblok.index("</div>")]
-    assert "·" not in datumblok, (
-        "de datums worden weer aan elkaar geplakt met een scheidingsteken")
+    datumblok = bron[bron.index('ui.icon("calendar"') :]
+    datumblok = datumblok[: datumblok.index("</div>")]
+    assert "·" not in datumblok, "de datums worden weer aan elkaar geplakt met een scheidingsteken"
 
 
 def test_elke_datum_krijgt_haar_eigen_element():
     """Eén regel per datum, en de lus zit binnen een gestapelde container."""
     bron = _kaart_bron()
     start = bron.index('ui.icon("calendar"')
-    blok = bron[start:start + 900]
-    assert "flex-col" in blok, (
-        "zonder een gestapelde container lopen de datums gewoon door")
+    blok = bron[start : start + 900]
+    assert "flex-col" in blok, "zonder een gestapelde container lopen de datums gewoon door"
     assert "{% for d in a.dates %}" in blok and "<span>" in blok, (
-        "elke datum hoort haar eigen element te krijgen")
+        "elke datum hoort haar eigen element te krijgen"
+    )
 
 
 def test_het_icoon_staat_bij_de_reeks_en_niet_bij_elke_regel():
@@ -64,12 +63,14 @@ def test_het_icoon_staat_bij_de_reeks_en_niet_bij_elke_regel():
     """
     bron = _kaart_bron()
     start = bron.index('ui.icon("calendar"')
-    blok = bron[start:start + 900]
+    blok = bron[start : start + 900]
     lus = blok.index("{% for d in a.dates %}")
     assert 'ui.icon("calendar"' not in blok[lus:], (
-        "het icoon hoort bij de reeks te staan, niet bij elke datum")
+        "het icoon hoort bij de reeks te staan, niet bij elke datum"
+    )
     assert "<li" not in blok and "list-disc" not in blok, (
-        "geen bullets: de regels staan al onder elkaar onder één icoon")
+        "geen bullets: de regels staan al onder elkaar onder één icoon"
+    )
 
 
 def test_een_datum_met_een_eindtijd_blijft_op_één_regel():
@@ -81,11 +82,12 @@ def test_een_datum_met_een_eindtijd_blijft_op_één_regel():
     """
     bron = _kaart_bron()
     start = bron.index("{% for d in a.dates %}")
-    regel = bron[start:bron.index("{% endfor %}", start)]
+    regel = bron[start : bron.index("{% endfor %}", start)]
     for stuk in ("start_date", "end_date", "start_time", "end_time"):
         assert stuk in regel, (
             f"{stuk} hoort binnen dezelfde regel als de rest van die datum te "
-            "staan; erbuiten breekt de reeks middenin een datum")
+            "staan; erbuiten breekt de reeks middenin een datum"
+        )
     assert regel.count("<span>") == 1, (
-        "één element per datum; meer betekent dat een datum over meerdere "
-        "regels uiteen kan vallen")
+        "één element per datum; meer betekent dat een datum over meerdere regels uiteen kan vallen"
+    )

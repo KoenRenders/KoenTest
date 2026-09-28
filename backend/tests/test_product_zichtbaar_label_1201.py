@@ -40,13 +40,18 @@ met wat er werkelijk omviel:
   ook 2 failed. Behalve de hint-test viel de teltest mee om, want die telt óók de
   hint — dat is geen ruis maar dezelfde bevinding langs twee wegen.
 """
+
 from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
 
-from app.domains.activities.api import (Activity, ActivityDate, ActivityProduct,
-                                        ActivitySubRegistration)
+from app.domains.activities.api import (
+    Activity,
+    ActivityDate,
+    ActivityProduct,
+    ActivitySubRegistration,
+)
 from app.domains.auth.api import SESSION_COOKIE, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
@@ -54,27 +59,34 @@ pytestmark = pytest.mark.ui_serverrendered
 
 LABEL = "Publiek zichtbaar"
 BADGE = "Niet publiek"
-HINT = ("Uit: het product verdwijnt van het publieke formulier, maar het bestuur "
-        "kan het nog toevoegen aan een bestaande inschrijving.")
+HINT = (
+    "Uit: het product verdwijnt van het publieke formulier, maar het bestuur "
+    "kan het nog toevoegen aan een bestaande inschrijving."
+)
 # Twee plaatsen: de bewerkrij van het bestaande product en de aanmaakrij eronder.
 PLAATSEN = 2
 
 
 @pytest.fixture
 def activiteit_met_product(db_session):
-    a = Activity(name="Bowlen met een product", location="Miloheem",
-                 slug="bowlen-met-product")
+    a = Activity(name="Bowlen met een product", location="Miloheem", slug="bowlen-met-product")
     db_session.add(a)
     db_session.flush()
-    db_session.add(ActivityDate(activity_id=a.id,
-                                start_date=date.today() + timedelta(days=21)))
-    onderdeel = ActivitySubRegistration(activity_id=a.id, name="Deelname",
-                                        price=Decimal("0"), is_free=True)
+    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=21)))
+    onderdeel = ActivitySubRegistration(
+        activity_id=a.id, name="Deelname", price=Decimal("0"), is_free=True
+    )
     db_session.add(onderdeel)
     db_session.flush()
-    db_session.add(ActivityProduct(component_id=onderdeel.id, name="aantal deelnemers",
-                                   price=Decimal("0"), is_free=False,
-                                   pay_on_site=True))
+    db_session.add(
+        ActivityProduct(
+            component_id=onderdeel.id,
+            name="aantal deelnemers",
+            price=Decimal("0"),
+            is_free=False,
+            pay_on_site=True,
+        )
+    )
     db_session.flush()
     return a
 
@@ -86,8 +98,7 @@ def _scherm(client, activiteit) -> str:
     return antwoord.text
 
 
-def test_beide_plaatsen_dragen_het_label_en_de_hint(client, db_session,
-                                                    activiteit_met_product):
+def test_beide_plaatsen_dragen_het_label_en_de_hint(client, db_session, activiteit_met_product):
     """Eerst dát ze er staan, dan pas hoeveel.
 
     Nul treffers zou anders als geslaagd lezen — dan zou deze test groen blijven
@@ -99,13 +110,12 @@ def test_beide_plaatsen_dragen_het_label_en_de_hint(client, db_session,
     assert HINT in html, f"de hint staat nergens op het scherm: {HINT!r}"
     assert html.count(LABEL) == PLAATSEN, (
         f"het label staat {html.count(LABEL)} van de {PLAATSEN} keer — de bewerkrij "
-        "en de aanmaakrij van hetzelfde product horen het allebei te dragen")
-    assert html.count(HINT) == PLAATSEN, (
-        f"de hint staat {html.count(HINT)} van de {PLAATSEN} keer")
+        "en de aanmaakrij van hetzelfde product horen het allebei te dragen"
+    )
+    assert html.count(HINT) == PLAATSEN, f"de hint staat {html.count(HINT)} van de {PLAATSEN} keer"
 
 
-def test_de_hint_belooft_niet_meer_dan_deze_release_kan(client, db_session,
-                                                        activiteit_met_product):
+def test_de_hint_belooft_niet_meer_dan_deze_release_kan(client, db_session, activiteit_met_product):
     """De volledige zin, letterlijk.
 
     Op steekwoorden toetsen zou "kan er nog iemand op inschrijven" laten passeren,
@@ -116,7 +126,8 @@ def test_de_hint_belooft_niet_meer_dan_deze_release_kan(client, db_session,
 
     assert HINT in html, (
         "de hint wijkt af van de afgesproken zin; hij hoort te zeggen dat het "
-        f"bestuur het nog kan TOEVOEGEN aan een bestaande inschrijving:\n{HINT}")
+        f"bestuur het nog kan TOEVOEGEN aan een bestaande inschrijving:\n{HINT}"
+    )
 
 
 def test_de_oude_woorden_zijn_weg(client, db_session, activiteit_met_product):
@@ -125,14 +136,15 @@ def test_de_oude_woorden_zijn_weg(client, db_session, activiteit_met_product):
     html = _scherm(client, activiteit_met_product)
 
     for woord in ("Publiek boekbaar", "boekbaar", "Inactief"):
-        assert woord not in html, (
-            f"{woord!r} staat nog op het activiteitscherm")
+        assert woord not in html, f"{woord!r} staat nog op het activiteitscherm"
 
 
 # ── #1209: de badge hoort bij het label en de hint ──────────────────────────
 
+
 def test_de_badge_verschijnt_alleen_bij_een_product_dat_niet_publiek_is(
-        client, db_session, activiteit_met_product):
+    client, db_session, activiteit_met_product
+):
     """Beide kanten, want alleen "de badge staat er" bewijst niets.
 
     Een badge die er altijd staat, is geen badge; het publieke product hoort er
@@ -141,21 +153,19 @@ def test_de_badge_verschijnt_alleen_bij_een_product_dat_niet_publiek_is(
     from app.domains.activities.api import ActivityProduct
 
     html = _scherm(client, activiteit_met_product)
-    assert BADGE not in html, (
-        "een publiek zichtbaar product draagt een 'Niet publiek'-badge")
+    assert BADGE not in html, "een publiek zichtbaar product draagt een 'Niet publiek'-badge"
 
-    product = db_session.query(ActivityProduct).filter(
-        ActivityProduct.name == "aantal deelnemers").one()
+    product = (
+        db_session.query(ActivityProduct).filter(ActivityProduct.name == "aantal deelnemers").one()
+    )
     product.is_active = False
     db_session.flush()
 
     html = _scherm(client, activiteit_met_product)
-    assert BADGE in html, (
-        f"een product dat niet publiek staat, draagt geen {BADGE!r}-badge")
+    assert BADGE in html, f"een product dat niet publiek staat, draagt geen {BADGE!r}-badge"
 
 
-def test_de_drie_teksten_komen_elk_uit_een_bron(client, db_session,
-                                                activiteit_met_product):
+def test_de_drie_teksten_komen_elk_uit_een_bron(client, db_session, activiteit_met_product):
     """Badge, label en hint staan elk één keer in het sjabloon (#1209).
 
     Drie teksten over één schakelaar waarvan er twee samen bewegen en één niet,
@@ -172,17 +182,16 @@ def test_de_drie_teksten_komen_elk_uit_een_bron(client, db_session,
     import re
     from pathlib import Path
 
-    bron = (Path(__file__).resolve().parents[1]
-            / "app/domains/activities/templates/_aa_detail.html").read_text("utf-8")
+    bron = (
+        Path(__file__).resolve().parents[1] / "app/domains/activities/templates/_aa_detail.html"
+    ).read_text("utf-8")
     zonder_commentaar = re.sub(r"\{#.*?#\}", "", bron, flags=re.DOTALL)
 
-    for wat, tekst in (("de badge", BADGE), ("het label", LABEL),
-                       ("de hint", HINT)):
+    for wat, tekst in (("de badge", BADGE), ("het label", LABEL), ("de hint", HINT)):
         aantal = zonder_commentaar.count(tekst)
         assert aantal == 1, (
             f"{wat} staat {aantal}× letterlijk in het sjabloon; hij hoort uit één "
-            "`{% set %}` te komen en daarna via de variabele gebruikt te worden")
-    for naam in ("PRODUCT_ZICHTBAAR_LABEL", "PRODUCT_ZICHTBAAR_HINT",
-                 "PRODUCT_NIET_PUBLIEK_BADGE"):
-        assert zonder_commentaar.count(naam) >= 2, (
-            f"{naam} wordt gezet maar nergens gebruikt")
+            "`{% set %}` te komen en daarna via de variabele gebruikt te worden"
+        )
+    for naam in ("PRODUCT_ZICHTBAAR_LABEL", "PRODUCT_ZICHTBAAR_HINT", "PRODUCT_NIET_PUBLIEK_BADGE"):
+        assert zonder_commentaar.count(naam) >= 2, f"{naam} wordt gezet maar nergens gebruikt"

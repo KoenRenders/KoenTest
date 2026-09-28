@@ -21,6 +21,7 @@ Broken on purpose to check that these tests can go red: removed the volume from
 `docker-compose.uat.yml` → the gate falls over naming that environment; removed the
 `FileHandler` from `configure_logging` → the behaviour test falls over.
 """
+
 import logging
 from pathlib import Path
 
@@ -50,7 +51,8 @@ def test_the_gate_finds_the_environments_it_must_guard():
     """#678: fourteen gates fetched their files without checking that they FOUND any. A
     moved file or a changed glob makes such a gate green forever."""
     assert AT_LEAST <= set(_compose_files()), (
-        "the compose files with a backend were not found — this gate guards nothing")
+        "the compose files with a backend were not found — this gate guards nothing"
+    )
 
 
 @pytest.mark.parametrize("environment", sorted(AT_LEAST))
@@ -62,15 +64,18 @@ def test_the_backend_keeps_its_log_outside_the_container(environment):
     on_the_log_dir = [m for m in mounts if isinstance(m, str) and m.endswith(f":{LOG_DIR}")]
     assert on_the_log_dir, (
         f"{environment}: the backend mounts nothing on {LOG_DIR}, so the application "
-        f"log disappears at the next `up --build`")
+        f"log disappears at the next `up --build`"
+    )
 
     source = on_the_log_dir[0].split(":")[0]
     assert not source.startswith("."), (
         f"{environment}: {source} is a bind mount. Docker creates such a directory as "
         f"root and the backend runs as uid 10001, so it cannot write there — a named "
-        f"volume inherits the owner from the image")
+        f"volume inherits the owner from the image"
+    )
     assert source in (config.get("volumes") or {}), (
-        f"{environment}: {source} is not declared as a volume anywhere")
+        f"{environment}: {source} is not declared as a volume anywhere"
+    )
 
 
 def test_the_image_creates_the_directory_with_the_right_owner():
@@ -82,7 +87,8 @@ def test_the_image_creates_the_directory_with_the_right_owner():
     assert f"mkdir -p {LOG_DIR}" in dockerfile and f"chown app:app {LOG_DIR}" in dockerfile
     created = dockerfile.index(f"mkdir -p {LOG_DIR}")
     assert created < dockerfile.index("USER app"), (
-        "the directory is created after the image switches to the non-root user")
+        "the directory is created after the image switches to the non-root user"
+    )
 
 
 def test_lines_are_written_to_the_file_when_the_directory_exists(tmp_path, monkeypatch):
@@ -115,7 +121,7 @@ def test_a_missing_directory_does_not_block_startup(tmp_path, monkeypatch):
 
     monkeypatch.setattr(settings, "app_log_dir", str(tmp_path / "does-not-exist"))
     try:
-        configure_logging()          # must not raise
+        configure_logging()  # must not raise
         assert app_log_file() is None
         logging.getLogger("test").info("straight to stdout")
     finally:
@@ -130,9 +136,11 @@ def test_the_deploy_reports_whether_the_log_survived():
 
     assert "applicatielog_regel" in deploy, "the deploy does not report the application log"
     assert "nacontrole()" in deploy and deploy.index("nacontrole()") < deploy.index(
-        "  applicatielog_regel\n"), "the report sits outside the post-check"
+        "  applicatielog_regel\n"
+    ), "the report sits outside the post-check"
     assert "/var/log/raak/app.log" in (ROOT / "logging.sh").read_text(), (
-        "`raakctl diagnose` does not show the application log")
+        "`raakctl diagnose` does not show the application log"
+    )
 
 
 def test_raakctl_can_read_the_log_back():

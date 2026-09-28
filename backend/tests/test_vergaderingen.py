@@ -21,16 +21,15 @@ De invarianten die ertoe doen, en per stuk het scenario dat ze kan breken:
 De tests draaien tegen een echte Postgres via de gewone fixtures; de e-mail gaat
 door een dubbel, zodat er geen SMTP aan te pas komt.
 """
+
 import base64
-from datetime import date, time, timedelta
+from datetime import date, time
 
 import pytest
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
-                                  make_session_value)
-from app.domains.mdm.api import (ContactDetail, Organization, OrganizationPerson,
-                                 Person)
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.mdm.api import ContactDetail, Organization, OrganizationPerson, Person
 from app.domains.meetings.api import (
     Attendance,
     FilePurpose,
@@ -59,14 +58,16 @@ pytestmark = pytest.mark.ui_serverrendered
 
 # ── Hulpstukken ──────────────────────────────────────────────────────────────
 
+
 def _login(client):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
     client.cookies.set(SESSION_COOKIE, value)
     return csrf_token_for(value)
 
 
-def _activity(db, naam: str, start: date, eind: date | None = None,
-              locatie: str = "Miloheem") -> Activity:
+def _activity(
+    db, naam: str, start: date, eind: date | None = None, locatie: str = "Miloheem"
+) -> Activity:
     activity = Activity(name=naam, location=locatie)
     db.add(activity)
     db.flush()
@@ -80,8 +81,7 @@ def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Per
     db.add(person)
     db.flush()
     if email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
-                             value=email))
+        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email))
         db.flush()
     return person
 
@@ -92,10 +92,12 @@ def _in_circle(db, person: Person) -> OrganizationPerson:
         organization = Organization(name="Raak Millegem", code="raakmillegem")
         db.add(organization)
         db.flush()
-    relation = OrganizationPerson(person_id=person.id,
-                                  organization_id=organization.id,
-                                  relation_type="BOARD_MEETING",
-                                  start_date=date(2020, 1, 1))
+    relation = OrganizationPerson(
+        person_id=person.id,
+        organization_id=organization.id,
+        relation_type="BOARD_MEETING",
+        start_date=date(2020, 1, 1),
+    )
     db.add(relation)
     db.flush()
     return relation
@@ -115,12 +117,12 @@ class _Mailbox:
 def mailbox(monkeypatch):
     box = _Mailbox()
     monkeypatch.setattr("app.domains.mail.api.send_with_attachments", box)
-    monkeypatch.setattr("app.domains.mail.service.send_with_attachments", box,
-                        raising=False)
+    monkeypatch.setattr("app.domains.mail.service.send_with_attachments", box, raising=False)
     return box
 
 
 # ── 1. De agenda splitst juist ───────────────────────────────────────────────
+
 
 def test_de_agenda_scheidt_evaluatie_van_wat_komt(db_session):
     """Lopend telt als evaluatie, toekomstig als 'volgende' — de grens is de
@@ -161,8 +163,13 @@ def test_ideeen_gaan_mee_naar_de_volgende_agenda(db_session):
     anders is de overdracht weer handwerk."""
     vorige = create_meeting(db_session, meeting_date=date(2026, 9, 3))
     ideeen = next(s for s in sections_of(db_session, vorige) if s.kind == SectionKind.IDEAS)
-    add_item(db_session, vorige, ideeen, title="Bezoek Molen Ezaart",
-             notes="Koen en Wim bekijken het bakhuisje.")
+    add_item(
+        db_session,
+        vorige,
+        ideeen,
+        title="Bezoek Molen Ezaart",
+        notes="Koen en Wim bekijken het bakhuisje.",
+    )
     vorige.report_sent_at = vorige.created_at
     db_session.flush()
 
@@ -174,6 +181,7 @@ def test_ideeen_gaan_mee_naar_de_volgende_agenda(db_session):
 
 
 # ── 2. Chronologisch invoegen ────────────────────────────────────────────────
+
 
 def test_een_punt_tijdens_de_vergadering_schuift_ertussen(db_session):
     """Koens geval: tijdens de vergadering blijkt een activiteit toch besproken te
@@ -187,8 +195,9 @@ def test_een_punt_tijdens_de_vergadering_schuift_ertussen(db_session):
     tussendoor = _activity(db_session, "Bowlen", date(2026, 11, 15))
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie_model = next(s for s in sections_of(db_session, meeting)
-                        if s.kind == SectionKind.UPCOMING)
+    sectie_model = next(
+        s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING
+    )
     # Haal 'Bowlen' er eerst af, zoals de secretaris zou doen die het punt niet
     # nodig achtte, en voeg het daarna tijdens de vergadering alsnog toe.
     for item in items_of(db_session, sectie_model):
@@ -200,8 +209,9 @@ def test_een_punt_tijdens_de_vergadering_schuift_ertussen(db_session):
 
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     labels = [i.label for i in sectie.items]
-    assert labels.index("Rumproefavond") < labels.index("Bowlen") < labels.index("Kerstherberg"), \
+    assert labels.index("Rumproefavond") < labels.index("Bowlen") < labels.index("Kerstherberg"), (
         "het toegevoegde punt schuift op zijn datum ertussen, niet achteraan"
+    )
 
 
 def test_een_vrij_punt_komt_achteraan_en_draagt_geen_bron(db_session):
@@ -209,8 +219,9 @@ def test_een_vrij_punt_komt_achteraan_en_draagt_geen_bron(db_session):
     aan. En het krijgt geen bron-chip, want er is geen bron om naartoe te gaan."""
     _activity(db_session, "Rumproefavond", date(2026, 10, 2))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie_model = next(s for s in sections_of(db_session, meeting)
-                        if s.kind == SectionKind.UPCOMING)
+    sectie_model = next(
+        s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING
+    )
     add_item(db_session, meeting, sectie_model, title="Sofie Walk and Run")
 
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
@@ -221,25 +232,38 @@ def test_een_vrij_punt_komt_achteraan_en_draagt_geen_bron(db_session):
 
 # ── 3. De bestandsgrendel ────────────────────────────────────────────────────
 
-def test_een_bijlage_van_een_verstuurde_vergadering_kan_niet_weg(db_session, mailbox,
-                                                                 monkeypatch):
+
+def test_een_bijlage_van_een_verstuurde_vergadering_kan_niet_weg(db_session, mailbox, monkeypatch):
     """De overtreding wordt hier écht gemaakt: versturen, dan verwijderen.
 
     Kapotgemaakt om de test te toetsen: met de guard uitgeschakeld verdwijnt het
     bestand zonder melding — precies het scenario waarin een bestuurslid de mail
     opent en de bijlage niet meer kan opvragen.
     """
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     persoon = _person(db_session, "Mon", "Essers", "mon@example.org")
     _in_circle(db_session, persoon)
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    bijlage = add_file(db_session, meeting, filename="draaiboek.pdf",
-                       content_type="application/pdf", data=b"%PDF-1.4 draaiboek")
+    bijlage = add_file(
+        db_session,
+        meeting,
+        filename="draaiboek.pdf",
+        content_type="application/pdf",
+        data=b"%PDF-1.4 draaiboek",
+    )
 
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="Hoi", reply_to="secretaris@example.org",
-                      pdf=b"%PDF-1.4 verslag", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="Hoi",
+        reply_to="secretaris@example.org",
+        pdf=b"%PDF-1.4 verslag",
+        pdf_filename="verslag.pdf",
+    )
 
     with pytest.raises(MeetingError) as gevangen:
         delete_file(db_session, meeting, bijlage.id)
@@ -249,14 +273,22 @@ def test_een_bijlage_van_een_verstuurde_vergadering_kan_niet_weg(db_session, mai
 
 def test_een_verstuurde_pdf_blijft_altijd_bewaard(db_session, mailbox, monkeypatch):
     """Ook vóór het versturen van het verslag: een gearchiveerde PDF is geschiedenis."""
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     persoon = _person(db_session, "Steven", "Paepen", "steven@example.org")
     _in_circle(db_session, persoon)
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="secretaris@example.org",
-                      pdf=b"%PDF-1.4 agenda", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="secretaris@example.org",
+        pdf=b"%PDF-1.4 agenda",
+        pdf_filename="agenda.pdf",
+    )
 
     pdf = files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)[0]
     with pytest.raises(MeetingError):
@@ -265,17 +297,23 @@ def test_een_verstuurde_pdf_blijft_altijd_bewaard(db_session, mailbox, monkeypat
 
 # ── 4. Fail-closed downloaden ────────────────────────────────────────────────
 
+
 def test_een_vergaderbestand_is_niet_op_te_halen_zonder_sessie(client, db_session):
     """Dít is waarom vergaderbestanden geen media-assets zijn: media serveert
     publiek, hier bestaat geen publiek pad om te vergeten."""
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    bijlage = add_file(db_session, meeting, filename="gemeente.pdf",
-                       content_type="application/pdf", data=b"%PDF-1.4 gemeente")
+    bijlage = add_file(
+        db_session,
+        meeting,
+        filename="gemeente.pdf",
+        content_type="application/pdf",
+        data=b"%PDF-1.4 gemeente",
+    )
 
     client.cookies.clear()
     antwoord = client.get(
-        f"/admin/vergaderingen/{meeting.id}/bestand/{bijlage.id}",
-        follow_redirects=False)
+        f"/admin/vergaderingen/{meeting.id}/bestand/{bijlage.id}", follow_redirects=False
+    )
     assert antwoord.status_code in (302, 303, 401, 403), antwoord.status_code
 
     _login(client)
@@ -286,23 +324,37 @@ def test_een_vergaderbestand_is_niet_op_te_halen_zonder_sessie(client, db_sessio
 
 # ── 5. Versturen ─────────────────────────────────────────────────────────────
 
+
 def test_versturen_is_een_mail_met_iedereen_in_to(db_session, mailbox, monkeypatch):
     """Eén mail, de hele kring in To, Reply-To naar wie verstuurt, de PDF mee.
 
     De To-regel is een beslissing (§3.13) en geen toeval: de kring antwoordt
     elkaar. Zou dit ooit naar Bcc verschuiven, dan valt deze test om.
     """
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     _in_circle(db_session, _person(db_session, "Ivo", "Verwimp", "ivo@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    add_file(db_session, meeting, filename="draaiboek.pdf",
-             content_type="application/pdf", data=b"%PDF-1.4 draaiboek")
+    add_file(
+        db_session,
+        meeting,
+        filename="draaiboek.pdf",
+        content_type="application/pdf",
+        data=b"%PDF-1.4 draaiboek",
+    )
 
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag 1 oktober",
-                      body_html="Hoi allemaal", reply_to="secretaris@example.org",
-                      pdf=b"%PDF-1.4 verslag", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag 1 oktober",
+        body_html="Hoi allemaal",
+        reply_to="secretaris@example.org",
+        pdf=b"%PDF-1.4 verslag",
+        pdf_filename="verslag.pdf",
+    )
 
     assert len(mailbox.sent) == 1, "één mail, niet één per ontvanger"
     verzonden = mailbox.sent[0]
@@ -321,52 +373,83 @@ def test_een_los_adres_gaat_mee_in_dezelfde_mail(db_session, mailbox, monkeypatc
     """De gastspreker die één keer komt, wordt geen persoon (§3.15)."""
     from app.domains.meetings.api import add_extra_recipient
 
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     add_extra_recipient(db_session, meeting, "gastspreker@example.org")
 
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="secretaris@example.org",
-                      pdf=b"%PDF-1.4", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="secretaris@example.org",
+        pdf=b"%PDF-1.4",
+        pdf_filename="agenda.pdf",
+    )
 
     assert "gastspreker@example.org" in mailbox.sent[0]["to_emails"]
 
 
 def test_zonder_ontvangers_vertrekt_er_niets(db_session, mailbox, monkeypatch):
     """Een lege kring is een fout om te melden, geen mail om te versturen."""
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     with pytest.raises(MeetingError):
-        send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                          body_html="Hallo", reply_to="s@example.org",
-                          pdf=b"%PDF", pdf_filename="agenda.pdf")
+        send_meeting_mail(
+            db_session,
+            meeting,
+            kind="agenda",
+            subject="Agenda",
+            body_html="Hallo",
+            reply_to="s@example.org",
+            pdf=b"%PDF",
+            pdf_filename="agenda.pdf",
+        )
     assert mailbox.sent == []
 
 
 # ── 6. Heropenen ─────────────────────────────────────────────────────────────
 
-def test_heropenen_bewaart_de_eerste_pdf_naast_de_tweede(db_session, mailbox,
-                                                         monkeypatch):
+
+def test_heropenen_bewaart_de_eerste_pdf_naast_de_tweede(db_session, mailbox, monkeypatch):
     """De correctie van de dag nadien mag de geschiedenis niet uitwissen."""
     from app.domains.meetings.api import reopen
 
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="v1", reply_to="s@example.org",
-                      pdf=b"%PDF eerste", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="v1",
+        reply_to="s@example.org",
+        pdf=b"%PDF eerste",
+        pdf_filename="verslag.pdf",
+    )
 
     reopen(db_session, meeting)
     assert meeting.status == MeetingStatus.REPORT
 
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag (verbeterd)",
-                      body_html="v2", reply_to="s@example.org",
-                      pdf=b"%PDF tweede", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag (verbeterd)",
+        body_html="v2",
+        reply_to="s@example.org",
+        pdf=b"%PDF tweede",
+        pdf_filename="verslag.pdf",
+    )
 
     bewaard = [f.data for f in files_of(db_session, meeting, purpose=FilePurpose.SENT_PDF)]
     assert b"%PDF eerste" in bewaard and b"%PDF tweede" in bewaard
@@ -374,42 +457,48 @@ def test_heropenen_bewaart_de_eerste_pdf_naast_de_tweede(db_session, mailbox,
 
 def test_een_verstuurd_verslag_weigert_wijzigingen(db_session, mailbox, monkeypatch):
     """Het enige harde moment in de levensloop (§3.23)."""
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     persoon = _person(db_session, "Mon", "Essers", "mon@example.org")
     _in_circle(db_session, persoon)
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="v1", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="v1",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="verslag.pdf",
+    )
 
     with pytest.raises(MeetingError):
-        set_attendance(db_session, meeting, person_id=persoon.id,
-                       status=Attendance.PRESENT)
+        set_attendance(db_session, meeting, person_id=persoon.id, status=Attendance.PRESENT)
 
 
 # ── 7. De ledenkop ───────────────────────────────────────────────────────────
+
 
 def test_de_ledenkop_volgt_de_hernieuwingscyclus(db_session, monkeypatch):
     """Drie toestanden op één jaar (§3.20), met vaste datums zodat de test niet
     van de kalender afhangt."""
     from app.domains.meetings.api import member_standing
 
-    monkeypatch.setattr("app.domains.membership.api.renewal_open",
-                        lambda today=None: False)
+    monkeypatch.setattr("app.domains.membership.api.renewal_open", lambda today=None: False)
     rustig = member_standing(db_session, today=date(2026, 6, 1))
     assert rustig.year == 2026 and rustig.renewal_running is False
 
-    monkeypatch.setattr("app.domains.membership.api.renewal_open",
-                        lambda today=None: True)
-    monkeypatch.setattr("app.domains.membership.api.renewal_years",
-                        lambda today=None: (2026, 2027))
+    monkeypatch.setattr("app.domains.membership.api.renewal_open", lambda today=None: True)
+    monkeypatch.setattr("app.domains.membership.api.renewal_years", lambda today=None: (2026, 2027))
     campagne = member_standing(db_session, today=date(2026, 10, 1))
     assert campagne.renewal_running is True
     assert campagne.renewal_year == 2027
 
 
 # ── Het scherm ───────────────────────────────────────────────────────────────
+
 
 def test_het_document_toont_de_secties_in_volgorde_met_varia_laatst(client, db_session):
     """Varia is altijd het laatste punt; een eigen sectie komt ervóór (§3.17)."""
@@ -435,22 +524,31 @@ def test_het_document_toont_de_secties_in_volgorde_met_varia_laatst(client, db_s
 def test_de_activiteitregel_toont_inschrijvingen_en_geen_prijs(client, db_session):
     """Inschrijvingsaantallen staan op de regel (§3.22); prijzen niet (§3.21) —
     een activiteit kan er meerdere hebben, dus één prijsveld zou liegen."""
-    from app.domains.activities.api import ActivitySubRegistration, Registration
     from decimal import Decimal
+
+    from app.domains.activities.api import ActivitySubRegistration, Registration
 
     _login(client)
     activiteit = _activity(db_session, "Rumproefavond", date(2026, 10, 2))
-    onderdeel = ActivitySubRegistration(activity_id=activiteit.id, name="Deelname",
-                                        price=Decimal("30.00"), max_participants=30,
-                                        sort_order=1)
+    onderdeel = ActivitySubRegistration(
+        activity_id=activiteit.id,
+        name="Deelname",
+        price=Decimal("30.00"),
+        max_participants=30,
+        sort_order=1,
+    )
     db_session.add(onderdeel)
     db_session.flush()
     for i in range(3):
-        db_session.add(Registration(activity_id=activiteit.id,
-                                    component_id=onderdeel.id,
-                                    registration_type="INDIVIDUAL",
-                                    contact_name=f"Gast {i}",
-                                    contact_email=f"gast{i}@example.org"))
+        db_session.add(
+            Registration(
+                activity_id=activiteit.id,
+                component_id=onderdeel.id,
+                registration_type="INDIVIDUAL",
+                contact_name=f"Gast {i}",
+                contact_email=f"gast{i}@example.org",
+            )
+        )
     db_session.flush()
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
@@ -461,6 +559,7 @@ def test_de_activiteitregel_toont_inschrijvingen_en_geen_prijs(client, db_sessio
 
 
 # ── 8. De PDF rendert echt ───────────────────────────────────────────────────
+
 
 def test_de_pdf_wordt_echt_gerenderd(client, db_session):
     """Downloaden levert een échte PDF, niet een lege of een foutpagina.
@@ -486,6 +585,7 @@ def test_de_pdf_wordt_echt_gerenderd(client, db_session):
 
 # ── 9. Geen dode formulieren ─────────────────────────────────────────────────
 
+
 def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
     """Een formulier zonder verzendknop én zonder trigger is een dode knop.
 
@@ -506,22 +606,27 @@ def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
     for pad in sorted(map_.glob("*.html")):
         tekst = pad.read_text()
         for stuk in re.findall(r"<form\b.*?</form>", tekst, re.S):
-            if "hx-post" not in stuk and "method=\"post\"" not in stuk:
+            if "hx-post" not in stuk and 'method="post"' not in stuk:
                 continue
-            heeft_knop = 'type="submit"' in stuk or "btn_primary(" in stuk \
-                or "btn_secondary(" in stuk or "btn_outline(" in stuk \
+            heeft_knop = (
+                'type="submit"' in stuk
+                or "btn_primary(" in stuk
+                or "btn_secondary(" in stuk
+                or "btn_outline(" in stuk
                 or "action_bar(" in stuk
+            )
             heeft_trigger = "hx-trigger=" in stuk
             if not (heeft_knop or heeft_trigger):
                 kop = " ".join(stuk.split())[:90]
                 dood.append(f"{pad.name}: {kop}")
-    assert not dood, ("Formulier zonder verzendknop of trigger:\n  " + "\n  ".join(dood))
+    assert not dood, "Formulier zonder verzendknop of trigger:\n  " + "\n  ".join(dood)
 
 
 # ── 10. Notuleren: zetten én terugnemen ──────────────────────────────────────
 
+
 def test_een_genoteerde_wijkmeester_kan_ook_weer_leeg(db_session):
-    """"Geen wijkmeester" kiezen moet de notitie wissen, niet genegeerd worden.
+    """ "Geen wijkmeester" kiezen moet de notitie wissen, niet genegeerd worden.
 
     Dit ging mis in de eerste versie: zetten en wissen liepen allebei door
     dezelfde `None`, dus de lege keuze deed niets en de verkeerde naam bleef in
@@ -567,19 +672,26 @@ def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
 
     # Haal beide punten van de agenda, zodat de kiezer ze weer mag aanbieden.
-    for item in db_session.query(type(meeting).items.property.mapper.class_) \
-            .filter_by(meeting_id=meeting.id).all():
+    for item in (
+        db_session.query(type(meeting).items.property.mapper.class_)
+        .filter_by(meeting_id=meeting.id)
+        .all()
+    ):
         if item.activity_id:
             db_session.delete(item)
     db_session.flush()
 
-    evaluatie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.EVALUATION)
+    evaluatie = next(
+        s for s in sections_of(db_session, meeting) if s.kind == SectionKind.EVALUATION
+    )
     volgende = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
 
-    onder_evaluatie = [s.activity.name for s in
-                       addable_activities(db_session, meeting, section_id=evaluatie.id)]
-    onder_volgende = [s.activity.name for s in
-                      addable_activities(db_session, meeting, section_id=volgende.id)]
+    onder_evaluatie = [
+        s.activity.name for s in addable_activities(db_session, meeting, section_id=evaluatie.id)
+    ]
+    onder_volgende = [
+        s.activity.name for s in addable_activities(db_session, meeting, section_id=volgende.id)
+    ]
 
     assert "Comedy Festival" in onder_evaluatie, "voorbij, dus hoort bij evaluatie"
     assert "Rumproefavond" not in onder_evaluatie, "dat komt nog"
@@ -589,8 +701,10 @@ def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
 
 # ── 12. Een bijlage hoort niet altijd bij beide mails ────────────────────────
 
-def test_een_bijlage_kan_bij_de_agenda_horen_en_niet_bij_het_verslag(db_session, mailbox,
-                                                                     monkeypatch):
+
+def test_een_bijlage_kan_bij_de_agenda_horen_en_niet_bij_het_verslag(
+    db_session, mailbox, monkeypatch
+):
     """Koens geval: een draaiboek gaat met de agenda mee, een ander stuk met het
     verslag. Het model kon dat al; het scherm bood de keuze niet aan.
 
@@ -599,33 +713,59 @@ def test_een_bijlage_kan_bij_de_agenda_horen_en_niet_bij_het_verslag(db_session,
     """
     from app.domains.meetings.api import set_file_mailing
 
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    draaiboek = add_file(db_session, meeting, filename="draaiboek.pdf",
-                         content_type="application/pdf", data=b"%PDF draaiboek")
-    gemeente = add_file(db_session, meeting, filename="gemeente.pdf",
-                        content_type="application/pdf", data=b"%PDF gemeente")
+    draaiboek = add_file(
+        db_session,
+        meeting,
+        filename="draaiboek.pdf",
+        content_type="application/pdf",
+        data=b"%PDF draaiboek",
+    )
+    gemeente = add_file(
+        db_session,
+        meeting,
+        filename="gemeente.pdf",
+        content_type="application/pdf",
+        data=b"%PDF gemeente",
+    )
 
     # Draaiboek alleen bij de agenda, het gemeentestuk alleen bij het verslag.
     set_file_mailing(db_session, meeting, draaiboek.id, mail="report")
     set_file_mailing(db_session, meeting, gemeente.id, mail="agenda")
 
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="s@example.org",
-                      pdf=b"%PDF agenda", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="s@example.org",
+        pdf=b"%PDF agenda",
+        pdf_filename="agenda.pdf",
+    )
     bij_agenda = [naam for naam, _t, _d in mailbox.sent[-1]["attachments"]]
     assert bij_agenda == ["agenda.pdf", "draaiboek.pdf"]
 
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="Hoi", reply_to="s@example.org",
-                      pdf=b"%PDF verslag", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="Hoi",
+        reply_to="s@example.org",
+        pdf=b"%PDF verslag",
+        pdf_filename="verslag.pdf",
+    )
     bij_verslag = [naam for naam, _t, _d in mailbox.sent[-1]["attachments"]]
     assert bij_verslag == ["verslag.pdf", "gemeente.pdf"]
 
 
 # ── 13. Het logo in de PDF-kop ───────────────────────────────────────────────
+
 
 def test_de_pdf_gebruikt_het_verenigingslogo_als_dat_er_is(client, db_session):
     """Staat er een logo in de mediabibliotheek, dan staat dat in de kop.
@@ -645,18 +785,22 @@ def test_de_pdf_gebruikt_het_verenigingslogo_als_dat_er_is(client, db_session):
     # Een kleine echte PNG volstaat: het gaat om de weg van de bytes naar de PDF,
     # niet om het beeld.
     png = base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
-    db_session.add(MediaAsset(kind="tenant_logo", data=png, content_type="image/png",
-                              byte_size=len(png)))
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    db_session.add(
+        MediaAsset(kind="tenant_logo", data=png, content_type="image/png", byte_size=len(png))
+    )
     db_session.flush()
 
     met = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
     assert met.status_code == 200 and met.content.startswith(b"%PDF-")
-    assert len(met.content) != len(zonder.content), \
+    assert len(met.content) != len(zonder.content), (
         "de PDF veranderde niet, dus het logo kwam er niet in"
+    )
 
 
 # ── 14. Eén logo, twee afnemers ──────────────────────────────────────────────
+
 
 def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
     """Hetzelfde logo dat de PDF gebruikt, staat ook in de kop van de site.
@@ -671,9 +815,9 @@ def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
     assert 'aria-label="Raak"' in zonder, "zonder logo hoort het woordmerk er te staan"
 
     png = base64.b64decode(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
-    logo = MediaAsset(kind="tenant_logo", data=png, content_type="image/png",
-                      byte_size=len(png))
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+    )
+    logo = MediaAsset(kind="tenant_logo", data=png, content_type="image/png", byte_size=len(png))
     db_session.add(logo)
     db_session.flush()
 
@@ -684,6 +828,7 @@ def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
 
 # ── 15. Wanneer en waar, in onderwerp én tekst ───────────────────────────────
 
+
 def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
     """Het bestuur schrijft "om 20u in Miloheem" — in de onderwerpregel en in de
     mail zelf. Eén hulpje voedt beide, zodat ze niet uiteen kunnen lopen.
@@ -692,8 +837,12 @@ def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
     het stuk gewoon weg.
     """
     _login(client)
-    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
-                             start_time=time(20, 0), location="Miloheem — zaal 1")
+    meeting = create_meeting(
+        db_session,
+        meeting_date=date(2026, 10, 1),
+        start_time=time(20, 0),
+        location="Miloheem — zaal 1",
+    )
 
     html = client.get(f"/admin/vergaderingen/{meeting.id}/verstuur?kind=verslag").text
     assert "om 20u" in html
@@ -711,6 +860,7 @@ def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
 
 
 # ── 16. Een nieuwe mediasoort moet ook te uploaden zijn ──────────────────────
+
 
 def test_elke_mediasoort_staat_in_de_keuzelijst_bij_uploaden(client, db_session):
     """Een soort die het filter kent maar het uploadscherm niet, is onbruikbaar.
@@ -733,6 +883,7 @@ def test_elke_mediasoort_staat_in_de_keuzelijst_bij_uploaden(client, db_session)
 
 # ── 17. Een vergadering verschuiven ──────────────────────────────────────────
 
+
 def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
     """Koens geval: de vergadering schuift een week op nadat ze al vastlag.
 
@@ -743,10 +894,11 @@ def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
     """
     from app.domains.meetings.api import update_meeting
 
-    tussenin = _activity(db_session, "Rumproefavond", date(2026, 10, 5))
+    _activity(db_session, "Rumproefavond", date(2026, 10, 5))
     _activity(db_session, "Bowlen", date(2026, 11, 15))
-    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
-                             start_time=time(20, 0), location="Miloheem")
+    meeting = create_meeting(
+        db_session, meeting_date=date(2026, 10, 1), start_time=time(20, 0), location="Miloheem"
+    )
 
     secties = {s.kind: s for s in document_of(db_session, meeting)}
     assert "Rumproefavond" in [i.label for i in secties[SectionKind.UPCOMING].items]
@@ -754,10 +906,16 @@ def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
     # Typ iets op een punt, zodat we kunnen zien dat het blijft staan.
     punt = next(i for i in secties[SectionKind.UPCOMING].items if i.label == "Bowlen")
     from app.domains.meetings.api import update_item
+
     update_item(db_session, meeting, punt.id, notes="Jo heeft het onder controle.")
 
-    update_meeting(db_session, meeting, meeting_date=date(2026, 10, 8),
-                   start_time=time(20, 30), location="Miloheem — zaal 2")
+    update_meeting(
+        db_session,
+        meeting,
+        meeting_date=date(2026, 10, 8),
+        start_time=time(20, 30),
+        location="Miloheem — zaal 2",
+    )
 
     assert meeting.meeting_date == date(2026, 10, 8)
     assert meeting.start_time == time(20, 30)
@@ -782,8 +940,13 @@ def test_alleen_het_uur_wijzigen_raakt_de_agenda_niet(db_session):
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     voor = [i.label for s in document_of(db_session, meeting) for i in s.items]
 
-    update_meeting(db_session, meeting, meeting_date=date(2026, 10, 1),
-                   start_time=time(19, 30), location="Elders")
+    update_meeting(
+        db_session,
+        meeting,
+        meeting_date=date(2026, 10, 1),
+        start_time=time(19, 30),
+        location="Elders",
+    )
 
     na = [i.label for s in document_of(db_session, meeting) for i in s.items]
     assert voor == na
@@ -793,13 +956,21 @@ def test_een_verstuurde_vergadering_verschuift_niet_meer(db_session, mailbox, mo
     """Na het versturen ligt het verslag vast; eerst heropenen."""
     from app.domains.meetings.api import update_meeting
 
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="v1", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="v1",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="verslag.pdf",
+    )
 
     with pytest.raises(MeetingError):
         update_meeting(db_session, meeting, meeting_date=date(2026, 10, 8))
@@ -807,8 +978,8 @@ def test_een_verstuurde_vergadering_verschuift_niet_meer(db_session, mailbox, mo
 
 # ── 18. Een gast zit mee aan tafel ───────────────────────────────────────────
 
-def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox,
-                                                             monkeypatch):
+
+def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox, monkeypatch):
     """Koens vraag: een los adres hoort in de agenda zelf, zodat je het ook op
     aanwezig of verontschuldigd kan zetten.
 
@@ -818,29 +989,35 @@ def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox
     verslag staat, is het halve werk.
     """
     from app.domains.meetings.api import (
-    add_extra_recipient,
-    attendance_of,
-    extra_recipients_of,
-    set_attendance,
-)
+        add_extra_recipient,
+        attendance_of,
+        extra_recipients_of,
+        set_attendance,
+    )
 
-    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
-                        mailbox, raising=False)
+    monkeypatch.setattr(
+        "app.domains.meetings.service.send_with_attachments", mailbox, raising=False
+    )
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
 
-    add_extra_recipient(db_session, meeting, "spreker@example.org",
-                        name="Alexander W.")
+    add_extra_recipient(db_session, meeting, "spreker@example.org", name="Alexander W.")
     gast = extra_recipients_of(db_session, meeting)[0]
     assert gast.name == "Alexander W."
 
-    set_attendance(db_session, meeting, guest_id=gast.id,
-                   status=Attendance.PRESENT)
+    set_attendance(db_session, meeting, guest_id=gast.id, status=Attendance.PRESENT)
     assert attendance_of(db_session, meeting) == {f"g{gast.id}": Attendance.PRESENT}
 
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="agenda.pdf",
+    )
     assert "spreker@example.org" in mailbox.sent[0]["to_emails"]
 
 
@@ -859,11 +1036,13 @@ def test_een_aanwezigheidsrij_wijst_naar_precies_een_deelnemer(db_session):
     with pytest.raises(MeetingError):
         set_attendance(db_session, meeting, status=Attendance.PRESENT)
     with pytest.raises(MeetingError):
-        set_attendance(db_session, meeting, person_id=persoon.id, guest_id=1,
-                       status=Attendance.PRESENT)
+        set_attendance(
+            db_session, meeting, person_id=persoon.id, guest_id=1, status=Attendance.PRESENT
+        )
 
 
 # ── 19. Het uur in de PDF-kop ────────────────────────────────────────────────
+
 
 def test_de_pdf_kop_draagt_het_beginuur(client, db_session):
     """De kop zei wanneer de vergadering was, maar niet hoe laat.
@@ -878,13 +1057,15 @@ def test_de_pdf_kop_draagt_het_beginuur(client, db_session):
     assert clock(None) == ""
 
     _login(client)
-    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
-                             start_time=time(20, 0), location="Miloheem")
+    meeting = create_meeting(
+        db_session, meeting_date=date(2026, 10, 1), start_time=time(20, 0), location="Miloheem"
+    )
     antwoord = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
     assert antwoord.status_code == 200 and antwoord.content.startswith(b"%PDF-")
 
 
 # ── 20. De wijkmeester hoort in het verslag ──────────────────────────────────
+
 
 def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     """Hij stond alleen op het scherm, als keuzelijst — dus niet in de PDF.
@@ -903,8 +1084,9 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     gezin = Member()
     db_session.add(gezin)
     db_session.flush()
-    db_session.add(MemberPerson(member_id=gezin.id, person_id=hoofdlid.id,
-                                relation_type="HOOFDLID"))
+    db_session.add(
+        MemberPerson(member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID")
+    )
     db_session.flush()
 
     meeting = create_meeting(db_session, meeting_date=date.today())
@@ -915,12 +1097,12 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
 
     set_noted_steward(db_session, meeting, punt.id, wijkmeester.id)
 
-    getoond = next(i for s in document_of(db_session, meeting) for i in s.items
-                   if i.id == punt.id)
+    getoond = next(i for s in document_of(db_session, meeting) for i in s.items if i.id == punt.id)
     assert getoond.steward_name == "Ivo Verwimp"
 
 
 # ── 21. Wat op het scherm staat, hoort in het verslag ────────────────────────
+
 
 def _pdf_tekst(inhoud: bytes) -> str:
     """De tekst uit een PDF, om te kunnen toetsen wat er écht op papier staat."""
@@ -945,18 +1127,29 @@ def test_de_bijlagen_staan_in_het_verslag(client, db_session):
 
     _login(client)
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    add_file(db_session, meeting, filename="draaiboek-kerstradio.pdf",
-             content_type="application/pdf", data=b"%PDF draaiboek")
-    alleen_agenda = add_file(db_session, meeting, filename="enkel-bij-de-agenda.pdf",
-                             content_type="application/pdf", data=b"%PDF agenda")
+    add_file(
+        db_session,
+        meeting,
+        filename="draaiboek-kerstradio.pdf",
+        content_type="application/pdf",
+        data=b"%PDF draaiboek",
+    )
+    alleen_agenda = add_file(
+        db_session,
+        meeting,
+        filename="enkel-bij-de-agenda.pdf",
+        content_type="application/pdf",
+        data=b"%PDF agenda",
+    )
     set_file_mailing(db_session, meeting, alleen_agenda.id, mail="report")
 
     verslag = client.get(f"/admin/vergaderingen/{meeting.id}/pdf?kind=verslag")
     assert verslag.status_code == 200
     tekst = _pdf_tekst(verslag.content)
     assert "draaiboek-kerstradio.pdf" in tekst
-    assert "enkel-bij-de-agenda.pdf" not in tekst, \
+    assert "enkel-bij-de-agenda.pdf" not in tekst, (
         "een bijlage die niet met het verslag meegaat, hoort er ook niet in te staan"
+    )
 
 
 def test_de_wijkmeester_staat_op_papier(client, db_session):
@@ -974,8 +1167,9 @@ def test_de_wijkmeester_staat_op_papier(client, db_session):
     gezin = Member()
     db_session.add(gezin)
     db_session.flush()
-    db_session.add(MemberPerson(member_id=gezin.id, person_id=hoofdlid.id,
-                                relation_type="HOOFDLID"))
+    db_session.add(
+        MemberPerson(member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID")
+    )
     db_session.flush()
 
     meeting = create_meeting(db_session, meeting_date=date.today())
@@ -1019,11 +1213,13 @@ def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
         for lettertype in (bronnen.get("/Font", {}) or {}).values():
             naam = str(lettertype.get_object().get("/BaseFont", ""))
             namen.append(naam)
-    assert any("Italic" in n for n in namen), \
+    assert any("Italic" in n for n in namen), (
         f"geen cursief lettertype ingesloten; wel: {sorted(set(namen))}"
+    )
 
 
 # ── 22. Iemand in de kring die geen lid is ───────────────────────────────────
+
 
 def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
     """De afdelingsondersteuner is geen lid en hoort toch aan tafel (CR-09 §3.2).
@@ -1040,11 +1236,17 @@ def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
     from app.domains.meetings.api import recipients_for
 
     _login(client)
-    organisatie = _organisatie(db_session)
-    antwoord = client.post("/admin/vergaderingen/kring/nieuw", data={
-        "csrf_token": _login(client), "first_name": "Lies",
-        "last_name": "Ondersteuner", "person_email": "lies@raak-nationaal.example"},
-        headers={"X-CSRF-Token": _login(client)})
+    _organisatie(db_session)
+    antwoord = client.post(
+        "/admin/vergaderingen/kring/nieuw",
+        data={
+            "csrf_token": _login(client),
+            "first_name": "Lies",
+            "last_name": "Ondersteuner",
+            "person_email": "lies@raak-nationaal.example",
+        },
+        headers={"X-CSRF-Token": _login(client)},
+    )
     assert antwoord.status_code == 200, antwoord.text[:200]
 
     kring = organization_circle(db_session)
@@ -1053,8 +1255,9 @@ def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
     assert erbij[0].email == "lies@raak-nationaal.example"
 
     # En bewust zonder gezin: een niet-lid hoort in geen enkel gezin te belanden.
-    koppelingen = (db_session.query(MemberPerson)
-                   .filter(MemberPerson.person_id == erbij[0].person.id).all())
+    koppelingen = (
+        db_session.query(MemberPerson).filter(MemberPerson.person_id == erbij[0].person.id).all()
+    )
     assert koppelingen == [], "een niet-lid hoort aan geen enkel gezin te hangen"
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
@@ -1075,6 +1278,7 @@ def _organisatie(db):
 
 # ── 23. De lijst volgt de conventie van de andere lijstschermen ──────────────
 
+
 def test_de_vergaderlijst_kan_gezocht_worden(client, db_session):
     """Zoeken op wat er STAAT, niet op wat er in de kolom zit.
 
@@ -1082,10 +1286,8 @@ def test_de_vergaderlijst_kan_gezocht_worden(client, db_session):
     scherm op het getoonde label; een test op de kolom zou die keuze niet vangen.
     """
     _login(client)
-    oktober = create_meeting(db_session, meeting_date=date(2026, 10, 1),
-                             location="Miloheem")
-    november = create_meeting(db_session, meeting_date=date(2026, 11, 5),
-                              location="Café Christiane")
+    create_meeting(db_session, meeting_date=date(2026, 10, 1), location="Miloheem")
+    create_meeting(db_session, meeting_date=date(2026, 11, 5), location="Café Christiane")
 
     alles = client.get("/admin/vergaderingen").text
     assert "1 oktober 2026" in alles and "5 november 2026" in alles
@@ -1116,6 +1318,7 @@ def test_zoeken_staat_boven_het_aanmaken_van_een_niet_lid(client, db_session):
 
 # ── 24. Iemand uit de kring halen ────────────────────────────────────────────
 
+
 def test_wie_je_uit_de_kring_haalt_is_er_meteen_uit(db_session):
     """Verwijderen werkte niet: de einddatum was vandaag en het filter liet "tot
     en met vandaag" nog meetellen, dus de persoon bleef tot morgen staan.
@@ -1131,8 +1334,9 @@ def test_wie_je_uit_de_kring_haalt_is_er_meteen_uit(db_session):
 
     end_circle_relation(db_session, relatie.id)
 
-    assert not any(e.person.id == persoon.id for e in organization_circle(db_session)), \
+    assert not any(e.person.id == persoon.id for e in organization_circle(db_session)), (
         "wie je verwijdert, hoort meteen uit de kring te zijn"
+    )
 
 
 def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session):
@@ -1150,17 +1354,16 @@ def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session)
     persoon = _person(db_session, "Kris", "Vermeulen", "kris@example.org")
     relatie = _in_circle(db_session, persoon)
     meeting = create_meeting(db_session, meeting_date=date.today())
-    set_attendance(db_session, meeting, person_id=persoon.id,
-                   status=Attendance.PRESENT)
+    set_attendance(db_session, meeting, person_id=persoon.id, status=Attendance.PRESENT)
 
     end_circle_relation(db_session, relatie.id)
 
     tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
-    assert "Kris Vermeulen" in tekst, \
-        "de aanwezigheid van die avond verdween uit het verslag"
+    assert "Kris Vermeulen" in tekst, "de aanwezigheid van die avond verdween uit het verslag"
 
 
 # ── 25. Terug naar de lijst ──────────────────────────────────────────────────
+
 
 def test_de_detailschermen_hebben_een_weg_terug(client, db_session):
     """Bovenaan een detailscherm staat "‹ Alle vergaderingen", zoals overal.
@@ -1180,6 +1383,7 @@ def test_de_detailschermen_hebben_een_weg_terug(client, db_session):
 
 # ── 26. Drie maanden vooruit agenderen ───────────────────────────────────────
 
+
 def test_de_agenda_kijkt_drie_maanden_vooruit(db_session):
     """Wat verder ligt dan drie maanden, staat er niet vanzelf op.
 
@@ -1197,8 +1401,7 @@ def test_de_agenda_kijkt_drie_maanden_vooruit(db_session):
     _activity(db_session, "Net buiten", date(2027, 1, 5))
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    upcoming = next(s for s in document_of(db_session, meeting)
-                    if s.kind == SectionKind.UPCOMING)
+    upcoming = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     labels = [i.label for i in upcoming.items]
 
     assert "Binnen de horizon" in labels
@@ -1215,9 +1418,9 @@ def test_wat_buiten_de_horizon_valt_is_wel_met_de_hand_te_agenderen(db_session):
     ver = _activity(db_session, "Zomerkamp 2027", date(2027, 6, 20))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
 
-    assert any(s.activity.id == ver.id
-               for s in addable_activities(db_session, meeting)), \
+    assert any(s.activity.id == ver.id for s in addable_activities(db_session, meeting)), (
         "de kiezer hoort ook verder te kijken dan de agenda zelf"
+    )
 
 
 def test_dezelfde_activiteit_komt_niet_twee_keer_op_de_agenda(db_session):
@@ -1231,18 +1434,17 @@ def test_dezelfde_activiteit_komt_niet_twee_keer_op_de_agenda(db_session):
     """
     activiteit = _activity(db_session, "Bowlen", date(2026, 11, 15))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    sectie = next(s for s in sections_of(db_session, meeting)
-                  if s.kind == SectionKind.UPCOMING)
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
 
     with pytest.raises(MeetingError):
         add_item(db_session, meeting, sectie, activity_id=activiteit.id)
 
-    getoond = next(s for s in document_of(db_session, meeting)
-                   if s.kind == SectionKind.UPCOMING)
+    getoond = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
     assert [i.label for i in getoond.items].count("Bowlen") == 1
 
 
 # ── 27. De ondertekening staat niet in de code ───────────────────────────────
+
 
 def test_de_mail_ondertekent_met_wat_de_afdeling_instelde(client, db_session):
     """Geen namen in de code: de ondertekening komt uit de instellingen.
@@ -1262,9 +1464,11 @@ def test_de_mail_ondertekent_met_wat_de_afdeling_instelde(client, db_session):
     # Niets ingesteld: de mail eindigt zonder groet. Beter dan vreemde namen.
     assert "vriendelijke groet" not in client.get(pad).text
 
-    client.post("/admin/vergaderingen/kring/ondertekening",
-                headers={"X-CSRF-Token": csrf},
-                data={"signature": "Met vriendelijke groet,\nMon, Steven en Koen"})
+    client.post(
+        "/admin/vergaderingen/kring/ondertekening",
+        headers={"X-CSRF-Token": csrf},
+        data={"signature": "Met vriendelijke groet,\nMon, Steven en Koen"},
+    )
 
     tekst = client.get(pad).text
     assert "Mon, Steven en Koen" in tekst
@@ -1282,16 +1486,23 @@ def test_de_ondertekening_is_te_wissen(client, db_session):
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     pad = f"/admin/vergaderingen/{meeting.id}/verstuur?kind=agenda"
 
-    client.post("/admin/vergaderingen/kring/ondertekening",
-                headers={"X-CSRF-Token": csrf}, data={"signature": "Groetjes, het bestuur"})
+    client.post(
+        "/admin/vergaderingen/kring/ondertekening",
+        headers={"X-CSRF-Token": csrf},
+        data={"signature": "Groetjes, het bestuur"},
+    )
     assert "Groetjes, het bestuur" in client.get(pad).text
 
-    client.post("/admin/vergaderingen/kring/ondertekening",
-                headers={"X-CSRF-Token": csrf}, data={"signature": "   "})
+    client.post(
+        "/admin/vergaderingen/kring/ondertekening",
+        headers={"X-CSRF-Token": csrf},
+        data={"signature": "   "},
+    )
     assert "Groetjes, het bestuur" not in client.get(pad).text
 
 
 # ── 28. Wat er écht met welke mail meeging ───────────────────────────────────
+
 
 def test_een_bijlage_weet_met_welke_mail_ze_vertrok(db_session, mailbox):
     """Na het versturen zegt de bijlage zelf of ze bij de agenda of het verslag zat.
@@ -1305,19 +1516,38 @@ def test_een_bijlage_weet_met_welke_mail_ze_vertrok(db_session, mailbox):
 
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    draaiboek = add_file(db_session, meeting, filename="draaiboek.pdf",
-                         content_type="application/pdf", data=b"%PDF draaiboek")
+    draaiboek = add_file(
+        db_session,
+        meeting,
+        filename="draaiboek.pdf",
+        content_type="application/pdf",
+        data=b"%PDF draaiboek",
+    )
 
     assert sent_with_label(draaiboek) == ""
 
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="agenda.pdf",
+    )
     assert sent_with_label(draaiboek) == "met de agenda"
 
-    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
-                      body_html="Hoi", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="verslag.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="report",
+        subject="Verslag",
+        body_html="Hoi",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="verslag.pdf",
+    )
     assert sent_with_label(draaiboek) == "met agenda en verslag"
 
 
@@ -1334,14 +1564,27 @@ def test_een_bijlage_van_na_de_agendamail_geldt_niet_als_verstuurd(db_session, m
     """
     _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
-    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
-                      body_html="Hallo", reply_to="s@example.org",
-                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    send_meeting_mail(
+        db_session,
+        meeting,
+        kind="agenda",
+        subject="Agenda",
+        body_html="Hallo",
+        reply_to="s@example.org",
+        pdf=b"%PDF",
+        pdf_filename="agenda.pdf",
+    )
 
-    laat = add_file(db_session, meeting, filename="gemeente.pdf",
-                    content_type="application/pdf", data=b"%PDF gemeente")
-    assert file_is_sent(meeting, laat) is False, \
+    laat = add_file(
+        db_session,
+        meeting,
+        filename="gemeente.pdf",
+        content_type="application/pdf",
+        data=b"%PDF gemeente",
+    )
+    assert file_is_sent(meeting, laat) is False, (
         "een bijlage van ná de agendamail is niet met die mail meegegaan"
+    )
 
     # En dus ook nog te verwijderen — dat was de praktische schade.
     delete_file(db_session, meeting, laat.id)
@@ -1359,12 +1602,17 @@ def test_de_ondertekening_staat_onderaan_het_kringscherm(client, db_session):
     _login(client)
     html = client.get("/admin/vergaderingen/kring").text
 
-    volgorde = [naam for naam in ("In de kring", "Iemand toevoegen",
-                                  "Iemand toevoegen die geen lid is",
-                                  "Ondertekening van de mails")]
+    volgorde = [
+        naam
+        for naam in (
+            "In de kring",
+            "Iemand toevoegen",
+            "Iemand toevoegen die geen lid is",
+            "Ondertekening van de mails",
+        )
+    ]
     posities = [html.index(naam) for naam in volgorde]
-    assert posities == sorted(posities), \
-        f"de blokken staan in de verkeerde volgorde: {volgorde}"
+    assert posities == sorted(posities), f"de blokken staan in de verkeerde volgorde: {volgorde}"
 
 
 def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_session):
@@ -1378,7 +1626,9 @@ def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_sessio
     html = client.get("/admin/vergaderingen").text
 
     # De macro zelf: titelrij met de acties rechts uitgelijnd.
-    assert 'class="flex flex-wrap items-end justify-between gap-3 mb-6"' in html, \
+    assert 'class="flex flex-wrap items-end justify-between gap-3 mb-6"' in html, (
         "de kop komt niet uit page_header"
-    assert html.index("Vergaderkring") < html.index("+ Nieuwe vergadering"), \
+    )
+    assert html.index("Vergaderkring") < html.index("+ Nieuwe vergadering"), (
         "de primaire knop hoort uiterst rechts te staan, dus als laatste"
+    )

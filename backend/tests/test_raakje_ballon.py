@@ -24,6 +24,7 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden: de welkomsttek
 in de widget weer boven `#raakje-widget-gesprek` gezet → de plaatsingstest valt om;
 `rounded-bl-sm` uit de macro gehaald → de hoektest valt om.
 """
+
 import re
 from pathlib import Path
 
@@ -38,8 +39,8 @@ ANTWOORD = (CHATBOT / "_raakje_antwoord.html").read_text()
 
 
 def _macro(naam: str) -> str:
-    blok = BALLON[BALLON.index("{% macro " + naam + "("):]
-    return blok[:blok.index("{%- endmacro %}")]
+    blok = BALLON[BALLON.index("{% macro " + naam + "(") :]
+    return blok[: blok.index("{%- endmacro %}")]
 
 
 # Op naam en niet op inhoud parametriseren: anders zet pytest de hele template in de
@@ -55,7 +56,8 @@ def test_de_welkomsttekst_staat_in_de_ballon(naam):
     regels = [r for r in bron.splitlines() if "teksten.intro()" in r]
     assert len(regels) == 1, f"{naam}: verwacht één introregel, gevonden {len(regels)}"
     assert "ballon.van_raakje()" in regels[0], (
-        f"{naam}: de welkomsttekst staat niet in de Raakje-ballon: {regels[0].strip()}")
+        f"{naam}: de welkomsttekst staat niet in de Raakje-ballon: {regels[0].strip()}"
+    )
 
 
 @pytest.mark.parametrize("naam", sorted(SCHERMEN))
@@ -68,15 +70,15 @@ def test_de_welkomsttekst_staat_binnen_het_gesprek(naam):
     bron, container = SCHERMEN[naam]
     opening = bron.index(f'id="{container}"')
     intro = bron.index("teksten.intro()")
-    assert intro > opening, (
-        f"{naam}: de welkomsttekst staat vóór het gesprek in plaats van erin")
+    assert intro > opening, f"{naam}: de welkomsttekst staat vóór het gesprek in plaats van erin"
 
     # Het eerstvolgende `</div>` op hetzelfde niveau kunnen we niet betrouwbaar
     # vinden zonder te parsen; wat wél telt is dat er tussen de opening en de intro
     # geen sluiting van diezelfde container zit.
     tussenin = bron[opening:intro]
-    assert '<div id=' not in tussenin.replace(f'id="{container}"', ""), (
-        f"{naam}: er begint een andere container tussen het gesprek en de intro")
+    assert "<div id=" not in tussenin.replace(f'id="{container}"', ""), (
+        f"{naam}: er begint een andere container tussen het gesprek en de intro"
+    )
 
 
 def test_beide_ballonnen_dragen_hun_eigen_hoek():
@@ -90,9 +92,11 @@ def test_beide_ballonnen_dragen_hun_eigen_hoek():
     assert "rounded-2xl" in raakje and "rounded-bl-sm" in raakje
     assert "rounded-2xl" in bezoeker and "rounded-br-sm" in bezoeker
     assert "rounded-bl-none" not in raakje and "rounded-br-none" not in bezoeker, (
-        "een rechte hoek is niet wat v1.14 doet — `sm` is 2px en dat is het verschil")
+        "een rechte hoek is niet wat v1.14 doet — `sm` is 2px en dat is het verschil"
+    )
     assert "rounded-br-sm" not in raakje and "rounded-bl-sm" not in bezoeker, (
-        "de twee sprekers krijgen hetzelfde hoekje; dan wijst het nergens meer naar")
+        "de twee sprekers krijgen hetzelfde hoekje; dan wijst het nergens meer naar"
+    )
 
 
 def test_het_antwoord_gebruikt_dezelfde_macro():
@@ -101,4 +105,5 @@ def test_het_antwoord_gebruikt_dezelfde_macro():
     na de eerste vraag weer inconsistent."""
     assert "ballon.van_raakje()" in ANTWOORD and "ballon.van_bezoeker()" in ANTWOORD
     assert not re.search(r'class="[^"]*bg-gray-100[^"]*rounded', ANTWOORD), (
-        "het antwoord draagt nog een eigen ballon-klassenreeks")
+        "het antwoord draagt nog een eigen ballon-klassenreeks"
+    )

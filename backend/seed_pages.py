@@ -1,7 +1,8 @@
 """Seed CMS pages: Werking and Kerstradio."""
+
 from app.database import SessionLocal
-from app.domains.registry import load_all_models
 from app.domains.cms.api import CmsPage
+from app.domains.registry import load_all_models
 
 load_all_models()
 db = SessionLocal()
@@ -108,13 +109,15 @@ for p in PAGES:
     if existing:
         print(f"  Page '{p['slug']}' already exists, skipping.")
         continue
-    db.add(CmsPage(
-        title=p["title"],
-        slug=p["slug"],
-        content=p["content"],
-        is_published=p["is_published"],
-        sort_order=p["sort_order"],
-    ))
+    db.add(
+        CmsPage(
+            title=p["title"],
+            slug=p["slug"],
+            content=p["content"],
+            is_published=p["is_published"],
+            sort_order=p["sort_order"],
+        )
+    )
     print(f"  Created page '{p['slug']}'.")
 
 db.commit()

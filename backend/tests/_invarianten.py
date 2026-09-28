@@ -5,7 +5,9 @@ assertions die net iets anders controleren. De invariant is dezelfde die
 `reconcile_charges` belooft, en het is precies de invariant die niemand controleerde
 toen #617 en #619 ontstonden.
 """
+
 from decimal import Decimal
+
 from app.domains.payment.api import PayableType, PaymentType
 
 
@@ -22,8 +24,7 @@ def assert_saldo_klopt(db, payable_type: str, payable_id: int, verwacht_totaal) 
     records = get_records_for(db, payable_type, payable_id)
     som = sum((Decimal(str(r.amount)) for r in records), Decimal("0"))
     assert som == Decimal(str(verwacht_totaal)), (
-        f"som van de records is {som}, verwacht {verwacht_totaal} "
-        f"voor {payable_type}/{payable_id}"
+        f"som van de records is {som}, verwacht {verwacht_totaal} voor {payable_type}/{payable_id}"
     )
 
     open_posten = [r for r in records if r.amount_paid is None and r.type == PaymentType.CHARGE]
@@ -78,11 +79,14 @@ def assert_geen_wezen(db) -> None:
     # `include_deleted`: soft-deleted payables tellen als BESTAAND. Een normale
     # verwijdering levert dus geen wees op — alleen een harde delete doet dat, en
     # precies die verbiedt de gate van #667.
-    reg_ids = {r for (r,) in db.query(Registration.id)
-               .execution_options(include_deleted=True).all()}
-    ms_ids = {m for (m,) in db.query(Membership.id)
-              .execution_options(include_deleted=True).all()}
-    wezen = [r for r in db.query(PaymentRecord).all()
-             if (r.payable_type == PayableType.REGISTRATION and r.payable_id not in reg_ids)
-             or (r.payable_type == PayableType.MEMBERSHIP and r.payable_id not in ms_ids)]
+    reg_ids = {
+        r for (r,) in db.query(Registration.id).execution_options(include_deleted=True).all()
+    }
+    ms_ids = {m for (m,) in db.query(Membership.id).execution_options(include_deleted=True).all()}
+    wezen = [
+        r
+        for r in db.query(PaymentRecord).all()
+        if (r.payable_type == PayableType.REGISTRATION and r.payable_id not in reg_ids)
+        or (r.payable_type == PayableType.MEMBERSHIP and r.payable_id not in ms_ids)
+    ]
     assert not wezen, f"weesrecords na de mutatie: {[w.id for w in wezen]}"

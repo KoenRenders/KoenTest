@@ -5,6 +5,7 @@ zonder React: e-mail invullen → code ontvangen → code invullen → HttpOnly-
 sessiecookie + door naar de werkbank. Bestaat naast de React-login tot de
 React-exit (#405); de API-endpoints blijven de enige plek met de flow-logica.
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -13,9 +14,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.session import set_session_cookie
+from app.i18n import _
 from app.limiter import login_limiter
 from app.ui import templates
-from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -27,38 +28,42 @@ def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     # De pagina includeert _aanmelden_email.html, dat een foutbanner en het
     # ingevulde adres toont. Bij een verse GET zijn die leeg — maar wél beloofd
     # (#643): een template die iets vraagt, krijgt het van de route.
-    return templates.TemplateResponse(request, "aanmelden.html", {
-        **site_context(db, request), "error": None, "email": ""})
+    return templates.TemplateResponse(
+        request, "aanmelden.html", {**site_context(db, request), "error": None, "email": ""}
+    )
 
 
-@router.post("/aanmelden", response_class=HTMLResponse,
-             dependencies=[Depends(login_limiter)])
-def aanmelden_submit(request: Request, db: Session = Depends(get_db),
-                     email: str = Form("")):
+@router.post("/aanmelden", response_class=HTMLResponse, dependencies=[Depends(login_limiter)])
+def aanmelden_submit(request: Request, db: Session = Depends(get_db), email: str = Form("")):
     email = email.strip()
     if not email or "@" not in email:
         return templates.TemplateResponse(
-            request, "_aanmelden_email.html",
-            {"error": _("Vul een geldig e-mailadres in."), "email": email})
+            request,
+            "_aanmelden_email.html",
+            {"error": _("Vul een geldig e-mailadres in."), "email": email},
+        )
     from app.domains.auth.api import start_login
 
     start_login(db, email)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
-    return templates.TemplateResponse(request, "_aanmelden_code.html",
-                                      {"email": email, "error": None})
+    return templates.TemplateResponse(
+        request, "_aanmelden_code.html", {"email": email, "error": None}
+    )
 
 
-@router.post("/aanmelden/code", response_class=HTMLResponse,
-             dependencies=[Depends(login_limiter)])
-def aanmelden_code(request: Request, db: Session = Depends(get_db),
-                   email: str = Form(""), code: str = Form("")):
+@router.post("/aanmelden/code", response_class=HTMLResponse, dependencies=[Depends(login_limiter)])
+def aanmelden_code(
+    request: Request, db: Session = Depends(get_db), email: str = Form(""), code: str = Form("")
+):
     from app.domains.auth.api import check_otp
 
     email, code = email.strip(), code.strip()
     if not check_otp(db, email, code):
         return templates.TemplateResponse(
-            request, "_aanmelden_code.html",
-            {"email": email, "error": _("Ongeldige of verlopen code.")})
+            request,
+            "_aanmelden_code.html",
+            {"email": email, "error": _("Ongeldige of verlopen code.")},
+        )
     # Landing naar wat de rol mag openen (#530): ADMIN/OPERATOR → werkbank;
     # FINANCE-only → betalingen (werkbank zou 403'en); overige (gewoon lid) → gezin.
     from app.domains.auth.service import get_user_roles
@@ -78,6 +83,7 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
 
 # URL-pariteit (React-exit 405-e, #405): de oude React-loginpaden blijven
 # werken en sturen door naar de htmx-aanmeldflow resp. het magic-link-doel.
+
 
 @router.get("/afmelden")
 def afmelden(request: Request):

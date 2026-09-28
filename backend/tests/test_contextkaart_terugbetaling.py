@@ -4,6 +4,7 @@ Zonder die context staat er "10 terug te betalen" zonder te zeggen waarvoor. De
 charge komt erbij als **context**, niet als treffer: ingetogen, zonder acties, en
 niet meegeteld in het totaal — anders liegt het filter over wat het toont.
 """
+
 from decimal import Decimal
 
 import pytest
@@ -20,13 +21,17 @@ def _records(db):
     """Een betaalde vordering met een nog openstaande terugbetaling eronder."""
     from app.domains.payment.api import create_refund
 
-    charge = PaymentRecord(payable_type="membership", payable_id=6680,
-                           amount=Decimal("30.00"), method="transfer", status="paid")
+    charge = PaymentRecord(
+        payable_type="membership",
+        payable_id=6680,
+        amount=Decimal("30.00"),
+        method="transfer",
+        status="paid",
+    )
     charge.amount_paid = Decimal("30.00")
     db.add(charge)
     db.flush()
-    refund = create_refund(db, charge.id, Decimal("10.00"), actor="fin@test",
-                           settled=False)
+    refund = create_refund(db, charge.id, Decimal("10.00"), actor="fin@test", settled=False)
     db.commit()
     return charge, refund
 
@@ -53,7 +58,8 @@ def test_de_contextkaart_telt_niet_mee_in_het_totaal(db_session):
 
     totaal = groepen[0]["totaal"]
     assert totaal["due"] == Decimal("-10.00"), (
-        f"enkel de terugbetaling hoort te tellen, kreeg {totaal['due']}")
+        f"enkel de terugbetaling hoort te tellen, kreeg {totaal['due']}"
+    )
 
 
 def test_zonder_alle_records_verandert_er_niets(db_session):
@@ -76,6 +82,6 @@ def test_het_scherm_toont_de_context_ingetogen_en_zonder_acties(client, db_sessi
     html = client.get("/admin/betalingen/lijst?openstaand=1").text
     assert "Ter context" in html, "de charge staat er niet als context bij"
     # De contextkaart draagt geen bewerk- of terugbetaalacties.
-    blok = html[html.index("Ter context"):]
-    blok = blok[:blok.find("Ter context", 1) if blok.find("Ter context", 1) > 0 else len(blok)]
+    blok = html[html.index("Ter context") :]
+    blok = blok[: blok.find("Ter context", 1) if blok.find("Ter context", 1) > 0 else len(blok)]
     assert f"/admin/betalingen/{charge.id}/refund" not in blok

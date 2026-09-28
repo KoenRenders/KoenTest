@@ -8,6 +8,7 @@ Antwoord als Server-Sent Events zodat de widget het antwoord 'live' kan tonen.
 We draaien de tool-loop af en streamen daarna het eindantwoord in stukjes
 (typ-effect), gevolgd door een afsluitend 'done'-event.
 """
+
 import json
 import logging
 
@@ -18,13 +19,13 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.domains.chatbot.context import build_system_prompt
-from app.domains.chatbot.providers import get_provider
 from app.domains.chatbot.logbook import sink_for
+from app.domains.chatbot.providers import get_provider
 from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
 from app.domains.chatbot.service import run_public_chat
+from app.i18n import _
 from app.limiter import chat_limiter
 from app.schemas.chat import ChatRequest
-from app.i18n import _
 
 logger = logging.getLogger(__name__)
 

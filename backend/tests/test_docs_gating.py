@@ -1,6 +1,7 @@
 """De interactieve API-docs en het OpenAPI-schema horen in prod-achtige
 omgevingen verborgen te zijn (#269): geen datalek, maar wel een onnodige
 API-kaart voor aanvallers."""
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

@@ -26,6 +26,7 @@ gebruikersrij teruggezet naar haar oude handgerolde rij (Opslaan → Annuleren �
 Verwijderen, zonder maat) → de brontest valt om op de ontbrekende `action_bar` en
 de rendertest op de volgorde én de maat.
 """
+
 from __future__ import annotations
 
 import re
@@ -34,8 +35,7 @@ from pathlib import Path
 import pytest
 
 from app.domains.activities.api import Activity, add_organiser
-from app.domains.auth.api import (SESSION_COOKIE, User, UserRole, csrf_token_for,
-                                  make_session_value)
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.mdm.api import Member, MemberPerson, Person
 from app.ui import templates
 from tests._reporting_seed import seed
@@ -53,14 +53,19 @@ SCHERMEN = {
     "organisatoren": "activities/templates/_aa_organisatoren.html",
     "optierij": "forms/templates/_fb_builder.html",
 }
-HANDGEROLD = ('btn_primary(_("Opslaan")', 'btn_primary(_("Bewaren")',
-              'btn_secondary(_("Annuleren")')
+HANDGEROLD = (
+    'btn_primary(_("Opslaan")',
+    'btn_primary(_("Bewaren")',
+    'btn_secondary(_("Annuleren")',
+)
 
 CLUSTER = re.compile(
-    r'<div class="flex flex-wrap items-center justify-end gap-2[^"]*">[\s\S]*?</div>')
+    r'<div class="flex flex-wrap items-center justify-end gap-2[^"]*">[\s\S]*?</div>'
+)
 
 
 # ── Bron ─────────────────────────────────────────────────────────────────────
+
 
 @pytest.mark.parametrize("scherm", sorted(SCHERMEN))
 def test_het_cluster_komt_uit_de_macro(scherm):
@@ -78,10 +83,12 @@ def test_bij_de_organisatoren_staat_het_cluster_in_de_kopregel_naast_de_opener()
     cluster = bron.index('ui.action_bar(form="org-"')
     vorm = bron.index('<form id="org-{{ o.id }}"')
     assert opener < cluster < vorm, (
-        "het cluster hoort in de kopregel, na de opener en vóór de bewerkvorm")
+        "het cluster hoort in de kopregel, na de opener en vóór de bewerkvorm"
+    )
 
 
 # ── Gerenderd ────────────────────────────────────────────────────────────────
+
 
 def _login(client, db, roles=("ADMIN", "OPERATOR")) -> str:
     user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).one()
@@ -98,10 +105,12 @@ def _login(client, db, roles=("ADMIN", "OPERATOR")) -> str:
 def _kitmaat_sm() -> set[str]:
     """De klassen die de kit aan een `sm`-knop geeft — gerenderd, niet overgetypt."""
     sjabloon = templates.env.from_string(
-        '{% import "_macros.html" as ui %}{{ ui.btn_class("secondary", "sm") }}')
+        '{% import "_macros.html" as ui %}{{ ui.btn_class("secondary", "sm") }}'
+    )
     secondary = set(sjabloon.render().split())
     sjabloon = templates.env.from_string(
-        '{% import "_macros.html" as ui %}{{ ui.btn_class("secondary", "md") }}')
+        '{% import "_macros.html" as ui %}{{ ui.btn_class("secondary", "md") }}'
+    )
     md = set(sjabloon.render().split())
     maat = secondary - md
     assert maat, "sm en md verschillen niet in klassen; deze meting is leeg"
@@ -156,8 +165,7 @@ def test_de_organisatorrij_rendert_het_cluster_in_volgorde(client, db_session):
     gezin = Member()
     db_session.add(gezin)
     db_session.flush()
-    db_session.add(MemberPerson(member_id=gezin.id, person_id=persoon.id,
-                                relation_type="HOOFDLID"))
+    db_session.add(MemberPerson(member_id=gezin.id, person_id=persoon.id, relation_type="HOOFDLID"))
     db_session.flush()
     rij = add_organiser(db_session, activiteit.id, persoon.id)
     _login(client, db_session)
@@ -170,11 +178,22 @@ def test_de_organisatorrij_rendert_het_cluster_in_volgorde(client, db_session):
 
 
 def test_de_optierij_rendert_het_cluster_in_volgorde(client, db_session, admin_headers):
-    antwoord = client.post("/api/v1/forms", json={
-        "title": "Knoppenrij", "status": "draft",
-        "fields": [{"field_type": "radio", "label": "Kies", "position": 0,
-                    "options": [{"label": "Een", "position": 0}]}],
-    }, headers=admin_headers)
+    antwoord = client.post(
+        "/api/v1/forms",
+        json={
+            "title": "Knoppenrij",
+            "status": "draft",
+            "fields": [
+                {
+                    "field_type": "radio",
+                    "label": "Kies",
+                    "position": 0,
+                    "options": [{"label": "Een", "position": 0}],
+                }
+            ],
+        },
+        headers=admin_headers,
+    )
     assert antwoord.status_code == 200, antwoord.text
     _login(client, db_session)
 

@@ -1,8 +1,9 @@
 """Tests voor het admin-beheer van chatbot_info (#235)."""
+
 from app.domains.activities.api import Activity
-from app.domains.media.api import MediaAsset
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
+from app.domains.media.api import MediaAsset
 
 
 def _poster(db):
@@ -10,8 +11,11 @@ def _poster(db):
     db.add(a)
     db.flush()
     asset = MediaAsset(
-        kind="activity_poster", activity_id=a.id,
-        data=b"p", content_type="image/png", byte_size=1,
+        kind="activity_poster",
+        activity_id=a.id,
+        data=b"p",
+        content_type="image/png",
+        byte_size=1,
     )
     db.add(asset)
     db.flush()
@@ -27,12 +31,14 @@ def _page(db):
 
 # ── Autorisatie ──────────────────────────────────────────────────────────────
 
+
 def test_list_requires_admin(client):
     r = client.get("/api/v1/admin/chatbot-info")
     assert r.status_code in (401, 403)
 
 
 # ── Overzicht in drie groepen ────────────────────────────────────────────────
+
 
 def test_list_returns_groups(client, db_session, admin_headers):
     _poster(db_session)
@@ -50,6 +56,7 @@ def test_list_returns_groups(client, db_session, admin_headers):
 
 
 # ── Upsert media / cms ───────────────────────────────────────────────────────
+
 
 def test_upsert_media_creates_override_row(client, db_session, admin_headers):
     asset = _poster(db_session)
@@ -77,6 +84,7 @@ def test_upsert_cms_can_exclude_page(client, db_session, admin_headers):
 
 # ── Notities CRUD ────────────────────────────────────────────────────────────
 
+
 def test_create_update_delete_note(client, db_session, admin_headers):
     r = client.post(
         "/api/v1/admin/chatbot-info/notes",
@@ -99,6 +107,7 @@ def test_create_update_delete_note(client, db_session, admin_headers):
 
 
 # ── 'Opnieuw lezen'-endpoint ─────────────────────────────────────────────────
+
 
 def test_reextract_endpoint(client, db_session, admin_headers):
     asset = _poster(db_session)

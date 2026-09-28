@@ -1,11 +1,13 @@
 """Fase 2b (#400): server-rendered ledenbeheer (htmx) — lijst, detail, mutaties
 en de import-wizard (sessie + CSRF, zelfde patroon als werkbank/e-maillog)."""
-from tests.conftest import (
-    SEEDED_ADMIN_EMAIL, create_test_family, seed_postal_code,
-)
+
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from app.domains.mdm.api import Address, ContactDetail, Person
-from app.domains.mdm.api import CONTACT, RelationType
+from app.domains.mdm.api import CONTACT, Address, ContactDetail, Person, RelationType
+from tests.conftest import (
+    SEEDED_ADMIN_EMAIL,
+    create_test_family,
+    seed_postal_code,
+)
 
 
 def _login(client):
@@ -17,8 +19,9 @@ def _login(client):
 def _family_with_address(db):
     member, person = create_test_family(db, email="ui-lid@example.com")
     pc = seed_postal_code(db, code="2400", municipality="Mol")
-    db.add(Address(person_id=person.id, street="Dorpsstraat", house_number="1",
-                   postal_code_id=pc.id))
+    db.add(
+        Address(person_id=person.id, street="Dorpsstraat", house_number="1", postal_code_id=pc.id)
+    )
     db.flush()
     return member, person
 
@@ -47,19 +50,29 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     csrf = _login(client)
 
     # #511: de veldnaam is gestandaardiseerd naar `email` (was `contact_email`).
-    resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-                       data={"first_name": "Nieuw", "last_name": "Naam",
-                             "email": "nieuw@example.com",
-                             "mobile": "0470000000",
-                             "date_of_birth": person.date_of_birth.isoformat(),
-                             "gender_code": person.gender_code},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
+        data={
+            "first_name": "Nieuw",
+            "last_name": "Naam",
+            "email": "nieuw@example.com",
+            "mobile": "0470000000",
+            "date_of_birth": person.date_of_birth.isoformat(),
+            "gender_code": person.gender_code,
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and "Nieuw Naam" in resp.text
     db_session.expire_all()
     assert db_session.get(Person, person.id).first_name == "Nieuw"
-    mails = [c.value for c in db_session.query(ContactDetail)
-             .filter(ContactDetail.person_id == person.id,
-                     ContactDetail.contact_type_code == CONTACT.EMAIL).all()]
+    mails = [
+        c.value
+        for c in db_session.query(ContactDetail)
+        .filter(
+            ContactDetail.person_id == person.id, ContactDetail.contact_type_code == CONTACT.EMAIL
+        )
+        .all()
+    ]
     assert "nieuw@example.com" in mails
 
 
@@ -70,25 +83,32 @@ def test_persoon_toevoegen_met_relatietype(client, db_session):
 
     member, person = _family_with_address(db_session)
     csrf = _login(client)
-    resp = client.post(f"/admin/leden/gezin/{member.id}/personen",
-                       data={"first_name": "Partner", "last_name": "Test",
-                             "email": "partner@example.com",
-                             "date_of_birth": "1985-05-05", "gender_code": "F",
-                             "relation_type": "PARTNER"},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/personen",
+        data={
+            "first_name": "Partner",
+            "last_name": "Test",
+            "email": "partner@example.com",
+            "date_of_birth": "1985-05-05",
+            "gender_code": "F",
+            "relation_type": "PARTNER",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and "Partner Test" in resp.text
     db_session.expire_all()
     nieuw = db_session.query(Person).filter(Person.first_name == "Partner").one()
-    mp = db_session.query(MemberPerson).filter(
-        MemberPerson.person_id == nieuw.id).one()
+    mp = db_session.query(MemberPerson).filter(MemberPerson.person_id == nieuw.id).one()
     assert mp.relation_type == RelationType.PARTNER
 
 
 def test_mutatie_zonder_csrf_geweigerd(client, db_session):
     member, person = _family_with_address(db_session)
     _login(client)
-    resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
-                       data={"first_name": "X", "last_name": "Y"})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
+        data={"first_name": "X", "last_name": "Y"},
+    )
     assert resp.status_code == 403
 
 
@@ -96,15 +116,24 @@ def test_lidmaatschap_toevoegen_en_verwijderen(client, db_session):
     member, _person = _family_with_address(db_session)
     csrf = _login(client)
 
-    resp = client.post(f"/admin/leden/gezin/{member.id}/lidmaatschappen",
-                       data={"year": "2031"}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/lidmaatschappen",
+        data={"year": "2031"},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and "2031" in resp.text
 
     from app.domains.membership.api import Membership
-    ms = (db_session.query(Membership)
-          .filter(Membership.member_id == member.id, Membership.year == 2031).one())
-    weg = client.post(f"/admin/leden/gezin/{member.id}/lidmaatschappen/{ms.id}/verwijderen",
-                      headers={"X-CSRF-Token": csrf})
+
+    ms = (
+        db_session.query(Membership)
+        .filter(Membership.member_id == member.id, Membership.year == 2031)
+        .one()
+    )
+    weg = client.post(
+        f"/admin/leden/gezin/{member.id}/lidmaatschappen/{ms.id}/verwijderen",
+        headers={"X-CSRF-Token": csrf},
+    )
     assert weg.status_code == 200 and "2031" not in weg.text
 
 
@@ -124,9 +153,11 @@ def test_import_wizard_page_and_bad_file(client):
     assert page.status_code == 200 and "Controleer bestand" in page.text
 
     csrf = _login(client)
-    resp = client.post("/admin/leden-import/preview",
-                       files={"file": ("leden.xlsx", b"nep", "application/octet-stream")},
-                       headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        "/admin/leden-import/preview",
+        files={"file": ("leden.xlsx", b"nep", "application/octet-stream")},
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200 and ".xlsx" in resp.text  # nette foutbanner
 
 
@@ -137,33 +168,61 @@ def test_relatietype_bewerken(client, db_session):
 
     member, hoofd = _family_with_address(db_session)
     csrf = _login(client)
-    client.post(f"/admin/leden/gezin/{member.id}/personen",
-                data={"first_name": "Partner", "last_name": "Persoon",
-                      "date_of_birth": "1985-05-05", "gender_code": "F",
-                      "relation_type": "PARTNER"}, headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/leden/gezin/{member.id}/personen",
+        data={
+            "first_name": "Partner",
+            "last_name": "Persoon",
+            "date_of_birth": "1985-05-05",
+            "gender_code": "F",
+            "relation_type": "PARTNER",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     partner = db_session.query(Person).filter(Person.first_name == "Partner").one()
 
     # Partner -> KIND.
-    resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{partner.id}",
-                       data={"first_name": "Partner", "last_name": "Persoon",
-                             "date_of_birth": "1985-05-05", "gender_code": "F",
-                             "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
+    resp = client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{partner.id}",
+        data={
+            "first_name": "Partner",
+            "last_name": "Persoon",
+            "date_of_birth": "1985-05-05",
+            "gender_code": "F",
+            "relation_type": "KIND",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     assert resp.status_code == 200
     db_session.expire_all()
-    assert db_session.query(MemberPerson).filter(
-        MemberPerson.member_id == member.id,
-        MemberPerson.person_id == partner.id).one().relation_type == RelationType.ADULT_CHILD
+    assert (
+        db_session.query(MemberPerson)
+        .filter(MemberPerson.member_id == member.id, MemberPerson.person_id == partner.id)
+        .one()
+        .relation_type
+        == RelationType.ADULT_CHILD
+    )
 
     # Een poging om het hoofdlid te degraderen wordt genegeerd.
-    client.post(f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
-                data={"first_name": hoofd.first_name, "last_name": hoofd.last_name,
-                      "date_of_birth": hoofd.date_of_birth.isoformat(),
-                      "gender_code": hoofd.gender_code,
-                      "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
+        data={
+            "first_name": hoofd.first_name,
+            "last_name": hoofd.last_name,
+            "date_of_birth": hoofd.date_of_birth.isoformat(),
+            "gender_code": hoofd.gender_code,
+            "relation_type": "KIND",
+        },
+        headers={"X-CSRF-Token": csrf},
+    )
     db_session.expire_all()
-    assert db_session.query(MemberPerson).filter(
-        MemberPerson.member_id == member.id,
-        MemberPerson.person_id == hoofd.id).one().relation_type == RelationType.PRIMARY_MEMBER
+    assert (
+        db_session.query(MemberPerson)
+        .filter(MemberPerson.member_id == member.id, MemberPerson.person_id == hoofd.id)
+        .one()
+        .relation_type
+        == RelationType.PRIMARY_MEMBER
+    )
 
 
 def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
@@ -172,6 +231,7 @@ def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     `attrs='hx-post=\"…\" ' ~ confirm_attrs(…)` escapete de quotes (→ `&#34;`),
     waardoor htmx die attributen niet las en de delete niets deed."""
     from datetime import date
+
     from app.domains.membership.api import Membership
 
     member, _person = _family_with_address(db_session)
@@ -180,6 +240,6 @@ def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     _login(client)
 
     html = client.get(f"/admin/leden/gezin/{member.id}").text
-    assert 'hx-post="/admin/leden/gezin/' in html   # correcte, niet-geëscapete quotes
-    assert "hx-post=&#34;" not in html               # geen escaping meer
-    assert "data-confirm='" in html                  # #595: in-app modal i.p.v. browser-confirm
+    assert 'hx-post="/admin/leden/gezin/' in html  # correcte, niet-geëscapete quotes
+    assert "hx-post=&#34;" not in html  # geen escaping meer
+    assert "data-confirm='" in html  # #595: in-app modal i.p.v. browser-confirm

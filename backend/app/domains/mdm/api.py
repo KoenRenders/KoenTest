@@ -5,6 +5,23 @@ organisaties, codes) wordt buiten dit component uitsluitend via deze module
 aangesproken. Soft-ref-patroon (§6): consumenten bewaren waarde-id's
 (bv. ``person_id`` als integer, zonder FK) en lezen via ``resolve()``.
 """
+
+# CR-12: this domain's code lists belong to the public facade, so that another
+# domain reaches an FK target and an enum through one door.
+from app.domains.mdm.codes import (  # noqa: F401,E402
+    CONTACT,
+    CONTACT_TYPE,
+    EXTERNAL,
+    EXTERNAL_SOURCE,
+    GENDER,
+    IDENTIFICATION_SCHEME,
+    LANGUAGE,
+    LEGAL_FORM,
+    ORGANIZATION_RELATION_TYPE,
+    ORGANIZATION_TYPE,
+    PAYMENT_METHOD,
+    RELATION_TYPE,
+)
 from app.domains.mdm.models import (  # noqa: F401
     Address,
     AddressHistory,
@@ -18,6 +35,9 @@ from app.domains.mdm.models import (  # noqa: F401
     GenderLabel,
     IdentificationScheme,
     IdentificationSchemeLabel,
+    LegalForm,
+    LegalFormCode,
+    LegalFormLabel,
     Member,
     MemberHistory,
     MemberPerson,
@@ -30,9 +50,6 @@ from app.domains.mdm.models import (  # noqa: F401
     OrganizationType,
     OrganizationTypeCode,
     OrganizationTypeLabel,
-    LegalForm,
-    LegalFormCode,
-    LegalFormLabel,
     PaymentMethod,
     PaymentMethodCode,
     PaymentMethodLabel,
@@ -42,60 +59,7 @@ from app.domains.mdm.models import (  # noqa: F401
     RelationType,
     RelationTypeCode,
 )
-# ── Doorgangen naar de ledenimport ───────────────────────────────────────────
-# De implementatie blijft in `import_router.py` (het is één domeinbewerking die
-# het scherm alleen aanroept); de weg ernaartoe loopt via de facade (#635 I).
 
-async def import_preview(db, file, admin=None):
-    from app.domains.mdm.import_router import preview as _impl
-
-    return await _impl(file=file, db=db, admin=admin)
-
-
-def import_commit(db, token: str, admin=None):
-    from app.domains.mdm.import_router import CommitRequest, commit as _impl
-
-    return _impl(CommitRequest(token=token), db=db, admin=admin)
-
-
-from app.domains.mdm.service import (  # noqa: F401
-    family_registrations, gezin_tabs, name_parts, person_name_parts,
-)
-from app.domains.mdm.service import (  # noqa: F401
-    BOARD_MEETING,
-    CirclePerson,
-    add_to_circle,
-    create_person_for_circle,
-    end_circle_relation,
-    new_members_between,
-    email_addresses_of_members,
-    upsert_primary_contact,
-    add_email_address,
-    apply_email_rows,
-    make_email_primary,
-    remove_email_address,
-    organization_circle,
-)
-from app.domains.mdm.service import (  # noqa: E402,F401
-    MergeError,
-    merge_persons,
-    resolve,
-    unmerge_person,
-)
-from app.domains.mdm.tenant_lookup import (  # noqa: F401
-    invalidate_tenant_codes,
-    platform_tenant_id,
-    tenant_codes,
-)
-
-from app.domains.mdm.service import (  # noqa: F401
-    admin_code_lists,
-    form_code_lists,
-    list_persons,
-    search_persons,
-    is_member,
-    list_postal_codes,
-)
 # De organisatie als rechtspersoon staat sinds #971 apart van de tenant als site.
 # Zie de moduledocstring daar: de ACCOUNT-organisatie is geen tenant, en zolang deze
 # functies onder "tenant" hingen, las de code alsof zo'n organisatie niet bestond.
@@ -109,6 +73,40 @@ from app.domains.mdm.organization_service import (  # noqa: F401
     update_organization_address,
     update_organization_details,
 )
+from app.domains.mdm.service import (  # noqa: F401  # noqa: F401  # noqa: E402,F401  # noqa: F401
+    BOARD_MEETING,
+    CirclePerson,
+    MergeError,
+    add_email_address,
+    add_to_circle,
+    admin_code_lists,
+    apply_email_rows,
+    create_person_for_circle,
+    email_addresses_of_members,
+    end_circle_relation,
+    family_registrations,
+    form_code_lists,
+    gezin_tabs,
+    is_member,
+    list_persons,
+    list_postal_codes,
+    make_email_primary,
+    merge_persons,
+    name_parts,
+    new_members_between,
+    organization_circle,
+    person_name_parts,
+    remove_email_address,
+    resolve,
+    search_persons,
+    unmerge_person,
+    upsert_primary_contact,
+)
+from app.domains.mdm.tenant_lookup import (  # noqa: F401
+    invalidate_tenant_codes,
+    platform_tenant_id,
+    tenant_codes,
+)
 from app.domains.mdm.tenant_service import (  # noqa: F401
     OngeldigeInstelling,
     TenantFout,
@@ -121,46 +119,119 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     update_tenant_settings,
 )
 
-# CR-12: this domain's code lists belong to the public facade, so that another
-# domain reaches an FK target and an enum through one door.
-from app.domains.mdm.codes import (  # noqa: F401,E402
-    CONTACT, CONTACT_TYPE, EXTERNAL, EXTERNAL_SOURCE, GENDER, IDENTIFICATION_SCHEME,
-    LANGUAGE, LEGAL_FORM,
-    ORGANIZATION_RELATION_TYPE, ORGANIZATION_TYPE, PAYMENT_METHOD,
-    RELATION_TYPE,
-)
+# ── Doorgangen naar de ledenimport ───────────────────────────────────────────
+# De implementatie blijft in `import_router.py` (het is één domeinbewerking die
+# het scherm alleen aanroept); de weg ernaartoe loopt via de facade (#635 I).
+
+
+async def import_preview(db, file, admin=None):
+    from app.domains.mdm.import_router import preview as _impl
+
+    return await _impl(file=file, db=db, admin=admin)
+
+
+def import_commit(db, token: str, admin=None):
+    from app.domains.mdm.import_router import CommitRequest
+    from app.domains.mdm.import_router import commit as _impl
+
+    return _impl(CommitRequest(token=token), db=db, admin=admin)
+
 
 __all__ = [
     "LANGUAGE",
-    "family_registrations", "gezin_tabs", "name_parts", "person_name_parts",
-    "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
-    "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
-    "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
-    "organization_details", "update_organization_details", "save_organization",
-    "organization_address", "update_organization_address",
-    "organization_options", "legal_form_options",
+    "family_registrations",
+    "gezin_tabs",
+    "name_parts",
+    "person_name_parts",
+    "OngeldigeInstelling",
+    "TenantFout",
+    "admin_code_lists",
+    "import_commit",
+    "import_preview",
+    "create_tenant",
+    "form_code_lists",
+    "list_persons",
+    "search_persons",
+    "is_member",
+    "list_postal_codes",
+    "list_accounts",
+    "list_units",
+    "secrets_gezet",
+    "update_tenant_settings",
+    "platform_tenant_id",
+    "organization_details",
+    "update_organization_details",
+    "save_organization",
+    "organization_address",
+    "update_organization_address",
+    "organization_options",
+    "legal_form_options",
     "ALLE_ORGANISATIEVELDEN",
-    "list_manageable_tenants", "platform_org",
-    "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",
-    "ContactTypeCode", "ExternalNumber", "GenderCode", "Member",
-    "BankAccount", "OrganizationIdentification", "IdentificationScheme",
+    "list_manageable_tenants",
+    "platform_org",
+    "Address",
+    "AddressHistory",
+    "ContactDetail",
+    "ContactDetailHistory",
+    "ContactTypeCode",
+    "ExternalNumber",
+    "GenderCode",
+    "Member",
+    "BankAccount",
+    "OrganizationIdentification",
+    "IdentificationScheme",
     "IdentificationSchemeLabel",
-    "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
-    "PaymentMethod", "PaymentMethodCode", "PaymentMethodLabel",
+    "MemberHistory",
+    "MemberPerson",
+    "MemberPersonHistory",
+    "Organization",
+    "PaymentMethod",
+    "PaymentMethodCode",
+    "PaymentMethodLabel",
     "PAYMENT_METHOD",
-    "ContactTypeLabel", "GenderLabel",
-    "LegalForm", "LegalFormCode", "LegalFormLabel",
-    "OrganizationType", "OrganizationTypeCode", "OrganizationTypeLabel",
-    "RelationType", "RelationTypeLabel",
-    "GENDER", "CONTACT", "CONTACT_TYPE", "EXTERNAL", "EXTERNAL_SOURCE",
-    "RELATION_TYPE", "LEGAL_FORM",
-    "ORGANIZATION_TYPE", "ORGANIZATION_RELATION_TYPE",
+    "ContactTypeLabel",
+    "GenderLabel",
+    "LegalForm",
+    "LegalFormCode",
+    "LegalFormLabel",
+    "OrganizationType",
+    "OrganizationTypeCode",
+    "OrganizationTypeLabel",
+    "RelationType",
+    "GENDER",
+    "CONTACT",
+    "CONTACT_TYPE",
+    "EXTERNAL",
+    "EXTERNAL_SOURCE",
+    "RELATION_TYPE",
+    "LEGAL_FORM",
+    "ORGANIZATION_TYPE",
+    "ORGANIZATION_RELATION_TYPE",
     "IDENTIFICATION_SCHEME",
-    "Person", "PersonHistory", "PostalCode", "RelationTypeCode",
-    "MergeError", "merge_persons", "resolve", "unmerge_person",
-    "tenant_codes", "invalidate_tenant_codes",
-    "BOARD_MEETING", "CirclePerson", "OrganizationPerson",
-    "OrganizationRelationType", "OrganizationRelationTypeLabel", "add_to_circle", "create_person_for_circle", "end_circle_relation",
-    "new_members_between", "organization_circle", "email_addresses_of_members", "upsert_primary_contact", "add_email_address", "apply_email_rows", "make_email_primary",
+    "Person",
+    "PersonHistory",
+    "PostalCode",
+    "RelationTypeCode",
+    "MergeError",
+    "merge_persons",
+    "resolve",
+    "unmerge_person",
+    "tenant_codes",
+    "invalidate_tenant_codes",
+    "BOARD_MEETING",
+    "CirclePerson",
+    "OrganizationPerson",
+    "OrganizationRelationType",
+    "OrganizationRelationTypeLabel",
+    "add_to_circle",
+    "create_person_for_circle",
+    "end_circle_relation",
+    "new_members_between",
+    "organization_circle",
+    "email_addresses_of_members",
+    "upsert_primary_contact",
+    "add_email_address",
+    "apply_email_rows",
+    "make_email_primary",
     "remove_email_address",
 ]

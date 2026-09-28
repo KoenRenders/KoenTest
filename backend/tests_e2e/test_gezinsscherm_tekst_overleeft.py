@@ -15,6 +15,7 @@ post op `change`, dus één keuze in de lijst is de hele handeling.
 Kapotgemaakt om te controleren dat deze test rood kan worden: de bestuurslidvorm
 weer op `#leden-detail`/`innerHTML` gezet → het veld is leeg en het vlak dicht.
 """
+
 import os
 import sys
 
@@ -23,8 +24,13 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import (BASE, Ledenscherm, htmx_afgerond,  # noqa: E402
-                                login_met_sessie, pagina_klaar)
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    Ledenscherm,
+    htmx_afgerond,
+    login_met_sessie,
+    pagina_klaar,
+)
 from tests_e2e.test_beheer_flows import _admin_email, _ontbreekt  # noqa: E402
 
 GETYPT = "Teststraat 1111"
@@ -66,8 +72,11 @@ def test_een_getypte_straat_overleeft_de_bestuurslidkeuze(page):
         keuze.select_option(index=1)
 
     # Het getypte staat er nog, en het vlak is niet dichtgeklapt.
-    expect(straat, "de getypte straat is weg — de deelactie verving de adreskaart").to_have_value(GETYPT)
+    expect(straat, "de getypte straat is weg — de deelactie verving de adreskaart").to_have_value(
+        GETYPT
+    )
     expect(straat, "het adresvlak klapte dicht").to_be_visible()
     # En de keuze is wél bewaard: de kaart is vervangen door haar nieuwe stand.
     expect(page.locator("#bestuurslid-kaart select")).to_have_value(
-        opties[1].get_attribute("value"))
+        opties[1].get_attribute("value")
+    )

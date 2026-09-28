@@ -6,35 +6,34 @@ since) en levert per wijziging een leesbare regel, zodat de admin ze één voor 
 kan overnemen. Bevat persoonsdata: admin-only, nooit in de repo.
 (verhuisd uit app/services/member_changes.py, #444)
 """
+
 from datetime import date, datetime, time, timezone
-from io import BytesIO
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.i18n import _
-from app.kernel.codes import code_label
-from app.kernel.operations import OPERATION
-from app.kernel.ods import build_ods
-
-from app.domains.payment.api import PaymentRecordHistory
-from app.domains.membership.api import MembershipHistory
-from app.domains.mdm.api import CONTACT, RelationType
 from app.domains.activities.api import (
-    RegistrationHistory,
-    RegistrationItemHistory,
-    ActivityHistory,
     ActivityDateHistory,
+    ActivityHistory,
     ComponentHistory,
     ProductHistory,
+    RegistrationHistory,
+    RegistrationItemHistory,
 )
 from app.domains.mdm.api import (
-    PersonHistory,
-    MemberHistory,
-    MemberPersonHistory,
+    CONTACT,
     AddressHistory,
     ContactDetailHistory,
+    MemberHistory,
+    MemberPersonHistory,
+    PersonHistory,
+    RelationType,
 )
+from app.domains.membership.api import MembershipHistory
+from app.i18n import _
+from app.kernel.codes import code_label
+from app.kernel.ods import build_ods
+from app.kernel.operations import OPERATION
 
 # The three words of the history operation live in the kernel's label table
 # since CR-12 phase 4; `code_label()` reads them.
@@ -73,13 +72,16 @@ class _SubjectResolver:
         return self.db.query(model).execution_options(include_deleted=True)
 
     def postcode_label(self, postal_code_id) -> str:
-        """"2400 Mol" voor een postcode-id (i.p.v. de nietszeggende id)."""
+        """ "2400 Mol" voor een postcode-id (i.p.v. de nietszeggende id)."""
         if postal_code_id is None:
             return ""
         if postal_code_id not in self._pc:
             from app.domains.mdm.api import PostalCode
+
             pc = self._q(PostalCode).filter(PostalCode.id == postal_code_id).first()
-            self._pc[postal_code_id] = f"{_fmt(pc.postal_code)} {_fmt(pc.municipality)}".strip() if pc else ""
+            self._pc[postal_code_id] = (
+                f"{_fmt(pc.postal_code)} {_fmt(pc.municipality)}".strip() if pc else ""
+            )
         return self._pc[postal_code_id]
 
     def _name_of(self, person_id):
@@ -87,6 +89,7 @@ class _SubjectResolver:
             return ""
         if person_id not in self._name:
             from app.domains.mdm.api import Person
+
             p = self._q(Person).filter(Person.id == person_id).first()
             self._name[person_id] = f"{_fmt(p.first_name)} {_fmt(p.last_name)}".strip() if p else ""
         return self._name[person_id]
@@ -96,9 +99,13 @@ class _SubjectResolver:
             return ""
         if person_id not in self._ext:
             from app.domains.mdm.api import ExternalNumber
-            en = (self._q(ExternalNumber)
-                  .filter(ExternalNumber.person_id == person_id)
-                  .order_by(ExternalNumber.id).first())
+
+            en = (
+                self._q(ExternalNumber)
+                .filter(ExternalNumber.person_id == person_id)
+                .order_by(ExternalNumber.id)
+                .first()
+            )
             self._ext[person_id] = _fmt(en.external_id) if en else ""
         return self._ext[person_id]
 
@@ -106,8 +113,8 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._addr:
-            from app.domains.mdm.api import Address
-            from app.domains.mdm.api import PostalCode
+            from app.domains.mdm.api import Address, PostalCode
+
             a = self._q(Address).filter(Address.person_id == person_id).first()
             if a is None:
                 self._addr[person_id] = ""
@@ -126,6 +133,7 @@ class _SubjectResolver:
             return None
         if person_id not in self._member_of_person:
             from app.domains.mdm.api import MemberPerson
+
             mp = self._q(MemberPerson).filter(MemberPerson.person_id == person_id).first()
             self._member_of_person[person_id] = mp.member_id if mp else None
         return self._member_of_person[person_id]
@@ -135,9 +143,15 @@ class _SubjectResolver:
             return None
         if member_id not in self._head_of_member:
             from app.domains.mdm.api import MemberPerson
-            mp = (self._q(MemberPerson)
-                  .filter(MemberPerson.member_id == member_id,
-                          MemberPerson.relation_type == RelationType.PRIMARY_MEMBER).first())
+
+            mp = (
+                self._q(MemberPerson)
+                .filter(
+                    MemberPerson.member_id == member_id,
+                    MemberPerson.relation_type == RelationType.PRIMARY_MEMBER,
+                )
+                .first()
+            )
             self._head_of_member[member_id] = mp.person_id if mp else None
         return self._head_of_member[member_id]
 
@@ -146,16 +160,23 @@ class _SubjectResolver:
         if not email:
             return None
         from sqlalchemy import func
+
         from app.domains.mdm.api import ContactDetail
+
         # `person_id IS NOT NULL` is niet overbodig sinds #945: een organisatie
         # draagt haar e-mailadres nu als rij in dezelfde tabel, met `person_id`
         # leeg. Zonder deze voorwaarde kan deze `.first()` — die geen ordening
         # heeft — de organisatierij pakken en `None` teruggeven, waarna de
         # auditregel stil haar onderwerp verliest.
-        cd = (self._q(ContactDetail)
-              .filter(ContactDetail.person_id.isnot(None),
-                      func.lower(ContactDetail.value) == email.strip().lower(),
-                      ContactDetail.contact_type_code == CONTACT.EMAIL).first())
+        cd = (
+            self._q(ContactDetail)
+            .filter(
+                ContactDetail.person_id.isnot(None),
+                func.lower(ContactDetail.value) == email.strip().lower(),
+                ContactDetail.contact_type_code == CONTACT.EMAIL,
+            )
+            .first()
+        )
         return cd.person_id if cd else None
 
     def fields(self, *, person_id=None, member_id=None) -> dict:
@@ -182,6 +203,7 @@ class _SubjectResolver:
         if registration_id is None:
             return None
         from app.domains.activities.api import Registration
+
         reg = self._q(Registration).filter(Registration.id == registration_id).first()
         if reg is None:
             return None
@@ -192,8 +214,12 @@ class _SubjectResolver:
         pid = self._person_by_email(reg.contact_email)
         if pid is not None:
             return self.fields(person_id=pid)
-        return {"person_name": _fmt(reg.contact_name), "person_external_id": "",
-                "head_address": "", "head_external_id": ""}
+        return {
+            "person_name": _fmt(reg.contact_name),
+            "person_external_id": "",
+            "head_address": "",
+            "head_external_id": "",
+        }
 
     def from_payment(self, payable_type, payable_id) -> Optional[dict]:
         """Verrijking voor een betaling-wijziging: via de inschrijving of het
@@ -202,6 +228,7 @@ class _SubjectResolver:
             return self.from_registration(payable_id)
         if payable_type == "membership":
             from app.domains.membership.api import Membership
+
             ms = self._q(Membership).filter(Membership.id == payable_id).first()
             if ms is not None:
                 return self.fields(member_id=ms.member_id)
@@ -209,12 +236,22 @@ class _SubjectResolver:
 
 
 _EMPTY_SUBJECT = {
-    "person_name": "", "person_external_id": "", "head_address": "", "head_external_id": "",
+    "person_name": "",
+    "person_external_id": "",
+    "head_address": "",
+    "head_external_id": "",
 }
 
 
-def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str = "Leden",
-         subject: Optional[dict] = None) -> dict:
+def _row(
+    h,
+    *,
+    entity: str,
+    entity_id: Optional[int],
+    summary: str,
+    group: str = "Leden",
+    subject: Optional[dict] = None,
+) -> dict:
     return {
         "recorded_at": h.recorded_at,
         "group": group,
@@ -238,22 +275,41 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
     for h in db.query(PersonHistory).filter(PersonHistory.recorded_at >= since_dt):
         if h.action == "person_revived":
             # Heractivering bij her-import (#227): de naam staat al in de eigen kolom.
-            rows.append(_row(h, entity="Persoon", entity_id=h.person_id,
-                             summary="Heractivering", subject=subj.fields(person_id=h.person_id)))
+            rows.append(
+                _row(
+                    h,
+                    entity="Persoon",
+                    entity_id=h.person_id,
+                    summary="Heractivering",
+                    subject=subj.fields(person_id=h.person_id),
+                )
+            )
             continue
         if h.action == "lidnr_attached":
             # Identiteitsmatch (#192): lidnummer gehecht aan een bestaand lid (#229).
-            rows.append(_row(h, entity="Persoon", entity_id=h.person_id,
-                             summary="Lidnummer gekoppeld", subject=subj.fields(person_id=h.person_id)))
+            rows.append(
+                _row(
+                    h,
+                    entity="Persoon",
+                    entity_id=h.person_id,
+                    summary="Lidnummer gekoppeld",
+                    subject=subj.fields(person_id=h.person_id),
+                )
+            )
             continue
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
         summary = f"{naam}{dob}"
         if h.operation == "update":
-            prev = (db.query(PersonHistory)
-                    .filter(PersonHistory.person_id == h.person_id,
-                            PersonHistory.recorded_at < h.recorded_at)
-                    .order_by(PersonHistory.recorded_at.desc()).first())
+            prev = (
+                db.query(PersonHistory)
+                .filter(
+                    PersonHistory.person_id == h.person_id,
+                    PersonHistory.recorded_at < h.recorded_at,
+                )
+                .order_by(PersonHistory.recorded_at.desc())
+                .first()
+            )
             if prev is not None:
                 # Per gewijzigd veld een "oud → nieuw" tonen (#230), zodat ook een
                 # wijziging die de naam niet raakt (geboortedatum/geslacht) zichtbaar is.
@@ -267,8 +323,15 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                     changes.append(f"geslacht {_fmt(prev.gender_code)} → {_fmt(h.gender_code)}")
                 if changes:
                     summary = "; ".join(changes)
-        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=summary,
-                         subject=subj.fields(person_id=h.person_id)))
+        rows.append(
+            _row(
+                h,
+                entity="Persoon",
+                entity_id=h.person_id,
+                summary=summary,
+                subject=subj.fields(person_id=h.person_id),
+            )
+        )
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
         if h.action == "member_revived":
@@ -279,35 +342,55 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             summary = f"Bestuurslid: {naam}" if naam else "Bestuurslid gewijzigd"
         else:
             summary = "Gezin"
-        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary=summary,
-                         subject=subj.fields(member_id=h.member_id)))
+        rows.append(
+            _row(
+                h,
+                entity="Gezin",
+                entity_id=h.member_id,
+                summary=summary,
+                subject=subj.fields(member_id=h.member_id),
+            )
+        )
 
     for h in db.query(MemberPersonHistory).filter(MemberPersonHistory.recorded_at >= since_dt):
-        rows.append(_row(
-            h, entity="Gezinslid", entity_id=h.member_person_id,
-            summary=f"In gezin als {_fmt(h.relation_type)}",
-            subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
-        ))
+        rows.append(
+            _row(
+                h,
+                entity="Gezinslid",
+                entity_id=h.member_person_id,
+                summary=f"In gezin als {_fmt(h.relation_type)}",
+                subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
+            )
+        )
 
     for h in db.query(AddressHistory).filter(AddressHistory.recorded_at >= since_dt):
         adres = _addr_text(h.street, h.house_number, h.bus_number)
         body = adres
         if h.operation == "update":
-            prev = (db.query(AddressHistory)
-                    .filter(AddressHistory.address_id == h.address_id,
-                            AddressHistory.recorded_at < h.recorded_at)
-                    .order_by(AddressHistory.recorded_at.desc()).first())
+            prev = (
+                db.query(AddressHistory)
+                .filter(
+                    AddressHistory.address_id == h.address_id,
+                    AddressHistory.recorded_at < h.recorded_at,
+                )
+                .order_by(AddressHistory.recorded_at.desc())
+                .first()
+            )
             if prev is not None:
                 prev_adres = _addr_text(prev.street, prev.house_number, prev.bus_number)
                 if prev_adres != adres:
                     body = f"{prev_adres} → {adres}"
         pc = subj.postcode_label(h.postal_code_id)
         summary = f"{body}, {pc}" if pc else body
-        rows.append(_row(
-            h, entity="Adres", entity_id=h.address_id,
-            summary=summary,
-            subject=subj.fields(person_id=h.person_id),
-        ))
+        rows.append(
+            _row(
+                h,
+                entity="Adres",
+                entity_id=h.address_id,
+                summary=summary,
+                subject=subj.fields(person_id=h.person_id),
+            )
+        )
 
     for h in db.query(ContactDetailHistory).filter(ContactDetailHistory.recorded_at >= since_dt):
         # Bij een wijziging "oud → nieuw" tonen door de vorige snapshot van ditzelfde
@@ -348,26 +431,34 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 value_part = f"{_fmt(prev.value)} → {_fmt(h.value)}"
             # Terugval voor paden die de bedoeling niet benoemen — de ledenimport
             # schrijft `contacts_imported` voor élke wijziging.
-            if (not markering and prev is not None
-                    and bool(prev.is_primary) != bool(h.is_primary)):
-                markering = (" — is nu het hoofdadres" if h.is_primary
-                             else " — is niet meer het hoofdadres")
+            if not markering and prev is not None and bool(prev.is_primary) != bool(h.is_primary):
+                markering = (
+                    " — is nu het hoofdadres" if h.is_primary else " — is niet meer het hoofdadres"
+                )
         elif h.operation == "insert" and h.is_primary:
             markering = " — hoofdadres"
         elif h.operation == "delete" and h.is_primary:
             markering = " — was het hoofdadres"
-        rows.append(_row(
-            h, entity="Contact", entity_id=h.contact_detail_id,
-            summary=f"{_fmt(h.contact_type_code)}: {value_part}{markering}",
-            subject=subj.fields(person_id=h.person_id),
-        ))
+        rows.append(
+            _row(
+                h,
+                entity="Contact",
+                entity_id=h.contact_detail_id,
+                summary=f"{_fmt(h.contact_type_code)}: {value_part}{markering}",
+                subject=subj.fields(person_id=h.person_id),
+            )
+        )
 
     for h in db.query(MembershipHistory).filter(MembershipHistory.recorded_at >= since_dt):
-        rows.append(_row(
-            h, entity="Lidmaatschap", entity_id=h.membership_id,
-            summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)}",
-            subject=subj.fields(member_id=h.member_id),
-        ))
+        rows.append(
+            _row(
+                h,
+                entity="Lidmaatschap",
+                entity_id=h.membership_id,
+                summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)}",
+                subject=subj.fields(member_id=h.member_id),
+            )
+        )
 
     rows.sort(key=lambda r: r["recorded_at"], reverse=True)
     return rows
@@ -382,58 +473,116 @@ def all_changes_since(
 ) -> List[dict]:
     """Unified audit-feed (#189): alle history-tabellen sinds ``since``, met een
     objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
+    # Imported here and not at the top (#781), for the same reason as in
+    # `audit.service.snapshot_payment_record`: `payment.service` imports
+    # `audit.api` at load time, so a top-level `payment.api` import here closes a
+    # cycle that only held because of the order the imports stood in.
+    from app.domains.payment.api import PaymentRecordHistory
+
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
     rows: List[dict] = list(member_changes_since(db, since))  # groep "Leden"
     subj = _SubjectResolver(db)
 
     for h in db.query(ActivityHistory).filter(ActivityHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Activiteit", entity_id=h.activity_id,
-                         summary=_fmt(h.name) or f"activiteit #{_fmt(h.activity_id)}",
-                         group="Activiteiten"))
+        rows.append(
+            _row(
+                h,
+                entity="Activiteit",
+                entity_id=h.activity_id,
+                summary=_fmt(h.name) or f"activiteit #{_fmt(h.activity_id)}",
+                group="Activiteiten",
+            )
+        )
     for h in db.query(ActivityDateHistory).filter(ActivityDateHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Datum", entity_id=h.activity_date_id,
-                         summary=f"{_fmt(h.start_date)}–{_fmt(h.end_date)} (activiteit #{_fmt(h.activity_id)})",
-                         group="Activiteiten"))
+        rows.append(
+            _row(
+                h,
+                entity="Datum",
+                entity_id=h.activity_date_id,
+                summary=f"{_fmt(h.start_date)}–{_fmt(h.end_date)} (activiteit #{_fmt(h.activity_id)})",
+                group="Activiteiten",
+            )
+        )
     for h in db.query(ComponentHistory).filter(ComponentHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Onderdeel", entity_id=h.component_id,
-                         summary=f"{_fmt(h.name)} (activiteit #{_fmt(h.activity_id)})",
-                         group="Activiteiten"))
+        rows.append(
+            _row(
+                h,
+                entity="Onderdeel",
+                entity_id=h.component_id,
+                summary=f"{_fmt(h.name)} (activiteit #{_fmt(h.activity_id)})",
+                group="Activiteiten",
+            )
+        )
     for h in db.query(ProductHistory).filter(ProductHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Product", entity_id=h.product_id,
-                         summary=f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})",
-                         group="Activiteiten"))
+        rows.append(
+            _row(
+                h,
+                entity="Product",
+                entity_id=h.product_id,
+                summary=f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})",
+                group="Activiteiten",
+            )
+        )
     for h in db.query(RegistrationHistory).filter(RegistrationHistory.recorded_at >= since_dt):
         # Per gewijzigd veld een "oud → nieuw" (#624), zoals bij een persoon: een
         # stille correctie op iemands contactgegevens moet verklaarbaar zijn.
         summary = _fmt(h.contact_name) or "—"
         if h.operation == "update":
-            prev = (db.query(RegistrationHistory)
-                    .filter(RegistrationHistory.registration_id == h.registration_id,
-                            RegistrationHistory.recorded_at < h.recorded_at)
-                    .order_by(RegistrationHistory.recorded_at.desc()).first())
+            prev = (
+                db.query(RegistrationHistory)
+                .filter(
+                    RegistrationHistory.registration_id == h.registration_id,
+                    RegistrationHistory.recorded_at < h.recorded_at,
+                )
+                .order_by(RegistrationHistory.recorded_at.desc())
+                .first()
+            )
             if prev is not None:
                 changes: List[str] = []
-                for label, oud, nieuw in (("naam", prev.contact_name, h.contact_name),
-                                          ("e-mail", prev.contact_email, h.contact_email),
-                                          ("gsm", prev.phone, h.phone),
-                                          ("opmerking", prev.remarks, h.remarks)):
+                for label, oud, nieuw in (
+                    ("naam", prev.contact_name, h.contact_name),
+                    ("e-mail", prev.contact_email, h.contact_email),
+                    ("gsm", prev.phone, h.phone),
+                    ("opmerking", prev.remarks, h.remarks),
+                ):
                     if (oud or "") != (nieuw or ""):
                         changes.append(f"{label}: {_fmt(oud) or '—'} → {_fmt(nieuw) or '—'}")
                 if changes:
                     summary = "; ".join(changes)
-        rows.append(_row(h, entity="Inschrijving", entity_id=h.registration_id,
-                         summary=summary, group="Inschrijvingen",
-                         subject=subj.from_registration(h.registration_id)))
-    for h in db.query(RegistrationItemHistory).filter(RegistrationItemHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Bestelregel", entity_id=h.registration_item_id,
-                         summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
-                         group="Inschrijvingen",
-                         subject=subj.from_registration(h.registration_id)))
+        rows.append(
+            _row(
+                h,
+                entity="Inschrijving",
+                entity_id=h.registration_id,
+                summary=summary,
+                group="Inschrijvingen",
+                subject=subj.from_registration(h.registration_id),
+            )
+        )
+    for h in db.query(RegistrationItemHistory).filter(
+        RegistrationItemHistory.recorded_at >= since_dt
+    ):
+        rows.append(
+            _row(
+                h,
+                entity="Bestelregel",
+                entity_id=h.registration_item_id,
+                summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
+                group="Inschrijvingen",
+                subject=subj.from_registration(h.registration_id),
+            )
+        )
     for h in db.query(PaymentRecordHistory).filter(PaymentRecordHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Betaling", entity_id=None,
-                         summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
-                         group="Betalingen",
-                         subject=subj.from_payment(h.payable_type, h.payable_id)))
+        rows.append(
+            _row(
+                h,
+                entity="Betaling",
+                entity_id=None,
+                summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
+                group="Betalingen",
+                subject=subj.from_payment(h.payable_type, h.payable_id),
+            )
+        )
 
     if group:
         rows = [r for r in rows if r["group"] == group]
@@ -445,19 +594,40 @@ def all_changes_since(
 
 def build_member_changes_ods(rows: List[dict]) -> bytes:
     headers = [
-        _("Tijdstip"), _("Wat"), _("Type"), _("ID"), _("Naam persoon"), _("Adres hoofdlid"),
-        _("Externe ID persoon"), _("Externe ID hoofdlid"), _("Actie"), _("Door"), _("Details"),
+        _("Tijdstip"),
+        _("Wat"),
+        _("Type"),
+        _("ID"),
+        _("Naam persoon"),
+        _("Adres hoofdlid"),
+        _("Externe ID persoon"),
+        _("Externe ID hoofdlid"),
+        _("Actie"),
+        _("Door"),
+        _("Details"),
     ]
     data = []
     for r in rows:
         ts = r["recorded_at"]
         ts_str = ts.strftime("%Y-%m-%d %H:%M") if ts else ""
-        data.append([
-            ts_str, r["operation_label"], r["entity"],
-            "" if r["entity_id"] is None else str(r["entity_id"]),
-            r.get("person_name", ""), r.get("head_address", ""),
-            r.get("person_external_id", ""), r.get("head_external_id", ""),
-            r["action"], r["actor"] or "", r["summary"],
-        ])
-    return build_ods("Ledenwijzigingen", headers, data,
-                     col_widths=[4.0, 3.0, 3.5, 2.0, 7.0, 12.0, 4.5, 4.5, 6.5, 6.5, 14.0])
+        data.append(
+            [
+                ts_str,
+                r["operation_label"],
+                r["entity"],
+                "" if r["entity_id"] is None else str(r["entity_id"]),
+                r.get("person_name", ""),
+                r.get("head_address", ""),
+                r.get("person_external_id", ""),
+                r.get("head_external_id", ""),
+                r["action"],
+                r["actor"] or "",
+                r["summary"],
+            ]
+        )
+    return build_ods(
+        "Ledenwijzigingen",
+        headers,
+        data,
+        col_widths=[4.0, 3.0, 3.5, 2.0, 7.0, 12.0, 4.5, 4.5, 6.5, 6.5, 14.0],
+    )

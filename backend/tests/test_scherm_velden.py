@@ -46,16 +46,15 @@ Er staan daarom twee dingen naast:
 Het weghalen van `name` maakt die tweede rood met de naam erin. Gemeten, niet
 aangenomen.
 """
+
 from __future__ import annotations
 
 import pytest
 
-from app.domains.mdm.api import secrets_gezet
-from app.kernel.tenant_config import get_setting
-from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN
-from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
+from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN, LegalForm, secrets_gezet
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
-from app.domains.mdm.api import LegalForm
+from app.kernel.tenant_config import get_setting
+from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
 
 TENANT = TENANT_VOORBEELD_ID
 
@@ -124,8 +123,9 @@ def _organisatieformulier() -> dict[str, str]:
 @pytest.fixture
 def opgeslagen(client, db_session):
     csrf = _operator(client, db_session)
-    antwoord = client.post(f"/admin/tenants/{TENANT}", data=_volledig_formulier(),
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/tenants/{TENANT}", data=_volledig_formulier(), headers={"X-CSRF-Token": csrf}
+    )
     assert antwoord.status_code == 200, antwoord.text[:400]
     return client.get(f"/admin/tenants/{TENANT}").text
 
@@ -133,9 +133,11 @@ def opgeslagen(client, db_session):
 @pytest.fixture
 def organisatie_opgeslagen(client, db_session):
     csrf = _operator(client, db_session)
-    antwoord = client.post(f"/admin/organisaties/{TENANT}",
-                           data=_organisatieformulier(),
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/organisaties/{TENANT}",
+        data=_organisatieformulier(),
+        headers={"X-CSRF-Token": csrf},
+    )
     assert antwoord.status_code == 200, antwoord.text[:400]
     return client.get(f"/admin/organisaties/{TENANT}").text
 
@@ -151,24 +153,27 @@ def test_elk_organisatieveld_is_invulbaar(key, organisatie_opgeslagen):
     """
     assert f'name="{key}"' in organisatie_opgeslagen, (
         f"het veld `{key}` staat niet op het organisatiescherm — dan is het "
-        "nergens te bewerken, ook al kan de service het schrijven (#954, #971)")
+        "nergens te bewerken, ook al kan de service het schrijven (#954, #971)"
+    )
     if key == "legal_form":
         # Een dropdown toont zijn waarde met `selected`, niet met `value=`.
         assert f'value="{_waarde(key)}" selected' in organisatie_opgeslagen
         return
     assert f'value="{_waarde(key)}"' in organisatie_opgeslagen, (
         f"`{key}` kwam niet terug met de opgeslagen waarde; het scherm toont "
-        "iets anders dan wat er bewaard is")
+        "iets anders dan wat er bewaard is"
+    )
 
 
-@pytest.mark.parametrize("key,label", [(k, l) for k, l, _h in BEKENDE_SLEUTELS])
+@pytest.mark.parametrize("key,label", [(k, lbl) for k, lbl, _h in BEKENDE_SLEUTELS])
 def test_elke_bekende_instelling_is_invulbaar(key, label, opgeslagen, db_session):
     assert f'name="{key}"' in opgeslagen, (
-        f"de instelling `{key}` ({label}) staat niet op het scherm")
+        f"de instelling `{key}` ({label}) staat niet op het scherm"
+    )
     bewaard = get_setting(db_session, key, tenant_id=TENANT)
     assert bewaard == _waarde(key), (
-        f"`{key}` werd opgeslagen als {bewaard!r} in plaats van "
-        f"{_waarde(key)!r}")
+        f"`{key}` werd opgeslagen als {bewaard!r} in plaats van {_waarde(key)!r}"
+    )
 
 
 def test_elke_geheime_sleutel_wordt_bewaard(client, db_session):
@@ -177,16 +182,17 @@ def test_elke_geheime_sleutel_wordt_bewaard(client, db_session):
     csrf = _operator(client, db_session)
     formulier = _volledig_formulier()
     formulier.update({key: f"geheim-{key}" for key, _l, _h in GEHEIME_SLEUTELS})
-    antwoord = client.post(f"/admin/tenants/{TENANT}", data=formulier,
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/tenants/{TENANT}", data=formulier, headers={"X-CSRF-Token": csrf}
+    )
     assert antwoord.status_code == 200, antwoord.text[:400]
 
-    gezet = secrets_gezet(db_session, TENANT,
-                          [key for key, _l, _h in GEHEIME_SLEUTELS])
+    gezet = secrets_gezet(db_session, TENANT, [key for key, _l, _h in GEHEIME_SLEUTELS])
     assert all(gezet.values()), f"niet elke geheime sleutel kwam aan: {gezet}"
     for key, _l, _h in GEHEIME_SLEUTELS:
         assert f"geheim-{key}" not in antwoord.text, (
-            f"`{key}` wordt teruggetoond op het scherm — een geheim hoort dat nooit")
+            f"`{key}` wordt teruggetoond op het scherm — een geheim hoort dat nooit"
+        )
 
 
 def test_de_naam_staat_op_het_scherm(client, db_session):
@@ -205,7 +211,8 @@ def test_de_naam_staat_op_het_scherm(client, db_session):
     assert 'name="name"' in html, (
         "de naam van de organisatie staat nergens. Sinds #945 is "
         "`organizations.name` de enige bron voor de paginatitel, de afzender en de "
-        "footer — zonder invoerveld is hij alleen bij het aanmaken te zetten (#954)")
+        "footer — zonder invoerveld is hij alleen bij het aanmaken te zetten (#954)"
+    )
 
 
 def test_de_lijsten_overlappen_niet(db_session):
@@ -224,6 +231,7 @@ def test_de_lijsten_overlappen_niet(db_session):
 
 # ── De naam mag niet leeg ──────────────────────────────────────────────────
 
+
 def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(client, db_session):
     """`organizations.name` voedt de paginatitel, de afzender en de footer.
 
@@ -235,14 +243,13 @@ def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(client, db_sess
     formulier = _organisatieformulier()
     formulier["name"] = "   "
 
-    antwoord = client.post(f"/admin/organisaties/{TENANT}", data=formulier,
-                           headers={"X-CSRF-Token": csrf})
+    antwoord = client.post(
+        f"/admin/organisaties/{TENANT}", data=formulier, headers={"X-CSRF-Token": csrf}
+    )
 
     assert antwoord.status_code == 422
-    assert "Naam" in antwoord.text, (
-        "de melding noemt het veld niet bij zijn label")
-    assert "paginatitel" in antwoord.text, (
-        "de melding zegt niet waaróm een lege naam niet kan")
+    assert "Naam" in antwoord.text, "de melding noemt het veld niet bij zijn label"
+    assert "paginatitel" in antwoord.text, "de melding zegt niet waaróm een lege naam niet kan"
 
 
 def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
@@ -254,24 +261,32 @@ def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
     from app.domains.mdm.api import Organization
 
     csrf = _operator(client, db_session)
-    client.post(f"/admin/organisaties/{TENANT}",
-                data={**_organisatieformulier(), "legal_form": "VZW"},
-                headers={"X-CSRF-Token": csrf})
-    organisatie = (db_session.query(Organization).filter(Organization.id == TENANT)
-                   .execution_options(include_all_tenants=True).one())
+    client.post(
+        f"/admin/organisaties/{TENANT}",
+        data={**_organisatieformulier(), "legal_form": "VZW"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    organisatie = (
+        db_session.query(Organization)
+        .filter(Organization.id == TENANT)
+        .execution_options(include_all_tenants=True)
+        .one()
+    )
     db_session.refresh(organisatie)
     naam_vooraf = organisatie.name
 
-    client.post(f"/admin/organisaties/{TENANT}",
-                data={**_organisatieformulier(), "name": "",
-                      "legal_form": "FEITELIJKE_VERENIGING"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/organisaties/{TENANT}",
+        data={**_organisatieformulier(), "name": "", "legal_form": "FEITELIJKE_VERENIGING"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     db_session.refresh(organisatie)
     assert organisatie.name == naam_vooraf
     assert organisatie.legal_form == LegalForm.NON_PROFIT, (
         "de rechtsvorm is bewaard terwijl de naam geweigerd werd — dan is de "
-        "opslag half doorgevoerd")
+        "opslag half doorgevoerd"
+    )
 
 
 def test_de_naam_wijzigen_verandert_de_paginatitel(client, db_session):
@@ -282,9 +297,11 @@ def test_de_naam_wijzigen_verandert_de_paginatitel(client, db_session):
     tweede bron.
     """
     csrf = _operator(client, db_session)
-    client.post(f"/admin/organisaties/{TENANT}",
-                data={**_organisatieformulier(), "name": "Raak Andersgem"},
-                headers={"X-CSRF-Token": csrf})
+    client.post(
+        f"/admin/organisaties/{TENANT}",
+        data={**_organisatieformulier(), "name": "Raak Andersgem"},
+        headers={"X-CSRF-Token": csrf},
+    )
 
     from app.kernel.tenant_config import tenant_display_name
 

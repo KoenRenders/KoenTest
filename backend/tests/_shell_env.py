@@ -11,6 +11,7 @@ function a shell calls has to be handed over. That went wrong twice with the sam
 
 Hence one place. A new global is added here once, and no shell test breaks a third time.
 """
+
 from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader

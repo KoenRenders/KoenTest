@@ -5,21 +5,25 @@ breed inline blok), en "Wie doet er mee?" is één compacte regel (niet een vert
 lijst). We toetsen de templates op die vorm zodat de regressie niet terugkeert.
 """
 
-import pytest
-pytestmark = pytest.mark.ui_serverrendered
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from app.ui import templates
+
+pytestmark = pytest.mark.ui_serverrendered
 
 TPL = Path(__file__).resolve().parents[1] / "app" / "domains" / "activities" / "templates"
 
 
 def test_inschrijf_form_is_smalle_modal_body():
-    inhoud = ((TPL / "_inschrijf_form.html").read_text()
-              # #1284: the fields moved into their own template, shared with the board.
-              + (TPL / "_inschrijf_velden.html").read_text())
+    inhoud = (
+        (TPL / "_inschrijf_form.html").read_text()
+        # #1284: the fields moved into their own template, shared with the board.
+        + (TPL / "_inschrijf_velden.html").read_text()
+    )
     # Geen breed inline getint blok meer; gestapelde velden i.p.v. 3 kolommen.
     assert "bg-blue-50" not in inhoud
     assert "sm:grid-cols-3" not in inhoud and "grid-cols-1" in inhoud
@@ -29,22 +33,24 @@ def test_inschrijf_form_is_smalle_modal_body():
 
 def test_activiteitenkaart_opent_popup():
     inhoud = (TPL / "_activiteiten_cards.html").read_text()
-    assert '@click="ins = true"' in inhoud            # knop opent de modal
-    assert 'x-show="ins"' in inhoud                    # overlay
-    assert "max-w-md" in inhoud                        # smal
-    assert "fixed inset-0" in inhoud                   # gecentreerde popup, geen inline blok
+    assert '@click="ins = true"' in inhoud  # knop opent de modal
+    assert 'x-show="ins"' in inhoud  # overlay
+    assert "max-w-md" in inhoud  # smal
+    assert "fixed inset-0" in inhoud  # gecentreerde popup, geen inline blok
 
 
 def test_deelnemers_is_compacte_inline_regel():
-    out = templates.env.get_template("_deelnemers.html").render(deelnemers=[
-        SimpleNamespace(contact_name="Jan", team_name=None, quantity=1),
-        SimpleNamespace(contact_name="An", team_name=None, quantity=2),
-        SimpleNamespace(contact_name=None, team_name="De Toppers", quantity=1),
-    ])
-    assert "<li>" not in out and "<ul" not in out       # geen verticale lijst
-    assert "·" in out                                    # inline gescheiden
+    out = templates.env.get_template("_deelnemers.html").render(
+        deelnemers=[
+            SimpleNamespace(contact_name="Jan", team_name=None, quantity=1),
+            SimpleNamespace(contact_name="An", team_name=None, quantity=2),
+            SimpleNamespace(contact_name=None, team_name="De Toppers", quantity=1),
+        ]
+    )
+    assert "<li>" not in out and "<ul" not in out  # geen verticale lijst
+    assert "·" in out  # inline gescheiden
     assert "Jan" in out and "An" in out and "De Toppers" in out
-    assert "4 " in out                                   # som van de aantallen (1+2+1)
+    assert "4 " in out  # som van de aantallen (1+2+1)
 
 
 def test_deelnemers_leeg_blijft_nette_tekst():
@@ -56,6 +62,7 @@ def test_deelnemers_leeg_blijft_nette_tekst():
 # Het blok verscheen vroeger pas bij het eerste aantal, waardoor het formulier
 # versprong. De invariant die telt: zichtbaar-vanaf-het-begin dán en enkel dán
 # als er via de portaal iets af te rekenen valt.
+
 
 def _totaal_html(**ctx):
     return templates.env.get_template("_inschrijf_totaal.html").render(**ctx)
@@ -89,8 +96,7 @@ def test_heeft_prijs_volgt_de_prijsberekening():
     from app.domains.activities.totals import has_payable_products as _heeft_prijs
 
     def product(**kw):
-        velden = dict(is_free=False, pay_on_site=False, price=Decimal("10"),
-                      member_price=None)
+        velden = dict(is_free=False, pay_on_site=False, price=Decimal("10"), member_price=None)
         velden.update(kw)
         return SimpleNamespace(**velden)
 
@@ -109,9 +115,11 @@ def test_heeft_prijs_volgt_de_prijsberekening():
 
 def test_betaalwijze_volgt_dezelfde_voorwaarde_als_het_totaal():
     """Bijvangst (#607): geen betaalkeuze bij een onderdeel zonder betalend deel."""
-    inhoud = ((TPL / "_inschrijf_form.html").read_text()
-              # #1284: the fields moved into their own template, shared with the board.
-              + (TPL / "_inschrijf_velden.html").read_text())
+    inhoud = (
+        (TPL / "_inschrijf_form.html").read_text()
+        # #1284: the fields moved into their own template, shared with the board.
+        + (TPL / "_inschrijf_velden.html").read_text()
+    )
     assert "{% if heeft_prijs %}" in inhoud
     assert "Betaalwijze (bij betalend deel)" not in inhoud
 

@@ -24,6 +24,7 @@ Kapotgemaakt om te controleren dat ze rood kan worden (gemeten): `alt: alt.trim(
 uit de `Trix.Attachment` in `admin_pagina.html` gehaald → de eerste assert valt om
 ("de alt staat niet in de bijlage-JSON"), en de tweede erna.
 """
+
 import json
 import os
 import re
@@ -36,7 +37,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, Paginascherm, login_met_sessie  # noqa: E402
 
-TITEL = "E2E-schermafdruk aanmelden"     # de seed-titel; wordt de voorgestelde alt
+TITEL = "E2E-schermafdruk aanmelden"  # de seed-titel; wordt de voorgestelde alt
 
 
 def _ontbreekt(reden: str) -> None:
@@ -81,13 +82,14 @@ def test_de_knop_voegt_een_afbeelding_met_alt_in(admin_page):
     # keuzeknop met een leeg vak zijn, en dan kiest niemand iets.
     miniatuur = keuze.locator("img")
     assert admin_page.evaluate("el => el.naturalWidth", miniatuur.element_handle()) > 0, (
-        "de miniatuur in de kiezer laadt niet")
+        "de miniatuur in de kiezer laadt niet"
+    )
 
     keuze.click()
     altveld = dialoog.locator("#cp-alt")
     assert altveld.input_value() == TITEL, (
-        f"de alt is niet voorgevuld met de titel uit de bibliotheek: "
-        f"{altveld.input_value()!r}")
+        f"de alt is niet voorgevuld met de titel uit de bibliotheek: {altveld.input_value()!r}"
+    )
 
     altveld.fill("Het aanmeldformulier met de knop Lid worden")
     dialoog.get_by_role("button", name="Invoegen").click()
@@ -97,11 +99,13 @@ def test_de_knop_voegt_een_afbeelding_met_alt_in(admin_page):
     match = re.search(r'data-trix-attachment="([^"]*)"', inhoud)
     assert match, (
         "de editor heeft geen bijlage bewaard — Trix serialiseert een afbeelding "
-        f"blijkbaar anders dan gemeten:\n{inhoud}")
+        f"blijkbaar anders dan gemeten:\n{inhoud}"
+    )
     bijlage = json.loads(match.group(1).replace("&quot;", '"'))
     assert bijlage.get("alt") == "Het aanmeldformulier met de knop Lid worden", (
         "de alt staat niet in de bijlage-JSON, dus de server kan hem niet op de "
-        f"<img> zetten: {bijlage}")
+        f"<img> zetten: {bijlage}"
+    )
     assert "/api/v1/media/" in (bijlage.get("url") or ""), bijlage
 
     # ── 2. En wat de bezoeker uiteindelijk ziet ──────────────────────────────
@@ -110,10 +114,14 @@ def test_de_knop_voegt_een_afbeelding_met_alt_in(admin_page):
     assert paginaid, admin_page.url
     admin_page.goto(f"/admin/paginas/{paginaid.group(1)}/voorbeeld")
     beeld = admin_page.locator("img[alt='Het aanmeldformulier met de knop Lid worden']")
-    expect(beeld, "de afbeelding staat niet op de gerenderde pagina, of zonder "
-                  "alt — de sanitisatie is de plek waar dat gebeurt").to_have_count(1)
+    expect(
+        beeld,
+        "de afbeelding staat niet op de gerenderde pagina, of zonder "
+        "alt — de sanitisatie is de plek waar dat gebeurt",
+    ).to_have_count(1)
     assert admin_page.evaluate("el => el.naturalWidth", beeld.element_handle()) > 0, (
-        "de afbeelding staat er wel maar laadt niet")
+        "de afbeelding staat er wel maar laadt niet"
+    )
 
 
 def test_slepen_van_een_bestand_blijft_geweigerd(admin_page):
@@ -137,4 +145,5 @@ def test_slepen_van_een_bestand_blijft_geweigerd(admin_page):
 
     assert geweigerd, (
         "de editor accepteert weer bestanden — dat is een onbeperkt uploadpad "
-        "naar een publieke pagina")
+        "naar een publieke pagina"
+    )

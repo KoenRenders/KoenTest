@@ -1,5 +1,6 @@
 """Werkbank-embryo (#398, §20.5): open taken tonen, behartigen, sluiten door
 beslissing. Rol-gefilterd; verversen via htmx-polling (§20.5 — geen SSE)."""
+
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -7,18 +8,18 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
 from app.domains.workflow import api
-from app.domains.workflow.api import (TASK_CATEGORY, TASK_KIND, TASK_STATUS, SubjectType,
-                                      TaskStatus)
+from app.domains.workflow.api import TASK_CATEGORY, TASK_KIND, TASK_STATUS, SubjectType, TaskStatus
 from app.kernel.codes import code_label, code_labels, code_of
 from app.ui import admin_nav, is_fragment_request, templates
-from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
 
 router = APIRouter(include_in_schema=False)
 
 
-def _ctx(request: Request, db: Session, email: str, kind: str = "",
-         q: str = "", status: str = "open") -> dict:
+def _ctx(
+    request: Request, db: Session, email: str, kind: str = "", q: str = "", status: str = "open"
+) -> dict:
     from app.domains.auth.api import get_user_roles
     from app.i18n import _
 
@@ -28,8 +29,11 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     # wie en wanneer allemaal bewaard worden. `api.tasks` staat bewust naast
     # `open_tasks`: die laatste voedt óók de idempotentie van de weesjob en de
     # navigatieteller, en die mogen niet ineens de afgehandelde meetellen.
-    status = status if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value,
-                                  "all") else TaskStatus.OPEN.value
+    status = (
+        status
+        if status in (TaskStatus.OPEN.value, TaskStatus.DONE.value, "all")
+        else TaskStatus.OPEN.value
+    )
     all_tasks = api.tasks(db, roles, status=status)
 
     # Eén gegroepeerde filter (#549), data-gedreven uit de dotted `kind`
@@ -63,7 +67,7 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     filter_top = [("", _("Alle taken"))]
     filter_groups = {
         _cat_label(cat): (
-            [(cat, f'{_("Alle")} {_cat_label(cat).lower()}')]
+            [(cat, f"{_('Alle')} {_cat_label(cat).lower()}")]
             + [(f"{cat}.{s}", _kind_label(f"{cat}.{s}")) for s in sorted(subs)]
         )
         for cat, subs in sorted(cats.items())
@@ -79,10 +83,13 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     # wordt onbruikbaar als je enkel per categorie kunt filteren.
     term = q.strip().lower()
     if term:
-        tasks = [t for t in tasks
-                 if term in (t.title or "").lower()
-                 or term in (code_of(t.kind) or "").lower()
-                 or term in _kind_label(t.kind).lower()]
+        tasks = [
+            t
+            for t in tasks
+            if term in (t.title or "").lower()
+            or term in (code_of(t.kind) or "").lower()
+            or term in _kind_label(t.kind).lower()
+        ]
     return {
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
@@ -101,9 +108,14 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
 
 
 @router.get("/admin/werkbank", response_class=HTMLResponse)
-def werkbank(request: Request, db: Session = Depends(get_db),
-             email: str = Depends(require_admin_ui),
-             kind: str = "", q: str = "", status: str = "open"):
+def werkbank(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = "",
+    q: str = "",
+    status: str = "open",
+):
     from app.config import settings
 
     ctx = _ctx(request, db, email, kind, q, status)
@@ -112,16 +124,22 @@ def werkbank(request: Request, db: Session = Depends(get_db),
 
 
 @router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
-def werkbank_lijst(request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui),
-                   kind: str = "", q: str = "", status: str = "open"):
+def werkbank_lijst(
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    kind: str = "",
+    q: str = "",
+    status: str = "open",
+):
     """Polling-fragment: enkel de takenlijst (elke 30s ververst, §20.5).
 
     Zoek en filter staan sinds #592 op de pagina zelf, in de kit-filterbalk; ze
     overleven de polling doordat het pollende element ze meestuurt (hx-include).
     """
-    return templates.TemplateResponse(request, "_werkbank_lijst.html",
-                                      _ctx(request, db, email, kind, q, status))
+    return templates.TemplateResponse(
+        request, "_werkbank_lijst.html", _ctx(request, db, email, kind, q, status)
+    )
 
 
 # #822: where do you go to look at the subject, and is the workbench a SIGNPOST or
@@ -192,14 +210,21 @@ def _kernel_job_rows(db, task) -> list[tuple[str, str]]:
     job = job_details(db, task.subject_id)
     if job is None:
         return []
-    return [(_("Job"), job["name"]), (_("Status"), job["status"]),
-            (_("Pogingen"), f"{job['attempts']}/{job['max_attempts']}"),
-            (_("Laatste fout"), (job["last_error"] or "—")[:500])]
+    return [
+        (_("Job"), job["name"]),
+        (_("Status"), job["status"]),
+        (_("Pogingen"), f"{job['attempts']}/{job['max_attempts']}"),
+        (_("Laatste fout"), (job["last_error"] or "—")[:500]),
+    ]
 
 
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
-def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)):
+def taak_detail(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+):
     """Fragment (htmx) én deep-link (volle pagina zonder HX-Request, §20.5)."""
     task = api.get_task(db, task_id)
     detail_rows: list[tuple[str, str]] = []
@@ -212,29 +237,38 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
     elif task and task.subject_type is SubjectType.KERNEL_JOB:
         detail_rows = _kernel_job_rows(db, task)
     raw = request.cookies.get(SESSION_COOKIE) or ""
-    template = ("_werkbank_detail.html" if is_fragment_request(request)
-                else "werkbank_taak.html")
-    ctx = {"task": task, "detail_rows": detail_rows,
-           "csrf_token": csrf_token_for(raw),
-           # Derived here, because the screen compares no codes (§B4.7).
-           "is_done": bool(task and task.status is TaskStatus.DONE),
-           # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
-           "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN
-                        if task else False),
-           "subject_url": _subject_url(db, task),
-           # #666: het fragment leeft in twee schermen en moet weten in welke.
-           # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
-           "standalone": template == "werkbank_taak.html"}
+    template = "_werkbank_detail.html" if is_fragment_request(request) else "werkbank_taak.html"
+    ctx = {
+        "task": task,
+        "detail_rows": detail_rows,
+        "csrf_token": csrf_token_for(raw),
+        # Derived here, because the screen compares no codes (§B4.7).
+        "is_done": bool(task and task.status is TaskStatus.DONE),
+        # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
+        "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN if task else False),
+        "subject_url": _subject_url(db, task),
+        # #666: het fragment leeft in twee schermen en moet weten in welke.
+        # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
+        "standalone": template == "werkbank_taak.html",
+    }
     if template == "werkbank_taak.html":
         ctx["nav_items"] = _ctx(request, db, email)["nav_items"]
     return templates.TemplateResponse(request, template, ctx)
 
 
-@router.post("/admin/werkbank/taken/{task_id}/afgehandeld", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
-def taak_afhandelen(task_id: int, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui), besluit: str = Form(""),
-                    standalone: str = Form("")):
+@router.post(
+    "/admin/werkbank/taken/{task_id}/afgehandeld",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def taak_afhandelen(
+    task_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+    besluit: str = Form(""),
+    standalone: str = Form(""),
+):
     """Handelt een taak af; waar het antwoord landt hangt af van het scherm (#666).
 
     Het afhandelformulier zit in een fragment dat zowel op de werkbanklijst als op
@@ -249,10 +283,8 @@ def taak_afhandelen(task_id: int, request: Request, db: Session = Depends(get_db
     """
     api.complete_task(db, task_id, done_by=email, decision=besluit.strip() or None)
     if standalone:
-        return Response(status_code=204,
-                        headers={"HX-Redirect": "/admin/werkbank"})
-    antwoord = templates.TemplateResponse(request, "_werkbank_lijst.html",
-                                          _ctx(request, db, email))
+        return Response(status_code=204, headers={"HX-Redirect": "/admin/werkbank"})
+    antwoord = templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))
     antwoord.headers["HX-Retarget"] = "#werkbank-lijst"
     antwoord.headers["HX-Reswap"] = "innerHTML"
     return antwoord

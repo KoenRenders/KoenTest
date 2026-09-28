@@ -14,6 +14,7 @@ lidmaatschap met geldigheidsperiode weg, zodat dezelfde regel blijft gelden.
 De functie navigeert via de ORM-relaties (persoon → gezin(nen) → lidmaatschappen)
 en doet zelf geen DB-query; binnen een sessie zijn die relaties beschikbaar.
 """
+
 from datetime import date
 from typing import Optional
 
@@ -82,10 +83,10 @@ def membership_coverage_until(person, ref_date: Optional[date] = None):
 
 # ── Hernieuwingsvenster (§19.3: één plek) ──────────────────────────────────────
 
+
 def renewal_open(today: Optional[date] = None) -> bool:
     """True zodra de jaarlijkse vernieuwingscampagne open is
     (MEMBERSHIP_RENEWAL_START_MD, "MM-DD"). Zonder instelling: dicht."""
-    from app.config import settings
 
     if today is None:
         today = date.today()
@@ -125,6 +126,7 @@ def is_member(db, email: str, ref_date: Optional[date] = None) -> bool:
 
 # ── Vernieuwingscampagne: welk jaar telt vandaag? (#582) ──────────────────────
 
+
 def renewal_years(today: Optional[date] = None) -> tuple[int, int]:
     """(referentiejaar, doeljaar) van de lopende vernieuwingscampagne.
 
@@ -162,13 +164,18 @@ def members_with_membership_for_year(db, year: int) -> set[int]:
     from app.domains.membership.models import Membership
 
     begin, eind = date(year, 1, 1), date(year, 12, 31)
-    rijen = (db.query(Membership.member_id)
-             .filter(Membership.is_active.is_(True),
-                     Membership.valid_from.isnot(None),
-                     Membership.valid_to.isnot(None),
-                     Membership.valid_from <= eind,
-                     Membership.valid_to >= begin)
-             .distinct().all())
+    rijen = (
+        db.query(Membership.member_id)
+        .filter(
+            Membership.is_active.is_(True),
+            Membership.valid_from.isnot(None),
+            Membership.valid_to.isnot(None),
+            Membership.valid_from <= eind,
+            Membership.valid_to >= begin,
+        )
+        .distinct()
+        .all()
+    )
     return {r[0] for r in rijen}
 
 
@@ -183,13 +190,18 @@ def members_valid_on(db, day: Optional[date] = None) -> set[int]:
 
     if day is None:
         day = date.today()
-    rijen = (db.query(Membership.member_id)
-             .filter(Membership.is_active.is_(True),
-                     Membership.valid_from.isnot(None),
-                     Membership.valid_to.isnot(None),
-                     Membership.valid_from <= day,
-                     Membership.valid_to >= day)
-             .distinct().all())
+    rijen = (
+        db.query(Membership.member_id)
+        .filter(
+            Membership.is_active.is_(True),
+            Membership.valid_from.isnot(None),
+            Membership.valid_to.isnot(None),
+            Membership.valid_from <= day,
+            Membership.valid_to >= day,
+        )
+        .distinct()
+        .all()
+    )
     return {r[0] for r in rijen}
 
 
@@ -197,8 +209,10 @@ def not_renewed_count(db, today: Optional[date] = None) -> int:
     """Gezinnen die lid waren in het referentiejaar maar het doeljaar nog niet
     dekken (#582). Soft-deleted rijen vallen weg via de globale ORM-filter."""
     referentie, doel = renewal_years(today)
-    return len(members_with_membership_for_year(db, referentie)
-               - members_with_membership_for_year(db, doel))
+    return len(
+        members_with_membership_for_year(db, referentie)
+        - members_with_membership_for_year(db, doel)
+    )
 
 
 def open_renewal_payment(db, member):
@@ -221,10 +235,12 @@ def open_renewal_payment(db, member):
 
     return (
         db.query(PaymentRecord)
-        .filter(PaymentRecord.payable_type == PayableType.MEMBERSHIP,
-                PaymentRecord.status.notin_([PaymentStatus.PAID,
-                                             PaymentStatus.CANCELLED,
-                                             PaymentStatus.FAILED]))
+        .filter(
+            PaymentRecord.payable_type == PayableType.MEMBERSHIP,
+            PaymentRecord.status.notin_(
+                [PaymentStatus.PAID, PaymentStatus.CANCELLED, PaymentStatus.FAILED]
+            ),
+        )
         .join(Membership, Membership.id == PaymentRecord.payable_id)
         .filter(Membership.member_id == member.id)
         .first()
@@ -246,14 +262,12 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
 
     Geeft terug of er iets gewijzigd is.
     """
-    from app.domains.mdm.api import MemberPerson
-
     # CR-12 phase 2: this used to apply `(x or "").strip().upper()` on both
     # sides — a normalisation that was needed because the column accepted any
     # spelling. The code list does that now: a value that is not in it does
     # not get in, and `RelationType(...)` already refuses it here with the
     # name of the list.
-    from app.domains.mdm.api import RelationType
+    from app.domains.mdm.api import MemberPerson, RelationType
 
     try:
         gevraagd = RelationType((relation_type or "").strip())
@@ -262,9 +276,11 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     if gevraagd is RelationType.PRIMARY_MEMBER:
         return False
 
-    koppeling = (db.query(MemberPerson)
-                 .filter(MemberPerson.member_id == family_id,
-                         MemberPerson.person_id == person_id).first())
+    koppeling = (
+        db.query(MemberPerson)
+        .filter(MemberPerson.member_id == family_id, MemberPerson.person_id == person_id)
+        .first()
+    )
     if koppeling is None or koppeling.relation_type is RelationType.PRIMARY_MEMBER:
         return False
 
@@ -281,8 +297,11 @@ def membership_years(db) -> list[int]:
     """
     from app.domains.membership.models import Membership
 
-    return [jaar for (jaar,) in db.query(Membership.year).distinct()
-            .order_by(Membership.year.desc()).all() if jaar]
+    return [
+        jaar
+        for (jaar,) in db.query(Membership.year).distinct().order_by(Membership.year.desc()).all()
+        if jaar
+    ]
 
 
 def parse_member_rows(form) -> list[dict]:
@@ -298,25 +317,38 @@ def parse_member_rows(form) -> list[dict]:
     """
     import re
 
-    indices = sorted({int(mo.group(1)) for k in form.keys()
-                      if (mo := re.match(r"m(\d+)_", str(k)))})
+    indices = sorted(
+        {int(mo.group(1)) for k in form.keys() if (mo := re.match(r"m(\d+)_", str(k)))}
+    )
     rijen: list[dict] = []
     for index in indices:
-        rij = {k: (form.get(f"m{index}_{k}") or "").strip() for k in
-               ("first_name", "last_name", "date_of_birth", "gender_code",
-                "email", "phone", "mobile", "relation_type")}
+        rij = {
+            k: (form.get(f"m{index}_{k}") or "").strip()
+            for k in (
+                "first_name",
+                "last_name",
+                "date_of_birth",
+                "gender_code",
+                "email",
+                "phone",
+                "mobile",
+                "relation_type",
+            )
+        }
         # #1246: the extra e-mail rows of Word lid, in the order they were added.
         # `email` stays the first row — the primary address.
         rij["extra_emails"] = [
-            value.strip() for key, value in form.items()
-            if key.startswith(f"m{index}_email_new_") and isinstance(value, str)
-            and value.strip()]
+            value.strip()
+            for key, value in form.items()
+            if key.startswith(f"m{index}_email_new_") and isinstance(value, str) and value.strip()
+        ]
         if rij["first_name"] or rij["last_name"]:
             rijen.append(rij)
     return rijen
 
 
 # ── Verplichte lidgegevens (#681) ────────────────────────────────────────────
+
 
 class LidgegevensFout(ValueError):
     """Een lid mist een verplicht gegeven. Geen HTTPException: de regel geldt voor
@@ -343,5 +375,4 @@ def controleer_geboortedatum_en_geslacht(date_of_birth, gender_code) -> None:
     from app.i18n import _
 
     if not date_of_birth or not (gender_code or "").strip():
-        raise LidgegevensFout(
-            _("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))
+        raise LidgegevensFout(_("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))

@@ -31,13 +31,13 @@ call from `bevestig_betaling` → three fall over (the two report cases plus the
 one, which then finds nothing scheduled at all); dropped `once=True` from `vervroeg_sweep`
 → only the fourth falls over, which is exactly the one guarding the hourly cadence.
 """
+
 from decimal import Decimal
 
 import pytest
 
-from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import PaymentRecord, PaymentType
 from app.domains.workflow.models import WorkflowTask
-from app.domains.payment.api import PaymentStatus, PaymentType
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -45,9 +45,14 @@ SWEEP_JOB = "workflow.sweep"
 
 
 def _charge(db, *, amount="35.00", payable_id=4455):
-    record = PaymentRecord(payable_type="registration", payable_id=payable_id,
-                           type="charge", amount=Decimal(amount), method="transfer",
-                           status="pending")
+    record = PaymentRecord(
+        payable_type="registration",
+        payable_id=payable_id,
+        type="charge",
+        amount=Decimal(amount),
+        method="transfer",
+        status="pending",
+    )
     db.add(record)
     db.flush()
     return record
@@ -56,10 +61,12 @@ def _charge(db, *, amount="35.00", payable_id=4455):
 def _scheduled_sweeps(db):
     from app.kernel.jobs import KernelJob
 
-    return (db.query(KernelJob)
-            # Kernel jobs have their own status list; that comes in phase 4.
-            .filter(KernelJob.name == SWEEP_JOB, KernelJob.status == "pending")
-            .all())
+    return (
+        db.query(KernelJob)
+        # Kernel jobs have their own status list; that comes in phase 4.
+        .filter(KernelJob.name == SWEEP_JOB, KernelJob.status == "pending")
+        .all()
+    )
 
 
 def _run_scheduled_sweeps(db):
@@ -75,9 +82,11 @@ def _run_scheduled_sweeps(db):
 
 
 def _open_refund_task(db, refund_id):
-    return (db.query(WorkflowTask)
-            .filter(WorkflowTask.kind == "payment.refund_bevestigen",
-                    WorkflowTask.status == "open").all())
+    return (
+        db.query(WorkflowTask)
+        .filter(WorkflowTask.kind == "payment.refund_bevestigen", WorkflowTask.status == "open")
+        .all()
+    )
 
 
 def test_settling_a_refund_brings_the_sweep_forward(db_session):
@@ -91,20 +100,22 @@ def test_settling_a_refund_brings_the_sweep_forward(db_session):
     db_session.flush()
     registreer_terugbetaling(db_session, charge.id, amount="10.00", actor="test")
     _run_scheduled_sweeps(db_session)
-    refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == PaymentType.REFUND).one())
+    refund = db_session.query(PaymentRecord).filter(PaymentRecord.type == PaymentType.REFUND).one()
     assert _open_refund_task(db_session, refund.id), (
-        "no refund task at all — then the rest of this test proves nothing (#678)")
+        "no refund task at all — then the rest of this test proves nothing (#678)"
+    )
 
     bevestig_betaling(db_session, refund.id, amount_paid="-10.00", actor="test")
 
     assert _scheduled_sweeps(db_session), (
         "settling scheduled no sweep, so the task waits for the hourly round — that is "
-        "the fifty-eight minutes from this issue")
+        "the fifty-eight minutes from this issue"
+    )
     _run_scheduled_sweeps(db_session)
     db_session.expire_all()
     assert not _open_refund_task(db_session, refund.id), (
-        "the task is still open after the sweep it brought forward")
+        "the task is still open after the sweep it brought forward"
+    )
 
 
 def test_writing_off_a_charge_brings_the_sweep_forward_too(db_session):
@@ -118,13 +129,14 @@ def test_writing_off_a_charge_brings_the_sweep_forward_too(db_session):
     db_session.flush()
     registreer_terugbetaling(db_session, charge.id, amount="5.00", actor="test")
     _run_scheduled_sweeps(db_session)
-    refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == PaymentType.REFUND,
-                      PaymentRecord.payable_id == 4456).one())
+    refund = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.type == PaymentType.REFUND, PaymentRecord.payable_id == 4456)
+        .one()
+    )
 
     # "Bewerken" writes off the amount through the same confirmation service.
-    bevestig_betaling(db_session, refund.id, amount_paid="-5.00",
-                      note="afgeboekt", actor="test")
+    bevestig_betaling(db_session, refund.id, amount_paid="-5.00", note="afgeboekt", actor="test")
 
     assert _scheduled_sweeps(db_session)
 
@@ -149,9 +161,11 @@ def test_advancing_twice_yields_no_second_task(db_session):
     _run_scheduled_sweeps(db_session)
 
     db_session.expire_all()
-    tasks = (db_session.query(WorkflowTask)
-             .filter(WorkflowTask.kind == "payment.refund_bevestigen",
-                     WorkflowTask.status == "open").all())
+    tasks = (
+        db_session.query(WorkflowTask)
+        .filter(WorkflowTask.kind == "payment.refund_bevestigen", WorkflowTask.status == "open")
+        .all()
+    )
     assert len(tasks) == 1, f"{len(tasks)} tasks for one refund: {[t.title for t in tasks]}"
 
 
@@ -171,18 +185,20 @@ def test_the_advanced_sweep_schedules_no_successor(db_session):
     db_session.flush()
     registreer_terugbetaling(db_session, charge.id, amount="3.00", actor="test")
     _run_scheduled_sweeps(db_session)
-    refund = (db_session.query(PaymentRecord)
-              .filter(PaymentRecord.type == PaymentType.REFUND,
-                      PaymentRecord.payable_id == 4458).one())
+    refund = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.type == PaymentType.REFUND, PaymentRecord.payable_id == 4458)
+        .one()
+    )
 
     bevestig_betaling(db_session, refund.id, amount_paid="-3.00", actor="test")
     advanced = _scheduled_sweeps(db_session)
     assert advanced, "nothing was scheduled at all"
     assert all((job.payload or {}).get("once") for job in advanced), (
         "the advanced sweep is not marked once=True, so it schedules a successor and "
-        "the hourly cadence doubles")
+        "the hourly cadence doubles"
+    )
 
     _run_scheduled_sweeps(db_session)
 
-    assert not _scheduled_sweeps(db_session), (
-        "the advanced sweep left a successor behind")
+    assert not _scheduled_sweeps(db_session), "the advanced sweep left a successor behind"

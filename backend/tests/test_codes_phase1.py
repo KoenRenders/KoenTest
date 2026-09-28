@@ -9,7 +9,7 @@ Every other phase of this change request leaves stored values alone; this one
 rewrites `activities.registrations.payment_method` once, and three separate
 things had to be true for that to be safe. Each of them is a test below.
 """
-from datetime import date
+
 from decimal import Decimal
 
 import pytest
@@ -32,11 +32,14 @@ from app.kernel.codes import code_label, code_labels, reset_label_cache
 #: AC3 says the screen, the export and the report dimension show the same word;
 #: this snapshot is what "the same" is measured against.
 LABELS_BEFORE_CR12 = {
-    "payment_status": {"pending": "In afwachting", "paid": "Betaald",
-                       "failed": "Mislukt", "cancelled": "Geannuleerd"},
+    "payment_status": {
+        "pending": "In afwachting",
+        "paid": "Betaald",
+        "failed": "Mislukt",
+        "cancelled": "Geannuleerd",
+    },
     "payment_type": {"charge": "Vordering", "refund": "Terugbetaling"},
-    "payment_method": {"online": "Online", "transfer": "Overschrijving",
-                       "cash": "Cash"},
+    "payment_method": {"online": "Online", "transfer": "Overschrijving", "cash": "Cash"},
 }
 
 
@@ -48,9 +51,14 @@ def _clean_label_cache():
 
 
 def _charge(db, **kw) -> PaymentRecord:
-    fields = dict(payable_type=PayableType.REGISTRATION, payable_id=4242,
-                  amount=Decimal("10.00"), method=PaymentMethod.TRANSFER,
-                  status=PaymentStatus.PENDING, type=PaymentType.CHARGE)
+    fields = dict(
+        payable_type=PayableType.REGISTRATION,
+        payable_id=4242,
+        amount=Decimal("10.00"),
+        method=PaymentMethod.TRANSFER,
+        status=PaymentStatus.PENDING,
+        type=PaymentType.CHARGE,
+    )
     fields.update(kw)
     record = PaymentRecord(**fields)
     db.add(record)
@@ -59,6 +67,7 @@ def _charge(db, **kw) -> PaymentRecord:
 
 
 # ── §B8.2 / AC1 The database refuses a value that is not in the list ─────────
+
 
 def test_the_database_refuses_a_status_that_is_not_a_code(db_session):
     """AC1, literally: `payed` does not get into the ledger, not even by raw SQL.
@@ -71,16 +80,18 @@ def test_the_database_refuses_a_status_that_is_not_a_code(db_session):
     record = _charge(db_session)
     with pytest.raises(IntegrityError):
         db_session.execute(
-            text("UPDATE payment.payment_records SET status = 'payed' "
-                 "WHERE id = :id"), {"id": record.id})
+            text("UPDATE payment.payment_records SET status = 'payed' WHERE id = :id"),
+            {"id": record.id},
+        )
 
 
 def test_the_database_refuses_an_unknown_payment_method(db_session):
     record = _charge(db_session)
     with pytest.raises(IntegrityError):
         db_session.execute(
-            text("UPDATE payment.payment_records SET method = 'cheque' "
-                 "WHERE id = :id"), {"id": record.id})
+            text("UPDATE payment.payment_records SET method = 'cheque' WHERE id = :id"),
+            {"id": record.id},
+        )
 
 
 def test_the_registration_column_refuses_the_old_dutch_spelling(db_session):
@@ -96,16 +107,23 @@ def test_the_registration_column_refuses_the_old_dutch_spelling(db_session):
     activity = Activity(name="Proef", location="Miloheem")
     db_session.add(activity)
     db_session.flush()
-    db_session.add(Registration(activity_id=activity.id, contact_name="X",
-                                contact_email="x@example.org",
-                                registration_type="INDIVIDUAL"))
+    db_session.add(
+        Registration(
+            activity_id=activity.id,
+            contact_name="X",
+            contact_email="x@example.org",
+            registration_type="INDIVIDUAL",
+        )
+    )
     db_session.flush()
     with pytest.raises(IntegrityError):
-        db_session.execute(text(
-            "UPDATE activities.registrations SET payment_method = 'OVERSCHRIJVING'"))
+        db_session.execute(
+            text("UPDATE activities.registrations SET payment_method = 'OVERSCHRIJVING'")
+        )
 
 
 # ── §B8.3 The round trip, on the money columns ───────────────────────────────
+
 
 def test_the_four_columns_store_codes_and_not_member_names(db_session):
     """Read raw, the ledger holds `paid`/`charge`/`registration`/`transfer`.
@@ -115,14 +133,21 @@ def test_the_four_columns_store_codes_and_not_member_names(db_session):
     every query written against the codes would have gone quietly wrong. On the
     money domain that is not a rendering bug.
     """
-    record = _charge(db_session, status=PaymentStatus.PAID,
-                     method=PaymentMethod.TRANSFER, type=PaymentType.CHARGE,
-                     payable_type=PayableType.REGISTRATION)
+    record = _charge(
+        db_session,
+        status=PaymentStatus.PAID,
+        method=PaymentMethod.TRANSFER,
+        type=PaymentType.CHARGE,
+        payable_type=PayableType.REGISTRATION,
+    )
     db_session.flush()
 
-    raw = db_session.execute(text(
-        "SELECT status, type, payable_type, method FROM payment.payment_records "
-        "WHERE id = :id"), {"id": record.id}).one()
+    raw = db_session.execute(
+        text(
+            "SELECT status, type, payable_type, method FROM payment.payment_records WHERE id = :id"
+        ),
+        {"id": record.id},
+    ).one()
     assert tuple(raw) == ("paid", "charge", "registration", "transfer")
 
 
@@ -151,6 +176,7 @@ def test_assigning_a_code_yields_the_member(db_session):
 
 # ── §B8.5 / AC3 The same word everywhere ─────────────────────────────────────
 
+
 @pytest.mark.parametrize("code_list", sorted(LABELS_BEFORE_CR12))
 def test_the_labels_are_the_words_the_screens_showed_before(db_session, code_list):
     for code, expected in LABELS_BEFORE_CR12[code_list].items():
@@ -159,8 +185,13 @@ def test_the_labels_are_the_words_the_screens_showed_before(db_session, code_lis
 
 def test_every_money_list_has_english_labels_too(db_session):
     """AC2: an English-speaking unit reads English badges, not raw codes."""
-    for code_list in ("payment_status", "payment_type", "payable_type",
-                  "payment_provider", "payment_method"):
+    for code_list in (
+        "payment_status",
+        "payment_type",
+        "payable_type",
+        "payment_provider",
+        "payment_method",
+    ):
         for code, _nl in code_labels(code_list, language="nl"):
             # Not "the label differs from the code": `Mollie` is called Mollie.
             # What must hold is that the row exists — otherwise `code_label()`
@@ -181,11 +212,15 @@ def test_the_export_writes_labels_and_not_codes(db_session):
 
     from app.domains.payment.exports import build_payments_export_ods
 
-    _charge(db_session, status=PaymentStatus.PAID, method=PaymentMethod.ONLINE,
-            type=PaymentType.REFUND)
+    _charge(
+        db_session, status=PaymentStatus.PAID, method=PaymentMethod.ONLINE, type=PaymentType.REFUND
+    )
     db_session.commit()
-    content = zipfile.ZipFile(io.BytesIO(build_payments_export_ods(db_session))) \
-        .read("content.xml").decode("utf-8")
+    content = (
+        zipfile.ZipFile(io.BytesIO(build_payments_export_ods(db_session)))
+        .read("content.xml")
+        .decode("utf-8")
+    )
 
     assert "Betaald" in content and "Online" in content and "Terugbetaling" in content
     # And not the codes: that is what happened before CR-12 as soon as a value
@@ -196,13 +231,17 @@ def test_the_export_writes_labels_and_not_codes(db_session):
 
 # ── §B4.6 The one data change ────────────────────────────────────────────────
 
+
 def _migration_module():
     """The phase-1 migration, imported by path so its mapping can be asserted."""
     import importlib.util
     from pathlib import Path
 
-    path = next((Path(__file__).resolve().parents[1] / "alembic" / "versions")
-               .glob("153_*_the_payment_vocabularies_become_code_*.py"))
+    path = next(
+        (Path(__file__).resolve().parents[1] / "alembic" / "versions").glob(
+            "153_*_the_payment_vocabularies_become_code_*.py"
+        )
+    )
     spec = importlib.util.spec_from_file_location("cr12_phase1", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -224,14 +263,14 @@ def test_the_method_mapping_covers_what_hdev_actually_held(db_session):
     for value in measured_on_hdev:
         if value is None or value in codes:
             continue  # stays as it is
-        assert value in module.METHOD_FIX, (
-            f"{value!r} was on HDEV but has no mapping")
+        assert value in module.METHOD_FIX, f"{value!r} was on HDEV but has no mapping"
         assert module.METHOD_FIX[value] in codes
 
     for source, target in module.METHOD_FIX.items():
         assert target in codes, f"{source!r} points to {target!r}, not a valid code"
         assert source not in codes, (
-            f"{source!r} is already a code — then it does not belong in the mapping")
+            f"{source!r} is already a code — then it does not belong in the mapping"
+        )
 
 
 def test_the_migration_counts_the_whole_table_and_not_the_living_rows(db_session):
@@ -251,34 +290,46 @@ def test_the_migration_counts_the_whole_table_and_not_the_living_rows(db_session
     # adjacent string literals, so the whole statement is here. A search on
     # the source code saw only its first line.
     tree = ast.parse(textwrap.dedent(inspect.getsource(_migration_module().upgrade)))
-    updates = [n.value for n in ast.walk(tree)
-               if isinstance(n, ast.Constant) and isinstance(n.value, str)
-               and n.value.startswith("UPDATE activities.registrations")]
-    assert updates, ("no UPDATE on activities.registrations found — is "
-                     "this test still looking at the migration?")
+    updates = [
+        n.value
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Constant)
+        and isinstance(n.value, str)
+        and n.value.startswith("UPDATE activities.registrations")
+    ]
+    assert updates, (
+        "no UPDATE on activities.registrations found — is this test still looking at the migration?"
+    )
     for statement in updates:
         flat = " ".join(statement.split())
         assert flat.endswith("WHERE payment_method = :old"), (
             f"the UPDATE ends in {flat!r}; it should have exactly one condition "
             f"— an extra `AND deleted_at IS NULL` leaves the soft-deleted rows "
-            f"behind and then the foreign key fails on exactly those rows")
+            f"behind and then the foreign key fails on exactly those rows"
+        )
 
 
 def test_the_history_table_has_no_payment_method_to_migrate(db_session):
     """§B4.6 said "and its history"; there is none. Verified, not assumed."""
-    columns = {r[0] for r in db_session.execute(text(
-        "SELECT column_name FROM information_schema.columns "
-        "WHERE table_schema = 'activities' AND table_name = 'registration_history'"
-    )).all()}
+    columns = {
+        r[0]
+        for r in db_session.execute(
+            text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'activities' AND table_name = 'registration_history'"
+            )
+        ).all()
+    }
     assert "payment_method" not in columns
 
-    everywhere = db_session.execute(text(
-        "SELECT count(*) FROM information_schema.columns "
-        "WHERE column_name = 'payment_method'")).scalar_one()
+    everywhere = db_session.execute(
+        text("SELECT count(*) FROM information_schema.columns WHERE column_name = 'payment_method'")
+    ).scalar_one()
     assert everywhere == 1, "payment_method is in more than one place in the schema"
 
 
 # ── The gateway keeps its own vocabulary (§B4.10) ────────────────────────────
+
 
 def test_mollie_statuses_map_to_ours_and_the_unknown_one_stays_pending():
     """Their list, our list, and an explicit branch for the word we do not know.
@@ -288,7 +339,9 @@ def test_mollie_statuses_map_to_ours_and_the_unknown_one_stays_pending():
     where it was.
     """
     from app.domains.payment.providers.mollie import (
-        MOLLIE_STATUS_MAP, MollieStatus, our_status,
+        MOLLIE_STATUS_MAP,
+        MollieStatus,
+        our_status,
     )
 
     assert our_status("paid") is PaymentStatus.PAID
@@ -296,7 +349,8 @@ def test_mollie_statuses_map_to_ours_and_the_unknown_one_stays_pending():
     assert our_status("expired") is PaymentStatus.FAILED
     assert our_status("iets_nieuws_van_mollie") is PaymentStatus.PENDING
     assert set(MOLLIE_STATUS_MAP) == set(MollieStatus), (
-        "every Mollie status we know should have a mapping")
+        "every Mollie status we know should have a mapping"
+    )
 
 
 def test_the_gateway_status_column_has_no_foreign_key(db_session):
@@ -318,33 +372,32 @@ def test_the_gateway_status_column_has_no_foreign_key(db_session):
     # reliably guard against the most expensive one either.
     declared = {column for code_list in registry().values() for column in code_list.fk_from}
     assert "payment.gateway_payments.status" not in declared, (
-        "a CodeList claims gateway_payments.status — that is Mollie's list "
-        "(§B4.10), not ours")
+        "a CodeList claims gateway_payments.status — that is Mollie's list (§B4.10), not ours"
+    )
 
     # And then the database, in case someone adds the FK by hand.
-    fks = sa_inspect(db_session.bind).get_foreign_keys(
-        "gateway_payments", schema="payment")
+    fks = sa_inspect(db_session.bind).get_foreign_keys("gateway_payments", schema="payment")
     on_status = [fk for fk in fks if "status" in fk["constrained_columns"]]
     assert not on_status, (
         "gateway_payments.status has been given an FK — an unknown status "
         "from Mollie would then make the webhook fail at the moment money "
-        "is moving")
+        "is moving"
+    )
 
 
 # ── The service takes a code or a member, and says so ────────────────────────
 
+
 def test_the_service_accepts_a_raw_code_from_an_older_caller(db_session):
     """Four domains call this function; they may hand over a code or a member."""
-    record = create_payment_record(
-        db_session, "registration", 77, Decimal("12.00"), "cash")
+    record = create_payment_record(db_session, "registration", 77, Decimal("12.00"), "cash")
     assert record.payable_type is PayableType.REGISTRATION
     assert record.method is PaymentMethod.CASH
 
 
 def test_the_service_refuses_a_value_that_is_in_no_list(db_session):
     with pytest.raises(ValueError):
-        create_payment_record(
-            db_session, "registration", 78, Decimal("12.00"), "cheque")
+        create_payment_record(db_session, "registration", 78, Decimal("12.00"), "cheque")
 
 
 def test_the_payment_hint_follows_the_radio_values():
@@ -361,8 +414,14 @@ def test_the_payment_hint_follows_the_radio_values():
     import re
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
-              / "templates" / "_inschrijf_velden.html").read_text(encoding="utf-8")
+    source = (
+        Path(__file__).resolve().parents[1]
+        / "app"
+        / "domains"
+        / "activities"
+        / "templates"
+        / "_inschrijf_velden.html"
+    ).read_text(encoding="utf-8")
     # #1284: the fields — payment choice included — moved to `_inschrijf_velden.html`,
     # shared by the public form and the board's.
     radios = set(re.findall(r'name="payment_method" value="([^"]+)"', source))
