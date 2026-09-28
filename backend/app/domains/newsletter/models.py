@@ -15,7 +15,6 @@ Schema ``newsletter``. Three shapes decide everything here:
   skipped when their own row comes up (CR-05 §4).
 """
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Optional
 
 from sqlalchemy import (
@@ -32,7 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -57,13 +56,13 @@ ERASED_ADDRESS = "verwijderd adres"
 # one place where a new value is added.
 
 
-class SubscriberStatus(Enum):
+class SubscriberStatus(CodeEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     UNSUBSCRIBED = "unsubscribed"
 
 
-class SubscriberSource(Enum):
+class SubscriberSource(CodeEnum):
     """Where a subscription comes from — proof of consent."""
 
     PUBLIC_FORM = "public_form"
@@ -71,36 +70,36 @@ class SubscriberSource(Enum):
     ADMIN = "admin"
 
 
-class Audience(Enum):
+class Audience(CodeEnum):
     MEMBERS = "members"
     NON_MEMBERS = "non_members"
     BOTH = "both"
 
 
-class LetterStatus(Enum):
+class LetterStatus(CodeEnum):
     DRAFT = "draft"
     SENDING = "sending"
     SENT = "sent"
 
 
-class ReplyToMode(Enum):
+class ReplyToMode(CodeEnum):
     ASSOCIATION = "association"
     SENDER = "sender"
 
 
-class DeliveryKind(Enum):
+class DeliveryKind(CodeEnum):
     MEMBER = "member"
     SUBSCRIBER = "subscriber"
 
 
-class DeliveryStatus(Enum):
+class DeliveryStatus(CodeEnum):
     QUEUED = "queued"
     SENT = "sent"
     FAILED = "failed"
     SKIPPED = "skipped"
 
 
-class MessageRole(Enum):
+class MessageRole(CodeEnum):
     """Who wrote the message in the drafting conversation: the author or Raakje."""
 
     AUTHOR = "author"

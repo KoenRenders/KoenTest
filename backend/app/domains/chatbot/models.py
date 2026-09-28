@@ -12,7 +12,6 @@ Velden met elk hun eigen bedoeling:
 ``is_active=False`` → de rij gaat niet naar de bot (bv. een CMS-pagina uitzetten).
 """
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Optional
 
 from sqlalchemy import (
@@ -21,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -73,7 +72,7 @@ class ChatbotInfo(TenantMixin, Base):
         return "\n\n".join(parts).strip()
 
 
-class AiSurface(Enum):
+class AiSurface(CodeEnum):
     """Where a call to a model came from (CR-12 phase 4).
 
     Was the pair `SURFACE_PUBLIC`/`SURFACE_ADMIN` in `seam.py` plus the literal
@@ -85,7 +84,7 @@ class AiSurface(Enum):
     DESIGNSTUDIO = "designstudio"
 
 
-class AiCapability(Enum):
+class AiCapability(CodeEnum):
     """What the call was for (CR-12 phase 4).
 
     `chat` is new as a code: the public bot and the back-office chat logged an
@@ -102,7 +101,7 @@ class AiCapability(Enum):
     IMAGE = "image"
 
 
-class AiStatus(Enum):
+class AiStatus(CodeEnum):
     """How the call went (#978; CR-12 phase 4). Was the tuple `STATUSES`."""
 
     OK = "ok"
@@ -111,7 +110,7 @@ class AiStatus(Enum):
     MODERATED = "moderated"
 
 
-class AiProvider(Enum):
+class AiProvider(CodeEnum):
     """Who answered the call (CR-12 phase 4).
 
     `mock` is the stand-in of development and tests; it never reaches UAT or

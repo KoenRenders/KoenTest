@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import (
     Column,
@@ -14,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -22,7 +21,7 @@ def _now_utc():
     return datetime.now(timezone.utc)
 
 
-class MediaKind(Enum):
+class MediaKind(CodeEnum):
     """What a stored file is for (CR-12 phase 4).
 
     Was a free `String(20)` guarded by `ck_media_assets_kind_valid`, the CHECK

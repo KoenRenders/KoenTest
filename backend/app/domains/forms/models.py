@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import (
     Column,
@@ -15,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -23,7 +22,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class FieldType(Enum):
+class FieldType(CodeEnum):
     """What kind of field this is; rendering and export branch on it.
 
     CR-12 phase 4: was the tuple `FIELD_TYPES` plus the CHECK of migration 062.
@@ -43,7 +42,7 @@ class FieldType(Enum):
     PHONE = "phone"    # mobile/phone with light validation (#344)
 
 
-class FormStatus(Enum):
+class FormStatus(CodeEnum):
     """draft (being built) → open (publicly fillable) → closed."""
 
     DRAFT = "draft"

@@ -167,16 +167,18 @@ def collect_enums_without_list(seen: list[str] | None = None) -> dict[str, str]:
                 continue
             bases = {b.id for b in node.bases if isinstance(b, ast.Name)}
             bases |= {b.attr for b in node.bases if isinstance(b, ast.Attribute)}
-            if not (bases & {"Enum", "IntEnum", "StrEnum"} | (bases & markers)):
+            # `CodeEnum` is the base of every code-list enum since #1280; without
+            # it here the walk would stop recognising all of them and fall silent.
+            if not (bases & {"Enum", "IntEnum", "StrEnum", "CodeEnum"} | (bases & markers)):
                 continue
-            if seen is not None and node.name not in markers:
+            if seen is not None and node.name not in markers | {"CodeEnum"}:
                 seen.append(f"{_path(file)}:{node.name}")
             if bases & markers:
                 continue
-            if node.name in markers:
-                # The marker classes themselves: they are the exception, not an
-                # instance of it. Without this line the kernel sits on its own
-                # ratchet.
+            if node.name in markers or node.name == "CodeEnum":
+                # The marker classes themselves, and `CodeEnum`, the base of every
+                # code-list enum: they are the shape, not an instance of it.
+                # Without this line the kernel sits on its own ratchet.
                 continue
             module = (str(file.relative_to(APP.parent))
                       .removesuffix(".py").replace("/", "."))
