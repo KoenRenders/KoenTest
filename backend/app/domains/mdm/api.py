@@ -124,7 +124,8 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 # CR-12: this domain's code lists belong to the public facade, so that another
 # domain reaches an FK target and an enum through one door.
 from app.domains.mdm.codes import (  # noqa: F401,E402
-    CONTACT, CONTACT_TYPE, GENDER, IDENTIFICATION_SCHEME, LANGUAGE, LEGAL_FORM,
+    CONTACT, CONTACT_TYPE, EXTERNAL, EXTERNAL_SOURCE, GENDER, IDENTIFICATION_SCHEME,
+    LANGUAGE, LEGAL_FORM,
     ORGANIZATION_RELATION_TYPE, ORGANIZATION_TYPE, PAYMENT_METHOD,
     RELATION_TYPE,
 )
@@ -151,7 +152,7 @@ __all__ = [
     "LegalForm", "LegalFormCode", "LegalFormLabel",
     "OrganizationType", "OrganizationTypeCode", "OrganizationTypeLabel",
     "RelationType", "RelationTypeLabel",
-    "GENDER", "CONTACT", "CONTACT_TYPE",
+    "GENDER", "CONTACT", "CONTACT_TYPE", "EXTERNAL", "EXTERNAL_SOURCE",
     "RELATION_TYPE", "LEGAL_FORM",
     "ORGANIZATION_TYPE", "ORGANIZATION_RELATION_TYPE",
     "IDENTIFICATION_SCHEME",

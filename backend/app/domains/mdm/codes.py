@@ -12,6 +12,8 @@ single-language code tables already here (`gender`, `contact_type`,
 from app.domains.mdm.models import (
     ContactTypeCode,
     ContactTypeLabel,
+    ExternalSourceCode,
+    ExternalSourceLabel,
     GenderCode,
     GenderLabel,
     IdentificationScheme,
@@ -247,4 +249,32 @@ IDENTIFICATION_SCHEME = CodeList(
     labels=IdentificationSchemeLabel,
     enum=None,
     fk_from=("mdm.organization_identifications.scheme",),
+)
+
+EXTERNAL_SOURCE_CODES = (
+    CodeSeed(code="ledenadministratie", nl="Ledenadministratie",
+             en="Member administration", sort_order=10),
+)
+
+
+class EXTERNAL:
+    """The source systems an external number comes from — codes, not an enum.
+
+    Koen, 28 September 2026 (#1182): a code list, with one code today. No enum,
+    for the reason `CONTACT` gives: the unique key on (source, external_id)
+    exists so that a second source can come, and that should be a row in
+    `mdm.external_source_codes`, not a code change. Python compares with these
+    constants, never with a bare string.
+    """
+
+    MEMBER_ADMINISTRATION = Code("ledenadministratie")
+
+
+EXTERNAL_SOURCE = CodeList(
+    name="external_source",
+    schema="mdm",
+    codes=ExternalSourceCode,
+    labels=ExternalSourceLabel,
+    enum=None,
+    fk_from=("mdm.external_numbers.source",),
 )
