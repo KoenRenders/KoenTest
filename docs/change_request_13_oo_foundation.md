@@ -8,7 +8,7 @@
 > #236 and in the template.
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready** · **assigned by Koen to v2.8.0 on 27 September 2026** (tracker #1235; phases #755 (0a), #1248 (0b), #1254 (0c), #757 (1), #1249 (2), #1250 (3), #1251 (4); built by desktop-dev2, after v2.7.0 is on PROD and #781 is on `master`)
+**Status:** shaped with Koen 26–27 September 2026 · Part A approved by Koen on 27 September 2026 · Part B reviewed twice (author, external model) and corrected · **development-ready; revision `1b22a9f5` approved by Koen on 28 September 2026** · **assigned by Koen to v2.8.0 on 27 September 2026** (tracker #1235; phases #755 (0a), #1248 (0b), #1254 (0c), #757 (1), #1249 (2), #1250 (3), #1251 (4); built by desktop-dev2, after v2.7.0 is on PROD and #781 is on `master`)
 **Applies to:** the domain layer of every module (`backend/app/domains/*`,
 `app/kernel`), the entrances to each aggregate (public form, JSON API, admin
 screen, import), and the shape a new module takes from its first commit.
@@ -608,8 +608,8 @@ adds nothing here: this CR changes no infrastructure and no tables.
   carries a migration and stops for a restore instead — the old image would
   not start (`alembic upgrade head`, *"Can't locate revision"*). Recovery is
   a DB restore, the dump verified before the deploy, exactly as in CR-12.
-  **#1255 (expand/contract as the norm; open, assigned to v2.8.0, not yet
-  decided by Koen)** sharpens this: a new `CHECK`, `NOT NULL` or `UNIQUE` on
+  **#1255 (expand/contract as the norm — decided by Koen on 28 September
+  2026, the norm from v2.8.0 on)** sharpens this: a new `CHECK`, `NOT NULL` or `UNIQUE` on
   an *existing* column is **not additive** — the old app may still write a
   value the new constraint refuses — so every migration of this CR is a
   contract step by that definition unless it is *measured* that the old
@@ -1107,7 +1107,8 @@ one still running during the deploy — never writes a value that violates
 it, and that is measured, not assumed: (a) the old app's writer paths are
 read, (b) the data on HDEV, UAT and PROD is counted (B3). Each phase issue
 carries the classification per constraint; each migration declares it
-(`ADDITIVE = True/False`, the #1255 attribute, if #1255 is decided).
+(`ADDITIVE = True/False`, the #1255 attribute — #1255 is decided, so every
+migration of this CR carries it).
 
 | Constraint | Old-app-safe? | Why |
 |---|---|---|
@@ -1123,6 +1124,15 @@ Where a constraint is **not** old-app-safe, this CR ships the validator and
 expand now, contract later — rather than breaking the running app. That is
 the only place where this CR's "all in one release" gives way, and it is
 per constraint, not per phase.
+
+**And the CR does not decide that on its own** (Koen, 28 September 2026,
+approving the revision: *"met de afspraak dat de constraints waarvoor het
+niet werkt aan mij worden voorgelegd ter goedkeuring"*). Every constraint
+that is not demonstrably safe for the old app is **put to Koen first**, per
+constraint, with the measurement beside it — the writer paths read, the
+counts per environment — and only after his approval does it move to the
+contract release. The phase issue lists them; the question to Koen names
+the constraint, what the old app could write, and what the data shows.
 
 **Relation to #94 (DB-level integrity).** #94's phase 1 landed in 2026
 (migrations 033/053). Its phase 2 enum `CHECK`s are superseded by CR-12's
@@ -1374,6 +1384,7 @@ difference between an exemption list and a burn-down.
 | 26 Sep 2026 | Trigger: the pain of 8 September; broader than the CRM module. | Koen |
 | 27 Sep 2026 | The rule this CR fixes is guarded in CI on every push from the start; B9 written first. Template B9 says a rule is fixed only when its gate runs in CI. | Koen |
 | 27 Sep 2026 | `Member → Household` is not part of this CR. | Koen |
+| 28 Sep 2026 | Revision `1b22a9f5` approved by Koen. #1255 (expand/contract) is the norm from v2.8.0. A constraint that is not demonstrably old-app-safe is put to Koen per constraint, with its measurement, before it moves to the contract release — the CR does not decide that itself. | Koen |
 | 28 Sep 2026 | Final revision against `master` `0f389a23` (Koen's request via the master CLI): A2 re-measured; phase 1 starts from `create_registration` (#1192) after #1284; phase 2 uses the #1274 stub; #1203 is fact; per-constraint additive/contract classification per #1255, with "validator now, constraint next release" where the old app is not safe. | Koen (asked), author (revised) |
 | 27 Sep 2026 | CR-13 assigned to **v2.8.0** (tracker #1235), built by desktop-dev2; order: v2.7.0 on PROD → #781 on `master` → the first CR-13 branch. **v2.8.0 paused by Koen later that day**; dev2 waits for his signal, the document keeps evolving. Phase issues #755 (0), #1248 (0b), #757 (1), #1249 (2), #1250 (3), #1251 (4). | Koen |
 | 27 Sep 2026 | #780 (the ratchet on Dutch identifiers) is built in CR-13 phase 0 as the fourteenth gate; #780 stays the issue that carries its measurement and closes with phase 0. | Koen |
@@ -1413,6 +1424,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q37 | 28 Sep 2026 | Master CLI: Koen approves `1b22a9f5`; #1255 becomes the norm; one agreement added. | B5.2: every not-old-app-safe constraint goes to Koen for approval, per constraint and with the measurement, before it is deferred. #1255 marked decided wherever the document said it hung on him. |
 | Q36 | 28 Sep 2026 | dev2, on `dcd03036`: test counts stated in four places; JSON-route unit unclear (113/117 by decorator vs 124 method × path on 97 paths); phases 1–3 still "depends on 0"; 45 vs 44 `CodeEnum`. | All four fixed: counts live in A2 only, the unit is method × path (124/97), dependencies are 0a, 0b, 0c (+ #1284 for phase 1), 45 = 44 + `ExternalVocabulary`. |
 | Q35 | 28 Sep 2026 | Koen, via the master CLI: a last revision against `master` `0f389a23` (all of v2.7.0) before dev2 starts — do the phases' order and assumptions still hold, must the baseline be re-measured, what goes before or after #781? | Order holds (0a → 0b → 0c → 1 → 2 → 3 → 4); assumptions updated: CR-12 done (45 `CodeEnum`, closed status sets, `ContactTypes` constants, `code-style.md`), #1192's `create_registration` is phase 1's starting point and closes the #733 gap for registrations, #1284 must land first, #1274's stub is phase 2's test provider, #1203 is fact, #1255 makes every constraint a per-migration classification (B5.2). Baseline re-measured by hand on 28 Sep (A2 column); the gate re-measures in 0a and binds. Everything of CR-13 comes after #781; #1284 (v2.7.0) comes before it. |
 | Q34 | 28 Sep 2026 | From CR-12 #1279: does the "member in an f-string" class exist here? | Yes, for the value objects: each defines `__str__` deliberately (`Money` as the formatted amount, the OGM as `+++…+++`, the period as `from – to`); a value object without one fails a B8 test. |
