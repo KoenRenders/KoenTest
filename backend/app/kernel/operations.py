@@ -12,19 +12,18 @@ single domain owns it: every domain with a history table writes it.
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
 
 from app.database import Base
-from app.kernel.codes import CodeList, CodeSeed
+from app.kernel.codes import CodeEnum, CodeList, CodeSeed
 
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Operation(Enum):
+class Operation(CodeEnum):
     """What a history row records."""
 
     INSERT = "insert"

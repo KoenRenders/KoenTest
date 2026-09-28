@@ -1,11 +1,10 @@
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Optional
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text, event
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -28,7 +27,7 @@ def _single_asset(obj, kind, fk_attr):
     )
 
 
-class RegistrationState(Enum):
+class RegistrationState(CodeEnum):
     """Whether an activity accepts a NEW registration, and if not, why (#974).
 
     The reason matters as much as the answer: the refusal message and the badge on

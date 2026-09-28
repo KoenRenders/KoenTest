@@ -9,13 +9,12 @@ keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 from datetime import datetime, timezone
 from typing import Optional
 
-from enum import Enum
 
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -31,14 +30,14 @@ def _now_utc() -> datetime:
 # class-definition time, not evaluated lazily.
 
 
-class LegalForm(Enum):
+class LegalForm(CodeEnum):
     """The legal forms the code list knows (#924, pattern of #779).
 
     The code lives in the database, the label per language in
     `mdm.legal_form_labels`, and this Enum is where the code comes from in the
     application. Extensible: a new form is a row plus a member.
 
-    CR-12 phase 2: from `str, Enum` to a plain `Enum`. With the `str` mixin,
+    CR-12 phase 2: from `str, Enum` to a plain enum (now `CodeEnum`, #1280). With the `str` mixin,
     `organisatie.legal_form == "VZW"` remained a valid comparison that happened
     to be true; with a plain one it is silently false, and therefore findable.
     """
@@ -52,7 +51,7 @@ class LegalForm(Enum):
     COMPANY = "BEDRIJF"
 
 
-class OrganizationType(Enum):
+class OrganizationType(CodeEnum):
     """What kind of organization this is (CR-12 phase 2).
 
     `ACCOUNT` is the legal entity that holds the account, `UNIT` a unit,
@@ -66,7 +65,7 @@ class OrganizationType(Enum):
     PLATFORM = "PLATFORM"
 
 
-class RelationType(Enum):
+class RelationType(CodeEnum):
     """How a person belongs to a household (CR-12 phase 2).
 
     Member names are English, values remain the stored Dutch codes (§B4.3):
@@ -482,7 +481,7 @@ class OrganizationIdentification(SoftDeleteMixin, Base):
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
 
 
-class PaymentMethod(Enum):
+class PaymentMethod(CodeEnum):
     """How money moves: online, by bank transfer, or in cash (CR-12 phase 1).
 
     In `mdm` and not in `payment`, because two domains store it — a payment
@@ -490,7 +489,7 @@ class PaymentMethod(Enum):
     domain is master data by definition (§B4.1). That makes the foreign key
     from `payment` and from `activities` the allowed cross-schema one.
 
-    Plain `Enum`. Member names are English and so are the values here; the
+    A `CodeEnum`, no `str` mixin. Member names are English and so are the values here; the
     Dutch `OVERSCHRIJVING` the public form used to post is mapped to `transfer`
     once, by the migration of this phase (§B4.6).
     """

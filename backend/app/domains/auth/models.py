@@ -1,14 +1,13 @@
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.soft_delete import SoftDeleteMixin
 
 
-class Role(Enum):
+class Role(CodeEnum):
     """Who may do what (CR-12 phase 2).
 
     **In `auth` and not in `mdm`** (§B4.1, Koen's refinement of 25 September

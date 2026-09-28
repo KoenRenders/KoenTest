@@ -15,9 +15,11 @@ This module is the one shape. Per list:
 - **`<schema>.<name>_labels`**, keyed on `(code, language)`, carries the human
   text. Two rows per code, `nl` and `en`, and a third language is a row for a
   translator rather than a release for a developer.
-- **A plain `Enum`**, only where Python branches on the value. Plain, not
-  `str, Enum`: with a `str` subclass `status == "paid"` stays quietly true and
-  the mistake never surfaces.
+- **A `CodeEnum`**, only where Python branches on the value. Not `str, Enum`:
+  with a `str` subclass `status == "paid"` stays quietly true and the mistake
+  never surfaces. But in every *string context* — an f-string, `str()`,
+  `.format()`, a log line, a URL — a member is its code, never `Klasse.LID`
+  (#1280); see `CodeEnum`.
 
 `CodeList` ties the three together and registers itself, so the gates in
 `backend/tests/test_codes_gate.py` can iterate over every list that exists
@@ -71,6 +73,39 @@ Code = NewType("Code", str)
 FALLBACK_TONE = "gray"
 
 
+# ── The base of every code-list enum ─────────────────────────────────────────
+
+class CodeEnum(Enum):
+    """A member is its code in every string context (#1280, CR-12 §B4.3).
+
+    A plain `Enum` member turns into `Klasse.LID` in an f-string, in `str()`, in
+    `.format()` and in a log line. CR-12 turned dozens of strings into enums, and
+    three times a member landed silently where a string was expected: a template
+    comparison that was never true (#1268), a webhook URL ending in
+    `PaymentProvider.MOLLIE` that Mollie answered with a 404 (#1279), and a
+    member in a template's output (the finalize guard). No gate sees an f-string
+    or a URL, and an AST gate only sees names. So the class is closed instead of
+    hunted: `__str__` and `__format__` give `.value`, and `Klasse.LID` — which is
+    nowhere in this codebase the wanted result of a string context — stops
+    existing outside `repr()`, where it stays for debugging.
+
+    **Deliberately not a `str` subclass.** A comparison with a string stays
+    false, so the text gates of CR-12 phase 5 keep their work; and a member that
+    reaches a template is still an `Enum` there, so the finalize guard (gate 12)
+    still refuses it before anything turns it into text. `__str__` gives the
+    CODE, never the label — the label stays `code_label()` (§B4.4).
+
+    Every enum of a `CodeList` and every `ExternalVocabulary` inherits from this;
+    `tests/test_code_enum.py` walks the registry to hold that.
+    """
+
+    def __str__(self) -> str:
+        return str(self.value)
+
+    def __format__(self, format_spec: str) -> str:
+        return format(str(self.value), format_spec)
+
+
 # ── Enums that are deliberately not a code list ──────────────────────────────
 
 class TechnicalEnum(Enum):
@@ -82,13 +117,14 @@ class TechnicalEnum(Enum):
     """
 
 
-class ExternalVocabulary(Enum):
+class ExternalVocabulary(CodeEnum):
     """Someone else's list, mapped to ours at the edge.
 
     Mollie's payment statuses are the shape (§B4.10). Mollie can add a value
     without our migration, so a code table would turn their release into our
     webhook failure. The adapter knows the values it knows, maps them to our
-    enum, and handles the unknown one explicitly.
+    enum, and handles the unknown one explicitly. A `CodeEnum`, so the value is
+    what lands in a URL or a log line (#1280).
     """
 
 

@@ -14,7 +14,6 @@ Schema ``designstudio``. Three shapes decide the tables:
   ``ai_call_log_id`` are soft references (§8, ``test_schema_boundaries``).
 """
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -31,7 +30,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 
 
@@ -48,19 +47,19 @@ def _now_utc() -> datetime:
 # they are.
 
 
-class DesignStatus(Enum):
+class DesignStatus(CodeEnum):
     DRAFT = "draft"
     FINAL = "final"
 
 
-class Layout(Enum):
+class Layout(CodeEnum):
     """Which medium a rendering is for."""
 
     PRINT_A = "print_a"
     FEED_PORTRAIT = "feed_portrait"
 
 
-class RenderVariant(Enum):
+class RenderVariant(CodeEnum):
     PDF = "pdf"
     PNG = "png"
     JPEG = "jpeg"
@@ -68,7 +67,7 @@ class RenderVariant(Enum):
     SVG_EDITED = "svg_edited"
 
 
-class GenerationStatus(Enum):
+class GenerationStatus(CodeEnum):
     """State machine of one generated variant (CR-10 §3.12)."""
 
     REQUESTED = "requested"
@@ -79,7 +78,7 @@ class GenerationStatus(Enum):
     FAILED = "failed"
 
 
-class Preset(Enum):
+class Preset(CodeEnum):
     """Block choices within the one template "Affiche" (CR-10 §3.4).
 
     The values stay Dutch — they are stored data (§B4.3) — and the names are
@@ -91,7 +90,7 @@ class Preset(Enum):
     SIMPLE = "eenvoudig"
 
 
-class InsetCorner(Enum):
+class InsetCorner(CodeEnum):
     """Where the polaroid sits on the main picture (Koen, 20 September 2026)."""
 
     TOP_LEFT = "top_left"
@@ -100,7 +99,7 @@ class InsetCorner(Enum):
     BOTTOM_RIGHT = "bottom_right"
 
 
-class DrawingStyle(Enum):
+class DrawingStyle(CodeEnum):
     """What a generated drawing looks like."""
 
     LINE = "lijn"

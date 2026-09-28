@@ -19,7 +19,6 @@ Three shapes decide everything here:
   table with an admin-only download route fails closed.
 """
 from datetime import datetime, timezone
-from enum import Enum
 
 from sqlalchemy import (
     Boolean,
@@ -36,7 +35,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
-from app.kernel.codes import EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -45,14 +44,14 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class MeetingStatus(Enum):
+class MeetingStatus(CodeEnum):
     """Status of the one document. The pilot list of CR-12 (phase 0).
 
     `agenda` → `report` happens implicitly (taking attendance or typing a note
     is entering the report phase, CR-09 §3.23); `sent` is the only hard moment,
     and "Heropen verslag" walks it back.
 
-    **Plain `Enum`, not `str, Enum`** — deliberately, and this list is where the
+    **`CodeEnum`, not `str, Enum`** — deliberately, and this list is where the
     codebase proves it first. With a `str` subclass, `meeting.status == "sent"`
     stays a valid comparison that happens to be true, so the old module
     constants could survive next to the enum and nobody would notice the two
@@ -68,7 +67,7 @@ class MeetingStatus(Enum):
     SENT = "sent"
 
 
-class SectionKind(Enum):
+class SectionKind(CodeEnum):
     """The sections of the document (CR-09 §3.17, CR-12 phase 3).
 
     `MISC` always comes last; a custom section slots in before it. Member names
@@ -83,14 +82,14 @@ class SectionKind(Enum):
     CUSTOM = "CUSTOM"
 
 
-class Attendance(Enum):
+class Attendance(CodeEnum):
     """Present or excused. Not ticked is NOT a code but NULL."""
 
     PRESENT = "present"
     EXCUSED = "excused"
 
 
-class FilePurpose(Enum):
+class FilePurpose(CodeEnum):
     """Why a file is attached to a meeting."""
 
     ATTACHMENT = "attachment"
