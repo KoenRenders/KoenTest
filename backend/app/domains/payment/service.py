@@ -119,7 +119,9 @@ def create_payment_record(
         gp = gw_create(
             db=db,
             amount=amount,
-            description=description or f"{payable_type} #{payable_id}",
+            # `.value` (#1279): `payable_type` is a member here, and a plain
+            # Enum in an f-string reads `PayableType.MEMBERSHIP`.
+            description=description or f"{payable_type.value} #{payable_id}",
             redirect_url=redirect_url or "",
             # The code, not the member: this goes to the gateway as JSON and
             # comes back that way in the webhook. An enum is not serialisable,
