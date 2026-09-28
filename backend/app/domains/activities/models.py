@@ -61,17 +61,24 @@ class RegistrationState(CodeEnum):
     CANCELLED = "cancelled"
 
 
-class ActiviteitFout(ValueError):
+class ActivityError(ValueError):
     """A domain rule of this component was violated (#679, batch 3).
 
     Not an HTTPException: that belongs to the entrance, not to the rule. The router
     turns it into a 422; a script may do something else with it.
 
-    Dutch name kept on purpose: it existed before and renaming it would touch every
-    caller for no behavioural gain. It lives here rather than in `service.py` since
-    #792, because the first rule that lives on an object itself needs it and a model
-    may not import from the service. `service.ActiviteitFout` is the same class.
+    English since CR-13 phase 0a (§B4.4): one exception class per domain, English,
+    and the Dutch name it had before stays as an alias — one class, two names, no
+    rename of the callers. New rules raise `ActivityError`. It lives here rather
+    than in `service.py` since #792, because a rule that lives on an object itself
+    needs it and a model may not import from the service.
     """
+
+
+#: The Dutch name this class had before CR-13 (§B4.4). The same class, not a
+#: second one: `except ActiviteitFout` keeps catching `ActivityError`. Removed
+#: only when the last Dutch reference is gone.
+ActiviteitFout = ActivityError
 
 
 class ActivityOrganiser(TenantMixin, Base):

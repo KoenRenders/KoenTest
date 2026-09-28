@@ -3,15 +3,10 @@
 What a formatter cannot decide. One screen, and it points elsewhere rather than
 repeating what is already written down.
 
-> **Note on this file, 26 September 2026.** `CLAUDE.md` describes this guide as
-> created by #781, together with a ruff configuration that CI blocks on. Neither
-> exists on `master`: there is no `[tool.ruff]` section in
-> `backend/pyproject.toml` and `.github/workflows/backend-tests.yml` runs mypy
-> but not ruff. The file is created here because CR-12 phase 0 has to write its
-> rule down somewhere and this is the place `CLAUDE.md` names for it. It holds
-> that one rule. The rest of what #781 promised — language, where a rule belongs,
-> layer boundaries, exceptions, typing, docstrings, tests — is still #781's work,
-> and so is the formatter.
+> **Note on this file.** Created by CR-12 phase 0 (26 September 2026) for the
+> code-list rule; CR-13 phase 0a (#755) added the rule of a rule's home. Ruff —
+> formatter and linter, blocking in CI — came with #781, so what ruff decides is
+> not repeated here.
 
 ## A fixed vocabulary is a code table
 
@@ -46,9 +41,59 @@ goes through `_()`). An `Enum` that is none of ours carries `TechnicalEnum` or
 `RelationType.PRIMARY_MEMBER = "HOOFDLID"` — the value is data and stays, the
 name is an identifier and follows the English rule.
 
-**Plain `Enum`, never `str, Enum`.** With a `str` subclass, `status == "paid"`
-stays a valid comparison that happens to be true, so a stale literal survives
-unnoticed. Plain, that comparison is silently *false* — which is why the
+**`CodeEnum`, never `str, Enum`** (plain `Enum` until #1280). With a `str`
+subclass, `status == "paid"` stays a valid comparison that happens to be true, so
+a stale literal survives unnoticed. `CodeEnum` is no `str`, but a member is its
+code in every string context — an f-string, `str()`, a log line, a URL. Plain, that comparison is silently *false* — which is why the
 loose-string gate is an AST walk and not a mypy rule: the models use the legacy
 `Column()` style, so mypy types every column attribute as `Any` and `Any ==
 "paid"` is never an error.
+
+## A rule has one home
+
+> **A rule has one home, and every entrance passes through it.** One field →
+> an attribute validator; several fields of one object → a method on that
+> object; other rows or the database → a service function; at rest → a
+> constraint — and if PostgreSQL can say it about one row, it says it:
+> `NOT NULL`, `CHECK`, `UNIQUE`, `FOREIGN KEY`, in the same change as the
+> validator; never a trigger. A derived value is computed once, on the object
+> that owns the data, and shown everywhere else. An entity never opens a
+> session. A screen, a JSON route and an import never carry a rule of their
+> own. A consequence in another domain goes through a domain event: the object
+> returns what happened, the service publishes it. A domain never constructs or
+> mutates another domain's mapped class; it calls the owner's command or
+> publishes an event. One request is one transaction: the door service commits
+> once; a called service, a facade or a handler never does. A domain package
+> has the shape below.
+
+The design is
+[`change_request_13_oo_foundation.md`](change_request_13_oo_foundation.md); the
+placement rule it builds on is CR-04. The gate is `backend/tests/test_rules_gate.py`,
+its frozen offenders `rules_baseline.py` — a list that may only shrink.
+
+**The four addresses.** `@validates("field")` for one field; `def check(self)`
+for several fields of one object, registered with `@aggregate` from
+`app/kernel/rules.py` so it runs on every flush without a caller; a service
+function for anything that needs other rows; `NOT NULL`/`CHECK`/`UNIQUE`/`FOREIGN
+KEY` for what must hold at rest, in the same commit as its validator. A
+`check()` reads what is loaded and never queries.
+
+**An event handler** is a `@subscribe` function. It touches the session and the
+job queue, never the network, and never commits. A `@job` function is where a
+mail or an HTTP call belongs.
+
+**The module shape** — a package under `app/domains/` has:
+
+- `api.py` — the only thing another domain imports;
+- `codes.py` — its code lists (the rule above);
+- `CONTRACT.md` — what it promises, one screen, with a `## Callers` section that
+  names every `/api/v1` route and its machine caller, one line each:
+  `` - `POST /api/v1/…` — the caller ``;
+- `models.py`;
+- `tests/` — the tests that exercise only this domain.
+
+A new package without one of them is red in CI, naming the missing piece.
+
+**Exceptions:** one class per domain, English (`ActivityError`); a Dutch `*Fout`
+that existed stays as an alias of it — one class, two names.
+
