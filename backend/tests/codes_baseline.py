@@ -1,37 +1,23 @@
-"""The one ratchet left, and the permanent exemptions (CR-12 §B9.3).
+"""The permanent exemptions of the code gate (CR-12 §B9.3) — no ratchet left.
 
-The #780 pattern: while a count is not yet zero, the gate is a **ratchet**.
-Today's offenders are listed here; a new one is red, and one that disappears
-from the code must leave this file or the test is red. The list can only
-shrink, and "not cleaned up yet" stays distinguishable from "allowed".
+The #780 pattern held the violations of CR-12 here while their count was not
+yet zero: a frozen list, a new offender red, a fixed one required to leave.
+**Phase 5 (#1182) closed all five.** Four reached zero on 27 September 2026;
+the last, `FK_MISSING`, held one column until Koen decided on 28 September
+that `mdm.external_numbers.source` is a code list (migration 166). Every gate
+in `test_codes_gate.py` is hard now, and the file name stays although no
+baseline is left in it — a rename would only move the imports.
 
-**Phase 5 (#1182) closed four of the five.** `ENUM_WITHOUT_LIST`,
-`LABEL_DICTIONARIES`, `TEMPLATE_COMPARISONS` and `LOOSE_STRINGS` reached zero
-and are hard gates now: their sets are gone from this file, and so is the code
-that read them. Only `FK_MISSING` is still a ratchet, holding the one column
-that waits for Koen's decision (`mdm.external_numbers.source`: a code list with
-one code, or a provenance column exempt like history). When that is decided,
-the set goes too and the last ratchet is a hard gate.
+What stays are the exemption dicts (§B9.3). They are not ratchets: they are
+values somebody else owns, they never reach zero, and each carries its reason
+on its own line. `test_every_permanent_exception_still_has_a_target` removes an
+entry whose target is gone.
 
-The exemption dicts below stay (§B9.3): they are not ratchets, they are
-values somebody else owns, and they never reach zero.
-
-**Why there are no line numbers here.** §B9.3 allows `file:line` or
-`file:name`. Line numbers shift on the first unrelated edit above the offender,
-and then the ratchet is red every day for a reason that has nothing to do with
-codes — and a gate that goes red for the wrong reason gets switched off. So
-every key here is stable: a column name, a class name, or the comparison
-itself. The **message** does name `file:line`, because that is where the reader
-has to go.
+**Why the keys carry no line numbers.** Line numbers shift on the first
+unrelated edit above the entry, and a gate that goes red for the wrong reason
+gets switched off. So every key is stable: a column name, a class name, or the
+comparison itself. The gate's **message** names `file:line`.
 """
-
-#: Columns that store a vocabulary but carry no foreign key to a code table
-#: yet. Key: `schema.table.column`. This is the heuristic net of §B9.3 —
-#: explicitly a net and not a proof: a column called `categorie` escapes it
-#: until someone registers it.
-FK_MISSING: frozenset[str] = frozenset({
-    'mdm.external_numbers.source',
-})
 
 
 # ── Permanent exceptions: not a vocabulary of ours ───────────────────────────
@@ -39,7 +25,7 @@ FK_MISSING: frozenset[str] = frozenset({
 # These do NOT belong to a ratchet, because a ratchet is a promise to reach
 # zero and these never will. Each one carries its reason on its own line, the
 # way `CLAUDE.md` asks a `# noqa` to. The gate subtracts them before it
-# ratchets and reports their number separately, so the two stay
+# judges and reports their number separately, so the two stay
 # distinguishable: "not cleaned up yet" versus "not ours to clean".
 #
 # Adding an entry here is a decision, not a convenience. The question that

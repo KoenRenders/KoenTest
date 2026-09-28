@@ -97,6 +97,13 @@ WHERE "kind" IS NOT NULL
   AND "kind"::text NOT IN ('ad-hoc', 'dataset', 'report')
 GROUP BY "kind" ORDER BY row_count DESC;
 
+-- mdm.external_numbers.source → mdm.external_source_codes (1 codes)
+SELECT 'mdm.external_numbers.source' AS column_name, "source"::text AS stray_value, count(*) AS row_count
+FROM mdm.external_numbers
+WHERE "source" IS NOT NULL
+  AND "source"::text NOT IN ('ledenadministratie')
+GROUP BY "source" ORDER BY row_count DESC;
+
 -- form.form_fields.field_type → form.field_type_codes (10 codes)
 SELECT 'form.form_fields.field_type' AS column_name, "field_type"::text AS stray_value, count(*) AS row_count
 FROM form.form_fields
