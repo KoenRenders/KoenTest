@@ -22,6 +22,13 @@ stepper, nothing else. That is the screen Koen reported.
 The member-row check (Koen's answer, #1284 reopened) was proven red the same way:
 against `origin/master` at c4f1ffe7 the row stayed "Testproduct €10,00" after a
 member's address was typed — only the total followed it.
+
+The gap check (Koen on HDEV, after #1286): the stepper touched the total, because
+the new price block took both out of the form's `space-y-3`. Against a server
+built from 6fb9b16e the check failed with "public @390: 0 px between the last
+product row and the total" (and the same at 1280 px); with the block's own
+`space-y-3` it is 12 px in both channels, at both widths, and on the board also
+after an address change.
 """
 import os
 import re
@@ -105,6 +112,21 @@ _MEASURE = """(productId) => {
 }"""
 
 
+#: From the bottom of the last product row to the top of the total. 12 px is the
+#: form's `space-y-3`, as in v2.6.0 when both were children of the form (#1284).
+_GAP = """(pid) => {
+  const row = document.querySelector('input[name="product_' + pid + '"]').closest('.flex');
+  const total = document.querySelector('[id^="totaal-"]');
+  return Math.round(total.getBoundingClientRect().top - row.getBoundingClientRect().bottom);
+}"""
+GAP_PX = 12
+
+
+def _assert_gap(page, setup, label: str) -> None:
+    gap = page.evaluate(_GAP, setup["product"])
+    assert gap == GAP_PX, f"{label}: {gap} px between the last product row and the total"
+
+
 _ROW = """(pid) => document.querySelector('input[name="product_' + pid + '"]')
   .closest('.flex').innerText.split('\\n')[0]"""
 
@@ -146,6 +168,7 @@ def test_both_channels_show_prices_a_live_total_and_online(browser, setup, width
     try:
         _open_public(public, setup)
         _check(public, setup, f"public @{width}")
+        _assert_gap(public, setup, f"public @{width}")
         assert "€20,00" in _set_quantity(public, setup, 2)
     finally:
         context.close()
@@ -154,6 +177,7 @@ def test_both_channels_show_prices_a_live_total_and_online(browser, setup, width
     try:
         _open_board(board, setup)
         _check(board, setup, f"board @{width}")
+        _assert_gap(board, setup, f"board @{width}")
         assert "€20,00" in _set_quantity(board, setup, 2)
         # The board's member price follows the TYPED address — rows and total,
         # the entered quantity kept, and the address field keeps its focus
@@ -169,6 +193,7 @@ def test_both_channels_show_prices_a_live_total_and_online(browser, setup, width
             row_before, row_after)
         assert board.locator(f'input[name="product_{setup["product"]}"]').input_value() == "2"
         assert board.evaluate("document.activeElement && document.activeElement.id") == "contact_email"
+        _assert_gap(board, setup, f"board @{width}, after the address")
         _check(board, setup, f"board @{width}, member")
     finally:
         context.close()
