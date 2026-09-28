@@ -1141,6 +1141,11 @@ them into one.
    foreign keys. The DB is the last line; it guarantees integrity at rest even if
    two requests race or a migration/script writes directly. Tracked broadly in #94.
 
+Where exactly a rule lives since CR-13 — the four addresses `@validates`,
+`check()` on an aggregate, the service, and a constraint — is written down once,
+in `docs/code-style.md`, *A rule has one home* (CR-13 §B9.1); this section does
+not repeat it.
+
 Rule of thumb: **form → router (Pydantic); meaning → service; integrity-at-rest →
 DB.** A critical invariant (e.g. no negative price) is often worth enforcing in
 *both* the schema (nice 422 for the user) and the DB (hard guarantee) — that's
