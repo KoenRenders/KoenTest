@@ -16,10 +16,12 @@ together.
 and are hard now: enums without a list, label dictionaries, template
 comparisons and loose strings. Their frozen sets are gone from
 `codes_baseline.py`, and `_hard()` has no "left behind" half because nothing
-is left. `FK_MISSING` is the one ratchet still open, on one column that waits
-for Koen. With the frozen lists gone, a hard gate proves it still looks
-somewhere through its exemptions (`test_every_hard_gate_looks_somewhere`) or,
-for the enum gate, by counting the enum classes it recognised.
+is left. `FK_MISSING` followed on 28 September, when Koen decided the last
+column (`mdm.external_numbers.source`, a code list — migration 166): **no
+ratchet is left**, and `_ratchet()` went with it. With the frozen lists gone,
+a hard gate proves it still looks somewhere through its exemptions
+(`test_every_hard_gate_looks_somewhere`) or, for the enum gate, by counting
+the enum classes it recognised.
 
 **Why the loose-string check is an AST walk and not a mypy rule (§B4.8).**
 #779 relied on `strict_equality`. That does not work here: the models use the
@@ -60,6 +62,7 @@ its own, with the violation listed here:
 | No loose strings | `meeting.status == "sent"` in a function added to `meetings/service.py` | yes — only this test |
 | A hard gate looks somewhere | the template pattern's operators changed to `===`/`!==` | yes — the walk test and the shelf-life test lost the exemptions; the gate itself fired too, because the altered pattern caught Alpine's `!==` |
 | The enum gate looks somewhere | the walk counting only the marker classes | yes — only this test |
+| No vocabulary column without an FK (28 September, the last one) | `payment_kind = Column(String(20))` added to `Meeting` | yes — only this test |
 
 **A twelfth came with phase 3**, after three enum members reached an HTML
 attribute and none of the eleven above could see it — a member that is
@@ -314,10 +317,9 @@ COLLECTORS = {
 }
 
 
-#: Phase 5 (#1182): what is still a ratchet, and what reached zero and is hard.
-RATCHETS = ("FK_MISSING",)
-HARD = ("ENUM_WITHOUT_LIST", "LABEL_DICTIONARIES", "TEMPLATE_COMPARISONS",
-        "LOOSE_STRINGS")
+#: Phase 5 (#1182): every gate reached zero and is hard. There is no ratchet left.
+HARD = ("FK_MISSING", "ENUM_WITHOUT_LIST", "LABEL_DICTIONARIES",
+        "TEMPLATE_COMPARISONS", "LOOSE_STRINGS")
 
 #: Per gate, the dict of permanent exceptions that belongs to it. Entries
 #: there are neither a violation nor progress: they are values somebody else
@@ -362,24 +364,6 @@ def _hard(name: str) -> None:
     assert not found, "\n".join(found[k] for k in sorted(found))
 
 
-def _ratchet(name: str) -> None:
-    """The one shape of every ratchet: nothing new, and nothing left behind."""
-    found = _violations(name)
-    frozen = getattr(baseline, name)
-    added = sorted(set(found) - set(frozen))
-    gone = sorted(set(frozen) - set(found))
-    errors = []
-    if added:
-        errors.append("New violations:\n  " + "\n  ".join(found[k] for k in added))
-    if gone:
-        errors.append(
-            f"These are still in `codes_baseline.{name}` but no longer exist:\n  "
-            + "\n  ".join(gone)
-            + "\nRemove them from the list — a ratchet that does not shrink is no "
-              "ratchet.")
-    assert not errors, "\n\n".join(errors)
-
-
 # ── 1. FK coverage, registered (hard) ────────────────────────────────────────
 
 def test_every_registered_column_carries_its_fk(db_session):
@@ -404,11 +388,11 @@ def test_every_registered_column_carries_its_fk(db_session):
     assert not missing, "\n".join(missing)
 
 
-# ── 2. FK coverage, unregistered (ratchet) ───────────────────────────────────
+# ── 2. FK coverage, unregistered (hard since phase 5) ────────────────────────
 
-def test_no_new_vocabulary_column_without_an_fk():
-    """The net: a new `String` column storing a list without a code table."""
-    _ratchet("FK_MISSING")
+def test_no_vocabulary_column_without_an_fk():
+    """The net: a `String` column storing a list without a code table."""
+    _hard("FK_MISSING")
 
 
 # ── 3. Label coverage (hard) ─────────────────────────────────────────────────
@@ -637,10 +621,10 @@ def ratchet_table(db_session=None) -> list[tuple[str, int]]:
         ("lists in the pattern (CodeList) — see §B5.3", len(lists)),
         ("… with an Enum", sum(1 for x in lists.values() if x.enum is not None)),
         ("enum-carrying columns written as Mapped[]", _count_mapped_enum_columns()),
-        ("vocabulary columns without an FK (ratchet)", len(baseline.FK_MISSING)),
-        # Phase 5: the four below are hard gates. Their number is measured, not
+        # Phase 5: every row below is a hard gate. Its number is measured, not
         # read from a frozen list — it is zero because the gate is green, and a
         # number above zero here comes with a red gate beside it.
+        ("vocabulary columns without an FK (hard)", len(_violations("FK_MISSING"))),
         ("enums without a CodeList (hard)", len(_violations("ENUM_WITHOUT_LIST"))),
         ("enums marked technical/external (counted, not capped)", marked),
         ("label dictionaries in Python (hard)", len(_violations("LABEL_DICTIONARIES"))),
@@ -688,22 +672,6 @@ def test_the_ratchet_table_is_measurable_and_gets_printed(capsys, db_session):
 
 
 # ── The gate can go red itself ───────────────────────────────────────────────
-
-@pytest.mark.parametrize("name", RATCHETS)
-def test_every_ratchet_looks_somewhere(name):
-    """#678 in miniature: a collector that scans nothing is green forever.
-
-    The collectors go through `bestanden()`, so an empty path is caught there
-    already. This test covers the case after that: a collector that does read
-    files but, because a shape changed, never recognises anything again. That
-    the frozen entries are still found is the proof that the walk works.
-    """
-    found = COLLECTORS[name]()
-    frozen = set(getattr(baseline, name))
-    assert set(found) >= frozen, (
-        f"`{name}` finds less than the frozen list — that is either cleanup "
-        f"(remove them from the baseline) or a collector that has fallen silent")
-
 
 @pytest.mark.parametrize("name", [n for n in HARD if n in PERMANENT])
 def test_every_hard_gate_looks_somewhere(name):

@@ -39,6 +39,7 @@ The method of the css gate (#652), 26 September 2026:
 | The same words (media) | the `page_image` seed back to the chip's stopgap "Pagina" | yes — `media_kind` |
 | The database refuses a non-code (media) | `fk_media_assets_kind_code` dropped at the end of migration 164 | yes — *DID NOT RAISE* |
 | The database refuses a non-code (residue) | `fk_kernel_jobs_status_code`, `fk_workflow_tasks_subject_type_code` and the `definition_code` key each dropped at the end of migration 165, one at a time | yes — each time *DID NOT RAISE* on its own column |
+| The database refuses a non-code (phase 5) | `fk_external_numbers_source_code` dropped at the end of migration 166 | yes — *DID NOT RAISE* on `mdm.external_numbers.source` |
 | The dropped checks are gone (media) | the `DROP CONSTRAINT ck_media_assets_kind_valid` left out of 164 | yes — and the refusal test with it, the CHECK answering first |
 
 **One measurement had to be redone.** The first try at the key violation put
@@ -189,6 +190,8 @@ NOT_A_CODE = [
     ("workflow.workflow_tasks", "subject_type", "membership"),
     ("workflow.workflow_instances", "subject_type", "membership"),
     ("workflow.workflow_instances", "definition_code", "bestaat-niet"),
+    # CR-12 phase 5, the last list (#1182, migration 166).
+    ("mdm.external_numbers", "source", "oude-ledenlijst"),
 ]
 
 
@@ -225,6 +228,11 @@ def _one_row(db, table: str) -> int:
         row = MediaAsset(kind=MediaKind.SPONSOR, data=b"x", content_type="image/png")
     elif table == "mail.email_log":
         row = EmailLog(recipient="phase4@example.com", subject="Proef")
+    elif table == "mdm.external_numbers":
+        from app.domains.mdm.api import ExternalNumber
+        from tests.conftest import create_test_person
+
+        row = ExternalNumber(person_id=create_test_person(db).id, external_id="phase5-proof")
     elif table == "public.kernel_jobs":
         from datetime import datetime, timezone
 
@@ -387,3 +395,20 @@ def test_open_activities_are_counted_by_state_not_by_their_word(client, db_sessi
     assert in_dutch >= 1, "the seeded open activity is not counted at all"
     monkeypatch.setattr(service, "status_label", lambda activity, today=None: "Ouvert")
     assert open_count() == in_dutch, "the count followed the word instead of the state"
+
+
+def test_the_source_key_leaves_the_partial_unique_index_alone(db_session):
+    """Migration 166 puts a key on `external_numbers.source`, a column that is
+    also part of the unique index of migration 053. That index is partial —
+    unique among the living rows only — so a soft-deleted number can be
+    imported again. The key must not replace it with a plain one.
+
+    Broken on purpose: the index dropped at the end of 166 → this test failed
+    on "no longer there".
+    """
+    rows = db_session.execute(text(
+        "SELECT indexdef FROM pg_indexes WHERE schemaname = 'mdm' "
+        "AND indexname = 'uq_external_numbers_source_external_id'")).scalars().all()
+    assert rows, "the partial unique index of migration 053 is no longer there"
+    assert "WHERE (deleted_at IS NULL)" in rows[0], rows[0]
+    assert "(source, external_id)" in rows[0], rows[0]

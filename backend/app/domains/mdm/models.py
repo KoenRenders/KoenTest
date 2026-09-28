@@ -327,7 +327,13 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
-    source = Column(String(50), nullable=False, default="ledenadministratie")
+    # CR-12 phase 5 (#1182): a code of `external_source`, with a foreign key of
+    # its own. It leaves the partial unique index on (source, external_id) of
+    # migration 053 as it is. The default is the code as a literal because
+    # `mdm.codes` imports this module; `EXTERNAL.MEMBER_ADMINISTRATION`
+    # is the same value, and the code list's seed is where it is defined.
+    source = Column(String(50), ForeignKey("mdm.external_source_codes.code"),
+                    nullable=False, default="ledenadministratie")
     external_id = Column(String(50), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
@@ -677,6 +683,35 @@ class GenderCode(Base):
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class ExternalSourceCode(Base):
+    """Which source systems an external number can come from (CR-12 phase 5)."""
+
+    __tablename__ = "external_source_codes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(50), primary_key=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class ExternalSourceLabel(Base):
+    """The word a screen shows, per language (CR-12 phase 5)."""
+
+    __tablename__ = "external_source_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(50), ForeignKey("mdm.external_source_codes.code"),
+                  primary_key=True)
+    language = Column(String(5), ForeignKey("mdm.language_codes.code"),
+                      primary_key=True)
+    value = Column(String(150), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
+                        nullable=False)
 
 
 class GenderLabel(Base):

@@ -38,7 +38,7 @@ from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import ExternalNumber
 from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
-from app.domains.mdm.codes import CONTACT
+from app.domains.mdm.codes import CONTACT, EXTERNAL
 from app.kernel.codes import code_of
 from app.domains.audit.api import (
     snapshot_person,
@@ -50,7 +50,7 @@ from app.domains.audit.api import (
 )
 
 # Bronsysteem-label voor de lidnummers en de audit-source.
-LEGACY_SOURCE = "ledenadministratie"
+LEGACY_SOURCE = EXTERNAL.MEMBER_ADMINISTRATION
 
 # Jaar waarvoor het lidmaatschap wordt aangemaakt.
 IMPORT_YEAR = 2026
