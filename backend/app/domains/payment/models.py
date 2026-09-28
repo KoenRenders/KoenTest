@@ -67,6 +67,9 @@ class PaymentProvider(CodeEnum):
     """
 
     MOLLIE = "mollie"
+    #: #1274: a stand-in for the e2e tests. A retired code in the list, so it is
+    #: never offered; the brake is in the code (`config.PAYMENT_STUB_ENVIRONMENTS`).
+    STUB = "stub"
 
 
 class PaymentStatusCode(Base):
