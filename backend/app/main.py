@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from app.config import settings
 from app.database import engine
@@ -164,6 +164,26 @@ app.include_router(newsletter_ui_router)
 app.include_router(workflow_ui_router)
 app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_router, prefix="/api/v1")
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon() -> FileResponse:
+    """Defined before the `/{slug}` catch-all below, which would answer 404.
+
+    The browser asks for `/favicon.ico` by itself, with or without a link in the
+    page (#1245) — every page load logged a 404 there. The shells link the
+    versioned `/static/favicon.ico`; this answers the unasked request with the same
+    file. Short cache on purpose: an icon fetched once sticks, so a changed one must
+    be able to arrive.
+
+    The icon is candidate B of #1245, chosen by Koen: the RaaK wordmark cropped
+    square from the house-style logo and scaled, on the logo's own blue — nothing
+    redrawn (CLAUDE.md, *Brand*)."""
+    return FileResponse(Path(__file__).parent / "static" / "favicon.ico",
+                        media_type="image/x-icon",
+                        headers={"Cache-Control": "public, max-age=86400"})
+
+
 # LAATSTE: publieke site-kern — bevat de /{slug}-catch-all (#405)
 app.include_router(cms_public_ui_router)
 

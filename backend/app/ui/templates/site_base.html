@@ -53,6 +53,9 @@
   <meta name="description" content="{{ _og_beschrijving }}">
   {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if sociale_links %},"sameAs":[{% for link in sociale_links %}{% if not loop.first %},{% endif %}"{{ link.url }}"{% endfor %}]{% endif %}}</script>
+  {# #1245: the RaaK icon, cut from the house-style logo (see main.favicon). #}
+  <link rel="icon" href="{{ statisch('favicon.ico') }}" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="{{ statisch('apple-touch-icon.png') }}">
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
