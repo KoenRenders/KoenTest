@@ -799,7 +799,9 @@ def register_for_activity(
 
 def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
                         background_tasks: BackgroundTasks, *,
-                        person_id: int | None, actor: str, board: bool = False):
+                        person_id: int | None, actor: str,
+                        backoffice_products: bool = False,
+                        return_path: str = "/betaling/succes?registration={registration_id}"):
     """Create one registration: the ONE implementation (#1192).
 
     Two ways in, one body. The public form and the JSON API go through
@@ -810,19 +812,23 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
 
     **Who sends the form is not who the registration is for.** The public way
     hangs it on the signed-in member; the board registers somebody else, so its
-    way passes `person_id=None` and its own e-mail only as the audit `actor`.
-    Taking the session's person here would make the board member a participant
-    in every report that groups by person.
+    way passes the person found by the e-mail address typed into the form (#1284),
+    or None, and its own e-mail only as the audit `actor`. Taking the session's
+    person here would make the board member a participant in every report that
+    groups by person — and pricing by one person while saving another would show
+    one total and charge a different one (`compute_registration_total` prices by
+    `registration.person`).
 
-    `board=True` also lifts two rules that are about the public, not about the
-    registration (#1192, recommended and open for Koen to overrule):
+    **What differs per way in, and nothing else** (#1284, Koen, 28 September
+    2026: the board's form is the public one, "met uitzondering van de
+    terugroutering en de producten die enkel in de backoffice zichtbaar zijn"):
 
-    - **the limit per e-mail address per component** — a brake against a visitor
-      registering over and over, not a rule about what the board may do. The
-      board enters its own contact details for people who have none, so the
-      limit would stop the fourth such registration;
-    - **publicly bookable** (#1191) — the back office keeps booking inactive
-      products, as `check_publicly_bookable`'s own comment already says.
+    - `backoffice_products` — the back office may book products that are not
+      publicly bookable (#1191), as `check_publicly_bookable`'s own comment
+      says. #1192 also lifted the limit per e-mail address for the board; #1284
+      put it back, so it holds on both ways;
+    - `return_path` — where Mollie sends the payer back. The public way returns
+      to the public page, the board to the registration in the back office.
 
     Everything else holds on both ways: the required fields
     (`controleer_inschrijfvelden`, Koen: "bestuur moet dezelfde velden
@@ -851,7 +857,7 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
     if weigering:
         raise HTTPException(status_code=400, detail=weigering)
 
-    if data.contact_email and not board:
+    if data.contact_email:
         existing_count = db.query(Registration).filter(
             Registration.activity_id == activity_id,
             Registration.component_id == data.component_id,
@@ -891,7 +897,7 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
     from app.domains.activities.service import (ActiviteitFout as _Fout,
                                                 check_publicly_bookable)
     try:
-        if not board:
+        if not backoffice_products:
             check_publicly_bookable(
                 activity, [i.product_id for i in data.items if i.quantity > 0])
     except _Fout as fout:
@@ -980,7 +986,8 @@ def create_registration(db: Session, activity_id: int, data: RegistrationCreate,
         method = PaymentMethod(data.payment_method)
         from app.kernel.tenant_config import tenant_base_url
 
-        redirect_url = f"{tenant_base_url(db)}/betaling/succes?registration={registration.id}"
+        redirect_url = (f"{tenant_base_url(db)}"
+                        f"{return_path.format(registration_id=registration.id)}")
         description = f"Inschrijving {activity.name} – {data.contact_name}"
         try:
             payment_record = create_payment_record(

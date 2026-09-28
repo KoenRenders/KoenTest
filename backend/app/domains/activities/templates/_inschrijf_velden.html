@@ -1,0 +1,61 @@
+{% import "_macros.html" as ui %}
+{# The fields of the one registration form (#1284): the public modal
+   (`_inschrijf_form.html`) and the board's page (`admin_inschrijving_nieuw.html`)
+   both include this, inside their own <form>. What differs per channel comes in
+   through the context (`registration_form.form_context`): the URLs, the
+   products, whose member price, and whether the e-mail address refreshes the
+   prices. #}
+    <div class="grid grid-cols-1 gap-3">
+      <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
+        {{ ui.input_control("contact_name", id="contact_name", value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else ""), required=True, cls="w-full") }}</div>
+      <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
+        {# #1284: on the board's form the member price follows the TYPED address,
+           so the price block (rows and total) is refreshed when it changes. The
+           public form prices by the signed-in person and never by what is typed
+           here: it has no `prijzen_url`. #}
+        {{ ui.input_control("contact_email", id="contact_email", type="email", value=values.get("contact_email", ""), required=True, cls="w-full",
+                            attrs=('hx-post="' ~ prijzen_url ~ '" hx-include="closest form" hx-target="#prijsblok-' ~ component.id ~ '" hx-swap="innerHTML" hx-trigger="change"') if prijzen_url else "") }}</div>
+      <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
+        {{ ui.input_control("phone", id="phone", type="tel", value=values.get("phone", ""), required=True, cls="w-full") }}</div>
+    </div>
+    {% if component.team_name_required %}
+    <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
+      {{ ui.input_control("team_name", id="team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
+    {% endif %}
+    {# #1284: products and total in one block, so the board can refresh both when
+       the typed address turns out to be a member's: the rows then show the
+       member price like the public form does for a signed-in member. The fields
+       above (the address being typed in) stay out of it and keep their focus;
+       the quantities travel along with the form and come back as they were. #}
+    <div id="prijsblok-{{ component.id }}">
+      {% include "_inschrijf_prijsblok.html" %}
+    </div>
+    <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
+      {{ ui.textarea_control("remarks", id="remarks", rows=2, value=values.get("remarks", ""), placeholder=_("Eventuele boodschap voor de organisatie…"), cls="w-full") }}</div>
+    {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
+       `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
+       ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt
+       nu of er iets te betalen is, dus het label heeft geen "(bij betalend deel)"
+       meer nodig. #}
+    {% if heeft_prijs %}
+    <div>
+      {{ ui.label(_("Betaalwijze"), "payment_method") }}
+      {# F21 (#996): de volle labelregel is aanklikbaar (44px) en de keuze
+         benoemt haar gevolg — zelfde uitleg als op Word-lid. #}
+      {# Onder elkaar en compact, zoals productie (Koen, 19 sep): geen
+         min-h-11 — de opgerekte tikregels dreven de keuzes uit elkaar. De
+         volle labelregel blijft aanklikbaar. #}
+      {# CR-12 phase 1: the radio values are the codes of `mdm.payment_method_codes`.
+         They used to be ONLINE/OVERSCHRIJVING and were stored verbatim, while the
+         payment record next to it stored online/transfer — one list, two
+         spellings. With the FK on the column, a registration by bank transfer
+         fails as soon as this form does not change along with it, so this belongs
+         in the same commit as the migration. #}
+      <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      <p class="text-xs text-ink-soft" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+      </div>
+    </div>
+    {% endif %}

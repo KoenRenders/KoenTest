@@ -6,15 +6,11 @@ prijzen uit de databank — geen client-side duplicaat meer.
 """
 from __future__ import annotations
 
-from decimal import Decimal
-
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.activities.totals import has_payable_products, quote_lines
-from app.domains.mdm.api import PaymentMethod
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
@@ -34,17 +30,6 @@ register_tones(REGISTRATION_STATE.name, {
     RegistrationState.PAST: "gray",
     RegistrationState.CANCELLED: "red",
 })
-
-
-def _session_person(request: Request, db: Session):
-    """Ingelogd lid (HttpOnly-sessie) of None — bepaalt ledenprijs en person_id.
-    De backend blijft de bron van waarheid voor het effectieve bedrag."""
-    from app.domains.auth.api import SESSION_COOKIE, login_person_for_email, read_session_value
-
-    email = read_session_value(request.cookies.get(SESSION_COOKIE))
-    if not email:
-        return None
-    return login_person_for_email(db, email)
 
 
 def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
@@ -101,46 +86,6 @@ def _component_or_404(db: Session, activity_id: int, component_id: int):
     return activity, component
 
 
-def _is_member(person) -> bool:
-    """Is deze bezoeker vandaag lid? (bepaalt de ledenprijs op het scherm)
-
-    Peildatum "vandaag" is hier juist: het inschrijfscherm toont wat je nú zou
-    betalen. `compute_registration_total` gebruikt na het opslaan de
-    inschrijfdatum, zodat de prijs vanaf dan vastligt (#635 punt 1).
-    """
-    from app.domains.membership.api import has_valid_membership
-
-    return has_valid_membership(person)
-
-
-def contact_refusal(values) -> str | None:
-    """Why a registration form's contact fields are refused, or None (#1192).
-
-    The same three fields on every way in — Koen: "bestuur moet dezelfde velden
-    invullen" — so one sentence, used by the public form and by the board's
-    "add a registration" screen. The service repeats name and phone
-    (`controleer_inschrijfvelden`) and the schema the e-mail address; this is the
-    screen's own, friendlier, refusal before either is reached.
-    """
-    naam = (values.get("contact_name") or "").strip()
-    email = (values.get("contact_email") or "").strip()
-    gsm = (values.get("phone") or "").strip()
-    if not naam or "@" not in email or not gsm:
-        return "Vul naam, e-mailadres en mobiel nummer in."
-    return None
-
-
-def form_quantities(form) -> dict[int, int]:
-    out: dict[int, int] = {}
-    for key, value in form.items():
-        if key.startswith("product_"):
-            try:
-                out[int(key.removeprefix("product_"))] = max(0, int(value or 0))
-            except ValueError:
-                continue
-    return out
-
-
 def _aanmeldadres(request: Request) -> str:
     """Het e-mailadres waarmee deze bezoeker aangemeld is, of "".
 
@@ -175,98 +120,43 @@ def _person_mobile(person) -> str:
     return ""
 
 
-def _standaard_aantal(producten) -> int:
-    """Het aantal waarmee het inschrijfformulier OPENT (#1172).
+def _channel(request: Request, db: Session, activity, component):
+    """The public channel of the one registration form (#1284): who registers is
+    whoever is signed in — never the address typed into the form."""
+    from app.domains.activities.api import public_channel
 
-    Takes the PRODUCT LIST and not the component, since #1191. The form shows only
-    the publicly bookable products and this quantity belongs to what is on screen:
-    were this function to read `component.products` again, one active product next
-    to one inactive one would count as "several" and the prefill of #1172 would
-    quietly disappear, with nobody connecting that to the flag.
-
-    Koen, 25 september 2026: *"Is het trouwens mogelijk om standaard 1 te zetten
-    als er maar één product is?"* Bij het gewone geval — één product — moest
-    iedereen eerst het cijfer op 1 zetten voor het totaal iets anders dan €0,00
-    toonde.
-
-    **Alleen bij precies één product.** Zijn er er meerdere, dan is voorvullen een
-    keuze maken voor de bezoeker: welk product zou je dan aanvinken?
-
-    **En nooit boven het maximum.** Die grens is vandaag een VANGNET en geen
-    levend pad: `ck_activity_products_max_participants_positive` (migratie 040)
-    eist `max_participants > 0 OR IS NULL`, dus een product met maximum 0 krijg je
-    niet eens bewaard. Het issue noemde dat geval; nameten liet zien dat de
-    databank het al uitsluit. De regel blijft staan voor een migratie die de grens
-    ooit loslaat — `test_inschrijf_teller.py` toetst hem rechtstreeks, want via het
-    scherm is hij onbereikbaar.
-
-    Dit is de OPENINGSwaarde en geen overschrijving: het sjabloon gebruikt hem als
-    default van `values.get(...)`, en na een mislukte inschrijving draagt `values`
-    de ingevulde aantallen — ook een bewuste 0 — zodat die blijven staan.
-    """
-    producten = list(producten or [])
-    if len(producten) != 1:
-        return 0
-    maximum = producten[0].max_participants
-    if maximum is not None and maximum < 1:
-        return 0
-    return 1
+    return public_channel(db, activity, component, _aanmeldadres(request))
 
 
-def _form_ctx(request: Request, db: Session, activity, component, **extra) -> dict:
-    person = _session_person(request, db)
-    is_member = _is_member(person)
-    # Voorinvullen voor een ingelogd lid (#476): naam vult de template al vanuit
-    # person, het mobiele nummer komt uit de ContactDetails, en het e-mailadres uit
-    # de SESSIE (#1174) — het adres waarmee hij zich net aanmeldde, want een lid mag
-    # er meerdere hebben en de bevestiging gaat naar wat hier komt te staan. Op
-    # submit overschrijft extra["values"] deze defaults.
+def _prefill(request: Request, person) -> dict:
+    """Prefill for a signed-in member (#476): the name comes from `person` in
+    the template, the mobile number from the ContactDetails, and the e-mail
+    address from the SESSION (#1174) — the address he just signed in with,
+    because a member may have several and the confirmation goes to what stands
+    here. On a submit, the typed values replace these."""
     email, mobile = _aanmeldadres(request), _person_mobile(person)
     prefill: dict = {}
     if email:
         prefill["contact_email"] = email
     if mobile:
         prefill["phone"] = mobile
-    # #1172: het totaal bij het OPENEN hoort bij het aantal waarmee het formulier
-    # opent. Het stond hier hard op nul, en dat viel niet op zolang dat aantal ook
-    # nul was. Met de voorvulling wél: het veld toonde 1 en het totaal €0,00 —
-    # gevonden door de e2e, niet door de markuptest, want de productprijs staat óók
-    # los in de regel erboven en die las als "het totaal klopt".
-    #
-    # Langs `quote_lines`, dezelfde functie als de herberekening en het opslaan
-    # (§19.3): een tweede rekenwijze hier zou precies de drift zijn die dat pad
-    # moet voorkomen.
-    # #1191: one list, and the form derives everything from it — the rows it
-    # renders, the opening quantity and the opening amount. A second read of
-    # `component.products` beside this is exactly how rows and total drift apart.
-    from app.domains.activities.api import publicly_bookable_products
-
-    producten = publicly_bookable_products(component)
-    standaard = _standaard_aantal(producten)
-    startbedrag, _regels = quote_lines(
-        component, {p.id: standaard for p in producten}, is_member)
-    ctx = {
-        "activity": activity, "component": component, "is_member": is_member,
-        "person": person, "error": None, "totaal": startbedrag, "values": prefill,
-        "heeft_prijs": has_payable_products(component, is_member),
-        "standaard_aantal": standaard, "producten": producten,
-    }
-    ctx.update(extra)
-    return ctx
+    return prefill
 
 
 @router.get("/activiteiten/{activity_id}/inschrijven/{component_id}",
             response_class=HTMLResponse)
 def inschrijf_form(activity_id: int, component_id: int, request: Request,
                    db: Session = Depends(get_db)):
-    from app.domains.activities.api import registration_refusal
+    from app.domains.activities.api import form_context, registration_refusal
 
     activity, component = _component_or_404(db, activity_id, component_id)
-    ctx = _form_ctx(request, db, activity, component)
+    channel = _channel(request, db, activity, component)
     # #974: een modal die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
-    ctx["error"] = registration_refusal(activity, component=component)
+    ctx = form_context(channel, activity, component,
+                       values=_prefill(request, channel.person),
+                       error=registration_refusal(activity, component=component))
     return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
 
 
@@ -275,14 +165,13 @@ def inschrijf_form(activity_id: int, component_id: int, request: Request,
 async def inschrijf_totaal(activity_id: int, component_id: int, request: Request,
                            db: Session = Depends(get_db)):
     """Server-side herberekening bij elke wijziging (§19.3 — geen drift)."""
-    _activity, component = _component_or_404(db, activity_id, component_id)
+    from app.domains.activities.api import total_context
+
+    activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
-    person = _session_person(request, db)
-    is_member = _is_member(person)
-    totaal, _regels = quote_lines(component, form_quantities(form), is_member)
-    return templates.TemplateResponse(request, "_inschrijf_totaal.html", {
-        "totaal": totaal, "is_member": is_member,
-        "heeft_prijs": has_payable_products(component, is_member)})
+    return templates.TemplateResponse(
+        request, "_inschrijf_totaal.html",
+        total_context(_channel(request, db, activity, component), component, form))
 
 
 @router.post("/activiteiten/{activity_id}/inschrijven/{component_id}",
@@ -290,77 +179,31 @@ async def inschrijf_totaal(activity_id: int, component_id: int, request: Request
 async def inschrijf_submit(activity_id: int, component_id: int, request: Request,
                            background_tasks: BackgroundTasks,
                            db: Session = Depends(get_db)):
-    from app.domains.activities.api import register_for_activity
-    from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
+    """The public channel of the one form (#1284): the processing is shared with
+    the board; what is decided here is only how the outcome is shown."""
+    from app.domains.activities.api import OutcomeKind, public_registrations, submit
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
-    quantities = form_quantities(form)
-    person = _session_person(request, db)
-    is_member = _is_member(person)
-
-    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    totaal, _regels = quote_lines(component, quantities, is_member)
-    ctx = _form_ctx(request, db, activity, component, values=values, totaal=totaal)
-
-    naam = (values.get("contact_name") or "").strip()
-    email = (values.get("contact_email") or "").strip()
-    gsm = (values.get("phone") or "").strip()
-    weigering = contact_refusal(values)
-    if weigering:
-        ctx["error"] = weigering
-        return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
-    # #1191: `ctx["producten"]` and not `component.products`. With EVERY product of
-    # this component inactive the form renders no row at all, so this requirement
-    # could not be met — a visitor then read "Selecteer minstens één product" above
-    # an empty list.
-    if ctx["producten"] and not any(q > 0 for q in quantities.values()):
-        ctx["error"] = "Selecteer minstens één product."
-        return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
-
-    heeft_betaald_deel = ctx["totaal"] > 0
-    data = RegistrationCreate(
-        contact_name=naam, contact_email=email, phone=gsm,
-        team_name=(values.get("team_name") or "").strip() or None,
-        payment_method=(values.get("payment_method")
-                        or PaymentMethod.ONLINE.value) if heeft_betaald_deel else None,
-        component_id=component.id,
-        items=[RegistrationItemCreate(product_id=pid, quantity=qty)
-               for pid, qty in quantities.items() if qty > 0],
-        remarks=(values.get("remarks") or "").strip() or None,
-    )
-    from app.domains.activities.api import public_registrations
-
-    try:
-        result = register_for_activity(db, activity.id, data, background_tasks,
-                                       current_member=person)
-    except HTTPException as exc:
-        ctx["error"] = str(exc.detail)
-        return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
-
-    checkout_url = getattr(result, "checkout_url", None) or (
-        result.get("checkout_url") if isinstance(result, dict) else None)
-    if checkout_url:
+    outcome = submit(db, _channel(request, db, activity, component), activity, component,
+                     form, background_tasks)
+    if outcome.kind is OutcomeKind.REFUSED:
+        return templates.TemplateResponse(request, "_inschrijf_form.html", outcome.context)
+    if outcome.kind is OutcomeKind.CHECKOUT:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).
         response = templates.TemplateResponse(request, "_inschrijf_klaar.html",
-                                              {"naam": naam, "checkout": True})
-        response.headers["HX-Redirect"] = checkout_url
+                                              {"naam": outcome.name, "checkout": True})
+        response.headers["HX-Redirect"] = outcome.checkout_url
         return response
     # #1159: de deelnemerslijst staat BUITEN het swap-doel van dit formulier
     # (`closest .inschrijf-card`), dus ze bleef staan zoals ze bij het laden van
     # de pagina was — de verse inschrijving verscheen niet bij "Wie doet er mee?".
-    # Het betaalde pad verborg dat half: Mollie dwingt een volledige herlaadbeurt
-    # af. Het gat zat bij een gratis inschrijving en bij betalen ter plaatse.
-    #
     # Zelfde vorm en zelfde antwoord als §8.4 van het design system: wat buiten
-    # het doel staat, reist out-of-band mee met het antwoord. Mag hier, want dit
-    # is een fragment-antwoord en geen volledige paginaswap (§8.2, #748).
-    #
-    # Alleen op dit pad: het betaalde pad stuurt hierboven `HX-Redirect` en de
-    # browser verlaat de pagina, dus een OOB-blok zou daar nergens landen.
+    # het doel staat, reist out-of-band mee met het antwoord (fragment-antwoord,
+    # §8.2, #748). Alleen op dit pad: het betaalde pad verlaat de pagina.
     return templates.TemplateResponse(
         request, "_inschrijf_klaar.html",
-        {"naam": naam, "checkout": False,
+        {"naam": outcome.name, "checkout": False,
          "activity_id": activity.id, "component_id": component.id,
          "deelnemers": public_registrations(db, activity.id, component.id)})
 
