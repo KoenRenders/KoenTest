@@ -528,8 +528,8 @@ classDiagram
   }
   class RegistrationItem {
     +quantity : int
-    +unit_price : Money
-    +line_total() Money
+    +product : ActivityProduct
+    +line_total(is_member) Money
   }
   class ActivityService {
     <<service — needs a session>>
@@ -541,7 +541,7 @@ classDiagram
     <<constraints at rest>>
     NOT NULL contact_name, contact_email
     CHECK quantity > 0
-    CHECK unit_price >= 0
+    CHECK price >= 0 on activity_products
   }
   Registration "1" *-- "*" RegistrationItem
   ActivityService ..> Registration : builds, calls check(), commits
@@ -551,7 +551,10 @@ classDiagram
 The four addresses in one picture: **validator** on the attribute (one
 field), **method** on the aggregate (several fields, already loaded),
 **service** for anything that needs other rows, **constraint** for what
-must hold at rest. The dashed line to the service is the boundary of B4.1:
+must hold at rest. A line stores no price: `registration_items` has
+`quantity` and `product_id` only, and `line_total()` reads the product's
+price — the member price when the registrant was a member on
+`registered_at` (dev2, 28 Sep; see B4.3). The dashed line to the service is the boundary of B4.1:
 the service reaches into the entity; the entity never reaches out.
 
 #### Drawing 4 — an order change, with events (UML sequence diagram)
@@ -769,8 +772,21 @@ said here so that "reads are free" is not read as permission.
 Sketched on `Registration` (from the handover), so the shape is concrete:
 `@validates("contact_name", "phone")` strips and refuses blank;
 `check()` refuses a missing team name when `self.component.team_name_required`;
-`total()` sums the items already loaded; `balance()` uses the payment records
-already loaded. The service keeps: is the component full, is this e-mail
+`total()` sums the items already loaded at the product's price for this
+registrant; `balance()` uses the payment records already loaded.
+
+**No price is stored per line** (dev2, 28 September, counting for B5.2:
+`registration_items` has `quantity` and `product_id`, nothing else). The
+unit price is derived every time, in `activities/totals.py` — the one
+place since #635 — as the product's `member_price` when the registrant had
+a valid membership on `registered_at`, else its `price`. So `total()`
+needs three things loaded and nothing queried: the items with their
+products, and the person with the memberships that
+`membership.api.has_valid_membership` reads (a cross-domain *read* through
+the facade, allowed by B4.1). Test 5 sets all three by hand. Storing the
+price on the line would be a new column and a functional change — a price
+frozen per line instead of derived on the day — which R13 excludes; if
+Koen ever wants that it is its own issue. The service keeps: is the component full, is this e-mail
 already registered, the transaction.
 
 **`check()` runs on flush, so nobody has to call it** (decided 27
@@ -1093,7 +1109,7 @@ its data check (B3):
 | Phase | Table | Constraint |
 |---|---|---|
 | 1 | `activities.registrations` | `NOT NULL` **and** `CHECK (col <> '')` on `contact_name`, `contact_email`, `phone` — "not blank" is two constraints, `NOT NULL` alone lets `''` through a bulk path (AC1 names the mobile number, so `phone` is in); `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
-| 1 | `activities.registration_items` | `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)` |
+| 1 | `activities.registration_items` | `CHECK (quantity > 0)` — and no price constraint here: the line has no price column, the product's `price >= 0` in the next row covers it (dev2, 28 Sep) |
 | 1 | `activities.activity_sub_registrations`, `activities.activity_products` | `CHECK (price >= 0)`, `CHECK (member_price IS NULL OR member_price >= 0)`, `CHECK (max_participants IS NULL OR max_participants > 0)` — #94 phase 3 and 5, same schema, same migration; each with its data check |
 | 2 | `payment.payment_records` | the sign rule that respects refunds (#94 phase 2, #83): `CHECK ((type = 'charge' AND amount > 0) OR (type = 'refund' AND amount < 0))`; `CHECK (amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) OR (type = 'refund' AND amount_paid BETWEEN amount AND 0))` (CR-12 gives the closed `type` set) |
 | 3 | `membership.memberships` | `CHECK (valid_from <= valid_to)`; `mdm.persons`: `NOT NULL` + `CHECK (<> '')` on `first_name`, `last_name` (a person always has a name) — **and deliberately no constraint on `date_of_birth` or `gender_code`**: the #681 rule (birth date and gender required) is a rule about a person *in a household*, not about a person — `create_person_for_circle` (#939) creates persons from the meeting circle without either, on purpose. It is a cross-object rule (the person's two fields *and* the fact of the household link), so its address is `MemberPerson.check()` — the link aggregate in `mdm`, fired on flush — never `NOT NULL` on `persons` (dev2, spike 1, 27 Sep); `mdm.contact_details`: partial unique — one `is_primary` per `(person_id, contact_type_code)` `WHERE deleted_at IS NULL` (#94 phase 5) |
@@ -1113,7 +1129,7 @@ migration of this CR carries it).
 | Constraint | Old-app-safe? | Why |
 |---|---|---|
 | `registrations.contact_name/contact_email/phone` `NOT NULL` + `<> ''` | **likely yes — measure** | since #1192 every writer (public form, JSON API, board screen) goes through `create_registration` → `controleer_inschrijfvelden`, which refuses blank; the import does not write registrations. Count the three columns on every environment before the deploy |
-| `registration_items.quantity > 0`, `unit_price >= 0` | **likely yes — measure** | the router bounds `quantity` (`MAX_ITEM_QUANTITY`) and refuses 0; `unit_price` copies a product price that already has `price >= 0` at rest |
+| `registration_items.quantity > 0` | **likely yes — measure** | the router bounds `quantity` (`MAX_ITEM_QUANTITY`) and refuses 0; count |
 | `activity_sub_registrations` / `activity_products` prices `>= 0`, `max_participants > 0 OR NULL` | **likely yes — measure** | the admin forms refuse negatives; count |
 | `payment_records` sign rule | **measure carefully** | the old app writes charges positive and refunds negative by construction (`create_refund`), but `reconcile_charges` closes a partially paid charge on its paid amount — `amount = amount_paid` — and a refund's `amount_paid` is set by the treasurer; the bounds must be checked against every existing row and every writer before the CHECK goes on |
 | `memberships` `valid_from <= valid_to` | **likely yes — measure** | the renewal code derives both from one date |
@@ -1216,8 +1232,10 @@ look somewhere (#678).
    error and is refused on the next assignment.
 5. **Detached object — built without a single database round trip.** The
    aggregate is constructed in memory from bare attributes, its
-   relationships set by hand (`items=[...]`, `component=...`), never loaded
-   from a session; only then is every entity method called. A method that
+   relationships set by hand (`items=[...]` each with its `product`,
+   `component=...`, `person=...` with its memberships — `total()` reads
+   the member price through them, B4.3), never loaded from a session; only
+   then is every entity method called. A method that
    lazy-loads raises `DetachedInstanceError`. The first version said only
    "on a detached instance" — a fixture that touched `registration.items`
    first would have loaded the relationship and turned the test green while
@@ -1372,6 +1390,11 @@ difference between an exemption list and a burn-down.
   (dev2, 27 Sep):** 50 promises, not 88; 29 walk mechanically, 21 do not
   and go into the baseline with a reason each — the gate is mechanical for
   the 29 and a reasoned list for the 21.
+- **Found while counting for B5.2 (dev2, 28 Sep):** `registration_items`
+  has no `unit_price` column — the document's drawing 3 and two B5.2 rows
+  assumed one, and a read-only count failed on `column "unit_price" does
+  not exist`. Corrected: the price is derived from the product in
+  `totals.py`, the line CHECK is `quantity > 0` only (B4.3, B5.2).
 - To spike before phase 2: a `PaymentRecord` transition table on the real
   status values of CR-12 phase 1, against the 26 September data of HDEV
   (how many records are partially paid today).
@@ -1424,6 +1447,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q38 | 28 Sep 2026 | dev2, on `1b22a9f5`: `registration_items` has no `unit_price` column; drawing 3, the B5.2 constraint row and the classification row assumed one. | The `unit_price` CHECK dropped (the product's `price >= 0` covers it, same phase); drawing 3 gives the line a `product` and `line_total(is_member)`; B4.3 states that the price is derived in `totals.py` — member price on `registered_at` — and that `total()` therefore needs items, products and the person's memberships loaded (test 5 sets them by hand); a stored line price would be a new column, outside this CR. |
 | Q37 | 28 Sep 2026 | Master CLI: Koen approves `1b22a9f5`; #1255 becomes the norm; one agreement added. | B5.2: every not-old-app-safe constraint goes to Koen for approval, per constraint and with the measurement, before it is deferred. #1255 marked decided wherever the document said it hung on him. |
 | Q36 | 28 Sep 2026 | dev2, on `dcd03036`: test counts stated in four places; JSON-route unit unclear (113/117 by decorator vs 124 method × path on 97 paths); phases 1–3 still "depends on 0"; 45 vs 44 `CodeEnum`. | All four fixed: counts live in A2 only, the unit is method × path (124/97), dependencies are 0a, 0b, 0c (+ #1284 for phase 1), 45 = 44 + `ExternalVocabulary`. |
 | Q35 | 28 Sep 2026 | Koen, via the master CLI: a last revision against `master` `0f389a23` (all of v2.7.0) before dev2 starts — do the phases' order and assumptions still hold, must the baseline be re-measured, what goes before or after #781? | Order holds (0a → 0b → 0c → 1 → 2 → 3 → 4); assumptions updated: CR-12 done (45 `CodeEnum`, closed status sets, `ContactTypes` constants, `code-style.md`), #1192's `create_registration` is phase 1's starting point and closes the #733 gap for registrations, #1284 must land first, #1274's stub is phase 2's test provider, #1203 is fact, #1255 makes every constraint a per-migration classification (B5.2). Baseline re-measured by hand on 28 Sep (A2 column); the gate re-measures in 0a and binds. Everything of CR-13 comes after #781; #1284 (v2.7.0) comes before it. |
