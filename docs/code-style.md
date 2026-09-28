@@ -94,6 +94,13 @@ mail or an HTTP call belongs.
 
 A new package without one of them is red in CI, naming the missing piece.
 
+**Where a test lives** (CR-13 R15) follows from its imports: one domain → that
+domain's `tests/`; several → `backend/tests/integration/`; none → `backend/tests/`.
+A gate over several domains stays in `backend/tests/` too. Importing only the login
+helpers from `auth` does not count as importing `auth`. The gate is
+`backend/tests/test_tests_placement_gate.py`, and it names the folder a misplaced
+file belongs in.
+
 **Exceptions:** one class per domain, English (`ActivityError`); a Dutch `*Fout`
 that existed stays as an alias of it — one class, two names.
 

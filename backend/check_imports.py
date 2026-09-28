@@ -33,6 +33,16 @@ import app
 SKIP: tuple[str, ...] = ()
 
 
+def is_test_code(name: str) -> bool:
+    """A module in a domain's `tests/` package (CR-13 R15) — test code, not the app.
+
+    It imports pytest, which the production image does not carry, and its
+    `conftest.py` points the process at the test database. Neither belongs in an
+    import smoke test of the application.
+    """
+    return "tests" in name.split(".")
+
+
 def discover() -> list[str]:
     """Every importable module name under `app/`, the package itself included.
 
@@ -44,7 +54,7 @@ def discover() -> list[str]:
     names = ["app"]
     for info in pkgutil.walk_packages(app.__path__, prefix="app.", onerror=failed.append):
         names.append(info.name)
-    return sorted(set(names + failed) - set(SKIP))
+    return sorted({n for n in names + failed if not is_test_code(n)} - set(SKIP))
 
 
 def main() -> int:

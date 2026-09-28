@@ -20,6 +20,8 @@ allowed strftime", instead of passing everything.
 import re
 from pathlib import Path
 
+from tests._bestanden import is_app_test
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 #: A formatting call with the short date, in Python or Jinja. Parsing
@@ -34,7 +36,7 @@ _SOURCE = APP / "i18n.py"
 def _hits() -> list[str]:
     found = []
     for path in sorted(APP.rglob("*")):
-        if path.suffix not in (".py", ".html") or not path.is_file():
+        if path.suffix not in (".py", ".html") or not path.is_file() or is_app_test(path):
             continue
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             if _HAND_WRITTEN.search(line):

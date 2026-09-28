@@ -27,7 +27,14 @@ def _modules_on_disk() -> set[str]:
         if parts[-1] == "__init__":
             parts = parts[:-1]
         names.add(".".join(parts))
-    return names
+    return {n for n in names if not check_imports.is_test_code(n)}
+
+
+def test_domain_tests_are_left_out_and_exist():
+    """The filter must have something to filter, and must filter all of it (CR-13 R15)."""
+    on_disk = [p for p in APP.glob("domains/*/tests/test_*.py")]
+    assert len(on_disk) >= 100, f"only {len(on_disk)} domain test files — did the move happen?"
+    assert not [m for m in check_imports.discover() if ".tests" in m]
 
 
 def test_discovery_finds_every_module_on_disk():

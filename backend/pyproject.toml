@@ -1,6 +1,8 @@
 [tool.mypy]
 python_version = "3.12"
 files = ["app"]
+# A domain's tests live inside its package (CR-13 R15); mypy checks the app, not them.
+exclude = ["^app/domains/[^/]+/tests/"]
 # Pydantic-plugin: laat mypy de modellen/settings begrijpen (o.a. dat
 # `Settings()` zijn velden uit de omgeving leest) i.p.v. een ontbrekend-argument
 # te melden.
@@ -283,4 +285,10 @@ known-third-party = ["alembic"]
 "tests/conftest.py" = ["E402"]
 # Pytest fixtures imported from another test module and requested by name as a
 # parameter: ruff reads each parameter as a redefinition of the import (F811).
-"tests/test_codes_phase3.py" = ["F811"]
+"tests/integration/test_codes_phase3.py" = ["F811"]
+
+[tool.coverage.run]
+# A domain's tests live inside its package (CR-13 R15). `--cov=app` measures the app;
+# counting the tests as covered code would raise the percentage without a line of app
+# code being tested more.
+omit = ["app/domains/*/tests/*"]
