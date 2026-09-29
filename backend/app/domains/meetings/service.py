@@ -253,6 +253,7 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
             _first_date_per_activity(
                 activity_dates_from(db, meeting.meeting_date, until=_horizon(meeting.meeting_date))
             ),
+            carried=_upcoming_notes_of(db, previous),
         )
 
     # Members: who joined since the previous meeting.
@@ -281,7 +282,13 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
     db.flush()
 
 
-def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, spans) -> None:
+def _add_activities(
+    db: Session,
+    meeting: Meeting,
+    section: MeetingSection,
+    spans,
+    carried: Optional[dict[int, MeetingItem]] = None,
+) -> None:
     """Zet deze activiteitsdatums in de sectie, zonder iets te verdubbelen.
 
     Overslaan wat er al staat is niet netjesheid maar noodzaak: bij het opnieuw
@@ -299,6 +306,9 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, span
     for position, span in enumerate(spans):
         if span.row.id in present:
             continue
+        # #1355: the note the previous meeting wrote on this same date, copied as
+        # a starting value. Only the caller for "Volgende activiteiten" passes it.
+        source = (carried or {}).get(span.row.id)
         db.add(
             MeetingItem(
                 meeting_id=meeting.id,
@@ -307,10 +317,34 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, span
                 activity_id=span.activity.id,
                 activity_date_id=span.row.id,
                 sort_key=span.start,
+                notes=source.notes if source is not None else None,
+                carried_over_from=source.id if source is not None else None,
             )
         )
         present.add(span.row.id)
     db.flush()
+
+
+def _upcoming_notes_of(db: Session, previous: Optional[Meeting]) -> dict[int, MeetingItem]:
+    """Per activity date, the point with notes under the previous meeting's
+    "Volgende activiteiten" (#1355, CR-09 decision 6 as changed on 29 September
+    2026).
+
+    Matched on the date, not the activity: a monthly ride takes over only the note
+    of the same ride. Points without a date (from before #1335) take no part, and
+    neither does any other section: a date that has passed lands under
+    "Evaluatie" without a note (Koen's choice).
+    """
+    if previous is None:
+        return {}
+    upcoming = next((s for s in sections_of(db, previous) if s.kind == SectionKind.UPCOMING), None)
+    if upcoming is None:
+        return {}
+    return {
+        item.activity_date_id: item
+        for item in items_of(db, upcoming)
+        if item.activity_date_id and (item.notes or "").strip()
+    }
 
 
 def _first_date_per_activity(spans: list) -> list:
