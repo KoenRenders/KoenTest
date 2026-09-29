@@ -275,34 +275,9 @@ Decisions that shape it, with the alternatives:
 | F12 | The registration detail edits the answers through the same field partial and `forms.api.update_attached(db, submission, answers)`, which re-validates with `build_answers` and replaces the answer rows; a history row on the registration records "answers edited" with the old and new values. | R7 |
 | F13 | Replacing a component's form is refused when any registration of the component has a submission; detaching is allowed (the submissions stay). | R10 |
 
-## B2. Architecture
+## B2. Architecture — three readers, three questions
 
-### B2.1 Components — what is built where, by which team
-
-| Component | Module | Layer | new / used / changed | What changes | Serves |
-|---|---|---|---|---|---|
-| `ActivitySubRegistration.form_id` | activities | entity + migration | **changed** | the link component → form | R1, F1 |
-| `Registration.form_submission_id`, `Registration.answer_token` | activities | entity + migration | **changed** | the link registration → submission; the secret of the answer link | R2, R3, F7 |
-| `Registration.check()` | activities | entity | **changed** | a linked submission belongs to the component's form | F4, B4.2 |
-| `router.py::create_registration` | activities | service (the door) | **changed** | "now": answers through `forms.api` inside the transaction, before the payment record; "later": the token | R2, R4, F4, F6 |
-| `service.py::answer_questions` | activities | service | **new** | the one write behind the answer page: by token, `submit_attached`, link, clear, one transaction | R2, F7 |
-| `service.py` — attach / detach | activities | service | **changed** | the attach rules (F2) and the replace refusal (F13) | R1, R10 |
-| `registration_form.py` | activities | view-model | **changed** | the now/later choice; answers parsed by `forms.api.answers_from_form` | R2, R5, F3 |
-| `ui.py` — the registration page, the thank-you page | activities | screen | **changed** | modal → page in the site shell (B4.1, B4.10); parity B4.9 | R11, F3 |
-| `ui.py` — `/inschrijving/{answer_token}/vragen` | activities | screen | **new** | the answer page, GET and POST, rate-limited | R2, F7 |
-| `admin_ui.py` — board registration page | activities | screen | **changed** | same content block in the admin shell, same choice | R5, R11 |
-| `admin_ui.py` — component settings | activities | screen | **changed** | the picker "Extra vragen" with its refusals | R1, F2, F13 |
-| `admin_ui.py` — registration detail | activities | screen | **changed** | the answers; "antwoorden gevraagd", resend, edit (phase 3) | R3, R7, F8, F12 |
-| `export.py` | activities | service | **changed** | one column per field, answers fetched in one call | R3, A6, F8 |
-| `_inschrijf_velden.html`, `inschrijven.html` | activities | template | **changed** | the questions block with the choice; the page around it | F3, B4.10 |
-| `api.py` — `submit_attached`, `update_attached` | forms | facade + service | **new** | validate with `build_answers`, create / replace the answers, no mail | R4, F4, F5, F12 |
-| `api.py` — `attachable_forms`, `answers_from_form`, `submission_views` | forms | facade | **new** | the reads the activities side needs; the parser exported, not copied | F2, F8, B4.3 |
-| `_formulier_veld.html`, `screenfields.py` | forms | template | used | the field rendering, unchanged | F3 |
-| `send_activity_registration_confirmation` | mail | service + template | **changed** | one variable block: the answers, or the answer link, or nothing | R5, R6 |
-| `POST /api/v1/activities/{id}/register` | activities | JSON route | **changed** | `answers` in the schema (if the route survives CR-13 phase 4) | F6 |
-| `payment.api.create_payment_record` | payment | facade | used | unchanged; called after the answers | B4.2 |
-
-### B2.2 Application usage — which screen or module serves each step of the process
+### B2.1 Fit with the process and the requirements — for the business
 
 Two audiences, two drawings. Colour per module: blue `activities`, green
 `forms`, grey `mail`/`payment` (unchanged behaviour).
@@ -364,7 +339,87 @@ flowchart LR
 Every step has a module; "remind by hand" has none on purpose (R12). No
 module appears that a step does not use.
 
-### B2.3 Application structure — what is built in which module and layer, and what talks to what
+**Traceability — every requirement, how the solution meets it, where, and
+what proves it:**
+
+| R | How the solution meets it | Where | Proof |
+|---|---|---|---|
+| R1 attach a form to a component | the component settings get a picker "Extra vragen" over the tenant's open, one-section forms | component settings (admin) | AC1, AC5 |
+| R2 answer while registering, or later | the questions sit on the registration page after the products, behind the choice *nu / later*; "later" puts a link in the confirmation mail that opens the questions once | registration page; the mail; the answer page | AC1, AC2, AC4 |
+| R3 answers belong to the registration | shown on the registration detail; one column per question in the component's export | registration detail; export | AC3 |
+| R4 the same rules for everyone | one validation (`build_answers`) on the page, the board page, the API and the answer page; a required question left empty is refused with its label | all four entrances | AC2 |
+| R5 the board has the same choice | the board page is the same page in the admin shell, same choice, same default | board registration page | AC4 |
+| R6 the mail repeats the answers | one variable block in the confirmation: the answers, or the link, or nothing | the mail | AC8 |
+| R7 the organiser corrects an answer | edit on the registration detail, re-validated, with a history row | registration detail | AC7 |
+| R8 the form's own URL stays usable | untouched; such a submission is simply not linked | the form's public page | — (unchanged) |
+| R9 questions per product | **Won't** — not built | — | — |
+| R10 swap a form once answered | **Won't** — replacing is refused; detaching allowed | component settings | AC5 |
+| R11 one screen, the public loses nothing | the modal becomes a page, the board's page is the same page; fifteen-point parity list | registration page | AC9 |
+| R12 following up answers and transfers | **Won't** — by hand; the portal shows the state and offers "resend the link" | registration detail; payments screen | — |
+| A6 the export for the Sint's list | the component's existing export gains the answer columns | export | AC3 |
+
+**The walkthrough — how the business tests this on HDEV.** Three roles,
+in the order of A3; each step says what to do, what to see, and what it
+proves. The closing comments of the issues point here.
+
+*Organiser — setting up (phase 2):*
+
+1. Build a form "Sint 2026" in the form builder with the five questions of
+   A4: time slots (checkbox, required), inside/outside (radio, required),
+   the story (textarea), allergies (textarea), remarks (textarea). Set it
+   open. → *AC1 precondition.*
+2. Open the Sint activity, its component, settings: pick "Sint 2026" under
+   "Extra vragen"; save. See the form named on the component. → *AC1.*
+3. Try to pick a closed form, and a two-section form: refused with the
+   reason. → *AC5.*
+
+*Household member — registering (phases 1 and 2):*
+
+4. On the site, open the Sint activity and press "Inschrijven": a **page**
+   opens (no longer a modal) with the activity and date on top. Walk the
+   parity list of B4.9 once, on a phone and on a desktop. → *AC9.*
+5. Fill in name, e-mail, mobile; set two children; see the total follow.
+   The questions appear after the products with the choice *Nu invullen ·
+   Later via e-mail*, "nu" selected. → *AC1.*
+6. Leave the time slots empty, submit: refused, the question named, your
+   other answers kept. → *AC2.*
+7. Answer everything, choose transfer, submit: the thank-you page; the
+   mail lists the products, the transfer instructions and the five
+   answers. → *AC3, AC8.*
+8. Register again with "later": the thank-you page shows the answer link;
+   the mail carries it. Open the link: the five questions; answer; see
+   "Bedankt". Open the link again: "al ingevuld". → *AC4.*
+9. Register once more with "nu" and pay online (stub provider): Mollie's
+   stub page, then the return page; the answers are on the registration.
+   → *AC3.*
+
+*Board — registering a member (phase 2):*
+
+10. In the admin, the Sint activity, "Inschrijving toevoegen": the same page
+    in the admin shell, the same choice, "nu" selected. Switch to "later",
+    type a member's address, submit: the member's mail carries the link.
+    → *AC4.*
+11. Open the registration detail: "antwoorden gevraagd op <date>", the
+    button "link opnieuw sturen"; press it, a second mail. → *AC4.*
+
+*Organiser — reading and correcting (phases 2 and 3):*
+
+12. On the registration of step 7, the five answers as label and value.
+    Export the component: one row per registration, five extra columns
+    after *Opmerkingen*; open the .ods in LibreOffice; it prints as the
+    Sint's list. → *AC3.*
+13. Edit the allergies answer on the detail, save: the new value in the
+    detail and in the export; the history shows old and new. Empty a
+    required answer: refused. → *AC7.*
+14. In the form builder, try to add a field to "Sint 2026": refused, the
+    form has submissions. → *AC6.*
+
+*The turns that must refuse (any role):* a wrong or used answer link →
+"not found"; the form's own public URL still works and its submission
+shows in the builder without a registration (R8); replacing the form of a
+component with answered registrations → refused (AC5).
+
+### B2.2 The whole across the modules — for the architect
 
 ```mermaid
 flowchart TB
@@ -411,8 +466,6 @@ is a *read* of a template, which the layer gate allows as it allows the
 macros. `forms` reaches nothing new. Four of the five layers of
 `activities` change; in `forms` only the facade grows.
 
-### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
-
 - **Cross-schema FKs** `activities.activity_sub_registrations.form_id →
   form.forms.id` and `activities.registrations.form_submission_id →
   form.form_submissions.id`, both nullable — the pattern
@@ -441,6 +494,91 @@ macros. `forms` reaches nothing new. Four of the five layers of
   nothing about activities (F10, B4.6). The JSON route `POST /register`
   gains a field only if it survives CR-13 phase 4's pruning of routes
   without a caller; if it is pruned, F6 falls away with it.
+
+
+### B2.3 Per module: what must happen — for the build teams
+
+In build order. Effort in CLI-days is an estimate against the day's track
+record (#1284: one form for two channels took about one day).
+
+#### activities — the owner of the change
+
+- **Screens:** the public registration becomes a page in the site shell
+  (`inschrijven.html`, from the modal partial); a thank-you page; the board
+  registration page keeps its file and includes the same block; the
+  component settings gain the picker; the registration detail gains the
+  answers, "antwoorden gevraagd", "link opnieuw sturen" and (phase 3) the
+  edit; a new answer page `/inschrijving/{answer_token}/vragen`. Judged at
+  390 px and on a desktop (AC9, test 11).
+- **Code:** view-model `registration_form.py` (the choice, the answers via
+  `forms.api.answers_from_form`); service `create_registration` ("now":
+  `forms.api.submit_attached` before the payment record; "later": the
+  token), new `answer_questions(db, token, answers)`, attach/detach with
+  the refusals of F2 and F13, `export.py` with the answer columns in one
+  call; entity `Registration` (+`form_submission_id`, +`answer_token`,
+  `check()` rule), `ActivitySubRegistration` (+`form_id`).
+- **Database:** three nullable columns, two FKs (`ON DELETE SET NULL` /
+  `RESTRICT`), a partial unique on `form_submission_id`, the CHECK "not
+  answered and open at once"; one additive migration (B5.2).
+- **Templates and mail:** `_inschrijf_velden.html` (the questions block with
+  the choice), `inschrijven.html`, the thank-you page; the mail is `mail`'s.
+- **Tests:** B8 1, 2, 3, 4, 5, 6, 8, 9, 10, 11; landscape: B8's second
+  level.
+- **Effort:** phase 1 (the page, parity) ~1 CLI-day; phase 2 (links,
+  picker, choice, answer page, detail, export) ~2 CLI-days; phase 3 (edit
+  with history, resend) ~0.5. Serves R1–R5, R7, R10–R12, A6; F1–F4, F6–F8,
+  F10, F12, F13.
+
+#### forms — grows a facade, changes no behaviour
+
+- **Screens:** none. The submissions view shows attached submissions as any
+  other (B4.6).
+- **Code:** facade `api.py`: commands `submit_attached(db, form, answers,
+  submitter)` and `update_attached(db, submission, answers)` (both through
+  `build_answers`, no mail); reads `attachable_forms(db)`,
+  `answers_from_form(form, form_data)` (the private parser of `forms/ui.py`
+  exported, not copied), `submission_views(db, ids)` (batched). Service and
+  entities unchanged.
+- **Database:** nothing.
+- **Templates:** `_formulier_veld.html` and `screenfields.py` are used as
+  they are — the registration page renders the same macro.
+- **Tests:** B8 7, 12; the forms suite unchanged.
+- **Effort:** ~0.5 CLI-day, in phase 2. Serves R4, F4, F5, F8, F9, F11,
+  F12.
+
+#### mail — one block in one template
+
+- **Code and template:** `send_activity_registration_confirmation` gains one
+  variable block: the answers (label/value), or the answer link, or
+  nothing; the resend uses the same template with a reminder subject.
+- **Tests:** a rendering test per case (three), in phase 3's B8 10.
+- **Effort:** ~0.25 CLI-day, phase 3 (the link part of the block in phase
+  2). Serves R5, R6.
+
+#### payment — used, unchanged
+
+`create_payment_record` is called as today, after the answers; nothing
+changes. Serves nothing new.
+
+**Sum:** about 4 CLI-days across three phases, `activities` carrying
+three and a half of them.
+
+### B2.4 Cross-cutting impact — the checklist of what gets forgotten
+
+| Concern | Touched? | Where |
+|---|---|---|
+| Reporting views and saved reports | no — no view reads the new columns; attached submissions count in the forms views, wanted | B5.3 |
+| Existing tests, e2e golden flows, 390 px screenshots | **yes** — the registration e2e flow and screenshots are redone for the page; #1284's form tests must pass unchanged | B8, second level |
+| Fixed UI decisions, `CLAUDE.md` | **yes** — "public registration is a modal" becomes "a page", at the merge of phase 1 | B4.1, B7 |
+| Design-system documentation | no — kit macros only, nothing new; the page is judged against the norm | B4.10 |
+| Code lists (CR-12) | no — the field types are `forms`' list | — |
+| Events and handlers (CR-13) | no — door calls, no event; the payment-record decision of 29 Sep applies | B1 |
+| Mail templates | **yes** — one variable block in the registration confirmation; a reminder subject | B4.8, B2.3 mail |
+| Migration: additive or contract (#1255) | additive — three nullable columns | B5.2 |
+| Tenant settings | no — the picker offers the tenant's own forms; nothing platform-wide | A7 |
+| Env vars | no | B3 |
+| JSON routes and API callers | **yes, conditional** — `POST /register` gains `answers` if it survives CR-13 phase 4 | F6, B2.2 |
+| External services (Mollie, mail) | no change in the calls; the order on the page changes nothing for Mollie | B4.2 |
 
 ## B3. Cost and operations — settings, limits, running cost
 
@@ -742,9 +880,9 @@ marked, the way the form builder marks one (`data-veld`, #741/#749).
 ```mermaid
 erDiagram
   ACTIVITY ||--o{ COMPONENT : has
-  COMPONENT }o--o| FORM : "asks (form_id, nullable)"
+  COMPONENT }o--o| FORM : "asks — NEW form_id, nullable"
   COMPONENT ||--o{ REGISTRATION : receives
-  REGISTRATION ||--o| FORM_SUBMISSION : "answered (form_submission_id, nullable, unique)"
+  REGISTRATION ||--o| FORM_SUBMISSION : "answered — NEW form_submission_id, nullable, unique; NEW answer_token"
   FORM ||--o{ FORM_FIELD : defines
   FORM ||--o{ FORM_SUBMISSION : collects
   FORM_SUBMISSION ||--o{ FORM_SUBMISSION_ANSWER : holds
@@ -878,6 +1016,29 @@ Each able to go red:
     reaches the submission as the builder's own public form would store it
     (the parser is one, B4.3) — asserted by comparing the two submissions.
 
+**Impact on the test landscape**, per module:
+
+- **activities:** the e2e golden flow of the public registration
+  (`tests_e2e/`, the modal path) is rewritten for the page — same steps,
+  different selectors and one navigation more (phase 1); the 390 px
+  screenshot set of the registration is redone (phase 1) and extended with
+  the ten field types (phase 2); the unit tests of `registration_form.py`
+  and `create_registration` (#1192, #1284) must pass **unchanged** in phase
+  1 — they are the parity proof — and gain the choice and the answers in
+  phase 2; the export test gains the columns; `test_layer_gate` and
+  `test_template_variables_gate` see the new page and the answer page (a
+  view-model promise per template).
+- **forms:** its suite is unchanged; the new facade functions get their
+  own tests next to it; the "Andere…" test (12) compares against the
+  existing public-form test.
+- **mail:** the rendering tests of the registration confirmation gain
+  three cases.
+- **Gates of CR-13** (0a–0c, on `master` by then): *no foreign writes*
+  sees no new writer (forms writes its rows); *one transaction* sees one
+  commit; *no rule in a router* sees the refusals in `build_answers` and
+  `check()`, not in the routes; the entrances test of `Registration` learns
+  the answer page as a fourth entrance.
+
 ## B9. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *Anything the portal asks a member beyond the fixed fields
@@ -970,4 +1131,4 @@ None yet. To measure before the build of phase 2:
 - **CR-12:** no new code list.
 - **#1192 / #1284:** the one `create_registration` and the board form that this CR extends.
 - **#336, #337, #665:** sections, "Andere…", and the no-change-after-submissions rule in the form builder.
-- **#94 phase 4:** `ON DELETE` per FK — the two FKs here are decided in B2.4.
+- **#94 phase 4:** `ON DELETE` per FK — the two FKs here are decided in B2.2.
