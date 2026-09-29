@@ -206,10 +206,10 @@ and deliberately not done — recorded so it is not asked again).
 > *by name), **database** (schema, table, each column with its type,*
 > *nullability and constraints, the `ON DELETE` of every FK, the migration*
 > *and whether it is additive), **templates*
-> *and mail**, **tests** (which of B7). Then one line of **effort** (S / M /*
-> *L, or CLI-days once the team has a track record). Which requirements a*
-> *module serves is read from the matrix of B2.1, not repeated here. A*
-> *module that is only used, not changed, gets one line. **Reporting*
+> *and mail**, **tests** (which of B7). No effort here: the effort per*
+> *module and phase is the table of B3, where the cost is added up. Which*
+> *requirements a module serves is read from the matrix of B2.1, not*
+> *repeated here. A module that is only used, not changed, gets one line. **Reporting*
 > *is always one of the modules**, touched or not: the engine reads the*
 > *tables through SQL views in the `reporting` schema and through its object*
 > *universe, so for every column this change adds, renames, retypes,*
@@ -219,8 +219,7 @@ and deliberately not done — recorded so it is not asked again).
 > *migration as the column, or the phase says why not; a value change on a*
 > *column a view reads is checked against the saved reports on every*
 > *environment before the migration. "Reporting — none: no view reads these*
-> *columns" is a subsection too. The sum of the effort lines is the cost of*
-> *the change; B6 cuts it into phases.*
+> *columns" is a subsection too.*
 
 ### B2.4 Cross-cutting impact — the checklist of what gets forgotten
 
@@ -237,10 +236,11 @@ and deliberately not done — recorded so it is not asked again).
 ## B3. Cost — investment and running cost, and what operations must know
 
 > [!NOTE]
-> *Three parts, each with a figure or "none". **Investment:** the effort to*
-> *build and deliver — the sum of the effort lines of B2.3, in CLI-days or*
-> *person-days, plus analysis, review, validation on HDEV and the release*
-> *steps — and one-off purchases (a licence, a product, a device). **Running*
+> *Three parts, each with a figure or "none". **Investment:** one table,*
+> *module × phase, with the effort to build in CLI-days or person-days (S /*
+> *M / L until the team has a track record), a total per module and per*
+> *phase; then analysis, review, validation on HDEV and the release steps;*
+> *then one-off purchases (a licence, a product, a device). **Running*
 > *cost:** what it costs per month or per year once live — usage rights and*
 > *paid services (per use and per month, measured where a prototype exists),*
 > *storage and backups, hosting, and the maintenance it adds (a job to watch,*

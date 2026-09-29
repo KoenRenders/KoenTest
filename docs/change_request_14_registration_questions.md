@@ -539,8 +539,7 @@ erDiagram
 
 ### B2.3 Per module: what must happen — for the build teams
 
-In build order. Effort in CLI-days is an estimate against the day's track
-record (#1284: one form for two channels took about one day).
+In build order; the effort per module and phase is in B3.
 
 #### activities — the owner of the change
 
@@ -577,9 +576,6 @@ record (#1284: one form for two channels took about one day).
   the choice), `inschrijven.html`, the thank-you page; the mail is `mail`'s.
 - **Tests:** B7 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 13; landscape: B7's second
   level.
-- **Effort:** phase 1 (the page, parity) ~1 CLI-day; phase 2 (links,
-  picker, choice, answer page, detail, export, the book) ~2.5 CLI-days;
-  phase 3 (edit with history, resend) ~0.5.
 
 #### forms — grows a facade, changes no behaviour
 
@@ -595,7 +591,6 @@ record (#1284: one form for two channels took about one day).
 - **Templates:** `_formulier_veld.html` and `screenfields.py` are used as
   they are — the registration page renders the same macro.
 - **Tests:** B7 7, 12; the forms suite unchanged.
-- **Effort:** ~0.5 CLI-day, in phase 2.
 
 #### mail — one block in one template
 
@@ -603,8 +598,6 @@ record (#1284: one form for two channels took about one day).
   variable block: the answers (label/value), or the answer link, or
   nothing; the resend uses the same template with a reminder subject.
 - **Tests:** a rendering test per case (three), in phase 3's B7 10.
-- **Effort:** ~0.25 CLI-day, phase 3 (the link part of the block in phase
-  2).
 
 #### reporting — a module of its own, here untouched
 
@@ -628,9 +621,6 @@ None of the three new columns is read by a view; no expand/contract risk.
 `create_payment_record` is called as today, after the answers; nothing
 changes.
 
-**Sum:** about 4.5 CLI-days across three phases, `activities` carrying
-four of them.
-
 ### B2.4 Cross-cutting impact — the checklist of what gets forgotten
 
 | Concern | Touched? | Where |
@@ -650,18 +640,31 @@ four of them.
 
 ## B3. Cost — investment and running cost, and what operations must know
 
-> [!NOTE]
-> *Three parts, each with a figure or "none". **Investment:** the effort to*
-> *build and deliver — the sum of the effort lines of B2.3, in CLI-days or*
-> *person-days, plus analysis, review, validation on HDEV and the release*
-> *steps — and one-off purchases (a licence, a product, a device). **Running*
-> *cost:** what it costs per month or per year once live — usage rights and*
-> *paid services (per use and per month, measured where a prototype exists),*
-> *storage and backups, hosting, and the maintenance it adds (a job to watch,*
-> *a certificate to renew, a dependency to keep current). **Operations:***
-> *settings, env vars, limits, kill switch, backups — what the person running*
-> *the stack must know. Set beside the benefits of A4: the two together are*
-> *the input for the release decision.*
+**Investment — effort to build**, in CLI-days, estimated against the track
+record (#1284, one form for two channels, took about one day):
+
+| Module | Phase 1 — the page | Phase 2 — the questions | Phase 3 — the aftercare | Total |
+|---|---|---|---|---|
+| activities | 1 | 2.5 | 0.5 | 4 |
+| forms | — | 0.5 | — | 0.5 |
+| mail | — | 0.1 (the link in the block) | 0.15 | 0.25 |
+| reporting | — | — | — | 0 |
+| payment | — | — | — | 0 |
+| **Total** | **1** | **3.1** | **0.65** | **~4.75** |
+
+Around it: analysis (this document) one day, done; review and the parity
+walk on HDEV half a day; three release steps, each riding a release that
+goes out anyway. No purchase: no licence, no product, no device; no new
+dependency.
+
+**Running cost.** None: no paid service, no new job, no storage beyond a
+few rows per registration, nothing to renew; the answers live in tables
+the backup already covers.
+
+**Operations.** No env var, no setting. One migration in phase 2 (three
+nullable columns, two of them FKs; additive under #1255). Kill switch:
+detaching the form from the component restores today's screen — no flag
+needed.
 
 ## B4. Detailed decisions — one subsection each, with the reasons
 
