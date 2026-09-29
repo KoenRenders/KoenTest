@@ -25,10 +25,27 @@ controle niet vergeten.
 from pathlib import Path
 from typing import Iterable
 
+from check_imports import is_test_code
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 
-def bestanden(*groepen: Iterable[Path], wat: str, minstens: int = 1) -> list[Path]:
+def is_app_test(path: Path) -> bool:
+    """A file in a domain's `tests/` package (CR-13 R15): test code inside `app/`.
+
+    The same rule as the import smoke test's, applied to a path, so the two cannot
+    disagree about what counts as a test.
+    """
+    try:
+        relative = path.resolve().relative_to(APP.parent)
+    except ValueError:
+        return False
+    return relative.parts[0] == "app" and is_test_code(".".join(relative.with_suffix("").parts))
+
+
+def bestanden(
+    *groepen: Iterable[Path], wat: str, minstens: int = 1, met_tests: bool = False
+) -> list[Path]:
     """De bestanden uit één of meer globs, gesorteerd, en nooit (te) leeg.
 
     `wat` beschrijft wat er gescand had moeten worden; die tekst komt in de
@@ -39,6 +56,11 @@ def bestanden(*groepen: Iterable[Path], wat: str, minstens: int = 1) -> list[Pat
     vindt maar het grootste deel mist.
     """
     gevonden = sorted({p for groep in groepen for p in groep})
+    if not met_tests:
+        # Since CR-13 phase 0b a domain's tests live under app/domains/<x>/tests/. A
+        # gate over the application must not judge them as application code; a gate
+        # that is about the tests asks for them with met_tests=True.
+        gevonden = [p for p in gevonden if not is_app_test(p)]
     assert len(gevonden) >= minstens, (
         f"deze gate scande {len(gevonden)} bestanden ({wat}), verwacht minstens "
         f"{minstens}. Een gate die nergens kijkt staat groen zonder iets te "

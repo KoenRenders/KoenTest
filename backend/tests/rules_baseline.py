@@ -26,38 +26,25 @@ SESSION_ON_ENTITY: frozenset[str] = frozenset(
 )
 
 
-# Every package lacks tests/ until phase 0b moves the tests to their domain; audit,
-# stt, cms, membership and reporting lack a further piece. Phase 4 decides audit and stt
-# (give them the shape, or move them — §B4.5).
+# Phase 0b gave every domain with a single-domain test its tests/; audit, designstudio
+# and newsletter have none yet — their tests walk through other domains too, so they
+# live in tests/integration/. audit, stt, cms, membership and reporting lack a further
+# piece. Phase 4 decides audit and stt (give them the shape, or move them — §B4.5).
 MODULE_SHAPE: frozenset[str] = frozenset(
     {
-        "activities:tests/",
         "audit:CONTRACT.md",
         "audit:codes.py",
         "audit:models.py",
         "audit:tests/",
-        "auth:tests/",
-        "chatbot:tests/",
         "cms:codes.py",
-        "cms:tests/",
         "designstudio:tests/",
-        "forms:tests/",
-        "mail:tests/",
-        "mdm:tests/",
-        "media:tests/",
-        "meetings:tests/",
         "membership:codes.py",
-        "membership:tests/",
         "newsletter:tests/",
-        "payment:tests/",
         "reporting:CONTRACT.md",
-        "reporting:tests/",
         "stt:CONTRACT.md",
         "stt:api.py",
         "stt:codes.py",
         "stt:models.py",
-        "stt:tests/",
-        "workflow:tests/",
     }
 )
 

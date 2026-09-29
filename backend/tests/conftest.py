@@ -41,9 +41,19 @@ from app.main import app
 SEEDED_ADMIN_EMAIL = "beheerder@example.com"
 
 
+# Every domain's `tests/conftest.py` re-exports this fixture (CR-13 R15), and pytest
+# keeps one session fixture per conftest that defines it — so without this flag the
+# schemas would be dropped and rebuilt once per domain folder.
+_SCHEMA_BUILT = False
+
+
 @pytest.fixture(scope="session", autouse=True)
 def _migrate_schema():
     """Bouw de schema's één keer via de echte migratieketen."""
+    global _SCHEMA_BUILT
+    if _SCHEMA_BUILT:
+        yield
+        return
     # Schemas hard resetten (v2.0, #398): drop_all kent alleen tabellen die nog
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
@@ -81,6 +91,7 @@ def _migrate_schema():
 
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
     command.upgrade(cfg, "head")
+    _SCHEMA_BUILT = True
     yield
 
 

@@ -62,7 +62,12 @@ def _domain_of(module: str) -> str | None:
 
 def test_import_boundaries():
     violations = []
-    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/", minstens=100):
+    for path in bestanden(
+        APP.rglob("*.py"),
+        wat="alle Python-modules onder app/, de domeintests inbegrepen (CR-13 R15)",
+        minstens=100,
+        met_tests=True,
+    ):
         module = _module_name(path)
         imports = _imports(path)
 
