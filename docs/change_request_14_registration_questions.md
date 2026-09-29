@@ -68,11 +68,11 @@ they teach about the shape:
 
 | Question | Kind | Form builder field type | Note |
 |---|---|---|---|
-| Which time slots suit you? | several of a list | `checkbox` (multi) | *if a slot has a capacity, it is a product with `max_participants`, not a question — Q8* |
+| Which time slots suit you? | several of a list | `checkbox` (multi) | a preference, not a booking: a person plans the visits afterwards (Koen, Q8) — so no capacity, no product |
 | Inside or outside? | one of two | `radio` | — |
 | Tell us about the children | free text | `textarea` | personal data about minors; seen by the organiser only |
 | Allergies | free text | `textarea` | health data — asked because the activity needs it; no special handling in the system, the organiser decides to ask |
-| Remarks | free text | `textarea` | overlaps the registration's own *Opmerkingen* box — one of the two should go on this screen (Q9) |
+| Remarks | free text | `textarea` | replaces the registration's own *Opmerkingen* box on this screen: a component with a form hides the fixed box (Koen, Q9) |
 
 Learnt: all five fit the ten field types, in one section, without
 branching; none depends on a product; one form serves the activity (one
@@ -164,7 +164,7 @@ Decisions that shape it, with the alternatives:
 |---|---|---|
 | F1 | A component has at most one form; a form may be attached to several components (the same questions for every component of one activity). | R1 |
 | F2 | Only an *open* form of the same tenant with **one section** can be attached; sections and branching (#336) do not fit a registration screen — refused at attach time with the reason. | R1, AC5 |
-| F3 | The attached form's fields render in the registration, between the products and the remarks, with the builder's field partial; the `info` field type renders as text, `rating` as today. | R2 |
+| F3 | The attached form's fields render in the registration, after the products, with the builder's field partial; the `info` field type renders as text, `rating` as today. **The registration's own *Opmerkingen* box is hidden when the component has a form** (Koen, Q9) — the form asks for remarks if it wants them; `remarks` stays empty on such a registration. | R2 |
 | F4 | The answers are validated by the `forms` rules (`build_answers`: required, min/max, options) before the registration is created; a refusal names the question and re-renders the screen with the answers kept. | R4 |
 | F5 | The submission's `submitter_name`/`submitter_email` are the registration's contact; the form's own confirmation mail is **off** for an attached form (the registration mail covers it). | R3, R6 |
 | F6 | The JSON API's `RegistrationCreate` accepts `answers: {field_id: value}`; a component with a form refuses a registration without the required answers (same message). | R4 |
@@ -459,14 +459,15 @@ uncommitted form submission (it reads the form definition, so it should).
 | Date | Decision | By |
 |---|---|---|
 | 29 Sep 2026 | A registration can carry extra questions; they are a form attached to a component and answered in one movement while registering. | Koen (spoken brief; Part A to confirm) |
+| 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 
 ## Q&A log
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A4. |
-| Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | *open* — if yes, a slot is a product with `max_participants` (exists today, counts and shows "Volzet"), and the form asks the rest; a checkbox question cannot count |
-| Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | *open* — proposal: a component with a form hides the registration's box; the form's remarks are the one place |
+| Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | Koen, 29 Sep: no — a person plans the visits afterwards. A checkbox question it is. |
+| Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | *proposed:* in the registration, one submit — B1; *open* |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
 | Q3 | 29 Sep 2026 | A component with a form: still the narrow modal, or a full page? (Claude) | *proposed:* full page for a component with a form, modal otherwise — B4.1; *open* |
