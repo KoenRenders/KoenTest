@@ -1,8 +1,8 @@
 # Change Request 14 — Extra questions on a registration: a form attached to a component
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 29 September 2026 · **draft — Part A to be confirmed by Koen** · not assigned · issue #1320
-**Applies to:** the activity registration flow (public modal, board form, JSON API), the `forms` domain, the registration detail and export in the admin.
+**Status:** shaped with Koen on 29 September 2026; reviewed by the author the same evening (Q18–Q22 to Koen) · **draft — Part A to be confirmed by Koen** · not assigned · issue #1320
+**Applies to:** the activity registration flow (the public registration — today a modal — the board form, the JSON API), the `forms` domain, the registration detail and export in the admin, the confirmation mail.
 
 > Part A is written from Koen's spoken brief of 29 September 2026. Where the
 > brief left something open, the sentence says *to confirm* and the Q&A log
@@ -12,30 +12,43 @@
 
 # Part A — The business
 
-## A1. Reason to act
+## A1. Reason to act — the trigger
 
-An activity sometimes needs more from a participant than a name, an e-mail,
-a phone number and a choice of products. Who joins which group, which size,
-an allergy, a lift needed, a licence number — questions that differ per
-activity and per component. The activities module cannot ask them: a
-registration collects the contact, the products and a free "remarks" box,
-and nothing else. So today those questions are asked next to the
-registration — by mail, on the day itself, or through a separate form that
-the participant has to find and fill in a second time — and the treasurer
-or the organiser matches the answers to the registrations by hand.
+The association wants every registration to run through the new platform.
+For the Sint activity it could not: the registration and its questionnaire
+had to be split — the registration on the platform, the questions elsewhere
+— where before the platform they were one form. That is a step back, and
+the association does not take steps back. Hence this change request: the
+questions integrated into the registration. (Koen, 29 September 2026.)
 
-The moment is now because an activity is coming up that needs such
-questions, and because the portal already has a form builder (the `forms`
-module, with ten field types, sections and a submissions view) that asks
-exactly this kind of question — only not *as part of* a registration. The
-idea, in Koen's words: attach a form to a component of an activity, so that
-registering flows into the questions **in one movement**, and the answers
-belong to the registration.
+## A2. As-is process — how it works today, and where it hurts
 
-The trigger is the **Sint activity** (Koen, 29 September): five questions
-that today have no place in the registration — see A4.
+The Sint activity as it ran until now, BPMN Level 1 in Mermaid (the
+convention of the template):
 
-## A2. As-is process
+```mermaid
+flowchart LR
+  subgraph member["Member"]
+    m0((start)) --> m1[Register on the portal:<br/>contact, products, pay]
+    m1 --> m2[Find the separate form<br/>in the mail or on paper]
+    m2 --> m3{Answer it?}
+    m3 -- yes --> m4[Answer the questions]
+    m3 -- not yet --> m5((Registered,<br/>unanswered))
+    m4 --> m6((Registered<br/>and answered))
+  end
+  subgraph organiser["Organiser"]
+    o1[Set up the activity<br/>and its products] --> o2[Ask the questions elsewhere:<br/>a mail, a form, the day itself]
+    o2 --> o3[Match answers to<br/>registrations by hand]
+    o3 --> o4{All answered?}
+    o4 -- no --> o5[Chase by mail]
+    o5 --> o3
+    o4 -- yes --> o6[Export the list<br/>without the answers]
+    o6 --> o7((Round planned))
+  end
+  o1 -.-> m1
+  o2 -.-> m2
+  m4 -.-> o3
+```
 
 | Step | Who | Today | Pain |
 |---|---|---|---|
@@ -50,7 +63,45 @@ free field; the component has no setting that points at a form; the form
 builder has 25 admin screens and 7 public routes, and a submission cannot
 be linked to anything today.
 
-## A3. To-be process
+## A3. To-be process — how it should work afterwards
+
+Same lanes, same order; what changed is named under the drawing:
+
+```mermaid
+flowchart LR
+  subgraph member["Member"]
+    m0((start)) --> m1[Register on the portal:<br/>contact, products]
+    m1 --> m2{Answer the questions<br/>now or later?}
+    m2 -- now --> m3[Answer the questions]
+    m3 --> m4[Pay]
+    m2 -- later --> m4
+    m4 --> m5((Registered))
+    m5 --> m6[Open the link<br/>in the mail]
+    m6 --> m7[Answer the questions]
+    m7 --> m8((Answered))
+  end
+  subgraph board["Board"]
+    b1[Register a member<br/>on the same page,<br/>same choice]
+  end
+  subgraph organiser["Organiser"]
+    o1[Build the questions<br/>as a form] --> o2[Attach the form<br/>to the component]
+    o2 --> o3[Read the answers on<br/>the registration and<br/>in the export]
+    o3 --> o4{Anyone still<br/>owes answers?}
+    o4 -- yes --> o5[Resend the link]
+    o5 --> o3
+    o4 -- no --> o6((Round planned))
+  end
+  o2 -.-> m1
+  b1 -.-> m6
+  m3 -.-> o3
+  m7 -.-> o3
+```
+
+What changed: the questions moved **into** the registration (with a
+choice to answer later); "find the separate form" and "match by hand"
+disappeared; "chase by mail" became "resend the link", from the
+registration; the board got a lane, on the same page as the member; the
+export carries the answers.
 
 | Step | Who | Afterwards |
 |---|---|---|
@@ -59,10 +110,10 @@ be linked to anything today.
 | 3. A member registers on **one page**, in this order: who (contact), what (the products — "two children for the Sint"), **then the component's questions** — with a choice: answer them now, or later through a link in the confirmation mail (Koen: "ik schreef ze eerst in, en een week voor de Sint vulde ik de rest in") — then the payment method; one submit; then Mollie or the transfer instructions, as today. | member | the public registration page |
 | 4. The board registers a member on **the same page** as the member sees, in the admin shell, with the same choice: answer now, or the member answers later through the link in the mail. | board, member | the same registration page; the answer link |
 | 4b. Whoever chose "later" — member or board — the member gets the link in the confirmation mail, answers when it suits, and the answers land on the registration. The organiser sees who still owes answers and can resend the link. | member, organiser | the answer link; the registration detail |
-| 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail *(to confirm)*. | organiser, treasurer | activities module |
-| 6. A required question that is not answered refuses the registration with the same message on the entrances that ask it — the public screen and the JSON API. | — | — |
+| 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail. The organiser can correct one. | organiser, treasurer, member | activities module; the mail |
+| 6. Whoever answers — now, later by link, member or board — a required question left empty is refused with the same message. | — | — |
 
-## A4. Supplied material
+## A4. Supplied material — and what it taught us
 
 The questions of the Sint activity (Koen, 29 September 2026), and what
 they teach about the shape:
@@ -79,7 +130,7 @@ Learnt: all five fit the ten field types, in one section, without
 branching; none depends on a product; one form serves the activity (one
 component). Nothing in the form builder has to change for this case.
 
-## A5. Business requirements
+## A5. Business requirements — what the board asks, with MoSCoW
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -90,26 +141,26 @@ component). Nothing in the form builder has to change for this case.
 | R5 | The choice "now or later" is the same for the member and the board: the board may answer completely or leave it to the member, who gets the link. | Must | Koen, 29 Sep 2026 | "zowel de bestuurder als de publieke gebruiker kunnen kiezen" |
 | R6 | The confirmation mail repeats the answers. | Should | Koen, 29 Sep 2026 | the member sees what was recorded |
 | R7 | An organiser can correct an answer in the admin afterwards. | Should | Koen, 29 Sep 2026 | the form builder already supports editing a submission — see B4.7 for how |
-| R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is not linked to a registration; the form's submissions view shows it without an "inschrijving #N" cell — harmless, because the link runs from the registration to the submission |
+| R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is simply not linked to any registration — harmless, because the link runs from the registration to the submission, never the other way (B4.6) |
 | R9 | Questions that depend on the products chosen ("size per ticket"). | Won't | analyst | a product-level question is a different shape; own change if ever needed |
 | R10 | A component may swap its form once registrations carry answers. | Won't | Koen, 29 Sep 2026 | once a registration of the component has a submission, the form can be detached but not replaced — attaching a different one is refused |
 | R11 | One registration screen for the member and the board, built from the board's page as the ideal — **and the public user loses nothing**: every function and every nicety the public registration has today is on the page. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 
-## A6. Non-functional requirements
+## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
 | **Reporting** | The component export carries the answers, one column per question. The reporting engine (CR-06) does not — answers are per activity, not a measure. |
-| **Security** | Nothing new from outside: the questions arrive through the registration entrances that exist, under the same rate limit, honeypot and CSRF as today. The form's own validation (required, bounds, options) applies. |
-| **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data — the organiser decides per activity whether to ask it; the system does not treat it differently *(to confirm with Koen)*. |
+| **Security** | One new thing from outside: the answer-by-link page, an unauthenticated write guarded by a secret in the link (the pattern the form builder's edit link already uses). The questions on the registration page arrive through the entrances that exist, under the same rate limit and CSRF as today. The form's own validation (required, bounds, options) applies everywhere. Mechanics in B6. |
+| **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data (GDPR art. 9): the member volunteers it for the activity's own purpose, it is seen by the organiser only, and it is not kept longer than the registration. The system does not treat it differently from another answer (Koen, 29 Sep: nothing is provided for health data today); the organiser who asks it is responsible for asking only what the activity needs. |
 | **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page** (Koen, 29 Sep): the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
-## A7. Acceptance criteria
+## A7. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement |
 |---|---|---|
-| AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions between the products and the remarks; a component without a form shows nothing new. | R1, R2 |
+| AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions after the products and before the payment method, behind the choice "nu / later"; a component without a form shows nothing new. | R1, R2 |
 | AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 |
 | AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order. | R3 |
 | AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 |
@@ -123,7 +174,7 @@ component). Nothing in the form builder has to change for this case.
 
 # Part B — The solution
 
-## B1. Solution outline
+## B1. Solution outline — the solution and the decisions that shape it
 
 The component gets one nullable reference to a form (`form_id`); the
 registration gets one nullable reference to a form submission
@@ -138,14 +189,21 @@ No new domain, no new event, no JSON column.
 
 Decisions that shape it, with the alternatives:
 
-- **The questions are asked in the registration, not after it** (R2). An
-  extra step after the registration and before the payment would mean a
-  registration saved without answers, a page in between, and a Mollie
-  redirect that is no longer the response of the registration submit — three
-  seams where a member drops out. A step *after* payment loses the member to
-  the Mollie return page. In the registration, one transaction covers the
-  registration, the answers and the payment record, and the refusal of a
-  required question happens where the member is.
+- **Why link at all — the alternative is what the association did with
+  Google Forms.** A standalone form with its link in the confirmation mail
+  needs no change to the portal. It lost: the answers sit in a second list
+  that somebody matches to the registrations by hand; a required question
+  cannot refuse anything; nobody sees who still owes answers; the export has
+  no answers. The link is what turns "a form next to a registration" into
+  "a registration with answers". That is the whole change.
+- **The questions are asked on the registration page, and the registration
+  never waits for them** (R2). Asked there: one transaction covers the
+  registration, the answers and the payment record, and a refused question
+  is refused where the member is; a separate step between registration and
+  Mollie would be a seam where members drop out, and a step after Mollie
+  loses them to the return page. Never waits: the member may choose
+  "later", and a link in the mail brings the questions back — the Sint
+  practice of registering first and answering a week before.
 - **A form from the form builder, not new columns on the registration.**
   The builder exists (10 field types, options, validation as columns, a
   submissions view, an export). New columns per activity would be CR-03's
@@ -164,45 +222,46 @@ Decisions that shape it, with the alternatives:
   event: the answers are part of the request (CR-13 B4.1, the payment-record
   decision of 29 September).
 
-### B1.1 Functional analysis
+### B1.1 Functional analysis — the derived requirements
 
 | # | Derived requirement | From |
 |---|---|---|
 | F1 | A component has at most one form; a form may be attached to several components (the same questions for every component of one activity). | R1 |
-| F2 | Only an *open* form of the same tenant with **one section** can be attached; sections and branching (#336) do not fit a registration screen — refused at attach time with the reason. | R1, AC5 |
+| F2 | Only an *open*, non-anonymous form of the same tenant with **one section** and no `max_submissions` can be attached; sections and branching (#336) do not fit a registration page, an anonymous form contradicts a named registration, a cap belongs to the component (`max_participants`) — each refused at attach time with the reason. The form's other settings (`requires_login`, `send_confirmation`, `allow_edit`, and its `status` after the attach) are not consulted for attached submissions: the component governs who may register and until when. The picker says so in one line. | R1, AC5 |
 | F3 | The attached form's fields render on the registration page after the products and before the payment method (B4.1), behind the choice "nu invullen / later via de link" (B4.8), with the builder's field partial; the `info` field type renders as text, `rating` as today. **The registration's own *Opmerkingen* box is hidden when the component has a form** (Koen, Q9) — the form asks for remarks if it wants them; `remarks` stays empty on such a registration. | R2 |
 | F4 | The answers are validated by the `forms` rules (`build_answers`: required, min/max, options) before the registration is created; a refusal names the question and re-renders the screen with the answers kept. | R4 |
 | F5 | The submission's `submitter_name`/`submitter_email` are the registration's contact; the form's own confirmation mail is **not sent** for an attached submission (the registration mail carries the answers, R6). | R3, R6 |
 | F6 | The JSON API's `RegistrationCreate` accepts `answers: {field_id: value}`; answers present = "now" (validated, same message); `answers` absent = "later" (token and link). | R2, R4 |
-| F7 | Both pages render the questions behind the same explicit choice — now (complete, same validation) or later by link (B4.8). With "later" the registration gets an `answer_token`; the confirmation mail (or a separate mail when no confirmation goes out) carries the link `/inschrijving/{answer_token}/vragen`; that page renders the form's fields, and its post creates the submission through `forms.api.submit_attached` and links it — once: a used token shows "al ingevuld". The detail shows the open request and a "link opnieuw sturen" action. | R5 |
+| F7 | Both pages render the questions behind the same explicit choice — now (complete, same validation) or later by link (B4.8). With "later" the registration gets an `answer_token`; the confirmation mail — sent on both channels today when a contact address is known — carries the link `/inschrijving/{answer_token}/vragen`; that page renders the form's fields, and its post creates the submission through `forms.api.submit_attached` and links it — once: a used token shows "al ingevuld". The detail shows the open request and a "link opnieuw sturen" action. | R5 |
 | F8 | The admin detail shows the answers as label/value rows; the export adds one column per field after *Opmerkingen*, in field order; a checkbox field joins its options with ", ". | R3 |
 | F9 | The attached form's public URL keeps working as for any form; a submission made there has no registration and is shown as such in the form's submissions view. | R8 |
-| F10 | Soft-deleting a registration leaves the submission in place (history); the submissions view of the form shows it as "on registration #N". | R3 |
+| F10 | Soft-deleting a registration leaves the submission in place (history). The form builder's own submissions view shows an attached submission like any other — submitter name and address — and **does not** point back at the registration: that would make `forms` read `activities`, the wrong direction (B4.6; Q19). | R3 |
 | F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. | AC6 |
 | F12 | The registration detail edits the answers through the same field partial and `forms.api.update_attached(db, submission, answers)`, which re-validates with `build_answers` and replaces the answer rows; a history row on the registration records "answers edited" with the old and new values. | R7 |
 | F13 | Replacing a component's form is refused when any registration of the component has a submission; detaching is allowed (the submissions stay). | R10 |
 
 ## B2. Architecture
 
-### B2.1 Components
+### B2.1 Components — new, used, changed
 
 | Component | new / used / changed | Role |
 |---|---|---|
 | `activities/models.py` — `ActivitySubRegistration.form_id`, `Registration.form_submission_id` | **changed** | the two links |
-| `activities/router.py::create_registration` | **changed** | validates and stores the answers through `forms.api` inside the transaction, before the payment record; on the board channel with a form: sets `answer_token` instead |
-| `activities/ui.py` — `/inschrijving/{answer_token}/vragen` (GET, POST) | **new** | the answer-later page: the form's fields, then `submit_attached` + link, once |
+| `activities/router.py::create_registration` | **changed** | "now": validates and stores the answers through `forms.api` inside the transaction, before the payment record; "later": sets `answer_token` instead |
+| `activities/ui.py` — `/inschrijving/{answer_token}/vragen` (GET, POST) | **new** | the answer-later page: the form's fields, then one service call |
+| `activities/service.py::answer_questions(db, answer_token, answers)` | **new** | the one write behind the answer page: finds the registration by token, calls `forms.api.submit_attached`, links, clears the token, one transaction (the UI module touches no `db`, CR-13 layer gate) |
 | `activities/models.py` — `Registration.answer_token` | **changed** | the link's secret (32+ random url-safe bytes, unique, nullable; the `edit_token` pattern of `forms`) |
-| `activities/registration_form.py` | **changed** | parses the answer fields from the posted form (public and board) into `RegistrationCreate.answers` |
+| `activities/registration_form.py` | **changed** | reads the now/later choice and hands the posted answer fields to `forms.api.answers_from_form` (the form builder's own parser, exported — not a second one); the result travels as `RegistrationCreate.answers` |
 | `activities/templates/_inschrijf_velden.html` | **changed** | includes the form's fields, after the products, when the component has one |
 | `activities/templates/_inschrijf_form.html` (modal) → `inschrijven.html` (page) | **changed** | the public registration becomes a page in the site shell; the board page keeps `admin_inschrijving_nieuw.html` in the admin shell, same content block (B4.1) |
 | `activities/admin_ui.py` — component settings | **changed** | the form picker ("Extra vragen"), with F2's and F13's refusals |
 | `activities/templates/_inschrijving_detail.html`, `export.py` | **changed** | show and export the answers |
-| `forms/api.py` | **changed** | new commands `submit_attached(db, form, answers, submitter)` and `update_attached(db, submission, answers)` — both validate with `build_answers`; the first creates the submission without mail, the second replaces its answers; new read `attachable_forms(db)` |
+| `forms/api.py` | **changed** | new commands `submit_attached(db, form, answers, submitter)` and `update_attached(db, submission, answers)` — both validate with `build_answers`; the first creates the submission without mail, the second replaces its answers; new reads `attachable_forms(db)`, `answers_from_form(form, form_data)` (today private in `forms/ui.py`), `submission_views(db, submission_ids)` (batched, for the export) |
 | `forms/templates/_formulier_veld.html`, `screenfields.py` | used | the field rendering, unchanged |
-| `mail` — registration confirmation | **changed** | lists the answers after the products (R6); on a board registration with an open answer request it carries the link instead (R5) |
+| `mail` — registration confirmation | **changed** | one variable block: the answers after the products (R6), or the answer link when the request is open (R5), or nothing |
 | JSON API `POST /api/v1/activities/{id}/register` | **changed** | `answers` in the schema |
 
-### B2.2 Application usage
+### B2.2 Application usage — where each business step happens
 
 ```mermaid
 flowchart LR
@@ -228,7 +287,7 @@ flowchart LR
   S5 --> AD
 ```
 
-### B2.3 Application structure
+### B2.3 Application structure — what is built where, and what talks to what
 
 ```mermaid
 flowchart TB
@@ -261,7 +320,7 @@ flowchart TB
 template include of `_formulier_veld.html` is a *read* of a template, which
 the layer gate allows as it allows the macros.
 
-### B2.4 Impact on the existing architecture
+### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
 
 - **Cross-schema FKs** `activities.activity_sub_registrations.form_id →
   form.forms.id` and `activities.registrations.form_submission_id →
@@ -277,21 +336,28 @@ the layer gate allows as it allows the macros.
   commit); no rule in a router (the "required answers" rule is `forms`'
   `build_answers`; the one cross-object rule — a linked submission belongs to the
   component's form — is `Registration.check()`, on flush; "a component with
-  a form needs answers" is *not* an invariant of the row, because the board
-  registers without them (R5): it is the public and API entrances' rule,
-  enforced where the answers are posted); no new JSON route
+  a form needs answers" is *not* an invariant of the row, because "later"
+  exists (R2): the rule at the entrances is "now means complete", enforced
+  by `build_answers` wherever answers are posted); no new JSON route
   (the existing `POST /register` grows a field).
 - **CR-12:** no new code list. The field types are `forms`' list.
 - **Templates:** `StrictUndefined` — the registration view-model promises
-  `form_fields` (possibly empty) on every render.
+  `form_fields` (possibly empty) and `values` on every render; the forms
+  partial is a macro (`veld(f)`) that expects `values` and `ui` in the
+  context — the same two names the registration templates already carry.
+- **Direction of dependencies:** `activities` → `forms` (facade) and
+  `activities` → `payment` (facade), as today for payment; `forms` learns
+  nothing about activities (F10, B4.6). The JSON route `POST /register`
+  gains a field only if it survives CR-13 phase 4's pruning of routes
+  without a caller; if it is pruned, F6 falls away with it.
 
-## B3. Cost and operations
+## B3. Cost and operations — settings, limits, running cost
 
-None new: no service, no env var, no job. One migration (two nullable
-columns with FKs; additive under #1255). Kill switch: detaching the form
+None new: no service, no env var, no job. One migration in phase 2 (three
+nullable columns, two of them FKs; additive under #1255). Kill switch: detaching the form
 from the component restores today's screen — no flag needed.
 
-## B4. Detailed decisions
+## B4. Detailed decisions — one subsection each, with the reasons
 
 ### B4.1 One registration page, for the member and for the board
 
@@ -305,7 +371,7 @@ September): the public route `GET /activiteiten/{id}/inschrijven/{cid}`
 renders it in the site shell, the board route renders the same content in
 the admin shell; the differences between the two channels stay the ones
 `registration_form.py` already lists (backoffice products, the actor, the
-return path) plus the questions being optional for the board (B4.8).
+return path) — and the questions with their now/later choice are on both (B4.8).
 
 Why a page and not the modal, honestly weighed (Q3): a dialog is for a
 short task, and contact + products + five questions + payment method is a
@@ -349,8 +415,8 @@ payment record:
    submission is flushed, not committed.
 2. `registration.form_submission_id = submission.id`; `Registration.check()`
    on flush confirms: a linked submission's `form_id` is the component's
-   `form_id`. (Not "component with a form ⇒ submission": the board form
-   registers without answers, R5.) The board channel skips step 1.
+   `form_id`. (Not "component with a form ⇒ submission": "later" exists,
+   R2.) With "later", step 1 is replaced by `answer_token = new_token()`.
 3. `payment.api.create_payment_record` — as today; a Mollie failure rolls
    back the registration **and the submission** (one transaction; today's
    502 path).
@@ -363,21 +429,31 @@ of refusals on one submit: contact → products → component rules → answers.
 
 ### B4.3 Rendering and posting the fields
 
-Field names in the registration post: `q_<field_id>` (the form builder's
-own public form posts `field_<id>`; the prefix differs on purpose so a
-registration field and a question can never collide — `phone` is a field
-type *and* a registration column). `registration_form.py` collects every
-`q_*` into `RegistrationCreate.answers: dict[int, str | list[str]]`
-(checkbox = list). The board form posts the same names. The JSON API takes
-`answers` as `{"<field_id>": value}`; unknown ids are refused (a question
-that is not on this form).
+The form builder's field partial is a macro, `veld(f)`, keyed on
+`f<field_id>` (measured: `_formulier_veld.html`, with `f<id>_other` for
+"Andere…", #337). The registration page uses **the same keys**, so the
+partial renders unchanged and the form builder's own parser —
+`_answers_from_form(form, form_data)` in `forms/ui.py`, exported as
+`forms.api.answers_from_form` — turns the post into the `AnswerIn` list
+that `build_answers` expects. No second parser, no second key scheme. The
+keys cannot collide with the registration's own (`contact_name`, `phone`,
+`product_<id>`, `remarks`, `payment_method`, `team_name`, `questions` for
+the now/later choice). The JSON API takes `answers` as
+`[{"field_id": …, "text" | "number" | "option_ids" | "rating" …}]` — the
+`AnswerIn` shape the forms API already speaks — and refuses an unknown id.
 
 ### B4.4 Reading the answers
 
 `forms.api.submission_view(db, submission_id)` exists (label/value rows for
 the workflow task detail) and is reused for the admin detail. The export
-asks `forms.api.form_definition` for the field order and `submission_view`
-per registration; one column per field, header = field label. A component
+asks `forms.api.form_definition` for the field order and
+`forms.api.submission_views(db, ids)` **once** for all registrations of the
+component — not one query per row; one column per field, header = field
+label. What the code calls "the door list" *is* this export (measured: no
+separate print view exists; the comments in `admin_inschrijving_nieuw.html`
+and `models.py` mean the component's .ods), so the answers are on it by
+this section, and the form's own remarks question is one of its columns
+(Q22). A component
 whose form changed after the first answers cannot happen (F11).
 
 ### B4.5 Attaching and detaching
@@ -390,6 +466,21 @@ registration with a submission is refused (Koen, 29 Sep, R10): the answers
 of one component then all belong to one form, and the export has one set of
 columns. To change the questions after answers exist, the organiser detaches
 and attaches a new form on a *new* component, or lives with #665's rule.
+After the attach the form's `status` is not consulted again: closing the
+form in the builder does not close the component's registration — the
+component's own `registration_closes_on` does (F2).
+
+### B4.6 What the form builder shows — and does not
+
+The form's submissions view (`/admin/formulieren/{id}/inzendingen`) lists an
+attached submission like any other: submitter name and address, the
+answers, the export. The form's results view (counts per option) works
+unchanged — a free win: "how many chose the morning slots". What it does
+**not** show is "inschrijving #N": that cell would need `forms` to look up
+which registration points at the submission, i.e. `forms` reading
+`activities` — the dependency turned around for one hyperlink. The
+organiser's way to the answers is the registration (detail, export), and
+that is where the link lives (Q19; the first draft had the cell).
 
 ### B4.7 Correcting an answer afterwards (R7)
 
@@ -407,7 +498,9 @@ save posts to `/admin/inschrijvingen/{id}/antwoorden`, which calls
 registration's own transaction, and writes a `RegistrationHistory` row
 "answers edited" carrying old and new values as label/value text (the
 registration already keeps history for remarks and lines; answers join it).
-The member does not get an edit link for an attached submission (Non-goals).
+The member does not get an edit link for an attached submission (Non-goals): an
+answer they want to change goes through the organiser, who then has the
+history row that says who changed what.
 
 Changing the **form itself** after answers exist is a different question and
 is already answered by the form builder: refused (#665), because
@@ -415,10 +508,10 @@ is already answered by the form builder: refused (#665), because
 
 ### B4.8 Answers later, by link (R5)
 
-A board registration for a component with a form does not ask the questions
-(the board rarely knows the answers); the member answers afterwards through
-a link. The mechanics follow the form builder's own edit link
-(`edit_token`), on the registration side:
+"Later" — chosen by the member on the public page, by the board on its
+page, or by an API call without answers — means: the registration exists,
+the answers come afterwards through a link. The mechanics follow the form
+builder's own edit link (`edit_token`), on the registration side:
 
 - `create_registration`, either channel, "later" chosen (or the API without
   `answers`): no submission; `registration.answer_token` = a fresh url-safe
@@ -439,9 +532,12 @@ a link. The mechanics follow the form builder's own edit link
   attached the form after the first registrations".
 - The token is the only secret; it is not the registration id, and the
   page does not accept an id. The rate limiter of the registration routes
-  covers the post.
+  covers the GET and the POST (an unknown token is a 404 that costs a
+  request from the same budget). The page shows the first name and the
+  activity, not the address or the phone: whoever holds a forwarded link
+  learns no more than the mail already said.
 
-**The mail — proposal, open (Q11).** A board registration already sends the
+**The mail** (decided 29 Sep, Q11). A board registration already sends the
 same confirmation mail as a member's own registration, to the member's
 address, with the payment information. Keep that: **one mail**, with one
 variable block after the products and the payment information — the
@@ -517,12 +613,36 @@ both channels whenever answers are posted; since 29 September the choice is
 on both pages with the same default, so the channels differ in nothing
 about the questions at all.
 
-### B4.6 What the form builder shows
+### B4.10 The page itself
 
-The form's submissions view (`/admin/formulieren/{id}/inzendingen`) lists
-the attached submissions like any other, with one extra cell "inschrijving
-#N" linking to the registration. The form's results view (counts per
-option) works unchanged — that is a free win: "how many chose vegetarian".
+One page, phone first (80 % of visits), in the kit's macros; nothing new in
+the design system. Top to bottom:
+
+1. `page_header`: the activity's name, its date, and — when the activity
+   has more than one component — the component chips (the board page's
+   buttons, P14); the chosen one is primary.
+2. **Wie** — name, e-mail, mobile (prefilled for a signed-in member), team
+   name when the component asks it.
+3. **Wat** — the product rows with their counters and the total that
+   follows every change; unchanged.
+4. **Vragen** — only when the component has a form: a card headed with the
+   form's *title* and its *description* as the intro line (the builder has
+   both; today they are unused on this path), then the choice as one
+   segmented control *Nu invullen · Later via e-mail*, then the fields when
+   "nu" — the form builder's own rendering, so a question looks here as it
+   looks on a standalone form. The registration's *Opmerkingen* box is not
+   shown (Q9).
+5. **Betalen** — the payment choice with its consequence line, only when
+   something is payable; unchanged.
+6. One primary button, *Inschrijven*, full width on a phone; "‹ Terug"
+   above the header as a text link. No sticky bar: the page is short enough
+   without a form and, with one, the button belongs after the last question.
+
+After the submit: Mollie, or a thank-you page in the same shell — the
+banner of today (P8), the answer link when "later" was chosen, and one
+link back to the activity's component. A refusal re-renders the page with
+the banner on top and the first refused question scrolled into view and
+marked, the way the form builder marks one (`data-veld`, #741/#749).
 
 ## B5. Data model
 
@@ -540,7 +660,7 @@ erDiagram
   FORM_FIELD ||--o{ FORM_SUBMISSION_ANSWER : "answered by"
 ```
 
-### B5.2 Tables
+### B5.2 Tables — schemas, columns, validation layers
 
 | Table | Change | Validation |
 |---|---|---|
@@ -552,73 +672,105 @@ Migration: one, `alembic revision -m "component form, registration submission an
 additive (`ADDITIVE = True`); no data step. Check the CHECK constraints on
 both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
 
-## B6. Privacy and security — the mechanics
+## B6. Privacy and security — the mechanics behind A6
 
-Answers are stored in `form.form_submission_answers`, seen through the
-admin only (`require_admin_ui` on the detail and export), never rendered on
-the public participant list or in the "Wie doet er mee?" line. They ride
-the registration's audit history? No — the submission has no history table
-today, and an answer edited by the organiser (R7, Could) would need one;
-that is why R7 is Could. Nothing leaves the system except in the
-confirmation mail (R6, Could) to the registrant's own address. The export
-already carries personal data and stays behind the same login.
+- **Where the answers live and who reads them.** `form.form_submission_answers`,
+  read through the admin only (`require_admin_ui` on the registration
+  detail, the export and the form builder's views); never on the public
+  participant list or in "Wie doet er mee?". They follow the registration's
+  soft delete (F10) and are deleted with the form when the form is deleted
+  (the builder's own cascade — attaching does not change it).
+- **What leaves the system.** The confirmation mail, to the registrant's own
+  address, repeats the answers (R6) — the member's own words back to the
+  member — and, with "later", carries the answer link. Nothing to a third
+  party; the export is a file the organiser downloads behind the login.
+- **The answer link** is the one unauthenticated write this CR adds. The
+  secret is 32 random url-safe bytes (as the builder's `edit_token`), stored
+  once, cleared when used, unique; the page accepts nothing else, shows the
+  first name and the activity only, refuses a used or unknown token with the
+  same 404, and sits under the registration rate limiter for GET and POST.
+  A forwarded mail lets its holder answer for the member — the same trust
+  the builder's edit link and every "confirm your e-mail" link already
+  place in the mailbox.
+- **Who changed what.** An answer edited by the organiser (R7) leaves a
+  `RegistrationHistory` row with old and new values and the actor; the
+  submission itself keeps no history, and does not need one as long as the
+  only editor is the organiser through the registration.
+- **Health data** (allergies): no separate handling in the system, decided
+  (Koen, 29 Sep, Q18) — see A6. What the CR does guarantee: the answer is seen by the roles that
+  see the registration and nobody else, and it is asked only where an
+  organiser attached a form that asks it.
 
-## B7. Phasing
+## B7. Phasing — shippable phases, and what changes on the failure paths
 
-One phase; it is one feature. Ships after CR-13 phase 1 is on `master`
-(the `Registration` aggregate with `check()`, `Money`, the one
-`create_registration`), so the "component with a form needs a submission"
-rule has its home from day one.
+Three phases, each shippable and testable on HDEV on its own, in one
+release or spread over two; the first is worth doing even if the others
+wait. Ships after CR-13 phase 1 is on `master` (the `Registration`
+aggregate with `check()`, the one `create_registration`), so the rule "a
+linked submission belongs to the component's form" has its home from day
+one.
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
-| 1 | the two links and the token, the picker with its refusals (F2, F13), the one registration page for member and board (B4.1, parity B4.9), the now-or-later choice and the answer page (B4.8), the API, the admin detail and export; **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 on `master` | one, additive | none | a registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration, public or board, sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
-| 1b | R6 mail with the answers, R7 edit on the registration detail with history | 1 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
+| 1 — **the page** | the one registration page for member and board (B4.1, B4.10), parity walked (B4.9), the component chips on the public page, the thank-you page; no questions yet. **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 on `master` | none | none | none on the happy path; the in-place participant refresh becomes a refresh on return (P10) | AC9 on HDEV: the parity list, phone and desktop |
+| 2 — **the questions** | the two links and the token, the picker with its refusals (F2, F13), the questions with the now/later choice on both pages, the answer page and the link in the mail (B4.8), the API field, the admin detail and the export (B4.4) | 1 | one, additive: `form_id`, `form_submission_id`, `answer_token` | none | a "now" registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
+| 3 — **the aftercare** | R6 the answers in the mail, R7 editing on the registration detail with history, "link opnieuw sturen" | 2 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
-## B8. Tests
+Why the page is phase 1 on its own: it is the change every member sees,
+with or without a form, and it carries the parity risk (R11). Validated
+first and alone, a regression there is found on a page that has no
+questions yet — and the Sint form lands on a page Koen has already
+approved.
+
+## B8. Tests — what the build must prove
 
 Each able to go red:
 
-1. **Three entrances, one rule.** Public page, board page and JSON API each
+1. **Parity, mechanically where it can be** (phase 1). For P2–P7, P9, P11
+   and P13 the existing tests of #1284 and #1159's neighbours pass on the
+   page unchanged (same field names, same routes, same totals); P8 and P10
+   get a new e2e step (register free → thank-you page → back on the
+   component with the list showing the new name); P1, P12, P14, P15 are the
+   eye, on the two screenshots of AC9.
+2. **Three entrances, one rule.** Public page, board page and JSON API each
    post "now" with a required question left empty → refused with the
    question's label in the message; the registrations table is unchanged
    (count before = after). Each posts "later" → saved, `form_submission_id`
    NULL, `answer_token` set, one mail with the link.
-1b. **The link, once.** GET the page with the token → the fields; POST valid
+3. **The link, once.** GET the page with the token → the fields; POST valid
    answers → submission linked, token cleared; POST again or GET again →
    "al ingevuld", no second submission; a wrong token → 404, nothing
-   revealed.
-2. **One transaction.** Stub provider set to fail → after the 502 there is
+   revealed; the twentieth wrong token in a minute → 429 (the limiter).
+4. **One transaction.** Stub provider set to fail → after the 502 there is
    no registration *and no submission* for that component.
-3. **The link is right.** After a registration, `registration.form_submission`
+5. **The link is right.** After a registration, `registration.form_submission`
    is the submission whose `form_id` is the component's form, and its
    submitter matches the contact.
-4. **Attach rules by violation.** Attaching a closed form, another tenant's
-   form, a two-section form → each refused with its own message; an open
-   one-section form → attached.
-5. **Export columns.** A form with three fields → the export sheet has three
-   extra columns after *Opmerkingen*, headers = labels, in field order; a
-   checkbox answer joined with ", ".
-6. **Detached object.** `Registration.check()` on an in-memory registration
+6. **Attach rules by violation.** Attaching a closed form, another tenant's
+   form, a two-section form, an anonymous form, a capped form → each refused
+   with its own message; an open one-section form → attached; closing the
+   form afterwards → the component still registers.
+7. **Export columns, one query.** A form with three fields → the export
+   sheet has three extra columns after *Opmerkingen*, headers = labels, in
+   field order; a checkbox answer joined with ", "; the answers are fetched
+   in one call for all rows (a query counter, not a timing).
+8. **Detached object.** `Registration.check()` on an in-memory registration
    whose submission belongs to another form → refused; the component's form
-   → passes; no submission → passes (the board case); no session (CR-13
-   test 5).
-7. **Replace refused, detach allowed.** A component with one answered
+   → passes; no submission → passes ("later"); no session (CR-13 test 5).
+9. **Replace refused, detach allowed.** A component with one answered
    registration: attaching another form → refused with the message; detaching
    → allowed, the submission still there (F13).
-9. **Edit re-validates and records.** Editing an answer to empty on a
-   required field → refused; to a valid value → the answer rows replaced, one
-   `RegistrationHistory` row with old and new (F12).
-8. **Screen at 390 px** (CR-13's merge-gate eye): the questions render in
-   order, each label once, nothing clipped — measured from the DOM.
-10. **Parity, mechanically where it can be.** For P2–P7, P9, P11 and P13 the
-   existing tests of #1284 and #1159's neighbours must pass on the page
-   unchanged (same field names, same routes, same totals); P8 and P10 get a
-   new e2e step (register free → thank-you page → back on the component with
-   the list showing the new name); P1, P12, P14, P15 are the eye, on the two
-   screenshots of AC9.
+10. **Edit re-validates and records.** Editing an answer to empty on a
+    required field → refused; to a valid value → the answer rows replaced,
+    one `RegistrationHistory` row with old and new (F12).
+11. **Screen at 390 px** (CR-13's merge-gate eye): the questions render in
+    order, each label once, nothing clipped, the refused question marked —
+    measured from the DOM.
+12. **The same parser.** A post with "Andere…" text on a checkbox question
+    reaches the submission as the builder's own public form would store it
+    (the parser is one, B4.3) — asserted by comparing the two submissions.
 
-## B9. Rule and gatekeeper
+## B9. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *Anything the portal asks a member beyond the fixed fields
    of a registration is a form of the form builder, linked from the
@@ -637,27 +789,41 @@ Each able to go red:
    a form field (CR-14 B9)". The cross-domain mechanics are already gated by
    CR-13 (*no foreign writes*, *one transaction*, the import gate).
 
-## B10. Prototype findings
+## B10. Prototype findings — what was measured before the build
 
-None yet. To measure before build: how `_formulier_veld.html` renders inside
-`_inschrijf_velden.html` on the registration page at 390 px for each of the
-ten field types (one screenshot per type), and whether `build_answers` can run on a flushed but
-uncommitted form submission (it reads the form definition, so it should).
+None yet. To measure before the build of phase 2:
 
-## B11. Decisions log
+- how the `veld(f)` macro renders inside `_inschrijf_velden.html` on the
+  registration page at 390 px for each of the ten field types (one
+  screenshot per type), and what `_form_render_ctx` in `forms/ui.py` puts
+  in the context that the macro needs (`values`, the screen fields, the
+  "wiz" flag) — the registration view-model must promise the same names;
+- whether `build_answers` runs on a form loaded in the registration's
+  session and a submission flushed but not committed (it reads the form
+  definition, so it should);
+- the size of the `_answers_from_form` move to `forms.api` — it is private
+  today and tied to the request's form data type.
+
+## B11. Decisions log — dated answers and open proposals
 
 | Date | Decision | By |
 |---|---|---|
 | 29 Sep 2026 | A registration can carry extra questions; they are a form attached to a component and answered in one movement while registering. | Koen (spoken brief; Part A to confirm) |
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
-| 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
+| 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards *(superseded the same day: the choice now/later on both pages, last row)*. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
 | 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
+| 29 Sep 2026 | Nothing is provided for health data today (an allergy is an answer like any other). The form builder does not point back at the registration. Three phases: the page first, then the questions, then mail and editing. | Koen |
 | 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link; default "nu" on both. | Koen |
 
-## Q&A log
+## Q&A log — asked once, answered here
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
+| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A6, B6. |
+| Q19 | 29 Sep 2026 | The first draft let the form builder's submissions view show "inschrijving #N". That needs `forms` to read `activities` — the dependency the wrong way round, for one link. Dropped: the way to the answers is the registration. Agreed? (Claude, review) | Koen, 29 Sep: agreed. F10, B4.6. |
+| Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B7. |
+| Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
+| Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
 | Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A4. |
 | Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | Koen, 29 Sep: no — a person plans the visits afterwards. A checkbox question it is. |
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
@@ -676,15 +842,17 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q6 | 29 Sep 2026 | Repeat the answers in the confirmation mail (R6)? Let the organiser correct an answer (R7)? (Claude) | Koen, 29 Sep: yes to both (Should), with the question "how does it work when the form may be changed afterwards?" — answered in B4.7: an *answer* is edited on the registration detail, re-validated, with a history row; the *form* cannot change once it has answers (#665). |
 | Q7 | 29 Sep 2026 | Does the attached form's own public URL stay usable? (Claude) | Koen, 29 Sep: yes. R8 Should; such a submission has no registration and the form's submissions view shows it so. F9. |
 
-## Non-goals
+## Non-goals — deliberately outside this change
 
 - Questions per product or per ticket (R9) — a different shape.
 - Sections and branching inside a registration (#336) — a one-section form only; a longer questionnaire stays a standalone form.
 - Answers in the reporting engine (CR-06) — the export covers it.
 - A new field type (date, file upload) — the form builder's list is what it is; a new type is a forms change.
 - Editing answers by the member after registering — the form builder's edit link exists for standalone forms; not wired to a registration here (the organiser edits, R7).
+- A link from the form builder's submissions view back to the registration (Q19) — the dependency would run the wrong way.
+- Reminders on a schedule for open answer requests — the organiser resends by hand; a job that nags is a workflow feature, later if ever.
 
-## Relationship to existing work
+## Relationship to existing work — issues and change requests
 
 - **#1320** — the issue for this change request (blank on purpose; the CR is the content).
 - **CR-03 (form types):** the six registration form types this idea replaces in spirit — v2.0 removed them; this CR is the attachable form instead of fixed types.
