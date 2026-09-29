@@ -182,11 +182,14 @@ and deliberately not done — recorded so it is not asked again).
 
 > [!NOTE]
 > *The **application structure drawing**: one subgraph per module touched,*
-> *inside it a box per layer that changes (screen · view-model · service ·*
-> *entity · facade · migration · template), the same colour per module as in*
-> *B2.1; arrows between modules only through a facade (`api.py`), as the*
-> *import gate enforces; external systems and data stores as their own*
-> *boxes. Then the **data model at a glance**: a Mermaid `erDiagram` of the*
+> *inside it a box per layer (screen · view-model · service · entity ·*
+> *facade · migration · template) — a separate box for what is **new** and*
+> *for what is **changed** in that layer, and one grey box for what is only*
+> *used. Here the colour is the kind of change, not the module: green new,*
+> *orange changed, grey unchanged — the module is the subgraph, and B2.1*
+> *already coloured per module. One legend line. Arrows between modules*
+> *only through a facade (`api.py`), as the import gate enforces; external*
+> *systems and data stores as their own boxes. Then the **data model at a glance**: a Mermaid `erDiagram` of the*
 > *entities involved with their key columns and relationships, cardinality*
 > *on the edges, soft references across schemas drawn as relationships too,*
 > *and what is new or changed marked in the label. Under it, in prose: who*

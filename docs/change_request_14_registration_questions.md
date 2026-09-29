@@ -448,50 +448,62 @@ component with answered registrations → refused (AC5).
 
 ### B2.2 The whole across the modules — for the architect
 
+Colour is the kind of change: **green = new**, **orange = changed**,
+**grey = used, unchanged**. The module is the frame.
+
 ```mermaid
 flowchart TB
-  subgraph activities["activities (blue)"]
-    A1["screens: registration page · answer page ·<br/>board page · component settings · detail"]
-    A2["view-model: registration_form.py<br/>(choice, answers)"]
-    A3["service: create_registration · answer_questions ·<br/>attach/detach · export"]
-    A4["entities: Registration (+form_submission_id,<br/>+answer_token, check()) ·<br/>ActivitySubRegistration (+form_id)"]
-    A5["migration: three nullable columns"]
-    A1 --> A2 --> A3 --> A5
-    A6 -.-> A5
+  subgraph activities["activities"]
+    A1n["screens — new:<br/>answer page · book view"]
+    A1c["screens — changed:<br/>registration page (modal → page) ·<br/>board page · component settings · detail"]
+    A2c["view-model — changed:<br/>registration_form.py (choice, answers)"]
+    A3n["service — new:<br/>answer_questions · attach / detach rules"]
+    A3c["service — changed:<br/>create_registration · export"]
+    A4c["entities — changed:<br/>Registration (+form_submission_id, +answer_token, check()) ·<br/>ActivitySubRegistration (+form_id)"]
+    A5n["migration — new:<br/>three nullable columns"]
+    A1n --> A3n
+    A1c --> A2c --> A3c --> A4c
+    A3n --> A4c
+    A5n -.-> A4c
   end
-  subgraph forms["forms (green)"]
-    F1["facade api.py: submit_attached · update_attached ·<br/>attachable_forms · answers_from_form · submission_views"]
-    F2["service: build_answers (unchanged)"]
-    F3["entities: Form · FormField ·<br/>FormSubmission · FormSubmissionAnswer (unchanged)"]
-    F4["template: _formulier_veld.html (unchanged)"]
-    F1 --> F2 --> F3
-  end
-  subgraph payment["payment (unchanged)"]
-    P1["facade api.py: create_payment_record"]
+  subgraph forms["forms"]
+    F1n["facade — new:<br/>submit_attached · update_attached ·<br/>attachable_forms · answers_from_form · submission_views"]
+    F2u["service · entities · template — used:<br/>build_answers · Form, FormField, FormSubmission,<br/>FormSubmissionAnswer · _formulier_veld.html"]
+    F1n --> F2u
   end
   subgraph mail["mail"]
-    M1["service + template: the confirmation<br/>(answers or link block)"]
+    M1c["template — changed:<br/>the confirmation (answers or link block)"]
+  end
+  subgraph payment["payment"]
+    P1u["facade — used:<br/>create_payment_record"]
+  end
+  subgraph reporting["reporting"]
+    R1u["views — unchanged:<br/>no view reads the new columns"]
   end
   MOL[(Mollie)]
-  A3 --> F1
-  A3 --> P1
-  A3 --> M1
-  A1 -. renders .-> F4
-  A5 -. FK .-> F3
-  P1 --> MOL
-  classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
-  classDef frm fill:#dcfce7,stroke:#15803d,color:#111
-  classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
-  class A1,A2,A3,A5,A6 act
-  class F1,F2,F3,F4 frm
-  class P1,M1 oth
+  A3c --> F1n
+  A3n --> F1n
+  A3c --> P1u
+  A3c --> M1c
+  A1c -. renders .-> F2u
+  A4c -. FK .-> F2u
+  P1u --> MOL
+  classDef new fill:#dcfce7,stroke:#15803d,color:#111
+  classDef chg fill:#ffedd5,stroke:#c2410c,color:#111
+  classDef used fill:#f3f4f6,stroke:#6b7280,color:#111
+  class A1n,A3n,A5n,F1n new
+  class A1c,A2c,A3c,A4c,M1c chg
+  class F2u,P1u,R1u used
 ```
 
 `activities` reaches `forms`, `payment` and `mail` only through their
 facades (the import gate); the template include of `_formulier_veld.html`
 is a *read* of a template, which the layer gate allows as it allows the
-macros. `forms` reaches nothing new. Four of the five layers of
-`activities` change; in `forms` only the facade grows.
+macros. `forms` reaches nothing new. Read by colour: in `activities` two
+things are new (the answer page with its service, the book) and every
+layer changes; in `forms` only the facade grows and nothing existing
+changes; `mail` changes one template; `payment` and `reporting` are
+untouched.
 
 - **Cross-schema FKs** `activities.activity_sub_registrations.form_id →
   form.forms.id` and `activities.registrations.form_submission_id →
