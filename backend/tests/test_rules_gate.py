@@ -1238,6 +1238,101 @@ def collect_command_calls_outside_handlers() -> dict[str, str]:
     return found
 
 
+# ── 11. No rule in a router (ratchet with a reason per entry) ───────────────
+
+# The doorman's own refusals — not a business rule: not found, not logged in, not
+# allowed, too many requests (§B9.3). CSRF refuses with 403 and is covered by it.
+_DOORMAN_STATUS = {401, 403, 404, 405, 429}
+_ERROR_HELPERS = {"_fout", "_error", "fout", "error_response"}
+_ERROR_KEYS = {"error", "fout", "foutmelding", "fout_veld_id"}
+
+
+def _status_of(raise_: ast.Raise) -> int | None:
+    call = raise_.exc
+    if not isinstance(call, ast.Call):
+        return None
+    for keyword in call.keywords:
+        if keyword.arg == "status_code" and isinstance(keyword.value, ast.Constant):
+            return keyword.value.value
+        if keyword.arg == "status_code" and isinstance(keyword.value, ast.Attribute):
+            digits = re.search(r"HTTP_(\d{3})", keyword.value.attr)
+            return int(digits.group(1)) if digits else None
+    if call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, int):
+        return call.args[0].value
+    return None
+
+
+def _refusal_in(block: list[ast.stmt]) -> tuple[int, str] | None:
+    """A refusal that is not the doorman's: a raise (other than 401/403/404/405/429)
+    or an error helper, directly in the branch."""
+    for stmt in block:
+        for node in _statement_nodes(stmt):
+            if isinstance(node, ast.If):
+                break  # a nested `if` is judged on its own test
+            if isinstance(node, ast.Raise):
+                if node.exc is None or (
+                    isinstance(node.exc, ast.Name) and node.exc.id.startswith("_")
+                ):
+                    continue  # a re-raise, or a private signal for control flow
+                status = _status_of(node)
+                if status is not None and status >= 500:
+                    continue  # a failure upstream (the payment provider), not a refusal
+                if status not in _DOORMAN_STATUS:
+                    return node.lineno, f"raises{f' {status}' if status else ''}"
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") in _ERROR_HELPERS:
+                return node.lineno, f"{node.func.id}()"
+            # A screen refuses by showing the form again with a message:
+            # `ctx["error"] = "…"`, or a view-model built with `error="…"`.
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and isinstance(target.slice, ast.Constant)
+                        and target.slice.value in _ERROR_KEYS
+                        and _is_message(node.value)
+                    ):
+                        return node.lineno, f"sets [{target.slice.value!r}]"
+            if isinstance(node, ast.Call):
+                for keyword in node.keywords:
+                    if keyword.arg in _ERROR_KEYS and _is_message(keyword.value):
+                        return node.lineno, f"shows {keyword.arg}="
+    return None
+
+
+def _is_message(node: ast.AST) -> bool:
+    """A message written at the door — `"…"` or `_("…")`. A variable passes on a
+    refusal someone else decided (`error=_upload_error(exc)`), which is not a rule here."""
+    if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "_" and node.args:
+        node = node.args[0]
+    return isinstance(node, (ast.Constant, ast.JoinedStr)) and bool(getattr(node, "value", True))
+
+
+def collect_rule_in_router() -> dict[str, str]:
+    """An `if` that refuses, in a router or UI module → key `file::function::condition`
+    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429 — excepted. A rule at the door holds for that door only;
+    the service's rule holds for every entrance."""
+    found: dict[str, str] = {}
+    doors = [p for p in _python_files() if _is_door(p) and p.name != "main.py"]
+    assert len(doors) > 30, f"only {len(doors)} router/UI modules — the walk is blind"
+    for path in doors:
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If):
+                continue
+            refusal = _refusal_in(node.body)
+            if refusal:
+                name = qualified.get(node, "<module>")
+                condition = ast.unparse(node.test)
+                found.setdefault(
+                    f"{_rel(path)}::{name}::{condition}",
+                    f"{_rel(path)}:{refusal[0]} `{name}` decides on `{condition}` and "
+                    f"{refusal[1]} — a rule belongs to the entity or its service, where "
+                    f"every entrance meets it (CR-13 §B9.3)",
+                )
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -1251,6 +1346,7 @@ COLLECTORS = {
     "WRITE_AFTER_COMMIT": collect_write_after_commit,
     "COMMIT_BEHIND_API": collect_commit_behind_api,
     "COMMAND_CALLS": collect_command_calls_outside_handlers,
+    "RULE_IN_ROUTER": collect_rule_in_router,
 }
 
 
@@ -1400,6 +1496,26 @@ def test_events_not_calls():
 )
 def test_a_command_is_an_export_that_writes(domain, name, command):
     assert ((domain, name) in api_commands()) is command
+
+
+def test_no_new_rule_in_a_router():
+    """Ratchet with a reason per entry (§B9.3). Proof (run, removed), additive, both
+    halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
+    HTTPException(status_code=404)` and `if page.slug == "home": raise
+    HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
+    `page.slug == 'home'`; the doorman's 404 stays off the list."""
+    _ratchet("RULE_IN_ROUTER")
+
+
+def test_every_rule_in_a_router_carries_its_reason():
+    """The change request's condition for this baseline: each entry says whether it
+    is a rule on its way to the entity (and in which phase) or the doorman's own."""
+    bad = {
+        key: reason
+        for key, reason in baseline.RULE_IN_ROUTER.items()
+        if not re.match(r"(rule: .+ — phase [1-4]|door: .+)$", reason)
+    }
+    assert not bad, bad
 
 
 @pytest.mark.parametrize(

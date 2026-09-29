@@ -27,6 +27,7 @@ from tests.test_rules_gate import (
     collect_foreign_writes,
     collect_json_route_without_caller,
     collect_network_in_handler,
+    collect_rule_in_router,
     collect_session_on_entity,
     collect_validator_without_constraint,
     collect_write_after_commit,
@@ -149,6 +150,7 @@ def a2_table() -> list[tuple[str, int | str]]:
             "calls into another domain's command outside a handler",
             len(collect_command_calls_outside_handlers()),
         ),
+        ("refusals decided in a router or screen", len(collect_rule_in_router())),
     ]
 
 

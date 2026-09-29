@@ -881,3 +881,58 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/payment/status_router.py::delete_payment_record → audit.api.snapshot_payment_record",
     }
 )
+
+
+# Refusals decided at the door (§B9.3, *no rule in a router*), 29 September 2026, with
+# a reason per entry, as the change request asks: a `rule` moves to its entity or
+# service in the phase named; a `door` entry is the request's shape (a file's size or
+# type, an empty upload, a parameter) and is the doorman's own — the phase that
+# sweeps its domain decides whether the gate learns to except it or it stays named.
+# Keys are `file::function::condition` — the condition text, not a line number.
+RULE_IN_ROUTER: dict[str, str] = {
+    "domains/activities/admin_ui.py::activiteit_aanmaken::not name.strip() or not start_date": "rule: an activity has a name and a start date (Activity) — phase 4",
+    "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
+    "domains/activities/admin_ui.py::inschrijving_regel_toevoegen::not (product_id or '').strip()": "door: the add-line form sent no product choice — the request's shape, not a rule on the data",
+    "domains/activities/admin_ui.py::organisator_bijwerken::laatste and (not aan) and (not bevestigd)": "rule: an activity keeps at least one contact organiser (Activity) — phase 4",
+    "domains/activities/router.py::_validate_order_product::not comp or comp.activity_id != activity.id": "rule: the component belongs to the activity (Registration) — phase 1",
+    "domains/activities/router.py::_validate_order_product::reg.component_id is not None and product.component_id != reg.component_id": "rule: the product belongs to the registration's component (Registration) — phase 1",
+    "domains/activities/router.py::create_registration::current_qty + new_qty > component.max_participants": "rule: a component's capacity (Registration) — phase 1",
+    "domains/activities/router.py::create_registration::existing_count >= max_regs": "rule: the tenant's limit of registrations per e-mail (Registration) — phase 1",
+    "domains/activities/router.py::create_registration::item_data.product_id not in valid_product_ids": "rule: the product belongs to the component (Registration) — phase 1",
+    "domains/activities/router.py::create_registration::item_data.quantity < 0 or item_data.quantity > max_qty": "rule: an order line's quantity bounds (Registration) — phase 1",
+    "domains/activities/router.py::create_registration::weigering": "rule: relays registration_refusal(): the rule is in the domain, the call moves into the service — phase 1",
+    "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
+    "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
+    "domains/chatbot/ui.py::notitie_toevoegen::not title.strip() or not text_addition.strip()": "rule: a note has a title and a text — phase 4",
+    "domains/cms/admin_ui.py::pagina_aanmaken::not title.strip() or not slug.strip()": "rule: a page has a title and a slug (CmsPage) — phase 4",
+    "domains/cms/admin_ui.py::pagina_bijwerken::sort_order is not None": "door: parses the form's number field — the request's shape, not a rule on the data",
+    "domains/forms/admin_ui.py::instellingen_opslaan::status not in FORM_STATUSES": "rule: a form's status comes from the closed set (Form) — phase 4",
+    "domains/forms/admin_ui.py::json_import::file is not None and file.filename": "door: reads the uploaded JSON file — the request's shape, not a rule on the data",
+    "domains/forms/admin_ui.py::json_import::not payload.strip()": "door: nothing pasted and nothing uploaded — the request's shape, not a rule on the data",
+    "domains/forms/router.py::export_form::format != 'ods'": "door: the export format parameter — the request's shape, not a rule on the data",
+    "domains/mdm/import_router.py::_parse_or_400::filename and filename.lower().endswith('.xlsx')": "door: the uploaded file's type — the request's shape, not a rule on the data",
+    "domains/mdm/import_router.py::_take::time.monotonic() - entry['created_at'] > _TTL_SECONDS": "door: the preview token expired — the request's shape, not a rule on the data",
+    "domains/mdm/import_router.py::preview::len(content) > _MAX_FILE_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
+    "domains/mdm/import_router.py::preview::not content": "door: an empty upload — the request's shape, not a rule on the data",
+    "domains/mdm/ui.py::adres_opslaan::hoofdlid is None": "rule: a household has a primary member (Member) — phase 3",
+    "domains/mdm/ui.py::gezin_aanmaken::not rijen": "rule: a family has at least its primary member (Member) — phase 3",
+    "domains/media/router.py::_process_document::len(raw) > MAX_UPLOAD_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
+    "domains/media/router.py::_process_document::not raw": "door: an empty upload — the request's shape, not a rule on the data",
+    "domains/media/router.py::_replace_single_asset::file.content_type not in DOC_CONTENT_TYPES": "door: the uploaded file's type — the request's shape, not a rule on the data",
+    "domains/meetings/admin_ui.py::circle_add::organization is None": "door: the tenant has no organisation configured yet — a setup message — the request's shape, not a rule on the data",
+    "domains/meetings/admin_ui.py::circle_new_person::organization is None": "door: the tenant has no organisation configured yet — a setup message — the request's shape, not a rule on the data",
+    "domains/membership/household_router.py::add_person::not first_name or not last_name": "rule: a person has a first and a last name (Person) — phase 3",
+    "domains/membership/household_router.py::remove_person::target.id == person.id": "rule: a member cannot remove themselves from their household (Member) — phase 3",
+    "domains/membership/household_router.py::renew_membership::has_valid_membership(person) and (not renewal_window_open)": "rule: renewal only inside the renewal window (Membership) — phase 3",
+    "domains/membership/household_router.py::renew_membership::membership and membership.is_active": "rule: no second active membership (Membership) — phase 3",
+    "domains/membership/household_router.py::renew_membership::open_renewal_payment(db, member)": "rule: one open renewal payment at a time (Membership) — phase 3",
+    "domains/membership/household_router.py::update_person::not pc": "rule: an address uses a postal code from the table (Address) — phase 3",
+    "domains/membership/register_router.py::register_family::not recs or any((r.status in (PaymentStatus.PAID, PaymentStatus.PENDING) for r in recs))": "rule: a family registers once while a payment is open or paid (Member) — phase 3",
+    "domains/membership/ui.py::lid_worden_submit::not (values.get('postal_code') or '').strip()": "rule: an address uses a postal code from the table (Address) — phase 3",
+    "domains/membership/ui.py::lid_worden_submit::not members": "rule: a registration has at least one member (Member) — phase 3",
+    "domains/newsletter/admin_ui.py::subscriber_import_preview::len(data) > MAX_IMPORT_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
+    "domains/payment/status_router.py::delete_payment_record::record.amount_paid is not None and record.amount_paid != 0": "rule: a record with money on it is not deleted (PaymentRecord) — phase 2",
+    "domains/payment/status_router.py::delete_payment_record::record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID": "rule: a paid online record is not deleted (PaymentRecord) — phase 2",
+    "domains/payment/status_router.py::refresh_payment_record::record.method != PaymentMethod.ONLINE or not record.gateway_payment_id": "rule: only an online record with a gateway id refreshes (PaymentRecord) — phase 2",
+    "domains/reporting/admin_ui.py::_ask::not vraag": "door: an empty question in the assistant box — the request's shape, not a rule on the data",
+}
