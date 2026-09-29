@@ -173,6 +173,15 @@ chose the morning slots"), and the registration detail shows one household's
 answers. The reporting panel (CR-06) is *not* asked for anything: the
 answers are per activity, not a measure across activities (B5.3).
 
+**Realised through the existing export of the component, not through the
+reporting panel** (Koen, 29 September 2026): the "Exporteer" button at the
+component's registrations gains the answer columns; the activities module
+reads them through the forms facade in one call, a read it already needs
+for the detail. The panel would have to pivot answers into columns per
+form — new machinery in a domain that gains nothing from it. The form
+builder's own export (all submissions of a form, without registration
+data) stays as it is.
+
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
