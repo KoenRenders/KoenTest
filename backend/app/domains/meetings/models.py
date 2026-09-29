@@ -342,6 +342,10 @@ class MeetingItem(TenantMixin, SoftDeleteMixin, Base):
     # `mdm.api`; a reference that no longer resolves renders as a free item
     # rather than breaking the screen.
     activity_id = Column(Integer, nullable=True, index=True)
+    # The date of that activity the point is about (#1335): a board evaluates the
+    # last ride of a monthly ride, and discusses next month's guide per ride. NULL
+    # on a point from before, which renders the activity as a whole.
+    activity_date_id = Column(Integer, nullable=True, index=True)
     member_id = Column(Integer, nullable=True, index=True)
     # The steward chosen next to a new member is *minutes*: it is stored here and
     # never written into the member data. The authoritative assignment flows

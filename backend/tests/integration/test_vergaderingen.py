@@ -690,10 +690,10 @@ def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
     volgende = next(s for s in sections_of(db_session, meeting) if s.kind == SectionKind.UPCOMING)
 
     onder_evaluatie = [
-        s.activity.name for s in addable_activities(db_session, meeting, section_id=evaluatie.id)
+        s.name for s in addable_activities(db_session, meeting, section_id=evaluatie.id)
     ]
     onder_volgende = [
-        s.activity.name for s in addable_activities(db_session, meeting, section_id=volgende.id)
+        s.name for s in addable_activities(db_session, meeting, section_id=volgende.id)
     ]
 
     assert "Comedy Festival" in onder_evaluatie, "voorbij, dus hoort bij evaluatie"
@@ -1451,7 +1451,8 @@ def test_wat_buiten_de_horizon_valt_is_wel_met_de_hand_te_agenderen(db_session):
     ver = _activity(db_session, "Zomerkamp 2027", date(2027, 6, 20))
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
 
-    assert any(s.activity.id == ver.id for s in addable_activities(db_session, meeting)), (
+    # #1335: the picker offers dates; the activity is known by its name.
+    assert any(s.name == ver.name for s in addable_activities(db_session, meeting)), (
         "de kiezer hoort ook verder te kijken dan de agenda zelf"
     )
 

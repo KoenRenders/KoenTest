@@ -137,15 +137,19 @@
              hx-swap="outerHTML" hx-trigger="input changed delay:300ms"
              hx-vals='{"section_id": "{{ section.id }}"}'>
       <div id="vg-kiezer-resultaten" class="mt-2 divide-y divide-line">
-        {% for span in picker_options %}
+        {# #1335: one choice per date of an activity, so a monthly ride can be
+           picked once per ride. #}
+        {% for option in picker_options %}
         <form class="flex items-center gap-3 py-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt"
               hx-target="#vg-document" hx-swap="innerHTML">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="section_id" value="{{ section.id }}">
-          <input type="hidden" name="activity_id" value="{{ span.activity.id }}">
-          <span class="font-medium text-sm">{{ span.activity.name }}</span>
-          <span class="text-sm text-ink-soft">{{ span.start.strftime("%d/%m/%Y") }}</span>
-          <span class="ml-auto">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="xs") }}</span>
+          <input type="hidden" name="activity_date_id" value="{{ option.activity_date_id }}">
+          <span class="min-w-0">
+            <span class="block font-medium text-sm">{{ option.name }}</span>
+            <span class="block text-sm text-ink-soft">{{ option.moment }}</span>
+          </span>
+          <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="xs") }}</span>
         </form>
         {% else %}
         <p class="text-sm text-ink-soft py-2">{{ _("Geen activiteiten gevonden die hier nog niet staan.") }}</p>

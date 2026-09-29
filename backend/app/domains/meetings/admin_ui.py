@@ -560,6 +560,7 @@ def item_add(
     _email: str = Depends(require_admin_ui),
     section_id: int = Form(...),
     activity_id: str = Form(""),
+    activity_date_id: str = Form(""),
     title: str = Form(""),
 ):
     meeting = _meeting_or_404(db, meeting_id)
@@ -572,6 +573,7 @@ def item_add(
             meeting,
             section,
             activity_id=int(activity_id) if activity_id else None,
+            activity_date_id=int(activity_date_id) if activity_date_id else None,
             title=title.strip() or None,
         )
     except MeetingError as exc:

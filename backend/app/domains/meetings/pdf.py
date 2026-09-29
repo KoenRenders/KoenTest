@@ -60,6 +60,30 @@ def clock(moment) -> str:
     return f"{moment.hour}u" + (f"{moment.minute:02d}" if moment.minute else "")
 
 
+def moment(start_date, start_time=None, end_date=None, end_time=None) -> str:
+    """When one date row of an activity runs, as a meeting point reads it (#1335).
+
+    `zaterdag 1 mei 2026 14u – zondag 3 mei 2026 17u`, or `donderdag 20 augustus
+    2026 19u – 22u` when it falls on one day. What is missing is left out, and so
+    is the dash that would introduce it: an end time without a start time says
+    nothing on a single day.
+
+    The dates come from `app.i18n.long_date`, the source of the `langedatum`
+    filter (#1242); the hours from `clock`, as everywhere in a meeting.
+    """
+    from app.i18n import long_date as long_date_i18n
+
+    if start_date is None:
+        return ""
+    begin = f"{long_date_i18n(start_date)} {clock(start_time)}".strip()
+    if end_date and end_date != start_date:
+        end = f"{long_date_i18n(end_date)} {clock(end_time)}".strip()
+        return f"{begin} – {end}"
+    if start_time and end_time:
+        return f"{begin} – {clock(end_time)}"
+    return begin
+
+
 def short_date(day: date | None) -> str:
     """`1 oktober` — inside an item line, where the year is already known."""
     if day is None:

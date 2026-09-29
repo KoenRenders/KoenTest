@@ -1867,6 +1867,63 @@ def activities_from(db: Session, day: date) -> list[ActivitySpan]:
     return _spans(db, lambda first, last: first >= day)
 
 
+class ActivityDateSpan(NamedTuple):
+    """One date row of an activity — a single ride of a monthly ride (#1335).
+
+    The grain a meeting point has since #1335: the board evaluates the last ride,
+    not the activity, and discusses the guide of every coming ride separately.
+    """
+
+    activity: Activity
+    row: ActivityDate
+    start: date
+    end: date
+
+
+def _date_spans(db: Session, *conditions: Any) -> list[ActivityDateSpan]:
+    """Date rows of activities that are not cancelled, chronologically."""
+    last = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
+    rows = (
+        db.query(ActivityDate, Activity)
+        .join(Activity, Activity.id == ActivityDate.activity_id)
+        .filter(
+            Activity.is_cancelled.is_(False),
+            *[c(ActivityDate.start_date, last) for c in conditions],
+        )
+        .order_by(ActivityDate.start_date.asc(), ActivityDate.id.asc())
+        .all()
+    )
+    return [
+        ActivityDateSpan(
+            activity=activity,
+            row=row,
+            start=row.start_date,
+            end=row.end_date or row.start_date,
+        )
+        for row, activity in rows
+    ]
+
+
+def activity_dates_active_between(db: Session, start: date, end: date) -> list[ActivityDateSpan]:
+    """Date rows that ran or started in the window [start, end).
+
+    The same window as `activities_active_between`, one row further down: a
+    monthly ride contributes every ride in the window, and a row that is still
+    running — the photo hunt from June to September — counts as it did.
+    """
+    return _date_spans(db, lambda first, last: (first < end) & (last >= start))
+
+
+def activity_dates_from(
+    db: Session, day: date, until: Optional[date] = None
+) -> list[ActivityDateSpan]:
+    """Date rows starting on or after `day`, up to and including `until` if given."""
+    conditions: list[Callable[[Any, Any], Any]] = [lambda first, last: first >= day]
+    if until is not None:
+        conditions.append(lambda first, last: first <= until)
+    return _date_spans(db, *conditions)
+
+
 def registration_counts(
     db: Session, activity_ids: list[int]
 ) -> dict[int, tuple[int, Optional[int]]]:
