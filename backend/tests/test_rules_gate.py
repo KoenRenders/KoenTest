@@ -1412,6 +1412,129 @@ def collect_non_orm_writes() -> dict[str, str]:
     return found
 
 
+# ── 13. One owner per derived value (ratchet) ───────────────────────────────
+
+
+def _names_in(node: ast.AST) -> set[str]:
+    """Every attribute and variable name an expression reads."""
+    out: set[str] = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Attribute):
+            out.add(n.attr)
+        elif isinstance(n, ast.Name):
+            out.add(n.id)
+    return out
+
+
+def _is_total_shape(node: ast.AST) -> bool:
+    """`quantity * price` in either order — a registration line's subtotal."""
+    if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult)):
+        return False
+    left, right = _names_in(node.left), _names_in(node.right)
+    both = left | right
+    return any("quantity" in n for n in both) and any("price" in n for n in both)
+
+
+def _is_paid_sum(node: ast.AST) -> bool:
+    """`sum(... amount_paid ...)` — the paid side of a registration's balance."""
+    return (
+        isinstance(node, ast.Call)
+        and getattr(node.func, "id", "") == "sum"
+        and any("amount_paid" in _names_in(a) for a in node.args)
+    )
+
+
+def _is_record_state_decision(node: ast.AST) -> bool:
+    """A branch on a record's `status` that reads `amount_paid` inside it — the shape
+    of "pending, but partly paid". Comparing `amount` with `amount_paid` to correct a
+    charge is a write, not a state, and does not match."""
+    if not isinstance(node, (ast.If, ast.IfExp)) or "status" not in _names_in(node.test):
+        return False
+    body = node.body if isinstance(node, ast.If) else [ast.Expr(node.body)]
+    paid = {"amount_paid"}
+    for stmt in body:  # `betaald = record.amount_paid` makes `betaald` the paid amount
+        for n in ast.walk(stmt):
+            if isinstance(n, ast.Assign) and "amount_paid" in _names_in(n.value):
+                paid |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+    return any(
+        isinstance(n, ast.Compare) and paid & _names_in(n) for stmt in body for n in ast.walk(stmt)
+    )
+
+
+def _is_deadline_decision(node: ast.AST) -> bool:
+    """Today compared with a deadline or an end date — whether registration is open."""
+    if not isinstance(node, ast.Compare):
+        return False
+    if any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) for n in ast.walk(node)):
+        return False  # a distance to a deadline ("near") is not open or closed
+    names = {n.lower() for n in _names_in(node)}
+    today = any(n in {"today", "vandaag", "belgian_today"} for n in names)
+    deadline = any(("deadline" in n or "closes_on" in n or "effective_end" in n) for n in names)
+    return today and deadline
+
+
+DERIVED_SHAPES = {
+    "registration.total": _is_total_shape,
+    "registration.balance": _is_paid_sum,
+    "payment_record.state": _is_record_state_decision,
+    "registration.state": _is_deadline_decision,
+}
+
+
+def _owner_functions(value) -> set[tuple[Path, str]]:
+    """The owner function of a derived value and what it calls in its own module —
+    `_line` and `_telt_mee` are part of `compute_registration_total`."""
+    module, _, name = value.today.rpartition(".")
+    path = _module_path(module)
+    assert path is not None, f"the owner of {value.name} ({value.today}) does not exist"
+    tree = _tree(path)
+    function = _module_functions(tree).get(name)
+    assert function is not None, f"{value.today} is not a function in {_rel(path)}"
+    return {(p, fn.name) for p, _t, fn, _via in _reachable(path, tree, function) if p == path}
+
+
+def collect_derived_value_elsewhere() -> dict[str, str]:
+    """A second computation of a registered derived value outside its owner → key
+    `file::function → value` (§B9.3, *one owner per derived value*). Python only: a
+    template that computes is not walked — say so, do not assume it is clean."""
+    from app.kernel import rules
+
+    values = rules.derived_values()
+    assert set(values) == set(DERIVED_SHAPES), (
+        "every registered derived value needs its shape here, and every shape a value: "
+        f"{sorted(set(values) ^ set(DERIVED_SHAPES))}"
+    )
+    owners = {name: _owner_functions(value) for name, value in values.items()}
+    # A shape that does not even recognise its owner looks nowhere (#678).
+    for name, shape in DERIVED_SHAPES.items():
+        assert any(
+            shape(n)
+            for path, fn_name in owners[name]
+            for fn in [_module_functions(_tree(path)).get(fn_name)]
+            if fn is not None
+            for n in _own_nodes(fn)
+        ), f"the shape of {name} does not match its own owner — the gate is blind to it"
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for name, shape in DERIVED_SHAPES.items():
+                if (path, function.name) in owners[name]:
+                    continue
+                hit = next((n for n in _own_nodes(function) if shape(n)), None)
+                if hit is not None:
+                    fn = qualified.get(function, function.name)
+                    found.setdefault(
+                        f"{_rel(path)}::{fn} → {name}",
+                        f"{_rel(path)}:{hit.lineno} `{fn}` computes `{name}` a second time — "
+                        f"its owner is `{values[name].today}`; ask it (CR-13 §B9.3)",
+                    )
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -1428,6 +1551,7 @@ COLLECTORS = {
     "RULE_IN_ROUTER": collect_rule_in_router,
     "WRITE_OUTSIDE_SERVICE": collect_write_outside_service,
     "NON_ORM_WRITES": collect_non_orm_writes,
+    "DERIVED_ELSEWHERE": collect_derived_value_elsewhere,
 }
 
 
@@ -1629,6 +1753,41 @@ def test_no_new_write_past_the_orm():
     `db.query(CmsPage).filter(CmsPage.id == 1).update({"title": "x"})` → red, "bulk
     .update() `cms.CmsPage` past the ORM"."""
     _ratchet("NON_ORM_WRITES")
+
+
+def test_one_owner_per_derived_value():
+    """Ratchet (§B9.3). The collector first proves each shape recognises its own owner.
+    Proof (run, removed): a function in `cms/service.py` returning
+    `sum(i.quantity * i.product.price for i in items)` → red, "computes
+    `registration.total` a second time"."""
+    _ratchet("DERIVED_ELSEWHERE")
+
+
+@pytest.mark.parametrize(
+    ("shape", "source", "match"),
+    [
+        ("registration.total", "i.quantity * i.product.price", True),
+        ("registration.total", "i.quantity * 2", False),
+        ("registration.state", "_effective_end(d) >= vandaag", True),
+        ("registration.state", "vandaag > deadline", True),
+        # A distance to a deadline, and another period's end, are not the state.
+        ("registration.state", "0 <= (deadline - vandaag).days <= 7", False),
+        ("registration.state", "half_start <= today <= half_end", False),
+    ],
+)
+def test_the_derived_shapes(shape, source, match):
+    node = ast.parse(source, mode="eval").body
+    assert DERIVED_SHAPES[shape](node) is match
+
+
+def test_a_record_state_is_decided_on_the_paid_amount():
+    decides = ast.parse(
+        "if r.status == PENDING:\n    betaald = r.amount_paid\n    if betaald != 0:\n"
+        "        x = 1\n"
+    ).body[0]
+    passes_on = ast.parse("if status is not None:\n    f(amount_paid=amount_paid)\n").body[0]
+    assert DERIVED_SHAPES["payment_record.state"](decides)
+    assert not DERIVED_SHAPES["payment_record.state"](passes_on)
 
 
 @pytest.mark.parametrize(

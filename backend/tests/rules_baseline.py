@@ -978,3 +978,17 @@ NON_ORM_WRITES: frozenset[str] = frozenset(
         "domains/mdm/service.py::merge_persons → mdm.Person",
     }
 )
+
+
+# Second computations of a registered derived value (§B9.3, *one owner per derived
+# value*), 29 September 2026, in Python — templates are not walked. Two decide "has a
+# future date" beside `registration_state` (phase 1); two sum `amount_paid` beside
+# `registration_balance` (phase 2).
+DERIVED_ELSEWHERE: frozenset[str] = frozenset(
+    {
+        "domains/activities/router.py::_is_future → registration.state",
+        "domains/activities/router.py::list_activities → registration.state",
+        "domains/payment/service.py::aggregate → registration.balance",
+        "domains/payment/service.py::reconcile_charges → registration.balance",
+    }
+)

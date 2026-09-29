@@ -23,6 +23,7 @@ from tests.test_rules_gate import (
     collect_command_calls_outside_handlers,
     collect_commit_behind_api,
     collect_commit_in_handler,
+    collect_derived_value_elsewhere,
     collect_dutch_identifiers,
     collect_foreign_writes,
     collect_json_route_without_caller,
@@ -157,6 +158,7 @@ def a2_table() -> list[tuple[str, int | str]]:
             "writes outside a service / past the ORM",
             f"{len(collect_write_outside_service())} / {len(collect_non_orm_writes())}",
         ),
+        ("derived values computed outside their owner", len(collect_derived_value_elsewhere())),
     ]
 
 
