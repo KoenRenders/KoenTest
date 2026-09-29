@@ -58,6 +58,7 @@ from app.domains.activities.registration_form import (  # noqa: F401
 from app.domains.activities.service import (  # noqa: F401
     INSCHRIJVING_SORT_VELDEN,
     MAX_ORGANISERS,
+    ActivityDateSpan,
     ActivityOption,
     ActivitySpan,
     OrganiserView,
@@ -65,6 +66,8 @@ from app.domains.activities.service import (  # noqa: F401
     activities_active_between,
     activities_from,
     activity_by_key,
+    activity_dates_active_between,
+    activity_dates_from,
     activity_options,
     add_organiser,
     board_notes,
@@ -300,5 +303,8 @@ __all__ = [
     "ActivitySpan",
     "activities_active_between",
     "activities_from",
+    "ActivityDateSpan",
+    "activity_dates_active_between",
+    "activity_dates_from",
     "registration_counts",
 ]

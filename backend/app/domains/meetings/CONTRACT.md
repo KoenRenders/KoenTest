@@ -21,7 +21,7 @@ waaruit de nieuwsbriefketen (CR-05) straks put.
 
 | Component | Waarvoor |
 |---|---|
-| `activities.api` | `activities_active_between`, `activities_from` (de twee activiteitensecties), `registration_counts` (het aantal op de regel) |
+| `activities.api` | `activity_dates_active_between`, `activity_dates_from` (de twee activiteitensecties en de kiezer: one point per date since #1335), `registration_counts` (het aantal op de regel) |
 | `mdm.api` | `organization_circle` (de vergaderkring), `new_members_between`, `add_to_circle`, `end_circle_relation` |
 | `membership.api` | `members_with_membership_for_year`, `renewal_open`, `renewal_years` (de ledenkop) |
 | `mail.api` | `send_with_attachments` (één mail, iedereen in To) |
@@ -43,7 +43,7 @@ bereikt nooit een LLM.
   inschrijvingsaantal komen vers uit het activiteitendomein; `sort_key` bestaat
   alleen om in SQL te kunnen sorteren.
 - **Geen cross-schema FK's, op één benoemde uitzondering na.**
-  `activity_id`, `member_id` en `noted_steward_person_id` zijn soft-refs: een FK
+  `activity_id`, `activity_date_id`, `member_id` en `noted_steward_person_id` zijn soft-refs: een FK
   over schema's heen koppelt twee deploys aan elkaar
   (`test_schema_boundaries`). Een verwijzing die niet meer oplost, toont als
   vrij punt. The exception is `meeting_status_labels.language` →

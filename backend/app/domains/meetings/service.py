@@ -215,7 +215,7 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
     Only *generated* items are replaced: anything typed (a free item, a note) is
     left alone, so regenerating after a change in the programme never eats work.
     """
-    from app.domains.activities.api import activities_active_between, activities_from
+    from app.domains.activities.api import activity_dates_active_between, activity_dates_from
     from app.domains.mdm.api import new_members_between
 
     if previous is None:
@@ -234,23 +234,21 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
         if sectie is not None:
             _replace_generated(db, sectie)
 
-    # Evaluation: what ran or started since the previous meeting.
+    # Evaluation: every date that ran or started since the previous meeting — the
+    # last ride of a monthly ride, not the activity as a whole (#1335).
     if evaluation is not None:
         _add_activities(
-            db, meeting, evaluation, activities_active_between(db, since, meeting.meeting_date)
+            db, meeting, evaluation, activity_dates_active_between(db, since, meeting.meeting_date)
         )
 
-    # Upcoming: wat binnen de agendeerhorizon valt (§3.14, herzien 16 sep 2026).
+    # Upcoming: every date within the agenda horizon (§3.14, revised 16 Sep 2026),
+    # each on its own point, so the guide of every ride can be discussed (#1335).
     if upcoming is not None:
         _add_activities(
             db,
             meeting,
             upcoming,
-            [
-                span
-                for span in activities_from(db, meeting.meeting_date)
-                if span.start <= _horizon(meeting.meeting_date)
-            ],
+            activity_dates_from(db, meeting.meeting_date, until=_horizon(meeting.meeting_date)),
         )
 
     # Members: who joined since the previous meeting.
@@ -280,20 +278,20 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
 
 
 def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, spans) -> None:
-    """Zet deze activiteiten in de sectie, zonder iets te verdubbelen.
+    """Zet deze activiteitsdatums in de sectie, zonder iets te verdubbelen.
 
     Overslaan wat er al staat is niet netjesheid maar noodzaak: bij het opnieuw
     samenstellen (na een datumwijziging) blijft een punt mét notities staan, en
-    zonder deze controle zou er een tweede, leeg punt voor dezelfde activiteit
-    naast komen te staan.
+    zonder deze controle zou er een tweede, leeg punt voor dezelfde datum naast
+    komen te staan.
+
+    **Per datum, niet per activiteit** (#1335): een maandelijkse rit staat er
+    één keer per rit. A point from before #1335 carries no date and blocks
+    nothing — it is the activity as a whole, and the dated points join it.
     """
-    aanwezig = {
-        item.activity_id
-        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
-        if item.activity_id
-    }
+    present = _dates_on_agenda(db, meeting)
     for position, span in enumerate(spans):
-        if span.activity.id in aanwezig:
+        if span.row.id in present:
             continue
         db.add(
             MeetingItem(
@@ -301,11 +299,21 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, span
                 section_id=section.id,
                 position=position,
                 activity_id=span.activity.id,
+                activity_date_id=span.row.id,
                 sort_key=span.start,
             )
         )
-        aanwezig.add(span.activity.id)
+        present.add(span.row.id)
     db.flush()
+
+
+def _dates_on_agenda(db: Session, meeting: Meeting) -> set[int]:
+    """The activity dates this meeting already has a point for."""
+    return {
+        item.activity_date_id
+        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
+        if item.activity_date_id
+    }
 
 
 def _horizon(vanaf: date) -> date:
@@ -409,25 +417,40 @@ def add_item(
     *,
     title: Optional[str] = None,
     activity_id: Optional[int] = None,
+    activity_date_id: Optional[int] = None,
     notes: Optional[str] = None,
 ) -> MeetingItem:
-    """Add a point — linked to an activity, or free.
+    """Add a point — linked to a date of an activity, to an activity, or free.
 
-    A linked point gets the activity's start date as its sort key, so it lands
-    chronologically between the points that are already there; a free point has
-    no date and joins the tail.
+    A linked point gets its date as its sort key, so it lands chronologically
+    between the points that are already there; a free point has no date and joins
+    the tail. The picker sends a date (#1335) and the activity follows from it; a
+    point with an activity and no date is what the picker sent before #1335.
     """
     _refuse_when_sent(meeting)
-    if activity_id is None and not (title or "").strip():
-        raise MeetingError(_("Kies een activiteit of typ een titel voor het punt."))
-    if activity_id is not None and _al_op_de_agenda(db, meeting, activity_id):
-        # De kiezer biedt zo'n activiteit niet aan, maar dat is een scherm en geen
-        # grendel: een dubbele klik, een openstaande kiezer in een tweede tabblad
-        # of een herhaalde post levert anders twee identieke punten op — en die
-        # staan dan allebei in het verslag.
-        raise MeetingError(_("Die activiteit staat al op deze agenda."))
     sort_key = None
-    if activity_id is not None:
+    if activity_date_id is not None:
+        from app.domains.activities.api import ActivityDate
+
+        row = db.get(ActivityDate, activity_date_id)
+        if row is None or row.deleted_at is not None:
+            raise MeetingError(_("Die datum bestaat niet."))
+        if activity_date_id in _dates_on_agenda(db, meeting):
+            # De kiezer biedt zo'n datum niet aan, maar dat is een scherm en geen
+            # grendel: een dubbele klik, een openstaande kiezer in een tweede
+            # tabblad of een herhaalde post levert anders twee identieke punten op.
+            raise MeetingError(_("Die datum staat al op deze agenda."))
+        activity_id = row.activity_id
+        sort_key = row.start_date
+    elif activity_id is None and not (title or "").strip():
+        raise MeetingError(_("Kies een activiteit of typ een titel voor het punt."))
+    elif activity_id is not None:
+        if _al_op_de_agenda(db, meeting, activity_id):
+            # De kiezer biedt zo'n activiteit niet aan, maar dat is een scherm en
+            # geen grendel: een dubbele klik, een openstaande kiezer in een tweede
+            # tabblad of een herhaalde post levert anders twee identieke punten op
+            # — en die staan dan allebei in het verslag.
+            raise MeetingError(_("Die activiteit staat al op deze agenda."))
         from app.domains.activities.api import Activity, ActivityDate
 
         sort_key = (
@@ -450,6 +473,7 @@ def add_item(
         title=title,
         notes=notes,
         activity_id=activity_id,
+        activity_date_id=activity_date_id,
         sort_key=sort_key,
     )
     db.add(item)
@@ -1073,15 +1097,25 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
     all_items = {s.id: items_of(db, s) for s in sections}
 
     activity_ids = [i.activity_id for items in all_items.values() for i in items if i.activity_id]
+    date_ids = [
+        i.activity_date_id for items in all_items.values() for i in items if i.activity_date_id
+    ]
     activities = {}
     counts = {}
     times = {}
+    dates = {}
     if activity_ids:
         activities = {
             a.id: a for a in db.query(Activity).filter(Activity.id.in_(activity_ids)).all()
         }
         counts = registration_counts(db, activity_ids)
         times = _start_times(db, activity_ids)
+    if date_ids:
+        from app.domains.activities.api import ActivityDate
+
+        dates = {
+            d.id: d for d in db.query(ActivityDate).filter(ActivityDate.id.in_(date_ids)).all()
+        }
 
     member_ids = [i.member_id for items in all_items.values() for i in items if i.member_id]
     member_labels = _member_labels(db, member_ids)
@@ -1098,7 +1132,7 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
     out = []
     for section in sections:
         items = [
-            _present(item, activities, counts, member_labels, times, steward_names)
+            _present(item, activities, counts, member_labels, times, steward_names, dates)
             for item in all_items[section.id]
         ]
         out.append(
@@ -1172,20 +1206,28 @@ def _present(
     member_labels: dict,
     times: Optional[dict] = None,
     steward_names: Optional[dict] = None,
+    dates: Optional[dict] = None,
 ) -> DocumentItem:
     """One stored item as it reads on screen.
 
     An activity point renders **name | date time location · N ingeschreven** and
     carries no price: an activity can have several (the barbecue has four), so one
     price field would lie — they live one click away, through the source chip.
+
+    A point with a date (#1335) shows that date's begin and end — `moment`, one
+    source for the screen and the PDF. A point from before shows the activity as
+    it did: its first date and hour.
     """
-    from app.domains.meetings.pdf import short_date
+    from app.domains.meetings.pdf import moment, short_date
 
     if item.activity_id and item.activity_id in activities:
         activity = activities[item.activity_id]
         booked, capacity = counts.get(activity.id, (0, None))
         parts = []
-        if item.sort_key:
+        row = (dates or {}).get(item.activity_date_id or 0)
+        if row is not None:
+            parts.append(moment(row.start_date, row.start_time, row.end_date, row.end_time))
+        elif item.sort_key:
             datum = short_date(item.sort_key)
             from app.domains.meetings.pdf import clock
 
@@ -1333,10 +1375,19 @@ def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
 EVALUATION_LOOKBACK = timedelta(days=365)
 
 
+@dataclass(frozen=True)
+class PickerOption:
+    """One date of an activity the picker offers (#1335)."""
+
+    activity_date_id: int
+    name: str
+    moment: str
+
+
 def addable_activities(
     db: Session, meeting: Meeting, query: str = "", section_id: Optional[int] = None
-) -> list:
-    """Activities that could still be added to this agenda, per section.
+) -> list[PickerOption]:
+    """Activity dates that could still be added to this agenda, per section.
 
     The picker behind "Punt toevoegen" (§3.19). **What it offers follows the
     section it opens in**, because the two activity sections look in opposite
@@ -1348,47 +1399,51 @@ def addable_activities(
 
     In the free-form sections there is no window to follow, so everything is on
     offer; the search box is what makes that list workable.
-    """
-    from app.domains.activities.api import activities_active_between, activities_from
 
-    present = {
-        item.activity_id
-        for item in db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
-        if item.activity_id
-    }
+    **Every date is its own choice** (#1335): a monthly ride can be picked once
+    per ride. A date already on the agenda is not offered; a point from before
+    #1335, which has no date, hides nothing.
+    """
+    from app.domains.activities.api import activity_dates_active_between, activity_dates_from
+    from app.domains.meetings.pdf import moment
+
+    present = _dates_on_agenda(db, meeting)
     section = db.get(MeetingSection, section_id) if section_id else None
     kind = getattr(section, "kind", None)
 
-    if kind == SectionKind.EVALUATION:
+    def past():
         # Meest recente eerst: wat je onder evaluatie zoekt, is bijna altijd van
         # de voorbije weken.
-        spans = list(
+        return list(
             reversed(
-                activities_active_between(
+                activity_dates_active_between(
                     db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date
                 )
             )
         )
+
+    if kind == SectionKind.EVALUATION:
+        spans = past()
     elif kind == SectionKind.UPCOMING:
-        spans = activities_from(db, meeting.meeting_date)
+        spans = activity_dates_from(db, meeting.meeting_date)
     else:
-        spans = list(
-            reversed(
-                activities_active_between(
-                    db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date
-                )
-            )
-        )
-        spans += activities_from(db, meeting.meeting_date)
+        spans = past() + activity_dates_from(db, meeting.meeting_date)
 
     query = (query or "").strip().lower()
     out = []
     for span in spans:
-        if span.activity.id in present:
+        if span.row.id in present:
             continue
         if query and query not in span.activity.name.lower():
             continue
-        out.append(span)
+        row = span.row
+        out.append(
+            PickerOption(
+                activity_date_id=row.id,
+                name=span.activity.name,
+                moment=moment(row.start_date, row.start_time, row.end_date, row.end_time),
+            )
+        )
     # Géén afkapping (Koen, 16 september 2026). De lijst stond eerst op acht omdat
     # je er anders langs moest scrollen om bij het vrije punt te komen; dat staat
     # nu bovenaan, dus de lengte is geen hindernis meer. En ze is zelfs nuttig:
