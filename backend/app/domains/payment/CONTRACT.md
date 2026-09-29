@@ -19,9 +19,12 @@ component.
 
 ## Events (kernel, §5.8 — trede 1)
 
-- Publiceert `PaymentSettled` (`app.kernel.contracts.payment`) bij elke
-  bevestiging naar `paid` — exact één keer, want de gateway-update is
-  idempotent (herhaalde webhook = no-op).
+- Publishes `PaymentReceived` (`app.kernel.contracts.payment`, CR-13 phase 2)
+  on every way money comes in — the provider's webhook, "bevestig betaald", the
+  treasurer's status correction — with the booked amount and whether it covers
+  the record (`fully_paid`, #720). A repeated webhook is a no-op and publishes
+  nothing. It replaced `PaymentSettled`, which only the webhook published.
+- Publishes `RefundDue` when a refund is created that has yet to be paid out.
 - Subscribes to `OrderChanged` (`app.kernel.contracts.activities`, CR-13
   phase 1): `handlers.reconcile_registration_on_order_change` brings a
   registration's charges to the event's `total_due` (#185), in the publisher's

@@ -17,5 +17,11 @@
 
 Schema `membership` (migratie 080): `memberships`, `membership_history`.
 `member_id` is een soft-ref naar `mdm.members` (§6/§8, FK gedropt in 078);
-de ORM-relatie via backref blijft voor intern gemak. Activatie na betaling
-gebeurt door het payment-component (idempotent, #113).
+de ORM-relatie via backref blijft voor intern gemak.
+
+## Events
+
+- Subscribes to `PaymentReceived` (CR-13 phase 2): `handlers.activate_membership_on_payment`
+  activates a membership once its payment covers it — idempotently, a repeated
+  event activates once (#113, #720). Until phase 2 the payment component wrote
+  this itself; the owner writes its rows now (`service.activate_after_payment`).

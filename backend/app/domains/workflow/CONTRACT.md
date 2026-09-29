@@ -23,6 +23,8 @@ instanties en taken; de werkbank is het ene scherm waarop álles landt (§20.5).
 5. **Definitief gefaalde jobs** — `kernel_jobs.status = failed`.
 
 Bron 2–5 via de idempotente uur-sweep (`workflow.sweep`, titel = sleutel).
+Subscribes to `PaymentReceived` and `RefundDue` (CR-13 phase 2): both advance the
+sweep (`vervroeg_sweep`, #705, #855) — never make or close a task themselves.
 Zero-touch is het ontwerpdoel: een lege werkbank = gezond systeem.
 
 ## Kill-switch

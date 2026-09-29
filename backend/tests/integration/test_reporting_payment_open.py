@@ -30,8 +30,9 @@ openstaande terugbetaling en een overbetaling draagt, en dat de tegenproef
 (de `ABS` weghalen) **beide** moet laten omvallen — valt er maar één om, dan
 dekt de data het andere geval niet.
 
-Vier rijen dragen de hele test — twee aan weerszijden van het status-verschil, en
-twee met een negatief saldo:
+Drie rijen dragen de hele test — twee aan weerszijden van het status-verschil, en
+één met een negatief saldo (a second, an overpaid charge, can no longer be stored
+since CR-13 phase 2):
 
 * **status `paid`, toch een rest open** (20,00 waarvan 15,00 betaald) — het scherm
   zegt *openstaand*, de ouderdomsklasse zegt *Betaald*;
@@ -45,9 +46,10 @@ want de eerste ingreep alleen was niet genoeg (gemeten):
 * de `sql` op `age_bucket` laten steunen in plaats van op het saldo → de twee
   status-rijen vallen om, elk aan hun eigen kant, en de vergelijking met het
   scherm ook. Dit bewijst dat saldo ≠ status;
-* de `ABS` weghalen → de melding noemt **beide** negatieve rijen in één keer:
-  `['open_refund', 'te_veel_betaald']`. Dit bewijst dat de formule zelf klopt, en
-  dát is wat de eerste ingreep niet toetste.
+* de `ABS` weghalen → de melding noemt de negatieve rij: `['open_refund']`. Dit
+  bewijst dat de formule zelf klopt, en dát is wat de eerste ingreep niet toetste.
+  (Until CR-13 phase 2 it named a second row, an overpaid charge, which can no
+  longer be stored.)
 
 De asserties verzamelen daarom álle ontbrekende gevallen vóór ze falen. Een lus
 vol losse asserts laat de eerste de tweede verbergen, en dan lijkt één ongedekt
@@ -68,8 +70,8 @@ TENANT = 7788
 
 @pytest.fixture
 def twee_kanten(db_session):
-    """Vier rijen: twee waar scherm en status uit elkaar lopen, en twee met een
-    NEGATIEF saldo — de gevallen van #668."""
+    """Drie rijen: twee waar scherm en status uit elkaar lopen, en één met een
+    NEGATIEF saldo — het geval van #668 dat na CR-13 fase 2 nog bestaan kan."""
     from datetime import datetime, timedelta, timezone
 
     nu = datetime.now(timezone.utc)
@@ -96,11 +98,12 @@ def twee_kanten(db_session):
         type="charge",
         created_at=nu - timedelta(days=10),
     )
-    # #668: een terugbetaling draagt een NEGATIEF bedrag, en een te veel betaalde
-    # vordering levert eveneens een negatief saldo. Het scherm rekent daarom op de
-    # ABSOLUTE waarde; een eenrichtingsvergelijking laat allebei uit het filter
-    # vallen — veertien openstaande refunds destijds. Zonder deze twee rijen meet
-    # deze test alleen het makkelijke geval, en dat is precies wat er misging.
+    # #668: een terugbetaling draagt een NEGATIEF bedrag. Het scherm rekent daarom op
+    # de ABSOLUTE waarde; een eenrichtingsvergelijking laat haar uit het filter vallen
+    # — veertien openstaande refunds destijds. Zonder deze rij meet deze test alleen
+    # het makkelijke geval, en dat is precies wat er misging. (A second row stood
+    # here, a charge paid beyond its amount: it cannot be stored since CR-13 phase 2
+    # — what came in lies within the amount, in the record and at rest.)
     open_refund = PaymentRecord(
         tenant_id=TENANT,
         payable_type="registration",
@@ -112,25 +115,12 @@ def twee_kanten(db_session):
         type="refund",
         created_at=nu - timedelta(days=10),
     )
-    te_veel_betaald = PaymentRecord(
-        tenant_id=TENANT,
-        payable_type="registration",
-        payable_id=5004,
-        amount=Decimal("10.00"),
-        amount_paid=Decimal("12.00"),
-        method="transfer",
-        status="paid",
-        type="charge",
-        created_at=nu - timedelta(days=10),
-        paid_at=nu - timedelta(days=5),
-    )
-    db_session.add_all([rest_open, vereffend, open_refund, te_veel_betaald])
+    db_session.add_all([rest_open, vereffend, open_refund])
     db_session.commit()
     return {
         "rest_open": rest_open,
         "vereffend": vereffend,
         "open_refund": open_refund,
-        "te_veel_betaald": te_veel_betaald,
     }
 
 
@@ -161,14 +151,12 @@ def test_het_object_volgt_het_saldo_en_niet_de_status(db_session, twee_kanten):
     # lus vol asserts verbergt de eerste de tweede, en dan lijkt één ongedekt geval
     # er één — terwijl het er twee zijn.
     ontbreekt = [
-        naam
-        for naam in ("rest_open", "open_refund", "te_veel_betaald")
-        if str(twee_kanten[naam].id) not in ja
+        naam for naam in ("rest_open", "open_refund") if str(twee_kanten[naam].id) not in ja
     ]
     assert not ontbreekt, f"horen bij Openstaand = Ja maar staan er niet: {ontbreekt}"
     assert str(twee_kanten["vereffend"].id) in nee, "vereffend hoort bij Nee"
-    # En niets méér dan die vier: een object dat altijd Ja zegt, klopt hierboven.
-    assert len(ja) == 3 and len(nee) == 1
+    # En niets méér dan die drie: een object dat altijd Ja zegt, klopt hierboven.
+    assert len(ja) == 2 and len(nee) == 1
 
 
 def test_de_rapportering_zegt_hetzelfde_als_het_scherm(db_session, twee_kanten):
