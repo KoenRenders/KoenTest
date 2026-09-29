@@ -38,10 +38,13 @@
   {% endcall %}
 
   {# Extra gezinsleden — onder het adres, met verwijder-knop per lid (#456) #}
-  <div id="extra-personen" class="space-y-4"></div>
+  {# #1327: after a refusal every extra person comes back with what was typed. #}
+  <div id="extra-personen" class="space-y-4">
+    {% for i in extra_rows %}{% include "_lid_persoon_rij.html" %}{% endfor %}
+  </div>
   <button type="button" class="{{ ui.btn_class('secondary') }}"
           hx-get="/lid-worden/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
-          hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length, relations: [...document.querySelectorAll("[name$=_relation_type]")].map(e => e.value).join(",")}'>
+          hx-vals='js:{index: 1 + Math.max(0, ...[...document.querySelectorAll("#extra-personen > div")].map(d => Number(d.id.split("-").pop()))), relations: [...document.querySelectorAll("[name$=_relation_type]")].map(e => e.value).join(",")}'>
     {{ _("+ Gezinslid toevoegen") }}
   </button>
 

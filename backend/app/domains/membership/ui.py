@@ -34,7 +34,14 @@ def lid_worden(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
         "lid_worden.html",
-        {**site_context(db, request), **_codes(db), "error": None, "values": {}, **_lidgeld()},
+        {
+            **site_context(db, request),
+            **_codes(db),
+            "error": None,
+            "values": {},
+            "extra_rows": [],
+            **_lidgeld(),
+        },
     )
 
 
@@ -117,6 +124,10 @@ async def lid_worden_submit(
     ctx = {**site_context(db, request), **_codes(db), "values": values, **_lidgeld()}
 
     members = _parse_members(form)
+    # #1327: after a refusal the form shows every person again, not only the head
+    # of household — their rows come back from `values`, relation and extra
+    # addresses included. A person the visitor removed is not in the form.
+    ctx["extra_rows"] = [m["index"] for m in members if m["index"] > 0]
     if not members:
         ctx["error"] = "Vul minstens het hoofdlid in."
         return templates.TemplateResponse(request, "lid_worden.html", ctx)
