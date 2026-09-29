@@ -87,7 +87,9 @@ def data_check(conn) -> list[str]:
     """Every rule this migration adds, with the rows that break it today."""
     problems = []
     for schema, table, name, _check, violates in CHECKS:
-        n = conn.execute(sa.text(f"SELECT COUNT(*) FROM {schema}.{table} WHERE {violates}")).scalar()
+        n = conn.execute(
+            sa.text(f"SELECT COUNT(*) FROM {schema}.{table} WHERE {violates}")
+        ).scalar()
         if n:
             problems.append(f"{n} row(s) in {schema}.{table} break {name}")
     return problems
