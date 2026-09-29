@@ -1,11 +1,15 @@
-"""E2E: a meeting has one point per ride, and the picker offers every ride (#1335).
+"""E2E: a meeting point per evaluated ride, one per coming activity (#1335, #1354).
 
 A monthly ride with two rides since the previous meeting and three coming, the
 last beyond the three-month horizon, plus a weekend with hours. At 390 px the new
-meeting must show two evaluation points and three upcoming ones (two rides and the
-weekend), each with the moment of its own date; the picker under "Volgende
-activiteiten" must offer the ride beyond the horizon as a choice of its own, and
-adding it must put a fourth upcoming point on the agenda. Nothing may stick out.
+meeting must show two evaluation points (#1335: one per ride) and, under "Volgende
+activiteiten", the ride once, for its first coming date, next to the weekend
+(#1354). Each point shows the moment of its own date. The picker must offer every
+later ride as a choice of its own, and adding one must put a second ride point on
+the agenda. Nothing may stick out.
+
+#1354, red against master `4b024458`: three upcoming points for the weekend and
+two rides, where one ride point is asked.
 
 Proven red against master `08beaa85`, with a server built from an export of it:
 "evaluation points: 1" — the whole monthly ride was one point, dated by its first
@@ -26,7 +30,7 @@ from tests_e2e.schermen import BASE, htmx_stil, login_als_admin  # noqa: E402
 
 PHONE = 390
 MEETING_DAY = "2027-03-04"
-SHOTS = "/scratch/shots_1335"
+SHOTS = "/scratch/shots_1354"
 
 RIDES = [
     date(2027, 2, 6),
@@ -145,9 +149,8 @@ def test_every_ride_is_its_own_point_and_its_own_choice(browser):
         ]
         assert [p["meta"].split(" · ")[0] for p in upcoming] == [
             "zaterdag 6 maart 2027 14u – 17u",
-            "zaterdag 3 april 2027 14u – 17u",
             "vrijdag 14 mei 2027 14u – zondag 16 mei 2027 17u",
-        ], "every ride within the horizon, and the weekend with begin and end"
+        ], "the ride once, for its first coming date, and the weekend with begin and end"
 
         width = page.evaluate("document.documentElement.scrollWidth")
         widest = max(p["right"] for p in evaluation + upcoming)
@@ -168,10 +171,13 @@ def test_every_ride_is_its_own_point_and_its_own_choice(browser):
         options = page.locator("#vg-kiezer-resultaten form")
         # The search swaps the results after a 300 ms debounce: wait for the list
         # to have narrowed to this activity, not for the clock.
-        expect(options).to_have_count(1)
+        expect(options).to_have_count(2)
         texts = options.all_inner_texts()
         print("MEASURE picker", texts)
-        assert len(texts) == 1 and "zaterdag 3 juli 2027" in texts[0], texts
+        assert [t.split("\n")[1] for t in texts] == [
+            "zaterdag 3 april 2027 14u – 17u",
+            "zaterdag 3 juli 2027 14u – 17u",
+        ], texts
         button = options.first.locator("button[type=submit]").bounding_box()
         print("MEASURE picker button", button)
         assert button and button["x"] + button["width"] <= PHONE, button
@@ -181,7 +187,10 @@ def test_every_ride_is_its_own_point_and_its_own_choice(browser):
         options.first.locator("button[type=submit]").click()
         htmx_stil(page)
         after = [p for p in page.evaluate(_POINTS, "Volgende activiteiten") if p["label"] == ride]
-        assert len(after) == 3, f"upcoming ride points after adding one: {len(after)}"
+        assert [p["meta"].split(" · ")[0] for p in after] == [
+            "zaterdag 6 maart 2027 14u – 17u",
+            "zaterdag 3 april 2027 14u – 17u",
+        ], "the later ride joins by hand, in date order"
     finally:
         page.close()
 
