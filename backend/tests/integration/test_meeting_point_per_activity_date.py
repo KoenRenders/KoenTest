@@ -121,6 +121,42 @@ def test_every_ride_within_the_horizon_is_its_own_upcoming_point(db_session, mon
     ], "the ride of 9 January lies beyond the horizon and stays off"
 
 
+def test_a_coming_date_counts_even_when_the_activity_began_months_ago(db_session):
+    """The case from PROD: an activity three times a year, two dates behind the
+    meeting of 3 September and one ahead, on Tuesday 15 September at 18:30.
+
+    Master looked at the activity's FIRST date (`first >= day`, 7 March), so the
+    coming date fell off the agenda and out of the picker. Per date, it is a point
+    of its own, and once taken off, the picker offers it again.
+
+    Red against master `08beaa85`: `assert [] == ['dinsdag 15 september 2026 18u30']`.
+    """
+    name = "Zwerfvuil ophalen (3 keer per jaar)"
+    _activity(
+        db_session,
+        name,
+        (date(2026, 3, 7), None, None, None),
+        (date(2026, 4, 28), None, None, None),
+        (date(2026, 9, 15), None, time(18, 30), None),
+    )
+    meeting = create_meeting(db_session, meeting_date=date(2026, 9, 3))
+
+    points = _points(db_session, meeting, SectionKind.UPCOMING, name)
+    assert [p.meta.split(" · ")[0] for p in points] == ["dinsdag 15 september 2026 18u30"], (
+        "the coming date belongs under Volgende activiteiten"
+    )
+    assert _points(db_session, meeting, SectionKind.EVALUATION, name) == [], (
+        "March and April lie before the evaluation window"
+    )
+
+    upcoming = _stored_section(db_session, meeting, SectionKind.UPCOMING)
+    db_session.delete(db_session.get(MeetingItem, points[0].id))
+    db_session.flush()
+    assert [o.moment for o in _offered(db_session, meeting, upcoming, name)] == [
+        "dinsdag 15 september 2026 18u30"
+    ], "the picker offers the coming date"
+
+
 def test_a_point_with_notes_survives_a_new_build_and_is_not_doubled(db_session, monthly_ride):
     """Moving the meeting rebuilds the agenda; a point somebody wrote on stays, and
     its date does not get a second, empty point next to it."""
