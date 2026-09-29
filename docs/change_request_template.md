@@ -151,26 +151,41 @@ and deliberately not done — recorded so it is not asked again).
 
 ## B2. Architecture
 
-### B2.1 Components — new, used, changed
+### B2.1 Components — what is built where, by which team
 
 > [!NOTE]
-> *Which components are new, which existing ones are used, which change. One*
-> *table: component · new/used/changed · role in this change.*
+> *One table, the work list per team: component (file or screen) · module*
+> *(the domain package) · layer (screen, view-model, service, entity,*
+> *facade, migration, template, mail) · new / used / changed · what changes*
+> *· the requirements it serves (R and F numbers). A row per thing that is*
+> *touched; a requirement that no row serves is not built, a row that serves*
+> *no requirement is scope creep. The drawing of B2.3 is this table as a*
+> *picture.*
 
-### B2.2 Application usage — where each business step happens
-
-> [!NOTE]
-> ***Diagram (ArchiMate "application usage" view):** the to-be process steps of*
-> *A3 on the left, the screens and services that serve each step on the right.*
-> *It answers: *where in the application does each business step happen?**
-
-### B2.3 Application structure — what is built where, and what talks to what
+### B2.2 Application usage — which screen or module serves each step of the process
 
 > [!NOTE]
-> ***Diagram (ArchiMate "application structure" view):** screens, modules,*
-> *facades, data stores and external integrations, with the dependencies*
-> *between them. It answers the developer's question: *what has to be built*
-> *where, and what talks to what?**
+> *The to-be process of A3 once more — same lanes, same activities — with,*
+> *in every activity box, a second line naming the screen or module that*
+> *serves it, and the box coloured per module (`classDef` per module, one*
+> *legend line). It answers: where in the application does each business*
+> *step happen, and does every step have a home? A step without a module is*
+> *a gap; a module no step uses is not part of this change. When the process*
+> *has two audiences — those who set something up and those who use it —*
+> *draw it twice, one drawing per audience, so each reads on its own.*
+> *(Decided with Koen, 29 September 2026; the name comes from the ArchiMate*
+> *view of that name, the drawing is Mermaid.)*
+
+### B2.3 Application structure — what is built in which module and layer, and what talks to what
+
+> [!NOTE]
+> *One subgraph per module touched, inside it a box per layer that changes*
+> *(screen · service · entity · facade · migration), the same colour per*
+> *module as in B2.2; arrows between modules only through a facade*
+> *(`api.py`), as the import gate enforces; external systems and data stores*
+> *as their own boxes. It answers the developer's question: what has to be*
+> *built where, and what talks to what? A module in this drawing is a row*
+> *group in B2.1.*
 
 ### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
 

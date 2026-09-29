@@ -277,83 +277,139 @@ Decisions that shape it, with the alternatives:
 
 ## B2. Architecture
 
-### B2.1 Components — new, used, changed
+### B2.1 Components — what is built where, by which team
 
-| Component | new / used / changed | Role |
-|---|---|---|
-| `activities/models.py` — `ActivitySubRegistration.form_id`, `Registration.form_submission_id` | **changed** | the two links |
-| `activities/router.py::create_registration` | **changed** | "now": validates and stores the answers through `forms.api` inside the transaction, before the payment record; "later": sets `answer_token` instead |
-| `activities/ui.py` — `/inschrijving/{answer_token}/vragen` (GET, POST) | **new** | the answer-later page: the form's fields, then one service call |
-| `activities/service.py::answer_questions(db, answer_token, answers)` | **new** | the one write behind the answer page: finds the registration by token, calls `forms.api.submit_attached`, links, clears the token, one transaction (the UI module touches no `db`, CR-13 layer gate) |
-| `activities/models.py` — `Registration.answer_token` | **changed** | the link's secret (32+ random url-safe bytes, unique, nullable; the `edit_token` pattern of `forms`) |
-| `activities/registration_form.py` | **changed** | reads the now/later choice and hands the posted answer fields to `forms.api.answers_from_form` (the form builder's own parser, exported — not a second one); the result travels as `RegistrationCreate.answers` |
-| `activities/templates/_inschrijf_velden.html` | **changed** | includes the form's fields, after the products, when the component has one |
-| `activities/templates/_inschrijf_form.html` (modal) → `inschrijven.html` (page) | **changed** | the public registration becomes a page in the site shell; the board page keeps `admin_inschrijving_nieuw.html` in the admin shell, same content block (B4.1) |
-| `activities/admin_ui.py` — component settings | **changed** | the form picker ("Extra vragen"), with F2's and F13's refusals |
-| `activities/templates/_inschrijving_detail.html`, `export.py` | **changed** | show and export the answers |
-| `forms/api.py` | **changed** | new commands `submit_attached(db, form, answers, submitter)` and `update_attached(db, submission, answers)` — both validate with `build_answers`; the first creates the submission without mail, the second replaces its answers; new reads `attachable_forms(db)`, `answers_from_form(form, form_data)` (today private in `forms/ui.py`), `submission_views(db, submission_ids)` (batched, for the export) |
-| `forms/templates/_formulier_veld.html`, `screenfields.py` | used | the field rendering, unchanged |
-| `mail` — registration confirmation | **changed** | one variable block: the answers after the products (R6), or the answer link when the request is open (R5), or nothing |
-| JSON API `POST /api/v1/activities/{id}/register` | **changed** | `answers` in the schema |
+| Component | Module | Layer | new / used / changed | What changes | Serves |
+|---|---|---|---|---|---|
+| `ActivitySubRegistration.form_id` | activities | entity + migration | **changed** | the link component → form | R1, F1 |
+| `Registration.form_submission_id`, `Registration.answer_token` | activities | entity + migration | **changed** | the link registration → submission; the secret of the answer link | R2, R3, F7 |
+| `Registration.check()` | activities | entity | **changed** | a linked submission belongs to the component's form | F4, B4.2 |
+| `router.py::create_registration` | activities | service (the door) | **changed** | "now": answers through `forms.api` inside the transaction, before the payment record; "later": the token | R2, R4, F4, F6 |
+| `service.py::answer_questions` | activities | service | **new** | the one write behind the answer page: by token, `submit_attached`, link, clear, one transaction | R2, F7 |
+| `service.py` — attach / detach | activities | service | **changed** | the attach rules (F2) and the replace refusal (F13) | R1, R10 |
+| `registration_form.py` | activities | view-model | **changed** | the now/later choice; answers parsed by `forms.api.answers_from_form` | R2, R5, F3 |
+| `ui.py` — the registration page, the thank-you page | activities | screen | **changed** | modal → page in the site shell (B4.1, B4.10); parity B4.9 | R11, F3 |
+| `ui.py` — `/inschrijving/{answer_token}/vragen` | activities | screen | **new** | the answer page, GET and POST, rate-limited | R2, F7 |
+| `admin_ui.py` — board registration page | activities | screen | **changed** | same content block in the admin shell, same choice | R5, R11 |
+| `admin_ui.py` — component settings | activities | screen | **changed** | the picker "Extra vragen" with its refusals | R1, F2, F13 |
+| `admin_ui.py` — registration detail | activities | screen | **changed** | the answers; "antwoorden gevraagd", resend, edit (phase 3) | R3, R7, F8, F12 |
+| `export.py` | activities | service | **changed** | one column per field, answers fetched in one call | R3, A6, F8 |
+| `_inschrijf_velden.html`, `inschrijven.html` | activities | template | **changed** | the questions block with the choice; the page around it | F3, B4.10 |
+| `api.py` — `submit_attached`, `update_attached` | forms | facade + service | **new** | validate with `build_answers`, create / replace the answers, no mail | R4, F4, F5, F12 |
+| `api.py` — `attachable_forms`, `answers_from_form`, `submission_views` | forms | facade | **new** | the reads the activities side needs; the parser exported, not copied | F2, F8, B4.3 |
+| `_formulier_veld.html`, `screenfields.py` | forms | template | used | the field rendering, unchanged | F3 |
+| `send_activity_registration_confirmation` | mail | service + template | **changed** | one variable block: the answers, or the answer link, or nothing | R5, R6 |
+| `POST /api/v1/activities/{id}/register` | activities | JSON route | **changed** | `answers` in the schema (if the route survives CR-13 phase 4) | F6 |
+| `payment.api.create_payment_record` | payment | facade | used | unchanged; called after the answers | B4.2 |
 
-### B2.2 Application usage — where each business step happens
+### B2.2 Application usage — which screen or module serves each step of the process
+
+Two audiences, two drawings. Colour per module: blue `activities`, green
+`forms`, grey `mail`/`payment` (unchanged behaviour).
+
+**Setting up** — the organiser, before the activity opens:
 
 ```mermaid
 flowchart LR
-  subgraph business["A3 — process"]
-    S1["1. build the questions"]
-    S2["2. attach to the component"]
-    S3["3. member registers, answers, pays"]
-    S4["4. board registers a member"]
-    S5["5. organiser reads the answers"]
+  subgraph organiser["Organiser"]
+    o0((start)) --> o1["Build the questions as a form<br/><i>form builder · /admin/formulieren</i>"]
+    o1 --> o2["Attach the form to the component<br/><i>component settings · activities admin</i>"]
+    o2 --> o3((Component<br/>asks questions))
   end
-  subgraph app["application"]
-    FB["form builder<br/>/admin/formulieren"]
-    CS["component settings<br/>/admin/activiteiten/…/onderdelen"]
-    PR["public registration<br/>/activiteiten/{id}/inschrijven/{cid}"]
-    BR["board registration<br/>/admin/activiteiten/{id}/inschrijvingen/nieuw"]
-    CR["create_registration → forms.api.submit_attached → payment.api.create_payment_record"]
-    AD["registration detail + export"]
-  end
-  S1 --> FB
-  S2 --> CS
-  S3 --> PR --> CR
-  S4 --> BR --> CR
-  S5 --> AD
+  classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
+  classDef frm fill:#dcfce7,stroke:#15803d,color:#111
+  class o2 act
+  class o1 frm
 ```
 
-### B2.3 Application structure — what is built where, and what talks to what
+**Registering, answering, following up** — the member, the board, the
+treasurer and the organiser, once the activity is open:
+
+```mermaid
+flowchart LR
+  subgraph member["Household member"]
+    m0((start)) --> m1["Register: contact, children<br/><i>registration page · activities</i>"]
+    m1 --> m2{Answer now<br/>or later?}
+    m2 -- now --> m3["Answer the questions<br/><i>registration page · form fields of forms</i>"]
+    m3 --> m4["Choose online or transfer<br/><i>registration page · activities → payment</i>"]
+    m2 -- later --> m4
+    m4 --> m5["Receive the confirmation<br/><i>mail</i>"]
+    m5 --> m6{Questions<br/>still open?}
+    m6 -- yes --> m7["Answer through the link<br/><i>answer page · activities</i>"]
+    m6 -- no --> m8
+    m7 --> m8((Registered,<br/>answered, paid))
+  end
+  subgraph board["Board"]
+    b1["Register a member, same choice<br/><i>board registration page · activities admin</i>"]
+  end
+  subgraph treasurer["Treasurer / organiser"]
+    t1["See payments arrive<br/><i>payments screen · payment</i>"] --> t2{Everyone paid?}
+    t2 -- no --> t3["Remind by hand<br/><i>— outside the portal (R12)</i>"]
+    t3 --> t1
+    t2 -- yes --> t4["Read the answers; export the list;<br/>resend the link where open<br/><i>registration detail + export · activities admin</i>"]
+    t4 --> t5((Round planned))
+  end
+  m4 -.-> t1
+  b1 -.-> m5
+  m3 -.-> t4
+  m7 -.-> t4
+  classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
+  classDef frm fill:#dcfce7,stroke:#15803d,color:#111
+  classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
+  class m1,m4,m7,b1,t4 act
+  class m3 frm
+  class m5,t1 oth
+```
+
+Every step has a module; "remind by hand" has none on purpose (R12). No
+module appears that a step does not use.
+
+### B2.3 Application structure — what is built in which module and layer, and what talks to what
 
 ```mermaid
 flowchart TB
-  subgraph activities
-    UI["ui.py · admin_ui.py"]
-    RF["registration_form.py"]
-    SVC["router.py::create_registration<br/>service.register"]
-    M["Registration (+form_submission_id)<br/>ActivitySubRegistration (+form_id)"]
-    EX["export.py"]
+  subgraph activities["activities (blue)"]
+    A1["screens: registration page · answer page ·<br/>board page · component settings · detail"]
+    A2["view-model: registration_form.py<br/>(choice, answers)"]
+    A3["service: create_registration · answer_questions ·<br/>attach/detach · export"]
+    A4["entities: Registration (+form_submission_id,<br/>+answer_token, check()) ·<br/>ActivitySubRegistration (+form_id)"]
+    A5["migration: three nullable columns"]
+    A1 --> A2 --> A3 --> A4
+    A5 -.-> A4
   end
-  subgraph forms
-    FAPI["api.py<br/>submit_attached · submission_view · attachable_forms"]
-    FS["service.py build_answers"]
-    FM["Form · FormField · FormSubmission · FormSubmissionAnswer"]
-    FV["_formulier_veld.html"]
+  subgraph forms["forms (green)"]
+    F1["facade api.py: submit_attached · update_attached ·<br/>attachable_forms · answers_from_form · submission_views"]
+    F2["service: build_answers (unchanged)"]
+    F3["entities: Form · FormField ·<br/>FormSubmission · FormSubmissionAnswer (unchanged)"]
+    F4["template: _formulier_veld.html (unchanged)"]
+    F1 --> F2 --> F3
   end
-  subgraph payment
-    PAPI["api.py create_payment_record"]
+  subgraph payment["payment (unchanged)"]
+    P1["facade api.py: create_payment_record"]
   end
-  UI --> RF --> SVC
-  UI -. renders .-> FV
-  SVC --> FAPI --> FS --> FM
-  SVC --> PAPI
-  SVC --> M
-  EX --> FAPI
-  M -. FK .-> FM
+  subgraph mail["mail"]
+    M1["service + template: the confirmation<br/>(answers or link block)"]
+  end
+  MOL[(Mollie)]
+  A3 --> F1
+  A3 --> P1
+  A3 --> M1
+  A1 -. renders .-> F4
+  A4 -. FK .-> F3
+  P1 --> MOL
+  classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
+  classDef frm fill:#dcfce7,stroke:#15803d,color:#111
+  classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
+  class A1,A2,A3,A4,A5 act
+  class F1,F2,F3,F4 frm
+  class P1,M1 oth
 ```
 
-`activities` reaches `forms` only through `forms.api` (import gate); the
-template include of `_formulier_veld.html` is a *read* of a template, which
-the layer gate allows as it allows the macros.
+`activities` reaches `forms`, `payment` and `mail` only through their
+facades (the import gate); the template include of `_formulier_veld.html`
+is a *read* of a template, which the layer gate allows as it allows the
+macros. `forms` reaches nothing new. Four of the five layers of
+`activities` change; in `forms` only the facade grows.
 
 ### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
 
