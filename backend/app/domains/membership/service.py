@@ -402,6 +402,9 @@ def parse_member_rows(form) -> list[dict]:
             for key, value in form.items()
             if key.startswith(f"m{index}_email_new_") and isinstance(value, str) and value.strip()
         ]
+        # #1327: the row's own number, so a screen that shows the form again after
+        # a refusal puts every person back in their own row.
+        rij["index"] = index
         if rij["first_name"] or rij["last_name"]:
             rijen.append(rij)
     return rijen
