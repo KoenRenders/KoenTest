@@ -1,7 +1,7 @@
 # Change Request 14 — Extra questions on a registration: a form attached to a component
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped on 29 September 2026 · draft, Part A to be confirmed · not assigned · issue #1320
+**Status:** shaped and confirmed on 29 September 2026 · assigned to v2.9.0 (#1325) · issue #1320
 **Applies to:** the activity registration flow (the public registration — today a modal — the board form, the JSON API), the `forms` domain, the registration detail and export in the admin, the confirmation mail.
 
 > Part A is the business's; Part B is measured on `master` `6a96af01`. Who
@@ -1021,14 +1021,14 @@ marked, the way the form builder marks one (`data-veld`, #741/#749).
 
 Three phases, each shippable and testable on HDEV on its own, in one
 release or spread over two; the first is worth doing even if the others
-wait. Ships after CR-13 phase 1 is on `master` (the `Registration`
-aggregate with `check()`, the one `create_registration`), so the rule "a
-linked submission belongs to the component's form" has its home from day
-one.
+wait. Builds on CR-13 phase 1 (the `Registration` aggregate with
+`check()`, the one `create_registration`) — on `master` and on PROD with
+v2.8.0 — so the rule "a linked submission belongs to the component's form"
+has its home from day one. All three phases are assigned to v2.9.0.
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
-| 1 — **the page** | the one registration page for member and board (B4.1, B4.10), parity walked (B4.9), the component chips on the public page, the thank-you page; no questions yet. **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 on `master` | none | none | none on the happy path; the in-place participant refresh becomes a refresh on return (P10) | AC9 on HDEV: the parity list, phone and desktop |
+| 1 — **the page** | the one registration page for member and board (B4.1, B4.10), parity walked (B4.9), the component chips on the public page, the thank-you page; no questions yet. **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 (v2.8.0, met) | none | none | none on the happy path; the in-place participant refresh becomes a refresh on return (P10) | AC9 on HDEV: the parity list, phone and desktop |
 | 2 — **the questions** | the two links and the token, the picker with its refusals (F2, F13), the questions with the now/later choice on both pages, the answer page and the link in the mail (B4.8), the API field, the admin detail, the export and the book (B4.4) | 1 | one, additive: `form_id`, `form_submission_id`, `answer_token` | none | a "now" registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
 | 3 — **the aftercare** | R6 the answers in the mail, R7 editing on the registration detail with history, "link opnieuw sturen" | 2 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
@@ -1159,6 +1159,7 @@ None yet. To measure before the build of phase 2:
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 | 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards *(superseded the same day: the choice now/later on both pages, last row)*. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
 | 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
+| 29 Sep 2026 | Part A confirmed; CR-14 assigned to v2.9.0 (#1325), all three phases; CR-13 phase 1 is on PROD with v2.8.0, so the dependency is met. | Koen |
 | 29 Sep 2026 | The answer link keeps working after the registration closes: closing stops new registrations, not the answers of a household already registered. | Koen |
 | 29 Sep 2026 | Following up — that everyone answered, that every transfer arrived — is out of scope (R12 Won't): the tool supports it neither in the as-is nor in the to-be; it stays by hand. | Koen |
 | 29 Sep 2026 | Nothing is provided for health data today (an allergy is an answer like any other). The form builder does not point back at the registration. Three phases: the page first, then the questions, then mail and editing. | Koen |
