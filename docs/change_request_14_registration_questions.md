@@ -156,7 +156,7 @@ The questions of the Sint activity, and what they teach about the shape:
 
 | Question | Kind | Form builder field type | Note |
 |---|---|---|---|
-| Which time slots suit you? — "Beschikbare tijdstippen", twelve options (Friday 17–21 h in four slots, Saturday 8–12 h and 13–17 h in eight), with a help text asking for **at least four** and to align with the neighbours | several of a list | `checkbox` (multi), twelve options, the help text as `help_text` | a preference, not a booking: a person plans the visits afterwards — so no capacity, no product (Q8). **The builder cannot enforce "at least four"**: `min_value`/`max_value` exist for `number` only, a checkbox has no minimum count (measured in `build_answers`). The Google Form asked it in the help text too; a minimum count on a checkbox would be a small forms change (Q24) |
+| Which time slots suit you? — "Beschikbare tijdstippen", twelve options (Friday 17–21 h in four slots, Saturday 8–12 h and 13–17 h in eight), with a help text asking for **at least four** and to align with the neighbours | several of a list | `checkbox` (multi), twelve options, the help text as `help_text` | a preference, not a booking: a person plans the visits afterwards — so no capacity, no product (Q8). **The builder cannot enforce "at least four"**: `min_value`/`max_value` exist for `number` only, a checkbox has no minimum count (measured in `build_answers`). The Google Form asked it in the help text too; as before, the help text asks and nothing enforces (Q24) |
 | Inside or outside? | one of two | `radio` | — |
 | Tell us about the children | free text | `textarea` | personal data about minors; seen by the organiser only |
 | Allergies | free text | `textarea` | health data — asked because the activity needs it; no special handling in the system, the organiser decides to ask |
@@ -164,10 +164,22 @@ The questions of the Sint activity, and what they teach about the shape:
 
 Learnt: all five fit the ten field types, in one section, without
 branching; none depends on a product; one form serves the activity (one
-component). Nothing in the form builder *has* to change for this case; one
-thing *could*: a minimum number of checked options (Q24). Source: the
-Google Form of a previous year, a screenshot in the project folder outside
-the repository.
+component). Nothing in the form builder changes for this case (the "at least four" stays
+a request in the help text, Q24). Source: the Google Form of a previous
+year, two screenshots in the project folder outside the repository.
+
+**The intro text of the Google Form**, and where the platform already has
+each element — so the intro itself becomes the component's description and
+nothing in it needs a question:
+
+| The intro said | On the platform |
+|---|---|
+| Members only ("als RAAK-lid schrijf ik mijn kinderen in") | the activity's `members_only` flag (exists) |
+| A visit on Friday evening or Saturday; the time is communicated afterwards | the time slots question (A5 above); the planning stays with the organiser (Q8) |
+| €5 per child, the association adds €5 | one product "Kind" at €5, quantity = the number of children (exists); the subsidy is a sentence in the description |
+| Pay by transfer, with "Sint en je naam" as message | the platform's payment step: online or transfer with a structured message (exists); the account number is no longer typed by the member |
+| No personal gifts through the Sint; the package is the association's | a sentence in the description |
+| Register until 15 November | the component's `registration_closes_on` (exists) |
 
 ## A6. Business requirements — what the board asks, with MoSCoW
 
@@ -1109,7 +1121,7 @@ None yet. To measure before the build of phase 2:
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B6. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
-| Q24 | 29 Sep 2026 | The Sint form asks for at least four time slots; the builder has no minimum count for a checkbox (`min_value`/`max_value` are for `number`). Enforce it — reuse the two columns as min/max checked options for `checkbox`, a small forms change in phase 2 — or keep it a request in the help text, as the Google Form did? (Claude) | *open* |
+| Q24 | 29 Sep 2026 | The Sint form asks for at least four time slots; the builder has no minimum count for a checkbox (`min_value`/`max_value` are for `number`). Enforce it — reuse the two columns as min/max checked options for `checkbox`, a small forms change in phase 2 — or keep it a request in the help text, as the Google Form did? (Claude) | Koen, 29 Sep: as before — a request in the help text. No forms change. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
 | Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A5. |
 | Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | Koen, 29 Sep: no — a person plans the visits afterwards. A checkbox question it is. |
