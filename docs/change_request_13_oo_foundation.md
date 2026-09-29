@@ -522,8 +522,9 @@ classDiagram
     +items : list~RegistrationItem~
     +component : ActivitySubRegistration
     -- one field --
-    +validates(contact_name, phone) not blank
+    +validates(contact_name, contact_email) not blank
     +validates(contact_email) well-formed
+    ~phone: required at the entrances, not on the row~
     -- several fields, loaded --
     +check() team name if the component requires it
     +total() Money
@@ -544,7 +545,7 @@ classDiagram
   }
   class DB {
     <<constraints at rest>>
-    NOT NULL contact_name, contact_email
+    NOT NULL + <> '' contact_name, contact_email
     CHECK quantity > 0
     CHECK price >= 0 on activity_products
   }
@@ -775,7 +776,13 @@ said here so that "reads are free" is not read as permission.
 | at rest | `NOT NULL` / `CHECK` | none — the last net | test 2, and the migration's own data check |
 
 Sketched on `Registration` (from the handover), so the shape is concrete:
-`@validates("contact_name", "phone")` strips and refuses blank;
+`@validates("contact_name", "contact_email")` strips and refuses blank —
+**not `phone`**: a registration is not guaranteed to carry a phone number
+(Koen, 29 September 2026); the entrances require it, the database does not,
+so the phone rule stays an entrance check in the service
+(`controleer_inschrijfvelden`, every write path) and is deliberately no
+`@validates` on the row — otherwise the *validator without constraint*
+gate would be right to go red on it;
 `check()` refuses a missing team name when `self.component.team_name_required`;
 `total()` sums the items already loaded at the product's price for this
 registrant; `balance()` uses the payment records already loaded.
@@ -1128,7 +1135,7 @@ its data check (B3):
 
 | Phase | Table | Constraint |
 |---|---|---|
-| 1 | `activities.registrations` | `NOT NULL` **and** `CHECK (col <> '')` on `contact_name`, `contact_email`, `phone` — "not blank" is two constraints, `NOT NULL` alone lets `''` through a bulk path (AC1 names the mobile number, so `phone` is in); `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
+| 1 | `activities.registrations` | `NOT NULL` **and** `CHECK (col <> '')` on `contact_name` and `contact_email` — "not blank" is two constraints, `NOT NULL` alone lets `''` through a bulk path; the one on `contact_email` approved by Koen on 29 Sep (the board can no longer blank an e-mail address). **No constraint on `phone`** (Koen, 29 Sep): a registration is not guaranteed to carry a phone number; the entrances require it (AC1 holds in code, on every write path), the database does not; `CHECK` that `team_name` is not empty when the component requires it is *not* expressible at rest (needs the component) — validator + `check()` only, stated in the docstring |
 | 1 | `activities.registration_items` | `CHECK (quantity > 0)` — and no price constraint here: the line has no price column, the product's `price >= 0` in the next row covers it (dev2, 28 Sep) |
 | 1 | `activities.activity_sub_registrations`, `activities.activity_products` | `CHECK (price >= 0)`, `CHECK (member_price IS NULL OR member_price >= 0)`, `CHECK (max_participants IS NULL OR max_participants > 0)` — #94 phase 3 and 5, same schema, same migration; each with its data check |
 | 2 | `payment.payment_records` | the sign rule that respects refunds (#94 phase 2, #83): `CHECK (deleted_at IS NOT NULL OR (type = 'charge' AND amount > 0) OR (type = 'refund' AND amount < 0))` — the sign rule holds for **living rows**, the same pattern as the partial UNIQUE under soft delete in B4.2 (dev2's finding and the master CLI's decision (C)+(A), 28 Sep: a soft-deleted row is still a row, so a CHECK over all rows would fail on the very row the clean-up just removed) — **in v2.8.0, made safe by a clean-up step in the same migration** (Koen, 28 Sep, on #1249; the first case under the agreement below): the migration first soft-deletes every charge of 0,00 with the same rule as (b), counts and reports the rows, and only then adds both CHECKs; `CHECK (amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) OR (type = 'refund' AND amount_paid BETWEEN amount AND 0))` stays in phase 2 with its count and holds for **all** rows, deleted included — measured: 0 violators (CR-12 gives the closed `type` set) |
@@ -1148,7 +1155,7 @@ migration of this CR carries it).
 
 | Constraint | Old-app-safe? | Why |
 |---|---|---|
-| `registrations.contact_name/contact_email/phone` `NOT NULL` + `<> ''` | **likely yes — measure** | since #1192 every writer (public form, JSON API, board screen) goes through `create_registration` → `controleer_inschrijfvelden`, which refuses blank; the import does not write registrations. Count the three columns on every environment before the deploy |
+| `registrations.contact_name/contact_email` `NOT NULL` + `<> ''` (`phone`: no constraint, Koen 29 Sep) | **likely yes — measure** | since #1192 every writer (public form, JSON API, board screen) goes through `create_registration` → `controleer_inschrijfvelden`, which refuses blank; the import does not write registrations. Count the two columns on every environment before the deploy |
 | `registration_items.quantity > 0` | **likely yes — measure** | the router bounds `quantity` (`MAX_ITEM_QUANTITY`) and refuses 0; count |
 | `activity_sub_registrations` / `activity_products` prices `>= 0`, `max_participants > 0 OR NULL` | **likely yes — measure** | the admin forms refuse negatives; count |
 | `payment_records` sign rule | **no as such — made safe by a clean-up step in its own migration** (Koen, 28 Sep) | the old app writes charges positive and refunds negative by construction (`create_refund`), but `reconcile_charges` closes a partially paid charge on its paid amount — `amount = amount_paid` — and when that amount is 0,00 the charge stays as a pending row of 0,00 (#673's trap; one such row on HDEV). So the `CHECK` is not additive as such. Decided (Koen, 28 Sep, #1249, revised the same day): (a) the sign rule in code in phase 2 (validator, `mark_paid`), (b) `reconcile_charges` soft-deletes a charge that would close on 0,00, **and the `CHECK` in the same phase**, made safe by the migration itself: it first soft-deletes every existing charge of 0,00 with the same rule as (b) — counted and reported, today 0 on UAT and PROD, 1 on HDEV — and only then adds the CHECK. Two details make that hold (dev2, master CLI, 28 Sep): (b) soft-deletes **without** setting `amount` to 0 — the row keeps `amount > 0` with `amount_paid = 0`, so no 0,00 charge is ever written again — and the CHECK excludes deleted rows (`deleted_at IS NOT NULL OR …`), because a soft-deleted row is still a row and HDEV's existing 0,00 row cannot get its old amount back without reconstructing it from history. `compose up` replaces the container, so the old app writes nothing while the new one migrates; the only risk is a row already there, and the clean-up covers it. Going back to v2.7.0 after this migration means the dump, as for every release with a migration (#1203). The `amount_paid` bounds are measured separately: a refund's `amount_paid` is set by the treasurer, so count every row before that CHECK goes on |
@@ -1232,7 +1239,7 @@ would lose less; it would not — corrected the same day.)
 | 0a | **#755**, rescoped: CR-13 fase 0a — de meter, de listener, de registry, de B9.1-regel in `code-style.md`, de aliassen, de zes eenvoudige poorten, de repokant van de JSON-aanroepers | none | none | none | none | CI only; the numbers in the release issue |
 | 0b | **#1248**: CR-13 fase 0b — tests bij hun domein: alle testbestanden geplaatst (telling van vlak vóór de verhuizing, zie A2), `testpaths`, suite-telling gelijk; poort *tests with their domain* hard | none | none | none | none | CI only; the same count before and after |
 | 0c | **#1254**: CR-13 fase 0c — de zware AST-poorten (promise kept, no foreign writes, one transaction, events not calls, no rule in a router, #780; plus one entrance rule en one owner per derived value), de PROD-accesslogkant van de JSON-aanroepers | none | none | none | none | CI only; the full B9.2 table printed for the first time — the baseline of every phase after |
-| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks | none | the data check counts per environment in the issue | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route already refuses what the form refuses since #1192 — no longer a failure path of this phase; only the atomicity change remains | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
+| 1 | **#757**, rescoped: CR-13 fase 1 — `Registration` als aggregaat + value objects + `OrderChanged` | constraints of B5.2 phase 1, with data checks — name and e-mail, not phone (Koen, 29 Sep) | none | the data check counts per environment in the issue (two columns) | a failing reconciliation now rolls the order-line change back (today the line stays deleted and the balance is wrong); the JSON registration route already refuses what the form refuses since #1192 — no longer a failure path of this phase; only the atomicity change remains | AC1, AC4, AC5 on HDEV; reduce and delete an order line in the admin and see the charge follow (the #185 behaviour, now through the event) |
 | 2 | **#1249**: CR-13 fase 2 — `PaymentRecord`: toestand uit de bedragen, `PaymentReceived` als event | constraints of B5.2 phase 2; the sign `CHECK` (living rows only) preceded, in the same migration, by a clean-up that soft-deletes every charge of 0,00 the way (b) does — a history row with `source="migration"`, action `zero_charge_removed` — and reports the count; then both CHECKs (Koen, 28 Sep) | none | a count of records where `amount_paid > amount` before the bounds CHECK; the charges of 0,00 per environment (today 0 on UAT and PROD, 1 on HDEV), removed by the migration itself — no hand fix | #720: a partial payment marked paid stays partially paid — the state follows the amounts; **and (b) of #1249: a charge with `amount_paid = 0` is soft-deleted by `reconcile_charges`, its `amount` left untouched, instead of being closed on 0,00 and left pending — it disappears from the payment list, with a history row** (#673's trap; Koen, 28 Sep; the amount-untouched detail is (C), master CLI) | AC6 on HDEV; a Mollie test payment, and the workflow task it triggers; reduce a fully paid order to nothing and see no 0,00 card |
 | 3 | CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3 | none | memberships with `valid_from > valid_to` counted | none expected; household mutations move domain, same behaviour | the family portal and the member list on HDEV |
 | 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler via jobs; ongebruikte JSON-routes gesnoeid | none | none | the list of removed routes, each with "no caller found in: repo, PROD access log <period>" | mail: a rolled-back registration no longer sends; the `MailRequested` handler no longer holds the transaction for SMTP | a registration on HDEV still gets its confirmation mail; the API-key users and the chatbot still work; AC7, AC9 |
@@ -1473,6 +1480,7 @@ difference between an exemption list and a burn-down.
 | 27 Sep 2026 | All phases in **one release** (like CR-12 in v2.7.0); phase 0 is the first work on the branch so the baseline precedes the rebuild in time. | Koen |
 | 27 Sep 2026 | Validator and constraint in one issue; `Registration` → `PaymentRecord` → `Person`/`Member`; value objects parallel to phase 1. | Koen (confirmed 27 Sep), from his handover |
 | 28 Sep 2026 | The payment sign rule: (a) in code, (b) the 0,00-charge write path closed, and the `CHECK` — all in phase 2 of v2.8.0. The migration soft-deletes every existing charge of 0,00 first (same rule as (b), counted and reported), then adds the CHECK. Revised the same day from "CHECK in the release after". | Koen, on #1249 |
+| 29 Sep 2026 | Phase 1: no database constraint on `registrations.phone` — a registration is not guaranteed to carry a phone number; the entrances require it, the database does not. Name and e-mail keep `NOT NULL` + `<> ''` (e-mail approved the same day). | Koen |
 | 28 Sep 2026 | Within that decision: the sign CHECK excludes soft-deleted rows (`deleted_at IS NOT NULL OR …`) and (b) soft-deletes without zeroing `amount` — a soft-deleted row is still a row, so the plain CHECK would have failed on the row the clean-up removed (dev2's finding, options (C)+(A)). The bounds CHECK on `amount_paid` holds for all rows. | master CLI |
 
 ## Q&A log
@@ -1488,6 +1496,7 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q44 | 29 Sep 2026 | Master CLI, at phase 1: does `phone` get `NOT NULL` + `<> ''`? | Koen: no — a registration is not guaranteed to carry a phone number; the entrances require it, the database does not. So the phone rule is no `@validates` on the row either (the *validator without constraint* gate would rightly flag it) but stays the entrance check on every write path. B5.2 (both tables), drawing 3, B4.2's sketch, B7.1 phase 1, B11. |
 | Q43 | 29 Sep 2026 | Master CLI: 0c merged (PR #1302, `edc4caab`); dev2 noted seven deviations from the CR text. | All seven in B9.3 (and F13/B4.9 for the first): commands derived from code, not `CONTRACT.md` (master CLI's decision); (c) counts callers from service, handler or tool only; *no rule in a router* also sees a screen refusing with a written message; *one owner* walks Python only; *promise kept* is a lower bound; the walker follows in-function imports; the file walk skips domain tests. B9.2's third column now holds the meter's figures; #780 built, 437 frozen. |
 | Q42 | 28 Sep 2026 | Master CLI, at 0b: does a screen test that imports `auth` only to log in count as multi-domain? 39 of 123 single-domain files did, by the literal rule. | No: an import from `auth` of only the six login helpers does not count as a domain; the list lives in the gate. A2 carries dev2's re-count on `213a6f61` (429 files; 123/230/76 literal, 174/146/109 with the exception); the definitive count comes with #1248's PR. |
 | Q41 | 28 Sep 2026 | dev2, building 0a: `handlers.py` holds `@job` functions too (four domains), and a job is where the network belongs; do the two handler gates look at the file or at `@subscribe` functions? | At `@subscribe` functions and what they call one level deep in the same module — never the file. B4.9 defines "event handler" once; B9.3's three rows say so. Jobs' file is left open. dev2 also updates the 26 Sep note at the top of `code-style.md` (ruff is built) in the commit that adds the B9.1 rule. |
