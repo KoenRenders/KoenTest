@@ -184,3 +184,107 @@ def test_every_ride_is_its_own_point_and_its_own_choice(browser):
         assert len(after) == 3, f"upcoming ride points after adding one: {len(after)}"
     finally:
         page.close()
+
+
+def _make_it_an_old_meeting(meeting_id: int, activity_name: str) -> None:
+    """Turn the meeting's points of this activity into one point from before #1335:
+    no date, the activity as a whole, with a note — as the meeting of 3 September
+    stands on PROD."""
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import Activity
+    from app.domains.meetings.api import SectionKind, sections_of
+    from app.domains.meetings.models import Meeting, MeetingItem
+
+    db = SessionLocal()
+    try:
+        activity = db.query(Activity).filter_by(name=activity_name).one()
+        meeting = db.get(Meeting, meeting_id)
+        evaluation = next(s for s in sections_of(db, meeting) if s.kind is SectionKind.EVALUATION)
+        for item in db.query(MeetingItem).filter_by(meeting_id=meeting_id, activity_id=activity.id):
+            db.delete(item)
+        db.add(
+            MeetingItem(
+                meeting_id=meeting_id,
+                section_id=evaluation.id,
+                activity_id=activity.id,
+                sort_key=min(d.start_date for d in activity.dates),
+                notes="<p>Besproken vóór #1335</p>",
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def test_an_existing_meeting_offers_every_ride_next_to_its_old_point(browser):
+    """Koen's answer (a): an existing meeting does not change by itself; he adds the
+    rides through the picker. So the picker must offer every ride separately, also
+    next to an old point without a date, and adding one keeps the old point."""
+    ride = f"Fietsrit {secrets.token_hex(2)}"
+    _add_activity(
+        ride,
+        *[
+            (d, None, time(14, 0), time(17, 0))
+            for d in (date(2027, 7, 10), date(2027, 8, 7), date(2027, 8, 21))
+        ],
+    )
+
+    b, email, session_value = browser
+    page = b.new_page(base_url=BASE, viewport={"width": PHONE, "height": 900})
+    try:
+        login_als_admin(page, email, session_value)
+        page.goto("/admin/vergaderingen/nieuw")
+        page.fill("#vg-datum", "2027-09-02")
+        page.click("button[type=submit]")
+        page.wait_for_selector("#vg-document", timeout=10_000)
+        meeting_id = int(page.url.rstrip("/").split("/")[-1])
+        _make_it_an_old_meeting(meeting_id, ride)
+        page.reload()
+        page.wait_for_selector("#vg-document", timeout=10_000)
+
+        old = [
+            p
+            for p in page.evaluate(_POINTS, "Evaluatie voorbije activiteiten")
+            if p["label"] == ride
+        ]
+        print("MEASURE old point", old)
+        assert [p["meta"].split(" · ")[0] for p in old] == ["10 juli 14u"], (
+            "the old point looks as it did"
+        )
+
+        card = page.locator(
+            "#vg-document div.rounded-2xl",
+            has=page.locator("h2", has_text="Evaluatie voorbije activiteiten"),
+        )
+        card.get_by_role("button", name="Punt toevoegen").click()
+        htmx_stil(page)
+        page.fill("#vg-document input[name=q]", ride)
+        options = page.locator("#vg-kiezer-resultaten form")
+        expect(options).to_have_count(3)
+        texts = options.all_inner_texts()
+        print("MEASURE picker next to the old point", texts)
+        assert [t.split("\n")[1] for t in texts] == [
+            "zaterdag 21 augustus 2027 14u – 17u",
+            "zaterdag 7 augustus 2027 14u – 17u",
+            "zaterdag 10 juli 2027 14u – 17u",
+        ], "every ride is its own choice, the most recent first"
+        options.first.scroll_into_view_if_needed()
+        _shot(page, "390-bestaande-vergadering-kiezer")
+
+        options.first.locator("button[type=submit]").click()
+        htmx_stil(page)
+        after = [
+            p
+            for p in page.evaluate(_POINTS, "Evaluatie voorbije activiteiten")
+            if p["label"] == ride
+        ]
+        print("MEASURE after adding", after)
+        assert [p["meta"].split(" · ")[0] for p in after] == [
+            "10 juli 14u",
+            "zaterdag 21 augustus 2027 14u – 17u",
+        ], "the old point stays and the ride joins it, in date order"
+        _to_top(page, "Evaluatie")
+        _shot(page, "390-bestaande-vergadering-na")
+    finally:
+        page.close()
