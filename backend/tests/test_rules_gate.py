@@ -40,6 +40,7 @@ from pathlib import Path
 import pytest
 
 from tests import rules_baseline as baseline
+from tests._bestanden import is_app_test
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -56,7 +57,10 @@ def _rel(path: Path) -> str:
 
 
 def _python_files() -> list[Path]:
-    files = sorted(p for p in APP.rglob("*.py") if "__pycache__" not in p.parts)
+    """The application's Python files — a domain's tests (CR-13 R15) are not the app."""
+    files = sorted(
+        p for p in APP.rglob("*.py") if "__pycache__" not in p.parts and not is_app_test(p)
+    )
     assert len(files) > 150, f"only {len(files)} Python files under app/ — the walk is blind"
     return files
 
@@ -426,6 +430,244 @@ def collect_validator_without_constraint(mappers=None) -> dict[str, str]:
     return found
 
 
+# ── 7. English identifiers (#780; ratchet, hard outside the baseline) ────────
+
+# Words that exist only in Dutch. A word both languages use (`status`, `type`,
+# `data`, `code`, `form`, `post`, `tenant`, `filter`, `agenda`, `bus`) is not here,
+# so an English identifier can never match. A false positive is fixed by refining
+# this list, never by adding the name to the baseline (#780 point 4).
+#
+# `DUTCH_WORDS` match a whole word only; `DUTCH_STEMS` also match the start of a
+# word (`inschrijf` → `inschrijving`, `inschrijvingen`). Stems are long enough that
+# no English word starts with them.
+DUTCH_WORDS = frozenset(
+    """
+    aantal adres alle als bij dag dan dicht doel geen jaar kort leeg lees lege lid naam
+    mijn namen naar niet nieuw oud rij rijen rol som tel toon uit veld voor wel werk zet
+    """.split()
+)
+DUTCH_STEMS = (
+    "aanmak",
+    "aanpass",
+    "achternaam",
+    "activiteit",
+    "afbeelding",
+    "afzender",
+    "antwoord",
+    "bedrag",
+    "beeld",
+    "beheer",
+    "bepaal",
+    "bereken",
+    "bericht",
+    "bestand",
+    "bestuur",
+    "betaal",
+    "betaling",
+    "bevestig",
+    "bewaar",
+    "bewerk",
+    "breedte",
+    "controleer",
+    "databank",
+    "datum",
+    "eerst",
+    "formulier",
+    "fout",
+    "gebruiker",
+    "geboorte",
+    "gedaan",
+    "geldig",
+    "gemeente",
+    "gesloten",
+    "geslacht",
+    "gezin",
+    "groep",
+    "haal",
+    "hoofdlid",
+    "hoogte",
+    "huisnummer",
+    "icoon",
+    "iconen",
+    "inhoud",
+    "inschrijf",
+    "inschrijv",
+    "instelling",
+    "kaart",
+    "keten",
+    "keuze",
+    "kleur",
+    "knop",
+    "kolom",
+    "laatste",
+    "leden",
+    "lidmaatschap",
+    "lijst",
+    "maak",
+    "maand",
+    "melding",
+    "migratie",
+    "ontbreek",
+    "ontvang",
+    "onderdeel",
+    "onderdelen",
+    "onderwerp",
+    "ongeldig",
+    "opmaak",
+    "opslaan",
+    "ouder",
+    "overschrijving",
+    "pagina",
+    "persoon",
+    "personen",
+    "poort",
+    "prijs",
+    "rechten",
+    "regel",
+    "rekening",
+    "saldo",
+    "scherm",
+    "sjabloon",
+    "sleutel",
+    "soort",
+    "sorteer",
+    "sortering",
+    "straat",
+    "stuur",
+    "taken",
+    "tekst",
+    "telling",
+    "terugbetal",
+    "toevoeg",
+    "totaal",
+    "uitlijning",
+    "uniek",
+    "velden",
+    "verborgen",
+    "vergadering",
+    "verleng",
+    "verplicht",
+    "verslag",
+    "verstuur",
+    "vertaling",
+    "verwijder",
+    "verwerk",
+    "voeg",
+    "volgend",
+    "volgorde",
+    "voornaam",
+    "vorige",
+    "vraag",
+    "vragen",
+    "waarde",
+    "weergave",
+    "wijzig",
+    "zichtbaar",
+    "zoek",
+    "afdruk",
+    "afreken",
+    "bestel",
+    "bijwerk",
+    "gegevens",
+    "geannuleerd",
+    "geschrapt",
+    "hernoem",
+    "huidige",
+    "ingetypt",
+    "inzending",
+    "klaar",
+    "notitie",
+    "opmerking",
+    "organisatie",
+    "registreer",
+    "schrijf",
+    "sectie",
+    "statisch",
+    "verhuis",
+    "vernieuw",
+    "verplaats",
+    "ververs",
+    "vordering",
+    "wacht",
+    "werkruimte",
+    "actieve",
+    "lopend",
+    "organisator",
+    "portaal",
+    "wissel",
+    "worden",
+)
+
+# English words that happen to start with a Dutch stem: `pagina` → `paginated`.
+ENGLISH_PREFIXES = ("paginat",)
+
+_WORD_SPLIT = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
+
+
+def dutch_words_in(identifier: str) -> list[str]:
+    """The Dutch words an identifier is made of (snake_case and CamelCase)."""
+    words = [w.lower() for part in identifier.split("_") for w in _WORD_SPLIT.findall(part)]
+    return [
+        w
+        for w in words
+        if w in DUTCH_WORDS or (w.startswith(DUTCH_STEMS) and not w.startswith(ENGLISH_PREFIXES))
+    ]
+
+
+def collect_dutch_identifiers() -> dict[str, str]:
+    """A Dutch `def`, `class`, module, model column, migration or test file name.
+
+    Keys: `file::name` for a definition, `file::Class.column` for a column,
+    `module:file`, `migration:<file name>`, `test file:<file name>`. Scope per #780
+    point 3 and CR-13 §B9.3: identifiers, not strings, comments or stored values.
+    """
+    found: dict[str, str] = {}
+
+    def note(key: str, where: str, name: str) -> None:
+        words = dutch_words_in(name)
+        if words:
+            found.setdefault(
+                key,
+                f"{where} `{name}` ({', '.join(words)}) — new code is English "
+                f"(`CLAUDE.md`, *Code language*; #780)",
+            )
+
+    files = _python_files()
+    for path in files:
+        note(f"module:{_rel(path)}", f"{_rel(path)}:", path.stem)
+        tree = _tree(path)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                note(f"{_rel(path)}::{node.name}", f"{_rel(path)}:{node.lineno}", node.name)
+        if path.name == "models.py":
+            for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+                for stmt in cls.body:
+                    if (
+                        isinstance(stmt, ast.Assign)
+                        and isinstance(stmt.value, ast.Call)
+                        and getattr(stmt.value.func, "id", None) == "Column"
+                    ):
+                        for target in stmt.targets:
+                            if isinstance(target, ast.Name):
+                                note(
+                                    f"{_rel(path)}::{cls.name}.{target.id}",
+                                    f"{_rel(path)}:{stmt.lineno} column",
+                                    target.id,
+                                )
+    migrations = sorted((BACKEND / "alembic" / "versions").glob("*.py"))
+    assert len(migrations) > 150, f"only {len(migrations)} migrations — the walk is blind"
+    for path in migrations:
+        # `170_2026_09_28_…_what_it_does.py`: the words after the id are the name.
+        note(f"migration:{path.name}", "alembic/versions/", path.stem)
+    test_files = sorted(
+        {*(BACKEND / "tests").rglob("test_*.py"), *DOMAINS.glob("*/tests/test_*.py")}
+    )
+    assert len(test_files) > 400, f"only {len(test_files)} test files — the walk is blind"
+    for path in test_files:
+        note(f"test file:{path.name}", str(path.relative_to(BACKEND)), path.stem)
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -434,6 +676,7 @@ COLLECTORS = {
     "COMMIT_IN_HANDLER": collect_commit_in_handler,
     "NETWORK_IN_HANDLER": collect_network_in_handler,
     "JSON_ROUTE_WITHOUT_CALLER": collect_json_route_without_caller,
+    "DUTCH_IDENTIFIERS": collect_dutch_identifiers,
 }
 
 
@@ -497,6 +740,34 @@ def test_every_json_route_names_its_caller():
     the list. The same line in `cms/CONTRACT.md` stayed green: only the contract of
     the domain that defines the route counts."""
     _ratchet("JSON_ROUTE_WITHOUT_CALLER")
+
+
+def test_no_new_dutch_identifier():
+    """Ratchet (#780), hard for any name outside the baseline. Proofs (run, removed),
+    the three directions #780 asks for: a `def controleer_iets()` added to
+    `activities/service.py` → red, naming the file, the line and `controleer`; the key
+    `domains/activities/service.py::bereken_iets` added to the baseline without the
+    code → red, "no longer occur"; the existing Dutch names in the baseline → green,
+    which this run is."""
+    _ratchet("DUTCH_IDENTIFIERS")
+
+
+@pytest.mark.parametrize(
+    ("identifier", "dutch"),
+    [
+        ("controleer_inschrijfvelden", ["controleer", "inschrijfvelden"]),
+        ("AdminActiviteitenView", ["activiteiten"]),
+        ("093_formulier_posities_uniek_per_ouder", ["formulier", "uniek", "ouder"]),
+        # English, and words both languages use: never a match.
+        ("paginated_list", []),
+        ("create_payment_record", []),
+        ("form_status_type_filter", []),
+        ("post_tenant_data_code", []),
+        ("RegistrationView", []),
+    ],
+)
+def test_the_word_list(identifier, dutch):
+    assert dutch_words_in(identifier) == dutch
 
 
 def test_no_validator_without_its_constraint():
