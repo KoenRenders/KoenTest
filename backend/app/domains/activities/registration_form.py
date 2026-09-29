@@ -25,13 +25,19 @@ session. The board's does, because the board member is not the one registering.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any, Iterable, Mapping
 
 from sqlalchemy.orm import Session
 
 from app.domains.activities.service import publicly_bookable_products
 from app.domains.activities.totals import has_payable_products, quote_lines
 from app.kernel.codes import TechnicalEnum
+
+if TYPE_CHECKING:  # #1305
+    from fastapi import BackgroundTasks
+
+    from app.domains.activities.models import Activity, ActivityProduct, ActivitySubRegistration
+    from app.domains.mdm.api import Person
 
 
 @dataclass(frozen=True)
@@ -51,7 +57,9 @@ class Channel:
     prices_url: str | None = None
 
 
-def public_channel(db: Session, activity, component, session_email: str) -> Channel:
+def public_channel(
+    db: Session, activity: Activity, component: ActivitySubRegistration, session_email: str
+) -> Channel:
     from app.domains.auth.api import login_person_for_email
 
     base = f"/activiteiten/{activity.id}/inschrijven/{component.id}"
@@ -63,7 +71,9 @@ def public_channel(db: Session, activity, component, session_email: str) -> Chan
     )
 
 
-def board_channel(db: Session, activity, component, typed_email: str) -> Channel:
+def board_channel(
+    db: Session, activity: Activity, component: ActivitySubRegistration, typed_email: str
+) -> Channel:
     from app.domains.auth.api import login_person_for_email
 
     typed = (typed_email or "").strip()
@@ -77,7 +87,7 @@ def board_channel(db: Session, activity, component, typed_email: str) -> Channel
     )
 
 
-def is_member(person) -> bool:
+def is_member(person: Person | None) -> bool:
     """Is this person a member today? Decides the member price on the screen.
 
     "Today" is right here: the form shows what you would pay now.
@@ -89,7 +99,7 @@ def is_member(person) -> bool:
     return has_valid_membership(person)
 
 
-def contact_refusal(values) -> str | None:
+def contact_refusal(values: Mapping[str, Any]) -> str | None:
     """Why a registration form's contact fields are refused, or None (#1192).
 
     The same three fields on every way in — Koen: "bestuur moet dezelfde velden
@@ -105,7 +115,7 @@ def contact_refusal(values) -> str | None:
     return None
 
 
-def form_quantities(form) -> dict[int, int]:
+def form_quantities(form: Mapping[str, Any]) -> dict[int, int]:
     out: dict[int, int] = {}
     for key, value in form.items():
         if key.startswith("product_"):
@@ -116,7 +126,7 @@ def form_quantities(form) -> dict[int, int]:
     return out
 
 
-def opening_quantity(products) -> int:
+def opening_quantity(products: Iterable[ActivityProduct]) -> int:
     """The quantity the form OPENS with (#1172): 1 with exactly one product.
 
     With several, prefilling would choose for the visitor. Never above the
@@ -134,7 +144,7 @@ def opening_quantity(products) -> int:
     return 1
 
 
-def form_products(component, channel: Channel) -> list:
+def form_products(component: ActivitySubRegistration, channel: Channel) -> list:
     """The products the form shows: publicly bookable, or all of them for the board."""
     if channel.backoffice:
         return list(component.products)
@@ -143,8 +153,8 @@ def form_products(component, channel: Channel) -> list:
 
 def form_context(
     channel: Channel,
-    activity,
-    component,
+    activity: Activity,
+    component: ActivitySubRegistration,
     *,
     values: dict | None = None,
     quantities: dict[int, int] | None = None,
@@ -180,7 +190,9 @@ def form_context(
     }
 
 
-def total_context(channel: Channel, component, form) -> dict:
+def total_context(
+    channel: Channel, component: ActivitySubRegistration, form: Mapping[str, Any]
+) -> dict:
     """What `_inschrijf_totaal.html` needs after a change (§19.3 — no drift)."""
     member = is_member(channel.person)
     total, _lines = quote_lines(component, form_quantities(form), member)
@@ -214,7 +226,14 @@ class Outcome:
 
 
 def submit(
-    db: Session, channel: Channel, activity, component, form, background_tasks, *, actor: str = ""
+    db: Session,
+    channel: Channel,
+    activity: Activity,
+    component: ActivitySubRegistration,
+    form: Mapping[str, Any],
+    background_tasks: BackgroundTasks,
+    *,
+    actor: str = "",
 ) -> Outcome:
     """Process one submitted form — the same steps for both channels.
 

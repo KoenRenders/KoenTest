@@ -56,6 +56,8 @@ GATE_BESTANDEN = [
     # collections that can quietly fall empty, and the five ratchets under them
     # would then be green forever.
     "test_codes_gate.py",
+    # #1305: the modules of app.domains.activities, every function typed.
+    "test_activities_typed_gate.py",
     # #1293: the e-mail domains in the tests — a public repository.
     "test_test_email_domains_gate.py",
     # #1287: the one product row, over activities/templates.

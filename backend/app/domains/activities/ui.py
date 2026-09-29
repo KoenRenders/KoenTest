@@ -7,12 +7,16 @@ prijzen uit de databank — geen client-side duplicaat meer.
 
 from __future__ import annotations
 
+# #1305: an ORM object reaches this screen through the service, and the layer gate
+# keeps the class itself out (#635 rule 3) — so such parameters are `Any` here.
+from typing import Any
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.activities.api import REGISTRATION_STATE, RegistrationState
+from app.domains.activities.api import REGISTRATION_STATE, Channel, RegistrationState
 from app.domains.mdm.api import CONTACT
 from app.i18n import _
 from app.kernel.codes import register_tones
@@ -47,14 +51,14 @@ def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
 
 
 @router.get("/activiteiten", response_class=HTMLResponse)
-def activiteiten_page(request: Request, db: Session = Depends(get_db)):
+def activiteiten_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     return templates.TemplateResponse(
         request, "activiteiten.html", _lijst_ctx(db, "upcoming", request)
     )
 
 
 @router.get("/archief", response_class=HTMLResponse)
-def archief_redirect(request: Request):
+def archief_redirect(request: Request) -> Response:
     """URL-pariteit (React-exit 405-e): oud React-pad -> /activiteiten/archief."""
     from fastapi.responses import RedirectResponse
 
@@ -62,7 +66,7 @@ def archief_redirect(request: Request):
 
 
 @router.get("/activiteiten/archief", response_class=HTMLResponse)
-def archief_page(request: Request, db: Session = Depends(get_db)):
+def archief_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     return templates.TemplateResponse(
         request, "activiteiten.html", _lijst_ctx(db, "archived", request)
     )
@@ -71,7 +75,7 @@ def archief_page(request: Request, db: Session = Depends(get_db)):
 @router.get("/activiteiten/{activity_id}/deelnemers/{component_id}", response_class=HTMLResponse)
 def deelnemers_fragment(
     activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
-):
+) -> HTMLResponse:
     """Publieke deelnemerslijst per onderdeel ('Wie doet er mee?') als htmx-
     fragment — herstelt de v1.14-functie voor portal-beheerde inschrijvingen
     (#451). Hergebruikt het bestaande publieke registraties-endpoint."""
@@ -81,7 +85,7 @@ def deelnemers_fragment(
     return templates.TemplateResponse(request, "_deelnemers.html", {"deelnemers": deelnemers})
 
 
-def _component_or_404(db: Session, activity_id: int, component_id: int):
+def _component_or_404(db: Session, activity_id: int, component_id: int) -> tuple[Any, Any]:
     """Activiteit + onderdeel, of 404. `get_component` controleert meteen dat het
     onderdeel bij díe activiteit hoort (#635 I)."""
     from app.domains.activities.api import get_activity, get_component
@@ -111,7 +115,7 @@ def _aanmeldadres(request: Request) -> str:
     return read_session_value(request.cookies.get(SESSION_COOKIE)) or ""
 
 
-def _person_mobile(person) -> str:
+def _person_mobile(person: Any) -> str:
     """Het mobiele nummer van een person uit zijn ContactDetails, of "".
 
     Was tot #1174 `_person_contacts`, dat ook een e-mailadres teruggaf — "de
@@ -127,7 +131,7 @@ def _person_mobile(person) -> str:
     return ""
 
 
-def _channel(request: Request, db: Session, activity, component):
+def _channel(request: Request, db: Session, activity: Any, component: Any) -> Channel:
     """The public channel of the one registration form (#1284): who registers is
     whoever is signed in — never the address typed into the form."""
     from app.domains.activities.api import public_channel
@@ -135,7 +139,7 @@ def _channel(request: Request, db: Session, activity, component):
     return public_channel(db, activity, component, _aanmeldadres(request))
 
 
-def _prefill(request: Request, person) -> dict:
+def _prefill(request: Request, person: Any) -> dict:
     """Prefill for a signed-in member (#476): the name comes from `person` in
     the template, the mobile number from the ContactDetails, and the e-mail
     address from the SESSION (#1174) — the address he just signed in with,
@@ -153,7 +157,7 @@ def _prefill(request: Request, person) -> dict:
 @router.get("/activiteiten/{activity_id}/inschrijven/{component_id}", response_class=HTMLResponse)
 def inschrijf_form(
     activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
-):
+) -> HTMLResponse:
     from app.domains.activities.api import form_context, registration_refusal
 
     activity, component = _component_or_404(db, activity_id, component_id)
@@ -176,7 +180,7 @@ def inschrijf_form(
 )
 async def inschrijf_totaal(
     activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
-):
+) -> HTMLResponse:
     """Server-side herberekening bij elke wijziging (§19.3 — geen drift)."""
     from app.domains.activities.api import total_context
 
@@ -200,7 +204,7 @@ async def inschrijf_submit(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-):
+) -> Response:
     """The public channel of the one form (#1284): the processing is shared with
     the board; what is decided here is only how the outcome is shown."""
     from app.domains.activities.api import OutcomeKind, public_registrations, submit
@@ -239,7 +243,7 @@ async def inschrijf_submit(
 
 
 @router.get("/activiteiten/{sleutel}")
-def activiteit_deeplink(sleutel: str, request: Request, db: Session = Depends(get_db)):
+def activiteit_deeplink(sleutel: str, request: Request, db: Session = Depends(get_db)) -> Response:
     """Het kanonieke deeladres van één activiteit (golf 8, 15 sep 2026).
 
     Een vooraf gecommuniceerde link moet ook ná het evenement blijven werken,

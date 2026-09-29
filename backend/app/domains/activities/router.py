@@ -11,6 +11,7 @@ from app.domains.activities.models import (
     Activity,
     ActivityDate,
     ActivityError,
+    ActivityProduct,
     ActivitySubRegistration,
     Registration,
     RegistrationLimitReached,
@@ -19,7 +20,7 @@ from app.domains.activities.models import (
 from app.domains.activities.totals import compute_registration_total
 from app.domains.auth.api import User, get_current_admin, get_current_member
 from app.domains.mail.api import send_activity_registration_confirmation
-from app.domains.mdm.api import CONTACT, PaymentMethod
+from app.domains.mdm.api import CONTACT, PaymentMethod, Person
 from app.domains.payment.api import (
     PayableType,
     create_payment_record,
@@ -173,7 +174,9 @@ def _build_response(
 
 
 @router.get("/activities", response_model=List[ActivityResponse])
-def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
+def list_activities(
+    scope: str = "upcoming", db: Session = Depends(get_db)
+) -> List[ActivityResponse]:
     """Eén endpoint met een scope-param (#136):
     - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
       de eerstvolgende datum; enkel de toekomstige datums worden getoond.
@@ -310,7 +313,7 @@ def create_activity(
     data: ActivityCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityResponse:
     # #679: het aanmaken zelf (velden, datums, audit-snapshots, commit) staat in
     # de service. Wat hier overblijft is HTTP: het schema uitpakken en de respons
     # vormgeven.
@@ -343,7 +346,7 @@ def update_activity(
     data: ActivityUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityResponse:
     from app.domains.activities import service
 
     velden = data.model_dump(exclude_none=True)
@@ -356,12 +359,12 @@ def update_activity(
     )
 
 
-@router.delete("/activities/{activity_id}")
+@router.delete("/activities/{activity_id}", response_model=None)
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict[str, str]:
     from app.domains.activities import service
 
     if not service.delete_activity(db, activity_id, actor=admin.email):
@@ -378,7 +381,7 @@ def add_activity_date(
     data: ActivityDateCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityDate:
     from app.domains.activities import service
 
     # #792: the coherence rule sits on the object, so this entrance inherits it. The
@@ -399,7 +402,7 @@ def update_activity_date(
     data: ActivityDateUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityDate:
     from app.domains.activities import service
 
     try:
@@ -413,13 +416,13 @@ def update_activity_date(
     return ad
 
 
-@router.delete("/activities/{activity_id}/dates/{date_id}")
+@router.delete("/activities/{activity_id}/dates/{date_id}", response_model=None)
 def delete_activity_date(
     activity_id: int,
     date_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict[str, str]:
     from app.domains.activities import service
 
     if not service.delete_activity_date(db, activity_id, date_id, actor=admin.email):
@@ -436,7 +439,7 @@ def add_component(
     data: ComponentCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivitySubRegistration:
     from app.domains.activities import service
 
     component = service.add_component(db, activity_id, data, actor=admin.email)
@@ -452,7 +455,7 @@ def update_component(
     data: ComponentUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivitySubRegistration:
     from app.domains.activities import service
 
     component = service.update_component(
@@ -463,13 +466,13 @@ def update_component(
     return component
 
 
-@router.delete("/activities/{activity_id}/components/{component_id}")
+@router.delete("/activities/{activity_id}/components/{component_id}", response_model=None)
 def delete_component(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict[str, str]:
     from app.domains.activities import service
 
     if not service.delete_component(db, activity_id, component_id, actor=admin.email):
@@ -489,7 +492,7 @@ def add_product(
     data: ProductCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityProduct:
     from app.domains.activities import service
 
     try:
@@ -513,7 +516,7 @@ def update_product(
     data: ProductUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> ActivityProduct:
     from app.domains.activities import service
 
     try:
@@ -527,14 +530,16 @@ def update_product(
     return product
 
 
-@router.delete("/activities/{activity_id}/components/{component_id}/products/{product_id}")
+@router.delete(
+    "/activities/{activity_id}/components/{component_id}/products/{product_id}", response_model=None
+)
 def delete_product(
     activity_id: int,
     component_id: int,
     product_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict[str, str]:
     from app.domains.activities import service
 
     if not service.delete_product(db, component_id, product_id, actor=admin.email):
@@ -545,7 +550,7 @@ def delete_product(
 # ── Registrations ─────────────────────────────────────────────────────────────
 
 
-def _enrich_registration(reg, activity):
+def _enrich_registration(reg: Registration, activity: Activity) -> dict:
     """Verrijkte inschrijving zoals het scherm ze toont — implementatie in de
     service (#679, batch 6)."""
     from app.domains.activities import service
@@ -560,7 +565,7 @@ def get_registrations(
     without_component: bool = False,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> list[dict]:
     from app.domains.activities import service
 
     regs = service.registrations_for(
@@ -580,7 +585,7 @@ def export_component_ods(
     component_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> Response:
     """Download een .ods met aantallen per product + financials voor één
     onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
     financiële data."""
@@ -642,14 +647,14 @@ def _order_edit_result(
     }
 
 
-@router.post("/activities/{activity_id}/registrations/{registration_id}/items")
+@router.post("/activities/{activity_id}/registrations/{registration_id}/items", response_model=None)
 def add_order_line(
     activity_id: int,
     registration_id: int,
     data: RegistrationItemCreate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict:
     from app.domains.activities import service
 
     activity = _load_activity_or_404(db, activity_id)
@@ -664,7 +669,9 @@ def add_order_line(
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
-@router.patch("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
+@router.patch(
+    "/activities/{activity_id}/registrations/{registration_id}/items/{item_id}", response_model=None
+)
 def update_order_line(
     activity_id: int,
     registration_id: int,
@@ -672,7 +679,7 @@ def update_order_line(
     data: RegistrationItemUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict:
     from app.domains.activities import service
 
     activity = _load_activity_or_404(db, activity_id)
@@ -693,14 +700,16 @@ def update_order_line(
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
-@router.delete("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
+@router.delete(
+    "/activities/{activity_id}/registrations/{registration_id}/items/{item_id}", response_model=None
+)
 def delete_order_line(
     activity_id: int,
     registration_id: int,
     item_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict:
     from app.domains.activities import service
 
     activity = _load_activity_or_404(db, activity_id)
@@ -710,14 +719,14 @@ def delete_order_line(
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
-@router.patch("/activities/{activity_id}/registrations/{registration_id}")
+@router.patch("/activities/{activity_id}/registrations/{registration_id}", response_model=None)
 def update_registration_remarks(
     activity_id: int,
     registration_id: int,
     data: RegistrationContactUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict:
     """Admin corrigeert de contactgegevens en/of de opmerking (#283, uitgebreid #624).
 
     Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
@@ -742,13 +751,13 @@ def update_registration_remarks(
     return _enrich_registration(reg, activity)
 
 
-@router.delete("/activities/{activity_id}/registrations/{registration_id}")
+@router.delete("/activities/{activity_id}/registrations/{registration_id}", response_model=None)
 def delete_registration(
     activity_id: int,
     registration_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
-):
+) -> dict[str, str | int]:
     """Verwijder (soft-delete) een hele inschrijving incl. haar bestelregels (#313).
 
     Raakt de betaling NIET aan: een ``PaymentRecord`` is een financieel feit en
@@ -764,12 +773,12 @@ def delete_registration(
     return {"status": "deleted", "registration_id": registration_id}
 
 
-@router.get("/activities/{activity_id}/public-registrations")
+@router.get("/activities/{activity_id}/public-registrations", response_model=None)
 def get_public_registrations(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
-):
+) -> list[dict]:
     """Return public participant list for a given component."""
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -789,7 +798,7 @@ def get_public_registrations(
     return result
 
 
-def _inschrijver(current_member) -> str:
+def _inschrijver(current_member: Person | None) -> str:
     """Wie de inschrijving tekent (#713).
 
     Een aangemeld lid draagt zijn e-mailadres; is er niemand aangemeld, dan de
@@ -821,8 +830,8 @@ def register_for_activity(
     data: RegistrationCreate,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_member=Depends(get_current_member),
-):
+    current_member: Person | None = Depends(get_current_member),
+) -> dict:
     """The public way in: the registration hangs on whoever is signed in."""
     return create_registration(
         db,
@@ -844,7 +853,7 @@ def create_registration(
     actor: str,
     backoffice_products: bool = False,
     return_path: str = "/betaling/succes?registration={registration_id}",
-):
+) -> dict:
     """Create one registration: the ONE implementation (#1192).
 
     Two ways in, one body. The public form and the JSON API go through

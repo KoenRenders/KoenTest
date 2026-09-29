@@ -7,8 +7,9 @@ router-functies als servicelaag; sessie-auth + CSRF zoals de andere schermen.
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal, InvalidOperation
-from typing import Optional
+from typing import Any, Mapping, Optional, Sequence
 
 from fastapi import (
     APIRouter,
@@ -75,7 +76,7 @@ def _upload_error(exc: Exception) -> str:
     return detail
 
 
-def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
+def _verplaats(db: Session, siblings: Sequence[Any], item_id: int, richting: str) -> None:
     """Herorden broers/zussen via ``sort_order`` (#635 E/I)."""
     from app.domains.activities.api import move_within
 
@@ -131,12 +132,12 @@ def _kpi(activities: list) -> dict:
 def _aa_detail_ctx(
     request: Request,
     db: Session,
-    activiteit,
+    activiteit: Any,
     error: str | None = None,
     *,
     organiser_query: str = "",
-    organiser_candidates=None,
-):
+    organiser_candidates: list | None = None,
+) -> dict:
     """De context van `_aa_detail.html`, op één plek.
 
     Dat fragment wordt vanuit twee routes gerenderd: als volledige pagina
@@ -177,8 +178,8 @@ def _detail_response(
     *,
     toast: bool = False,
     organiser_query: str = "",
-    organiser_candidates=None,
-):
+    organiser_candidates: list | None = None,
+) -> HTMLResponse:
     from app.domains.activities.api import get_activity_detail
 
     # #651: was `list_activities(scope="all")` + in Python filteren op id. Het
@@ -223,7 +224,7 @@ def admin_activiteiten(
     email: str = Depends(require_admin_ui),
     scope: str = "upcoming",
     q: str = "",
-):
+) -> Response:
     lijst = _lijst_ctx(db, scope, q)
     # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
     # een zoekterm mag "Open inschrijvingen" niet doen dalen. Zonder filter is de
@@ -249,7 +250,7 @@ def admin_activiteiten(
 @router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
 def activiteit_nieuw(
     request: Request, db: Session = Depends(get_db), email: str = Depends(require_admin_ui)
-):
+) -> Response:
     """Paginabreed aanmaakscherm i.p.v. een modal (#623).
 
     Bewust géén lege activiteit vooraf aanmaken: dan staat er een naamloze activiteit
@@ -273,7 +274,7 @@ def admin_activiteit_detail(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Een kaart opent de paginabrede editor (C1, #586); de bewerkingen daarin
     blijven htmx-fragmenten die in #aa-detail landen."""
     if is_fragment_request(request):
@@ -319,7 +320,7 @@ def activiteit_aanmaken(
     location: str = Form(""),
     poster_url: str = Form(""),
     members_only: str = Form(""),
-):
+) -> Response:
     from app.domains.activities import service
     from app.schemas.activity import ActivityDateCreate
 
@@ -351,7 +352,7 @@ def activiteit_aanmaken(
     return Response(status_code=204, headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
 
 
-def _datum_of_none(ruw: str):
+def _datum_of_none(ruw: str) -> date | None:
     """Een `<input type="date">`-waarde als datum, of None wanneer leeg.
 
     Een ongeldige waarde (een browser zonder datumkiezer laat tekst toe) wordt
@@ -388,7 +389,7 @@ async def activiteit_bijwerken(
     members_only: str = Form(""),
     is_cancelled: str = Form(""),
     file: Optional[UploadFile] = File(None),
-):
+) -> Response:
     """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
 
     `poster_url` was uit het scherm verdwenen terwijl het veld op het model en in de
@@ -444,7 +445,7 @@ def activiteit_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     if not service.delete_activity(db, activity_id, actor=email):
@@ -470,7 +471,7 @@ def datum_toevoegen(
     end_date: str = Form(""),
     start_time: str = Form(""),
     end_time: str = Form(""),
-):
+) -> Response:
     from app.domains.activities import service
     from app.schemas.activity import ActivityDateCreate
 
@@ -507,7 +508,7 @@ def datum_bijwerken(
     end_date: str = Form(""),
     start_time: str = Form(""),
     end_time: str = Form(""),
-):
+) -> Response:
     """Bestaande datum (incl. begin-/einduur) bewerken — v1.14-pariteit."""
     from app.domains.activities import service
     from app.schemas.activity import ActivityDateUpdate
@@ -538,7 +539,7 @@ def datum_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     if not service.delete_activity_date(db, activity_id, date_id, actor=email):
@@ -568,7 +569,7 @@ async def onderdeel_toevoegen(
     external_registrations_url: str = Form(""),
     info_url: str = Form(""),
     file: Optional[UploadFile] = File(None),
-):
+) -> Response:
     """Maakt het onderdeel; één "Toevoegen" bewaart de velden én de info-bijlage.
 
     De bijlage kon tot #715 pas ná het aanmaken opgeladen worden, via "Bewerken".
@@ -621,7 +622,7 @@ async def onderdeel_bijwerken(
     external_registrations_url: str = Form(""),
     info_url: str = Form(""),
     file: Optional[UploadFile] = File(None),
-):
+) -> Response:
     """Bewerkt het onderdeel; één "Opslaan" bewaart tekstvelden én de info-bijlage.
 
     §2.12 verbood een eigen submit-knop bij het uploadveld al, maar dat was in #623
@@ -670,7 +671,7 @@ def onderdeel_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     if not service.delete_component(db, activity_id, component_id, actor=email):
@@ -690,7 +691,7 @@ def onderdeel_verplaatsen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     richting: str = Form("omhoog"),
-):
+) -> Response:
     """Onderdeel omhoog/omlaag herordenen (sort_order-wissel) — #451."""
     from app.domains.activities.api import get_activity
 
@@ -721,7 +722,7 @@ def product_toevoegen(
     afrekening: str = Form("betalend"),
     max_participants: str = Form(""),
     is_active: str = Form(""),
-):
+) -> Response:
     from app.domains.activities import service
     from app.schemas.activity import ProductCreate
 
@@ -756,7 +757,7 @@ def product_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     if not service.delete_product(db, component_id, product_id, actor=email):
@@ -777,7 +778,7 @@ def product_verplaatsen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     richting: str = Form("omhoog"),
-):
+) -> Response:
     """Product omhoog/omlaag herordenen binnen zijn onderdeel (sort_order) — #451."""
     from app.domains.activities.api import get_component
 
@@ -806,7 +807,7 @@ def product_bijwerken(
     afrekening: str = Form("betalend"),
     max_participants: str = Form(""),
     is_active: str = Form(""),
-):
+) -> Response:
     """Product bijwerken incl. prijs/ledenprijs (#451) en publieke boekbaarheid (#1191).
 
     `is_active` arrives as a checkbox: present = on, absent = off. The form always
@@ -846,7 +847,7 @@ async def affiche_uploaden(
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
     from app.domains.media.api import replace_activity_poster
 
@@ -868,7 +869,7 @@ def affiche_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Bestaande affiche verwijderen (#623).
 
     Ontbrak volledig: je kon een verkeerd bestand alleen overschrijven, niet weghalen.
@@ -892,7 +893,7 @@ def onderdeel_info_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Info-bijlage van een onderdeel verwijderen (#623), via dezelfde media-facade."""
     from app.domains.media.api import delete_component_info
 
@@ -913,7 +914,7 @@ async def onderdeel_info_uploaden(
     file: Optional[UploadFile] = File(None),
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Info-bijlage (afbeelding of PDF) per onderdeel uploaden (#451).
 
     Heette "reglement" tot #623; één woord voor één ding (§2.13)."""
@@ -953,6 +954,10 @@ def _detail_ctx(
     if reg is None:
         return None
     activity = get_activity(db, reg.activity_id, include_deleted=True)
+    # #1305: made visible by typing, not new — the registration's foreign key
+    # points at a row that is soft-deleted at most, so with `include_deleted` it is
+    # always found. Said here instead of crashing on `None` further down.
+    assert activity is not None, f"registration {reg.id} without its activity"
     products = []
     component = None
     if activity is not None and reg.component_id:
@@ -1079,7 +1084,7 @@ def inschrijving_detail(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Detail/editor van één inschrijving (contact + producten + opmerking) als
     htmx-fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails')
     en de activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit);
@@ -1098,7 +1103,7 @@ def inschrijving_pagina(
     terug: str = "",
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
 
     De recordnaam in een lijst opent deze pagina; het inline openvouwen blijft
@@ -1129,7 +1134,7 @@ def inschrijving_pagina(
     return templates.TemplateResponse(request, "admin_inschrijving.html", vm.as_context())
 
 
-def _reg_or_404(db: Session, registration_id: int):
+def _reg_or_404(db: Session, registration_id: int) -> Any:
     from app.domains.activities.api import get_registration
 
     reg = get_registration(db, registration_id)
@@ -1148,7 +1153,7 @@ async def inschrijving_totaal(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Herberekent regelbedragen en totaal bij een gewijzigd aantal (#670).
 
     **Bewaart niets.** Er is bewust één "Opslaan" voor aantallen én opmerking
@@ -1185,7 +1190,7 @@ def inschrijving_opmerking(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     remarks: str = Form(""),
-):
+) -> Response:
     from app.domains.activities import service
     from app.schemas.activity import RegistrationContactUpdate
 
@@ -1215,7 +1220,7 @@ async def inschrijving_opslaan(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Aantallen én opmerking in één "Opslaan" (#613-2).
 
     Voorheen sloeg elk onderdeel apart op — het aantal bij `change`, de opmerking met
@@ -1308,7 +1313,7 @@ def inschrijving_regel_toevoegen(
     email: str = Depends(require_admin_ui),
     product_id: str = Form(""),
     quantity: int = Form(1),
-):
+) -> Response:
     """Voegt een regel toe. Aparte actie, buiten de ene "Opslaan" (#613-2).
 
     `product_id` is sinds #670 optioneel op HTTP-niveau. De keuzelijst staat nu in
@@ -1352,7 +1357,7 @@ def inschrijving_regel_bijwerken(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     quantity: int = Form(...),
-):
+) -> Response:
     from app.domains.activities import service
 
     reg = _reg_or_404(db, registration_id)
@@ -1378,7 +1383,7 @@ def inschrijving_regel_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     reg = _reg_or_404(db, registration_id)
@@ -1401,7 +1406,7 @@ def inschrijving_regel_verwijderen(
 # de gezinstab sorteert sinds de unificatie met exact dezelfde sleutels.
 
 
-def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
+def _record_tabs(activiteit: Any, reg_count: int, db: Session, email: str, actief: str) -> dict:
     """Doorgeefluik naar de ene bouwer van de recordkop-context (#1070).
 
     Stelde tot dan zelf twee sleutels samen, en `payment.ui` deed hetzelfde nog
@@ -1412,7 +1417,7 @@ def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dic
     return record_kop_ctx(db, activiteit, email, actief, reg_count=reg_count)
 
 
-def _record_rail(db, activiteit) -> dict:
+def _record_rail(db: Session, activiteit: Any) -> dict:
     """De rechterrail van de recordpagina: publicatie-info en bezetting per
     onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
     query (#651: het detailscherm haalt niet de hele boom op)."""
@@ -1448,8 +1453,8 @@ def _record_rail(db, activiteit) -> dict:
 def _board_form_page(
     request: Request,
     db: Session,
-    activiteit,
-    onderdeel_id,
+    activiteit: Any,
+    onderdeel_id: int | None,
     *,
     values: dict | None = None,
     error: str | None = None,
@@ -1490,7 +1495,7 @@ def _board_form_page(
     return ctx
 
 
-def _board_component(activiteit, values) -> tuple[int | None, object]:
+def _board_component(activiteit: Any, values: Mapping[str, Any]) -> tuple[int | None, Any]:
     onderdeel_id = int(values["onderdeel"]) if str(values.get("onderdeel", "")).isdigit() else None
     return onderdeel_id, next(
         (c for c in activiteit.sub_registrations if c.id == onderdeel_id), None
@@ -1504,7 +1509,7 @@ def inschrijving_nieuw(
     onderdeel: int = 0,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """The board adds a registration (#1192). With one component it is chosen."""
     from app.domains.activities.api import get_activity
 
@@ -1530,7 +1535,7 @@ async def inschrijving_nieuw_totaal(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """The board's recalculation (#1284): the public one's `total_context`, priced
     by the person of the TYPED e-mail address."""
     from app.domains.activities.api import board_channel, get_activity, total_context
@@ -1559,7 +1564,7 @@ async def inschrijving_nieuw_prijzen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """The board's price block after the e-mail address changed (#1284).
 
     Koen: the product rows follow the typed member address, not only the total.
@@ -1602,7 +1607,7 @@ async def inschrijving_nieuw_opslaan(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """The board's channel of the one form (#1284): the processing is shared with
     the public form (`activities.api.submit`); what differs is where it lands —
     Mollie, or the registration in the back office (Koen: "de terugroutering")."""
@@ -1649,7 +1654,7 @@ def activiteit_inschrijvingen_tab(
     richting: str = "asc",
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """De Inschrijvingen-tab van de recordpagina (golf 8, #913): álle
     inschrijvingen van de activiteit, over de onderdelen heen, met een
     Onderdeel-kolom en de golf 4-sorteermachinerie."""
@@ -1743,7 +1748,7 @@ def inschrijving_verwijderen(
     vanuit: str = "",
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     """Verwijdert een inschrijving en keert terug naar de activiteit.
 
     Sinds feedbackronde 2 van golf 8 is de inschrijvingspagina (cluster,
@@ -1788,7 +1793,7 @@ def organisatoren_zoeken(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     organiser_q: str = "",
-):
+) -> Response:
     """De kandidatenlijst van de kiezer — alleen leden (#1004).
 
     Zoeken gebeurt met `search_persons` uit mdm (#1006), dezelfde functie als de
@@ -1815,7 +1820,7 @@ def organisator_toevoegen(
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
     person_id: int = Form(...),
-):
+) -> Response:
     from app.domains.activities import service
 
     try:
@@ -1844,7 +1849,7 @@ def organisator_bijwerken(
     show_email: str = Form(""),
     show_mobile: str = Form(""),
     bevestigd: str = Form(""),
-):
+) -> Response:
     """Het vinkje en de twee overrides.
 
     Het laatste vinkje weghalen vraagt een bevestiging, en die is een SERVERregel
@@ -1899,7 +1904,7 @@ def organisator_verwijderen(
     request: Request,
     db: Session = Depends(get_db),
     email: str = Depends(require_admin_ui),
-):
+) -> Response:
     from app.domains.activities import service
 
     if not service.remove_organiser(db, activity_id, organiser_id):
