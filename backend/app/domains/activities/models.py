@@ -389,6 +389,26 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
             raise ActivityError(_("Vul een geldig e-mailadres in.")) from None
         return value
 
+    def total(self):
+        """What this registration costs, as `Money` (CR-13 phase 1, §B4.3).
+
+        Delegates to `activities.totals.compute_registration_total`, the one owner of
+        the computation, and stays that way (master CLI, 29 September 2026): the
+        price rule of a line — the member price on the registration date, free and
+        pay-on-site lines not counted — also prices the public form's quote before
+        any registration exists and the back office's live recomputation. Moving it
+        onto this model would split one rule over two places or make those quotes
+        need a registration they do not have. A parity test binds the method, both
+        quotes and the report's view to each other.
+
+        Reads the items with their products and the person with the memberships;
+        loaded by whoever asks, never queried here (§B4.1).
+        """
+        from app.domains.activities.totals import compute_registration_total
+        from app.kernel.money import Money
+
+        return Money(compute_registration_total(self)[0])
+
     def check(self) -> None:
         """The rule over several fields: a component that asks for a team name gets one."""
         component = self.component if self.component_id is not None else None

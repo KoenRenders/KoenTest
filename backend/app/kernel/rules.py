@@ -121,6 +121,9 @@ def derived_values() -> dict[str, DerivedValue]:
 # The derived values that exist today (§B4.3). The others the change request
 # names — `person.age`, `member.active_membership` — have no single owner yet;
 # they are registered in the phase that gives them one.
+# Phase 1: `Registration.total()` exists and delegates to this owner; the
+# computation stays in `totals.py`, which also prices the quotes made before a
+# registration exists (master CLI, 29 September 2026). So `today` stays the owner.
 derived_value(
     "registration.total",
     today="app.domains.activities.totals.compute_registration_total",
