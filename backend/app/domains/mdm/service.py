@@ -13,6 +13,7 @@ Regels:
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import date
 from typing import Iterable, NamedTuple, Optional
 
@@ -182,9 +183,35 @@ def list_persons(db):
 _LIKE_SPECIAAL = str.maketrans({"\\": "\\\\", "%": "\\%", "_": "\\_"})
 
 
+@dataclass(frozen=True)
+class PersonMatch:
+    """One search result: the person, and the address the mails would go to (#1353).
+
+    The address is `_email_of`, the same one the meeting circle mails, or None. Two
+    namesakes are told apart by it before one is added, and someone without an
+    address is visible before they are added and then receive nothing. The name
+    and id read through, so a caller that only lists names needs no change.
+    """
+
+    person: Person
+    email: Optional[str]
+
+    @property
+    def id(self) -> int:
+        return self.person.id
+
+    @property
+    def first_name(self) -> str:
+        return self.person.first_name
+
+    @property
+    def last_name(self) -> str:
+        return self.person.last_name
+
+
 def search_persons(
     db, query: str, *, members_only: bool = False, exclude_ids: Iterable[int] = (), limit: int = 15
-) -> list:
+) -> list[PersonMatch]:
     """Persons whose "first last" contains `query`, case-insensitively (#1006).
 
     One search for every caller: the meeting circle and, from CR-10 on, the
@@ -216,7 +243,12 @@ def search_persons(
     uitgesloten = list(exclude_ids)
     if uitgesloten:
         vraag = vraag.filter(~Person.id.in_(uitgesloten))
-    return vraag.order_by(Person.last_name, Person.first_name, Person.id).limit(limit).all()
+    return [
+        PersonMatch(person=person, email=_email_of(person))
+        for person in vraag.order_by(Person.last_name, Person.first_name, Person.id)
+        .limit(limit)
+        .all()
+    ]
 
 
 def is_member(db, person_id: int) -> bool:
