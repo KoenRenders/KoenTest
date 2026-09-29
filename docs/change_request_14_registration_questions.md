@@ -201,8 +201,8 @@ nothing in it needs a question:
 | R11 | The member and the board register on one and the same screen — **and the public user loses nothing**: every function and every nicety the public registration has today stays. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; how (the component's export, not the reporting panel) is B1 and B2.3 |
-| R15 | The reporting panel reports on registrations with their questions — the answers, or even the answered/open state per component. | Won't | Koen, 29 Sep 2026 | out of scope; the export and the book serve the organiser (Q26) |
 | R14 | **Reporting need:** the Sint's book — all registrations of a component printed one after the other, each with the household, the children and its answers listed under each other, so the round can be walked through visit by visit. | Should | Koen, 29 Sep 2026 | the list of R13 is the spreadsheet; this is the document read on the sofa (Q25) |
+| R15 | The reporting panel reports on registrations with their questions — the answers, or even the answered/open state per component. | Won't | Koen, 29 Sep 2026 | out of scope; the export and the book serve the organiser (Q26) |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -294,10 +294,10 @@ Decisions that shape it, with the alternatives:
 | F8 | The admin detail shows the answers as label/value rows; the export adds one column per field after *Opmerkingen*, in field order; a checkbox field joins its options with ", ". | R3 |
 | F9 | The attached form's public URL keeps working as for any form; a submission made there has no registration and is shown as such in the form's submissions view. | R8 |
 | F10 | Soft-deleting a registration leaves the submission in place (history). The form builder's own submissions view shows an attached submission like any other — submitter name and address — and **does not** point back at the registration: that would make `forms` read `activities`, the wrong direction (B4.6; Q19). | R3 |
-| F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. | AC6 |
+| F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. Deleting a form, or one submission, that a registration points at is refused by the builder with the reason, before the `RESTRICT` FK would refuse it without one (the builder deletes hard, with a cascade to the submissions; measured in `delete_form`, `delete_submission`). | AC6 |
 | F12 | The registration detail edits the answers through the same field partial and `forms.api.update_attached(db, submission, answers)`, which re-validates with `build_answers` and replaces the answer rows; a history row on the registration records "answers edited" with the old and new values. | R7 |
 | F13 | Replacing a component's form is refused when any registration of the component has a submission; detaching is allowed (the submissions stay). | R10 |
-| F14 | The book: a print view per component — one block per living registration, ordered by contact name: contact name, the person's address through `mdm.api` when the registration has a person, the product quantities, then the answers as label and value in field order ("nog niet beantwoord" when open); a CSS page break between blocks; printed from the browser, no PDF engine (WeasyPrint exists for the meetings and is not needed for a page the browser prints). | R14 |
+| F14 | The book: a print view per component — one block per living registration, ordered by contact name: contact name, the person's address through `mdm.api` when the registration has a person, the product quantities, then the answers as label and value in field order ("nog niet beantwoord" when open) — a registration without a person shows no address, and the book says so, so the organiser asks for it (the Sint activity is members-only, so it does not arise there); a CSS page break between blocks; printed from the browser, no PDF engine (WeasyPrint exists for the meetings and is not needed for a page the browser prints). | R14 |
 
 ## B2. Architecture — three readers, three questions
 
@@ -500,7 +500,11 @@ flowchart TB
 `activities` reaches `forms`, `payment` and `mail` only through their
 facades (the import gate); the template include of `_formulier_veld.html`
 is a *read* of a template, which the layer gate allows as it allows the
-macros. `forms` reaches nothing new. Read by colour: in `activities` two
+macros. `Registration.check()` reads its `form_submission` relationship —
+an ORM read across the schema line, the precedent `person_id → mdm.persons`
+already sets; a read, so under the layer gate and the no-foreign-writes
+gate it is allowed, and it is said here so the first review does not have
+to decide it. `forms` reaches nothing new. Read by colour: in `activities` two
 things are new (the answer page with its service, the book) and every
 layer changes; in `forms` only the facade grows and nothing existing
 changes; `mail` changes one template; `payment` and `reporting` are
@@ -596,7 +600,8 @@ In build order; the effort per module and phase is in B3.
   other (B4.6).
 - **Code:** facade `api.py`: commands `submit_attached(db, form, answers,
   submitter)` and `update_attached(db, submission, answers)` (both through
-  `build_answers`, no mail); reads `attachable_forms(db)`,
+  `build_answers`, no mail; they raise `VeldFout` — or `FormError` with the
+  alias, added here if CR-13 has not yet); reads `attachable_forms(db)`,
   `answers_from_form(form, form_data)` (the private parser of `forms/ui.py`
   exported, not copied), `submission_views(db, ids)` (batched). Service and
   entities unchanged.
@@ -655,16 +660,18 @@ changes.
 ## B3. Cost — investment and running cost, and what operations must know
 
 **Investment — effort to build**, in CLI-days, estimated against the track
-record (#1284, one form for two channels, took about one day):
+record (#1284, one form for two channels, took about one day; phase 1
+counts two because it also rewrites the registration e2e flow and redoes
+the 390 px screenshot set, which #1284 did not have to):
 
 | Module | Phase 1 — the page | Phase 2 — the questions | Phase 3 — the aftercare | Total |
 |---|---|---|---|---|
-| activities | 1 | 2.5 | 0.5 | 4 |
+| activities | 2 | 2.5 | 0.5 | 5 |
 | forms | — | 0.5 | — | 0.5 |
 | mail | — | 0.1 (the link in the block) | 0.15 | 0.25 |
 | reporting | — | — | — | 0 |
 | payment | — | — | — | 0 |
-| **Total** | **1** | **3.1** | **0.65** | **~4.75** |
+| **Total** | **2** | **3.1** | **0.65** | **~5.75** |
 
 Around it: analysis (this document) one day, done; review and the parity
 walk on HDEV half a day; three release steps, each riding a release that
@@ -731,9 +738,18 @@ payment record:
 
 1. `forms.api.submit_attached(db, form, answers, submitter=(contact_name,
    contact_email))` — `build_answers` refuses a missing required answer or
-   an out-of-range value with `FormError` (alias of the forms exception,
-   CR-13 B4.4), which the screen shows next to the question; on success the
-   submission is flushed, not committed.
+   an out-of-range value; on success the submission is flushed, not
+   committed. **The refusal** is the builder's own `VeldFout` (measured:
+   `forms/service.py`, a subclass of `HTTPException` 422 that carries the
+   field) — or its English name with the Dutch alias once CR-13 gives
+   `forms` its exception class; if that has not happened by phase 2, phase
+   2 adds `FormError` with `VeldFout` as alias (B2.3 forms). **Who catches
+   it:** the two screen routes (public page, board page) catch it and
+   re-render the page with the values kept, the banner on top and the
+   refused question marked — the same path `create_registration`'s other
+   refusals take today; the JSON route does not catch it, so the API
+   answers 422 with the field, which is what an API caller expects. One
+   rule, two presentations; neither channel lenient (R4).
 2. `registration.form_submission_id = submission.id`; `Registration.check()`
    on flush confirms: a linked submission's `form_id` is the component's
    `form_id`. (Not "component with a form ⇒ submission": "later" exists,
@@ -848,12 +864,15 @@ builder's own edit link (`edit_token`), on the registration side:
   answers shown, no edit (the organiser edits, B4.7).
 - The detail shows "antwoorden gevraagd op <registered_at>" while the token
   is open, with "link opnieuw sturen" (same token, new mail). The token has
-  no expiry: the activity's date is the natural end, and a stale link shows
-  the registration's current state.
+  no expiry and the answer page does not look at `registration_closes_on`:
+  closing the registration stops new registrations, not the answers of a
+  household already registered — the Sint still wants the story (Q27).
 - A registration whose component got a form *after* it was made has no
   submission and no token — the organiser sends the link from the detail for
-  those too ("link sturen" when there is no submission), which covers "we
-  attached the form after the first registrations".
+  those too: "link sturen", shown when there is no submission and no token,
+  **creates the token**, writes a history row "answer link sent" and sends
+  the mail; it fills in nothing else. That covers "we attached the form
+  after the first registrations".
 - The token is the only secret; it is not the registration id, and the
   page does not accept an id. The rate limiter of the registration routes
   covers the GET and the POST (an unknown token is a 404 that costs a
@@ -972,8 +991,11 @@ marked, the way the form builder marks one (`data-veld`, #741/#749).
   read through the admin only (`require_admin_ui` on the registration
   detail, the export and the form builder's views); never on the public
   participant list or in "Wie doet er mee?". They follow the registration's
-  soft delete (F10) and are deleted with the form when the form is deleted
-  (the builder's own cascade — attaching does not change it).
+  soft delete (F10). A form, or a single submission, that a registration
+  points at cannot be deleted: the FK is `RESTRICT`, and the builder refuses
+  it first, with the reason ("dit formulier heeft antwoorden op
+  inschrijvingen") — the answers belong to the registration, so the form
+  stays as long as the registration does (F11).
 - **What leaves the system.** The confirmation mail, to the registrant's own
   address, repeats the answers (R6) — the member's own words back to the
   member — and, with "later", carries the answer link. Nothing to a third
@@ -1067,6 +1089,10 @@ Each able to go red:
     blocks in contact-name order, two page breaks, the open one saying
     "nog niet beantwoord", the address present for the member and absent
     for the guest; the same answers as the export (one read).
+14. **Delete refused.** Deleting the form, and deleting the one submission,
+    that a registration points at → refused with the reason; the form and
+    the submission still there; a form without linked submissions → deleted
+    as today (F11).
 
 **Impact on the test landscape**, per module:
 
@@ -1147,6 +1173,8 @@ None yet. To measure before the build of phase 2:
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
 | Q26 | 29 Sep 2026 | Must reporting provide anything for registrations linked to a form submission, or is it out of scope? (Koen) | The answers: out of scope — per form different, not a measure; the export and the book serve the organiser. Koen, 29 Sep: out of scope, the state too. R15 Won't; the view does not change. |
+| Q28 | 29 Sep 2026 | External review of the whole document (pasted by Koen): one contradiction (RESTRICT versus the builder's cascade on form delete), four gaps (who creates the token for older registrations; who catches the refusal on which channel; the token's expiry; `FormError` does not exist), phase-1 effort too low, and three smaller points (R14/R15 order; `check()` reading across the schema; a guest without an address in the book). | All taken in: B5 and F11 with test 14; B4.8 ("link sturen" creates the token); B4.2 (`VeldFout`, screens catch, API answers 422); Q27; B2.3 forms; B3 phase 1 at two days; the rows reordered; B2.2 and F14 one sentence each. |
+| Q27 | 29 Sep 2026 | Does the answer link stop working when the registration closes (`registration_closes_on`)? (review) | No: closing stops new registrations, not the answers of a household already registered — the story is still wanted. *Koen to confirm.* B4.8. |
 | Q25 | 29 Sep 2026 | The Sint's book — all answers per registration under each other, visit by visit — as a second report next to the export? (Koen) | Yes: R14, a print view per component with a page break per household, the same read as the export; browser print, no PDF engine. Koen, 29 Sep: Should. |
 | Q24 | 29 Sep 2026 | The Sint form asks for at least four time slots; the builder has no minimum count for a checkbox (`min_value`/`max_value` are for `number`). Enforce it — reuse the two columns as min/max checked options for `checkbox`, a small forms change in phase 2 — or keep it a request in the help text, as the Google Form did? (Claude) | Koen, 29 Sep: as before — a request in the help text. No forms change. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
