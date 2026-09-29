@@ -110,9 +110,10 @@ board can register a member on the same page; paying online is added and a
 transfer carries a structured message, so "match each transfer by hand"
 disappears (the payments module does it, as for every registration today);
 the answers sit on the registration, next to the person and the payment,
-and in the component's export. Reminding who has not paid stays by hand —
-the payments module has no reminder action today, and this change does not
-add one (Non-goals).
+and in the component's export. **Following up stays by hand, in both lanes — a Won't (R12):** whether
+everyone has answered, and whether every transfer has actually arrived, is
+for the organiser and the treasurer to watch and to chase, as today; the
+portal shows the state and offers "resend the link", nothing more.
 
 | Step | Who | Afterwards |
 |---|---|---|
@@ -123,7 +124,7 @@ add one (Non-goals).
 | 4b. Whoever chose "later" — member or board — the member gets the link in the confirmation mail, answers when it suits, and the answers land on the registration. The organiser sees who still owes answers and can resend the link. | member, organiser | the answer link; the registration detail |
 | 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail. The organiser can correct one. | organiser, treasurer, member | activities module; the mail |
 | 6. Whoever answers — now, later by link, member or board — a required question left empty is refused with the same message. | — | — |
-| 7. Payments arrive on the payments screen as for every registration; the treasurer reminds by hand who has not paid. | treasurer | payment module (unchanged) |
+| 7. Payments arrive on the payments screen as for every registration; who has not paid, and who still owes answers, is followed up **by hand** (R12 Won't). | treasurer, organiser | payment module (unchanged); the registration detail |
 
 ## A4. Supplied material — and what it taught us
 
@@ -156,6 +157,7 @@ component). Nothing in the form builder has to change for this case.
 | R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is simply not linked to any registration — harmless, because the link runs from the registration to the submission, never the other way (B4.6) |
 | R9 | Questions that depend on the products chosen ("size per ticket"). | Won't | analyst | a product-level question is a different shape; own change if ever needed |
 | R10 | A component may swap its form once registrations carry answers. | Won't | Koen, 29 Sep 2026 | once a registration of the component has a submission, the form can be detached but not replaced — attaching a different one is refused |
+| R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R11 | One registration screen for the member and the board, built from the board's page as the ideal — **and the public user loses nothing**: every function and every nicety the public registration has today is on the page. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 
 ## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
@@ -824,6 +826,7 @@ None yet. To measure before the build of phase 2:
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 | 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards *(superseded the same day: the choice now/later on both pages, last row)*. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
 | 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
+| 29 Sep 2026 | Following up — that everyone answered, that every transfer arrived — is out of scope (R12 Won't): the tool supports it neither in the as-is nor in the to-be; it stays by hand. | Koen |
 | 29 Sep 2026 | Nothing is provided for health data today (an allergy is an answer like any other). The form builder does not point back at the registration. Three phases: the page first, then the questions, then mail and editing. | Koen |
 | 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link; default "nu" on both. | Koen |
 
@@ -863,7 +866,7 @@ None yet. To measure before the build of phase 2:
 - A new field type (date, file upload) — the form builder's list is what it is; a new type is a forms change.
 - Editing answers by the member after registering — the form builder's edit link exists for standalone forms; not wired to a registration here (the organiser edits, R7).
 - A link from the form builder's submissions view back to the registration (Q19) — the dependency would run the wrong way.
-- Reminders on a schedule for open answer requests, and payment reminders for open transfers — the treasurer and the organiser remind by hand, as today; a job that nags is a workflow feature, later if ever.
+- **Following up** whether everyone answered and whether every transfer arrived — reminders, chasing, a treasurer's to-do (R12 Won't, Koen 29 Sep): by hand, as today; the portal shows the state and offers "resend the link". A job that nags is a workflow feature, later if ever.
 
 ## Relationship to existing work — issues and change requests
 
