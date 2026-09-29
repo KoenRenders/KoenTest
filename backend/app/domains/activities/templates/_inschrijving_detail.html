@@ -53,6 +53,11 @@
     {% elif antwoorden_gevraagd_op %}
     <div class="mt-2">{{ ui.badge(_("Antwoorden gevraagd op %(datum)s", datum=antwoorden_gevraagd_op | kortedatum), "orange") }}</div>
     {% endif %}
+    {# CR-14 phase 3 (§B4.8): the answer link, by mail to the contact address. #}
+    {% if link_actie and editable %}
+    <div class="mt-2">{{ ui.btn_secondary(_("Link opnieuw sturen") if link_actie == "opnieuw" else _("Link naar de vragen sturen"), size="sm",
+        attrs='hx-post="/admin/inschrijvingen/' ~ reg.id ~ '/antwoordlink" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}</div>
+    {% endif %}
   </div>
 
   {% if editable %}
@@ -157,6 +162,20 @@
       </div>
 
     </form>
+    {% if vragen %}
+    {# CR-14 phase 3 (§B4.7): the answers, corrected in the form builder's own
+       fields and checked by its own rules; its own form and button — a correction
+       of what the member said is not saved along with the quantities. #}
+    {% from "_formulier_veld.html" import veld with context %}
+    <form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/{{ reg.id }}/antwoorden"
+          hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+      <p class="font-medium text-ink">{{ _("Antwoorden") }}</p>
+      {% for f in vragen %}
+      <div class="{{ 'rounded-lg ring-2 ring-red-600 p-2' if vraag_fout == f.id else '' }}">{{ veld(f) }}</div>
+      {% endfor %}
+      {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
+    </form>
+    {% endif %}
   </div>
   {% endif %}
 </div>

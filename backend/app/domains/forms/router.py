@@ -407,8 +407,6 @@ def update_submission(
     data: SubmissionIn,
     db: Session = Depends(get_db),
 ):
-    from datetime import datetime, timezone
-
     submission = db.query(FormSubmission).filter(FormSubmission.edit_token == edit_token).first()
     if not submission:
         raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
@@ -419,12 +417,10 @@ def update_submission(
         raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
     assert_submitter(form, data.submitter_name, data.submitter_email)
 
-    answers = build_answers(form, data.answers)
-    submission.answers.clear()
-    for row in answers:
-        submission.answers.append(row)
+    from app.domains.forms.service import replace_answers
+
+    replace_answers(submission, build_answers(form, data.answers))
     submission.submitter_name = data.submitter_name
     submission.submitter_email = data.submitter_email
-    submission.updated_at = datetime.now(timezone.utc)
     db.commit()
     return SubmissionResult(id=submission.id, status="updated", edit_token=submission.edit_token)

@@ -26,7 +26,8 @@ from app.domains.mail.service import (
     family_welcome_message,
     queue_mail,
 )
-from app.kernel.contracts.activities import RegistrationConfirmed
+from app.i18n import _
+from app.kernel.contracts.activities import AnswerLinkSent, RegistrationConfirmed
 from app.kernel.contracts.mail import MailRequested
 from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
@@ -119,6 +120,14 @@ def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> No
         from app.kernel.tenant_config import tenant_base_url
 
         path = answer_path(db, registration.id)
+        # CR-14 R6: a registration that answered "now" gets its answers repeated.
+        answers = None
+        if registration.form_submission_id is not None:
+            from app.domains.forms.api import submission_views
+
+            answers = submission_views(db, [registration.form_submission_id]).get(
+                registration.form_submission_id
+            )
         message = activity_confirmation_message(
             to_email=event.to_email,
             name=event.name,
@@ -126,10 +135,38 @@ def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> No
             registration=registration,
             payment_record=payment_record,
             answer_url=f"{tenant_base_url(db)}{path}" if path else None,
+            answers=answers,
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration
         logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(AnswerLinkSent)
+def queue_answer_link_reminder(event: AnswerLinkSent, db: Session) -> None:
+    """The answer link, sent (again) by the board (CR-14 §B4.8): the confirmation
+    with a reminder subject and the link, without the payment instructions — those
+    went with the first mail. A mail that cannot be built never stops the action."""
+    from app.domains.activities.api import Registration, answer_path
+    from app.kernel.tenant_config import tenant_base_url
+
+    try:
+        registration = db.get(Registration, event.registration_id)
+        path = answer_path(db, registration.id)
+        if not path:
+            return
+        message = activity_confirmation_message(
+            to_email=event.to_email,
+            name=event.name,
+            activity=registration.activity,
+            registration=registration,
+            answer_url=f"{tenant_base_url(db)}{path}",
+            subject=_("Herinnering: de vragen voor %(name)s")
+            % {"name": registration.activity.name},
+        )
+        queue_mail(db, **message)
+    except Exception as e:  # noqa: BLE001 — a mail never stops the action
+        logger.error("Herinnering antwoordlink mislukt naar %s: %s", event.to_email, e)
 
 
 @subscribe(FamilyRegistered)

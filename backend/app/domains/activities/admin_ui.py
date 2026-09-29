@@ -1006,9 +1006,17 @@ def _detail_ctx(
         idx += 1
 
     verrijkt = enrich_registration(reg, activity)
-    from app.domains.activities.api import registration_answers
+    from app.domains.activities.api import (
+        answer_link_action,
+        question_form,
+        registration_answers,
+    )
+    from app.domains.forms.api import screen_fields, submission_form_values
 
     antwoorden, gevraagd_op = registration_answers(db, reg)
+    link_actie = answer_link_action(db, reg)
+    # CR-14 §B4.7: the questions to correct the answers in, filled with the answers.
+    vragenformulier = question_form(db, component) if reg.form_submission_id else None
     for regel in verrijkt["items"]:
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
@@ -1054,6 +1062,13 @@ def _detail_ctx(
         # moment they were asked while the answer link is still open.
         "antwoorden": antwoorden,
         "antwoorden_gevraagd_op": gevraagd_op,
+        # CR-14 phase 3 (§B4.8): "opnieuw" / "sturen" / None — the answer link.
+        "link_actie": link_actie,
+        # CR-14 phase 3 (§B4.7): the answers, editable — the form builder's field
+        # partial reads `values`; `vraag_fout` marks the question a refusal names.
+        "vragen": screen_fields(list(vragenformulier.fields)) if vragenformulier else [],
+        "values": submission_form_values(db, reg.form_submission_id) if vragenformulier else {},
+        "vraag_fout": None,
     }
 
 
@@ -1067,6 +1082,8 @@ def _render_detail(
     error: str | None = None,
     toast: str | None = None,
     quantities: dict | None = None,
+    answer_values: dict | None = None,
+    vraag_fout: int | None = None,
 ) -> HTMLResponse:
     """Rendert het detailfragment.
 
@@ -1089,6 +1106,10 @@ def _render_detail(
         return HTMLResponse("")
     ctx["error"] = error
     ctx["toast_bericht"] = toast
+    # CR-14 §B4.7: a refused correction shows what was typed, the question marked.
+    if answer_values is not None:
+        ctx["values"] = answer_values
+        ctx["vraag_fout"] = vraag_fout
     # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen
     # (achter de bewerkklik, uiterst links). Of we óp die pagina zijn, zegt
     # HX-Current-URL — de POSTs van het fragment reizen daarmee.
@@ -1232,6 +1253,71 @@ def inschrijving_opmerking(
     if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
+
+
+@router.post(
+    "/admin/inschrijvingen/{registration_id}/antwoordlink",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def answer_link_send(
+    registration_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """ "Link sturen" / "link opnieuw sturen" (CR-14 §B4.8): the answer link by mail
+    to the registration's contact address, and a history row."""
+    from app.domains.activities import service
+
+    try:
+        service.send_answer_link(db, registration_id, actor=email)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
+    except service.ActiviteitFout as fout:
+        return _render_detail(request, db, registration_id, error=str(fout))
+    return _render_detail(
+        request, db, registration_id, toast=_("De link naar de vragen is verstuurd.")
+    )
+
+
+@router.post(
+    "/admin/inschrijvingen/{registration_id}/antwoorden",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def answers_save(
+    registration_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> Response:
+    """Correct a registration's answers (CR-14 §B4.7, R7): the same fields and rules
+    as when they were given, a history row with old and new."""
+    from app.domains.activities import service
+    from app.domains.activities.api import form_values, question_form
+    from app.domains.forms.api import answers_from_form
+
+    reg = _reg_or_404(db, registration_id)
+    form = await request.form()
+    questions = question_form(db, reg.component)
+    if questions is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
+    try:
+        service.edit_answers(db, registration_id, answers_from_form(questions, form), actor=email)
+    except service.ActiviteitFout as fout:
+        return _render_detail(request, db, registration_id, error=str(fout))
+    except HTTPException as exc:
+        return _render_detail(
+            request,
+            db,
+            registration_id,
+            edit_open=True,
+            error=str(exc.detail),
+            answer_values=form_values(form),
+            vraag_fout=getattr(exc, "veld_id", None),
+        )
+    return _render_detail(request, db, registration_id, toast=_("De antwoorden zijn opgeslagen."))
 
 
 @router.post(

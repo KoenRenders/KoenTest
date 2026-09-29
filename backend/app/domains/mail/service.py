@@ -547,15 +547,20 @@ def activity_confirmation_message(
     registration=None,
     payment_record=None,
     answer_url=None,
+    answers=None,
+    subject=None,
 ) -> dict:
     """The confirmation of an activity registration, as a finished message for
     `queue_mail` (CR-13 phase 4: built in the request, sent by a job).
 
     `answer_url` (CR-14 §B4.8): the registration chose to answer the component's
     questions later — the one mail carries the link, after the products and the
-    payment information. Subject and everything else stay as they are."""
+    payment information. `answers` (CR-14 R6, phase 3): the answers as (label,
+    value), in the same place — the member's own words back to the member. One of
+    the two, or neither when the component asks nothing. `subject` replaces the
+    confirmation's subject — the reminder of the answer link."""
     activity_name = escape(activity.name)
-    subject = _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
+    subject = subject or _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
     from datetime import date as _date
 
     today = _date.today()
@@ -634,7 +639,17 @@ def activity_confirmation_message(
 
     message += _transfer_instructions_html(payment_record)
 
-    if answer_url:
+    if answers:
+        rows = "".join(
+            f"<li><strong>{escape(label)}:</strong> {escape(value) if value else '—'}</li>"
+            for label, value in answers
+        )
+        message += (
+            "<h4 style='margin-top:12px;margin-bottom:4px'>"
+            + _("Jouw antwoorden")
+            + f"</h4><ul>{rows}</ul>"
+        )
+    elif answer_url:
         message += (
             "<h4 style='margin-top:12px;margin-bottom:4px'>"
             + _("Nog even de vragen")

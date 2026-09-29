@@ -369,21 +369,9 @@ def formulier_edit_page(
         raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
 
     # Voorvullen: antwoorden terug naar f{field_id}-waarden.
-    values: dict = {}
-    for answer in submission.answers:
-        key = f"f{answer.field_id}"
-        if answer.value_option_id is not None:
-            values.setdefault(key, [])
-            if isinstance(values[key], list):
-                values[key].append(str(answer.value_option_id))
-            if answer.value_text:
-                values[f"{key}_other"] = answer.value_text
-        elif answer.value_rating is not None:
-            values[key] = str(answer.value_rating)
-        elif answer.value_number is not None:
-            values[key] = str(answer.value_number)
-        elif answer.value_text is not None:
-            values[key] = answer.value_text
+    from app.domains.forms.api import submission_form_values
+
+    values = submission_form_values(db, submission.id)
     ctx = _form_render_ctx(
         db,
         form_model,

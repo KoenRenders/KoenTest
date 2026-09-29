@@ -169,12 +169,13 @@ def _actieve_nav(html: str) -> set:
 def test_wijzigingen_object_springt_naar_de_inschrijving(client, db_session):
     """De dode object-cel op het logboek wordt een spronglink — alleen voor
     entiteiten met een eigen pagina; de sprong draagt de weg terug (P3)."""
-    from app.domains.audit.api import snapshot_registration
+    # CR-14 phase 3: the writer of a registration's history moved to its owner.
+    from app.domains.activities.api import record_registration_history
 
     anna, bert = _twee_inschrijvingen(client, db_session)
     # Expliciet een audit-rij zaaien, zoals test_wijzigingen_scherm: zo toetst
     # dit de spronglink en niet óf het publieke pad toevallig snapshot.
-    snapshot_registration(
+    record_registration_history(
         db_session,
         anna,
         operation="insert",
