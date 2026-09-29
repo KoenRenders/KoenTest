@@ -379,8 +379,17 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", backref="registrations")
+    # #1352: in the order they were added. Without an order a registration's lines
+    # came back as PostgreSQL returned them — a characterisation snapshot saw
+    # "on site, paid, free" once in a large run where it had recorded "paid, free,
+    # on site". The registration detail pairs the lines with the amounts of
+    # `compute_registration_total` by position; both read this one collection, so
+    # both follow this one order.
     items = relationship(
-        "RegistrationItem", back_populates="registration", cascade="all, delete-orphan"
+        "RegistrationItem",
+        back_populates="registration",
+        cascade="all, delete-orphan",
+        order_by="RegistrationItem.id",
     )
     # Read-only: `component_id` stays the one column that is written. `check()` reads
     # the component through this. A service that has the component sets it, and then
