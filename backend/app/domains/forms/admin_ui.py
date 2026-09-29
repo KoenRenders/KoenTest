@@ -587,7 +587,14 @@ def veld_verwijderen(
     from app.domains.forms.api import delete_field
 
     form = _form_or_404(db, form_id)
-    _bewerk(delete_field, db, form, field_id)
+    try:
+        _bewerk(delete_field, db, form, field_id)
+    except HTTPException as exc:
+        if exc.status_code != 422:
+            raise
+        # #1347: an answered question is refused, and the reason belongs on the
+        # screen, not in the generic toast — the same way as #1136.
+        return _builder_response(request, db, form, error=exc.detail)
     return _builder_response(request, db, form)
 
 
@@ -683,7 +690,13 @@ def optie_verwijderen(
     from app.domains.forms.api import delete_option
 
     form = _form_or_404(db, form_id)
-    _bewerk(delete_option, db, form, option_id)
+    try:
+        _bewerk(delete_option, db, form, option_id)
+    except HTTPException as exc:
+        if exc.status_code != 422:
+            raise
+        # #1347: a chosen option is refused, with the reason in the banner.
+        return _builder_response(request, db, form, error=exc.detail)
     return _builder_response(request, db, form)
 
 

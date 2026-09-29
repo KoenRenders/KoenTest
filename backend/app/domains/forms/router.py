@@ -27,6 +27,7 @@ from app.domains.forms.schemas import (
     SubmissionResult,
 )
 from app.domains.forms.service import (
+    FormulierFout,
     apply_definition,
     assert_open_for_submission,
     assert_submitter,
@@ -138,7 +139,13 @@ def update_form(
     # Dezelfde functie als json_import (#635-3), zodat de twee ingangen niet
     # opnieuw uiteen kunnen lopen.
     update_settings(form, data)
-    apply_definition(form, data)
+    try:
+        apply_definition(form, data)
+    except FormulierFout as exc:
+        # #1347: the definition would drop an answered question or a chosen
+        # option. Refused before `apply_definition` changes anything, and nothing
+        # is committed, so the settings above are not stored either.
+        raise HTTPException(status_code=422, detail=str(exc)) from None
     db.commit()
     db.refresh(form)
     return _admin_out(db, form)
