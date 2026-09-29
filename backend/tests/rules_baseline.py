@@ -16,57 +16,24 @@ Measured by the collectors themselves on `master` of 28 September 2026 (after
 #781), not written by hand.
 """
 
-# Two helpers in activities/models.py that open a session through object_session to
-# find an uploaded asset — the poster of an activity, the info file of a component.
-# Phase 4, with the activity and component screens (master CLI, 29 September 2026):
-# they do not hang on `Registration`, and a batch load in the service there also ends
-# the query per card (N+1) that these properties cost today.
-SESSION_ON_ENTITY: frozenset[str] = frozenset(
-    {
-        "domains/activities/models.py::ActivitySubRegistration._info_asset",
-        "domains/activities/models.py::_single_asset",
-    }
-)
+# Empty since CR-13 phase 4: the poster and info-file helpers of activities/models.py
+# are read-only relationships now, batch-loaded with the activity list.
+SESSION_ON_ENTITY: frozenset[str] = frozenset()
 
 
-# Phase 0b gave every domain with a single-domain test its tests/; audit, designstudio
-# and newsletter have none yet — their tests walk through other domains too, so they
-# live in tests/integration/. audit, stt, cms, membership and reporting lack a further
-# piece. Phase 4 decides audit and stt (give them the shape, or move them — §B4.5).
-MODULE_SHAPE: frozenset[str] = frozenset(
-    {
-        "audit:CONTRACT.md",
-        "audit:codes.py",
-        "audit:models.py",
-        "audit:tests/",
-        "cms:codes.py",
-        "designstudio:tests/",
-        "membership:codes.py",
-        "newsletter:tests/",
-        "reporting:CONTRACT.md",
-        "stt:CONTRACT.md",
-        "stt:api.py",
-        "stt:codes.py",
-        "stt:models.py",
-    }
-)
+# Empty since CR-13 phase 4: audit got its shape (no lists, no tables of its own,
+# said so in its files), stt moved under chatbot (an adapter belongs under the domain
+# that uses it), and every other package got the piece it missed.
+MODULE_SHAPE: frozenset[str] = frozenset()
 
 
-# The one event handler that commits, through _dispatch → _send → _log_email.
-# Phase 4 turns it into a job enqueuer (§B4.1). Any other handler that commits is red.
-COMMIT_IN_HANDLER: frozenset[str] = frozenset(
-    {
-        "domains/mail/handlers.py::on_mail_requested",
-    }
-)
+# Empty since CR-13 phase 4: the one handler that committed (`on_mail_requested`,
+# through _dispatch → _send → _log_email) queues a job now (§B4.1).
+COMMIT_IN_HANDLER: frozenset[str] = frozenset()
 
 
-# The same handler, sending over SMTP inside the transaction. Phase 4.
-NETWORK_IN_HANDLER: frozenset[str] = frozenset(
-    {
-        "domains/mail/handlers.py::on_mail_requested",
-    }
-)
+# Empty since CR-13 phase 4: the same handler no longer sends over SMTP.
+NETWORK_IN_HANDLER: frozenset[str] = frozenset()
 
 
 # Every /api/v1 route (method × path) as of 28 September 2026: none is named
@@ -698,19 +665,7 @@ WRITE_AFTER_COMMIT: frozenset[str] = frozenset({})
 # the phase 4 job enqueuer (§B4.1); media and designstudio meet in phase 4.
 COMMIT_BEHIND_API: frozenset[str] = frozenset(
     {
-        "chatbot.api.sink_for",
         "forms.api.submit_bericht",
-        "mail.api.send_campaign_mail",
-        "mail.api.send_form_confirmation",
-        "mail.api.send_magic_link",
-        "mail.api.send_member_contact_board_notice",
-        "mail.api.send_newsletter_confirmation",
-        "mail.api.send_with_attachments",
-        "media.api.replace_activity_poster",
-        "media.api.activity_image_path",
-        "media.api.add_document",
-        "media.api.delete_media",
-        "media.api.upload_media",
     }
 )
 
@@ -730,7 +685,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::onderdeel_info_uploaden → media.api.replace_component_info",
         "domains/activities/admin_ui.py::onderdeel_info_verwijderen → media.api.delete_component_info",
         "domains/activities/admin_ui.py::onderdeel_toevoegen → media.api.replace_component_info",
-        "domains/activities/router.py::create_registration → mail.api.send_activity_registration_confirmation",
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
         "domains/activities/service.py::add_activity_date → audit.api.snapshot_activity_date",
         "domains/activities/service.py::add_component → audit.api.snapshot_component",
@@ -758,14 +712,14 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/auth/login.py::start_login → mail.api.send_magic_link",
         "domains/auth/login.py::start_login → mail.api.send_member_contact_board_notice",
         "domains/chatbot/tools.py::submit_idea → forms.api.submit_bericht",
-        "domains/designstudio/handlers.py::generate_image → media.api.upload_media",
-        "domains/designstudio/service.py::_prune_versions → media.api.delete_media",
+        "domains/designstudio/handlers.py::generate_image → media.api.store_uploads",
+        "domains/designstudio/service.py::_prune_versions → media.api.remove_media",
         "domains/designstudio/service.py::_store_render → media.api.add_document",
-        "domains/designstudio/service.py::add_design_image → media.api.upload_media",
-        "domains/designstudio/service.py::publish → media.api.replace_activity_poster",
-        "domains/designstudio/service.py::remove_edited_svg → media.api.delete_media",
+        "domains/designstudio/service.py::add_design_image → media.api.store_uploads",
+        "domains/designstudio/service.py::publish → media.api.store_activity_poster",
+        "domains/designstudio/service.py::remove_edited_svg → media.api.remove_media",
         "domains/designstudio/service.py::upload_edited_svg → media.api.add_document",
-        "domains/designstudio/service.py::upload_edited_svg → media.api.delete_media",
+        "domains/designstudio/service.py::upload_edited_svg → media.api.remove_media",
         "domains/forms/api.py::submit_bericht → mail.api.send_form_confirmation",
         "domains/forms/router.py::submit_form → mail.api.send_form_confirmation",
         "domains/mdm/household_service.py::_upsert_contact → audit.api.snapshot_contact_detail",
@@ -841,11 +795,9 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/household_service.py::update_person_address → audit.api.snapshot_address",
         "domains/membership/household_service.py::update_person_contacts._upsert_contact → mdm.api.upsert_primary_contact",
         "domains/membership/register_router.py::create_membership → audit.api.snapshot_membership",
-        "domains/membership/register_router.py::register_family → mail.api.send_registration_confirmation",
         "domains/membership/register_router.py::register_family → payment.api.create_payment_record",
         "domains/membership/service.py::activate_after_payment → audit.api.snapshot_membership",
         "domains/membership/ui.py::login_verify → auth.api.consume_magic_link",
-        "domains/newsletter/service.py::_pictures → media.api.activity_image_path",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
@@ -929,29 +881,14 @@ WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
 )
 
 
-# Writes past the ORM flush, so past every `check()` (§B9.3 (c), the entrances
-# discovery of §B10), 29 September 2026: two bulk updates. The walk does not see a
-# statement built with `getattr` or assembled from strings at runtime.
-NON_ORM_WRITES: frozenset[str] = frozenset(
-    {
-        "domains/auth/login.py::start_login → auth.LoginToken",
-        "domains/mdm/service.py::merge_persons → mdm.Person",
-    }
-)
+# Empty since CR-13 phase 4: the two bulk UPDATEs (the living login tokens, the merge
+# chain) write through the objects now.
+NON_ORM_WRITES: frozenset[str] = frozenset()
 
 
-# Second computations of a registered derived value (§B9.3, *one owner per derived
-# value*), 29 September 2026, in Python — templates are not walked. Phase 1 made
-# `is_upcoming` the one Python home of "has a future date"; what stays is the SQL
-# filter of the activity list, which a query cannot hand to Python — the same kind of
-# second computation as the report's view, bound by the tests of that list (phase 4
-# decides whether it gets a parity test). Phase 2 gave the sum of what came in one
-# owner (`amount_received`), which `registration_balance` and the others ask.
-DERIVED_ELSEWHERE: frozenset[str] = frozenset(
-    {
-        "domains/activities/router.py::list_activities → registration.state",
-    }
-)
+# Empty since CR-13 phase 4: the activity list asks the service whether a date has
+# passed (`date_passed`/`date_upcoming`), the comparison `registration_state` makes.
+DERIVED_ELSEWHERE: frozenset[str] = frozenset()
 
 
 # Promises a template makes that walk to a column nothing keeps (§B9.3, *promise

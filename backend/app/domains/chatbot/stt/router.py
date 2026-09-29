@@ -28,8 +28,8 @@ from starlette.websockets import WebSocketState
 
 from app.config import settings
 from app.domains.chatbot.api import AiStatus
-from app.domains.stt.guards import DailyAudioBudget, HandshakeRateLimiter, ws_client_ip
-from app.domains.stt.providers import get_stt_provider
+from app.domains.chatbot.stt.guards import DailyAudioBudget, HandshakeRateLimiter, ws_client_ip
+from app.domains.chatbot.stt.providers import get_stt_provider
 
 logger = logging.getLogger(__name__)
 

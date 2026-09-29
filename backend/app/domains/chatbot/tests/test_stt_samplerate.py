@@ -40,7 +40,7 @@ from pathlib import Path
 import pytest
 
 from app.config import settings
-from app.domains.stt import router as stt_mod
+from app.domains.chatbot.stt import router as stt_mod
 
 pytestmark = pytest.mark.ui_agnostisch
 

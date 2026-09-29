@@ -237,6 +237,10 @@ def test_mail_requested_event_sends_and_logs(db_session):
         ),
         db_session,
     )
+    # CR-13 phase 4: the handler queues a job; the job sends and logs.
+    from tests.conftest import send_queued_mail
+
+    send_queued_mail(db_session)
     rows = _logs_for(recipient)
     assert len(rows) == 1
     assert rows[0].subject == "Event-test" and rows[0].status is MailStatus.SKIPPED

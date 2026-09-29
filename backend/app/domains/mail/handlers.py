@@ -19,8 +19,16 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.mail.models import EmailLog, MailStatus
-from app.domains.mail.service import _dispatch, _env_prefix
+from app.domains.mail.service import (
+    SEND_JOB,
+    _env_prefix,
+    activity_confirmation_message,
+    family_welcome_message,
+    queue_mail,
+)
+from app.kernel.contracts.activities import RegistrationConfirmed
 from app.kernel.contracts.mail import MailRequested
+from app.kernel.contracts.membership import FamilyRegistered
 from app.kernel.events import subscribe
 from app.kernel.jobs import job
 
@@ -51,18 +59,91 @@ def retry_mail(db: Session, payload: dict) -> None:
     logger.info("mail.retry: e-mail aan %s alsnog verstuurd (log #%s)", log.recipient, log.id)
 
 
+@job(SEND_JOB, scrub_payload=True)
+def send_queued_mail(db: Session, payload: dict) -> None:
+    """Send one finished message (CR-13 phase 4). Through the `_send` chokepoint, so
+    logging, the demo tenant's log-only mode and the `mail.retry` job behave as
+    before; `_send` is looked up when the job runs, not when it was queued."""
+    from app.domains.mail import service
+
+    service._send(
+        payload["to_email"],
+        payload["subject"],
+        payload["body_html"],
+        payload.get("cc"),
+        payload.get("email_type") or "other",
+    )
+
+
 @subscribe(MailRequested)
 def on_mail_requested(event: MailRequested, db: Session) -> None:
     """Event-ingang van het mail-component (§5.8, trede 1): componenten zonder
     directe mail-afhankelijkheid publiceren MailRequested; wij versturen + loggen.
-    De verzending zelf loopt via het bestaande _send-chokepoint (incl. skipped/
-    failed-logging en de mail.retry-job) en gebeurt synchroon in de handler —
-    de publicerende transactie is dan al geslaagd of rolt óók terug."""
-    _dispatch(
-        None,
+
+    Since CR-13 phase 4 the message is queued as a job in the publishing
+    transaction, not sent from inside it: a handler never reaches the network
+    (§B4.1). Measured then: nothing publishes this event yet."""
+    queue_mail(
+        db,
         event.to_email,
         event.subject,
         event.body_html,
         cc=event.cc,
         email_type=event.email_type,
     )
+
+
+@subscribe(RegistrationConfirmed)
+def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> None:
+    """The confirmation of an activity registration, built now — in the request, in
+    its language — and queued to leave after the commit (CR-13 phase 4).
+
+    A mail that cannot be built never stops the registration: that was true when the
+    door sent it after the commit, and stays true here."""
+    from app.domains.activities.api import Registration
+    from app.domains.payment.api import PaymentRecord
+
+    try:
+        registration = db.get(Registration, event.registration_id)
+        # The order lines are written inline, not through `registration.items`, so a
+        # collection read earlier in the request can be stale. Flush, and let only
+        # that collection load again — a full refresh would discard what the door
+        # has not flushed yet.
+        db.flush()
+        db.expire(registration, ["items"])
+        payment_record = (
+            db.get(PaymentRecord, event.payment_record_id) if event.payment_record_id else None
+        )
+        message = activity_confirmation_message(
+            to_email=event.to_email,
+            name=event.name,
+            activity=registration.activity,
+            registration=registration,
+            payment_record=payment_record,
+        )
+        queue_mail(db, **message)
+    except Exception as e:  # noqa: BLE001 — a mail never stops a registration
+        logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", event.to_email, e)
+
+
+@subscribe(FamilyRegistered)
+def queue_family_welcome(event: FamilyRegistered, db: Session) -> None:
+    """The welcome mail of a registered household, built now and queued to leave
+    after the commit (CR-13 phase 4). It repeats the form as submitted."""
+    from app.domains.membership.api import FamilyCreate
+    from app.domains.payment.api import PaymentRecord
+
+    try:
+        payment_record = (
+            db.get(PaymentRecord, event.payment_record_id) if event.payment_record_id else None
+        )
+        message = family_welcome_message(
+            to_email=event.to_email,
+            name=event.name,
+            data=FamilyCreate.model_validate(event.form),
+            pc_municipality=event.municipality,
+            payment_record=payment_record,
+        )
+        queue_mail(db, **message)
+    except Exception as e:  # noqa: BLE001 — a mail never stops a registration
+        logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", event.to_email, e)

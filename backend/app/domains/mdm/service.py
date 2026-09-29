@@ -84,11 +84,10 @@ def merge_persons(
     )
 
     # Keten platslaan: alles wat al naar de bron wees, wijst nu naar de overlever.
-    (
-        db.query(Person)
-        .filter(Person.superseded_by_id == source.id)
-        .update({Person.superseded_by_id: target.id}, synchronize_session=False)
-    )
+    # Through the objects and not a bulk UPDATE (CR-13 phase 4): every write to a
+    # Person goes through the ORM, so its rules and the flush listener see it.
+    for merged in db.query(Person).filter(Person.superseded_by_id == source.id):
+        merged.superseded_by_id = target.id
     source.superseded_by_id = target.id
 
     db.flush()

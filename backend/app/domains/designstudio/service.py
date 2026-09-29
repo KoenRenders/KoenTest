@@ -11,7 +11,7 @@ The rules that live here and nowhere else:
   written. At most :data:`MAX_VERSIONS` per design — the oldest unpublished one
   goes when a fourth is made.
 - **Publishing is a copy.** The version's A3 PDF is handed to
-  ``media.replace_activity_poster`` exactly like a hand-made upload; the
+  ``media.store_activity_poster`` exactly like a hand-made upload; the
   activity never learns the Design Studio exists.
 - **An uploaded SVG is the unit's.** Cleaned by media's one allowlist
   (#1011 — this component carries no cleaner), kept per layout, used instead
@@ -715,7 +715,7 @@ def make_version(db: Session, design: Design, *, created_by: str = "") -> Design
 
 def _prune_versions(db: Session, design: Design) -> None:
     """Keep the newest MAX_VERSIONS; the published one is never pruned."""
-    from app.domains.media.api import delete_media
+    from app.domains.media.api import remove_media
 
     versions = sorted(design.versions, key=lambda v: v.number)
     while len(versions) > MAX_VERSIONS:
@@ -726,12 +726,12 @@ def _prune_versions(db: Session, design: Design) -> None:
         versions.remove(victim)
         # The collection cascades delete-orphan: removing the version is the
         # delete; its renditions go with it. The media files go afterwards —
-        # `delete_media` commits, so it must not run mid-flush.
+        # `remove_media` flushes; it runs after this flush, not in the middle of it.
         design.versions.remove(victim)
         db.flush()
         for asset_id in asset_ids:
             try:
-                delete_media(db, asset_id)
+                remove_media(db, asset_id)
             except Exception:  # noqa: BLE001 - a missing file must not block the new version
                 logger.warning("designstudio: render %s already gone", asset_id)
 
@@ -749,7 +749,7 @@ def rendition(version: DesignVersion, layout, variant, size: str = "") -> Option
 async def publish(db: Session, design: Design, version: DesignVersion, background_tasks) -> None:
     """Copy the A3 PDF onto the activity as its poster — through the same door
     a hand-made poster takes. The confirmation is the screen's job."""
-    from app.domains.media.api import replace_activity_poster
+    from app.domains.media.api import store_activity_poster
 
     pdf = rendition(version, Layout.PRINT_A, RenderVariant.PDF, "a3")
     if pdf is None:
@@ -760,7 +760,7 @@ async def publish(db: Session, design: Design, version: DesignVersion, backgroun
         filename=f"affiche-{design.activity_id}-v{version.number}.pdf",
         headers=Headers({"content-type": "application/pdf"}),
     )
-    await replace_activity_poster(db, design.activity_id, upload, background_tasks)
+    await store_activity_poster(db, design.activity_id, upload, background_tasks)
     design.published_version_id = version.id
     design.updated_at = _now()
     db.commit()
@@ -774,7 +774,7 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
     allowlist (#1011) — check the page size on what came back, replace for
     this layout. Returns the brand warnings — warnings only (§3.6a): a
     hand-made poster may break the guide, knowingly."""
-    from app.domains.media.api import MediaFout, add_document, delete_media
+    from app.domains.media.api import MediaFout, add_document, remove_media
 
     layout = _layout(layout)
     if not raw:
@@ -794,7 +794,7 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
     spec = render.contract(design.template_key)["layouts"][layout.value]
     w, h = render.page_size_mm(cleaned)
     if abs(w - spec["width_mm"]) > 1 or abs(h - spec["height_mm"]) > 1:
-        delete_media(db, asset.id)
+        remove_media(db, asset.id)
         raise DesignError(
             f"Het paginaformaat klopt niet: {w:.0f} × {h:.0f} mm in plaats van "
             f"{spec['width_mm']:.0f} × {spec['height_mm']:.0f} mm."
@@ -818,12 +818,12 @@ def upload_edited_svg(db: Session, design: Design, layout, raw: bytes) -> list[s
 
 
 def remove_edited_svg(db: Session, design: Design, layout) -> None:
-    from app.domains.media.api import delete_media
+    from app.domains.media.api import remove_media
 
     existing = edited_svg_for(db, design, layout)
     if existing is not None:
         try:
-            delete_media(db, existing.media_asset_id)
+            remove_media(db, existing.media_asset_id)
         except Exception:  # noqa: BLE001
             logger.warning("designstudio: edited svg %s already gone", existing.media_asset_id)
         db.delete(existing)
@@ -836,12 +836,12 @@ def remove_edited_svg(db: Session, design: Design, layout) -> None:
 async def add_design_image(db: Session, design: Design, upload, *, slot: str = "") -> int:
     """Store one uploaded picture as a design image and, with ``slot``, put it
     in that place of the design right away."""
-    from app.domains.media.api import MediaFout, upload_media
+    from app.domains.media.api import MediaFout, store_uploads
 
     if slot and slot not in IMAGE_SLOTS:
         raise DesignError("Onbekende plaats voor het beeld.")
     try:
-        rows = await upload_media(
+        rows = await store_uploads(
             db, files=[upload], kind="design_image", activity_id=design.activity_id
         )
     except MediaFout as exc:

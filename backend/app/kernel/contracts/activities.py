@@ -26,3 +26,22 @@ class OrderChanged(KernelEvent):
     registration_id: int
     total_due: str
     actor: str | None = None
+
+
+@dataclass(frozen=True)
+class RegistrationConfirmed(KernelEvent):
+    """A registration for an activity is saved and its payment started (CR-13 phase 4).
+
+    Published by the registration door right before its commit; `mail` subscribes and
+    queues the confirmation mail as a job in the same transaction — so a rolled-back
+    registration sends nothing, and a sent mail always has a registration behind it.
+    Until phase 4 the door called `mail.api` after the commit.
+
+    `to_email` and `name` are what the form carried (#1284: the confirmation goes to
+    the address typed in, not the member's main address).
+    """
+
+    registration_id: int
+    to_email: str
+    name: str
+    payment_record_id: str | None = None

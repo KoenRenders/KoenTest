@@ -179,6 +179,18 @@ def mock_mollie(monkeypatch):
     monkeypatch.setattr(mollie.MollieProvider, "get_payment_details", fake_get_details)
 
 
+def send_queued_mail(db) -> None:
+    """Send what the code under test queued (CR-13 phase 4).
+
+    A mail handler queues a job and the job sends; in the tests the scheduler is off
+    (`JOBS_ENABLED=false`), so a test that expects a mail runs the queue itself —
+    where it used to rely on a background task running after the response.
+    """
+    from app.kernel.jobs import run_due_jobs
+
+    run_due_jobs(db)
+
+
 # ── Factories (#130) ───────────────────────────────────────────────────────────
 # Generieke bouwstenen voor testdata; overschrijf velden via kwargs.
 

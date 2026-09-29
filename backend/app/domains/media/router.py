@@ -127,7 +127,9 @@ async def _replace_single_asset(
         **processed,
     )
     db.add(asset)
-    db.commit()
+    # A flush, not a commit (CR-13 phase 4): the caller's door commits — the
+    # replace functions of the service, or a design's version for the Design Studio.
+    db.flush()
     db.refresh(asset)
     return asset
 

@@ -10,6 +10,7 @@ from app.domains.activities.api import compute_registration_total
 from app.domains.mail.models import MailStatus
 from app.i18n import _
 from app.kernel.codes import code_label
+from app.kernel.rules import own_transaction
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,11 @@ def email_log_url(db, log_id) -> str | None:
     return f"/admin/e-maillog?recipient={quote(log.recipient)}"
 
 
+#: The job that sends one finished message (CR-13 phase 4). Its payload is the
+#: message itself and is emptied once sent (`kernel.jobs`, `scrub_payload`).
+SEND_JOB = "mail.send"
+
+
 def _dispatch(
     background_tasks,
     to_email: str,
@@ -61,6 +67,35 @@ def _dispatch(
         _send(to_email, subject, body_html, cc, email_type)
 
 
+def queue_mail(
+    db,
+    to_email: str,
+    subject: str,
+    body_html: str,
+    cc: Optional[str] = None,
+    email_type: str = "other",
+) -> None:
+    """Queue one finished message as a job in `db`'s transaction (CR-13 phase 4,
+    §B4.1): it leaves only if that transaction commits, and whoever queues it never
+    reaches the network — the `mail.send` job does, through `_send`."""
+    from app.kernel.jobs import enqueue
+
+    enqueue(
+        db,
+        SEND_JOB,
+        {
+            "to_email": to_email,
+            "subject": subject,
+            "body_html": body_html,
+            "cc": cc,
+            "email_type": email_type,
+        },
+    )
+
+
+@own_transaction(
+    "mail.email_log", "a sent mail stays logged when the request that sent it fails (#328)"
+)
 def _log_email(
     to_email: str,
     subject: str,
@@ -97,6 +132,7 @@ def _log_email(
         return None
 
 
+@own_transaction("kernel_jobs", "the retry of a failed mail outlives the request that failed it")
 def _enqueue_retry(email_log_id: Optional[int]) -> None:
     """Plan een mail.retry-job (kernel-jobs, §5.8) voor een gefaalde verzending.
     Eigen sessie: _send draait meestal in een BackgroundTask zonder request-
@@ -432,15 +468,15 @@ def send_member_contact_board_notice(to_email: str) -> None:
     )
 
 
-def send_registration_confirmation(
+def family_welcome_message(
     to_email: str,
     name: str,
-    family,
     data=None,
     pc_municipality: str = "",
-    background_tasks=None,
     payment_record=None,
-) -> None:
+) -> dict:
+    """The welcome mail of a household that registered itself, as a finished message
+    for `queue_mail` (CR-13 phase 4: built in the request, sent by a job)."""
     details = ""
     if data:
         address_parts = [data.street, data.house_number]
@@ -452,7 +488,11 @@ def send_registration_confirmation(
         members_html = ""
         for m in data.members:
             member_name = escape(f"{m.first_name} {m.last_name}")
-            parts = [f"<strong>{member_name}</strong> ({escape(m.relation_type)})"]
+            # `.value`: since CR-12 phase 2 (v2.7.0) the form carries a `RelationType`
+            # member, and `escape` on a member failed — so the welcome mail was never
+            # sent (found in CR-13 phase 4). The stored code, as the mail showed it
+            # up to v2.6.0.
+            parts = [f"<strong>{member_name}</strong> ({escape(m.relation_type.value)})"]
             if m.date_of_birth:
                 parts.append(
                     str(
@@ -485,8 +525,7 @@ def send_registration_confirmation(
         <p>{payment_label}</p>
         """
 
-    _dispatch(
-        background_tasks,
+    return dict(
         to_email=to_email,
         email_type="membership_confirmation",
         subject=_("Welkom bij %(naam)s!") % {"naam": _display_name()},
@@ -501,14 +540,15 @@ def send_registration_confirmation(
     )
 
 
-def send_activity_registration_confirmation(
+def activity_confirmation_message(
     to_email: str,
     name: str,
     activity,
     registration=None,
-    background_tasks=None,
     payment_record=None,
-) -> None:
+) -> dict:
+    """The confirmation of an activity registration, as a finished message for
+    `queue_mail` (CR-13 phase 4: built in the request, sent by a job)."""
     activity_name = escape(activity.name)
     subject = _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
     from datetime import date as _date
@@ -589,8 +629,7 @@ def send_activity_registration_confirmation(
 
     message += _transfer_instructions_html(payment_record)
 
-    _dispatch(
-        background_tasks,
+    return dict(
         to_email=to_email,
         email_type="activity_confirmation",
         subject=subject,

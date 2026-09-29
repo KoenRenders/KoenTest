@@ -36,7 +36,7 @@ sowieso niet mogen hebben.
 
 - Chat: **kale httpx** tegen de Mistral chat-completions-API (§19.3 ✓; de
   `mistralai`-SDK wordt hier niet gebruikt).
-- STT (Voxtral realtime, `domains/stt`): gebruikt nog wél de
+- STT (Voxtral realtime, `chatbot/stt/` — the voice input of the widget, moved here from `domains/stt` in CR-13 phase 4: an adapter belongs under the domain that uses it): gebruikt nog wél de
   `mistralai[realtime]`-SDK — de realtime-websocketvervanging vergt verificatie
   tegen het live endpoint en staat als expliciet restpunt op #404.
 

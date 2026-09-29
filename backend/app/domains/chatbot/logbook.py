@@ -24,6 +24,7 @@ from decimal import Decimal
 from typing import Callable
 
 from app.database import SessionLocal
+from app.kernel.rules import own_transaction
 
 from .models import AiCallLog, AiCapability, AiProvider, AiStatus, AiSurface
 
@@ -34,6 +35,24 @@ logger = logging.getLogger(__name__)
 # silently, so the fold-out never suggests it is showing everything when it is not.
 MAX_PAYLOAD = 100_000
 _CUT = "\n… [afgekapt: de payload was groter dan het logboek bewaart]"
+
+
+@own_transaction(
+    "ai.ai_call_log",
+    "a paid AI call stays logged when the request that made it fails",
+    # Telemetry about the caller's AI call, not a consequence in another domain
+    # (master CLI, 29 September 2026): calling it is not a command (§B4.9).
+    command=False,
+)
+def _store(row: AiCallLog) -> None:
+    """Write one row in a session of its own (CR-13 phase 4: the one commit a
+    function reached through `api.py` may make — declared, and checked by the gate)."""
+    eigen = SessionLocal()
+    try:
+        eigen.add(row)
+        eigen.commit()
+    finally:
+        eigen.close()
 
 
 def sink_for(actor: str = "") -> Callable[..., None]:
@@ -92,12 +111,7 @@ def sink_for(actor: str = "") -> Callable[..., None]:
         )
         if tenant_id is not None:
             rij.tenant_id = tenant_id
-        eigen = SessionLocal()
-        try:
-            eigen.add(rij)
-            eigen.commit()
-        finally:
-            eigen.close()
+        _store(rij)
 
     return write
 

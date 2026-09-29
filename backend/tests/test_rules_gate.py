@@ -1123,6 +1123,93 @@ def _foreign_api_calls() -> dict[tuple[str, str], str]:
     return callers
 
 
+def _own_transaction(function: ast.FunctionDef) -> str | None:
+    """The table an `@own_transaction("schema.table", reason)` function declares."""
+    for decorator in function.decorator_list:
+        if (
+            isinstance(decorator, ast.Call)
+            and getattr(decorator.func, "id", getattr(decorator.func, "attr", ""))
+            == "own_transaction"
+            and decorator.args
+            and isinstance(decorator.args[0], ast.Constant)
+        ):
+            return decorator.args[0].value
+    return None
+
+
+def _not_a_command(function: ast.FunctionDef) -> bool:
+    """`@own_transaction(..., command=False)`: telemetry, not a consequence (§B4.9)."""
+    for decorator in function.decorator_list:
+        if (
+            isinstance(decorator, ast.Call)
+            and getattr(decorator.func, "id", getattr(decorator.func, "attr", ""))
+            == "own_transaction"
+        ):
+            return any(
+                k.arg == "command" and isinstance(k.value, ast.Constant) and k.value.value is False
+                for k in decorator.keywords
+            )
+    return False
+
+
+#: The one function whose own transaction is not a command (master CLI, 29 September
+#: 2026). A second is red: `command=False` must not become a general way out.
+NOT_A_COMMAND = {"domains/chatbot/logbook.py::_store"}
+
+
+def _mapped_tables() -> dict[str, str]:
+    return {m.class_.__name__: m.local_table.fullname for m in _mappers()}
+
+
+def _own_transaction_problem(
+    path: Path, tree: ast.Module, function: ast.FunctionDef, table: str, tables=None
+) -> str | None:
+    """Why a declared own transaction is not one — or None when it holds.
+
+    It holds when (1) every commit in it is on a session it opened itself
+    (`x = SessionLocal()`), never on one it received, and (2) every mapped class it
+    builds, types or reaches is the declared table's — at least one, or the gate
+    could not see what it writes.
+    """
+    where = f"{_rel(path) if path.is_relative_to(APP) else path.name}::{function.name}"
+    own = {
+        target.id
+        for node in _own_nodes(function)
+        if isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and getattr(node.value.func, "id", "") == "SessionLocal"
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    for node in _own_nodes(function):
+        if _is_commit(node):
+            receiver = node.func.value
+            if not (isinstance(receiver, ast.Name) and receiver.id in own):
+                return (
+                    f"{where}:{node.lineno} is declared an own transaction and commits a "
+                    f"session it did not open — the caller's (CR-13 §B9.3)"
+                )
+    tables = tables if tables is not None else _mapped_tables()
+    written: set[str] = set()
+    for _p, _t, reached, _via in _reachable(path, tree, function, depth=2):
+        for node in ast.walk(reached):
+            name = None
+            if isinstance(node, ast.Call):
+                name = getattr(node.func, "id", None)
+            elif isinstance(node, ast.arg) and isinstance(node.annotation, ast.Name):
+                name = node.annotation.id
+            if name in tables:
+                written.add(tables[name])
+    if not written:
+        return f"{where} is declared an own transaction on {table} and writes no table the gate can see"
+    if written != {table}:
+        return (
+            f"{where} is declared an own transaction on {table} and writes "
+            f"{', '.join(sorted(written))} — a log writes its log table only (CR-13 §B9.3)"
+        )
+    return None
+
+
 def collect_commit_behind_api() -> dict[str, str]:
     """A function another domain calls through `api.py` that commits → key
     `domain.api.name` (§B9.3 (c)). The caller owns the transaction; a commit inside
@@ -1137,7 +1224,14 @@ def collect_commit_behind_api() -> dict[str, str]:
         if target is None:
             continue
         path, tree, function = target
-        for reached_path, _t, reached, via in _reachable(path, tree, function):
+        for reached_path, reached_tree, reached, via in _reachable(path, tree, function):
+            declared = _own_transaction(reached)
+            if declared is not None:
+                problem = _own_transaction_problem(reached_path, reached_tree, reached, declared)
+                if problem is None:
+                    continue  # a declared own transaction, checked: not the caller's
+                found[f"{domain}.api.{name}"] = problem
+                break
             line = _commits(reached)
             if line is not None:
                 where = f"{_rel(reached_path)}:{line}"
@@ -1179,6 +1273,8 @@ def api_commands() -> dict[tuple[str, str], str]:
             continue
         for name, (path, tree, function) in _api_exports(package).items():
             for reached_path, _t, reached, via in _reachable(path, tree, function):
+                if _not_a_command(reached):
+                    continue
                 line = _writes(reached)
                 if line is not None:
                     commands[(package.name, name)] = (
@@ -1837,6 +1933,85 @@ def test_no_commit_behind_another_domains_api():
     _ratchet("COMMIT_BEHIND_API")
 
 
+_SINK = """
+from app.database import SessionLocal
+from app.kernel.rules import own_transaction
+
+@own_transaction("mail.email_log", "the log outlives the caller")
+def sink(to):
+    own = SessionLocal()
+    own.add(EmailLog(recipient=to))
+    own.commit()
+
+@own_transaction("mail.email_log", "the log outlives the caller")
+def sink_on_the_callers_session(db, to):
+    db.add(EmailLog(recipient=to))
+    db.commit()
+
+@own_transaction("mail.email_log", "the log outlives the caller")
+def sink_that_writes_domain_data(to):
+    own = SessionLocal()
+    own.add(Person(first_name=to))
+    own.commit()
+
+def undeclared(to):
+    own = SessionLocal()
+    own.add(EmailLog(recipient=to))
+    own.commit()
+"""
+
+
+@pytest.mark.parametrize(
+    ("name", "red"),
+    [
+        ("sink", None),
+        ("sink_on_the_callers_session", "commits a session it did not open"),
+        ("sink_that_writes_domain_data", "writes mdm.persons"),
+    ],
+)
+def test_a_declared_own_transaction_is_checked(tmp_path, name, red):
+    """The three cases the master CLI asked for (29 September 2026), on a module
+    built for the test: a sink on its own session and its log table passes; a sink
+    that commits the session it received, or writes a table not its own, is red."""
+    path = tmp_path / "sink.py"
+    path.write_text(_SINK, encoding="utf-8")
+    tree = ast.parse(_SINK)
+    function = _module_functions(tree)[name]
+    table = _own_transaction(function)
+    assert table == "mail.email_log"
+    tables = {"EmailLog": "mail.email_log", "Person": "mdm.persons"}
+    problem = _own_transaction_problem(path, tree, function, table, tables=tables)
+    if red is None:
+        assert problem is None, problem
+    else:
+        assert problem is not None and red in problem, problem
+
+
+def test_an_own_session_that_is_not_declared_still_commits():
+    """The third case: without the declaration, a commit on a session the function
+    opened itself is a commit like any other — nothing lets it pass."""
+    tree = ast.parse(_SINK)
+    function = _module_functions(tree)["undeclared"]
+    assert _own_transaction(function) is None
+    assert _commits(function) is not None
+
+
+def test_only_the_ai_call_log_is_an_own_transaction_that_is_not_a_command():
+    """`command=False` is one declared exception, not a way out. Proof (run,
+    removed), additive: `command=False` added to `mail._log_email` → red, naming it."""
+    found = set()
+    for path in _python_files():
+        tree = _tree(path)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and _not_a_command(node):
+                found.add(f"{_rel(path)}::{node.name}")
+    assert found, "the walk found no `command=False` at all — is it still looking?"
+    assert found == NOT_A_COMMAND, (
+        f"`@own_transaction(..., command=False)` on {sorted(found - NOT_A_COMMAND)} — only "
+        f"the AI call log is telemetry; anything else is a command (§B4.9)"
+    )
+
+
 def test_events_not_calls():
     """Ratchet (§B4.9), hard for a new package. Proof (run, removed), additive, both
     halves at once: in `cms/api.py` a `probe_write(db)` that commits through a helper
@@ -1851,8 +2026,9 @@ def test_events_not_calls():
     ("domain", "name", "command"),
     [
         # The couplings §B4.9 names, found by the walk, not listed by hand.
-        ("mail", "send_activity_registration_confirmation", True),
-        ("mail", "send_registration_confirmation", True),
+        # The two registration confirmations left the facade in phase 4 (events,
+        # built and queued by `mail` itself); the form confirmation is still a call.
+        ("mail", "send_form_confirmation", True),
         ("payment", "create_payment_record", True),
         ("payment", "reconcile_registration_charges", True),
         ("payment", "reconcile_charges", True),
