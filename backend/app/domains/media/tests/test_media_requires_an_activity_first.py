@@ -112,7 +112,9 @@ def test_the_filter_survives_a_mutation(client, db_session):
 
     _login(client, db_session)
     foto = _asset(db_session, activity_id=13, title="blijft-staan")
-    waarde = make_session_value(SEEDED_ADMIN_EMAIL)
+    # #1348: sign the cookie the client carries. A second `make_session_value`
+    # differed from it whenever a second boundary fell between the two calls.
+    waarde = client.cookies.get(SESSION_COOKIE)
 
     resp = client.post(
         f"/admin/media/{foto.id}",

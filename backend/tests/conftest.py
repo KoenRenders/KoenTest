@@ -115,6 +115,39 @@ def _reset_rate_limiters():
     yield
 
 
+@pytest.fixture(autouse=True)
+def session_clock_ticks(monkeypatch):
+    """The session layer's clock moves a second on every reading (#1348).
+
+    A CSRF token signs the WHOLE session value, expiry included (`csrf_token_for`).
+    A test that sets the cookie from one `make_session_value(...)` and signs its
+    token from a second one passes as long as both calls fall in the same second,
+    and fails — "CSRF-token ongeldig" — when a second boundary falls between them:
+    once in a few hundred runs on CI (#1348, media's filter test). With this clock
+    every such test fails every time, so the pattern cannot come back unnoticed;
+    the way that holds is to sign the cookie the client carries
+    (`csrf_token_for(client.cookies.get(SESSION_COOKIE))`, or keep the one value).
+
+    Only the session module's `time` is replaced, not the stdlib's: nothing else
+    in the application reads this clock. Named without an underscore so the
+    domains' `from tests.conftest import *` picks it up (CR-13 R15).
+    """
+    import time as real_time
+
+    from app.domains.auth import session as session_module
+
+    class _Clock:
+        def __init__(self) -> None:
+            self.now = real_time.time()
+
+        def time(self) -> float:
+            self.now += 1.0
+            return self.now
+
+    monkeypatch.setattr(session_module, "time", _Clock())
+    yield
+
+
 @pytest.fixture
 def db_session(_migrate_schema):
     """Een sessie met SAVEPOINT-isolatie die endpoint-commits overleeft."""
