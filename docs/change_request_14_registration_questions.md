@@ -1,7 +1,7 @@
 # Change Request 14 — Extra questions on a registration: a form attached to a component
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 29 September 2026 · **draft — Part A to be confirmed by Koen** · not assigned
+**Status:** shaped with Koen on 29 September 2026 · **draft — Part A to be confirmed by Koen** · not assigned · issue #1320
 **Applies to:** the activity registration flow (public modal, board form, JSON API), the `forms` domain, the registration detail and export in the admin.
 
 > Part A is written from Koen's spoken brief of 29 September 2026. Where the
@@ -686,6 +686,7 @@ uncommitted form submission (it reads the form definition, so it should).
 
 ## Relationship to existing work
 
+- **#1320** — the issue for this change request (blank on purpose; the CR is the content).
 - **CR-03 (form types):** the six registration form types this idea replaces in spirit — v2.0 removed them; this CR is the attachable form instead of fixed types.
 - **CR-13:** the placement rule, *no foreign writes*, the one transaction in `create_registration`, `Registration.check()` — this CR builds on phase 1.
 - **CR-12:** no new code list.
