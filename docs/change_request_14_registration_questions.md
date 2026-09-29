@@ -5,7 +5,7 @@
 **Applies to:** the activity registration flow (the public registration — today a modal — the board form, the JSON API), the `forms` domain, the registration detail and export in the admin, the confirmation mail.
 
 > Part A is the business's; Part B is measured on `master` `6a96af01`. Who
-> decided what, and when, is in B11 and the Q&A log — not in the text.
+> decided what, and when, is in B10 and the Q&A log — not in the text.
 
 ---
 
@@ -163,7 +163,7 @@ component). Nothing in the form builder has to change for this case.
 
 | Concern | This change |
 |---|---|
-| **Security** | One new thing from outside: the answer-by-link page, an unauthenticated write guarded by a secret in the link (the pattern the form builder's edit link already uses). The questions on the registration page arrive through the entrances that exist, under the same rate limit and CSRF as today. The form's own validation (required, bounds, options) applies everywhere. Mechanics in B6. |
+| **Security** | One new thing from outside: the answer-by-link page, an unauthenticated write guarded by a secret in the link (the pattern the form builder's edit link already uses). The questions on the registration page arrive through the entrances that exist, under the same rate limit and CSRF as today. The form's own validation (required, bounds, options) applies everywhere. Mechanics in B5. |
 | **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data (GDPR art. 9): the member volunteers it for the activity's own purpose, it is seen by the organiser only, and it is not kept longer than the registration. The system does not treat it differently from another answer (Q18); the organiser who asks it is responsible for asking only what the activity needs. |
 | **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page:** the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
@@ -473,6 +473,20 @@ macros. `forms` reaches nothing new. Four of the five layers of
   without a caller; if it is pruned, F6 falls away with it.
 
 
+**The data model at a glance** — what is new is marked:
+
+```mermaid
+erDiagram
+  ACTIVITY ||--o{ COMPONENT : has
+  COMPONENT }o--o| FORM : "asks — NEW form_id, nullable"
+  COMPONENT ||--o{ REGISTRATION : receives
+  REGISTRATION ||--o| FORM_SUBMISSION : "answered — NEW form_submission_id, nullable, unique; NEW answer_token"
+  FORM ||--o{ FORM_FIELD : defines
+  FORM ||--o{ FORM_SUBMISSION : collects
+  FORM_SUBMISSION ||--o{ FORM_SUBMISSION_ANSWER : holds
+  FORM_FIELD ||--o{ FORM_SUBMISSION_ANSWER : "answered by"
+```
+
 ### B2.3 Per module: what must happen — for the build teams
 
 In build order. Effort in CLI-days is an estimate against the day's track
@@ -494,12 +508,25 @@ record (#1284: one form for two channels took about one day).
   the refusals of F2 and F13, `export.py` with the answer columns in one
   call; entity `Registration` (+`form_submission_id`, +`answer_token`,
   `check()` rule), `ActivitySubRegistration` (+`form_id`).
-- **Database:** three nullable columns, two FKs (`ON DELETE SET NULL` /
-  `RESTRICT`), a partial unique on `form_submission_id`, the CHECK "not
-  answered and open at once"; one additive migration (B5.2).
+- **Database:** three nullable columns, two FKs, a partial unique, one CHECK;
+  one additive migration:
+
+  | Table | Change | Validation |
+  |---|---|---|
+  | `activities.activity_sub_registrations` | `form_id INTEGER NULL REFERENCES form.forms(id) ON DELETE SET NULL` | attach rule in the service (open, tenant, one section); nothing at rest beyond the FK |
+  | `activities.registrations` | `form_submission_id INTEGER NULL REFERENCES form.form_submissions(id) ON DELETE RESTRICT`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the B4.2 pattern of CR-13); `answer_token VARCHAR(64) NULL UNIQUE` | `Registration.check()`: a linked submission belongs to the component's form; `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
+  | `form.*` | unchanged | the forms rules as today |
+  
+  Migration: one, `alembic revision -m "component form, registration submission and answer token"`,
+  additive (`ADDITIVE = True`); no data step. Check the CHECK constraints on
+  both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
+  
+  One migration, `alembic revision -m "component form, registration
+  submission and answer token"`, `ADDITIVE = True`, no data step; both
+  tables checked for existing CHECK constraints on these columns: none.
 - **Templates and mail:** `_inschrijf_velden.html` (the questions block with
   the choice), `inschrijven.html`, the thank-you page; the mail is `mail`'s.
-- **Tests:** B8 1, 2, 3, 4, 5, 6, 8, 9, 10, 11; landscape: B8's second
+- **Tests:** B7 1, 2, 3, 4, 5, 6, 8, 9, 10, 11; landscape: B7's second
   level.
 - **Effort:** phase 1 (the page, parity) ~1 CLI-day; phase 2 (links,
   picker, choice, answer page, detail, export) ~2 CLI-days; phase 3 (edit
@@ -519,7 +546,7 @@ record (#1284: one form for two channels took about one day).
 - **Database:** nothing.
 - **Templates:** `_formulier_veld.html` and `screenfields.py` are used as
   they are — the registration page renders the same macro.
-- **Tests:** B8 7, 12; the forms suite unchanged.
+- **Tests:** B7 7, 12; the forms suite unchanged.
 - **Effort:** ~0.5 CLI-day, in phase 2. Serves R4, F4, F5, F8, F9, F11,
   F12.
 
@@ -528,9 +555,26 @@ record (#1284: one form for two channels took about one day).
 - **Code and template:** `send_activity_registration_confirmation` gains one
   variable block: the answers (label/value), or the answer link, or
   nothing; the resend uses the same template with a reminder subject.
-- **Tests:** a rendering test per case (three), in phase 3's B8 10.
+- **Tests:** a rendering test per case (three), in phase 3's B7 10.
 - **Effort:** ~0.25 CLI-day, phase 3 (the link part of the block in phase
   2). Serves R5, R6.
+
+#### reporting — a module of its own, here untouched
+
+Measured on `master` (29 Sep), views in `reporting.*` from the migrations:
+
+- **`f_registrations`** reads `activities.registrations` — none of the new
+  columns (`form_submission_id`, `answer_token`) and no answer; unchanged,
+  and it must stay so: the answers are not a measure (R13).
+- **`f_form_submissions` / `d_form`** count submissions per form. An
+  attached submission **is** a submission of that form, so a form attached
+  to a component shows its answered registrations there as submissions —
+  correct and wanted ("how many answered"), stated here so nobody reads it
+  as double counting; no view change.
+- **`f_payments`** is untouched (no payment column changes).
+- The object universe (`reporting/universe.py`) gets no new object.
+
+None of the three new columns is read by a view; no expand/contract risk.
 
 #### payment — used, unchanged
 
@@ -544,14 +588,14 @@ three and a half of them.
 
 | Concern | Touched? | Where |
 |---|---|---|
-| Reporting views and saved reports | no — no view reads the new columns; attached submissions count in the forms views, wanted | B5.3 |
-| Existing tests, e2e golden flows, 390 px screenshots | **yes** — the registration e2e flow and screenshots are redone for the page; #1284's form tests must pass unchanged | B8, second level |
-| Fixed UI decisions, `CLAUDE.md` | **yes** — "public registration is a modal" becomes "a page", at the merge of phase 1 | B4.1, B7 |
+| Reporting views and saved reports | no — no view reads the new columns; attached submissions count in the forms views, wanted | B2.3 reporting |
+| Existing tests, e2e golden flows, 390 px screenshots | **yes** — the registration e2e flow and screenshots are redone for the page; #1284's form tests must pass unchanged | B7, second level |
+| Fixed UI decisions, `CLAUDE.md` | **yes** — "public registration is a modal" becomes "a page", at the merge of phase 1 | B4.1, B6 |
 | Design-system documentation | no — kit macros only, nothing new; the page is judged against the norm | B4.10 |
 | Code lists (CR-12) | no — the field types are `forms`' list | — |
 | Events and handlers (CR-13) | no — door calls, no event; the payment-record decision of 29 Sep applies | B1 |
 | Mail templates | **yes** — one variable block in the registration confirmation; a reminder subject | B4.8, B2.3 mail |
-| Migration: additive or contract (#1255) | additive — three nullable columns | B5.2 |
+| Migration: additive or contract (#1255) | additive — three nullable columns | B2.3 |
 | Tenant settings | no — the picker offers the tenant's own forms; nothing platform-wide | A7 |
 | Env vars | no | B3 |
 | JSON routes and API callers | **yes, conditional** — `POST /register` gains `answers` if it survives CR-13 phase 4 | F6, B2.2 |
@@ -846,52 +890,7 @@ link back to the activity's component. A refusal re-renders the page with
 the banner on top and the first refused question scrolled into view and
 marked, the way the form builder marks one (`data-veld`, #741/#749).
 
-## B5. Data model
-
-### B5.1 Entity-relationship diagram
-
-```mermaid
-erDiagram
-  ACTIVITY ||--o{ COMPONENT : has
-  COMPONENT }o--o| FORM : "asks — NEW form_id, nullable"
-  COMPONENT ||--o{ REGISTRATION : receives
-  REGISTRATION ||--o| FORM_SUBMISSION : "answered — NEW form_submission_id, nullable, unique; NEW answer_token"
-  FORM ||--o{ FORM_FIELD : defines
-  FORM ||--o{ FORM_SUBMISSION : collects
-  FORM_SUBMISSION ||--o{ FORM_SUBMISSION_ANSWER : holds
-  FORM_FIELD ||--o{ FORM_SUBMISSION_ANSWER : "answered by"
-```
-
-### B5.2 Tables — schemas, columns, validation layers
-
-| Table | Change | Validation |
-|---|---|---|
-| `activities.activity_sub_registrations` | `form_id INTEGER NULL REFERENCES form.forms(id) ON DELETE SET NULL` | attach rule in the service (open, tenant, one section); nothing at rest beyond the FK |
-| `activities.registrations` | `form_submission_id INTEGER NULL REFERENCES form.form_submissions(id) ON DELETE RESTRICT`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the B4.2 pattern of CR-13); `answer_token VARCHAR(64) NULL UNIQUE` | `Registration.check()`: a linked submission belongs to the component's form; `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
-| `form.*` | unchanged | the forms rules as today |
-
-Migration: one, `alembic revision -m "component form, registration submission and answer token"`,
-additive (`ADDITIVE = True`); no data step. Check the CHECK constraints on
-both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
-
-### B5.3 Impact on the reporting landscape
-
-Measured on `master` (29 Sep), views in `reporting.*` from the migrations:
-
-- **`f_registrations`** reads `activities.registrations` — none of the new
-  columns (`form_submission_id`, `answer_token`) and no answer; unchanged,
-  and it must stay so: the answers are not a measure (R13).
-- **`f_form_submissions` / `d_form`** count submissions per form. An
-  attached submission **is** a submission of that form, so a form attached
-  to a component shows its answered registrations there as submissions —
-  correct and wanted ("how many answered"), stated here so nobody reads it
-  as double counting; no view change.
-- **`f_payments`** is untouched (no payment column changes).
-- The object universe (`reporting/universe.py`) gets no new object.
-
-None of the three new columns is read by a view; no expand/contract risk.
-
-## B6. Privacy and security — the mechanics behind A6
+## B5. Privacy and security — the mechanics behind A6
 
 - **Where the answers live and who reads them.** `form.form_submission_answers`,
   read through the admin only (`require_admin_ui` on the registration
@@ -920,7 +919,7 @@ None of the three new columns is read by a view; no expand/contract risk.
   see the registration and nobody else, and it is asked only where an
   organiser attached a form that asks it.
 
-## B7. Phasing — shippable phases, and what changes on the failure paths
+## B6. Phasing — shippable phases, and what changes on the failure paths
 
 Three phases, each shippable and testable on HDEV on its own, in one
 release or spread over two; the first is worth doing even if the others
@@ -941,7 +940,7 @@ first and alone, a regression there is found on a page that has no
 questions yet — and the Sint form lands on a page the business has already
 approved.
 
-## B8. Tests — what the build must prove
+## B7. Tests — what the build must prove
 
 Each able to go red:
 
@@ -1012,7 +1011,7 @@ Each able to go red:
   `check()`, not in the routes; the entrances test of `Registration` learns
   the answer page as a fourth entrance.
 
-## B9. Rule and gatekeeper — what this fixes for all future work
+## B8. Rule and gatekeeper — what this fixes for all future work
 
 1. **The rule.** *Anything the portal asks a member beyond the fixed fields
    of a registration is a form of the form builder, linked from the
@@ -1028,10 +1027,10 @@ Each able to go red:
    a frozen list in the test — adding a column means editing the list in the
    same commit, which is the review moment the rule needs. Proven by
    violation: add `t_shirt_size = Column(String)` → red with "a question is
-   a form field (CR-14 B9)". The cross-domain mechanics are already gated by
+   a form field (CR-14 B8)". The cross-domain mechanics are already gated by
    CR-13 (*no foreign writes*, *one transaction*, the import gate).
 
-## B10. Prototype findings — what was measured before the build
+## B9. Prototype findings — what was measured before the build
 
 None yet. To measure before the build of phase 2:
 
@@ -1046,7 +1045,7 @@ None yet. To measure before the build of phase 2:
 - the size of the `_answers_from_form` move to `forms.api` — it is private
   today and tied to the request's form data type.
 
-## B11. Decisions log — dated answers and open proposals
+## B10. Decisions log — dated answers and open proposals
 
 | Date | Decision | By |
 |---|---|---|
@@ -1062,9 +1061,9 @@ None yet. To measure before the build of phase 2:
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A6, B6. |
+| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A6, B5. |
 | Q19 | 29 Sep 2026 | The first draft let the form builder's submissions view show "inschrijving #N". That needs `forms` to read `activities` — the dependency the wrong way round, for one link. Dropped: the way to the answers is the registration. Agreed? (Claude, review) | Koen, 29 Sep: agreed. F10, B4.6. |
-| Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B7. |
+| Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B6. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
@@ -1073,9 +1072,9 @@ None yet. To measure before the build of phase 2:
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
 | Q11 | 29 Sep 2026 | Is the board registration's mail the same as the member's, given the form is not filled yet — unless the board fills it? (Koen) | One mail with one variable block (answers, or the link, or nothing); the resend is the same mail with a reminder subject. B4.8. Koen, 29 Sep, on the board's part: **completely or not at all** — no board-only leniency; the CR makes it one explicit choice on the board page (default: the member answers by link), same validation when the board fills it in. |
-| Q15 | 29 Sep 2026 | Give the public user the same choice as the board — answer now or later through the link? (Koen, from his own Sint years: registered first, answered a week before) | Yes: one choice on both pages, "nu invullen / later via de link"; the API says it by sending `answers` or not; the thank-you page repeats the link. R2, R4, R5, F3, F6, F7, B4.8, B8 test 1. No channel difference about the questions remains. |
+| Q15 | 29 Sep 2026 | Give the public user the same choice as the board — answer now or later through the link? (Koen, from his own Sint years: registered first, answered a week before) | Yes: one choice on both pages, "nu invullen / later via de link"; the API says it by sending `answers` or not; the thank-you page repeats the link. R2, R4, R5, F3, F6, F7, B4.8, B7 test 1. No channel difference about the questions remains. |
 | Q16 | 29 Sep 2026 | The default of the choice: "nu" for the member, "later" for the board? (Claude) | Koen, 29 Sep: "nu" on both; the board member switches it when needed. B4.8. |
-| Q17 | 29 Sep 2026 | Update the fixed UI decision in `CLAUDE.md` now, or when the CR is implemented? (Koen) | When implemented: in the "Na de merge" block of phase 1, by the master CLI. B4.1, B7. |
+| Q17 | 29 Sep 2026 | Update the fixed UI decision in `CLAUDE.md` now, or when the CR is implemented? (Koen) | When implemented: in the "Na de merge" block of phase 1, by the master CLI. B4.1, B6. |
 | Q14 | 29 Sep 2026 | One screen for back office and public, built from the internal form as the ideal — but check that the public loses no function or nicety. (Koen) | Measured: both already share the field block, context and processing (#1284); the frame differs. B4.9 lists the fifteen things the public has today and where each lives on the page; one visible difference (P10, the in-place participant refresh becomes a refresh on return) and one gain (P14, the component switch). R11, AC9, test 10. |
 | Q13 | 29 Sep 2026 | How do the questions render in the admin shell and the public shell, without exceptions for the board? (Koen) | One partial (`_inschrijf_velden.html` → `forms`' `_formulier_veld.html`, `required` as the builder set it) included in two shells; one validation function on both channels; the board's only extra input is the choice. B4.8. |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |

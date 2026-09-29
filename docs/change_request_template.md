@@ -167,7 +167,11 @@ and deliberately not done — recorded so it is not asked again).
 > *entity · facade · migration · template), the same colour per module as in*
 > *B2.1; arrows between modules only through a facade (`api.py`), as the*
 > *import gate enforces; external systems and data stores as their own*
-> *boxes. Under it, in prose: who calls whom and through which facade, the*
+> *boxes. Then the **data model at a glance**: a Mermaid `erDiagram` of the*
+> *entities involved with their key columns and relationships, cardinality*
+> *on the edges, soft references across schemas drawn as relationships too,*
+> *and what is new or changed marked in the label. Under it, in prose: who*
+> *calls whom and through which facade, the*
 > *direction of every new dependency, the transaction boundary, and the*
 > ***impact on the existing architecture** — which existing modules, tables,*
 > *screens and contracts are touched, and how the layer rules*
@@ -180,19 +184,31 @@ and deliberately not done — recorded so it is not asked again).
 > *One subsection per module touched, in build order, each with the same*
 > *five headings: **screens** (which, what changes, at which width it is*
 > *judged), **code** (view-model · service · entity · facade — the functions*
-> *by name), **database** (columns, constraints, the migration), **templates*
-> *and mail**, **tests** (which of B8). Then one line of **effort** (S / M /*
+> *by name), **database** (schema, table, each column with its type,*
+> *nullability and constraints, the `ON DELETE` of every FK, the migration*
+> *and whether it is additive), **templates*
+> *and mail**, **tests** (which of B7). Then one line of **effort** (S / M /*
 > *L, or CLI-days once the team has a track record) and the requirements the*
 > *module serves (R and F numbers) — a requirement no module serves is not*
-> *built. A module that is only used, not changed, gets one line. The sum of*
-> *the effort lines is the cost of the change; B7 cuts it into phases.*
+> *built. A module that is only used, not changed, gets one line. **Reporting*
+> *is always one of the modules**, touched or not: the engine reads the*
+> *tables through SQL views in the `reporting` schema and through its object*
+> *universe, so for every column this change adds, renames, retypes,*
+> *retires or gives a new meaning, its subsection says which views and*
+> *objects read it (measured, not recalled) and in which phase the view*
+> *follows — a view that reads a changed column changes in the same*
+> *migration as the column, or the phase says why not; a value change on a*
+> *column a view reads is checked against the saved reports on every*
+> *environment before the migration. "Reporting — none: no view reads these*
+> *columns" is a subsection too. The sum of the effort lines is the cost of*
+> *the change; B6 cuts it into phases.*
 
 ### B2.4 Cross-cutting impact — the checklist of what gets forgotten
 
 > [!NOTE]
 > *One table, every row answered, "no" included, one sentence each:*
-> *reporting views and saved reports (B5.3) · existing tests, e2e*
-> *golden flows and 390 px screenshots (B8) · fixed UI decisions and*
+> *reporting views and saved reports (B2.3) · existing tests, e2e*
+> *golden flows and 390 px screenshots (B7) · fixed UI decisions and*
 > *`CLAUDE.md` · design-system documentation · code lists · events and*
 > *handlers · mail templates · migration: additive or contract*
 > *(#1255) · tenant settings · env vars · JSON routes and API callers ·*
@@ -213,46 +229,13 @@ and deliberately not done — recorded so it is not asked again).
 > [!NOTE]
 > *The design decisions in full, one subsection each, with their reasons.*
 
-## B5. Data model
-
-### B5.1 Entity-relationship diagram
-
-> [!NOTE]
-> *Mermaid `erDiagram`: entities with their key columns, relationships with*
-> *cardinality; soft references across schemas drawn as relationships too.*
-
-### B5.2 Tables — schemas, columns, validation layers
-
-> [!NOTE]
-> *Sketch of schemas, tables, columns, codes; validation layers.*
-
-### B5.3 Impact on the reporting landscape
-
-> [!NOTE]
-> *Checked at every change request. Reporting is*
-> *its own domain: the engine (CR-06) reads the tables through SQL views in*
-> *the `reporting` schema (`f_registrations`, `f_payments`, `f_memberships`,*
-> *`f_form_submissions`, …, defined in migrations) and through the object*
-> *universe (`reporting/universe.py`). For every column or table this change*
-> *adds, renames, retypes, retires or changes the meaning of: which views and*
-> *objects read it (measured — grep the views, not recalled), and in which*
-> *phase the view follows. The danger is expand/contract: the old column*
-> *stays for one release, the new one is written, and a view that still*
-> *reads the old one reports quietly wrong figures. So a view that reads a*
-> *changed column changes in the same migration as the column, or the phase*
-> *says why not. A **value** change on a column a view reads is checked*
-> *against the saved reports (`reporting.saved_reports`, every environment)*
-> *before the migration, not after — a report that filters on the old value*
-> *goes quietly empty. "None — measured, no view reads these columns" is an*
-> *answer.*
-
-## B6. Privacy and security — the mechanics behind A6
+## B5. Privacy and security — the mechanics behind A6
 
 > [!NOTE]
 > *How A6's privacy and security answers are implemented: what leaves the*
 > *system to whom, what is sanitised, what is logged.*
 
-## B7. Phasing — shippable phases, and what changes on the failure paths
+## B6. Phasing — shippable phases, and what changes on the failure paths
 
 > [!NOTE]
 > *Shippable phases, each with what it delivers and its dependencies, one*
@@ -267,7 +250,7 @@ and deliberately not done — recorded so it is not asked again).
 > *paths listed beside it, and an e2e test that goes red on one of them is*
 > *expected, not a surprise. "None" is an answer.*
 
-## B8. Tests — what the build must prove
+## B7. Tests — what the build must prove
 
 > [!NOTE]
 > *Two levels. **What the build must prove:** the*
@@ -278,7 +261,7 @@ and deliberately not done — recorded so it is not asked again).
 > *that moves, a route that changes, a fixture that no longer matches. A*
 > *change that breaks no existing test says so, and why that is plausible.*
 
-## B9. Rule and gatekeeper — what this fixes for all future work
+## B8. Rule and gatekeeper — what this fixes for all future work
 
 > [!NOTE]
 > *An architectural change request fixes a way of doing things, not just one*
@@ -288,9 +271,9 @@ and deliberately not done — recorded so it is not asked again).
 >
 > *A rule is fixed only when its gate runs in CI on every push. A rule that lives in a document is a hope; a rule whose test*
 > *goes red on the next pull request is a property of the codebase. So the gate of*
-> *B9.3 is a pytest in `backend/tests/` that `backend-tests.yml` runs on every*
+> *B8.3 is a pytest in `backend/tests/` that `backend-tests.yml` runs on every*
 > *push and PR — not a script someone remembers, not a review checklist. Where*
-> *that is impossible, B9.3 says so and names what catches it instead*
+> *that is impossible, B8.3 says so and names what catches it instead*
 > *(a review agent, a release step), and that is a weaker guarantee, written*
 > *down as one.*
 >
@@ -308,7 +291,7 @@ and deliberately not done — recorded so it is not asked again).
 >
 > *3. The gate. Which test fails when a new development breaks the rule: what*
 > *   it looks at, what its message says, and the violation it was proven with*
-> *   (B8). Two shapes, chosen by the baseline:*
+> *   (B7). Two shapes, chosen by the baseline:*
 > *   - Ratchet when the count is not yet zero: a frozen list of today's*
 > *     violations that may only shrink (the #780 pattern). Nothing new may join*
 > *     it; an entry that disappears from the code must leave the list.*
@@ -326,13 +309,13 @@ and deliberately not done — recorded so it is not asked again).
 > *   language, an `Enum` member and a label call") and fails on the one that was*
 > *   forgotten, with the name of the missing piece.*
 
-## B10. Prototype findings — what was measured before the build
+## B9. Prototype findings — what was measured before the build
 
 > [!NOTE]
 > *What was learnt from prototypes before the build (measurements, refusals,*
 > *things that did not work).*
 
-## B11. Decisions log — dated answers and open proposals
+## B10. Decisions log — dated answers and open proposals
 
 > [!NOTE]
 > *Dated decisions of the business and open proposals awaiting an answer.*
