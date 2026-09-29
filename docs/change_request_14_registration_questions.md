@@ -32,8 +32,8 @@ idea, in Koen's words: attach a form to a component of an activity, so that
 registering flows into the questions **in one movement**, and the answers
 belong to the registration.
 
-*To confirm by Koen:* which activity is the trigger, and what its questions
-look like (that is A4).
+The trigger is the **Sint activity** (Koen, 29 September): five questions
+that today have no place in the registration — see A4.
 
 ## A2. As-is process
 
@@ -63,12 +63,20 @@ be linked to anything today.
 
 ## A4. Supplied material
 
-*Open — to be supplied by Koen:* the questions of the activity that triggers
-this change (a mail, a flyer, a list). From it we learn which of the ten
-field types the questions need, whether one form serves all components of
-the activity or each component needs its own, and whether any question
-depends on the products chosen (that would be a different change, see
-Non-goals).
+The questions of the Sint activity (Koen, 29 September 2026), and what
+they teach about the shape:
+
+| Question | Kind | Form builder field type | Note |
+|---|---|---|---|
+| Which time slots suit you? | several of a list | `checkbox` (multi) | *if a slot has a capacity, it is a product with `max_participants`, not a question — Q8* |
+| Inside or outside? | one of two | `radio` | — |
+| Tell us about the children | free text | `textarea` | personal data about minors; seen by the organiser only |
+| Allergies | free text | `textarea` | health data — asked because the activity needs it; no special handling in the system, the organiser decides to ask |
+| Remarks | free text | `textarea` | overlaps the registration's own *Opmerkingen* box — one of the two should go on this screen (Q9) |
+
+Learnt: all five fit the ten field types, in one section, without
+branching; none depends on a product; one form serves the activity (one
+component). Nothing in the form builder has to change for this case.
 
 ## A5. Business requirements
 
@@ -456,8 +464,11 @@ uncommitted form submission (it reads the form definition, so it should).
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | *open* — A1, A4 |
+| Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A4. |
+| Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | *open* — if yes, a slot is a product with `max_participants` (exists today, counts and shows "Volzet"), and the form asks the rest; a checkbox question cannot count |
+| Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | *open* — proposal: a component with a form hides the registration's box; the form's remarks are the one place |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | *proposed:* in the registration, one submit — B1; *open* |
+| Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
 | Q3 | 29 Sep 2026 | A component with a form: still the narrow modal, or a full page? (Claude) | *proposed:* full page for a component with a form, modal otherwise — B4.1; *open* |
 | Q4 | 29 Sep 2026 | Must the board answer the questions on the board form (R5 Should)? (Claude) | *open* |
 | Q5 | 29 Sep 2026 | May a component swap its form once registrations have answers? (Claude) | *proposed:* yes, old answers stay on their submissions — B4.5; *open* |
