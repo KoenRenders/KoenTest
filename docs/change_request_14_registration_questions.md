@@ -82,11 +82,8 @@ Same lanes, same order, on the platform:
 ```mermaid
 flowchart LR
   subgraph member["Household member"]
-    m0((start)) --> m1[Register on the portal:<br/>contact, how many children]
-    m1 --> m2{Answer the questions<br/>now or later?}
-    m2 -- now --> m3[Answer the questions]
-    m3 --> m4[Choose: pay online<br/>or by transfer]
-    m2 -- later --> m4
+    m0((start)) --> m1[Register on one page:<br/>contact, how many children,<br/>the questions — now, or later —<br/>and the payment method]
+    m1 --> m4[Pay online at once,<br/>or receive the<br/>transfer instructions]
     m4 --> m5[Receive the confirmation mail<br/>— with the answer link if later]
     m5 --> m6{Questions<br/>still open?}
     m6 -- yes, when it suits --> m7[Answer through<br/>the mail's link]
@@ -110,12 +107,14 @@ flowchart LR
   end
   m4 -.-> t1
   b1 -.-> m5
-  m3 -.-> o1
+  m1 -.-> o1
   m7 -.-> o1
 ```
 
 What changed against A2: the one form is back — contact, children and the
-questionnaire on one page, with "later" through the mail's link kept; the
+questionnaire on one page, with "later" through the mail's link kept, and
+the payment always at the registration itself, whether the questions are
+answered now or later; the
 board can register a member on the same page; paying online is added and a
 transfer carries a structured message, so "match each transfer by hand"
 disappears (the payments module does it, as for every registration today);
@@ -325,11 +324,8 @@ the activity is open:
 ```mermaid
 flowchart LR
   subgraph member["Household member"]
-    m0((start)) --> m1["Register: contact, children<br/><i>registration page · activities</i>"]
-    m1 --> m2{Answer now<br/>or later?}
-    m2 -- now --> m3["Answer the questions<br/><i>registration page · form fields of forms</i>"]
-    m3 --> m4["Choose online or transfer<br/><i>registration page · activities → payment</i>"]
-    m2 -- later --> m4
+    m0((start)) --> m1["Register on one page: contact, children,<br/>the questions — now or later — and the payment method<br/><i>registration page · activities, the form fields of forms</i>"]
+    m1 --> m4["Pay online at once, or receive the transfer instructions<br/><i>activities → payment</i>"]
     m4 --> m5["Receive the confirmation<br/><i>mail</i>"]
     m5 --> m6{Questions<br/>still open?}
     m6 -- yes --> m7["Answer through the link<br/><i>answer page · activities</i>"]
@@ -353,13 +349,12 @@ flowchart LR
   end
   m4 -.-> t1
   b1 -.-> m5
-  m3 -.-> o1
+  m1 -.-> o1
   m7 -.-> o1
   classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
   classDef frm fill:#dcfce7,stroke:#15803d,color:#111
   classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
   class m1,m4,m7,b1,o1,o3 act
-  class m3 frm
   class m5,t1 oth
 ```
 
