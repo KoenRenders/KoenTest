@@ -14,9 +14,10 @@
 >
 > Added 29 September 2026 (Koen, shaping CR-14): **the guidance per section
 > sits in a `[!NOTE]` block** — rendered blue and italic on GitHub — so a copy
-> shows at a glance what is to be filled in and what is content. Delete the
-> block once the section is written; a note left standing means the section
-> is not.
+> shows at a glance what is to be filled in and what is content. **When Claude
+> writes a change request from this template, it deletes the note block of a
+> section as soon as that section is filled in.** A note left standing means
+> the section is not written yet; a finished change request has none.
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** <shaped with Koen on …> · <on hold / assigned to vX.Y / built>
