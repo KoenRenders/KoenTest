@@ -92,6 +92,7 @@ component). Nothing in the form builder has to change for this case.
 | R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is not linked to a registration; the form's submissions view shows it without an "inschrijving #N" cell — harmless, because the link runs from the registration to the submission |
 | R9 | Questions that depend on the products chosen ("size per ticket"). | Won't | analyst | a product-level question is a different shape; own change if ever needed |
 | R10 | A component may swap its form once registrations carry answers. | Won't | Koen, 29 Sep 2026 | once a registration of the component has a submission, the form can be detached but not replaced — attaching a different one is refused |
+| R11 | One registration screen for the member and the board, built from the board's page as the ideal — **and the public user loses nothing**: every function and every nicety the public registration has today is on the page. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 
 ## A6. Non-functional requirements
 
@@ -115,6 +116,7 @@ component). Nothing in the form builder has to change for this case.
 | AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 |
 | AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 |
 | AC8 | The confirmation mail of a registration with answers lists them, label and value, after the products. | R6 |
+| AC9 | Every row of the parity list in B4.9 is walked on HDEV on a phone and on a desktop: each public function of today is found on the new page, and the two screenshots (modal before, page after) sit side by side in the PR. | R11 |
 
 ---
 
@@ -297,7 +299,8 @@ without a form.** Until now the public registration was a narrow modal
 (`max-w-md`, a fixed UI decision of v2.0) and the board had its own page in
 the admin (`admin_inschrijving_nieuw.html`, #1284), both including the same
 field partial `_inschrijf_velden.html`. From this CR on there is **one
-registration page**: the public route `GET /activiteiten/{id}/inschrijven/{cid}`
+registration page, built from the board's page as the ideal** (Koen, 29
+September): the public route `GET /activiteiten/{id}/inschrijven/{cid}`
 renders it in the site shell, the board route renders the same content in
 the admin shell; the differences between the two channels stay the ones
 `registration_form.py` already lists (backoffice products, the actor, the
@@ -459,6 +462,44 @@ would be guessing what the board meant. "Link opnieuw sturen" on the detail
 sends the same mail with the subject "Herinnering: de vragen voor
 <activity>" and without the payment block once that is settled.
 
+### B4.9 Parity: what the public keeps (R11)
+
+Measured on `master` (29 Sep): the public modal (`_inschrijf_form.html` in
+the card overlay of `_activiteiten_cards.html`) and the board page
+(`admin_inschrijving_nieuw.html`) already share the field block
+`_inschrijf_velden.html`, the context builder and the processing (#1284), so
+the fields, the counters, the live total and the payment choice are one
+already. What differs is the frame around them. Every row below is a
+function the public has **today**; the last column says where it lives on
+the one page. The build walks this list (AC9); a row that cannot be kept
+goes back to Koen before the build, not after.
+
+| # | The public has today | Where | On the one page |
+|---|---|---|---|
+| P1 | The form names the activity and its date above the fields (#996 F22) | modal header | the page header: activity · date · component, the board page's `page_header` |
+| P2 | Name, e-mail, mobile prefilled for a signed-in member (#476) | `_prefill` | unchanged — the field block reads `person` from the session on the public channel |
+| P3 | Member price for the signed-in person, never for a typed address (security note in `registration_form.py`) | context builder | unchanged — the public channel has no `prijzen_url`; the board's keeps it |
+| P4 | Product rows with − / + counters (#1171), only publicly bookable products (#1191) | `_inschrijf_prijsblok.html` | unchanged |
+| P5 | The total recomputed server-side on every change (§19.3, #607) | `/…/totaal`, `_inschrijf_totaal.html` | unchanged |
+| P6 | Payment choice with its one-line consequence under each option (#996 F21); hidden when nothing is payable (#607) | field block | unchanged |
+| P7 | A refusal re-renders the form with the values kept and the banner on top | `ui.error_banner`, `values` | unchanged; on a page the banner is at the top of the form and the refused question is scrolled into view (a page can do that, a modal could not) |
+| P8 | After a free or transfer registration: the thank-you banner "je krijgt een bevestiging per e-mail" (#606) | `_inschrijf_klaar.html` | a thank-you **page** with the same text and a link back to the activity's component |
+| P9 | After an online registration: "je wordt doorgestuurd" and the hard redirect to Mollie (`HX-Redirect`) | `_inschrijf_klaar.html`, ui.py | unchanged: the redirect is the response of the submit |
+| P10 | "Wie doet er mee?" on the card refreshes in place after a free registration (#1159) | `hx-swap-oob` | on return to the activity (P8's link lands on the component's card with the list open and fresh); the in-place swap goes — that is the one visible difference, named here |
+| P11 | The button on the card is the only way in; Volzet, closed, past date and an external URL hide it (#451, #974) | `_activiteiten_cards.html` | unchanged: the card decides; the button becomes a link to the page; the page itself refuses a closed or full component with the same messages as the service does today |
+| P12 | Close with ×, Escape or a click outside; the sheet scrolls within 90 vh (#601) | the overlay | the browser's back button and the "‹ Terug" link; a page scrolls |
+| P13 | Rate limit on the public submit (`registration_limiter`) | ui.py | unchanged |
+| P14 | A component switch: **the board has it** (buttons for the activity's components), the public does not | board page | the public page gets it too when the activity has more than one component — the one thing the public *gains* from the board's page |
+| P15 | Compact, phone-first: the modal was a full-width sheet at 390 px | overlay `max-w-md` | the page's form column keeps `max-w-xl` on desktop (the board page's width) and full width on a phone |
+
+What the board page has that the public page must **not** get: the CSRF
+hidden field is the admin's (the public form has its own guard), the
+back-office-only products with their badge (P4), the price refresh on the
+typed address (P3), the choice about the questions (B4.8), the "‹
+Inschrijvingen" link into the admin. Those are the `Channel` differences
+`registration_form.py` already carries; nothing new is added to that list
+by this CR except the questions choice.
+
 **How the fields render in the two shells — no exceptions.** One partial,
 `_inschrijf_velden.html`, includes the form's fields through `forms`' own
 `_formulier_veld.html` with their `required` attributes as the builder set
@@ -564,6 +605,12 @@ Each able to go red:
    `RegistrationHistory` row with old and new (F12).
 8. **Screen at 390 px** (CR-13's merge-gate eye): the questions render in
    order, each label once, nothing clipped — measured from the DOM.
+10. **Parity, mechanically where it can be.** For P2–P7, P9, P11 and P13 the
+   existing tests of #1284 and #1159's neighbours must pass on the page
+   unchanged (same field names, same routes, same totals); P8 and P10 get a
+   new e2e step (register free → thank-you page → back on the component with
+   the list showing the new name); P1, P12, P14, P15 are the eye, on the two
+   screenshots of AC9.
 
 ## B9. Rule and gatekeeper
 
@@ -598,6 +645,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | 29 Sep 2026 | A registration can carry extra questions; they are a form attached to a component and answered in one movement while registering. | Koen (spoken brief; Part A to confirm) |
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 | 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
+| 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
 | 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice on the board page, no board-only leniency in validation; "not at all" sends the member the link. | Koen |
 
 ## Q&A log
@@ -609,6 +657,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
 | Q11 | 29 Sep 2026 | Is the board registration's mail the same as the member's, given the form is not filled yet — unless the board fills it? (Koen) | One mail with one variable block (answers, or the link, or nothing); the resend is the same mail with a reminder subject. B4.8. Koen, 29 Sep, on the board's part: **completely or not at all** — no board-only leniency; the CR makes it one explicit choice on the board page (default: the member answers by link), same validation when the board fills it in. |
+| Q14 | 29 Sep 2026 | One screen for back office and public, built from the internal form as the ideal — but check that the public loses no function or nicety. (Koen) | Measured: both already share the field block, context and processing (#1284); the frame differs. B4.9 lists the fifteen things the public has today and where each lives on the page; one visible difference (P10, the in-place participant refresh becomes a refresh on return) and one gain (P14, the component switch). R11, AC9, test 10. |
 | Q13 | 29 Sep 2026 | How do the questions render in the admin shell and the public shell, without exceptions for the board? (Koen) | One partial (`_inschrijf_velden.html` → `forms`' `_formulier_veld.html`, `required` as the builder set it) included in two shells; one validation function on both channels; the board's only extra input is the choice. B4.8. |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
 | Q3 | 29 Sep 2026 | A component with a form: still the narrow modal, or a full page? (Claude) | Koen, 29 Sep: one way for both — first leaning modal, then, after the honest pros and cons (a dialog is for a short task), **a page**, and the same page for the board. B4.1; the fixed UI decision in `CLAUDE.md` to be revised by Koen. |
