@@ -8,7 +8,7 @@
 </div>
 </div>
 <div id="bt-boven">
-<input type="hidden" name="zicht" value="alle" form="bt-filter">
+<input type="hidden" name="zicht" value="openstaand" form="bt-filter">
 <div class="mb-4 md:max-w-2xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
 <div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
 <div class="text-[11px] text-ink-soft">Netto te betalen <span class="md:hidden">· 8 boekingen</span></div>
@@ -28,8 +28,8 @@
 </div>
 <div class="border-b border-gray-200 mb-6">
 <nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
-<a href="/admin/betalingen?zicht=alle" hx-get="/admin/betalingen/lijst?zicht=alle" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Alle <span class="font-normal text-xs text-gray-400">8</span></a>
-<a href="/admin/betalingen?zicht=openstaand" hx-get="/admin/betalingen/lijst?zicht=openstaand" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Openstaand <span class="font-normal text-xs text-gray-400">5</span></a>
+<a href="/admin/betalingen?zicht=alle" hx-get="/admin/betalingen/lijst?zicht=alle" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Alle <span class="font-normal text-xs text-gray-400">8</span></a>
+<a href="/admin/betalingen?zicht=openstaand" hx-get="/admin/betalingen/lijst?zicht=openstaand" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Openstaand <span class="font-normal text-xs text-gray-400">5</span></a>
 <a href="/admin/betalingen?zicht=betaald" hx-get="/admin/betalingen/lijst?zicht=betaald" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betaald <span class="font-normal text-xs text-gray-400">3</span></a>
 <a href="/admin/betalingen?zicht=terugbetaald" hx-get="/admin/betalingen/lijst?zicht=terugbetaald" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Terugbetaald <span class="font-normal text-xs text-gray-400">2</span></a>
 </nav>
@@ -66,7 +66,7 @@
 <option value="failed" >Mislukt</option>
 <option value="cancelled" >Geannuleerd</option>
 </select>
-<a href="/admin/betalingen/export?context=all&amp;status=all&amp;zicht=alle" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</a>
+<a href="/admin/betalingen/export?context=all&amp;status=all&amp;zicht=openstaand" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</a>
 </div>
 </form>
 </div>
@@ -75,7 +75,7 @@
  hx-include="#bt-filter" hx-swap="innerHTML"
  >
 <div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
-<span>8 boekingen · recentste eerst, gegroepeerd per inschrijving</span>
+<span>5 boekingen · recentste eerst, gegroepeerd per inschrijving</span>
 <span>EUR · alleen FINANCE kan bevestigen</span>
 </div>
 <div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
@@ -91,247 +91,6 @@
 <th scope="col" class="px-3 py-2 font-medium text-right w-px">Acties</th>
 </tr>
 </thead>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer paid</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-disabled-elt="this" @click="terug = terug === '<REC:paid>' ? null : '<REC:paid>'; open = null">Terugbetaling</button>
-<button type="button" x-show="open !== &#39;<REC:paid>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:paid>&#39;; terug = null">Bewerken</button>
-</div>
-</td>
-</tr>
-<tr x-show="open === '<REC:paid>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'paid', bedrag: '20,00' }"
- hx-post="/admin/betalingen/<REC:paid>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:paid>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:paid>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
-</td>
-</tr>
-<tr x-show="terug === '<REC:paid>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<form class="flex flex-wrap gap-2 items-end"
- hx-post="/admin/betalingen/<REC:paid>/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label for="rf-amount-<REC:paid>" class="block text-sm font-medium text-gray-700 mb-1">Terug te betalen bedrag <span class="text-red-600">*</span></label>
-<input type="text" name="amount" id="rf-amount-<REC:paid>" placeholder="Bedrag" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" inputmode="decimal"></div>
-<input type="text" name="note" id="rf-note-<REC:paid>" placeholder="Reden"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="terug = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Registreren</button>
-</form>
-</td>
-</tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-<td class="px-3 py-2 pl-9">
-<span class="text-gray-400" aria-hidden="true">↳</span>
-<span class="font-medium">Deelnemer paid</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
-<strong class="tabular-nums text-teal-700">€ -5,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -5,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-teal-700">€ -5,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig terugbetaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:refund_due>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refund_due>&#39;; terug = null">Bewerken</button>
-</div>
-</td>
-</tr>
-<tr x-show="open === '<REC:refund_due>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:refund_due>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '5,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:refund_due>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:refund_due>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze terugbetaling verwijderen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
-</form>
-</div>
-</td>
-</tr>
-<tr class="bg-gray-50/60">
-<td colspan="3" class="px-3 py-2 font-medium text-ink-soft">Totaal inschrijving <span class="text-teal-700">· Nog uit te betalen: € 5,00</span></td>
-<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 15,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-teal-700 font-medium">€ -5,00</td>
-<td></td>
-</tr>
-</tbody>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer partial</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
-<strong class="tabular-nums text-orange-700">€ 15,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 5,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 15,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:partial>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:partial>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:partial>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:partial>&#39;; terug = null">Bewerken</button>
-</div>
-</td>
-</tr>
-<tr x-show="open === '<REC:partial>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '5,00' }"
- hx-post="/admin/betalingen/<REC:partial>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:partial>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:partial>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
-</td>
-</tr>
-</tbody>
-<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer open</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
-<strong class="tabular-nums text-orange-700">€ 20,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 20,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:open>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
-<button type="button" x-show="open !== &#39;<REC:open>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:open>&#39;; terug = null">Bewerken</button>
-</div>
-</td>
-</tr>
-<tr x-show="open === '<REC:open>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'pending', bedrag: '' }"
- hx-post="/admin/betalingen/<REC:open>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:open>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:open>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze betaling verwijderen (uit het saldo)?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-</form>
-</div>
-</td>
-</tr>
-</tbody>
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
 <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
 <td class="px-3 py-2 ">
@@ -440,63 +199,10 @@
 </div>
 </td>
 </tr>
-<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
-<td class="px-3 py-2 ">
-<span class="font-medium">Deelnemer other</span>
-<div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
-</div>
-</td>
-<td class="px-3 py-2">
-<div>Betaalkarakter — Deelname</div>
-<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
-</td>
-<td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -4,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ -4,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
-<td class="px-3 py-2 w-px">
-<div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<a href="/admin/inschrijvingen/<R:other>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
-<button type="button" x-show="open !== &#39;<REC:refunded>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refunded>&#39;; terug = null">Bewerken</button>
-</div>
-</td>
-</tr>
-<tr x-show="open === '<REC:refunded>'" x-cloak style="display: none">
-<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<div class="flex flex-wrap gap-2 items-end">
-<form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'paid', bedrag: '4,00' }"
- hx-post="/admin/betalingen/<REC:refunded>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '4,00'">
-<option value="pending" >In afwachting</option>
-<option value="paid" >Betaald</option>
-<option value="failed" >Mislukt</option>
-<option value="cancelled" >Geannuleerd</option>
-</select></div>
-<div>
-<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:refunded>" placeholder="0,00"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
-</div>
-<input type="text" name="note" id="note-<REC:refunded>" placeholder="Opmerking"
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
-<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
-</form>
-</div>
-</td>
-</tr>
 <tr class="bg-gray-50/60">
 <td colspan="3" class="px-3 py-2 font-medium text-ink-soft">Totaal inschrijving</td>
-<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 36,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ -4,00</td>
+<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 40,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
 <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-orange-700 font-medium">€ 40,00</td>
 <td></td>
 </tr>
@@ -504,37 +210,38 @@
 <tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
 <tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
 <td class="px-3 py-2 ">
-<span class="font-medium">Betty Betaalmans</span>
+<span class="font-medium">Deelnemer open</span>
 <div class="md:hidden mt-1 flex items-center gap-2">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
-<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
+<strong class="tabular-nums text-orange-700">€ 20,00</strong>
 </div>
 </td>
 <td class="px-3 py-2">
-<div>Lidmaatschap 2026</div>
+<div>Betaalkarakter — Deelname</div>
 <div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
 </td>
 <td class="px-3 py-2 hidden md:table-cell">
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Openstaand</span>
 </td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 30,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 30,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 20,00</strong></td>
 <td class="px-3 py-2 w-px">
 <div class="flex justify-end gap-2 items-center whitespace-nowrap">
-<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-disabled-elt="this" @click="terug = terug === '<REC:membership>' ? null : '<REC:membership>'; open = null">Terugbetaling</button>
-<button type="button" x-show="open !== &#39;<REC:membership>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:membership>&#39;; terug = null">Bewerken</button>
+<a href="/admin/inschrijvingen/<R:open>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
+<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
+<button type="button" x-show="open !== &#39;<REC:open>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:open>&#39;; terug = null">Bewerken</button>
 </div>
 </td>
 </tr>
-<tr x-show="open === '<REC:membership>'" x-cloak style="display: none">
+<tr x-show="open === '<REC:open>'" x-cloak style="display: none">
 <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
 <div class="flex flex-wrap gap-2 items-end">
 <form class="flex flex-wrap gap-2 items-end flex-1"
- x-data="{ status: 'paid', bedrag: '30,00' }"
- hx-post="/admin/betalingen/<REC:membership>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+ x-data="{ status: 'pending', bedrag: '' }"
+ hx-post="/admin/betalingen/<REC:open>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
 <div><label class="block text-xs text-gray-500">Status</label>
-<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '30,00'">
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
 <option value="pending" >In afwachting</option>
 <option value="paid" >Betaald</option>
 <option value="failed" >Mislukt</option>
@@ -542,10 +249,65 @@
 </select></div>
 <div>
 <label class="block text-xs text-gray-500">Betaald bedrag</label>
-<input type="text" name="amount_paid" id="ap-<REC:membership>" placeholder="0,00"
+<input type="text" name="amount_paid" id="ap-<REC:open>" placeholder="0,00"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
 </div>
-<input type="text" name="note" id="note-<REC:membership>" placeholder="Opmerking"
+<input type="text" name="note" id="note-<REC:open>" placeholder="Opmerking"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze betaling verwijderen (uit het saldo)?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:open>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</form>
+</div>
+</td>
+</tr>
+</tbody>
+<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<td class="px-3 py-2 ">
+<span class="font-medium">Deelnemer partial</span>
+<div class="md:hidden mt-1 flex items-center gap-2">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
+<strong class="tabular-nums text-orange-700">€ 15,00</strong>
+</div>
+</td>
+<td class="px-3 py-2">
+<div>Betaalkarakter — Deelname</div>
+<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+</td>
+<td class="px-3 py-2 hidden md:table-cell">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-orange-100 text-orange-800">Deels betaald</span>
+</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 5,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-orange-700">€ 15,00</strong></td>
+<td class="px-3 py-2 w-px">
+<div class="flex justify-end gap-2 items-center whitespace-nowrap">
+<a href="/admin/inschrijvingen/<R:partial>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
+<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig betaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:partial>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
+<button type="button" x-show="open !== &#39;<REC:partial>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:partial>&#39;; terug = null">Bewerken</button>
+</div>
+</td>
+</tr>
+<tr x-show="open === '<REC:partial>'" x-cloak style="display: none">
+<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
+<div class="flex flex-wrap gap-2 items-end">
+<form class="flex flex-wrap gap-2 items-end flex-1"
+ x-data="{ status: 'pending', bedrag: '5,00' }"
+ hx-post="/admin/betalingen/<REC:partial>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+<div><label class="block text-xs text-gray-500">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
+<option value="pending" >In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select></div>
+<div>
+<label class="block text-xs text-gray-500">Betaald bedrag</label>
+<input type="text" name="amount_paid" id="ap-<REC:partial>" placeholder="0,00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
+</div>
+<input type="text" name="note" id="note-<REC:partial>" placeholder="Opmerking"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
 <span class="ml-auto"></span>
 <button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
@@ -554,27 +316,90 @@
 </div>
 </td>
 </tr>
-<tr x-show="terug === '<REC:membership>'" x-cloak style="display: none">
+</tbody>
+<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
+<tr class="border-t border-gray-100 align-middle text-ink-soft">
+<td class="px-3 py-2 ">
+<span class="font-medium">Deelnemer paid</span>
+<div class="text-[11px]">Ter context — valt buiten het filter</div>
+<div class="md:hidden mt-1 flex items-center gap-2">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
+</div>
+</td>
+<td class="px-3 py-2">
+<div>Betaalkarakter — Deelname</div>
+<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+</td>
+<td class="px-3 py-2 hidden md:table-cell">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
+<td class="px-3 py-2 w-px">
+</td>
+</tr>
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<td class="px-3 py-2 pl-9">
+<span class="text-gray-400" aria-hidden="true">↳</span>
+<span class="font-medium">Deelnemer paid</span>
+<div class="md:hidden mt-1 flex items-center gap-2">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
+<strong class="tabular-nums text-teal-700">€ -5,00</strong>
+</div>
+</td>
+<td class="px-3 py-2">
+<div>Betaalkarakter — Deelname</div>
+<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
+</td>
+<td class="px-3 py-2 hidden md:table-cell">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
+</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -5,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-teal-700">€ -5,00</strong></td>
+<td class="px-3 py-2 w-px">
+<div class="flex justify-end gap-2 items-center whitespace-nowrap">
+<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig terugbetaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
+<button type="button" x-show="open !== &#39;<REC:refund_due>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refund_due>&#39;; terug = null">Bewerken</button>
+</div>
+</td>
+</tr>
+<tr x-show="open === '<REC:refund_due>'" x-cloak style="display: none">
 <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
-<form class="flex flex-wrap gap-2 items-end"
- hx-post="/admin/betalingen/<REC:membership>/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-<div><label for="rf-amount-<REC:membership>" class="block text-sm font-medium text-gray-700 mb-1">Terug te betalen bedrag <span class="text-red-600">*</span></label>
-<input type="text" name="amount" id="rf-amount-<REC:membership>" placeholder="Bedrag" required
- class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" inputmode="decimal"></div>
-<input type="text" name="note" id="rf-note-<REC:membership>" placeholder="Reden"
+<div class="flex flex-wrap gap-2 items-end">
+<form class="flex flex-wrap gap-2 items-end flex-1"
+ x-data="{ status: 'pending', bedrag: '' }"
+ hx-post="/admin/betalingen/<REC:refund_due>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+<div><label class="block text-xs text-gray-500">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '5,00'">
+<option value="pending" >In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select></div>
+<div>
+<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
+<input type="text" name="amount_paid" id="ap-<REC:refund_due>" placeholder="0,00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
+</div>
+<input type="text" name="note" id="note-<REC:refund_due>" placeholder="Opmerking"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
-<span class="ml-auto"></span>
-<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="terug = null">Annuleren</button>
-<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Registreren</button>
+<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze terugbetaling verwijderen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
 </form>
+</div>
 </td>
 </tr>
 </tbody>
 <tfoot>
 <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-<td colspan="3" class="px-3 py-2">Netto totaal · 8 boekingen</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 121,00</td>
-<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ 51,00</td>
+<td colspan="3" class="px-3 py-2">Netto totaal · 5 boekingen</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 75,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ 5,00</td>
 <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-orange-700">€ 70,00</td>
 <td></td>
 </tr>
@@ -596,20 +421,20 @@
 <tbody>
 <tr class="border-t border-gray-100">
 <td class="px-2 md:px-4 py-2 text-gray-700">Betalingen</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 130,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 55,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 80,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 5,00</td>
 <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 75,00</td>
 </tr>
 <tr class="border-t border-gray-100">
 <td class="px-2 md:px-4 py-2 text-gray-700">Terugbetalingen</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -9,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ -4,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 0,00</td>
 <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
 </tr>
 <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
 <td class="px-2 md:px-4 py-2">Netto</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 121,00</td>
-<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 51,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 75,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 5,00</td>
 <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-orange-700">€ 70,00</td>
 </tr>
 </tbody>

@@ -78,8 +78,8 @@ def _literals() -> dict[str, str]:
     return {record_id: f"<REC:{key}>" for key, record_id in RECORD_IDS.items()}
 
 
-def _at(day: int) -> datetime:
-    return datetime(2026, 9, day, 10, 0, tzinfo=timezone.utc)
+def _at(day: int, minute: int = 0) -> datetime:
+    return datetime(2026, 9, day, 10, minute, tzinfo=timezone.utc)
 
 
 @pytest.fixture
@@ -158,6 +158,10 @@ def world(db_session):
         db.add(RegistrationItem(registration_id=registration_id, product_id=PRODUCT_ID, quantity=2))
     db.flush()
 
+    # Each record its own moment: the lists order by creation time and have no
+    # tiebreaker, so equal times would render in whatever order the database returns.
+    moments = {key: minute for minute, key in enumerate(RECORD_IDS)}
+
     def record(key, payable_type, payable_id, amount, status, *, kind=PaymentType.CHARGE, **extra):
         db.add(
             PaymentRecord(
@@ -168,7 +172,7 @@ def world(db_session):
                 method=PaymentMethod.TRANSFER,
                 status=status,
                 type=kind,
-                created_at=_at(2),
+                created_at=_at(2, moments[key]),
                 **extra,
             )
         )
@@ -228,7 +232,7 @@ def world(db_session):
 
 SCREENS = {
     "all": "/admin/betalingen",
-    "all_open": "/admin/betalingen?zicht=open",
+    "all_open": "/admin/betalingen?zicht=openstaand",
     "list": "/admin/betalingen/lijst",
     "activity": f"/admin/activiteiten/{ACTIVITY_ID}/betalingen",
     "family": f"/admin/leden/gezin/{MEMBER_ID}/betalingen",
