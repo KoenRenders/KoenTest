@@ -854,8 +854,12 @@ def upsert_primary_contact(
     is_primary: bool = True,
     apply: bool = True,
     actor: Optional[str] = None,
-) -> None:
+) -> bool:
     """Maak, werk bij of verwijder HET HOOFDCONTACT van dit type. Eén bron (#1174).
+
+    Returns whether it changes something — in dry-run too, where it writes
+    nothing (#1308): the import reports a household only when something in it
+    changes, and this is where that decision for a contact is made.
 
     Deze functie stond twee keer: in `mdm/import_service` voor het
     Raak-Nationaal-rapport en als binnenfunctie in
@@ -898,7 +902,7 @@ def upsert_primary_contact(
                     snapshot_contact_detail(
                         db, zelfde, operation="update", action=action, source=source, actor=actor
                     )
-                return
+                return True
             if apply:
                 # `db.add` en NIET `person.contact_details.append`. Appenden vult de
                 # relatie in de sessie, en dan telt ze bij een volgende aanroep als
@@ -919,9 +923,9 @@ def upsert_primary_contact(
                 snapshot_contact_detail(
                     db, nieuw, operation="insert", action=action, source=source, actor=actor
                 )
-            return
+            return True
         if hoofd.value == value and hoofd.is_primary == is_primary:
-            return
+            return False
         if apply:
             hoofd.value = value
             hoofd.is_primary = is_primary
@@ -929,15 +933,18 @@ def upsert_primary_contact(
             snapshot_contact_detail(
                 db, hoofd, operation="update", action=action, source=source, actor=actor
             )
-        return
+        return True
 
-    if hoofd is None or not apply:
-        return
+    if hoofd is None:
+        return False
+    if not apply:
+        return True
     snapshot_contact_detail(
         db, hoofd, operation="delete", action=action, source=source, actor=actor
     )
     person.contact_details.remove(hoofd)
     db.flush()
+    return True
     # **Geen promotie.** Er blijft dan géén hoofdcontact over, en dat is een
     # geldige toestand.
     #
