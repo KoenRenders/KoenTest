@@ -20,11 +20,21 @@ from tests.test_rules_gate import (
     _packages,
     _python_files,
     _tree,
+    collect_command_calls_outside_handlers,
+    collect_commit_behind_api,
     collect_commit_in_handler,
+    collect_derived_value_elsewhere,
+    collect_dutch_identifiers,
+    collect_foreign_writes,
     collect_json_route_without_caller,
     collect_network_in_handler,
+    collect_non_orm_writes,
+    collect_promises,
+    collect_rule_in_router,
     collect_session_on_entity,
     collect_validator_without_constraint,
+    collect_write_after_commit,
+    collect_write_outside_service,
 )
 
 
@@ -134,6 +144,26 @@ def a2_table() -> list[tuple[str, int | str]]:
             f"{len(collect_commit_in_handler())} / {len(collect_network_in_handler())}",
         ),
         ("validators without their constraint", len(collect_validator_without_constraint(mappers))),
+        ("Dutch identifiers (#780)", len(collect_dutch_identifiers())),
+        ("writes to another domain's classes (function × class)", len(collect_foreign_writes())),
+        (
+            "functions that write after a commit / api functions that commit for another domain",
+            f"{len(collect_write_after_commit())} / {len(collect_commit_behind_api())}",
+        ),
+        (
+            "calls into another domain's command outside a handler",
+            len(collect_command_calls_outside_handlers()),
+        ),
+        ("refusals decided in a router or screen", len(collect_rule_in_router())),
+        (
+            "writes outside a service / past the ORM",
+            f"{len(collect_write_outside_service())} / {len(collect_non_orm_writes())}",
+        ),
+        ("derived values computed outside their owner", len(collect_derived_value_elsewhere())),
+        (
+            "template promises not kept / not walkable",
+            "{} / {}".format(*(len(part) for part in collect_promises())),
+        ),
     ]
 
 

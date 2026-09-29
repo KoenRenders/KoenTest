@@ -1,9 +1,9 @@
-"""The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phase 0a.
+"""The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phases 0a and 0c.
 
 **A rule has one home, and every entrance passes through it.** This file holds
 the checks that make that a property of the code instead of a habit. Phase 0a
-builds the six simple ones and the meter; phase 0c (#1254) adds the heavy AST
-gates to this same file.
+built the six simple ones and the meter; phase 0c (#1254) added the heavy AST
+gates below them.
 
 | gate | kind | looks at |
 |---|---|---|
@@ -13,6 +13,15 @@ gates to this same file.
 | no network in an event handler | ratchet | the same, for `smtplib`/`httpx`/`requests`/`urllib.request`/`http.client` |
 | JSON route with a caller | ratchet; **hard for a new route** | every `/api/v1` route (method × path) named under `## Callers` in its domain's `CONTRACT.md` |
 | validator without constraint | **hard** | every `@validates` column has `NOT NULL` or a `CHECK` naming it, read from the model's `__table__` |
+| English identifiers (#780) | ratchet; **hard outside the baseline** | `def`/`class`/module/column/migration/test-file names against a Dutch-only word list |
+| no foreign writes | ratchet | seven write forms on another domain's mapped class, outside that domain |
+| no write after a commit | ratchet | a write after a commit on a path that carries it, in AST order |
+| no commit behind another domain's api | ratchet | an `api.py` export called from another domain's service, handler or tool that commits |
+| events, not calls | ratchet | a call into another domain's command (an export that writes) outside a `@subscribe` function |
+| no rule in a router | ratchet, **a reason per entry** | an `if` that refuses in a router or screen, the doorman's own refusals aside |
+| one entrance rule | (a) **hard**; (b), (c) ratchets | (a) aggregates mapped, with their own `check()`; (b) writes in a router, screen or handler; (c) writes past the ORM |
+| one owner per derived value | ratchet | a registered value's shape computed outside its owner (Python only) |
+| promise kept | two ratchets (**not kept is empty**) | template `required`/`pattern`/`min` walked to a kept column; the unwalkable ones with the step where they stop |
 
 An *event handler* is a `@subscribe` function, wherever it stands (§B4.9): a
 `handlers.py` also carries `@job` functions, and a job is exactly where the
@@ -40,6 +49,7 @@ from pathlib import Path
 import pytest
 
 from tests import rules_baseline as baseline
+from tests._bestanden import is_app_test
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -56,7 +66,10 @@ def _rel(path: Path) -> str:
 
 
 def _python_files() -> list[Path]:
-    files = sorted(p for p in APP.rglob("*.py") if "__pycache__" not in p.parts)
+    """The application's Python files — a domain's tests (CR-13 R15) are not the app."""
+    files = sorted(
+        p for p in APP.rglob("*.py") if "__pycache__" not in p.parts and not is_app_test(p)
+    )
     assert len(files) > 150, f"only {len(files)} Python files under app/ — the walk is blind"
     return files
 
@@ -221,7 +234,9 @@ def _reachable(
             return
         local = _module_functions(t)
         imported: dict[str, tuple[str, str]] = {}
-        for node in t.body:
+        # Module-level imports, and the ones inside the function itself — a late
+        # import (`from app.kernel.jobs import enqueue`) is a call target all the same.
+        for node in [*t.body, *ast.walk(fn)]:
             if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app."):
                 for alias in node.names:
                     imported[alias.asname or alias.name] = (node.module, alias.name)
@@ -426,6 +441,1261 @@ def collect_validator_without_constraint(mappers=None) -> dict[str, str]:
     return found
 
 
+# ── 7. English identifiers (#780; ratchet, hard outside the baseline) ────────
+
+# Words that exist only in Dutch. A word both languages use (`status`, `type`,
+# `data`, `code`, `form`, `post`, `tenant`, `filter`, `agenda`, `bus`) is not here,
+# so an English identifier can never match. A false positive is fixed by refining
+# this list, never by adding the name to the baseline (#780 point 4).
+#
+# `DUTCH_WORDS` match a whole word only; `DUTCH_STEMS` also match the start of a
+# word (`inschrijf` → `inschrijving`, `inschrijvingen`). Stems are long enough that
+# no English word starts with them.
+DUTCH_WORDS = frozenset(
+    """
+    aantal adres alle als bij dag dan dicht doel geen jaar kort leeg lees lege lid naam
+    mijn namen naar niet nieuw oud rij rijen rol som tel toon uit veld voor wel werk zet
+    """.split()
+)
+DUTCH_STEMS = (
+    "aanmak",
+    "aanpass",
+    "achternaam",
+    "activiteit",
+    "afbeelding",
+    "afzender",
+    "antwoord",
+    "bedrag",
+    "beeld",
+    "beheer",
+    "bepaal",
+    "bereken",
+    "bericht",
+    "bestand",
+    "bestuur",
+    "betaal",
+    "betaling",
+    "bevestig",
+    "bewaar",
+    "bewerk",
+    "breedte",
+    "controleer",
+    "databank",
+    "datum",
+    "eerst",
+    "formulier",
+    "fout",
+    "gebruiker",
+    "geboorte",
+    "gedaan",
+    "geldig",
+    "gemeente",
+    "gesloten",
+    "geslacht",
+    "gezin",
+    "groep",
+    "haal",
+    "hoofdlid",
+    "hoogte",
+    "huisnummer",
+    "icoon",
+    "iconen",
+    "inhoud",
+    "inschrijf",
+    "inschrijv",
+    "instelling",
+    "kaart",
+    "keten",
+    "keuze",
+    "kleur",
+    "knop",
+    "kolom",
+    "laatste",
+    "leden",
+    "lidmaatschap",
+    "lijst",
+    "maak",
+    "maand",
+    "melding",
+    "migratie",
+    "ontbreek",
+    "ontvang",
+    "onderdeel",
+    "onderdelen",
+    "onderwerp",
+    "ongeldig",
+    "opmaak",
+    "opslaan",
+    "ouder",
+    "overschrijving",
+    "pagina",
+    "persoon",
+    "personen",
+    "poort",
+    "prijs",
+    "rechten",
+    "regel",
+    "rekening",
+    "saldo",
+    "scherm",
+    "sjabloon",
+    "sleutel",
+    "soort",
+    "sorteer",
+    "sortering",
+    "straat",
+    "stuur",
+    "taken",
+    "tekst",
+    "telling",
+    "terugbetal",
+    "toevoeg",
+    "totaal",
+    "uitlijning",
+    "uniek",
+    "velden",
+    "verborgen",
+    "vergadering",
+    "verleng",
+    "verplicht",
+    "verslag",
+    "verstuur",
+    "vertaling",
+    "verwijder",
+    "verwerk",
+    "voeg",
+    "volgend",
+    "volgorde",
+    "voornaam",
+    "vorige",
+    "vraag",
+    "vragen",
+    "waarde",
+    "weergave",
+    "wijzig",
+    "zichtbaar",
+    "zoek",
+    "afdruk",
+    "afreken",
+    "bestel",
+    "bijwerk",
+    "gegevens",
+    "geannuleerd",
+    "geschrapt",
+    "hernoem",
+    "huidige",
+    "ingetypt",
+    "inzending",
+    "klaar",
+    "notitie",
+    "opmerking",
+    "organisatie",
+    "registreer",
+    "schrijf",
+    "sectie",
+    "statisch",
+    "verhuis",
+    "vernieuw",
+    "verplaats",
+    "ververs",
+    "vordering",
+    "wacht",
+    "werkruimte",
+    "actieve",
+    "lopend",
+    "organisator",
+    "portaal",
+    "wissel",
+    "worden",
+)
+
+# English words that happen to start with a Dutch stem: `pagina` → `paginated`.
+ENGLISH_PREFIXES = ("paginat",)
+
+_WORD_SPLIT = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?![a-z])|\d+")
+
+
+def dutch_words_in(identifier: str) -> list[str]:
+    """The Dutch words an identifier is made of (snake_case and CamelCase)."""
+    words = [w.lower() for part in identifier.split("_") for w in _WORD_SPLIT.findall(part)]
+    return [
+        w
+        for w in words
+        if w in DUTCH_WORDS or (w.startswith(DUTCH_STEMS) and not w.startswith(ENGLISH_PREFIXES))
+    ]
+
+
+def collect_dutch_identifiers() -> dict[str, str]:
+    """A Dutch `def`, `class`, module, model column, migration or test file name.
+
+    Keys: `file::name` for a definition, `file::Class.column` for a column,
+    `module:file`, `migration:<file name>`, `test file:<file name>`. Scope per #780
+    point 3 and CR-13 §B9.3: identifiers, not strings, comments or stored values.
+    """
+    found: dict[str, str] = {}
+
+    def note(key: str, where: str, name: str) -> None:
+        words = dutch_words_in(name)
+        if words:
+            found.setdefault(
+                key,
+                f"{where} `{name}` ({', '.join(words)}) — new code is English "
+                f"(`CLAUDE.md`, *Code language*; #780)",
+            )
+
+    files = _python_files()
+    for path in files:
+        note(f"module:{_rel(path)}", f"{_rel(path)}:", path.stem)
+        tree = _tree(path)
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                note(f"{_rel(path)}::{node.name}", f"{_rel(path)}:{node.lineno}", node.name)
+        if path.name == "models.py":
+            for cls in (n for n in tree.body if isinstance(n, ast.ClassDef)):
+                for stmt in cls.body:
+                    if (
+                        isinstance(stmt, ast.Assign)
+                        and isinstance(stmt.value, ast.Call)
+                        and getattr(stmt.value.func, "id", None) == "Column"
+                    ):
+                        for target in stmt.targets:
+                            if isinstance(target, ast.Name):
+                                note(
+                                    f"{_rel(path)}::{cls.name}.{target.id}",
+                                    f"{_rel(path)}:{stmt.lineno} column",
+                                    target.id,
+                                )
+    migrations = sorted((BACKEND / "alembic" / "versions").glob("*.py"))
+    assert len(migrations) > 150, f"only {len(migrations)} migrations — the walk is blind"
+    for path in migrations:
+        # `170_2026_09_28_…_what_it_does.py`: the words after the id are the name.
+        note(f"migration:{path.name}", "alembic/versions/", path.stem)
+    test_files = sorted(
+        {*(BACKEND / "tests").rglob("test_*.py"), *DOMAINS.glob("*/tests/test_*.py")}
+    )
+    assert len(test_files) > 400, f"only {len(test_files)} test files — the walk is blind"
+    for path in test_files:
+        note(f"test file:{path.name}", str(path.relative_to(BACKEND)), path.stem)
+    return found
+
+
+# ── 8. No foreign writes (ratchet; hard for a new package) ───────────────────
+
+
+def _owner_of_module(module: str) -> str:
+    """`app.domains.mdm.models` → `mdm`; `app.kernel.jobs` → `kernel`."""
+    parts = module.split(".")
+    if parts[:2] == ["app", "domains"] and len(parts) > 2:
+        return parts[2]
+    if parts[:2] == ["app", "kernel"]:
+        return "kernel"
+    return "app"
+
+
+def _owner_of_file(path: Path) -> str:
+    return _owner_of_module(".".join(path.relative_to(BACKEND).with_suffix("").parts))
+
+
+def _mapped_owners() -> tuple[dict[str, str], dict[str, str]]:
+    """Mapped class name → owning domain, and schema → owning domain."""
+    classes: dict[str, str] = {}
+    schemas: dict[str, str] = {}
+    for mapper in _mappers():
+        cls = mapper.class_
+        owner = _owner_of_module(cls.__module__)
+        assert classes.get(cls.__name__, owner) == owner, f"two mapped classes named {cls.__name__}"
+        classes[cls.__name__] = owner
+        schema = mapper.local_table.schema
+        if schema and owner != "kernel":
+            schemas[schema] = owner
+    assert len(classes) > 100, f"only {len(classes)} mapped classes — the walk is blind"
+    return classes, schemas
+
+
+_READERS = {"first", "one", "one_or_none", "get", "scalar", "scalar_one", "scalar_one_or_none"}
+_SQL_WRITE = re.compile(r"\b(?:insert\s+into|update|delete\s+from)\s+([a-z_]+)\.[a-z_]+", re.I)
+
+
+def _class_names(tree: ast.Module, classes: dict[str, str]) -> tuple[dict[str, str], set[str]]:
+    """Local names bound to a mapped class, and names bound to an `app` module."""
+    names: dict[str, str] = {}
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app"):
+            for alias in node.names:
+                if alias.name in classes:
+                    names[alias.asname or alias.name] = alias.name
+                else:
+                    modules.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("app."):
+                    modules.add(alias.asname or alias.name.split(".")[0])
+    return names, modules
+
+
+def _class_of(node: ast.AST, names: dict[str, str], modules: set[str], classes) -> str | None:
+    """The mapped class an expression names: `Person` or `mdm_api.Person`."""
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    if isinstance(node, ast.Attribute) and node.attr in classes:
+        root = node.value
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if isinstance(root, ast.Name) and root.id in modules:
+            return node.attr
+    return None
+
+
+def _queried_class(node: ast.AST, resolve) -> str | None:
+    """The class a read chain returns: `db.get(C, …)`, `db.query(C)…first()`,
+    `db.execute(select(C)…).scalar_one()`, `db.scalars(select(C))…`."""
+    while isinstance(node, (ast.Call, ast.Attribute, ast.Subscript)):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name in {"query", "get", "select"} and node.args:
+                found = resolve(node.args[0])
+                if found:
+                    return found
+            if name in {"execute", "scalars", "scalar"} and node.args:
+                inner = _queried_class(node.args[0], resolve)
+                if inner:
+                    return inner
+            node = func
+        else:
+            node = node.value
+    return None
+
+
+def _annotation_class(node: ast.AST | None, resolve) -> str | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        try:
+            node = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return None
+    if isinstance(node, ast.BinOp):  # `C | None`
+        return _annotation_class(node.left, resolve) or _annotation_class(node.right, resolve)
+    if isinstance(node, ast.Subscript):  # `Optional[C]`, `list[C]`
+        return _annotation_class(node.slice, resolve)
+    return resolve(node)
+
+
+def _own_nodes(function: ast.AST):
+    """The nodes of a function without those of the functions nested in it — each
+    nested function is walked on its own, so a write is counted once."""
+    todo = list(ast.iter_child_nodes(function))
+    while todo:
+        node = todo.pop()
+        yield node
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            todo.extend(ast.iter_child_nodes(node))
+
+
+def _foreign_writes_in(function, resolve, schemas: dict[str, str], owner: str):
+    """Yield `(class or schema, line, what)` for every write to a class of another owner."""
+    typed: dict[str, str] = {}
+    for arg in [*function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs]:
+        cls = _annotation_class(arg.annotation, resolve)
+        if cls:
+            typed[arg.arg] = cls
+    body = list(_own_nodes(function))
+    for node in body:  # first pass: what each local name holds
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                value = node.value
+                cls = (
+                    resolve(value.func) if isinstance(value, ast.Call) else None
+                ) or _queried_class(value, resolve)
+                if cls:
+                    typed[target.id] = cls
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            cls = _annotation_class(node.annotation, resolve)
+            if cls:
+                typed[node.target.id] = cls
+        elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+            cls = _queried_class(node.iter, resolve)
+            if cls:
+                typed[node.target.id] = cls
+
+    def instance(expr) -> str | None:
+        if isinstance(expr, ast.Name):
+            return typed.get(expr.id)
+        if isinstance(expr, ast.Call):
+            return resolve(expr.func)
+        return None
+
+    for node in body:
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            cls = resolve(func)
+            if cls:
+                yield cls, node.lineno, "constructs"
+            elif name in {"add", "delete", "merge"} and isinstance(func, ast.Attribute):
+                for arg in node.args[:1]:
+                    if isinstance(arg, ast.Name) and arg.id in typed:
+                        yield typed[arg.id], node.lineno, f"db.{name}()"
+            elif name == "soft_delete" and node.args:
+                cls = instance(node.args[0])
+                if cls:
+                    yield cls, node.lineno, "soft_delete()"
+            elif name in {"update", "delete"} and isinstance(func, ast.Attribute):
+                cls = _queried_class(func.value, resolve)
+                if cls:
+                    yield cls, node.lineno, f"bulk .{name}()"
+            elif name in {"update", "delete", "insert"} and isinstance(func, ast.Name):
+                cls = resolve(node.args[0]) if node.args else None
+                if cls:
+                    yield cls, node.lineno, f"core {name}()"
+            elif (
+                name in {"append", "remove", "extend"}
+                and isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Attribute)
+            ):
+                cls = instance(func.value.value)
+                if cls:
+                    yield cls, node.lineno, f"relationship .{name}()"
+            elif name == "setattr" and node.args:
+                cls = instance(node.args[0])
+                if cls:
+                    yield cls, node.lineno, "setattr()"
+        elif isinstance(node, (ast.Assign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Attribute):
+                    cls = instance(target.value)
+                    if cls:
+                        yield cls, node.lineno, f"assigns .{target.attr}"
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            for match in _SQL_WRITE.finditer(node.value):
+                schema = match.group(1).lower()
+                if schemas.get(schema, owner) != owner:
+                    yield f"schema {schema}", node.lineno, "raw SQL writes"
+
+
+def collect_foreign_writes() -> dict[str, str]:
+    """A write to a mapped class of domain B outside `app/domains/B/` → key
+    `file::function → owner.Class` (CR-13 §B9.3, *no foreign writes*). Reads are free."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        owner = _owner_of_file(path)
+        tree = _tree(path)
+        names, modules = _class_names(tree, classes)
+        if not names and not modules and "insert" not in path.read_text().lower():
+            continue
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        functions = [
+            n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        qualified = _enclosing(tree)
+        for function in functions:
+            for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner):
+                target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
+                if not cls.startswith("schema ") and classes[cls] == owner:
+                    continue
+                name = qualified.get(function, function.name)
+                key = f"{_rel(path)}::{name} → {target}"
+                found.setdefault(
+                    key,
+                    f"{_rel(path)}:{line} `{name}` {what} `{target}` — a domain's data is "
+                    f"written by its owner: call its `api.py` or publish the event it "
+                    f"subscribes to (CR-13 §B9.3)",
+                )
+    return found
+
+
+# ── 9. One transaction per request, parts (b) and (c) (ratchets) ────────────
+
+_WRITE_CALLS = {"add", "add_all", "delete", "merge", "bulk_save_objects", "bulk_insert_mappings"}
+
+
+def _is_commit(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "commit"
+    )
+
+
+_SESSION_NAMES = {"db", "session", "sess", "db_session"}
+
+
+def _is_session(node: ast.AST) -> bool:
+    """`db`, `session`, `self.db`: a receiver that is a session — `seen.add(x)` is not."""
+    if isinstance(node, ast.Name):
+        return node.id in _SESSION_NAMES
+    return isinstance(node, ast.Attribute) and node.attr in _SESSION_NAMES
+
+
+def _write_in(node: ast.AST) -> tuple[int, str] | None:
+    """The first ORM write in a statement: `db.add/delete/merge(...)`, `soft_delete(...)`,
+    a bulk `.update()`/`.delete()` on a query, or `db.execute(update|insert|delete(...))`."""
+    for n in _own_nodes(node) if not isinstance(node, ast.expr) else ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        func = n.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if isinstance(func, ast.Attribute) and name in _WRITE_CALLS and _is_session(func.value):
+            return n.lineno, f"db.{name}()"
+        if name == "soft_delete":
+            return n.lineno, "soft_delete()"
+        if name in {"update", "delete"} and isinstance(func, ast.Attribute):
+            receiver = func.value
+            if isinstance(receiver, ast.Call) and getattr(receiver.func, "attr", "") in {
+                "filter",
+                "filter_by",
+                "query",
+                "where",
+            }:
+                return n.lineno, f"bulk .{name}()"
+        if name == "execute" and n.args and isinstance(n.args[0], ast.Call):
+            inner = n.args[0].func
+            if getattr(inner, "id", getattr(inner, "attr", "")) in {"update", "insert", "delete"}:
+                return n.lineno, "execute(update/insert/delete)"
+    return None
+
+
+def _statement_nodes(stmt: ast.stmt):
+    """A statement's own nodes, nested function bodies left out."""
+    yield stmt
+    yield from _own_nodes(stmt)
+
+
+def _terminates(block: list[ast.stmt]) -> bool:
+    return bool(block) and isinstance(block[-1], (ast.Return, ast.Raise, ast.Continue, ast.Break))
+
+
+def _writes_after_commit(block: list[ast.stmt], committed: int | None, out: list) -> int | None:
+    """Walk a block in order; return the line of a commit that may have happened
+    before the block ends (None if none), and collect `(write line, what, commit line)`.
+
+    A branch that ends in `return`/`raise` does not carry its commit past the `if`;
+    a sibling branch never sees the other's commit. A loop that commits and writes
+    anywhere in its body writes after a commit on the next pass.
+    """
+    for stmt in block:
+        if isinstance(stmt, ast.If):
+            after_body = _writes_after_commit(stmt.body, committed, out)
+            after_else = _writes_after_commit(stmt.orelse, committed, out)
+            carried = [
+                c
+                for c, branch in ((after_body, stmt.body), (after_else, stmt.orelse))
+                if c is not None and not _terminates(branch)
+            ]
+            committed = carried[0] if carried else (committed if not stmt.orelse else committed)
+            continue
+        if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
+            inner = _writes_after_commit(stmt.body, committed, out)
+            if inner is not None:
+                write = next((w for s in stmt.body for w in [_write_in(s)] if w), None)
+                if write:
+                    out.append((write[0], write[1] + " (next pass of the loop)", inner))
+                committed = inner
+            _writes_after_commit(stmt.orelse, committed, out)
+            continue
+        if isinstance(stmt, (ast.Try, ast.With, ast.AsyncWith)):
+            blocks = [stmt.body]
+            if isinstance(stmt, ast.Try):
+                blocks += [h.body for h in stmt.handlers] + [stmt.orelse, stmt.finalbody]
+            for inner_block in blocks:
+                result = _writes_after_commit(inner_block, committed, out)
+                if result is not None and not _terminates(inner_block):
+                    committed = result
+            continue
+        if committed is not None:
+            write = _write_in(stmt)
+            if write:
+                out.append((write[0], write[1], committed))
+        for node in _statement_nodes(stmt):
+            if _is_commit(node):
+                committed = node.lineno
+    return committed
+
+
+def collect_write_after_commit() -> dict[str, str]:
+    """A function that writes after it committed → key `file::function` (§B9.3 (b)).
+
+    One request, one transaction, one commit at the end by the door service: a
+    write after a commit is a second transaction, and a failure in it leaves the
+    first half stored.
+    """
+    found: dict[str, str] = {}
+    files = _python_files()
+    for path in files:
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            out: list = []
+            _writes_after_commit(function.body, None, out)
+            if out:
+                line, what, commit = out[0]
+                name = qualified.get(function, function.name)
+                found[f"{_rel(path)}::{name}"] = (
+                    f"{_rel(path)}:{line} `{name}` {what} after the commit on line {commit} — "
+                    f"one commit, at the end, by the door service (CR-13 §B9.3)"
+                )
+    return found
+
+
+def _api_exports(domain: Path) -> dict[str, tuple[Path, ast.Module, ast.FunctionDef]]:
+    """The functions a domain's `api.py` exports, resolved to where they are defined."""
+    api = domain / "api.py"
+    tree = _tree(api)
+    exports: dict[str, tuple[Path, ast.Module, ast.FunctionDef]] = {}
+    for name, fn in _module_functions(tree).items():
+        exports[name] = (api, tree, fn)
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            target = domain / Path(*(node.module or "").split("."))
+            target = target.with_suffix(".py") if target.with_suffix(".py").is_file() else None
+        else:
+            target = _module_path(node.module or "")
+        if target is None:
+            continue
+        functions = _module_functions(_tree(target))
+        for alias in node.names:
+            fn = functions.get(alias.name)
+            if fn is not None:
+                exports[alias.asname or alias.name] = (target, _tree(target), fn)
+    return exports
+
+
+def _is_door(path: Path) -> bool:
+    """A router or UI module: the doorman of a request, whose door service commits."""
+    return (
+        path.name in {"main.py", "router.py", "ui.py", "admin_ui.py"}
+        or path.stem.endswith(("_router", "_ui"))
+        or path.parent == APP / "ui"
+    )
+
+
+def _foreign_api_calls() -> dict[tuple[str, str], str]:
+    """(domain, exported name) → one caller in another domain's non-door code
+    (a service, a handler, a tool), `file:line`. A router or screen calling another
+    domain's service makes that service the door — its commit is the one commit."""
+    callers: dict[tuple[str, str], str] = {}
+    for path in _python_files():
+        if _is_door(path):
+            continue
+        caller_domain = _owner_of_file(path)
+        tree = _tree(path)
+        direct: dict[str, tuple[str, str]] = {}
+        modules: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                parts = node.module.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    for alias in node.names:
+                        direct[alias.asname or alias.name] = (parts[2], alias.name)
+                elif node.module == "app.domains" or (
+                    parts[:2] == ["app", "domains"] and len(parts) == 3
+                ):
+                    for alias in node.names:
+                        if alias.name == "api":
+                            modules[alias.asname or alias.name] = parts[2]
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            target = None
+            if isinstance(func, ast.Name) and func.id in direct:
+                target = direct[func.id]
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in modules
+            ):
+                target = (modules[func.value.id], func.attr)
+            if target and target[0] != caller_domain:
+                callers.setdefault(target, f"{_rel(path)}:{node.lineno}")
+    return callers
+
+
+def collect_commit_behind_api() -> dict[str, str]:
+    """A function another domain calls through `api.py` that commits → key
+    `domain.api.name` (§B9.3 (c)). The caller owns the transaction; a commit inside
+    the callee ends it behind the caller's back."""
+    callers = _foreign_api_calls()
+    assert len(callers) > 10, f"only {len(callers)} cross-domain api calls — the walk is blind"
+    # A package without `api.py` (stt) exports nothing; module shape reports it.
+    exports = {p.name: _api_exports(p) for p in _packages() if (p / "api.py").is_file()}
+    found: dict[str, str] = {}
+    for (domain, name), caller in sorted(callers.items()):
+        target = exports.get(domain, {}).get(name)
+        if target is None:
+            continue
+        path, tree, function = target
+        for reached_path, _t, reached, via in _reachable(path, tree, function):
+            line = _commits(reached)
+            if line is not None:
+                where = f"{_rel(reached_path)}:{line}"
+                found[f"{domain}.api.{name}"] = (
+                    f"`{domain}.api.{name}` commits ({where}{' via ' + via if via else ''}) "
+                    f"and is called from another domain ({caller}) — the caller's door "
+                    f"service commits, once (CR-13 §B9.3)"
+                )
+                break
+    return found
+
+
+# ── 10. Events, not calls (ratchet; hard for a new package) ─────────────────
+
+
+def _writes(function: ast.AST) -> int | None:
+    """The line of the first ORM write or commit in a function's own body."""
+    for node in _own_nodes(function):
+        if _is_commit(node):
+            return node.lineno
+        if isinstance(node, ast.stmt):
+            write = _write_in(node)
+            if write:
+                return write[0]
+    return None
+
+
+def api_commands() -> dict[tuple[str, str], str]:
+    """(domain, name) → where it writes, for every `api.py` export that writes.
+
+    A command is derived from the code, not listed next to it (master CLI, 29
+    September 2026): an export that writes or commits, itself or through what it
+    calls three levels deep (the handler gates' walk). A read — `get_person` — is
+    not a command, whatever its name.
+    """
+    commands: dict[tuple[str, str], str] = {}
+    for package in _packages():
+        if not (package / "api.py").is_file():
+            continue
+        for name, (path, tree, function) in _api_exports(package).items():
+            for reached_path, _t, reached, via in _reachable(path, tree, function):
+                line = _writes(reached)
+                if line is not None:
+                    commands[(package.name, name)] = (
+                        f"{_rel(reached_path)}:{line}{' via ' + via if via else ''}"
+                    )
+                    break
+    domains = {domain for domain, _ in commands}
+    assert len(domains) >= 10, f"commands found in only {sorted(domains)} — the walk is blind"
+    return commands
+
+
+def collect_command_calls_outside_handlers() -> dict[str, str]:
+    """A call from domain A into a command of domain B outside a `@subscribe`
+    function → key `file::function → B.api.name` (§B4.9, R12). A consequence in
+    another domain goes through an event; a read through `api.py` is free."""
+    commands = api_commands()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        caller = _owner_of_file(path)
+        if caller in {"app", "kernel"}:
+            continue  # not a domain: the rule is about domain pairs
+        tree = _tree(path)
+        direct: dict[str, tuple[str, str]] = {}
+        modules: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                parts = node.module.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    for alias in node.names:
+                        direct[alias.asname or alias.name] = (parts[2], alias.name)
+                elif parts[:2] == ["app", "domains"] and len(parts) == 3:
+                    for alias in node.names:
+                        if alias.name == "api":
+                            modules[alias.asname or alias.name] = parts[2]
+        if not direct and not modules:
+            continue
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if any(_is_subscribe(d) for d in function.decorator_list):
+                continue
+            for node in _own_nodes(function):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                target = None
+                if isinstance(func, ast.Name) and func.id in direct:
+                    target = direct[func.id]
+                elif (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id in modules
+                ):
+                    target = (modules[func.value.id], func.attr)
+                if not target or target[0] == caller or target not in commands:
+                    continue
+                name = qualified.get(function, function.name)
+                key = f"{_rel(path)}::{name} → {target[0]}.api.{target[1]}"
+                found.setdefault(
+                    key,
+                    f"{_rel(path)}:{node.lineno} `{name}` calls `{target[0]}.api.{target[1]}` "
+                    f"(a command: writes at {commands[target]}) — publish an event and let "
+                    f"`{target[0]}` subscribe (CR-13 §B4.9)",
+                )
+    return found
+
+
+# ── 11. No rule in a router (ratchet with a reason per entry) ───────────────
+
+# The doorman's own refusals — not a business rule: not found, not logged in, not
+# allowed, too many requests (§B9.3). CSRF refuses with 403 and is covered by it.
+_DOORMAN_STATUS = {401, 403, 404, 405, 429}
+_ERROR_HELPERS = {"_fout", "_error", "fout", "error_response"}
+_ERROR_KEYS = {"error", "fout", "foutmelding", "fout_veld_id"}
+
+
+def _status_of(raise_: ast.Raise) -> int | None:
+    call = raise_.exc
+    if not isinstance(call, ast.Call):
+        return None
+    for keyword in call.keywords:
+        if keyword.arg == "status_code" and isinstance(keyword.value, ast.Constant):
+            return keyword.value.value
+        if keyword.arg == "status_code" and isinstance(keyword.value, ast.Attribute):
+            digits = re.search(r"HTTP_(\d{3})", keyword.value.attr)
+            return int(digits.group(1)) if digits else None
+    if call.args and isinstance(call.args[0], ast.Constant) and isinstance(call.args[0].value, int):
+        return call.args[0].value
+    return None
+
+
+def _refusal_in(block: list[ast.stmt]) -> tuple[int, str] | None:
+    """A refusal that is not the doorman's: a raise (other than 401/403/404/405/429)
+    or an error helper, directly in the branch."""
+    for stmt in block:
+        for node in _statement_nodes(stmt):
+            if isinstance(node, ast.If):
+                break  # a nested `if` is judged on its own test
+            if isinstance(node, ast.Raise):
+                if node.exc is None or (
+                    isinstance(node.exc, ast.Name) and node.exc.id.startswith("_")
+                ):
+                    continue  # a re-raise, or a private signal for control flow
+                status = _status_of(node)
+                if status is not None and status >= 500:
+                    continue  # a failure upstream (the payment provider), not a refusal
+                if status not in _DOORMAN_STATUS:
+                    return node.lineno, f"raises{f' {status}' if status else ''}"
+            if isinstance(node, ast.Call) and getattr(node.func, "id", "") in _ERROR_HELPERS:
+                return node.lineno, f"{node.func.id}()"
+            # A screen refuses by showing the form again with a message:
+            # `ctx["error"] = "…"`, or a view-model built with `error="…"`.
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (
+                        isinstance(target, ast.Subscript)
+                        and isinstance(target.slice, ast.Constant)
+                        and target.slice.value in _ERROR_KEYS
+                        and _is_message(node.value)
+                    ):
+                        return node.lineno, f"sets [{target.slice.value!r}]"
+            if isinstance(node, ast.Call):
+                for keyword in node.keywords:
+                    if keyword.arg in _ERROR_KEYS and _is_message(keyword.value):
+                        return node.lineno, f"shows {keyword.arg}="
+    return None
+
+
+def _is_message(node: ast.AST) -> bool:
+    """A message written at the door — `"…"` or `_("…")`. A variable passes on a
+    refusal someone else decided (`error=_upload_error(exc)`), which is not a rule here."""
+    if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "_" and node.args:
+        node = node.args[0]
+    return isinstance(node, (ast.Constant, ast.JoinedStr)) and bool(getattr(node, "value", True))
+
+
+def collect_rule_in_router() -> dict[str, str]:
+    """An `if` that refuses, in a router or UI module → key `file::function::condition`
+    (§B9.3); the doorman's own refusals — 401, 403, 404, 405, 429 — excepted. A rule at the door holds for that door only;
+    the service's rule holds for every entrance."""
+    found: dict[str, str] = {}
+    doors = [p for p in _python_files() if _is_door(p) and p.name != "main.py"]
+    assert len(doors) > 30, f"only {len(doors)} router/UI modules — the walk is blind"
+    for path in doors:
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.If):
+                continue
+            refusal = _refusal_in(node.body)
+            if refusal:
+                name = qualified.get(node, "<module>")
+                condition = ast.unparse(node.test)
+                found.setdefault(
+                    f"{_rel(path)}::{name}::{condition}",
+                    f"{_rel(path)}:{refusal[0]} `{name}` decides on `{condition}` and "
+                    f"{refusal[1]} — a rule belongs to the entity or its service, where "
+                    f"every entrance meets it (CR-13 §B9.3)",
+                )
+    return found
+
+
+# ── 12. One entrance rule (a hard, b and c ratchets) ─────────────────────────
+
+
+def _handler_functions(tree: ast.Module) -> list[ast.FunctionDef]:
+    return [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(_is_subscribe(d) for d in n.decorator_list)
+    ]
+
+
+def collect_write_outside_service() -> dict[str, str]:
+    """A router, UI module or event handler that constructs or assigns a mapped class
+    → key `file::function → owner.Class` (§B9.3 (b)). The write belongs in a service,
+    where the aggregate's `check()` runs on flush for every entrance alike."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        functions = (
+            [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            if _is_door(path)
+            else _handler_functions(tree)
+        )
+        if not functions:
+            continue
+        names, modules = _class_names(tree, classes)
+        qualified = _enclosing(tree)
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        for function in functions:
+            for cls, line, what in _foreign_writes_in(function, resolve, {}, owner=""):
+                if cls.startswith("schema "):
+                    continue
+                name = qualified.get(function, function.name)
+                found.setdefault(
+                    f"{_rel(path)}::{name} → {classes[cls]}.{cls}",
+                    f"{_rel(path)}:{line} `{name}` {what} `{classes[cls]}.{cls}` outside a "
+                    f"service — move the write to the service; `check()` runs on flush "
+                    f"(CR-13 §B9.3)",
+                )
+    return found
+
+
+def collect_non_orm_writes() -> dict[str, str]:
+    """A write that bypasses the ORM flush → key `file::function → target` (§B9.3 (c),
+    the entrances discovery of §B10): a bulk `.update()`/`.delete()` on a query, a core
+    `insert`/`update`/`delete`, raw SQL that writes a table. None of them passes
+    `before_flush`, so an aggregate's `check()` never sees them. What the walk cannot
+    see: a statement built with `getattr` or assembled from strings at runtime."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        names, modules = _class_names(tree, classes)
+        qualified = _enclosing(tree)
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner=""):
+                if not (what.startswith(("bulk", "core", "raw SQL"))):
+                    continue
+                target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
+                name = qualified.get(function, function.name)
+                found.setdefault(
+                    f"{_rel(path)}::{name} → {target}",
+                    f"{_rel(path)}:{line} `{name}` {what} `{target}` past the ORM — no "
+                    f"`check()` runs on it; write through the aggregate (CR-13 §B9.3)",
+                )
+    return found
+
+
+# ── 13. One owner per derived value (ratchet) ───────────────────────────────
+
+
+def _names_in(node: ast.AST) -> set[str]:
+    """Every attribute and variable name an expression reads."""
+    out: set[str] = set()
+    for n in ast.walk(node):
+        if isinstance(n, ast.Attribute):
+            out.add(n.attr)
+        elif isinstance(n, ast.Name):
+            out.add(n.id)
+    return out
+
+
+def _is_total_shape(node: ast.AST) -> bool:
+    """`quantity * price` in either order — a registration line's subtotal."""
+    if not (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult)):
+        return False
+    left, right = _names_in(node.left), _names_in(node.right)
+    both = left | right
+    return any("quantity" in n for n in both) and any("price" in n for n in both)
+
+
+def _is_paid_sum(node: ast.AST) -> bool:
+    """`sum(... amount_paid ...)` — the paid side of a registration's balance."""
+    return (
+        isinstance(node, ast.Call)
+        and getattr(node.func, "id", "") == "sum"
+        and any("amount_paid" in _names_in(a) for a in node.args)
+    )
+
+
+def _is_record_state_decision(node: ast.AST) -> bool:
+    """A branch on a record's `status` that reads `amount_paid` inside it — the shape
+    of "pending, but partly paid". Comparing `amount` with `amount_paid` to correct a
+    charge is a write, not a state, and does not match."""
+    if not isinstance(node, (ast.If, ast.IfExp)) or "status" not in _names_in(node.test):
+        return False
+    body = node.body if isinstance(node, ast.If) else [ast.Expr(node.body)]
+    paid = {"amount_paid"}
+    for stmt in body:  # `betaald = record.amount_paid` makes `betaald` the paid amount
+        for n in ast.walk(stmt):
+            if isinstance(n, ast.Assign) and "amount_paid" in _names_in(n.value):
+                paid |= {t.id for t in n.targets if isinstance(t, ast.Name)}
+    return any(
+        isinstance(n, ast.Compare) and paid & _names_in(n) for stmt in body for n in ast.walk(stmt)
+    )
+
+
+def _is_deadline_decision(node: ast.AST) -> bool:
+    """Today compared with a deadline or an end date — whether registration is open."""
+    if not isinstance(node, ast.Compare):
+        return False
+    if any(isinstance(n, ast.BinOp) and isinstance(n.op, ast.Sub) for n in ast.walk(node)):
+        return False  # a distance to a deadline ("near") is not open or closed
+    names = {n.lower() for n in _names_in(node)}
+    today = any(n in {"today", "vandaag", "belgian_today"} for n in names)
+    deadline = any(("deadline" in n or "closes_on" in n or "effective_end" in n) for n in names)
+    return today and deadline
+
+
+DERIVED_SHAPES = {
+    "registration.total": _is_total_shape,
+    "registration.balance": _is_paid_sum,
+    "payment_record.state": _is_record_state_decision,
+    "registration.state": _is_deadline_decision,
+}
+
+
+def _owner_functions(value) -> set[tuple[Path, str]]:
+    """The owner function of a derived value and what it calls in its own module —
+    `_line` and `_telt_mee` are part of `compute_registration_total`."""
+    module, _, name = value.today.rpartition(".")
+    path = _module_path(module)
+    assert path is not None, f"the owner of {value.name} ({value.today}) does not exist"
+    tree = _tree(path)
+    function = _module_functions(tree).get(name)
+    assert function is not None, f"{value.today} is not a function in {_rel(path)}"
+    return {(p, fn.name) for p, _t, fn, _via in _reachable(path, tree, function) if p == path}
+
+
+def collect_derived_value_elsewhere() -> dict[str, str]:
+    """A second computation of a registered derived value outside its owner → key
+    `file::function → value` (§B9.3, *one owner per derived value*). Python only: a
+    template that computes is not walked — say so, do not assume it is clean."""
+    from app.kernel import rules
+
+    values = rules.derived_values()
+    assert set(values) == set(DERIVED_SHAPES), (
+        "every registered derived value needs its shape here, and every shape a value: "
+        f"{sorted(set(values) ^ set(DERIVED_SHAPES))}"
+    )
+    owners = {name: _owner_functions(value) for name, value in values.items()}
+    # A shape that does not even recognise its owner looks nowhere (#678).
+    for name, shape in DERIVED_SHAPES.items():
+        assert any(
+            shape(n)
+            for path, fn_name in owners[name]
+            for fn in [_module_functions(_tree(path)).get(fn_name)]
+            if fn is not None
+            for n in _own_nodes(fn)
+        ), f"the shape of {name} does not match its own owner — the gate is blind to it"
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for name, shape in DERIVED_SHAPES.items():
+                if (path, function.name) in owners[name]:
+                    continue
+                hit = next((n for n in _own_nodes(function) if shape(n)), None)
+                if hit is not None:
+                    fn = qualified.get(function, function.name)
+                    found.setdefault(
+                        f"{_rel(path)}::{fn} → {name}",
+                        f"{_rel(path)}:{hit.lineno} `{fn}` computes `{name}` a second time — "
+                        f"its owner is `{values[name].today}`; ask it (CR-13 §B9.3)",
+                    )
+    return found
+
+
+# ── 14. Promise kept (two ratchets: not kept, and not walkable with a reason) ─
+
+# A template input that promises something, as the kit macro or as raw HTML.
+_MACRO_PROMISE = re.compile(
+    r"ui\.(?:input_control|select_control|textarea_control|input|select|textarea)"
+    r'\(\s*"(?P<name>[a-z_0-9]+)"(?P<rest>[^\n]*)'
+)
+_RAW_INPUT = re.compile(r"<(?:input|select|textarea)\b(?P<attrs>[^>]*)>", re.S)
+_FORM_TARGET = re.compile(r'<form\b[^>]*?(?:hx-post|action)="([^"]+)"', re.S)
+_PROMISE_KINDS = ("required", "pattern", "min")
+
+
+def _template_promises(text: str):
+    """Yield `(line, field, kinds, form path)` for every promising input."""
+    forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
+
+    def form_for(position: int) -> str | None:
+        before = [path for start, path in forms if start < position]
+        return before[-1] if before else None
+
+    for m in _MACRO_PROMISE.finditer(text):
+        rest = m.group("rest")
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"\b{k}\s*=\s*(True|\")", rest)]
+        if kinds:
+            yield text.count("\n", 0, m.start()) + 1, m.group("name"), kinds, form_for(m.start())
+    for m in _RAW_INPUT.finditer(text):
+        attrs = m.group("attrs")
+        name = re.search(r'\bname="([a-z_0-9]+)"', attrs)
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", attrs)]
+        if name and kinds:
+            yield text.count("\n", 0, m.start()) + 1, name.group(1), kinds, form_for(m.start())
+
+
+def _route_path(path: str) -> str:
+    """`/admin/x/{{ a.id }}/y?z` and `/admin/x/{a_id}/y` → `/admin/x/{}/y`."""
+    path = re.sub(r"\{\{.*?\}\}", "{}", path)
+    path = re.sub(r"\{[a-z_0-9:]+\}", "{}", path)
+    path = re.sub(r"'\s*~\s*[^~]+~\s*'", "{}", path)
+    return path.split("?")[0].rstrip("/") or "/"
+
+
+def _writing_routes() -> dict[str, ast.FunctionDef]:
+    routes: dict[str, ast.FunctionDef] = {}
+    for path in _python_files():
+        for node in ast.walk(_tree(path)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for d in node.decorator_list:
+                    if (
+                        isinstance(d, ast.Call)
+                        and isinstance(d.func, ast.Attribute)
+                        and d.func.attr in {"post", "put", "patch"}
+                        and d.args
+                        and isinstance(d.args[0], ast.Constant)
+                        and isinstance(d.args[0].value, str)
+                    ):
+                        routes.setdefault(_route_path(d.args[0].value), node)
+    assert len(routes) > 50, f"only {len(routes)} writing routes — the walk is blind"
+    return routes
+
+
+def _kept_columns() -> tuple[dict[str, bool], set[str]]:
+    """Column name → kept at an address (NOT NULL, a CHECK naming it, a validator) on
+    any mapped class; and the field names a Pydantic schema constrains."""
+    from sqlalchemy import CheckConstraint
+
+    columns: dict[str, bool] = {}
+    for mapper in _mappers():
+        table = mapper.local_table
+        checks = " ".join(
+            str(c.sqltext) for c in table.constraints if isinstance(c, CheckConstraint)
+        )
+        for column in table.columns:
+            kept = (
+                not column.nullable
+                or re.search(rf"\b{column.name}\b", checks) is not None
+                or column.key in mapper.validators
+            )
+            columns[column.key] = columns.get(column.key, False) or kept
+    schema: set[str] = set()
+    constraint = re.compile(r"min_length|constr\(|EmailStr|Field\(\.\.\.|pattern=|ge=|gt=")
+    for path in _python_files():
+        for cls in ast.walk(_tree(path)):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            if "BaseModel" not in {getattr(b, "id", getattr(b, "attr", "")) for b in cls.bases}:
+                continue
+            for stmt in cls.body:
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    if constraint.search(ast.unparse(stmt)):
+                        schema.add(stmt.target.id)
+    return columns, schema
+
+
+def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
+    """Every `required`/`pattern`/`min` a template promises, walked to the column (§B9.3,
+    *promise kept*; the spike of §B10): template → the form's `hx-post`/`action` →
+    the route → the field read by name → a column of that name → kept by `NOT NULL`,
+    a `CHECK`, a validator or a Pydantic constraint.
+
+    Returns `(not_kept, unwalkable)`, keyed `template::field::kinds`. `not_kept` walks
+    all the way and finds nothing that keeps the promise — the server accepts what the
+    browser refuses. `unwalkable` stops earlier; its value is the step where it stops,
+    the reason the change request asks for.
+    """
+    routes = _writing_routes()
+    columns, schema = _kept_columns()
+    templates = sorted(APP.rglob("templates/**/*.html"))
+    assert len(templates) > 100, f"only {len(templates)} templates — the walk is blind"
+    not_kept: dict[str, str] = {}
+    unwalkable: dict[str, str] = {}
+    seen = 0
+    for template in templates:
+        for line, name, kinds, form_path in _template_promises(template.read_text()):
+            seen += 1
+            key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
+            where = f"{_rel(template)}:{line}"
+            if not form_path:
+                unwalkable.setdefault(key, "no form target (built in JS, by a macro, or GET)")
+                continue
+            route = routes.get(_route_path(form_path))
+            if route is None:
+                unwalkable.setdefault(key, f"no writing route for {_route_path(form_path)}")
+                continue
+            source = ast.unparse(route)
+            if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
+                unwalkable.setdefault(key, f"route `{route.name}` does not read `{name}` by name")
+                continue
+            if name not in columns:
+                if name in schema:
+                    continue  # kept by the schema
+                unwalkable.setdefault(key, f"no column named `{name}`")
+                continue
+            if not (columns[name] or name in schema):
+                not_kept.setdefault(
+                    key,
+                    f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` has no "
+                    f"NOT NULL, CHECK, validator or schema constraint — the server accepts "
+                    f"what the browser refuses (CR-13 §B9.3)",
+                )
+    assert seen > 30, f"only {seen} promises in the templates — the walk is blind"
+    return not_kept, unwalkable
+
+
+def collect_promise_not_kept() -> dict[str, str]:
+    return collect_promises()[0]
+
+
+def collect_promise_unwalkable() -> dict[str, str]:
+    found = collect_promises()[1]
+    return {key: f"{key} — cannot be walked: {reason}" for key, reason in found.items()}
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -434,6 +1704,17 @@ COLLECTORS = {
     "COMMIT_IN_HANDLER": collect_commit_in_handler,
     "NETWORK_IN_HANDLER": collect_network_in_handler,
     "JSON_ROUTE_WITHOUT_CALLER": collect_json_route_without_caller,
+    "DUTCH_IDENTIFIERS": collect_dutch_identifiers,
+    "FOREIGN_WRITES": collect_foreign_writes,
+    "WRITE_AFTER_COMMIT": collect_write_after_commit,
+    "COMMIT_BEHIND_API": collect_commit_behind_api,
+    "COMMAND_CALLS": collect_command_calls_outside_handlers,
+    "RULE_IN_ROUTER": collect_rule_in_router,
+    "WRITE_OUTSIDE_SERVICE": collect_write_outside_service,
+    "NON_ORM_WRITES": collect_non_orm_writes,
+    "DERIVED_ELSEWHERE": collect_derived_value_elsewhere,
+    "PROMISE_NOT_KEPT": collect_promise_not_kept,
+    "PROMISE_UNWALKABLE": collect_promise_unwalkable,
 }
 
 
@@ -497,6 +1778,213 @@ def test_every_json_route_names_its_caller():
     the list. The same line in `cms/CONTRACT.md` stayed green: only the contract of
     the domain that defines the route counts."""
     _ratchet("JSON_ROUTE_WITHOUT_CALLER")
+
+
+def test_no_new_dutch_identifier():
+    """Ratchet (#780), hard for any name outside the baseline. Proofs (run, removed),
+    the three directions #780 asks for: a `def controleer_iets()` added to
+    `activities/service.py` → red, naming the file, the line and `controleer`; the key
+    `domains/activities/service.py::bereken_iets` added to the baseline without the
+    code → red, "no longer occur"; the existing Dutch names in the baseline → green,
+    which this run is."""
+    _ratchet("DUTCH_IDENTIFIERS")
+
+
+def test_no_new_foreign_write():
+    """Ratchet, hard for a new package (CR-13 §B9.3). Proofs (run, removed), each
+    additive, in `cms/service.py`: a function constructing `Person` imported from
+    `mdm.api` → red, "constructs `mdm.Person`"; a function doing
+    `person = db.get(Person, 1)` then `person.first_name = "x"` → red, "assigns
+    .first_name"; a function holding the string `"UPDATE mdm.persons SET …"` → red,
+    "raw SQL writes `schema mdm`"."""
+    _ratchet("FOREIGN_WRITES")
+
+
+def test_no_write_after_a_commit():
+    """Ratchet on one entry (`delete_registration`, phase 1). Proof (run, removed): a
+    function `db.add(a); db.commit(); db.add(b)` added to `cms/service.py` → red,
+    "db.add() after the commit on line …". The shapes that are not a violation are
+    pinned below, on sources of their own."""
+    _ratchet("WRITE_AFTER_COMMIT")
+
+
+@pytest.mark.parametrize(
+    ("source", "red"),
+    [
+        ("db.add(a)\ndb.commit()\ndb.add(b)\n", True),
+        ("db.add(a)\ndb.commit()\n", False),
+        # A commit in a branch that returns is not carried past the `if`.
+        ("if x:\n    db.commit()\n    return\ndb.add(b)\n", False),
+        # A commit in one branch is not seen by its sibling.
+        ("if x:\n    db.commit()\nelse:\n    db.add(b)\n", False),
+        # A commit in a branch that falls through is carried.
+        ("if x:\n    db.commit()\ndb.add(b)\n", True),
+        # A loop that commits and writes writes after a commit on the next pass.
+        ("for a in items:\n    db.add(a)\n    db.commit()\n", True),
+    ],
+)
+def test_what_counts_as_a_write_after_a_commit(source, red):
+    out: list = []
+    _writes_after_commit(ast.parse(source).body, None, out)
+    assert bool(out) is red, out
+
+
+def test_no_commit_behind_another_domains_api():
+    """Ratchet on twelve (§B9.3 (c)). Proof (run, removed): a function in
+    `cms/service.py` calling `add_to_circle` imported from `mdm.api` → red,
+    "`mdm.api.add_to_circle` commits (domains/mdm/service.py:…) and is called from
+    another domain (domains/cms/service.py:…)"."""
+    _ratchet("COMMIT_BEHIND_API")
+
+
+def test_events_not_calls():
+    """Ratchet (§B4.9), hard for a new package. Proof (run, removed), additive, both
+    halves at once: in `cms/api.py` a `probe_write(db)` that commits through a helper
+    in `cms/service.py`, and a `probe_read(db)` that only queries; both called from
+    `forms/service.py` → exactly one new violation, "`forms/service.py` … calls
+    `cms.api.probe_write` (a command: writes at domains/cms/service.py:… via
+    _probe_helper)"; the read stays off the list."""
+    _ratchet("COMMAND_CALLS")
+
+
+@pytest.mark.parametrize(
+    ("domain", "name", "command"),
+    [
+        # The couplings §B4.9 names, found by the walk, not listed by hand.
+        ("mail", "send_activity_registration_confirmation", True),
+        ("mail", "send_registration_confirmation", True),
+        ("payment", "create_payment_record", True),
+        ("payment", "reconcile_registration_charges", True),
+        ("payment", "reconcile_charges", True),
+        ("workflow", "vervroeg_sweep", True),
+        # Reads are not commands.
+        ("mdm", "get_person", False),
+        ("mdm", "name_parts", False),
+    ],
+)
+def test_a_command_is_an_export_that_writes(domain, name, command):
+    assert ((domain, name) in api_commands()) is command
+
+
+def test_no_new_rule_in_a_router():
+    """Ratchet with a reason per entry (§B9.3). Proof (run, removed), additive, both
+    halves at once: a function in `cms/admin_ui.py` with `if page is None: raise
+    HTTPException(status_code=404)` and `if page.slug == "home": raise
+    HTTPException(status_code=400, …)` → exactly one new violation, the 400 on
+    `page.slug == 'home'`; the doorman's 404 stays off the list."""
+    _ratchet("RULE_IN_ROUTER")
+
+
+def test_every_rule_in_a_router_carries_its_reason():
+    """The change request's condition for this baseline: each entry says whether it
+    is a rule on its way to the entity (and in which phase) or the doorman's own."""
+    bad = {
+        key: reason
+        for key, reason in baseline.RULE_IN_ROUTER.items()
+        if not re.match(r"(rule: .+ — phase [1-4]|door: .+)$", reason)
+    }
+    assert not bad, bad
+
+
+def test_every_aggregate_is_mapped_and_defines_its_own_check():
+    """Hard (§B9.3 (a)). `aggregate()` already refuses a class without `check`; this
+    also refuses one that only inherits it, or is not mapped — a registration the
+    flush listener would never meet. Proof (run, removed): a plain class `_Probe`
+    with a `check()` registered at the bottom of `kernel/rules.py` → red, "_Probe is
+    not a mapped class"."""
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.kernel import rules
+
+    bad = []
+    for cls in rules.aggregates():
+        if "check" not in vars(cls):
+            bad.append(f"{cls.__name__} inherits check() instead of defining it")
+        if sa_inspect(cls, raiseerr=False) is None:
+            bad.append(f"{cls.__name__} is not a mapped class")
+    assert not bad, bad
+
+
+def test_no_new_write_outside_a_service():
+    """Ratchet (§B9.3 (b)). Proof (run, removed): a function in `cms/admin_ui.py` doing
+    `db.add(CmsPage(title="x"))` → red, "constructs `cms.CmsPage` outside a service"."""
+    _ratchet("WRITE_OUTSIDE_SERVICE")
+
+
+def test_no_new_write_past_the_orm():
+    """Ratchet (§B9.3 (c)). Proof (run, removed): a function in `cms/service.py` doing
+    `db.query(CmsPage).filter(CmsPage.id == 1).update({"title": "x"})` → red, "bulk
+    .update() `cms.CmsPage` past the ORM"."""
+    _ratchet("NON_ORM_WRITES")
+
+
+def test_one_owner_per_derived_value():
+    """Ratchet (§B9.3). The collector first proves each shape recognises its own owner.
+    Proof (run, removed): a function in `cms/service.py` returning
+    `sum(i.quantity * i.product.price for i in items)` → red, "computes
+    `registration.total` a second time"."""
+    _ratchet("DERIVED_ELSEWHERE")
+
+
+@pytest.mark.parametrize(
+    ("shape", "source", "match"),
+    [
+        ("registration.total", "i.quantity * i.product.price", True),
+        ("registration.total", "i.quantity * 2", False),
+        ("registration.state", "_effective_end(d) >= vandaag", True),
+        ("registration.state", "vandaag > deadline", True),
+        # A distance to a deadline, and another period's end, are not the state.
+        ("registration.state", "0 <= (deadline - vandaag).days <= 7", False),
+        ("registration.state", "half_start <= today <= half_end", False),
+    ],
+)
+def test_the_derived_shapes(shape, source, match):
+    node = ast.parse(source, mode="eval").body
+    assert DERIVED_SHAPES[shape](node) is match
+
+
+def test_a_record_state_is_decided_on_the_paid_amount():
+    decides = ast.parse(
+        "if r.status == PENDING:\n    betaald = r.amount_paid\n    if betaald != 0:\n"
+        "        x = 1\n"
+    ).body[0]
+    passes_on = ast.parse("if status is not None:\n    f(amount_paid=amount_paid)\n").body[0]
+    assert DERIVED_SHAPES["payment_record.state"](decides)
+    assert not DERIVED_SHAPES["payment_record.state"](passes_on)
+
+
+def test_every_promise_is_kept():
+    """Ratchet on nothing today — so hard (§B9.3). Proof (run, removed), additive, in a
+    new `activities/templates/_zz_probe.html`: a `<textarea name="description"
+    required>` inside `<form hx-post="/admin/activiteiten/{{ a.id }}">` → red,
+    "promises `description` required; the column `description` has no NOT NULL,
+    CHECK, validator or schema constraint"."""
+    _ratchet("PROMISE_NOT_KEPT")
+
+
+def test_no_new_promise_that_cannot_be_walked():
+    """Ratchet with the step where each walk stops (§B9.3, the 21 of §B10). Proof (run,
+    removed): in the same probe template, an `<input name="zz_probe" required>` before
+    the form → red, "cannot be walked: no form target"."""
+    _ratchet("PROMISE_UNWALKABLE")
+
+
+@pytest.mark.parametrize(
+    ("identifier", "dutch"),
+    [
+        ("controleer_inschrijfvelden", ["controleer", "inschrijfvelden"]),
+        ("AdminActiviteitenView", ["activiteiten"]),
+        ("093_formulier_posities_uniek_per_ouder", ["formulier", "uniek", "ouder"]),
+        # English, and words both languages use: never a match.
+        ("paginated_list", []),
+        ("create_payment_record", []),
+        ("form_status_type_filter", []),
+        ("post_tenant_data_code", []),
+        ("RegistrationView", []),
+    ],
+)
+def test_the_word_list(identifier, dutch):
+    assert dutch_words_in(identifier) == dutch
 
 
 def test_no_validator_without_its_constraint():
