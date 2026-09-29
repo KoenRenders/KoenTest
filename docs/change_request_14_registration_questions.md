@@ -100,7 +100,7 @@ component). Nothing in the form builder has to change for this case.
 | **Reporting** | The component export carries the answers, one column per question. The reporting engine (CR-06) does not — answers are per activity, not a measure. |
 | **Security** | Nothing new from outside: the questions arrive through the registration entrances that exist, under the same rate limit, honeypot and CSRF as today. The form's own validation (required, bounds, options) applies. |
 | **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data — the organiser decides per activity whether to ask it; the system does not treat it differently *(to confirm with Koen)*. |
-| **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. The narrow modal (fixed UI decision, `max-w-md`) stays for a component without a form; **with a form the registration becomes a full page** *(proposal, see B4.1)*. |
+| **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both** (Koen, 29 Sep): the narrow modal (fixed UI decision, `max-w-md`) with or without a form; it scrolls, as it does for the products. See B4.1. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
 ## A7. Acceptance criteria
@@ -292,14 +292,17 @@ from the component restores today's screen — no flag needed.
 ### B4.1 Where the questions render — modal or page
 
 Fixed UI decision: the public registration is a narrow modal (`max-w-md`).
-Three questions fit; a form of twelve does not, and 80 % of visitors are on
-a phone. **Proposal:** the modal stays the rule; when the component has a
-form, the registration opens as a **full page** at the same URL (the modal
-route renders a page layout instead of the modal partial), with the same
-fields in the same order. The alternative — always a page — changes every
-activity's registration for the few with a form. The alternative — always
-the modal, scrolling — hides a long form in a small box on a phone.
-*Open for Koen (Q3).*
+**One way, with or without a form: the modal** (Koen, 29 September: "moeten
+we niet naar één manier?"). The reasons it is the modal and not a page for
+both: 80 % of visitors are on a phone, where `max-w-md` already fills the
+width and the modal is a full-screen sheet that scrolls — a page would look
+the same there; on a desktop a long modal scrolls as it already does for a
+component with many products; and "always a page" would change every
+activity's registration, and the out-of-band participant list (#1159), for
+the few components with a form. What it asks of the form: a registration
+form stays short — the Sint form is five questions — and B10 measures the
+ten field types inside the modal at 390 px before the build. A component
+that needs a long questionnaire keeps a standalone form (Non-goals).
 
 ### B4.2 One transaction, in this order
 
@@ -535,7 +538,7 @@ uncommitted form submission (it reads the form definition, so it should).
 |---|---|---|
 | 29 Sep 2026 | A registration can carry extra questions; they are a form attached to a component and answered in one movement while registering. | Koen (spoken brief; Part A to confirm) |
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
-| 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. | Koen |
+| 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: the modal. | Koen |
 
 ## Q&A log
 
@@ -546,7 +549,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
-| Q3 | 29 Sep 2026 | A component with a form: still the narrow modal, or a full page? (Claude) | *proposed:* full page for a component with a form, modal otherwise — B4.1; *open* |
+| Q3 | 29 Sep 2026 | A component with a form: still the narrow modal, or a full page? (Claude) | Koen, 29 Sep: one way for both. The modal, for the reasons in B4.1 (mobile is a full-screen sheet anyway; a page would change every registration). |
 | Q4 | 29 Sep 2026 | Must the board answer the questions on the board form? (Claude) | Koen, 29 Sep: no — "dan sturen we een link dat ze het formulier nog moeten invullen". R5 Must: an answer link by mail, the answers land on the registration; B4.8, F7, AC4, B4.2. |
 | Q5 | 29 Sep 2026 | May a component swap its form once registrations have answers? (Claude) | Koen, 29 Sep: no. R10, F13, B4.5. |
 | Q6 | 29 Sep 2026 | Repeat the answers in the confirmation mail (R6)? Let the organiser correct an answer (R7)? (Claude) | Koen, 29 Sep: yes to both (Should), with the question "how does it work when the form may be changed afterwards?" — answered in B4.7: an *answer* is edited on the registration detail, re-validated, with a history row; the *form* cannot change once it has answers (#665). |
