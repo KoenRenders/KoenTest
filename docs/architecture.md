@@ -170,7 +170,8 @@ Domains talk to each other in exactly two ways, both visible in the code: a call
 ```mermaid
 flowchart TB
   ACT["activities"]:::c -->|"is member? (facade)"| MEM["membership"]:::c
-  PAY["payment"]:::c -->|"PaymentSettled (event)"| MEM
+  PAY["payment"]:::c -->|"PaymentReceived (event)"| MEM
+  PAY -->|"PaymentReceived → sweep sooner (event)"| WB
   MEM -->|"persons, households (facade)"| MDM["mdm"]:::c
   PAY -->|"refund pending → task (event)"| WB["workflow · werkbank"]:::c
   FORM["forms"]:::c -->|"SubmissionCreated (event)"| WB
@@ -380,7 +381,7 @@ sequenceDiagram
   MO->>A: webhook: id only,<br/>unsigned
   A->>MO: GET /payments/{id}<br/>re-fetch status,<br/>amount, currency
   alt amount and currency match
-    A->>L: SELECT … FOR UPDATE<br/>mark paid once · history row<br/>PaymentSettled event
+    A->>L: SELECT … FOR UPDATE<br/>mark paid once · history row<br/>PaymentReceived event
   else mismatch
     A->>L: gateway status =<br/>needs_review (not paid)
     A->>W: task<br/>payment.webhook_mismatch<br/>(FINANCE)
