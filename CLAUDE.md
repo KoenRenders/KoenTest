@@ -67,13 +67,13 @@ base already does; the rule only names it. The route function, the template
 file, the view-model and the table behind a Dutch path are English like all new
 code (`def report_panel`, `report_panel.html`, `reporting.saved_reports`).
 
-**Decided, not yet built** (corrected 27 September 2026): the gate that
-enforces this on new work is #780 — a frozen baseline of the Dutch identifiers
-that exist today, which may only shrink. Nothing outside the baseline may be
-Dutch; an entry that disappears from the code must leave the baseline. A rule
-with a growing exemption list is dead; a baseline that can only shrink is a
-ratchet. Until #780 is built, the rule is enforced in review only — and on 26
-September 2026 review caught 26 Dutch function names that CI had let through.
+**Enforced since 29 September 2026** (#780, built with CR-13 phase 0c): a
+frozen baseline of the Dutch identifiers that existed then (437), which may only
+shrink. Nothing outside the baseline may be Dutch; an entry that disappears from
+the code must leave the baseline. A rule with a growing exemption list is dead;
+a baseline that can only shrink is a ratchet. Before the gate, the rule was
+enforced in review only — and on 26 September 2026 review caught 26 Dutch
+function names that CI had let through.
 
 ## Code style
 
