@@ -241,14 +241,18 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
             db, meeting, evaluation, activity_dates_active_between(db, since, meeting.meeting_date)
         )
 
-    # Upcoming: every date within the agenda horizon (§3.14, revised 16 Sep 2026),
-    # each on its own point, so the guide of every ride can be discussed (#1335).
+    # Upcoming: what falls within the agenda horizon (§3.14, revised 16 Sep 2026),
+    # ONCE per activity, for its first date on or after the meeting (Koen, 29
+    # September 2026, #1354): a monthly ride is one point, not three. The point
+    # keeps that date (#1335); a later ride is added by hand through the picker.
     if upcoming is not None:
         _add_activities(
             db,
             meeting,
             upcoming,
-            activity_dates_from(db, meeting.meeting_date, until=_horizon(meeting.meeting_date)),
+            _first_date_per_activity(
+                activity_dates_from(db, meeting.meeting_date, until=_horizon(meeting.meeting_date))
+            ),
         )
 
     # Members: who joined since the previous meeting.
@@ -285,9 +289,11 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, span
     zonder deze controle zou er een tweede, leeg punt voor dezelfde datum naast
     komen te staan.
 
-    **Per datum, niet per activiteit** (#1335): een maandelijkse rit staat er
-    één keer per rit. A point from before #1335 carries no date and blocks
-    nothing — it is the activity as a whole, and the dated points join it.
+    **Per datum, niet per activiteit** (#1335): each span is one date and gets
+    its own point. Which dates come in is the caller's choice: every ride under
+    "Evaluatie", the first coming date per activity under "Volgende activiteiten"
+    (#1354). A point from before #1335 carries no date and blocks nothing — it is
+    the activity as a whole, and the dated points join it.
     """
     present = _dates_on_agenda(db, meeting)
     for position, span in enumerate(spans):
@@ -305,6 +311,20 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection, span
         )
         present.add(span.row.id)
     db.flush()
+
+
+def _first_date_per_activity(spans: list) -> list:
+    """The first date of each activity, in the order they come (#1354).
+
+    `spans` is chronological, so the first one seen per activity is its first.
+    """
+    seen: set[int] = set()
+    first = []
+    for span in spans:
+        if span.activity.id not in seen:
+            seen.add(span.activity.id)
+            first.append(span)
+    return first
 
 
 def _dates_on_agenda(db: Session, meeting: Meeting) -> set[int]:

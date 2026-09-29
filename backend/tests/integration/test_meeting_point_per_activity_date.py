@@ -110,15 +110,19 @@ def test_every_ride_in_the_window_is_its_own_evaluation_point(db_session, monthl
     ], "one point per ride that fell since the previous meeting"
 
 
-def test_every_ride_within_the_horizon_is_its_own_upcoming_point(db_session, monthly_ride):
+def test_a_recurring_activity_is_one_upcoming_point_for_its_first_date(db_session, monthly_ride):
+    """#1354 (Koen, 29 September 2026): under "Volgende activiteiten" a recurring
+    activity is on the agenda once, for its first date on or after the meeting. It
+    was one point per ride since #1335.
+
+    Red against master `4b024458`: three points, 3 October, 7 November, 5 December.
+    """
     meeting = create_meeting(db_session, meeting_date=MEETING_DAY)
 
     upcoming = _points(db_session, meeting, SectionKind.UPCOMING, monthly_ride.name)
     assert [i.meta.split(" · ")[0] for i in upcoming] == [
         "zaterdag 3 oktober 2026 14u – 17u",
-        "zaterdag 7 november 2026 14u – 17u",
-        "zaterdag 5 december 2026 14u – 17u",
-    ], "the ride of 9 January lies beyond the horizon and stays off"
+    ], "one point, for the first ride after the meeting"
 
 
 def test_a_coming_date_counts_even_when_the_activity_began_months_ago(db_session):
@@ -179,13 +183,22 @@ def test_the_picker_offers_every_date_that_is_not_on_the_agenda(db_session, mont
     upcoming = _stored_section(db_session, meeting, SectionKind.UPCOMING)
 
     offered = _offered(db_session, meeting, upcoming, monthly_ride.name)
-    assert [o.moment for o in offered] == ["zaterdag 9 januari 2027 14u – 17u"], (
-        "the three rides on the agenda are not offered again; the one beyond the horizon is"
-    )
+    assert [o.moment for o in offered] == [
+        "zaterdag 7 november 2026 14u – 17u",
+        "zaterdag 5 december 2026 14u – 17u",
+        "zaterdag 9 januari 2027 14u – 17u",
+    ], "the first ride is on the agenda; every later one is still offered (#1354)"
 
+    # A later ride added by hand (#1354: the picker keeps offering every date).
     add_item(db_session, meeting, upcoming, activity_date_id=offered[0].activity_date_id)
-    assert _offered(db_session, meeting, upcoming, monthly_ride.name) == []
-    assert len(_points(db_session, meeting, SectionKind.UPCOMING, monthly_ride.name)) == 4
+    assert [o.moment for o in _offered(db_session, meeting, upcoming, monthly_ride.name)] == [
+        "zaterdag 5 december 2026 14u – 17u",
+        "zaterdag 9 januari 2027 14u – 17u",
+    ]
+    assert [
+        i.meta.split(" · ")[0]
+        for i in _points(db_session, meeting, SectionKind.UPCOMING, monthly_ride.name)
+    ] == ["zaterdag 3 oktober 2026 14u – 17u", "zaterdag 7 november 2026 14u – 17u"]
 
     with pytest.raises(MeetingError):
         add_item(db_session, meeting, upcoming, activity_date_id=offered[0].activity_date_id)
