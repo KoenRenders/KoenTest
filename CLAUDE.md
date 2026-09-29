@@ -590,6 +590,26 @@ Still report all six lines after every deploy — the commit, the smoke result a
 expected `Running upgrade` lines are yours to verify, and "the script said nothing"
 is not a measurement.
 
+## Data operations on an environment — through the app, never raw SQL
+
+Decided by Koen on 29 September 2026. Adding members, importing registrations,
+linking registrations to members, adding e-mail addresses: every such operation
+runs **through the application's services**, never as hand-written SQL. Raw SQL
+bypasses everything the app guards — validators, `check()` on an aggregate, the
+history rows, the events — and it is neither tested nor reviewed.
+
+- The tool is `raak run <env> <script> <file>` (#1330): a registered script under
+  `backend/app/scripts/` that only calls domain facades. A dry run is the default;
+  `--apply` executes exactly what the dry run showed, in one transaction; on PROD it
+  also needs `--confirm` and takes a checked backup first.
+- The **code** of a script lives in the repo like any code, with an issue and
+  tests on made-up data. The **data** and the report of what happened on PROD never
+  go into the repo or a GitHub issue — the report stays in the chat with Koen.
+- Raw SQL that writes is for emergency repair only, with Koen's explicit approval
+  each time. Read-only `raak psql` for measuring stays fine.
+- The JSON API is not the tool for this: a script runs inside the backend, with one
+  transaction and a real dry run, and needs no API key.
+
 ## Docker stack
 
 | Service | Waar | Notes |
