@@ -44,3 +44,17 @@ Schema `payment` (migratie 079): `gateway_payments`, `payment_records`,
 `payment_record_history`. `payable_type/payable_id` is een soft-ref (§6/§8) —
 bewust geen FK naar registraties/lidmaatschappen; de reconciliatie-job is de
 bewaker. Refunds verwijzen via `refund_of_id` naar hun charge (self-FK).
+
+## Callers
+
+The JSON routes of this component, each with the caller it exists for (R14, CR-13
+phase 4b — measured 29 September 2026 in the repository and in the PROD
+application log):
+
+- `POST /api/v1/payment-gateway/webhooks/mollie` — Mollie, after a payment
+  changes; the URL is built by `gateway_service` and handed to Mollie. The body
+  is never trusted: the status is fetched again (`CLAUDE.md`, the security
+  invariant).
+- `POST /api/v1/payment-gateway/webhooks/stub` — the stub provider's pretend
+  checkout (#1274), for the e2e payment chain; the route exists only where the
+  stub may.
