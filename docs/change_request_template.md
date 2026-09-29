@@ -59,7 +59,19 @@
 > *renders the poster". A step that disappears, moves lane or turns into a*
 > *choice is the change — name it under the drawing in one line each.*
 
-## A4. Supplied material — and what it taught us
+## A4. Benefits — what the change earns
+
+> [!NOTE]
+> *The business side of the decision: what this change earns, in the*
+> *measures the association counts in — hours of volunteer work saved per*
+> *activity or per year, mistakes avoided, money collected sooner or not*
+> *lost, members who would otherwise drop out, a process that becomes*
+> *possible at all. One line per benefit, with the figure where it can be*
+> *estimated and the reason where it cannot; a benefit that only the*
+> *solution can name does not belong here. Set against the cost of B3, this*
+> *is what says whether the change is worth doing, and when.*
+
+## A5. Supplied material — and what it taught us
 
 > [!NOTE]
 > *What the business handed over to start from — brand guides, examples,*
@@ -68,7 +80,7 @@
 > *from it goes here too, as measurements: "four example posters; none has a*
 > *bleed".*
 
-## A5. Business requirements — what the board asks, with MoSCoW
+## A6. Business requirements — what the board asks, with MoSCoW
 
 > [!NOTE]
 > *One table. Each requirement is a sentence a board member would say, with a*
@@ -85,7 +97,7 @@ MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
 and deliberately not done — recorded so it is not asked again).
 
-## A6. Non-functional requirements — security, privacy, house style, tenants
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 > [!NOTE]
 > *The requirements every change request is tested against, each answered*
@@ -99,7 +111,7 @@ and deliberately not done — recorded so it is not asked again).
 | **House style / UI norm** — `docs/design-system.md`; brand rules | … |
 | **Multi-tenant** — what differs per unit, what is platform-wide | … |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
@@ -124,7 +136,7 @@ and deliberately not done — recorded so it is not asked again).
 ### B1.1 Functional analysis — the derived requirements
 
 > [!NOTE]
-> *The derived, finer-grained requirements the solution answers, traced to A5.*
+> *The derived, finer-grained requirements the solution answers, traced to A6.*
 > *This is design work by the analyst, not business input — which is why it is*
 > *not in Part A.*
 
@@ -147,14 +159,14 @@ and deliberately not done — recorded so it is not asked again).
 > *or is marked "outside the portal"; a module no step uses is not part of*
 > *this change. Two audiences (those who set up, those who use) means two*
 > *drawings. Second, the **traceability table**: one row per requirement of*
-> *A5 — R · how the solution meets it, in the words of the role that will*
-> *see it · on which screen · which acceptance criterion of A7 proves it. A*
+> *A6 — R · how the solution meets it, in the words of the role that will*
+> *see it · on which screen · which acceptance criterion of A8 proves it. A*
 > *Won't gets a row that says so. Third, the **walkthrough** — how the*
 > *business tests this on HDEV: one numbered*
 > *script per role of A3, in the order of the to-be process, happy path*
 > *first and then the turns where it must refuse or fall back; each step*
 > *names what to do, what to see, and the acceptance criterion it proves*
-> *(A7). Every criterion appears in at least one step. The closing comment*
+> *(A8). Every criterion appears in at least one step. The closing comment*
 > *of each issue points at the walkthrough instead of rewriting it. This is*
 > *the page a board member reads to say "yes, that is how we will work, and*
 > *this is how I will check it".*
@@ -215,24 +227,30 @@ and deliberately not done — recorded so it is not asked again).
 > *external services (Mollie, mail). A "yes" points at the section that*
 > *handles it. The next thing that gets missed becomes the next row.*
 
-## B3. Cost and operations — settings, limits, running cost
+## B3. Cost — investment and running cost, and what operations must know
 
 > [!NOTE]
-> *Operations first: settings, env vars, backups, limits, kill switch.*
-> *Then external and running cost: paid tools and services (per use and per month,*
-> *with the measured figure where a prototype exists), storage, and the limits*
-> *that cap it. One-off cost where relevant (e.g. a licence). "None" is an*
-> *answer.*
+> *Three parts, each with a figure or "none". **Investment:** the effort to*
+> *build and deliver — the sum of the effort lines of B2.3, in CLI-days or*
+> *person-days, plus analysis, review, validation on HDEV and the release*
+> *steps — and one-off purchases (a licence, a product, a device). **Running*
+> *cost:** what it costs per month or per year once live — usage rights and*
+> *paid services (per use and per month, measured where a prototype exists),*
+> *storage and backups, hosting, and the maintenance it adds (a job to watch,*
+> *a certificate to renew, a dependency to keep current). **Operations:***
+> *settings, env vars, limits, kill switch, backups — what the person running*
+> *the stack must know. Set beside the benefits of A4: the two together are*
+> *the input for the release decision.*
 
 ## B4. Detailed decisions — one subsection each, with the reasons
 
 > [!NOTE]
 > *The design decisions in full, one subsection each, with their reasons.*
 
-## B5. Privacy and security — the mechanics behind A6
+## B5. Privacy and security — the mechanics behind A7
 
 > [!NOTE]
-> *How A6's privacy and security answers are implemented: what leaves the*
+> *How A7's privacy and security answers are implemented: what leaves the*
 > *system to whom, what is sanitised, what is logged.*
 
 ## B6. Phasing — shippable phases, and what changes on the failure paths

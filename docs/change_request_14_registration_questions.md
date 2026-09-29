@@ -125,7 +125,20 @@ portal shows the state and offers "resend the link", nothing more.
 | 6. Whoever answers — now, later by link, member or board — a required question left empty is refused with the same message. | — | — |
 | 7. Payments arrive on the payments screen as for every registration; who has not paid, and who still owes answers, is followed up **by hand** (R12 Won't). | treasurer, organiser | payment module (unchanged); the registration detail |
 
-## A4. Supplied material — and what it taught us
+## A4. Benefits — what the change earns
+
+| Benefit | Measure |
+|---|---|
+| The Sint registration runs on the platform as one form again, instead of a registration plus a separate questionnaire. | the process of A3 at all — the alternative is the split of A1 |
+| No hand-matching of answers to registrations, and no third list: the export carries the answers. | an evening of volunteer work per activity with questions, estimated; zero after |
+| Answers arrive with the registration or through one link; the organiser sees who still owes them. | fewer chased households; not counted today |
+| Payments by structured message instead of by name and amount, as for every registration on the platform. | the treasurer's matching per transfer disappears for this activity — already the platform's benefit, now also for the Sint |
+| Every future activity with questions (a size, a group, a lift) gets the same without a change request. | one form per activity in the builder, no development |
+
+Not quantified in money: the association does not price volunteer hours.
+The benefit that decides is the first line.
+
+## A5. Supplied material — and what it taught us
 
 The questions of the Sint activity, and what they teach about the shape:
 
@@ -141,7 +154,7 @@ Learnt: all five fit the ten field types, in one section, without
 branching; none depends on a product; one form serves the activity (one
 component). Nothing in the form builder has to change for this case.
 
-## A5. Business requirements — what the board asks, with MoSCoW
+## A6. Business requirements — what the board asks, with MoSCoW
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -159,7 +172,7 @@ component). Nothing in the form builder has to change for this case.
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. Through the component's existing export, not the reporting panel, which is not asked for anything. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; the form builder's results view counts the choices for free |
 
-## A6. Non-functional requirements — security, privacy, house style, tenants
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
@@ -168,7 +181,7 @@ component). Nothing in the form builder has to change for this case.
 | **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page:** the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement |
 |---|---|---|
@@ -342,7 +355,7 @@ proves. The closing comments of the issues point here.
 *Organiser — setting up (phase 2):*
 
 1. Build a form "Sint 2026" in the form builder with the five questions of
-   A4: time slots (checkbox, required), inside/outside (radio, required),
+   A5: time slots (checkbox, required), inside/outside (radio, required),
    the story (textarea), allergies (textarea), remarks (textarea). Set it
    open. → *AC1 precondition.*
 2. Open the Sint activity, its component, settings: pick "Sint 2026" under
@@ -406,8 +419,8 @@ flowchart TB
     A3["service: create_registration · answer_questions ·<br/>attach/detach · export"]
     A4["entities: Registration (+form_submission_id,<br/>+answer_token, check()) ·<br/>ActivitySubRegistration (+form_id)"]
     A5["migration: three nullable columns"]
-    A1 --> A2 --> A3 --> A4
-    A5 -.-> A4
+    A1 --> A2 --> A3 --> A5
+    A6 -.-> A5
   end
   subgraph forms["forms (green)"]
     F1["facade api.py: submit_attached · update_attached ·<br/>attachable_forms · answers_from_form · submission_views"]
@@ -427,12 +440,12 @@ flowchart TB
   A3 --> P1
   A3 --> M1
   A1 -. renders .-> F4
-  A4 -. FK .-> F3
+  A5 -. FK .-> F3
   P1 --> MOL
   classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
   classDef frm fill:#dcfce7,stroke:#15803d,color:#111
   classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
-  class A1,A2,A3,A4,A5 act
+  class A1,A2,A3,A5,A6 act
   class F1,F2,F3,F4 frm
   class P1,M1 oth
 ```
@@ -596,16 +609,31 @@ three and a half of them.
 | Events and handlers (CR-13) | no — door calls, no event; the payment-record decision of 29 Sep applies | B1 |
 | Mail templates | **yes** — one variable block in the registration confirmation; a reminder subject | B4.8, B2.3 mail |
 | Migration: additive or contract (#1255) | additive — three nullable columns | B2.3 |
-| Tenant settings | no — the picker offers the tenant's own forms; nothing platform-wide | A7 |
+| Tenant settings | no — the picker offers the tenant's own forms; nothing platform-wide | A8 |
 | Env vars | no | B3 |
 | JSON routes and API callers | **yes, conditional** — `POST /register` gains `answers` if it survives CR-13 phase 4 | F6, B2.2 |
 | External services (Mollie, mail) | no change in the calls; the order on the page changes nothing for Mollie | B4.2 |
 
-## B3. Cost and operations — settings, limits, running cost
+## B3. Cost — investment and running cost, and what operations must know
 
-None new: no service, no env var, no job. One migration in phase 2 (three
-nullable columns, two of them FKs; additive under #1255). Kill switch: detaching the form
-from the component restores today's screen — no flag needed.
+**Investment.** About 4 CLI-days of build (B2.3: `activities` 3.5, `forms`
+0.5, `mail` 0.25, rounded), plus analysis (this document, one day, done),
+review and the parity walk on HDEV (half a day), and three release steps
+(one phase each; each rides a release that goes out anyway). No purchase:
+no licence, no product, no device. No new dependency.
+
+**Running cost.** None: no paid service, no new job, no storage beyond a
+few rows per registration, nothing to renew. The answers live in tables
+the backup already covers.
+
+**Operations.** No env var, no setting. One migration in phase 2 (three
+nullable columns, two of them FKs; additive under #1255). Kill switch:
+detaching the form from the component restores today's screen — no flag
+needed.
+
+**Against A4:** four build days for a process that otherwise cannot run on
+the platform, and that every later activity with questions reuses without
+development.
 
 ## B4. Detailed decisions — one subsection each, with the reasons
 
@@ -890,7 +918,7 @@ link back to the activity's component. A refusal re-renders the page with
 the banner on top and the first refused question scrolled into view and
 marked, the way the form builder marks one (`data-veld`, #741/#749).
 
-## B5. Privacy and security — the mechanics behind A6
+## B5. Privacy and security — the mechanics behind A7
 
 - **Where the answers live and who reads them.** `form.form_submission_answers`,
   read through the admin only (`require_admin_ui` on the registration
@@ -915,7 +943,7 @@ marked, the way the form builder marks one (`data-veld`, #741/#749).
   submission itself keeps no history, and does not need one as long as the
   only editor is the organiser through the registration.
 - **Health data** (allergies): no separate handling in the system (Q18) —
-  see A6. What the CR does guarantee: the answer is seen by the roles that
+  see A7. What the CR does guarantee: the answer is seen by the roles that
   see the registration and nobody else, and it is asked only where an
   organiser attached a form that asks it.
 
@@ -1061,13 +1089,13 @@ None yet. To measure before the build of phase 2:
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A6, B5. |
+| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A7, B5. |
 | Q19 | 29 Sep 2026 | The first draft let the form builder's submissions view show "inschrijving #N". That needs `forms` to read `activities` — the dependency the wrong way round, for one link. Dropped: the way to the answers is the registration. Agreed? (Claude, review) | Koen, 29 Sep: agreed. F10, B4.6. |
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B6. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
-| Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A4. |
+| Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A5. |
 | Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | Koen, 29 Sep: no — a person plans the visits afterwards. A checkbox question it is. |
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
