@@ -201,13 +201,14 @@ nothing in it needs a question:
 | R11 | The member and the board register on one and the same screen — **and the public user loses nothing**: every function and every nicety the public registration has today stays. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; how (the component's export, not the reporting panel) is B1 and B2.3 |
+| R14 | **Reporting need:** the Sint's book — all registrations of a component printed one after the other, each with the household, the children and its answers listed under each other, so the round can be walked through visit by visit. | Should | Koen, 29 Sep 2026 | the list of R13 is the spreadsheet; this is the document read on the sofa; Must or Should to confirm (Q25) |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
 | **Security** | One new thing from outside: the answer-by-link page, an unauthenticated write guarded by a secret in the link (the pattern the form builder's edit link already uses). The questions on the registration page arrive through the entrances that exist, under the same rate limit and CSRF as today. The form's own validation (required, bounds, options) applies everywhere. Mechanics in B5. |
-| **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data (GDPR art. 9): the member volunteers it for the activity's own purpose, it is seen by the organiser only, and it is not kept longer than the registration. The system does not treat it differently from another answer (Q18); the organiser who asks it is responsible for asking only what the activity needs. |
+| **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. The Sint's book (R14) is a printed document with addresses and the children's stories: it leaves the system on paper, and the organiser who prints it keeps it as the paper list was kept. An allergy is health data (GDPR art. 9): the member volunteers it for the activity's own purpose, it is seen by the organiser only, and it is not kept longer than the registration. The system does not treat it differently from another answer (Q18); the organiser who asks it is responsible for asking only what the activity needs. |
 | **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page:** the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
@@ -223,6 +224,7 @@ nothing in it needs a question:
 | AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 |
 | AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 |
 | AC8 | The confirmation mail of a registration with answers lists them, label and value, after the products. | R6 |
+| AC10 | "Boek van de Sint" for the component: one block per registration — contact name, address when the person is known, number of children, the five answers in the form's order — separated by a page break, printable from the browser to paper or PDF; a registration with open questions shows "nog niet beantwoord". | R14 |
 | AC9 | Every row of the parity list in B4.9 is walked on HDEV on a phone and on a desktop: each public function of today is found on the new page, and the two screenshots (modal before, page after) sit side by side in the PR. | R11 |
 
 ---
@@ -294,6 +296,7 @@ Decisions that shape it, with the alternatives:
 | F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. | AC6 |
 | F12 | The registration detail edits the answers through the same field partial and `forms.api.update_attached(db, submission, answers)`, which re-validates with `build_answers` and replaces the answer rows; a history row on the registration records "answers edited" with the old and new values. | R7 |
 | F13 | Replacing a component's form is refused when any registration of the component has a submission; detaching is allowed (the submissions stay). | R10 |
+| F14 | The book: a print view per component — one block per living registration, ordered by contact name: contact name, the person's address through `mdm.api` when the registration has a person, the product quantities, then the answers as label and value in field order ("nog niet beantwoord" when open); a CSS page break between blocks; printed from the browser, no PDF engine (WeasyPrint exists for the meetings and is not needed for a page the browser prints). | R14 |
 
 ## B2. Architecture — three readers, three questions
 
@@ -342,7 +345,7 @@ flowchart LR
     t2 -- yes --> t4((All paid))
   end
   subgraph organiser2["Organiser"]
-    o1["Read the answers; export the list<br/><i>registration detail + export · activities admin</i>"] --> o2{Every household<br/>complete?}
+    o1["Read the answers; export the list;<br/>print the Sint's book<br/><i>registration detail + export + book · activities admin</i>"] --> o2{Every household<br/>complete?}
     o2 -- no --> o3["Resend the link<br/><i>registration detail · activities admin</i><br/>then remind by hand <i>— outside the portal (R12)</i>"]
     o3 --> o1
     o2 -- yes --> o4((Round planned))
@@ -379,6 +382,7 @@ what proves it:**
 | R11 one screen, the public loses nothing | the public modal becomes a page, built from the board's page; the board's page is the same page in the admin shell; fifteen-point parity list | registration page | AC9 |
 | R12 following up answers and transfers | **Won't** — by hand; the portal shows the state and offers "resend the link" | registration detail; payments screen | — |
 | R13 the export for the Sint's list | the component's existing export gains the answer columns; the activities module reads the answers through the forms facade in one call | export | AC3 |
+| R14 the Sint's book | a print view of the component, one block per registration with its answers, page break per household — the same read as the export, rendered as a page instead of a sheet | "Boek" button at the component's registrations | AC10 |
 
 **The walkthrough — how the business tests this on HDEV.** Three roles,
 in the order of A3; each step says what to do, what to see, and what it
@@ -430,7 +434,8 @@ proves. The closing comments of the issues point here.
 12. On the registration of step 7, the five answers as label and value.
     Export the component: one row per registration, five extra columns
     after *Opmerkingen*; open the .ods in LibreOffice; it prints as the
-    Sint's list. → *AC3.*
+    Sint's list. → *AC3.* Press "Boek": one page per household with the
+    answers under each other; print it. → *AC10.*
 13. Edit the allergies answer on the detail, save: the new value in the
     detail and in the export; the history shows old and new. Empty a
     required answer: refused. → *AC7.*
@@ -545,14 +550,17 @@ record (#1284: one form for two channels took about one day).
   registration page keeps its file and includes the same block; the
   component settings gain the picker; the registration detail gains the
   answers, "antwoorden gevraagd", "link opnieuw sturen" and (phase 3) the
-  edit; a new answer page `/inschrijving/{answer_token}/vragen`. Judged at
-  390 px and on a desktop (AC9, test 11).
+  edit; a new answer page `/inschrijving/{answer_token}/vragen`; a print
+  view "Boek van de Sint" per component
+  (`/admin/activiteiten/{id}/onderdelen/{cid}/boek`, the shape of the form
+  builder's own print view, page break per registration). Judged at 390 px
+  and on a desktop (AC9, test 11).
 - **Code:** view-model `registration_form.py` (the choice, the answers via
   `forms.api.answers_from_form`); service `create_registration` ("now":
   `forms.api.submit_attached` before the payment record; "later": the
   token), new `answer_questions(db, token, answers)`, attach/detach with
   the refusals of F2 and F13, `export.py` with the answer columns in one
-  call; entity `Registration` (+`form_submission_id`, +`answer_token`,
+  call, the same read feeding the book view; entity `Registration` (+`form_submission_id`, +`answer_token`,
   `check()` rule), `ActivitySubRegistration` (+`form_id`).
 - **Database:** three nullable columns, two FKs, a partial unique, one CHECK;
   one additive migration:
@@ -560,24 +568,20 @@ record (#1284: one form for two channels took about one day).
   | Table | Change | Validation |
   |---|---|---|
   | `activities.activity_sub_registrations` | `form_id INTEGER NULL REFERENCES form.forms(id) ON DELETE SET NULL` | attach rule in the service (open, tenant, one section); nothing at rest beyond the FK |
-  | `activities.registrations` | `form_submission_id INTEGER NULL REFERENCES form.form_submissions(id) ON DELETE RESTRICT`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the B4.2 pattern of CR-13); `answer_token VARCHAR(64) NULL UNIQUE` | `Registration.check()`: a linked submission belongs to the component's form; `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
+  | `activities.registrations` | `form_submission_id INTEGER NULL REFERENCES form.form_submissions(id) ON DELETE RESTRICT`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the pattern CR-13 uses under soft delete); `answer_token VARCHAR(64) NULL UNIQUE` | `Registration.check()`: a linked submission belongs to the component's form; `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
   | `form.*` | unchanged | the forms rules as today |
-  
-  Migration: one, `alembic revision -m "component form, registration submission and answer token"`,
-  additive (`ADDITIVE = True`); no data step. Check the CHECK constraints on
-  both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
   
   One migration, `alembic revision -m "component form, registration
   submission and answer token"`, `ADDITIVE = True`, no data step; both
   tables checked for existing CHECK constraints on these columns: none.
 - **Templates and mail:** `_inschrijf_velden.html` (the questions block with
   the choice), `inschrijven.html`, the thank-you page; the mail is `mail`'s.
-- **Tests:** B7 1, 2, 3, 4, 5, 6, 8, 9, 10, 11; landscape: B7's second
+- **Tests:** B7 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 13; landscape: B7's second
   level.
 - **Effort:** phase 1 (the page, parity) ~1 CLI-day; phase 2 (links,
-  picker, choice, answer page, detail, export) ~2 CLI-days; phase 3 (edit
-  with history, resend) ~0.5. Serves R1–R5, R7, R10–R13; F1–F4, F6–F8,
-  F10, F12, F13.
+  picker, choice, answer page, detail, export, the book) ~2.5 CLI-days;
+  phase 3 (edit with history, resend) ~0.5. Serves R1–R5, R7, R10–R14;
+  F1–F4, F6–F8, F10, F12–F14.
 
 #### forms — grows a facade, changes no behaviour
 
@@ -627,8 +631,8 @@ None of the three new columns is read by a view; no expand/contract risk.
 `create_payment_record` is called as today, after the answers; nothing
 changes. Serves nothing new.
 
-**Sum:** about 4 CLI-days across three phases, `activities` carrying
-three and a half of them.
+**Sum:** about 4.5 CLI-days across three phases, `activities` carrying
+four of them.
 
 ### B2.4 Cross-cutting impact — the checklist of what gets forgotten
 
@@ -752,7 +756,10 @@ the workflow task detail) and is reused for the admin detail. The export
 asks `forms.api.form_definition` for the field order and
 `forms.api.submission_views(db, ids)` **once** for all registrations of the
 component — not one query per row; one column per field, header = field
-label. What the code calls "the door list" *is* this export (measured: no
+label. The book (F14) is the same read rendered as a page —
+`submission_views` for the component's registrations plus the address
+through `mdm.api` — on the form builder's print stylesheet
+(`formulier_afdruk.html`). What the code calls "the door list" *is* this export (measured: no
 separate print view exists; the comments in `admin_inschrijving_nieuw.html`
 and `models.py` mean the component's .ods), so the answers are on it by
 this section, and the form's own remarks question is one of its columns
@@ -986,7 +993,7 @@ one.
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
 | 1 — **the page** | the one registration page for member and board (B4.1, B4.10), parity walked (B4.9), the component chips on the public page, the thank-you page; no questions yet. **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 on `master` | none | none | none on the happy path; the in-place participant refresh becomes a refresh on return (P10) | AC9 on HDEV: the parity list, phone and desktop |
-| 2 — **the questions** | the two links and the token, the picker with its refusals (F2, F13), the questions with the now/later choice on both pages, the answer page and the link in the mail (B4.8), the API field, the admin detail and the export (B4.4) | 1 | one, additive: `form_id`, `form_submission_id`, `answer_token` | none | a "now" registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
+| 2 — **the questions** | the two links and the token, the picker with its refusals (F2, F13), the questions with the now/later choice on both pages, the answer page and the link in the mail (B4.8), the API field, the admin detail, the export and the book (B4.4) | 1 | one, additive: `form_id`, `form_submission_id`, `answer_token` | none | a "now" registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
 | 3 — **the aftercare** | R6 the answers in the mail, R7 editing on the registration detail with history, "link opnieuw sturen" | 2 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
 Why the page is phase 1 on its own: it is the change every member sees,
@@ -1042,6 +1049,10 @@ Each able to go red:
 12. **The same parser.** A post with "Andere…" text on a checkbox question
     reaches the submission as the builder's own public form would store it
     (the parser is one, B4.3) — asserted by comparing the two submissions.
+13. **The book.** Three registrations, one with open questions → three
+    blocks in contact-name order, two page breaks, the open one saying
+    "nog niet beantwoord", the address present for the member and absent
+    for the guest; the same answers as the export (one read).
 
 **Impact on the test landscape**, per module:
 
@@ -1121,6 +1132,7 @@ None yet. To measure before the build of phase 2:
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B6. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
+| Q25 | 29 Sep 2026 | The Sint's book — all answers per registration under each other, visit by visit — as a second report next to the export? (Koen) | Yes: R14, a print view per component with a page break per household, the same read as the export; browser print, no PDF engine. Must or Should? *open* |
 | Q24 | 29 Sep 2026 | The Sint form asks for at least four time slots; the builder has no minimum count for a checkbox (`min_value`/`max_value` are for `number`). Enforce it — reuse the two columns as min/max checked options for `checkbox`, a small forms change in phase 2 — or keep it a request in the help text, as the Google Form did? (Claude) | Koen, 29 Sep: as before — a request in the help text. No forms change. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
 | Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A5. |
