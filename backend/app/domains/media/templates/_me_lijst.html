@@ -79,4 +79,7 @@
 <span id="me-uploadknop" hx-swap-oob="true">
   {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
 </span>
+{# #1291: the activity filter follows the kind the same way — gone for any other
+   kind, back at "Alle activiteiten" for activity photos. #}
+<span id="media-activity-filter" class="contents" hx-swap-oob="true">{% include "_media_activity_filter.html" %}</span>
 {% endif %}

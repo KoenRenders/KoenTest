@@ -66,7 +66,12 @@ _METEN = """() => {
   const rij = document.querySelector('form [class*="flex-wrap"]');
   if (!rij) return null;
   const r = rij.getBoundingClientRect();
-  const lijst = [...rij.children];
+  // #1291: the activity list sits in a `display: contents` anchor that the list
+  // fragment replaces out-of-band. That anchor has no box of its own, so the
+  // row's child is the list inside it.
+  const lijst = [...rij.children]
+    .map(x => getComputedStyle(x).display === 'contents' ? x.firstElementChild : x)
+    .filter(Boolean);
   const kinderen = lijst.map(x => {
     const b = x.getBoundingClientRect();
     return {breedte: Math.round(b.width), hoogte: Math.round(b.height),
