@@ -188,7 +188,7 @@ nothing in it needs a question:
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
-| R1 | An organiser can attach one form, built in the form builder, to a component of an activity. | Must | Koen, 29 Sep 2026 | "dat je aan een onderdeel binnen een activiteit koppelt" |
+| R1 | The organiser of an activity decides which questions its registration asks — different per activity, set up by the organiser alone, without a developer or a change request. | Must | Koen, 29 Sep 2026 | "dat je aan een onderdeel binnen een activiteit koppelt" — the attaching of a form is the solution (B1) |
 | R2 | A member answers the component's questions **while registering** — or chooses to answer them **later**, through a link in the confirmation mail; the registration itself never waits for the answers. | Must | Koen, 29 Sep 2026 | "in één beweging" and, the same day, the Sint story: registered first, answered a week before the visit |
 | R3 | The answers belong to the registration: they are shown on the registration in the admin and included in the component's export. | Must | Koen, 29 Sep 2026 | "een inschrijving met extra vragen te voorzien" |
 | R4 | Whoever answers — now on the page, later through the link, member or board — is held to the same rules: a required question refuses the answers with the same message everywhere. No channel is lenient. | Must | Koen, 29 Sep 2026; CR-13 R1 | "helemaal invullen, of leeg"; one entrance rule |
@@ -198,9 +198,9 @@ nothing in it needs a question:
 | R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is simply not linked to any registration — harmless, because the link runs from the registration to the submission, never the other way (B4.6) |
 | R9 | Questions that depend on the products chosen ("size per ticket"). | Won't | analyst | a product-level question is a different shape; own change if ever needed |
 | R10 | A component may swap its form once registrations carry answers. | Won't | Koen, 29 Sep 2026 | once a registration of the component has a submission, the form can be detached but not replaced — attaching a different one is refused |
-| R11 | One registration screen for the member and the board, built from the board's page as the ideal — **and the public user loses nothing**: every function and every nicety the public registration has today is on the page. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
+| R11 | The member and the board register on one and the same screen — **and the public user loses nothing**: every function and every nicety the public registration has today stays. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
-| R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. Through the component's existing export, not the reporting panel, which is not asked for anything. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; the form builder's results view counts the choices for free |
+| R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; how (the component's export, not the reporting panel) is B1 and B2.3 |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
 
@@ -366,7 +366,7 @@ what proves it:**
 
 | R | How the solution meets it | Where | Proof |
 |---|---|---|---|
-| R1 attach a form to a component | the component settings get a picker "Extra vragen" over the tenant's open, one-section forms | component settings (admin) | AC1, AC5 |
+| R1 the organiser decides the questions | the organiser builds them as a form in the form builder and attaches it to the component through a picker "Extra vragen" — no developer involved | form builder; component settings (admin) | AC1, AC5 |
 | R2 answer while registering, or later | the questions sit on the registration page after the products, behind the choice *nu / later*; "later" puts a link in the confirmation mail that opens the questions once | registration page; the mail; the answer page | AC1, AC2, AC4 |
 | R3 answers belong to the registration | shown on the registration detail; one column per question in the component's export | registration detail; export | AC3 |
 | R4 the same rules for everyone | one validation (`build_answers`) on the page, the board page, the API and the answer page; a required question left empty is refused with its label | all four entrances | AC2 |
@@ -376,7 +376,7 @@ what proves it:**
 | R8 the form's own URL stays usable | untouched; such a submission is simply not linked | the form's public page | — (unchanged) |
 | R9 questions per product | **Won't** — not built | — | — |
 | R10 swap a form once answered | **Won't** — replacing is refused; detaching allowed | component settings | AC5 |
-| R11 one screen, the public loses nothing | the modal becomes a page, the board's page is the same page; fifteen-point parity list | registration page | AC9 |
+| R11 one screen, the public loses nothing | the public modal becomes a page, built from the board's page; the board's page is the same page in the admin shell; fifteen-point parity list | registration page | AC9 |
 | R12 following up answers and transfers | **Won't** — by hand; the portal shows the state and offers "resend the link" | registration detail; payments screen | — |
 | R13 the export for the Sint's list | the component's existing export gains the answer columns; the activities module reads the answers through the forms facade in one call | export | AC3 |
 
