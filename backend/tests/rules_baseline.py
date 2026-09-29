@@ -696,3 +696,34 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
         "domains/payment/service.py::_activate_membership → membership.Membership",
     }
 )
+
+
+# Functions that write after they committed (§B9.3 (b)), 29 September 2026. The one
+# the change request names: phase 1 makes `delete_registration` commit once, at the end.
+WRITE_AFTER_COMMIT: frozenset[str] = frozenset(
+    {
+        "domains/activities/service.py::delete_registration",
+    }
+)
+
+
+# Functions another domain's service, handler or tool calls through `api.py` and that
+# commit (§B9.3 (c)), 29 September 2026. A router or screen calling another domain's
+# service is not here: that service is the request's door. Mail's `_log_email` is
+# the phase 4 job enqueuer (§B4.1); media and designstudio meet in phase 4.
+COMMIT_BEHIND_API: frozenset[str] = frozenset(
+    {
+        "chatbot.api.sink_for",
+        "forms.api.submit_bericht",
+        "mail.api.send_campaign_mail",
+        "mail.api.send_form_confirmation",
+        "mail.api.send_magic_link",
+        "mail.api.send_member_contact_board_notice",
+        "mail.api.send_newsletter_confirmation",
+        "mail.api.send_with_attachments",
+        "media.api.activity_image_path",
+        "media.api.add_document",
+        "media.api.delete_media",
+        "media.api.upload_media",
+    }
+)

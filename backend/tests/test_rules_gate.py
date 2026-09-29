@@ -901,6 +901,234 @@ def collect_foreign_writes() -> dict[str, str]:
     return found
 
 
+# ── 9. One transaction per request, parts (b) and (c) (ratchets) ────────────
+
+_WRITE_CALLS = {"add", "add_all", "delete", "merge", "bulk_save_objects", "bulk_insert_mappings"}
+
+
+def _is_commit(node: ast.AST) -> bool:
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "commit"
+    )
+
+
+def _write_in(node: ast.AST) -> tuple[int, str] | None:
+    """The first ORM write in a statement: `db.add/delete/merge(...)`, `soft_delete(...)`,
+    a bulk `.update()`/`.delete()` on a query, or `db.execute(update|insert|delete(...))`."""
+    for n in _own_nodes(node) if not isinstance(node, ast.expr) else ast.walk(node):
+        if not isinstance(n, ast.Call):
+            continue
+        func = n.func
+        name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+        if isinstance(func, ast.Attribute) and name in _WRITE_CALLS:
+            return n.lineno, f"db.{name}()"
+        if name == "soft_delete":
+            return n.lineno, "soft_delete()"
+        if name in {"update", "delete"} and isinstance(func, ast.Attribute):
+            receiver = func.value
+            if isinstance(receiver, ast.Call) and getattr(receiver.func, "attr", "") in {
+                "filter",
+                "filter_by",
+                "query",
+                "where",
+            }:
+                return n.lineno, f"bulk .{name}()"
+        if name == "execute" and n.args and isinstance(n.args[0], ast.Call):
+            inner = n.args[0].func
+            if getattr(inner, "id", getattr(inner, "attr", "")) in {"update", "insert", "delete"}:
+                return n.lineno, "execute(update/insert/delete)"
+    return None
+
+
+def _statement_nodes(stmt: ast.stmt):
+    """A statement's own nodes, nested function bodies left out."""
+    yield stmt
+    yield from _own_nodes(stmt)
+
+
+def _terminates(block: list[ast.stmt]) -> bool:
+    return bool(block) and isinstance(block[-1], (ast.Return, ast.Raise, ast.Continue, ast.Break))
+
+
+def _writes_after_commit(block: list[ast.stmt], committed: int | None, out: list) -> int | None:
+    """Walk a block in order; return the line of a commit that may have happened
+    before the block ends (None if none), and collect `(write line, what, commit line)`.
+
+    A branch that ends in `return`/`raise` does not carry its commit past the `if`;
+    a sibling branch never sees the other's commit. A loop that commits and writes
+    anywhere in its body writes after a commit on the next pass.
+    """
+    for stmt in block:
+        if isinstance(stmt, ast.If):
+            after_body = _writes_after_commit(stmt.body, committed, out)
+            after_else = _writes_after_commit(stmt.orelse, committed, out)
+            carried = [
+                c
+                for c, branch in ((after_body, stmt.body), (after_else, stmt.orelse))
+                if c is not None and not _terminates(branch)
+            ]
+            committed = carried[0] if carried else (committed if not stmt.orelse else committed)
+            continue
+        if isinstance(stmt, (ast.For, ast.AsyncFor, ast.While)):
+            inner = _writes_after_commit(stmt.body, committed, out)
+            if inner is not None:
+                write = next((w for s in stmt.body for w in [_write_in(s)] if w), None)
+                if write:
+                    out.append((write[0], write[1] + " (next pass of the loop)", inner))
+                committed = inner
+            _writes_after_commit(stmt.orelse, committed, out)
+            continue
+        if isinstance(stmt, (ast.Try, ast.With, ast.AsyncWith)):
+            blocks = [stmt.body]
+            if isinstance(stmt, ast.Try):
+                blocks += [h.body for h in stmt.handlers] + [stmt.orelse, stmt.finalbody]
+            for inner_block in blocks:
+                result = _writes_after_commit(inner_block, committed, out)
+                if result is not None and not _terminates(inner_block):
+                    committed = result
+            continue
+        if committed is not None:
+            write = _write_in(stmt)
+            if write:
+                out.append((write[0], write[1], committed))
+        for node in _statement_nodes(stmt):
+            if _is_commit(node):
+                committed = node.lineno
+    return committed
+
+
+def collect_write_after_commit() -> dict[str, str]:
+    """A function that writes after it committed → key `file::function` (§B9.3 (b)).
+
+    One request, one transaction, one commit at the end by the door service: a
+    write after a commit is a second transaction, and a failure in it leaves the
+    first half stored.
+    """
+    found: dict[str, str] = {}
+    files = _python_files()
+    for path in files:
+        tree = _tree(path)
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            out: list = []
+            _writes_after_commit(function.body, None, out)
+            if out:
+                line, what, commit = out[0]
+                name = qualified.get(function, function.name)
+                found[f"{_rel(path)}::{name}"] = (
+                    f"{_rel(path)}:{line} `{name}` {what} after the commit on line {commit} — "
+                    f"one commit, at the end, by the door service (CR-13 §B9.3)"
+                )
+    return found
+
+
+def _api_exports(domain: Path) -> dict[str, tuple[Path, ast.Module, ast.FunctionDef]]:
+    """The functions a domain's `api.py` exports, resolved to where they are defined."""
+    api = domain / "api.py"
+    tree = _tree(api)
+    exports: dict[str, tuple[Path, ast.Module, ast.FunctionDef]] = {}
+    for name, fn in _module_functions(tree).items():
+        exports[name] = (api, tree, fn)
+    for node in tree.body:
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            target = domain / Path(*(node.module or "").split("."))
+            target = target.with_suffix(".py") if target.with_suffix(".py").is_file() else None
+        else:
+            target = _module_path(node.module or "")
+        if target is None:
+            continue
+        functions = _module_functions(_tree(target))
+        for alias in node.names:
+            fn = functions.get(alias.name)
+            if fn is not None:
+                exports[alias.asname or alias.name] = (target, _tree(target), fn)
+    return exports
+
+
+def _is_door(path: Path) -> bool:
+    """A router or UI module: the doorman of a request, whose door service commits."""
+    return (
+        path.name in {"main.py", "router.py", "ui.py", "admin_ui.py"}
+        or path.stem.endswith(("_router", "_ui"))
+        or path.parent == APP / "ui"
+    )
+
+
+def _foreign_api_calls() -> dict[tuple[str, str], str]:
+    """(domain, exported name) → one caller in another domain's non-door code
+    (a service, a handler, a tool), `file:line`. A router or screen calling another
+    domain's service makes that service the door — its commit is the one commit."""
+    callers: dict[tuple[str, str], str] = {}
+    for path in _python_files():
+        if _is_door(path):
+            continue
+        caller_domain = _owner_of_file(path)
+        tree = _tree(path)
+        direct: dict[str, tuple[str, str]] = {}
+        modules: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                parts = node.module.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    for alias in node.names:
+                        direct[alias.asname or alias.name] = (parts[2], alias.name)
+                elif node.module == "app.domains" or (
+                    parts[:2] == ["app", "domains"] and len(parts) == 3
+                ):
+                    for alias in node.names:
+                        if alias.name == "api":
+                            modules[alias.asname or alias.name] = parts[2]
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            target = None
+            if isinstance(func, ast.Name) and func.id in direct:
+                target = direct[func.id]
+            elif (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id in modules
+            ):
+                target = (modules[func.value.id], func.attr)
+            if target and target[0] != caller_domain:
+                callers.setdefault(target, f"{_rel(path)}:{node.lineno}")
+    return callers
+
+
+def collect_commit_behind_api() -> dict[str, str]:
+    """A function another domain calls through `api.py` that commits → key
+    `domain.api.name` (§B9.3 (c)). The caller owns the transaction; a commit inside
+    the callee ends it behind the caller's back."""
+    callers = _foreign_api_calls()
+    assert len(callers) > 10, f"only {len(callers)} cross-domain api calls — the walk is blind"
+    # A package without `api.py` (stt) exports nothing; module shape reports it.
+    exports = {p.name: _api_exports(p) for p in _packages() if (p / "api.py").is_file()}
+    found: dict[str, str] = {}
+    for (domain, name), caller in sorted(callers.items()):
+        target = exports.get(domain, {}).get(name)
+        if target is None:
+            continue
+        path, tree, function = target
+        for reached_path, _t, reached, via in _reachable(path, tree, function):
+            line = _commits(reached)
+            if line is not None:
+                where = f"{_rel(reached_path)}:{line}"
+                found[f"{domain}.api.{name}"] = (
+                    f"`{domain}.api.{name}` commits ({where}{' via ' + via if via else ''}) "
+                    f"and is called from another domain ({caller}) — the caller's door "
+                    f"service commits, once (CR-13 §B9.3)"
+                )
+                break
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -911,6 +1139,8 @@ COLLECTORS = {
     "JSON_ROUTE_WITHOUT_CALLER": collect_json_route_without_caller,
     "DUTCH_IDENTIFIERS": collect_dutch_identifiers,
     "FOREIGN_WRITES": collect_foreign_writes,
+    "WRITE_AFTER_COMMIT": collect_write_after_commit,
+    "COMMIT_BEHIND_API": collect_commit_behind_api,
 }
 
 
@@ -994,6 +1224,43 @@ def test_no_new_foreign_write():
     .first_name"; a function holding the string `"UPDATE mdm.persons SET …"` → red,
     "raw SQL writes `schema mdm`"."""
     _ratchet("FOREIGN_WRITES")
+
+
+def test_no_write_after_a_commit():
+    """Ratchet on one entry (`delete_registration`, phase 1). Proof (run, removed): a
+    function `db.add(a); db.commit(); db.add(b)` added to `cms/service.py` → red,
+    "db.add() after the commit on line …". The shapes that are not a violation are
+    pinned below, on sources of their own."""
+    _ratchet("WRITE_AFTER_COMMIT")
+
+
+@pytest.mark.parametrize(
+    ("source", "red"),
+    [
+        ("db.add(a)\ndb.commit()\ndb.add(b)\n", True),
+        ("db.add(a)\ndb.commit()\n", False),
+        # A commit in a branch that returns is not carried past the `if`.
+        ("if x:\n    db.commit()\n    return\ndb.add(b)\n", False),
+        # A commit in one branch is not seen by its sibling.
+        ("if x:\n    db.commit()\nelse:\n    db.add(b)\n", False),
+        # A commit in a branch that falls through is carried.
+        ("if x:\n    db.commit()\ndb.add(b)\n", True),
+        # A loop that commits and writes writes after a commit on the next pass.
+        ("for a in items:\n    db.add(a)\n    db.commit()\n", True),
+    ],
+)
+def test_what_counts_as_a_write_after_a_commit(source, red):
+    out: list = []
+    _writes_after_commit(ast.parse(source).body, None, out)
+    assert bool(out) is red, out
+
+
+def test_no_commit_behind_another_domains_api():
+    """Ratchet on twelve (§B9.3 (c)). Proof (run, removed): a function in
+    `cms/service.py` calling `add_to_circle` imported from `mdm.api` → red,
+    "`mdm.api.add_to_circle` commits (domains/mdm/service.py:…) and is called from
+    another domain (domains/cms/service.py:…)"."""
+    _ratchet("COMMIT_BEHIND_API")
 
 
 @pytest.mark.parametrize(

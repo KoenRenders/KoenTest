@@ -20,6 +20,7 @@ from tests.test_rules_gate import (
     _packages,
     _python_files,
     _tree,
+    collect_commit_behind_api,
     collect_commit_in_handler,
     collect_dutch_identifiers,
     collect_foreign_writes,
@@ -27,6 +28,7 @@ from tests.test_rules_gate import (
     collect_network_in_handler,
     collect_session_on_entity,
     collect_validator_without_constraint,
+    collect_write_after_commit,
 )
 
 
@@ -138,6 +140,10 @@ def a2_table() -> list[tuple[str, int | str]]:
         ("validators without their constraint", len(collect_validator_without_constraint(mappers))),
         ("Dutch identifiers (#780)", len(collect_dutch_identifiers())),
         ("writes to another domain's classes (function × class)", len(collect_foreign_writes())),
+        (
+            "functions that write after a commit / api functions that commit for another domain",
+            f"{len(collect_write_after_commit())} / {len(collect_commit_behind_api())}",
+        ),
     ]
 
 
