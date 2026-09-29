@@ -41,15 +41,21 @@ flowchart LR
     m6 --> m7[Pay by transfer<br/>as the form says]
     m7 --> m8((Registered,<br/>answered, paid))
   end
-  subgraph treasurer["Treasurer / organiser"]
+  subgraph treasurer["Treasurer"]
     t1[See transfers<br/>come in] --> t2[Match each transfer<br/>to a registration]
     t2 --> t3{Everyone paid?}
     t3 -- no --> t4[Remind by mail<br/>or WhatsApp]
     t4 --> t1
-    t3 -- yes --> t5[Read the answers<br/>in the form's sheet]
-    t5 --> t6((Round planned))
+    t3 -- yes --> t5((All paid))
+  end
+  subgraph organiser["Organiser"]
+    o1[Read the answers<br/>in the form's sheet] --> o2{Every household<br/>complete?}
+    o2 -- no --> o3[Remind by mail<br/>or WhatsApp]
+    o3 --> o1
+    o2 -- yes --> o4((Round planned))
   end
   m7 -.-> t1
+  m6 -.-> o1
 ```
 
 | Step | Who | Today | Pain |
@@ -58,8 +64,8 @@ flowchart LR
 | 2. Complete now, or later through the mail's link, typically a week before the Sint. | member | Google Form's edit link | none |
 | 3. Pay by transfer; the form says so. | member | bank | no structured communication, so step 4 |
 | 4. See the transfers come in and match each to a registration. | treasurer | bank + the form's sheet | by hand, by name and amount |
-| 5. Follow up who has not paid; remind. | treasurer, organiser | mail, WhatsApp | by hand, from two lists |
-| 6. Read the answers and plan the round. | organiser | the form's sheet | the answers live outside the member data; nothing links them to a person or a payment |
+| 5. Follow up who has not paid; remind. | treasurer | mail, WhatsApp | by hand, from two lists |
+| 6. Read the answers, follow up who has not completed the questionnaire; remind; plan the round. | organiser | the form's sheet, mail, WhatsApp | by hand; the answers live outside the member data; nothing links them to a person or a payment |
 
 **Why this cannot run on the platform today** (measured on `master`, 29
 Sep): a registration collects contact, products and one `remarks` box, and
@@ -90,17 +96,22 @@ flowchart LR
   subgraph board["Board"]
     b1[Register a member on<br/>the same page, same choice]
   end
-  subgraph treasurer["Treasurer / organiser"]
+  subgraph treasurer["Treasurer"]
     t1[See payments arrive<br/>on the payments screen:<br/>online at once, transfers<br/>by their structured message] --> t2{Everyone paid?}
     t2 -- no --> t3[Remind by mail<br/>or WhatsApp]
     t3 --> t1
-    t2 -- yes --> t4[Read the answers on the<br/>registration and in the export;<br/>resend the answer link<br/>where still open]
-    t4 --> t5((Round planned))
+    t2 -- yes --> t4((All paid))
+  end
+  subgraph organiser["Organiser"]
+    o1[Read the answers on the<br/>registration and in the export] --> o2{Every household<br/>complete?}
+    o2 -- no --> o3[Resend the answer link;<br/>remind by hand]
+    o3 --> o1
+    o2 -- yes --> o4((Round planned))
   end
   m4 -.-> t1
   b1 -.-> m5
-  m3 -.-> t4
-  m7 -.-> t4
+  m3 -.-> o1
+  m7 -.-> o1
 ```
 
 What changed against A2: the one form is back — contact, children and the
@@ -110,8 +121,9 @@ transfer carries a structured message, so "match each transfer by hand"
 disappears (the payments module does it, as for every registration today);
 the answers sit on the registration, next to the person and the payment,
 and in the component's export. **Following up stays by hand, in both lanes — a Won't (R12):** whether
-everyone has answered, and whether every transfer has actually arrived, is
-for the organiser and the treasurer to watch and to chase, as today; the
+every household has completed the questionnaire is the organiser's to watch
+and to chase, whether every transfer has arrived is the treasurer's, as
+today; the
 portal shows the state and offers "resend the link", nothing more.
 
 | Step | Who | Afterwards |
@@ -123,7 +135,8 @@ portal shows the state and offers "resend the link", nothing more.
 | 4b. Whoever chose "later" — member or board — the member gets the link in the confirmation mail, answers when it suits, and the answers land on the registration. The organiser sees who still owes answers and can resend the link. | member, organiser | the answer link; the registration detail |
 | 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail. The organiser can correct one. | organiser, treasurer, member | activities module; the mail |
 | 6. Whoever answers — now, later by link, member or board — a required question left empty is refused with the same message. | — | — |
-| 7. Payments arrive on the payments screen as for every registration; who has not paid, and who still owes answers, is followed up **by hand** (R12 Won't). | treasurer, organiser | payment module (unchanged); the registration detail |
+| 7. Payments arrive on the payments screen as for every registration; the treasurer follows up who has not paid, **by hand** (R12 Won't). | treasurer | payment module (unchanged) |
+| 8. The organiser follows up who has not completed the questionnaire, **by hand**, with "resend the link" from the registration detail (R12 Won't), and plans the round. | organiser | the registration detail; the export |
 
 ## A4. Benefits — what the change earns
 
@@ -287,7 +300,8 @@ flowchart LR
 ```
 
 **Registering, answering, following up** — the member, the board, the
-treasurer and the organiser, once the activity is open:
+treasurer (payments) and the organiser (the questionnaire, the round), once
+the activity is open:
 
 ```mermaid
 flowchart LR
@@ -306,21 +320,26 @@ flowchart LR
   subgraph board["Board"]
     b1["Register a member, same choice<br/><i>board registration page · activities admin</i>"]
   end
-  subgraph treasurer["Treasurer / organiser"]
+  subgraph treasurer["Treasurer"]
     t1["See payments arrive<br/><i>payments screen · payment</i>"] --> t2{Everyone paid?}
     t2 -- no --> t3["Remind by hand<br/><i>— outside the portal (R12)</i>"]
     t3 --> t1
-    t2 -- yes --> t4["Read the answers; export the list;<br/>resend the link where open<br/><i>registration detail + export · activities admin</i>"]
-    t4 --> t5((Round planned))
+    t2 -- yes --> t4((All paid))
+  end
+  subgraph organiser2["Organiser"]
+    o1["Read the answers; export the list<br/><i>registration detail + export · activities admin</i>"] --> o2{Every household<br/>complete?}
+    o2 -- no --> o3["Resend the link<br/><i>registration detail · activities admin</i><br/>then remind by hand <i>— outside the portal (R12)</i>"]
+    o3 --> o1
+    o2 -- yes --> o4((Round planned))
   end
   m4 -.-> t1
   b1 -.-> m5
-  m3 -.-> t4
-  m7 -.-> t4
+  m3 -.-> o1
+  m7 -.-> o1
   classDef act fill:#dbeafe,stroke:#1d4ed8,color:#111
   classDef frm fill:#dcfce7,stroke:#15803d,color:#111
   classDef oth fill:#f3f4f6,stroke:#6b7280,color:#111
-  class m1,m4,m7,b1,t4 act
+  class m1,m4,m7,b1,o1,o3 act
   class m3 frm
   class m5,t1 oth
 ```
