@@ -174,7 +174,7 @@
         hx-post="/admin/leden/gezin/{{ family.id }}/lidmaatschappen"
         hx-target="#lidmaatschappen-kaart" hx-swap="outerHTML">
     <div>{{ ui.label(_("Jaar toevoegen"), "year") }}
-      {{ ui.input_control("year", id="year", type="number", value=(family.memberships[0].year + 1 if family.memberships else current_year), cls="w-28") }}</div>
+      {{ ui.input_control("year", id="year", type="number", value=(family.memberships[-1].year + 1 if family.memberships else current_year), cls="w-28") }}</div>
     {# §2.12 (#641): een sub-item toevoegen heet "Toevoegen" — het formulier voegt
        een lidmaatschapsjaar toe, het maakt geen lid. #}
     {{ ui.btn_primary(_("Toevoegen")) }}
