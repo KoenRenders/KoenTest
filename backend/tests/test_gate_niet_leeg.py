@@ -58,6 +58,8 @@ GATE_BESTANDEN = [
     "test_codes_gate.py",
     # #1293: the e-mail domains in the tests — a public repository.
     "test_test_email_domains_gate.py",
+    # #1287: the one product row, over activities/templates.
+    "test_one_product_row_gate.py",
     # Geen `test_`-bestand: de migratiepoort (#951) leest haar bestanden in
     # `_migratieketen.py`, omdat `conftest` diezelfde controle draait vóór
     # `alembic upgrade head`. De glob staat daar, dus daar hoort de niet-leeg-
