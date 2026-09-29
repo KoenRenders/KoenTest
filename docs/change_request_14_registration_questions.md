@@ -56,8 +56,9 @@ be linked to anything today.
 |---|---|---|
 | 1. The organiser builds the questions as a form in the form builder (as today for any form). | organiser | forms module |
 | 2. The organiser attaches that form to the component: "Extra questions: <form>". | organiser | one setting on the component |
-| 3. A member registers on **one page**, in this order: who (contact), what (the products — "two children for the Sint"), **then the component's questions** (time slots, inside or outside, the story, allergies, remarks), then the payment method; one submit; then Mollie or the transfer instructions, as today. | member | the public registration page |
-| 4. The board registers a member on **the same page** as the member sees, in the admin shell, with the questions optional; left blank, the member receives the link by mail to answer them afterwards, and the answers land on that registration (Koen, 29 Sep). | board, member | the same registration page; the answer link |
+| 3. A member registers on **one page**, in this order: who (contact), what (the products — "two children for the Sint"), **then the component's questions** — with a choice: answer them now, or later through a link in the confirmation mail (Koen: "ik schreef ze eerst in, en een week voor de Sint vulde ik de rest in") — then the payment method; one submit; then Mollie or the transfer instructions, as today. | member | the public registration page |
+| 4. The board registers a member on **the same page** as the member sees, in the admin shell, with the same choice: answer now, or the member answers later through the link in the mail. | board, member | the same registration page; the answer link |
+| 4b. Whoever chose "later" — member or board — the member gets the link in the confirmation mail, answers when it suits, and the answers land on the registration. The organiser sees who still owes answers and can resend the link. | member, organiser | the answer link; the registration detail |
 | 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail *(to confirm)*. | organiser, treasurer | activities module |
 | 6. A required question that is not answered refuses the registration with the same message on the entrances that ask it — the public screen and the JSON API. | — | — |
 
@@ -83,10 +84,10 @@ component). Nothing in the form builder has to change for this case.
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
 | R1 | An organiser can attach one form, built in the form builder, to a component of an activity. | Must | Koen, 29 Sep 2026 | "dat je aan een onderdeel binnen een activiteit koppelt" |
-| R2 | A member answers the component's questions **while registering**, in one movement, before the payment step. | Must | Koen, 29 Sep 2026 | "in één beweging doorgaan naar dat formulier" |
+| R2 | A member answers the component's questions **while registering** — or chooses to answer them **later**, through a link in the confirmation mail; the registration itself never waits for the answers. | Must | Koen, 29 Sep 2026 | "in één beweging" and, the same day, the Sint story: registered first, answered a week before the visit |
 | R3 | The answers belong to the registration: they are shown on the registration in the admin and included in the component's export. | Must | Koen, 29 Sep 2026 | "een inschrijving met extra vragen te voorzien" |
-| R4 | A required question refuses the registration on every entrance that asks it — public modal and JSON API — with the same message. | Must | CR-13 R1 | one entrance rule; the board form is the named exception (R5) |
-| R5 | The board does not answer the questions; a board registration for a component with a form sends the member a link to answer them afterwards, and those answers belong to that registration. | Must | Koen, 29 Sep 2026 | "dan sturen we een link dat ze het formulier nog moeten invullen" |
+| R4 | Whoever answers — now on the page, later through the link, member or board — is held to the same rules: a required question refuses the answers with the same message everywhere. No channel is lenient. | Must | Koen, 29 Sep 2026; CR-13 R1 | "helemaal invullen, of leeg"; one entrance rule |
+| R5 | The choice "now or later" is the same for the member and the board: the board may answer completely or leave it to the member, who gets the link. | Must | Koen, 29 Sep 2026 | "zowel de bestuurder als de publieke gebruiker kunnen kiezen" |
 | R6 | The confirmation mail repeats the answers. | Should | Koen, 29 Sep 2026 | the member sees what was recorded |
 | R7 | An organiser can correct an answer in the admin afterwards. | Should | Koen, 29 Sep 2026 | the form builder already supports editing a submission — see B4.7 for how |
 | R8 | A form attached to a component stays fillable on its own public URL. | Should | Koen, 29 Sep 2026 | such a submission is not linked to a registration; the form's submissions view shows it without an "inschrijving #N" cell — harmless, because the link runs from the registration to the submission |
@@ -109,9 +110,9 @@ component). Nothing in the form builder has to change for this case.
 | # | Criterion | Requirement |
 |---|---|---|
 | AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions between the products and the remarks; a component without a form shows nothing new. | R1, R2 |
-| AC2 | A registration with a required question left empty is refused, with the question named, on the public screen and through the JSON API — and the registration is not saved. | R4 |
+| AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 |
 | AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order. | R3 |
-| AC4 | The board registers a member for that component from the admin; the board form shows no questions; the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R5 |
+| AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 |
 | AC5 | Attaching a closed form, a form of another tenant, or a form with more than one section is refused with a message that says why; so is replacing the form of a component that already has answered registrations. | R1, R10 |
 | AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 |
 | AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 |
@@ -169,11 +170,11 @@ Decisions that shape it, with the alternatives:
 |---|---|---|
 | F1 | A component has at most one form; a form may be attached to several components (the same questions for every component of one activity). | R1 |
 | F2 | Only an *open* form of the same tenant with **one section** can be attached; sections and branching (#336) do not fit a registration screen — refused at attach time with the reason. | R1, AC5 |
-| F3 | The attached form's fields render on the registration page after the products and before the payment method (B4.1), with the builder's field partial; the `info` field type renders as text, `rating` as today. **The registration's own *Opmerkingen* box is hidden when the component has a form** (Koen, Q9) — the form asks for remarks if it wants them; `remarks` stays empty on such a registration. | R2 |
+| F3 | The attached form's fields render on the registration page after the products and before the payment method (B4.1), behind the choice "nu invullen / later via de link" (B4.8), with the builder's field partial; the `info` field type renders as text, `rating` as today. **The registration's own *Opmerkingen* box is hidden when the component has a form** (Koen, Q9) — the form asks for remarks if it wants them; `remarks` stays empty on such a registration. | R2 |
 | F4 | The answers are validated by the `forms` rules (`build_answers`: required, min/max, options) before the registration is created; a refusal names the question and re-renders the screen with the answers kept. | R4 |
 | F5 | The submission's `submitter_name`/`submitter_email` are the registration's contact; the form's own confirmation mail is **not sent** for an attached submission (the registration mail carries the answers, R6). | R3, R6 |
-| F6 | The JSON API's `RegistrationCreate` accepts `answers: {field_id: value}`; a component with a form refuses a registration without the required answers (same message). | R4 |
-| F7 | The board page renders the questions behind one explicit choice — fill in now (complete, same validation) or let the member answer by link (B4.8). With the second choice a board registration for a component with a form gets an `answer_token`; the confirmation mail (or a separate mail when no confirmation goes out) carries the link `/inschrijving/{answer_token}/vragen`; that page renders the form's fields, and its post creates the submission through `forms.api.submit_attached` and links it — once: a used token shows "al ingevuld". The detail shows the open request and a "link opnieuw sturen" action. | R5 |
+| F6 | The JSON API's `RegistrationCreate` accepts `answers: {field_id: value}`; answers present = "now" (validated, same message); `answers` absent = "later" (token and link). | R2, R4 |
+| F7 | Both pages render the questions behind the same explicit choice — now (complete, same validation) or later by link (B4.8). With "later" the registration gets an `answer_token`; the confirmation mail (or a separate mail when no confirmation goes out) carries the link `/inschrijving/{answer_token}/vragen`; that page renders the form's fields, and its post creates the submission through `forms.api.submit_attached` and links it — once: a used token shows "al ingevuld". The detail shows the open request and a "link opnieuw sturen" action. | R5 |
 | F8 | The admin detail shows the answers as label/value rows; the export adds one column per field after *Opmerkingen*, in field order; a checkbox field joins its options with ", ". | R3 |
 | F9 | The attached form's public URL keeps working as for any form; a submission made there has no registration and is shown as such in the form's submissions view. | R8 |
 | F10 | Soft-deleting a registration leaves the submission in place (history); the submissions view of the form shows it as "on registration #N". | R3 |
@@ -416,11 +417,10 @@ A board registration for a component with a form does not ask the questions
 a link. The mechanics follow the form builder's own edit link
 (`edit_token`), on the registration side:
 
-- `create_registration` on the board channel, component with a form: no
-  submission; `registration.answer_token` = a fresh url-safe secret; the
-  confirmation mail carries `/inschrijving/{answer_token}/vragen`. A board
-  registration without a confirmation mail *(does that exist? — measure)*
-  gets a separate mail "nog even de vragen".
+- `create_registration`, either channel, "later" chosen (or the API without
+  `answers`): no submission; `registration.answer_token` = a fresh url-safe
+  secret; the confirmation mail — sent on both channels today — carries
+  `/inschrijving/{answer_token}/vragen`.
 - The page renders the component's form fields with the registration's
   contact shown read-only ("Inschrijving van <name> voor <activity>"); the
   post runs `submit_attached`, links the submission, clears the token, one
@@ -430,10 +430,9 @@ a link. The mechanics follow the form builder's own edit link
   is open, with "link opnieuw sturen" (same token, new mail). The token has
   no expiry: the activity's date is the natural end, and a stale link shows
   the registration's current state.
-- The public channel never sets the token: it has the answers or is refused.
-  A public registration whose component got a form *later* has no submission
-  and no token — the organiser can send the link from the detail for those
-  too ("link sturen" when there is no submission), which covers "we
+- A registration whose component got a form *after* it was made has no
+  submission and no token — the organiser sends the link from the detail for
+  those too ("link sturen" when there is no submission), which covers "we
   attached the form after the first registrations".
 - The token is the only secret; it is not the registration id, and the
   page does not accept an id. The rate limiter of the registration routes
@@ -447,18 +446,24 @@ answers as label/value when a submission exists; "nog even de vragen" with
 the link when the token is open; nothing when the component has no form.
 Subject stays "Inschrijving bevestigd".
 
-**The board fills the form in completely, or not at all** (Koen, 29
-September). No half way and no board-only leniency: the board page carries
-**one explicit choice** above the questions — *"Vragen: ○ het lid vult ze
-zelf in (link in de mail) ○ nu invullen"*, default the first — and that is
-the only element the public page does not have. Chosen "nu invullen": the
-form's fields appear (Alpine toggle) and the post is validated by the very
-same `build_answers` as the member's, required fields included; refused the
-same way. Chosen "het lid vult ze zelf in": no answers are posted, the
-registration gets the token and the mail carries the link. An explicit
-choice rather than "all blank means defer", because a form may consist of
-optional fields only — then an empty post is ambiguous, and the system
-would be guessing what the board meant. "Link opnieuw sturen" on the detail
+**Now or later — one choice, on both pages** (Koen, 29 September: first
+"the board fills it in completely or not at all", then "I would do the same
+on the public side: my children were registered first so the Sint's round
+could be planned, and I filled in the rest a week before"). Above the
+questions, on the member's page and on the board's alike, one explicit
+choice: *"Vragen: ○ nu invullen ○ later, via de link in de bevestigingsmail"*.
+"Nu": the form's fields appear (Alpine toggle) and the post is validated by
+`build_answers`, required fields included, refused the same way for
+everyone. "Later": no answers are posted, the registration gets the token
+and the confirmation mail carries the link. Completely or not at all — no
+half-filled form, no lenient channel. An explicit choice rather than "all
+blank means later", because a form may consist of optional fields only, and
+an empty post would then be ambiguous. **Default:** "nu" on the member's
+page (the questions are why the form is there), "later" on the board's (the
+board rarely knows the answers) — a default, not a rule; the fields and the
+validation are identical. *(Koen to confirm the two defaults, Q16.)* The
+thank-you page after a "later" registration repeats the link, so a member
+who changes their mind answers at once. "Link opnieuw sturen" on the detail
 sends the same mail with the subject "Herinnering: de vragen voor
 <activity>" and without the payment block once that is settled.
 
@@ -495,10 +500,9 @@ goes back to Koen before the build, not after.
 What the board page has that the public page must **not** get: the CSRF
 hidden field is the admin's (the public form has its own guard), the
 back-office-only products with their badge (P4), the price refresh on the
-typed address (P3), the choice about the questions (B4.8), the "‹
-Inschrijvingen" link into the admin. Those are the `Channel` differences
-`registration_form.py` already carries; nothing new is added to that list
-by this CR except the questions choice.
+typed address (P3), the "‹ Inschrijvingen" link into the admin. Those are the `Channel`
+differences `registration_form.py` already carries; this CR adds nothing to
+that list — the questions and their now-or-later choice are on both pages.
 
 **How the fields render in the two shells — no exceptions.** One partial,
 `_inschrijf_velden.html`, includes the form's fields through `forms`' own
@@ -506,9 +510,9 @@ by this CR except the questions choice.
 them; the public page includes the partial in `site_base.html`, the board
 page includes the same partial in `admin_base.html`. The shell differs, the
 block does not. Server side one function validates the answers, called on
-both channels whenever answers are posted; the board channel differs from
-the public one in exactly one input — the choice — and in nothing about the
-questions themselves.
+both channels whenever answers are posted; since 29 September the choice is
+on both pages, so the channels differ in nothing about the questions at
+all — only in the default of the choice.
 
 ### B4.6 What the form builder shows
 
@@ -565,19 +569,18 @@ rule has its home from day one.
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
-| 1 | the two links and the token, the picker with its refusals (F2, F13), the fields in the public screen and the API, the board form unchanged plus the answer link and page (B4.8), the admin detail and export | CR-13 phase 1 on `master` | one, additive | none | a registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a board registration for such a component now sends a mail with a link where today it sends the plain confirmation | AC1–AC6 on HDEV |
+| 1 | the two links and the token, the picker with its refusals (F2, F13), the fields in the public screen and the API, the board form unchanged plus the answer link and page (B4.8), the admin detail and export | CR-13 phase 1 on `master` | one, additive | none | a registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration, public or board, sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
 | 1b | R6 mail with the answers, R7 edit on the registration detail with history | 1 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
 ## B8. Tests
 
 Each able to go red:
 
-1. **Two entrances, one refusal — and the third by design without.** Public
-   modal and JSON API each post a registration for a component with a
-   required question left empty → refused with the question's label in the
-   message; the registrations table is unchanged (count before = after). The
-   board form posts without answers → saved, `form_submission_id` NULL,
-   `answer_token` set, one mail with the link.
+1. **Three entrances, one rule.** Public page, board page and JSON API each
+   post "now" with a required question left empty → refused with the
+   question's label in the message; the registrations table is unchanged
+   (count before = after). Each posts "later" → saved, `form_submission_id`
+   NULL, `answer_token` set, one mail with the link.
 1b. **The link, once.** GET the page with the token → the fields; POST valid
    answers → submission linked, token cleared; POST again or GET again →
    "al ingevuld", no second submission; a wrong token → 404, nothing
@@ -646,7 +649,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 | 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
 | 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
-| 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice on the board page, no board-only leniency in validation; "not at all" sends the member the link. | Koen |
+| 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link. | Koen |
 
 ## Q&A log
 
@@ -657,6 +660,8 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
 | Q11 | 29 Sep 2026 | Is the board registration's mail the same as the member's, given the form is not filled yet — unless the board fills it? (Koen) | One mail with one variable block (answers, or the link, or nothing); the resend is the same mail with a reminder subject. B4.8. Koen, 29 Sep, on the board's part: **completely or not at all** — no board-only leniency; the CR makes it one explicit choice on the board page (default: the member answers by link), same validation when the board fills it in. |
+| Q15 | 29 Sep 2026 | Give the public user the same choice as the board — answer now or later through the link? (Koen, from his own Sint years: registered first, answered a week before) | Yes: one choice on both pages, "nu invullen / later via de link"; the API says it by sending `answers` or not; the thank-you page repeats the link. R2, R4, R5, F3, F6, F7, B4.8, B8 test 1. No channel difference about the questions remains. |
+| Q16 | 29 Sep 2026 | The default of the choice: "nu" for the member, "later" for the board? (Claude) | *proposed* — a default, not a rule; *open* |
 | Q14 | 29 Sep 2026 | One screen for back office and public, built from the internal form as the ideal — but check that the public loses no function or nicety. (Koen) | Measured: both already share the field block, context and processing (#1284); the frame differs. B4.9 lists the fifteen things the public has today and where each lives on the page; one visible difference (P10, the in-place participant refresh becomes a refresh on return) and one gain (P14, the component switch). R11, AC9, test 10. |
 | Q13 | 29 Sep 2026 | How do the questions render in the admin shell and the public shell, without exceptions for the board? (Koen) | One partial (`_inschrijf_velden.html` → `forms`' `_formulier_veld.html`, `required` as the builder set it) included in two shells; one validation function on both channels; the board's only extra input is the choice. B4.8. |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
