@@ -499,7 +499,11 @@ def refresh_record_status(
         status = None
     if status in _GATEWAY_ACTION:
         handle_gateway_update(db, gp.id, status, source="admin_refresh", actor=actor)
-    db.refresh(record)
+    # A flush, not a refresh (#1249): `handle_gateway_update` changes this same object
+    # through the identity map and does not flush. A refresh reloaded the row from the
+    # database and threw the booking away — unless a subscriber happened to query and
+    # autoflush first, which the membership handler does and a registration has none.
+    db.flush()
     return record
 
 
