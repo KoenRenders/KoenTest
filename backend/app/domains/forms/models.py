@@ -257,8 +257,12 @@ class FormSubmissionAnswer(TenantMixin, Base):
     # gevuld, afhankelijk van het veldtype. Meervoudige checkbox = meerdere rijen.
     value_text = Column(Text, nullable=True)
     value_number = Column(Numeric(12, 2), nullable=True)
+    # RESTRICT since #1347 (migration 175): a chosen option cannot be deleted under
+    # its answers. It was SET NULL, which left an empty answer that read as "did
+    # not answer". `forms.service.refuse_losing_answers` refuses first, with the
+    # reason on the screen; this is the net under every other way in.
     value_option_id = Column(
-        Integer, ForeignKey("form.form_field_options.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("form.form_field_options.id", ondelete="RESTRICT"), nullable=True
     )
     value_rating = Column(SmallInteger, nullable=True)
 

@@ -373,6 +373,7 @@ def apply_definition(form: Form, data) -> None:
     """
     existing_sections = {s.id: s for s in form.sections}
     existing_fields = {f.id: f for f in form.fields}
+    _refuse_definition_losing_answers(form, data)
 
     # ── Secties: hergebruik-op-id, in payload-volgorde ──────────────────────────
     payload_sections = getattr(data, "sections", []) or []
@@ -464,6 +465,30 @@ def apply_definition(form: Form, data) -> None:
             form.fields.remove(field)
 
 
+def _refuse_definition_losing_answers(form: Form, data) -> None:
+    """Before anything changes: would this definition drop an answered question or
+    a chosen option? (#1347) The JSON API ran `apply_definition` without the
+    builder's guard (#665) and relied on `SET NULL`/`CASCADE` to make it fit."""
+    from sqlalchemy.orm import object_session
+
+    db = object_session(form)
+    if db is None or form.id is None:
+        return  # a new form has no answers
+    kept_fields = {fi.id: fi for fi in data.fields if fi.id is not None}
+    for field in form.fields:
+        payload = kept_fields.get(field.id)
+        try:
+            if payload is None:
+                refuse_losing_answers(db, field=field)
+                continue
+            kept_options = {oi.id for oi in payload.options if oi.id is not None}
+            for option in field.options:
+                if option.id not in kept_options:
+                    refuse_losing_answers(db, option=option)
+        except FormulierFout as exc:
+            raise FormulierFout(f"{field.label}: {exc}") from None
+
+
 def assert_submitter(form, name, email, *, message=None, require_message=False):
     """Niet-anoniem formulier → naam én een geldig e-mailadres verplicht (#501).
 
@@ -515,6 +540,43 @@ def get_submission_by_edit_token(db, edit_token: str):
 class FormulierFout(ValueError):
     """Een invoerfout in de builder. Geen HTTPException: de service kent geen
     HTTP; de route bepaalt de statuscode."""
+
+
+def refuse_losing_answers(
+    db, *, field: Optional[FormField] = None, option: Optional[FormFieldOption] = None
+) -> None:
+    """A chosen option or an answered question cannot be removed (#1347).
+
+    Removing one wiped answers without a word: `value_option_id` was `SET NULL`,
+    so a chosen option left an empty answer that read as "not filled in", and a
+    field's answers went with `CASCADE`. The same brake `update_field` already has
+    for a type change (#1136). The one rule for every way in — the builder's two
+    delete buttons and `apply_definition`, which the JSON import and the JSON API
+    run; `value_option_id` is `RESTRICT` since migration 175, the net under it.
+
+    Counts submissions, not answer rows: a checkbox answer is one row per ticked
+    option, and "3 inzendingen" is what the secretary can check.
+    """
+    from sqlalchemy import func
+
+    query = db.query(func.count(func.distinct(FormSubmissionAnswer.submission_id)))
+    if option is not None and option.id is not None:
+        n = query.filter(FormSubmissionAnswer.value_option_id == option.id).scalar() or 0
+        if n:
+            raise FormulierFout(
+                _("%(n)s inzending(en) kozen dit antwoord. Verwijderen zou hun antwoord wissen.")
+                % {"n": n}
+            )
+    if field is not None and field.id is not None:
+        n = query.filter(FormSubmissionAnswer.field_id == field.id).scalar() or 0
+        if n:
+            raise FormulierFout(
+                _(
+                    "%(n)s inzending(en) beantwoordden deze vraag. "
+                    "Verwijderen zou hun antwoord wissen."
+                )
+                % {"n": n}
+            )
 
 
 def get_form(db, form_id: int) -> Form:
@@ -795,6 +857,7 @@ def move_option(db, form: Form, option_id: int, richting: str) -> None:
 def delete_field(db, form: Form, field_id: int) -> None:
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is not None:
+        refuse_losing_answers(db, field=veld)
         form.fields.remove(veld)
     db.commit()
 
@@ -873,6 +936,7 @@ def update_option(
 def delete_option(db, form: Form, option_id: int) -> None:
     optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
     if optie is not None:
+        refuse_losing_answers(db, option=optie)
         optie.field.options.remove(optie)
     db.commit()
 
