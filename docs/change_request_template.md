@@ -149,34 +149,78 @@ and deliberately not done — recorded so it is not asked again).
 > *This is design work by the analyst, not business input — which is why it is*
 > *not in Part A.*
 
-## B2. Architecture
-
-### B2.1 Components — new, used, changed
+## B2. Architecture — three readers, three questions
 
 > [!NOTE]
-> *Which components are new, which existing ones are used, which change. One*
-> *table: component · new/used/changed · role in this change.*
+> *Decided with Koen, 29 September 2026. B2 answers three questions for three*
+> *readers, in this order: the business — does the solution fit our to-be*
+> *process and our requirements (B2.1)? the architect — how does the whole*
+> *hang together across the modules, and what is touched (B2.2)? the build*
+> *teams — what exactly must happen in each module, and what does it cost*
+> *(B2.3)? Each reader should be able to stop after their section.*
 
-### B2.2 Application usage — where each business step happens
-
-> [!NOTE]
-> ***Diagram (ArchiMate "application usage" view):** the to-be process steps of*
-> *A3 on the left, the screens and services that serve each step on the right.*
-> *It answers: *where in the application does each business step happen?**
-
-### B2.3 Application structure — what is built where, and what talks to what
+### B2.1 Fit with the process and the requirements — for the business
 
 > [!NOTE]
-> ***Diagram (ArchiMate "application structure" view):** screens, modules,*
-> *facades, data stores and external integrations, with the dependencies*
-> *between them. It answers the developer's question: *what has to be built*
-> *where, and what talks to what?**
+> *Two things. First, the **application usage drawing**: the to-be process*
+> *of A3 once more — same lanes, same activities — with, in every activity*
+> *box, a second line naming the screen or module that serves it, the box*
+> *coloured per module (`classDef`, one legend line). Every step has a home*
+> *or is marked "outside the portal"; a module no step uses is not part of*
+> *this change. Two audiences (those who set up, those who use) means two*
+> *drawings. Second, the **traceability table**: one row per requirement of*
+> *A5 — R · how the solution meets it, in the words of the role that will*
+> *see it · on which screen · which acceptance criterion of A8 proves it. A*
+> *Won't gets a row that says so. Third, the **walkthrough** — how the*
+> *business tests this on HDEV (Koen, 29 September 2026): one numbered*
+> *script per role of A3, in the order of the to-be process, happy path*
+> *first and then the turns where it must refuse or fall back; each step*
+> *names what to do, what to see, and the acceptance criterion it proves*
+> *(A8). Every criterion appears in at least one step. The closing comment*
+> *of each issue points at the walkthrough instead of rewriting it. This is*
+> *the page a board member reads to say "yes, that is how we will work, and*
+> *this is how I will check it".*
 
-### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
+### B2.2 The whole across the modules — for the architect
 
 > [!NOTE]
-> *What existing modules, tables, screens and contracts are touched, and how*
-> *the layer rules (`docs/code-style.md`, CR-04, the import gate) are respected.*
+> *The **application structure drawing**: one subgraph per module touched,*
+> *inside it a box per layer that changes (screen · view-model · service ·*
+> *entity · facade · migration · template), the same colour per module as in*
+> *B2.1; arrows between modules only through a facade (`api.py`), as the*
+> *import gate enforces; external systems and data stores as their own*
+> *boxes. Under it, in prose: who calls whom and through which facade, the*
+> *direction of every new dependency, the transaction boundary, and the*
+> ***impact on the existing architecture** — which existing modules, tables,*
+> *screens and contracts are touched, and how the layer rules*
+> *(`docs/code-style.md`, CR-13, the import gate) hold. This is where a*
+> *reviewer checks that the change does not bend the architecture.*
+
+### B2.3 Per module: what must happen — for the build teams
+
+> [!NOTE]
+> *One subsection per module touched, in build order, each with the same*
+> *five headings: **screens** (which, what changes, at which width it is*
+> *judged), **code** (view-model · service · entity · facade — the functions*
+> *by name), **database** (columns, constraints, the migration), **templates*
+> *and mail**, **tests** (which of B8). Then one line of **effort** (S / M /*
+> *L, or CLI-days once the team has a track record) and the requirements the*
+> *module serves (R and F numbers) — a requirement no module serves is not*
+> *built. A module that is only used, not changed, gets one line. The sum of*
+> *the effort lines is the cost of the change; B7 cuts it into phases.*
+
+### B2.4 Cross-cutting impact — the checklist of what gets forgotten
+
+> [!NOTE]
+> *One table, every row answered, "no" included, one sentence each (Koen,*
+> *29 September 2026 — reporting was the first item, added after it was*
+> *missed): reporting views and saved reports (B5.3) · existing tests, e2e*
+> *golden flows and 390 px screenshots (B8) · fixed UI decisions and*
+> *`CLAUDE.md` · design-system documentation · code lists (CR-12) · events*
+> *and handlers (CR-13) · mail templates · migration: additive or contract*
+> *(#1255) · tenant settings · env vars · JSON routes and API callers ·*
+> *external services (Mollie, mail). A "yes" points at the section that*
+> *handles it. The next thing that gets missed becomes the next row.*
 
 ## B3. Cost and operations — settings, limits, running cost
 
@@ -249,8 +293,13 @@ is an answer.
 ## B8. Tests — what the build must prove
 
 > [!NOTE]
-> *What the build must prove, each test able to go red; guards proven by*
-> *violation.*
+> *Two levels (Koen, 29 September 2026). **What the build must prove:** the*
+> *new tests, each able to go red, guards proven by violation — numbered, so*
+> *B2.3 can point at them per module. **Impact on the test landscape:** which*
+> *existing suites, e2e golden flows and screenshot sets change or must be*
+> *redone because of this change, per module, with the reason — a screen*
+> *that moves, a route that changes, a fixture that no longer matches. A*
+> *change that breaks no existing test says so, and why that is plausible.*
 
 ## B9. Rule and gatekeeper — what this fixes for all future work
 
