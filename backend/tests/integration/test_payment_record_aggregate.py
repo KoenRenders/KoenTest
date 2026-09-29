@@ -53,7 +53,7 @@ pytestmark = pytest.mark.ui_agnostisch
 
 NOW = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
 MIGRATION = next(
-    (Path(__file__).resolve().parents[2] / "alembic" / "versions").glob("169_*payment_record*.py")
+    (Path(__file__).resolve().parents[2] / "alembic" / "versions").glob("171_*payment_record*.py")
 )
 
 
@@ -316,7 +316,7 @@ def test_reconcile_removes_a_record_on_which_nothing_came_in(db_session, amount,
 
 
 def _migration():
-    spec = importlib.util.spec_from_file_location("migration_169", MIGRATION)
+    spec = importlib.util.spec_from_file_location("migration_171", MIGRATION)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
