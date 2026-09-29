@@ -41,7 +41,7 @@
   <div id="extra-personen" class="space-y-4"></div>
   <button type="button" class="{{ ui.btn_class('secondary') }}"
           hx-get="/lid-worden/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
-          hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length}'>
+          hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length, relations: [...document.querySelectorAll("[name$=_relation_type]")].map(e => e.value).join(",")}'>
     {{ _("+ Gezinslid toevoegen") }}
   </button>
 

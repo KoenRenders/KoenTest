@@ -19,6 +19,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 )
 from app.domains.membership.service import (  # noqa: F401
     current_membership_counts,
+    default_relation,
     has_valid_membership,
     is_member,
     members_valid_on,
@@ -43,6 +44,7 @@ __all__ = [
     "open_renewal_payment",
     "members_valid_on",
     "current_membership_counts",
+    "default_relation",
     "members_with_membership_for_year",
     "membership_years",
     "not_renewed_count",

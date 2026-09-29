@@ -426,7 +426,7 @@
 {% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
                        gender_codes=[], relation_types=[], include_relation=True,
                        hoofdlid=False, require_birth_gender=False,
-                       include_email=True) -%}
+                       include_email=True, default_relation="") -%}
 {# `include_email=False` (#1219): het scherm zet de e-mailadressen zelf als RIJEN
    eronder, want een lid mag er meerdere hebben. Eén veld hier én een lijst daar
    zou twee plaatsen voor hetzelfde feit zijn, en dan is het de vraag welke wint
@@ -439,6 +439,9 @@
 {% set _mobile = pv.get('mobile') if pv else (values.get(name_prefix ~ 'mobile') if values else '') %}
 {% set _phone = pv.get('phone') if pv else (values.get(name_prefix ~ 'phone') if values else '') %}
 {% set _rel = pv.get('relation_type') if pv else (values.get(name_prefix ~ 'relation_type') if values else '') %}
+{#- #1321: what the screen prefills when nothing is chosen yet (`default_relation` in
+    membership); a chosen or stored relation always wins. -#}
+{% set _rel = _rel or default_relation %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
   <div>{{ label(_("Voornaam"), id_prefix ~ "first_name", required=True) }}
     <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
