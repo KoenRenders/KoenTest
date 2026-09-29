@@ -27,6 +27,7 @@ import pytest
 
 from app.domains.payment.api import PaymentStatus
 from app.domains.reporting.api import (
+    DASHBOARD_TEGELS,
     list_saved_reports,
     run_validated,
     selection_of,
@@ -34,15 +35,10 @@ from app.domains.reporting.api import (
 from app.domains.reporting.tests.test_reporting_panel_ui import ADMIN_EMAIL, login
 from tests._reporting_seed import TENANT_A, seed
 
-# builtin_key -> the key of the one measure the report returns.
-TILE_REPORTS = {
-    "dashboard_members": "member_total_count",
-    "dashboard_active_members": "member_total_count",
-    "dashboard_member_persons": "membership_person_unique",
-    "dashboard_upcoming_activities": "activity_count",
-    "dashboard_open_tasks": "task_count",
-    "dashboard_outstanding": "payment_amount",
-}
+# builtin_key -> the key of the one measure the report returns. Derived from the
+# dashboard's own list (#1311): this used to be a copy of it, and a copy of the
+# measures is exactly how a test goes on checking the old tile after the tile moved.
+TILE_REPORTS = {key: measure for _label, key, measure, _href, _money in DASHBOARD_TEGELS}
 
 
 @pytest.fixture
@@ -194,41 +190,55 @@ def test_the_persons_tile_follows_validity_and_not_the_year(db_session, situatio
     )
 
 
-def test_the_outstanding_tile_uses_the_status_rule(db_session, situation):
-    """Charged-minus-received and by-status agree on the seed and must not be
-    assumed to agree in general.
+def test_the_outstanding_tile_is_the_payments_screens_balance(db_session, situation):
+    """#1311: the tile says what the payments screen says — amount minus paid.
 
-    A partly paid record is where they come apart, so this makes one.
+    Koen: the screen showed € 102,50, the dashboard € 85. The tile counted the
+    full amount of payments "In afwachting": a failed payment fell out (it stays
+    owed — *"op dashboard moet die ook geteld worden"*), and a partly paid one
+    counted for its whole amount. This used to be the test that held the tile to
+    that status rule; it now holds it to the screen, on the three records where
+    the two came apart: a failed charge, a partly paid one, and a refund.
+
+    Proven red against master `e9319771`: "payments screen € 58.50, dashboard
+    € 45.00" — the failed € 17,50 missing, and the partly paid charge counted
+    for its full amount.
     """
     from decimal import Decimal as D
 
-    from app.domains.payment.api import PaymentRecord
+    from app.domains.payment.api import PaymentRecord, aggregate, enriched_records
+    from app.kernel.tenancy import current_tenant_id
 
-    record = (
+    pending = (
         db_session.query(PaymentRecord)
-        .filter(PaymentRecord.status == PaymentStatus.PENDING)
+        .filter(PaymentRecord.status == PaymentStatus.PENDING, PaymentRecord.tenant_id == TENANT_A)
         .first()
     )
-    record.amount_paid = D("4.00")
+    pending.amount_paid = D("4.00")  # partly paid: open for the rest
+    db_session.add(
+        PaymentRecord(
+            tenant_id=TENANT_A,
+            payable_type=pending.payable_type,
+            payable_id=pending.payable_id,
+            amount=D("17.50"),
+            method="online",
+            status=PaymentStatus.FAILED,
+        )
+    )
     db_session.commit()
-
-    op_status = D(str(_tile_number(db_session, "dashboard_outstanding")))
-    oud = _old_stats(db_session)
-    assert op_status == D(str(oud["outstanding_balance"])), (
-        "het rapport volgt dezelfde regel als de tegel"
+    assert db_session.query(PaymentRecord).filter(PaymentRecord.type == "refund").count(), (
+        "the seed lost its refund — this test needs one"
     )
 
-    gevorderd_min_ontvangen = run_validated(
-        db_session,
-        __import__("app.domains.reporting.api", fromlist=["Selection"]).Selection(
-            object_keys=("payment_open_amount",)
-        ),
-        tenant_id=TENANT_A,
-    )
-    assert D(str(gevorderd_min_ontvangen.rows[0]["payment_open_amount"])) != op_status, (
-        "bij een deels betaald record lopen de twee regels uiteen — dat verschil "
-        "is het onderwerp, geen dubbeling"
-    )
+    token = current_tenant_id.set(TENANT_A)
+    try:
+        screen = aggregate(enriched_records(db_session))["saldo"]
+    finally:
+        current_tenant_id.reset(token)
+    tile = D(str(_tile_number(db_session, "dashboard_outstanding")))
+
+    assert tile == screen, f"payments screen € {screen}, dashboard € {tile}"
+    assert D(str(_old_stats(db_session)["outstanding_balance"])) == screen
 
 
 def test_the_reports_are_shared_and_shipped(db_session, situation):

@@ -663,7 +663,16 @@ DASHBOARD_TEGELS: list[tuple[str, str, str, str, bool]] = [
         False,
     ),
     ("Open taken (werkbank)", "dashboard_open_tasks", "task_count", "/admin/werkbank", False),
-    ("Openstaand saldo", "dashboard_outstanding", "payment_amount", "/admin/betalingen", True),
+    # #1311: what the payments screen calls "Openstaand" — amount minus paid over
+    # every record, a failed payment included — not the full amount of those
+    # "In afwachting".
+    (
+        "Openstaand saldo",
+        "dashboard_outstanding",
+        "payment_open_amount",
+        "/admin/betalingen",
+        True,
+    ),
 ]
 
 

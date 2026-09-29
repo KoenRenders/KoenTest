@@ -146,3 +146,32 @@ def test_the_member_list_and_the_dashboard_give_the_same_number(db_session, situ
     kpi, tile = _kpi(db_session), _tile(db_session)
     assert kpi > 0, "nothing counted — the comparison would prove nothing"
     assert tile == kpi, f"member list {kpi}, dashboard {tile}"
+
+
+def test_the_stats_api_gives_the_member_lists_number(db_session, situation):
+    """#1311: `/api/v1/admin/stats` → `active_members` counted active membership
+    rows of this year's number, a fifth definition. Nothing in the app reads the
+    key, but the API is a way in; it now reads the one rule.
+
+    Proven red against master `e9319771`: the households that joined today for
+    next year were missing from `active_members` ("/stats 2, member list 3").
+    """
+    from app.kernel.tenancy import current_tenant_id
+    from app.ui.admin_api import get_stats
+
+    today = date.today()
+    # Two joiners, as in the parity test above: the seed's membership without
+    # validity dates counts for the old rule and not the new, and one joiner
+    # would cancel it out.
+    for _ in range(2):
+        _household(db_session, (today.year + 1, today, date(today.year + 1, 12, 31)))
+
+    token = current_tenant_id.set(TENANT_A)
+    try:
+        stats = get_stats(db=db_session, _admin=None)  # type: ignore[arg-type]
+    finally:
+        current_tenant_id.reset(token)
+
+    assert stats["active_members"] == _kpi(db_session), (
+        f"/stats {stats['active_members']}, member list {_kpi(db_session)}"
+    )
