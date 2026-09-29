@@ -30,3 +30,11 @@ via expliciete `primaryjoin`, viewonly).
 
 Registratie-betalingen lopen via het payment-component
 (`payable_type="registration"`); saldo/afboeking via `payment.api`.
+
+## Events
+
+- Publishes `OrderChanged(registration_id, total_due, actor)`
+  (`app.kernel.contracts.activities`, CR-13 phase 1) after every change to a
+  registration's order lines, the deletion of the registration included, before
+  its one commit. `payment` subscribes and reconciles; activities no longer calls
+  `payment.api` to do it. The service refuses to publish when nothing subscribes.

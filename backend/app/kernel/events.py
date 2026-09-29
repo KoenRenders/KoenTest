@@ -55,6 +55,13 @@ def publish(event: KernelEvent, db: Session) -> None:
         handler(event, db)
 
 
+def has_subscribers(event_type: type[KernelEvent]) -> bool:
+    """Whether anything listens — for an event whose consequence is not optional, so
+    its publisher can refuse to publish into silence (a module that registers the
+    handler was not imported)."""
+    return bool(_subscribers.get(event_type))
+
+
 def reset_subscribers() -> None:
     """Enkel voor tests: maak het abonneeregister leeg."""
     _subscribers.clear()

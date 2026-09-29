@@ -959,23 +959,38 @@ def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, 
 
 
 def _herbereken(db, reg, actor) -> None:
-    """De betaalposten volgen de bestelling (#185).
+    """De betaalposten volgen de bestelling (#185) — through an event since CR-13
+    phase 1, and in ONE transaction.
 
-    Dit hoorde in `_order_edit_result` in de router, samen met het vormgeven van
-    het antwoord. Twee verschillende dingen: dát de charges herrekend worden is een
-    domeinregel — wie een bestelregel wijzigt zonder te reconciliëren laat het
-    saldo stil verkeerd staan — en die regel moet gelden voor élke ingang, ook een
-    scherm dat de service rechtstreeks aanroept.
-
-    `reconcile_registration_charges` is integraal en dus idempotent: nog eens
-    aanroepen verandert niets.
+    Until phase 1 this called `payment.api.reconcile_registration_charges` itself and
+    committed; now it publishes `OrderChanged` and payment's handler reconciles on the
+    same session, before the one commit. A reconciliation that fails rolls the order
+    change back: the line no longer stays changed with a balance that did not follow.
     """
-    from app.domains.payment.api import reconcile_registration_charges
-
-    db.refresh(reg)
-    reconcile_registration_charges(db, reg, audit_actor=actor)
+    _order_changed(db, reg, actor)
     db.commit()
     db.refresh(reg)
+
+
+def _order_changed(db, reg, actor) -> None:
+    """Publish `OrderChanged` with the total its owner computes (§B4.9).
+
+    Refuses to publish when nothing listens: an order change nobody reconciles is
+    the #185 trap, and silence would make it invisible.
+    """
+    from app.domains.activities.totals import compute_registration_total
+    from app.kernel.contracts.activities import OrderChanged
+    from app.kernel.events import has_subscribers, publish
+
+    if not has_subscribers(OrderChanged):
+        raise RuntimeError(
+            "OrderChanged has no subscriber — payment's handlers are not registered; "
+            "an order change would leave the balance behind (#185)"
+        )
+    db.flush()
+    db.refresh(reg)
+    total, _lines = compute_registration_total(reg)
+    publish(OrderChanged(registration_id=reg.id, total_due=str(total), actor=actor), db)
 
 
 def register(
@@ -1196,10 +1211,10 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
 
     Het reconciliëren gebeurt vóór het schrappen van de inschrijving zelf: het
     besteltotaal is dan 0, dus een reeds betaald bedrag wordt een
-    terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313).
+    terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313) — through
+    `OrderChanged` since CR-13 phase 1, in the one transaction.
     """
     from app.domains.audit.api import snapshot_registration_item
-    from app.domains.payment.api import reconcile_registration_charges
     from app.soft_delete import soft_delete
 
     reg = _registratie(db, activity_id, registration_id)
@@ -1216,9 +1231,11 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
                 actor=actor,
             )
             soft_delete(item)
-    db.commit()
-    db.refresh(reg)
-    reconcile_registration_charges(db, reg, audit_actor=actor)
+    # CR-13 phase 1: one transaction. The lines are gone (flushed, not committed),
+    # the order total is therefore 0, payment reconciles on the event, and only then
+    # the registration goes and everything commits — once. A failing reconciliation
+    # rolls the lines back instead of leaving them deleted with a wrong balance.
+    _order_changed(db, reg, actor)
     soft_delete(reg)
     db.commit()
     return True

@@ -54,6 +54,9 @@ from app.domains.newsletter.handlers import (
     send_newsletter,  # noqa: F401 - registreert de newsletter.send-job (#984)
 )
 from app.domains.newsletter.ui import router as newsletter_ui_router
+from app.domains.payment.handlers import (  # noqa: F401 - event-abonnementen (CR-13 phase 1)
+    reconcile_registration_on_order_change,
+)
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.stub_router import include_stub_routes
 from app.domains.payment.ui import router as payment_ui_router

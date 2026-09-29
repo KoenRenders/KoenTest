@@ -700,7 +700,6 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
 # the change request names: phase 1 makes `delete_registration` commit once, at the end.
 WRITE_AFTER_COMMIT: frozenset[str] = frozenset(
     {
-        "domains/activities/service.py::delete_registration",
     }
 )
 
@@ -746,7 +745,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::onderdeel_toevoegen → media.api.replace_component_info",
         "domains/activities/router.py::create_registration → mail.api.send_activity_registration_confirmation",
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
-        "domains/activities/service.py::_herbereken → payment.api.reconcile_registration_charges",
         "domains/activities/service.py::add_activity_date → audit.api.snapshot_activity_date",
         "domains/activities/service.py::add_component → audit.api.snapshot_component",
         "domains/activities/service.py::add_order_line → audit.api.snapshot_registration_item",
@@ -763,7 +761,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::delete_order_line → audit.api.snapshot_registration_item",
         "domains/activities/service.py::delete_product → audit.api.snapshot_product",
         "domains/activities/service.py::delete_registration → audit.api.snapshot_registration_item",
-        "domains/activities/service.py::delete_registration → payment.api.reconcile_registration_charges",
         "domains/activities/service.py::register → audit.api.snapshot_registration_item",
         "domains/activities/service.py::update_activity → audit.api.snapshot_activity",
         "domains/activities/service.py::update_activity_date → audit.api.snapshot_activity_date",
