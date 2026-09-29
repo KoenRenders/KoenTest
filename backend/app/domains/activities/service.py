@@ -978,13 +978,144 @@ def _herbereken(db, reg, actor) -> None:
     db.refresh(reg)
 
 
+def register(
+    db,
+    activity,
+    data,
+    *,
+    person_id: int | None,
+    actor: str,
+    backoffice_products: bool = False,
+):
+    """Register somebody for an activity: every rule, then the rows (CR-13 phase 1).
+
+    Until phase 1 these rules stood in `router.create_registration`, a door; now the
+    door calls this and turns a refusal into its HTTP answer, and any other way in
+    meets the same rules. In the order they were checked before, so a request that
+    breaks two of them gets the same answer as before:
+
+    1. the activity or the component is closed or cancelled (`registration_refusal`);
+    2. the tenant's limit per e-mail address and component (`RegistrationLimitReached`);
+    3. every product belongs to the activity, every quantity within the tenant's bounds;
+    4. a public registration books only publicly bookable products (#1191);
+    5. the registration's own rules — name and e-mail address as it is built, the
+       mobile number at this entrance, the team name in `check()`;
+    6. the component is not full.
+
+    Adds the registration and its order lines, each line audited (#84, #713), and
+    flushes. It does not commit: the door does, once, with the payment record and
+    everything else of the request (§B4.1).
+    """
+    from app.domains.activities.models import (
+        RegistrationItem,
+        RegistrationLimitReached,
+        RegistrationRefused,
+    )
+    from app.domains.audit.api import snapshot_registration_item
+    from app.i18n import _ as vertaal
+    from app.kernel.tenant_config import (
+        tenant_max_item_quantity,
+        tenant_max_registrations_per_email,
+    )
+
+    component = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
+    refusal = registration_refusal(activity, component=component)
+    if refusal:
+        raise RegistrationRefused(refusal)
+
+    if data.contact_email:
+        existing = (
+            db.query(Registration)
+            .filter(
+                Registration.activity_id == activity.id,
+                Registration.component_id == data.component_id,
+                func.lower(Registration.contact_email) == data.contact_email.lower(),
+            )
+            .count()
+        )
+        limit = tenant_max_registrations_per_email(db)
+        if existing >= limit:
+            raise RegistrationLimitReached(
+                vertaal(
+                    "Er zijn al %(max)s inschrijvingen met dit "
+                    "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt."
+                )
+                % {"max": limit}
+            )
+
+    valid_product_ids = {p.id for c in activity.sub_registrations for p in c.products}
+    max_quantity = tenant_max_item_quantity(db)
+    for item in data.items:
+        if item.product_id not in valid_product_ids:
+            raise RegistrationRefused(vertaal("Ongeldig product in de inschrijving."))
+        if item.quantity < 0 or item.quantity > max_quantity:
+            raise RegistrationRefused(
+                vertaal("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.")
+                % {"max": max_quantity}
+            )
+
+    if not backoffice_products:
+        try:
+            check_publicly_bookable(activity, [i.product_id for i in data.items if i.quantity > 0])
+        except RegistrationRefused:
+            raise
+        except ActiviteitFout as refusal_of_product:
+            raise RegistrationRefused(str(refusal_of_product)) from None
+
+    registration = Registration(
+        activity_id=activity.id,
+        component_id=data.component_id,
+        registration_type=INDIVIDUAL,
+        contact_name=data.contact_name,
+        contact_email=data.contact_email,
+        phone=data.phone,
+        team_name=data.team_name,
+        payment_method=data.payment_method,
+        remarks=data.remarks,
+        person_id=person_id,
+    )
+    require_phone(data.phone)
+    registration.component = component
+    registration.check()
+
+    new_quantity = sum(i.quantity for i in data.items) if data.items else 1
+    if component is not None and component.max_participants is not None:
+        taken = sum(
+            (sum(it.quantity for it in reg.items) if reg.items else 1)
+            for reg in activity.registrations
+            if reg.component_id == data.component_id
+        )
+        if taken + new_quantity > component.max_participants:
+            raise RegistrationRefused(
+                vertaal("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk.")
+            )
+
+    db.add(registration)
+    db.flush()
+    for item in data.items:
+        if item.quantity <= 0:
+            continue
+        line = RegistrationItem(
+            registration_id=registration.id, product_id=item.product_id, quantity=item.quantity
+        )
+        db.add(line)
+        db.flush()
+        snapshot_registration_item(
+            db, line, operation="insert", action="order_created", source="registration", actor=actor
+        )
+    db.flush()
+    db.refresh(registration)
+    return registration
+
+
 def require_phone(phone) -> None:
     """A registration needs a mobile number — at the entrances (#733, AC1).
 
     No database constraint on the registration phone (Koen, 29 September 2026);
-    the entrances still require it: the public form, the JSON API and the board's
-    form through `create_registration`, and the screen that corrects a
-    registration through `update_registration_contact`. Not a `@validates` on the
+    the entrances still require it: a new registration always (`register`, for the
+    public form, the JSON API and the board's form), and the screen that corrects
+    a registration when the number changes — a registration stored without one
+    stays editable, a number cannot be cleared. Not a `@validates` on the
     row: a rule on one field without its constraint is what the *validator without
     constraint* gate refuses.
     """
@@ -1016,9 +1147,14 @@ def update_registration_contact(
     # address on assignment, a missing team name when the flush runs its `check()`,
     # which reads the component loaded here; the mobile number is the entrance's.
     reg.component  # noqa: B018 — load it, so `check()` reads and never queries
-    # The mobile number on the OUTCOME, before anything changes (#733): what is sent,
-    # or what is there already.
-    require_phone(gezet.get("phone", reg.phone))
+    # The mobile number when it CHANGES, before anything changes: a registration
+    # stored without one stays editable without adding one, a number cannot be
+    # cleared (Koen, 29 September 2026). A new registration always needs one
+    # (`register`).
+    if "phone" in gezet:
+        nieuw = (str(gezet["phone"]) if gezet["phone"] is not None else "").strip() or None
+        if nieuw != reg.phone:
+            require_phone(nieuw)
     gewijzigd = False
     try:
         for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):

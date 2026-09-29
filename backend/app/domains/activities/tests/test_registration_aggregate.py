@@ -5,7 +5,7 @@ Where each rule of a registration lives now (§B4.2), and a test per address:
 | rule | address | test |
 |---|---|---|
 | a name, an e-mail address | `@validates` + `NOT NULL`/`CHECK` | 2, 3 and the edit screen below |
-| a mobile number | the entrances (`service.require_phone`) | 4 |
+| a mobile number | the entrances (`service.require_phone`): new, or changed | 4 |
 | a team name when the component asks for one | `check()`, run on flush | 1b, 5 |
 
 The mobile number has no database constraint (Koen, 29 September 2026); the
@@ -171,18 +171,15 @@ def _edit_form(**overrides):
     return fields
 
 
-def test_a_row_without_a_phone_is_allowed_at_rest_and_refused_at_the_entrance(
-    client, db_session, world
-):
-    """No database constraint on the registration phone (Koen, 29 September 2026):
-    such a row is stored and loads. The screen that corrects it asks for a number
-    first — the entrances still require it."""
+def test_a_registration_without_a_phone_stays_editable(client, db_session, world):
+    """No database constraint on the registration phone (Koen, 29 September 2026),
+    and a registration stored without one stays editable without adding one — the
+    check runs when the number changes. The screen sends every field, the empty
+    phone included."""
     activity, component = world
     registration = _registration(activity, component, phone=None)
     db_session.add(registration)
     db_session.flush()
-    db_session.expire_all()
-    assert db_session.get(Registration, registration.id).phone is None
 
     response = client.post(
         f"/admin/inschrijvingen/{registration.id}/opslaan",
@@ -190,9 +187,53 @@ def test_a_row_without_a_phone_is_allowed_at_rest_and_refused_at_the_entrance(
         data=_edit_form(phone="", remarks="Nieuwe opmerking"),
     )
     assert response.status_code == 200, response.text
+    assert 'role="alert"' not in response.text, response.text
+    db_session.expire_all()
+    stored = db_session.get(Registration, registration.id)
+    assert stored.remarks == "Nieuwe opmerking"
+    assert stored.phone is None
+
+
+def test_a_mobile_number_cannot_be_cleared(client, db_session, world):
+    """The other direction: an existing number cleared is refused, with the message,
+    and nothing is stored."""
+    activity, component = world
+    registration = _registration(activity, component)
+    db_session.add(registration)
+    db_session.flush()
+
+    response = client.post(
+        f"/admin/inschrijvingen/{registration.id}/opslaan",
+        headers=_login(client),
+        data=_edit_form(phone="  ", remarks="Nieuwe opmerking"),
+    )
+    assert response.status_code == 200, response.text
     assert "Vul een mobiel nummer in." in response.text
     db_session.expire_all()
-    assert db_session.get(Registration, registration.id).remarks is None
+    stored = db_session.get(Registration, registration.id)
+    assert stored.phone == "0470000000"
+    assert stored.remarks is None
+
+
+def test_a_new_registration_without_a_phone_is_refused(client, db_session, world):
+    """The third direction: every new registration needs a number, on the JSON API
+    as on the forms."""
+    activity, component = world
+    product = component.products[0]
+    response = client.post(
+        f"/api/v1/activities/{activity.id}/register",
+        json={
+            "contact_name": "An Janssens",
+            "contact_email": "an@example.org",
+            "phone": "",
+            "team_name": "A-team",
+            "component_id": component.id,
+            "payment_method": "transfer",
+            "items": [{"product_id": product.id, "quantity": 1}],
+        },
+    )
+    assert response.status_code == 422, response.text
+    assert "Vul een mobiel nummer in." in response.text
 
 
 # ── The named failure path: the board cannot clear an e-mail address ────────

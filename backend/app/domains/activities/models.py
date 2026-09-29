@@ -83,6 +83,22 @@ class ActivityError(ValueError):
 ActiviteitFout = ActivityError
 
 
+class RegistrationRefused(ActivityError):
+    """A registration refused for its circumstances, not its fields: closed, full,
+    a product that is not the component's, a quantity out of bounds (CR-13 phase 1).
+
+    A kind of `ActivityError`, so every `except ActivityError` still catches it; the
+    entrance tells it apart only to keep the answer it gave before the rules moved
+    into the service (400, where a missing field is a 422).
+    """
+
+
+class RegistrationLimitReached(RegistrationRefused):
+    """The tenant's limit of registrations per e-mail address for a component is
+    reached — the one refusal the entrance answers with a 409 (a conflict with what
+    is there), as it did before (#1284)."""
+
+
 class ActivityOrganiser(TenantMixin, Base):
     """One "trekker" of an activity (#1004, CR-10 §3.9).
 

@@ -744,7 +744,6 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/admin_ui.py::onderdeel_info_uploaden → media.api.replace_component_info",
         "domains/activities/admin_ui.py::onderdeel_info_verwijderen → media.api.delete_component_info",
         "domains/activities/admin_ui.py::onderdeel_toevoegen → media.api.replace_component_info",
-        "domains/activities/router.py::create_registration → audit.api.snapshot_registration_item",
         "domains/activities/router.py::create_registration → mail.api.send_activity_registration_confirmation",
         "domains/activities/router.py::create_registration → payment.api.create_payment_record",
         "domains/activities/service.py::_herbereken → payment.api.reconcile_registration_charges",
@@ -765,6 +764,7 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/activities/service.py::delete_product → audit.api.snapshot_product",
         "domains/activities/service.py::delete_registration → audit.api.snapshot_registration_item",
         "domains/activities/service.py::delete_registration → payment.api.reconcile_registration_charges",
+        "domains/activities/service.py::register → audit.api.snapshot_registration_item",
         "domains/activities/service.py::update_activity → audit.api.snapshot_activity",
         "domains/activities/service.py::update_activity_date → audit.api.snapshot_activity_date",
         "domains/activities/service.py::update_component → audit.api.snapshot_component",
@@ -892,13 +892,6 @@ RULE_IN_ROUTER: dict[str, str] = {
     "domains/activities/admin_ui.py::inschrijving_nieuw_opslaan::component is None": "door: the board form asks for a component before it can be filled — the request's shape, not a rule on the data",
     "domains/activities/admin_ui.py::inschrijving_regel_toevoegen::not (product_id or '').strip()": "door: the add-line form sent no product choice — the request's shape, not a rule on the data",
     "domains/activities/admin_ui.py::organisator_bijwerken::laatste and (not aan) and (not bevestigd)": "rule: an activity keeps at least one contact organiser (Activity) — phase 4",
-    "domains/activities/router.py::_validate_order_product::not comp or comp.activity_id != activity.id": "rule: the component belongs to the activity (Registration) — phase 1",
-    "domains/activities/router.py::_validate_order_product::reg.component_id is not None and product.component_id != reg.component_id": "rule: the product belongs to the registration's component (Registration) — phase 1",
-    "domains/activities/router.py::create_registration::current_qty + new_qty > component.max_participants": "rule: a component's capacity (Registration) — phase 1",
-    "domains/activities/router.py::create_registration::existing_count >= max_regs": "rule: the tenant's limit of registrations per e-mail (Registration) — phase 1",
-    "domains/activities/router.py::create_registration::item_data.product_id not in valid_product_ids": "rule: the product belongs to the component (Registration) — phase 1",
-    "domains/activities/router.py::create_registration::item_data.quantity < 0 or item_data.quantity > max_qty": "rule: an order line's quantity bounds (Registration) — phase 1",
-    "domains/activities/router.py::create_registration::weigering": "rule: relays registration_refusal(): the rule is in the domain, the call moves into the service — phase 1",
     "domains/auth/router.py::create_api_key::db.query(ApiKey).filter(ApiKey.name == name).first()": "rule: API key names are unique (ApiKey, with a UNIQUE constraint) — phase 4",
     "domains/auth/router.py::create_api_key::not name": "rule: an API key has a name (ApiKey) — phase 4",
     "domains/chatbot/ui.py::notitie_toevoegen::not title.strip() or not text_addition.strip()": "rule: a note has a title and a text — phase 4",
@@ -941,8 +934,6 @@ RULE_IN_ROUTER: dict[str, str] = {
 # registration router (phase 1) are the ones the change request names.
 WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
     {
-        "domains/activities/router.py::create_registration → activities.Registration",
-        "domains/activities/router.py::create_registration → activities.RegistrationItem",
         "domains/auth/router.py::create_api_key → auth.ApiKey",
         "domains/auth/router.py::revoke_api_key → auth.ApiKey",
         "domains/auth/router.py::verify_login → auth.LoginToken",
