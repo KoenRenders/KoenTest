@@ -16,7 +16,7 @@ en doet zelf geen DB-query; binnen een sessie zijn die relaties beschikbaar.
 """
 
 from datetime import date
-from typing import Optional
+from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
@@ -184,6 +184,27 @@ def members_with_membership_for_year(db, year: int) -> set[int]:
         .all()
     )
     return {r[0] for r in rijen}
+
+
+def default_relation(earlier: Sequence[str | None]) -> str:
+    """The relation a new person in a household starts with (#1321): the stored code.
+
+    Koen, 29 September 2026: *"Meestal werkt men zo: hoofdlid, partner,
+    kinderen."* The first person is the head of household, the next one the
+    partner as long as there is none yet, and everyone after that an (adult)
+    child. Only the prefill: nothing is refused, a second partner stays possible.
+
+    `earlier` are the relations of the persons before this one, as codes, in the
+    order of the form. The one rule: the "Word lid" form prefills a new person
+    with it, and the server falls back on it for a person without a relation.
+    """
+    from app.domains.mdm.api import RelationType
+
+    if not earlier:
+        return RelationType.PRIMARY_MEMBER.value
+    if RelationType.PARTNER.value not in earlier:
+        return RelationType.PARTNER.value
+    return RelationType.ADULT_CHILD.value
 
 
 def valid_on(day: date) -> tuple:

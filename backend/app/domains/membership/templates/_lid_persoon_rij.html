@@ -10,7 +10,8 @@
   {{ ui.person_fields(name_prefix="m" ~ i ~ "_", id_prefix="m" ~ i ~ "_",
                       values=values, gender_codes=gender_codes,
                       relation_types=relation_types, hoofdlid=(i == 0),
-                      require_birth_gender=True, include_email=False) }}
+                      require_birth_gender=True, include_email=False,
+                      default_relation=default_relation|default("")) }}
   {# #1246: the e-mail addresses as ROWS, the same fragment as the family portal
      (#1219) — a member may have several, and each one logs in. The first row is
      the primary address: at a first registration the first address typed is the

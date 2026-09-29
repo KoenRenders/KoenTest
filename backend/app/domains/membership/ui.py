@@ -50,12 +50,19 @@ def _lidgeld() -> dict:
 
 @router.get("/lid-worden/persoon-rij", response_class=HTMLResponse)
 def persoon_rij(request: Request, db: Session = Depends(get_db)):
+    from app.domains.membership.api import default_relation
+
     try:
         index = max(1, int(request.query_params.get("index", "1")))
     except ValueError:
         index = 1
+    # #1321: the relations already on the form, so the new row starts with the one
+    # rule's default — partner while there is none, child after that.
+    earlier = [r for r in request.query_params.get("relations", "").split(",") if r]
     return templates.TemplateResponse(
-        request, "_lid_persoon_rij.html", {**_codes(db), "i": index, "values": {}}
+        request,
+        "_lid_persoon_rij.html",
+        {**_codes(db), "i": index, "values": {}, "default_relation": default_relation(earlier)},
     )
 
 
@@ -117,6 +124,14 @@ async def lid_worden_submit(
         ctx["error"] = "Selecteer een geldige postcode uit de lijst."
         return templates.TemplateResponse(request, "lid_worden.html", ctx)
 
+    # #1321: a person without a relation gets the one rule's default, given the
+    # relations before them — head of household, then partner, then child.
+    from app.domains.membership.api import default_relation
+
+    relations: list[str] = []
+    for m in members:
+        relations.append(m["relation_type"] or default_relation(relations))
+
     try:
         data = FamilyCreate(
             street=(values.get("street") or "").strip(),
@@ -134,10 +149,9 @@ async def lid_worden_submit(
                     extra_emails=m["extra_emails"],
                     phone=m["phone"] or None,
                     mobile=m["mobile"] or None,
-                    relation_type=m["relation_type"]
-                    or ("HOOFDLID" if not members.index(m) else "PARTNER"),
+                    relation_type=relation,
                 )
-                for m in members
+                for m, relation in zip(members, relations)
             ],
         )
     except ValidationError as exc:
