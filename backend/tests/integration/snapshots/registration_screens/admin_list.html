@@ -1,0 +1,112 @@
+<main id="main" class="flex-1 px-4 py-8">
+<div class="max-w-5xl mx-auto">
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">‹ Alle activiteiten</a></p>
+<div class="mb-2 flex items-start justify-between gap-4">
+<div>
+<h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">Karakterisering
+ <span class="inline-flex gap-1">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800">actief</span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-gray-100 text-gray-600">iedereen welkom</span>
+</span>
+</h1>
+<p class="text-sm text-ink-soft mt-1">maandag 1 juni 2099
+ </p>
+</div>
+<div class="flex items-center gap-2 shrink-0 mt-1">
+<a href="/admin/media/nieuw?kind=activity_photo&amp;activity_id=<ACTIVITY>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Foto's uploaden</a>
+<a href="/admin/ontwerpen/nieuw?activity_id=<ACTIVITY>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Design Studio</a>
+</div>
+</div>
+<div class="border-b border-gray-200 mb-6">
+<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
+<a href="/admin/activiteiten/<ACTIVITY>" class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Overzicht</a>
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen" class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Inschrijvingen 2</a>
+<a href="/admin/activiteiten/<ACTIVITY>/betalingen" class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betalingen 1</a>
+</nav>
+</div>
+<div class="mb-4"><a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen/nieuw" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >+ Inschrijving toevoegen</a></div>
+<div class="space-y-4">
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
+<div class="flex items-center justify-between gap-2">
+<button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop"
+ @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
+<span x-show="uitgeklapt"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span x-show="!uitgeklapt" x-cloak class="-rotate-90"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+ Ploegen <span class="text-sm font-normal text-ink-soft">1</span>
+</button>
+<div class="flex items-center gap-3">
+<a href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:team>/export" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export</a>
+</div>
+</div>
+<div x-show="uitgeklapt" class="overflow-x-auto mt-2">
+<table class="min-w-full text-sm">
+<thead>
+<tr class="text-left text-gray-500 border-b border-gray-200">
+<th scope="col" aria-sort="ascending" class="px-4 py-3 text-left">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-swap="innerHTML"
+ class="inline-flex items-center gap-1 hover:underline">Datum<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></a>
+</th>
+<th scope="col" class="px-4 py-3 text-left">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-swap="innerHTML"
+ class="inline-flex items-center gap-1 hover:underline">Naam</a>
+</th>
+<th class="px-4 py-3">Contact</th>
+<th class="px-4 py-3">Producten</th>
+<th class="px-4 py-3"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-gray-100">
+<td class="px-4 py-2 whitespace-nowrap">01-02-2099</td>
+<td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc">Karel Karakter</a>
+<span class="text-gray-500">(De Karakters)</span></td>
+<td class="px-4 py-2">karakter@example.org · 0470 00 00 01</td>
+<td class="px-4 py-2">2× Product paid, 1× Product free, 1× Product on_site</td>
+<td class="px-4 py-2 text-right"><a href="/admin/inschrijvingen/<R:member>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Details</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
+<div class="flex items-center justify-between gap-2">
+<button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop"
+ @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
+<span x-show="uitgeklapt"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span><span x-show="!uitgeklapt" x-cloak class="-rotate-90"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></span>
+ Los <span class="text-sm font-normal text-ink-soft">1</span>
+</button>
+<div class="flex items-center gap-3">
+<a href="/admin/activiteiten/<ACTIVITY>/onderdelen/<C:plain>/export" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export</a>
+</div>
+</div>
+<div x-show="uitgeklapt" class="overflow-x-auto mt-2">
+<table class="min-w-full text-sm">
+<thead>
+<tr class="text-left text-gray-500 border-b border-gray-200">
+<th scope="col" aria-sort="ascending" class="px-4 py-3 text-left">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=datum&amp;richting=desc" hx-swap="innerHTML"
+ class="inline-flex items-center gap-1 hover:underline">Datum<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg></a>
+</th>
+<th scope="col" class="px-4 py-3 text-left">
+<a href="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-get="/admin/activiteiten/<ACTIVITY>/inschrijvingen?sort=naam&amp;richting=asc" hx-swap="innerHTML"
+ class="inline-flex items-center gap-1 hover:underline">Naam</a>
+</th>
+<th class="px-4 py-3">Contact</th>
+<th class="px-4 py-3">Producten</th>
+<th class="px-4 py-3"></th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-gray-100">
+<td class="px-4 py-2 whitespace-nowrap">02-02-2099</td>
+<td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/<R:guest>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc">Gast Gastmans</a></td>
+<td class="px-4 py-2">gast@example.org · 0470 00 00 02</td>
+<td class="px-4 py-2">3× Product plain</td>
+<td class="px-4 py-2 text-right"><a href="/admin/inschrijvingen/<R:guest>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>%2Finschrijvingen%3Fsort%3Ddatum%26richting%3Dasc" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" >Details</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>

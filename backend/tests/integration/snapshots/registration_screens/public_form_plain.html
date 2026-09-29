@@ -1,0 +1,75 @@
+<div class="inschrijf-card px-5 py-5">
+<h3 class="font-bold text-lg pr-6">Inschrijven — Los</h3>
+<p class="text-sm text-ink-soft mb-3">Karakterisering · maandag 1 juni 2099</p>
+<form hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>"
+ hx-target="closest .inschrijf-card" hx-swap="outerHTML" class="space-y-3">
+<div class="grid grid-cols-1 gap-3">
+<div><label for="contact_name" class="block text-sm font-medium text-gray-700 mb-1">Naam <span class="text-red-600">*</span></label>
+<input type="text" name="contact_name" id="contact_name" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="contact_email" class="block text-sm font-medium text-gray-700 mb-1">E-mailadres <span class="text-red-600">*</span></label>
+<input type="email" name="contact_email" id="contact_email" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+<div><label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Mobiel nummer <span class="text-red-600">*</span></label>
+<input type="tel" name="phone" id="phone" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" ></div>
+</div>
+<div id="prijsblok-<C:plain>" class="space-y-3">
+<div class="space-y-2">
+<div class="flex items-center justify-between gap-3">
+<div class="text-sm">
+<span class="font-medium">Product plain</span>
+<span class="ml-2 text-gray-500">
+ €5,00
+ </span>
+</div>
+<div class="inline-flex shrink-0 items-stretch rounded-xl border border-gray-300 overflow-hidden bg-white"
+ x-data="{ stap(richting) {
+ const veld = $refs.veld;
+ const nu = Number(veld.value) || 0;
+ const grens = Number(richting < 0 ? veld.min : veld.max);
+ const nieuw = richting < 0 ? Math.max(grens, nu + richting)
+ : Math.min(grens, nu + richting);
+ if (nieuw === nu) return;
+ veld.value = nieuw;
+ veld.dispatchEvent(new Event('change', { bubbles: true }));
+ } }">
+<button type="button" @click="stap(-1)"
+ aria-label="Eén minder — Product plain"
+ class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">&minus;</button>
+<input type="number" name="product_<P:plain>" id="product-<P:plain>" x-ref="veld" value="1"
+ min="0" max="99" inputmode="numeric"class="teller-veld h-11 w-14 md:h-9 md:w-12 shrink-0 text-center border-0 focus:outline-none focus:ring-2 focus:ring-blue-500"
+ hx-post="/activiteiten/<ACTIVITY>/inschrijven/<C:plain>/totaal" hx-include="closest form" hx-target="#totaal-<C:plain>" hx-swap="innerHTML" hx-trigger="change, keyup delay:300ms">
+<button type="button" @click="stap(1)"
+ aria-label="Eén meer — Product plain"
+ class="h-11 w-11 md:h-9 md:w-9 shrink-0 text-lg leading-none text-ink-soft hover:bg-gray-100">+</button>
+</div>
+</div>
+</div>
+<div id="totaal-<C:plain>">
+<div class="bg-white border rounded-lg p-3 text-sm font-medium border-blue-200 text-blue-700">
+ Totaal: €5,00
+</div>
+</div>
+</div>
+<div><label for="remarks" class="block text-sm font-medium text-gray-700 mb-1">Opmerkingen</label>
+<textarea name="remarks" id="remarks" rows="2" placeholder="Eventuele boodschap voor de organisatie…"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
+ x-data="{ bodem: 0,
+ meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
+ groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
+ this.$el.style.height = `auto`;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
+ x-init="groei()" x-on:input="groei()" ></textarea></div>
+<div>
+<label for="payment_method" class="block text-sm font-medium text-gray-700 mb-1">Betaalwijze</label>
+<div x-data="{ pm: 'online' }">
+<label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="online" x-model="pm" checked> Online betalen</label>
+<label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="payment_method" value="transfer" x-model="pm" > Overschrijving</label>
+<p class="text-xs text-ink-soft" x-show="pm === 'online'">Na het versturen ga je meteen naar de beveiligde betaalpagina.</p>
+<p class="text-xs text-ink-soft" x-show="pm === 'transfer'" x-cloak>Na het versturen ontvang je de betaalinstructies per e-mail.</p>
+</div>
+</div>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0" hx-disabled-elt="this" >Inschrijven</button>
+</form>
+</div>
