@@ -17,7 +17,10 @@ Measured by the collectors themselves on `master` of 28 September 2026 (after
 """
 
 # Two helpers in activities/models.py that open a session through object_session to
-# find an uploaded asset. Phase 1 moves them to the service (the Registration aggregate).
+# find an uploaded asset — the poster of an activity, the info file of a component.
+# Phase 4, with the activity and component screens (master CLI, 29 September 2026):
+# they do not hang on `Registration`, and a batch load in the service there also ends
+# the query per card (N+1) that these properties cost today.
 SESSION_ON_ENTITY: frozenset[str] = frozenset(
     {
         "domains/activities/models.py::ActivitySubRegistration._info_asset",
@@ -967,12 +970,14 @@ NON_ORM_WRITES: frozenset[str] = frozenset(
 
 
 # Second computations of a registered derived value (§B9.3, *one owner per derived
-# value*), 29 September 2026, in Python — templates are not walked. Two decide "has a
-# future date" beside `registration_state` (phase 1); two sum `amount_paid` beside
+# value*), 29 September 2026, in Python — templates are not walked. Phase 1 made
+# `is_upcoming` the one Python home of "has a future date"; what stays is the SQL
+# filter of the activity list, which a query cannot hand to Python — the same kind of
+# second computation as the report's view, bound by the tests of that list (phase 4
+# decides whether it gets a parity test). Two sum `amount_paid` beside
 # `registration_balance` (phase 2).
 DERIVED_ELSEWHERE: frozenset[str] = frozenset(
     {
-        "domains/activities/router.py::_is_future → registration.state",
         "domains/activities/router.py::list_activities → registration.state",
         "domains/payment/service.py::aggregate → registration.balance",
         "domains/payment/service.py::reconcile_charges → registration.balance",

@@ -36,6 +36,16 @@ def _effective_end(ad: ActivityDate) -> date:
     return ad.end_date or ad.start_date
 
 
+def is_upcoming(activity_date: ActivityDate, today: date) -> bool:
+    """Whether a date of an activity still lies ahead: its last day is today or later.
+
+    The one place that says it (CR-13 phase 1): `registration_state` asks it for
+    "has this activity passed", and the API's card asks it to sort a date into past
+    or coming. The router had its own copy of this and of `_effective_end`.
+    """
+    return _effective_end(activity_date) >= today
+
+
 def _deadline_van(component) -> Optional[date]:
     return getattr(component, "registration_closes_on", None)
 
@@ -152,7 +162,7 @@ def registration_state(
     # is the true reason even when its dates have also passed.
     if activity.is_cancelled:
         return RegistrationState.CANCELLED
-    if not any(_effective_end(d) >= vandaag for d in activity.dates):
+    if not any(is_upcoming(d, vandaag) for d in activity.dates):
         return RegistrationState.PAST
     if component is not None:
         deadline = _deadline_van(component)

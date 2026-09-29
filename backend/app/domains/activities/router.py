@@ -53,14 +53,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["activities"])
 
 
-def _effective_end(ad: ActivityDate) -> date:
-    return ad.end_date or ad.start_date
-
-
-def _is_future(ad: ActivityDate, today: date) -> bool:
-    return _effective_end(ad) >= today
-
-
 def compute_activity_status(
     activity: Activity,
     registration_count: int | None = None,
@@ -137,19 +129,21 @@ def _build_response(
     reg_count: int = 0,
     status: str | None = None,
 ) -> ActivityResponse:
+    from app.domains.activities.service import is_upcoming
+
     sorted_dates = sorted(activity.dates, key=lambda d: d.start_date)
     # Publiek: homepage toont enkel de toekomstige datums, het archief enkel de
     # voorbije. Een activiteit met beide verschijnt in beide lijsten met het
     # relevante deel. Admin (all_dates) toont altijd álle datums.
     if for_archive:
-        relevant = [d for d in sorted_dates if not _is_future(d, today)]
+        relevant = [d for d in sorted_dates if not is_upcoming(d, today)]
         sort_date = (
             relevant[-1].start_date
             if relevant
             else (sorted_dates[-1].start_date if sorted_dates else None)
         )
     else:
-        relevant = [d for d in sorted_dates if _is_future(d, today)]
+        relevant = [d for d in sorted_dates if is_upcoming(d, today)]
         sort_date = (
             relevant[0].start_date
             if relevant
