@@ -936,3 +936,45 @@ RULE_IN_ROUTER: dict[str, str] = {
     "domains/payment/status_router.py::refresh_payment_record::record.method != PaymentMethod.ONLINE or not record.gateway_payment_id": "rule: only an online record with a gateway id refreshes (PaymentRecord) — phase 2",
     "domains/reporting/admin_ui.py::_ask::not vraag": "door: an empty question in the assistant box — the request's shape, not a rule on the data",
 }
+
+
+# Writes to a mapped class in a router, UI module or `@subscribe` handler (§B9.3,
+# *one entrance rule* (b)), 29 September 2026. The household router (phase 3) and the
+# registration router (phase 1) are the ones the change request names.
+WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
+    {
+        "domains/activities/router.py::create_registration → activities.Registration",
+        "domains/activities/router.py::create_registration → activities.RegistrationItem",
+        "domains/auth/router.py::create_api_key → auth.ApiKey",
+        "domains/auth/router.py::revoke_api_key → auth.ApiKey",
+        "domains/auth/router.py::verify_login → auth.LoginToken",
+        "domains/chatbot/info_router.py::upsert_cms_info → chatbot.ChatbotInfo",
+        "domains/chatbot/info_router.py::upsert_media_info → chatbot.ChatbotInfo",
+        "domains/forms/router.py::create_form → forms.Form",
+        "domains/forms/router.py::delete_form → forms.Form",
+        "domains/forms/router.py::delete_submission → forms.FormSubmission",
+        "domains/forms/router.py::submit_form → forms.FormSubmission",
+        "domains/forms/router.py::update_submission → forms.FormSubmission",
+        "domains/mail/router.py::delete_email_log → mail.EmailLog",
+        "domains/media/router.py::_replace_single_asset → media.MediaAsset",
+        "domains/media/router.py::serve_thumb → media.MediaAsset",
+        "domains/membership/household_router.py::add_person → mdm.ContactDetail",
+        "domains/membership/household_router.py::add_person → mdm.MemberPerson",
+        "domains/membership/household_router.py::add_person → mdm.Person",
+        "domains/membership/household_router.py::renew_membership → membership.Membership",
+        "domains/membership/household_router.py::update_person → mdm.Person",
+        "domains/membership/household_router.py::update_person._upsert → mdm.ContactDetail",
+        "domains/membership/register_router.py::create_membership → membership.Membership",
+    }
+)
+
+
+# Writes past the ORM flush, so past every `check()` (§B9.3 (c), the entrances
+# discovery of §B10), 29 September 2026: two bulk updates. The walk does not see a
+# statement built with `getattr` or assembled from strings at runtime.
+NON_ORM_WRITES: frozenset[str] = frozenset(
+    {
+        "domains/auth/login.py::start_login → auth.LoginToken",
+        "domains/mdm/service.py::merge_persons → mdm.Person",
+    }
+)

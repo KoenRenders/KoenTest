@@ -1333,6 +1333,85 @@ def collect_rule_in_router() -> dict[str, str]:
     return found
 
 
+# ── 12. One entrance rule (a hard, b and c ratchets) ─────────────────────────
+
+
+def _handler_functions(tree: ast.Module) -> list[ast.FunctionDef]:
+    return [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and any(_is_subscribe(d) for d in n.decorator_list)
+    ]
+
+
+def collect_write_outside_service() -> dict[str, str]:
+    """A router, UI module or event handler that constructs or assigns a mapped class
+    → key `file::function → owner.Class` (§B9.3 (b)). The write belongs in a service,
+    where the aggregate's `check()` runs on flush for every entrance alike."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        functions = (
+            [n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))]
+            if _is_door(path)
+            else _handler_functions(tree)
+        )
+        if not functions:
+            continue
+        names, modules = _class_names(tree, classes)
+        qualified = _enclosing(tree)
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        for function in functions:
+            for cls, line, what in _foreign_writes_in(function, resolve, {}, owner=""):
+                if cls.startswith("schema "):
+                    continue
+                name = qualified.get(function, function.name)
+                found.setdefault(
+                    f"{_rel(path)}::{name} → {classes[cls]}.{cls}",
+                    f"{_rel(path)}:{line} `{name}` {what} `{classes[cls]}.{cls}` outside a "
+                    f"service — move the write to the service; `check()` runs on flush "
+                    f"(CR-13 §B9.3)",
+                )
+    return found
+
+
+def collect_non_orm_writes() -> dict[str, str]:
+    """A write that bypasses the ORM flush → key `file::function → target` (§B9.3 (c),
+    the entrances discovery of §B10): a bulk `.update()`/`.delete()` on a query, a core
+    `insert`/`update`/`delete`, raw SQL that writes a table. None of them passes
+    `before_flush`, so an aggregate's `check()` never sees them. What the walk cannot
+    see: a statement built with `getattr` or assembled from strings at runtime."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        tree = _tree(path)
+        names, modules = _class_names(tree, classes)
+        qualified = _enclosing(tree)
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner=""):
+                if not (what.startswith(("bulk", "core", "raw SQL"))):
+                    continue
+                target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
+                name = qualified.get(function, function.name)
+                found.setdefault(
+                    f"{_rel(path)}::{name} → {target}",
+                    f"{_rel(path)}:{line} `{name}` {what} `{target}` past the ORM — no "
+                    f"`check()` runs on it; write through the aggregate (CR-13 §B9.3)",
+                )
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -1347,6 +1426,8 @@ COLLECTORS = {
     "COMMIT_BEHIND_API": collect_commit_behind_api,
     "COMMAND_CALLS": collect_command_calls_outside_handlers,
     "RULE_IN_ROUTER": collect_rule_in_router,
+    "WRITE_OUTSIDE_SERVICE": collect_write_outside_service,
+    "NON_ORM_WRITES": collect_non_orm_writes,
 }
 
 
@@ -1516,6 +1597,38 @@ def test_every_rule_in_a_router_carries_its_reason():
         if not re.match(r"(rule: .+ — phase [1-4]|door: .+)$", reason)
     }
     assert not bad, bad
+
+
+def test_every_aggregate_is_mapped_and_defines_its_own_check():
+    """Hard (§B9.3 (a)). `aggregate()` already refuses a class without `check`; this
+    also refuses one that only inherits it, or is not mapped — a registration the
+    flush listener would never meet. Proof (run, removed): a plain class `_Probe`
+    with a `check()` registered at the bottom of `kernel/rules.py` → red, "_Probe is
+    not a mapped class"."""
+    from sqlalchemy import inspect as sa_inspect
+
+    from app.kernel import rules
+
+    bad = []
+    for cls in rules.aggregates():
+        if "check" not in vars(cls):
+            bad.append(f"{cls.__name__} inherits check() instead of defining it")
+        if sa_inspect(cls, raiseerr=False) is None:
+            bad.append(f"{cls.__name__} is not a mapped class")
+    assert not bad, bad
+
+
+def test_no_new_write_outside_a_service():
+    """Ratchet (§B9.3 (b)). Proof (run, removed): a function in `cms/admin_ui.py` doing
+    `db.add(CmsPage(title="x"))` → red, "constructs `cms.CmsPage` outside a service"."""
+    _ratchet("WRITE_OUTSIDE_SERVICE")
+
+
+def test_no_new_write_past_the_orm():
+    """Ratchet (§B9.3 (c)). Proof (run, removed): a function in `cms/service.py` doing
+    `db.query(CmsPage).filter(CmsPage.id == 1).update({"title": "x"})` → red, "bulk
+    .update() `cms.CmsPage` past the ORM"."""
+    _ratchet("NON_ORM_WRITES")
 
 
 @pytest.mark.parametrize(
