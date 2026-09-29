@@ -668,6 +668,239 @@ def collect_dutch_identifiers() -> dict[str, str]:
     return found
 
 
+# ── 8. No foreign writes (ratchet; hard for a new package) ───────────────────
+
+
+def _owner_of_module(module: str) -> str:
+    """`app.domains.mdm.models` → `mdm`; `app.kernel.jobs` → `kernel`."""
+    parts = module.split(".")
+    if parts[:2] == ["app", "domains"] and len(parts) > 2:
+        return parts[2]
+    if parts[:2] == ["app", "kernel"]:
+        return "kernel"
+    return "app"
+
+
+def _owner_of_file(path: Path) -> str:
+    return _owner_of_module(".".join(path.relative_to(BACKEND).with_suffix("").parts))
+
+
+def _mapped_owners() -> tuple[dict[str, str], dict[str, str]]:
+    """Mapped class name → owning domain, and schema → owning domain."""
+    classes: dict[str, str] = {}
+    schemas: dict[str, str] = {}
+    for mapper in _mappers():
+        cls = mapper.class_
+        owner = _owner_of_module(cls.__module__)
+        assert classes.get(cls.__name__, owner) == owner, f"two mapped classes named {cls.__name__}"
+        classes[cls.__name__] = owner
+        schema = mapper.local_table.schema
+        if schema and owner != "kernel":
+            schemas[schema] = owner
+    assert len(classes) > 100, f"only {len(classes)} mapped classes — the walk is blind"
+    return classes, schemas
+
+
+_READERS = {"first", "one", "one_or_none", "get", "scalar", "scalar_one", "scalar_one_or_none"}
+_SQL_WRITE = re.compile(r"\b(?:insert\s+into|update|delete\s+from)\s+([a-z_]+)\.[a-z_]+", re.I)
+
+
+def _class_names(tree: ast.Module, classes: dict[str, str]) -> tuple[dict[str, str], set[str]]:
+    """Local names bound to a mapped class, and names bound to an `app` module."""
+    names: dict[str, str] = {}
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app"):
+            for alias in node.names:
+                if alias.name in classes:
+                    names[alias.asname or alias.name] = alias.name
+                else:
+                    modules.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.startswith("app."):
+                    modules.add(alias.asname or alias.name.split(".")[0])
+    return names, modules
+
+
+def _class_of(node: ast.AST, names: dict[str, str], modules: set[str], classes) -> str | None:
+    """The mapped class an expression names: `Person` or `mdm_api.Person`."""
+    if isinstance(node, ast.Name):
+        return names.get(node.id)
+    if isinstance(node, ast.Attribute) and node.attr in classes:
+        root = node.value
+        while isinstance(root, ast.Attribute):
+            root = root.value
+        if isinstance(root, ast.Name) and root.id in modules:
+            return node.attr
+    return None
+
+
+def _queried_class(node: ast.AST, resolve) -> str | None:
+    """The class a read chain returns: `db.get(C, …)`, `db.query(C)…first()`,
+    `db.execute(select(C)…).scalar_one()`, `db.scalars(select(C))…`."""
+    while isinstance(node, (ast.Call, ast.Attribute, ast.Subscript)):
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            if name in {"query", "get", "select"} and node.args:
+                found = resolve(node.args[0])
+                if found:
+                    return found
+            if name in {"execute", "scalars", "scalar"} and node.args:
+                inner = _queried_class(node.args[0], resolve)
+                if inner:
+                    return inner
+            node = func
+        else:
+            node = node.value
+    return None
+
+
+def _annotation_class(node: ast.AST | None, resolve) -> str | None:
+    if node is None:
+        return None
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        try:
+            node = ast.parse(node.value, mode="eval").body
+        except SyntaxError:
+            return None
+    if isinstance(node, ast.BinOp):  # `C | None`
+        return _annotation_class(node.left, resolve) or _annotation_class(node.right, resolve)
+    if isinstance(node, ast.Subscript):  # `Optional[C]`, `list[C]`
+        return _annotation_class(node.slice, resolve)
+    return resolve(node)
+
+
+def _own_nodes(function: ast.AST):
+    """The nodes of a function without those of the functions nested in it — each
+    nested function is walked on its own, so a write is counted once."""
+    todo = list(ast.iter_child_nodes(function))
+    while todo:
+        node = todo.pop()
+        yield node
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)):
+            todo.extend(ast.iter_child_nodes(node))
+
+
+def _foreign_writes_in(function, resolve, schemas: dict[str, str], owner: str):
+    """Yield `(class or schema, line, what)` for every write to a class of another owner."""
+    typed: dict[str, str] = {}
+    for arg in [*function.args.posonlyargs, *function.args.args, *function.args.kwonlyargs]:
+        cls = _annotation_class(arg.annotation, resolve)
+        if cls:
+            typed[arg.arg] = cls
+    body = list(_own_nodes(function))
+    for node in body:  # first pass: what each local name holds
+        if isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+            if isinstance(target, ast.Name):
+                value = node.value
+                cls = (
+                    resolve(value.func) if isinstance(value, ast.Call) else None
+                ) or _queried_class(value, resolve)
+                if cls:
+                    typed[target.id] = cls
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            cls = _annotation_class(node.annotation, resolve)
+            if cls:
+                typed[node.target.id] = cls
+        elif isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+            cls = _queried_class(node.iter, resolve)
+            if cls:
+                typed[node.target.id] = cls
+
+    def instance(expr) -> str | None:
+        if isinstance(expr, ast.Name):
+            return typed.get(expr.id)
+        if isinstance(expr, ast.Call):
+            return resolve(expr.func)
+        return None
+
+    for node in body:
+        if isinstance(node, ast.Call):
+            func = node.func
+            name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
+            cls = resolve(func)
+            if cls:
+                yield cls, node.lineno, "constructs"
+            elif name in {"add", "delete", "merge"} and isinstance(func, ast.Attribute):
+                for arg in node.args[:1]:
+                    if isinstance(arg, ast.Name) and arg.id in typed:
+                        yield typed[arg.id], node.lineno, f"db.{name}()"
+            elif name == "soft_delete" and node.args:
+                cls = instance(node.args[0])
+                if cls:
+                    yield cls, node.lineno, "soft_delete()"
+            elif name in {"update", "delete"} and isinstance(func, ast.Attribute):
+                cls = _queried_class(func.value, resolve)
+                if cls:
+                    yield cls, node.lineno, f"bulk .{name}()"
+            elif name in {"update", "delete", "insert"} and isinstance(func, ast.Name):
+                cls = resolve(node.args[0]) if node.args else None
+                if cls:
+                    yield cls, node.lineno, f"core {name}()"
+            elif (
+                name in {"append", "remove", "extend"}
+                and isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Attribute)
+            ):
+                cls = instance(func.value.value)
+                if cls:
+                    yield cls, node.lineno, f"relationship .{name}()"
+            elif name == "setattr" and node.args:
+                cls = instance(node.args[0])
+                if cls:
+                    yield cls, node.lineno, "setattr()"
+        elif isinstance(node, (ast.Assign, ast.AugAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            for target in targets:
+                if isinstance(target, ast.Attribute):
+                    cls = instance(target.value)
+                    if cls:
+                        yield cls, node.lineno, f"assigns .{target.attr}"
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            for match in _SQL_WRITE.finditer(node.value):
+                schema = match.group(1).lower()
+                if schemas.get(schema, owner) != owner:
+                    yield f"schema {schema}", node.lineno, "raw SQL writes"
+
+
+def collect_foreign_writes() -> dict[str, str]:
+    """A write to a mapped class of domain B outside `app/domains/B/` → key
+    `file::function → owner.Class` (CR-13 §B9.3, *no foreign writes*). Reads are free."""
+    classes, schemas = _mapped_owners()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        owner = _owner_of_file(path)
+        tree = _tree(path)
+        names, modules = _class_names(tree, classes)
+        if not names and not modules and "insert" not in path.read_text().lower():
+            continue
+
+        def resolve(node, names=names, modules=modules):
+            return _class_of(node, names, modules, classes)
+
+        functions = [
+            n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        qualified = _enclosing(tree)
+        for function in functions:
+            for cls, line, what in _foreign_writes_in(function, resolve, schemas, owner):
+                target = cls if cls.startswith("schema ") else f"{classes[cls]}.{cls}"
+                if not cls.startswith("schema ") and classes[cls] == owner:
+                    continue
+                name = qualified.get(function, function.name)
+                key = f"{_rel(path)}::{name} → {target}"
+                found.setdefault(
+                    key,
+                    f"{_rel(path)}:{line} `{name}` {what} `{target}` — a domain's data is "
+                    f"written by its owner: call its `api.py` or publish the event it "
+                    f"subscribes to (CR-13 §B9.3)",
+                )
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -677,6 +910,7 @@ COLLECTORS = {
     "NETWORK_IN_HANDLER": collect_network_in_handler,
     "JSON_ROUTE_WITHOUT_CALLER": collect_json_route_without_caller,
     "DUTCH_IDENTIFIERS": collect_dutch_identifiers,
+    "FOREIGN_WRITES": collect_foreign_writes,
 }
 
 
@@ -750,6 +984,16 @@ def test_no_new_dutch_identifier():
     code → red, "no longer occur"; the existing Dutch names in the baseline → green,
     which this run is."""
     _ratchet("DUTCH_IDENTIFIERS")
+
+
+def test_no_new_foreign_write():
+    """Ratchet, hard for a new package (CR-13 §B9.3). Proofs (run, removed), each
+    additive, in `cms/service.py`: a function constructing `Person` imported from
+    `mdm.api` → red, "constructs `mdm.Person`"; a function doing
+    `person = db.get(Person, 1)` then `person.first_name = "x"` → red, "assigns
+    .first_name"; a function holding the string `"UPDATE mdm.persons SET …"` → red,
+    "raw SQL writes `schema mdm`"."""
+    _ratchet("FOREIGN_WRITES")
 
 
 @pytest.mark.parametrize(

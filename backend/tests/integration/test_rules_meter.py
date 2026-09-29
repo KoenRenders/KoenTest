@@ -22,6 +22,7 @@ from tests.test_rules_gate import (
     _tree,
     collect_commit_in_handler,
     collect_dutch_identifiers,
+    collect_foreign_writes,
     collect_json_route_without_caller,
     collect_network_in_handler,
     collect_session_on_entity,
@@ -136,6 +137,7 @@ def a2_table() -> list[tuple[str, int | str]]:
         ),
         ("validators without their constraint", len(collect_validator_without_constraint(mappers))),
         ("Dutch identifiers (#780)", len(collect_dutch_identifiers())),
+        ("writes to another domain's classes (function × class)", len(collect_foreign_writes())),
     ]
 
 

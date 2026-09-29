@@ -645,3 +645,54 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "ui/tenants_ui.py::tenant_opslaan",
     }
 )
+
+
+# Writes to another domain's mapped classes as of 29 September 2026 (#1254), one key
+# per function and class written: membership → mdm 22, audit → activities/mdm/
+# membership/payment 13 (the history snapshots), mdm → auth 2, mdm → membership 1,
+# media → chatbot 1, payment → membership 1. Phase 3 moves the household writes to
+# mdm (B2.5); phase 2 turns `_activate_membership` into a membership handler.
+FOREIGN_WRITES: frozenset[str] = frozenset(
+    {
+        "domains/audit/service.py::snapshot_activity → activities.ActivityHistory",
+        "domains/audit/service.py::snapshot_activity_date → activities.ActivityDateHistory",
+        "domains/audit/service.py::snapshot_address → mdm.AddressHistory",
+        "domains/audit/service.py::snapshot_component → activities.ComponentHistory",
+        "domains/audit/service.py::snapshot_contact_detail → mdm.ContactDetailHistory",
+        "domains/audit/service.py::snapshot_member → mdm.MemberHistory",
+        "domains/audit/service.py::snapshot_member_person → mdm.MemberPersonHistory",
+        "domains/audit/service.py::snapshot_membership → membership.MembershipHistory",
+        "domains/audit/service.py::snapshot_payment_record → payment.PaymentRecordHistory",
+        "domains/audit/service.py::snapshot_person → mdm.PersonHistory",
+        "domains/audit/service.py::snapshot_product → activities.ProductHistory",
+        "domains/audit/service.py::snapshot_registration → activities.RegistrationHistory",
+        "domains/audit/service.py::snapshot_registration_item → activities.RegistrationItemHistory",
+        "domains/mdm/import_service.py::_create_admin_users → auth.User",
+        "domains/mdm/import_service.py::_create_admin_users → auth.UserRole",
+        "domains/mdm/import_service.py::_ensure_membership → membership.Membership",
+        "domains/media/extraction.py::update_media_extracted_text → chatbot.ChatbotInfo",
+        "domains/membership/household_router.py::add_person → mdm.ContactDetail",
+        "domains/membership/household_router.py::add_person → mdm.MemberPerson",
+        "domains/membership/household_router.py::add_person → mdm.Person",
+        "domains/membership/household_router.py::update_person → mdm.Person",
+        "domains/membership/household_router.py::update_person._upsert → mdm.ContactDetail",
+        "domains/membership/household_service.py::add_person_to_family → mdm.ContactDetail",
+        "domains/membership/household_service.py::add_person_to_family → mdm.MemberPerson",
+        "domains/membership/household_service.py::add_person_to_family → mdm.Person",
+        "domains/membership/household_service.py::assign_board_member → mdm.Member",
+        "domains/membership/household_service.py::create_family_with_members → mdm.Address",
+        "domains/membership/household_service.py::create_family_with_members → mdm.ContactDetail",
+        "domains/membership/household_service.py::create_family_with_members → mdm.Member",
+        "domains/membership/household_service.py::create_family_with_members → mdm.MemberPerson",
+        "domains/membership/household_service.py::create_family_with_members → mdm.Person",
+        "domains/membership/household_service.py::create_member → mdm.Member",
+        "domains/membership/household_service.py::create_member → mdm.MemberPerson",
+        "domains/membership/household_service.py::create_member → mdm.Person",
+        "domains/membership/household_service.py::delete_family → mdm.Member",
+        "domains/membership/household_service.py::delete_person → mdm.Person",
+        "domains/membership/household_service.py::update_person → mdm.Person",
+        "domains/membership/household_service.py::update_person_address → mdm.Address",
+        "domains/membership/service.py::set_relation_type → mdm.MemberPerson",
+        "domains/payment/service.py::_activate_membership → membership.Membership",
+    }
+)
