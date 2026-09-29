@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from datetime import datetime, timezone
-from typing import Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from sqlalchemy import (
     Boolean,
@@ -24,8 +26,12 @@ from app.kernel.rules import aggregate
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
+if TYPE_CHECKING:
+    from app.domains.media.api import MediaAsset
+    from app.kernel.money import Money
 
-def _single_asset(obj, kind, fk_attr):
+
+def _single_asset(obj: Any, kind: str, fk_attr: str) -> Optional[MediaAsset]:
     """De (max. één) MediaAsset van een bepaald ``kind`` die aan dit object hangt.
 
     Via de live sessie opgehaald i.p.v. een mapper-relationship met constante in de
@@ -186,7 +192,7 @@ class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
 # pass through here: this fires on the write itself.
 @event.listens_for(ActivityDate, "before_insert")
 @event.listens_for(ActivityDate, "before_update")
-def _enforce_date_coherence(mapper, connection, target):  # noqa: ARG001
+def _enforce_date_coherence(mapper: Any, connection: Any, target: ActivityDate) -> None:  # noqa: ARG001
     target.validate_coherence()
 
 
@@ -257,25 +263,25 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     )
 
     @property
-    def poster_asset_url(self):
+    def poster_asset_url(self) -> Optional[str]:
         """Een geüploade poster primeert op ``poster_url`` (#223)."""
         a = _single_asset(self, "activity_poster", "activity_id")
         return f"/api/v1/media/{a.id}" if a else None
 
     @property
-    def poster_asset_title(self):
+    def poster_asset_title(self) -> Optional[str]:
         """De titel van de opgeladen affiche (feedbackronde golf 8): de leeslink
         toont wat er hangt, niet een generieke tekst."""
         a = _single_asset(self, "activity_poster", "activity_id")
         return a.title if a else None
 
     @property
-    def poster_asset_is_pdf(self):
+    def poster_asset_is_pdf(self) -> bool:
         a = _single_asset(self, "activity_poster", "activity_id")
         return bool(a and a.content_type == "application/pdf")
 
 
-def _blank(value) -> bool:
+def _blank(value: object) -> bool:
     """Empty or only whitespace counts as not filled in (#733)."""
     return not (str(value) if value is not None else "").strip()
 
@@ -362,7 +368,7 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     component = relationship("ActivitySubRegistration", viewonly=True, load_on_pending=True)
 
     @validates("contact_name")
-    def _name_not_blank(self, key, value):
+    def _name_not_blank(self, key: str, value: Optional[str]) -> Optional[str]:
         """A name is never blank (#733). The value is kept as given — stripping
         would change what is stored today (R13)."""
         if _blank(value):
@@ -372,7 +378,7 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
         return value
 
     @validates("contact_email")
-    def _well_formed_email(self, key, value):
+    def _well_formed_email(self, key: str, value: Optional[str]) -> Optional[str]:
         """An e-mail address is never blank and always well-formed — on every path,
         the screen that corrects a registration included (Koen, 29 September 2026:
         the board can change an address, not clear it). The same check `EmailStr`
@@ -389,7 +395,7 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
             raise ActivityError(_("Vul een geldig e-mailadres in.")) from None
         return value
 
-    def total(self):
+    def total(self) -> Money:
         """What this registration costs, as `Money` (CR-13 phase 1, §B4.3).
 
         Delegates to `activities.totals.compute_registration_total`, the one owner of
@@ -496,7 +502,7 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivityProduct.sort_order, ActivityProduct.id",
     )  # id als tiebreak, #1068
 
-    def _info_asset(self):
+    def _info_asset(self) -> Optional[MediaAsset]:
         sess = object_session(self)
         if sess is None or self.id is None:
             return None
@@ -510,13 +516,13 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
         )
 
     @property
-    def info_asset_url(self):
+    def info_asset_url(self) -> Optional[str]:
         """Een geüpload info/reglement-bestand primeert op ``info_url`` (#223)."""
         a = self._info_asset()
         return f"/api/v1/media/{a.id}" if a else None
 
     @property
-    def info_asset_is_pdf(self):
+    def info_asset_is_pdf(self) -> bool:
         a = self._info_asset()
         return bool(a and a.content_type == "application/pdf")
 

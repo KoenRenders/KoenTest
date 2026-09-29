@@ -15,9 +15,10 @@ Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 
 from datetime import date
-from typing import NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
+from sqlalchemy.orm import Session
 
 from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import (
@@ -30,6 +31,9 @@ from app.domains.activities.models import (
 )
 from app.domains.mdm.api import CONTACT
 from app.kernel.codes import code_label, code_of
+
+if TYPE_CHECKING:
+    from app.schemas.activity import RegistrationCreate
 
 
 def _effective_end(ad: ActivityDate) -> date:
@@ -968,7 +972,7 @@ def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, 
     return reg
 
 
-def _herbereken(db, reg, actor) -> None:
+def _herbereken(db: Session, reg: Registration, actor: Optional[str]) -> None:
     """De betaalposten volgen de bestelling (#185) — through an event since CR-13
     phase 1, and in ONE transaction.
 
@@ -982,7 +986,7 @@ def _herbereken(db, reg, actor) -> None:
     db.refresh(reg)
 
 
-def _order_changed(db, reg, actor) -> None:
+def _order_changed(db: Session, reg: Registration, actor: Optional[str]) -> None:
     """Publish `OrderChanged` with the total its owner computes (§B4.9).
 
     Refuses to publish when nothing listens: an order change nobody reconciles is
@@ -1004,14 +1008,14 @@ def _order_changed(db, reg, actor) -> None:
 
 
 def register(
-    db,
-    activity,
-    data,
+    db: Session,
+    activity: Activity,
+    data: "RegistrationCreate",
     *,
     person_id: int | None,
     actor: str,
     backoffice_products: bool = False,
-):
+) -> Registration:
     """Register somebody for an activity: every rule, then the rows (CR-13 phase 1).
 
     Until phase 1 these rules stood in `router.create_registration`, a door; now the
@@ -1133,7 +1137,7 @@ def register(
     return registration
 
 
-def require_phone(phone) -> None:
+def require_phone(phone: Optional[str]) -> None:
     """A registration needs a mobile number — at the entrances (#733, AC1).
 
     No database constraint on the registration phone (Koen, 29 September 2026);
@@ -1152,8 +1156,13 @@ def require_phone(phone) -> None:
 
 
 def update_registration_contact(
-    db, activity_id: int, registration_id: int, gezet: dict, *, actor=None
-):
+    db: Session,
+    activity_id: int,
+    registration_id: int,
+    gezet: dict[str, Optional[str]],
+    *,
+    actor: Optional[str] = None,
+) -> Optional[Registration]:
     """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
 
     Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
@@ -1211,7 +1220,9 @@ def update_registration_contact(
     return reg
 
 
-def delete_registration(db, activity_id: int, registration_id: int, *, actor=None) -> bool:
+def delete_registration(
+    db: Session, activity_id: int, registration_id: int, *, actor: Optional[str] = None
+) -> bool:
     """Soft delete van een inschrijving én haar bestelregels (#313).
 
     Raakt de betaling NIET aan: een PaymentRecord is een financieel feit en blijft
