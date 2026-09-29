@@ -18,25 +18,29 @@ pytestmark = pytest.mark.ui_serverrendered
 TPL = Path(__file__).resolve().parents[4] / "app" / "domains" / "activities" / "templates"
 
 
-def test_inschrijf_form_is_smalle_modal_body():
+def test_the_registration_fields_are_stacked():
+    """Stacked fields, no wide tinted block (#601) — on the page as in the modal it
+    replaced (CR-14 phase 1); a submit swaps the page, not a card."""
     inhoud = (
-        (TPL / "_inschrijf_form.html").read_text()
+        (TPL / "inschrijven.html").read_text()
         # #1284: the fields moved into their own template, shared with the board.
         + (TPL / "_inschrijf_velden.html").read_text()
     )
-    # Geen breed inline getint blok meer; gestapelde velden i.p.v. 3 kolommen.
     assert "bg-blue-50" not in inhoud
     assert "sm:grid-cols-3" not in inhoud and "grid-cols-1" in inhoud
-    # Herrender/vervang-doel is de modal-kaart.
-    assert "inschrijf-card" in inhoud and 'hx-target="closest .inschrijf-card"' in inhoud
+    assert 'hx-target="#inschrijf-pagina"' in inhoud
 
 
-def test_activiteitenkaart_opent_popup():
-    inhoud = (TPL / "_activiteiten_cards.html").read_text()
-    assert '@click="ins = true"' in inhoud  # knop opent de modal
-    assert 'x-show="ins"' in inhoud  # overlay
-    assert "max-w-md" in inhoud  # smal
-    assert "fixed inset-0" in inhoud  # gecentreerde popup, geen inline blok
+def test_the_card_links_to_the_registration_page():
+    """CR-14 phase 1 (B4.1): the popup of #601 became a page. The card and the
+    activity page share one block of component actions, and it links there."""
+    kaart = (TPL / "_activiteiten_cards.html").read_text()
+    pagina = (TPL / "activiteit.html").read_text()
+    blok = (TPL / "_onderdeel_acties.html").read_text()
+    assert '{% include "_onderdeel_acties.html" %}' in kaart
+    assert '{% include "_onderdeel_acties.html" %}' in pagina
+    assert 'href="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"' in blok
+    assert 'x-show="ins"' not in kaart + pagina + blok, "the popup is back"
 
 
 def test_deelnemers_is_compacte_inline_regel():
@@ -116,7 +120,7 @@ def test_heeft_prijs_volgt_de_prijsberekening():
 def test_betaalwijze_volgt_dezelfde_voorwaarde_als_het_totaal():
     """Bijvangst (#607): geen betaalkeuze bij een onderdeel zonder betalend deel."""
     inhoud = (
-        (TPL / "_inschrijf_form.html").read_text()
+        (TPL / "inschrijven.html").read_text()
         # #1284: the fields moved into their own template, shared with the board.
         + (TPL / "_inschrijf_velden.html").read_text()
     )
@@ -130,7 +134,8 @@ def test_volzet_is_oranje_geen_rood():
     design-system §1.1 houdt de tinten uit elkaar (#f16532 attention · outstanding
     versus #ee3a37 error · delete); ui-conventies §2.10 is daarop rechtgezet.
     """
-    inhoud = (TPL / "_activiteiten_cards.html").read_text()
+    # CR-14 phase 1: the component actions live in one partial for card and page.
+    inhoud = (TPL / "_onderdeel_acties.html").read_text()
     assert 'ui.badge(_("Volzet"), "orange")' in inhoud
     # CR-12 phase 4: the state badge takes its tone from the code, no longer
     # from a dictionary keyed on the Dutch label inside the template. Its

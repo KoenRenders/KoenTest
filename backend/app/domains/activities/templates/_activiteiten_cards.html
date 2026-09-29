@@ -121,92 +121,9 @@
     {% set _multi = (a.sub_registrations | length) > 1 %}
     <div class="mt-3 space-y-3{% if a.sort_date %} -ml-[60px] sm:ml-0{% endif %}">
       {% for c in a.sub_registrations %}
-      <div class="pt-2" x-data="{ open: false, ins: false }">
-        {% set _btn = ui.btn_class("outline", "xs") %}
-        {% set _info = c.info_asset_url or c.info_url %}
-        {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
-           bij een intern geüpload document (info_asset_url, door de portaal geserveerd). #}
-        {% set _info_extern = c.info_url and not c.info_asset_url %}
-        {# Responsive (v1.14-pariteit): op mobiel de naam boven en de knoppen
-           eronder; vanaf sm inline naast elkaar. #}
-        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          {% if _multi %}<span class="text-base md:text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
-          <div class="flex flex-wrap gap-2">
-          {% if scope != "archived" %}
-          {# #974: of er nog ingeschreven kan worden, zegt de SERVICE
-             (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
-             deadline verdwijnt ook de externe link: het formulier daarachter kunnen
-             we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
-          {% if c.registration_closed %}
-          {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
-          {% elif c.external_register_url %}
-          <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
-          {% elif c.is_full %}
-          {{ ui.badge(_("Volzet"), "orange") }}
-          {% else %}
-          {# Kernactie: primair-blauw (#601-vervolg). Enkel de interne inschrijfactie;
-             externe redirect-links (external_register_url) blijven fijn/outline. #}
-          <button type="button" class="{{ ui.btn_class('primary', 'xs') }}"
-                  @click="ins = true"
-                  hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
-                  hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
-          {% endif %}
-          {% endif %}
-          {% if c.external_registrations_url %}
-          <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
-          {% elif not c.external_register_url %}
-          <button type="button" class="{{ _btn }}" @click="open = !open"
-                  hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
-                  {# #1159: `once` blijft. Nagegaan wat het nog kost nu het antwoord op
-                     een inschrijving de lijst out-of-band meestuurt: voor wie zich
-                     inschrijft is er geen verouderd geval meer over — stond het paneel
-                     open, dan ververst het OOB-blok; stond het dicht, dan haalt deze
-                     eerste klik de lijst alsnog op. Wat overblijft is een bezoeker die
-                     de lijst openliet terwijl IEMAND ANDERS zich inschreef, en dat lost
-                     `once` weghalen niet op — dan moet hij nog altijd dicht- en
-                     openklappen. Een verzoek per klik zou daar niets voor kopen en de
-                     zichtbare inhoud tijdens het kijken vervangen. #}
-                  hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
-            <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
-          </button>
-          {% endif %}
-          {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
-          </div>
-        </div>
-        {# #1053: verschillen de datums per onderdeel, dan staat de datum bij het
-           onderdeel waar hij bij hoort — als eigen klokregel ÓNDER de knoppenrij,
-           dezelfde plek die Koen op het golf 12-pakket koos voor de
-           activiteitspagina (20 sep; tussen de knoppen geperst is hij opgemerkt
-           en teruggelegd). Delen de onderdelen één datum, dan staat ze al als
-           icoonregel bovenaan en zou ze hier een tweede keer staan. #}
-        {% if scope != "archived" and not a.shared_deadline and c.registration_closes_on
-              and c.registration_open and not c.is_full %}
-        <div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>
-        {% endif %}
-        {% if not c.external_register_url and not c.external_registrations_url %}
-        {# #737: zelfde regel als hierboven (§2.9b). Gemeten wist htmx' settle óók hier de
-           style, maar het valt niet op omdat de container op dat moment leeg is —
-           een leeg blok heeft geen hoogte. Het attribuut staat er toch: de regel geldt
-           voor de constructie, niet voor het toeval dat ze vandaag onzichtbaar blijft. #}
-        <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
-        {% endif %}
-        {# Inschrijven als gecentreerde popup (v1.14-pariteit, #601): de knop zet
-           `ins=true` en laadt het formulier in de modal-body. Sluiten via ×/Escape/
-           klik-buiten. De × + kaart staan statisch hier (buiten het htmx-doel) zodat
-           Alpine ze verwerkt; het htmx-geladen formulier hoeft zelf geen Alpine. #}
-        {% if scope != "archived" %}
-        {# Overgang op backdrop én kaart (#634), zoals ui.confirm_host(): de popup
-           fadet in i.p.v. hard te verschijnen. #}
-        <div x-show="ins" x-cloak x-transition.opacity.duration.150ms @keydown.escape.window="ins = false" @click.self="ins = false"
-             class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(17,17,17,.5)">
-          <div x-show="ins" x-transition.opacity.duration.150ms class="relative w-full max-w-md max-h-[90vh] overflow-auto bg-white rounded-2xl shadow-xl">
-            <button type="button" class="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-700 text-2xl leading-none"
-                    @click="ins = false" aria-label="{{ _('Sluiten') }}">&times;</button>
-            <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
-          </div>
-        </div>
-        {% endif %}
-      </div>
+      {# The component's actions, one partial for the card and the page (CR-14 phase 1). #}
+      {% set knopmaat = "xs" %}
+      {% include "_onderdeel_acties.html" %}
       {% endfor %}
     </div>
     {% endif %}

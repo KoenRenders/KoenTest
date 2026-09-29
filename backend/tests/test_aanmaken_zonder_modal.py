@@ -6,8 +6,12 @@ enkele modal in de admin, dus er was ook geen pariteitsreden om ze te houden.
 
 De regel eronder is niet "publiek = pagina" maar: één korte, afgeronde handeling in de
 context van een lijst → modal; een vorm die je moet overzien of een object waar je in
-verderwerkt → volledig scherm. De publieke activiteitinschrijving blijft daarom een
-modal (#601) — die uitzondering wordt hier expliciet bewaakt.
+verderwerkt → volledig scherm. De publieke activiteitinschrijving was daarom een
+modal (#601).
+
+Since CR-14 phase 1 (#1332, B4.1) it is a page too: contact, products, the
+component's questions and the payment choice are a page's worth, and a page has a
+URL and a back button. The exception is gone; the test below guards the new rule.
 """
 
 import pytest
@@ -65,12 +69,13 @@ def test_de_lijst_linkt_ernaartoe_en_bevat_geen_formulier(client, db_session, li
     assert veld not in html, f"{lijst} bevat nog het aanmaakveld {veld}"
 
 
-def test_de_publieke_inschrijving_blijft_een_modal(client, db_session):
-    """De beredeneerde uitzondering (#601): één korte, afgeronde handeling in de
-    context van een lijst, en de smalle popup houdt de activiteitkaart zichtbaar."""
+def test_the_public_registration_is_a_page(client, db_session):
+    """CR-14 phase 1 (B4.1): the card links to the registration page; no popup."""
     from tests.conftest import seed_activity_with_product
 
     activity, comp, _p = seed_activity_with_product(db_session, is_free=False)
     html = client.get("/activiteiten").text
-    assert 'x-show="ins"' in html, "de inschrijfpopup hoort te blijven"
-    assert "max-w-md" in html
+    assert f'href="/activiteiten/{activity.id}/inschrijven/{comp.id}"' in html
+    assert 'x-show="ins"' not in html, "the registration popup is back"
+    page = client.get(f"/activiteiten/{activity.id}/inschrijven/{comp.id}").text
+    assert "<main" in page and 'id="inschrijf-pagina"' in page

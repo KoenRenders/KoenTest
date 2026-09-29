@@ -7,10 +7,15 @@ geseede postcodes. CI start uvicorn en draait `pytest tests_e2e`.
 """
 
 import os
+import sys
 import time
 
 import pytest
 from playwright.sync_api import expect, sync_playwright
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from tests_e2e.schermen import open_registration  # noqa: E402
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
 
@@ -120,10 +125,7 @@ def seeded_activities():
 
 
 def _open_inschrijfform(page, aid: int, cid: int):
-    page.goto("/activiteiten")
-    # De 'Inschrijven'-knop op de kaart laadt het formulier via htmx in
-    # #inschrijf-<aid>-<cid>. Selecteer 'm precies op zijn hx-get.
-    page.click(f'button[hx-get="/activiteiten/{aid}/inschrijven/{cid}"]')
+    open_registration(page, aid, cid)
     page.fill("#contact_name", "E2E Deelnemer")
     page.fill("#contact_email", f"e2e+{int(time.time() * 1000)}@example.com")
     page.fill("#phone", "0470000000")
@@ -135,8 +137,14 @@ def test_activiteit_inschrijving_met_ploegnaam(page, seeded_activities):
     aid, cid = seeded_activities["team"]
     _open_inschrijfform(page, aid, cid)
     page.fill("#team_name", "De Kampioenen")
-    page.locator(f"#inschrijf-{aid}-{cid} button[type=submit]").click()
+    page.locator("#inschrijf-pagina button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
+    # P8 and P10 (CR-14 B4.9): the thank-you page leads back to the activity, where
+    # the list of this component is open and already names the new registration —
+    # the in-place refresh of the modal (#1159) became a refresh on return.
+    page.get_by_role("link", name="Terug naar de activiteit").click()
+    page.wait_for_url(f"**/activiteiten/*?deelnemers={cid}")
+    expect(page.locator(f"#deelnemers-{aid}-{cid}")).to_contain_text("De Kampioenen")
 
 
 def test_activiteit_inschrijving_met_producten_en_betaling(page, seeded_activities):
@@ -147,7 +155,7 @@ def test_activiteit_inschrijving_met_producten_en_betaling(page, seeded_activiti
     page.fill(f'input[name="product_{pid}"]', "2")
     # CR-12 phase 1: the radio value is the code, not the Dutch word.
     page.check('input[name="payment_method"][value="transfer"]')
-    page.locator(f"#inschrijf-{aid}-{cid} button[type=submit]").click()
+    page.locator("#inschrijf-pagina button[type=submit]").click()
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
 
 

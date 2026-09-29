@@ -154,6 +154,36 @@ def _prefill(request: Request, person: Any) -> dict:
     return prefill
 
 
+def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form_ctx: dict) -> dict:
+    """The registration page around the form's context (CR-14 phase 1, B4.10): the
+    site shell, the way back, the date line and the component switch (P14)."""
+    from app.i18n import long_date
+
+    datum = long_date(activity.dates[0].start_date) if activity.dates else ""
+    publiek = [c for c in activity.sub_registrations if not c.external_register_url]
+    onderdelen = [
+        {
+            "naam": c.name,
+            "url": f"/activiteiten/{activity.id}/inschrijven/{c.id}",
+            "gekozen": c.id == component.id,
+        }
+        for c in publiek
+    ]
+    terug = f"/activiteiten/{activity.slug or activity.id}"
+    return {
+        **site_context(db, request),
+        **form_ctx,
+        "datum_regel": " · ".join(
+            part for part in (datum, component.name if len(publiek) > 1 else "") if part
+        ),
+        "onderdelen": onderdelen,
+        "terug_url": terug,
+        "klaar": False,
+        "klaar_url": f"{terug}?deelnemers={component.id}",
+        "naam": "",
+    }
+
+
 @router.get("/activiteiten/{activity_id}/inschrijven/{component_id}", response_class=HTMLResponse)
 def inschrijf_form(
     activity_id: int, component_id: int, request: Request, db: Session = Depends(get_db)
@@ -162,7 +192,7 @@ def inschrijf_form(
 
     activity, component = _component_or_404(db, activity_id, component_id)
     channel = _channel(request, db, activity, component)
-    # #974: een modal die geopend wordt nadat de inschrijvingen dicht zijn (een oude
+    # #974: een pagina die geopend wordt nadat de inschrijvingen dicht zijn (een oude
     # link, een tabblad dat bleef openstaan) toont meteen waarom — met dezelfde
     # woorden als de route bij het verzenden, want ze komen uit dezelfde functie.
     ctx = form_context(
@@ -172,7 +202,9 @@ def inschrijf_form(
         values=_prefill(request, channel.person),
         error=registration_refusal(activity, component=component),
     )
-    return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)
+    return templates.TemplateResponse(
+        request, "inschrijven.html", _page_ctx(request, db, activity, component, ctx)
+    )
 
 
 @router.post(
@@ -207,7 +239,7 @@ async def inschrijf_submit(
 ) -> Response:
     """The public channel of the one form (#1284): the processing is shared with
     the board; what is decided here is only how the outcome is shown."""
-    from app.domains.activities.api import OutcomeKind, public_registrations, submit
+    from app.domains.activities.api import OutcomeKind, submit
 
     activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
@@ -215,30 +247,22 @@ async def inschrijf_submit(
         db, _channel(request, db, activity, component), activity, component, form, background_tasks
     )
     if outcome.kind is OutcomeKind.REFUSED:
-        return templates.TemplateResponse(request, "_inschrijf_form.html", outcome.context)
+        return templates.TemplateResponse(
+            request,
+            "inschrijven.html",
+            _page_ctx(request, db, activity, component, outcome.context),
+        )
+    page = _page_ctx(request, db, activity, component, {"activity": activity})
     if outcome.kind is OutcomeKind.CHECKOUT:
         # Vaste UI-beslissing: harde redirect naar Mollie (nooit client-side route).
-        response = templates.TemplateResponse(
-            request, "_inschrijf_klaar.html", {"naam": outcome.name, "checkout": True}
-        )
+        response = HTMLResponse("")
         response.headers["HX-Redirect"] = outcome.checkout_url
         return response
-    # #1159: de deelnemerslijst staat BUITEN het swap-doel van dit formulier
-    # (`closest .inschrijf-card`), dus ze bleef staan zoals ze bij het laden van
-    # de pagina was — de verse inschrijving verscheen niet bij "Wie doet er mee?".
-    # Zelfde vorm en zelfde antwoord als §8.4 van het design system: wat buiten
-    # het doel staat, reist out-of-band mee met het antwoord (fragment-antwoord,
-    # §8.2, #748). Alleen op dit pad: het betaalde pad verlaat de pagina.
+    # P8 (CR-14 B4.9): the thank-you page in the same shell; P10: its link back
+    # opens the participant list of this component, fresh — the out-of-band
+    # refresh of the modal (#1159) went with the modal.
     return templates.TemplateResponse(
-        request,
-        "_inschrijf_klaar.html",
-        {
-            "naam": outcome.name,
-            "checkout": False,
-            "activity_id": activity.id,
-            "component_id": component.id,
-            "deelnemers": public_registrations(db, activity.id, component.id),
-        },
+        request, "inschrijven.html", {**page, "klaar": True, "naam": outcome.name}
     )
 
 
@@ -316,5 +340,13 @@ def activiteit_deeplink(sleutel: str, request: Request, db: Session = Depends(ge
             "terug": "/activiteiten/archief" if voorbij else "/activiteiten",
             "poster_url": poster_url,
             "poster_link": poster_link,
+            # P10 (CR-14 B4.9): back from the thank-you page, the list of the
+            # component just registered for opens at once, fresh.
+            "open_deelnemers": _component_to_open(request),
         },
     )
+
+
+def _component_to_open(request: Request) -> int | None:
+    value = request.query_params.get("deelnemers", "")
+    return int(value) if value.isdigit() else None

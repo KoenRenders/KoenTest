@@ -97,6 +97,17 @@ def pagina_klaar(page, *, timeout: int = 10_000) -> None:
     htmx_stil(page, timeout=timeout)
 
 
+def open_registration(page, activity_id: int, component_id: int) -> None:
+    """The registration page of one component, reached the way a visitor does: from
+    the card's "Inschrijven", which is a link to the page since CR-14 phase 1
+    (#1332) — no longer a modal loaded by htmx. One place, so the way in is not
+    typed out again in every test."""
+    page.goto("/activiteiten")
+    page.click(f'a[href="/activiteiten/{activity_id}/inschrijven/{component_id}"]')
+    page.wait_for_url(f"**/activiteiten/{activity_id}/inschrijven/{component_id}")
+    pagina_klaar(page)
+
+
 def htmx_stil(page, *, timeout: int = 10_000) -> None:
     """Wait until nothing htmx started is still running — after a page load.
 

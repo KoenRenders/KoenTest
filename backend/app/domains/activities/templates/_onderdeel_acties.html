@@ -1,0 +1,79 @@
+{% import "_macros.html" as ui %}
+{# One component's actions: register, "Wie doet er mee?", info, and its deadline
+   line — for the card (`_activiteiten_cards.html`) and the activity page
+   (`activiteit.html`), which each had their own copy until CR-14 phase 1 and had
+   already drifted apart (the page said "closed" per activity, the card per
+   component — #1053 is right: the deadline belongs to the component).
+
+   Expects: `a` (the activity), `c` (the component), `scope`, `_multi` (more than one
+   component), `knopmaat` ("xs" on the card, "sm" on the page) and `open_deelnemers`
+   (the component whose participant list opens at once — the one somebody just
+   registered for, P10 of CR-14 B4.9). #}
+{# Only the activity page passes it; the lists and the home page do not. #}
+{% set _open = (open_deelnemers | default(none)) == c.id %}
+<div class="pt-2" x-data="{ open: {{ 'true' if _open else 'false' }} }">
+  {% set _btn = ui.btn_class("outline", knopmaat) %}
+  {% set _info = c.info_asset_url or c.info_url %}
+  {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
+     bij een intern geüpload document (info_asset_url, door de portaal geserveerd). #}
+  {% set _info_extern = c.info_url and not c.info_asset_url %}
+  {# Responsive (v1.14-pariteit): op mobiel de naam boven en de knoppen
+     eronder; vanaf sm inline naast elkaar. #}
+  <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+    {% if _multi %}<span class="text-base md:text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
+    <div class="flex flex-wrap gap-2 items-center">
+    {% if scope != "archived" %}
+    {# #974: of er nog ingeschreven kan worden, zegt de SERVICE
+       (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
+       deadline verdwijnt ook de externe link: het formulier daarachter kunnen
+       we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
+    {% if c.registration_closed %}
+    {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
+    {% elif c.external_register_url %}
+    <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
+    {% elif c.is_full %}
+    {{ ui.badge(_("Volzet"), "orange") }}
+    {% else %}
+    {# Kernactie: primair-blauw (#601-vervolg). Since CR-14 phase 1 a link to the
+       registration PAGE, not a modal (B4.1). #}
+    <a class="{{ ui.btn_class('primary', knopmaat) }}" href="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}">{{ _("Inschrijven") }}</a>
+    {% endif %}
+    {% endif %}
+    {% if c.external_registrations_url %}
+    <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
+    {% elif not c.external_register_url %}
+    <button type="button" class="{{ _btn }}" @click="open = !open"
+            hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
+            {# #1159: `once` blijft — de lijst wordt bij de eerste klik opgehaald.
+               Na een inschrijving komt ze open en vers binnen (hieronder). #}
+            hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
+      <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
+    </button>
+    {% endif %}
+    {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
+    </div>
+  </div>
+  {# #1053: verschillen de datums per onderdeel, dan staat de datum bij het
+     onderdeel waar hij bij hoort — als eigen klokregel ÓNDER de knoppenrij
+     (Koen op het golf 12-pakket, 20 sep). Delen de onderdelen één datum, dan
+     staat ze al bovenaan en zou ze hier een tweede keer staan. #}
+  {% if scope != "archived" and not a.shared_deadline and c.registration_closes_on
+        and c.registration_open and not c.is_full %}
+  <div class="mt-1 flex items-center gap-1 text-xs {{ 'text-orange-600' if c.deadline_near else 'text-ink-soft' }}">{{ ui.icon("clock", size=13) }}{{ _("Inschrijven t/m") }} {{ c.registration_closes_on | datumzonderjaar }}</div>
+  {% endif %}
+  {% if not c.external_register_url and not c.external_registrations_url %}
+  {# #737: `x-show` + inline `style` (§2.9b). P10 (CR-14 B4.9): back from the thank-you
+     page, the list of the component you registered for opens at once and loads fresh
+     — the in-place refresh of the modal is gone with the modal. #}
+  {% if _open %}
+  {# The `x-show` on a wrapper without an id, the loading element inside it: an
+     element with both would lose Alpine's state on htmx' settle (#726). #}
+  <div x-show="open">
+    <div id="deelnemers-{{ a.id }}-{{ c.id }}"
+         hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}" hx-trigger="load"></div>
+  </div>
+  {% else %}
+  <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
+  {% endif %}
+  {% endif %}
+</div>

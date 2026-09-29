@@ -155,13 +155,13 @@ def _open_first_link(page, text: str, url_glob: str) -> None:
     page.wait_for_load_state("networkidle")
 
 
-def _open_register_modal(page) -> None:
-    """Open the public registration modal on the activities list."""
-    button = page.get_by_role("button", name="Inschrijven").first
-    button.wait_for(state="visible", timeout=5000)
-    button.click()
-    # The htmx swap fills an #inschrijf-* container; wait for the form.
-    page.wait_for_selector("form >> text=Inschrijven", timeout=5000)
+def _open_registration_page(page) -> None:
+    """Open the public registration from the activities list — a page since CR-14
+    phase 1 (#1332), a modal before."""
+    link = page.locator('a[href*="/inschrijven/"]').first
+    link.wait_for(state="visible", timeout=5000)
+    link.click()
+    page.wait_for_selector("#inschrijf-pagina form", timeout=5000)
 
 
 def _vraag_de_code(page) -> None:
@@ -201,7 +201,7 @@ SCREENS: tuple[Screen, ...] = (
         "/activiteiten",
         admin=False,
         viewport_only=True,
-        action=_open_register_modal,
+        action=_open_registration_page,
     ),
     Screen("public-word-lid", "/lid-worden", admin=False),
     Screen("public-formulier", "/formulier/tok-e2e-open", admin=False),

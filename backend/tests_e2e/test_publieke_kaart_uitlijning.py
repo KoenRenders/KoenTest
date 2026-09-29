@@ -31,7 +31,8 @@ def _meet(page):
     return page.evaluate("""() => {
       const titel = document.querySelector('h2 span, h2 a');
       const kaart = titel.closest('div[id]');
-      const knop = kaart.querySelector('button');
+      // The first action: since CR-14 phase 1 "Inschrijven" is a link to the page.
+      const knop = kaart.querySelector('a[href*="/inschrijven/"], button');
       return {
         titel: Math.round(titel.getBoundingClientRect().left),
         knop: Math.round(knop.getBoundingClientRect().left),
