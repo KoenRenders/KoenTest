@@ -214,18 +214,18 @@ nothing in it needs a question:
 
 ## A8. Acceptance criteria — what the business signs off on HDEV
 
-| # | Criterion | Requirement |
-|---|---|---|
-| AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions after the products and before the payment method, behind the choice "nu / later"; a component without a form shows nothing new. | R1, R2 |
-| AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 |
-| AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order — the .ods opens in LibreOffice and is fit to print as the Sint's list. | R3, R13 |
-| AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 |
-| AC5 | Attaching a closed form, a form of another tenant, or a form with more than one section is refused with a message that says why; so is replacing the form of a component that already has answered registrations. | R1, R10 |
-| AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 |
-| AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 |
-| AC8 | The confirmation mail of a registration with answers lists them, label and value, after the products. | R6 |
-| AC10 | "Boek van de Sint" for the component: one block per registration — contact name, address when the person is known, number of children, the five answers in the form's order — separated by a page break, printable from the browser to paper or PDF; a registration with open questions shows "nog niet beantwoord". | R14 |
-| AC9 | Every row of the parity list in B4.9 is walked on HDEV on a phone and on a desktop: each public function of today is found on the new page, and the two screenshots (modal before, page after) sit side by side in the PR. | R11 |
+| # | Criterion | Requirement | Walkthrough steps (B2.1) |
+|---|---|---|---|
+| AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions after the products and before the payment method, behind the choice "nu / later"; a component without a form shows nothing new. | R1, R2 | 1, 2, 5 |
+| AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 | 6 |
+| AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order — the .ods opens in LibreOffice and is fit to print as the Sint's list. | R3, R13 | 7, 9, 12 |
+| AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 | 8, 10, 11 |
+| AC5 | Attaching a closed form, a form of another tenant, or a form with more than one section is refused with a message that says why; so is replacing the form of a component that already has answered registrations. | R1, R10 | 3, the turns |
+| AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 | 14 |
+| AC7 | The organiser corrects an answer on the registration detail; the corrected value shows in the detail and the export; an empty required answer is refused there too. | R7 | 13 |
+| AC8 | The confirmation mail of a registration with answers lists them, label and value, after the products. | R6 | 7 |
+| AC9 | Every row of the parity list in B4.9 is walked on HDEV on a phone and on a desktop: each public function of today is found on the new page, and the two screenshots (modal before, page after) sit side by side in the PR. | R11 | 4 |
+| AC10 | "Boek van de Sint" for the component: one block per registration — contact name, address when the person is known, number of children, the five answers in the form's order — separated by a page break, printable from the browser to paper or PDF; a registration with open questions shows "nog niet beantwoord". | R14 | 12 |
 
 ---
 
@@ -385,8 +385,9 @@ right; kept here and nowhere else:**
 | R14 the Sint's book | a print view of the component, one block per registration, page break per household — the same read as the export, rendered as a page | F14 | activities (book view) | 13 | AC10 |
 
 **The walkthrough — how the business tests this on HDEV.** Three roles,
-in the order of A3; each step says what to do, what to see, and what it
-proves. The closing comments of the issues point here.
+in the order of A3; each step says what to do and what to see. Which step
+shows which acceptance criterion is in A8. The closing comments of the
+issues point here.
 
 *Organiser — setting up (phase 2):*
 
@@ -394,53 +395,51 @@ proves. The closing comments of the issues point here.
    form builder: the five questions of A5 — time slots (checkbox,
    required), door or inside (radio, required), how good the children were
    (rating 1–5, required), the story (textarea, required), remarks
-   (textarea). Set it open. → *AC1 precondition.*
+   (textarea). Set it open.
 2. Open the Sint activity, its component, settings: pick "Sint 2026" under
-   "Extra vragen"; save. See the form named on the component. → *AC1.*
+   "Extra vragen"; save. See the form named on the component.
 3. Try to pick a closed form, and a two-section form: refused with the
-   reason. → *AC5.*
+   reason.
 
 *Household member — registering (phases 1 and 2):*
 
 4. On the site, open the Sint activity and press "Inschrijven": a **page**
    opens (no longer a modal) with the activity and date on top. Walk the
-   parity list of B4.9 once, on a phone and on a desktop. → *AC9.*
+   parity list of B4.9 once, on a phone and on a desktop.
 5. Fill in name, e-mail, mobile; set two children; see the total follow.
    The questions appear after the products with the choice *Nu invullen ·
-   Later via e-mail*, "nu" selected. → *AC1.*
+   Later via e-mail*, "nu" selected.
 6. Leave the time slots empty, submit: refused, the question named, your
-   other answers kept. → *AC2.*
+   other answers kept.
 7. Answer everything, choose transfer, submit: the thank-you page; the
    mail lists the products, the transfer instructions and the five
-   answers. → *AC3, AC8.*
+   answers.
 8. Register again with "later": the thank-you page shows the answer link;
    the mail carries it. Open the link: the five questions; answer; see
-   "Bedankt". Open the link again: "al ingevuld". → *AC4.*
+   "Bedankt". Open the link again: "al ingevuld".
 9. Register once more with "nu" and pay online (stub provider): Mollie's
    stub page, then the return page; the answers are on the registration.
-   → *AC3.*
 
 *Board — registering a member (phase 2):*
 
 10. In the admin, the Sint activity, "Inschrijving toevoegen": the same page
     in the admin shell, the same choice, "nu" selected. Switch to "later",
     type a member's address, submit: the member's mail carries the link.
-    → *AC4.*
 11. Open the registration detail: "antwoorden gevraagd op <date>", the
-    button "link opnieuw sturen"; press it, a second mail. → *AC4.*
+    button "link opnieuw sturen"; press it, a second mail.
 
 *Organiser — reading and correcting (phases 2 and 3):*
 
 12. On the registration of step 7, the five answers as label and value.
     Export the component: one row per registration, five extra columns
     after *Opmerkingen*; open the .ods in LibreOffice; it prints as the
-    Sint's list. → *AC3.* Press "Boek": one page per household with the
-    answers under each other; print it. → *AC10.*
+    Sint's list. Press "Boek": one page per household with the
+    answers under each other; print it.
 13. Edit the allergies answer on the detail, save: the new value in the
     detail and in the export; the history shows old and new. Empty a
-    required answer: refused. → *AC7.*
+    required answer: refused.
 14. In the form builder, try to add a field to "Sint 2026": refused, the
-    form has submissions. → *AC6.*
+    form has submissions.
 
 *The turns that must refuse (any role):* a wrong or used answer link →
 "not found"; the form's own public URL still works and its submission

@@ -115,12 +115,13 @@ and deliberately not done — recorded so it is not asked again).
 
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
-> *without reading code, each pointing at a requirement. These are the*
-> *business's unit tests; the developer's tests live in Part B.*
+> *without reading code, each pointing at a requirement and at the steps of*
+> *the walkthrough (B2.1) that show it. These are the business's unit tests;*
+> *the developer's tests live in Part B.*
 
-| # | Criterion | Requirement |
-|---|---|---|
-| AC1 | … | R1 |
+| # | Criterion | Requirement | Walkthrough steps |
+|---|---|---|---|
+| AC1 | … | R1 | … |
 
 ---
 
@@ -169,9 +170,11 @@ and deliberately not done — recorded so it is not asked again).
 > *business tests this on HDEV: one numbered*
 > *script per role of A3, in the order of the to-be process, happy path*
 > *first and then the turns where it must refuse or fall back; each step*
-> *names what to do, what to see, and the acceptance criterion it proves*
-> *(A8). Every criterion appears in at least one step. The closing comment*
-> *of each issue points at the walkthrough instead of rewriting it. This is*
+> *names what to do and what to see — nothing else, it is a script. The*
+> *link to the acceptance criteria lives in A8, whose last column names the*
+> *steps that show each criterion; every criterion has at least one step.*
+> *The closing comment of each issue points at the walkthrough instead of*
+> *rewriting it. This is*
 > *the page a board member reads to say "yes, that is how we will work, and*
 > *this is how I will check it".*
 
