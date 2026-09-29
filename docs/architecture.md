@@ -756,7 +756,7 @@ The working document `docs/intermediate-architecture-upgrade-v1.md` (July 2026) 
 | Ledger and Mollie | `domains/payment/{service,gateway_service,gateway_router,structured_communication,exports}.py`, `providers/{base,mollie}.py` |
 | Master data | `domains/mdm/{models,service,tenant_service,import_service}.py`, `domains/audit/{service,changes}.py` |
 | Form engine | `domains/forms/{models,service,results,export,ui}.py`, `app/static/form-json-formaat.md` |
-| AI | `domains/chatbot/{context,tools,service,render}.py`, `chatbot/providers/`, `domains/media/extraction.py`, `domains/stt/` |
+| AI | `domains/chatbot/{context,tools,service,render}.py`, `chatbot/providers/`, `domains/media/extraction.py`, `domains/chatbot/stt/` |
 | Gates | `backend/tests/test_{import_boundaries,schema_boundaries,layer_gate,template_variables_gate,ui_conventions_gate,gate_niet_leeg,payable_delete_gate,query_budget,render_gate,docs_gating,i18n_gate}.py` |
 | Browser flows and seed | `backend/tests_e2e/`, `backend/seed_e2e.py` |
 | CI and deployment | `.github/workflows/backend-tests.yml`, `deploy.sh`, `deploy-caddy.sh`, `raakctl`, `backend/startup.sh`, `backend/Dockerfile`, `docker-compose.*.yml` |
