@@ -31,6 +31,7 @@
 # Part A — The business
 
 ## A1. Reason to act — the trigger
+
 > [!NOTE]
 > *The trigger: the one reason this idea is put forward, in the business's*
 > *own words. What the association wants, what stops it today, and why that is*
@@ -39,18 +40,38 @@
 > *questions had to be split, which is a step back.*
 
 ## A2. As-is process — how it works today, and where it hurts
+
 > [!NOTE]
-> *How the work is done today, step by step, by whom, with which tools and*
-> *material. Measured where possible: how often, how long, how many. Name the*
-> *pain per step.*
+> *How the work is done today, by whom, with which tools and material.*
+> *Measured where possible: how often, how long, how many. Name the pain per*
+> *step. Two forms, both: a **process drawing** and a **step table** with the*
+> *pain column.*
+>
+> *The drawing is a Mermaid flowchart that follows BPMN Level 1 as Bruce*
+> *Silver's "Method and Style" defines it (decided with Koen, 29 September*
+> *2026 — GitHub renders Mermaid and nothing else; real BPMN is for a process*
+> *that will be executed, see CR-13 B4.10). The Level 1 palette, in Mermaid:*
+> *one `subgraph` per actor as its lane (member, organiser, treasurer, the*
+> *portal), in the same order in A2 and A3 so the difference is visible; a*
+> *rectangle per activity, labelled verb + noun ("Register", "Send link");*
+> *one start circle and one named end circle per outcome ("Registered",*
+> *"Refused"); a diamond for an exclusive gateway with its question inside*
+> *and the answers on the arrows; a dashed arrow for a message between*
+> *lanes; at most fifteen activities per drawing — more becomes a subprocess*
+> *in its own drawing. No intermediate events, no timers, no data objects:*
+> *Level 1 stops there on purpose.*
 
 ## A3. To-be process — how it should work afterwards
+
 > [!NOTE]
-> *How the work should go afterwards, step by step. Same actors as A2 where*
-> *possible, so the difference is visible. Still no components: "the portal*
-> *renders the poster", not "WeasyPrint renders the poster".*
+> *How the work should go afterwards: the same drawing and table as A2, the*
+> *same lanes in the same order, so the difference is what the eye finds.*
+> *Still no components: "the portal renders the poster", not "WeasyPrint*
+> *renders the poster". A step that disappears, moves lane or turns into a*
+> *choice is the change — name it under the drawing in one line each.*
 
 ## A4. Supplied material — and what it taught us
+
 > [!NOTE]
 > *What the business handed over to start from — brand guides, examples,*
 > *photos, spreadsheets, briefs — with where it lives (Nextcloud path, never in*
@@ -59,6 +80,7 @@
 > *bleed".*
 
 ## A5. Business requirements — what the board asks, with MoSCoW
+
 > [!NOTE]
 > *One table. Each requirement is a sentence a board member would say, with a*
 > *MoSCoW class. Numbered, so Part B and the acceptance criteria can point at*
@@ -73,6 +95,7 @@ but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
 and deliberately not done — recorded so it is not asked again).
 
 ## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
+
 > [!NOTE]
 > *The requirements every change request is tested against, each answered*
 > *explicitly at business level, "not applicable" included. How they are met*
@@ -87,6 +110,7 @@ and deliberately not done — recorded so it is not asked again).
 | **Multi-tenant** — what differs per unit, what is platform-wide | … |
 
 ## A7. Acceptance criteria — what the business signs off on HDEV
+
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
 > *without reading code, each pointing at a requirement. These are the*
@@ -101,12 +125,14 @@ and deliberately not done — recorded so it is not asked again).
 # Part B — The solution
 
 ## B1. Solution outline — the solution and the decisions that shape it
+
 > [!NOTE]
 > *The solution in one paragraph, and the decisions that shape it, each with*
 > *the alternatives weighed and why they lost (Europe First named where a tool*
 > *or service is chosen).*
 
 ### B1.1 Functional analysis — the derived requirements
+
 > [!NOTE]
 > *The derived, finer-grained requirements the solution answers, traced to A5.*
 > *This is design work by the analyst, not business input — which is why it is*
@@ -115,17 +141,20 @@ and deliberately not done — recorded so it is not asked again).
 ## B2. Architecture
 
 ### B2.1 Components — new, used, changed
+
 > [!NOTE]
 > *Which components are new, which existing ones are used, which change. One*
 > *table: component · new/used/changed · role in this change.*
 
 ### B2.2 Application usage — where each business step happens
+
 > [!NOTE]
 > ***Diagram (ArchiMate "application usage" view):** the to-be process steps of*
 > *A3 on the left, the screens and services that serve each step on the right.*
 > *It answers: *where in the application does each business step happen?**
 
 ### B2.3 Application structure — what is built where, and what talks to what
+
 > [!NOTE]
 > ***Diagram (ArchiMate "application structure" view):** screens, modules,*
 > *facades, data stores and external integrations, with the dependencies*
@@ -133,11 +162,13 @@ and deliberately not done — recorded so it is not asked again).
 > *where, and what talks to what?**
 
 ### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
+
 > [!NOTE]
 > *What existing modules, tables, screens and contracts are touched, and how*
 > *the layer rules (`docs/code-style.md`, CR-04, the import gate) are respected.*
 
 ## B3. Cost and operations — settings, limits, running cost
+
 > [!NOTE]
 > *Operations first: settings, env vars, backups, limits, kill switch.*
 > *Then external and running cost: paid tools and services (per use and per month,*
@@ -146,6 +177,7 @@ and deliberately not done — recorded so it is not asked again).
 > *answer.*
 
 ## B4. Detailed decisions — one subsection each, with the reasons
+
 > [!NOTE]
 > *The design decisions in full, one subsection each, with their reasons.*
 
@@ -158,15 +190,18 @@ and deliberately not done — recorded so it is not asked again).
 > *cardinality; soft references across schemas drawn as relationships too.*
 
 ### B5.2 Tables — schemas, columns, validation layers
+
 > [!NOTE]
 > *Sketch of schemas, tables, columns, codes; validation layers.*
 
 ## B6. Privacy and security — the mechanics behind A6
+
 > [!NOTE]
 > *How A6's privacy and security answers are implemented: what leaves the*
 > *system to whom, what is sanitised, what is logged.*
 
 ## B7. Phasing — shippable phases, and what changes on the failure paths
+
 > [!NOTE]
 > *Shippable phases, each with what it delivers and its dependencies.*
 
@@ -181,11 +216,13 @@ e2e test that goes red on one of them is expected, not a surprise. "None"
 is an answer.
 
 ## B8. Tests — what the build must prove
+
 > [!NOTE]
 > *What the build must prove, each test able to go red; guards proven by*
 > *violation.*
 
 ## B9. Rule and gatekeeper — what this fixes for all future work
+
 An architectural change request fixes a **way of doing things**, not just one
 instance of it. This section makes that explicit, so the decision outlives the
 change and the next development follows it without anyone remembering to ask.
@@ -233,15 +270,18 @@ down as one.
    forgotten, with the name of the missing piece.
 
 ## B10. Prototype findings — what was measured before the build
+
 > [!NOTE]
 > *What was learnt from prototypes before the build (measurements, refusals,*
 > *things that did not work).*
 
 ## B11. Decisions log — dated answers and open proposals
+
 > [!NOTE]
 > *Dated answers from Koen and open proposals awaiting an answer.*
 
 ## Q&A log — asked once, answered here
+
 > [!NOTE]
 > *Questions asked during shaping, review and build, dated, with who asked and*
 > *the answer — so nothing is asked twice and open questions are visible.*
@@ -251,9 +291,11 @@ down as one.
 | Q1 | … | … | … / *open* |
 
 ## Non-goals — deliberately outside this change
+
 > [!NOTE]
 > *What is deliberately outside this change.*
 
 ## Relationship to existing work — issues and change requests
+
 > [!NOTE]
 > *Issues and CRs this builds on or hands off to.*
