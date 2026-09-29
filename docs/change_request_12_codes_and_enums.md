@@ -1008,9 +1008,14 @@ values); `method` did (B4.6: `OVERSCHRIJVING` → `transfer`, one data fix
 in the same migration as the form), and the view reads the column, not a
 label, so it followed the data. A report that *filters* on the old
 spelling — a saved report with `method = 'OVERSCHRIJVING'` — would go
-quietly empty: the phase-1 closing comment should say whether saved reports
-were checked; if not, dev1 checks `reporting.saved_reports` on every
-environment (one query) before v2.7.0 closes.
+quietly empty. **Measured on PROD by the master CLI, read-only, 29
+September:** no saved report filters on `payment_method`; four show the
+column (#7, #14, #21, #22, all built-in — `payments_list`,
+`payment_method_per_month` — with `"filters": []`), and none of the old
+spellings (`ONLINE`, `OVERSCHRIJVING`, `TRANSFER`, `CASH`) occurs anywhere.
+Risk today: zero. The lesson is for the template, not for v2.7.0: a value
+change on a column a view reads is checked against the saved reports before
+the migration, not after.
 
 ## B6. Privacy and security — the mechanics behind A7
 
