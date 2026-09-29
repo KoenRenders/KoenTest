@@ -23,95 +23,107 @@ questions integrated into the registration. (Koen, 29 September 2026.)
 
 ## A2. As-is process — how it works today, and where it hurts
 
-The Sint activity as it ran until now, BPMN Level 1 in Mermaid (the
-convention of the template):
+The Sint registration as it ran for years, on a Google Form — the process
+the platform has to equal (Koen, 29 September 2026). Communication (a mail,
+a WhatsApp message) precedes it and is outside this change. BPMN Level 1 in
+Mermaid, the convention of the template:
 
 ```mermaid
 flowchart LR
-  subgraph member["Member"]
-    m0((start)) --> m1[Register on the portal:<br/>contact, products, pay]
-    m1 --> m2[Find the separate form<br/>in the mail or on paper]
-    m2 --> m3{Answer it?}
-    m3 -- yes --> m4[Answer the questions]
-    m3 -- not yet --> m5((Registered,<br/>unanswered))
-    m4 --> m6((Registered<br/>and answered))
+  subgraph member["Household member"]
+    m0((start)) --> m1[Fill in the one form:<br/>how many children<br/>+ the questionnaire]
+    m1 --> m2{Questionnaire<br/>complete now?}
+    m2 -- yes --> m3[Press OK]
+    m2 -- not yet --> m3
+    m3 --> m4[Receive the<br/>confirmation mail]
+    m4 --> m5{Questions<br/>still open?}
+    m5 -- yes, a week<br/>before the Sint --> m6[Complete the questionnaire<br/>through the mail's link]
+    m5 -- no --> m7
+    m6 --> m7[Pay by transfer<br/>as the form says]
+    m7 --> m8((Registered,<br/>answered, paid))
   end
-  subgraph organiser["Organiser"]
-    o1[Set up the activity<br/>and its products] --> o2[Ask the questions elsewhere:<br/>a mail, a form, the day itself]
-    o2 --> o3[Match answers to<br/>registrations by hand]
-    o3 --> o4{All answered?}
-    o4 -- no --> o5[Chase by mail]
-    o5 --> o3
-    o4 -- yes --> o6[Export the list<br/>without the answers]
-    o6 --> o7((Round planned))
+  subgraph treasurer["Treasurer / organiser"]
+    t1[See transfers<br/>come in] --> t2[Match each transfer<br/>to a registration]
+    t2 --> t3{Everyone paid?}
+    t3 -- no --> t4[Remind by mail<br/>or WhatsApp]
+    t4 --> t1
+    t3 -- yes --> t5[Read the answers<br/>in the form's sheet]
+    t5 --> t6((Round planned))
   end
-  o1 -.-> m1
-  o2 -.-> m2
-  m4 -.-> o3
+  m7 -.-> t1
 ```
 
 | Step | Who | Today | Pain |
 |---|---|---|---|
-| 1. The organiser sets up the activity and its components in the admin, with products and prices. | organiser | activities module | — |
-| 2. A member registers on the site: contact, products, remarks, payment method; pays through Mollie or by transfer. | member | public modal | the modal has no place for the activity's own questions |
-| 3. The extra questions are asked *elsewhere*: in the confirmation mail's reply, in a separate form, on the day. | organiser, member | mail, a form, paper | a second action for the member; answers arrive late or not at all |
-| 4. The organiser matches answers to registrations. | organiser, treasurer | by hand | error-prone; the registration list and the answers are two lists |
-| 5. The export of a component (one row per registration) has no answers. | organiser | .ods export | a third list |
+| 1. One form: the number of children **and** the questionnaire; OK; a confirmation mail. | member | Google Form | none for the member — this is the bar |
+| 2. Complete now, or later through the mail's link, typically a week before the Sint. | member | Google Form's edit link | none |
+| 3. Pay by transfer; the form says so. | member | bank | no structured communication, so step 4 |
+| 4. See the transfers come in and match each to a registration. | treasurer | bank + the form's sheet | by hand, by name and amount |
+| 5. Follow up who has not paid; remind. | treasurer, organiser | mail, WhatsApp | by hand, from two lists |
+| 6. Read the answers and plan the round. | organiser | the form's sheet | the answers live outside the member data; nothing links them to a person or a payment |
 
-Measured on `master` (29 Sep): a registration carries `remarks` as its only
-free field; the component has no setting that points at a form; the form
-builder has 25 admin screens and 7 public routes, and a submission cannot
-be linked to anything today.
+**Why this cannot run on the platform today** (measured on `master`, 29
+Sep): a registration collects contact, products and one `remarks` box, and
+nothing else; the component has no setting that points at a form; a form
+submission cannot be linked to anything. So on the platform the Sint would
+have to be **split** — the registration on the portal, the questionnaire in
+a separate form — with steps 4–6 as they are. That split is the step back
+of A1.
 
 ## A3. To-be process — how it should work afterwards
 
-Same lanes, same order; what changed is named under the drawing:
+Same lanes, same order, on the platform:
 
 ```mermaid
 flowchart LR
-  subgraph member["Member"]
-    m0((start)) --> m1[Register on the portal:<br/>contact, products]
+  subgraph member["Household member"]
+    m0((start)) --> m1[Register on the portal:<br/>contact, how many children]
     m1 --> m2{Answer the questions<br/>now or later?}
     m2 -- now --> m3[Answer the questions]
-    m3 --> m4[Pay]
+    m3 --> m4[Choose: pay online<br/>or by transfer]
     m2 -- later --> m4
-    m4 --> m5((Registered))
-    m5 --> m6[Open the link<br/>in the mail]
-    m6 --> m7[Answer the questions]
-    m7 --> m8((Answered))
+    m4 --> m5[Receive the confirmation mail<br/>— with the answer link if later]
+    m5 --> m6{Questions<br/>still open?}
+    m6 -- yes, when it suits --> m7[Answer through<br/>the mail's link]
+    m6 -- no --> m8
+    m7 --> m8((Registered,<br/>answered, paid))
   end
   subgraph board["Board"]
-    b1[Register a member<br/>on the same page,<br/>same choice]
+    b1[Register a member on<br/>the same page, same choice]
   end
-  subgraph organiser["Organiser"]
-    o1[Build the questions<br/>as a form] --> o2[Attach the form<br/>to the component]
-    o2 --> o3[Read the answers on<br/>the registration and<br/>in the export]
-    o3 --> o4{Anyone still<br/>owes answers?}
-    o4 -- yes --> o5[Resend the link]
-    o5 --> o3
-    o4 -- no --> o6((Round planned))
+  subgraph treasurer["Treasurer / organiser"]
+    t1[See payments arrive<br/>on the payments screen:<br/>online at once, transfers<br/>by their structured message] --> t2{Everyone paid?}
+    t2 -- no --> t3[Remind by mail<br/>or WhatsApp]
+    t3 --> t1
+    t2 -- yes --> t4[Read the answers on the<br/>registration and in the export;<br/>resend the answer link<br/>where still open]
+    t4 --> t5((Round planned))
   end
-  o2 -.-> m1
-  b1 -.-> m6
-  m3 -.-> o3
-  m7 -.-> o3
+  m4 -.-> t1
+  b1 -.-> m5
+  m3 -.-> t4
+  m7 -.-> t4
 ```
 
-What changed: the questions moved **into** the registration (with a
-choice to answer later); "find the separate form" and "match by hand"
-disappeared; "chase by mail" became "resend the link", from the
-registration; the board got a lane, on the same page as the member; the
-export carries the answers.
+What changed against A2: the one form is back — contact, children and the
+questionnaire on one page, with "later" through the mail's link kept; the
+board can register a member on the same page; paying online is added and a
+transfer carries a structured message, so "match each transfer by hand"
+disappears (the payments module does it, as for every registration today);
+the answers sit on the registration, next to the person and the payment,
+and in the component's export. Reminding who has not paid stays by hand —
+the payments module has no reminder action today, and this change does not
+add one (Non-goals).
 
 | Step | Who | Afterwards |
 |---|---|---|
 | 1. The organiser builds the questions as a form in the form builder (as today for any form). | organiser | forms module |
 | 2. The organiser attaches that form to the component: "Extra questions: <form>". | organiser | one setting on the component |
-| 3. A member registers on **one page**, in this order: who (contact), what (the products — "two children for the Sint"), **then the component's questions** — with a choice: answer them now, or later through a link in the confirmation mail (Koen: "ik schreef ze eerst in, en een week voor de Sint vulde ik de rest in") — then the payment method; one submit; then Mollie or the transfer instructions, as today. | member | the public registration page |
-| 4. The board registers a member on **the same page** as the member sees, in the admin shell, with the same choice: answer now, or the member answers later through the link in the mail. | board, member | the same registration page; the answer link |
+| 3. A member registers on **one page**, in this order: who (contact), what (the products — "two children for the Sint"), **then the component's questions** — with a choice: answer them now, or later through a link in the confirmation mail — then the payment method; one submit; then Mollie or the transfer instructions, as today. | member | the public registration page |
+| 4. The board registers a member on **the same page** as the member sees, in the admin shell, with the same choice. | board, member | the same registration page; the answer link |
 | 4b. Whoever chose "later" — member or board — the member gets the link in the confirmation mail, answers when it suits, and the answers land on the registration. The organiser sees who still owes answers and can resend the link. | member, organiser | the answer link; the registration detail |
 | 5. The answers are on the registration: in the admin detail, in the component's export (one column per question), in the confirmation mail. The organiser can correct one. | organiser, treasurer, member | activities module; the mail |
 | 6. Whoever answers — now, later by link, member or board — a required question left empty is refused with the same message. | — | — |
+| 7. Payments arrive on the payments screen as for every registration; the treasurer reminds by hand who has not paid. | treasurer | payment module (unchanged) |
 
 ## A4. Supplied material — and what it taught us
 
@@ -824,6 +836,7 @@ None yet. To measure before the build of phase 2:
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B7. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
+| Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
 | Q1 | 29 Sep 2026 | Which activity triggers this, and what are its questions? (Claude) | Koen, 29 Sep: the Sint activity — a multi-select of time slots, inside/outside, a story about the children, allergies, remarks. A1, A4. |
 | Q8 | 29 Sep 2026 | Do the Sint time slots have a capacity (so many visits per slot)? (Claude) | Koen, 29 Sep: no — a person plans the visits afterwards. A checkbox question it is. |
 | Q9 | 29 Sep 2026 | The form's "remarks" and the registration's own *Opmerkingen* box: keep both on one screen? (Claude) | Koen, 29 Sep: the proposal — a component with a form hides the registration's box; the form's remarks are the one place. F3. |
@@ -850,7 +863,7 @@ None yet. To measure before the build of phase 2:
 - A new field type (date, file upload) — the form builder's list is what it is; a new type is a forms change.
 - Editing answers by the member after registering — the form builder's edit link exists for standalone forms; not wired to a registration here (the organiser edits, R7).
 - A link from the form builder's submissions view back to the registration (Q19) — the dependency would run the wrong way.
-- Reminders on a schedule for open answer requests — the organiser resends by hand; a job that nags is a workflow feature, later if ever.
+- Reminders on a schedule for open answer requests, and payment reminders for open transfers — the treasurer and the organiser remind by hand, as today; a job that nags is a workflow feature, later if ever.
 
 ## Relationship to existing work — issues and change requests
 
