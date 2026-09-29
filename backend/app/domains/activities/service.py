@@ -30,6 +30,7 @@ from app.domains.activities.models import (
     ActivityDate,
     ActivitySubRegistration,
     Registration,
+    RegistrationHistory,
     RegistrationState,
 )
 from app.domains.mdm.api import CONTACT
@@ -1322,6 +1323,109 @@ def registration_awaiting_answers(db: Session, token: str) -> Optional[Registrat
     return registration
 
 
+def edit_answers(
+    db: Session, registration_id: int, answers: list, *, actor: Optional[str]
+) -> Registration:
+    """An organiser corrects a registration's answers (CR-14 §B4.7, R7).
+
+    The same rules as when they were given — `forms.api.update_attached` runs
+    `build_answers` again, so an empty required answer is refused here too, naming
+    the question (`VeldFout`). In one transaction with one history row
+    ("answers_edited") carrying each changed answer as "label: old → new"; a save
+    that changes nothing writes no row. `LookupError` for an unknown registration;
+    `ActiviteitFout` for one without answers to correct."""
+    from app.domains.forms.api import submission_views, update_attached
+    from app.i18n import _ as vertaal
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if registration is None:
+        raise LookupError("registration")
+    submission_id = registration.form_submission_id
+    if submission_id is None:
+        raise ActiviteitFout(vertaal("Deze inschrijving heeft nog geen antwoorden."))
+    before = dict(submission_views(db, [submission_id]).get(submission_id, []))
+    savepoint = db.begin_nested()
+    try:
+        update_attached(db, submission_id, answers)
+    except Exception:
+        savepoint.rollback()
+        raise
+    savepoint.commit()
+    after = submission_views(db, [submission_id]).get(submission_id, [])
+    changes = [
+        f"{label}: {before.get(label) or '—'} → {value or '—'}"
+        for label, value in after
+        if (before.get(label) or "") != (value or "")
+    ]
+    if changes:
+        record_registration_history(
+            db,
+            registration,
+            operation="update",
+            action="answers_edited",
+            source="admin_manual",
+            actor=actor,
+            answers="\n".join(changes),
+        )
+    db.commit()
+    return registration
+
+
+def answer_link_action(db: Session, registration: Registration) -> Optional[str]:
+    """What the registration detail offers about the answer link (CR-14 §B4.8):
+    "opnieuw" while the link is open, "sturen" for a registration without answers
+    and without a link on a component that asks questions (the form was attached
+    after it registered), None otherwise."""
+    if registration.deleted_at is not None or registration.form_submission_id is not None:
+        return None
+    if registration.answer_token:
+        return "opnieuw"
+    return "sturen" if question_form(db, registration.component) is not None else None
+
+
+def send_answer_link(db: Session, registration_id: int, *, actor: Optional[str]) -> Registration:
+    """Send a registration its answer link, or send it again (CR-14 §B4.8).
+
+    "Link sturen" creates the token for a registration that has none — the form was
+    attached after it registered; "link opnieuw sturen" keeps the open one. Either
+    way one history row ("answer_link_sent") and one mail, through `AnswerLinkSent`
+    — a consequence in `mail`, so an event (CR-13 §B4.9). It fills in nothing else.
+    `LookupError` for an unknown registration; `ActiviteitFout` when there is
+    nothing to ask."""
+    from app.i18n import _ as vertaal
+    from app.kernel.contracts.activities import AnswerLinkSent
+    from app.kernel.events import publish
+
+    registration = db.query(Registration).filter(Registration.id == registration_id).first()
+    if registration is None:
+        raise LookupError("registration")
+    if answer_link_action(db, registration) is None:
+        raise ActiviteitFout(
+            vertaal("Voor deze inschrijving zijn er geen vragen meer te beantwoorden.")
+        )
+    if not registration.answer_token:
+        registration.answer_token = new_answer_token()
+    db.flush()
+    record_registration_history(
+        db,
+        registration,
+        operation="update",
+        action="answer_link_sent",
+        source="admin_manual",
+        actor=actor,
+    )
+    publish(
+        AnswerLinkSent(
+            registration_id=registration.id,
+            to_email=registration.contact_email,
+            name=registration.contact_name,
+        ),
+        db,
+    )
+    db.commit()
+    return registration
+
+
 def answer_path(db: Session, registration_id: Optional[int]) -> Optional[str]:
     """Where a registration's open answer link points (CR-14 §B4.8), or None when it
     has none — the one spelling of the path, for the thank-you page and the mail."""
@@ -1482,6 +1586,42 @@ def require_phone(phone: Optional[str]) -> None:
         raise ActiviteitFout(vertaal("Vul een mobiel nummer in."))
 
 
+def record_registration_history(
+    db: Session,
+    registration: Registration,
+    *,
+    operation: str,
+    action: str,
+    source: str,
+    actor: Optional[str] = None,
+    answers: Optional[str] = None,
+) -> None:
+    """One row in the registration's own history (#624): its contact details as
+    they are now — append-only, so the previous row is the "old" value and this
+    the new; `audit.changes` reads the pair into its "old → new" line.
+
+    Moved here from `audit.service.snapshot_registration` in CR-14 phase 3: the
+    table is this component's, and a foreign writer was what both CR-13 ratchets
+    listed (§B4.9, "the audit snapshots move with their writers"). The same row, the
+    same columns — `test_registration_history_row` was green before the move.
+    `answers`: the registration's answers as label: value lines, where an action
+    concerns them (CR-14 §B4.7)."""
+    db.add(
+        RegistrationHistory(
+            registration_id=registration.id,
+            contact_name=registration.contact_name,
+            contact_email=registration.contact_email,
+            phone=registration.phone,
+            remarks=registration.remarks,
+            answers=answers,
+            operation=operation,
+            action=action,
+            source=source,
+            actor=actor,
+        )
+    )
+
+
 def update_registration_contact(
     db: Session,
     activity_id: int,
@@ -1499,8 +1639,6 @@ def update_registration_contact(
     Alleen bij een échte wijziging een snapshot: een opslag zonder verschil hoort
     geen rij in het logboek op te leveren, anders wordt de geschiedenis ruis.
     """
-    from app.domains.audit.api import snapshot_registration
-
     reg = _registratie(db, activity_id, registration_id)
     if reg is None:
         return None
@@ -1534,7 +1672,7 @@ def update_registration_contact(
         db.expire(reg)
         raise
     if gewijzigd:
-        snapshot_registration(
+        record_registration_history(
             db,
             reg,
             operation="update",

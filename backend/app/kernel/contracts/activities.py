@@ -45,3 +45,19 @@ class RegistrationConfirmed(KernelEvent):
     to_email: str
     name: str
     payment_record_id: str | None = None
+
+
+@dataclass(frozen=True)
+class AnswerLinkSent(KernelEvent):
+    """The board sends a registration its answer link, or sends it again (CR-14
+    phase 3, §B4.8): "link sturen" for a registration that had none, "link opnieuw
+    sturen" for one whose link is still open.
+
+    Published by the activities service in the transaction that made or kept the
+    token; `mail` subscribes and queues the reminder — the confirmation with the
+    subject "Herinnering: de vragen voor <activity>" and the link.
+    """
+
+    registration_id: int
+    to_email: str
+    name: str

@@ -23,7 +23,6 @@ from app.domains.audit.service import (  # noqa: F401
     snapshot_payment_record,
     snapshot_person,
     snapshot_product,
-    snapshot_registration,
     snapshot_registration_item,
 )
 
@@ -44,6 +43,5 @@ __all__ = [
     "snapshot_payment_record",
     "snapshot_person",
     "snapshot_product",
-    "snapshot_registration",
     "snapshot_registration_item",
 ]

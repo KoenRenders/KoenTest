@@ -1001,6 +1001,18 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "POST /admin/inschrijvingen/{registration_id}/antwoorden": {
+  "endpoint": "app.domains.activities.admin_ui.answers_save",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
+ "POST /admin/inschrijvingen/{registration_id}/antwoordlink": {
+  "endpoint": "app.domains.activities.admin_ui.answer_link_send",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "POST /admin/inschrijvingen/{registration_id}/opmerking": {
   "endpoint": "app.domains.activities.admin_ui.inschrijving_opmerking",
   "openapi": null,

@@ -1451,3 +1451,60 @@ def form_questions(db, form_id: int) -> list[str]:
     if form is None:
         return []
     return [f.label for f in form.fields if f.field_type is not FieldType.INFO]
+
+
+def replace_answers(submission, rows) -> None:
+    """Put `rows` (from `build_answers`) in place of a submission's answers — a
+    checkbox answer is several rows, all removed and recreated. The one way a
+    submission's answers change: the edit link and an attached submission's
+    correction (CR-14 §B4.7) both come through here."""
+    from datetime import datetime, timezone
+
+    submission.answers.clear()
+    for row in rows:
+        submission.answers.append(row)
+    submission.updated_at = datetime.now(timezone.utc)
+
+
+def update_attached(db, submission_id: int, answers: List[AnswerIn]):
+    """Correct the answers of an attached submission (CR-14 §B4.7): the same rules
+    as when they were given (`build_answers` — a `VeldFout` names the question), the
+    rows replaced, flushed and not committed — the registration's transaction
+    commits it with its history row. `LookupError` for an unknown or standalone
+    submission: the organiser corrects attached answers only."""
+    from app.domains.forms.models import FormSubmission
+
+    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    if submission is None or not submission.attached:
+        raise LookupError("attached submission")
+    replace_answers(submission, build_answers(submission.form, answers))
+    db.flush()
+    return submission
+
+
+def submission_form_values(db, submission_id: Optional[int]) -> dict:
+    """A submission's answers as the form's fields post them (`f<field id>`, a list
+    for a checkbox, `f<id>_other` for "Andere…") — to show them in the fields again.
+    Moved out of `forms/ui.py` (the edit link's prefill) so an attached submission's
+    correction shows its answers the same way (CR-14 §B4.7)."""
+    from app.domains.forms.models import FormSubmission
+
+    if submission_id is None:
+        return {}
+    submission = db.query(FormSubmission).filter(FormSubmission.id == submission_id).first()
+    values: dict = {}
+    for answer in submission.answers if submission is not None else []:
+        key = f"f{answer.field_id}"
+        if answer.value_option_id is not None:
+            values.setdefault(key, [])
+            if isinstance(values[key], list):
+                values[key].append(str(answer.value_option_id))
+            if answer.value_text:
+                values[f"{key}_other"] = answer.value_text
+        elif answer.value_rating is not None:
+            values[key] = str(answer.value_rating)
+        elif answer.value_number is not None:
+            values[key] = str(answer.value_number)
+        elif answer.value_text is not None:
+            values[key] = answer.value_text
+    return values

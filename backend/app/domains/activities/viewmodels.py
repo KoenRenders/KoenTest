@@ -55,6 +55,12 @@ class AdminInschrijvingView(ViewModel):
     # answers were asked while the link is open.
     antwoorden: list[tuple[str, str]]
     antwoorden_gevraagd_op: Any
+    link_actie: str | None
+    # CR-14 phase 3 (§B4.7): the questions to correct the answers in, the answers as
+    # the field partial reads them, and the question a refusal names.
+    vragen: list[Any]
+    values: dict[str, Any]
+    vraag_fout: int | None
 
     # Paginakop + de weg terug (A7)
     activiteit_id: int

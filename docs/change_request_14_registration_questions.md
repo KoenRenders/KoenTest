@@ -867,8 +867,20 @@ with the current answers (the same partial as the registration screen), the
 save posts to `/admin/inschrijvingen/{id}/antwoorden`, which calls
 `forms.api.update_attached` — same validation, same replacement — inside the
 registration's own transaction, and writes a `RegistrationHistory` row
-"answers edited" carrying old and new values as label/value text (the
+"answers_edited" carrying each changed answer as "label: old → new" (the
 registration already keeps history for remarks and lines; answers join it).
+
+**As built in phase 3** (30 September 2026). `registration_history` had no
+place for the answers, so phase 3 has **one additive migration** after all
+(`registration_history.answers`, nullable text) — #1334 had said "no
+migration"; the master CLI chose the column over writing answers into
+`remarks`. The row is written by `activities.service.record_registration_history`:
+the writer moved there from `audit.service.snapshot_registration`, a foreign
+write of an `activities` table that both CR-13 ratchets listed, so both
+shrank by one (the row of a contact correction is unchanged, proven by a test
+recorded before the move). A save that changes no answer writes no row. The
+replacement of a submission's answer rows is one helper in `forms`
+(`replace_answers`), used by the edit link and by `update_attached` alike.
 The member does not get an edit link for an attached submission (Non-goals): an
 answer they want to change goes through the organiser, who then has the
 history row that says who changed what.
@@ -1061,7 +1073,7 @@ has its home from day one. All three phases are assigned to v2.9.0.
 |---|---|---|---|---|---|---|
 | 1 — **the page** | the one registration page for member and board (B4.1, B4.10), parity walked (B4.9), the component chips on the public page, the thank-you page; no questions yet. **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 (v2.8.0, met) | none | none | none on the happy path; the in-place participant refresh becomes a refresh on return (P10) | AC9 on HDEV: the parity list, phone and desktop |
 | 2 — **the questions** | the two links and the token, the picker with its refusals (F2, F13), the questions with the now/later choice on both pages, the answer page and the link in the mail (B4.8), the API field, the admin detail, the export and the book (B4.4) | 1 | one, additive: `form_id`, `form_submission_id`, `answer_token` | none | a "now" registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
-| 3 — **the aftercare** | R6 the answers in the mail, R7 editing on the registration detail with history, "link opnieuw sturen" | 2 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
+| 3 — **the aftercare** | R6 the answers in the mail, R7 editing on the registration detail with history, "link opnieuw sturen" | 2 | one, additive: `registration_history.answers` (B4.7, as built) | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
 Why the page is phase 1 on its own: it is the change every member sees,
 with or without a form, and it carries the parity risk (R11). Validated

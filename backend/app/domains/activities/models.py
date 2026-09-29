@@ -689,6 +689,10 @@ class RegistrationHistory(TenantMixin, HistoryMixin, Base):
     contact_email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     remarks = Column(Text, nullable=True)
+    # CR-14 phase 3 (§B4.7): the answers to the component's questions, as
+    # "label: value" lines, on the rows of an action that concerns them — the
+    # previous such row is the old answers, this the new.
+    answers = Column(Text, nullable=True)
 
 
 class ActivityHistory(TenantMixin, HistoryMixin, Base):
