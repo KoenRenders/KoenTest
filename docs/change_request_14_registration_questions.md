@@ -461,10 +461,10 @@ everyone. "Later": no answers are posted, the registration gets the token
 and the confirmation mail carries the link. Completely or not at all — no
 half-filled form, no lenient channel. An explicit choice rather than "all
 blank means later", because a form may consist of optional fields only, and
-an empty post would then be ambiguous. **Default:** "nu" on the member's
-page (the questions are why the form is there), "later" on the board's (the
-board rarely knows the answers) — a default, not a rule; the fields and the
-validation are identical. *(Koen to confirm the two defaults, Q16.)* The
+an empty post would then be ambiguous. **Default: "nu", on both pages** (Koen,
+29 September: "de bestuurder moet er maar aan denken om dat niet in te
+vullen") — so the two pages differ in nothing about the questions, not even
+the default. The
 thank-you page after a "later" registration repeats the link, so a member
 who changes their mind answers at once. "Link opnieuw sturen" on the detail
 sends the same mail with the subject "Herinnering: de vragen voor
@@ -514,8 +514,8 @@ them; the public page includes the partial in `site_base.html`, the board
 page includes the same partial in `admin_base.html`. The shell differs, the
 block does not. Server side one function validates the answers, called on
 both channels whenever answers are posted; since 29 September the choice is
-on both pages, so the channels differ in nothing about the questions at
-all — only in the default of the choice.
+on both pages with the same default, so the channels differ in nothing
+about the questions at all.
 
 ### B4.6 What the form builder shows
 
@@ -652,7 +652,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | 29 Sep 2026 | The Sint time slots are a preference (checkbox), not a booking with capacity — a person plans afterwards. A component with a form hides the registration's fixed remarks box. | Koen |
 | 29 Sep 2026 | Questions in the registration screen, before the payment. The board form asks none; the member gets a link to answer afterwards. A component cannot replace its form once answers exist. The confirmation mail lists the answers; the organiser can correct an answer on the registration detail. The form's own public URL stays usable. One presentation, with or without a form: **a page**, the same page for the member and the board; the order is contact, products, questions, payment method. | Koen |
 | 29 Sep 2026 | One screen for member and board, the board's page as the ideal; the public loses nothing — parity list B4.9, walked on HDEV (AC9). | Koen |
-| 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link. | Koen |
+| 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link; default "nu" on both. | Koen |
 
 ## Q&A log
 
@@ -664,7 +664,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q2 | 29 Sep 2026 | Are the questions asked in the registration screen (before payment), or on a page after it? (Claude) | Koen, 29 Sep: in the registration, before the payment. B1. |
 | Q11 | 29 Sep 2026 | Is the board registration's mail the same as the member's, given the form is not filled yet — unless the board fills it? (Koen) | One mail with one variable block (answers, or the link, or nothing); the resend is the same mail with a reminder subject. B4.8. Koen, 29 Sep, on the board's part: **completely or not at all** — no board-only leniency; the CR makes it one explicit choice on the board page (default: the member answers by link), same validation when the board fills it in. |
 | Q15 | 29 Sep 2026 | Give the public user the same choice as the board — answer now or later through the link? (Koen, from his own Sint years: registered first, answered a week before) | Yes: one choice on both pages, "nu invullen / later via de link"; the API says it by sending `answers` or not; the thank-you page repeats the link. R2, R4, R5, F3, F6, F7, B4.8, B8 test 1. No channel difference about the questions remains. |
-| Q16 | 29 Sep 2026 | The default of the choice: "nu" for the member, "later" for the board? (Claude) | *proposed* — a default, not a rule; *open* |
+| Q16 | 29 Sep 2026 | The default of the choice: "nu" for the member, "later" for the board? (Claude) | Koen, 29 Sep: "nu" on both; the board member switches it when needed. B4.8. |
 | Q17 | 29 Sep 2026 | Update the fixed UI decision in `CLAUDE.md` now, or when the CR is implemented? (Koen) | When implemented: in the "Na de merge" block of phase 1, by the master CLI. B4.1, B7. |
 | Q14 | 29 Sep 2026 | One screen for back office and public, built from the internal form as the ideal — but check that the public loses no function or nicety. (Koen) | Measured: both already share the field block, context and processing (#1284); the frame differs. B4.9 lists the fifteen things the public has today and where each lives on the page; one visible difference (P10, the in-place participant refresh becomes a refresh on return) and one gain (P14, the component switch). R11, AC9, test 10. |
 | Q13 | 29 Sep 2026 | How do the questions render in the admin shell and the public shell, without exceptions for the board? (Koen) | One partial (`_inschrijf_velden.html` → `forms`' `_formulier_veld.html`, `required` as the builder set it) included in two shells; one validation function on both channels; the board's only extra input is the choice. B4.8. |
