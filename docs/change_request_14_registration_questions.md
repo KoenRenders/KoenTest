@@ -14,26 +14,12 @@
 
 ## A1. Reason to act
 
-An activity sometimes needs more from a participant than a name, an e-mail,
-a phone number and a choice of products. Who joins which group, which size,
-an allergy, a lift needed, a licence number — questions that differ per
-activity and per component. The activities module cannot ask them: a
-registration collects the contact, the products and a free "remarks" box,
-and nothing else. So today those questions are asked next to the
-registration — by mail, on the day itself, or through a separate form that
-the participant has to find and fill in a second time — and the treasurer
-or the organiser matches the answers to the registrations by hand.
-
-The moment is now because an activity is coming up that needs such
-questions, and because the portal already has a form builder (the `forms`
-module, with ten field types, sections and a submissions view) that asks
-exactly this kind of question — only not *as part of* a registration. The
-idea, in Koen's words: attach a form to a component of an activity, so that
-registering flows into the questions **in one movement**, and the answers
-belong to the registration.
-
-The trigger is the **Sint activity** (Koen, 29 September): five questions
-that today have no place in the registration — see A4.
+The association wants every registration to run through the new platform.
+For the Sint activity it could not: the registration and its questionnaire
+had to be split — the registration on the platform, the questions elsewhere
+— where before the platform they were one form. That is a step back, and
+the association does not take steps back. Hence this change request: the
+questions integrated into the registration. (Koen, 29 September 2026.)
 
 ## A2. As-is process
 
