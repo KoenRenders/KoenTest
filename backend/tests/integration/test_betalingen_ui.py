@@ -145,6 +145,8 @@ def _registratie_record(db, naam: str, amount: str, ogm: str, status="pending"):
 
     activity, comp, _product = seed_activity_with_product(db, price=amount)
     reg = Registration(
+        contact_email="deelnemer@example.org",
+        phone="0470000000",
         activity_id=activity.id,
         component_id=comp.id,
         registration_type="INDIVIDUAL",

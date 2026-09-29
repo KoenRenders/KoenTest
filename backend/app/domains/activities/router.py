@@ -11,6 +11,7 @@ from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import (
     Activity,
     ActivityDate,
+    ActivityError,
     ActivityProduct,
     ActivitySubRegistration,
     Registration,
@@ -903,8 +904,8 @@ def create_registration(
     - `return_path` — where Mollie sends the payer back. The public way returns
       to the public page, the board to the registration in the back office.
 
-    Everything else holds on both ways: the required fields
-    (`controleer_inschrijfvelden`, Koen: "bestuur moet dezelfde velden
+    Everything else holds on both ways: the required fields (the registration's
+    own validators and `check()`, Koen: "bestuur moet dezelfde velden
     invullen"), a closed or cancelled activity, a full component, the quantity
     limits, and the payment record of a paid product.
     """
@@ -990,18 +991,29 @@ def create_registration(
         else None
     )
 
-    # #733: naam, mobiel nummer en — als het onderdeel er een vraagt — de ploegnaam
-    # zijn verplicht. Het formulier zette daar `required` op, maar dat is vorm en
-    # geen betekenis: dit endpoint kwam er zonder mobiel of ploegnaam gewoon door.
-    # De regel staat in de servicelaag, zodat ze ook geldt voor het beheerscherm dat
-    # achteraf corrigeert.
-    from app.domains.activities.service import ActiviteitFout, controleer_inschrijfvelden
+    # #733, CR-13 phase 1: the registration refuses a blank name as it is built, the
+    # entrance a missing mobile number, the registration a missing team name in
+    # `check()` — in that order, as before, and before "full". The flush runs
+    # `check()` again.
+    from app.domains.activities.service import require_phone
 
     try:
-        controleer_inschrijfvelden(
-            component, contact_name=data.contact_name, phone=data.phone, team_name=data.team_name
+        registration = Registration(
+            activity_id=activity_id,
+            component_id=data.component_id,
+            registration_type=INDIVIDUAL,
+            contact_name=data.contact_name,
+            contact_email=data.contact_email,
+            phone=data.phone,
+            team_name=data.team_name,
+            payment_method=data.payment_method,
+            remarks=data.remarks,
+            person_id=person_id,
         )
-    except ActiviteitFout as fout:
+        require_phone(data.phone)
+        registration.component = component
+        registration.check()
+    except ActivityError as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
     if data.component_id:
@@ -1017,18 +1029,6 @@ def create_registration(
                     detail=_("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk."),
                 )
 
-    registration = Registration(
-        activity_id=activity_id,
-        component_id=data.component_id,
-        registration_type=INDIVIDUAL,
-        contact_name=data.contact_name,
-        contact_email=data.contact_email,
-        phone=data.phone,
-        team_name=data.team_name,
-        payment_method=data.payment_method,
-        remarks=data.remarks,
-        person_id=person_id,
-    )
     db.add(registration)
     db.flush()
 

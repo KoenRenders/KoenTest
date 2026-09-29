@@ -208,6 +208,7 @@ def seed(db) -> dict:
 
     def registration(person, day: int, quantity: int | None, team: str | None = None):
         row = Registration(
+            phone="0470000000",
             tenant_id=TENANT_A,
             activity_id=activity.id,
             person_id=person.id if person else None,

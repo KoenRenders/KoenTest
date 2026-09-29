@@ -7,8 +7,8 @@ meaning, never its dataclass (§B4.7, the CR-12 lesson of #1279) — and a test
 below holds each to that.
 
 The two functions they absorbed keep answering exactly as before:
-`kernel.geld.bedrag` (#735) and `payment`'s `generate_structured_communication`
-(#157) — compared against their old formulas, not against themselves.
+`kernel.geld.bedrag` (#735) here, and `payment`'s `generate_structured_communication`
+(#157) in its own test — each compared against the old formula, not against itself.
 """
 
 from __future__ import annotations
@@ -88,10 +88,8 @@ def _old_generator(base: int) -> str:
 
 @pytest.mark.parametrize("base", [0, 1, 96, 97, 98, 194, 9_999_999_999, 10_000_000_001, 123_456])
 def test_structured_communication_is_built_as_before(base):
-    from app.domains.payment.structured_communication import generate_structured_communication
-
     ogm = StructuredCommunication.from_base(base)
-    assert str(ogm) == _old_generator(base) == generate_structured_communication(base)
+    assert str(ogm) == _old_generator(base)
     # And it reads back.
     assert StructuredCommunication.parse(str(ogm)) == ogm
 

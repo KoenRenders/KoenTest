@@ -3,6 +3,7 @@ from typing import Optional
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     Date,
     DateTime,
@@ -14,11 +15,12 @@ from sqlalchemy import (
     Time,
     event,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship, validates
 
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
 from app.kernel.codes import CodeEnum, EnumColumn
+from app.kernel.rules import aggregate
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
@@ -257,9 +259,49 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         return bool(a and a.content_type == "application/pdf")
 
 
+def _blank(value) -> bool:
+    """Empty or only whitespace counts as not filled in (#733)."""
+    return not (str(value) if value is not None else "").strip()
+
+
+@aggregate
 class Registration(TenantMixin, SoftDeleteMixin, Base):
+    """One registration for an activity: the aggregate of CR-13 phase 1 (#757).
+
+    Its rules live at the four addresses of §B4.2, each for what it can judge:
+
+    - **one field** — `@validates` refuses a blank name, and a blank or malformed
+      e-mail address, on every assignment, on every path: the public form, the JSON API, the board's form
+      and the screen that corrects a registration afterwards (#733). It does not
+      fire on a field that is never assigned; `NOT NULL` at rest catches that;
+    - **several fields, already loaded** — `check()`: a component that asks for a
+      team name gets one. It runs on every flush through the kernel's listener
+      (`kernel/rules.py`), so nobody has to call it. The team name follows the
+      component's CURRENT setting, not the row's history (Koen, 8 September 2026);
+      it cannot be a constraint, because it needs the component;
+    - **the mobile number** is required at the entrances, not on the row: no
+      database constraint on the registration phone (Koen, 29 September 2026); the
+      entrances still require it — `service.require_phone`, on every way in. A
+      validator without its constraint is what the gate refuses, so it is not one;
+    - **other rows** — full, already registered, open — stay service functions;
+    - **at rest** — the constraints of the phase-1 migration.
+
+    Until phase 1 these checks were one function (`controleer_inschrijfvelden`)
+    every writer had to remember to call; that function is gone, not copied.
+    """
+
     __tablename__ = "registrations"
-    __table_args__ = {"schema": "activities"}
+    # CR-13 phase 1 (§B5.2): what `@validates` says about one field, at rest too —
+    # the same rules as migration 168, which is where the environments get them.
+    __table_args__ = (
+        CheckConstraint(
+            "btrim(contact_name) <> ''", name="ck_registrations_contact_name_not_blank"
+        ),
+        CheckConstraint(
+            "btrim(contact_email) <> ''", name="ck_registrations_contact_email_not_blank"
+        ),
+        {"schema": "activities"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.activities.id"), nullable=False)
@@ -272,8 +314,8 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
         String(10), ForeignKey("activities.registration_type_codes.code"), nullable=False
     )
 
-    contact_name = Column(String(200), nullable=True)
-    contact_email = Column(String(255), nullable=True)
+    contact_name = Column(String(200), nullable=False)
+    contact_email = Column(String(255), nullable=False)
     phone = Column(String(50), nullable=True)
     team_name = Column(String(200), nullable=True)
     # CR-12 phase 1: the same list as `payment.payment_records.method`,
@@ -294,11 +336,58 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
     items = relationship(
         "RegistrationItem", back_populates="registration", cascade="all, delete-orphan"
     )
+    # Read-only: `component_id` stays the one column that is written. `check()` reads
+    # the component through this. A service that has the component sets it, and then
+    # nothing is queried (§B4.1); `load_on_pending` is the net under every other way
+    # in: SQLAlchemy does not load a relationship of an object that is not saved
+    # yet, so without it a new registration with only `component_id` would pass
+    # `check()` without its component — the team-name rule silently skipped. With
+    # it, the flush reads the component once. A read, never a skipped rule.
+    component = relationship("ActivitySubRegistration", viewonly=True, load_on_pending=True)
+
+    @validates("contact_name")
+    def _name_not_blank(self, key, value):
+        """A name is never blank (#733). The value is kept as given — stripping
+        would change what is stored today (R13)."""
+        if _blank(value):
+            from app.i18n import _
+
+            raise ActivityError(_("Vul een naam in."))
+        return value
+
+    @validates("contact_email")
+    def _well_formed_email(self, key, value):
+        """An e-mail address is never blank and always well-formed — on every path,
+        the screen that corrects a registration included (Koen, 29 September 2026:
+        the board can change an address, not clear it). The same check `EmailStr`
+        runs on the forms, without looking up the domain; the value is kept as given."""
+        from email_validator import EmailNotValidError, validate_email
+
+        from app.i18n import _
+
+        if _blank(value):
+            raise ActivityError(_("Vul een geldig e-mailadres in."))
+        try:
+            validate_email(str(value), check_deliverability=False)
+        except EmailNotValidError:
+            raise ActivityError(_("Vul een geldig e-mailadres in.")) from None
+        return value
+
+    def check(self) -> None:
+        """The rule over several fields: a component that asks for a team name gets one."""
+        component = self.component if self.component_id is not None else None
+        if component is not None and component.team_name_required and _blank(self.team_name):
+            from app.i18n import _
+
+            raise ActivityError(_("Dit onderdeel vraagt een ploegnaam."))
 
 
 class RegistrationItem(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "registration_items"
-    __table_args__ = {"schema": "activities"}
+    __table_args__ = (
+        CheckConstraint("quantity > 0", name="ck_registration_items_quantity_positive"),
+        {"schema": "activities"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     registration_id = Column(Integer, ForeignKey("activities.registrations.id"), nullable=False)
@@ -313,7 +402,18 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     """A component (onderdeel) of an activity. Each component can have products."""
 
     __tablename__ = "activity_sub_registrations"
-    __table_args__ = {"schema": "activities"}
+    __table_args__ = (
+        CheckConstraint("price >= 0", name="ck_activity_sub_registrations_price_non_negative"),
+        CheckConstraint(
+            "member_price >= 0 OR member_price IS NULL",
+            name="ck_activity_sub_registrations_member_price_non_negative",
+        ),
+        CheckConstraint(
+            "max_participants IS NULL OR max_participants > 0",
+            name="ck_activity_sub_registrations_max_participants_positive",
+        ),
+        {"schema": "activities"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.activities.id"), nullable=False)
@@ -389,7 +489,18 @@ class ActivityProduct(TenantMixin, SoftDeleteMixin, Base):
     """A product (inschrijvingsoptie) within an activity component."""
 
     __tablename__ = "activity_products"
-    __table_args__ = {"schema": "activities"}
+    __table_args__ = (
+        CheckConstraint("price >= 0", name="ck_activity_products_price_non_negative"),
+        CheckConstraint(
+            "member_price >= 0 OR member_price IS NULL",
+            name="ck_activity_products_member_price_non_negative",
+        ),
+        CheckConstraint(
+            "max_participants IS NULL OR max_participants > 0",
+            name="ck_activity_products_max_participants_positive",
+        ),
+        {"schema": "activities"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     component_id = Column(

@@ -978,40 +978,21 @@ def _herbereken(db, reg, actor) -> None:
     db.refresh(reg)
 
 
-def _ontbreekt(waarde) -> bool:
-    """Leeg of enkel witruimte telt als niet ingevuld.
+def require_phone(phone) -> None:
+    """A registration needs a mobile number — at the entrances (#733, AC1).
 
-    Dezelfde normalisatie als hieronder, en bewust vóór die stap: `strip() or None`
-    maakt van "   " een NULL, dus ná de normalisatie is een leeg veld niet meer van
-    een weggelaten veld te onderscheiden.
+    No database constraint on the registration phone (Koen, 29 September 2026);
+    the entrances still require it: the public form, the JSON API and the board's
+    form through `create_registration`, and the screen that corrects a
+    registration through `update_registration_contact`. Not a `@validates` on the
+    row: a rule on one field without its constraint is what the *validator without
+    constraint* gate refuses.
     """
-    return not (str(waarde) if waarde is not None else "").strip()
-
-
-def controleer_inschrijfvelden(component, *, contact_name, phone, team_name) -> None:
-    """De verplichte velden van een inschrijving (#733).
-
-    Het publieke formulier belóófde vier verplichte velden en de server dwong er
-    één af (`EmailStr`). `required` in HTML is vorm, geen betekenis: het geldt alleen
-    voor wie het formulier in een browser invult, en `POST /activities/{id}/register`
-    kwam er zonder mobiel nummer of ploegnaam gewoon door.
-
-    Hier en niet in de router, want de regel moet gelden op élke weg: het publieke
-    scherm, de JSON-API en het beheerscherm dat achteraf corrigeert.
-
-    De ploegnaam hangt aan de HUIDIGE configuratie van het onderdeel, niet aan de
-    geschiedenis van de rij: vraagt het onderdeel er een, dan hoort ze er te zijn —
-    ook bij een oude inschrijving die er nog geen had (Koens keuze, 8 sep 2026). Een
-    regel die aan de geschiedenis hangt is niet uit te leggen en niet te toetsen.
-    """
+    from app.domains.activities.models import _blank
     from app.i18n import _ as vertaal
 
-    if _ontbreekt(contact_name):
-        raise ActiviteitFout(vertaal("Vul een naam in."))
-    if _ontbreekt(phone):
+    if _blank(phone):
         raise ActiviteitFout(vertaal("Vul een mobiel nummer in."))
-    if getattr(component, "team_name_required", False) and _ontbreekt(team_name):
-        raise ActiviteitFout(vertaal("Dit onderdeel vraagt een ploegnaam."))
 
 
 def update_registration_contact(
@@ -1031,33 +1012,31 @@ def update_registration_contact(
     reg = _registratie(db, activity_id, registration_id)
     if reg is None:
         return None
-    # #733: toetsen op de UITKOMST, niet op wat er meegestuurd is. Het beheerscherm
-    # stuurt alle velden mee, maar de oude #283-aanroep alleen `remarks` — dan telt
-    # wat er al staat. Vóór de mutatie, zodat een weigering niets wegschrijft.
-    onderdeel = (
-        db.query(ActivitySubRegistration)
-        .filter(ActivitySubRegistration.id == reg.component_id)
-        .first()
-        if reg.component_id
-        else None
-    )
-    controleer_inschrijfvelden(
-        onderdeel,
-        **{
-            veld: gezet.get(veld, getattr(reg, veld))
-            for veld in ("contact_name", "phone", "team_name")
-        },
-    )
+    # #733, CR-13 phase 1: the registration says no itself — a blank name or e-mail
+    # address on assignment, a missing team name when the flush runs its `check()`,
+    # which reads the component loaded here; the mobile number is the entrance's.
+    reg.component  # noqa: B018 — load it, so `check()` reads and never queries
+    # The mobile number on the OUTCOME, before anything changes (#733): what is sent,
+    # or what is there already.
+    require_phone(gezet.get("phone", reg.phone))
     gewijzigd = False
-    for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
-        if veld not in gezet:
-            continue
-        waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
-        if getattr(reg, veld) != waarde:
-            setattr(reg, veld, waarde)
-            gewijzigd = True
+    try:
+        for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
+            if veld not in gezet:
+                continue
+            waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
+            if getattr(reg, veld) != waarde:
+                setattr(reg, veld, waarde)
+                gewijzigd = True
+        if gewijzigd:
+            db.flush()
+    except ActiviteitFout:
+        # A refusal writes nothing, as it did when the rule ran before the mutation:
+        # forget the assignments, so the screen that shows the refusal shows what is
+        # stored and no later flush tries them again.
+        db.expire(reg)
+        raise
     if gewijzigd:
-        db.flush()
         snapshot_registration(
             db,
             reg,

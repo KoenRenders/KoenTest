@@ -93,8 +93,8 @@ def contact_refusal(values) -> str | None:
     """Why a registration form's contact fields are refused, or None (#1192).
 
     The same three fields on every way in — Koen: "bestuur moet dezelfde velden
-    invullen". The service repeats name and phone (`controleer_inschrijfvelden`)
-    and the schema the e-mail address; this is the screen's own, friendlier,
+    invullen". The registration itself repeats name and phone (its validators,
+    CR-13 phase 1) and the schema the e-mail address; this is the screen's own, friendlier,
     refusal before either is reached.
     """
     naam = (values.get("contact_name") or "").strip()

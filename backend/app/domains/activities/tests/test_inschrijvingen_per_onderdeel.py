@@ -56,6 +56,7 @@ def _onderdeel(db, activity, naam):
 
 def _inschrijving(db, activity, naam, component=None):
     reg = Registration(
+        phone="0470000000",
         activity_id=activity.id,
         registration_type="INDIVIDUAL",
         contact_name=naam,

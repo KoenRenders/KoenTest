@@ -542,6 +542,7 @@ def test_de_activiteitregel_toont_inschrijvingen_en_geen_prijs(client, db_sessio
     for i in range(3):
         db_session.add(
             Registration(
+                phone="0470000000",
                 activity_id=activiteit.id,
                 component_id=onderdeel.id,
                 registration_type="INDIVIDUAL",

@@ -178,6 +178,7 @@ def seed(db) -> dict:
 
     def inschrijving(activity, component, product, persoon, prijs, betaald: bool):
         reg = Registration(
+            phone="0470000000",
             tenant_id=TENANT,
             activity_id=activity.id,
             person_id=persoon.id,

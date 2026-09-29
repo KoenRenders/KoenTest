@@ -245,6 +245,7 @@ def test_een_volzet_onderdeel_telt_niet_mee_voor_de_regel(client, db_session, va
     a = _activiteit(db_session)
     comp, product = _onderdeel(db_session, a, "Deelname", deadline=LAAT, max_deelnemers=1)
     reg = Registration(
+        phone="0470000000",
         activity_id=a.id,
         component_id=comp.id,
         registration_type="INDIVIDUAL",
