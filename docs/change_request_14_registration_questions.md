@@ -127,16 +127,15 @@ portal shows the state and offers "resend the link", nothing more.
 
 ## A4. Benefits — what the change earns
 
-| Benefit | Measure |
-|---|---|
-| The Sint registration runs on the platform as one form again, instead of a registration plus a separate questionnaire. | the process of A3 at all — the alternative is the split of A1 |
-| No hand-matching of answers to registrations, and no third list: the export carries the answers. | an evening of volunteer work per activity with questions, estimated; zero after |
-| Answers arrive with the registration or through one link; the organiser sees who still owes them. | fewer chased households; not counted today |
-| Payments by structured message instead of by name and amount, as for every registration on the platform. | the treasurer's matching per transfer disappears for this activity — already the platform's benefit, now also for the Sint |
-| Every future activity with questions (a size, a group, a lift) gets the same without a change request. | one form per activity in the builder, no development |
-
-Not quantified in money: the association does not price volunteer hours.
-The benefit that decides is the first line.
+> [!NOTE]
+> *The business side of the decision: what this change earns, in the*
+> *measures the association counts in — hours of volunteer work saved per*
+> *activity or per year, mistakes avoided, money collected sooner or not*
+> *lost, members who would otherwise drop out, a process that becomes*
+> *possible at all. One line per benefit, with the figure where it can be*
+> *estimated and the reason where it cannot; a benefit that only the*
+> *solution can name does not belong here. Set against the cost of B3, this*
+> *is what says whether the change is worth doing, and when.*
 
 ## A5. Supplied material — and what it taught us
 
@@ -616,24 +615,18 @@ three and a half of them.
 
 ## B3. Cost — investment and running cost, and what operations must know
 
-**Investment.** About 4 CLI-days of build (B2.3: `activities` 3.5, `forms`
-0.5, `mail` 0.25, rounded), plus analysis (this document, one day, done),
-review and the parity walk on HDEV (half a day), and three release steps
-(one phase each; each rides a release that goes out anyway). No purchase:
-no licence, no product, no device. No new dependency.
-
-**Running cost.** None: no paid service, no new job, no storage beyond a
-few rows per registration, nothing to renew. The answers live in tables
-the backup already covers.
-
-**Operations.** No env var, no setting. One migration in phase 2 (three
-nullable columns, two of them FKs; additive under #1255). Kill switch:
-detaching the form from the component restores today's screen — no flag
-needed.
-
-**Against A4:** four build days for a process that otherwise cannot run on
-the platform, and that every later activity with questions reuses without
-development.
+> [!NOTE]
+> *Three parts, each with a figure or "none". **Investment:** the effort to*
+> *build and deliver — the sum of the effort lines of B2.3, in CLI-days or*
+> *person-days, plus analysis, review, validation on HDEV and the release*
+> *steps — and one-off purchases (a licence, a product, a device). **Running*
+> *cost:** what it costs per month or per year once live — usage rights and*
+> *paid services (per use and per month, measured where a prototype exists),*
+> *storage and backups, hosting, and the maintenance it adds (a job to watch,*
+> *a certificate to renew, a dependency to keep current). **Operations:***
+> *settings, env vars, limits, kill switch, backups — what the person running*
+> *the stack must know. Set beside the benefits of A4: the two together are*
+> *the input for the release decision.*
 
 ## B4. Detailed decisions — one subsection each, with the reasons
 
