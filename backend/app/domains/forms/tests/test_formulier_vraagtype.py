@@ -21,7 +21,7 @@ import re
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -201,7 +201,9 @@ def test_een_vertakbaar_type_houdt_zijn_sprongen(client, admin_headers):
 
 def _dien_in(client, form):
     veld = form["fields"][0]
-    resp = client.post(f"/formulier/{form['share_token']}", data={f"f{veld['id']}": "iets"})
+    resp = client.post(
+        f"/formulier/{form['share_token']}", data={**form_guard_fields(), f"f{veld['id']}": "iets"}
+    )
     assert resp.status_code == 200, resp.text[:200]
 
 

@@ -20,6 +20,7 @@ maakte.
 import pytest
 
 from app.domains.forms.models import FormSubmissionAnswer
+from tests.conftest import form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -60,7 +61,7 @@ def _verstuur(client, form, veld, *, gekozen=None, tekst=None):
         data[f"f{veld['id']}"] = str(gekozen)
     if tekst is not None:
         data[f"f{veld['id']}_other"] = tekst
-    return client.post(f"/formulier/{form['share_token']}", data=data)
+    return client.post(f"/formulier/{form['share_token']}", data={**form_guard_fields(), **data})
 
 
 def _rijen(db, veld_id):

@@ -42,12 +42,22 @@ def submission_count(db: Session, form_id: int) -> int:
 
 
 def submit_bericht(
-    db: Session, *, naam: str, email: str | None, bericht: str, background_tasks=None
+    db: Session, *, naam: str, email: str | None, bericht: str, proof, background_tasks=None
 ) -> int | None:
     """Hét schrijfpad voor een bericht (#398): inzending op het geseede
     'berichten'-formulier + SubmissionCreated (→ behartigen-taak) + optionele
     bevestigingsmail. Geeft het submission-id terug, of None als het formulier
-    ontbreekt. Gebruikt door /berichten (ui) én de chatbot — geen tweede weg."""
+    ontbreekt. Gebruikt door /berichten (ui) én de chatbot — geen tweede weg.
+
+    `proof` (#1297): a `form_guard.Proof` from the visitor's form, or
+    `form_guard.TRUSTED` for a caller without one (the chatbot). A submission the
+    guard drops leaves nothing — no row, no task, no mail — and returns None too:
+    the screen thanks the bot as it thanks a person."""
+    from app.kernel import form_guard
+
+    if form_guard.refused(proof, "berichten"):
+        return None
+
     from app.domains.forms.schemas import AnswerIn
     from app.domains.forms.service import build_answers
     from app.domains.mail.api import send_form_confirmation
@@ -189,11 +199,11 @@ from app.domains.forms.service import (  # noqa: E402,F401
 # hoort het" aanmerkt. Alleen de weg ernaartoe loopt via deze facade.
 
 
-def submit_public_form(db, share_token: str, payload, background_tasks):
-    """Een publieke inzending verwerken."""
-    from app.domains.forms.router import submit_form as _impl
+def submit_public_form(db, share_token: str, payload, background_tasks, *, proof):
+    """Een publieke inzending verwerken. `proof`: see `submit_bericht` (#1297)."""
+    from app.domains.forms.router import submit_form
 
-    return _impl(share_token, payload, background_tasks, db=db)
+    return submit_form(db, share_token, payload, background_tasks, proof=proof)
 
 
 def update_public_submission(db, edit_token: str, payload):

@@ -219,6 +219,8 @@ class PublicForm(BaseModel):
     is_anonymous: bool = False
     sections: List[PublicSection] = []
     fields: List[PublicField] = []
+    #: The signed render time (#1297); send it back as `form_ts` when submitting.
+    form_ts: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -238,6 +240,10 @@ class SubmissionIn(BaseModel):
     submitter_name: Optional[str] = None
     submitter_email: Optional[str] = None
     answers: List[AnswerIn] = []
+    #: The public-form guard (#1297): the honeypot (empty for a person) and the
+    #: signed render time from the form. Without them a submission is dropped.
+    website: str = ""
+    form_ts: str = ""
 
 
 class SubmissionResult(BaseModel):

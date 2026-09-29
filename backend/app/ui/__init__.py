@@ -408,6 +408,16 @@ def path_for(pad: str) -> str:
 
 
 templates.env.globals["statisch"] = statisch
+
+
+def _form_guard_token() -> str:
+    """The signed render time of a public form (#1297), see `ui.form_guard_fields`."""
+    from app.kernel.form_guard import issue_token
+
+    return issue_token()
+
+
+templates.env.globals["form_guard_token"] = _form_guard_token
 templates.env.globals["path_for"] = path_for
 
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle

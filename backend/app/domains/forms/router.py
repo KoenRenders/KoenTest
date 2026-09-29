@@ -3,7 +3,7 @@ import re
 import secrets
 from typing import List
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -234,7 +234,11 @@ def _load_public_form(db: Session, share_token: str) -> Form:
 
 @router.get("/forms/by-token/{share_token}", response_model=PublicForm)
 def get_public_form(share_token: str, db: Session = Depends(get_db)):
-    return _load_public_form(db, share_token)
+    """The form, and the signed time a JSON client sends back with it (#1297)."""
+    from app.kernel.form_guard import issue_token
+
+    public = PublicForm.model_validate(_load_public_form(db, share_token))
+    return public.model_copy(update={"form_ts": issue_token()})
 
 
 @router.post(
@@ -242,14 +246,37 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
     response_model=SubmissionResult,
     dependencies=[Depends(form_submit_limiter)],
 )
-def submit_form(
+def submit_form_http(
     share_token: str,
     data: SubmissionIn,
+    request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
 ):
+    """The JSON way in. Same guard as the screen (#1297): the honeypot and the
+    signed time travel in the body (`website`, `form_ts`); the time comes from
+    `GET /forms/by-token/{share_token}`."""
+    from app.kernel.form_guard import Proof
+    from app.limiter import client_ip
+
+    proof = Proof(honeypot=data.website, token=data.form_ts, client_ip=client_ip(request))
+    return submit_form(db, share_token, data, background_tasks, proof=proof)
+
+
+def submit_form(
+    db: Session, share_token: str, data: SubmissionIn, background_tasks, *, proof
+) -> SubmissionResult:
+    """One public submission, for the screen and the JSON way in alike.
+
+    A submission the guard drops (#1297) answers like a stored one — `status`
+    "ok" — but with id 0 and no edit link, and leaves no row and no mail.
+    """
+    from app.kernel import form_guard
+
     form = _load_public_form(db, share_token)
     assert_open_for_submission(db, form)
+    if form_guard.refused(proof, f"form {form.id}"):
+        return SubmissionResult(id=0, status="ok", edit_token=None)
     assert_submitter(form, data.submitter_name, data.submitter_email)
     answers = build_answers(form, data.answers)
 

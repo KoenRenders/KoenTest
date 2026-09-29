@@ -121,6 +121,8 @@
     {% else %}
     {{ ui.btn_primary(_("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden")) }}
     {% endif %}
+    {# #1297: the honeypot and the signed render time; the service decides. #}
+    {{ ui.form_guard_fields() }}
   </form>
 </div>
 

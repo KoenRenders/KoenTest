@@ -3,7 +3,7 @@ met op-aflopen en branching, JSON-import, inzendingen-tab, afdruk."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import Form, FormField, FormSection
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 
 def _login(client):
@@ -145,6 +145,7 @@ def test_inzendingen_en_afdruk(client, db_session):
     client.post(
         f"/formulier/{form.share_token}",
         data={
+            **form_guard_fields(),
             "submitter_name": "Ines",
             "submitter_email": "ines@example.com",
             f"f{veld.id}": "Antwoordtekst",

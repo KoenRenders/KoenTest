@@ -21,6 +21,8 @@ het vangnet eronder, en de laatste test hier bewaakt dat dat vangnet er nog is.
 
 import pytest
 
+from tests.conftest import form_guard_fields
+
 pytestmark = pytest.mark.ui_agnostisch
 
 STAP_NUL = 'x-show="step === 0"'
@@ -169,7 +171,8 @@ def test_verzenden_zonder_naam_wordt_nog_altijd_geweigerd(client, admin_headers,
     form = _maak(client, admin_headers, secties=2)
 
     resp = client.post(
-        f"/formulier/{form['share_token']}", data={"submitter_name": "", "submitter_email": ""}
+        f"/formulier/{form['share_token']}",
+        data={**form_guard_fields(), "submitter_name": "", "submitter_email": ""},
     )
     assert resp.status_code == 200, resp.text
     assert "geldig e-mailadres" in resp.text.lower(), resp.text
@@ -183,7 +186,7 @@ def test_verzenden_met_een_ongeldig_mailadres_wordt_geweigerd(client, admin_head
 
     resp = client.post(
         f"/formulier/{form['share_token']}",
-        data={"submitter_name": "Jan", "submitter_email": "geen-adres"},
+        data={**form_guard_fields(), "submitter_name": "Jan", "submitter_email": "geen-adres"},
     )
     assert resp.status_code == 200, resp.text
     assert "geldig e-mailadres" in resp.text.lower(), resp.text

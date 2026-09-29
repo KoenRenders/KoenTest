@@ -4,7 +4,7 @@ werkbank (sessie-auth, CSRF, sluiten-door-beslissing)."""
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.forms.models import FieldType, Form, FormStatus, FormSubmission
 from app.domains.workflow.models import TaskStatus, WorkflowTask
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 
 def _login(client):
@@ -14,7 +14,9 @@ def _login(client):
 
 
 def _post_bericht(client, naam="Fee", email="fee@example.com", bericht="Meer wandelingen!"):
-    return client.post("/berichten", data={"naam": naam, "email": email, "bericht": bericht})
+    return client.post(
+        "/berichten", data={**form_guard_fields(), "naam": naam, "email": email, "bericht": bericht}
+    )
 
 
 def test_berichten_form_is_seeded(db_session):

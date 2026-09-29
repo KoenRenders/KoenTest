@@ -13,5 +13,6 @@
     {{ ui.label(_("Je bericht"), "b_bericht", required=True) }}
     {{ ui.textarea_control("bericht", id="b_bericht", rows=5, value=bericht|default(""), required=True, cls="w-full") }}
   </div>
+  {{ ui.form_guard_fields() }}
   {{ ui.btn_primary(_("Verstuur bericht")) }}
 </form>

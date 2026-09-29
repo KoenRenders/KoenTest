@@ -56,6 +56,7 @@ GEEN_DEMO = {
     "loading": "staat in de sectie 'Leeg en ladend'",
     "empty_state": "idem",
     "search": "staat in de filterbalk van het lijstscherm",
+    "form_guard_fields": "onzichtbaar bedoeld: een honingpot en een verborgen tijdstip (#1297)",
 }
 
 

@@ -803,6 +803,18 @@
    an activity's payments tab, gave the row a 12 px margin that leaked out of
    the form. `gap` only works between boxes that are generated, so a hidden
    input cannot cause it any more. #}
+{# ── Public-form guard (#1297) ────────────────────────────────────────────────
+   Inside every public form a visitor submits: the honeypot (`website`, hidden
+   from people, filled in by simple bots) and the signed render time. The names
+   and the checks live in `app/kernel/form_guard.py`; the services drop what
+   fails them. No id on the honeypot: two public forms may share a page. #}
+{% macro form_guard_fields() -%}
+<div class="hidden" aria-hidden="true">
+  <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+</div>
+<input type="hidden" name="form_ts" value="{{ form_guard_token() }}">
+{%- endmacro %}
+
 {% macro filter_bar(hx_get, hx_target,
                     trigger="change, keyup changed delay:400ms from:input[type=search]",
                     id=None, cls="") -%}
