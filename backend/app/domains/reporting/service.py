@@ -638,10 +638,13 @@ class TileNumber:
 # amount, through the house money formatter (§735).
 DASHBOARD_TEGELS: list[tuple[str, str, str, str, bool]] = [
     ("Gezinnen", "dashboard_members", "member_total_count", "/admin/leden", False),
+    # #1307: households that are a member TODAY (the one rule, `membership.valid_on`),
+    # counted as households — not active membership rows of this year's number,
+    # which lost everyone who renewed after the turnover date until 1 January.
     (
         "Actieve gezinnen",
         "dashboard_active_members",
-        "membership_active_count",
+        "member_total_count",
         "/admin/leden",
         False,
     ),

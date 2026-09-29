@@ -20,6 +20,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 from app.domains.membership.service import (  # noqa: F401
     LidgegevensFout,
     controleer_geboortedatum_en_geslacht,
+    current_membership_counts,
     has_valid_membership,
     is_member,
     members_valid_on,
@@ -43,6 +44,7 @@ __all__ = [
     "membership_coverage_until",
     "open_renewal_payment",
     "members_valid_on",
+    "current_membership_counts",
     "members_with_membership_for_year",
     "membership_years",
     "not_renewed_count",
