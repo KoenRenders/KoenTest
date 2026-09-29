@@ -238,6 +238,39 @@ def members_valid_on(db, day: Optional[date] = None) -> set[int]:
     return {r[0] for r in rijen}
 
 
+def new_members_between(db, start: date, end: date) -> list[dict]:
+    """Households whose FIRST membership begins in [start, end), as the meeting
+    names them (#1358, CR-09 §3.20).
+
+    A household is new when its earliest membership that is not deleted begins
+    in the window — `valid_from`, or 1 January of `year` when that is empty. Not
+    the creation date of the record: a catch-up import of last year's members
+    created records today, and they showed up as new. A household that renews
+    has an earlier first
+    membership and is not new; one without a membership is not a member.
+
+    Ordered by that first start, then by household. The names come from
+    `mdm.households_as_named`.
+    """
+    from sqlalchemy import func
+
+    from app.domains.mdm.api import households_as_named
+    from app.domains.membership.models import Membership
+
+    first_start = func.min(
+        func.coalesce(Membership.valid_from, func.make_date(Membership.year, 1, 1))
+    ).label("first_start")
+    rows = (
+        db.query(Membership.member_id, first_start)
+        .group_by(Membership.member_id)
+        .having(first_start >= start)
+        .having(first_start < end)
+        .order_by(first_start.asc(), Membership.member_id.asc())
+        .all()
+    )
+    return households_as_named(db, [member_id for member_id, _first in rows])
+
+
 def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, int]:
     """Households that are a member today, and the persons in them (#294, #1307).
 

@@ -1070,6 +1070,25 @@ def test_de_pdf_kop_draagt_het_beginuur(client, db_session):
 # ── 20. De wijkmeester hoort in het verslag ──────────────────────────────────
 
 
+def _first_membership(db, household) -> None:
+    """A first membership that began last week (#1358): "new" is the start of the
+    first membership, not the creation of the household record."""
+    from datetime import timedelta
+
+    from app.domains.membership.api import Membership
+
+    today = date.today()
+    db.add(
+        Membership(
+            member_id=household.id,
+            year=today.year,
+            valid_from=today - timedelta(days=7),
+            valid_to=date(today.year, 12, 31),
+        )
+    )
+    db.flush()
+
+
 def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     """Hij stond alleen op het scherm, als keuzelijst — dus niet in de PDF.
 
@@ -1090,7 +1109,7 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     db_session.add(
         MemberPerson(member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID")
     )
-    db_session.flush()
+    _first_membership(db_session, gezin)
 
     meeting = create_meeting(db_session, meeting_date=date.today())
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)
@@ -1173,7 +1192,7 @@ def test_de_wijkmeester_staat_op_papier(client, db_session):
     db_session.add(
         MemberPerson(member_id=gezin.id, person_id=hoofdlid.id, relation_type="HOOFDLID")
     )
-    db_session.flush()
+    _first_membership(db_session, gezin)
 
     meeting = create_meeting(db_session, meeting_date=date.today())
     sectie = next(s for s in document_of(db_session, meeting) if s.kind == SectionKind.MEMBERS)

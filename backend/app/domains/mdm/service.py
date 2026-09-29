@@ -554,23 +554,27 @@ def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = 
     db.commit()
 
 
-def new_members_between(db: Session, start: date, end: date) -> list[dict]:
-    """Households that joined in the window, as the meeting names them.
+def households_as_named(db: Session, member_ids: list[int]) -> list[dict]:
+    """These households as the meeting names them, in the order given (#1358).
 
     A household has no name of its own, so it is rendered as *head member –
     partner, address* (CR-09 §3.20), built from the person relations. The
     steward is included when the administration knows one; assigning one is not
     this module's job — that happens in the national administration and returns
     through the import.
+
+    WHICH households are new is not master data: it is the start of their first
+    membership, and that rule lives in `membership` (`new_members_between`),
+    which asks this function for the names. Until #1358 this function chose them
+    itself, by the creation date of the record — so a catch-up import of last
+    year's members showed up as new.
     """
     from app.domains.mdm.models import Address, Member, MemberPerson, Person, PostalCode
 
-    members = (
-        db.query(Member)
-        .filter(Member.created_at >= start, Member.created_at < end)
-        .order_by(Member.created_at.asc(), Member.id.asc())
-        .all()
-    )
+    if not member_ids:
+        return []
+    by_id = {m.id: m for m in db.query(Member).filter(Member.id.in_(member_ids)).all()}
+    members = [by_id[i] for i in member_ids if i in by_id]
     if not members:
         return []
     ids = [m.id for m in members]
