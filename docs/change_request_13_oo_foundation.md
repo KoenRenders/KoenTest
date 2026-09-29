@@ -66,7 +66,12 @@ where four were known.
 
 Also on 28 September: 422 test files flat in `backend/tests/` (120
 single-domain, 228 multi-domain, 74 none — up from 391/107/205 in one
-day, v2.7.0's work); JSON routes: **124 as method × path on 97 distinct
+day, v2.7.0's work). **Re-counted by dev2 for 0b on `master` `213a6f61`:
+429 files** — by the literal rule 123 single-domain (39 of them screen
+tests whose only second domain is `auth`), 230 multi-domain, 76 none;
+**with the login-helper exception of B9.3** (master CLI, 28 Sep) 174
+single-domain, 146 multi-domain, 109 none. The definitive count is the one
+in #1248's PR, taken right before the move; JSON routes: **124 as method × path on 97 distinct
 paths** (dev2, recursively over the running app's routers, 28 Sep — the
 unit the *JSON route with a caller* gate and the pruning use; the earlier
 113 and 117 counted decorators); 189 `db.commit()` in
@@ -995,7 +1000,16 @@ The twin of "the object can say no": after a transition the object can say
 *what happened*. The mechanism exists — `kernel/events.py`, a synchronous
 dispatcher in the same transaction (a failing handler rolls the source
 back; no "maybe later"), event contracts in `kernel/contracts/`, handlers
-per domain in `handlers.py`. It is applied in three places (payment, forms,
+per domain in `handlers.py`. **An event handler is a `@subscribe` function**
+(from `kernel/events.py`), by convention in `<domain>/handlers.py` — but that
+file also holds `@job` functions (`kernel/jobs.py`: `mail.retry`,
+`workflow.sweep`, `send_newsletter`, `designstudio.generate`), and a job is
+exactly where the network *does* belong (B4.1: the handler enqueues, the
+job sends). So every gate below that says "handler" looks at `@subscribe`
+functions and what they call one level deep in the same module, never at
+the file name (dev2, 28 Sep, building 0a). Whether jobs stay in
+`handlers.py` or move to `jobs.py` is open and not a phase-0a question. It
+is applied in three places (payment, forms,
 mdm publish; mail and workflow subscribe) and bypassed in three:
 `activities/router.py:35` and `membership/register_router.py:52` import
 `mail.api.send_*` directly; `payment/service.py` calls
@@ -1052,7 +1066,7 @@ found on this walk-through; it goes in phase 1.
 
 **The gate** (B9.3, ratchet on today's couplings — nine by hand — hard for new modules):
 a domain's command functions — named in its `CONTRACT.md` — are called from
-outside the domain only from a `handlers.py`.
+outside the domain only from an event handler (a `@subscribe` function).
 
 ### B4.10 Outlook, not scope: business events, the werkbank, BPMN and DMN (Koen, 27 September)
 
@@ -1346,15 +1360,15 @@ until its phase 5 deleted it (read it from git history, not from `master`).
 | One owner per derived value | for each value in the registry, a second computation of its shape outside the owner (`sum(... * ...)` over the same relationship; a state decided from `paid_at`/`amount`) | "`payment/admin_ui.py:120` recomputes a registration total — use `registration.total()`" |
 | No rule in a router | an `if` on a domain attribute followed by `raise`/`flash` in `router.py`/`ui.py` (the layer gate's sibling) — **excluding** the doorman's own checks: not-found (404), authorisation (401/403), CSRF, rate limits; those are the router's job, not a business rule; **this gate's baseline carries a reason per entry** (`file:line — reason`), because legitimate UI concerns ("no registrations open") will land on it and must be tellable from real rules | "`membership/register_router.py:61` decides `mobile` is required — move it to `Person`" |
 | JSON route with a caller | every route mounted under `/api/v1` appears, with its caller, in its domain's `CONTRACT.md` (a `Callers` section the gate parses) — ratchet on today's 113, hard for new routes | "`POST /api/v1/activities/{id}/register` has no caller in `activities/CONTRACT.md` — name one or remove the route" |
-| Tests with their domain | a file under `backend/tests/` (not `integration/`) whose `from app.domains.<x>` imports name exactly one domain — it belongs in `app/domains/<x>/tests/`; a file under `app/domains/<x>/tests/` that imports another domain's internals is the import gate's business — **built hard in phase 0b together with the move, no ratchet**: a baseline that would live for one phase is work without use (dev2, 27 Sep) | "`tests/test_betalingen_export.py` imports only `payment` — move it to `app/domains/payment/tests/`" |
+| Tests with their domain | a file under `backend/tests/` (not `integration/`) whose `from app.domains.<x>` imports name exactly one domain — it belongs in `app/domains/<x>/tests/`; **an import from `auth` does not count as a domain when it brings in only login helpers** — `SESSION_COOKIE`, `make_session_value`, `csrf_token_for`, `User`, `UserRole`, `Role` — because a screen test logs in to test *its* domain, not `auth` (master CLI, 28 Sep, an execution choice within the CR; 39 screen tests hinge on it); the list lives in one place, the gate itself; a file under `app/domains/<x>/tests/` that imports another domain's internals is the import gate's business — **built hard in phase 0b together with the move, no ratchet**: a baseline that would live for one phase is work without use (dev2, 27 Sep) | "`tests/test_betalingen_export.py` imports only `payment` — move it to `app/domains/payment/tests/`" |
 | Validator without constraint | every `@validates` on a single field whose rule is "not blank" or "within a bound" has a `NOT NULL` / `CHECK` on that column in the mapped table (read from the model's `__table__`, so a constraint added only in a migration and not on the model is red too — the model is the source) | "`Registration.contact_name` has a not-blank validator and no `NOT NULL` — add the constraint in this commit" |
 | No foreign writes | any write to a mapped class of domain B outside `app/domains/B/`: constructor; attribute assignment on an instance; `db.add`/`delete`/`merge` with an instance; `soft_delete(instance)`; `query(B).update()`/`.delete()`; relationship append/remove; raw SQL naming a table in B's schema (AST over the classes each `api.py` exports plus the schema names; reads are free) — ratchet on today's 21, hard for new packages | "`membership/household_service.py:163` constructs `mdm.Person` — call `mdm.api.create_person(...)` or publish the event `mdm` subscribes to" |
-| One transaction per request | (a) no `db.commit()` in any `handlers.py` — hard from phase 0; (b) no write after a commit — in AST order, not by position in the function, so a conditional commit is not a false positive; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
-| No network in a handler | `handlers.py` imports or calls nothing that leaves the process — no `smtplib`, `httpx`, `requests`, no `_send`, no provider client; a handler enqueues a job for that (AST over imports and calls) — ratchet on today's `MailRequested` handler until phase 4, hard for new handlers | "`mail/handlers.py:54` sends over SMTP inside the transaction — enqueue a job" |
+| One transaction per request | (a) no `db.commit()` in an event handler — a `@subscribe` function or a same-module function it calls, one level deep — hard from phase 0 (today 0); (b) no write after a commit — in AST order, not by position in the function, so a conditional commit is not a false positive; (c) a function reachable from another domain through `api.py` does not commit (AST: the names `api.py` exports that another domain's service calls) — ratchet | "`activities/service.py:922` commits mid-way in `delete_registration` and writes again after it — one commit, at the end, by the door service" |
+| No network in a handler | an event handler (`@subscribe` function, or a same-module function it calls, one level deep) uses nothing that leaves the process — no `smtplib`, `httpx`, `requests`, `urllib.request`, no `_send`, no provider client; it enqueues a job for that, and a `@job` function may send (AST over imports and calls) — ratchet on today's `mail.on_mail_requested → _send` until phase 4, hard for new handlers | "`mail/handlers.py:54` sends over SMTP inside the transaction — enqueue a job" |
 | No session on an entity | `models.py` imports or names `Session`, `db`, `.query(`, `app.db` | "`activities/models.py:212` opens a session in `Registration.is_full()` — that is a service function" |
 | English identifiers (#780) | every `def`, `class`, module and migration name under `app/` and `alembic/versions/` against a word list of Dutch stems; entries in the frozen baseline may only disappear; a new Dutch name anywhere is red — hard for packages created after phase 0 (AST, not regex: a comment or a docstring is not an identifier) | "`payment/service.py:212` `def bereken_saldo` — English for new code (`CLAUDE.md`, #780); the baseline knows 60 names and this is not one of them" |
 | Module shape | every package under `app/domains/` has `api.py`, `codes.py`, `CONTRACT.md`, `models.py`, tests; no import of another domain's internals — **hard for a package created after phase 0** | "`app/domains/crm/` has no `CONTRACT.md`" |
-| Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in a `handlers.py`; anywhere else is red — ratchet on the gate's count (nine by hand), hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
+| Events, not calls | every call from domain A into a command function of domain B (the functions B's `CONTRACT.md` names as commands) happens in an event handler (a `@subscribe` function); anywhere else is red — ratchet on the gate's count (nine by hand), hard for new packages | "`activities/router.py:35` calls `mail.api.send_activity_registration_confirmation` directly — publish `RegistrationConfirmed` and let mail subscribe" |
 | Typed — **not a pytest gate; a mypy override** | in a migrated domain, every function has `db: Session` and annotated aggregate parameters: a `[[tool.mypy.overrides]]` block with `disallow_untyped_defs` and `strict_equality` for that domain, **switched on in the phase that migrates the domain** (1: `activities`, 2: `payment`, 3: `mdm`, `membership`; 4: the rest) — nothing of it in `test_rules_gate.py` or in phase 0; the existing mypy CI job carries it | mypy's own message |
 
 Not mechanical, and said so: whether a rule *should* exist, whether two
@@ -1463,6 +1477,8 @@ difference between an exemption list and a burn-down.
 | Q7 | 27 Sep 2026 | The seven `*Fout` classes next to ten `*Error` classes? (Claude) | Koen: option (b) — one English class per domain, Dutch alias. |
 | Q8 | 26 Sep 2026 | "Vereffend" versus "Betaald" — one word or two concepts? (handover) | Decided in CR-12 B4.4: two concepts; the balance state is derived, on the object — B4.3 here. |
 | Q9 | 26 Sep 2026 | Phase 0 (value objects) before or parallel to phase 1? (handover) | Parallel; B4.7. |
+| Q42 | 28 Sep 2026 | Master CLI, at 0b: does a screen test that imports `auth` only to log in count as multi-domain? 39 of 123 single-domain files did, by the literal rule. | No: an import from `auth` of only the six login helpers does not count as a domain; the list lives in the gate. A2 carries dev2's re-count on `213a6f61` (429 files; 123/230/76 literal, 174/146/109 with the exception); the definitive count comes with #1248's PR. |
+| Q41 | 28 Sep 2026 | dev2, building 0a: `handlers.py` holds `@job` functions too (four domains), and a job is where the network belongs; do the two handler gates look at the file or at `@subscribe` functions? | At `@subscribe` functions and what they call one level deep in the same module — never the file. B4.9 defines "event handler" once; B9.3's three rows say so. Jobs' file is left open. dev2 also updates the 26 Sep note at the top of `code-style.md` (ruff is built) in the commit that adds the B9.1 rule. |
 | Q40 | 28 Sep 2026 | dev2, on `c92d69d9`: a soft-deleted charge of 0,00 is still a row, so "clean up, then CHECK" still fails on HDEV, and (b) as written (`amount = amount_paid = 0`, then soft-delete, one flush) is refused by the CHECK. | Master CLI: (C)+(A) — (b) keeps `amount`, only `amount_paid = 0` and `deleted_at` set; the sign CHECK is written over living rows. B5.2 (both tables, the first case), B7 and B7.1 phase 2, B11. |
 | Q39 | 28 Sep 2026 | dev2 → master CLI → Koen: the old app can write a charge of 0,00 (`reconcile_charges`, #673), so the phase-2 sign `CHECK` is not old-app-safe; (a) code only, (b) close the write path, or the CHECK anyway? | Koen on #1249: *"a + b allebei in v2.8.0"*, then the same day *"Ja, regel databank ook in v2.8"*: the CHECK too, in the same migration, after a clean-up step that soft-deletes every charge of 0,00 with the same rule as (b). No contract step, no hand fix on HDEV. B5.2 (both tables and the agreement's first case), B7 and B7.1 phase 2, R13, B11. |
 | Q38 | 28 Sep 2026 | dev2, on `1b22a9f5`: `registration_items` has no `unit_price` column; drawing 3, the B5.2 constraint row and the classification row assumed one. | The `unit_price` CHECK dropped (the product's `price >= 0` covers it, same phase); drawing 3 gives the line a `product` and `line_total(is_member)`; B4.3 states that the price is derived in `totals.py` — member price on `registered_at` — and that `total()` therefore needs items, products and the person's memberships loaded (test 5 sets them by hand); a stored line price would be a new column, outside this CR. |
