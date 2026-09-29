@@ -120,8 +120,13 @@
               hx-target="#aa-detail" hx-swap="innerHTML">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="person_id" value="{{ person.id }}">
-          <span class="text-sm">{{ person.first_name }} {{ person.last_name }}</span>
-          <span class="ml-auto">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
+          {# #1353: the address beside the name, as in the meeting circle, so two
+             namesakes can be told apart. #}
+          <span class="min-w-0">
+            <span class="block text-sm">{{ person.first_name }} {{ person.last_name }}</span>
+            <span class="block text-sm text-ink-soft break-all">{{ person.email or _("geen e-mailadres") }}</span>
+          </span>
+          <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
         </form>
         {% else %}
         <p class="text-sm text-ink-soft py-2">{{ _("Geen lid gevonden dat er nog niet bij staat.") }}</p>

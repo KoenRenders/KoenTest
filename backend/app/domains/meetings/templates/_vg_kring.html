@@ -70,8 +70,13 @@
           hx-target="#vg-kring" hx-swap="innerHTML" hx-include="#vg-kring-start">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="person_id" value="{{ person.id }}">
-      <span class="text-sm">{{ person.first_name }} {{ person.last_name }}</span>
-      <span class="ml-auto">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
+      {# #1353: the address the mails would go to — the same one the circle uses —
+         so two namesakes can be told apart before one is added. #}
+      <span class="min-w-0">
+        <span class="block text-sm">{{ person.first_name }} {{ person.last_name }}</span>
+        <span class="block text-sm break-all {{ 'text-ink-soft' if person.email else 'text-brand-danger' }}">{{ person.email or _("geen e-mailadres") }}</span>
+      </span>
+      <span class="ml-auto shrink-0">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
     </form>
     {% else %}
     <p class="text-sm text-ink-soft py-2">{{ _("Niemand gevonden die nog niet in de kring zit.") }}</p>
