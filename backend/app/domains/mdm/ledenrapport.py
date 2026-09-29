@@ -29,6 +29,8 @@ from datetime import date, datetime
 
 import xlrd
 
+from app.domains.mdm.models import HOUSEHOLD_ORDER
+
 # Relatie-mapping rapport → DB-code.
 RELATIE_MAP = {
     "lid": "HOOFDLID",
@@ -36,8 +38,9 @@ RELATIE_MAP = {
     "(meerderjarig) kind": "KIND",
 }
 
-# Sorteervolgorde voor relaties binnen een gezin (hoofdlid eerst).
-RELATIE_ORDER = {"HOOFDLID": 0, "PARTNER": 1, "KIND": 2}
+# Sorteervolgorde voor relaties binnen een gezin (hoofdlid eerst). Afgeleid uit
+# `HOUSEHOLD_ORDER`, de ene bron die ook het gezinsportaal volgt (CR-13 fase 3).
+RELATIE_ORDER = {relation.value: i for i, relation in enumerate(HOUSEHOLD_ORDER)}
 
 # ── Kolommen op naam (robuust voor extra/herschikte kolommen, #231) ───────────
 # Het Raak-Nationaal-rapport heeft een header-rij; we mappen elk veld op zijn

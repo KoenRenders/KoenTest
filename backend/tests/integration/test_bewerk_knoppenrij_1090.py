@@ -30,6 +30,7 @@ de rendertest op de volgorde én de maat.
 from __future__ import annotations
 
 import re
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -159,7 +160,9 @@ def test_de_organisatorrij_rendert_het_cluster_in_volgorde(client, db_session):
     activiteit = Activity(name="Quiz met organisator")
     db_session.add(activiteit)
     db_session.flush()
-    persoon = Person(first_name="Els", last_name="Trekker")
+    persoon = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name="Els", last_name="Trekker"
+    )
     db_session.add(persoon)
     db_session.flush()
     gezin = Member()

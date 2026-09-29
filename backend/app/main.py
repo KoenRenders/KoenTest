@@ -39,6 +39,7 @@ from app.domains.mail.handlers import (
 )
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
+from app.domains.mdm.household_router import router as mdm_household_router
 from app.domains.mdm.import_router import router as member_import_router
 from app.domains.mdm.router import router as mdm_router
 from app.domains.mdm.ui import router as mdm_ui_router
@@ -146,6 +147,7 @@ app.include_router(chatbot_info_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1/admin")
 app.include_router(admin_api_router, prefix="/api/v1/admin")
 app.include_router(member_household_router, prefix="/api/v1")
+app.include_router(mdm_household_router, prefix="/api/v1")
 app.include_router(member_import_router, prefix="/api/v1")
 app.include_router(forms_router, prefix="/api/v1")
 app.include_router(forms_ui_router)

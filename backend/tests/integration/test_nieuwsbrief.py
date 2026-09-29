@@ -100,7 +100,12 @@ def _household(db, *people, year=YEAR):
     db.add(member)
     db.flush()
     for first_name, email, relation in people:
-        person = Person(first_name=first_name, last_name="Voorbeeld")
+        person = Person(
+            date_of_birth=date(1980, 1, 1),
+            gender_code="M",
+            first_name=first_name,
+            last_name="Voorbeeld",
+        )
         db.add(person)
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation))

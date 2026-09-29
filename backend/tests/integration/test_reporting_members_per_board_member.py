@@ -13,6 +13,8 @@ reason: an all-1s seed would let the wrong order pass unseen.
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from app.domains.mdm.api import Member, MemberPerson, Person
@@ -39,7 +41,13 @@ LISTING = (
 @pytest.fixture
 def situation(db_session):
     gegevens = seed(db_session)
-    bestuur = Person(tenant_id=TENANT_A, first_name="Anna", last_name="Bestuur")
+    bestuur = Person(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        tenant_id=TENANT_A,
+        first_name="Anna",
+        last_name="Bestuur",
+    )
     db_session.add(bestuur)
     db_session.flush()
     # H1, H2 and H3 are assigned; H4 deliberately is not.
@@ -120,7 +128,13 @@ def test_a_second_partner_does_not_double_the_household(db_session, situation):
     change which name shows at most, never how many rows come back.
     """
     voor = _rows(db_session)
-    extra = Person(tenant_id=TENANT_A, first_name="Extra", last_name="Partner")
+    extra = Person(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        tenant_id=TENANT_A,
+        first_name="Extra",
+        last_name="Partner",
+    )
     db_session.add(extra)
     db_session.flush()
     db_session.add(

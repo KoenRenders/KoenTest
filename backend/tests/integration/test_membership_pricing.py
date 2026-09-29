@@ -31,7 +31,9 @@ def seed_household(
     member = Member()
     db.add(member)
     db.flush()
-    person = Person(last_name="Lid", first_name="Test")
+    person = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", last_name="Lid", first_name="Test"
+    )
     db.add(person)
     db.flush()
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="HOOFDLID"))

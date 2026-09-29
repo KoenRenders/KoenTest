@@ -7,20 +7,60 @@ Survivorship (§6): een Person wordt nooit hard verwijderd bij een merge —
 keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 """
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, Date, DateTime, ForeignKey, Integer, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
 from app.kernel.codes import CodeEnum, EnumColumn
+from app.kernel.rules import aggregate, exemption
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+class MasterDataError(ValueError):
+    """A rule of master data was violated (CR-13 phase 3, §B4.4).
+
+    Not an HTTPException: that belongs to the entrance, not to the rule. English,
+    one class for the domain; the older `MergeError` and `TenantFout` predate it.
+    It lives here rather than in a service because a rule on an object raises it,
+    and a model may not import from a service.
+    """
+
+
+class PersonDetailsMissing(MasterDataError):
+    """A member of a household without a birth date or a gender (#681)."""
+
+
+#: The rule of #681, by name — what `kernel.rules.exempt` names when a path may
+#: stand it aside.
+HOUSEHOLD_MEMBER_DETAILS = "household member details"
+
+#: The one path that may: the member report import (Koen, 29 September 2026, #1250).
+#: It reads a household member without a birth date or a gender in, and says so in
+#: its report (`import_service._meld_onvolledig`, #681/#685) — because the report of
+#: Raak Nationaal is the source of truth, and a member missing from the
+#: administration is worse than an incomplete card. Every other path refuses.
+MEMBER_REPORT_IMPORT = "the member report import reads what Raak Nationaal holds, incomplete or not"
+
+
+def _blank(value: object) -> bool:
+    """Empty or only whitespace counts as not filled in."""
+    return not (str(value) if value is not None else "").strip()
+
+
+def _changed(obj: object, *fields: str) -> bool:
+    """Whether any of these columns changes in the coming flush — the object's own
+    bookkeeping, no query."""
+    state = sa_inspect(obj)
+    return any(state.attrs[field].history.has_changes() for field in fields)
 
 
 # ── The vocabularies of this domain (CR-12 phase 2) ─────────────────────────
@@ -78,6 +118,13 @@ class RelationType(CodeEnum):
     ADULT_CHILD = "KIND"
 
 
+#: The order of a household (Koen, 29 September 2026): the main member, the partner,
+#: then the children. One source: the family portal sorts on it
+#: (`MemberPerson.household_position`) and the member report import derives its
+#: `RELATIE_ORDER` from it.
+HOUSEHOLD_ORDER = (RelationType.PRIMARY_MEMBER, RelationType.PARTNER, RelationType.ADULT_CHILD)
+
+
 class Member(TenantMixin, SoftDeleteMixin, Base):
     """Household grouping — dynamic, can change over time."""
 
@@ -100,11 +147,32 @@ class Member(TenantMixin, SoftDeleteMixin, Base):
     board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
+@aggregate
 class Person(TenantMixin, SoftDeleteMixin, Base):
-    """Stable, permanent individual entity."""
+    """Stable, permanent individual entity (CR-13 phase 3, #1250).
+
+    Its rules, each at its address (§B4.2):
+
+    - **one field** — `@validates`: a person always has a first and a last name
+      (Koen, 29 September 2026), on every assignment, on every path;
+    - **several fields and the household link, already loaded** — `check()`: a
+      member of a household has a birth date and a gender (#681) — the same rule
+      `MemberPerson.check()` holds for a new link, here for a change to a person who
+      is in a household. Only when the person's own details change, so a merge or
+      a soft delete of an old incomplete row stays possible;
+    - **at rest** — the not-blank CHECKs of migration 172. No constraint on the
+      birth date or the gender: a person outside a household (the meeting circle,
+      #939) may lack both.
+    """
 
     __tablename__ = "persons"
-    __table_args__ = {"schema": "mdm"}
+    # CR-13 phase 3 (§B5.2): what `@validates` says, at rest too — the same rules as
+    # migration 172, which is where the environments get them.
+    __table_args__ = (
+        CheckConstraint("btrim(first_name) <> ''", name="ck_persons_first_name_not_blank"),
+        CheckConstraint("btrim(last_name) <> ''", name="ck_persons_last_name_not_blank"),
+        {"schema": "mdm"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     last_name = Column(String(100), nullable=False)
@@ -130,9 +198,62 @@ class Person(TenantMixin, SoftDeleteMixin, Base):
     # Bewust GEEN registrations-relatie: activiteiten zijn een ander domein;
     # Registration definieert de koppeling via een backref (zelfde regel).
 
+    @validates("first_name", "last_name")
+    def _name_not_blank(self, key: str, value: Optional[str]) -> Optional[str]:
+        """A person always has a first and a last name. The value is kept as given —
+        stripping would change what is stored today (R13)."""
+        if _blank(value):
+            from app.i18n import _
 
+            raise MasterDataError(_("Voornaam en achternaam zijn verplicht."))
+        return value
+
+    def check(self) -> None:
+        """A member of a household keeps a birth date and a gender (#681), whatever
+        path changes their details. Judged on the outcome, not on what was sent."""
+        if not _changed(self, "first_name", "last_name", "date_of_birth", "gender_code"):
+            return
+        if not any(link.deleted_at is None for link in self.member_persons or []):
+            return
+        if exemption(self, HOUSEHOLD_MEMBER_DETAILS):
+            return
+        MemberPerson.require_details(self.date_of_birth, self.gender_code)
+
+    def primary_contact(self, contact_type: str) -> Optional["ContactDetail"]:
+        """This person's main contact of one kind — `CONTACT.EMAIL`, `CONTACT.MOBILE`, …
+        (CR-13 phase 3, #1250).
+
+        The primary row, else the first row of that kind that has a value. The
+        fallback is deliberate (#1174): the database allows *at most* one primary
+        per kind (`uq_contact_details_one_primary_per_type`), not *at least* one,
+        and a person whose main address was removed still has something to show.
+        This is for showing one contact; sending has its own answer per kind of mail.
+
+        Reads the loaded relationship only; it never opens a session (§B4.1).
+        """
+        of_kind = [
+            c for c in self.contact_details or [] if c.contact_type_code == contact_type and c.value
+        ]
+        return next((c for c in of_kind if c.is_primary), of_kind[0] if of_kind else None)
+
+
+@aggregate
 class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
-    """Junction table linking persons to member households."""
+    """A person's place in a household — the link, and the rule that comes with it
+    (CR-13 phase 3, #1250).
+
+    **A member of a household has a birth date and a gender (#681).** That is a rule
+    about a person *in a household*, not about a person: the meeting circle (#939)
+    holds persons without either, on purpose. So it lives here, on the link, and
+    `check()` holds it for every new link, every link moved to another person or
+    household, and every link that comes back from a soft delete — on every path,
+    fired by the flush listener. Until this phase it was a function every writer had
+    to remember (`controleer_geboortedatum_en_geslacht`); that function is gone, not
+    copied. A door that wants to refuse before it changes anything asks
+    `require_details` — the same rule, asked early.
+
+    The one exception is written down by name: `MEMBER_REPORT_IMPORT`.
+    """
 
     __tablename__ = "member_persons"
     __table_args__ = {"schema": "mdm"}
@@ -154,7 +275,46 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     )
 
     member = relationship("Member", back_populates="member_persons")
-    person = relationship("Person", back_populates="member_persons")
+    # `load_on_pending`: a new link often carries only `person_id`; without it,
+    # `check()` would see no person and the rule would be skipped silently. With
+    # it, the flush reads the person once. A read, never a skipped rule.
+    person = relationship("Person", back_populates="member_persons", load_on_pending=True)
+
+    def household_position(self) -> tuple:
+        """Where this person stands in the household (Koen, 29 September 2026): by
+        relation (`HOUSEHOLD_ORDER`), then oldest first, without a birth date last,
+        then in the order they joined. Reads what is loaded; no query."""
+        relation = RelationType(self.relation_type)
+        born = self.person.date_of_birth if self.person is not None else None
+        return (
+            HOUSEHOLD_ORDER.index(relation)
+            if relation in HOUSEHOLD_ORDER
+            else len(HOUSEHOLD_ORDER),
+            born is None,
+            born or date.max,
+            self.id or 0,
+        )
+
+    @staticmethod
+    def require_details(date_of_birth: object, gender_code: object) -> None:
+        """Birth date and gender, both — or `PersonDetailsMissing` (#681)."""
+        if not date_of_birth or _blank(gender_code):
+            from app.i18n import _
+
+            raise PersonDetailsMissing(
+                _("Geboortedatum en geslacht zijn verplicht voor elk gezinslid.")
+            )
+
+    def check(self) -> None:
+        """A new, moved or revived link needs a person with a birth date and a gender."""
+        if not (sa_inspect(self).pending or _changed(self, "person_id", "member_id", "deleted_at")):
+            return
+        if exemption(self, HOUSEHOLD_MEMBER_DETAILS):
+            return
+        person = self.person
+        if person is None:
+            return  # nothing to judge yet; the foreign key refuses a missing person
+        self.require_details(person.date_of_birth, person.gender_code)
 
 
 class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):

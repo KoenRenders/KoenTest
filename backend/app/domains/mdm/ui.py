@@ -846,3 +846,111 @@ def import_commit(
         "_leden_import_resultaat.html",
         {"error": None, "stap": "commit", "data": data, "report": data["report"]},
     )
+
+
+# ── The family portal: a member changes a person of their household ──────────
+#
+# CR-13 phase 3 (#1250): the household and its persons are master data (Koen, 27
+# September 2026: *"gezin en personen is mdm"*), so the doors that change them are
+# `mdm`'s. The portal itself stays `membership`'s screen; these routes ask it who is
+# logged in and for the page to answer with, both reads through `membership.api`.
+# URLs, form fields and HTML unchanged
+# (`tests/integration/test_household_portal_characterisation.py`).
+
+
+@router.post("/leden/gezin/personen/{person_id}", response_class=HTMLResponse)
+async def portal_person_save(person_id: int, request: Request, db: Session = Depends(get_db)):
+    from typing import Any
+
+    from app.domains.mdm.api import (
+        actor_of,
+        apply_email_rows,
+        household_of,
+        household_refusals_as_http,
+        update_household_person,
+    )
+    from app.domains.membership.api import family_portal_page, portal_member
+
+    person = portal_member(request, db)
+    form = await request.form()
+
+    def _v(key: str) -> str:
+        value = form.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    data: dict[str, Any] = {
+        "first_name": _v("first_name"),
+        "last_name": _v("last_name"),
+        "date_of_birth": _v("date_of_birth") or None,
+        "gender_code": _v("gender_code") or None,
+        "email": _v("email") or None,
+        "phone": _v("phone") or None,
+        "mobile": _v("mobile") or None,
+    }
+    if form.get("street") is not None:
+        data["address"] = {
+            "street": _v("street"),
+            "house_number": _v("house_number"),
+            "bus_number": _v("bus_number") or None,
+            "postal_code": _v("postal_code"),
+        }
+    # #1219: the e-mail field is no longer in the fieldset — the addresses are rows.
+    # Pass only what the form carried; an empty value would remove the main address.
+    if not data["email"]:
+        data.pop("email")
+    with household_refusals_as_http():
+        household = household_of(db, person)
+        update_household_person(db, household, person_id, data, actor=actor_of(person))
+    # The e-mail rows of the same form (#1110), after the person: the household
+    # boundary above has already been checked for this person.
+    apply_email_rows(db, person_id, form, actor=actor_of(person))
+    return family_portal_page(request, db, person)
+
+
+@router.post("/leden/gezin/personen", response_class=HTMLResponse)
+async def portal_person_add(request: Request, db: Session = Depends(get_db)):
+    from app.domains.mdm.api import (
+        actor_of,
+        add_household_person,
+        household_of,
+        household_refusals_as_http,
+    )
+    from app.domains.membership.api import family_portal_page, portal_member
+
+    person = portal_member(request, db)
+    form = await request.form()
+
+    def _v(key: str) -> str:
+        value = form.get(key)
+        return value.strip() if isinstance(value, str) else ""
+
+    data = {
+        "first_name": _v("first_name"),
+        "last_name": _v("last_name"),
+        "date_of_birth": _v("date_of_birth") or None,
+        "gender_code": _v("gender_code") or None,
+        "email": _v("email") or None,
+        "phone": _v("phone") or None,
+        "mobile": _v("mobile") or None,
+    }
+    with household_refusals_as_http():
+        household = household_of(db, person)
+        add_household_person(db, household, data, actor=actor_of(person))
+    return family_portal_page(request, db, person)
+
+
+@router.post("/leden/gezin/personen/{person_id}/verwijderen", response_class=HTMLResponse)
+def portal_person_remove(person_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.domains.mdm.api import (
+        actor_of,
+        household_of,
+        household_refusals_as_http,
+        remove_household_person,
+    )
+    from app.domains.membership.api import family_portal_page, portal_member
+
+    person = portal_member(request, db)
+    with household_refusals_as_http():
+        household = household_of(db, person)
+        remove_household_person(db, household, person_id, by=person, actor=actor_of(person))
+    return family_portal_page(request, db, person)

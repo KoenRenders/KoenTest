@@ -268,6 +268,18 @@ def gezin_portaal(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def render_family_portal(request: Request, db: Session, person) -> HTMLResponse:
+    """The family portal as it stands now — the answer of every portal mutation.
+
+    Also the answer of the three person mutations whose doors are `mdm`'s since
+    CR-13 phase 3 (#1250): the screen stays `membership`'s, so `mdm` asks it for the
+    page through `membership.api.family_portal_page`.
+    """
+    return templates.TemplateResponse(
+        request, "gezin_portaal.html", _portal_ctx(request, db, person)
+    )
+
+
 def _require_member_csrf(request: Request, db: Session):
     from app.domains.auth.api import require_csrf
 
@@ -276,50 +288,6 @@ def _require_member_csrf(request: Request, db: Session):
         raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     require_csrf(request)
     return person
-
-
-@router.post("/leden/gezin/personen/{person_id}", response_class=HTMLResponse)
-async def gezin_persoon_opslaan(person_id: int, request: Request, db: Session = Depends(get_db)):
-    from app.domains.membership.api import household_update_person
-
-    person = _require_member_csrf(request, db)
-    form = await request.form()
-
-    def _v(key: str) -> str:
-        value = form.get(key)
-        return value.strip() if isinstance(value, str) else ""
-
-    from typing import Any
-
-    data: dict[str, Any] = {
-        "first_name": _v("first_name"),
-        "last_name": _v("last_name"),
-        "date_of_birth": _v("date_of_birth") or None,
-        "gender_code": _v("gender_code") or None,
-        "email": _v("email") or None,
-        "phone": _v("phone") or None,
-        "mobile": _v("mobile") or None,
-    }
-    if form.get("street") is not None:
-        data["address"] = {
-            "street": _v("street"),
-            "house_number": _v("house_number"),
-            "bus_number": _v("bus_number") or None,
-            "postal_code": _v("postal_code"),
-        }
-    # #1219: het e-mailveld zit niet meer in de veldenset — de adressen zijn
-    # rijen. Alleen meegeven wat het formulier droeg; anders zou een lege waarde
-    # het hoofdadres verwijderen.
-    if not data["email"]:
-        data.pop("email")
-    household_update_person(db, person, person_id, data)
-    # Dezelfde transactie als het lid zelf (#1110).
-    from app.domains.membership.api import household_apply_email_rows
-
-    household_apply_email_rows(db, person, person_id, form)
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
 
 
 # ── E-mailadressen, door het lid zelf (#1174) ────────────────────────────────
@@ -395,46 +363,6 @@ def gezin_email_verwijderen(
 
     person = _require_member_csrf(request, db)
     household_remove_email(db, person, person_id, contact_id)
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
-
-
-@router.post("/leden/gezin/personen", response_class=HTMLResponse)
-async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db)):
-    from app.domains.membership.api import household_add_person
-
-    person = _require_member_csrf(request, db)
-    form = await request.form()
-
-    def _v(key: str) -> str:
-        value = form.get(key)
-        return value.strip() if isinstance(value, str) else ""
-
-    household_add_person(
-        db,
-        person,
-        {
-            "first_name": _v("first_name"),
-            "last_name": _v("last_name"),
-            "date_of_birth": _v("date_of_birth") or None,
-            "gender_code": _v("gender_code") or None,
-            "email": _v("email") or None,
-            "phone": _v("phone") or None,
-            "mobile": _v("mobile") or None,
-        },
-    )
-    return templates.TemplateResponse(
-        request, "gezin_portaal.html", _portal_ctx(request, db, person)
-    )
-
-
-@router.post("/leden/gezin/personen/{person_id}/verwijderen", response_class=HTMLResponse)
-def gezin_persoon_verwijderen(person_id: int, request: Request, db: Session = Depends(get_db)):
-    from app.domains.membership.api import household_remove_person
-
-    person = _require_member_csrf(request, db)
-    household_remove_person(db, person, person_id)
     return templates.TemplateResponse(
         request, "gezin_portaal.html", _portal_ctx(request, db, person)
     )

@@ -171,24 +171,9 @@ def test_de_personen_weergave_draagt_de_namen_wel(db_session):
     )
 
 
-def test_de_samengestelde_naam_overleeft_een_lege_voornaam(db_session):
-    """Een persoon met alleen een achternaam draagt gewoon die achternaam.
-
-    Gemeten onderweg: `first_name` is NOT NULL, dus het NULL-geval waar
-    `TRIM(CONCAT_WS(...))` tegen beschermt kán hier niet optreden — een test
-    daarop sloeg af op de constraint en bewees niets. Het bereikbare geval is de
-    LEGE string, en dat is wat hier staat. `CONCAT_WS` blijft wel de vorm: het is
-    dezelfde als `d_activity_organiser` (#1077), en een `||`-keten die ooit een
-    nullbare kolom krijgt, verliest stil de hele naam.
-    """
-    from app.domains.mdm.api import Person
-
-    p = Person(tenant_id=TENANT, first_name="", last_name="Zonderdoop")
-    db_session.add(p)
-    db_session.commit()
-
-    naam = db_session.execute(
-        text("SELECT person_name FROM reporting.d_person WHERE person_id = :id"), {"id": p.id}
-    ).scalar()
-
-    assert naam == "Zonderdoop", repr(naam)
+# `test_de_samengestelde_naam_overleeft_een_lege_voornaam` stood here: a person with
+# only a last name. Since CR-13 phase 3 that person cannot exist — `Person` refuses a
+# blank name and `ck_persons_first_name_not_blank` says the same at rest (Koen, 29
+# September 2026) — and a test on an unreachable case proves nothing, as this file
+# already said of the NULL case. `CONCAT_WS` stays the shape, for the reason given
+# there.

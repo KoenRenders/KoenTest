@@ -18,6 +18,8 @@ Broken to see them red (measured):
 - the `bevestigd` check out of the route → the last tick disappears silently.
 """
 
+from datetime import date
+
 import pytest
 from sqlalchemy import text as sql_text
 
@@ -38,7 +40,9 @@ pytestmark = pytest.mark.ui_serverrendered
 
 
 def _persoon(db, voornaam, achternaam, *, lid=True, email=None, gsm=None):
-    person = Person(first_name=voornaam, last_name=achternaam)
+    person = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name=voornaam, last_name=achternaam
+    )
     db.add(person)
     db.flush()
     if lid:

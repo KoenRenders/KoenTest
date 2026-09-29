@@ -1049,6 +1049,16 @@ def upsert_families(
     """
     report = ImportReport()
 
+    # The one exception to #681, by name (Koen, 29 September 2026, #1250): a
+    # household member without a birth date or a gender is read in and reported
+    # (`_meld_onvolledig`), not refused — the report of Raak Nationaal is the source
+    # of truth, and a missing member is worse than an incomplete card. It holds for
+    # this transaction, up to the caller's commit, and not a statement further.
+    from app.domains.mdm.models import HOUSEHOLD_MEMBER_DETAILS, MEMBER_REPORT_IMPORT
+    from app.kernel.rules import exempt
+
+    exempt(db, HOUSEHOLD_MEMBER_DETAILS, MEMBER_REPORT_IMPORT)
+
     # Eerst: soft-deleted personen/gezinnen die terugkeren herleven (#227), zodat de
     # maps hieronder (gewone, gefilterde queries) ze als actief zien en de upsert ze
     # bijwerkt i.p.v. dupliceert.

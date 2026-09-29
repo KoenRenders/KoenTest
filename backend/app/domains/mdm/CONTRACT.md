@@ -13,6 +13,24 @@ bijbehorende codetabellen — plus merge/survivorship.
   nooit hard verwijderen, keten platgeslagen), `resolve` (O(1) naar de
   overlever), `unmerge_person` (history-anker), `MergeError`.
 
+- **The household mutations of the family portal** (CR-13 phase 3, #1250;
+  `household_service.py`): `household_of`, `household_person`,
+  `update_household_person`, `add_household_person`, `remove_household_person`,
+  `person_payload`, `actor_of`, and the refusals (`HouseholdNotFound`,
+  `PersonNotFound`, `OutsideHousehold`, `CannotRemoveSelf`, `HouseholdRefused`,
+  `PersonDetailsMissing`) with `household_refusals_as_http` for a door. The
+  household and its persons are master data (Koen, 27 September 2026), so their
+  doors are here too: the JSON routes in `household_router.py`, the screen routes
+  in `ui.py` — same paths and URLs as before. The portal page itself stays
+  `membership`'s; these doors ask it for the logged-in member and the page to
+  answer with (`membership.api.portal_member`, `family_portal_page`).
+- **Rules on the objects** (CR-13 phase 3): `Person` refuses a blank first or last
+  name; `MemberPerson.check()` / `Person.check()` require a birth date and a gender
+  of every household member (#681), on every flush, with `MemberPerson.require_details`
+  for a door that asks before it writes. One exception by name: the member report
+  import (`MEMBER_REPORT_IMPORT`, Koen, 29 September 2026). `Person.primary_contact(type)`
+  is the one answer to "this person's main e-mail, mobile, …".
+
 ## Events (kernel, §5.8 — trede 1)
 
 - Publiceert `EntityMerged` (`app.kernel.contracts.mdm`) bij elke merge.

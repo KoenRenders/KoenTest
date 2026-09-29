@@ -396,7 +396,9 @@ def circle_new_person(
         return templates.TemplateResponse(
             request,
             "_vg_kring.html",
-            _circle_view(request, db, error=_("Vul minstens een naam in.")).as_context(),
+            _circle_view(
+                request, db, error=_("Vul een voornaam en een achternaam in.")
+            ).as_context(),
         )
     return templates.TemplateResponse(
         request, "_vg_kring.html", _circle_view(request, db).as_context()

@@ -22,7 +22,25 @@ from app.domains.mdm.codes import (  # noqa: F401,E402
     PAYMENT_METHOD,
     RELATION_TYPE,
 )
+
+# The family portal's mutations (CR-13 phase 3): master data changed by its owner.
+from app.domains.mdm.household_doors import household_refusals_as_http  # noqa: F401
+from app.domains.mdm.household_service import (  # noqa: F401
+    CannotRemoveSelf,
+    HouseholdNotFound,
+    HouseholdRefused,
+    OutsideHousehold,
+    PersonNotFound,
+    actor_of,
+    add_household_person,
+    household_of,
+    household_person,
+    person_payload,
+    remove_household_person,
+    update_household_person,
+)
 from app.domains.mdm.models import (  # noqa: F401
+    MEMBER_REPORT_IMPORT,
     Address,
     AddressHistory,
     BankAccount,
@@ -38,6 +56,7 @@ from app.domains.mdm.models import (  # noqa: F401
     LegalForm,
     LegalFormCode,
     LegalFormLabel,
+    MasterDataError,
     Member,
     MemberHistory,
     MemberPerson,
@@ -54,6 +73,7 @@ from app.domains.mdm.models import (  # noqa: F401
     PaymentMethodCode,
     PaymentMethodLabel,
     Person,
+    PersonDetailsMissing,
     PersonHistory,
     PostalCode,
     RelationType,
@@ -234,4 +254,20 @@ __all__ = [
     "apply_email_rows",
     "make_email_primary",
     "remove_email_address",
+    "MasterDataError",
+    "HouseholdNotFound",
+    "PersonNotFound",
+    "OutsideHousehold",
+    "CannotRemoveSelf",
+    "HouseholdRefused",
+    "household_of",
+    "household_person",
+    "update_household_person",
+    "add_household_person",
+    "remove_household_person",
+    "person_payload",
+    "household_refusals_as_http",
+    "actor_of",
+    "PersonDetailsMissing",
+    "MEMBER_REPORT_IMPORT",
 ]

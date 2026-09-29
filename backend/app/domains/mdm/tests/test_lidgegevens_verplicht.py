@@ -226,17 +226,20 @@ def test_portaal_toevoegen_eist_de_velden(client, db_session):
     ],
 )
 def test_de_regel_weigert_elke_onvolledige_combinatie(dob, geslacht):
-    from app.domains.membership.api import LidgegevensFout, controleer_geboortedatum_en_geslacht
+    """Since CR-13 phase 3 the rule lives on the household link, `mdm`'s
+    `MemberPerson` (#1250); `require_details` is what a door asks before it changes
+    anything, and `check()` holds the same rule on every flush."""
+    from app.domains.mdm.api import MemberPerson, PersonDetailsMissing
 
-    with pytest.raises(LidgegevensFout):
-        controleer_geboortedatum_en_geslacht(dob, geslacht)
+    with pytest.raises(PersonDetailsMissing):
+        MemberPerson.require_details(dob, geslacht)
 
 
 def test_de_regel_laat_een_volledig_lid_door():
     """De keerzijde: zonder deze test bewijst niets dat de regel niet álles weigert."""
-    from app.domains.membership.api import controleer_geboortedatum_en_geslacht
+    from app.domains.mdm.api import MemberPerson
 
-    controleer_geboortedatum_en_geslacht("1980-01-01", "M")
+    MemberPerson.require_details("1980-01-01", "M")
 
 
 def test_de_regel_staat_in_de_service_en_niet_in_de_schermen():
@@ -245,7 +248,7 @@ def test_de_regel_staat_in_de_service_en_niet_in_de_schermen():
     for pad in ("app/domains/membership/ui.py", "app/domains/mdm/ui.py"):
         bron = open(pad, encoding="utf-8").read()
         assert "date_of_birth or not" not in bron and "Geboortedatum en geslacht" not in bron, (
-            f"{pad} formuleert de regel zelf; ze hoort in membership/service.py"
+            f"{pad} formuleert de regel zelf; ze hoort op MemberPerson in mdm/models.py"
         )
 
 

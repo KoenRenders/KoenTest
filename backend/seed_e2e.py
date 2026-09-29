@@ -359,7 +359,14 @@ def main() -> None:
         verlopen_member = Member()
         db.add(verlopen_member)
         db.flush()
-        verlopen_person = Person(first_name="Professor", last_name="Gobelijn")
+        # A birth date and a gender like every other household member (#681): since
+        # CR-13 phase 3 the household link refuses a member without them.
+        verlopen_person = Person(
+            first_name="Professor",
+            last_name="Gobelijn",
+            date_of_birth=date(1950, 3, 14),
+            gender_code="M",
+        )
         db.add(verlopen_person)
         db.flush()
         db.add(

@@ -1,0 +1,113 @@
+200
+{
+ "board_member_id": null,
+ "board_member_name": null,
+ "member_id": <MEMBER>,
+ "persons": [
+ {
+ "address": {
+ "bus_number": null,
+ "house_number": "1",
+ "id": <ADDRESS>,
+ "municipality": "Proefdorp",
+ "postal_code": "2399",
+ "postal_code_id": <POSTAL>,
+ "street": "Proefstraat"
+ },
+ "date_of_birth": "1980-03-04",
+ "email": "portaal-hoofd@example.com",
+ "emails": [
+ {
+ "id": <CONTACT>,
+ "is_primary": true,
+ "value": "portaal-hoofd@example.com"
+ }
+ ],
+ "first_name": "Hanne",
+ "gender_code": "F",
+ "id": <MAIN>,
+ "is_main_member": true,
+ "last_name": "Proef",
+ "mobile": null,
+ "phone": null,
+ "relation_type": "HOOFDLID"
+ },
+ {
+ "address": null,
+ "date_of_birth": "1979-05-06",
+ "email": null,
+ "emails": [],
+ "first_name": "Bram",
+ "gender_code": "M",
+ "id": <PARTNER>,
+ "is_main_member": false,
+ "last_name": "Proef",
+ "mobile": null,
+ "phone": null,
+ "relation_type": "PARTNER"
+ },
+ {
+ "address": null,
+ "date_of_birth": "2010-07-08",
+ "email": null,
+ "emails": [],
+ "first_name": "Lotte",
+ "gender_code": "F",
+ "id": <CHILD>,
+ "is_main_member": false,
+ "last_name": "Proef",
+ "mobile": null,
+ "phone": null,
+ "relation_type": "KIND"
+ }
+ ]
+}
+
+200
+{
+ "address": null,
+ "date_of_birth": "2010-07-08",
+ "email": null,
+ "emails": [],
+ "first_name": "Lotte",
+ "gender_code": "F",
+ "id": <CHILD>,
+ "is_main_member": false,
+ "last_name": "Proef-Json",
+ "mobile": "0470999999",
+ "phone": null,
+ "relation_type": "KIND"
+}
+
+201
+{
+ "address": null,
+ "date_of_birth": "2015-01-02",
+ "email": null,
+ "emails": [],
+ "first_name": "Nieuw",
+ "gender_code": "M",
+ "id": <NEW-PERSON-1>,
+ "is_main_member": false,
+ "last_name": "Proef",
+ "mobile": null,
+ "phone": "014000000",
+ "relation_type": "KIND"
+}
+
+422
+{
+ "detail": "Geboortedatum en geslacht zijn verplicht voor elk gezinslid."
+}
+
+422
+{
+ "detail": "Voornaam en achternaam zijn verplicht."
+}
+
+400
+{
+ "detail": "Je kan jezelf niet uit het gezin verwijderen."
+}
+
+204

@@ -77,7 +77,9 @@ def _activity(
 
 
 def _person(db, voornaam: str, achternaam: str, email: str | None = None) -> Person:
-    person = Person(first_name=voornaam, last_name=achternaam)
+    person = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name=voornaam, last_name=achternaam
+    )
     db.add(person)
     db.flush()
     if email:
@@ -1263,6 +1265,36 @@ def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
 
     meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
     assert "lies@raak-nationaal.example" in recipients_for(db_session, meeting).emails
+
+
+def test_de_kring_vraagt_voor_een_nieuw_niet_lid_beide_namen(client, db_session):
+    """CR-13 phase 3 (Koen, 29 September 2026): a person always has a first and a
+    last name. Until then one of the two was enough here, and a circle person could
+    be stored with only a first name. A pair, identical but for the last name — the
+    difference is the proof that the name is the reason.
+    """
+    from app.domains.mdm.api import Person
+
+    _organisatie(db_session)
+    csrf = _login(client)
+    velden = {"csrf_token": csrf, "first_name": "Enkel", "person_email": ""}
+
+    zonder = client.post(
+        "/admin/vergaderingen/kring/nieuw",
+        data={**velden, "last_name": ""},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert zonder.status_code == 200, zonder.text[:200]
+    assert "Vul een voornaam en een achternaam in." in zonder.text
+    assert not db_session.query(Person).filter(Person.first_name == "Enkel").all()
+
+    met = client.post(
+        "/admin/vergaderingen/kring/nieuw",
+        data={**velden, "last_name": "Voornaam"},
+        headers={"X-CSRF-Token": csrf},
+    )
+    assert met.status_code == 200, met.text[:200]
+    assert db_session.query(Person).filter(Person.first_name == "Enkel").one()
 
 
 def _organisatie(db):

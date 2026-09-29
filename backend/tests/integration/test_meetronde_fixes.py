@@ -6,6 +6,7 @@ conceptbadge, F34 ledensamenvatting) en F3 (lidgeld zichtbaar op Word-lid).
 """
 
 import re
+from datetime import date
 
 import pytest
 
@@ -66,7 +67,7 @@ def test_F34_samenvatting_zonder_adres_en_met_enkelvoud(client, db_session):
     m = Member()
     db_session.add(m)
     db_session.flush()
-    p = Person(first_name="Rita", last_name="Solo")
+    p = Person(date_of_birth=date(1980, 1, 1), gender_code="M", first_name="Rita", last_name="Solo")
     db_session.add(p)
     db_session.flush()
     db_session.add(MemberPerson(member_id=m.id, person_id=p.id, relation_type="HOOFDLID"))

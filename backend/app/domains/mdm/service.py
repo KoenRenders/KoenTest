@@ -391,15 +391,9 @@ def _email_of(person: Person) -> Optional[str]:
     (`email_addresses_of_members`), a confirmation to the address its form
     carried.
     """
-    adressen = [
-        c
-        for c in getattr(person, "contact_details", []) or []
-        if c.contact_type_code == CONTACT.EMAIL and c.value
-    ]
-    for contact in adressen:
-        if contact.is_primary:
-            return contact.value
-    return adressen[0].value if adressen else None
+    # The choice itself is the person's since CR-13 phase 3: `primary_contact`.
+    contact = person.primary_contact(CONTACT.EMAIL)
+    return contact.value if contact is not None else None
 
 
 def organization_circle(
@@ -1140,7 +1134,11 @@ def create_person_for_circle(
     first_name = (first_name or "").strip()
     last_name = (last_name or "").strip()
     email = (email or "").strip()
-    if not (first_name or last_name):
+    # Both names since CR-13 phase 3 (Koen, 29 September 2026): a person always has
+    # a first and a last name, here too — `Person` refuses a blank one and the
+    # database says the same (`ck_persons_*_not_blank`). Until then one of the two
+    # was enough, and a circle person could be stored without a last name.
+    if not first_name or not last_name:
         raise ValueError("naam ontbreekt")
     person = Person(first_name=first_name, last_name=last_name)
     db.add(person)

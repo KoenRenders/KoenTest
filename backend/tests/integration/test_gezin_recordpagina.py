@@ -7,6 +7,7 @@ incl. de e-mail-terugval voor gastinschrijvingen); de Wijzigingen-tab verviel
 op Koens vraag (15 sep).
 """
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -35,7 +36,9 @@ def _gezin(db, achternaam="Recordmans", voornaam="Rita"):
     m = Member()
     db.add(m)
     db.flush()
-    p = Person(first_name=voornaam, last_name=achternaam)
+    p = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name=voornaam, last_name=achternaam
+    )
     db.add(p)
     db.flush()
     db.add(MemberPerson(member_id=m.id, person_id=p.id, relation_type="HOOFDLID"))
