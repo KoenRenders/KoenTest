@@ -247,8 +247,16 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivityOrganiser.sort_order",
     )
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
+    # #1340: oldest first, and the id breaks a tie. Without an order the list —
+    # "Wie doet er mee?" reads it — followed the order in which PostgreSQL returned
+    # the rows, which is not the order of registering: a registration the board
+    # types in afterwards for an earlier moment, or a row rewritten by an update,
+    # landed anywhere.
     registrations = relationship(
-        "Registration", back_populates="activity", cascade="all, delete-orphan"
+        "Registration",
+        back_populates="activity",
+        cascade="all, delete-orphan",
+        order_by="Registration.registered_at, Registration.id",
     )
     # De id is de tiebreak, en dat is geen franje: `sort_order` staat standaard op 0,
     # dus twee onderdelen die je achter elkaar toevoegt zijn gelijk gerangschikt en

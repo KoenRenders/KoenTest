@@ -74,7 +74,17 @@ class Membership(TenantMixin, SoftDeleteMixin, Base):
         nullable=False,
     )
 
-    member = relationship("Member", backref=backref("memberships", cascade="all, delete-orphan"))
+    # #1340: oldest year first, as the member card has always shown them — by
+    # accident: without an order it was the order PostgreSQL returned the rows in.
+    # The card proposes the year after the LAST as the next one to add.
+    member = relationship(
+        "Member",
+        backref=backref(
+            "memberships",
+            cascade="all, delete-orphan",
+            order_by=lambda: (Membership.year, Membership.id),
+        ),
+    )
 
     def period(self) -> ValidityPeriod | None:
         """The period this membership is valid, or None while it has no dates."""

@@ -135,7 +135,12 @@ def _build_family_response(m: Member) -> FamilyResponse:
         bus_number=address.bus_number if address else None,
         postal_code=address.postal_code.postal_code if address and address.postal_code else "",
         municipality=address.postal_code.municipality if address and address.postal_code else "",
-        members=[_person_to_schema(mp.person, mp.relation_type) for mp in m.member_persons],
+        # #1340: the household's own order (`household_position`), the one the
+        # family portal already shows — not the order the rows came back in.
+        members=[
+            _person_to_schema(mp.person, mp.relation_type)
+            for mp in sorted(m.member_persons, key=MemberPerson.household_position)
+        ],
         memberships=[MembershipResponse.model_validate(ms) for ms in m.memberships],
         board_member=board_member,
     )
