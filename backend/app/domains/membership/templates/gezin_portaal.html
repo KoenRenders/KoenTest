@@ -62,8 +62,12 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
     {# Zelfde fix als de beheer-persoonskaart: de knoppen buiten de x-show,
        anders is er in bewerkmodus geen Opslaan (golfpakket-6 v2). #}
+    {# #1326: `min-w-0` lets the details shrink below their longest word, so on a
+       phone they wrap instead of pushing "Bewerken" out of the card (it stuck out
+       30 px with a long name and address). The e-mail address has no place to
+       break, so it may break anywhere. #}
     <div class="flex items-start justify-between">
-      <div x-show="!edit">
+      <div x-show="!edit" class="min-w-0">
         <span class="font-semibold">{{ p.first_name }} {{ p.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
         {# #1238 punt 6: Belgisch en niet ISO. Dit was het enige scherm dat de
@@ -77,7 +81,7 @@
              mee. #810: `items-start` + `mt-0.5` in plaats van `items-center` — een
              lang e-mailadres loopt op een telefoon over twee regels, en dan hing het
              icoon in het midden van het blok in plaats van bij de eerste regel. #}
-          {% if p.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ p.email }}</span>{% endif %}
+          {% if p.email %}<span class="inline-flex items-start gap-1 min-w-0 break-all">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ p.email }}</span>{% endif %}
           {% if p.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ p.mobile }}</span>{% endif %}
           {% if p.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ p.phone }}</span>{% endif %}
         </div>
