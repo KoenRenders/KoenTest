@@ -987,7 +987,6 @@ def _detail_ctx(
     for regel in verrijkt["items"]:
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
-        regel["line_total"] = bedrag["subtotal"] if bedrag else None
         # #732: ook het AANTAL moet meekomen, niet alleen de bedragen. Het antwoord
         # van /totaal vervangt het hele paneel — inclusief het veld waarin je net
         # typte — en `enrich_registration` zet daar de BEWAARDE stand in. Wie 2 naar

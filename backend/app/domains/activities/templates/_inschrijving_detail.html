@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% import "_product_row.html" as rows %}
 {# Gedeelde inschrijving-detail + editor (#455/#451): contact + producten +
    opmerking. Bewerken (aantallen, regel toevoegen/verwijderen, opmerking) via
    de bestaande router-facades; soft-deleted inschrijvingen zijn read-only.
@@ -35,7 +36,7 @@
   {# Read-only weergave #}
   <div {% if editable %}x-show="!edit"{% endif %}>
     <ul class="mt-2 text-gray-700">
-      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}{% if item.line_total is not none %} · € {{ item.line_total|geld }}{% endif %}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
+      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
     </ul>
     {% if reg["items"] %}
     <div class="mt-1 font-medium">{{ _("Totaal") }}: € {{ totaal|geld }}</div>
@@ -87,35 +88,28 @@
 
       <div class="space-y-2">
         {% for item in reg["items"] %}
-        <div class="flex items-center gap-2">
-          <span class="flex-1">{{ item.product_name or "—" }}</span>
-          {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ item.unit_price|geld }}</span>{% endif %}
-          {# Het aria-label via de format-filter op een gewone string: `~` met de
-             Markup uit _() is de escaping-trap van #514, en `Markup % dict` faalt
-             op een named placeholder. #}
-          {# #670: het aantal wijzigen laat regelbedrag én totaal meteen meelopen,
-             zoals bij een bezoeker die bestelt. Alleen het totaal verversen zou
-             "€ 20,00" naast een aantal van 3 laten staan — verwarrender dan niets
-             doen. Het antwoord vervangt dit hele fragment, dus beide gaan mee.
-             Server-side gerekend (§19.3), en het endpoint bewaart niets. #}
-          {{ ui.input_control("quantity_" ~ item.id, id="qty-" ~ item.id, type="number",
-                              value=item.quantity, cls="w-20",
-                              attrs='min="1"'
-                                    ' hx-post="' ~ _base ~ '/totaal"'
-                                    ' hx-include="closest form"'
-                                    ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
-                                    ' hx-trigger="change, keyup delay:300ms"',
-                              aria_label="%s — %s"|format(_("Aantal"), item.product_name or "")) }}
-          {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ item.line_total|geld }}</span>{% endif %}
+        {# #1287: the one product row, as on the registration form — the counter,
+           minimum 1, and no line amount (Koen: "doe het er in de backoffice dan
+           ook maar af"). A changed quantity still recalculates the total at once
+           (#670), server-side (§19.3), and the endpoint stores nothing; its answer
+           replaces this panel, and the input's id lets htmx keep the focus. #}
+        {% set price %}{% if item.unit_price is not none %}€ {{ item.unit_price|geld }}{% endif %}{% endset %}
+        {% call rows.product_row(item.product_name or "—", price, "quantity_" ~ item.id, "qty-" ~ item.id,
+                                 item.quantity, min=1,
+                                 attrs='hx-post="' ~ _base ~ '/totaal"'
+                                       ' hx-include="closest form"'
+                                       ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
+                                       ' hx-trigger="change, keyup delay:300ms"') %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
-        </div>
+        {% endcall %}
         {% else %}
         <div class="text-gray-400">{{ _("Geen producten") }}</div>
         {% endfor %}
       </div>
 
       {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt.
-         Loopt sinds #670 mee met een gewijzigd aantal. #}
+         Loopt sinds #670 mee met een gewijzigd aantal; sinds #1287 is het het enige
+         bedrag — geen regelbedrag meer, net als op het inschrijfformulier. #}
       {% if reg["items"] %}
       <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
         {{ _("Totaal") }}: € {{ totaal|geld }}
@@ -130,13 +124,15 @@
          de KNOP, met hx-include voor de twee velden ernaast. Ze reizen ook mee met
          Opslaan, maar dat endpoint leest enkel de velden die het kent. #}
       {% if products %}
-      <div class="flex items-center gap-2 border-t border-gray-200 pt-3">
+      {# #1287: `flex-wrap` — list, counter and button do not fit next to each
+         other on a phone; the button ran out to 519 px at 390. #}
+      <div class="flex flex-wrap items-center gap-2 border-t border-gray-200 pt-3">
         {% call ui.select_control("product_id", cls="flex-1") %}
           <option value="">{{ _("— Product toevoegen —") }}</option>
           {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
         {% endcall %}
-        {{ ui.input_control("quantity", id="new-qty-" ~ reg.id, type="number", value="1", cls="w-20",
-                            attrs='min="1"', aria_label=_("Aantal")) }}
+        {# #1287: the counter here too, minimum 1. #}
+        {{ rows.quantity("quantity", "new-qty-" ~ reg.id, 1, min=1) }}
         {{ ui.btn_secondary(_("Toevoegen"), type="button",
                             attrs='hx-post="' ~ _base ~ '/regels"'
                                   ' hx-include="closest form"'
