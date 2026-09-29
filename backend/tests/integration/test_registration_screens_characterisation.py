@@ -7,9 +7,11 @@ output cannot see a missing or empty rendering (CR-12 phase 4 learned that), so
 the screens are rendered on the code **before** the conversion, the output is
 kept, and the converted code must render the same.
 
-**"Before" is master `4b5e96f7`, not this branch.** The snapshots were recorded
-by running this file alone on that commit, before the first line of phase 1
-changed. A snapshot recorded after the change proves nothing.
+**"Before" is master `8ef1a6e0`, not this branch.** The snapshots were recorded
+by running this file alone on that commit, in a worktree without one line of
+phase 1. A snapshot recorded after the change proves nothing. (First recorded on
+`4b5e96f7`; re-recorded on `8ef1a6e0` after rebasing, because #1287 changed the
+product rows of these screens on master in between — its change, not phase 1's.)
 
 Six screens, each at the region that shows registrations:
 

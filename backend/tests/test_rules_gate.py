@@ -1970,7 +1970,11 @@ def test_no_new_promise_that_cannot_be_walked():
 
 
 #: The Registration aggregate (CR-13 phase 1): its classes and its schema.
-REGISTRATION_TARGETS = {"activities.Registration", "activities.RegistrationItem", "schema activities"}
+REGISTRATION_TARGETS = {
+    "activities.Registration",
+    "activities.RegistrationItem",
+    "schema activities",
+}
 
 
 def test_nothing_writes_a_registration_past_the_orm():

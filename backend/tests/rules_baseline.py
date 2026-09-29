@@ -701,10 +701,7 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
 
 # Functions that write after they committed (§B9.3 (b)), 29 September 2026. The one
 # the change request names: phase 1 makes `delete_registration` commit once, at the end.
-WRITE_AFTER_COMMIT: frozenset[str] = frozenset(
-    {
-    }
-)
+WRITE_AFTER_COMMIT: frozenset[str] = frozenset({})
 
 
 # Functions another domain's service, handler or tool calls through `api.py` and that
