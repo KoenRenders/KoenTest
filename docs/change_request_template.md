@@ -11,6 +11,12 @@
 > Added 25 September 2026 (Koen, shaping CR-12): **B9 Rule and gatekeeper.** An
 > architectural change request does not only fix something; it fixes a *way of
 > doing it*. B9 names that rule and the gate that keeps future work on it.
+>
+> Added 29 September 2026 (Koen, shaping CR-14): **the guidance per section
+> sits in a `[!NOTE]` block** — rendered blue and italic on GitHub — so a copy
+> shows at a glance what is to be filled in and what is content. Delete the
+> block once the section is written; a note left standing means the section
+> is not.
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** <shaped with Koen on …> · <on hold / assigned to vX.Y / built>
@@ -22,36 +28,42 @@
 
 ## A1. Reason to act
 
-Written by the business, or left open when there is no single trigger.
-Why this change, and **why now**. What goes wrong today, who feels it, what it
-costs (time, money, mistakes, missed members), and what changed so that the
-moment is now. One or two paragraphs; no solution words.
+> [!NOTE]
+> *The trigger: the one reason this idea is put forward, in the business's*
+> *own words. What the association wants, what stops it today, and why that is*
+> *not acceptable. A few sentences; no solution words. Example (CR-14): every*
+> *registration on the platform; for the Sint the registration and its*
+> *questions had to be split, which is a step back.*
 
 ## A2. As-is process
 
-How the work is done today, step by step, by whom, with which tools and
-material. Measured where possible: how often, how long, how many. Name the
-pain per step.
+> [!NOTE]
+> *How the work is done today, step by step, by whom, with which tools and*
+> *material. Measured where possible: how often, how long, how many. Name the*
+> *pain per step.*
 
 ## A3. To-be process
 
-How the work should go afterwards, step by step. Same actors as A2 where
-possible, so the difference is visible. Still no components: "the portal
-renders the poster", not "WeasyPrint renders the poster".
+> [!NOTE]
+> *How the work should go afterwards, step by step. Same actors as A2 where*
+> *possible, so the difference is visible. Still no components: "the portal*
+> *renders the poster", not "WeasyPrint renders the poster".*
 
 ## A4. Supplied material
 
-What the business handed over to start from — brand guides, examples,
-photos, spreadsheets, briefs — with where it lives (Nextcloud path, never in
-the repository when it holds personal data or brand assets). What was learnt
-from it goes here too, as measurements: "four example posters; none has a
-bleed".
+> [!NOTE]
+> *What the business handed over to start from — brand guides, examples,*
+> *photos, spreadsheets, briefs — with where it lives (Nextcloud path, never in*
+> *the repository when it holds personal data or brand assets). What was learnt*
+> *from it goes here too, as measurements: "four example posters; none has a*
+> *bleed".*
 
 ## A5. Business requirements
 
-One table. Each requirement is a sentence a board member would say, with a
-MoSCoW class. Numbered, so Part B and the acceptance criteria can point at
-them.
+> [!NOTE]
+> *One table. Each requirement is a sentence a board member would say, with a*
+> *MoSCoW class. Numbered, so Part B and the acceptance criteria can point at*
+> *them.*
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -63,9 +75,10 @@ and deliberately not done — recorded so it is not asked again).
 
 ## A6. Non-functional requirements
 
-The requirements every change request is tested against, each answered
-explicitly at business level, "not applicable" included. How they are met
-belongs in Part B:
+> [!NOTE]
+> *The requirements every change request is tested against, each answered*
+> *explicitly at business level, "not applicable" included. How they are met*
+> *belongs in Part B:*
 
 | Concern | This change |
 |---|---|
@@ -77,9 +90,10 @@ belongs in Part B:
 
 ## A7. Acceptance criteria
 
-Criteria the business signs off on, each testable by a person on HDEV
-without reading code, each pointing at a requirement. These are the
-business's unit tests; the developer's tests live in Part B.
+> [!NOTE]
+> *Criteria the business signs off on, each testable by a person on HDEV*
+> *without reading code, each pointing at a requirement. These are the*
+> *business's unit tests; the developer's tests live in Part B.*
 
 | # | Criterion | Requirement |
 |---|---|---|
@@ -91,72 +105,84 @@ business's unit tests; the developer's tests live in Part B.
 
 ## B1. Solution outline
 
-The solution in one paragraph, and the decisions that shape it, each with
-the alternatives weighed and why they lost (Europe First named where a tool
-or service is chosen).
+> [!NOTE]
+> *The solution in one paragraph, and the decisions that shape it, each with*
+> *the alternatives weighed and why they lost (Europe First named where a tool*
+> *or service is chosen).*
 
 ### B1.1 Functional analysis
 
-The derived, finer-grained requirements the solution answers, traced to A5.
-This is design work by the analyst, not business input — which is why it is
-not in Part A.
+> [!NOTE]
+> *The derived, finer-grained requirements the solution answers, traced to A5.*
+> *This is design work by the analyst, not business input — which is why it is*
+> *not in Part A.*
 
 ## B2. Architecture
 
 ### B2.1 Components
 
-Which components are new, which existing ones are used, which change. One
-table: component · new/used/changed · role in this change.
+> [!NOTE]
+> *Which components are new, which existing ones are used, which change. One*
+> *table: component · new/used/changed · role in this change.*
 
 ### B2.2 Application usage
 
-**Diagram (ArchiMate "application usage" view):** the to-be process steps of
-A3 on the left, the screens and services that serve each step on the right.
-It answers: *where in the application does each business step happen?*
+> [!NOTE]
+> ***Diagram (ArchiMate "application usage" view):** the to-be process steps of*
+> *A3 on the left, the screens and services that serve each step on the right.*
+> *It answers: *where in the application does each business step happen?**
 
 ### B2.3 Application structure
 
-**Diagram (ArchiMate "application structure" view):** screens, modules,
-facades, data stores and external integrations, with the dependencies
-between them. It answers the developer's question: *what has to be built
-where, and what talks to what?*
+> [!NOTE]
+> ***Diagram (ArchiMate "application structure" view):** screens, modules,*
+> *facades, data stores and external integrations, with the dependencies*
+> *between them. It answers the developer's question: *what has to be built*
+> *where, and what talks to what?**
 
 ### B2.4 Impact on the existing architecture
 
-What existing modules, tables, screens and contracts are touched, and how
-the layer rules (`docs/code-style.md`, CR-04, the import gate) are respected.
+> [!NOTE]
+> *What existing modules, tables, screens and contracts are touched, and how*
+> *the layer rules (`docs/code-style.md`, CR-04, the import gate) are respected.*
 
 ## B3. Cost and operations
 
-Operations first: settings, env vars, backups, limits, kill switch.
-Then external and running cost: paid tools and services (per use and per month,
-with the measured figure where a prototype exists), storage, and the limits
-that cap it. One-off cost where relevant (e.g. a licence). "None" is an
-answer.
+> [!NOTE]
+> *Operations first: settings, env vars, backups, limits, kill switch.*
+> *Then external and running cost: paid tools and services (per use and per month,*
+> *with the measured figure where a prototype exists), storage, and the limits*
+> *that cap it. One-off cost where relevant (e.g. a licence). "None" is an*
+> *answer.*
 
 ## B4. Detailed decisions
 
-The design decisions in full, one subsection each, with their reasons.
+> [!NOTE]
+> *The design decisions in full, one subsection each, with their reasons.*
 
 ## B5. Data model
 
 ### B5.1 Entity-relationship diagram
 
-Mermaid `erDiagram`: entities with their key columns, relationships with
-cardinality; soft references across schemas drawn as relationships too.
+> [!NOTE]
+> *Mermaid `erDiagram`: entities with their key columns, relationships with*
+> *cardinality; soft references across schemas drawn as relationships too.*
 
 ### B5.2 Tables
 
-Sketch of schemas, tables, columns, codes; validation layers.
+> [!NOTE]
+> *Sketch of schemas, tables, columns, codes; validation layers.*
 
 ## B6. Privacy and security — the mechanics
 
-How A6's privacy and security answers are implemented: what leaves the
-system to whom, what is sanitised, what is logged.
+> [!NOTE]
+> *How A6's privacy and security answers are implemented: what leaves the*
+> *system to whom, what is sanitised, what is logged.*
 
 ## B7. Phasing
 
-Shippable phases, each with what it delivers and its dependencies.
+> [!NOTE]
+> *Shippable phases, each with what it delivers and its dependencies.*
 
 Per phase, next to the "Na de merge" block, one column **failure paths that
 change** (added 27 September 2026, from CR-13). A change that reorganises
@@ -170,8 +196,9 @@ is an answer.
 
 ## B8. Tests
 
-What the build must prove, each test able to go red; guards proven by
-violation.
+> [!NOTE]
+> *What the build must prove, each test able to go red; guards proven by*
+> *violation.*
 
 ## B9. Rule and gatekeeper
 
@@ -223,17 +250,20 @@ down as one.
 
 ## B10. Prototype findings
 
-What was learnt from prototypes before the build (measurements, refusals,
-things that did not work).
+> [!NOTE]
+> *What was learnt from prototypes before the build (measurements, refusals,*
+> *things that did not work).*
 
 ## B11. Decisions log
 
-Dated answers from Koen and open proposals awaiting an answer.
+> [!NOTE]
+> *Dated answers from Koen and open proposals awaiting an answer.*
 
 ## Q&A log
 
-Questions asked during shaping, review and build, dated, with who asked and
-the answer — so nothing is asked twice and open questions are visible.
+> [!NOTE]
+> *Questions asked during shaping, review and build, dated, with who asked and*
+> *the answer — so nothing is asked twice and open questions are visible.*
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
@@ -241,8 +271,10 @@ the answer — so nothing is asked twice and open questions are visible.
 
 ## Non-goals
 
-What is deliberately outside this change.
+> [!NOTE]
+> *What is deliberately outside this change.*
 
 ## Relationship to existing work
 
-Issues and CRs this builds on or hands off to.
+> [!NOTE]
+> *Issues and CRs this builds on or hands off to.*
