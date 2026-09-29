@@ -10,7 +10,7 @@ meldingen die sinds #723 op het scherm komen, en die mag niet van de UI-laag
 afhangen.
 """
 
-from decimal import Decimal
+from app.kernel.money import Money
 
 
 def bedrag(waarde) -> str:
@@ -18,6 +18,8 @@ def bedrag(waarde) -> str:
 
     Een negatief bedrag houdt zijn minteken: terugbetalingen dragen dat, en het
     hoort zichtbaar te blijven.
+
+    Since CR-13 phase 1 the formatting is `Money`'s own (`str(Money(...))`); this
+    function stays for its callers and holds no second copy of the rule.
     """
-    getal = Decimal(str(waarde if waarde is not None else 0))
-    return f"{getal:.2f}".replace(".", ",")
+    return str(Money(waarde))
