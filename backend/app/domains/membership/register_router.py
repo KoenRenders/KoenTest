@@ -421,6 +421,9 @@ def register_family(
     redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
 
     try:
+        # A call at the door, not an event handler (CR-13 phase 2, master CLI): an online payment
+        # reaches the provider, the route needs the checkout URL now, and a failure rolls
+        # the whole request back with a 502 — none of which a handler may do.
         payment_record = create_payment_record(
             db=db,
             payable_type="membership",

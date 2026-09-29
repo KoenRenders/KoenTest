@@ -46,6 +46,9 @@ from app.domains.media.admin_ui import router as media_admin_ui_router
 from app.domains.media.router import router as media_router
 from app.domains.media.ui import router as media_ui_router
 from app.domains.meetings.admin_ui import router as meetings_admin_ui_router
+from app.domains.membership.handlers import (  # noqa: F401 - event-abonnementen (CR-13 phase 2)
+    activate_membership_on_payment,
+)
 from app.domains.membership.household_router import router as member_household_router
 from app.domains.membership.register_router import router as members_router
 from app.domains.membership.ui import router as membership_ui_router

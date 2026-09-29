@@ -4,13 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.audit.api import snapshot_payment_record
 from app.domains.auth.api import User, get_current_finance, get_finance_or_admin
-from app.domains.mdm.api import PaymentMethod
 from app.i18n import _
-from app.soft_delete import soft_delete
 
-from .models import PaymentRecord, PaymentStatus
+from .models import PaymentError, PaymentRecord
 from .schemas import (
     EnrichedPaymentRecord,
     PaymentRecordResponse,
@@ -22,9 +19,10 @@ from .service import (
     create_refund,
     edit_payment_record,
     get_records_for,
-    handle_gateway_update,
+    refresh_record_status,
     registration_balance,
 )
+from .service import delete_payment_record as delete_record
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -111,22 +109,12 @@ def refresh_payment_record(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail=_("Payment record not found"))
-    if record.method != PaymentMethod.ONLINE or not record.gateway_payment_id:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Alleen online betalingen kunnen bij Mollie ververst worden."),
-        )
-
-    from app.domains.payment.gateway_service import refresh_payment_status
-
-    gp = refresh_payment_status(db, record.gateway_payment_id)
-    handle_gateway_update(
-        db,
-        gateway_payment_id=gp.id,
-        new_status=gp.status,
-        source="admin_refresh",
-        actor=admin.email,
-    )
+    # The rule and the refresh are the service's (CR-13 phase 2): only an online
+    # payment with a gateway payment is refreshed, and only to a status we know.
+    try:
+        refresh_record_status(db, record_id, actor=admin.email)
+    except PaymentError as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal))
     db.commit()
     db.refresh(record)
     return _to_response(record)
@@ -217,31 +205,11 @@ def delete_payment_record(
     foutieve/test-betaling of een weesbetaling na een gezin-delete. Soft delete
     (#166): de rij wordt gemarkeerd (deleted_at) en globaal uit reads gefilterd,
     met audit-snapshot zodat het financiële feit in de history bewaard blijft."""
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
-    if not record:
+    # The rule is the service's (CR-13 phase 2): it stood here a second time.
+    try:
+        record = delete_record(db, record_id, actor=admin.email)
+    except PaymentError as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal))
+    if record is None:
         raise HTTPException(status_code=404, detail=_("Payment record not found"))
-    # Een betaling waar effectief geld bewoog, mag niet verdwijnen (#218):
-    #   1) een online betaling die Mollie als 'paid' bevestigde;
-    #   2) elk record met een betaald/ontvangen bedrag (cash/overschrijving bevestigd,
-    #      of een uitgevoerde terugbetaling — amount_paid ≠ 0).
-    # Zo'n record corrigeer je via een terugbetaling, niet via verwijderen.
-    if record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Een door Mollie betaalde online betaling kan niet verwijderd worden."),
-        )
-    if record.amount_paid is not None and record.amount_paid != 0:
-        raise HTTPException(
-            status_code=400,
-            detail=_("Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden."),
-        )
-    snapshot_payment_record(
-        db,
-        record,
-        operation="delete",
-        action="payment_deleted",
-        source="admin_manual",
-        actor=admin.email,
-    )
-    soft_delete(record)
     db.commit()

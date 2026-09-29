@@ -413,7 +413,6 @@ DUTCH_IDENTIFIERS: frozenset[str] = frozenset(
         "domains/membership/ui.py::lid_worden",
         "domains/membership/ui.py::lid_worden_submit",
         "domains/membership/ui.py::persoon_rij",
-        "domains/payment/service.py::BetalingFout",
         "domains/payment/service.py::_bedrag",
         "domains/payment/service.py::_ingetypt_bedrag",
         "domains/payment/service.py::_is_lege_vordering",
@@ -694,7 +693,6 @@ FOREIGN_WRITES: frozenset[str] = frozenset(
         "domains/membership/household_service.py::update_person → mdm.Person",
         "domains/membership/household_service.py::update_person_address → mdm.Address",
         "domains/membership/service.py::set_relation_type → mdm.MemberPerson",
-        "domains/payment/service.py::_activate_membership → membership.Membership",
     }
 )
 
@@ -856,24 +854,22 @@ COMMAND_CALLS: frozenset[str] = frozenset(
         "domains/membership/register_router.py::create_membership → audit.api.snapshot_membership",
         "domains/membership/register_router.py::register_family → mail.api.send_registration_confirmation",
         "domains/membership/register_router.py::register_family → payment.api.create_payment_record",
+        "domains/membership/service.py::activate_after_payment → audit.api.snapshot_membership",
         "domains/membership/ui.py::login_verify → auth.api.consume_magic_link",
         "domains/newsletter/service.py::_pictures → media.api.activity_image_path",
         "domains/newsletter/service.py::add_attachment → media.api.add_document",
         "domains/newsletter/service.py::send_batch → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::send_test → mail.api.send_campaign_mail",
         "domains/newsletter/service.py::subscribe_public → mail.api.send_newsletter_confirmation",
-        "domains/payment/service.py::_activate_membership → audit.api.snapshot_membership",
-        "domains/payment/service.py::bevestig_betaling → workflow.api.vervroeg_sweep",
         "domains/payment/service.py::confirm_manual_payment → audit.api.snapshot_payment_record",
         "domains/payment/service.py::create_payment_record → audit.api.snapshot_payment_record",
         "domains/payment/service.py::create_refund → audit.api.snapshot_payment_record",
-        "domains/payment/service.py::create_refund → workflow.api.vervroeg_sweep",
+        "domains/payment/service.py::delete_payment_record → audit.api.snapshot_payment_record",
         "domains/payment/service.py::edit_payment_record → audit.api.snapshot_payment_record",
         "domains/payment/service.py::handle_gateway_update → audit.api.snapshot_payment_record",
         "domains/payment/service.py::reconcile_charges → audit.api.snapshot_payment_record",
         "domains/payment/service.py::set_payment_status → audit.api.snapshot_payment_record",
         "domains/payment/service.py::void_payment_record → audit.api.snapshot_payment_record",
-        "domains/payment/status_router.py::delete_payment_record → audit.api.snapshot_payment_record",
     }
 )
 
@@ -919,9 +915,6 @@ RULE_IN_ROUTER: dict[str, str] = {
     "domains/membership/ui.py::lid_worden_submit::not (values.get('postal_code') or '').strip()": "rule: an address uses a postal code from the table (Address) — phase 3",
     "domains/membership/ui.py::lid_worden_submit::not members": "rule: a registration has at least one member (Member) — phase 3",
     "domains/newsletter/admin_ui.py::subscriber_import_preview::len(data) > MAX_IMPORT_BYTES": "door: the upload's size — the request's shape, not a rule on the data",
-    "domains/payment/status_router.py::delete_payment_record::record.amount_paid is not None and record.amount_paid != 0": "rule: a record with money on it is not deleted (PaymentRecord) — phase 2",
-    "domains/payment/status_router.py::delete_payment_record::record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID": "rule: a paid online record is not deleted (PaymentRecord) — phase 2",
-    "domains/payment/status_router.py::refresh_payment_record::record.method != PaymentMethod.ONLINE or not record.gateway_payment_id": "rule: only an online record with a gateway id refreshes (PaymentRecord) — phase 2",
     "domains/reporting/admin_ui.py::_ask::not vraag": "door: an empty question in the assistant box — the request's shape, not a rule on the data",
 }
 
@@ -971,13 +964,11 @@ NON_ORM_WRITES: frozenset[str] = frozenset(
 # `is_upcoming` the one Python home of "has a future date"; what stays is the SQL
 # filter of the activity list, which a query cannot hand to Python — the same kind of
 # second computation as the report's view, bound by the tests of that list (phase 4
-# decides whether it gets a parity test). Two sum `amount_paid` beside
-# `registration_balance` (phase 2).
+# decides whether it gets a parity test). Phase 2 gave the sum of what came in one
+# owner (`amount_received`), which `registration_balance` and the others ask.
 DERIVED_ELSEWHERE: frozenset[str] = frozenset(
     {
         "domains/activities/router.py::list_activities → registration.state",
-        "domains/payment/service.py::aggregate → registration.balance",
-        "domains/payment/service.py::reconcile_charges → registration.balance",
     }
 )
 

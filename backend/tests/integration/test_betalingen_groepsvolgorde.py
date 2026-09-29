@@ -168,11 +168,24 @@ def test_een_te_veel_ontvangen_bedrag_is_geen_terugvordering(db_session):
     afgeleid worden, dan beloofde het scherm hier een uitbetaling die nergens
     geregistreerd is.
     """
-    _rec(db_session, 6828, "30.00", betaald="40.00", minuten=0)
+    # An overpaid charge cannot be stored since CR-13 phase 2 — what came in lies
+    # within the amount, in the record's `check()` and at rest — so it is built in
+    # memory: the screen's rule is still asked of it, and must still hold.
+    te_veel = PaymentRecord(
+        id="00000000-0000-4000-8000-000000006828",
+        payable_type=PayableType.REGISTRATION,
+        payable_id=6828,
+        type="charge",
+        amount=Decimal("30.00"),
+        amount_paid=Decimal("40.00"),
+        method=PaymentMethod.TRANSFER,
+        status=PaymentStatus.PAID,
+    )
+    te_veel.created_at = datetime.now(timezone.utc)
     _rec(db_session, 6828, "10.00", betaald="10.00", minuten=5)
     db_session.commit()
 
-    groep = group_cards(get_records_for(db_session, "registration", 6828))[0]
+    groep = group_cards([te_veel, *get_records_for(db_session, "registration", 6828)])[0]
     assert groep["totaal"]["saldo"] < 0, "het saldo is negatief"
     assert groep["terug_te_betalen"] == Decimal("0"), "maar er staat geen terugbetaling open"
 

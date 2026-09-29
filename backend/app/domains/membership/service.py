@@ -18,6 +18,8 @@ en doet zelf geen DB-query; binnen een sessie zijn die relaties beschikbaar.
 from datetime import date
 from typing import Optional
 
+from sqlalchemy.orm import Session
+
 
 def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
     """True als ``person`` op ``ref_date`` een actief, geldig lidmaatschap heeft.
@@ -416,3 +418,35 @@ def controleer_geboortedatum_en_geslacht(date_of_birth, gender_code) -> None:
 
     if not date_of_birth or not (gender_code or "").strip():
         raise LidgegevensFout(_("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))
+
+
+def activate_after_payment(
+    db: Session, membership_id: int, *, source: str, actor: Optional[str]
+) -> None:
+    """Make a membership active after its payment (#113), idempotently.
+
+    The provider's webhook can arrive twice: an active membership is left alone, no
+    second history row. A membership without a period gets the one that contains
+    today. Moved here from `payment` in CR-13 phase 2 — the owner writes its rows.
+    """
+    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.models import Membership
+    from app.domains.payment.api import membership_valid_period
+
+    membership = db.query(Membership).filter(Membership.id == membership_id).first()
+    if membership is None or membership.is_active:
+        return
+    membership.is_active = True
+    if membership.valid_from is None or membership.valid_to is None:
+        valid_from, valid_to = membership_valid_period(date.today())
+        membership.valid_from = membership.valid_from or valid_from
+        membership.valid_to = membership.valid_to or valid_to
+    db.flush()
+    snapshot_membership(
+        db,
+        membership,
+        operation="update",
+        action="membership_activated",
+        source=source,
+        actor=actor,
+    )

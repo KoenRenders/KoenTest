@@ -10,15 +10,14 @@ one was due at 22:38 — **fifty-eight minutes** of a task on screen for work al
 appearing was too slow. Resolving had no such hook, so disappearing still waited for the
 hourly round.
 
-**The fix is one call in `bevestig_betaling`**, which covers both cases Koen named:
+**The fix was one call in `bevestig_betaling`**, which covers both cases Koen named:
 `/bevestigen` (settling) and `/bijwerken` (writing off a charge, #617-2b) both pass
 through that service.
 
-**Not through the `PaymentSettled` kernel event**, however tidy that looks: it is
-published from `apply_gateway_status`, the Mollie path. Manual confirmation never goes
-there, so a listener would miss precisely the case reported — and a test written around
-an online payment would stay green while it did. Correct on the diagram, wrong in
-practice.
+**Not through the old `PaymentSettled` event**: only the Mollie path published it, so a
+listener missed precisely the manual confirmation. Since CR-13 phase 2 every way money
+comes in publishes `PaymentReceived`, and `workflow` advances the sweep on it — the same
+effect as that one call, now on every path. These tests stay the proof for this case.
 
 **Advance the sweep, do not close the task here.** The title is the idempotency key, and
 a second place touching that key is how duplicate or prematurely closed tasks appear.

@@ -1,5 +1,6 @@
-"""Fase 3 (#401): payment-component — PaymentSettled-event en idempotente
-webhook-afhandeling (§19.2).
+"""Fase 3 (#401): payment-component — het betaal-event en idempotente
+webhook-afhandeling (§19.2). Since CR-13 phase 2 the event is `PaymentReceived`;
+`PaymentSettled`, which only the webhook published, is gone.
 
 De wees-record-reconciliatie stond hier ook. Die is met #824 verdwenen: een
 wees-betaling is geen gebeurtenis in het bedrijf maar een symptoom van een bug, en
@@ -11,7 +12,7 @@ signaleren.
 from decimal import Decimal
 
 from app.domains.payment.api import GatewayPayment, PaymentRecord, handle_gateway_update
-from app.kernel.contracts.payment import PaymentSettled
+from app.kernel.contracts.payment import PaymentReceived
 from app.kernel.events import _subscribers, subscribe
 
 
@@ -35,13 +36,13 @@ def _record(db, gp=None, payable_type="registration", payable_id=999_999, amount
     return rec
 
 
-def test_payment_settled_published_once_for_repeated_webhook(db_session):
+def test_payment_received_published_once_for_repeated_webhook(db_session):
     seen = []
 
     def _handler(event, db):
         seen.append(event)
 
-    subscribe(PaymentSettled)(_handler)
+    subscribe(PaymentReceived)(_handler)
     try:
         gp = _gateway_payment(db_session)
         rec = _record(db_session, gp)
@@ -50,7 +51,8 @@ def test_payment_settled_published_once_for_repeated_webhook(db_session):
         eerste_paid_at = rec.paid_at
         handle_gateway_update(db_session, gateway_payment_id=gp.id, new_status="paid")
         assert len(seen) == 1
-        assert seen[0].payment_record_id == rec.id and seen[0].amount == "10.00"
+        assert seen[0].payment_record_id == rec.id and seen[0].amount_booked == "10.00"
+        assert seen[0].fully_paid is True
         assert rec.paid_at == eerste_paid_at and rec.amount_paid == Decimal("10.00")
     finally:
-        _subscribers[PaymentSettled].remove(_handler)
+        _subscribers[PaymentReceived].remove(_handler)

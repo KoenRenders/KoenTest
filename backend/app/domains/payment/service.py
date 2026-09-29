@@ -10,7 +10,7 @@ from app.domains.mdm.api import CONTACT, MemberPerson, PaymentMethod, Person, Re
 from app.domains.membership.api import Membership
 from app.kernel.codes import code_of
 
-from .models import PayableType, PaymentRecord, PaymentStatus, PaymentType
+from .models import PayableType, PaymentError, PaymentRecord, PaymentStatus, PaymentType
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn
 # meteen toont wat de gateway/admin-refresh meldde i.p.v. een generiek label.
@@ -167,10 +167,15 @@ def handle_gateway_update(
     for record in records:
         if record.status == new_status:
             continue
-        record.status = new_status
+        event = None
         if new_status == PaymentStatus.PAID and record.paid_at is None:
-            record.paid_at = datetime.now(timezone.utc)
-            record.amount_paid = record.amount
+            event = record.mark_paid(
+                None, at=datetime.now(timezone.utc), source=source, actor=actor
+            )
+        else:
+            record.status = new_status
+            if new_status == PaymentStatus.PAID:
+                event = record.received(source=source, actor=actor)
         snapshot_payment_record(
             db,
             record,
@@ -179,51 +184,18 @@ def handle_gateway_update(
             source=source,
             actor=actor,
         )
-        # Lidmaatschap-betaling bevestigd -> lidmaatschap activeren (#113). Geldt
-        # zowel voor een nieuwe gezinsregistratie als voor een vernieuwing vanuit
-        # het gezinscherm: beide maken een Membership (is_active=False) met
-        # payable_type="membership", payable_id=membership.id.
-        if new_status == PaymentStatus.PAID and record.payable_type == PayableType.MEMBERSHIP:
-            _activate_membership(db, record.payable_id, source=source, actor=actor)
-        # Kernel-event (§5.8, trede 1): consumenten reageren op de bevestiging
-        # zonder dit component te importeren. Binnen dezelfde transactie; de
-        # idempotente no-op hierboven voorkomt dubbele publicatie.
-        if new_status == PaymentStatus.PAID:
-            from app.kernel.contracts.payment import PaymentSettled
-            from app.kernel.events import publish
-
-            publish(
-                PaymentSettled(
-                    payment_record_id=record.id,
-                    payable_type=record.payable_type,
-                    payable_id=record.payable_id,
-                    amount=str(record.amount),
-                    method=record.method.value,
-                ),
-                db,
-            )
+        # CR-13 phase 2: consumers react to the money without this component calling
+        # them — `membership` activates a membership (#113), `workflow` looks at the
+        # workbench now. In the same transaction; the idempotent no-op above keeps a
+        # repeated webhook from publishing twice.
+        if event is not None:
+            _publish(db, event)
 
 
-def _activate_membership(
-    db: Session, membership_id: int, source: str, actor: Optional[str]
-) -> None:
-    """Zet een lidmaatschap actief na bevestigde betaling. Idempotent: een reeds
-    actief lidmaatschap wordt niet opnieuw aangeraakt (geen dubbele history-rij)."""
-    from app.domains.audit.api import snapshot_membership
-    from app.domains.membership.api import Membership
+def _publish(db: Session, event) -> None:
+    from app.kernel.events import publish
 
-    ms = db.query(Membership).filter(Membership.id == membership_id).first()
-    if ms is None or ms.is_active:
-        return
-    ms.is_active = True
-    if ms.valid_from is None or ms.valid_to is None:
-        vf, vt = membership_valid_period(date.today())
-        ms.valid_from = ms.valid_from or vf
-        ms.valid_to = ms.valid_to or vt
-    db.flush()
-    snapshot_membership(
-        db, ms, operation="update", action="membership_activated", source=source, actor=actor
-    )
+    publish(event, db)
 
 
 def confirm_manual_payment(
@@ -238,10 +210,9 @@ def confirm_manual_payment(
         raise ValueError(f"PaymentRecord {record_id} not found")
     # Defense-in-depth (#146): betaald bedrag mag het verschuldigde nooit overschrijden.
     # Tekengevoelig (#219): charge → [0, amount]; refund (negatief) → [amount, 0].
+    # The record's own rule since CR-13 phase 2, asked before anything changes.
     if amount_paid is not None:
-        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
-        if not (lo <= amount_paid <= hi):
-            raise ValueError(f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen.")
+        record.validate_booking(amount_paid)
     # Refund-bewuste invariant (#517): een charge die al (deels) terugbetaald is,
     # mag zijn ontvangen bedrag NIET stil verlaagd krijgen — dat maakt de netto-
     # positie incoherent met de reeds uitbetaalde terugbetaling (bv. €30 ontvangen,
@@ -249,18 +220,12 @@ def confirm_manual_payment(
     # andere kant al; dit is de omgekeerde weg. Blokkeren i.p.v. stil overschrijven;
     # de penningmeester corrigeert dan via de terugbetaling.
     if amount_paid is not None and record.type == PaymentType.CHARGE:
-        refund_rows = (
-            db.query(PaymentRecord.amount_paid)
-            .filter(
-                PaymentRecord.payable_type == record.payable_type,
-                PaymentRecord.payable_id == record.payable_id,
-                PaymentRecord.type == PaymentType.REFUND,
-            )
-            .all()
-        )
-        total_refunded = -sum(
-            (Decimal(str(r[0])) for r in refund_rows if r[0] is not None), Decimal("0")
-        )
+        refunds = [
+            r
+            for r in get_records_for(db, record.payable_type, record.payable_id)
+            if r.type == PaymentType.REFUND
+        ]
+        total_refunded = -amount_received(refunds)
         if total_refunded > 0:
             current = (
                 Decimal(str(record.amount_paid)) if record.amount_paid is not None else Decimal("0")
@@ -274,31 +239,14 @@ def confirm_manual_payment(
                     "bedrag niet verlagen zonder de terugbetaling te verrekenen. "
                     "Corrigeer eerst de terugbetaling."
                 )
-    # #199: zonder expliciet bedrag → het volledige verschuldigde (resp. de volledige
-    # refund) boeken, zodat het saldo meteen klopt en één klik "betaald" volstaat.
-    geboekt = amount_paid if amount_paid is not None else record.amount
-    # #720: de status volgt uit de CIJFERS, niet uit de handeling. Ze stond hier
-    # onvoorwaardelijk op "paid", dus € 10,00 op een vordering van € 35,00 kwam er
-    # als "Vereffend" uit terwijl dezelfde kaart € 25,00 saldo toonde — en dat saldo
-    # telde in de totaalmatrix gewoon als openstaand mee.
-    #
-    # Dekt het bedrag de vordering niet, dan blijft de status "pending" en maakt
-    # `derived_status` er "Deels betaald" van. Die tak bestond al en werkt; ze kreeg
-    # alleen nooit de kans, want ze vraagt `status == "pending"` en die was net
-    # overschreven.
-    #
-    # abs() omdat een terugbetaling een NEGATIEF bedrag draagt (#219): daar is
-    # "volledig" juist de meest negatieve waarde. Een vergelijking zonder abs zou het
-    # oordeel op élke refund omkeren.
-    volledig = abs(_bedrag(geboekt)) >= abs(_bedrag(record.amount))
-    record.status = PaymentStatus.PAID if volledig else PaymentStatus.PENDING
-    # paid_at blijft ook bij een gedeeltelijke betaling staan: er ís geld ontvangen,
-    # en dit veld zegt wanneer. Niets vertakt erop; het gaat mee in de export.
-    record.paid_at = datetime.now(timezone.utc)
+    # #199, #720: the record books what came in and lets the amounts decide paid or
+    # not (`PaymentRecord.mark_paid`). Before phase 2 this function did it itself,
+    # and #720 found it setting "paid" on € 10,00 of € 35,00.
+    event = record.mark_paid(
+        amount_paid, at=datetime.now(timezone.utc), source="admin_manual", actor=actor
+    )
     if note:
         record.note = note
-    # amount_paid vóór de snapshot zetten, zodat de history het juiste bedrag vastlegt.
-    record.amount_paid = geboekt
     db.flush()
     snapshot_payment_record(
         db,
@@ -308,17 +256,9 @@ def confirm_manual_payment(
         source="admin_manual",
         actor=actor,
     )
-    # Handmatige bevestiging van een lidmaatschap-betaling (cash/overschrijving of
-    # een vastgelopen online betaling) moet het lidmaatschap ook activeren — net
-    # als de Mollie-webhook doet. Idempotent. #143
-    #
-    # #720: enkel wanneer het bedrag de vordering dekt. Deze regel stond óók
-    # onvoorwaardelijk, dus wie € 10,00 van € 35,00 overmaakte kreeg een geldig
-    # lidmaatschap terwijl de resterende € 25,00 open bleef staan zonder iets tegen
-    # te houden. Dat is het gevolg dat geld en rechten raakt; de badge was maar het
-    # zichtbare symptoom.
-    if record.payable_type == PayableType.MEMBERSHIP and volledig:
-        _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
+    # A membership is activated by `membership` on this event, and only when the
+    # amount covers the charge (#143, #720).
+    _publish(db, event)
     return record
 
 
@@ -407,19 +347,25 @@ def get_records_for(
     )
 
 
+def amount_received(records) -> Decimal:
+    """What came in on a set of payment records: the sum of what was booked, a
+    refund counting negative, a record with nothing booked as 0.
+
+    The one place this sum is made (CR-13 phase 2, one owner per derived value):
+    the balance of a registration, the reconciliation of an order, the totals of a
+    group of cards and the refund check each made it themselves.
+    """
+    return sum(
+        (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
+        Decimal("0"),
+    )
+
+
 def net_paid(db: Session, payable_type: PayableType | str, payable_id: int) -> Decimal:
     """Netto ontvangen bedrag op een payable: som van amount_paid over alle
     records (charges positief, refunds negatief). Een nog niet betaalde charge
     (amount_paid is None) telt als 0."""
-    rows = (
-        db.query(PaymentRecord.amount_paid)
-        .filter(
-            PaymentRecord.payable_type == payable_type,
-            PaymentRecord.payable_id == payable_id,
-        )
-        .all()
-    )
-    return sum((Decimal(str(r[0])) for r in rows if r[0] is not None), Decimal("0"))
+    return amount_received(get_records_for(db, payable_type, payable_id))
 
 
 def create_refund(
@@ -495,13 +441,21 @@ def create_refund(
         actor=actor,
     )
     # #705: een openstaande terugbetaling hoort meteen op de werkbank te staan, niet
-    # pas bij de volgende uurlijkse ronde. Deze aanroep VERVROEGT de sweep; ze maakt
-    # de taak niet zelf aan — de titel is de idempotentiesleutel, en een tweede plek
-    # die die sleutel bouwt levert dezelfde refund twee keer op.
+    # pas bij de volgende uurlijkse ronde. Since CR-13 phase 2 through an event:
+    # `workflow` subscribes and advances the sweep — it does not make the task
+    # itself, the title is the idempotency key (#705).
     if not settled:
-        from app.domains.workflow.api import vervroeg_sweep
+        from app.kernel.contracts.payment import RefundDue
 
-        vervroeg_sweep(db)
+        _publish(
+            db,
+            RefundDue(
+                refund_record_id=record.id,
+                payable_type=code_of(record.payable_type) or "",
+                payable_id=record.payable_id,
+                amount=str(record.amount),
+            ),
+        )
     return record
 
 
@@ -528,12 +482,23 @@ def refresh_record_status(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
-    if not record.gateway_payment_id:
-        raise ValueError("Deze betaling heeft geen online (Mollie) betaling om te verversen.")
+    # One rule for both ways in (CR-13 phase 2): the JSON route had its own copy,
+    # with its own words; the screen's message is the one the treasurer knows.
+    if record.method != PaymentMethod.ONLINE or not record.gateway_payment_id:
+        raise PaymentError("Deze betaling heeft geen online (Mollie) betaling om te verversen.")
     gp = refresh_payment_status(db, record.gateway_payment_id)
     # 'needs_review' (bedrag-mismatch, #92) niet automatisch als betaald boeken.
-    if gp.status in _GATEWAY_ACTION:
-        handle_gateway_update(db, gp.id, gp.status, source="admin_refresh", actor=actor)
+    # `gp.status` is the provider's word, a plain string (a `GatewayPayment` column
+    # without a code table, CR-12 §B4.10); `_GATEWAY_ACTION` is keyed by members. A
+    # string is never a member, so this test was always false and the treasurer's
+    # "Ververs" applied nothing — found in CR-13 phase 2, when the JSON route, which
+    # had worked around it, started to ask this function too.
+    try:
+        status = PaymentStatus(gp.status)
+    except ValueError:
+        status = None
+    if status in _GATEWAY_ACTION:
+        handle_gateway_update(db, gp.id, status, source="admin_refresh", actor=actor)
     db.refresh(record)
     return record
 
@@ -553,15 +518,19 @@ def set_payment_status(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
-    record.status = wanted
+    # CR-13 phase 2: "paid" books money through the record, so the amounts decide
+    # (#720) — a record that is only partly paid stays partly paid; nothing booked
+    # yet books the full amount, as before. Any other status forgets what came in.
+    event = None
     if wanted is PaymentStatus.PAID:
-        if record.paid_at is None:
-            record.paid_at = datetime.now(timezone.utc)
-        if record.amount_paid is None:
-            record.amount_paid = record.amount
+        event = record.mark_paid(
+            record.amount_paid,
+            at=record.paid_at or datetime.now(timezone.utc),
+            source="admin_manual",
+            actor=actor,
+        )
     else:
-        record.paid_at = None
-        record.amount_paid = None
+        record.cancel(wanted)
     if note:
         record.note = note
     db.flush()
@@ -573,8 +542,8 @@ def set_payment_status(
         source="admin_manual",
         actor=actor,
     )
-    if wanted is PaymentStatus.PAID and record.payable_type == PayableType.MEMBERSHIP:
-        _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
+    if event is not None:
+        _publish(db, event)
     return record
 
 
@@ -673,18 +642,8 @@ def registration_balance(db: Session, registration) -> dict:
 
     total_due, _ = compute_registration_total(registration)
     records = get_records_for(db, PayableType.REGISTRATION, registration.id)
-    total_paid = sum(
-        (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
-        Decimal("0"),
-    )
-    total_refunded = -sum(
-        (
-            Decimal(str(r.amount_paid))
-            for r in records
-            if r.type == PaymentType.REFUND and r.amount_paid is not None
-        ),
-        Decimal("0"),
-    )
+    total_paid = amount_received(records)
+    total_refunded = -amount_received(r for r in records if r.type == PaymentType.REFUND)
     return {
         "total_due": total_due,
         "total_paid": total_paid,
@@ -727,14 +686,26 @@ def reconcile_charges(
     total_due = Decimal(str(total_due))
     records = get_records_for(db, payable_type, payable_id)
 
-    net_paid = sum(
-        (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
-        Decimal("0"),
-    )
+    net_paid = amount_received(records)
     paid_charge = None
     for r in records:
         if r.amount_paid is None:
             # Open (onbetaalde) post → weg; het openstaande wordt herleid tot één post.
+            snapshot_payment_record(
+                db,
+                r,
+                operation="delete",
+                action="order_reconciled",
+                source=source,
+                actor=audit_actor,
+            )
+            soft_delete(r)
+        elif Decimal(str(r.amount_paid)) == 0:
+            # CR-13 phase 2, (b) of #1249 (Koen, 28 September 2026): a record on which
+            # nothing came in is removed, not closed on 0,00 — closing it would write a
+            # charge or refund of nothing, the trap #673 named, which the sign rule
+            # refuses. Soft-deleted with `amount` left as it was, so no 0,00 is ever
+            # written; it leaves the payment list with a history row.
             snapshot_payment_record(
                 db,
                 r,
@@ -997,7 +968,7 @@ def filter_records(
 def aggregate(records) -> dict:
     """Te betalen / ontvangen / saldo over een verzameling records."""
     due = sum((_bedrag(r.amount) for r in records), Decimal("0"))
-    paid = sum((_bedrag(r.amount_paid) for r in records), Decimal("0"))
+    paid = amount_received(records)
     return {"due": due, "paid": paid, "saldo": due - paid}
 
 
@@ -1030,13 +1001,50 @@ def derived_status(record) -> str:
     return code_of(record.status) or ""
 
 
-def may_delete(record) -> bool:
-    """Mag dit record verwijderd worden? Dezelfde regel als de guard in
-    status_router (#218/#617-2c), zodat het scherm geen knop toont die de guard
-    daarna weigert."""
+def deletion_refusal(record) -> Optional[str]:
+    """Why this record may not be deleted, or None (#218, #617-2c).
+
+    A payment on which money moved does not disappear: an online payment the
+    provider confirmed as paid, and any record with money received or paid out. It
+    is corrected with a refund. The one place of this rule since CR-13 phase 2 — the
+    JSON route kept its own copy beside `may_delete`.
+    """
+    from app.i18n import _
+
     if record.method == PaymentMethod.ONLINE and record.status == PaymentStatus.PAID:
-        return False
-    return record.amount_paid is None or _bedrag(record.amount_paid) == 0
+        return _("Een door Mollie betaalde online betaling kan niet verwijderd worden.")
+    if record.amount_paid is not None and _bedrag(record.amount_paid) != 0:
+        return _("Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden.")
+    return None
+
+
+def may_delete(record) -> bool:
+    """Mag dit record verwijderd worden? — so the screen shows no button the rule
+    refuses afterwards."""
+    return deletion_refusal(record) is None
+
+
+def delete_payment_record(
+    db: Session, record_id: str, *, actor: Optional[str]
+) -> Optional[PaymentRecord]:
+    """Delete one record as a deliberate admin action (#167), or refuse (#218).
+
+    Soft delete (#166), with a history row, so the financial fact stays in the
+    history. None when there is no such record.
+    """
+    from app.soft_delete import soft_delete
+
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if record is None:
+        return None
+    refusal = deletion_refusal(record)
+    if refusal:
+        raise PaymentError(refusal)
+    snapshot_payment_record(
+        db, record, operation="delete", action="payment_deleted", source="admin_manual", actor=actor
+    )
+    soft_delete(record)
+    return record
 
 
 def _is_lege_vordering(record) -> bool:
@@ -1365,9 +1373,11 @@ def enriched_records(db: Session) -> list:
 # terugvloeit.
 
 
-class BetalingFout(ValueError):
-    """Een invoerfout die het scherm als melding toont. Geen HTTPException: de
-    service kent geen HTTP, en de route bepaalt zelf de statuscode."""
+#: The Dutch name the payment error had before CR-13 (§B4.4). The same class, not
+#: a second one: `except BetalingFout` keeps catching `PaymentError`, which the
+#: record itself raises since phase 2. Removed only when the last Dutch
+#: reference is gone.
+BetalingFout = PaymentError
 
 
 def _ingetypt_bedrag(tekst: str | None) -> Decimal | None:
@@ -1421,10 +1431,10 @@ def bevestig_betaling(
     Dit dekt beide gevallen, want `/bevestigen` (vereffenen) en `/bijwerken` (een
     vordering afboeken, #617-2b) komen allebei hier langs.
 
-    **Niet via het kernel-event `PaymentSettled`**, hoe net dat er ook uitziet: dat
-    wordt gepubliceerd vanuit `apply_gateway_status`, het Mollie-pad. Handmatig
-    bevestigen komt daar niet langs, dus een luisteraar zou precies dit geval missen —
-    en een test die via een online betaling schrijft, zou dat niet merken.
+    Since CR-13 phase 2 the sweep is advanced by `workflow`, subscribed to
+    `PaymentReceived` — which every way money comes in publishes, this one included.
+    That is what `PaymentSettled` could not do: only the Mollie path published it,
+    so a listener missed exactly the manual confirmation. `PaymentSettled` is gone.
 
     **Vervroegen, niet zelf de taak sluiten.** Zelfde reden als #705: de titel is de
     idempotentiesleutel, en een tweede plek die daar iets mee doet is hoe dubbele of te
@@ -1442,9 +1452,6 @@ def bevestig_betaling(
     except ValueError as exc:
         db.rollback()
         raise BetalingFout(str(exc)) from exc
-    from app.domains.workflow.api import vervroeg_sweep
-
-    vervroeg_sweep(db)
     db.commit()
     return record
 

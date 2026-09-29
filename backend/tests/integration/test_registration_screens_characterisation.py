@@ -34,8 +34,6 @@ switched off.
 
 from __future__ import annotations
 
-import os
-import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from pathlib import Path
@@ -58,6 +56,7 @@ from app.domains.payment.api import (
     PaymentStatus,
     PaymentType,
 )
+from tests._snapshot import compare, main_region, normalise
 from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
@@ -249,46 +248,6 @@ def _login(client):
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
 
-def _main(html: str) -> str:
-    """The page's own content: `<main>`, so the chrome around it does not count."""
-    match = re.search(r"<main\b.*?</main>", html, re.S)
-    assert match, "the screen has no <main> — is this test still looking?"
-    return match.group(0)
-
-
-def _normalise(fragment: str) -> str:
-    text = fragment
-    text = text.replace(RECORD_ID, "<RECORD>")
-    for number, name in sorted(_names().items(), key=lambda kv: -kv[0]):
-        text = re.sub(rf"(?<!\d){number}(?!\d)", name, text)
-    text = re.sub(r"[A-Za-z0-9_\-.]{40,}", "<TOKEN>", text)
-    text = re.sub(r'(name="csrf_token" value=")[^"]*', r"\1<CSRF>", text)
-    text = re.sub(r'("X-CSRF-Token"\s*:\s*")[^"]*', r"\1<CSRF>", text)
-    text = re.sub(r">\s+<", ">\n<", text)
-    text = re.sub(r"[ \t]+", " ", text)
-    text = re.sub(r"\n\s*\n+", "\n", text)
-    return text.strip() + "\n"
-
-
-def _compare(screen: str, html: str) -> None:
-    path = SNAPSHOTS / f"{screen}.html"
-    got = _normalise(html)
-    if os.environ.get("SNAPSHOT_UPDATE") == "1":
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(got, encoding="utf-8")
-    assert path.exists(), f"no snapshot for {screen}; run with SNAPSHOT_UPDATE=1"
-    want = path.read_text(encoding="utf-8")
-    if got != want:
-        import difflib
-
-        diff = "".join(
-            difflib.unified_diff(
-                want.splitlines(True), got.splitlines(True), "snapshot", "rendered", n=2
-            )
-        )
-        pytest.fail(f"{screen} renders differently from before phase 1:\n{diff}")
-
-
 SCREENS = {
     "public_form_team": f"/activiteiten/{ACTIVITY_ID}/inschrijven/{TEAM_COMPONENT_ID}",
     "public_form_plain": f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
@@ -311,7 +270,8 @@ def test_the_registration_screen_renders_as_before(client, world, screen):
     response = client.get(SCREENS[screen])
     assert response.status_code == 200, (screen, response.status_code)
     html = response.text
-    body = _main(html) if "<main" in html else html
+    body = main_region(html) if "<main" in html else html
     # The page must show the world, or the snapshot records an empty screen.
     assert "Karakter" in body or "Ploegen" in body or "Los" in body, f"{screen} shows none of it"
-    _compare(screen, body)
+    got = normalise(body, _names(), {RECORD_ID: "<RECORD>"})
+    compare(SNAPSHOTS, screen, got, before="phase 1")
