@@ -20,6 +20,7 @@ from tests.test_rules_gate import (
     _packages,
     _python_files,
     _tree,
+    collect_command_calls_outside_handlers,
     collect_commit_behind_api,
     collect_commit_in_handler,
     collect_dutch_identifiers,
@@ -143,6 +144,10 @@ def a2_table() -> list[tuple[str, int | str]]:
         (
             "functions that write after a commit / api functions that commit for another domain",
             f"{len(collect_write_after_commit())} / {len(collect_commit_behind_api())}",
+        ),
+        (
+            "calls into another domain's command outside a handler",
+            len(collect_command_calls_outside_handlers()),
         ),
     ]
 

@@ -225,7 +225,9 @@ def _reachable(
             return
         local = _module_functions(t)
         imported: dict[str, tuple[str, str]] = {}
-        for node in t.body:
+        # Module-level imports, and the ones inside the function itself — a late
+        # import (`from app.kernel.jobs import enqueue`) is a call target all the same.
+        for node in [*t.body, *ast.walk(fn)]:
             if isinstance(node, ast.ImportFrom) and node.module and node.module.startswith("app."):
                 for alias in node.names:
                     imported[alias.asname or alias.name] = (node.module, alias.name)
@@ -914,6 +916,16 @@ def _is_commit(node: ast.AST) -> bool:
     )
 
 
+_SESSION_NAMES = {"db", "session", "sess", "db_session"}
+
+
+def _is_session(node: ast.AST) -> bool:
+    """`db`, `session`, `self.db`: a receiver that is a session — `seen.add(x)` is not."""
+    if isinstance(node, ast.Name):
+        return node.id in _SESSION_NAMES
+    return isinstance(node, ast.Attribute) and node.attr in _SESSION_NAMES
+
+
 def _write_in(node: ast.AST) -> tuple[int, str] | None:
     """The first ORM write in a statement: `db.add/delete/merge(...)`, `soft_delete(...)`,
     a bulk `.update()`/`.delete()` on a query, or `db.execute(update|insert|delete(...))`."""
@@ -922,7 +934,7 @@ def _write_in(node: ast.AST) -> tuple[int, str] | None:
             continue
         func = n.func
         name = func.attr if isinstance(func, ast.Attribute) else getattr(func, "id", "")
-        if isinstance(func, ast.Attribute) and name in _WRITE_CALLS:
+        if isinstance(func, ast.Attribute) and name in _WRITE_CALLS and _is_session(func.value):
             return n.lineno, f"db.{name}()"
         if name == "soft_delete":
             return n.lineno, "soft_delete()"
@@ -1129,6 +1141,103 @@ def collect_commit_behind_api() -> dict[str, str]:
     return found
 
 
+# ── 10. Events, not calls (ratchet; hard for a new package) ─────────────────
+
+
+def _writes(function: ast.AST) -> int | None:
+    """The line of the first ORM write or commit in a function's own body."""
+    for node in _own_nodes(function):
+        if _is_commit(node):
+            return node.lineno
+        if isinstance(node, ast.stmt):
+            write = _write_in(node)
+            if write:
+                return write[0]
+    return None
+
+
+def api_commands() -> dict[tuple[str, str], str]:
+    """(domain, name) → where it writes, for every `api.py` export that writes.
+
+    A command is derived from the code, not listed next to it (master CLI, 29
+    September 2026): an export that writes or commits, itself or through what it
+    calls three levels deep (the handler gates' walk). A read — `get_person` — is
+    not a command, whatever its name.
+    """
+    commands: dict[tuple[str, str], str] = {}
+    for package in _packages():
+        if not (package / "api.py").is_file():
+            continue
+        for name, (path, tree, function) in _api_exports(package).items():
+            for reached_path, _t, reached, via in _reachable(path, tree, function):
+                line = _writes(reached)
+                if line is not None:
+                    commands[(package.name, name)] = (
+                        f"{_rel(reached_path)}:{line}{' via ' + via if via else ''}"
+                    )
+                    break
+    domains = {domain for domain, _ in commands}
+    assert len(domains) >= 10, f"commands found in only {sorted(domains)} — the walk is blind"
+    return commands
+
+
+def collect_command_calls_outside_handlers() -> dict[str, str]:
+    """A call from domain A into a command of domain B outside a `@subscribe`
+    function → key `file::function → B.api.name` (§B4.9, R12). A consequence in
+    another domain goes through an event; a read through `api.py` is free."""
+    commands = api_commands()
+    found: dict[str, str] = {}
+    for path in _python_files():
+        caller = _owner_of_file(path)
+        if caller in {"app", "kernel"}:
+            continue  # not a domain: the rule is about domain pairs
+        tree = _tree(path)
+        direct: dict[str, tuple[str, str]] = {}
+        modules: dict[str, str] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                parts = node.module.split(".")
+                if parts[:2] == ["app", "domains"] and len(parts) == 4 and parts[3] == "api":
+                    for alias in node.names:
+                        direct[alias.asname or alias.name] = (parts[2], alias.name)
+                elif parts[:2] == ["app", "domains"] and len(parts) == 3:
+                    for alias in node.names:
+                        if alias.name == "api":
+                            modules[alias.asname or alias.name] = parts[2]
+        if not direct and not modules:
+            continue
+        qualified = _enclosing(tree)
+        for function in ast.walk(tree):
+            if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            if any(_is_subscribe(d) for d in function.decorator_list):
+                continue
+            for node in _own_nodes(function):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                target = None
+                if isinstance(func, ast.Name) and func.id in direct:
+                    target = direct[func.id]
+                elif (
+                    isinstance(func, ast.Attribute)
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id in modules
+                ):
+                    target = (modules[func.value.id], func.attr)
+                if not target or target[0] == caller or target not in commands:
+                    continue
+                name = qualified.get(function, function.name)
+                key = f"{_rel(path)}::{name} → {target[0]}.api.{target[1]}"
+                found.setdefault(
+                    key,
+                    f"{_rel(path)}:{node.lineno} `{name}` calls `{target[0]}.api.{target[1]}` "
+                    f"(a command: writes at {commands[target]}) — publish an event and let "
+                    f"`{target[0]}` subscribe (CR-13 §B4.9)",
+                )
+    return found
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -1141,6 +1250,7 @@ COLLECTORS = {
     "FOREIGN_WRITES": collect_foreign_writes,
     "WRITE_AFTER_COMMIT": collect_write_after_commit,
     "COMMIT_BEHIND_API": collect_commit_behind_api,
+    "COMMAND_CALLS": collect_command_calls_outside_handlers,
 }
 
 
@@ -1261,6 +1371,35 @@ def test_no_commit_behind_another_domains_api():
     "`mdm.api.add_to_circle` commits (domains/mdm/service.py:…) and is called from
     another domain (domains/cms/service.py:…)"."""
     _ratchet("COMMIT_BEHIND_API")
+
+
+def test_events_not_calls():
+    """Ratchet (§B4.9), hard for a new package. Proof (run, removed), additive, both
+    halves at once: in `cms/api.py` a `probe_write(db)` that commits through a helper
+    in `cms/service.py`, and a `probe_read(db)` that only queries; both called from
+    `forms/service.py` → exactly one new violation, "`forms/service.py` … calls
+    `cms.api.probe_write` (a command: writes at domains/cms/service.py:… via
+    _probe_helper)"; the read stays off the list."""
+    _ratchet("COMMAND_CALLS")
+
+
+@pytest.mark.parametrize(
+    ("domain", "name", "command"),
+    [
+        # The couplings §B4.9 names, found by the walk, not listed by hand.
+        ("mail", "send_activity_registration_confirmation", True),
+        ("mail", "send_registration_confirmation", True),
+        ("payment", "create_payment_record", True),
+        ("payment", "reconcile_registration_charges", True),
+        ("payment", "reconcile_charges", True),
+        ("workflow", "vervroeg_sweep", True),
+        # Reads are not commands.
+        ("mdm", "get_person", False),
+        ("mdm", "name_parts", False),
+    ],
+)
+def test_a_command_is_an_export_that_writes(domain, name, command):
+    assert ((domain, name) in api_commands()) is command
 
 
 @pytest.mark.parametrize(
