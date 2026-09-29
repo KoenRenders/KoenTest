@@ -1969,6 +1969,32 @@ def test_no_new_promise_that_cannot_be_walked():
     _ratchet("PROMISE_UNWALKABLE")
 
 
+#: The Registration aggregate (CR-13 phase 1): its classes and its schema.
+REGISTRATION_TARGETS = {
+    "activities.Registration",
+    "activities.RegistrationItem",
+    "schema activities",
+}
+
+
+def test_nothing_writes_a_registration_past_the_orm():
+    """Hard for the Registration aggregate since phase 1 — the entrances test of B8
+    test 1. The ORM paths meet `check()` through the flush listener; this finds the
+    paths that would not: a bulk update or delete on its classes, a core statement, or
+    raw SQL writing the `activities` schema. Today there is none, so any is red.
+
+    What it cannot see, and says so (§B10): a statement built with `getattr` or put
+    together from strings at runtime. Proof (run, removed): a function in
+    `cms/service.py` executing `"UPDATE activities.registrations SET phone = NULL"`
+    → red, naming the call site and `schema activities`."""
+    found = {
+        key: message
+        for key, message in collect_non_orm_writes().items()
+        if key.split(" → ", 1)[1] in REGISTRATION_TARGETS
+    }
+    assert not found, "\n".join(found[k] for k in sorted(found))
+
+
 @pytest.mark.parametrize(
     ("identifier", "dutch"),
     [

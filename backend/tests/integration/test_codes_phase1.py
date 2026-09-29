@@ -109,6 +109,7 @@ def test_the_registration_column_refuses_the_old_dutch_spelling(db_session):
     db_session.flush()
     db_session.add(
         Registration(
+            phone="0470000000",
             activity_id=activity.id,
             contact_name="X",
             contact_email="x@example.org",

@@ -271,7 +271,8 @@ class RegistrationContactUpdate(BaseModel):
 
     Vorm hoort in het schema (§ validatielagen): `EmailStr` weigert een ongeldig
     adres met een leesbare 422 i.p.v. het stil te bewaren. Leeg of enkel witruimte
-    wordt server-side NULL, zoals de opmerking dat al doet.
+    wordt server-side NULL, zoals de opmerking dat al doet — and since CR-13 phase 1
+    the registration refuses a NULL e-mail address itself (Koen, 29 September 2026).
 
     Los van de gekoppelde `Person`: deze velden zijn een momentopname van wat de
     inschrijver invulde. Het ledenbestand corrigeer je op /admin/leden.

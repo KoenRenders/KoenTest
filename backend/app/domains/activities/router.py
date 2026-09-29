@@ -7,19 +7,16 @@ from sqlalchemy import func, nulls_last
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_db
-from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import (
     Activity,
     ActivityDate,
-    ActivityProduct,
+    ActivityError,
     ActivitySubRegistration,
     Registration,
-    RegistrationItem,
+    RegistrationLimitReached,
+    RegistrationRefused,
 )
 from app.domains.activities.totals import compute_registration_total
-from app.domains.audit.api import (
-    snapshot_registration_item,
-)
 from app.domains.auth.api import User, get_current_admin, get_current_member
 from app.domains.mail.api import send_activity_registration_confirmation
 from app.domains.mdm.api import CONTACT, PaymentMethod
@@ -54,14 +51,6 @@ from app.schemas.activity import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["activities"])
-
-
-def _effective_end(ad: ActivityDate) -> date:
-    return ad.end_date or ad.start_date
-
-
-def _is_future(ad: ActivityDate, today: date) -> bool:
-    return _effective_end(ad) >= today
 
 
 def compute_activity_status(
@@ -140,19 +129,21 @@ def _build_response(
     reg_count: int = 0,
     status: str | None = None,
 ) -> ActivityResponse:
+    from app.domains.activities.service import is_upcoming
+
     sorted_dates = sorted(activity.dates, key=lambda d: d.start_date)
     # Publiek: homepage toont enkel de toekomstige datums, het archief enkel de
     # voorbije. Een activiteit met beide verschijnt in beide lijsten met het
     # relevante deel. Admin (all_dates) toont altijd álle datums.
     if for_archive:
-        relevant = [d for d in sorted_dates if not _is_future(d, today)]
+        relevant = [d for d in sorted_dates if not is_upcoming(d, today)]
         sort_date = (
             relevant[-1].start_date
             if relevant
             else (sorted_dates[-1].start_date if sorted_dates else None)
         )
     else:
-        relevant = [d for d in sorted_dates if _is_future(d, today)]
+        relevant = [d for d in sorted_dates if is_upcoming(d, today)]
         sort_date = (
             relevant[0].start_date
             if relevant
@@ -632,27 +623,6 @@ def _load_registration_or_404(
     return reg
 
 
-def _validate_order_product(
-    db: Session, activity: Activity, reg: Registration, product_id: int
-) -> ActivityProduct:
-    """Een bestelregel mag enkel een product van dit onderdeel/deze activiteit bevatten."""
-    product = db.query(ActivityProduct).filter(ActivityProduct.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail=_("Product not found"))
-    comp = (
-        db.query(ActivitySubRegistration)
-        .filter(ActivitySubRegistration.id == product.component_id)
-        .first()
-    )
-    if not comp or comp.activity_id != activity.id:
-        raise HTTPException(status_code=400, detail=_("Product hoort niet bij deze activiteit."))
-    if reg.component_id is not None and product.component_id != reg.component_id:
-        raise HTTPException(
-            status_code=400, detail=_("Product hoort niet bij het onderdeel van deze inschrijving.")
-        )
-    return product
-
-
 def _order_edit_result(
     db: Session, activity: Activity, reg: Registration, actor: str | None = None
 ) -> dict:
@@ -903,8 +873,8 @@ def create_registration(
     - `return_path` — where Mollie sends the payer back. The public way returns
       to the public page, the board to the registration in the back office.
 
-    Everything else holds on both ways: the required fields
-    (`controleer_inschrijfvelden`, Koen: "bestuur moet dezelfde velden
+    Everything else holds on both ways: the required fields (the registration's
+    own validators and `check()`, Koen: "bestuur moet dezelfde velden
     invullen"), a closed or cancelled activity, a full component, the quantity
     limits, and the payment record of a paid product.
     """
@@ -917,147 +887,27 @@ def create_registration(
     if not activity:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
 
-    # #974: of er nog ingeschreven kan worden, beslist één functie — dezelfde die de
-    # publieke kaart en de modal vragen. Hier stond die regel inline, met
-    # `date.today()`, zonder deadline en zonder annulering.
-    from app.domains.activities.service import registration_refusal
-
-    # #1053: mét het onderdeel, want de deadline hoort daar. Zonder dat argument
-    # zou de strengste datum van de activiteit ook de andere onderdelen sluiten.
-    onderdeel = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
-    weigering = registration_refusal(activity, component=onderdeel)
-    if weigering:
-        raise HTTPException(status_code=400, detail=weigering)
-
-    if data.contact_email:
-        existing_count = (
-            db.query(Registration)
-            .filter(
-                Registration.activity_id == activity_id,
-                Registration.component_id == data.component_id,
-                func.lower(Registration.contact_email) == data.contact_email.lower(),
-            )
-            .count()
-        )
-        from app.kernel.tenant_config import tenant_max_registrations_per_email
-
-        max_regs = tenant_max_registrations_per_email(db)
-        if existing_count >= max_regs:
-            raise HTTPException(
-                status_code=409,
-                detail=_(
-                    "Er zijn al %(max)s inschrijvingen met dit "
-                    "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt."
-                )
-                % {"max": max_regs},
-            )
-
-    valid_product_ids = {p.id for comp in activity.sub_registrations for p in comp.products}
-
-    from app.kernel.tenant_config import tenant_max_item_quantity
-
-    max_qty = tenant_max_item_quantity(db)
-    for item_data in data.items:
-        if item_data.product_id not in valid_product_ids:
-            raise HTTPException(
-                status_code=400,
-                detail=_("Ongeldig product in de inschrijving."),
-            )
-        if item_data.quantity < 0 or item_data.quantity > max_qty:
-            raise HTTPException(
-                status_code=400,
-                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.")
-                % {"max": max_qty},
-            )
-
-    # #1191: an inactive product is absent from the form, but this endpoint is an
-    # entrance of its own — the rule therefore lives in the service, next to the
-    # other product rule. The back office keeps booking inactive products.
-    from app.domains.activities.service import ActiviteitFout as _Fout
-    from app.domains.activities.service import check_publicly_bookable
+    # CR-13 phase 1: every rule of a registration is the service's now; this door
+    # turns a refusal into the answer it gave before — a missing field 422, the
+    # limit per e-mail address 409, any other refusal 400.
+    from app.domains.activities.service import register
 
     try:
-        if not backoffice_products:
-            check_publicly_bookable(activity, [i.product_id for i in data.items if i.quantity > 0])
-    except _Fout as fout:
-        raise HTTPException(status_code=400, detail=str(fout))
-
-    new_qty = sum(i.quantity for i in data.items) if data.items else 1
-
-    component = (
-        next((c for c in activity.sub_registrations if c.id == data.component_id), None)
-        if data.component_id
-        else None
-    )
-
-    # #733: naam, mobiel nummer en — als het onderdeel er een vraagt — de ploegnaam
-    # zijn verplicht. Het formulier zette daar `required` op, maar dat is vorm en
-    # geen betekenis: dit endpoint kwam er zonder mobiel of ploegnaam gewoon door.
-    # De regel staat in de servicelaag, zodat ze ook geldt voor het beheerscherm dat
-    # achteraf corrigeert.
-    from app.domains.activities.service import ActiviteitFout, controleer_inschrijfvelden
-
-    try:
-        controleer_inschrijfvelden(
-            component, contact_name=data.contact_name, phone=data.phone, team_name=data.team_name
+        registration = register(
+            db,
+            activity,
+            data,
+            person_id=person_id,
+            actor=actor,
+            backoffice_products=backoffice_products,
         )
-    except ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
+    except RegistrationLimitReached as refusal:
+        raise HTTPException(status_code=409, detail=str(refusal))
+    except RegistrationRefused as refusal:
+        raise HTTPException(status_code=400, detail=str(refusal))
+    except ActivityError as refusal:
+        raise HTTPException(status_code=422, detail=str(refusal))
 
-    if data.component_id:
-        if component and component.max_participants is not None:
-            current_qty = 0
-            for reg in activity.registrations:
-                if reg.component_id != data.component_id:
-                    continue
-                current_qty += sum(it.quantity for it in reg.items) if reg.items else 1
-            if current_qty + new_qty > component.max_participants:
-                raise HTTPException(
-                    status_code=400,
-                    detail=_("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk."),
-                )
-
-    registration = Registration(
-        activity_id=activity_id,
-        component_id=data.component_id,
-        registration_type=INDIVIDUAL,
-        contact_name=data.contact_name,
-        contact_email=data.contact_email,
-        phone=data.phone,
-        team_name=data.team_name,
-        payment_method=data.payment_method,
-        remarks=data.remarks,
-        person_id=person_id,
-    )
-    db.add(registration)
-    db.flush()
-
-    for item_data in data.items:
-        if item_data.quantity > 0:
-            item = RegistrationItem(
-                registration_id=registration.id,
-                product_id=item_data.product_id,
-                quantity=item_data.quantity,
-            )
-            db.add(item)
-            db.flush()
-            # Auditeer de initiële bestelregels (#84), zodat latere wijzigingen
-            # tegen een vastgelegde startsituatie afgezet kunnen worden.
-            # #713: deze route bedient anonieme én aangemelde bezoekers. Twee
-            # regels hoger wordt `current_member` al gebruikt om de inschrijving aan
-            # een persoon te hangen; hem hier weglaten liet de auditregel ongetekend
-            # terwijl we wisten wie het was.
-            snapshot_registration_item(
-                db,
-                item,
-                operation="insert",
-                action="order_created",
-                source="registration",
-                actor=actor,
-            )
-
-    db.flush()
-    db.refresh(registration)
     total_amount, _extra = compute_registration_total(registration)
 
     checkout_url = None

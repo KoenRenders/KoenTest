@@ -10,8 +10,17 @@ Houd berekeningslogica hier — niet inline in routers of mailtemplates — zoda
 scherm, mail en betaling nooit uit elkaar kunnen lopen.
 """
 
+from __future__ import annotations
+
 from decimal import Decimal
-from typing import List, Tuple, TypedDict
+from typing import TYPE_CHECKING, List, Tuple, TypedDict
+
+if TYPE_CHECKING:
+    from app.domains.activities.models import (
+        ActivityProduct,
+        ActivitySubRegistration,
+        Registration,
+    )
 
 
 class RegistrationLine(TypedDict):
@@ -23,7 +32,7 @@ class RegistrationLine(TypedDict):
     pay_on_site: bool
 
 
-def _unit_price(product, is_member: bool) -> Decimal:
+def _unit_price(product: ActivityProduct, is_member: bool) -> Decimal:
     """De stukprijs van één product. De enige plek waar die bepaald wordt (#635-1).
 
     De ledenprijs geldt als de inschrijver op de peildatum lid is én het product
@@ -38,13 +47,13 @@ def _unit_price(product, is_member: bool) -> Decimal:
     return Decimal(str(product.price))
 
 
-def _betaalbaar(product) -> bool:
+def _betaalbaar(product: ActivityProduct) -> bool:
     """Gratis en 'ter plaatse te betalen' staan wel op het scherm, maar worden
     niet afgerekend via de portaal (#373)."""
     return not bool(product.is_free) and not bool(getattr(product, "pay_on_site", False))
 
 
-def _line(product, quantity: int, is_member: bool) -> RegistrationLine:
+def _line(product: ActivityProduct, quantity: int, is_member: bool) -> RegistrationLine:
     """Eén toonbare regel: naam, aantal, stukprijs, subtotaal en de twee vlaggen."""
     unit_price = _unit_price(product, is_member)
     return {
@@ -62,7 +71,7 @@ def _telt_mee(regel: RegistrationLine) -> bool:
 
 
 def quote_lines(
-    component, quantities: dict[int, int], is_member: bool
+    component: ActivitySubRegistration, quantities: dict[int, int], is_member: bool
 ) -> Tuple[Decimal, List[RegistrationLine]]:
     """Wat kost deze keuze, vóórdat er iets is opgeslagen? (#635 punt 1)
 
@@ -87,7 +96,7 @@ def quote_lines(
     return totaal, regels
 
 
-def has_payable_products(component, is_member: bool) -> bool:
+def has_payable_products(component: ActivitySubRegistration, is_member: bool) -> bool:
     """Valt er op dit onderdeel iets af te rekenen via de portaal? (#607)
 
     Afgeleid uit dezelfde regelberekening als het totaal, zodat het totaalblok
@@ -97,7 +106,9 @@ def has_payable_products(component, is_member: bool) -> bool:
     return any(_betaalbaar(p) and _unit_price(p, is_member) > 0 for p in (component.products or []))
 
 
-def quote_registration(registration, quantities: dict) -> Tuple[Decimal, List[RegistrationLine]]:
+def quote_registration(
+    registration: Registration, quantities: dict[int, int]
+) -> Tuple[Decimal, List[RegistrationLine]]:
     """Wat zou deze inschrijving kosten met deze aantallen? (#670)
 
     De derde ingang, en bewust géén hergebruik van `quote_lines`. Die is gesleuteld
@@ -134,7 +145,9 @@ def quote_registration(registration, quantities: dict) -> Tuple[Decimal, List[Re
     return totaal, regels
 
 
-def compute_registration_total(registration) -> Tuple[Decimal, List[RegistrationLine]]:
+def compute_registration_total(
+    registration: Registration,
+) -> Tuple[Decimal, List[RegistrationLine]]:
     """Bereken (totaal, regels) van een inschrijving op basis van haar items.
 
     Elke regel bevat naam, aantal, stukprijs, subtotaal en de vlaggen is_free /

@@ -30,6 +30,12 @@ Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal):
   * alleen de aanroep in `register_for_activity` weggehaald → precies de vier
     API-tests vallen om en die van het beheerscherm niet. Dat verschil is het gat
     dat dit issue dicht: het HTML-attribuut raakte dat pad nooit.
+
+Since CR-13 phase 1 (#757) that function is gone: the name is the registration's
+own validator, the team name its `check()` on flush, and the mobile number the
+entrances' `service.require_phone` (no database constraint on the registration
+phone, Koen, 29 September 2026). These tests run unchanged against the new homes;
+the proofs above were made on the function they replaced.
 """
 
 import pytest

@@ -160,6 +160,7 @@ def _vul(
 
     for i in range(vanaf, vanaf + inschrijvingen):
         registratie = Registration(
+            phone="0470000000",
             activity_id=activity.id,
             component_id=component.id,
             registration_type="INDIVIDUAL",

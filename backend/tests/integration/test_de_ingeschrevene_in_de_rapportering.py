@@ -65,12 +65,17 @@ def _activiteit_met_twee_soorten(db):
     db.flush()
 
     met_lid = Registration(
+        contact_name="Test Deelnemer",
+        contact_email="deelnemer@example.org",
+        phone="0470000000",
         tenant_id=TENANT,
         activity_id=activiteit.id,
         person_id=persoon.id,
         registration_type="INDIVIDUAL",
     )
     zonder_lid = Registration(
+        contact_email="deelnemer@example.org",
+        phone="0470000000",
         tenant_id=TENANT,
         activity_id=activiteit.id,
         person_id=None,
@@ -125,6 +130,8 @@ def test_de_herkomst_volgt_de_naam_en_niet_de_koppeling(db_session):
     db_session.add(weg)
     db_session.flush()
     reg = Registration(
+        contact_email="deelnemer@example.org",
+        phone="0470000000",
         tenant_id=TENANT,
         activity_id=activiteit.id,
         person_id=weg.id,

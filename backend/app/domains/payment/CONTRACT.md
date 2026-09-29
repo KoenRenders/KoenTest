@@ -22,6 +22,10 @@ component.
 - Publiceert `PaymentSettled` (`app.kernel.contracts.payment`) bij elke
   bevestiging naar `paid` — exact één keer, want de gateway-update is
   idempotent (herhaalde webhook = no-op).
+- Subscribes to `OrderChanged` (`app.kernel.contracts.activities`, CR-13
+  phase 1): `handlers.reconcile_registration_on_order_change` brings a
+  registration's charges to the event's `total_due` (#185), in the publisher's
+  transaction. It never commits.
 
 ## Jobs (kernel, §5.8)
 

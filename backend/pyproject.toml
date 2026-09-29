@@ -68,6 +68,14 @@ module = [
 ]
 strict_equality = true
 
+# CR-13 phase 1 (§B9.3 *Typed*, narrowed — master CLI, 29 September 2026): every
+# function typed in the two modules where the Registration aggregate's rules live.
+# The rest of `activities` is #1305: 222 functions, and a return type on a FastAPI
+# route can become its `response_model`, so it is its own step, not this phase's.
+[[tool.mypy.overrides]]
+module = ["app.domains.activities.models", "app.domains.activities.totals"]
+disallow_untyped_defs = true
+
 # ── ruff: formatter and linter (#781) ────────────────────────────────────────
 # Decided 9 September 2026 (CLAUDE.md, *Code style*): ruff answers the style
 # questions once, so a review is about meaning. CI blocks on both

@@ -53,6 +53,7 @@ def _gezin(db, achternaam="Recordmans", voornaam="Rita"):
     )
     activity, comp, _prod = seed_activity_with_product(db)
     reg = Registration(
+        phone="0470000000",
         activity_id=activity.id,
         registration_type="INDIVIDUAL",
         contact_name=f"{voornaam} {achternaam}",
@@ -250,6 +251,7 @@ def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
 
     m, p, _ms, reg = _gezin(db_session)
     extra = Registration(
+        phone="0470000000",
         activity_id=reg.activity_id,
         registration_type="INDIVIDUAL",
         contact_name="Aaa Eerst",

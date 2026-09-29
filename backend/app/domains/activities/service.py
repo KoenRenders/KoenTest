@@ -15,9 +15,10 @@ Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 
 from datetime import date
-from typing import NamedTuple, Optional
+from typing import TYPE_CHECKING, NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
+from sqlalchemy.orm import Session
 
 from app.domains.activities.codes import INDIVIDUAL
 from app.domains.activities.models import (
@@ -31,9 +32,22 @@ from app.domains.activities.models import (
 from app.domains.mdm.api import CONTACT
 from app.kernel.codes import code_label, code_of
 
+if TYPE_CHECKING:
+    from app.schemas.activity import RegistrationCreate
+
 
 def _effective_end(ad: ActivityDate) -> date:
     return ad.end_date or ad.start_date
+
+
+def is_upcoming(activity_date: ActivityDate, today: date) -> bool:
+    """Whether a date of an activity still lies ahead: its last day is today or later.
+
+    The one place that says it (CR-13 phase 1): `registration_state` asks it for
+    "has this activity passed", and the API's card asks it to sort a date into past
+    or coming. The router had its own copy of this and of `_effective_end`.
+    """
+    return _effective_end(activity_date) >= today
 
 
 def _deadline_van(component) -> Optional[date]:
@@ -152,7 +166,7 @@ def registration_state(
     # is the true reason even when its dates have also passed.
     if activity.is_cancelled:
         return RegistrationState.CANCELLED
-    if not any(_effective_end(d) >= vandaag for d in activity.dates):
+    if not any(is_upcoming(d, vandaag) for d in activity.dates):
         return RegistrationState.PAST
     if component is not None:
         deadline = _deadline_van(component)
@@ -958,65 +972,197 @@ def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, 
     return reg
 
 
-def _herbereken(db, reg, actor) -> None:
-    """De betaalposten volgen de bestelling (#185).
+def _herbereken(db: Session, reg: Registration, actor: Optional[str]) -> None:
+    """De betaalposten volgen de bestelling (#185) — through an event since CR-13
+    phase 1, and in ONE transaction.
 
-    Dit hoorde in `_order_edit_result` in de router, samen met het vormgeven van
-    het antwoord. Twee verschillende dingen: dát de charges herrekend worden is een
-    domeinregel — wie een bestelregel wijzigt zonder te reconciliëren laat het
-    saldo stil verkeerd staan — en die regel moet gelden voor élke ingang, ook een
-    scherm dat de service rechtstreeks aanroept.
-
-    `reconcile_registration_charges` is integraal en dus idempotent: nog eens
-    aanroepen verandert niets.
+    Until phase 1 this called `payment.api.reconcile_registration_charges` itself and
+    committed; now it publishes `OrderChanged` and payment's handler reconciles on the
+    same session, before the one commit. A reconciliation that fails rolls the order
+    change back: the line no longer stays changed with a balance that did not follow.
     """
-    from app.domains.payment.api import reconcile_registration_charges
-
-    db.refresh(reg)
-    reconcile_registration_charges(db, reg, audit_actor=actor)
+    _order_changed(db, reg, actor)
     db.commit()
     db.refresh(reg)
 
 
-def _ontbreekt(waarde) -> bool:
-    """Leeg of enkel witruimte telt als niet ingevuld.
+def _order_changed(db: Session, reg: Registration, actor: Optional[str]) -> None:
+    """Publish `OrderChanged` with the total its owner computes (§B4.9).
 
-    Dezelfde normalisatie als hieronder, en bewust vóór die stap: `strip() or None`
-    maakt van "   " een NULL, dus ná de normalisatie is een leeg veld niet meer van
-    een weggelaten veld te onderscheiden.
+    Refuses to publish when nothing listens: an order change nobody reconciles is
+    the #185 trap, and silence would make it invisible.
     """
-    return not (str(waarde) if waarde is not None else "").strip()
+    from app.domains.activities.totals import compute_registration_total
+    from app.kernel.contracts.activities import OrderChanged
+    from app.kernel.events import has_subscribers, publish
+
+    if not has_subscribers(OrderChanged):
+        raise RuntimeError(
+            "OrderChanged has no subscriber — payment's handlers are not registered; "
+            "an order change would leave the balance behind (#185)"
+        )
+    db.flush()
+    db.refresh(reg)
+    total, _lines = compute_registration_total(reg)
+    publish(OrderChanged(registration_id=reg.id, total_due=str(total), actor=actor), db)
 
 
-def controleer_inschrijfvelden(component, *, contact_name, phone, team_name) -> None:
-    """De verplichte velden van een inschrijving (#733).
+def register(
+    db: Session,
+    activity: Activity,
+    data: "RegistrationCreate",
+    *,
+    person_id: int | None,
+    actor: str,
+    backoffice_products: bool = False,
+) -> Registration:
+    """Register somebody for an activity: every rule, then the rows (CR-13 phase 1).
 
-    Het publieke formulier belóófde vier verplichte velden en de server dwong er
-    één af (`EmailStr`). `required` in HTML is vorm, geen betekenis: het geldt alleen
-    voor wie het formulier in een browser invult, en `POST /activities/{id}/register`
-    kwam er zonder mobiel nummer of ploegnaam gewoon door.
+    Until phase 1 these rules stood in `router.create_registration`, a door; now the
+    door calls this and turns a refusal into its HTTP answer, and any other way in
+    meets the same rules. In the order they were checked before, so a request that
+    breaks two of them gets the same answer as before:
 
-    Hier en niet in de router, want de regel moet gelden op élke weg: het publieke
-    scherm, de JSON-API en het beheerscherm dat achteraf corrigeert.
+    1. the activity or the component is closed or cancelled (`registration_refusal`);
+    2. the tenant's limit per e-mail address and component (`RegistrationLimitReached`);
+    3. every product belongs to the activity, every quantity within the tenant's bounds;
+    4. a public registration books only publicly bookable products (#1191);
+    5. the registration's own rules — name and e-mail address as it is built, the
+       mobile number at this entrance, the team name in `check()`;
+    6. the component is not full.
 
-    De ploegnaam hangt aan de HUIDIGE configuratie van het onderdeel, niet aan de
-    geschiedenis van de rij: vraagt het onderdeel er een, dan hoort ze er te zijn —
-    ook bij een oude inschrijving die er nog geen had (Koens keuze, 8 sep 2026). Een
-    regel die aan de geschiedenis hangt is niet uit te leggen en niet te toetsen.
+    Adds the registration and its order lines, each line audited (#84, #713), and
+    flushes. It does not commit: the door does, once, with the payment record and
+    everything else of the request (§B4.1).
     """
+    from app.domains.activities.models import (
+        RegistrationItem,
+        RegistrationLimitReached,
+        RegistrationRefused,
+    )
+    from app.domains.audit.api import snapshot_registration_item
+    from app.i18n import _ as vertaal
+    from app.kernel.tenant_config import (
+        tenant_max_item_quantity,
+        tenant_max_registrations_per_email,
+    )
+
+    component = next((c for c in activity.sub_registrations if c.id == data.component_id), None)
+    refusal = registration_refusal(activity, component=component)
+    if refusal:
+        raise RegistrationRefused(refusal)
+
+    if data.contact_email:
+        existing = (
+            db.query(Registration)
+            .filter(
+                Registration.activity_id == activity.id,
+                Registration.component_id == data.component_id,
+                func.lower(Registration.contact_email) == data.contact_email.lower(),
+            )
+            .count()
+        )
+        limit = tenant_max_registrations_per_email(db)
+        if existing >= limit:
+            raise RegistrationLimitReached(
+                vertaal(
+                    "Er zijn al %(max)s inschrijvingen met dit "
+                    "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt."
+                )
+                % {"max": limit}
+            )
+
+    valid_product_ids = {p.id for c in activity.sub_registrations for p in c.products}
+    max_quantity = tenant_max_item_quantity(db)
+    for item in data.items:
+        if item.product_id not in valid_product_ids:
+            raise RegistrationRefused(vertaal("Ongeldig product in de inschrijving."))
+        if item.quantity < 0 or item.quantity > max_quantity:
+            raise RegistrationRefused(
+                vertaal("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.")
+                % {"max": max_quantity}
+            )
+
+    if not backoffice_products:
+        try:
+            check_publicly_bookable(activity, [i.product_id for i in data.items if i.quantity > 0])
+        except RegistrationRefused:
+            raise
+        except ActiviteitFout as refusal_of_product:
+            raise RegistrationRefused(str(refusal_of_product)) from None
+
+    registration = Registration(
+        activity_id=activity.id,
+        component_id=data.component_id,
+        registration_type=INDIVIDUAL,
+        contact_name=data.contact_name,
+        contact_email=data.contact_email,
+        phone=data.phone,
+        team_name=data.team_name,
+        payment_method=data.payment_method,
+        remarks=data.remarks,
+        person_id=person_id,
+    )
+    require_phone(data.phone)
+    registration.component = component
+    registration.check()
+
+    new_quantity = sum(i.quantity for i in data.items) if data.items else 1
+    if component is not None and component.max_participants is not None:
+        taken = sum(
+            (sum(it.quantity for it in reg.items) if reg.items else 1)
+            for reg in activity.registrations
+            if reg.component_id == data.component_id
+        )
+        if taken + new_quantity > component.max_participants:
+            raise RegistrationRefused(
+                vertaal("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk.")
+            )
+
+    db.add(registration)
+    db.flush()
+    for item in data.items:
+        if item.quantity <= 0:
+            continue
+        line = RegistrationItem(
+            registration_id=registration.id, product_id=item.product_id, quantity=item.quantity
+        )
+        db.add(line)
+        db.flush()
+        snapshot_registration_item(
+            db, line, operation="insert", action="order_created", source="registration", actor=actor
+        )
+    db.flush()
+    db.refresh(registration)
+    return registration
+
+
+def require_phone(phone: Optional[str]) -> None:
+    """A registration needs a mobile number — at the entrances (#733, AC1).
+
+    No database constraint on the registration phone (Koen, 29 September 2026);
+    the entrances still require it: a new registration always (`register`, for the
+    public form, the JSON API and the board's form), and the screen that corrects
+    a registration when the number changes — a registration stored without one
+    stays editable, a number cannot be cleared. Not a `@validates` on the
+    row: a rule on one field without its constraint is what the *validator without
+    constraint* gate refuses.
+    """
+    from app.domains.activities.models import _blank
     from app.i18n import _ as vertaal
 
-    if _ontbreekt(contact_name):
-        raise ActiviteitFout(vertaal("Vul een naam in."))
-    if _ontbreekt(phone):
+    if _blank(phone):
         raise ActiviteitFout(vertaal("Vul een mobiel nummer in."))
-    if getattr(component, "team_name_required", False) and _ontbreekt(team_name):
-        raise ActiviteitFout(vertaal("Dit onderdeel vraagt een ploegnaam."))
 
 
 def update_registration_contact(
-    db, activity_id: int, registration_id: int, gezet: dict, *, actor=None
-):
+    db: Session,
+    activity_id: int,
+    registration_id: int,
+    gezet: dict[str, Optional[str]],
+    *,
+    actor: Optional[str] = None,
+) -> Optional[Registration]:
     """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
 
     Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
@@ -1031,33 +1177,36 @@ def update_registration_contact(
     reg = _registratie(db, activity_id, registration_id)
     if reg is None:
         return None
-    # #733: toetsen op de UITKOMST, niet op wat er meegestuurd is. Het beheerscherm
-    # stuurt alle velden mee, maar de oude #283-aanroep alleen `remarks` — dan telt
-    # wat er al staat. Vóór de mutatie, zodat een weigering niets wegschrijft.
-    onderdeel = (
-        db.query(ActivitySubRegistration)
-        .filter(ActivitySubRegistration.id == reg.component_id)
-        .first()
-        if reg.component_id
-        else None
-    )
-    controleer_inschrijfvelden(
-        onderdeel,
-        **{
-            veld: gezet.get(veld, getattr(reg, veld))
-            for veld in ("contact_name", "phone", "team_name")
-        },
-    )
+    # #733, CR-13 phase 1: the registration says no itself — a blank name or e-mail
+    # address on assignment, a missing team name when the flush runs its `check()`,
+    # which reads the component loaded here; the mobile number is the entrance's.
+    reg.component  # noqa: B018 — load it, so `check()` reads and never queries
+    # The mobile number when it CHANGES, before anything changes: a registration
+    # stored without one stays editable without adding one, a number cannot be
+    # cleared (Koen, 29 September 2026). A new registration always needs one
+    # (`register`).
+    if "phone" in gezet:
+        nieuw = (str(gezet["phone"]) if gezet["phone"] is not None else "").strip() or None
+        if nieuw != reg.phone:
+            require_phone(nieuw)
     gewijzigd = False
-    for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
-        if veld not in gezet:
-            continue
-        waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
-        if getattr(reg, veld) != waarde:
-            setattr(reg, veld, waarde)
-            gewijzigd = True
+    try:
+        for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
+            if veld not in gezet:
+                continue
+            waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
+            if getattr(reg, veld) != waarde:
+                setattr(reg, veld, waarde)
+                gewijzigd = True
+        if gewijzigd:
+            db.flush()
+    except ActiviteitFout:
+        # A refusal writes nothing, as it did when the rule ran before the mutation:
+        # forget the assignments, so the screen that shows the refusal shows what is
+        # stored and no later flush tries them again.
+        db.expire(reg)
+        raise
     if gewijzigd:
-        db.flush()
         snapshot_registration(
             db,
             reg,
@@ -1071,7 +1220,9 @@ def update_registration_contact(
     return reg
 
 
-def delete_registration(db, activity_id: int, registration_id: int, *, actor=None) -> bool:
+def delete_registration(
+    db: Session, activity_id: int, registration_id: int, *, actor: Optional[str] = None
+) -> bool:
     """Soft delete van een inschrijving én haar bestelregels (#313).
 
     Raakt de betaling NIET aan: een PaymentRecord is een financieel feit en blijft
@@ -1081,10 +1232,10 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
 
     Het reconciliëren gebeurt vóór het schrappen van de inschrijving zelf: het
     besteltotaal is dan 0, dus een reeds betaald bedrag wordt een
-    terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313).
+    terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313) — through
+    `OrderChanged` since CR-13 phase 1, in the one transaction.
     """
     from app.domains.audit.api import snapshot_registration_item
-    from app.domains.payment.api import reconcile_registration_charges
     from app.soft_delete import soft_delete
 
     reg = _registratie(db, activity_id, registration_id)
@@ -1101,9 +1252,11 @@ def delete_registration(db, activity_id: int, registration_id: int, *, actor=Non
                 actor=actor,
             )
             soft_delete(item)
-    db.commit()
-    db.refresh(reg)
-    reconcile_registration_charges(db, reg, audit_actor=actor)
+    # CR-13 phase 1: one transaction. The lines are gone (flushed, not committed),
+    # the order total is therefore 0, payment reconciles on the event, and only then
+    # the registration goes and everything commits — once. A failing reconciliation
+    # rolls the lines back instead of leaving them deleted with a wrong balance.
+    _order_changed(db, reg, actor)
     soft_delete(reg)
     db.commit()
     return True
