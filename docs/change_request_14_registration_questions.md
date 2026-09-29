@@ -160,23 +160,35 @@ component). Nothing in the form builder has to change for this case.
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R11 | One registration screen for the member and the board, built from the board's page as the ideal — **and the public user loses nothing**: every function and every nicety the public registration has today is on the page. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 
-## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
+## A6. Reporting need — what must be countable, exportable or printable afterwards
+
+Yes, and it is the point of the exercise for the organiser (Koen, 29
+September 2026): **the registrations of a component with their answers,
+exported to .ods**, one row per registration, one column per question, so
+that a document can be made that the Sint takes along on the round — who,
+where, inside or outside, the story, the allergies. That is R3 and F8; the
+export exists today without the answers (A2 step 5). Two smaller needs come
+for free: the form builder's results view counts the choices ("how many
+chose the morning slots"), and the registration detail shows one household's
+answers. The reporting panel (CR-06) is *not* asked for anything: the
+answers are per activity, not a measure across activities (B5.3).
+
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
-| **Reporting** | The component export carries the answers, one column per question. The reporting engine (CR-06) does not — answers are per activity, not a measure. |
 | **Security** | One new thing from outside: the answer-by-link page, an unauthenticated write guarded by a secret in the link (the pattern the form builder's edit link already uses). The questions on the registration page arrive through the entrances that exist, under the same rate limit and CSRF as today. The form's own validation (required, bounds, options) applies everywhere. Mechanics in B6. |
 | **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data (GDPR art. 9): the member volunteers it for the activity's own purpose, it is seen by the organiser only, and it is not kept longer than the registration. The system does not treat it differently from another answer (Koen, 29 Sep: nothing is provided for health data today); the organiser who asks it is responsible for asking only what the activity needs. |
 | **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page** (Koen, 29 Sep): the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement |
 |---|---|---|
 | AC1 | On HDEV, the organiser attaches an open form with three questions (a choice, a number, a text) to a component; the public registration for that component shows the three questions after the products and before the payment method, behind the choice "nu / later"; a component without a form shows nothing new. | R1, R2 |
 | AC2 | "Now" chosen and a required question left empty: refused with the question named — on the public page, on the board page, through the JSON API and on the answer-link page — and nothing is saved. "Later" chosen: the registration is saved without answers and the mail carries the link. | R2, R4 |
-| AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order. | R3 |
+| AC3 | After a paid registration (stub provider) and a free one, the answers show on the registration detail in the admin and in the component's export, one column per question, in the form's order — the .ods opens in LibreOffice and is fit to print as the Sint's list (A6). | R3 |
 | AC4 | The member (public) and the board each register with "later": the member gets a mail with a link; opening it shows the questions, answering them puts the answers on that registration in the admin detail and the export; opening the link again shows "al ingevuld". The detail shows "antwoorden gevraagd op <date>" until then and lets the organiser resend the link. | R2, R5 |
 | AC5 | Attaching a closed form, a form of another tenant, or a form with more than one section is refused with a message that says why; so is replacing the form of a component that already has answered registrations. | R1, R10 |
 | AC6 | Once the form has answers on a registration, the form builder refuses to change its fields (as it does today for any form with submissions). | R3 |
@@ -686,7 +698,24 @@ Migration: one, `alembic revision -m "component form, registration submission an
 additive (`ADDITIVE = True`); no data step. Check the CHECK constraints on
 both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
 
-## B6. Privacy and security — the mechanics behind A6
+### B5.3 Impact on the reporting landscape
+
+Measured on `master` (29 Sep), views in `reporting.*` from the migrations:
+
+- **`f_registrations`** reads `activities.registrations` — none of the new
+  columns (`form_submission_id`, `answer_token`) and no answer; unchanged,
+  and it must stay so: the answers are not a measure (A6).
+- **`f_form_submissions` / `d_form`** count submissions per form. An
+  attached submission **is** a submission of that form, so a form attached
+  to a component shows its answered registrations there as submissions —
+  correct and wanted ("how many answered"), stated here so nobody reads it
+  as double counting; no view change.
+- **`f_payments`** is untouched (no payment column changes).
+- The object universe (`reporting/universe.py`) gets no new object.
+
+None of the three new columns is read by a view; no expand/contract risk.
+
+## B6. Privacy and security — the mechanics behind A7
 
 - **Where the answers live and who reads them.** `form.form_submission_answers`,
   read through the admin only (`require_admin_ui` on the registration
@@ -711,7 +740,7 @@ both tables before writing it (the `CLAUDE.md` lesson): none on these columns.
   submission itself keeps no history, and does not need one as long as the
   only editor is the organiser through the registration.
 - **Health data** (allergies): no separate handling in the system, decided
-  (Koen, 29 Sep, Q18) — see A6. What the CR does guarantee: the answer is seen by the roles that
+  (Koen, 29 Sep, Q18) — see A7. What the CR does guarantee: the answer is seen by the roles that
   see the registration and nobody else, and it is asked only where an
   organiser attached a form that asks it.
 
@@ -834,7 +863,7 @@ None yet. To measure before the build of phase 2:
 
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
-| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A6, B6. |
+| Q18 | 29 Sep 2026 | Allergies are health data (GDPR art. 9). Is "asked by the organiser for the activity, seen by the roles that see the registration, no separate handling" how the association wants it — or should the picker warn when a form asks for health data, or the mail leave those answers out? (Claude, review) | Koen, 29 Sep: nothing is provided for health data today. A7, B6. |
 | Q19 | 29 Sep 2026 | The first draft let the form builder's submissions view show "inschrijving #N". That needs `forms` to read `activities` — the dependency the wrong way round, for one link. Dropped: the way to the answers is the registration. Agreed? (Claude, review) | Koen, 29 Sep: agreed. F10, B4.6. |
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B7. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |

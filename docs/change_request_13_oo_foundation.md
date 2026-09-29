@@ -136,17 +136,24 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R14 | A JSON route (`/api/v1`) exists because a machine caller exists, and that caller is named in the domain's `CONTRACT.md`. Routes without a caller are removed in this change. | Must | Koen, 27 Sep 2026 | "wel snoeien als onderdeel van deze change request"; not "everything also via JSON" — that doubles the doors the 8 September pain came through |
 | R15 | A domain's tests live with the domain (`domains/<c>/tests/`); flows through several domains live in `tests/integration/`; kernel, ui and gate tests stay in `backend/tests/`. The architecture document (§13.1) has said so since July; no domain has a `tests/` folder today. | Must | Koen, 27 Sep 2026 | option (a), in this CR |
 
-## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
+## A6. Reporting need — what must be countable, exportable or printable afterwards
+
+Added 29 September 2026 when the template gained this section, from the
+former reporting row of A7. None for the business: this change alters
+nothing the system does (R13), so no list, export or count changes. What
+becomes countable is for the code base: the A2 numbers, printed by the gate
+per release (R7). Impact on the views: B5.3.
+
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
-| **Reporting** | The A2 numbers, printed by the gate per release (R7). Nothing changes in the reporting universe. |
 | **Security** | The finding class of 8 September *is* a security class: a rule enforced at one door leaves the others open. R1 closes it. Bulk and import paths are entrances and are covered (B8 test 3). **JSON routes are doors too** (R14): there is no convention that everything is also exposed as JSON, and there must not be one — a JSON route reachable with an API key, with its own auth and no CSRF, is attack surface whether or not anyone calls it. Measured 27 September: 113 JSON routes, the five domains built after the React exit have none; the rest is React's legacy. Every remaining route names its caller; every mutating one runs through the same service as the screen (the entrances test); the ones without a caller go. |
 | **Privacy** | None. No new data. |
 | **House style / UI norm** | Unchanged; strengthened: *templates show, view-models decide* (design-system §8.3) gets the derived values from the object instead of recomputing them. |
 | **Multi-tenant** | Rules are platform-wide; tenant data is untouched. Constraints added at rest (`NOT NULL`, `CHECK`) are checked against the data of every environment before they are applied (B3). |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement |
 |---|---|---|
@@ -1245,7 +1252,34 @@ and its phase 3 are the rows above, placed by the B4.2 test; its phase 5
 (`member_persons.person_id`, `registration_items.product_id`): behavioural,
 decided per FK, not a rule's home — outside this CR.
 
-## B6. Privacy and security — the mechanics behind A6
+### B5.3 Impact on the reporting landscape
+
+Added 29 September 2026 when the template gained this section; measured on
+`master` the same day. `reporting.f_payments` reads `payment_records.amount`,
+`amount_paid`, `type`, `status`, `method` and `deleted_at`;
+`f_memberships` / `f_membership_persons` read `valid_from`, `valid_to` and
+`deleted_at`; `f_registrations` reads the registration columns.
+
+- **Phase 2 — the 0,00 charges soft-deleted by the migration** (B5.2):
+  `f_payments` filters on `deleted_at IS NULL`, so those rows leave the
+  reports the moment the migration runs. That is the intended reading (an
+  empty charge is not a claim), but it is a **visible change in a figure**:
+  the count of open charges on HDEV drops by one. The phase-2 closing
+  comment names it.
+- **Phase 2 — the sign rule**: no value changes for living rows (measured 0
+  violators), so `SUM(amount)` and `SUM(amount_paid)` in the views are
+  unchanged.
+- **Phase 3 — `valid_from <= valid_to`** and the name CHECKs: constraints
+  only, no value changes; the views are unaffected.
+- **Phase 4 — pruned JSON routes**: the reporting exports are `/admin`
+  routes, not `/api/v1`; unaffected.
+- **B4.3's parity test** is the standing guard: for every registration the
+  view's total and balance equal `total()` and `balance()`.
+
+No column is added, renamed or retyped by this CR, so there is no
+expand/contract exposure for the views.
+
+## B6. Privacy and security — the mechanics behind A7
 
 Nothing new leaves the system. The entrances test is the security
 mechanism: it *discovers* write paths instead of trusting a list of four,

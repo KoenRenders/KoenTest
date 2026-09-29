@@ -94,7 +94,19 @@ MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
 and deliberately not done — recorded so it is not asked again).
 
-## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
+## A6. Reporting need — what must be countable, exportable or printable afterwards
+
+> [!NOTE]
+> *Asked at every change request, in Part A, by the business (Koen, 29*
+> *September 2026): does this change create or change a need to count, list,*
+> *export or print something — and for whom, in which form (a screen, an*
+> *.ods export, a printed document, a chart in the reporting panel)? Name each*
+> *need as a requirement in A5 with its MoSCoW. "None" is an answer, with the*
+> *reason. Example (CR-14): the registrations of a component with their*
+> *answers, exported to .ods, so a document can be made that the Sint takes*
+> *along.*
+
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 > [!NOTE]
 > *The requirements every change request is tested against, each answered*
@@ -103,13 +115,12 @@ and deliberately not done — recorded so it is not asked again).
 
 | Concern | This change |
 |---|---|
-| **Reporting** — what must be countable afterwards, by whom | … |
 | **Security** — who may do what; new inputs from outside; secrets | … |
 | **Privacy** — personal data: what, where, who sees it, what leaves the system | … |
 | **House style / UI norm** — `docs/design-system.md`; brand rules | … |
 | **Multi-tenant** — what differs per unit, what is platform-wide | … |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
@@ -194,11 +205,27 @@ and deliberately not done — recorded so it is not asked again).
 > [!NOTE]
 > *Sketch of schemas, tables, columns, codes; validation layers.*
 
-## B6. Privacy and security — the mechanics behind A6
+### B5.3 Impact on the reporting landscape
+
+> [!NOTE]
+> *Checked at every change request (Koen, 29 September 2026). Reporting is*
+> *its own domain: the engine (CR-06) reads the tables through SQL views in*
+> *the `reporting` schema (`f_registrations`, `f_payments`, `f_memberships`,*
+> *`f_form_submissions`, …, defined in migrations) and through the object*
+> *universe (`reporting/universe.py`). For every column or table this change*
+> *adds, renames, retypes, retires or changes the meaning of: which views and*
+> *objects read it (measured — grep the views, not recalled), and in which*
+> *phase the view follows. The danger is expand/contract: the old column*
+> *stays for one release, the new one is written, and a view that still*
+> *reads the old one reports quietly wrong figures. So a view that reads a*
+> *changed column changes in the same migration as the column, or the phase*
+> *says why not. "None — measured, no view reads these columns" is an answer.*
+
+## B6. Privacy and security — the mechanics behind A7
 
 > [!NOTE]
 > *How A6's privacy and security answers are implemented: what leaves the*
-> *system to whom, what is sanitised, what is logged.*
+> *system to whom, what is sanitised, what is logged.* *(The reporting answers of A6 live in A6 and B5.3, not here.)*
 
 ## B7. Phasing — shippable phases, and what changes on the failure paths
 

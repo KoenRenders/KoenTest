@@ -98,17 +98,25 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 and 26 Sep 2026 | decided, not parked: "geen beheerscherm voor codelijsten"; a label changes by migration — see Non-goals |
 | R8 | Stored values do not change meaning or spelling; history and exports read as before. | Must | #779 | one exception proposed in B4.6 |
 
-## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
+## A6. Reporting need — what must be countable, exportable or printable afterwards
+
+Added 29 September 2026 when the template gained this section, from the
+former reporting row of A7. No new list or export: the report dimensions
+of CR-06 (payment method, status, membership status) take code and label
+from the code tables, so the same words appear in reports as on screens.
+Countable per release: the B9.2 numbers, which may only fall. Impact on the
+views: B5.4.
+
+## A7. Non-functional requirements — security, privacy, house style, tenants
 
 | Concern | This change |
 |---|---|
-| **Reporting** — what must be countable afterwards, by whom | The report dimensions of CR-06 (payment method, status, membership status) take code and label from the code tables; the same words appear in reports as on screens. Countable per release: the B9.2 numbers, which may only fall. |
 | **Security** — who may do what; new inputs from outside; secrets | No new inputs: codes and labels enter by migration only. Roles are one of the lists and stay in `auth` — security vocabulary is not master data; their *meaning* (which role may do what) stays in `auth` and `docs/rollen-en-rechten.md`, untouched. |
 | **Privacy** — personal data | None. Code lists hold no personal data. |
 | **House style / UI norm** | `docs/design-system.md` §2.5 already says "labels come from one place per code list, never from a dict in a screen (#779)"; this change makes it true. Badge tones stay a UI decision (B4.5). |
 | **Multi-tenant** — what differs per unit, what is platform-wide | Code lists and labels are **platform-wide**; the *language* a tenant sees is the tenant's language setting (`language`, default `nl_BE`), which already exists. A tenant does not get its own codes. |
 
-## A7. Acceptance criteria — what the business signs off on HDEV
+## A8. Acceptance criteria — what the business signs off on HDEV
 
 | # | Criterion | Requirement |
 |---|---|---|
@@ -987,7 +995,24 @@ the number that binds** (B9.2), and its first run is checked against the
 target in B9.2 — a difference is a finding, not a discussion. The target is
 written in B9.2 only; the gate measures and does not carry it.
 
-## B6. Privacy and security — the mechanics behind A6
+### B5.4 Impact on the reporting landscape
+
+Added 29 September 2026 when the template gained this section (numbered
+B5.4 here because B5.3 is the catalogue); measured on `master` the same
+day, after phases 1–4 were built. `reporting.f_payments`
+reads `payment_records.method`, `status`, `type` and
+`member_persons.relation_type` — four of the columns this CR turned into
+code-table foreign keys (phases 1 and 2). The values did not change for
+`relation_type`, `status` and `type` (the codes were already the stored
+values); `method` did (B4.6: `OVERSCHRIJVING` → `transfer`, one data fix
+in the same migration as the form), and the view reads the column, not a
+label, so it followed the data. A report that *filters* on the old
+spelling — a saved report with `method = 'OVERSCHRIJVING'` — would go
+quietly empty: the phase-1 closing comment should say whether saved reports
+were checked; if not, dev1 checks `reporting.saved_reports` on every
+environment (one query) before v2.7.0 closes.
+
+## B6. Privacy and security — the mechanics behind A7
 
 Nothing leaves the system. No personal data. Role codes move table but not
 meaning: `require_admin_ui`/`require_finance_ui` keep deciding; the role gate
