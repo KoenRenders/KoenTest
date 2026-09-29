@@ -19,8 +19,7 @@ label dictionaries in the UI layer; `app/kernel`.
 > **approved by Koen on 26 September 2026** as written. The analyst added no
 > requirements, only ordered what was said.
 
-## A1. Reason to act
-
+## A1. Reason to act — the trigger
 Two things come together. First, the platform is about to get new modules — a
 mini CRM and a sales module for Koen's own company in formation, and a public
 website that has to win customers rather than inform members. Before those are
@@ -47,8 +46,7 @@ deze change request trekken we het door in alle modules, de hele codebase, en
 vanaf dan is er een gatekeeper: komt er een nieuwe module, dan worden de
 stappen 1, 2, 3, 4, 5, 6 automatisch afgedwongen."*
 
-## A2. As-is process
-
+## A2. As-is process — how it works today, and where it hurts
 There is no process — that is the finding. When a developer adds a status
 today, they pick a word, write it in a comment next to the column, compare
 against it as a string wherever the code branches, and add a Dutch text to
@@ -65,8 +63,7 @@ September 2026 (the full inventory is in B9.2):
 - three code tables that exist since the first migration and are used by
   nothing.
 
-## A3. To-be process
-
+## A3. To-be process — how it should work afterwards
 A status is three things, each in one place: the **code** in a code table in
 the database, the **enum** in the code where the code branches on it, and the
 **label** per language in a label table. Whoever needs a label asks for it in
@@ -80,13 +77,11 @@ codelijsten te beheren, dat kan later"*; confirmed as a decision on 26
 September: *"geen beheerscherm voor codelijsten"*). Codes and labels are
 added and changed by migration — see the consequence under Non-goals.
 
-## A4. Supplied material
-
+## A4. Supplied material — and what it taught us
 None beyond the codebase itself and issue #779, which held the earlier design
 (9 September 2026). Its measurements were redone on the branch — see B9.2.
 
-## A5. Business requirements
-
+## A5. Business requirements — what the board asks, with MoSCoW
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
 | R1 | Every fixed vocabulary in the system exists as a list of codes in the database, and the database refuses a value that is not in the list. | Must | Koen, 25 Sep 2026 | the check is in the data, not only in the code |
@@ -98,8 +93,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | R7 | A screen to manage code lists and translations without a deploy. | Won't | Koen, 25 and 26 Sep 2026 | decided, not parked: "geen beheerscherm voor codelijsten"; a label changes by migration — see Non-goals |
 | R8 | Stored values do not change meaning or spelling; history and exports read as before. | Must | #779 | one exception proposed in B4.6 |
 
-## A6. Non-functional requirements
-
+## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
 | Concern | This change |
 |---|---|
 | **Reporting** — what must be countable afterwards, by whom | The report dimensions of CR-06 (payment method, status, membership status) take code and label from the code tables; the same words appear in reports as on screens. Countable per release: the B9.2 numbers, which may only fall. |
@@ -108,8 +102,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 | **House style / UI norm** | `docs/design-system.md` §2.5 already says "labels come from one place per code list, never from a dict in a screen (#779)"; this change makes it true. Badge tones stay a UI decision (B4.5). |
 | **Multi-tenant** — what differs per unit, what is platform-wide | Code lists and labels are **platform-wide**; the *language* a tenant sees is the tenant's language setting (`language`, default `nl_BE`), which already exists. A tenant does not get its own codes. |
 
-## A7. Acceptance criteria
-
+## A7. Acceptance criteria — what the business signs off on HDEV
 | # | Criterion | Requirement |
 |---|---|---|
 | AC1 | On HDEV, inserting a payment record with status `payed` through the database is refused by the database. | R1 |
@@ -123,8 +116,7 @@ None beyond the codebase itself and issue #779, which held the earlier design
 
 # Part B — The solution
 
-## B1. Solution outline
-
+## B1. Solution outline — the solution and the decisions that shape it
 One shape for every list, in three places with one job each: a **code
 table** (`<schema>.<list>_codes`) that says which values exist and is the
 target of a foreign key from every column that stores the value; a **label
@@ -167,8 +159,7 @@ Decisions that shape it, with the alternatives that lost:
 Europe First: no new tool, library or service. Everything is SQLAlchemy,
 Alembic, mypy and pytest, already in use.
 
-### B1.1 Functional analysis
-
+### B1.1 Functional analysis — the derived requirements
 | # | Derived requirement | Traces to |
 |---|---|---|
 | F1 | One kernel module defines the shape (`CodeList`) and the label function; domains declare their lists against it. | R4, R5 |
@@ -186,8 +177,7 @@ Alembic, mypy and pytest, already in use.
 
 ## B2. Architecture
 
-### B2.1 Components
-
+### B2.1 Components — new, used, changed
 | Component | new / used / changed | Role in this change |
 |---|---|---|
 | `app/kernel/codes.py` | **new** | `CodeList` declaration, `code_label()` function, cache, Jinja filter, the mypy-friendly `EnumColumn` type decorator |
@@ -202,8 +192,7 @@ Alembic, mypy and pytest, already in use.
 | `backend/tests/test_codes_gate.py` | **new** | the gates of B9.3 |
 | `docs/code-style.md` | **changed** | the rule, one paragraph, pointing here |
 
-### B2.2 Application usage
-
+### B2.2 Application usage — where each business step happens
 *ArchiMate application-usage view: the to-be steps of A3 on the left, what
 serves them on the right.*
 
@@ -230,8 +219,7 @@ flowchart LR
   S5 --> T5
 ```
 
-### B2.3 Application structure
-
+### B2.3 Application structure — what is built where, and what talks to what
 *ArchiMate application-structure view: what is built where and what talks to
 what.*
 
@@ -287,8 +275,7 @@ flowchart TB
   G -.checks.-> U
 ```
 
-### B2.4 Impact on the existing architecture
-
+### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
 - **§8 "no cross-schema FKs"** gets one named exception: a FK from any schema
   **to a code table of a foundation domain** — `mdm`, and `auth` for roles.
   Neither depends on a business domain (`auth` depends on `mdm` only), so no
@@ -310,8 +297,7 @@ flowchart TB
   same function; the CR-06 line "labels come from the code tables (#779)"
   becomes real.
 
-## B3. Cost and operations
-
+## B3. Cost and operations — settings, limits, running cost
 - **Settings / env vars:** none new. The tenant `language` setting already
   exists.
 - **Migrations:** one per domain phase (B7); each moves rows, adds FKs, drops
@@ -329,8 +315,7 @@ flowchart TB
   future management screen must invalidate it (B4.4).
 - **External cost:** none.
 
-## B4. Detailed decisions
-
+## B4. Detailed decisions — one subsection each, with the reasons
 ### B4.1 Placement of a list (Koen, 25 September 2026)
 
 *One domain → that domain's schema. Master data, or used by two or more
@@ -725,8 +710,7 @@ erDiagram
 The same pair (`_codes`, `_labels`) repeats for every list in B4.1; the
 diagram shows payment because it is phase 1.
 
-### B5.2 Tables
-
+### B5.2 Tables — schemas, columns, validation layers
 - **New, in `mdm`:** `language_codes` (+ labels), `payment_method_codes` (+
   labels).
 - **New, in `auth`:** `role_codes` (+ labels; rows moved from
@@ -987,15 +971,13 @@ the number that binds** (B9.2), and its first run is checked against the
 target in B9.2 — a difference is a finding, not a discussion. The target is
 written in B9.2 only; the gate measures and does not carry it.
 
-## B6. Privacy and security — the mechanics
-
+## B6. Privacy and security — the mechanics behind A6
 Nothing leaves the system. No personal data. Role codes move table but not
 meaning: `require_admin_ui`/`require_finance_ui` keep deciding; the role gate
 tests (`test_role_model_gates.py`) must stay green through the move, and a
 test asserts the set of role codes is unchanged before and after.
 
-## B7. Phasing
-
+## B7. Phasing — shippable phases, and what changes on the failure paths
 Each phase is a release-sized issue, **shippable on its own**. It is *not*
 revertible by image rollback, and the first version of this sentence said
 it was. Measured in phase 2 (PR #1189, migration 154): the migration renames
@@ -1079,8 +1061,7 @@ handoff block CI cannot carry:
 Every phase's issue closes with the B9.2 table re-measured, so the ratchet
 lists shrink visibly.
 
-## B8. Tests
-
+## B8. Tests — what the build must prove
 Each able to go red; guards proven by violation, the violation noted in the
 docstring.
 
@@ -1156,8 +1137,7 @@ string to an enum on a screen: render the screens on the old code, keep
 the output as a snapshot, and assert the new code renders the same —
 before the conversion, as a test that can go red, not as a review.
 
-## B9. Rule and gatekeeper
-
+## B9. Rule and gatekeeper — what this fixes for all future work
 ### B9.1 The rule
 
 > **A fixed vocabulary is a code table in the schema of the domain that owns
@@ -1389,8 +1369,7 @@ What cannot be checked mechanically and goes to review: whether a list
 really is single-domain (B4.1), and whether two words for one code are one
 concept or two (B4.4).
 
-## B10. Prototype findings
-
+## B10. Prototype findings — what was measured before the build
 #779 notes an OGM value-object spike with zero DB fixtures as the
 testability model; the enum/`TypeDecorator` round trip (B8 test 3) was the
 one thing named worth a spike before phase 1, because `sa.Enum` stores the
@@ -1404,8 +1383,7 @@ for it three times (B9.3, gate 12). A future CR that converts strings to
 enums spikes both sides: read a row back raw, and render a fragment with the
 value in an attribute.
 
-## B11. Decisions log
-
+## B11. Decisions log — dated answers and open proposals
 | Date | Decision | Who |
 |---|---|---|
 | 25 Sep 2026 | Codes and enums become a change request (CR-12); #779 is shortened to a pointer. | Koen |
@@ -1428,8 +1406,7 @@ value in an attribute.
 | 26 Sep 2026 | Part A approved as written; the English labels of B5.3 approved as proposed. CR-12 is development-ready. | Koen |
 | 25 Sep 2026 | Badge tones stay in Python, one total mapping per enum, not a column on the code table: a design-system word does not belong in master data where a translator can change it (B4.5). | Koen |
 
-## Q&A log
-
+## Q&A log — asked once, answered here
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 25 Sep 2026 | Code tables per domain schema or centrally in `mdm`? (Claude) | Koen: by the rule in B4.1 — single domain → domain; master data or cross-domain → `mdm`. |
@@ -1471,8 +1448,7 @@ value in an attribute.
 | Q8 | 25 Sep 2026 | Is the CR development-ready? (Koen) | Since 26 Sep: yes — Part A approved, Q6/Q7 answered, B4.9/B5.3/B7.1 in place. Waiting for a release assignment. |
 | Q5 | 25 Sep 2026 | May `activities.payment_method` be lower-cased once (B4.6)? (Claude) | Koen: yes — the one exception to R8. |
 
-## Non-goals
-
+## Non-goals — deliberately outside this change
 - **No management screen** for codes or labels — **decided** by Koen on 26
   September 2026 (*"geen beheerscherm voor codelijsten"*), not parked. The
   consequence, written down so it is not rediscovered as a defect in six
@@ -1508,8 +1484,7 @@ value in an attribute.
 - **Mollie's statuses** (`gateway_payments.status`) get no table (B4.10);
   `action`/`source` on history tables stay free-form.
 
-## Relationship to existing work
-
+## Relationship to existing work — issues and change requests
 - **#779 (codes en enums)** — the design's first home; shortened to point
   here. Its measurements of 9 September are superseded by B9.2.
 - **CR-04 / #236 (OO-domeinmodel)** — the placement rule (one field → the

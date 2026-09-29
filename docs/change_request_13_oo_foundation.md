@@ -21,8 +21,7 @@ screen, import), and the shape a new module takes from its first commit.
 > **Approved by Koen on 27 September 2026** as written, after the review
 > round of the same day.
 
-## A1. Reason to act
-
+## A1. Reason to act — the trigger
 The trigger is the pain of 8 September 2026. A
 validation round that day produced seventeen findings, and four of them —
 #720, #727, #733, #681 — were the same defect: a rule enforced on one
@@ -35,8 +34,7 @@ This change is about every rule in every existing module having one place,
 and about every new module getting that shape from day one rather than
 repeating the pattern that produced the four findings.
 
-## A2. As-is process
-
+## A2. As-is process — how it works today, and where it hurts
 Measured on the branch on 27 September 2026 (numbers), and read from the
 code (the pattern). The as-is is not a process but its absence: a rule has
 no address.
@@ -87,8 +85,7 @@ migrations) and the two typing numbers got **worse**, not better. That is
 CR-04's own argument for "the meter first": without a recurring measurement
 in every release, nobody sees this.
 
-## A3. To-be process
-
+## A3. To-be process — how it should work afterwards
 A rule lives with the data it judges and fires by itself. Whoever creates
 or changes a `Registration` — through the public form, the JSON API, the
 admin screen, an import — gets the rule with it without knowing it exists.
@@ -102,8 +99,7 @@ The measure over years, in the words of the 26 September handover: *someone
 adds an entrance in 2028 without having read CR-04, and cannot create an
 invalid `Registration`.* Only that counts; the rest is instrumentation.
 
-## A4. Supplied material
-
+## A4. Supplied material — and what it taught us
 - Koen's handover note from the "Architecturale verbeteringen" session (9–10
   September, measured again 26 September), kept in his project folder
   outside the repository: the explanation of the OO equivalent, seven
@@ -116,8 +112,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 - The validation findings of 8 September 2026: #720, #727, #733, #681.
 - CR-12 — the sibling foundation; its gates are the shape this CR copies.
 
-## A5. Business requirements
-
+## A5. Business requirements — what the board asks, with MoSCoW
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
 | R1 | A rule has one home, and every entrance — form, JSON API, admin screen, import — passes through it. | Must | Koen, 26 Sep 2026 | the 8 September pain |
@@ -136,8 +131,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | R14 | A JSON route (`/api/v1`) exists because a machine caller exists, and that caller is named in the domain's `CONTRACT.md`. Routes without a caller are removed in this change. | Must | Koen, 27 Sep 2026 | "wel snoeien als onderdeel van deze change request"; not "everything also via JSON" — that doubles the doors the 8 September pain came through |
 | R15 | A domain's tests live with the domain (`domains/<c>/tests/`); flows through several domains live in `tests/integration/`; kernel, ui and gate tests stay in `backend/tests/`. The architecture document (§13.1) has said so since July; no domain has a `tests/` folder today. | Must | Koen, 27 Sep 2026 | option (a), in this CR |
 
-## A6. Non-functional requirements
-
+## A6. Non-functional requirements — reporting, security, privacy, house style, tenants
 | Concern | This change |
 |---|---|
 | **Reporting** | The A2 numbers, printed by the gate per release (R7). Nothing changes in the reporting universe. |
@@ -146,8 +140,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 | **House style / UI norm** | Unchanged; strengthened: *templates show, view-models decide* (design-system §8.3) gets the derived values from the object instead of recomputing them. |
 | **Multi-tenant** | Rules are platform-wide; tenant data is untouched. Constraints added at rest (`NOT NULL`, `CHECK`) are checked against the data of every environment before they are applied (B3). |
 
-## A7. Acceptance criteria
-
+## A7. Acceptance criteria — what the business signs off on HDEV
 | # | Criterion | Requirement |
 |---|---|---|
 | AC1 | On HDEV, a registration without a mobile number is refused with the same message through the public form, the JSON API and the admin screen — and the import test in the suite. | R1, R2 |
@@ -165,8 +158,7 @@ invalid `Registration`.* Only that counts; the rest is instrumentation.
 
 # Part B — The solution
 
-## B1. Solution outline
-
+## B1. Solution outline — the solution and the decisions that shape it
 The SQLAlchemy model **is** the domain object — a *rich ORM entity*, the
 pragmatic middle between the anemic model of today and full DDD. Each rule
 gets the address CR-04's placement rule gives it: one field → a validator on
@@ -214,8 +206,7 @@ Decisions that shape it, with what lost:
 
 Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 
-### B1.1 Functional analysis
-
+### B1.1 Functional analysis — the derived requirements
 | # | Derived requirement | Traces to |
 |---|---|---|
 | F1 | Each rule on an aggregate is placed by the four-address table (B4.2) and documented in the aggregate's docstring with its address. | R1 |
@@ -234,8 +225,7 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 
 ## B2. Architecture
 
-### B2.1 Components
-
+### B2.1 Components — new, used, changed
 | Component | new / used / changed | Role |
 |---|---|---|
 | `app/kernel/rules.py` | **new** | the derived-value registry (owner per value) and the entrances registry the gates read; nothing else — the rules themselves live on the entities |
@@ -252,8 +242,7 @@ Europe First: nothing new — SQLAlchemy, Alembic, pytest, mypy.
 | `docs/code-style.md` | **extended** — the file exists since CR-12 phase 0 (#1177, 26 Sep: the code-list rule); phase 0a adds the rule of B9.1 | the layer rules, the four addresses, the module shape — one screen |
 | `CLAUDE.md` *Validation layers* | **changed** | points to `docs/code-style.md`, stops repeating it |
 
-### B2.2 Application usage
-
+### B2.2 Application usage — where each business step happens
 ```mermaid
 flowchart LR
   subgraph Business["A3 — to-be steps"]
@@ -277,8 +266,7 @@ flowchart LR
   S5 --> T5
 ```
 
-### B2.3 Application structure
-
+### B2.3 Application structure — what is built where, and what talks to what
 ```mermaid
 flowchart TB
   subgraph kernel["app/kernel"]
@@ -305,8 +293,7 @@ flowchart TB
   G -.checks.-> A1; G -.checks.-> A2; G -.checks.-> A3; G -.checks.-> doors
 ```
 
-### B2.4 Impact on the existing architecture
-
+### B2.4 Impact on the existing architecture — what is touched, and how the layer rules hold
 - **Layer gate** (`test_layer_gate.py`) already keeps `db` out of `ui.py`;
   this CR adds the mirror: no session in `models.py`, and no rule in a
   router (B9.3).
@@ -614,8 +601,7 @@ UML's class and sequence diagrams answer "what does one object own" and
 developer asks before touching `Registration`. A deployment or ERD view
 adds nothing here: this CR changes no infrastructure and no tables.
 
-## B3. Cost and operations
-
+## B3. Cost and operations — settings, limits, running cost
 - **Env vars / settings:** none.
 - **Migrations:** only constraints (`NOT NULL`, `CHECK`) per aggregate phase;
   no new tables, no renames; `downgrade()` drops the constraint. That does
@@ -641,8 +627,7 @@ adds nothing here: this CR changes no infrastructure and no tables.
 - **Kill switch:** none needed; a rule that misfires is a red test before it
   ships.
 
-## B4. Detailed decisions
-
+## B4. Detailed decisions — one subsection each, with the reasons
 ### B4.1 Rich ORM entity; an entity never opens a session
 
 The model is the domain object; no repositories, no separate domain layer.
@@ -1172,8 +1157,7 @@ No new entities and no new relationships: this CR adds behaviour to the
 tables that exist and constraints on their columns. An ERD would repeat the
 existing schema; omitted on purpose.
 
-### B5.2 Tables
-
+### B5.2 Tables — schemas, columns, validation layers
 Per phase, the constraints that make a validator hold at rest, each with
 its data check (B3):
 
@@ -1245,14 +1229,12 @@ and its phase 3 are the rows above, placed by the B4.2 test; its phase 5
 (`member_persons.person_id`, `registration_items.product_id`): behavioural,
 decided per FK, not a rule's home — outside this CR.
 
-## B6. Privacy and security — the mechanics
-
+## B6. Privacy and security — the mechanics behind A6
 Nothing new leaves the system. The entrances test is the security
 mechanism: it *discovers* write paths instead of trusting a list of four,
 which is how #681 found six. Bulk and import paths are entrances.
 
-## B7. Phasing
-
+## B7. Phasing — shippable phases, and what changes on the failure paths
 The phases are issues under **one release tracker** (Koen, 27 September:
 "die fases gaan we in één release realiseren"), built in order on one
 branch line **that starts from `master` after v2.7.0 (CR-12) is on it** —
@@ -1289,8 +1271,7 @@ would lose less; it would not — corrected the same day.)
 | 3 | **#1250**: CR-13 fase 3 — `Person`/`Member`: lidmaatschapsregels op het object | constraints of B5.2 phase 3: the two name CHECKs and `ck_memberships_valid_period` (the primary-contact index already exists) | none | memberships with `valid_from > valid_to` and persons with an empty first or last name, counted per environment | the circle form (#939) that accepted one name now requires first and last name (Koen, 29 Sep); household mutations move domain, same behaviour; the import keeps reading a member without birth date or gender, with a warning — unchanged, and now the rule's declared exception | the family portal and the member list on HDEV; the circle form with one name refused |
 | 4 | CR-13 fase 4 — sweep: baseline weg, elke gate hard; `RegistrationConfirmed` + mail-handler via jobs; ongebruikte JSON-routes gesnoeid | none | none | the list of removed routes, each with "no caller found in: repo, PROD access log <period>" | mail: a rolled-back registration no longer sends; the `MailRequested` handler no longer holds the transaction for SMTP | a registration on HDEV still gets its confirmation mail; the API-key users and the chatbot still work; AC7, AC9 |
 
-## B8. Tests
-
+## B8. Tests — what the build must prove
 All proven by an **additive** violation (CR-12 B8), each ratchet checked to
 look somewhere (#678).
 
@@ -1355,8 +1336,7 @@ look somewhere (#678).
     asserted to render the same. Gate 12 of CR-12 catches a member *in* the
     output; only a snapshot catches a missing or empty rendering.
 
-## B9. Rule and gatekeeper
-
+## B9. Rule and gatekeeper — what this fixes for all future work
 ### B9.1 The rule
 
 > **A rule has one home, and every entrance passes through it.** One field →
@@ -1462,8 +1442,7 @@ deletes the file. The list exists only while it shrinks, and shrinking is
 the phase's definition of done. New modules are never on it. That is the
 difference between an exemption list and a burn-down.
 
-## B10. Prototype findings
-
+## B10. Prototype findings — what was measured before the build
 - An OGM value-object spike with a full unit suite and zero DB fixtures
   exists (CR-04) — the testability model for phase 1.
 - To spike before phase 1: `composite()` versus a hybrid property for
@@ -1490,8 +1469,7 @@ difference between an exemption list and a burn-down.
   status values of CR-12 phase 1, against the 26 September data of HDEV
   (how many records are partially paid today).
 
-## B11. Decisions log
-
+## B11. Decisions log — dated answers and open proposals
 | Date | Decision | Who |
 |---|---|---|
 | 26 Sep 2026 | Fresh CR-13 instead of reworking CR-04; CR-04 keeps only the placement rule. | Koen |
@@ -1533,8 +1511,7 @@ difference between an exemption list and a burn-down.
 | 29 Sep 2026 | Phase 1: no database constraint on `registrations.phone` — a registration is not guaranteed to carry a phone number; the entrances require it, the database does not. Name and e-mail keep `NOT NULL` + `<> ''` (e-mail approved the same day). | Koen |
 | 28 Sep 2026 | Within that decision: the sign CHECK excludes soft-deleted rows (`deleted_at IS NOT NULL OR …`) and (b) soft-deletes without zeroing `amount` — a soft-deleted row is still a row, so the plain CHECK would have failed on the row the clean-up removed (dev2's finding, options (C)+(A)). The bounds CHECK on `amount_paid` holds for all rows. | master CLI |
 
-## Q&A log
-
+## Q&A log — asked once, answered here
 | # | Date | Question (who) | Answer |
 |---|---|---|---|
 | Q1 | 25 Sep 2026 | Trigger: CRM, or the 8 September pain? (Claude) | Koen (26 Sep): the 8 September pain; broader than CRM. |
@@ -1586,8 +1563,7 @@ difference between an exemption list and a burn-down.
 | Q11 | 27 Sep 2026 | Are #236's six execution issues still relevant? (Koen) | #755 and #757 are phases 0 and 1; #758 and #759 were already outside; #760 and #761 taken out on Koen's decision — they were in CR-04's five numbers because of the validation day, not because they are about a rule's home. |
 | Q10 | 26 Sep 2026 | When is the CR assigned — own release or woven into CR-12? (handover) | Koen (27 Sep): one release for all phases, after CR-12 v2.7.0 (phase 2 needs CR-12 phase 1 on master). Assignment is Koen's. |
 
-## Non-goals
-
+## Non-goals — deliberately outside this change
 - **`Member → Household`** (Koen, 27 Sep): not this CR; its own CR if ever.
 - **No separate domain objects** (R10). The pure form keeps a `Registration`
   that knows nothing of the database next to a `RegistrationRow` that
@@ -1645,8 +1621,7 @@ difference between an exemption list and a burn-down.
   an open balance, as today; no expiry job, no reminder — a policy question
   for its own issue, for which `PaymentExpired` would then be the event.
 
-## Relationship to existing work
-
+## Relationship to existing work — issues and change requests
 - **CR-04** — the placement rule lives on there; everything else is here.
 - **#236 (OO-tracker)** — the pointer to this CR since 27 September 2026; #755 and #757 are phases 0 and 1 (the issues are reused, not
   recreated); #758, #759, #760, #761 stay their own issues.
