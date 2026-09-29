@@ -69,20 +69,26 @@ def signup(
     email: str = Form(""),
     first_name: str = Form(""),
     website: str = Form(""),
+    form_ts: str = Form(""),
 ):
     """The form, from the footer or from the page itself.
 
-    ``website`` is a honeypot: invisible to people, filled in by simple bots. A
-    filled-in honeypot gets the same friendly answer and nothing happens.
+    ``website`` is a honeypot and ``form_ts`` the signed render time (#1297); the
+    service decides on both, and a dropped request gets the same friendly answer.
     """
+    from app.kernel.form_guard import Proof
+    from app.limiter import client_ip
+
     fragment = bool(request.headers.get("HX-Request")) and not request.headers.get("HX-Boosted")
     template = "_nb_publiek.html" if fragment else "nieuwsbrief.html"
-    if website.strip():
-        return _page(request, db, "sent", email=email.strip(), template=template)
     base = _base_url(db)
     try:
         nb.subscribe_public(
-            db, email, first_name, lambda token: f"{base}/nieuwsbrief/bevestigen/{token}"
+            db,
+            email,
+            first_name,
+            lambda token: f"{base}/nieuwsbrief/bevestigen/{token}",
+            proof=Proof(honeypot=website, token=form_ts, client_ip=client_ip(request)),
         )
     except nb.NewsletterError as exc:
         return _page(request, db, "form", email=email.strip(), error=str(exc), template=template)

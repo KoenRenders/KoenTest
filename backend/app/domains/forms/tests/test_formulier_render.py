@@ -2,6 +2,7 @@
 alle veldtypes, validatie via de servicelaag, edit-flow."""
 
 from app.domains.forms.models import Form, FormField, FormFieldOption, FormSubmission
+from tests.conftest import form_guard_fields
 
 
 def _form(db, **kwargs):
@@ -44,7 +45,7 @@ def test_formulier_submit_en_validatie(client, db_session):
     # Verplicht veld leeg → foutbanner, geen inzending.
     fout = client.post(
         f"/formulier/{f.share_token}",
-        data={"submitter_name": "Jo", "submitter_email": "jo@example.com"},
+        data={**form_guard_fields(), "submitter_name": "Jo", "submitter_email": "jo@example.com"},
     )
     assert fout.status_code == 200 and "verplicht" in fout.text
     assert db_session.query(FormSubmission).filter(FormSubmission.form_id == f.id).count() == 0
@@ -52,6 +53,7 @@ def test_formulier_submit_en_validatie(client, db_session):
     ok = client.post(
         f"/formulier/{f.share_token}",
         data={
+            **form_guard_fields(),
             "submitter_name": "Jo",
             "submitter_email": "jo@example.com",
             f"f{veld.id}": "Ingevuld!",
@@ -70,6 +72,7 @@ def test_formulier_edit_flow(client, db_session):
     client.post(
         f"/formulier/{f.share_token}",
         data={
+            **form_guard_fields(),
             "submitter_name": "Mi",
             "submitter_email": "mi@example.com",
             f"f{veld.id}": "Eerste versie",

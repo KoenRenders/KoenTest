@@ -550,7 +550,7 @@ def test_a_contact_that_does_not_fit_takes_a_second_line_instead_of_shrinking():
     """Koen, 21 September 2026: for bowling they leave the mobile numbers off,
     for other activities they do not — and with one the line no longer fits.
 
-    "Natascha Furleo · 0123 456 789 · furleonatascha@hotmail.com" measures
+    "Marieke Vermeer · 0123 456 789 · mariekevermeer@example.com" measures
     171 mm against a column of 133. It used to shrink to fit, which put two
     sizes in a band that is meant to have one. Now the address moves to a
     line of its own, under the name, without an icon: it is the same contact,
@@ -568,22 +568,22 @@ def test_a_contact_that_does_not_fit_takes_a_second_line_instead_of_shrinking():
         )
 
     short = render.merge(
-        _content(contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),)), layout="print_a"
+        _content(contacts=(Contact("Ria Claeys", "", "riclaeys@example.com"),)), layout="print_a"
     )
     assert [(rid, text) for rid, _x, _size, text in band(short.svg)] == [
-        ("t-contact-0", "An Peeters · an.peeters@gmail.com")
+        ("t-contact-0", "Ria Claeys · riclaeys@example.com")
     ]
 
     long = render.merge(
         _content(
-            contacts=(Contact("Natascha Furleo", "0123 456 789", "furleonatascha@hotmail.com"),)
+            contacts=(Contact("Marieke Vermeer", "0123 456 789", "mariekevermeer@example.com"),)
         ),
         layout="print_a",
     )
     rows = band(long.svg)
     assert [(rid, text) for rid, _x, _size, text in rows] == [
-        ("t-contact-0", "Natascha Furleo · 0123 456 789"),
-        ("t-contact-0-b", "furleonatascha@hotmail.com"),
+        ("t-contact-0", "Marieke Vermeer · 0123 456 789"),
+        ("t-contact-0-b", "mariekevermeer@example.com"),
     ]
     assert {float(size) for _rid, _x, size, _text in rows} == {BAND_TEXT}  # one size, still
     assert len({x for _rid, x, _size, _text in rows}) == 1  # and one column
@@ -843,7 +843,7 @@ def test_registering_closes_the_band_in_the_accent_colour():
     svg = render.merge(
         _content(
             deadline_text="Inschrijven tot en met 8 november",
-            contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),),
+            contacts=(Contact("Ria Claeys", "", "riclaeys@example.com"),),
         ),
         layout="print_a",
     ).svg
@@ -898,7 +898,7 @@ def test_a_continued_line_sits_closer_than_a_row_of_its_own():
     svg = render.merge(
         _content(
             deadline_text="Inschrijven tot en met 8 november",
-            contacts=(Contact("An Peeters", "", "an.peeters@gmail.com"),),
+            contacts=(Contact("Ria Claeys", "", "riclaeys@example.com"),),
         ),
         layout="print_a",
     ).svg

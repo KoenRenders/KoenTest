@@ -380,8 +380,11 @@ def submit_idea(
     # Eén schrijfpad (#398): bericht-inzending + behartigen-taak (werkbank) +
     # bevestigingsmail — de aparte bestuursmail is vervangen door de taak.
     from app.domains.forms.api import submit_bericht
+    from app.kernel.form_guard import TRUSTED
 
-    submission_id = submit_bericht(db, naam=name, email=email, bericht=content)
+    # TRUSTED (#1297): the chatbot has no form a visitor loaded, so no honeypot and
+    # no signed time; its own limits (per-IP budget, the tool dispatch) apply.
+    submission_id = submit_bericht(db, naam=name, email=email, bericht=content, proof=TRUSTED)
     if submission_id is None:
         return {"ok": False, "error": "Berichten zijn tijdelijk niet beschikbaar."}
 

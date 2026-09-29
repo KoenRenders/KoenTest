@@ -36,6 +36,20 @@ NAV = admin_nav("/admin/media")
 STANDAARD_KIND = "activity_photo"  # the code; see MediaKind.ACTIVITY_PHOTO
 
 
+def _activity_filter(kind: str, activity_id: Optional[int]) -> Optional[int]:
+    """The activity filter, where it applies: only for activity photos (#1291).
+
+    Sponsors, pages and component info hang off no activity, so an activity
+    filter on them empties the list — Koen saw no sponsors because an activity
+    from before was still selected. The one place of the rule: the list, the
+    count of filters and the address of "where I was" (`_filterstand`) all ask
+    here.
+    """
+    from app.domains.media.api import MediaKind
+
+    return activity_id if kind == MediaKind.ACTIVITY_PHOTO.value else None
+
+
 def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> str:
     """ "Waar ik was", als query-string. De enige plek die dat adres samenstelt (#962).
 
@@ -55,12 +69,11 @@ def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> s
     """
     from urllib.parse import urlencode
 
-    from app.domains.media.api import MediaKind
-
     params: list[tuple[str, str]] = [("kind", kind)]
     if q:
         params.append(("q", q))
-    if activity_id and kind == MediaKind.ACTIVITY_PHOTO.value:
+    activity_id = _activity_filter(kind, activity_id)
+    if activity_id:
         params.append(("activity_id", str(activity_id)))
     return urlencode(params)
 
@@ -84,6 +97,9 @@ def _lijst_ctx(
         # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
         raw = request.query_params.get("activity_id")
         activity_id = int(raw) if raw and raw.isdigit() else None
+    # The server decides, not the filter bar: a URL with `kind=sponsor&activity_id=…`
+    # shows every sponsor too (#1291).
+    activity_id = _activity_filter(actief_kind, activity_id)
 
     # Álle activiteiten (naam + jaar) voor de upload-dropdown (#476): je moet
     # foto's aan om het even welke activiteit kunnen koppelen, ook zonder foto's.

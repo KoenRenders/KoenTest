@@ -21,7 +21,7 @@ from app.domains.newsletter.models import (
     Subscriber,
     SubscriberStatus,
 )
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -362,7 +362,9 @@ def test_inschrijven_bevestigen_en_uitschrijven_zonder_login(client, db_session,
     pagina = client.get("/nieuwsbrief")
     assert pagina.status_code == 200 and 'name="email"' in pagina.text
 
-    ingeschreven = client.post("/nieuwsbrief", data={"email": "an@example.org", "first_name": "An"})
+    ingeschreven = client.post(
+        "/nieuwsbrief", data={**form_guard_fields(), "email": "an@example.org", "first_name": "An"}
+    )
     assert "Kijk in je mailbox" in ingeschreven.text
     an = nb.subscriber_by_email(db_session, "an@example.org")
     assert an.status == SubscriberStatus.PENDING
@@ -418,7 +420,8 @@ def test_een_onbekende_link_zegt_dat_ze_niet_meer_werkt(client, db_session):
 
 def test_de_honingpot_slaat_niets_op(client, db_session, confirmations):
     antwoord = client.post(
-        "/nieuwsbrief", data={"email": "bot@example.org", "website": "http://spam.example"}
+        "/nieuwsbrief",
+        data={**form_guard_fields(), "email": "bot@example.org", "website": "http://spam.example"},
     )
     assert "Kijk in je mailbox" in antwoord.text
     assert db_session.query(Subscriber).count() == 0
@@ -427,7 +430,9 @@ def test_de_honingpot_slaat_niets_op(client, db_session, confirmations):
 
 def test_een_ongeldig_adres_blijft_op_het_formulier(client, db_session, confirmations):
     antwoord = client.post(
-        "/nieuwsbrief", data={"email": "geen-adres"}, headers={"HX-Request": "true"}
+        "/nieuwsbrief",
+        data={**form_guard_fields(), "email": "geen-adres"},
+        headers={"HX-Request": "true"},
     )
     assert "geen geldig e-mailadres" in antwoord.text
     assert 'name="email"' in antwoord.text

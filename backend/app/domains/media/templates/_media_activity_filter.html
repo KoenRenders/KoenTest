@@ -1,0 +1,11 @@
+{# The activity filter of /admin/media, only for activity photos (#1291). Rendered
+   by the page and, out-of-band, by the list fragment. #}
+{% import "_macros.html" as ui %}
+{% if is_activity_photo and activiteiten %}
+{# The id lets htmx put the focus back after the out-of-band swap replaced the
+   list you just chose from (measured: without it the focus fell to <body>). #}
+{% call ui.select_control("activity_id", cls="max-w-[14rem] truncate", attrs='id="media-activity"') %}
+  <option value="">{{ _("Alle activiteiten") }}</option>
+  {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+{% endcall %}
+{% endif %}

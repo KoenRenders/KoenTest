@@ -767,8 +767,8 @@ def plan_affiche(
     if content.contacts:
         for i, c in enumerate(content.contacts[:3]):
             # Name, mobile and address on one line while it fits, and over two
-            # when it does not: "Natascha Furleo · 0123 456 789 ·
-            # furleonatascha@hotmail.com" measures 171 mm against a column of
+            # when it does not: "Marieke Vermeer · 0123 456 789 ·
+            # mariekevermeer@example.com" measures 171 mm against a column of
             # 133. Shrinking it is what put two sizes in one band; the second
             # line keeps every row in the one size (Koen, 21 September 2026).
             parts = [part for part in (c.name, c.mobile, c.email) if part]

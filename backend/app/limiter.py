@@ -33,6 +33,10 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+#: The same address outside the limiter: the public-form guard logs its prefix (#1297).
+client_ip = _client_ip
+
+
 class RateLimiter:
     def __init__(self, max_calls: int, window_seconds: int):
         self.max_calls = max_calls

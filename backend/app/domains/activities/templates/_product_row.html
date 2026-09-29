@@ -1,0 +1,49 @@
+{% import "_macros.html" as ui %}
+{# One product row, for registering (public), adding (board) and editing (board) — #1287.
+
+   There were two rows, each with its own markup, and they drifted as two copies
+   do: the edit screen got a line amount (#670) and no counter, the registration
+   form got the counter (#1171) and no line amount. Koen, 28 September 2026: no
+   line amount anywhere ("doe het er in de backoffice dan ook maar af"), and the
+   counter everywhere.
+
+   So a row is: the name, a badge if the caller has one, the unit price as the
+   caller words it, and the counter. What differs per place stays outside the row
+   and comes in through `caller`: the edit screen's *Verwijderen*. The minimum
+   differs too — 0 when registering, 1 when editing — and is an argument.
+
+   `tests/test_one_product_row_gate.py` holds the line: no `type="number"` in
+   `activities/templates`, and `ui.stepper(` only in this file. #}
+
+{#- The counter of a quantity, with the labels a screen reader needs. The product
+    row uses it, and so does "Product toevoegen" on the edit screen. -#}
+{% macro quantity(name, id, value, product_name="", min=0, max=99, attrs="") -%}
+{{ ui.stepper(name, id=id, value=value, min=min, max=max,
+              label_minder=_("Eén minder") ~ (" — " ~ product_name if product_name else ""),
+              label_meer=_("Eén meer") ~ (" — " ~ product_name if product_name else ""),
+              attrs=attrs) }}
+{%- endmacro %}
+
+{% macro product_row(product_name, price, name, id, value, min=0, max=99, attrs="", badge="") -%}
+{#- A row with an action of its own (the edit screen's *Verwijderen*) may wrap:
+    counter plus button is 267 px, and next to a name and a price that does not
+    fit a phone — measured at 390 px, the row ran to 397 px. The registration
+    form's row has no action and keeps its one line. -#}
+<div class="flex {% if caller is defined %}flex-wrap gap-y-2 {% endif %}items-center justify-between gap-x-3" data-product-row>
+  <div class="text-sm">
+    <span class="font-medium">{{ product_name }}</span>
+    {{ badge }}
+    {% if price %}<span class="ml-2 text-gray-500">{{ price }}</span>{% endif %}
+  </div>
+  {#- Without an action the counter is the row's own child, exactly as the
+      registration form rendered it before this row was shared. -#}
+  {% if caller is defined %}
+  <div class="flex items-center gap-2 shrink-0">
+    {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs) }}
+    {{ caller() }}
+  </div>
+  {% else %}
+  {{ quantity(name, id, value, product_name=product_name, min=min, max=max, attrs=attrs) }}
+  {% endif %}
+</div>
+{%- endmacro %}

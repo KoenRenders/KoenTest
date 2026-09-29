@@ -14,6 +14,7 @@ from app.domains.workflow.models import (
     WorkflowTask,
 )
 from tests._task_kinds import register_task_kind
+from tests.conftest import form_guard_fields
 
 
 def test_definitie_start_advance_complete(db_session):
@@ -74,7 +75,13 @@ def test_onbekende_definitie_faalt_luid(db_session):
 
 def test_bericht_start_via_definitie(client, db_session):
     client.post(
-        "/berichten", data={"naam": "Mie", "email": "mie@example.com", "bericht": "Workflow-test"}
+        "/berichten",
+        data={
+            **form_guard_fields(),
+            "naam": "Mie",
+            "email": "mie@example.com",
+            "bericht": "Workflow-test",
+        },
     )
     instance = (
         db_session.query(WorkflowInstance)
@@ -165,7 +172,10 @@ def test_werkbank_deep_link_full_page(client, db_session):
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
-    client.post("/berichten", data={"naam": "Deep", "email": "d@example.com", "bericht": "Link"})
+    client.post(
+        "/berichten",
+        data={**form_guard_fields(), "naam": "Deep", "email": "d@example.com", "bericht": "Link"},
+    )
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
     # Zonder HX-Request → volledige pagina (deep-link).

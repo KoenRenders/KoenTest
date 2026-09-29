@@ -1,4 +1,10 @@
-"""#670 — het aantal wijzigen laat regelbedrag én totaal meteen meelopen.
+"""#670 — het aantal wijzigen laat het totaal meteen meelopen.
+
+**#1287, 29 September 2026: no line amount any more.** #670 showed one per row
+next to the total; Koen decided the line amount goes everywhere, as on the
+registration form ("doe het er in de backoffice dan ook maar af"). The total still
+follows a changed quantity at once, and the first test now also holds that the
+line amount stays gone. The history below is #670's.
 
 Op het beheerpaneel bleef alles staan tot je opsloeg. Koen wil het zien "zoals
 wanneer een bezoeker bestelt". Alleen het totaal verversen zou "€ 20,00" naast een
@@ -60,10 +66,16 @@ def test_een_hoger_aantal_toont_meteen_het_nieuwe_bedrag(client, db_session):
         headers={"X-CSRF-Token": csrf},
     )
     assert r.status_code == 200
-    # Regelbedrag én totaal: 5 x 10,00.
+    # Het totaal: 5 x 10,00 — en alleen het totaal (#1287): geen regelbedrag.
     assert "50,00" in r.text, "het totaal loopt niet mee"
-    assert r.text.count("50,00") >= 2, (
-        "alleen het totaal is bijgewerkt; het regelbedrag hoort ook mee te lopen"
+    # The amount appears once per "Totaal" (the read-only view and the edit panel
+    # both carry one), and never inside a product row.
+    assert r.text.count("50,00") == r.text.count("Totaal"), "an amount beside the totals"
+    rows = r.text.split("data-product-row")[1:]
+    assert rows, "no product row in the panel"
+    # A row runs up to the next row or the total, which always follows the rows.
+    assert not [row for row in rows if "50,00" in row.split("Totaal")[0]], (
+        "a line amount is back in a product row (#1287)"
     )
 
 

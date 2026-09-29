@@ -22,6 +22,8 @@ import re
 
 import pytest
 
+from tests.conftest import form_guard_fields
+
 pytestmark = pytest.mark.ui_serverrendered
 
 
@@ -67,6 +69,7 @@ def test_de_wizard_opent_op_de_stap_van_het_gemelde_veld(client, admin_headers, 
     resp = client.post(
         f"/formulier/{form['share_token']}",
         data={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             f"f{form['fields'][0]['id']}": "iets",
@@ -101,7 +104,7 @@ def test_rechtstreeks_verzenden_wordt_nog_steeds_geweigerd(client, admin_headers
 
     resp = client.post(
         f"/formulier/{form['share_token']}",
-        data={"submitter_name": "Jan", "submitter_email": "jan@example.com"},
+        data={**form_guard_fields(), "submitter_name": "Jan", "submitter_email": "jan@example.com"},
     )
 
     assert resp.status_code == 200, "de foutweg rendert de pagina opnieuw"
