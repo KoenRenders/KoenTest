@@ -1022,8 +1022,12 @@ supply an SVG rather than approximating one.
   object" dialogs only. A confirmation that is not a delete ("Bevestig betaald?",
   "Opnieuw inlezen?", "Importeren?"), or one that spells out a consequence ("… uit
   het saldo?"), keeps its own `data-confirm` text.
-- **Public registration is a modal** (narrow, `max-w-md`), and "Wie doet er mee?"
-  is a compact inline line (`text-xs`, *N ingeschreven — naam · naam*). Not a wide
+- **Registration is one page, for the member and for the board** (CR-14 §B4.1,
+  since v2.10.0; it replaces "public registration is a modal"). The public route
+  renders it in the site shell, the board route renders the same content in the
+  admin shell. Order: who (contact) → what (products) → the component's questions
+  → payment method → submit. No modal, with or without a form. "Wie doet er mee?"
+  stays a compact inline line (`text-xs`, *N ingeschreven — naam · naam*). Not a wide
   inline block, not a vertical list.
 
 ## Choosing new tools / dependencies — Europe First
