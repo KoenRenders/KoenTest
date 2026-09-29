@@ -156,7 +156,6 @@ def test_a_member_address_still_saves(client, db_session, postcode):
         )
     )
     db_session.flush()
-    csrf = _operator(client, db_session)
 
     _post(
         client,
@@ -167,6 +166,9 @@ def test_a_member_address_still_saves(client, db_session, postcode):
         house_number="1",
         postal_code="2400",
     )
+    # #1348: after `_post`, which signs in again — the token of an earlier sign-in
+    # belonged to a cookie the client no longer carries.
+    csrf = _operator(client, db_session)
     resp = client.post(
         f"/admin/leden/gezin/{member.id}/adres",
         data={"street": "Ledenlaan", "house_number": "9", "bus_number": "", "postal_code": "2400"},
