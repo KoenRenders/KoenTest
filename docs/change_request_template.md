@@ -73,7 +73,9 @@
 > [!NOTE]
 > *One table. Each requirement is a sentence a board member would say, with a*
 > *MoSCoW class. Numbered, so Part B and the acceptance criteria can point at*
-> *them.*
+> *them. Do not forget the reporting need: must something be counted, listed,*
+> *exported or printed afterwards, for whom, in which form? If so, it is a*
+> *requirement here; if not, say so in one row.*
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -83,17 +85,7 @@ MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
 and deliberately not done — recorded so it is not asked again).
 
-## A6. Reporting need — what must be countable, exportable or printable afterwards
-
-> [!NOTE]
-> *Asked at every change request, in Part A, by the business: does this*
-> *change create or change a need to count, list,*
-> *export or print something — and for whom, in which form (a screen, an*
-> *.ods export, a printed document, a chart in the reporting panel)? Name each*
-> *need as a requirement in A5 with its MoSCoW. "None" is an answer, with the*
-> *reason.*
-
-## A7. Non-functional requirements — security, privacy, house style, tenants
+## A6. Non-functional requirements — security, privacy, house style, tenants
 
 > [!NOTE]
 > *The requirements every change request is tested against, each answered*
@@ -107,7 +99,7 @@ and deliberately not done — recorded so it is not asked again).
 | **House style / UI norm** — `docs/design-system.md`; brand rules | … |
 | **Multi-tenant** — what differs per unit, what is platform-wide | … |
 
-## A8. Acceptance criteria — what the business signs off on HDEV
+## A7. Acceptance criteria — what the business signs off on HDEV
 
 > [!NOTE]
 > *Criteria the business signs off on, each testable by a person on HDEV*
@@ -156,13 +148,13 @@ and deliberately not done — recorded so it is not asked again).
 > *this change. Two audiences (those who set up, those who use) means two*
 > *drawings. Second, the **traceability table**: one row per requirement of*
 > *A5 — R · how the solution meets it, in the words of the role that will*
-> *see it · on which screen · which acceptance criterion of A8 proves it. A*
+> *see it · on which screen · which acceptance criterion of A7 proves it. A*
 > *Won't gets a row that says so. Third, the **walkthrough** — how the*
 > *business tests this on HDEV: one numbered*
 > *script per role of A3, in the order of the to-be process, happy path*
 > *first and then the turns where it must refuse or fall back; each step*
 > *names what to do, what to see, and the acceptance criterion it proves*
-> *(A8). Every criterion appears in at least one step. The closing comment*
+> *(A7). Every criterion appears in at least one step. The closing comment*
 > *of each issue points at the walkthrough instead of rewriting it. This is*
 > *the page a board member reads to say "yes, that is how we will work, and*
 > *this is how I will check it".*
@@ -254,11 +246,11 @@ and deliberately not done — recorded so it is not asked again).
 > *goes quietly empty. "None — measured, no view reads these columns" is an*
 > *answer.*
 
-## B6. Privacy and security — the mechanics behind A7
+## B6. Privacy and security — the mechanics behind A6
 
 > [!NOTE]
 > *How A6's privacy and security answers are implemented: what leaves the*
-> *system to whom, what is sanitised, what is logged.* *(The reporting answers of A6 live in A6 and B5.3, not here.)*
+> *system to whom, what is sanitised, what is logged.*
 
 ## B7. Phasing — shippable phases, and what changes on the failure paths
 
