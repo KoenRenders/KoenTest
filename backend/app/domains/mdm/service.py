@@ -366,6 +366,9 @@ class CirclePerson(NamedTuple):
     relation_id: int
     person: Person
     email: Optional[str]
+    # Since when this person counts for a meeting (#1346): the circle screen shows
+    # it and lets the secretary change it.
+    start_date: Optional[date] = None
 
 
 def _email_of(person: Person) -> Optional[str]:
@@ -424,7 +427,12 @@ def organization_circle(
         .all()
     )
     return [
-        CirclePerson(relation_id=relation.id, person=person, email=_email_of(person))
+        CirclePerson(
+            relation_id=relation.id,
+            person=person,
+            email=_email_of(person),
+            start_date=relation.start_date,
+        )
         for relation, person in rows
     ]
 
@@ -463,6 +471,35 @@ def add_to_circle(
     return relation
 
 
+def set_circle_start(db: Session, relation_id: int, start_date: date) -> None:
+    """Change since when someone counts for the circle (#1346).
+
+    A meeting uses the circle as it stood on its own date, and until #1346 a
+    relation always started on the day it was added. Someone added today did
+    not count for a meeting last month: its attendance list was empty and its
+    report went to nobody. The secretary sets the real date here.
+
+    `OrganizationPerson.check()` refuses a start after the end, on the flush.
+    Reached through the `CircleStartChosen` event (`mdm.handlers`), so it never
+    commits: the publisher's door does.
+    """
+    from app.domains.mdm.models import MasterDataError, OrganizationPerson
+
+    relation = db.get(OrganizationPerson, relation_id)
+    if relation is None:
+        from app.i18n import _
+
+        raise MasterDataError(_("Die persoon staat niet (meer) in de kring."))
+    relation.start_date = start_date
+    try:
+        db.flush()
+    except MasterDataError:
+        # The check refuses before any SQL is sent; forget the refused value so
+        # the screen that answers reads the row as it is.
+        db.expire(relation)
+        raise
+
+
 def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = None) -> None:
     """Beëindig iemands plaats in de kring — einddatum, nooit verwijderd.
 
@@ -476,7 +513,12 @@ def end_circle_relation(db: Session, relation_id: int, on_day: Optional[date] = 
     relation = db.get(OrganizationPerson, relation_id)
     if relation is None:
         return
-    relation.end_date = on_day or date.today()
+    end = on_day or date.today()
+    # #1346: a start can lie in the future now. Taking such a person out ends the
+    # relation on its start: it never counted, and the end may not precede it.
+    if relation.start_date is not None and relation.start_date > end:
+        end = relation.start_date
+    relation.end_date = end
     db.commit()
 
 
@@ -1115,6 +1157,7 @@ def create_person_for_circle(
     email: str,
     organization_id: int,
     relation_type: str = BOARD_MEETING,
+    on_day: Optional[date] = None,
 ):
     """Een persoon aanmaken die aan de organisatie hangt en aan géén gezin (#939).
 
@@ -1149,5 +1192,7 @@ def create_person_for_circle(
             )
         )
         db.flush()
-    add_to_circle(db, person.id, organization_id=organization_id, relation_type=relation_type)
+    add_to_circle(
+        db, person.id, organization_id=organization_id, relation_type=relation_type, on_day=on_day
+    )
     return person

@@ -32,7 +32,9 @@
   <h2 class="font-semibold text-blue-700">{{ _("Aanwezigheid") }}</h2>
   <p class="text-sm text-ink-soft mt-0.5">{{ _("Aanvinken uit de vergaderkring — klik: aanwezig → verontschuldigd → leeg.") }}</p>
   {% if not circle %}
-    {{ ui.empty_state(_("De vergaderkring is nog leeg."), action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}
+    {# #1346: why it is empty comes from the service — empty today, or only on
+       this meeting's date. #}
+    {{ ui.empty_state(circle_gap, action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}
   {% else %}
   <div class="flex flex-wrap gap-2 mt-3">
     {# Eén lijst: de kring van dát moment, de gasten, en wie aangevinkt staat maar

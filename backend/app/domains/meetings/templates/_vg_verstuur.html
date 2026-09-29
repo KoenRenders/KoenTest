@@ -44,6 +44,13 @@
               {{ _("Vergaderkring — %(n)s ontvangers, allen in To", n=recipients.emails|length) }}
             </p>
             <p class="text-sm text-ink-soft mt-1">{{ recipients.names|join(" · ") }}</p>
+            {% if recipients.circle_gap %}
+            {# #1346: said before sending, not discovered after. #}
+            <p class="text-sm text-brand-danger mt-1">
+              {{ recipients.circle_gap }}
+              <a href="/admin/vergaderingen/kring" class="underline">{{ _("Naar het kringscherm") }}</a>
+            </p>
+            {% endif %}
             {% if recipients.without_email %}
             <p class="text-sm text-brand-danger mt-1">
               {{ _("Zonder e-mailadres, dus niet in deze mail: %(namen)s", namen=recipients.without_email|join(", ")) }}

@@ -831,6 +831,48 @@ class Recipients:
     emails: list[str]
     names: list[str]
     without_email: list[str]
+    # Why nobody from the circle is on it, when nobody is (#1346); "" otherwise.
+    circle_gap: str = ""
+
+
+def choose_circle_start(db: Session, relation_id: int, start_date: Optional[date]) -> None:
+    """Store since when someone counts for the circle (#1346) — the door.
+
+    The relation is master data, so `mdm` writes it: this publishes
+    `CircleStartChosen` and `mdm.handlers` subscribes (CR-13 §B4.9). A refusal
+    there — a start after the end — raises here, and nothing is committed.
+    """
+    from app.kernel.contracts.meetings import CircleStartChosen
+    from app.kernel.events import has_subscribers, publish
+
+    if start_date is None:
+        raise MeetingError(_("Kies een geldige startdatum."))
+    if not has_subscribers(CircleStartChosen):
+        # A consequence that is not optional: without `mdm.handlers` imported,
+        # the date would silently not be stored.
+        raise RuntimeError("nothing subscribes to CircleStartChosen; import mdm.handlers")
+    publish(CircleStartChosen(relation_id=relation_id, start_date=start_date.isoformat()), db)
+    db.commit()
+
+
+def circle_gap(db: Session, meeting: Meeting) -> str:
+    """Why this meeting has nobody from the circle, or "" when it has someone (#1346).
+
+    A meeting uses the circle as it stood on its own date. A circle that is empty
+    today is a different case from one that has people today but had none on that
+    date — the second is what an entered-afterwards meeting runs into, because a
+    person counts from the day they were added. The attendance card and the send
+    screen both say which, from here.
+    """
+    from app.domains.mdm.api import organization_circle
+
+    if organization_circle(db, on_day=meeting.meeting_date):
+        return ""
+    if not organization_circle(db):
+        return _("De vergaderkring is nog leeg.")
+    return _(
+        "Op de vergaderdatum zat niemand in de kring. Pas de startdatum aan op het kringscherm."
+    )
 
 
 def mail_signature(db: Session) -> str:
@@ -869,7 +911,12 @@ def recipients_for(db: Session, meeting: Meeting) -> Recipients:
         if extra.email not in emails:
             emails.append(extra.email)
             names.append(extra.name or extra.email)
-    return Recipients(emails=emails, names=names, without_email=missing)
+    return Recipients(
+        emails=emails,
+        names=names,
+        without_email=missing,
+        circle_gap=circle_gap(db, meeting),
+    )
 
 
 # ── Sending ──────────────────────────────────────────────────────────────────

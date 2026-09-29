@@ -317,6 +317,7 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
         self.require_details(person.date_of_birth, person.gender_code)
 
 
+@aggregate
 class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
     """Junction table linking persons to an organisation in a named role (#258).
 
@@ -335,7 +336,18 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
     """
 
     __tablename__ = "organization_persons"
-    __table_args__ = {"schema": "mdm"}
+    # #1346: what `check()` says, at rest too; migration 174 puts it on the
+    # environments. `<=` and not `<`, deliberately: someone added to the circle
+    # and taken out again on the same day has start = end today, and that must
+    # stay possible. `end_date` is the day someone leaves, so such a relation
+    # never counts for any meeting, which is exactly what happened.
+    __table_args__ = (
+        CheckConstraint(
+            "start_date IS NULL OR end_date IS NULL OR start_date <= end_date",
+            name="ck_organization_persons_period",
+        ),
+        {"schema": "mdm"},
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     organization_id = Column(
@@ -357,6 +369,21 @@ class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
 
     organization = relationship("Organization")
     person = relationship("Person")
+
+    def check(self) -> None:
+        """A relation cannot start after it ends (#1346). Reads only its own fields.
+
+        The circle screen lets the secretary choose the start date since #1346, so
+        a start after the end became possible on a normal path.
+        """
+        if self.start_date is not None and self.end_date is not None:
+            if self.start_date > self.end_date:
+                from app.i18n import _, short_date
+
+                raise MasterDataError(
+                    _("De startdatum kan niet na de einddatum liggen (%(end)s).")
+                    % {"end": short_date(self.end_date)}
+                )
 
 
 class OrganizationRelationType(Base):
