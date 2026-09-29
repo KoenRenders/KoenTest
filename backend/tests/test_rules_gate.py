@@ -1,9 +1,9 @@
-"""The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phase 0a.
+"""The gate of CR-13 (`docs/change_request_13_oo_foundation.md`, §B9.3) — phases 0a and 0c.
 
 **A rule has one home, and every entrance passes through it.** This file holds
 the checks that make that a property of the code instead of a habit. Phase 0a
-builds the six simple ones and the meter; phase 0c (#1254) adds the heavy AST
-gates to this same file.
+built the six simple ones and the meter; phase 0c (#1254) added the heavy AST
+gates below them.
 
 | gate | kind | looks at |
 |---|---|---|
@@ -13,6 +13,15 @@ gates to this same file.
 | no network in an event handler | ratchet | the same, for `smtplib`/`httpx`/`requests`/`urllib.request`/`http.client` |
 | JSON route with a caller | ratchet; **hard for a new route** | every `/api/v1` route (method × path) named under `## Callers` in its domain's `CONTRACT.md` |
 | validator without constraint | **hard** | every `@validates` column has `NOT NULL` or a `CHECK` naming it, read from the model's `__table__` |
+| English identifiers (#780) | ratchet; **hard outside the baseline** | `def`/`class`/module/column/migration/test-file names against a Dutch-only word list |
+| no foreign writes | ratchet | seven write forms on another domain's mapped class, outside that domain |
+| no write after a commit | ratchet | a write after a commit on a path that carries it, in AST order |
+| no commit behind another domain's api | ratchet | an `api.py` export called from another domain's service, handler or tool that commits |
+| events, not calls | ratchet | a call into another domain's command (an export that writes) outside a `@subscribe` function |
+| no rule in a router | ratchet, **a reason per entry** | an `if` that refuses in a router or screen, the doorman's own refusals aside |
+| one entrance rule | (a) **hard**; (b), (c) ratchets | (a) aggregates mapped, with their own `check()`; (b) writes in a router, screen or handler; (c) writes past the ORM |
+| one owner per derived value | ratchet | a registered value's shape computed outside its owner (Python only) |
+| promise kept | two ratchets (**not kept is empty**) | template `required`/`pattern`/`min` walked to a kept column; the unwalkable ones with the step where they stop |
 
 An *event handler* is a `@subscribe` function, wherever it stands (§B4.9): a
 `handlers.py` also carries `@job` functions, and a job is exactly where the
@@ -1535,6 +1544,158 @@ def collect_derived_value_elsewhere() -> dict[str, str]:
     return found
 
 
+# ── 14. Promise kept (two ratchets: not kept, and not walkable with a reason) ─
+
+# A template input that promises something, as the kit macro or as raw HTML.
+_MACRO_PROMISE = re.compile(
+    r"ui\.(?:input_control|select_control|textarea_control|input|select|textarea)"
+    r'\(\s*"(?P<name>[a-z_0-9]+)"(?P<rest>[^\n]*)'
+)
+_RAW_INPUT = re.compile(r"<(?:input|select|textarea)\b(?P<attrs>[^>]*)>", re.S)
+_FORM_TARGET = re.compile(r'<form\b[^>]*?(?:hx-post|action)="([^"]+)"', re.S)
+_PROMISE_KINDS = ("required", "pattern", "min")
+
+
+def _template_promises(text: str):
+    """Yield `(line, field, kinds, form path)` for every promising input."""
+    forms = [(m.start(), m.group(1)) for m in _FORM_TARGET.finditer(text)]
+
+    def form_for(position: int) -> str | None:
+        before = [path for start, path in forms if start < position]
+        return before[-1] if before else None
+
+    for m in _MACRO_PROMISE.finditer(text):
+        rest = m.group("rest")
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"\b{k}\s*=\s*(True|\")", rest)]
+        if kinds:
+            yield text.count("\n", 0, m.start()) + 1, m.group("name"), kinds, form_for(m.start())
+    for m in _RAW_INPUT.finditer(text):
+        attrs = m.group("attrs")
+        name = re.search(r'\bname="([a-z_0-9]+)"', attrs)
+        kinds = [k for k in _PROMISE_KINDS if re.search(rf"(?<![-\w]){k}\b(?!-)", attrs)]
+        if name and kinds:
+            yield text.count("\n", 0, m.start()) + 1, name.group(1), kinds, form_for(m.start())
+
+
+def _route_path(path: str) -> str:
+    """`/admin/x/{{ a.id }}/y?z` and `/admin/x/{a_id}/y` → `/admin/x/{}/y`."""
+    path = re.sub(r"\{\{.*?\}\}", "{}", path)
+    path = re.sub(r"\{[a-z_0-9:]+\}", "{}", path)
+    path = re.sub(r"'\s*~\s*[^~]+~\s*'", "{}", path)
+    return path.split("?")[0].rstrip("/") or "/"
+
+
+def _writing_routes() -> dict[str, ast.FunctionDef]:
+    routes: dict[str, ast.FunctionDef] = {}
+    for path in _python_files():
+        for node in ast.walk(_tree(path)):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for d in node.decorator_list:
+                    if (
+                        isinstance(d, ast.Call)
+                        and isinstance(d.func, ast.Attribute)
+                        and d.func.attr in {"post", "put", "patch"}
+                        and d.args
+                        and isinstance(d.args[0], ast.Constant)
+                        and isinstance(d.args[0].value, str)
+                    ):
+                        routes.setdefault(_route_path(d.args[0].value), node)
+    assert len(routes) > 50, f"only {len(routes)} writing routes — the walk is blind"
+    return routes
+
+
+def _kept_columns() -> tuple[dict[str, bool], set[str]]:
+    """Column name → kept at an address (NOT NULL, a CHECK naming it, a validator) on
+    any mapped class; and the field names a Pydantic schema constrains."""
+    from sqlalchemy import CheckConstraint
+
+    columns: dict[str, bool] = {}
+    for mapper in _mappers():
+        table = mapper.local_table
+        checks = " ".join(
+            str(c.sqltext) for c in table.constraints if isinstance(c, CheckConstraint)
+        )
+        for column in table.columns:
+            kept = (
+                not column.nullable
+                or re.search(rf"\b{column.name}\b", checks) is not None
+                or column.key in mapper.validators
+            )
+            columns[column.key] = columns.get(column.key, False) or kept
+    schema: set[str] = set()
+    constraint = re.compile(r"min_length|constr\(|EmailStr|Field\(\.\.\.|pattern=|ge=|gt=")
+    for path in _python_files():
+        for cls in ast.walk(_tree(path)):
+            if not isinstance(cls, ast.ClassDef):
+                continue
+            if "BaseModel" not in {getattr(b, "id", getattr(b, "attr", "")) for b in cls.bases}:
+                continue
+            for stmt in cls.body:
+                if isinstance(stmt, ast.AnnAssign) and isinstance(stmt.target, ast.Name):
+                    if constraint.search(ast.unparse(stmt)):
+                        schema.add(stmt.target.id)
+    return columns, schema
+
+
+def collect_promises() -> tuple[dict[str, str], dict[str, str]]:
+    """Every `required`/`pattern`/`min` a template promises, walked to the column (§B9.3,
+    *promise kept*; the spike of §B10): template → the form's `hx-post`/`action` →
+    the route → the field read by name → a column of that name → kept by `NOT NULL`,
+    a `CHECK`, a validator or a Pydantic constraint.
+
+    Returns `(not_kept, unwalkable)`, keyed `template::field::kinds`. `not_kept` walks
+    all the way and finds nothing that keeps the promise — the server accepts what the
+    browser refuses. `unwalkable` stops earlier; its value is the step where it stops,
+    the reason the change request asks for.
+    """
+    routes = _writing_routes()
+    columns, schema = _kept_columns()
+    templates = sorted(APP.rglob("templates/**/*.html"))
+    assert len(templates) > 100, f"only {len(templates)} templates — the walk is blind"
+    not_kept: dict[str, str] = {}
+    unwalkable: dict[str, str] = {}
+    seen = 0
+    for template in templates:
+        for line, name, kinds, form_path in _template_promises(template.read_text()):
+            seen += 1
+            key = f"{_rel(template)}::{name}::{'/'.join(kinds)}"
+            where = f"{_rel(template)}:{line}"
+            if not form_path:
+                unwalkable.setdefault(key, "no form target (built in JS, by a macro, or GET)")
+                continue
+            route = routes.get(_route_path(form_path))
+            if route is None:
+                unwalkable.setdefault(key, f"no writing route for {_route_path(form_path)}")
+                continue
+            source = ast.unparse(route)
+            if not re.search(rf"['\"]{name}['\"]|\b{name}\s*[:=]", source):
+                unwalkable.setdefault(key, f"route `{route.name}` does not read `{name}` by name")
+                continue
+            if name not in columns:
+                if name in schema:
+                    continue  # kept by the schema
+                unwalkable.setdefault(key, f"no column named `{name}`")
+                continue
+            if not (columns[name] or name in schema):
+                not_kept.setdefault(
+                    key,
+                    f"{where} promises `{name}` {'/'.join(kinds)}; the column `{name}` has no "
+                    f"NOT NULL, CHECK, validator or schema constraint — the server accepts "
+                    f"what the browser refuses (CR-13 §B9.3)",
+                )
+    assert seen > 30, f"only {seen} promises in the templates — the walk is blind"
+    return not_kept, unwalkable
+
+
+def collect_promise_not_kept() -> dict[str, str]:
+    return collect_promises()[0]
+
+
+def collect_promise_unwalkable() -> dict[str, str]:
+    found = collect_promises()[1]
+    return {key: f"{key} — cannot be walked: {reason}" for key, reason in found.items()}
+
+
 # ── The ratchet shape ────────────────────────────────────────────────────────
 
 COLLECTORS = {
@@ -1552,6 +1713,8 @@ COLLECTORS = {
     "WRITE_OUTSIDE_SERVICE": collect_write_outside_service,
     "NON_ORM_WRITES": collect_non_orm_writes,
     "DERIVED_ELSEWHERE": collect_derived_value_elsewhere,
+    "PROMISE_NOT_KEPT": collect_promise_not_kept,
+    "PROMISE_UNWALKABLE": collect_promise_unwalkable,
 }
 
 
@@ -1788,6 +1951,22 @@ def test_a_record_state_is_decided_on_the_paid_amount():
     passes_on = ast.parse("if status is not None:\n    f(amount_paid=amount_paid)\n").body[0]
     assert DERIVED_SHAPES["payment_record.state"](decides)
     assert not DERIVED_SHAPES["payment_record.state"](passes_on)
+
+
+def test_every_promise_is_kept():
+    """Ratchet on nothing today — so hard (§B9.3). Proof (run, removed), additive, in a
+    new `activities/templates/_zz_probe.html`: a `<textarea name="description"
+    required>` inside `<form hx-post="/admin/activiteiten/{{ a.id }}">` → red,
+    "promises `description` required; the column `description` has no NOT NULL,
+    CHECK, validator or schema constraint"."""
+    _ratchet("PROMISE_NOT_KEPT")
+
+
+def test_no_new_promise_that_cannot_be_walked():
+    """Ratchet with the step where each walk stops (§B9.3, the 21 of §B10). Proof (run,
+    removed): in the same probe template, an `<input name="zz_probe" required>` before
+    the form → red, "cannot be walked: no form target"."""
+    _ratchet("PROMISE_UNWALKABLE")
 
 
 @pytest.mark.parametrize(

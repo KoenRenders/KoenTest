@@ -29,6 +29,7 @@ from tests.test_rules_gate import (
     collect_json_route_without_caller,
     collect_network_in_handler,
     collect_non_orm_writes,
+    collect_promises,
     collect_rule_in_router,
     collect_session_on_entity,
     collect_validator_without_constraint,
@@ -159,6 +160,10 @@ def a2_table() -> list[tuple[str, int | str]]:
             f"{len(collect_write_outside_service())} / {len(collect_non_orm_writes())}",
         ),
         ("derived values computed outside their owner", len(collect_derived_value_elsewhere())),
+        (
+            "template promises not kept / not walkable",
+            "{} / {}".format(*(len(part) for part in collect_promises())),
+        ),
     ]
 
 
