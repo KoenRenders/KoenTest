@@ -102,7 +102,7 @@ component). Nothing in the form builder has to change for this case.
 | **Reporting** | The component export carries the answers, one column per question. The reporting engine (CR-06) does not — answers are per activity, not a measure. |
 | **Security** | Nothing new from outside: the questions arrive through the registration entrances that exist, under the same rate limit, honeypot and CSRF as today. The form's own validation (required, bounds, options) applies. |
 | **Privacy** | Answers are personal data on the registration; they are seen by whoever sees the registration (organiser, treasurer, board), never on the public participant list, and they follow the registration's soft delete. An allergy is health data — the organiser decides per activity whether to ask it; the system does not treat it differently *(to confirm with Koen)*. |
-| **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page** (Koen, 29 Sep): the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — Koen's decision, text proposal in B4.1. "Wie doet er mee?" stays the compact inline line. |
+| **House style / UI norm** | The questions render with the same field macros as the form builder's public form, inside the registration screen. **One way for both, and it is a page** (Koen, 29 Sep): the public registration becomes a page, with or without a form, and the same page serves the board in the admin shell. This revises the fixed UI decision "public registration is a modal" in `CLAUDE.md` — edited by the master CLI at the merge of phase 1, text in B4.1. "Wie doet er mee?" stays the compact inline line. |
 | **Multi-tenant** | A form and a component belong to the same tenant; the picker offers only the tenant's own forms. Nothing platform-wide. |
 
 ## A7. Acceptance criteria
@@ -327,8 +327,11 @@ the payment, never before the registration itself: "before the payment
 step" in R2 means before the redirect to Mollie, because after Mollie the
 member is gone from the site.
 
-**Text proposal for the fixed UI decision in `CLAUDE.md`** (Koen decides
-the wording, the master CLI edits): *"Registration is a page — one page for
+**The fixed UI decision in `CLAUDE.md` changes when the screen changes, not
+before** (Koen, 29 September): the master CLI edits it in the same merge
+that brings the page to `master` (phase 1's "Na de merge" block names it).
+Until then the modal is the rule and `CLAUDE.md` says so. Text, to be
+placed then: *"Registration is a page — one page for
 the member (site shell) and the board (admin shell), same fields, same
 order: contact, products, the component's questions if any, payment method.
 Not a modal (revised 29 September 2026, CR-14). 'Wie doet er mee?' is a
@@ -569,7 +572,7 @@ rule has its home from day one.
 
 | Phase | Delivers | Depends on | Migration | Env vars | Failure paths that change (R13-style) | Manual validation |
 |---|---|---|---|---|---|---|
-| 1 | the two links and the token, the picker with its refusals (F2, F13), the fields in the public screen and the API, the board form unchanged plus the answer link and page (B4.8), the admin detail and export | CR-13 phase 1 on `master` | one, additive | none | a registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration, public or board, sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
+| 1 | the two links and the token, the picker with its refusals (F2, F13), the one registration page for member and board (B4.1, parity B4.9), the now-or-later choice and the answer page (B4.8), the API, the admin detail and export; **"Na de merge": the master CLI replaces the fixed UI decision "public registration is a modal" in `CLAUDE.md` by the text of B4.1** | CR-13 phase 1 on `master` | one, additive | none | a registration refused on a question is not saved (new refusal); a Mollie failure now also rolls back the submission; a "later" registration, public or board, sends the confirmation with the answer link where today it sends the plain confirmation | AC1–AC6 on HDEV |
 | 1b | R6 mail with the answers, R7 edit on the registration detail with history | 1 | none | none | an empty required answer is refused on edit (new refusal) | AC7, AC8 on HDEV |
 
 ## B8. Tests
@@ -662,6 +665,7 @@ uncommitted form submission (it reads the form definition, so it should).
 | Q11 | 29 Sep 2026 | Is the board registration's mail the same as the member's, given the form is not filled yet — unless the board fills it? (Koen) | One mail with one variable block (answers, or the link, or nothing); the resend is the same mail with a reminder subject. B4.8. Koen, 29 Sep, on the board's part: **completely or not at all** — no board-only leniency; the CR makes it one explicit choice on the board page (default: the member answers by link), same validation when the board fills it in. |
 | Q15 | 29 Sep 2026 | Give the public user the same choice as the board — answer now or later through the link? (Koen, from his own Sint years: registered first, answered a week before) | Yes: one choice on both pages, "nu invullen / later via de link"; the API says it by sending `answers` or not; the thank-you page repeats the link. R2, R4, R5, F3, F6, F7, B4.8, B8 test 1. No channel difference about the questions remains. |
 | Q16 | 29 Sep 2026 | The default of the choice: "nu" for the member, "later" for the board? (Claude) | *proposed* — a default, not a rule; *open* |
+| Q17 | 29 Sep 2026 | Update the fixed UI decision in `CLAUDE.md` now, or when the CR is implemented? (Koen) | When implemented: in the "Na de merge" block of phase 1, by the master CLI. B4.1, B7. |
 | Q14 | 29 Sep 2026 | One screen for back office and public, built from the internal form as the ideal — but check that the public loses no function or nicety. (Koen) | Measured: both already share the field block, context and processing (#1284); the frame differs. B4.9 lists the fifteen things the public has today and where each lives on the page; one visible difference (P10, the in-place participant refresh becomes a refresh on return) and one gain (P14, the component switch). R11, AC9, test 10. |
 | Q13 | 29 Sep 2026 | How do the questions render in the admin shell and the public shell, without exceptions for the board? (Koen) | One partial (`_inschrijf_velden.html` → `forms`' `_formulier_veld.html`, `required` as the builder set it) included in two shells; one validation function on both channels; the board's only extra input is the choice. B4.8. |
 | Q10 | 29 Sep 2026 | "Why not define and store them with the existing form engine?" (Koen) | That is the proposal, exactly: defined in the form builder, stored in `form.form_submissions` / `form_submission_answers`, validated by `build_answers`, read back by `submission_view`. What is *new* is only the two links (component → form, registration → submission) and the rendering of the form's fields inside the registration screen, so the answers ride the registration's transaction and its payment. B1. |
