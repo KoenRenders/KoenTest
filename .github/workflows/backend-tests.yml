@@ -142,44 +142,17 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raake2e
       SECRET_KEY: ci-e2e-secret-key-long-enough-for-hs256
-      APP_ENV: dev
       E2E_BASE_URL: http://localhost:8000
-      # De seed staat er (stap hieronder), dus een flow die "geen betaling/
-      # inschrijving gevonden" meldt is een FOUT, geen skip (#644). Tegen HDEV
-      # staat deze variabele niet en blijft skippen het gedrag — daar bepaalt de
-      # echte data wat er is.
-      E2E_SEEDED: "1"
-      # #570: Raakje staat achter deze vlag, en zonder haar rendert het scherm zonder
-      # invoerveld — dan zou de e2e op het toetsgedrag stilzwijgend niets toetsen.
-      # Zonder MISTRAL_API_KEY antwoordt de bot in mock-modus, dus dit kost niets en
-      # belt niemand.
-      CHAT_ENABLED: "true"
-      # #788: `native_first` en NIET `provider_only`. De knop kiest dan per browser:
-      # zonder `SpeechRecognition` — de gewone toestand in een headless Chromium —
-      # valt hij terug op ONZE WebSocket, en dat is het pad dat de dicteer-e2e toetst.
-      # Een test die de Web Speech API nabootst (#762) houdt in dezelfde opstelling
-      # het native pad. `mock` transcribeert zonder Mistral, dus dit belt niemand.
-      STT_MODE: native_first
-      STT_PROVIDER: mock
-      # #870-G: de platform-landing verschijnt alleen op een host uit PLATFORM_HOSTS,
-      # dus zonder dit vindt die test zijn beginpunt niet — en hij hoort dan rood te
-      # staan, niet groen. Bewust een ANDERE naam dan de host waarop de rest van de
-      # suite draait (`localhost`): zou die hier staan, dan werd élk ander e2e-verzoek
-      # een platformverzoek en kreeg `/` de landing in plaats van de tenantsite.
-      # Chromium resolvet `*.localhost` zelf naar loopback, dus dit heeft geen DNS nodig.
-      PLATFORM_HOSTS: platform.localhost
-      # #1075: de dicteer-e2e draait ook op de Raakje-overlay van het
-      # activiteitenscherm, en die overlay bestaat alleen met de beheer-assistent
-      # aan (CR-07 §6.3: deze schakelaar én de tenantschakelaar uit seed_e2e.py).
-      # De overlay zelf belt niemand: dicteren gaat via de mock-STT hierboven.
-      ADMIN_CHAT_ENABLED: "true"
-      # #1274: online payments go to the stub provider, so the e2e can walk the
-      # whole chain (payment page, return, webhook, new state) without Mollie.
-      # Allowed here because APP_ENV is dev; refused on hdev/uat/prod.
-      PAYMENT_PROVIDER: stub
+      # Everything that shapes the app under test comes from ONE file,
+      # backend/tests_e2e/e2e.env, which scripts/e2e-local.sh reads too (#1296).
+      # Only what differs by place stays here.
 
     steps:
       - uses: actions/checkout@v4
+
+      # #1296: the one source of the e2e environment, for every step after this.
+      - name: e2e environment (backend/tests_e2e/e2e.env)
+        run: grep -Ev '^[[:space:]]*(#|$)' backend/tests_e2e/e2e.env >> "$GITHUB_ENV"
 
       - uses: actions/setup-python@v5
         with:
