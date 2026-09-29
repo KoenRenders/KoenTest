@@ -269,6 +269,60 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
     return rows
 
 
+def answers_from_form(form_model, form_data) -> list:
+    """Vertaal geposte f{field_id}-waarden naar AnswerIn-payloads.
+
+    The one parser of a posted form (CR-14 §B4.3): the form's own public page and a
+    registration that asks the form's questions both post `f<field_id>` keys, and
+    both come through here — moved out of `forms/ui.py` so it is shared, not copied."""
+    from decimal import Decimal, InvalidOperation
+
+    answers = []
+    for field in form_model.fields:
+        key = f"f{field.id}"
+        if field.field_type is FieldType.INFO:
+            continue
+        # #683: de "Anders"-tekst telt óók als er niets aangevinkt is. Voorheen
+        # stond `if option_ids:` vóór het aanmaken van het antwoord, dus werd
+        # `{key}_other` nooit gelezen zonder vinkje — het scherm nodigde uit tot
+        # typen en gooide het daarna weg. Wélke optie daarbij hoort, beslist de
+        # servicelaag; hier wordt alleen het formulier uitgepakt.
+        if field.field_type is FieldType.CHECKBOX:
+            raw = [v for v in form_data.getlist(key) if v]
+            option_ids = [int(v) for v in raw if str(v).isdigit()]
+            anders = (form_data.get(f"{key}_other") or "").strip() or None
+            if option_ids or anders:
+                answers.append(
+                    AnswerIn(field_id=field.id, option_ids=option_ids, other_text=anders)
+                )
+        elif field.field_type in (FieldType.SELECT, FieldType.RADIO):
+            raw = form_data.get(key)
+            anders = (form_data.get(f"{key}_other") or "").strip() or None
+            gekozen = [int(raw)] if (raw and str(raw).isdigit()) else []
+            if gekozen or anders:
+                answers.append(AnswerIn(field_id=field.id, option_ids=gekozen, other_text=anders))
+        elif field.field_type is FieldType.NUMBER:
+            raw_num = form_data.get(key)
+            num_text = raw_num.strip() if isinstance(raw_num, str) else ""
+            if num_text:
+                try:
+                    answers.append(
+                        AnswerIn(field_id=field.id, number=Decimal(num_text.replace(",", ".")))
+                    )
+                except InvalidOperation:
+                    answers.append(AnswerIn(field_id=field.id, text=num_text))
+        elif field.field_type is FieldType.RATING:
+            raw = form_data.get(key)
+            if raw and str(raw).isdigit():
+                answers.append(AnswerIn(field_id=field.id, rating=int(raw)))
+        else:  # text, textarea, email, phone
+            raw = form_data.get(key)
+            text = raw.strip() if isinstance(raw, str) else ""
+            if text:
+                answers.append(AnswerIn(field_id=field.id, text=text))
+    return answers
+
+
 def assert_open_for_submission(db, form: Form) -> None:
     """Bewaak dat het formulier nog open staat én de inzendingslimiet niet bereikt
     is. Gooit HTTPException als indienen niet (meer) mag."""
@@ -577,6 +631,14 @@ def refuse_losing_answers(
                 )
                 % {"n": n}
             )
+
+
+def find_form(db, form_id: Optional[int]) -> Optional[Form]:
+    """The form with this id, or None — for a caller that holds a soft reference to
+    it (CR-14: a component's questions), where "gone" is an answer, not an error."""
+    if form_id is None:
+        return None
+    return db.query(Form).filter(Form.id == form_id).first()
 
 
 def get_form(db, form_id: int) -> Form:
@@ -953,9 +1015,25 @@ def create_form(db, *, title: str, share_token: str, status: str = "draft") -> F
 
 
 def delete_form(db, form_id: int) -> None:
+    from app.domains.forms.models import FormSubmission
+
     form = db.query(Form).filter(Form.id == form_id).first()
     if form is None:
         raise LookupError("Formulier niet gevonden")
+    # CR-14 F11: the answers of a registration belong to the registration, so the
+    # form stays as long as they do.
+    held = (
+        db.query(FormSubmission.id)
+        .filter(FormSubmission.form_id == form.id, FormSubmission.attached.is_(True))
+        .first()
+    )
+    if held is not None:
+        raise FormulierFout(
+            _(
+                "Dit formulier heeft antwoorden op inschrijvingen. Die antwoorden horen bij "
+                "de inschrijvingen, dus het formulier blijft zolang zij er zijn."
+            )
+        )
     db.delete(form)
     db.commit()
 
@@ -968,9 +1046,17 @@ def delete_submission(db, form_id: int, submission_id: int) -> None:
         .filter(FormSubmission.id == submission_id, FormSubmission.form_id == form_id)
         .first()
     )
-    if inzending is not None:
-        db.delete(inzending)
-        db.commit()
+    if inzending is None:
+        return
+    if inzending.attached:
+        raise FormulierFout(
+            _(
+                "Deze inzending zijn de antwoorden van een inschrijving. Pas ze aan op "
+                "de inschrijving; verwijderen kan hier niet."
+            )
+        )
+    db.delete(inzending)
+    db.commit()
 
 
 def import_definition(db, form: Form, data) -> None:
@@ -1267,3 +1353,101 @@ def submission_url(db, submission_id) -> str | None:
     if inzending is None:
         return None
     return f"/admin/formulieren/{inzending.form_id}/inzendingen"
+
+
+# ── A form attached to an activity's component (CR-14 phase 2) ────────────────
+# `forms` learns nothing about activities: it answers whether a form CAN be asked
+# on a registration page, and stores the answers it is given. Which component asks
+# it, and which registration holds the answers, is the activities side's business.
+
+
+def attach_refusal(form: Form) -> Optional[str]:
+    """Why this form cannot be asked on a registration page, or None (CR-14 F2).
+
+    Sections and branching do not fit one page; an anonymous form contradicts a
+    named registration; a cap belongs to the component (`max_participants`); and
+    only an open form is offered. After the attach the form's status is not looked
+    at again — the component decides until when one registers."""
+    if form.status is not FormStatus.OPEN:
+        return _("Dit formulier staat niet open. Zet het eerst open in de formulierbouwer.")
+    if form.is_anonymous:
+        return _("Een anoniem formulier past niet bij een inschrijving op naam.")
+    if len(form.sections) > 1:
+        return _("Dit formulier heeft meer dan één sectie; een inschrijving toont één pagina.")
+    if form.max_submissions is not None:
+        return _(
+            "Dit formulier heeft een maximum aantal inzendingen; het maximum hoort bij "
+            "het onderdeel."
+        )
+    return None
+
+
+def attachable_forms(db) -> list[Form]:
+    """The forms a component can ask, by title — the ones `attach_refusal` accepts."""
+    forms = db.query(Form).filter(Form.status == FormStatus.OPEN).order_by(Form.title).all()
+    return [f for f in forms if attach_refusal(f) is None]
+
+
+def submit_attached(
+    db, form: Form, answers: List[AnswerIn], *, submitter_name: str, submitter_email: str
+):
+    """Store the answers of a registration: validated by `build_answers` (required,
+    ranges, options — a `VeldFout` names the question), flushed and not committed —
+    the registration's transaction commits it, or rolls it back with the rest.
+
+    No mail and no event: the registration's confirmation carries the answers
+    (CR-14 F5), and the form's own settings for standalone submissions do not apply."""
+    from app.domains.forms.models import FormSubmission
+
+    rows = build_answers(form, answers)
+    submission = FormSubmission(
+        form_id=form.id,
+        submitter_name=submitter_name,
+        submitter_email=submitter_email,
+        attached=True,
+    )
+    for row in rows:
+        submission.answers.append(row)
+    db.add(submission)
+    db.flush()
+    return submission
+
+
+def submission_views(db, submission_ids) -> dict:
+    """{submission id: [(label, value), …]} for every question of its form, in the
+    form's order, "" when unanswered — for many submissions in one read (CR-14
+    §B4.4: the export, the detail and the book do not query per row)."""
+    from sqlalchemy.orm import selectinload
+
+    from app.domains.forms.export import values_per_field
+    from app.domains.forms.models import FormSubmission
+
+    ids = [i for i in submission_ids if i is not None]
+    if not ids:
+        return {}
+    subs = (
+        db.query(FormSubmission)
+        .options(
+            selectinload(FormSubmission.answers),
+            selectinload(FormSubmission.form)
+            .selectinload(Form.fields)
+            .selectinload(FormField.options),
+        )
+        .filter(FormSubmission.id.in_(ids))
+        .all()
+    )
+    out = {}
+    for sub in subs:
+        fields = [f for f in sub.form.fields if f.field_type is not FieldType.INFO]
+        option_label = {o.id: o.label for f in fields for o in f.options}
+        per_field = values_per_field(sub, fields, option_label)
+        out[sub.id] = [(f.label, ", ".join(per_field[f.id])) for f in fields]
+    return out
+
+
+def form_questions(db, form_id: int) -> list[str]:
+    """The labels of a form's questions, in order — the export's extra headers."""
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if form is None:
+        return []
+    return [f.label for f in form.fields if f.field_type is not FieldType.INFO]

@@ -137,12 +137,37 @@ def _payments_sheet(db: Session, registrations: list[Registration]) -> dict:
     }
 
 
+def component_answers(
+    db: Session, component: ActivitySubRegistration, registrations: list[Registration]
+) -> tuple[list[str], dict[int, list[str]]]:
+    """The component's questions, and per registration its answers in their order
+    (CR-14 §B4.4, F8): one column per question after *Opmerkingen*, a checkbox's
+    ticks joined with ", ". The answers of all registrations in ONE read — never a
+    query per row. A registration without answers is not in the dict."""
+    from app.domains.activities.service import question_form
+
+    if question_form(db, component) is None:
+        return [], {}
+    from app.domains.forms.api import form_questions, submission_views
+
+    questions = form_questions(db, component.form_id)
+    views = submission_views(db, [r.form_submission_id for r in registrations])
+    answers = {}
+    for reg in registrations:
+        rows = views.get(reg.form_submission_id) if reg.form_submission_id else None
+        if rows is not None:
+            by_label = dict(rows)
+            answers[reg.id] = [by_label.get(q, "") for q in questions]
+    return questions, answers
+
+
 def build_component_export_ods(
     db: Session, activity: Activity, component: ActivitySubRegistration
 ) -> bytes:
     """Bouw de .ods-export voor één onderdeel (2 bladen) en geef de bytes terug."""
     products = list(component.products)
     registrations = [r for r in activity.registrations if r.component_id == component.id]
+    questions, answers = component_answers(db, component, registrations)
 
     headers = (
         [_("Naam"), _("E-mail"), _("Mobiel")]
@@ -157,6 +182,7 @@ def build_component_export_ods(
             _("Status"),
             _("Opmerkingen"),
         ]
+        + questions
     )
 
     product_totals = [0] * len(products)
@@ -179,13 +205,23 @@ def build_component_export_ods(
         row.append(code_label("payment_method", reg.payment_method) or "—")
         row.append(_status_label(due, saldo))
         row.append(reg.remarks or "")
+        row.extend(answers.get(reg.id, [""] * len(questions)))
         rows.append(row)
 
     rows.append(
-        [_("Totaal"), "", ""] + product_totals + [float(v) for v in money_totals] + ["", "", ""]
+        [_("Totaal"), "", ""]
+        + product_totals
+        + [float(v) for v in money_totals]
+        + ["", "", ""]
+        + [""] * len(questions)
     )
 
-    col_widths = [4.5, 5.0, 3.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
+    col_widths = (
+        [4.5, 5.0, 3.5]
+        + [3.0] * len(products)
+        + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
+        + [6.0] * len(questions)
+    )
     sheet1 = {
         "name": component.name or "Onderdeel",
         "headers": headers,

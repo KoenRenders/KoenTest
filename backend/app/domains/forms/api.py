@@ -58,7 +58,6 @@ def submit_bericht(
     if form_guard.refused(proof, "berichten"):
         return None
 
-    from app.domains.forms.schemas import AnswerIn
     from app.domains.forms.service import build_answers
     from app.domains.mail.api import send_form_confirmation
     from app.kernel.contracts.forms import SubmissionCreated
@@ -157,15 +156,25 @@ from app.domains.forms.models import (  # noqa: E402,F401
     FIELD_TYPES,
     FORM_STATUSES,
 )
+from app.domains.forms.schemas import AnswerIn  # noqa: E402,F401
+
+# CR-14 phase 2 adds what `activities` uses to ask a component's questions:
+# `attach_refusal`, `attachable_forms`, `answers_from_form` (the one parser of a
+# posted form), `submit_attached` (inside the registration's transaction),
+# `submission_views` and `form_questions` (many registrations in one read).
 from app.domains.forms.service import (  # noqa: E402,F401
     FormulierFout,
+    VeldFout,
     add_field,
     add_option,
     add_section,
+    answers_from_form,
     apply_definition,
     assert_geen_id_vorm,
     assert_slug_vrij,
     assert_submitter,
+    attach_refusal,
+    attachable_forms,
     create_form,
     deellink_pad,
     delete_field,
@@ -174,6 +183,8 @@ from app.domains.forms.service import (  # noqa: E402,F401
     delete_section,
     delete_submission,
     export_definition,
+    find_form,
+    form_questions,
     get_form,
     get_form_by_share_token,
     get_submission_by_edit_token,
@@ -185,6 +196,8 @@ from app.domains.forms.service import (  # noqa: E402,F401
     move_section,
     normaliseer_slug,
     submission_url,
+    submission_views,
+    submit_attached,
     update_field,
     update_form_settings,
     update_option,

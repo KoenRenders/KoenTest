@@ -1141,6 +1141,7 @@ def family_registrations(
             "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
             "titel_url": f"/admin/activiteiten/{a.id}",
             "export_href": None,
+            "boek_href": None,
             "datum": _laatste_datum(a),
         }
         for a, rijen in per_activiteit.items()

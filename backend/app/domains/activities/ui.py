@@ -181,6 +181,8 @@ def _page_ctx(request: Request, db: Session, activity: Any, component: Any, form
         "klaar": False,
         "klaar_url": f"{terug}?deelnemers={component.id}",
         "naam": "",
+        # CR-14 §B4.8: after "later", the thank-you page repeats the answer link.
+        "antwoord_url": None,
     }
 
 
@@ -261,8 +263,133 @@ async def inschrijf_submit(
     # P8 (CR-14 B4.9): the thank-you page in the same shell; P10: its link back
     # opens the participant list of this component, fresh — the out-of-band
     # refresh of the modal (#1159) went with the modal.
+    from app.domains.activities.api import answer_path
+
     return templates.TemplateResponse(
-        request, "inschrijven.html", {**page, "klaar": True, "naam": outcome.name}
+        request,
+        "inschrijven.html",
+        {
+            **page,
+            "klaar": True,
+            "naam": outcome.name,
+            "antwoord_url": answer_path(db, outcome.registration_id),
+        },
+    )
+
+
+# ── The answer link (CR-14 phase 2, §B4.8) ────────────────────────────────────
+
+
+def _answer_ctx(request: Request, db: Session, registration: Any, **extra: Any) -> dict:
+    """The answer page: whose registration, for what, and the questions. The first
+    name and the activity only — whoever holds a forwarded link learns no more than
+    the mail already said (§B5)."""
+    from app.domains.activities.api import question_form
+    from app.domains.forms.api import screen_fields
+
+    component = registration.component
+    form = question_form(db, component)
+    return {
+        **site_context(db, request),
+        "voornaam": (registration.contact_name or "").split(" ")[0],
+        "activiteit": registration.activity.name,
+        "onderdeel": component.name,
+        # Only reached for a registration that awaits answers, whose form exists
+        # (`registration_awaiting_answers`); an empty list rather than a crash if
+        # it vanished in between.
+        "vragen": screen_fields(list(form.fields) if form is not None else []),
+        "values": {},
+        "error": None,
+        "vraag_fout": None,
+        "ongeldig": False,
+        "beantwoord": None,
+        **extra,
+    }
+
+
+def _answer_link_gone(request: Request, db: Session) -> HTMLResponse:
+    """A spent or unknown link: the same 404 for both — a spent one is simply
+    answered, and the page says that is fine (§B5: nothing revealed)."""
+    return templates.TemplateResponse(
+        request,
+        "inschrijving_vragen.html",
+        {
+            **site_context(db, request),
+            "ongeldig": True,
+            "voornaam": "",
+            "activiteit": "",
+            "onderdeel": "",
+            "vragen": [],
+            "values": {},
+            "error": None,
+            "vraag_fout": None,
+            "beantwoord": None,
+        },
+        status_code=404,
+    )
+
+
+@router.get(
+    "/inschrijving/{token}/vragen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(registration_limiter)],
+)
+def answer_page(token: str, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    from app.domains.activities.api import registration_awaiting_answers
+
+    registration = registration_awaiting_answers(db, token)
+    if registration is None:
+        return _answer_link_gone(request, db)
+    return templates.TemplateResponse(
+        request, "inschrijving_vragen.html", _answer_ctx(request, db, registration)
+    )
+
+
+@router.post(
+    "/inschrijving/{token}/vragen",
+    response_class=HTMLResponse,
+    dependencies=[Depends(registration_limiter)],
+)
+async def answer_submit(
+    token: str, request: Request, db: Session = Depends(get_db)
+) -> HTMLResponse:
+    from app.domains.activities.api import answer_questions, registration_awaiting_answers
+    from app.domains.forms.api import answers_from_form, submission_views
+
+    registration = registration_awaiting_answers(db, token)
+    if registration is None:
+        return _answer_link_gone(request, db)
+    form = await request.form()
+    from app.domains.activities.api import form_values
+
+    values = form_values(form)
+    from app.domains.activities.api import question_form
+
+    answers = answers_from_form(question_form(db, registration.component), form)
+    try:
+        answer_questions(db, token, answers)
+    except LookupError:
+        return _answer_link_gone(request, db)
+    except HTTPException as exc:
+        return templates.TemplateResponse(
+            request,
+            "inschrijving_vragen.html",
+            _answer_ctx(
+                request,
+                db,
+                registration,
+                values=values,
+                error=str(exc.detail),
+                vraag_fout=getattr(exc, "veld_id", None),
+            ),
+        )
+    rows = submission_views(db, [registration.form_submission_id])
+    return templates.TemplateResponse(
+        request,
+        "inschrijving_vragen.html",
+        _answer_ctx(
+            request, db, registration, beantwoord=rows.get(registration.form_submission_id, [])
+        ),
     )
 
 

@@ -157,11 +157,16 @@ def delete_form(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
+    from app.domains.forms import service
+
+    # One way to delete, the service's: it refuses a form whose answers a
+    # registration holds (CR-14 F11) — the API says so with a 409.
+    try:
+        service.delete_form(db, form_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    db.delete(form)
-    db.commit()
+    except service.FormulierFout as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @router.get("/forms/{form_id}/results")
@@ -204,8 +209,12 @@ def delete_submission(
     )
     if not sub:
         raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
-    db.delete(sub)
-    db.commit()
+    from app.domains.forms import service
+
+    try:
+        service.delete_submission(db, form_id, submission_id)
+    except service.FormulierFout as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
 
 @router.get("/forms/{form_id}/export")

@@ -173,14 +173,16 @@ def form_context(
     if quantities is None:
         quantities = {p.id: opening for p in products}
     total, _lines = quote_lines(component, quantities, member)
+    values = values or {}
     return {
+        **questions_context(component, values),
         "activity": activity,
         "component": component,
         "is_member": member,
         "person": channel.person,
         "error": error,
         "totaal": total,
-        "values": values or {},
+        "values": values,
         "heeft_prijs": has_payable_products(component, member),
         "standaard_aantal": opening,
         "producten": products,
@@ -188,6 +190,42 @@ def form_context(
         "totaal_url": channel.total_url,
         "prijzen_url": channel.prices_url,
     }
+
+
+def questions_context(component: ActivitySubRegistration, values: Mapping[str, Any]) -> dict:
+    """The component's questions on the page (CR-14 §B4.8): the fields, rendered by
+    the form builder's own partial, behind one choice — "nu" (the default, on both
+    pages) or "later, via de link in de bevestigingsmail". `vraag_fout` marks the
+    question a refusal names."""
+    from sqlalchemy.orm import object_session
+
+    from app.domains.activities.service import question_form
+    from app.domains.forms.api import screen_fields
+
+    # A soft reference (#396), read through `forms.api`: a form deleted in the
+    # builder is None, and then the component asks nothing.
+    form = question_form(object_session(component), component)
+    fields = [f for f in form.fields] if form is not None else []
+    return {
+        "vragen": screen_fields(fields),
+        "vragen_nu": values.get("questions", "now") != "later",
+        "vraag_fout": None,
+    }
+
+
+def form_values(form: Mapping[str, Any]) -> dict:
+    """The posted form as the page shows it again: a checkbox question keeps all its
+    ticks (a list), every other field its one value."""
+    getlist = getattr(form, "getlist", None)
+    out: dict = {}
+    for key in form.keys():
+        many = getlist(key) if getlist is not None else [form[key]]
+        if len(many) > 1:
+            out[key] = [v for v in many if isinstance(v, str)]
+        else:
+            value = form.get(key)
+            out[key] = value if isinstance(value, str) else ""
+    return out
 
 
 def total_context(
@@ -246,7 +284,7 @@ def submit(
     from app.domains.mdm.api import PaymentMethod
     from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
-    values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
+    values = form_values(form)
     quantities = form_quantities(form)
     ctx = form_context(channel, activity, component, values=values, quantities=quantities)
 
@@ -263,6 +301,17 @@ def submit(
         return refused("Selecteer minstens één product.")
 
     name = values.get("contact_name", "").strip()
+    # CR-14 §B4.3: the questions post `f<field id>` keys, parsed by the form
+    # builder's own parser. "Later" posts no answers at all: None, and the
+    # registration gets the answer link.
+    answers = None
+    from app.domains.activities.service import question_form
+
+    questions = question_form(db, component)
+    if questions is not None and ctx["vragen_nu"]:
+        from app.domains.forms.api import answers_from_form
+
+        answers = answers_from_form(questions, form)
     try:
         data = RegistrationCreate(
             contact_name=name,
@@ -281,6 +330,7 @@ def submit(
                 if qty > 0
             ],
             remarks=(values.get("remarks") or "").strip() or None,
+            answers=answers,
         )
     except ValidationError:
         # `contact_refusal` checked that there is an address; the schema checks
@@ -300,6 +350,8 @@ def submit(
                 db, activity.id, data, background_tasks, current_member=channel.person
             )
     except HTTPException as exc:
+        # A refused answer names its question (`VeldFout`): mark it on the page.
+        ctx["vraag_fout"] = getattr(exc, "veld_id", None)
         return refused(str(exc.detail))
 
     registration_id = result.get("id")

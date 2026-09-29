@@ -6,7 +6,7 @@
    vast: de activiteit groepeert per onderdeel (export per groep), het gezin
    per activiteit (spronglink in de groepskop, Onderdeel als kolom).
 
-   Contract: `groepen` = [{naam, aantal, regs, export_href, titel_url,
+   Contract: `groepen` = [{naam, aantal, regs, export_href, boek_href, titel_url,
    datum}] — ontbrekende extra's zijn None, nooit weggelaten (StrictUndefined);
    verder `totaal`, `sort`, `richting`, `sorteer_urls`, `terug` en
    `toon_onderdeel`. #}
@@ -26,6 +26,10 @@
         {% if groep.titel_url %}{{ ui.spronglink(groep.titel_url, _("Open activiteit")) }}{% endif %}
         {% if groep.export_href %}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href=groep.export_href, size="sm", attrs='hx-boost="false"') }}
+        {% endif %}
+        {# CR-14 F14: the book of a component with questions, to print. #}
+        {% if groep.boek_href %}
+        {{ ui.btn_secondary(_("Boek"), href=groep.boek_href, size="sm", attrs='hx-boost="false" target="_blank"') }}
         {% endif %}
       </div>
     </div>

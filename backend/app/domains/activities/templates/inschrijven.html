@@ -18,6 +18,12 @@
   {# P8: the thank-you page — the words of the modal's banner, and one way back to
      the activity, where the list of this component opens fresh (P10). #}
   {{ ui.success_banner("✅ Bedankt, " ~ naam ~ "! Je inschrijving is ontvangen. Je krijgt een bevestiging per e-mail.") }}
+  {% if antwoord_url %}
+  {# CR-14 §B4.8: "later" was chosen — the link is in the mail, and here too, so
+     whoever changes their mind answers at once. #}
+  <p class="text-sm text-ink mb-3">{{ _("De vragen van de organisatie beantwoord je via de link in je bevestigingsmail, of meteen:") }}
+    <a class="text-blue-700 hover:underline" href="{{ antwoord_url }}">{{ _("Vragen nu beantwoorden") }}</a></p>
+  {% endif %}
   <p><a class="text-sm text-blue-700 hover:underline" href="{{ klaar_url }}">{{ _("Terug naar de activiteit") }}</a></p>
   {% else %}
   {% if onderdelen|length > 1 %}

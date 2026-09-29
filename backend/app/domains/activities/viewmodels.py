@@ -51,6 +51,10 @@ class AdminInschrijvingView(ViewModel):
     csrf_token: str
     error: str | None
     toast_bericht: str | None
+    # CR-14 phase 2 (§B4.4): (label, value) per question, and the moment the
+    # answers were asked while the link is open.
+    antwoorden: list[tuple[str, str]]
+    antwoorden_gevraagd_op: Any
 
     # Paginakop + de weg terug (A7)
     activiteit_id: int

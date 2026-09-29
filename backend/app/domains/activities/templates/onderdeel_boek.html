@@ -1,0 +1,42 @@
+{# CR-14 F14: the book of a component — one page per registration, printed from the
+   browser (no PDF engine). Bare and black-and-white like the form builder's print
+   view (`formulier_afdruk.html`): no shell, no app.css (#523). #}
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+  <meta charset="utf-8">
+  <title>{{ activiteit }} — {{ onderdeel }} — {{ _("boek") }}</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; color: #111; }
+    h1 { font-size: 1.4rem; } h2 { font-size: 1.2rem; margin-bottom: 0.2rem; }
+    .blok { page-break-after: always; break-after: page; padding-top: 0.5rem; }
+    .blok:last-child { page-break-after: auto; break-after: auto; }
+    .adres, .open { color: #555; } .label { font-weight: 600; margin-top: 0.7rem; }
+    @media print { .noprint { display: none; } }
+  </style>
+</head>
+{# #808: `data-shell` is required on every full document; `afdruk` carries no
+   tracking script. Paper — and the route under it is a back-office screen. #}
+<body data-shell="afdruk">
+  <p class="noprint"><button onclick="window.print()">{{ _("🖨 Afdrukken") }}</button></p>
+  <h1 class="noprint">{{ activiteit }} — {{ onderdeel }}</h1>
+  {% for b in blokken %}
+  <section class="blok">
+    <h2>{{ b.naam }}</h2>
+    {% if b.adres %}<div class="adres">{{ b.adres }}</div>{% else %}<div class="adres">{{ _("Geen adres gekend — vraag het na.") }}</div>{% endif %}
+    {% if b.producten %}<div>{% for q, naam in b.producten %}{{ q }}× {{ naam }}{% if not loop.last %} · {% endif %}{% endfor %}</div>{% endif %}
+    {% if vraagt_antwoorden %}
+    {% if b.antwoorden is none %}
+    <p class="open">{{ _("Nog niet beantwoord") }}</p>
+    {% else %}
+    {% for label, waarde in b.antwoorden %}
+    <div class="label">{{ label }}</div><div>{{ waarde or "—" }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endif %}
+  </section>
+  {% else %}
+  <p>{{ _("Nog geen inschrijvingen.") }}</p>
+  {% endfor %}
+</body>
+</html>

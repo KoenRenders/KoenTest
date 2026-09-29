@@ -266,7 +266,7 @@ def formulier_verwijderen(
     from app.domains.forms.api import delete_form
 
     _form_or_404(db, form_id)
-    delete_form(db, form_id)
+    _bewerk(delete_form, db, form_id)
     return Response(status_code=204, headers={"HX-Redirect": "/admin/formulieren"})
 
 
@@ -830,7 +830,7 @@ def inzending_verwijderen(
 ):
     from app.domains.forms.api import submission_view
 
-    delete_submission(db, form_id, submission_id)
+    _bewerk(delete_submission, db, form_id, submission_id)
     form = _form_or_404(db, form_id)
     subs = list_submissions(db, form.id)
     rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]

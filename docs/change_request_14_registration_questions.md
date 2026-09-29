@@ -294,7 +294,7 @@ Decisions that shape it, with the alternatives:
 | F8 | The admin detail shows the answers as label/value rows; the export adds one column per field after *Opmerkingen*, in field order; a checkbox field joins its options with ", ". | R3 |
 | F9 | The attached form's public URL keeps working as for any form; a submission made there has no registration and is shown as such in the form's submissions view. | R8 |
 | F10 | Soft-deleting a registration leaves the submission in place (history). The form builder's own submissions view shows an attached submission like any other — submitter name and address — and **does not** point back at the registration: that would make `forms` read `activities`, the wrong direction (B4.6; Q19). | R3 |
-| F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. Deleting a form, or one submission, that a registration points at is refused by the builder with the reason, before the `RESTRICT` FK would refuse it without one (the builder deletes hard, with a cascade to the submissions; measured in `delete_form`, `delete_submission`). | AC6 |
+| F11 | The form builder's existing rule — no field change once submissions exist (#665) — protects attached forms unchanged. Deleting a form, or one submission, that a registration points at is refused by the builder with the reason — by the submission's `attached` mark, since a cross-schema `RESTRICT` key is not allowed (B2.2; the builder deletes hard, with a cascade to the submissions; measured in `delete_form`, `delete_submission`). | AC6 |
 | F12 | The registration detail edits the answers through the same field partial and `forms.api.update_attached(db, submission, answers)`, which re-validates with `build_answers` and replaces the answer rows; a history row on the registration records "answers edited" with the old and new values. | R7 |
 | F13 | Replacing a component's form is refused when any registration of the component has a submission; detaching is allowed (the submissions stay). | R10 |
 | F14 | The book: a print view per component — one block per living registration, ordered by contact name: contact name, the person's address through `mdm.api` when the registration has a person, the product quantities, then the answers as label and value in field order ("nog niet beantwoord" when open) — a registration without a person shows no address, and the book says so, so the organiser asks for it (the Sint activity is members-only, so it does not arise there); a CSS page break between blocks; printed from the browser, no PDF engine (WeasyPrint exists for the meetings and is not needed for a page the browser prints). | R14 |
@@ -461,7 +461,7 @@ flowchart TB
     A3n["service — new:<br/>answer_questions · attach / detach rules"]
     A3c["service — changed:<br/>create_registration · export"]
     A4c["entities — changed:<br/>Registration (+form_submission_id, +answer_token, check()) ·<br/>ActivitySubRegistration (+form_id)"]
-    A5n["migration — new:<br/>three nullable columns"]
+    A5n["migration — new:<br/>three nullable columns + form_submissions.attached"]
     A1n --> A3n
     A1c --> A2c --> A3c --> A4c
     A3n --> A4c
@@ -487,7 +487,7 @@ flowchart TB
   A3c --> P1u
   A3c --> M1c
   A1c -. renders .-> F2u
-  A4c -. FK .-> F2u
+  A4c -. soft reference .-> F2u
   P1u --> MOL
   classDef new fill:#dcfce7,stroke:#15803d,color:#111
   classDef chg fill:#ffedd5,stroke:#c2410c,color:#111
@@ -500,30 +500,47 @@ flowchart TB
 `activities` reaches `forms`, `payment` and `mail` only through their
 facades (the import gate); the template include of `_formulier_veld.html`
 is a *read* of a template, which the layer gate allows as it allows the
-macros. `Registration.check()` reads its `form_submission` relationship —
-an ORM read across the schema line, the precedent `person_id → mdm.persons`
-already sets; a read, so under the layer gate and the no-foreign-writes
-gate it is allowed, and it is said here so the first review does not have
-to decide it. `forms` reaches nothing new. Read by colour: in `activities` two
+macros. **No ORM relationship across the schema line** (revised while
+building phase 2): a component's form and a registration's submission are
+read explicitly through `forms.api` (`find_form`, `submission_views`), never
+through a relationship into `form`. `Registration.check()` therefore does not
+look at the submission; "the answers belong to the component's form" holds by
+construction at its one writer, `take_answers`, which creates the submission
+for the component's own form (B4.2). `forms` reaches nothing new. Read by colour: in `activities` two
 things are new (the answer page with its service, the book) and every
 layer changes; in `forms` only the facade grows and nothing existing
 changes; `mail` changes one template; `payment` and `reporting` are
 untouched.
 
-- **Cross-schema FKs** `activities.activity_sub_registrations.form_id →
-  form.forms.id` and `activities.registrations.form_submission_id →
-  form.form_submissions.id`, both nullable — the pattern
-  `registrations.person_id → mdm.persons` already uses. `ON DELETE`:
-  `SET NULL` for `form_id` (a deleted form detaches; the component keeps
-  working); `RESTRICT` for `form_submission_id` (an answered submission is
-  not deleted under a registration — #94 phase 4 decides per FK, this one is
-  decided here).
+- **Soft references into `form`, no foreign keys across the schemas**
+  (revised while building phase 2, 29 September 2026). `activities.activity_sub_registrations.form_id`
+  and `activities.registrations.form_submission_id` point into `form`
+  without a database constraint — the ORM keeps its `ForeignKey` for the join.
+  This section first planned two cross-schema FKs, `SET NULL` and
+  `RESTRICT`, "the pattern `registrations.person_id → mdm.persons` already
+  uses". Measured: that key does not exist — migrations 078/081 made
+  `person_id` a soft reference — and `test_schema_boundaries` (#396/#397)
+  refuses any FK across schemas but one towards a foundation's `*_codes`
+  table. What the two keys were for is done in code:
+  - **`RESTRICT` → the `attached` mark.** `form.form_submissions` gains one
+    column, `attached` (boolean, default false); `forms.api.submit_attached`
+    sets it, and the builder refuses to delete an attached submission, or a
+    form that has one, with the reason (F11). `forms` learns *that*
+    something holds the answers, never *what* — the dependency keeps its
+    direction.
+  - **`SET NULL` → a component whose form is gone asks nothing.** A form
+    attached but never answered may be deleted in the builder; the id stays
+    behind, `component.question_form` is None, and every reader goes by that,
+    not by `form_id`. The picker no longer offers the vanished form, so the
+    next save detaches it.
 - **CR-13 rules respected:** no foreign write (forms creates its rows);
   the door service commits once (the answers, the registration and the
   payment record in one transaction, `create_registration`'s existing
   commit); no rule in a router (the "required answers" rule is `forms`'
   `build_answers`; the one cross-object rule — a linked submission belongs to the
-  component's form — is `Registration.check()`, on flush; "a component with
+  component's form — holds at its one writer, `take_answers`, which creates the
+  submission for that form (no `check()` rule: the submission lies across the
+  schema line, and a flush reads only what is loaded); "a component with
   a form needs answers" is *not* an invariant of the row, because "later"
   exists (R2): the rule at the entrances is "now means complete", enforced
   by `build_answers` wherever answers are posted); no new JSON route
@@ -576,18 +593,19 @@ In build order; the effort per module and phase is in B3.
   token), new `answer_questions(db, token, answers)`, attach/detach with
   the refusals of F2 and F13, `export.py` with the answer columns in one
   call, the same read feeding the book view; entity `Registration` (+`form_submission_id`, +`answer_token`,
-  `check()` rule), `ActivitySubRegistration` (+`form_id`).
-- **Database:** three nullable columns, two FKs, a partial unique, one CHECK;
-  one additive migration:
+  no `check()` rule, B2.2), `ActivitySubRegistration` (+`form_id`).
+- **Database:** three nullable columns in `activities` and one flag in
+  `form`, no foreign key across the schemas (B2.2), a partial unique, one
+  CHECK; one additive migration:
 
   | Table | Change | Validation |
   |---|---|---|
-  | `activities.activity_sub_registrations` | `form_id INTEGER NULL REFERENCES form.forms(id) ON DELETE SET NULL` | attach rule in the service (open, tenant, one section); nothing at rest beyond the FK |
-  | `activities.registrations` | `form_submission_id INTEGER NULL REFERENCES form.form_submissions(id) ON DELETE RESTRICT`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the pattern CR-13 uses under soft delete); `answer_token VARCHAR(64) NULL UNIQUE` | `Registration.check()`: a linked submission belongs to the component's form; `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
-  | `form.*` | unchanged | the forms rules as today |
+  | `activities.activity_sub_registrations` | `form_id INTEGER NULL`, a soft reference to `form.forms` | attach rule in the service (open, tenant, one section); a deleted form leaves the component asking nothing |
+  | `activities.registrations` | `form_submission_id INTEGER NULL`, a soft reference to `form.form_submissions`, `UNIQUE` (partial, `WHERE deleted_at IS NULL`, the pattern CR-13 uses under soft delete); `answer_token VARCHAR(64) NULL UNIQUE` | a linked submission belongs to the component's form, by construction at its one writer (`take_answers`); `CHECK (form_submission_id IS NULL OR answer_token IS NULL)` — answered and still open cannot both be true |
+  | `form.form_submissions` | `attached BOOLEAN NOT NULL DEFAULT false` | the builder refuses to delete an attached submission, or a form with one (F11) |
   
   One migration, `alembic revision -m "component form, registration
-  submission and answer token"`, `ADDITIVE = True`, no data step; both
+  submission and answer token"`, `ADDITIVE = True`, no data step; the three
   tables checked for existing CHECK constraints on these columns: none.
 - **Templates and mail:** `_inschrijf_velden.html` (the questions block with
   the choice), `inschrijven.html`, the thank-you page; the mail is `mail`'s.
@@ -603,9 +621,10 @@ In build order; the effort per module and phase is in B3.
   `build_answers`, no mail; they raise `VeldFout` — or `FormError` with the
   alias, added here if CR-13 has not yet); reads `attachable_forms(db)`,
   `answers_from_form(form, form_data)` (the private parser of `forms/ui.py`
-  exported, not copied), `submission_views(db, ids)` (batched). Service and
-  entities unchanged.
-- **Database:** nothing.
+  exported, not copied), `submission_views(db, ids)` (batched). The service
+  refuses to delete an attached submission, or a form with one (F11).
+- **Database:** one column, `form_submissions.attached` (B2.2: it stands in for
+  the `RESTRICT` key a cross-schema FK would have been).
 - **Templates:** `_formulier_veld.html` and `screenfields.py` are used as
   they are — the registration page renders the same macro.
 - **Tests:** B7 7, 12; the forms suite unchanged.
@@ -750,14 +769,26 @@ payment record:
    refusals take today; the JSON route does not catch it, so the API
    answers 422 with the field, which is what an API caller expects. One
    rule, two presentations; neither channel lenient (R4).
-2. `registration.form_submission_id = submission.id`; `Registration.check()`
-   on flush confirms: a linked submission's `form_id` is the component's
-   `form_id`. (Not "component with a form ⇒ submission": "later" exists,
-   R2.) With "later", step 1 is replaced by `answer_token = new_token()`.
+2. `registration.form_submission_id = submission.id` — a submission
+   `take_answers` just created for the component's own form, so it belongs
+   to it by construction (no `check()` rule: no relationship across the
+   schema line, B2.2). (Not "component with a form ⇒ submission": "later"
+   exists, R2.) With "later", step 1 is replaced by `answer_token = new_token()`.
 3. `payment.api.create_payment_record` — as today; a Mollie failure rolls
    back the registration **and the submission** (one transaction; today's
    502 path).
 4. `db.commit()`, mail.
+
+**A synchronous command into `forms`, by decision** (Koen, 29 September 2026,
+while building phase 2). CR-13 R12 says a consequence in another domain goes
+through an event, and its ratchet (`COMMAND_CALLS`, `test_events_not_calls`)
+refuses any new call into another domain's command. This call cannot be an
+event: the refusal must come back to the screen, the submission's id must come
+back to the registration, and both must stay in the registration's own
+transaction (flush, no commit). So it is one named entry in that baseline,
+`activities/service.py::take_answers → forms.api.submit_attached`, with this
+reason on its line. Should a second and a third synchronous command of this kind
+come, it becomes a command port in the kernel, and that port replaces the entry.
 
 The answers are validated *before* the registration's own "full" and
 "already registered" checks? No — after `service.register` has passed them,
@@ -992,9 +1023,9 @@ marked, the way the form builder marks one (`data-veld`, #741/#749).
   detail, the export and the form builder's views); never on the public
   participant list or in "Wie doet er mee?". They follow the registration's
   soft delete (F10). A form, or a single submission, that a registration
-  points at cannot be deleted: the FK is `RESTRICT`, and the builder refuses
-  it first, with the reason ("dit formulier heeft antwoorden op
-  inschrijvingen") — the answers belong to the registration, so the form
+  points at cannot be deleted: the builder refuses it by the submission's
+  `attached` mark, with the reason ("dit formulier heeft antwoorden op
+  inschrijvingen"; no cross-schema key, B2.2) — the answers belong to the registration, so the form
   stays as long as the registration does (F11).
 - **What leaves the system.** The confirmation mail, to the registrant's own
   address, repeats the answers (R6) — the member's own words back to the
@@ -1070,9 +1101,10 @@ Each able to go red:
    sheet has three extra columns after *Opmerkingen*, headers = labels, in
    field order; a checkbox answer joined with ", "; the answers are fetched
    in one call for all rows (a query counter, not a timing).
-8. **Detached object.** `Registration.check()` on an in-memory registration
-   whose submission belongs to another form → refused; the component's form
-   → passes; no submission → passes ("later"); no session (CR-13 test 5).
+8. **The one writer** (revised: no `check()` rule, B2.2). The submission a
+   registration links is the one `take_answers` created for the component's
+   form — asserted in test 5; there is no other path that sets
+   `form_submission_id`.
 9. **Replace refused, detach allowed.** A component with one answered
    registration: attaching another form → refused with the message; detaching
    → allowed, the submission still there (F13).
@@ -1089,10 +1121,13 @@ Each able to go red:
     blocks in contact-name order, two page breaks, the open one saying
     "nog niet beantwoord", the address present for the member and absent
     for the guest; the same answers as the export (one read).
-14. **Delete refused.** Deleting the form, and deleting the one submission,
-    that a registration points at → refused with the reason; the form and
-    the submission still there; a form without linked submissions → deleted
-    as today (F11).
+14. **Delete refused, without a key.** Deleting the form, and deleting the
+    one submission, that a registration holds → refused by the builder's own
+    service on the submission's `attached` mark, with the reason; the form and
+    the submission still there; a form without attached submissions → deleted
+    as today, and a component that asked it then asks nothing (F11). There is
+    no database key behind this (B2.2): the refusal is the whole guard, and
+    the test proves it by breaking the check, not the key.
 
 **Impact on the test landscape**, per module:
 
@@ -1164,6 +1199,9 @@ None yet. To measure before the build of phase 2:
 | 29 Sep 2026 | Following up — that everyone answered, that every transfer arrived — is out of scope (R12 Won't): the tool supports it neither in the as-is nor in the to-be; it stays by hand. | Koen |
 | 29 Sep 2026 | Nothing is provided for health data today (an allergy is an answer like any other). The form builder does not point back at the registration. Three phases: the page first, then the questions, then mail and editing. | Koen |
 | 29 Sep 2026 | The board fills the questions in completely or not at all — one explicit choice, no board-only leniency in validation; "not at all" sends the member the link. **Extended the same day to the member:** the public page has the same choice, now or later via the link; default "nu" on both. | Koen |
+| 29 Sep 2026 | Built phase 2: no foreign key across the schemas — soft references into `form`, and a `form_submissions.attached` mark for F11 (measured: `registrations.person_id` has been a soft reference since 078; `test_schema_boundaries` refuses the key). B2.2, B2.3, B5 and F11 say so. A spent answer link answers the same 404 as an unknown one (B5 and the CHECK), with "already answered is all well" in its text; B7 test 3's "al ingevuld" on a second visit is not built. | master CLI |
+| 29 Sep 2026 | The answers are a synchronous command into `forms` — one named exception in CR-13's `COMMAND_CALLS` baseline (B4.2); a second and a third of the kind become a kernel command port. | Koen |
+| 29 Sep 2026 | No ORM relationship across the schema line either: the component's form and the submission are read through `forms.api`; "the answers belong to the component's form" holds at its one writer, not in `check()` (B2.2, B4.2, B7 tests 8 and 14). | master CLI, after review by the architecture track |
 
 ## Q&A log — asked once, answered here
 
