@@ -667,6 +667,8 @@ def update_component(
     component = get_component(db, component_id, activity_id=activity_id)
     if component is None:
         return None
+    if "form_id" in velden:
+        _check_questions(db, component, velden["form_id"])
     for veld, waarde in velden.items():
         setattr(component, veld, waarde)
     snapshot_component(
@@ -680,6 +682,72 @@ def update_component(
     db.commit()
     db.refresh(component)
     return component
+
+
+def _check_questions(db: Session, component: ActivitySubRegistration, form_id: int | None) -> None:
+    """May this component ask the questions of `form_id` (None: none)? CR-14 §B4.5.
+
+    Detaching is always allowed — the answers stay with their registrations. A
+    form must be one a registration page can ask (`forms.api.attach_refusal`, F2).
+    Replacing the form is refused once a registration has answered (F13): the
+    answers of one component belong to one form, and the export has one set of
+    columns."""
+    from app.domains.forms.api import attach_refusal, get_form
+    from app.i18n import _ as vertaal
+
+    if form_id is None or form_id == component.form_id:
+        return
+    try:
+        form = get_form(db, form_id)
+    except LookupError:
+        raise ActiviteitFout(vertaal("Dat formulier bestaat niet.")) from None
+    refusal = attach_refusal(form)
+    if refusal:
+        raise ActiviteitFout(refusal)
+    if component.form_id is not None and (
+        db.query(Registration.id)
+        .filter(
+            Registration.component_id == component.id,
+            Registration.form_submission_id.isnot(None),
+        )
+        .first()
+        is not None
+    ):
+        raise ActiviteitFout(
+            vertaal(
+                "Dit onderdeel heeft al antwoorden op zijn vragen. Een ander formulier "
+                "koppelen kan niet; ontkoppel het en maak een nieuw onderdeel voor de "
+                "nieuwe vragen."
+            )
+        )
+
+
+def question_forms(db: Session, activity_id: int) -> tuple[list[tuple[int, str]], dict]:
+    """What the component settings offer under "Extra vragen": the forms that can be
+    attached, by title, plus a form a component already asks that can no longer be
+    offered (closed since) — otherwise the select would silently drop it on save.
+    And {component id: form id} for the components that ask questions."""
+    from app.domains.forms.api import attachable_forms, get_form
+
+    chosen = {
+        c.id: c.form_id
+        for c in db.query(ActivitySubRegistration)
+        .filter(
+            ActivitySubRegistration.activity_id == activity_id,
+            ActivitySubRegistration.form_id.isnot(None),
+        )
+        .all()
+    }
+    options = [(f.id, f.title) for f in attachable_forms(db)]
+    offered = {i for i, _t in options}
+    for form_id in sorted(set(chosen.values()) - offered):
+        try:
+            options.append((form_id, get_form(db, form_id).title))
+        except LookupError:
+            # Deleted in the builder since (a soft reference, #396): not offered,
+            # so saving the component detaches it.
+            continue
+    return options, chosen
 
 
 def delete_component(
@@ -1190,22 +1258,210 @@ def register(
                 vertaal("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk.")
             )
 
-    db.add(registration)
-    db.flush()
-    for item in data.items:
-        if item.quantity <= 0:
-            continue
-        line = RegistrationItem(
-            registration_id=registration.id, product_id=item.product_id, quantity=item.quantity
-        )
-        db.add(line)
+    if component is not None and component.form_id is not None:
+        # CR-14 F3: a component with questions asks for remarks itself if it wants
+        # them; the registration's own remarks box is not shown, and stays empty.
+        registration.remarks = None
+
+    # CR-14 §B4.2: the answers come last, after every other rule, so nobody is
+    # asked to fix an answer on a component that is full. A refused answer comes
+    # after the rows are flushed — the savepoint takes them back with it.
+    savepoint = db.begin_nested()
+    try:
+        db.add(registration)
         db.flush()
-        snapshot_registration_item(
-            db, line, operation="insert", action="order_created", source="registration", actor=actor
-        )
+        for item in data.items:
+            if item.quantity <= 0:
+                continue
+            line = RegistrationItem(
+                registration_id=registration.id, product_id=item.product_id, quantity=item.quantity
+            )
+            db.add(line)
+            db.flush()
+            snapshot_registration_item(
+                db,
+                line,
+                operation="insert",
+                action="order_created",
+                source="registration",
+                actor=actor,
+            )
+        take_answers(db, registration, component, data.answers)
+    except Exception:
+        savepoint.rollback()
+        raise
+    savepoint.commit()
     db.flush()
     db.refresh(registration)
     return registration
+
+
+def question_form(db: Session, component: Optional[ActivitySubRegistration]) -> Optional[Any]:
+    """The form whose questions this component asks, or None (CR-14). An explicit
+    read through `forms.api`, not an ORM relationship across the schema line
+    (#396); a form deleted in the builder is None, and the component asks nothing."""
+    if component is None or component.form_id is None:
+        return None
+    from app.domains.forms.api import find_form
+
+    return find_form(db, component.form_id)
+
+
+def registration_awaiting_answers(db: Session, token: str) -> Optional[Registration]:
+    """The registration an answer link belongs to, while it still awaits its
+    answers — or None (CR-14 §B4.8). The token is the only key: never the id. A
+    used token is cleared, so it finds nothing, the same as a token that never
+    existed (§B5: nothing revealed)."""
+    if not token:
+        return None
+    registration = db.query(Registration).filter(Registration.answer_token == token).first()
+    if registration is None or registration.component is None:
+        return None
+    if question_form(db, registration.component) is None:
+        return None
+    return registration
+
+
+def answer_path(db: Session, registration_id: Optional[int]) -> Optional[str]:
+    """Where a registration's open answer link points (CR-14 §B4.8), or None when it
+    has none — the one spelling of the path, for the thank-you page and the mail."""
+    if registration_id is None:
+        return None
+    token = db.query(Registration.answer_token).filter(Registration.id == registration_id).scalar()
+    return f"/inschrijving/{token}/vragen" if token else None
+
+
+def answer_questions(db: Session, token: str, answers: list) -> Registration:
+    """The answers of a registration that chose "later" (CR-14 §B4.8).
+
+    The same rules as "now" (`take_answers`: the form's own, complete or refused),
+    in one transaction with clearing the link: answered once, then the link is
+    spent. The registration's closing date is not looked at — closing stops new
+    registrations, not the answers of a household already registered (Q27).
+    `LookupError` for an unknown or spent link."""
+    registration = registration_awaiting_answers(db, token)
+    if registration is None:
+        raise LookupError("answer link")
+    savepoint = db.begin_nested()
+    try:
+        registration.answer_token = None
+        take_answers(db, registration, registration.component, answers)
+    except Exception:
+        savepoint.rollback()
+        raise
+    savepoint.commit()
+    db.commit()
+    return registration
+
+
+def registration_answers(db: Session, registration: Registration) -> tuple[list, Optional[Any]]:
+    """What the registration detail shows about the questions (CR-14 §B4.4): the
+    answers as (label, value) in the form's order — or, while the link is still
+    open, the moment they were asked (the registration's own date). Admin only:
+    never on the public list (§B5)."""
+    if registration.form_submission_id is not None:
+        from app.domains.forms.api import submission_views
+
+        rows = submission_views(db, [registration.form_submission_id])
+        return rows.get(registration.form_submission_id, []), None
+    if registration.answer_token:
+        return [], registration.registered_at
+    return [], None
+
+
+def component_book(db: Session, activity: Activity, component: ActivitySubRegistration) -> list:
+    """The book of a component (CR-14 §B1.1 F14): one block per living
+    registration, by contact name — the name, the address of the person when the
+    registration has one, the products, and the answers in the form's order (None
+    while they are still to come). The same read as the export (`component_answers`),
+    so the book and the sheet cannot say different things."""
+    from app.domains.activities.export import component_answers
+
+    registrations = sorted(
+        (r for r in activity.registrations if r.component_id == component.id),
+        key=lambda r: ((r.contact_name or "").lower(), r.id),
+    )
+    questions, answers = component_answers(db, component, registrations)
+    book = []
+    for reg in registrations:
+        address = getattr(reg.person, "address", None) if reg.person is not None else None
+        line = None
+        if address is not None:
+            street = " ".join(p for p in (address.street, address.house_number) if p)
+            if address.bus_number:
+                street += f" bus {address.bus_number}"
+            place = (
+                f"{address.postal_code.postal_code} {address.postal_code.municipality}"
+                if address.postal_code is not None
+                else ""
+            )
+            line = ", ".join(p for p in (street, place) if p)
+        book.append(
+            {
+                "naam": reg.contact_name or "—",
+                "adres": line,
+                "producten": [
+                    (item.quantity, item.product.name if item.product else "—")
+                    for item in reg.items
+                ],
+                "antwoorden": (
+                    list(zip(questions, answers[reg.id])) if reg.id in answers else None
+                ),
+            }
+        )
+    return book
+
+
+def new_answer_token() -> str:
+    """The secret of an "answer later" link: 32 random url-safe bytes, like the form
+    builder's edit link (CR-14 §B5)."""
+    import secrets
+
+    return secrets.token_urlsafe(32)
+
+
+def take_answers(
+    db: Session,
+    registration: Registration,
+    component: Optional[ActivitySubRegistration],
+    answers: Optional[list],
+) -> None:
+    """The answers to the component's questions, now or later (CR-14 §B4.2, §B4.8).
+
+    A list — even an empty one — is "now": the form's own rules judge it
+    (`forms.api.submit_attached`: required, ranges, options), and a refusal names
+    the question (`VeldFout`, a 422 with the field). None is "later": the
+    registration gets an answer link instead. Complete or not at all — no channel
+    is lenient, and none stores half a form.
+    """
+    from app.i18n import _ as vertaal
+
+    # Not `form_id`: a soft reference (#396) — a form deleted in the builder leaves
+    # the id behind, and then the component asks nothing.
+    form = question_form(db, component)
+    if form is None:
+        if answers:
+            raise ActiviteitFout(vertaal("Dit onderdeel stelt geen vragen."))
+        return
+    if answers is None:
+        registration.answer_token = new_answer_token()
+        db.flush()
+        return
+
+    from app.domains.forms.api import submit_attached
+
+    known = {f.id for f in form.fields}
+    if any(a.field_id not in known for a in answers):
+        raise ActiviteitFout(vertaal("Een antwoord hoort niet bij de vragen van dit onderdeel."))
+    submission = submit_attached(
+        db,
+        form,
+        answers,
+        submitter_name=registration.contact_name,
+        submitter_email=registration.contact_email,
+    )
+    registration.form_submission_id = submission.id
+    db.flush()
 
 
 def require_phone(phone: Optional[str]) -> None:

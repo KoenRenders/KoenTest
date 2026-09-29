@@ -148,9 +148,15 @@ def _aa_detail_ctx(
     # De zonder-onderdeel-kaart (#650) verdween in feedbackronde 2 van golf 8:
     # de Inschrijvingen-tab toont die inschrijvingen als groep "Zonder onderdeel",
     # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
-    from app.domains.activities.api import MAX_ORGANISERS, board_notes, organisers_for
+    from app.domains.activities.api import (
+        MAX_ORGANISERS,
+        board_notes,
+        organisers_for,
+        question_forms,
+    )
 
     organisers = organisers_for(db, activiteit.id)
+    vraagformulieren, gekozen_formulier = question_forms(db, activiteit.id)
     return {
         "a": activiteit,
         "csrf_token": csrf_from_request(request),
@@ -167,6 +173,10 @@ def _aa_detail_ctx(
         # veld erbij zou de nota meteen publiek maken. Ze reist apart, en alleen
         # naar dit scherm.
         "board_notes": board_notes(db, activiteit.id),
+        # CR-14 phase 2 (§B4.5): the forms a component can ask ("Extra vragen"),
+        # and which one each component asks. Not on `a`: that is the public JSON.
+        "question_forms": vraagformulieren,
+        "component_form": gekozen_formulier,
     }
 
 
@@ -621,6 +631,7 @@ async def onderdeel_bijwerken(
     external_register_url: str = Form(""),
     external_registrations_url: str = Form(""),
     info_url: str = Form(""),
+    form_id: str = Form(""),
     file: Optional[UploadFile] = File(None),
 ) -> Response:
     """Bewerkt het onderdeel; één "Opslaan" bewaart tekstvelden én de info-bijlage.
@@ -649,7 +660,13 @@ async def onderdeel_bijwerken(
     # uiterste datum", en dat moet een bestaande kunnen wissen. Dus buiten
     # `exclude_unset` om, met de waarde die het formulier werkelijk stuurde.
     velden["registration_closes_on"] = _datum_of_none(registration_closes_on)
-    if service.update_component(db, activity_id, component_id, velden, actor=email) is None:
+    # CR-14 phase 2: "Extra vragen" — empty detaches, like the deadline above.
+    velden["form_id"] = _opt_int(form_id)
+    try:
+        bijgewerkt = service.update_component(db, activity_id, component_id, velden, actor=email)
+    except service.ActiviteitFout as fout:
+        return _detail_response(request, db, activity_id, error=str(fout))
+    if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
 
     if file is not None and file.filename:
@@ -989,6 +1006,9 @@ def _detail_ctx(
         idx += 1
 
     verrijkt = enrich_registration(reg, activity)
+    from app.domains.activities.api import registration_answers
+
+    antwoorden, gevraagd_op = registration_answers(db, reg)
     for regel in verrijkt["items"]:
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
@@ -1030,6 +1050,10 @@ def _detail_ctx(
         "activiteit_id": reg.activity_id,
         "activiteit_titel": activity.name if activity is not None else "",
         "component_naam": component.name if component is not None else None,
+        # CR-14 phase 2 (§B4.4): the answers to the component's questions, or the
+        # moment they were asked while the answer link is still open.
+        "antwoorden": antwoorden,
+        "antwoorden_gevraagd_op": gevraagd_op,
     }
 
 
@@ -1689,6 +1713,12 @@ def activiteit_inschrijvingen_tab(
                 "aantal": len(rijen),
                 "regs": rijen,
                 "export_href": (f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/export"),
+                # CR-14 F14: the book, for a component that asks questions.
+                "boek_href": (
+                    f"/admin/activiteiten/{activity_id}/onderdelen/{c.id}/boek"
+                    if c.form_id is not None
+                    else None
+                ),
                 "titel_url": None,
                 "datum": None,
             }
@@ -1701,6 +1731,7 @@ def activiteit_inschrijvingen_tab(
                 "aantal": len(zonder),
                 "regs": zonder,
                 "export_href": None,
+                "boek_href": None,
                 "titel_url": None,
                 "datum": None,
             }
@@ -1780,6 +1811,42 @@ def onderdeel_export(
         content=inhoud,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
         headers={"Content-Disposition": f'attachment; filename="{bestandsnaam}"'},
+    )
+
+
+@router.get(
+    "/admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek",
+    response_class=HTMLResponse,
+)
+def component_book_page(
+    activity_id: int,
+    component_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    email: str = Depends(require_admin_ui),
+) -> HTMLResponse:
+    """The book of a component (CR-14 F14): one page per registration, printed from
+    the browser — the Sint's book. Admin only, like the export it is read from."""
+    from app.domains.activities.api import (
+        component_book,
+        get_activity,
+        get_component,
+        question_form,
+    )
+
+    activity = get_activity(db, activity_id)
+    component = get_component(db, component_id, activity_id=activity_id)
+    if activity is None or component is None:
+        raise HTTPException(status_code=404, detail=_("Component not found"))
+    return templates.TemplateResponse(
+        request,
+        "onderdeel_boek.html",
+        {
+            "activiteit": activity.name,
+            "onderdeel": component.name,
+            "vraagt_antwoorden": question_form(db, component) is not None,
+            "blokken": component_book(db, activity, component),
+        },
     )
 
 

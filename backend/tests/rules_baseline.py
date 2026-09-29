@@ -676,8 +676,16 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 # audit snapshots (84 of these) become events or move with their writers; the rest
 # are the couplings B4.9 names — mail, payment, workflow, media — and phase 3's
 # household moves.
+#
+# One entry was ADDED after the freeze, by decision (Koen, 29 September 2026, CR-14
+# §B4.2): a registration's answers are a synchronous command into `forms` — the
+# refusal must come back to the screen and the submission's id to the registration,
+# in the registration's own transaction — which an event cannot do. Should a second
+# and a third synchronous command of this kind come, it becomes a command port in
+# the kernel, and that port replaces these entries.
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
+        "domains/activities/service.py::take_answers → forms.api.submit_attached",  # CR-14 §B4.2: synchronous refusal and returned id; flush, no commit; Koen 29 Sep 2026
         "domains/activities/admin_ui.py::activiteit_bijwerken → media.api.replace_activity_poster",
         "domains/activities/admin_ui.py::affiche_uploaden → media.api.replace_activity_poster",
         "domains/activities/admin_ui.py::affiche_verwijderen → media.api.delete_activity_poster",
@@ -868,8 +876,6 @@ WRITE_OUTSIDE_SERVICE: frozenset[str] = frozenset(
         "domains/chatbot/info_router.py::upsert_cms_info → chatbot.ChatbotInfo",
         "domains/chatbot/info_router.py::upsert_media_info → chatbot.ChatbotInfo",
         "domains/forms/router.py::create_form → forms.Form",
-        "domains/forms/router.py::delete_form → forms.Form",
-        "domains/forms/router.py::delete_submission → forms.FormSubmission",
         "domains/forms/router.py::submit_form → forms.FormSubmission",
         "domains/forms/router.py::update_submission → forms.FormSubmission",
         "domains/mail/router.py::delete_email_log → mail.EmailLog",

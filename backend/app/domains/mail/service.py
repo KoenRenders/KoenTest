@@ -546,9 +546,14 @@ def activity_confirmation_message(
     activity,
     registration=None,
     payment_record=None,
+    answer_url=None,
 ) -> dict:
     """The confirmation of an activity registration, as a finished message for
-    `queue_mail` (CR-13 phase 4: built in the request, sent by a job)."""
+    `queue_mail` (CR-13 phase 4: built in the request, sent by a job).
+
+    `answer_url` (CR-14 §B4.8): the registration chose to answer the component's
+    questions later — the one mail carries the link, after the products and the
+    payment information. Subject and everything else stay as they are."""
     activity_name = escape(activity.name)
     subject = _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
     from datetime import date as _date
@@ -628,6 +633,17 @@ def activity_confirmation_message(
             )
 
     message += _transfer_instructions_html(payment_record)
+
+    if answer_url:
+        message += (
+            "<h4 style='margin-top:12px;margin-bottom:4px'>"
+            + _("Nog even de vragen")
+            + "</h4><p>"
+            + _(
+                "De organisatie stelt nog enkele vragen bij je inschrijving. Beantwoord ze via deze link:"
+            )
+            + f'</p><p><a href="{escape(answer_url)}">{escape(answer_url)}</a></p>'
+        )
 
     return dict(
         to_email=to_email,

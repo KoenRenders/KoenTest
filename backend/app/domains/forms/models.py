@@ -227,6 +227,9 @@ class FormSubmission(TenantMixin, Base):
     submitter_email = Column(String(255), nullable=True)
     # Niet-raadbare sleutel voor de "wijzig je antwoord"-link (enkel bij allow_edit).
     edit_token = Column(String(64), nullable=True, unique=True, index=True)
+    # CR-14 (F11): the answers of something outside the builder — a registration.
+    # The builder does not know what holds them, only that it may not delete them.
+    attached = Column(Boolean, nullable=False, default=False, server_default="false")
 
     form = relationship("Form", back_populates="submissions")
     answers = relationship(

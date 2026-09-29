@@ -411,6 +411,12 @@
   "response_class": "HTMLResponse",
   "response_model": "None"
  },
+ "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/boek": {
+  "endpoint": "app.domains.activities.admin_ui.component_book_page",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
  "GET /admin/activiteiten/{activity_id}/onderdelen/{component_id}/export": {
   "endpoint": "app.domains.activities.admin_ui.onderdeel_export",
   "openapi": null,
@@ -679,6 +685,12 @@
  },
  "GET /archief": {
   "endpoint": "app.domains.activities.ui.archief_redirect",
+  "openapi": null,
+  "response_class": "HTMLResponse",
+  "response_model": "None"
+ },
+ "GET /inschrijving/{token}/vragen": {
+  "endpoint": "app.domains.activities.ui.answer_page",
   "openapi": null,
   "response_class": "HTMLResponse",
   "response_model": "None"
@@ -1389,6 +1401,12 @@
    ]
   },
   "response_class": "",
+  "response_model": "None"
+ },
+ "POST /inschrijving/{token}/vragen": {
+  "endpoint": "app.domains.activities.ui.answer_submit",
+  "openapi": null,
+  "response_class": "HTMLResponse",
   "response_model": "None"
  },
  "PUT /api/v1/activities/{activity_id}": {

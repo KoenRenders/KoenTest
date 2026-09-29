@@ -280,6 +280,18 @@
         {{ ui.input_control("registration_closes_on", id="cdeadline-" ~ c.id, type="date",
                             value=(c.registration_closes_on.strftime("%Y-%m-%d") if c.registration_closes_on else "")) }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1" {% if c.team_name_required %}checked{% endif %}> {{ _("Ploegnaam vereist") }}</label>
+      {# CR-14 phase 2 (§B4.5): the questions this component asks, a form of the
+         form builder — open, one section, not anonymous, no maximum. #}
+      <div class="w-full sm:w-72">{{ ui.label(_("Extra vragen"), "cform-" ~ c.id) }}
+        {% call ui.select_control("form_id", cls="w-full", attrs='id="cform-' ~ c.id ~ '"') %}
+          <option value="">{{ _("Geen") }}</option>
+          {% for fid, titel in question_forms %}
+          <option value="{{ fid }}" {% if component_form.get(c.id) == fid %}selected{% endif %}>{{ titel }}</option>
+          {% endfor %}
+        {% endcall %}</div>
+      {# The hint on its own line, not in the column: this form aligns its columns
+         on their bottom edge (#656). #}
+      <p class="w-full text-xs text-ink-soft -mt-1">{{ _("Extra vragen: het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.") }}</p>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
         {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}

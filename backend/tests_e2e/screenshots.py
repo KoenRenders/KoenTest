@@ -29,7 +29,7 @@ from typing import Callable, Optional
 
 from playwright.sync_api import sync_playwright
 
-from tests_e2e.schermen import BASE, login_met_sessie
+from tests_e2e.schermen import BASE, login_met_sessie, pagina_klaar
 
 # The audience decides the primary width (CR-08): public screens are judged on
 # a phone, admin screens on a desktop. Both widths are captured for every
@@ -161,7 +161,16 @@ def _open_registration_page(page) -> None:
     link = page.locator('a[href*="/inschrijven/"]').first
     link.wait_for(state="visible", timeout=5000)
     link.click()
-    page.wait_for_selector("#inschrijf-pagina form", timeout=5000)
+    # The link is boosted: htmx swaps the body, and the form exists before the swap
+    # has settled — a screenshot at that moment caught the activities list halfway
+    # through (master CLI on the phase-1 screenshots). Wait for the new URL, Alpine
+    # and htmx at rest, and no element still swapping or settling.
+    page.wait_for_url("**/inschrijven/**", timeout=5000)
+    pagina_klaar(page)
+    page.wait_for_function(
+        "() => !document.querySelector('.htmx-swapping, .htmx-settling, .htmx-added')",
+        timeout=5000,
+    )
 
 
 def _vraag_de_code(page) -> None:

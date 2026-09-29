@@ -114,12 +114,18 @@ def queue_activity_confirmation(event: RegistrationConfirmed, db: Session) -> No
         payment_record = (
             db.get(PaymentRecord, event.payment_record_id) if event.payment_record_id else None
         )
+        # CR-14 §B4.8: "later" was chosen — the mail carries the answer link.
+        from app.domains.activities.api import answer_path
+        from app.kernel.tenant_config import tenant_base_url
+
+        path = answer_path(db, registration.id)
         message = activity_confirmation_message(
             to_email=event.to_email,
             name=event.name,
             activity=registration.activity,
             registration=registration,
             payment_record=payment_record,
+            answer_url=f"{tenant_base_url(db)}{path}" if path else None,
         )
         queue_mail(db, **message)
     except Exception as e:  # noqa: BLE001 — a mail never stops a registration

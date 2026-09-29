@@ -373,3 +373,61 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     db.add(product)
     db.flush()
     return activity, comp, product
+
+
+def seed_question_form(db, title="Sint 2026", **settings):
+    """A form a component can ask (CR-14): open, one section, three questions —
+    "Tijdslot" (checkbox, required, with "Andere…"), "Verhaal" (textarea, required)
+    and "Opmerkingen" (textarea, optional). `settings` overrides the form's own
+    (status, is_anonymous, max_submissions); `sections=2` adds a second section."""
+    import secrets
+
+    from app.domains.forms.models import Form, FormField, FormFieldOption, FormSection
+
+    sections = settings.pop("sections", 1)
+    form = Form(title=title, share_token=f"tok-{secrets.token_hex(6)}", status="open")
+    for key, value in settings.items():
+        setattr(form, key, value)
+    db.add(form)
+    db.flush()
+    first = None
+    for n in range(sections):
+        section = FormSection(form_id=form.id, title=f"Deel {n + 1}", position=n)
+        db.add(section)
+        db.flush()
+        first = first or section
+    slot = FormField(
+        form_id=form.id,
+        section_id=first.id,
+        field_type="checkbox",
+        label="Tijdslot",
+        required=True,
+        position=0,
+    )
+    db.add(slot)
+    db.flush()
+    for n, label in enumerate(["Voormiddag", "Namiddag"]):
+        db.add(FormFieldOption(field_id=slot.id, label=label, position=n))
+    db.add(FormFieldOption(field_id=slot.id, label="Andere", position=2, is_other=True))
+    db.add(
+        FormField(
+            form_id=form.id,
+            section_id=first.id,
+            field_type="textarea",
+            label="Verhaal",
+            required=True,
+            position=1,
+        )
+    )
+    db.add(
+        FormField(
+            form_id=form.id,
+            section_id=first.id,
+            field_type="textarea",
+            label="Opmerkingen",
+            position=2,
+        )
+    )
+    db.commit()
+    db.refresh(form)
+    return form

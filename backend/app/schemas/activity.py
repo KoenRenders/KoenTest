@@ -8,6 +8,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.domains.forms.api import AnswerIn
+
 
 def _non_negative_price(v: Optional[Decimal]) -> Optional[Decimal]:
     """Weiger negatieve prijzen al op vorm-niveau (nette 422) — naast de
@@ -294,6 +296,10 @@ class RegistrationCreate(BaseModel):
     component_id: Optional[int] = None
     items: List[RegistrationItemCreate] = []
     remarks: Optional[str] = None
+    #: CR-14 phase 2 (§B1.1 F6, §B4.8): the answers to the component's questions.
+    #: A list — even an empty one — means "now": validated by the form's rules,
+    #: refused as a whole. None means "later": the registration gets an answer link.
+    answers: Optional[List[AnswerIn]] = None
 
 
 class RegistrationItemResponse(BaseModel):

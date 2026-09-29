@@ -13,6 +13,28 @@ from app.kernel.ods import build_ods
 _MULTI_SEP = "; "
 
 
+def values_per_field(sub: FormSubmission, fields, option_label: dict) -> dict:
+    """The answers of one submission as text, per field id — several for a
+    checkbox. "Andere…" reads "label: free text". The export's reading, shared with
+    the registration's reads (CR-14 §B4.4), so the two cannot drift apart."""
+    per_field: dict = {f.id: [] for f in fields}
+    for ans in sub.answers:
+        if ans.field_id not in per_field:
+            continue
+        if ans.value_option_id is not None:
+            label = option_label.get(ans.value_option_id, "")
+            if ans.value_text:
+                label = f"{label}: {ans.value_text}" if label else ans.value_text
+            per_field[ans.field_id].append(label)
+        elif ans.value_text is not None:
+            per_field[ans.field_id].append(ans.value_text)
+        elif ans.value_number is not None:
+            per_field[ans.field_id].append(f"{ans.value_number}")
+        elif ans.value_rating is not None:
+            per_field[ans.field_id].append(str(ans.value_rating))
+    return per_field
+
+
 def _build_table(db, form: Form):
     """Geeft (headers, rows) terug. rows = lijst van lijsten (strings/getallen)."""
     option_label = {}
@@ -31,24 +53,7 @@ def _build_table(db, form: Form):
 
     rows = []
     for sub in submissions:
-        # Verzamel per veld de waarde(n).
-        per_field: dict = {f.id: [] for f in form.fields}
-        for ans in sub.answers:
-            if ans.field_id not in per_field:
-                continue
-            if ans.value_option_id is not None:
-                label = option_label.get(ans.value_option_id, "")
-                # "Andere…"-optie: toon "label: vrije tekst".
-                if ans.value_text:
-                    label = f"{label}: {ans.value_text}" if label else ans.value_text
-                per_field[ans.field_id].append(label)
-            elif ans.value_text is not None:
-                per_field[ans.field_id].append(ans.value_text)
-            elif ans.value_number is not None:
-                per_field[ans.field_id].append(f"{ans.value_number}")
-            elif ans.value_rating is not None:
-                per_field[ans.field_id].append(str(ans.value_rating))
-
+        per_field = values_per_field(sub, form.fields, option_label)
         when = sub.submitted_at.strftime("%d/%m/%Y %H:%M") if sub.submitted_at else ""
         row = [when, sub.submitter_name or "", sub.submitter_email or ""]
         for f in form.fields:

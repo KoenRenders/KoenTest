@@ -34,8 +34,33 @@
     <div id="prijsblok-{{ component.id }}" class="space-y-3">
       {% include "_inschrijf_prijsblok.html" %}
     </div>
+    {% if vragen %}
+    {# CR-14 phase 2 (§B4.8): the component's questions, after the products and
+       before the payment — rendered by the form builder's own partial, with its
+       keys (`f<field id>`), so its own parser reads them (§B4.3). One explicit
+       choice above them, the same on the member's page and the board's, "nu" by
+       default. "Later" hides the questions and posts none: the registration gets
+       the answer link in its confirmation mail. The fields are never `required`
+       in the browser — hidden behind "later" they would block the submit; the
+       server judges them (`build_answers`) and names the one it refuses. #}
+    {% from "_formulier_veld.html" import veld with context %}
+    <div x-data="{ nu: {{ 'true' if vragen_nu else 'false' }} }" class="space-y-3">
+      <fieldset>
+        <legend class="text-sm font-medium text-ink mb-1">{{ _("Vragen") }}</legend>
+        <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="now" @change="nu = true" {% if vragen_nu %}checked{% endif %}> {{ _("Nu invullen") }}</label>
+        <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="later" @change="nu = false" {% if not vragen_nu %}checked{% endif %}> {{ _("Later, via de link in de bevestigingsmail") }}</label>
+      </fieldset>
+      <div id="inschrijf-vragen" x-show="nu" {% if not vragen_nu %}style="display: none"{% endif %}>
+        {% for f in vragen %}
+        <div class="{{ 'rounded-lg ring-2 ring-red-600 p-2' if vraag_fout == f.id else '' }}">{{ veld(f, True) }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    {# CR-14 F3: with questions the form asks for remarks itself if it wants them. #}
     <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
       {{ ui.textarea_control("remarks", id="remarks", rows=2, value=values.get("remarks", ""), placeholder=_("Eventuele boodschap voor de organisatie…"), cls="w-full") }}</div>
+    {% endif %}
     {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
        `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
        ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt

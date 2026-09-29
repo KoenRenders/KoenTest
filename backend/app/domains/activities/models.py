@@ -10,12 +10,14 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     Time,
     event,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
@@ -346,6 +348,19 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
         CheckConstraint(
             "btrim(contact_email) <> ''", name="ck_registrations_contact_email_not_blank"
         ),
+        # CR-14 phase 2 (§B2.3): answered and still waiting for answers cannot both
+        # be true — the answer link is cleared when the answers come in.
+        CheckConstraint(
+            "form_submission_id IS NULL OR answer_token IS NULL",
+            name="ck_registrations_answered_or_open",
+        ),
+        Index(
+            "uq_registrations_form_submission_id_living",
+            "form_submission_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL AND form_submission_id IS NOT NULL"),
+        ),
+        Index("uq_registrations_answer_token", "answer_token", unique=True),
         {"schema": "activities"},
     )
 
@@ -376,6 +391,13 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
         nullable=True,
     )
     remarks = Column(Text, nullable=True)
+    # CR-14 phase 2 (§B4.2, §B4.8): the answers to the component's questions, or —
+    # while they are still to come — the secret of the link that asks for them. A
+    # soft reference across the schema line (#396): no key in the database and no
+    # ORM relationship — whoever needs the submission reads it through `forms.api`.
+    # The form builder refuses to delete a submission it marked `attached`.
+    form_submission_id = Column(Integer, nullable=True)
+    answer_token = Column(String(64), nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", backref="registrations")
@@ -449,7 +471,13 @@ class Registration(TenantMixin, SoftDeleteMixin, Base):
         return Money(compute_registration_total(self)[0])
 
     def check(self) -> None:
-        """The rule over several fields: a component that asks for a team name gets one."""
+        """The rule over several fields: a component that asks for a team name gets one.
+
+        Not here: "the answers belong to the component's own questions" (CR-14). The
+        submission lives across the schema line, and a rule on a flush reads only
+        what is loaded; it holds by construction at its one writer
+        (`service.take_answers`, which creates the submission for the component's
+        own form)."""
         component = self.component if self.component_id is not None else None
         if component is not None and component.team_name_required and _blank(self.team_name):
             from app.i18n import _
@@ -516,6 +544,11 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     member_price = Column(Numeric(10, 2), nullable=True)
     is_free = Column(Boolean, default=True, nullable=False)
     team_name_required = Column(Boolean, default=False, nullable=False)
+    # CR-14 phase 2 (§B4.5): the questions this component asks, a form of the form
+    # builder. A soft reference (#396): no key, no ORM relationship — read through
+    # `service.question_form`. A form deleted in the builder leaves the id behind,
+    # and the component then asks nothing.
+    form_id = Column(Integer, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
