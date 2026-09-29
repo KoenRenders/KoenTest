@@ -216,7 +216,7 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
     left alone, so regenerating after a change in the programme never eats work.
     """
     from app.domains.activities.api import activity_dates_active_between, activity_dates_from
-    from app.domains.mdm.api import new_members_between
+    from app.domains.membership.api import new_members_between
 
     if previous is None:
         previous = previous_meeting(db, meeting.meeting_date, exclude_id=meeting.id)
@@ -261,9 +261,7 @@ def generate_agenda(db: Session, meeting: Meeting, previous: Optional[Meeting] =
     if members is not None:
         _replace_generated(db, members)
         window_end = meeting.meeting_date + timedelta(days=1)
-        for position, new_member in enumerate(
-            new_members_between(db, _as_dt(since), _as_dt(window_end))
-        ):
+        for position, new_member in enumerate(new_members_between(db, since, window_end)):
             db.add(
                 MeetingItem(
                     meeting_id=meeting.id,
@@ -444,11 +442,6 @@ def _carry_over(
                     carried_over_from=item.id,
                 )
             )
-
-
-def _as_dt(day: date) -> datetime:
-    """Midnight UTC of that day — `Member.created_at` is a timestamp."""
-    return datetime(day.year, day.month, day.day, tzinfo=timezone.utc)
 
 
 # ── Editing the document ─────────────────────────────────────────────────────

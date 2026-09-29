@@ -22,8 +22,8 @@ waaruit de nieuwsbriefketen (CR-05) straks put.
 | Component | Waarvoor |
 |---|---|
 | `activities.api` | `activity_dates_active_between`, `activity_dates_from` (de twee activiteitensecties en de kiezer: one point per date since #1335), `registration_counts` (het aantal op de regel) |
-| `mdm.api` | `organization_circle` (de vergaderkring), `new_members_between`, `add_to_circle`, `end_circle_relation` |
-| `membership.api` | `members_with_membership_for_year`, `renewal_open`, `renewal_years` (de ledenkop) |
+| `mdm.api` | `organization_circle` (de vergaderkring), `add_to_circle`, `end_circle_relation` |
+| `membership.api` | `members_with_membership_for_year`, `renewal_open`, `renewal_years` (de ledenkop), `new_members_between` (de sectie Leden: wie een eerste lidmaatschap begon, #1358) |
 | `mail.api` | `send_with_attachments` (één mail, iedereen in To) |
 
 ## Events
