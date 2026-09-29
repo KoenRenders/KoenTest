@@ -70,6 +70,8 @@ class MeetingDocumentView(ViewModel):
     sections: list[Any]
     # The circle, with who is ticked present or excused.
     circle: list[Any]
+    # Why the circle of the meeting's date is empty, when it is (#1346).
+    circle_gap: str
     # Iedereen die bij deze vergadering hoort: de kring van dát moment, de gasten,
     # én wie aangevinkt staat maar de kring intussen verlaten heeft. Afgeleid in de
     # service, want het is een regel en geen opsomming.
@@ -144,6 +146,9 @@ class MeetingCircleView(ViewModel):
     candidates: list[Any]
     query: str
     signature: str
+    # The default of the start-date fields, ISO (#1346): today, since a person
+    # usually joins the circle on the day they are added.
+    today: str
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)

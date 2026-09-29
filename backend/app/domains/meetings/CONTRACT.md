@@ -26,6 +26,12 @@ waaruit de nieuwsbriefketen (CR-05) straks put.
 | `membership.api` | `members_with_membership_for_year`, `renewal_open`, `renewal_years` (de ledenkop) |
 | `mail.api` | `send_with_attachments` (één mail, iedereen in To) |
 
+## Events
+
+- Publishes `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346) when the
+  circle screen stores a start date; `mdm`, which owns the relation, writes it.
+  `choose_circle_start` is the door and commits.
+
 ## Wat andere componenten hier halen
 
 Vandaag: niets. De nieuwsbriefketen (CR-05) wordt de eerste afnemer en leest

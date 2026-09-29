@@ -11,18 +11,32 @@
   {% else %}
   <div class="mt-3 divide-y divide-line">
     {% for entry in circle %}
-    <div class="flex items-center gap-3 py-2.5">
-      <span class="font-medium text-sm">{{ entry.person.first_name }} {{ entry.person.last_name }}</span>
-      {% if entry.email %}
-      <span class="text-sm text-ink-soft">{{ entry.email }}</span>
-      {% else %}
-      <span class="text-sm text-brand-danger">{{ _("geen e-mailadres — krijgt de mails niet") }}</span>
-      {% endif %}
-      <form class="ml-auto" hx-post="/admin/vergaderingen/kring/{{ entry.relation_id }}/beeindigen"
-            hx-target="#vg-kring" hx-swap="innerHTML"
-            data-confirm="{{ _("%(naam)s uit de vergaderkring halen? Oude verslagen blijven ongewijzigd.", naam=entry.person.first_name) }}">
+    <div class="py-2.5">
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span class="font-medium text-sm">{{ entry.person.first_name }} {{ entry.person.last_name }}</span>
+        {% if entry.email %}
+        <span class="text-sm text-ink-soft min-w-0 break-all">{{ entry.email }}</span>
+        {% else %}
+        <span class="text-sm text-brand-danger">{{ _("geen e-mailadres — krijgt de mails niet") }}</span>
+        {% endif %}
+        <form class="ml-auto" hx-post="/admin/vergaderingen/kring/{{ entry.relation_id }}/beeindigen"
+              hx-target="#vg-kring" hx-swap="innerHTML"
+              data-confirm="{{ _("%(naam)s uit de vergaderkring halen? Oude verslagen blijven ongewijzigd.", naam=entry.person.first_name) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          {{ ui.btn_secondary(_("Uit de kring"), type="submit", size="sm") }}
+        </form>
+      </div>
+      {# #1346: a meeting uses the circle of its own date, so the start date decides
+         for which meetings this person counts. Changeable, because until #1346
+         it was always the day of adding. #}
+      <form class="mt-2 flex flex-wrap items-center gap-2"
+            hx-post="/admin/vergaderingen/kring/{{ entry.relation_id }}/start"
+            hx-target="#vg-kring" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {{ ui.btn_secondary(_("Uit de kring"), type="submit", size="sm") }}
+        {% call ui.inline_label(_("In de kring sinds"), "vg-start-" ~ entry.relation_id, text_cls="text-sm text-ink-soft") %}
+          {{ ui.input_control("start_date", id="vg-start-" ~ entry.relation_id, type="date", value=(entry.start_date.isoformat() if entry.start_date else ""), cls="w-40") }}
+        {% endcall %}
+        {{ ui.btn_secondary(_("Datum bewaren"), type="submit", size="sm") }}
       </form>
     </div>
     {% endfor %}
@@ -32,6 +46,13 @@
 
 <div class="bg-surface border border-line rounded-2xl p-5 mt-4">
   <h2 class="font-semibold text-blue-700">{{ _("Iemand toevoegen") }}</h2>
+  {# #1346: one start date for every "Toevoegen" below; each result form takes it
+     along with `hx-include`. Outside the results, so a new search keeps it. #}
+  <div class="mt-3">
+    {% call ui.inline_label(_("In de kring vanaf"), "vg-kring-start", text_cls="text-sm text-ink-soft") %}
+      {{ ui.input_control("start_date", id="vg-kring-start", type="date", value=today, cls="w-40") }}
+    {% endcall %}
+  </div>
   {# Het zoekveld vervangt ALLEEN de resultaten en niet zichzelf. Vervang je het
      hele blok, dan wordt het invoerveld bij elke toetsaanslag opnieuw opgebouwd —
      de focus springt weg en je typt opnieuw. `hx-select` haalt het stuk uit
@@ -46,7 +67,7 @@
   <div class="mt-3 divide-y divide-line">
     {% for person in candidates %}
     <form class="flex items-center gap-3 py-2" hx-post="/admin/vergaderingen/kring"
-          hx-target="#vg-kring" hx-swap="innerHTML">
+          hx-target="#vg-kring" hx-swap="innerHTML" hx-include="#vg-kring-start">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="person_id" value="{{ person.id }}">
       <span class="text-sm">{{ person.first_name }} {{ person.last_name }}</span>
@@ -79,6 +100,9 @@
     {{ ui.input_control("first_name", required=True, cls="w-36", placeholder=_("Voornaam")) }}
     {{ ui.input_control("last_name", required=True, cls="w-40", placeholder=_("Achternaam")) }}
     {{ ui.input_control("person_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
+    {% call ui.inline_label(_("vanaf"), "vg-kring-nieuw-start", text_cls="text-sm text-ink-soft") %}
+      {{ ui.input_control("start_date", id="vg-kring-nieuw-start", type="date", value=today, cls="w-40") }}
+    {% endcall %}
     {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm") }}
   </form>
 </div>

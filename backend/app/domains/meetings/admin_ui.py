@@ -44,6 +44,8 @@ from app.domains.meetings.api import (
     add_section,
     addable_activities,
     attendance_of,
+    choose_circle_start,
+    circle_gap,
     clock,
     create_meeting,
     delete_file,
@@ -308,6 +310,7 @@ def _circle_view(
         candidates=candidates,
         query=query,
         signature=mail_signature(db),
+        today=date.today().isoformat(),
         csrf_token=_csrf(request),
         error=error,
         nav_items=admin_nav(NAV),
@@ -336,6 +339,7 @@ def circle_add(
     db: Session = Depends(get_db),
     _email: str = Depends(require_admin_ui),
     person_id: int = Form(...),
+    start_date: str = Form(""),
 ):
     from app.domains.mdm.api import add_to_circle, platform_org
 
@@ -348,9 +352,51 @@ def circle_add(
                 request, db, error=_("Er is nog geen organisatie ingesteld.")
             ).as_context(),
         )
-    add_to_circle(db, person_id, organization_id=organization.id)
+    try:
+        on_day = _start_day(start_date)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request, "_vg_kring.html", _circle_view(request, db, error=str(exc)).as_context()
+        )
+    add_to_circle(db, person_id, organization_id=organization.id, on_day=on_day)
     return templates.TemplateResponse(
         request, "_vg_kring.html", _circle_view(request, db).as_context()
+    )
+
+
+def _start_day(value: str) -> Optional[date]:
+    """The start date of a circle form, or None for "today" (#1346)."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValueError(_("Kies een geldige startdatum.")) from None
+
+
+@router.post(
+    "/admin/vergaderingen/kring/{relation_id}/start",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+def circle_start(
+    relation_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _email: str = Depends(require_admin_ui),
+    start_date: str = Form(""),
+):
+    """Change since when someone counts for the circle (#1346)."""
+    from app.domains.mdm.api import MasterDataError
+
+    error = None
+    try:
+        choose_circle_start(db, relation_id, _start_day(start_date))
+    except (ValueError, MasterDataError, MeetingError) as exc:
+        error = str(exc)
+    return templates.TemplateResponse(
+        request, "_vg_kring.html", _circle_view(request, db, error=error).as_context()
     )
 
 
@@ -366,6 +412,7 @@ def circle_new_person(
     first_name: str = Form(""),
     last_name: str = Form(""),
     person_email: str = Form(""),
+    start_date: str = Form(""),
 ):
     """Iemand in de kring die (nog) geen lid is — de afdelingsondersteuner.
 
@@ -385,12 +432,19 @@ def circle_new_person(
             ).as_context(),
         )
     try:
+        on_day = _start_day(start_date)
+    except ValueError as exc:
+        return templates.TemplateResponse(
+            request, "_vg_kring.html", _circle_view(request, db, error=str(exc)).as_context()
+        )
+    try:
         create_person_for_circle(
             db,
             first_name=first_name,
             last_name=last_name,
             email=person_email,
             organization_id=organization.id,
+            on_day=on_day,
         )
     except ValueError:
         return templates.TemplateResponse(
@@ -470,6 +524,7 @@ def _document_view(
         sections=document_of(db, meeting),
         participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
+        circle_gap=circle_gap(db, meeting),
         # Codes, not members: the template puts the value in a `value=` of the
         # form and compares it with a literal. Convert on the boundary
         # (§B4.7) — a member in an attribute renders as `Attendance.PRESENT`

@@ -40,6 +40,9 @@ from app.domains.mail.handlers import (
 )
 from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
+from app.domains.mdm.handlers import (  # noqa: F401 - event subscriptions (#1346)
+    set_circle_start_when_chosen,
+)
 from app.domains.mdm.household_router import router as mdm_household_router
 from app.domains.mdm.import_router import router as member_import_router
 from app.domains.mdm.router import router as mdm_router

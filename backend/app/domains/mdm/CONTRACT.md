@@ -34,6 +34,9 @@ bijbehorende codetabellen — plus merge/survivorship.
 ## Events (kernel, §5.8 — trede 1)
 
 - Publiceert `EntityMerged` (`app.kernel.contracts.mdm`) bij elke merge.
+- Subscribes to `CircleStartChosen` (`app.kernel.contracts.meetings`, #1346): stores
+  the start date of a circle relation, refused by `OrganizationPerson.check()` when
+  it lies after the end (`mdm.handlers`).
 
 ## Data
 
