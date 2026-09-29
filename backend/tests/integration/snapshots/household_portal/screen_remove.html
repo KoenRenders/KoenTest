@@ -10,12 +10,12 @@
 <div class="mt-6 space-y-4">
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
 <div class="flex items-start justify-between">
-<div x-show="!edit">
+<div x-show="!edit" class="min-w-0">
 <span class="font-semibold">Hanne Proef</span>
 <span class="text-xs text-gray-500 ml-1">(Hoofdlid)</span>
 <p class="text-sm text-gray-500 mt-0.5">° 04-03-1980</p>
 <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
-<span class="inline-flex items-start gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 mt-0.5 shrink-0" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> portaal-hoofd@example.com</span>
+<span class="inline-flex items-start gap-1 min-w-0 break-all"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 mt-0.5 shrink-0" aria-hidden="true"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg> portaal-hoofd@example.com</span>
 </div>
 <p class="text-sm text-gray-500 mt-0.5 flex items-start gap-1"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 mt-0.5 shrink-0" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg> Proefstraat 1, 2399 Proefdorp</p>
 </div>
@@ -94,7 +94,7 @@
 </div>
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
 <div class="flex items-start justify-between">
-<div x-show="!edit">
+<div x-show="!edit" class="min-w-0">
 <span class="font-semibold">Lotte Proef</span>
 <span class="text-xs text-gray-500 ml-1">((meerderjarig) kind)</span>
 <p class="text-sm text-gray-500 mt-0.5">° 08-07-2010</p>
