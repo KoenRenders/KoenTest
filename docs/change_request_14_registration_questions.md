@@ -201,7 +201,7 @@ nothing in it needs a question:
 | R11 | The member and the board register on one and the same screen — **and the public user loses nothing**: every function and every nicety the public registration has today stays. | Must | Koen, 29 Sep 2026 | "dat we niet ineens functionaliteit … niet meer beschikbaar stellen voor publieke gebruikers"; the parity list is B4.9 |
 | R12 | The portal follows up, by itself, whether everyone has answered the questions and whether every transfer has actually arrived — reminders, chasing, a to-do for the treasurer. | **Won't** | Koen, 29 Sep 2026 | "dat zijn zaken die de tool niet ondersteunt, noch in het as-is-, noch in het to-be-proces" — the treasurer and the organiser follow up by hand, as they do today; the portal only *shows* the state (who paid, whose answers are open) and offers "resend the link" |
 | R13 | **Reporting need:** the registrations of a component with their answers can be exported to .ods — one row per registration, one column per question — so a document can be made that the Sint takes along on the round. | Must | Koen, 29 Sep 2026 | the export exists today without the answers; how (the component's export, not the reporting panel) is B1 and B2.3 |
-| R15 | **Reporting need, proposed:** the reporting panel can count, per component, how many registrations have answered, still owe answers, or have no questions. | Could | analyst, 29 Sep 2026 | one derived column in the registrations view (B2.3 reporting); the answers themselves stay out of the panel (Q26) |
+| R15 | The reporting panel reports on registrations with their questions — the answers, or even the answered/open state per component. | Won't | Koen, 29 Sep 2026 | out of scope; the export and the book serve the organiser (Q26) |
 | R14 | **Reporting need:** the Sint's book — all registrations of a component printed one after the other, each with the household, the children and its answers listed under each other, so the round can be walked through visit by visit. | Should | Koen, 29 Sep 2026 | the list of R13 is the spreadsheet; this is the document read on the sofa (Q25) |
 
 ## A7. Non-functional requirements — security, privacy, house style, tenants
@@ -618,13 +618,8 @@ Measured on `master` (29 Sep), views in `reporting.*` from the migrations:
 
 - **`f_registrations`** reads `activities.registrations` — none of the new
   columns and no answer; the answers themselves are not a measure (R13) and
-  stay out. **Proposed (Q26):** one derived column `answers_status`
-  (`answered` / `open` / `none` — from `form_submission_id`, `answer_token`
-  and the component's `form_id`), added to the view in the same migration
-  as the columns, so the panel can count per component how many households
-  have not answered yet — the state R12 lets the portal show. One line of
-  SQL, additive; the universe gets the object next to the registration's
-  other attributes.
+  stay out, and so does the answered/open state: out of scope (R15, Q26).
+  The view does not change.
 - **`f_form_submissions` / `d_form`** count submissions per form. An
   attached submission **is** a submission of that form, so a form attached
   to a component shows its answered registrations there as submissions —
@@ -1151,7 +1146,7 @@ None yet. To measure before the build of phase 2:
 | Q20 | 29 Sep 2026 | Three phases instead of one: the page first (parity, no questions), then the questions, then mail/edit/door list. Each testable on HDEV alone; the page — the change every member sees — is approved before the Sint form lands on it. Agreed? (Claude, review) | Koen, 29 Sep: agreed. B6. |
 | Q21 | 29 Sep 2026 | The answer keys and parser are the form builder's own (`f<id>`, `answers_from_form`), not a second scheme — the first draft had `q_<id>` and its own dict. Corrected on review; the JSON API speaks the `AnswerIn` shape. No decision needed, noted for the record. (Claude, review) | B4.3 |
 | Q22 | 29 Sep 2026 | The door list prints `remarks` under each name (the board's practice: a paper list of names goes into the remarks). With a form attached the remarks box is hidden (Q9), so the door list loses that unless it prints the form's answers too. Print the answers on the door list? (Claude, review) | Withdrawn, 29 Sep: measured, "the door list" is the component's export itself — there is no separate print view — and the export gets one column per question in phase 2 (F8). The form's remarks question is one of those columns. Nothing extra. B4.4. |
-| Q26 | 29 Sep 2026 | Must reporting provide anything for registrations linked to a form submission, or is it out of scope? (Koen) | The answers: out of scope — per form different, not a measure; the export and the book serve the organiser. Proposed as a Could: one derived column `answers_status` in `f_registrations`, same migration, so the panel counts answered/open per component. *open* |
+| Q26 | 29 Sep 2026 | Must reporting provide anything for registrations linked to a form submission, or is it out of scope? (Koen) | The answers: out of scope — per form different, not a measure; the export and the book serve the organiser. Koen, 29 Sep: out of scope, the state too. R15 Won't; the view does not change. |
 | Q25 | 29 Sep 2026 | The Sint's book — all answers per registration under each other, visit by visit — as a second report next to the export? (Koen) | Yes: R14, a print view per component with a page break per household, the same read as the export; browser print, no PDF engine. Koen, 29 Sep: Should. |
 | Q24 | 29 Sep 2026 | The Sint form asks for at least four time slots; the builder has no minimum count for a checkbox (`min_value`/`max_value` are for `number`). Enforce it — reuse the two columns as min/max checked options for `checkbox`, a small forms change in phase 2 — or keep it a request in the help text, as the Google Form did? (Claude) | Koen, 29 Sep: as before — a request in the help text. No forms change. |
 | Q23 | 29 Sep 2026 | Is the as-is process clear? (Koen, describing it: a mail or WhatsApp, then one Google Form with the number of children and the questionnaire, OK, a confirmation mail; complete at once or a week before the Sint through the mail's link; pay by transfer as the form says; the treasurer sees transfers come in and follows up who paid) | It was not: the first drawing showed the platform's split, not the Google Form. A2 redrawn as the Google-Form process — the bar the platform has to equal — with a note on why the platform cannot run it today; A3 redrawn against it, treasurer lane included. |
@@ -1177,7 +1172,7 @@ None yet. To measure before the build of phase 2:
 
 - Questions per product or per ticket (R9) — a different shape.
 - Sections and branching inside a registration (#336) — a one-section form only; a longer questionnaire stays a standalone form.
-- The answers themselves in the reporting engine (CR-06) — the export and the book cover them; only the answered/open state may reach the panel (R15, Q26).
+- Anything about the questions in the reporting engine (CR-06) — the answers and the answered/open state alike (R15 Won't); the export and the book cover the organiser.
 - A new field type (date, file upload) — the form builder's list is what it is; a new type is a forms change.
 - Editing answers by the member after registering — the form builder's edit link exists for standalone forms; not wired to a registration here (the organiser edits, R7).
 - A link from the form builder's submissions view back to the registration (Q19) — the dependency would run the wrong way.
