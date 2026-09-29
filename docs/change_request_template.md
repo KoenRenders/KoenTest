@@ -219,7 +219,11 @@ and deliberately not done — recorded so it is not asked again).
 > *stays for one release, the new one is written, and a view that still*
 > *reads the old one reports quietly wrong figures. So a view that reads a*
 > *changed column changes in the same migration as the column, or the phase*
-> *says why not. "None — measured, no view reads these columns" is an answer.*
+> *says why not. A **value** change on a column a view reads is checked*
+> *against the saved reports (`reporting.saved_reports`, every environment)*
+> *before the migration, not after — a report that filters on the old value*
+> *goes quietly empty. "None — measured, no view reads these columns" is an*
+> *answer.*
 
 ## B6. Privacy and security — the mechanics behind A7
 
