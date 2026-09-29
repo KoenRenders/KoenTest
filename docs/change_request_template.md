@@ -158,10 +158,14 @@ and deliberately not done — recorded so it is not asked again).
 > *coloured per module (`classDef`, one legend line). Every step has a home*
 > *or is marked "outside the portal"; a module no step uses is not part of*
 > *this change. Two audiences (those who set up, those who use) means two*
-> *drawings. Second, the **traceability table**: one row per requirement of*
-> *A6 — R · how the solution meets it, in the words of the role that will*
-> *see it · on which screen · which acceptance criterion of A8 proves it. A*
-> *Won't gets a row that says so. Third, the **walkthrough** — how the*
+> *drawings. Second, the **traceability matrix** — the one place where a*
+> *requirement's thread is followed from left to right, so it is not kept*
+> *anywhere else: one row per requirement of A6 — R · how the solution meets*
+> *it, in the words of the role that will see it · the derived requirements*
+> *(F, B1.1) · the module that builds it (B2.3) · the test that proves it*
+> *(B7) · the acceptance criterion the business checks (A8). An empty cell*
+> *is a finding: a requirement without a test, a test without a*
+> *requirement. A Won't gets a row that says so. Third, the **walkthrough** — how the*
 > *business tests this on HDEV: one numbered*
 > *script per role of A3, in the order of the to-be process, happy path*
 > *first and then the turns where it must refuse or fall back; each step*
@@ -200,9 +204,9 @@ and deliberately not done — recorded so it is not asked again).
 > *nullability and constraints, the `ON DELETE` of every FK, the migration*
 > *and whether it is additive), **templates*
 > *and mail**, **tests** (which of B7). Then one line of **effort** (S / M /*
-> *L, or CLI-days once the team has a track record) and the requirements the*
-> *module serves (R and F numbers) — a requirement no module serves is not*
-> *built. A module that is only used, not changed, gets one line. **Reporting*
+> *L, or CLI-days once the team has a track record). Which requirements a*
+> *module serves is read from the matrix of B2.1, not repeated here. A*
+> *module that is only used, not changed, gets one line. **Reporting*
 > *is always one of the modules**, touched or not: the engine reads the*
 > *tables through SQL views in the `reporting` schema and through its object*
 > *universe, so for every column this change adds, renames, retypes,*

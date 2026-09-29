@@ -364,25 +364,25 @@ flowchart LR
 Every step has a module; "remind by hand" has none on purpose (R12). No
 module appears that a step does not use.
 
-**Traceability — every requirement, how the solution meets it, where, and
-what proves it:**
+**Traceability matrix — one row per requirement, followed from left to
+right; kept here and nowhere else:**
 
-| R | How the solution meets it | Where | Proof |
-|---|---|---|---|
-| R1 the organiser decides the questions | the organiser builds them as a form in the form builder and attaches it to the component through a picker "Extra vragen" — no developer involved | form builder; component settings (admin) | AC1, AC5 |
-| R2 answer while registering, or later | the questions sit on the registration page after the products, behind the choice *nu / later*; "later" puts a link in the confirmation mail that opens the questions once | registration page; the mail; the answer page | AC1, AC2, AC4 |
-| R3 answers belong to the registration | shown on the registration detail; one column per question in the component's export | registration detail; export | AC3 |
-| R4 the same rules for everyone | one validation (`build_answers`) on the page, the board page, the API and the answer page; a required question left empty is refused with its label | all four entrances | AC2 |
-| R5 the board has the same choice | the board page is the same page in the admin shell, same choice, same default | board registration page | AC4 |
-| R6 the mail repeats the answers | one variable block in the confirmation: the answers, or the link, or nothing | the mail | AC8 |
-| R7 the organiser corrects an answer | edit on the registration detail, re-validated, with a history row | registration detail | AC7 |
-| R8 the form's own URL stays usable | untouched; such a submission is simply not linked | the form's public page | — (unchanged) |
-| R9 questions per product | **Won't** — not built | — | — |
-| R10 swap a form once answered | **Won't** — replacing is refused; detaching allowed | component settings | AC5 |
-| R11 one screen, the public loses nothing | the public modal becomes a page, built from the board's page; the board's page is the same page in the admin shell; fifteen-point parity list | registration page | AC9 |
-| R12 following up answers and transfers | **Won't** — by hand; the portal shows the state and offers "resend the link" | registration detail; payments screen | — |
-| R13 the export for the Sint's list | the component's existing export gains the answer columns; the activities module reads the answers through the forms facade in one call | export | AC3 |
-| R14 the Sint's book | a print view of the component, one block per registration with its answers, page break per household — the same read as the export, rendered as a page instead of a sheet | "Boek" button at the component's registrations | AC10 |
+| R | How the solution meets it | F (B1.1) | Module (B2.3) | Test (B7) | AC (A8) |
+|---|---|---|---|---|---|
+| R1 the organiser decides the questions | builds them as a form in the form builder, attaches it to the component through the picker "Extra vragen"; no developer involved | F1, F2, F13 | activities (component settings), forms (`attachable_forms`) | 6, 9 | AC1, AC5 |
+| R2 answer while registering, or later | the questions on the registration page after the products, behind the choice *nu / later*; "later" puts a link in the mail that opens the questions once | F3, F6, F7 | activities (page, `create_registration`, answer page) | 2, 3 | AC1, AC2, AC4 |
+| R3 answers belong to the registration | shown on the registration detail; one column per question in the export; the submission stays with the registration | F8, F10, F11 | activities (detail, export), forms (`submission_views`) | 5, 7 | AC3, AC6 |
+| R4 the same rules for everyone | one validation (`build_answers`) on the page, the board page, the API and the answer page; a required question left empty is refused with its label | F4 | forms (`submit_attached`), activities (all four entrances) | 2, 3, 12 | AC2 |
+| R5 the board has the same choice | the board page is the same page in the admin shell, same choice, same default | F7 | activities (board page) | 2 | AC4 |
+| R6 the mail repeats the answers | one variable block in the confirmation: the answers, or the link, or nothing | F5 | mail | rendering tests (phase 3) | AC8 |
+| R7 the organiser corrects an answer | edit on the registration detail, re-validated, with a history row | F12 | activities (detail), forms (`update_attached`) | 10 | AC7 |
+| R8 the form's own URL stays usable | untouched; such a submission is simply not linked | F9 | forms (unchanged) | — (unchanged) | — |
+| R9 questions per product | **Won't** — not built | — | — | — | — |
+| R10 swap a form once answered | **Won't** — replacing is refused; detaching allowed | F13 | activities (component settings) | 9 | AC5 |
+| R11 one screen, the public loses nothing | the public modal becomes a page, built from the board's page; the board's page is the same page in the admin shell; fifteen-point parity list (B4.9) | — (B4.1, B4.9) | activities (page) | 1, 11 | AC9 |
+| R12 following up answers and transfers | **Won't** — by hand; the portal shows the state and offers "resend the link" | F7 (the resend) | activities (detail) | — | — |
+| R13 the export for the Sint's list | the component's existing export gains the answer columns, read through the forms facade in one call | F8 | activities (export), forms (`submission_views`) | 7 | AC3 |
+| R14 the Sint's book | a print view of the component, one block per registration, page break per household — the same read as the export, rendered as a page | F14 | activities (book view) | 13 | AC10 |
 
 **The walkthrough — how the business tests this on HDEV.** Three roles,
 in the order of A3; each step says what to do, what to see, and what it
@@ -580,8 +580,7 @@ record (#1284: one form for two channels took about one day).
   level.
 - **Effort:** phase 1 (the page, parity) ~1 CLI-day; phase 2 (links,
   picker, choice, answer page, detail, export, the book) ~2.5 CLI-days;
-  phase 3 (edit with history, resend) ~0.5. Serves R1–R5, R7, R10–R14;
-  F1–F4, F6–F8, F10, F12–F14.
+  phase 3 (edit with history, resend) ~0.5.
 
 #### forms — grows a facade, changes no behaviour
 
@@ -597,8 +596,7 @@ record (#1284: one form for two channels took about one day).
 - **Templates:** `_formulier_veld.html` and `screenfields.py` are used as
   they are — the registration page renders the same macro.
 - **Tests:** B7 7, 12; the forms suite unchanged.
-- **Effort:** ~0.5 CLI-day, in phase 2. Serves R4, F4, F5, F8, F9, F11,
-  F12.
+- **Effort:** ~0.5 CLI-day, in phase 2.
 
 #### mail — one block in one template
 
@@ -607,7 +605,7 @@ record (#1284: one form for two channels took about one day).
   nothing; the resend uses the same template with a reminder subject.
 - **Tests:** a rendering test per case (three), in phase 3's B7 10.
 - **Effort:** ~0.25 CLI-day, phase 3 (the link part of the block in phase
-  2). Serves R5, R6.
+  2).
 
 #### reporting — a module of its own, here untouched
 
@@ -629,7 +627,7 @@ None of the three new columns is read by a view; no expand/contract risk.
 #### payment — used, unchanged
 
 `create_payment_record` is called as today, after the answers; nothing
-changes. Serves nothing new.
+changes.
 
 **Sum:** about 4.5 CLI-days across three phases, `activities` carrying
 four of them.
