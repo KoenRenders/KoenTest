@@ -67,16 +67,25 @@ class ImportReport:
     """Wat de load (zou) doen — voor het dry-run-rapport én de samenvatting."""
 
     new_families: int = 0
+    #: Households that change (#1308) — not every existing household in the report.
     updated_families: int = 0
+    #: Existing households in the report that nothing changes; counted, not listed.
+    unchanged_families: int = 0
     persons_added: int = 0
     persons_updated: int = 0
     persons_removed: int = 0
     persons_revived: int = 0
     memberships_created: int = 0
     admins_created: int = 0
+    #: Board members who already have their admin account (#1308); counted, not listed.
+    admins_existing: int = 0
     skipped: int = 0
     warnings: list[str] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)
+    #: Persons revived before the upsert (#227), by id → their member number. Not
+    #: reported on its own: `_sync_family` writes the line under the household it
+    #: belongs to, where a revival is one of that household's changes (#1308).
+    revived: dict[int, str] = field(default_factory=dict)
 
     def warn(self, msg: str) -> None:
         self.warnings.append(msg)
@@ -89,12 +98,14 @@ class ImportReport:
         return {
             "new_families": self.new_families,
             "updated_families": self.updated_families,
+            "unchanged_families": self.unchanged_families,
             "persons_added": self.persons_added,
             "persons_updated": self.persons_updated,
             "persons_removed": self.persons_removed,
             "persons_revived": self.persons_revived,
             "memberships_created": self.memberships_created,
             "admins_created": self.admins_created,
+            "admins_existing": self.admins_existing,
             "skipped": self.skipped,
             "warnings": list(self.warnings),
             "lines": list(self.lines),
@@ -265,7 +276,7 @@ def _upsert_contact(
     *,
     apply: bool,
     actor: str | None = None,
-) -> None:
+) -> bool:
     """De import-kant van `mdm.service.upsert_primary_contact` (#1174).
 
     Dunne schil: hij vult alleen de audit-herkomst in, zodat een rij uit het
@@ -275,7 +286,7 @@ def _upsert_contact(
     """
     from app.domains.mdm.service import upsert_primary_contact
 
-    upsert_primary_contact(
+    return upsert_primary_contact(
         db,
         person,
         type_code,
@@ -290,11 +301,18 @@ def _upsert_contact(
 
 def _sync_contacts(
     db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
-) -> None:
+) -> list[str]:
+    """The contacts of one person; returns the columns that change (#1308)."""
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, CONTACT.EMAIL, row["email"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, CONTACT.PHONE, row["telefoon"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, CONTACT.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
+    changed = []
+    for column, type_code, primary in (
+        ("email", CONTACT.EMAIL, True),
+        ("telefoon", CONTACT.PHONE, True),
+        ("gsm", CONTACT.MOBILE, not has_phone),
+    ):
+        if _upsert_contact(db, person, type_code, row[column], primary, apply=apply, actor=actor):
+            changed.append(column)
+    return changed
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────
@@ -302,8 +320,10 @@ def _sync_contacts(
 
 def _sync_address(
     db: Session, person: Person, row: dict, pc: PostalCode, *, apply: bool, actor: str | None = None
-) -> None:
-    """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij."""
+) -> bool:
+    """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij.
+
+    Returns whether the address changes (#1308), in dry-run too."""
     bus = row["busnummer"] or None
     existing = person.address
     if existing:
@@ -313,7 +333,7 @@ def _sync_address(
             and existing.bus_number == bus
             and existing.postal_code_id == pc.id
         ):
-            return
+            return False
         if apply:
             existing.street = row["straat"]
             existing.house_number = row["huisnummer"]
@@ -328,6 +348,7 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
+        return True
     else:
         if apply:
             addr = Address(
@@ -347,6 +368,7 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
+        return True
 
 
 # ── Persoon aanmaken ────────────────────────────────────────────────────────
@@ -409,14 +431,16 @@ def _ensure_membership(
     apply: bool,
     report: ImportReport,
     actor: str | None = None,
-) -> None:
-    """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74)."""
+) -> bool:
+    """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74).
+
+    Returns whether it creates one (#1308)."""
     existing = next((m for m in member.memberships if m.year == import_year), None)
     if existing:
-        return
+        return False
     report.memberships_created += 1
     if not apply:
-        return
+        return True
     ms = Membership(
         member_id=member.id,
         year=import_year,
@@ -429,6 +453,7 @@ def _ensure_membership(
     snapshot_membership(
         db, ms, operation="insert", action="membership_imported", source=LEGACY_SOURCE, actor=actor
     )
+    return True
 
 
 # ── Gezin synchroniseren (nieuw én bestaand via één pad) ─────────────────────
@@ -457,12 +482,15 @@ def _sync_family(
     gehecht (#192); overige onbekende lidnummers worden aangemaakt; personen die
     niet meer in de adresgroep staan, worden bij een bestaand gezin uit het gezin
     verwijderd."""
+    # #1308: an existing household gets its "UPDATE gezin" line only when
+    # something in it changes. Every change below writes its own line — so the
+    # lines this household adds ARE its changes, and the header goes in front of
+    # them afterwards. No second comparison: the decision is the one each step
+    # already makes.
+    first_line = len(report.lines)
     if is_new:
         report.new_families += 1
         report.line(f"NIEUW gezin: {_family_label(fam)}")
-    else:
-        report.updated_families += 1
-        report.line(f"UPDATE gezin (#{member.id}): {_family_label(fam)}")
 
     desired_lidnrs = {r["lidnr"] for r in fam if r["lidnr"]}
     # Personen (op id) die dit rapport voor dit gezin aanlevert — bepaalt straks
@@ -520,6 +548,11 @@ def _sync_family(
         # ander gezin of verweesd) → hergebruik.
         processed_person_ids.add(existing.id)
         row["_person_id"] = existing.id
+        if existing.id in report.revived:
+            report.line(
+                f"  ↺ hersteld #{report.revived[existing.id]}  "
+                f"{existing.first_name} {existing.last_name}"
+            )
         cur_member = _current_member(existing)
         # Bij een nieuw (transient) gezin heeft member.id geen betekenis.
         mp = (
@@ -600,9 +633,17 @@ def _sync_family(
                     source=LEGACY_SOURCE,
                     actor=actor,
                 )
-            if row["_relatie"] == "HOOFDLID" and pc is not None:
-                _sync_address(db, existing, row, pc, apply=apply, actor=actor)
-            _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        # Address and contacts are compared in dry-run too (#1308): they write only
+        # with `apply`, but whether they WOULD change is part of the report.
+        if row["_relatie"] == "HOOFDLID" and pc is not None:
+            if _sync_address(db, existing, row, pc, apply=apply, actor=actor):
+                report.line(f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}")
+        contacts = _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        if contacts:
+            report.line(
+                f"  ~ contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
+                f"velden: {', '.join(contacts)}"
+            )
 
     # Verwijder personen die niet (meer) in de adresgroep van het rapport staan
     # (enkel bij een bestaand gezin; een nieuw gezin heeft nog geen leden).
@@ -629,7 +670,15 @@ def _sync_family(
                 db.delete(mp)
                 db.flush()
 
-    _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor)
+    if _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor):
+        report.line(f"  + lidmaatschap {IMPORT_YEAR}")
+
+    if not is_new:
+        if len(report.lines) > first_line:
+            report.updated_families += 1
+            report.lines.insert(first_line, f"UPDATE gezin (#{member.id}): {_family_label(fam)}")
+        else:
+            report.unchanged_families += 1
 
 
 def _family_label(fam: list[dict]) -> str:
@@ -686,7 +735,12 @@ def _create_admin_users(
     db: Session, all_bl_names: list[str], bl_index: dict, *, apply: bool, report: ImportReport
 ) -> None:
     """Maak admin-gebruikers voor bestuursleden — enkel nieuwe; bestaande
-    logins worden nooit overschreven."""
+    logins worden nooit overschreven.
+
+    #1308: the existing account is looked up in dry-run too — a read — so the
+    preview lists only the accounts the import will create, as the run does. It
+    listed every board member with an address before, and the two disagreed.
+    Existing accounts are counted (`admins_existing`), not listed."""
     for name in all_bl_names:
         candidates = bl_index.get(name, [])
         if not candidates:
@@ -694,7 +748,8 @@ def _create_admin_users(
         best = min(candidates, key=lambda r: _sort_lidnr(r["lidnr"]))
         if not best.get("email"):
             continue
-        if apply and db.query(User).filter(User.email == best["email"]).first():
+        if db.query(User).filter(User.email == best["email"]).first():
+            report.admins_existing += 1
             continue
         pid = best.get("_person_id")
         if apply and not pid:
@@ -770,7 +825,7 @@ def _revive_soft_deleted(
         if person is None or person.deleted_at is None:
             continue  # persoon nog actief → niets te herstellen
         report.persons_revived += 1
-        report.line(f"  ↺ hersteld #{en.external_id}  {person.first_name} {person.last_name}")
+        report.revived[person.id] = en.external_id
         _revive(person)
         _revive(en)
         # De meest recente gezinskoppeling + dat gezin herleven, zodat het gezin
