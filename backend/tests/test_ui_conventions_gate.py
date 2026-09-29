@@ -1254,7 +1254,10 @@ def test_de_echte_sluitknoppen_blijven_bestaan():
         for treffer in re.finditer(r"<button\b[^>]*>\s*(?:&times;|×)\s*</button>", tekst, re.S):
             if "Sluiten" in treffer.group(0):
                 gevonden += 1
-    assert gevonden >= 4, (
+    # 3 since CR-14 phase 1 (#1332): the registration became a page, and with it the
+    # two × of the registration modal (card and activity page) went. What is left are
+    # the kit's own close buttons — the three the vocabulary needs.
+    assert gevonden >= 3, (
         f"nog maar {gevonden} sluitknoppen met een kruisje; de vorige regel is "
         "waarschijnlijk te breed toegepast"
     )

@@ -31,7 +31,13 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_stil,
+    login_met_sessie,
+    open_registration,
+    pagina_klaar,
+)
 
 
 @pytest.fixture(scope="module")
@@ -128,8 +134,8 @@ _ROWS = """() => [...new Set([...document.querySelectorAll(
 
 
 def _check_rows(page, label: str) -> list[dict]:
-    # A condition, not a pause (#997): the public form opens in a modal that slides
-    # in, and during that transition nothing is under the pointer yet.
+    # A condition, not a pause (#997): until htmx has settled the rows, nothing is
+    # under the pointer yet.
     try:
         page.wait_for_function(
             f"() => {{ const rows = ({_ROWS})(); return rows.length && rows.every(r => r.reachable); }}",
@@ -163,10 +169,7 @@ def _no_line_amount(page, amount: str, label: str) -> None:
 def test_registering_and_adding_have_the_one_row(browser, setup, width):
     context, public = _page(browser, width)
     try:
-        public.goto("/activiteiten")
-        public.click(
-            f'button[hx-get="/activiteiten/{setup["activity"]}/inschrijven/{setup["component"]}"]'
-        )
+        open_registration(public, setup["activity"], setup["component"])
         public.wait_for_selector("#contact_email")
         htmx_stil(public)
         _check_rows(public, f"public @{width}")

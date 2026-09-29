@@ -34,7 +34,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import BASE, open_registration  # noqa: E402
 
 MIN_RAAKVLAK = 44
 
@@ -88,10 +88,10 @@ def tellerspel():
 
 
 def _open_het_formulier(page, ids):
-    """De inschrijfmodal van díe activiteit — op de `hx-get`, niet op volgorde."""
+    """De inschrijfpagina van díe activiteit — op het adres, niet op volgorde
+    (a modal until CR-14 phase 1)."""
     activiteit_id, onderdeel_id = ids
-    page.goto("/activiteiten")
-    page.click(f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
+    open_registration(page, activiteit_id, onderdeel_id)
     page.wait_for_selector("input[name^='product_']", timeout=10_000)
 
 

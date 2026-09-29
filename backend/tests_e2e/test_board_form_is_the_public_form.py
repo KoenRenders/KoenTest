@@ -2,7 +2,7 @@
 
 Koen, on HDEV: the board's "add a registration" form showed no amounts. It now
 renders the public form's fields. This test opens the same paid component in both
-channels — the public modal and the board's page — at 390 px and at 1280 px, and
+channels — the public page (a modal until CR-14 phase 1) and the board's page — at 390 px and at 1280 px, and
 measures on the DOM what the issue asks:
 
 - each product row shows its price;
@@ -42,7 +42,13 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import (  # noqa: E402
+    BASE,
+    htmx_stil,
+    login_met_sessie,
+    open_registration,
+    pagina_klaar,
+)
 
 
 @pytest.fixture(scope="module")
@@ -144,12 +150,7 @@ _ROW = """(pid) => document.querySelector('input[name="product_' + pid + '"]')
 
 
 def _open_public(page, setup):
-    page.goto("/activiteiten")
-    page.click(
-        f'button[hx-get="/activiteiten/{setup["activity"]}/inschrijven/{setup["component"]}"]'
-    )
-    page.wait_for_selector("#contact_email")
-    htmx_stil(page)
+    open_registration(page, setup["activity"], setup["component"])
 
 
 def _open_board(page, setup):

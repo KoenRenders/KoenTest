@@ -45,7 +45,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import BASE, open_registration  # noqa: E402
 
 BREED, SMAL = 1440, 390
 MIN_RAAKVLAK = 44  # #804, en de reden dat deze teller bestaat
@@ -140,8 +140,7 @@ def _meet(lange_naam, breedte: int) -> dict:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE, viewport={"width": breedte, "height": 900})
-        page.goto("/activiteiten")
-        page.click(f'button[hx-get="/activiteiten/{activiteit_id}/inschrijven/{onderdeel_id}"]')
+        open_registration(page, activiteit_id, onderdeel_id)
         page.wait_for_selector("input[name^='product_']", timeout=10_000)
         stand = page.evaluate(METING)
         browser.close()

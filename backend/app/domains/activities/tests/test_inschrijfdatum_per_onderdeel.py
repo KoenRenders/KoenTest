@@ -231,7 +231,8 @@ def test_verschillende_datums_zetten_de_datum_bij_het_onderdeel(client, db_sessi
     # Kapotgemaakt: de regel terug als <span> in de knoppen-flex → geen mt-1-blok.
     assert kaart.count("mt-1 flex items-center gap-1 text-xs") == 2
     knopblok = kaart[kaart.index("Barbecue") : kaart.index("donderdag 20 mei")]
-    assert "Inschrijven</button>" in knopblok, (
+    # CR-14 phase 1: the button became a link to the registration page.
+    assert "Inschrijven</a>" in knopblok, (
         "de klokregel hoort ná de knoppenrij, niet ervoor of ertussen"
     )
 

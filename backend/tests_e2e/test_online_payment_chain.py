@@ -34,7 +34,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin, pagina_klaar  # noqa: E402
+from tests_e2e.schermen import BASE, login_als_admin, open_registration, pagina_klaar  # noqa: E402
 
 WEBHOOK = "/api/v1/payment-gateway/webhooks/stub"
 CHECKOUT = re.compile(r"/betaling/stub/(stub_[0-9a-f]+)$")
@@ -173,14 +173,13 @@ def _status_badges(admin, registration_id: int) -> list[str]:
 
 def test_a_registration_is_paid_online(visitor, admin, paid_activity):
     activity_id, component_id, product_id = paid_activity
-    visitor.goto("/activiteiten")
-    visitor.click(f'button[hx-get="/activiteiten/{activity_id}/inschrijven/{component_id}"]')
+    open_registration(visitor, activity_id, component_id)
     visitor.fill("#contact_name", "E2E Online")
     visitor.fill("#contact_email", f"e2e+online{int(time.time() * 1000)}@example.com")
     visitor.fill("#phone", "0470000000")
     visitor.fill(f'input[name="product_{product_id}"]', "1")
     visitor.check('input[name="payment_method"][value="online"]')
-    visitor.locator(f"#inschrijf-{activity_id}-{component_id} button[type=submit]").click()
+    visitor.locator("#inschrijf-pagina button[type=submit]").click()
     payment_id = _at_the_checkout(visitor)
 
     registration_id = _payable_id(payment_id)

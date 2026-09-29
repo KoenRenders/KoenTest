@@ -1,0 +1,41 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ activity.name }} — {{ _("Inschrijven") }}{% endblock %}
+{% block content %}
+{# CR-14 phase 1 (#1332, B4.1, B4.10): the registration is a PAGE, one for the
+   member (this, the site shell) and the board (`admin_inschrijving_nieuw.html`,
+   the admin shell) — the same fields (`_inschrijf_velden.html`), the same context
+   builder and processing (#1284). Until v2.9.0 it was a narrow modal on the card.
+
+   `#inschrijf-pagina` is what a submit swaps: the page again with the refusal on
+   top (P7), or the thank-you page (P8). #}
+<div id="inschrijf-pagina" class="max-w-xl">
+  <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ terug_url }}">{{ _("‹ Terug") }}</a></p>
+  {# P1: the activity, its date and — with more than one component — which one. #}
+  {{ ui.page_header(activity.name, datum_regel) }}
+
+  {% if klaar %}
+  {# P8: the thank-you page — the words of the modal's banner, and one way back to
+     the activity, where the list of this component opens fresh (P10). #}
+  {{ ui.success_banner("✅ Bedankt, " ~ naam ~ "! Je inschrijving is ontvangen. Je krijgt een bevestiging per e-mail.") }}
+  <p><a class="text-sm text-blue-700 hover:underline" href="{{ klaar_url }}">{{ _("Terug naar de activiteit") }}</a></p>
+  {% else %}
+  {% if onderdelen|length > 1 %}
+  {# P14: the component switch the board's page has, now on the public page too. #}
+  <div class="mb-4 flex flex-wrap gap-2">
+    {% for o in onderdelen %}
+    {% if o.gekozen %}{{ ui.btn_primary(o.naam, type="button", size="sm") }}{% else %}{{ ui.btn_secondary(o.naam, href=o.url, size="sm") }}{% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  {{ ui.error_banner(error) }}
+  {# P7: a refusal swaps this page again, scrolled to its top, with the banner. #}
+  <form hx-post="{{ form_url }}" hx-target="#inschrijf-pagina" hx-select="#inschrijf-pagina"
+        hx-swap="outerHTML show:window:top" hx-disinherit="hx-select hx-swap" class="space-y-3">
+    {% include "_inschrijf_velden.html" %}
+    {# B4.10: one primary button, full width on a phone. #}
+    {{ ui.btn_primary(_("Inschrijven"), cls="w-full sm:w-auto") }}
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

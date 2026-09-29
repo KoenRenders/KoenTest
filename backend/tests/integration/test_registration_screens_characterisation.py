@@ -275,3 +275,108 @@ def test_the_registration_screen_renders_as_before(client, world, screen):
     assert "Karakter" in body or "Ploegen" in body or "Los" in body, f"{screen} shows none of it"
     got = normalise(body, _names(), {RECORD_ID: "<RECORD>"})
     compare(SNAPSHOTS, screen, got, before="phase 1")
+
+
+# ── CR-14 phase 1 (#1332): the public form becomes a page — its content stays ──
+#
+# The modal becomes a page (B4.1); the frame changes by design, and the snapshots
+# above of the public form are re-recorded with the page. What must NOT change is
+# what stands inside the form: the fields, the counters, the total, the payment
+# choice, the prefill and the member price of a signed-in member, a refusal with
+# its values kept, and the thank-you text (B4.9, P2–P8). These are recorded on
+# master `77df7e43`, before one line of phase 1, and compared on the form's
+# content only.
+
+PARITY = Path(__file__).parent / "snapshots" / "registration_page_parity"
+BEFORE_PAGE = "the registration page (CR-14 phase 1)"
+
+
+def _form_content(html: str) -> str:
+    import re
+
+    match = re.search(r"<form\b[^>]*>(.*?)</form>", html, re.S)
+    assert match, "no <form> on the registration screen"
+    return match.group(1)
+
+
+def _member_session(client):
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    client.cookies.set(SESSION_COOKIE, make_session_value("karakter@example.org"))
+
+
+@pytest.mark.parametrize(
+    ("screen", "component", "member"),
+    [
+        ("fields_plain", PLAIN_COMPONENT_ID, False),
+        ("fields_team", TEAM_COMPONENT_ID, False),
+        ("fields_team_member", TEAM_COMPONENT_ID, True),
+    ],
+)
+def test_the_public_form_content_is_what_it_was(client, world, screen, component, member):
+    """P2–P6: the same fields, counters, total and payment choice; for a signed-in
+    member the prefill and the member price."""
+    if member:
+        _member_session(client)
+    response = client.get(f"/activiteiten/{ACTIVITY_ID}/inschrijven/{component}")
+    assert response.status_code == 200, response.status_code
+    got = normalise(_form_content(response.text), _names(), {})
+    compare(PARITY, screen, got, before=BEFORE_PAGE)
+
+
+def test_a_refused_form_keeps_its_values_and_says_why(client, world):
+    """P7: the refusal re-renders the form with the typed values and the banner."""
+    response = client.post(
+        f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
+        data={
+            "contact_name": "Half Ingevuld",
+            "contact_email": "half@example.org",
+            "phone": "",
+            f"product_{PRODUCT_IDS['plain']}": "2",
+            "payment_method": "transfer",
+        },
+    )
+    assert response.status_code == 200, response.status_code
+    assert "Vul naam, e-mailadres en mobiel nummer in." in response.text
+    got = normalise(_form_content(response.text), _names(), {})
+    compare(PARITY, "refused_plain", got, before=BEFORE_PAGE)
+
+
+def test_the_thank_you_text_is_what_it_was(client, world):
+    """P8: after a transfer registration, the same thank-you words."""
+    import re
+
+    response = client.post(
+        f"/activiteiten/{ACTIVITY_ID}/inschrijven/{PLAIN_COMPONENT_ID}",
+        data={
+            "contact_name": "Bedankt Bram",
+            "contact_email": "bedankt@example.org",
+            "phone": "0470 00 00 09",
+            f"product_{PRODUCT_IDS['plain']}": "1",
+            "payment_method": "transfer",
+        },
+    )
+    assert response.status_code == 200, response.status_code
+    banner = re.search(r"✅[^<]*", response.text)
+    assert banner, response.text[:500]
+    compare(PARITY, "thank_you", normalise(banner.group(0), {}, {}), before=BEFORE_PAGE)
+
+
+@pytest.mark.parametrize(
+    ("screen", "path"),
+    [
+        ("activity_page", f"/activiteiten/{ACTIVITY_ID}"),
+        ("activity_list", "/activiteiten"),
+    ],
+)
+def test_the_activity_screens_render_as_before(client, world, screen, path):
+    """The two places that show a component's actions — the card and the activity
+    page — recorded before phase 1 folds them into one partial. The only
+    differences the new code may show are the intended ones: the button becomes a
+    link to the page, the modal goes, and the page says "closed" per component."""
+    response = client.get(path)
+    assert response.status_code == 200, response.status_code
+    body = main_region(response.text)
+    assert "Karakterisering" in body, f"{screen} does not show the activity"
+    got = normalise(body, _names(), {})
+    compare(PARITY, screen, got, before=BEFORE_PAGE)

@@ -38,7 +38,7 @@ from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin, open_registration  # noqa: E402
 
 PRICE_TYPED = "12,50"  # as a Belgian board member types it
 PRICE = Decimal("12.50")
@@ -174,12 +174,13 @@ def test_an_activity_created_through_the_screens_is_open_for_registration(admin)
 
         with _step("step 4 (publiek zichtbaar, met product en prijs)"):
             page.goto("/activiteiten")
+            # CR-14 phase 1: the card links to the registration page.
             register = page.locator(
-                f'button[hx-get="/activiteiten/{activity_id}/inschrijven/{component_id}"]'
+                f'a[href="/activiteiten/{activity_id}/inschrijven/{component_id}"]'
             )
             expect(register).to_have_count(1)
-            register.click()
-            form = page.locator(f"#inschrijf-{activity_id}-{component_id}")
+            open_registration(page, activity_id, component_id)
+            form = page.locator("#inschrijf-pagina")
             expect(form).to_contain_text(product)
             expect(form).to_contain_text(PRICE_SHOWN)
 

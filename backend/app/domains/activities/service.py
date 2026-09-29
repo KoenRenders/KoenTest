@@ -866,7 +866,7 @@ def publicly_bookable_products(component: ActivitySubRegistration) -> list:
 def check_publicly_bookable(activity: Activity, product_ids: Iterable[int]) -> None:
     """Refuse a PUBLIC registration on an inactive product (#1191).
 
-    In the service layer and not in the template. `_inschrijf_form.html` leaves an
+    In the service layer and not in the template. The registration page leaves an
     inactive product out, but that is form and not meaning: POST
     /activities/{id}/register is an entrance of its own and accepted every product
     of the activity, exactly the mistake #733 corrected for the mandatory fields.

@@ -1,6 +1,7 @@
 """#663 — de twee publieke schermen uit de sweep renderen nog (en juist).
 
-`_inschrijf_form.html` en `lid_worden.html` vallen buiten de render-gate van
+`inschrijven.html` (the modal `_inschrijf_form.html` until CR-14 phase 1) en
+`lid_worden.html` vallen buiten de render-gate van
 #622, die de beheerkant dekt. Ze zijn wel de twee schermen waar een bezoeker
 komt, dus een maatwijziging is daar meteen zichtbaar — en een Jinja-fout in een
 omgezette macro-aanroep zou er stil renderen als een leeg veld.
