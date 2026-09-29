@@ -36,8 +36,8 @@ from typing import AsyncIterator
 import pytest
 
 from app.config import settings
-from app.domains.stt import router as stt_mod
-from app.domains.stt.providers.base import SttProvider, TranscriptEvent
+from app.domains.chatbot.stt import router as stt_mod
+from app.domains.chatbot.stt.providers.base import SttProvider, TranscriptEvent
 
 pytestmark = pytest.mark.ui_agnostisch
 

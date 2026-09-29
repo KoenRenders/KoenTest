@@ -48,7 +48,7 @@ def whiten(png: bytes) -> bytes:
 @job("designstudio.generate")
 def generate_image(db: Session, payload: dict) -> None:
     from app.domains.chatbot.api import AiStatus, sink_for
-    from app.domains.media.api import MediaAsset, upload_media
+    from app.domains.media.api import MediaAsset, store_uploads
 
     row = db.query(ImageGeneration).filter(ImageGeneration.id == payload["generation_id"]).first()
     if row is None:
@@ -99,7 +99,7 @@ def generate_image(db: Session, payload: dict) -> None:
             headers=Headers({"content-type": "image/png"}),
         )
         stored = asyncio.run(
-            upload_media(
+            store_uploads(
                 db, files=[upload], kind="design_image", activity_id=row.design.activity_id
             )
         )

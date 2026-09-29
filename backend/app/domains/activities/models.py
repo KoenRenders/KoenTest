@@ -17,7 +17,7 @@ from sqlalchemy import (
     Time,
     event,
 )
-from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
 
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
@@ -31,23 +31,25 @@ if TYPE_CHECKING:
     from app.kernel.money import Money
 
 
-def _single_asset(obj: Any, kind: str, fk_attr: str) -> Optional[MediaAsset]:
-    """De (max. één) MediaAsset van een bepaald ``kind`` die aan dit object hangt.
+def _media_of(owner_id: Any, fk_attr: str, kind: str) -> Any:
+    """The join of a media asset of one kind to its owner — `media`'s table read
+    through its facade. MediaAsset is not soft-deletable, so the global filter
+    does not touch it."""
+    from sqlalchemy import and_
+    from sqlalchemy.orm import foreign
 
-    Via de live sessie opgehaald i.p.v. een mapper-relationship met constante in de
-    join (eenvoudiger, geen overlap-config). MediaAsset is niet soft-deletable, dus
-    de globale filter raakt deze query niet."""
-    sess = object_session(obj)
-    if sess is None or obj.id is None:
-        return None
+    from app.domains.media.api import MediaAsset, MediaKind
+
+    return and_(
+        foreign(getattr(MediaAsset, fk_attr)) == owner_id,
+        MediaAsset.kind == getattr(MediaKind, kind),
+    )
+
+
+def _media_newest_first() -> Any:
     from app.domains.media.api import MediaAsset
 
-    return (
-        sess.query(MediaAsset)
-        .filter(MediaAsset.kind == kind, getattr(MediaAsset, fk_attr) == obj.id)
-        .order_by(MediaAsset.id.desc())
-        .first()
-    )
+    return MediaAsset.id.desc()
 
 
 class RegistrationState(CodeEnum):
@@ -262,22 +264,36 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivitySubRegistration.sort_order, ActivitySubRegistration.id",
     )
 
+    # The uploaded poster, newest first (#223). A read-only relationship and not a
+    # query from the entity (CR-13 phase 4, §B4.1: an entity never opens a session);
+    # it loads the way every relationship does, once, when first read.
+    poster_assets = relationship(
+        "MediaAsset",
+        primaryjoin=lambda: _media_of(Activity.id, "activity_id", "ACTIVITY_POSTER"),
+        viewonly=True,
+        order_by=lambda: _media_newest_first(),
+    )
+
+    @property
+    def _poster_asset(self) -> Optional[MediaAsset]:
+        return self.poster_assets[0] if self.poster_assets else None
+
     @property
     def poster_asset_url(self) -> Optional[str]:
         """Een geüploade poster primeert op ``poster_url`` (#223)."""
-        a = _single_asset(self, "activity_poster", "activity_id")
+        a = self._poster_asset
         return f"/api/v1/media/{a.id}" if a else None
 
     @property
     def poster_asset_title(self) -> Optional[str]:
         """De titel van de opgeladen affiche (feedbackronde golf 8): de leeslink
         toont wat er hangt, niet een generieke tekst."""
-        a = _single_asset(self, "activity_poster", "activity_id")
+        a = self._poster_asset
         return a.title if a else None
 
     @property
     def poster_asset_is_pdf(self) -> bool:
-        a = _single_asset(self, "activity_poster", "activity_id")
+        a = self._poster_asset
         return bool(a and a.content_type == "application/pdf")
 
 
@@ -502,18 +518,17 @@ class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
         order_by="ActivityProduct.sort_order, ActivityProduct.id",
     )  # id als tiebreak, #1068
 
-    def _info_asset(self) -> Optional[MediaAsset]:
-        sess = object_session(self)
-        if sess is None or self.id is None:
-            return None
-        from app.domains.media.api import MediaAsset, MediaKind
+    # The uploaded info/rules file, newest first (#223) — a read-only relationship,
+    # like the activity's poster (CR-13 phase 4).
+    info_assets = relationship(
+        "MediaAsset",
+        primaryjoin=lambda: _media_of(ActivitySubRegistration.id, "component_id", "COMPONENT_INFO"),
+        viewonly=True,
+        order_by=lambda: _media_newest_first(),
+    )
 
-        return (
-            sess.query(MediaAsset)
-            .filter(MediaAsset.kind == MediaKind.COMPONENT_INFO, MediaAsset.component_id == self.id)
-            .order_by(MediaAsset.id.desc())
-            .first()
-        )
+    def _info_asset(self) -> Optional[MediaAsset]:
+        return self.info_assets[0] if self.info_assets else None
 
     @property
     def info_asset_url(self) -> Optional[str]:

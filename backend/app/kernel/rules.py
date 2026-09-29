@@ -28,12 +28,13 @@ session the application or the tests create carries the listener.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 T = TypeVar("T", bound=type)
+F = TypeVar("F", bound=Callable[..., Any])
 
 # ── Aggregates and their check() ─────────────────────────────────────────────
 
@@ -83,6 +84,33 @@ def uninstall_flush_checks() -> None:
 
 
 install_flush_checks()
+
+
+# ── Own transactions ──────────────────────────────────────────────────────────
+#
+# A function another domain reaches through `api.py` does not commit: the caller's
+# door owns the transaction (§B9.3 (c)). The one kind of commit that is right there
+# is a log that must outlive the caller — a sent mail stays logged when the request
+# that sent it fails. Such a function opens its own session, writes one table, and
+# commits that; it says so here, by name, and the gate reads the mark: it checks the
+# table and that the commit is on a session the function opened itself. A commit
+# anywhere else stays red (master CLI, 29 September 2026).
+
+
+def own_transaction(table: str, reason: str, *, command: bool = True) -> Callable[[F], F]:
+    """Mark a function that writes `table` (`schema.name`) in a session it opens
+    itself and commits it, because `reason`. Changes nothing at runtime.
+
+    `command=False`: its write is telemetry about the caller, not a consequence in
+    another domain, so *events, not calls* does not count a call to it (§B4.9). One
+    function carries it — the AI call log — and a gate test fails on a second.
+    """
+
+    def decorator(function: F) -> F:
+        function.__own_transaction__ = (table, reason, command)  # type: ignore[attr-defined]
+        return function
+
+    return decorator
 
 
 # ── Named exemptions ──────────────────────────────────────────────────────────

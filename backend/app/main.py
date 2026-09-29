@@ -23,6 +23,7 @@ from app.domains.auth.ui import router as auth_ui_router
 from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
 from app.domains.chatbot.info_router import router as chatbot_info_router
 from app.domains.chatbot.router import router as chat_router
+from app.domains.chatbot.stt.router import router as stt_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router
 from app.domains.cms.router import router as cms_router
@@ -65,7 +66,6 @@ from app.domains.payment.router import router as payment_router
 from app.domains.payment.stub_router import include_stub_routes
 from app.domains.payment.ui import router as payment_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
-from app.domains.stt.router import router as stt_router
 from app.domains.workflow import (
     handlers as workflow_handlers,  # noqa: F401 - event-abonnementen (#398)
 )

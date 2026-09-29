@@ -63,8 +63,8 @@ def verstuurde_mail(monkeypatch):
     Op `_send` en niet op `send_activity_registration_confirmation`: die tweede
     is precies de functie waarvan dit issue zegt dat ze in geen enkele test
     voorkwam, en hem vervangen zou de weg ernaartoe niet meer toetsen. Via de
-    TestClient draaien de achtergrondtaken ná de respons, dus het adres staat er
-    tegen de tijd dat de assertie kijkt.
+    TestClient draaien de achtergrondtaken ná de respons; sinds CR-13 fase 4 is de
+    bevestiging een job, en `_bevestigingen` werkt de wachtrij eerst af.
     """
     verstuurd: list[dict] = []
 
@@ -103,7 +103,11 @@ def _schrijf_in(client, activity, component, product, *, email, aangemeld_met=No
     )
 
 
-def _bevestigingen(verstuurd: list[dict]) -> list[str]:
+def _bevestigingen(verstuurd: list[dict], db) -> list[str]:
+    """Since CR-13 phase 4 the confirmation is a job: run the queue, then look."""
+    from tests.conftest import send_queued_mail
+
+    send_queued_mail(db)
     return [m["aan"] for m in verstuurd if "Inschrijving bevestigd" in m["onderwerp"]]
 
 
@@ -121,7 +125,7 @@ def test_een_aangemeld_lid_krijgt_de_bevestiging_op_het_ingevulde_adres(
     respons = _schrijf_in(client, activity, component, product, email=WERK, aangemeld_met=HOOFD)
 
     assert respons.status_code == 200, respons.status_code
-    aan = _bevestigingen(verstuurde_mail)
+    aan = _bevestigingen(verstuurde_mail, db_session)
     assert aan, (
         "er vertrok geen bevestiging; alle opgevangen mail: "
         f"{[m['onderwerp'] for m in verstuurde_mail]}"
@@ -143,7 +147,7 @@ def test_een_bezoeker_zonder_aanmelding_krijgt_ze_op_het_getypte_adres(
     respons = _schrijf_in(client, activity, component, product, email=GAST)
 
     assert respons.status_code == 200, respons.status_code
-    assert _bevestigingen(verstuurde_mail) == [GAST]
+    assert _bevestigingen(verstuurde_mail, db_session) == [GAST]
 
 
 def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(client, db_session, verstuurde_mail):
@@ -161,4 +165,6 @@ def test_zonder_adres_is_er_geen_inschrijving_en_dus_geen_mail(client, db_sessio
     assert "Vul naam, e-mailadres en mobiel nummer in" in respons.text, (
         "het formulier aanvaardde een inschrijving zonder adres"
     )
-    assert not verstuurde_mail, f"er vertrok toch een mail zonder ingevuld adres: {verstuurde_mail}"
+    assert not _bevestigingen(verstuurde_mail, db_session), (
+        f"er vertrok toch een mail zonder ingevuld adres: {verstuurde_mail}"
+    )

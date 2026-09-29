@@ -36,11 +36,11 @@ VENDOR_MARKERS = ("api.mistral.ai", "mistralai", "api.bfl.ai")
 # Files that reach a vendor themselves, and what makes their calls land in the log.
 DIRECT = {
     "domains/chatbot/providers/mistral.py": "rule 1 — only built by get_provider",
-    "domains/stt/providers/voxtral.py": "rule 2 — only built by get_stt_provider",
+    "domains/chatbot/stt/providers/voxtral.py": "rule 2 — only built by get_stt_provider",
     "domains/media/extraction.py": "logs each OCR call itself (_log_ocr)",
 }
 
-FACTORIES = {"domains/chatbot/providers/factory.py", "domains/stt/providers/factory.py"}
+FACTORIES = {"domains/chatbot/providers/factory.py", "domains/chatbot/stt/providers/factory.py"}
 
 
 def _python():

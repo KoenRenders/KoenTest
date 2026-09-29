@@ -311,15 +311,40 @@ def move_media(db, asset_id: int, richting: str) -> None:
     db.commit()
 
 
-def delete_media(db, asset_id: int) -> None:
+def remove_media(db, asset_id: int) -> None:
+    """Delete one asset in the caller's transaction — for another domain's service,
+    whose door commits (CR-13 phase 4, §B9.3 (c))."""
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None:
         raise LookupError("Niet gevonden")
     db.delete(asset)
+    db.flush()
+
+
+def delete_media(db, asset_id: int) -> None:
+    """Delete one asset and commit — the door of media's own screens and routes."""
+    remove_media(db, asset_id)
     db.commit()
 
 
 async def upload_media(
+    db,
+    *,
+    files: Sequence,
+    kind: MediaKind | str,
+    activity_id: Optional[int] = None,
+    title: Optional[str] = None,
+    link_url: Optional[str] = None,
+) -> list[dict]:
+    """Store the uploads and commit — the door of media's own screens and routes."""
+    stored = await store_uploads(
+        db, files=files, kind=kind, activity_id=activity_id, title=title, link_url=link_url
+    )
+    db.commit()
+    return stored
+
+
+async def store_uploads(
     db,
     *,
     files: Sequence,
@@ -403,7 +428,9 @@ async def upload_media(
         db.add(asset)
         gemaakt.append(asset)
 
-    db.commit()
+    # A flush, not a commit (CR-13 phase 4): `upload_media` commits for media's own
+    # doors; another domain's service stores through here and its door commits.
+    db.flush()
     for asset in gemaakt:
         db.refresh(asset)
     return [meta(a) for a in gemaakt]
@@ -462,7 +489,9 @@ def add_document(
         **processed,
     )
     db.add(asset)
-    db.commit()
+    # A flush, not a commit (CR-13 phase 4): every caller is another domain's
+    # service, and its door commits.
+    db.flush()
     db.refresh(asset)
     return asset
 
@@ -490,6 +519,14 @@ def activity_ids_with_media(db) -> set[int]:
 
 
 async def replace_activity_poster(db, activity_id: int, file, background_tasks):
+    """Replace an activity's poster and commit — the door of the activity screens
+    and media's route. The Design Studio stores through `store_activity_poster`."""
+    stored = await store_activity_poster(db, activity_id, file, background_tasks)
+    db.commit()
+    return stored
+
+
+async def store_activity_poster(db, activity_id: int, file, background_tasks):
     """Vervang de affiche van een activiteit.
 
     De tekstextractie loopt op de achtergrond (#206): de upload slaagt meteen, de
@@ -561,6 +598,7 @@ async def replace_component_info(db, component_id: int, file, background_tasks):
         component_id=component_id,
         title_base=f"{activiteit_naam} - {component.name} - info",
     )
+    db.commit()  # the door of the component screens (CR-13 phase 4)
     background_tasks.add_task(update_media_extracted_text, asset.id)
     return meta(asset)
 
@@ -603,7 +641,9 @@ def activity_image_path(db, activity_id: int) -> Optional[str]:
                 if png:
                     poster.thumbnail = png
                     poster.thumb_content_type = PNG_CONTENT_TYPE
-                    db.commit()
+                    # A flush (CR-13 phase 4): the rendering is a cache; the caller's
+                    # door keeps it if it commits, and it is made again if not.
+                    db.flush()
             return f"/api/v1/media/{poster.id}/thumb" if poster.thumbnail else None
         return f"/api/v1/media/{poster.id}"
     cover = (

@@ -19,7 +19,6 @@ from app.domains.activities.models import (
 )
 from app.domains.activities.totals import compute_registration_total
 from app.domains.auth.api import User, get_current_admin, get_current_member
-from app.domains.mail.api import send_activity_registration_confirmation
 from app.domains.mdm.api import CONTACT, PaymentMethod, Person
 from app.domains.payment.api import (
     PayableType,
@@ -28,6 +27,8 @@ from app.domains.payment.api import (
 )
 from app.i18n import _
 from app.kernel.clock import belgian_today
+from app.kernel.contracts.activities import RegistrationConfirmed
+from app.kernel.events import publish
 from app.limiter import registration_limiter
 from app.schemas.activity import (
     ActivityCreate,
@@ -185,23 +186,29 @@ def list_activities(
     - ``all`` (admin): álle activiteiten met álle datums.
     """
     today = belgian_today()
-    effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
+    # "Passed" and "ahead" are the service's, the same comparison `registration_state`
+    # makes (CR-13 phase 4).
+    from app.domains.activities.service import date_passed, date_upcoming
 
     base = db.query(Activity).options(
         selectinload(Activity.dates),
         selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
+        # The uploaded poster and info files, in one query each for the whole list
+        # instead of one per card (CR-13 phase 4: the entity no longer queries).
+        selectinload(Activity.poster_assets),
+        selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.info_assets),
     )
 
     if scope == "archived":
         has_past = (
             db.query(ActivityDate.id)
-            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .filter(ActivityDate.activity_id == Activity.id, date_passed(today))
             .correlate(Activity)
             .exists()
         )
         sort_sq = (
             db.query(func.max(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .filter(ActivityDate.activity_id == Activity.id, date_passed(today))
             .correlate(Activity)
             .scalar_subquery()
         )
@@ -213,13 +220,13 @@ def list_activities(
         # komt erachter, aflopend op de meest recente voorbije datum.
         upcoming_sort = (
             db.query(func.min(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
+            .filter(ActivityDate.activity_id == Activity.id, date_upcoming(today))
             .correlate(Activity)
             .scalar_subquery()
         )
         past_sort = (
             db.query(func.max(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .filter(ActivityDate.activity_id == Activity.id, date_passed(today))
             .correlate(Activity)
             .scalar_subquery()
         )
@@ -231,13 +238,13 @@ def list_activities(
         scope = "upcoming"
         has_future = (
             db.query(ActivityDate.id)
-            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
+            .filter(ActivityDate.activity_id == Activity.id, date_upcoming(today))
             .correlate(Activity)
             .exists()
         )
         sort_sq = (
             db.query(func.min(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
+            .filter(ActivityDate.activity_id == Activity.id, date_upcoming(today))
             .correlate(Activity)
             .scalar_subquery()
         )
@@ -979,21 +986,22 @@ def create_registration(
     # Business-event (#152): inschrijving voltooid. Geen PII — enkel niet-
     # identificerende context. Commit mee in dezelfde transactie.
 
-    db.commit()
-    db.refresh(registration)
-
+    # CR-13 phase 4: the confirmation is an event, in this transaction — `mail`
+    # queues it as a job, so it leaves after the commit and never for a
+    # registration that was rolled back.
     if data.contact_email:
-        try:
-            send_activity_registration_confirmation(
+        publish(
+            RegistrationConfirmed(
+                registration_id=registration.id,
                 to_email=data.contact_email,
                 name=data.contact_name or "Deelnemer",
-                activity=activity,
-                registration=registration,
-                background_tasks=background_tasks,
-                payment_record=payment_record,
-            )
-        except Exception as e:
-            logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)
+                payment_record_id=payment_record.id if payment_record is not None else None,
+            ),
+            db,
+        )
+
+    db.commit()
+    db.refresh(registration)
 
     result = _enrich_registration(registration, activity)
     result["checkout_url"] = checkout_url

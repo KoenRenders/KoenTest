@@ -80,11 +80,15 @@ def _payment_amount(db):
     return rec.amount if rec else None
 
 
-def _mail_body(recipient):
-    """Body van de laatste bevestigingsmail (via een eigen sessie: de mail wordt in
-    een background-task met een aparte SessionLocal gelogd)."""
+def _mail_body(recipient, db):
+    """Body van de laatste bevestigingsmail (via een eigen sessie: `_send` logt met
+    een aparte SessionLocal). Since CR-13 phase 4 the mail is a job: run the queue
+    first."""
     from app.database import SessionLocal
     from app.domains.mail.models import EmailLog
+    from tests.conftest import send_queued_mail
+
+    send_queued_mail(db)
 
     s = SessionLocal()
     try:
@@ -106,7 +110,7 @@ def test_registration_betalend(client, db_session, mock_mollie):
     )
     assert r.status_code == 200, r.text
     assert _payment_amount(db_session) == Decimal("30.00")
-    body = _mail_body("betalend@example.com")
+    body = _mail_body("betalend@example.com", db_session)
     assert "Diner × 1" in body and "/ stuk" in body
     assert "Totaal:" in body and "30.00" in body
 
@@ -123,7 +127,7 @@ def test_registration_gratis(client, db_session):
     )
     assert r.status_code == 200, r.text
     assert _payment_amount(db_session) is None  # niets te betalen
-    body = _mail_body("gratis@example.com")
+    body = _mail_body("gratis@example.com", db_session)
     assert "Welkomstdrankje × 2 — gratis" in body
     assert "Totaal:" not in body
     assert "/ stuk" not in body
@@ -143,7 +147,7 @@ def test_registration_eigen_budget(client, db_session):
     )
     assert r.status_code == 200, r.text
     assert _payment_amount(db_session) is None  # eigen budget → niets via het portaal
-    body = _mail_body("eigen@example.com")
+    body = _mail_body("eigen@example.com", db_session)
     assert "Eten na wijnbezoek × 1 — ter plaatse te betalen (eigen budget)" in body
     assert "15.00" not in body  # geen richtprijs tonen
     assert "Totaal:" not in body
@@ -163,7 +167,7 @@ def test_registration_gemengd(client, db_session, mock_mollie):
     assert r.status_code == 200, r.text
     # Enkel het betalende product telt mee.
     assert _payment_amount(db_session) == Decimal("30.00")
-    body = _mail_body("gemengd@example.com")
+    body = _mail_body("gemengd@example.com", db_session)
     assert "Diner × 1" in body and "30.00" in body
     assert "Welkomstdrankje × 1 — gratis" in body
     assert "Eten na wijnbezoek × 1 — ter plaatse te betalen (eigen budget)" in body

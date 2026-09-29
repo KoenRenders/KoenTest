@@ -66,11 +66,14 @@ def start_login(db: Session, email: str) -> None:
         # Eén levende OTP per e-mail (#268): invalideer bestaande ongebruikte,
         # niet-verlopen tokens vóór we een nieuwe maken, zodat er hoogstens één
         # geldige code tegelijk leeft (verkleint de gok-kans).
-        db.query(LoginToken).filter(
+        # Through the objects and not a bulk UPDATE (CR-13 phase 4): every write goes
+        # through the ORM, so the flush sees it. One or two rows at most.
+        for living in db.query(LoginToken).filter(
             func.lower(LoginToken.email) == email.lower(),
             LoginToken.used == False,
             LoginToken.expires_at > datetime.now(timezone.utc),
-        ).update({LoginToken.used: True}, synchronize_session=False)
+        ):
+            living.used = True
         db.add(
             LoginToken(
                 email=email, token=token, otp_code=_hash_otp(otp_code), expires_at=expires_at

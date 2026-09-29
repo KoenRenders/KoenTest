@@ -83,7 +83,7 @@ def _collect(provider):
 def test_language_passed_when_supported(monkeypatch):
     calls = {}
     _install_fake_mistralai(monkeypatch, accept_language=True, calls=calls)
-    from app.domains.stt.providers.voxtral import VoxtralRealtimeProvider
+    from app.domains.chatbot.stt.providers.voxtral import VoxtralRealtimeProvider
 
     provider = VoxtralRealtimeProvider(
         api_key="k", model="m", base_url="wss://x", sample_rate=16000, language="nl"
@@ -97,7 +97,7 @@ def test_language_passed_when_supported(monkeypatch):
 def test_language_fallback_on_typeerror(monkeypatch):
     calls = {}
     _install_fake_mistralai(monkeypatch, accept_language=False, calls=calls)
-    from app.domains.stt.providers.voxtral import VoxtralRealtimeProvider
+    from app.domains.chatbot.stt.providers.voxtral import VoxtralRealtimeProvider
 
     provider = VoxtralRealtimeProvider(
         api_key="k", model="m", base_url="wss://x", sample_rate=16000, language="nl"

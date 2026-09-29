@@ -19,7 +19,6 @@ from app.domains.audit.api import (  # noqa: F401
     snapshot_membership,
 )
 from app.domains.auth.api import User, get_current_admin
-from app.domains.mail.api import send_registration_confirmation
 from app.domains.mdm.api import (
     CONTACT,
     ContactDetail,
@@ -52,6 +51,8 @@ from app.domains.membership.schemas_member import (
 )
 from app.domains.payment.api import create_payment_record, membership_price_for_date
 from app.i18n import _
+from app.kernel.contracts.membership import FamilyRegistered
+from app.kernel.events import publish
 from app.limiter import registration_limiter
 
 logger = logging.getLogger(__name__)
@@ -440,6 +441,22 @@ def register_family(
 
     # Business-event (#152): nieuw gezin/lidmaatschap aangevraagd. Geen PII.
 
+    # CR-13 phase 4: the welcome mail is an event, in this transaction — `mail`
+    # queues it as a job, so it leaves after the commit and never for a
+    # registration that was rolled back.
+    if hoofdlid.email:
+        publish(
+            FamilyRegistered(
+                member_id=member.id,
+                to_email=hoofdlid.email,
+                name=f"{hoofdlid.first_name} {hoofdlid.last_name}",
+                municipality=pc.municipality if pc else "",
+                payment_record_id=payment_record.id if payment_record is not None else None,
+                form=data.model_dump(mode="json"),
+            ),
+            db,
+        )
+
     db.commit()
 
     checkout_url = None
@@ -453,20 +470,6 @@ def register_family(
         )
         if gp:
             checkout_url = gp.checkout_url
-
-    if hoofdlid.email:
-        try:
-            send_registration_confirmation(
-                to_email=hoofdlid.email,
-                name=f"{hoofdlid.first_name} {hoofdlid.last_name}",
-                family=member,
-                data=data,
-                pc_municipality=pc.municipality if pc else "",
-                background_tasks=background_tasks,
-                payment_record=payment_record,
-            )
-        except Exception as e:
-            logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)
 
     status = (
         "pending_payment" if data.payment_method == PaymentMethod.ONLINE.value else "registered"

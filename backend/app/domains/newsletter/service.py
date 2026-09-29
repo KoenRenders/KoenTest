@@ -1138,6 +1138,9 @@ def add_attachment(
         )
     except MediaFout as exc:
         raise NewsletterError(str(exc)) from exc
+    # This service is the door of its screen, so the commit is here (CR-13 phase 4:
+    # `add_document` no longer commits behind its caller).
+    db.commit()
     stem, extension = os.path.splitext(filename or "")
     label = stem.replace("_", " ").strip() or _("bestand")
     kind = extension.lstrip(".").lower() or ("pdf" if content_type == "application/pdf" else "")

@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import logging
 import threading
-import time
 from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
@@ -35,6 +34,18 @@ from app.kernel.codes import CodeEnum, CodeList, CodeSeed, EnumColumn, code_of
 logger = logging.getLogger(__name__)
 
 _handlers: dict[str, Callable[[Session, dict], None]] = {}
+
+#: Jobs whose payload is emptied once they are done (CR-13 phase 4): a mail job
+#: carries the whole message, and `kernel_jobs` has no retention, where `email_log`
+#: does (#328). The log keeps what was sent, for as long as it may.
+_scrub_when_done: set[str] = set()
+
+#: Set after a commit that enqueued a job, so the scheduler runs it now instead of
+#: at its next tick (CR-13 phase 4, master CLI 29 September 2026: a confirmation
+#: mail leaves within a second, and only after the commit). Only this process's
+#: scheduler wakes; without it, the job still runs within one interval.
+_wake = threading.Event()
+_ENQUEUED = "kernel_jobs_enqueued"
 
 
 class JobStatus(CodeEnum):
@@ -120,13 +131,16 @@ class KernelJob(Base):
     )
 
 
-def job(name: str) -> Callable[[Callable], Callable]:
-    """Registreer de handler voor een job-naam (decorator)."""
+def job(name: str, *, scrub_payload: bool = False) -> Callable[[Callable], Callable]:
+    """Registreer de handler voor een job-naam (decorator). `scrub_payload`: empty
+    the payload once the job is done — for a payload that holds personal data."""
 
     def decorator(handler: Callable[[Session, dict], None]) -> Callable:
         if name in _handlers:
             raise ValueError(f"job-handler '{name}' is al geregistreerd")
         _handlers[name] = handler
+        if scrub_payload:
+            _scrub_when_done.add(name)
         return handler
 
     return decorator
@@ -147,7 +161,30 @@ def enqueue(
         max_attempts=max_attempts,
     )
     db.add(entry)
+    db.info[_ENQUEUED] = True
     return entry
+
+
+def _wake_after_commit(session: Session) -> None:
+    if session.info.pop(_ENQUEUED, False):
+        _wake.set()
+
+
+def _forget_after_rollback(session: Session) -> None:
+    session.info.pop(_ENQUEUED, None)
+
+
+def install_wake_on_commit() -> None:
+    """Wake the scheduler after a commit that enqueued a job. Idempotent."""
+    from sqlalchemy import event
+
+    if not event.contains(Session, "after_commit", _wake_after_commit):
+        event.listen(Session, "after_commit", _wake_after_commit)
+    if not event.contains(Session, "after_rollback", _forget_after_rollback):
+        event.listen(Session, "after_rollback", _forget_after_rollback)
+
+
+install_wake_on_commit()
 
 
 def job_details(db: Session, job_id: str) -> Optional[dict]:
@@ -205,6 +242,8 @@ def run_due_jobs(db: Session, batch: int = 10) -> int:
                 savepoint.commit()
             entry.status = JobStatus.DONE
             entry.last_error = None
+            if entry.name in _scrub_when_done:
+                entry.payload = {}
             db.commit()
         except Exception as exc:  # noqa: BLE001 — falen hoort bij het primitief
             if savepoint.is_active:
@@ -251,7 +290,8 @@ def start_scheduler(interval_seconds: int = 30) -> None:
     def loop() -> None:
         logger.info("kernel-jobs scheduler gestart (interval %ss)", interval_seconds)
         while True:
-            time.sleep(interval_seconds)
+            _wake.wait(interval_seconds)
+            _wake.clear()
             try:
                 db = SessionLocal()
                 try:

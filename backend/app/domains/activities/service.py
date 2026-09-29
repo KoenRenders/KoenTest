@@ -20,7 +20,7 @@ from contextlib import AbstractContextManager
 from datetime import date
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, NamedTuple, Optional
 
-from sqlalchemy import func, nulls_last
+from sqlalchemy import func, not_, nulls_last
 from sqlalchemy.orm import Session
 
 from app.domains.activities.codes import INDIVIDUAL
@@ -59,7 +59,25 @@ def is_upcoming(activity_date: ActivityDate | ActivityDateResponse, today: date)
     "has this activity passed", and the API's card asks it to sort a date into past
     or coming. The router had its own copy of this and of `_effective_end`.
     """
-    return _effective_end(activity_date) >= today
+    return ends_on_or_after(_effective_end(activity_date), today)
+
+
+def ends_on_or_after(last_day: Any, today: date) -> Any:
+    """A date whose last day is today or later still lies ahead — the one comparison
+    behind "has this passed" (CR-13 phase 4). It takes a `date` for one activity
+    date and a column expression for a query, so the list's filters and
+    `registration_state` cannot drift apart."""
+    return last_day >= today
+
+
+def date_upcoming(today: date) -> Any:
+    """The SQL side: an `ActivityDate` that still lies ahead (for a query)."""
+    return ends_on_or_after(func.coalesce(ActivityDate.end_date, ActivityDate.start_date), today)
+
+
+def date_passed(today: date) -> Any:
+    """The SQL side: an `ActivityDate` that has passed."""
+    return not_(date_upcoming(today))
 
 
 def _deadline_van(component: ActivitySubRegistration | ComponentResponse) -> Optional[date]:

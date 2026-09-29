@@ -387,7 +387,7 @@ def test_a_dictation_session_is_logged(client, db_session, leeg_logboek, monkeyp
     import json
 
     from app.config import settings
-    from app.domains.stt import router as stt_mod
+    from app.domains.chatbot.stt import router as stt_mod
 
     monkeypatch.setattr(settings, "stt_mode", "native_first")
     monkeypatch.setattr(settings, "stt_provider", "mock")
