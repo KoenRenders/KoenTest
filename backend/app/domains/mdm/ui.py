@@ -51,8 +51,11 @@ def _kpi(db: Session) -> dict:
     campagne over het lopende jaar, erna over het volgende. De logica zelf staat
     in het membership-domein — dit scherm telt niet zelf.
     """
-    from app.domains.membership.api import not_renewed_count, renewal_years
-    from app.domains.payment.api import current_membership_counts
+    from app.domains.membership.api import (
+        current_membership_counts,
+        not_renewed_count,
+        renewal_years,
+    )
 
     gezinnen, personen = current_membership_counts(db)
     # Het referentiejaar (#611): de KPI-kaart noemt het jaar waarin iemand lid wás,

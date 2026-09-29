@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from typing import Optional, Tuple
 
-from sqlalchemy import distinct, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.domains.audit.api import snapshot_payment_record
@@ -64,36 +64,6 @@ def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]
     else:
         valid_to = date(paid_at.year, 12, 31)
     return valid_from, valid_to
-
-
-def current_membership_counts(db: Session, today: Optional[date] = None) -> Tuple[int, int]:
-    """Aantal vandaag-geldige lidmaatschappen en de eraan gekoppelde personen (#294).
-
-    'Geldig vandaag' = ``is_active`` én ``valid_from <= today <= valid_to`` (beide
-    gezet). Een lidmaatschap dat vandaag verlopen of nog niet ingegaan is, telt niet
-    mee. Soft-deleted leden/personen/lidmaatschappen vallen automatisch weg via de
-    globale ORM-filter. Retourneert ``(gezinnen, personen)``.
-    """
-    if today is None:
-        today = date.today()
-    valid = (
-        Membership.is_active.is_(True),
-        Membership.valid_from.isnot(None),
-        Membership.valid_to.isnot(None),
-        Membership.valid_from <= today,
-        Membership.valid_to >= today,
-    )
-    households = (db.query(func.count(distinct(Membership.member_id))).filter(*valid).scalar()) or 0
-    persons = (
-        db.query(func.count(distinct(MemberPerson.person_id)))
-        .join(Membership, Membership.member_id == MemberPerson.member_id)
-        # Join Person zodat de globale soft-delete-filter verwijderde personen
-        # uitsluit (een MemberPerson-rij blijft anders verwijzen naar een dood lid).
-        .join(Person, Person.id == MemberPerson.person_id)
-        .filter(*valid)
-        .scalar()
-    ) or 0
-    return households, persons
 
 
 def create_payment_record(
@@ -358,7 +328,7 @@ def family_payables(db: Session, family_id: int) -> set:
     op person_id, én op e-mailadres voor gastinschrijvingen (dezelfde regel
     als de audit-resolver). include_deleted: een betaling is een financieel
     feit (#190), dus ook geschrapte lidmaatschappen/inschrijvingen tellen."""
-    from sqlalchemy import func, or_
+    from sqlalchemy import or_
 
     from app.domains.activities.api import Registration
     from app.domains.mdm.api import ContactDetail
@@ -1247,7 +1217,7 @@ def enriched_records(db: Session) -> list:
         RegistrationItem,
         compute_registration_total,
     )
-    from app.domains.mdm.api import Member, MemberPerson, Person
+    from app.domains.mdm.api import Member, MemberPerson
     from app.domains.membership.api import Membership
     from app.domains.payment.schemas import EnrichedPaymentRecord
 
