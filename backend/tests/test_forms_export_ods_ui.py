@@ -5,7 +5,7 @@ Query-object (niet de string 'ods') → de format-check faalde. Regressie: de
 admin-export levert een echt ODS-bestand."""
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 from tests.integration.test_forms import _create_form, _field_id
 
 
@@ -21,6 +21,7 @@ def test_admin_ods_export_returns_ods_not_json_error(client, admin_headers):
     client.post(
         f"/api/v1/forms/by-token/{form['share_token']}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "An",
             "submitter_email": "an@example.com",
             "answers": [

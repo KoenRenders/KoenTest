@@ -16,11 +16,8 @@
       {{ ui.label(_("Voornaam (niet verplicht)"), "nb-voornaam") }}
       {{ ui.input_control("first_name", id="nb-voornaam", cls="w-full", attrs='autocomplete="given-name"') }}
     </div>
-    {# Honingpot: onzichtbaar voor mensen, ingevuld door eenvoudige bots. #}
-    <div class="hidden" aria-hidden="true">
-      <label for="nb-website">Website</label>
-      <input type="text" id="nb-website" name="website" tabindex="-1" autocomplete="off">
-    </div>
+    {# Honingpot en getekend tijdstip (#1297): één macro voor elk publiek formulier. #}
+    {{ ui.form_guard_fields() }}
     {{ ui.btn_primary(_("Inschrijven"), type="submit", cls="w-full justify-center") }}
     <p class="text-sm text-gray-600">{{ _("Je krijgt eerst een mail om te bevestigen. Uitschrijven kan onderaan elke nieuwsbrief.") }}
       {% if privacy_url %}<a class="text-blue-500 underline" href="{{ privacy_url }}">{{ _("Privacyverklaring") }}</a>{% endif %}</p>

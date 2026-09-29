@@ -124,7 +124,9 @@ def _confirmations_sent_today(db: Session) -> int:
     )
 
 
-def subscribe_public(db: Session, raw_email: str, first_name: str, confirm_url_for) -> None:
+def subscribe_public(
+    db: Session, raw_email: str, first_name: str, confirm_url_for, *, proof
+) -> None:
     """The public form (CR-05 §3.5): store the request and send the confirmation.
 
     Always answers the same way, whatever the address's state, so the form
@@ -137,8 +139,17 @@ def subscribe_public(db: Session, raw_email: str, first_name: str, confirm_url_f
     - An unsubscribed address asks again of its own accord: it becomes pending
       and must confirm, like a new one.
     - A confirmed address changes nothing and gets no mail.
+
+    `proof` (#1297): the honeypot and the signed render time of the visitor's
+    form (`form_guard.Proof`). A dropped request answers like any other — the
+    same "check your mail" — and stores and sends nothing. The honeypot used to
+    be checked in the route; here no way in can skip it.
     """
     from app.domains.mail.api import send_newsletter_confirmation
+    from app.kernel import form_guard
+
+    if form_guard.refused(proof, "newsletter"):
+        return
 
     email = normalize_email(raw_email)
     if email is None:

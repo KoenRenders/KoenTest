@@ -41,7 +41,7 @@ def berichten_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/berichten", response_class=HTMLResponse, dependencies=[Depends(form_submit_limiter)])
-def berichten_submit(
+async def berichten_submit(
     request: Request,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
@@ -85,9 +85,15 @@ def berichten_submit(
         )
 
     from app.domains.forms.api import submit_bericht
+    from app.kernel.form_guard import Proof
 
     submit_bericht(
-        db, naam=naam, email=email or None, bericht=bericht, background_tasks=background_tasks
+        db,
+        naam=naam,
+        email=email or None,
+        bericht=bericht,
+        proof=Proof.from_request(request, await request.form()),
+        background_tasks=background_tasks,
     )
     # Terug naar de homepage met een bedankt-flash (#451) i.p.v. op /berichten
     # blijven hangen; htmx doet een volledige navigatie op de HX-Redirect-header.
@@ -361,8 +367,16 @@ async def formulier_submit(
         submitter_email=email or None,
         answers=_answers_from_form(form_model, form_data),
     )
+    from app.kernel.form_guard import Proof
+
     try:
-        result = submit_public_form(db, share_token, payload, background_tasks)
+        result = submit_public_form(
+            db,
+            share_token,
+            payload,
+            background_tasks,
+            proof=Proof.from_request(request, form_data),
+        )
     except HTTPException as exc:
         ctx = _form_render_ctx(
             db,

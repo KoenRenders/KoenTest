@@ -5,6 +5,7 @@ import os
 from app.database import SessionLocal
 from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 from app.domains.mail.models import EmailLog, EmailType
+from tests.conftest import form_guard_fields, person_proof
 
 
 def _form_payload(**overrides):
@@ -99,7 +100,12 @@ def test_submit_missing_required_422(client, admin_headers):
         "submitter_email": "jan@example.com",
         "answers": [{"field_id": _field_id(form, "Naam"), "text": "Jan"}],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 422
+    )
 
 
 def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_headers, db_session):
@@ -121,7 +127,9 @@ def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_header
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 5},
         ],
     }
-    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json=body)
+    resp = client.post(
+        f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+    )
     assert resp.status_code == 200, resp.text
     sub_id = resp.json()["id"]
     # Checkbox met 2 vinkjes → 2 antwoordrijen.
@@ -152,7 +160,12 @@ def test_invalid_email_rejected(client, admin_headers):
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 422
+    )
 
 
 def test_rating_out_of_range_rejected(client, admin_headers):
@@ -167,7 +180,12 @@ def test_rating_out_of_range_rejected(client, admin_headers):
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 9},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 422
+    )
 
 
 def test_submit_on_closed_form_rejected(client, admin_headers):
@@ -183,7 +201,12 @@ def test_submit_on_closed_form_rejected(client, admin_headers):
     }
     # Closed is publiek zichtbaar maar weigert inzendingen.
     assert client.get(f"/api/v1/forms/by-token/{token}").status_code == 200
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 403
+    )
 
 
 def test_max_submissions_enforced(client, admin_headers):
@@ -197,8 +220,18 @@ def test_max_submissions_enforced(client, admin_headers):
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 403
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 403
+    )
 
 
 # ── Resultaten-aggregatie ───────────────────────────────────────────────────────
@@ -224,7 +257,12 @@ def test_results_aggregation(client, admin_headers):
                 },
             ],
         }
-        assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+        assert (
+            client.post(
+                f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+            ).status_code
+            == 200
+        )
 
     submit(5, ["Bonnekes 14u"])
     submit(3, ["Bonnekes 14u", "BBQ bakken"])
@@ -252,6 +290,7 @@ def test_export_ods_only(client, admin_headers):
     client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -285,9 +324,19 @@ def test_public_submit_is_rate_limited(client, admin_headers):
         ],
     }
     for _ in range(10):
-        assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+        assert (
+            client.post(
+                f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+            ).status_code
+            == 200
+        )
     # 11e binnen het venster → 429.
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 429
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 429
+    )
 
 
 # ── Bevestigingsmail + wijzig-flow ──────────────────────────────────────────────
@@ -300,6 +349,7 @@ def test_confirmation_email_logged_when_enabled(client, admin_headers):
     client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": recipient,
             "answers": [
@@ -346,6 +396,7 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -387,6 +438,7 @@ def test_no_edit_token_without_allow_edit(client, admin_headers):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -404,6 +456,7 @@ def test_edit_flow(client, admin_headers):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -507,6 +560,7 @@ def test_info_field_never_required(client, admin_headers):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": naam_id, "text": "Jan"}],
@@ -524,6 +578,7 @@ def test_other_option_stores_free_text(client, admin_headers, db_session):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [
@@ -633,7 +688,12 @@ def test_branching_skips_other_branch(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 200
+    )
 
 
 def test_branching_required_in_taken_branch_enforced(client, admin_headers):
@@ -649,7 +709,12 @@ def test_branching_required_in_taken_branch_enforced(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 422
+    )
 
 
 def test_branching_nee_branch(client, admin_headers):
@@ -665,7 +730,12 @@ def test_branching_nee_branch(client, admin_headers):
             {"field_id": _field_id(form, "Slotopmerking"), "text": "Volgend jaar wel"},
         ],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 200
+    )
 
 
 def test_skip_to_end_ignores_later_sections(client, admin_headers):
@@ -706,7 +776,12 @@ def test_skip_to_end_ignores_later_sections(client, admin_headers):
         "submitter_email": "jan@example.com",
         "answers": [{"field_id": _field_id(form, "Stoppen?"), "option_ids": [stop]}],
     }
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+        ).status_code
+        == 200
+    )
 
 
 def test_branching_only_on_choice_fields(client, admin_headers):
@@ -763,6 +838,7 @@ def test_phone_field_validation(client, admin_headers):
     ok = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "text": "+32 470 12 34 56"}],
@@ -773,6 +849,7 @@ def test_phone_field_validation(client, admin_headers):
     bad = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "text": "123"}],
@@ -796,6 +873,7 @@ def test_anonymous_form_stores_no_submitter(client, admin_headers, db_session):
     resp = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": recipient,
             "answers": [{"field_id": _field_id(form, "Mening"), "text": "Prima"}],
@@ -830,6 +908,7 @@ def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
     client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": contact,
             "answers": [{"field_id": _field_id(form, "E-mail partner"), "text": partner}],
@@ -873,6 +952,7 @@ def test_configurable_rating_scale(client, admin_headers):
     ok = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "rating": 3}],
@@ -883,6 +963,7 @@ def test_configurable_rating_scale(client, admin_headers):
     bad = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "rating": 4}],
@@ -917,6 +998,7 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
     ok = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "rating": 10}],
@@ -927,6 +1009,7 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
     bad = client.post(
         f"/api/v1/forms/by-token/{token}/submit",
         json={
+            **form_guard_fields(),
             "submitter_name": "Jan",
             "submitter_email": "jan@example.com",
             "answers": [{"field_id": fid, "rating": 11}],
@@ -986,7 +1069,9 @@ def test_admin_list_and_delete_submission(client, admin_headers, db_session):
             {"field_id": _field_id(form, "Tevredenheid"), "rating": 4},
         ],
     }
-    sub_id = client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).json()["id"]
+    sub_id = client.post(
+        f"/api/v1/forms/by-token/{token}/submit", json={**form_guard_fields(), **body}
+    ).json()["id"]
 
     # Lijst (admin).
     lst = client.get(f"/api/v1/forms/{form['id']}/submissions", headers=admin_headers)
@@ -1078,9 +1163,10 @@ def test_niet_anoniem_vereist_naam_en_email(db_session):
     for naam, email in [("Jan", None), ("Jan", "geen-apestaart"), ("", "jan@x.be")]:
         with pytest.raises(HTTPException) as exc:
             submit_form(
+                db_session,
                 "tok-501",
                 SubmissionIn(submitter_name=naam, submitter_email=email, answers=[]),
                 bt,
-                db=db_session,
+                proof=person_proof(),
             )
         assert exc.value.status_code == 422

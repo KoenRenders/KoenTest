@@ -99,14 +99,14 @@ def _migrate_schema():
 def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
     hetzelfde IP. Reset ze per test zodat ze elkaars tellingen niet erven."""
-    from app.limiter import (
-        chat_limiter,
-        form_submit_limiter,
-        login_limiter,
-        registration_limiter,
-    )
+    import app.limiter as limiters
 
-    for lim in (registration_limiter, login_limiter, chat_limiter, form_submit_limiter):
+    # Every limiter the module defines, derived and not listed (#1297): the list
+    # this replaced named four of seven, and the newsletter's leaked its count
+    # from one test into the next as soon as two tests posted to /nieuwsbrief.
+    found = [v for v in vars(limiters).values() if isinstance(v, limiters.RateLimiter)]
+    assert len(found) >= 7, f"only {len(found)} rate limiters found in app.limiter"
+    for lim in found:
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
     from app.domains.chatbot.router import chat_char_budget
@@ -266,6 +266,30 @@ def nieuw_lid_velden(db=None, **overrides) -> dict:
     }
     velden.update(overrides)
     return {k: v for k, v in velden.items() if v is not None}
+
+
+def form_guard_fields() -> dict:
+    """The guard fields of a public form a person loaded five seconds ago (#1297).
+
+    Every public way in drops a submission without them — silently, with the
+    ordinary thanks — so a test that posts to one and expects a row adds these.
+
+    Five seconds and not a minute: a quick person with a short message. A guard
+    made stricter than that fails every test that posts a person's form, which is
+    the point — a refusal is silent, so a too-strict limit must show up here.
+    """
+    import time
+
+    from app.kernel.form_guard import HONEYPOT_FIELD, TOKEN_FIELD, issue_token
+
+    return {HONEYPOT_FIELD: "", TOKEN_FIELD: issue_token(now=time.time() - 5)}
+
+
+def person_proof():
+    """The same, as the `Proof` a service takes when a test calls it directly."""
+    from app.kernel.form_guard import Proof
+
+    return Proof.from_values(form_guard_fields())
 
 
 def seed_activity_with_product(db, price="10.00", is_free=False, max_participants=None):

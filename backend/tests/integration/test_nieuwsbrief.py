@@ -22,6 +22,7 @@ from app.domains.newsletter.models import (
     SubscriberSource,
     SubscriberStatus,
 )
+from tests.conftest import person_proof
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -278,6 +279,7 @@ def test_dubbele_bevestiging(db_session, mailbox, confirmations):
         " Nieuw@Example.org ",
         "Nora",
         lambda token: f"{BASE}/nieuwsbrief/bevestigen/{token}",
+        proof=person_proof(),
     )
     _subscriber(db_session, "ander@example.org", status=SubscriberStatus.PENDING)
 
@@ -299,17 +301,17 @@ def test_het_formulier_verraadt_niet_wie_al_op_de_lijst_staat(db_session, confir
     """A confirmed address changes nothing and gets no mail; a pending one gets
     at most one mail a day."""
     _subscriber(db_session, "al@example.org")
-    nb.subscribe_public(db_session, "al@example.org", "", lambda t: t)
+    nb.subscribe_public(db_session, "al@example.org", "", lambda t: t, proof=person_proof())
     assert confirmations == []
 
-    nb.subscribe_public(db_session, "twee@example.org", "", lambda t: t)
-    nb.subscribe_public(db_session, "twee@example.org", "", lambda t: t)
+    nb.subscribe_public(db_session, "twee@example.org", "", lambda t: t, proof=person_proof())
+    nb.subscribe_public(db_session, "twee@example.org", "", lambda t: t, proof=person_proof())
     assert [to for to, _n, _u in confirmations] == ["twee@example.org"]
 
 
 def test_een_ongeldig_adres_wordt_geweigerd(db_session, confirmations):
     with pytest.raises(nb.NewsletterError):
-        nb.subscribe_public(db_session, "geen-adres", "", lambda t: t)
+        nb.subscribe_public(db_session, "geen-adres", "", lambda t: t, proof=person_proof())
     assert db_session.query(Subscriber).count() == 0
 
 

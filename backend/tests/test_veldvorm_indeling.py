@@ -22,7 +22,7 @@ een geblokkeerde typekeuze, en het `disabled`/`title`-gedrag uit #700.
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
-from tests.conftest import SEEDED_ADMIN_EMAIL
+from tests.conftest import SEEDED_ADMIN_EMAIL, form_guard_fields
 
 pytestmark = pytest.mark.ui_agnostisch
 
@@ -117,7 +117,9 @@ def test_de_uitleg_blijft_onder_de_geblokkeerde_typekeuze(client, admin_headers)
     zeggen waarom."""
     form = _formulier(client, admin_headers)
     veld = form["fields"][0]
-    resp = client.post(f"/formulier/{form['share_token']}", data={f"f{veld['id']}": "iets"})
+    resp = client.post(
+        f"/formulier/{form['share_token']}", data={**form_guard_fields(), f"f{veld['id']}": "iets"}
+    )
     assert resp.status_code == 200, resp.text[:200]
     _login(client)
 
@@ -133,7 +135,9 @@ def test_het_blokkeergedrag_uit_700_is_ongewijzigd(client, admin_headers):
     """Alleen de indeling verandert; `disabled` en de tooltip blijven."""
     form = _formulier(client, admin_headers)
     veld = form["fields"][0]
-    client.post(f"/formulier/{form['share_token']}", data={f"f{veld['id']}": "iets"})
+    client.post(
+        f"/formulier/{form['share_token']}", data={**form_guard_fields(), f"f{veld['id']}": "iets"}
+    )
     _login(client)
 
     html = client.get(f"/admin/formulieren/{form['id']}").text
