@@ -18,8 +18,6 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     PostalCodeResponse,
 )
 from app.domains.membership.service import (  # noqa: F401
-    LidgegevensFout,
-    controleer_geboortedatum_en_geslacht,
     current_membership_counts,
     has_valid_membership,
     is_member,
@@ -52,9 +50,6 @@ __all__ = [
     "renewal_available",
     "renewal_open",
     "valid_membership_until",
-    # Verplichte lidgegevens (#681)
-    "LidgegevensFout",
-    "controleer_geboortedatum_en_geslacht",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family",
     "assign_board_member",
@@ -107,18 +102,6 @@ def household_member_for(db, person):
     return _member_for(person, db)
 
 
-def household_update_person(db, person, person_id: int, data):
-    from app.domains.membership.household_router import update_person as _impl
-
-    return _impl(person_id, data, person=person, db=db)
-
-
-def household_add_person(db, person, data):
-    from app.domains.membership.household_router import add_person as _impl
-
-    return _impl(data, person=person, db=db)
-
-
 def household_add_email(db, person, person_id: int, email: str):
     from app.domains.membership.household_router import household_add_email as _impl
 
@@ -143,10 +126,21 @@ def household_remove_email(db, person, person_id: int, contact_id: int):
     return _impl(person_id, contact_id, person=person, db=db)
 
 
-def household_remove_person(db, person, person_id: int):
-    from app.domains.membership.household_router import remove_person as _impl
+def portal_member(request, db):
+    """The member logged in on the family portal, with the CSRF check of a mutation;
+    a 401 without one. For a door of another domain on the portal (CR-13 phase 3)."""
+    from app.domains.membership.ui import _require_member_csrf
 
-    return _impl(person_id, person=person, db=db)
+    return _require_member_csrf(request, db)
+
+
+def family_portal_page(request, db, person):
+    """The family portal as it stands — what a door of another domain that changed
+    something on it answers with (CR-13 phase 3: the person mutations are `mdm`'s,
+    the screen stays `membership`'s)."""
+    from app.domains.membership.ui import render_family_portal
+
+    return render_family_portal(request, db, person)
 
 
 def household_renew_membership(db, person, payment_method: str = "online"):

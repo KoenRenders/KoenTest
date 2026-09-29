@@ -29,6 +29,7 @@ from app.domains.mdm.api import (
     Member,
     MemberPerson,
     Person,
+    PersonDetailsMissing,
     PostalCode,
     RelationType,
 )
@@ -50,7 +51,6 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     PersonListItem,
     PersonUpdate,
 )
-from app.domains.membership.service import LidgegevensFout, controleer_geboortedatum_en_geslacht
 from app.i18n import _
 from app.soft_delete import soft_delete
 
@@ -198,10 +198,10 @@ def create_member(db: Session, data: MemberCreate, admin=None):
         # #681: ook hier, want dit is de weg van het beheerscherm "Nieuw lid". Een
         # ingang die de regel overslaat maakt het gat even groot als voordien.
         try:
-            controleer_geboortedatum_en_geslacht(
+            MemberPerson.require_details(
                 person_data.date_of_birth, person_data.gender_code or person_data.gender
             )
-        except LidgegevensFout as fout:
+        except PersonDetailsMissing as fout:
             raise HTTPException(status_code=422, detail=str(fout))
 
         person = Person(
@@ -302,8 +302,8 @@ def create_family_with_members(
     # Server-side, vóór er iets geschreven wordt: de client-`required` is enkel UX.
     for lid in data.members:
         try:
-            controleer_geboortedatum_en_geslacht(lid.date_of_birth, lid.resolved_gender_code)
-        except LidgegevensFout as fout:
+            MemberPerson.require_details(lid.date_of_birth, lid.resolved_gender_code)
+        except PersonDetailsMissing as fout:
             raise HTTPException(status_code=422, detail=str(fout))
 
     member = Member()
@@ -739,11 +739,11 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
     # niet achteraf: een `rollback()` ná het muteren gooit ook al het andere werk
     # in dezelfde sessie weg.
     try:
-        controleer_geboortedatum_en_geslacht(
+        MemberPerson.require_details(
             wijzigingen.get("date_of_birth", person.date_of_birth),
             wijzigingen.get("gender_code", person.gender_code),
         )
-    except LidgegevensFout as fout:
+    except PersonDetailsMissing as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
     changed = False
@@ -961,8 +961,8 @@ def add_person_to_family(
         raise HTTPException(status_code=404, detail=_("Family not found"))
 
     try:
-        controleer_geboortedatum_en_geslacht(data.date_of_birth, data.gender_code)
-    except LidgegevensFout as fout:
+        MemberPerson.require_details(data.date_of_birth, data.gender_code)
+    except PersonDetailsMissing as fout:
         raise HTTPException(status_code=422, detail=str(fout))
 
     person = Person(

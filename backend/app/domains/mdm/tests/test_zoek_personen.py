@@ -21,6 +21,8 @@ prove it. The assertion stays because it pins the intended order (#761) — it i
 a promise, not a proof.
 """
 
+from datetime import date
+
 import pytest
 
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
@@ -31,7 +33,9 @@ pytestmark = pytest.mark.ui_serverrendered
 
 
 def _person(db, voornaam, achternaam, *, lid=False):
-    person = Person(first_name=voornaam, last_name=achternaam)
+    person = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name=voornaam, last_name=achternaam
+    )
     db.add(person)
     db.flush()
     if lid:

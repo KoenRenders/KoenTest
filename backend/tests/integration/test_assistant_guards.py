@@ -16,6 +16,7 @@ whichever model is on the other end.
 """
 
 import json
+from datetime import date
 
 import pytest
 from sqlalchemy import text as sql_text
@@ -83,7 +84,13 @@ def _person(db, first: str, last: str):
     member = Member(tenant_id=TENANT)
     db.add(member)
     db.flush()
-    person = Person(tenant_id=TENANT, first_name=first, last_name=last)
+    person = Person(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        tenant_id=TENANT,
+        first_name=first,
+        last_name=last,
+    )
     db.add(person)
     db.flush()
     db.add(

@@ -16,6 +16,8 @@ which leaves a household nobody can administer; and `soft_delete(mp)` skipped â†
 falls over with the person still in the household.
 """
 
+from datetime import date
+
 import pytest
 
 from app.domains.auth.api import create_access_token
@@ -32,7 +34,12 @@ def _member_headers(email: str) -> dict:
 def _extra_person(db, member, first_name="Kind"):
     from app.domains.mdm.api import Person as P
 
-    person = P(first_name=first_name, last_name="Testgezin")
+    person = P(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        first_name=first_name,
+        last_name="Testgezin",
+    )
     db.add(person)
     db.flush()
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type="KIND"))

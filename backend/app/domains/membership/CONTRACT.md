@@ -11,7 +11,13 @@
   lost e-mail → Person op via het auth-component en past de regel toe.
 - `renewal_open(today=None)` / `renewal_available(valid_until, today=None)` —
   het hernieuwingsvenster (§19.3: één plek; `MEMBERSHIP_RENEWAL_START_MD`).
-- Modellen als type: `Membership`, `MembershipHistory`.
+- Modellen als type: `Membership`, `MembershipHistory`. `Membership.valid_on(day)`
+  is the rule itself since CR-13 phase 3 (#1250), and `Membership.check()` refuses
+  a period that ends before it begins, on every flush.
+- `portal_member(request, db)` and `family_portal_page(request, db, person)` — the
+  family portal's logged-in member and its page, for the doors of `mdm` that change
+  a person of the household (CR-13 phase 3). The portal is this component's screen;
+  the persons are `mdm`'s data.
 
 ## Data
 

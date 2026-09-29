@@ -85,6 +85,45 @@ def uninstall_flush_checks() -> None:
 install_flush_checks()
 
 
+# ── Named exemptions ──────────────────────────────────────────────────────────
+#
+# A rule on an aggregate holds on every path; where one path may deliberately store
+# what the rule refuses, the exemption is written down by name, with its reason, at
+# the one place that grants it — never as a flag an entity reads from the request.
+# It holds for the transaction the path runs in and is gone after its commit or
+# rollback, so it cannot leak into the next request on a pooled session.
+
+_EXEMPTIONS = "cr13_rule_exemptions"
+
+
+def exempt(session: Session, rule: str, reason: str) -> None:
+    """Let `rule` stand aside for this session's current transaction, because `reason`."""
+    session.info.setdefault(_EXEMPTIONS, {})[rule] = reason
+
+
+def exemption(obj: Any, rule: str) -> str | None:
+    """The reason `rule` stands aside for the transaction `obj` is written in, if any.
+
+    Reads the object's state, not the database: the session an object belongs to is
+    bookkeeping, and asking it for its notes is no query (§B4.1).
+    """
+    from sqlalchemy import inspect as sa_inspect
+
+    session = sa_inspect(obj).session
+    if session is None:
+        return None
+    return session.info.get(_EXEMPTIONS, {}).get(rule)
+
+
+def _end_exemptions(session: Session, *_args: Any) -> None:
+    session.info.pop(_EXEMPTIONS, None)
+
+
+for _moment in ("after_commit", "after_rollback"):
+    if not event.contains(Session, _moment, _end_exemptions):
+        event.listen(Session, _moment, _end_exemptions)
+
+
 # ── Derived values and their owner ───────────────────────────────────────────
 
 

@@ -336,7 +336,16 @@ def test_dry_run_makes_no_changes(db_session):
 
 
 def _seed_selfreg(db, voornaam, naam, dob, *, geslacht="M", huisnummer="40"):
-    """Een zelf-geregistreerd lid: Person + gezin, maar GEEN lidnummer."""
+    """Een zelf-geregistreerd lid: Person + gezin, maar GEEN lidnummer.
+
+    Zonder geboortedatum is dat een lid van vóór #681, zoals PROD er twee heeft; het
+    bestaat alleen nog met die uitzondering bij naam (CR-13 fase 3).
+    """
+    if dob is None:
+        from app.domains.mdm.models import HOUSEHOLD_MEMBER_DETAILS
+        from app.kernel.rules import exempt
+
+        exempt(db, HOUSEHOLD_MEMBER_DETAILS, "an old member from before #681, as PROD holds two")
     member = Member()
     db.add(member)
     db.flush()

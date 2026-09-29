@@ -50,12 +50,9 @@ def valid_membership_until(person, ref_date: Optional[date] = None):
         if member is None:
             continue
         for ms in getattr(member, "memberships", None) or []:
-            if (
-                ms.is_active
-                and ms.valid_from is not None
-                and ms.valid_to is not None
-                and ms.valid_from <= ref_date <= ms.valid_to
-            ):
+            # The rule is the membership's (CR-13 phase 3): active, and the day
+            # within its period.
+            if ms.valid_on(ref_date):
                 if best is None or ms.valid_to > best:
                     best = ms.valid_to
     return best
@@ -387,37 +384,6 @@ def parse_member_rows(form) -> list[dict]:
         if rij["first_name"] or rij["last_name"]:
             rijen.append(rij)
     return rijen
-
-
-# ── Verplichte lidgegevens (#681) ────────────────────────────────────────────
-
-
-class LidgegevensFout(ValueError):
-    """Een lid mist een verplicht gegeven. Geen HTTPException: de regel geldt voor
-    élke ingang, en welke statuscode daarbij hoort weet alleen die ingang."""
-
-
-def controleer_geboortedatum_en_geslacht(date_of_birth, gender_code) -> None:
-    """Geboortedatum én geslacht zijn verplicht voor élk lid (#681).
-
-    Dit stond eerder als een lus in `register_router.register_family` en gold
-    alleen voor de bijkomende gezinsleden (#551); het hoofdlid was uitgezonderd en
-    de beheerkant toetste helemaal niets. Eén regel op zes schrijfwegen betekent
-    één plek waar ze staat — hier — en zes aanroepen, niet zes formuleringen.
-
-    Toets op de **uitkomst**, niet op de invoer. Een gedeeltelijke wijziging (het
-    portaal dat alleen een naam meestuurt) mag geen lid achterlaten zónder deze
-    velden, en mag evenmin afketsen op een veld dat niet meegestuurd werd. Roep
-    deze functie dus aan met de waarden zoals de persoon ze ná de wijziging heeft.
-
-    De kolommen blijven bewust nullable: op productie missen twee personen een
-    geboortedatum, en een NOT NULL-migratie zou daarop breken zonder ooit een
-    leesbare melding te kunnen geven. De databank als vangnet is #94.
-    """
-    from app.i18n import _
-
-    if not date_of_birth or not (gender_code or "").strip():
-        raise LidgegevensFout(_("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))
 
 
 def activate_after_payment(

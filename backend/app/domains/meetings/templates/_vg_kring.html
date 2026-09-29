@@ -74,8 +74,10 @@
   <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/kring/nieuw"
         hx-target="#vg-kring" hx-swap="innerHTML">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.input_control("first_name", cls="w-36", placeholder=_("Voornaam")) }}
-    {{ ui.input_control("last_name", cls="w-40", placeholder=_("Achternaam")) }}
+    {# Both names required since CR-13 phase 3: a person always has a first and a
+       last name (Koen, 29 September 2026). #}
+    {{ ui.input_control("first_name", required=True, cls="w-36", placeholder=_("Voornaam")) }}
+    {{ ui.input_control("last_name", required=True, cls="w-40", placeholder=_("Achternaam")) }}
     {{ ui.input_control("person_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
     {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm") }}
   </form>

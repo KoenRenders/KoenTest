@@ -1,14 +1,13 @@
-"""Lid-zelfbediening: gezin bekijken en bewerken.
+"""Lid-zelfbediening: het gezin bekijken, de e-mailadressen, de hernieuwing.
 
 Een ingelogd lid kan:
 - Het eigen gezin lezen (GET /member/household)
-- Persoonsgegevens, adres en contactgegevens aanpassen per persoon
-- Personen aan het gezin toevoegen of verwijderen
+- De e-mailadressen van een gezinslid beheren (#1174)
+- Het lidmaatschap hernieuwen
 
-NIET bewerkbaar via deze endpoints (server-side genegeerd of geblokkeerd):
-- Member.board_member_id  (verantwoordelijk lid: alleen admin)
-- ExternalNumber           (extern ledenummer: alleen admin)
-- MemberPerson.relation_type (type: alleen admin)
+Een persoon bewerken, toevoegen of weghalen is sinds CR-13 fase 3 (#1250) een deur
+van `mdm` (`mdm/household_router.py`, dezelfde paden): het gezin en zijn personen
+zijn masterdata.
 
 Elke schrijfactie logt een audit-rij (source="member_self", actor=e-mail).
 De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
@@ -18,31 +17,23 @@ De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
 
 import logging
 from datetime import date
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.audit.api import (
-    snapshot_address,
-    snapshot_contact_detail,
-    snapshot_member_person,
-    snapshot_person,
-)
 from app.domains.auth.api import require_member
 from app.domains.mdm.api import (
     CONTACT,
-    ContactDetail,
     Member,
     MemberPerson,
     Person,
-    PostalCode,
-    RelationType,
+    household_of,
+    household_person,
+    household_refusals_as_http,
+    person_payload,
 )
-from app.domains.membership.service import LidgegevensFout, controleer_geboortedatum_en_geslacht
 from app.i18n import _
-from app.soft_delete import soft_delete
 
 logger = logging.getLogger(__name__)
 
@@ -51,64 +42,8 @@ router = APIRouter(tags=["member-self"])
 
 def _member_for(person, db: Session) -> Member:
     """Haal het gezin op voor de ingelogde persoon. 404 als er geen is."""
-    mp = next((m for m in person.member_persons), None)
-    if not mp:
-        raise HTTPException(status_code=404, detail=_("Geen gezin gevonden."))
-    return db.query(Member).filter(Member.id == mp.member_id).first()
-
-
-def _assert_in_household(person, member):
-    """403 als de persoon niet tot dit gezin behoort."""
-    if not any(mp.member_id == member.id for mp in person.member_persons):
-        raise HTTPException(status_code=403, detail=_("Geen toegang tot dit gezin."))
-
-
-def _person_payload(p: Person):
-    mp = next((m for m in p.member_persons), None)
-    contacts = {c.contact_type_code: c.value for c in p.contact_details}
-    # #1174: álle e-mailadressen, hoofdadres eerst en daarna op id. `contacts`
-    # hierboven houdt per soort één waarde over — goed genoeg voor telefoon en
-    # gsm, maar een lid mag meerdere e-mailadressen hebben en het portaal beheert
-    # die lijst. Dezelfde vorm als `FamilyMemberResponse.emails` in het
-    # beheerscherm, zodat de twee sjablonen hetzelfde lezen.
-    emails = [
-        {"id": c.id, "value": c.value, "is_primary": bool(c.is_primary)}
-        for c in sorted(
-            (c for c in p.contact_details if c.contact_type_code == CONTACT.EMAIL and c.value),
-            key=lambda c: (not c.is_primary, c.id or 0),
-        )
-    ]
-    address = None
-    if p.address:
-        a = p.address
-        pc = a.postal_code
-        address = {
-            "id": a.id,
-            "street": a.street,
-            "house_number": a.house_number,
-            "bus_number": a.bus_number,
-            "postal_code": pc.postal_code if pc else None,
-            "municipality": pc.municipality if pc else None,
-            "postal_code_id": a.postal_code_id,
-        }
-    return {
-        "id": p.id,
-        "emails": emails,
-        "first_name": p.first_name,
-        "last_name": p.last_name,
-        "date_of_birth": p.date_of_birth.isoformat() if p.date_of_birth else None,
-        "gender_code": p.gender_code,
-        "relation_type": mp.relation_type if mp else None,
-        # Decided here and not in the template: `relation_type` is a
-        # `RelationType` member, so the template's `== "HOOFDLID"` was always
-        # false after CR-12 phase 2, and the main member lost the fields that
-        # only a main member has (CR-12 phase 4 residue).
-        "is_main_member": bool(mp and mp.relation_type is RelationType.PRIMARY_MEMBER),
-        "address": address,
-        "email": contacts.get("EMAIL"),
-        "phone": contacts.get("PHONE"),
-        "mobile": contacts.get("MOBILE"),
-    }
+    with household_refusals_as_http():
+        return household_of(db, person)
 
 
 @router.post("/member/household/renew-membership")
@@ -122,7 +57,6 @@ def renew_membership(
 
     Weigert als er al een geldig lidmaatschap is — geen dubbele betaling.
     """
-    from datetime import date
 
     from app.domains.audit.api import snapshot_membership
     from app.domains.membership.api import (
@@ -292,7 +226,10 @@ def renew_membership(
 @router.get("/member/household")
 def get_household(person=Depends(require_member), db: Session = Depends(get_db)):
     member = _member_for(person, db)
-    persons = [mp.person for mp in member.member_persons]
+    # One order for the JSON and the portal page (Koen, 29 September 2026): the
+    # household's own, not the order the database happens to return the rows in.
+    links = sorted(member.member_persons, key=MemberPerson.household_position)
+    persons = [mp.person for mp in links]
     board_person = None
     if member.board_member_id:
         board_person = next((p for p in persons if p.id == member.board_member_id), None)
@@ -302,226 +239,8 @@ def get_household(person=Depends(require_member), db: Session = Depends(get_db))
         "board_member_name": (
             f"{board_person.first_name} {board_person.last_name}".strip() if board_person else None
         ),
-        "persons": [_person_payload(mp.person) for mp in member.member_persons],
+        "persons": [person_payload(mp.person) for mp in links],
     }
-
-
-@router.put("/member/household/persons/{person_id}")
-def update_person(
-    person_id: int,
-    data: dict,
-    person=Depends(require_member),
-    db: Session = Depends(get_db),
-):
-    member = _member_for(person, db)
-    target = db.query(Person).filter(Person.id == person_id).first()
-    if not target:
-        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
-    _assert_in_household(target, member)
-
-    # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
-    # worden nooit aangeraakt.
-    actor = next(
-        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
-    )
-    nieuw: dict = {}
-    for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
-        if field not in data:
-            continue
-        new_val = data[field] or None
-        if field == "date_of_birth" and new_val is not None and not isinstance(new_val, date):
-            new_val = date.fromisoformat(new_val)
-        nieuw[field] = new_val
-
-    # #681: toets de uitkomst — het portaal stuurt niet altijd alle velden mee —
-    # en toets ze vóór het toepassen: een `rollback()` ná het muteren gooit ook al
-    # het andere werk in dezelfde sessie weg.
-    try:
-        controleer_geboortedatum_en_geslacht(
-            nieuw.get("date_of_birth", target.date_of_birth),
-            nieuw.get("gender_code", target.gender_code),
-        )
-    except LidgegevensFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-
-    # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
-    # maar een onveranderd veld hoort geen history-rij te maken.
-    changed = False
-    for field, new_val in nieuw.items():
-        if getattr(target, field) != new_val:
-            setattr(target, field, new_val)
-            changed = True
-    if changed:
-        snapshot_person(
-            db,
-            target,
-            operation="update",
-            action="person_updated",
-            source="member_self",
-            actor=actor,
-        )
-
-    # Adres
-    if "address" in data and data["address"] and target.address:
-        a = target.address
-        adat = data["address"]
-        addr_changed = False
-        for field in ("street", "house_number"):
-            if field in adat and adat[field] is not None:
-                setattr(a, field, adat[field])
-                addr_changed = True
-        if "bus_number" in adat:
-            a.bus_number = adat["bus_number"] or None
-            addr_changed = True
-        if "postal_code" in adat and adat["postal_code"]:
-            pc = db.query(PostalCode).filter(PostalCode.postal_code == adat["postal_code"]).first()
-            if not pc:
-                raise HTTPException(
-                    status_code=422,
-                    detail=_("Onbekende postcode: %(postal_code)s")
-                    % {"postal_code": adat["postal_code"]},
-                )
-            a.postal_code_id = pc.id
-            addr_changed = True
-        if addr_changed:
-            snapshot_address(
-                db,
-                a,
-                operation="update",
-                action="address_updated",
-                source="member_self",
-                actor=actor,
-            )
-
-    # Contactgegevens
-    def _upsert(type_code, value: Optional[str]):
-        existing = next(
-            (c for c in target.contact_details if c.contact_type_code == type_code), None
-        )
-        if value:
-            if existing:
-                if existing.value != value:
-                    existing.value = value
-                    db.flush()
-                    snapshot_contact_detail(
-                        db,
-                        existing,
-                        operation="update",
-                        action="contacts_updated",
-                        source="member_self",
-                        actor=actor,
-                    )
-            else:
-                contact = ContactDetail(
-                    person_id=target.id, contact_type_code=type_code, value=value, is_primary=True
-                )
-                target.contact_details.append(contact)
-                db.flush()
-                snapshot_contact_detail(
-                    db,
-                    contact,
-                    operation="insert",
-                    action="contacts_updated",
-                    source="member_self",
-                    actor=actor,
-                )
-        elif existing:
-            snapshot_contact_detail(
-                db,
-                existing,
-                operation="delete",
-                action="contacts_updated",
-                source="member_self",
-                actor=actor,
-            )
-            target.contact_details.remove(existing)
-
-    if "email" in data:
-        _upsert("EMAIL", data["email"])
-    if "phone" in data:
-        _upsert("PHONE", data["phone"])
-    if "mobile" in data:
-        _upsert("MOBILE", data["mobile"])
-
-    db.commit()
-    db.refresh(target)
-    return _person_payload(target)
-
-
-@router.post("/member/household/persons", status_code=201)
-def add_person(
-    data: dict,
-    person=Depends(require_member),
-    db: Session = Depends(get_db),
-):
-    member = _member_for(person, db)
-    actor = next(
-        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
-    )
-
-    first_name = (data.get("first_name") or "").strip()
-    last_name = (data.get("last_name") or "").strip()
-    if not first_name or not last_name:
-        raise HTTPException(status_code=422, detail=_("Voornaam en achternaam zijn verplicht."))
-    try:
-        controleer_geboortedatum_en_geslacht(data.get("date_of_birth"), data.get("gender_code"))
-    except LidgegevensFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-
-    new_person = Person(
-        first_name=first_name,
-        last_name=last_name,
-        date_of_birth=data.get("date_of_birth") or None,
-        gender_code=data.get("gender_code") or None,
-    )
-    db.add(new_person)
-    db.flush()
-    snapshot_person(
-        db,
-        new_person,
-        operation="insert",
-        action="person_created",
-        source="member_self",
-        actor=actor,
-    )
-
-    # Relatietype wordt altijd door het systeem bepaald, nooit door het lid.
-    mp = MemberPerson(member_id=member.id, person_id=new_person.id, relation_type="KIND")
-    db.add(mp)
-    db.flush()
-    snapshot_member_person(
-        db,
-        mp,
-        operation="insert",
-        action="person_added_to_family",
-        source="member_self",
-        actor=actor,
-    )
-
-    # Geen adres voor extra gezinsleden: het adres hoort enkel bij het hoofdlid (#125).
-
-    for type_code, key in [("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")]:
-        if data.get(key):
-            contact = ContactDetail(
-                person_id=new_person.id,
-                contact_type_code=type_code,
-                value=data[key],
-                is_primary=True,
-            )
-            db.add(contact)
-            db.flush()
-            snapshot_contact_detail(
-                db,
-                contact,
-                operation="insert",
-                action="contacts_updated",
-                source="member_self",
-                actor=actor,
-            )
-
-    db.commit()
-    db.refresh(new_person)
-    return _person_payload(new_person)
 
 
 # ── E-mailadressen van een gezinslid (#1174) ─────────────────────────────────
@@ -532,18 +251,15 @@ def add_person(
 # auditlogboek → de .ods-export van de ledenwijzigingen → met de hand overtypen
 # in het Raak Nationaal-programma.
 #
-# Dezelfde gezinsgrens als elke andere portaalbewerking: `_assert_in_household`.
+# Dezelfde gezinsgrens als elke andere portaalbewerking: `mdm.api.household_person`.
 # Zonder die controle kon een lid met een persoon-id van iemand anders diens
 # adressen beheren.
 
 
-def _lid_en_doel(person, person_id: int, db: Session) -> Person:
+def _household_target(person, person_id: int, db: Session) -> Person:
     member = _member_for(person, db)
-    target = db.query(Person).filter(Person.id == person_id).first()
-    if not target:
-        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
-    _assert_in_household(target, member)
-    return target
+    with household_refusals_as_http():
+        return household_person(db, member, person_id)
 
 
 def _actor_van(person) -> str | None:
@@ -558,7 +274,7 @@ def household_add_email(
 ):
     from app.domains.mdm.api import add_email_address
 
-    _lid_en_doel(person, person_id, db)
+    _household_target(person, person_id, db)
     add_email_address(db, person_id, (data or {}).get("email") or "", actor=_actor_van(person))
     return {"ok": True}
 
@@ -570,12 +286,12 @@ def household_apply_email_rows(
     """De e-mailrijen uit het portaalformulier toepassen (#1219).
 
     Dezelfde gezinsgrens als elke andere portaalbewerking: zonder
-    `_assert_in_household` kon een lid met het persoon-id van een vreemde diens
+    `household_person` kon een lid met het persoon-id van een vreemde diens
     adressen bewerken.
     """
     from app.domains.mdm.api import apply_email_rows
 
-    _lid_en_doel(person, person_id, db)
+    _household_target(person, person_id, db)
     apply_email_rows(db, person_id, formulier, actor=_actor_van(person))
     return {"ok": True}
 
@@ -586,7 +302,7 @@ def household_make_email_primary(
 ):
     from app.domains.mdm.api import make_email_primary
 
-    _lid_en_doel(person, person_id, db)
+    _household_target(person, person_id, db)
     make_email_primary(db, person_id, contact_id, actor=_actor_van(person))
     return {"ok": True}
 
@@ -597,43 +313,6 @@ def household_remove_email(
 ):
     from app.domains.mdm.api import remove_email_address
 
-    _lid_en_doel(person, person_id, db)
+    _household_target(person, person_id, db)
     remove_email_address(db, person_id, contact_id, actor=_actor_van(person))
     return None
-
-
-@router.delete("/member/household/persons/{person_id}", status_code=204)
-def remove_person(
-    person_id: int,
-    person=Depends(require_member),
-    db: Session = Depends(get_db),
-):
-    member = _member_for(person, db)
-    target = db.query(Person).filter(Person.id == person_id).first()
-    if not target:
-        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
-    _assert_in_household(target, member)
-
-    # Een lid mag zichzelf niet uit het gezin verwijderen.
-    if target.id == person.id:
-        raise HTTPException(
-            status_code=400, detail=_("Je kan jezelf niet uit het gezin verwijderen.")
-        )
-
-    actor = next(
-        (c.value for c in person.contact_details if c.contact_type_code == CONTACT.EMAIL), None
-    )
-
-    mp = next((m for m in target.member_persons if m.member_id == member.id), None)
-    if mp:
-        snapshot_member_person(
-            db,
-            mp,
-            operation="delete",
-            action="person_removed_from_family",
-            source="member_self",
-            actor=actor,
-        )
-        soft_delete(mp)
-
-    db.commit()

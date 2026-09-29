@@ -236,7 +236,9 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     )
 
     # Kind toevoegen aan hetzelfde gezin: eigen e-mail + extern nummer, geen eigen adres.
-    kind = Person(first_name="Tom", last_name="Janssens")
+    kind = Person(
+        date_of_birth=date(1980, 1, 1), gender_code="M", first_name="Tom", last_name="Janssens"
+    )
     db_session.add(kind)
     db_session.flush()
     db_session.add(MemberPerson(member_id=member_id, person_id=kind.id, relation_type="KIND"))

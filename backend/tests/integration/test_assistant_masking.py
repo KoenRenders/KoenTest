@@ -13,6 +13,7 @@ about the code. The payload is the evidence.
 
 import json
 import re
+from datetime import date
 
 from app.domains.reporting.assistant import (
     AMBIGUOUS,
@@ -42,7 +43,13 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
     member = Member(tenant_id=TENANT, board_member_id=board_member.id if board_member else None)
     db.add(member)
     db.flush()
-    person = Person(tenant_id=TENANT, first_name=first, last_name=last)
+    person = Person(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        tenant_id=TENANT,
+        first_name=first,
+        last_name=last,
+    )
     db.add(person)
     db.flush()
     db.add(
@@ -60,8 +67,6 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
         )
     )
     if lid:
-        from datetime import date
-
         from app.domains.membership.api import Membership
 
         jaar = date.today().year
@@ -76,7 +81,13 @@ def _household(db, first: str, last: str, *, board_member=None, extra=0, lid=Fal
             )
         )
     for i in range(extra):
-        huisgenoot = Person(tenant_id=TENANT, first_name=f"Kind{i}", last_name=last)
+        huisgenoot = Person(
+            date_of_birth=date(1980, 1, 1),
+            gender_code="M",
+            tenant_id=TENANT,
+            first_name=f"Kind{i}",
+            last_name=last,
+        )
         db.add(huisgenoot)
         db.flush()
         db.add(
@@ -357,7 +368,13 @@ def test_the_catalogue_carries_no_value_from_the_database(db_session):
 def _person_row(db, first: str, last: str):
     from app.domains.mdm.api import Person
 
-    persoon = Person(tenant_id=TENANT, first_name=first, last_name=last)
+    persoon = Person(
+        date_of_birth=date(1980, 1, 1),
+        gender_code="M",
+        tenant_id=TENANT,
+        first_name=first,
+        last_name=last,
+    )
     db.add(persoon)
     db.flush()
     return persoon

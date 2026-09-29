@@ -21,7 +21,9 @@ def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=Non
     db.flush()
     persons = []
     for i in range(n_persons):
-        p = Person(last_name="Lid", first_name=f"P{i}")
+        p = Person(
+            date_of_birth=date(1980, 1, 1), gender_code="M", last_name="Lid", first_name=f"P{i}"
+        )
         db.add(p)
         db.flush()
         db.add(MemberPerson(member_id=member.id, person_id=p.id, relation_type="HOOFDLID"))
