@@ -157,16 +157,20 @@ The questions of the Sint activity, and what they teach about the shape:
 | Question | Kind | Form builder field type | Note |
 |---|---|---|---|
 | Which time slots suit you? — "Beschikbare tijdstippen", twelve options (Friday 17–21 h in four slots, Saturday 8–12 h and 13–17 h in eight), with a help text asking for **at least four** and to align with the neighbours | several of a list | `checkbox` (multi), twelve options, the help text as `help_text` | a preference, not a booking: a person plans the visits afterwards — so no capacity, no product (Q8). **The builder cannot enforce "at least four"**: `min_value`/`max_value` exist for `number` only, a checkbox has no minimum count (measured in `build_answers`). The Google Form asked it in the help text too; as before, the help text asks and nothing enforces (Q24) |
-| Inside or outside? | one of two | `radio` | — |
-| Tell us about the children | free text | `textarea` | personal data about minors; seen by the organiser only |
-| Allergies | free text | `textarea` | health data — asked because the activity needs it; no special handling in the system, the organiser decides to ask |
-| Remarks | free text | `textarea` | replaces the registration's own *Opmerkingen* box on this screen: a component with a form hides the fixed box (Q9) |
+| "Aan deur of binnen?" — may the Sint come inside, or stay at the door | one of two, required | `radio` with a help text | — |
+| "Zijn de kindjes flink?" — a scale from "Zeer stout" to "Zeer flink" | 1 to 5, required | `rating`, `rating_max` 5, the two labels | the builder has exactly this |
+| "Woordje uitleg" — per child, what the Sint should have in his book (hobbies, friends, what went well, anecdotes, favourite food, school, bedtime, the present asked for…) | free text, required | `textarea` with the long help text | personal data about minors; seen by the organiser only |
+| "Opmerking" — diets and allergies; and, to keep the round short, a Millegem address of grandparents, family or friends as an alternative location | free text, optional | `textarea` with a help text | health data may be typed here — no special handling in the system (Q18); this question replaces the registration's own *Opmerkingen* box: a component with a form hides the fixed box (Q9) |
 
-Learnt: all five fit the ten field types, in one section, without
-branching; none depends on a product; one form serves the activity (one
-component). Nothing in the form builder changes for this case (the "at least four" stays
-a request in the help text, Q24). Source: the Google Form of a previous
-year, two screenshots in the project folder outside the repository.
+Learnt: all five fit the field types the builder has — checkbox, radio,
+rating with its two labels, textarea — every question carries its help text
+(`help_text` exists on every field), in one section, without branching;
+none depends on a product; one form serves the activity (one component).
+Nothing in the form builder changes for this case (the "at least four"
+stays a request in the help text, Q24). Source: the Google Form of a
+previous year, three screenshots in the project folder outside the
+repository; the form itself is ready as an import file for the builder,
+next to them.
 
 **The intro text of the Google Form**, and where the platform already has
 each element — so the intro itself becomes the component's description and
@@ -387,10 +391,11 @@ proves. The closing comments of the issues point here.
 
 *Organiser — setting up (phase 2):*
 
-1. Build a form "Sint 2026" in the form builder with the five questions of
-   A5: time slots (checkbox, required), inside/outside (radio, required),
-   the story (textarea), allergies (textarea), remarks (textarea). Set it
-   open. → *AC1 precondition.*
+1. Import the Sint form (the JSON file next to the screenshots) in the
+   form builder: the five questions of A5 — time slots (checkbox,
+   required), door or inside (radio, required), how good the children were
+   (rating 1–5, required), the story (textarea, required), remarks
+   (textarea). Set it open. → *AC1 precondition.*
 2. Open the Sint activity, its component, settings: pick "Sint 2026" under
    "Extra vragen"; save. See the form named on the component. → *AC1.*
 3. Try to pick a closed form, and a two-section form: refused with the
