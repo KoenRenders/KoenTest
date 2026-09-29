@@ -18,6 +18,8 @@ en doet zelf geen DB-query; binnen een sessie zijn die relaties beschikbaar.
 from datetime import date
 from typing import Optional
 
+from sqlalchemy.orm import Session
+
 
 def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
     """True als ``person`` op ``ref_date`` een actief, geldig lidmaatschap heeft.
@@ -160,6 +162,11 @@ def members_with_membership_for_year(db, year: int) -> set[int]:
     "Dekt" = de geldigheidsperiode overlapt het kalenderjaar. Een lidmaatschap
     dat na de kanteldatum betaald werd loopt tot 31 december van het jaar erna en
     dekt dus twee jaren — precies wat "al vernieuwd" betekent.
+
+    Deliberately broader than "a member today" (`valid_on`, #1307): the
+    newsletter's audience "leden" and the renewal count ask about a year, so a
+    household that paid in October for next year belongs to both years here,
+    while "today" asks only whether its period covers this one day.
     """
     from app.domains.membership.models import Membership
 
@@ -179,30 +186,65 @@ def members_with_membership_for_year(db, year: int) -> set[int]:
     return {r[0] for r in rijen}
 
 
-def members_valid_on(db, day: Optional[date] = None) -> set[int]:
-    """De member-id's met een lidmaatschap dat op ``day`` geldig is (#582).
+def valid_on(day: date) -> tuple:
+    """The one rule for "a member on ``day``" (#1307): the conditions on a Membership.
 
-    Dit is de "actief"-definitie van het ledenscherm en van
-    ``current_membership_counts``: actief én de dag valt binnen [valid_from,
-    valid_to].
+    Active, and ``day`` falls within [valid_from, valid_to], both set. The year
+    printed on the membership plays no part: a household that pays after the
+    turnover date gets next year's membership, valid from the day it paid, and is
+    a member today.
+
+    There were four definitions of "active household": the member list's KPI, the
+    newsletter's audience, the dashboard tile (active membership ROWS with this
+    year's number, so a household renewing in October dropped out until 1 January)
+    and the reporting flag `f_members.is_valid_today` (without `is_active`). The
+    Python side reads this function; the reporting views repeat it in SQL, and
+    `test_active_households_parity` fails the day the two disagree.
     """
     from app.domains.membership.models import Membership
 
-    if day is None:
-        day = date.today()
-    rijen = (
-        db.query(Membership.member_id)
-        .filter(
-            Membership.is_active.is_(True),
-            Membership.valid_from.isnot(None),
-            Membership.valid_to.isnot(None),
-            Membership.valid_from <= day,
-            Membership.valid_to >= day,
-        )
-        .distinct()
-        .all()
+    return (
+        Membership.is_active.is_(True),
+        Membership.valid_from.isnot(None),
+        Membership.valid_to.isnot(None),
+        Membership.valid_from <= day,
+        Membership.valid_to >= day,
     )
+
+
+def members_valid_on(db, day: Optional[date] = None) -> set[int]:
+    """De member-id's met een lidmaatschap dat op ``day`` geldig is (#582, #1307)."""
+    from app.domains.membership.models import Membership
+
+    rijen = db.query(Membership.member_id).filter(*valid_on(day or date.today())).distinct().all()
     return {r[0] for r in rijen}
+
+
+def current_membership_counts(db, today: Optional[date] = None) -> tuple[int, int]:
+    """Households that are a member today, and the persons in them (#294, #1307).
+
+    Moved here from `payment.service`, where it was a leftover: it is the member
+    list's KPI and Raakje's member count, and it reads the one rule `valid_on`.
+    A household with two overlapping memberships counts once. Soft-deleted rows
+    fall away through the global ORM filter. Returns ``(households, persons)``.
+    """
+    from sqlalchemy import distinct, func
+
+    from app.domains.mdm.api import MemberPerson, Person
+    from app.domains.membership.models import Membership
+
+    valid = valid_on(today or date.today())
+    households = db.query(func.count(distinct(Membership.member_id))).filter(*valid).scalar() or 0
+    persons = (
+        db.query(func.count(distinct(MemberPerson.person_id)))
+        .join(Membership, Membership.member_id == MemberPerson.member_id)
+        # Join Person so the global soft-delete filter drops removed persons (a
+        # MemberPerson row would otherwise still point at them).
+        .join(Person, Person.id == MemberPerson.person_id)
+        .filter(*valid)
+        .scalar()
+    ) or 0
+    return households, persons
 
 
 def not_renewed_count(db, today: Optional[date] = None) -> int:
@@ -376,3 +418,35 @@ def controleer_geboortedatum_en_geslacht(date_of_birth, gender_code) -> None:
 
     if not date_of_birth or not (gender_code or "").strip():
         raise LidgegevensFout(_("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))
+
+
+def activate_after_payment(
+    db: Session, membership_id: int, *, source: str, actor: Optional[str]
+) -> None:
+    """Make a membership active after its payment (#113), idempotently.
+
+    The provider's webhook can arrive twice: an active membership is left alone, no
+    second history row. A membership without a period gets the one that contains
+    today. Moved here from `payment` in CR-13 phase 2 — the owner writes its rows.
+    """
+    from app.domains.audit.api import snapshot_membership
+    from app.domains.membership.models import Membership
+    from app.domains.payment.api import membership_valid_period
+
+    membership = db.query(Membership).filter(Membership.id == membership_id).first()
+    if membership is None or membership.is_active:
+        return
+    membership.is_active = True
+    if membership.valid_from is None or membership.valid_to is None:
+        valid_from, valid_to = membership_valid_period(date.today())
+        membership.valid_from = membership.valid_from or valid_from
+        membership.valid_to = membership.valid_to or valid_to
+    db.flush()
+    snapshot_membership(
+        db,
+        membership,
+        operation="update",
+        action="membership_activated",
+        source=source,
+        actor=actor,
+    )

@@ -25,6 +25,7 @@ from app.domains.workflow.api import (
     PAYMENT_WEBHOOK_MISMATCH,
 )
 from app.kernel.contracts.forms import SubmissionCreated
+from app.kernel.contracts.payment import PaymentReceived, RefundDue
 from app.kernel.events import subscribe
 from app.kernel.jobs import enqueue, job
 
@@ -32,6 +33,20 @@ logger = logging.getLogger(__name__)
 
 BERICHTEN_SLUG = "berichten"
 SWEEP_INTERVAL = timedelta(hours=1)
+
+
+@subscribe(PaymentReceived)
+@subscribe(RefundDue)
+def advance_sweep_on_money(event: PaymentReceived | RefundDue, db: Session) -> None:
+    """Look at the workbench now, not at the next hourly round (#705, #855).
+
+    Until CR-13 phase 2 `payment` called `vervroeg_sweep` itself, after "bevestig
+    betaald" and after creating a refund. Now it says what happened, and this does
+    what those two calls did — advance the sweep, never make or close a task: the
+    task's title is its idempotency key, and the sweep decides (#705). Every way
+    money comes in publishes `PaymentReceived`, a provider's webhook included.
+    """
+    api.vervroeg_sweep(db)
 
 
 @subscribe(SubmissionCreated)

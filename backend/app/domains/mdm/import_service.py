@@ -26,9 +26,12 @@ gedaan — enkel het rapport van wat *zou* veranderen wordt opgebouwd (dry-run).
 (verhuisd uit app/services/member_import.py, #444)
 """
 
-from collections import defaultdict
+from __future__ import annotations
+
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Any
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -63,38 +66,114 @@ _CONTACT_FIELDS = ((CONTACT.EMAIL, "email"), (CONTACT.PHONE, "telefoon"), (CONTA
 
 
 @dataclass
+class _Household:
+    """One household's block in the report (#1314): its header and its change lines.
+
+    The lines are its changes, so an existing household with none is unchanged and
+    gets no header. A block, and not a slice of one flat list, because the board
+    members are linked after every household is done and their line belongs under
+    the household it changes.
+    """
+
+    header: str
+    is_new: bool
+    #: The household's `Member`, until `finish()` lets go of it.
+    member: Any
+    lines: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ImportReport:
-    """Wat de load (zou) doen — voor het dry-run-rapport én de samenvatting."""
+    """Wat de load (zou) doen — voor het dry-run-rapport én de samenvatting.
+
+    #1314, Koen: *"voor de import moet alles getoond worden wat geüpdate of
+    geïnsert gaat worden."* Every write the import makes has a line, in the preview
+    and in the run alike, and every line names the writes it stands for in
+    `writes` (per table: `person`, `member_person`, `address`, …). That tally is
+    what `tests/integration/test_import_reports_every_write.py` holds against the
+    history rows and tables the run really adds: a write without a line fails it.
+    """
 
     new_families: int = 0
+    #: Households that change (#1308) — not every existing household in the report.
     updated_families: int = 0
+    #: Existing households in the report that nothing changes; counted, not listed.
+    unchanged_families: int = 0
     persons_added: int = 0
     persons_updated: int = 0
     persons_removed: int = 0
     persons_revived: int = 0
     memberships_created: int = 0
     admins_created: int = 0
+    #: Board members who already have their admin account (#1308); counted, not listed.
+    admins_existing: int = 0
     skipped: int = 0
     warnings: list[str] = field(default_factory=list)
+    #: Filled by `finish()`: every household that changes, header and lines, then
+    #: the lines that belong to no household (the admin accounts).
     lines: list[str] = field(default_factory=list)
+    #: The writes the lines stand for, per table (#1314).
+    writes: Counter = field(default_factory=Counter)
+    #: Persons revived before the upsert (#227), by id → (member number, whether
+    #: their household link and their household came back too). `_sync_family`
+    #: writes the line under the household it belongs to (#1308).
+    revived: dict[int, tuple[str, bool, bool]] = field(default_factory=dict)
+    households: list[_Household] = field(default_factory=list)
+    tail: list[str] = field(default_factory=list)
+    current: _Household | None = None
 
     def warn(self, msg: str) -> None:
         self.warnings.append(msg)
 
-    def line(self, msg: str) -> None:
-        self.lines.append(msg)
+    def line(self, msg: str, *writes: str) -> None:
+        """A change line, and the writes it stands for (#1314)."""
+        (self.current.lines if self.current is not None else self.tail).append(msg)
+        self.writes.update(writes)
+
+    def begin_household(self, header: str, *, is_new: bool, member: object) -> _Household:
+        self.current = _Household(header=header, is_new=is_new, member=member)
+        self.households.append(self.current)
+        return self.current
+
+    def end_household(self) -> None:
+        self.current = None
+
+    def finish(self) -> ImportReport:
+        """Lay out the lines and count the households, once every step has run.
+
+        And let go of the ORM objects: a report outlives the import, and a household
+        it kept alive would keep its collections from the session's identity map —
+        measured: a second import then read last run's `memberships` and created
+        the year's membership twice (`uq_memberships_member_year`)."""
+        for h in self.households:
+            h.member = None
+        self.current = None
+        self.lines = []
+        self.updated_families = self.unchanged_families = 0
+        for h in self.households:
+            if not h.is_new:
+                if not h.lines:
+                    self.unchanged_families += 1
+                    continue
+                self.updated_families += 1
+            self.lines.append(h.header)
+            self.lines.extend(h.lines)
+        self.lines.extend(self.tail)
+        return self
 
     def to_dict(self) -> dict:
         """JSON-vriendelijke vorm voor het upload-endpoint."""
         return {
             "new_families": self.new_families,
             "updated_families": self.updated_families,
+            "unchanged_families": self.unchanged_families,
             "persons_added": self.persons_added,
             "persons_updated": self.persons_updated,
             "persons_removed": self.persons_removed,
             "persons_revived": self.persons_revived,
             "memberships_created": self.memberships_created,
             "admins_created": self.admins_created,
+            "admins_existing": self.admins_existing,
             "skipped": self.skipped,
             "warnings": list(self.warnings),
             "lines": list(self.lines),
@@ -265,7 +344,7 @@ def _upsert_contact(
     *,
     apply: bool,
     actor: str | None = None,
-) -> None:
+) -> bool:
     """De import-kant van `mdm.service.upsert_primary_contact` (#1174).
 
     Dunne schil: hij vult alleen de audit-herkomst in, zodat een rij uit het
@@ -275,7 +354,7 @@ def _upsert_contact(
     """
     from app.domains.mdm.service import upsert_primary_contact
 
-    upsert_primary_contact(
+    return upsert_primary_contact(
         db,
         person,
         type_code,
@@ -290,11 +369,18 @@ def _upsert_contact(
 
 def _sync_contacts(
     db: Session, person: Person, row: dict, *, apply: bool, actor: str | None = None
-) -> None:
+) -> list[str]:
+    """The contacts of one person; returns the columns that change (#1308)."""
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, CONTACT.EMAIL, row["email"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, CONTACT.PHONE, row["telefoon"], True, apply=apply, actor=actor)
-    _upsert_contact(db, person, CONTACT.MOBILE, row["gsm"], not has_phone, apply=apply, actor=actor)
+    changed = []
+    for column, type_code, primary in (
+        ("email", CONTACT.EMAIL, True),
+        ("telefoon", CONTACT.PHONE, True),
+        ("gsm", CONTACT.MOBILE, not has_phone),
+    ):
+        if _upsert_contact(db, person, type_code, row[column], primary, apply=apply, actor=actor):
+            changed.append(column)
+    return changed
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────
@@ -302,8 +388,10 @@ def _sync_contacts(
 
 def _sync_address(
     db: Session, person: Person, row: dict, pc: PostalCode, *, apply: bool, actor: str | None = None
-) -> None:
-    """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij."""
+) -> bool:
+    """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij.
+
+    Returns whether the address changes (#1308), in dry-run too."""
     bus = row["busnummer"] or None
     existing = person.address
     if existing:
@@ -313,7 +401,7 @@ def _sync_address(
             and existing.bus_number == bus
             and existing.postal_code_id == pc.id
         ):
-            return
+            return False
         if apply:
             existing.street = row["straat"]
             existing.house_number = row["huisnummer"]
@@ -328,6 +416,7 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
+        return True
     else:
         if apply:
             addr = Address(
@@ -347,6 +436,7 @@ def _sync_address(
                 source=LEGACY_SOURCE,
                 actor=actor,
             )
+        return True
 
 
 # ── Persoon aanmaken ────────────────────────────────────────────────────────
@@ -363,11 +453,15 @@ def _create_person(
     actor: str | None = None,
 ) -> Person | None:
     """Maak een nieuwe persoon, koppel aan het gezin, met externe-nummer,
-    adres (enkel hoofdlid), contacten — alles geauditeerd."""
+    adres (enkel hoofdlid), contacten — alles geauditeerd.
+
+    #1314: the address and the contacts are decided by `_sync_address` and
+    `_sync_contacts` in the preview too, on a person that is never added to the
+    session, so the preview lists the same writes as the run."""
     report.persons_added += 1
     _meld_onvolledig(row, report)
-    if not apply:
-        return None
+    writes = ["person", "member_person"] + (["external_number"] if row["lidnr"] else [])
+    report.line(f"  + nieuw  #{row['lidnr']}  {row['voornaam']} {row['naam']}", *writes)
 
     person = Person(
         last_name=row["naam"],
@@ -375,6 +469,10 @@ def _create_person(
         date_of_birth=row["geboortedatum"],
         gender_code=row["geslacht"],
     )
+    if not apply:
+        _report_new_details(db, person, row, pc, report)
+        return None
+
     db.add(person)
     db.flush()
     snapshot_person(
@@ -392,10 +490,32 @@ def _create_person(
         db, mp, operation="insert", action="person_imported", source=LEGACY_SOURCE, actor=actor
     )
 
-    if row["_relatie"] == "HOOFDLID" and pc is not None:
-        _sync_address(db, person, row, pc, apply=apply, actor=actor)
-    _sync_contacts(db, person, row, apply=apply, actor=actor)
+    _report_new_details(db, person, row, pc, report, apply=True, actor=actor)
     return person
+
+
+def _report_new_details(
+    db: Session,
+    person: Person,
+    row: dict,
+    pc: PostalCode | None,
+    report: ImportReport,
+    *,
+    apply: bool = False,
+    actor: str | None = None,
+) -> None:
+    """A new person's address (head of household only) and contacts: written with
+    `apply`, and in either mode reported with the writes they stand for (#1314)."""
+    if row["_relatie"] == "HOOFDLID" and pc is not None:
+        if _sync_address(db, person, row, pc, apply=apply, actor=actor):
+            report.line(f"  + adres #{row['lidnr']}  {row['voornaam']} {row['naam']}", "address")
+    contacts = _sync_contacts(db, person, row, apply=apply, actor=actor)
+    if contacts:
+        report.line(
+            f"  + contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
+            f"velden: {', '.join(contacts)}",
+            *(["contact_detail"] * len(contacts)),
+        )
 
 
 # ── Lidmaatschap ────────────────────────────────────────────────────────────
@@ -409,14 +529,16 @@ def _ensure_membership(
     apply: bool,
     report: ImportReport,
     actor: str | None = None,
-) -> None:
-    """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74)."""
+) -> bool:
+    """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74).
+
+    Returns whether it creates one (#1308)."""
     existing = next((m for m in member.memberships if m.year == import_year), None)
     if existing:
-        return
+        return False
     report.memberships_created += 1
     if not apply:
-        return
+        return True
     ms = Membership(
         member_id=member.id,
         year=import_year,
@@ -429,6 +551,7 @@ def _ensure_membership(
     snapshot_membership(
         db, ms, operation="insert", action="membership_imported", source=LEGACY_SOURCE, actor=actor
     )
+    return True
 
 
 # ── Gezin synchroniseren (nieuw én bestaand via één pad) ─────────────────────
@@ -446,7 +569,8 @@ def _sync_family(
     apply: bool,
     report: ImportReport,
     actor: str | None = None,
-) -> None:
+    report_lidnrs: frozenset[str] = frozenset(),
+) -> _Household | None:
     """Synchroniseer één gezin met zijn adresgroep uit het rapport.
 
     ``member`` is een echt object (bestaand of net aangemaakt) in apply-modus, of
@@ -457,12 +581,19 @@ def _sync_family(
     gehecht (#192); overige onbekende lidnummers worden aangemaakt; personen die
     niet meer in de adresgroep staan, worden bij een bestaand gezin uit het gezin
     verwijderd."""
+    # #1308: an existing household gets its "UPDATE gezin" line only when
+    # something in it changes. Every change below writes its own line — so the
+    # lines this household adds ARE its changes, and the header goes in front of
+    # them afterwards. No second comparison: the decision is the one each step
+    # already makes.
     if is_new:
         report.new_families += 1
-        report.line(f"NIEUW gezin: {_family_label(fam)}")
+        report.begin_household(f"NIEUW gezin: {_family_label(fam)}", is_new=True, member=member)
+        report.writes.update(["member"])  # the header is the household's own insert
     else:
-        report.updated_families += 1
-        report.line(f"UPDATE gezin (#{member.id}): {_family_label(fam)}")
+        report.begin_household(
+            f"UPDATE gezin (#{member.id}): {_family_label(fam)}", is_new=False, member=member
+        )
 
     desired_lidnrs = {r["lidnr"] for r in fam if r["lidnr"]}
     # Personen (op id) die dit rapport voor dit gezin aanlevert — bepaalt straks
@@ -488,7 +619,9 @@ def _sync_family(
                 existing = match
                 report.line(
                     f"  ⇄ identiteit #{row['lidnr']}  {row['voornaam']} {row['naam']}"
-                    f"  — lidnummer gehecht aan bestaand lid"
+                    f"  — lidnummer gehecht aan bestaand lid",
+                    "external_number",
+                    "person",
                 )
                 if apply:
                     en = ExternalNumber(source=LEGACY_SOURCE, external_id=row["lidnr"])
@@ -508,7 +641,6 @@ def _sync_family(
 
         if existing is None:
             # Onbekend lidnummer (en geen identiteitsmatch) → nieuwe persoon.
-            report.line(f"  + nieuw  #{row['lidnr']}  {row['voornaam']} {row['naam']}")
             person = _create_person(db, row, member, pc, apply=apply, report=report, actor=actor)
             if person is not None:
                 processed_person_ids.add(person.id)
@@ -520,6 +652,16 @@ def _sync_family(
         # ander gezin of verweesd) → hergebruik.
         processed_person_ids.add(existing.id)
         row["_person_id"] = existing.id
+        if existing.id in report.revived:
+            revived_lidnr, link_back, household_back = report.revived[existing.id]
+            report.line(
+                f"  ↺ hersteld #{revived_lidnr}  {existing.first_name} {existing.last_name}"
+                + ("  (gezin hersteld)" if household_back else ""),
+                "person",
+                "external_number",
+                *(["member_person_revive"] if link_back else []),
+                *(["member"] if household_back else []),
+            )
         cur_member = _current_member(existing)
         # Bij een nieuw (transient) gezin heeft member.id geen betekenis.
         mp = (
@@ -531,12 +673,17 @@ def _sync_family(
         if mp is None:
             # Persoon nog niet aan dit gezin gekoppeld: verhuizen of (her)koppelen.
             verb = "verhuisd" if cur_member is not None else "gekoppeld"
-            report.line(f"  ~ {verb} #{row['lidnr']}  {row['voornaam']} {row['naam']}")
+            old_mp = (
+                next((m for m in existing.member_persons if m.member_id == cur_member.id), None)
+                if cur_member is not None
+                else None
+            )
+            report.line(
+                f"  ~ {verb} #{row['lidnr']}  {row['voornaam']} {row['naam']}",
+                *(["member_person"] * (2 if old_mp else 1)),
+            )
             if apply:
                 if cur_member is not None:
-                    old_mp = next(
-                        (m for m in existing.member_persons if m.member_id == cur_member.id), None
-                    )
                     if old_mp:
                         snapshot_member_person(
                             db,
@@ -573,9 +720,11 @@ def _sync_family(
         rel_changed = mp is not None and code_of(mp.relation_type) != row["_relatie"]
         if changes or rel_changed:
             report.persons_updated += 1
-            label = ", ".join(changes) if changes else "—"
+            label = ", ".join(changes + (["relatie"] if rel_changed else []))
             report.line(
-                f"  ~ update #{row['lidnr']}  {row['voornaam']} {row['naam']}  velden: {label}"
+                f"  ~ update #{row['lidnr']}  {row['voornaam']} {row['naam']}  velden: {label}",
+                *(["person"] if changes else []),
+                *(["member_person"] if rel_changed else []),
             )
         if apply:
             if changes:
@@ -600,9 +749,20 @@ def _sync_family(
                     source=LEGACY_SOURCE,
                     actor=actor,
                 )
-            if row["_relatie"] == "HOOFDLID" and pc is not None:
-                _sync_address(db, existing, row, pc, apply=apply, actor=actor)
-            _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        # Address and contacts are compared in dry-run too (#1308): they write only
+        # with `apply`, but whether they WOULD change is part of the report.
+        if row["_relatie"] == "HOOFDLID" and pc is not None:
+            if _sync_address(db, existing, row, pc, apply=apply, actor=actor):
+                report.line(
+                    f"  ~ adres #{row['lidnr']}  {row['voornaam']} {row['naam']}", "address"
+                )
+        contacts = _sync_contacts(db, existing, row, apply=apply, actor=actor)
+        if contacts:
+            report.line(
+                f"  ~ contact #{row['lidnr']}  {row['voornaam']} {row['naam']}  "
+                f"velden: {', '.join(contacts)}",
+                *(["contact_detail"] * len(contacts)),
+            )
 
     # Verwijder personen die niet (meer) in de adresgroep van het rapport staan
     # (enkel bij een bestaand gezin; een nieuw gezin heeft nog geen leden).
@@ -611,11 +771,16 @@ def _sync_family(
             if mp.person_id in processed_person_ids:
                 continue
             lidnr = _person_lidnr(mp.person, LEGACY_SOURCE)
-            if lidnr in desired_lidnrs:
+            # #1314: someone the report lists under another household is moving,
+            # not leaving — that household's "~ verhuisd" removes this link. Removed
+            # here as well, the link was deleted twice: two history rows and
+            # "expected to delete 1 row(s); 0 were matched".
+            if lidnr in desired_lidnrs or lidnr in report_lidnrs:
                 continue
             report.persons_removed += 1
             report.line(
-                f"  - verwijderd  #{lidnr or '?'}  {mp.person.first_name} {mp.person.last_name}"
+                f"  - verwijderd  #{lidnr or '?'}  {mp.person.first_name} {mp.person.last_name}",
+                "member_person",
             )
             if apply:
                 snapshot_member_person(
@@ -629,7 +794,12 @@ def _sync_family(
                 db.delete(mp)
                 db.flush()
 
-    _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor)
+    if _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor):
+        report.line(f"  + lidmaatschap {IMPORT_YEAR}", "membership")
+
+    household = report.current
+    report.end_household()
+    return household
 
 
 def _family_label(fam: list[dict]) -> str:
@@ -647,16 +817,20 @@ def _link_board_members(
     db: Session,
     families: list[list[dict]],
     bl_index: dict,
+    households: dict[int, _Household],
     *,
     apply: bool,
     report: ImportReport,
     actor: str | None = None,
 ) -> None:
     """Koppel het verantwoordelijke bestuurslid per gezin (herkoppelen mag —
-    het rapport wint, alle velden worden overschreven)."""
-    if not apply:
-        return
-    for fam in families:
+    het rapport wint, alle velden worden overschreven).
+
+    #1314: decided in the preview too, and a change writes its line under the
+    household it changes — which may make an otherwise unchanged household a
+    changed one. In the preview a board member who is new in this report has no
+    id yet; the run will create them, so their household changes."""
+    for index, fam in enumerate(families):
         bl_name = fam[0].get("bestuurslid")
         if not bl_name:
             continue
@@ -666,10 +840,18 @@ def _link_board_members(
             continue
         best = min(candidates, key=lambda r: _sort_lidnr(r["lidnr"]))
         pid = best.get("_person_id")
-        if not pid:
+        household = households.get(index)
+        if household is None or (apply and not pid):
+            continue  # a skipped household, or a board member the run did not create
+        member = household.member
+        if pid is not None and member.board_member_id == pid:
             continue
-        member = _member_for_row(db, fam[0])
-        if member is not None and member.board_member_id != pid:
+        old = member.board_member if member.board_member_id else None
+        was = f"{old.first_name} {old.last_name}" if old is not None else "—"
+        report.current = household
+        report.line(f"  ~ bestuurslid: {was} → {best['voornaam']} {best['naam']}", "member")
+        report.current = None
+        if apply:
             member.board_member_id = pid
             db.flush()
             snapshot_member(
@@ -686,7 +868,12 @@ def _create_admin_users(
     db: Session, all_bl_names: list[str], bl_index: dict, *, apply: bool, report: ImportReport
 ) -> None:
     """Maak admin-gebruikers voor bestuursleden — enkel nieuwe; bestaande
-    logins worden nooit overschreven."""
+    logins worden nooit overschreven.
+
+    #1308: the existing account is looked up in dry-run too — a read — so the
+    preview lists only the accounts the import will create, as the run does. It
+    listed every board member with an address before, and the two disagreed.
+    Existing accounts are counted (`admins_existing`), not listed."""
     for name in all_bl_names:
         candidates = bl_index.get(name, [])
         if not candidates:
@@ -694,13 +881,16 @@ def _create_admin_users(
         best = min(candidates, key=lambda r: _sort_lidnr(r["lidnr"]))
         if not best.get("email"):
             continue
-        if apply and db.query(User).filter(User.email == best["email"]).first():
+        if db.query(User).filter(User.email == best["email"]).first():
+            report.admins_existing += 1
             continue
         pid = best.get("_person_id")
         if apply and not pid:
             continue
         report.admins_created += 1
-        report.line(f"  admin: {best['voornaam']} {best['naam']} <{best['email']}>")
+        report.line(
+            f"  admin: {best['voornaam']} {best['naam']} <{best['email']}>", "user", "user_role"
+        )
         if apply:
             # User↔Person koppelt enkel via e-mail (geen FK/person_id-kolom op users):
             # dat is de bewuste auth-scheiding. Hier dus géén person_id meegeven (#226).
@@ -717,14 +907,6 @@ def _create_admin_users(
                 )
             )
             db.flush()
-
-
-def _member_for_row(db: Session, row: dict) -> Member | None:
-    pid = row.get("_person_id")
-    if not pid:
-        return None
-    mp = db.query(MemberPerson).filter(MemberPerson.person_id == pid).first()
-    return mp.member if mp else None
 
 
 def _norm(s: str) -> str:
@@ -770,9 +952,9 @@ def _revive_soft_deleted(
         if person is None or person.deleted_at is None:
             continue  # persoon nog actief → niets te herstellen
         report.persons_revived += 1
-        report.line(f"  ↺ hersteld #{en.external_id}  {person.first_name} {person.last_name}")
         _revive(person)
         _revive(en)
+        link_back = household_back = False
         # De meest recente gezinskoppeling + dat gezin herleven, zodat het gezin
         # terugkomt i.p.v. dat er een duplicaat-gezin wordt aangemaakt.
         latest_mp = (
@@ -782,9 +964,11 @@ def _revive_soft_deleted(
             .first()
         )
         if latest_mp is not None:
+            link_back = latest_mp.deleted_at is not None
             _revive(latest_mp)
             member = inc(Member).filter(Member.id == latest_mp.member_id).first()
             if member is not None and member.deleted_at is not None:
+                household_back = True
                 _revive(member)
                 if apply:
                     snapshot_member(
@@ -795,6 +979,7 @@ def _revive_soft_deleted(
                         source=LEGACY_SOURCE,
                         actor=actor,
                     )
+        report.revived[person.id] = (en.external_id, link_back, household_back)
         db.flush()
         if apply:
             snapshot_person(
@@ -890,13 +1075,17 @@ def upsert_families(
 
     pc_map = {pc.postal_code: pc for pc in db.query(PostalCode).all()}
 
-    for fam in families:
+    households: dict[int, _Household] = {}
+    report_lidnrs = frozenset(r["lidnr"] for fam in families for r in fam if r["lidnr"])
+    for index, fam in enumerate(families):
         pc = pc_map.get(fam[0]["postcode"])
         member = _resolve_existing_member(fam, ext_map, identity_map, report)
         is_new = member is None
 
         if is_new:
-            if pc is None and apply:
+            # #1314: skipped in the preview too — it listed the household as new,
+            # and the run then left it out.
+            if pc is None:
                 report.skipped += 1
                 report.warn(
                     f"gezin {fam[0]['naam']}: onbekende postcode "
@@ -919,7 +1108,7 @@ def upsert_families(
                 member = Member()  # transient: enkel voor het dry-run-rapport
 
         assert member is not None  # is_new=False → bestaand lid; is_new=True → hierboven gezet
-        _sync_family(
+        household = _sync_family(
             db,
             member,
             fam,
@@ -930,10 +1119,14 @@ def upsert_families(
             apply=apply,
             report=report,
             actor=actor,
+            report_lidnrs=report_lidnrs,
         )
 
+        if household is not None:
+            households[index] = household
+
     # Fase 2 + 3: bestuursleden koppelen en admin-gebruikers aanmaken.
-    _link_board_members(db, families, bl_index, apply=apply, report=report, actor=actor)
+    _link_board_members(db, families, bl_index, households, apply=apply, report=report, actor=actor)
     _create_admin_users(db, all_bl_names, bl_index, apply=apply, report=report)
 
-    return report
+    return report.finish()

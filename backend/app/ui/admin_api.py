@@ -16,8 +16,8 @@ from app.database import get_db
 from app.domains.activities.api import ActivityDate
 from app.domains.auth.api import User, get_current_admin
 from app.domains.mdm.api import Member
-from app.domains.membership.api import Membership
-from app.domains.payment.api import PaymentRecord, current_membership_counts
+from app.domains.membership.api import current_membership_counts
+from app.domains.payment.api import PaymentRecord, aggregate
 
 
 def _open_tasks(db):
@@ -41,21 +41,22 @@ def get_stats(
     active_member_households, active_member_persons = current_membership_counts(db, today)
     return {
         "members": db.query(func.count(Member.id)).scalar(),
-        "active_members": db.query(func.count(Membership.id))
-        .filter(Membership.year == today.year, Membership.is_active == True)
-        .scalar(),
+        # #1311: the one rule of #1307 (`membership.valid_on`), not active
+        # membership rows of this year's number — a fifth definition, which lost
+        # every renewal after the turnover date. Nothing in the app reads this key;
+        # it stays for whoever calls the API, with the value the dashboard shows.
+        "active_members": active_member_households,
         "active_member_households": active_member_households,
         "active_member_persons": active_member_persons,
         "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
         .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
         .scalar(),
         "open_tasks": _open_tasks(db),
-        "outstanding_balance": float(
-            db.query(func.coalesce(func.sum(PaymentRecord.amount), 0))
-            .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
-            .scalar()
-            or 0
-        ),
+        # #1311: the payments screen's "Openstaand" — amount minus paid over every
+        # record, through the screen's own `aggregate`. It was the full amount of
+        # every record not paid, cancelled or failed: a failed payment stays owed,
+        # and a partly paid one is owed only for what is open.
+        "outstanding_balance": float(aggregate(db.query(PaymentRecord).all())["saldo"]),
     }
 
 

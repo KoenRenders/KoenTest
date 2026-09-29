@@ -213,8 +213,13 @@ def test_the_export_writes_labels_and_not_codes(db_session):
 
     from app.domains.payment.exports import build_payments_export_ods
 
+    # A refund carries a negative amount (the sign rule, CR-13 phase 2).
     _charge(
-        db_session, status=PaymentStatus.PAID, method=PaymentMethod.ONLINE, type=PaymentType.REFUND
+        db_session,
+        status=PaymentStatus.PAID,
+        method=PaymentMethod.ONLINE,
+        type=PaymentType.REFUND,
+        amount=Decimal("-10.00"),
     )
     db_session.commit()
     content = (

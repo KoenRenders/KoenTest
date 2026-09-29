@@ -68,12 +68,14 @@ module = [
 ]
 strict_equality = true
 
-# CR-13 phase 1 (§B9.3 *Typed*, narrowed — master CLI, 29 September 2026): every
-# function typed in the two modules where the Registration aggregate's rules live.
-# The rest of `activities` is #1305: 222 functions, and a return type on a FastAPI
-# route can become its `response_model`, so it is its own step, not this phase's.
+# Every function in `activities` typed: CR-13 phase 1 (§B9.3 *Typed*) did the two
+# modules where the Registration aggregate's rules live, #1305 the rest. A return
+# type on a FastAPI route can become its `response_model`, so the routes carry
+# `-> HTMLResponse`/`-> Response` or an explicit `response_model=None`, and
+# `tests/test_activities_routes_unchanged.py` proves no route changed.
+# `tests/test_activities_typed_gate.py` fails if this setting goes.
 [[tool.mypy.overrides]]
-module = ["app.domains.activities.models", "app.domains.activities.totals"]
+module = ["app.domains.activities.*"]
 disallow_untyped_defs = true
 
 # ── ruff: formatter and linter (#781) ────────────────────────────────────────

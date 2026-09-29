@@ -1,0 +1,272 @@
+<main id="main" class="flex-1 px-4 py-8">
+<div class="max-w-5xl mx-auto">
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">← Betaalkarakter</a></p>
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+<div>
+<h1 tabindex="-1" class="text-3xl font-bold text-kop">Deelnemer paid</h1>
+</div>
+</div>
+<p class="text-sm text-ink-soft -mt-4 mb-4">
+<a class="text-blue-700 hover:underline" href="/admin/activiteiten/<ACTIVITY>">Betaalkarakter</a> · Deelname · ingeschreven op 01-09-2026
+</p>
+<div class="border-b border-gray-200 mb-6">
+<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
+<a href="/admin/inschrijvingen/<R:paid>?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Overzicht</a>
+<a href="/admin/inschrijvingen/<R:paid>/betalingen?terug=%2Fadmin%2Factiviteiten%2F<ACTIVITY>" class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Betalingen 2</a>
+</nav>
+</div>
+<div id="bt-boven">
+<input type="hidden" name="zicht" value="alle" form="bt-filter">
+<div class="mb-4 md:max-w-2xl flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
+<div class="text-[11px] text-ink-soft">Netto te betalen <span class="md:hidden">· 2 boekingen</span></div>
+<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 15,00</div>
+<div class="hidden md:block text-[11px] text-ink-soft">2 boekingen</div>
+</div>
+<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
+<div class="text-[11px] text-ink-soft">Ontvangen <span class="md:hidden">· na terugbetalingen</span></div>
+<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ 20,00</div>
+<div class="hidden md:block text-[11px] text-ink-soft">Na terugbetalingen</div>
+</div>
+<div class="flex-1 min-w-0 md:min-w-[9rem] px-4 py-2 md:py-3 flex items-baseline justify-between gap-3 md:block">
+<div class="text-[11px] text-ink-soft">Openstaand <span class="md:hidden">· 1 boekingen</span></div>
+<div class="text-lg md:text-2xl font-bold tracking-tight tabular-nums text-ink">€ -5,00</div>
+<div class="hidden md:block text-[11px] text-ink-soft">1 boekingen</div>
+</div>
+</div>
+<div class="border-b border-gray-200 mb-6">
+<nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
+<a href="/admin/betalingen?zicht=alle&amp;inschrijving=<R:paid>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=alle&inschrijving=<R:paid>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-blue-700 text-blue-700 font-semibold">Alle <span class="font-normal text-xs text-gray-400">2</span></a>
+<a href="/admin/betalingen?zicht=openstaand&amp;inschrijving=<R:paid>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=openstaand&inschrijving=<R:paid>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Openstaand <span class="font-normal text-xs text-gray-400">1</span></a>
+<a href="/admin/betalingen?zicht=betaald&amp;inschrijving=<R:paid>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=betaald&inschrijving=<R:paid>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Betaald <span class="font-normal text-xs text-gray-400">1</span></a>
+<a href="/admin/betalingen?zicht=terugbetaald&amp;inschrijving=<R:paid>&amp;scope_stil=1" hx-get="/admin/betalingen/lijst?zicht=terugbetaald&inschrijving=<R:paid>&scope_stil=1" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset" hx-headers='{"X-Raak-Filter":"1"}' class="py-2 border-b-2 border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300">Terugbetaald <span class="font-normal text-xs text-gray-400">1</span></a>
+</nav>
+</div>
+</div>
+<div class="flex flex-wrap items-start md:items-stretch gap-3">
+<form id="bt-filter" class="mb-4 flex flex-col gap-3 flex-1" hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst"
+ hx-swap="innerHTML" hx-trigger="change, keyup changed delay:400ms from:input[type=search]"
+ hx-headers='{"X-Raak-Filter": "1"}'
+ onsubmit="return false">
+<div class="flex flex-wrap gap-3 items-center">
+<div class="flex-1 min-w-[14rem]">
+<div class="relative">
+<input type="search" name="q" value="" placeholder="Zoek op naam, OGM of omschrijving…"
+ aria-label="Zoek op naam, OGM of omschrijving…"
+ class="w-full sm:w-64 pl-9"
+ >
+<span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span>
+</div></div>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" >
+<option value="all" selected>Alle statussen</option>
+<option value="pending" >In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select>
+<a href="/admin/betalingen/export?context=all&amp;status=all&amp;zicht=alle&amp;inschrijving=<R:paid>" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-boost="false"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>Export (.ods)</a>
+</div>
+<input type="hidden" name="inschrijving" value="<R:paid>"><input type="hidden" name="scope_stil" value="1">
+</form>
+</div>
+<div id="betalingen-lijst"
+ hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
+ hx-include="#bt-filter" hx-swap="innerHTML"
+ hx-headers='{"X-Betalingen-Scope": "inschrijving=<R:paid>\u0026scope_stil=1"}'>
+<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
+<span>2 boekingen · recentste eerst, gegroepeerd per inschrijving</span>
+<span>EUR · alleen FINANCE kan bevestigen</span>
+</div>
+<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
+<table class="w-full text-xs">
+<thead>
+<tr class="bg-gray-50 text-xs text-ink-soft text-left">
+<th scope="col" class="px-3 py-2 font-medium">Naam / referentie</th>
+<th scope="col" class="px-3 py-2 font-medium">Context</th>
+<th scope="col" class="px-3 py-2 font-medium hidden md:table-cell">Status</th>
+<th scope="col" class="px-2 py-2 font-medium text-right">Bedrag</th>
+<th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">Ontvangen</th>
+<th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">Saldo</th>
+<th scope="col" class="px-3 py-2 font-medium text-right w-px">Acties</th>
+</tr>
+</thead>
+<tbody class="border-t-2 border-gray-300" x-data="{ open: null, terug: null }">
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<td class="px-3 py-2 ">
+<span class="font-medium">Deelnemer paid</span>
+<div class="md:hidden mt-1 flex items-center gap-2">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+<strong class="tabular-nums text-ink-soft">€ 0,00</strong>
+</div>
+</td>
+<td class="px-3 py-2">
+<div>Betaalkarakter — Deelname</div>
+<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Overschrijving</div>
+</td>
+<td class="px-3 py-2 hidden md:table-cell">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-green-100 text-green-800"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 " aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Vereffend</span>
+</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-ink-soft">€ 0,00</strong></td>
+<td class="px-3 py-2 w-px">
+<div class="flex justify-end gap-2 items-center whitespace-nowrap">
+<a href="/admin/inschrijvingen/<R:paid>?terug=/admin/betalingen" class="text-xs font-medium text-link hover:underline whitespace-nowrap">Inschrijving</a>
+<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" hx-disabled-elt="this" @click="terug = terug === '<REC:paid>' ? null : '<REC:paid>'; open = null">Terugbetaling</button>
+<button type="button" x-show="open !== &#39;<REC:paid>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:paid>&#39;; terug = null">Bewerken</button>
+</div>
+</td>
+</tr>
+<tr x-show="open === '<REC:paid>'" x-cloak style="display: none">
+<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
+<div class="flex flex-wrap gap-2 items-end">
+<form class="flex flex-wrap gap-2 items-end flex-1"
+ x-data="{ status: 'paid', bedrag: '20,00' }"
+ hx-post="/admin/betalingen/<REC:paid>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+<div><label class="block text-xs text-gray-500">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '20,00'">
+<option value="pending" >In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select></div>
+<div>
+<label class="block text-xs text-gray-500">Betaald bedrag</label>
+<input type="text" name="amount_paid" id="ap-<REC:paid>" placeholder="0,00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
+</div>
+<input type="text" name="note" id="note-<REC:paid>" placeholder="Opmerking"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+<span class="ml-auto"></span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+</form>
+</div>
+</td>
+</tr>
+<tr x-show="terug === '<REC:paid>'" x-cloak style="display: none">
+<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
+<form class="flex flex-wrap gap-2 items-end"
+ hx-post="/admin/betalingen/<REC:paid>/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+<div><label for="rf-amount-<REC:paid>" class="block text-sm font-medium text-gray-700 mb-1">Terug te betalen bedrag <span class="text-red-600">*</span></label>
+<input type="text" name="amount" id="rf-amount-<REC:paid>" placeholder="Bedrag" required
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" inputmode="decimal"></div>
+<input type="text" name="note" id="rf-note-<REC:paid>" placeholder="Reden"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+<span class="ml-auto"></span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="terug = null">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Registreren</button>
+</form>
+</td>
+</tr>
+<tr class="border-t border-gray-100 align-middle hover:bg-blue-50/40">
+<td class="px-3 py-2 pl-9">
+<span class="text-gray-400" aria-hidden="true">↳</span>
+<span class="font-medium">Deelnemer paid</span>
+<div class="md:hidden mt-1 flex items-center gap-2">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
+<strong class="tabular-nums text-teal-700">€ -5,00</strong>
+</div>
+</td>
+<td class="px-3 py-2">
+<div>Betaalkarakter — Deelname</div>
+<div class="text-[11px] text-ink-soft truncate max-w-[22rem]">Terugbetaling · Overschrijving</div>
+</td>
+<td class="px-3 py-2 hidden md:table-cell">
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-yellow-100 text-yellow-800">Terug te betalen</span>
+</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ -5,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 0,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="text-teal-700">€ -5,00</strong></td>
+<td class="px-3 py-2 w-px">
+<div class="flex justify-end gap-2 items-center whitespace-nowrap">
+<button type="button" class="text-xs font-medium text-link hover:underline whitespace-nowrap" data-confirm="Als volledig terugbetaald bevestigen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Bevestig</button>
+<button type="button" x-show="open !== &#39;<REC:refund_due>&#39;" class="text-xs font-medium text-link hover:underline whitespace-nowrap" @click="open = &#39;<REC:refund_due>&#39;; terug = null">Bewerken</button>
+</div>
+</td>
+</tr>
+<tr x-show="open === '<REC:refund_due>'" x-cloak style="display: none">
+<td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
+<div class="flex flex-wrap gap-2 items-end">
+<form class="flex flex-wrap gap-2 items-end flex-1"
+ x-data="{ status: 'pending', bedrag: '' }"
+ hx-post="/admin/betalingen/<REC:refund_due>/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+<div><label class="block text-xs text-gray-500">Status</label>
+<select name="status" class="rounded-lg border border-gray-300 px-3 py-2 text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none text-sm" x-model="status" @change="if (status === 'paid' && !bedrag) bedrag = '5,00'">
+<option value="pending" >In afwachting</option>
+<option value="paid" >Betaald</option>
+<option value="failed" >Mislukt</option>
+<option value="cancelled" >Geannuleerd</option>
+</select></div>
+<div>
+<label class="block text-xs text-gray-500">Terugbetaald bedrag</label>
+<input type="text" name="amount_paid" id="ap-<REC:refund_due>" placeholder="0,00"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-28" x-model="bedrag" inputmode="decimal">
+</div>
+<input type="text" name="note" id="note-<REC:refund_due>" placeholder="Opmerking"
+ class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-40" >
+<span class="ml-auto mr-3"><button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-red-600 hover:bg-red-700 text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" data-confirm="Deze terugbetaling verwijderen?" hx-disabled-elt="this" hx-post="/admin/betalingen/<REC:refund_due>/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML">Verwijderen</button></span>
+<button type="button" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" @click="open = null">Annuleren</button>
+<button type="submit" class="inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors bg-blue-700 hover:bg-brand-ocean-hover text-white border border-transparent px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0" hx-disabled-elt="this" >Opslaan</button>
+<p class="w-full order-last text-xs text-gray-400">Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.</p>
+</form>
+</div>
+</td>
+</tr>
+<tr class="bg-gray-50/60">
+<td colspan="3" class="px-3 py-2 font-medium text-ink-soft">Totaal inschrijving <span class="text-teal-700">· Nog uit te betalen: € 5,00</span></td>
+<td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ 15,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-teal-700 font-medium">€ -5,00</td>
+<td></td>
+</tr>
+</tbody>
+<tfoot>
+<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+<td colspan="3" class="px-3 py-2">Netto totaal · 2 boekingen</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ 15,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ 20,00</td>
+<td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ -5,00</td>
+<td></td>
+</tr>
+</tfoot>
+</table>
+</div>
+<div class="mb-4 max-w-md">
+<h2 class="text-sm font-semibold text-kop mb-2">Financieel overzicht <span class="font-normal text-ink-soft">· huidige selectie</span></h2>
+<div class="overflow-x-auto">
+<table class="text-xs md:text-sm border border-gray-200 rounded-card overflow-hidden">
+<thead>
+<tr class="bg-gray-50 text-gray-500">
+<th class="px-2 md:px-4 py-2 text-left font-medium"></th>
+<th class="px-2 md:px-4 py-2 text-right font-medium">Te betalen</th>
+<th class="px-2 md:px-4 py-2 text-right font-medium">Betaald</th>
+<th class="px-2 md:px-4 py-2 text-right font-medium">Saldo</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-t border-gray-100">
+<td class="px-2 md:px-4 py-2 text-gray-700">Betalingen</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 20,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 20,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 0,00</td>
+</tr>
+<tr class="border-t border-gray-100">
+<td class="px-2 md:px-4 py-2 text-gray-700">Terugbetalingen</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 0,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ -5,00</td>
+</tr>
+<tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+<td class="px-2 md:px-4 py-2">Netto</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ 15,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ 20,00</td>
+<td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ -5,00</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</main>

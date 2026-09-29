@@ -5,6 +5,19 @@ reg_form_types). De totaalberekening (`compute_registration_total`) leeft
 uitsluitend hier — server-side, één plek (§19.3).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Sequence
+
+if TYPE_CHECKING:  # #1305: types for the annotations only, not a new import order
+    from datetime import date
+
+    from fastapi import BackgroundTasks
+    from sqlalchemy.orm import Session
+
+    from app.domains.mdm.api import Person
+    from app.schemas.activity import ActivityResponse, RegistrationCreate
+
 # Volgorde bewust: eerst de modellen binden, dan pas de services — zo kan een
 # component dat middenin deze import (indirect) terugverwijst de modelnamen al
 # vinden (zelfde patroon als payment.api).
@@ -95,7 +108,7 @@ from app.domains.activities.totals import (  # noqa: F401
 # router. Vandaar deze doorgangen, met `db` vooraan zoals elders in de service.
 
 
-def list_activities(db, scope: str = "upcoming"):
+def list_activities(db: Session, scope: str = "upcoming") -> list[ActivityResponse]:
     """Publieke activiteitenlijst (upcoming/archived/all) — facade-doorgang
     voor andere componenten (o.a. de homepage, #405)."""
     from app.domains.activities.router import list_activities as _impl
@@ -103,7 +116,7 @@ def list_activities(db, scope: str = "upcoming"):
     return _impl(scope=scope, db=db)
 
 
-def get_activity_detail(db, activity_id: int):
+def get_activity_detail(db: Session, activity_id: int) -> ActivityResponse | None:
     """Eén activiteit met de verrijking van de lijst (#651) — facade-doorgang.
 
     Het beheerdetail haalde hiervoor de hele lijst op en filterde in Python; dat
@@ -114,35 +127,35 @@ def get_activity_detail(db, activity_id: int):
     return _impl(db, activity_id)
 
 
-def open_deadlines(activity):
+def open_deadlines(activity: Activity) -> list[date]:
     """De uiterste inschrijfdatums van deze activiteit, zonder dubbels (#1053)."""
     from app.domains.activities.service import open_deadlines as _impl
 
     return _impl(activity)
 
 
-def shared_deadline(activity):
+def shared_deadline(activity: Activity) -> date | None:
     """De ene uiterste datum die voor élk onderdeel geldt, of None (#1053)."""
     from app.domains.activities.service import shared_deadline as _impl
 
     return _impl(activity)
 
 
-def card_deadline(activity):
+def card_deadline(activity: Activity) -> date | None:
     """De ene uiterste datum die de publieke kaart toont, of None (#1053)."""
     from app.domains.activities.service import card_deadline as _impl
 
     return _impl(activity)
 
 
-def deadline_is_near(deadline):
+def deadline_is_near(deadline: date | None) -> bool:
     """Valt de uiterste inschrijfdatum binnen de laatste week? (#1051)"""
     from app.domains.activities.service import deadline_is_near as _impl
 
     return _impl(deadline)
 
 
-def enrich_registration(registration, activity):
+def enrich_registration(registration: Registration, activity: Activity) -> dict:
     """Een inschrijving met haar activiteit- en productcontext, zoals het
     beheerscherm ze toont. Implementatie in de service (#679, batch 6)."""
     from app.domains.activities.service import enrich_registration as _impl
@@ -150,7 +163,9 @@ def enrich_registration(registration, activity):
     return _impl(registration, activity)
 
 
-def move_within(db, siblings, item_id: int, richting: str, attr: str = "sort_order") -> None:
+def move_within(
+    db: Session, siblings: Sequence[Any], item_id: int, richting: str, attr: str = "sort_order"
+) -> None:
     """Herorden broers/zussen en leg het vast.
 
     De kernel-helper commit bewust niet (hij weet niets van transacties); dat
@@ -163,14 +178,20 @@ def move_within(db, siblings, item_id: int, richting: str, attr: str = "sort_ord
     db.commit()
 
 
-def public_registrations(db, activity_id: int, component_id: int):
+def public_registrations(db: Session, activity_id: int, component_id: int) -> list[dict]:
     """De deelnemers van één onderdeel, zoals de publieke kaart ze toont (#451)."""
     from app.domains.activities.router import get_public_registrations as _impl
 
     return _impl(activity_id, component_id=component_id, db=db)
 
 
-def register_for_activity(db, activity_id: int, data, background_tasks, current_member=None):
+def register_for_activity(
+    db: Session,
+    activity_id: int,
+    data: RegistrationCreate,
+    background_tasks: BackgroundTasks,
+    current_member: Person | None = None,
+) -> dict:
     """De inschrijfflow: volzet-controle, regelitems, totaal, betaalrecord en
     bevestigingsmail. Eén domeinbewerking; het scherm vult alleen het formulier in."""
     from app.domains.activities.router import register_for_activity as _impl
@@ -179,8 +200,14 @@ def register_for_activity(db, activity_id: int, data, background_tasks, current_
 
 
 def board_register_for_activity(
-    db, activity_id: int, data, background_tasks, *, actor: str, person_id: int | None
-):
+    db: Session,
+    activity_id: int,
+    data: RegistrationCreate,
+    background_tasks: BackgroundTasks,
+    *,
+    actor: str,
+    person_id: int | None,
+) -> dict:
     """The board adds a registration for somebody else (#1192, #1284).
 
     The same implementation as the public way (`router.create_registration`).

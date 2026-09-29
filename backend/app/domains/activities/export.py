@@ -9,13 +9,20 @@ totaalrij. Sheet 2 ("Betalingen en vorderingen", #307): alle losse betaalrecords
 Bevat persoons- en financiële data: enkel admin, nooit in de repo.
 """
 
+from __future__ import annotations
+
 from decimal import Decimal
-from typing import Tuple
+from typing import TYPE_CHECKING, Tuple
 
 from app.domains.activities.totals import compute_registration_total
 from app.i18n import _
 from app.kernel.codes import code_label
 from app.kernel.ods import build_ods_multi
+
+if TYPE_CHECKING:  # #1305
+    from sqlalchemy.orm import Session
+
+    from app.domains.activities.models import Activity, ActivitySubRegistration, Registration
 
 # CR-12 phase 1: four label dictionaries used to live here, two of which said
 # the same thing in two spellings — `_METHOD_LABELS` in upper case for the
@@ -25,7 +32,9 @@ from app.kernel.ods import build_ods_multi
 # fifteen registrations printed their raw word via the fallback.
 
 
-def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
+def _registration_financials(
+    db: Session, reg: Registration
+) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
     # Lazy import: doorbreekt de kringloop payment.api -> ... -> activities.api -> export.
     from app.domains.mdm.api import PaymentMethod
     from app.domains.payment.api import (
@@ -62,7 +71,7 @@ def _status_label(due: Decimal, saldo: Decimal) -> str:
     return _("Vereffend") if due > 0 else _("Gratis")
 
 
-def _payments_sheet(db, registrations) -> dict:
+def _payments_sheet(db: Session, registrations: list[Registration]) -> dict:
     """Sheet 2 (#307): alle betaalrecords (vorderingen + terugbetalingen) van de
     inschrijvingen, gegroepeerd per inschrijver, met een totaalrij (te betalen /
     betaald / saldo). Dit zijn dezelfde 'zichtbare' details als op de admin-
@@ -128,7 +137,9 @@ def _payments_sheet(db, registrations) -> dict:
     }
 
 
-def build_component_export_ods(db, activity, component) -> bytes:
+def build_component_export_ods(
+    db: Session, activity: Activity, component: ActivitySubRegistration
+) -> bytes:
     """Bouw de .ods-export voor één onderdeel (2 bladen) en geef de bytes terug."""
     products = list(component.products)
     registrations = [r for r in activity.registrations if r.component_id == component.id]

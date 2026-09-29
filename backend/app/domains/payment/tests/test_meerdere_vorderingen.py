@@ -72,14 +72,37 @@ def test_de_oudste_is_de_hoofdkaart_ook_als_ze_later_binnenkomt(db_session):
     assert kaarten[laatste.id]["is_extra"] is True
 
 
+def _empty_charge(payable_id: int) -> PaymentRecord:
+    """A charge of 0,00, built in memory only.
+
+    Since CR-13 phase 2 it cannot be stored: the record refuses it on flush and the
+    database's sign rule at rest, and `reconcile_charges` removes a charge on which
+    nothing came in instead of closing it on 0,00 (#1249 (b)). The screen's guard
+    below stays — against an old row or a future path — and is tested on an object
+    that is not in the database.
+    """
+    record = PaymentRecord(
+        id=f"00000000-0000-4000-8000-{payable_id:012d}",
+        payable_type="registration",
+        payable_id=payable_id,
+        amount=Decimal("0.00"),
+        amount_paid=Decimal("0.00"),
+        method="transfer",
+        status="paid",
+        type="charge",
+    )
+    record.created_at = datetime.now(timezone.utc)
+    return record
+
+
 def test_een_lege_vordering_komt_niet_op_het_scherm(db_session):
-    """De valstrik: bij het reconciliëren blijft er soms een charge van 0 staan.
+    """De valstrik: bij het reconciliëren bleef er soms een charge van 0 staan.
 
     Ze is chronologisch vaak de EERSTE, dus zonder deze uitzondering wordt een
     kaart van 0,00 de hoofdkaart met de echte bedragen eronder — verwarrender dan
     het probleem dat #673 oplost. Ze kan bovendien nooit betaald worden.
     """
-    leeg = _charge(db_session, 6732, "0.00", betaald="0.00", minuten=0)
+    leeg = _empty_charge(6732)
     echt = _charge(db_session, 6732, "30.00", betaald="30.00", minuten=5)
     db_session.commit()
 
@@ -96,7 +119,6 @@ def test_een_lege_vordering_komt_niet_op_het_scherm(db_session):
 def test_het_totaal_verandert_niet_door_de_herindeling(db_session):
     """De belangrijkste test: een visuele herschikking die stilletjes een bedrag
     uit het totaal laat vallen, is erger dan de verwarring die ze oplost."""
-    _charge(db_session, 6733, "0.00", betaald="0.00", minuten=0)
     _charge(db_session, 6733, "30.00", betaald="30.00", minuten=5)
     _charge(db_session, 6733, "10.00", minuten=9)
     db_session.commit()
@@ -104,7 +126,7 @@ def test_het_totaal_verandert_niet_door_de_herindeling(db_session):
     from app.domains.payment.api import get_records_for
 
     records = get_records_for(db_session, "registration", 6733)
-    groepen = group_cards(records)
+    groepen = group_cards([_empty_charge(6733), *records])
 
     # De ingesprongen vordering telt gewoon mee; de lege draagt 0 bij.
     assert groepen[0]["totaal"]["due"] == Decimal("40.00")

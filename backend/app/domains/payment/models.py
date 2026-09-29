@@ -1,9 +1,12 @@
 import uuid as uuid_lib
 from datetime import datetime, timezone
+from decimal import Decimal
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -15,9 +18,27 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
 from app.domains.mdm.api import PaymentMethod
-from app.kernel.codes import CodeEnum, EnumColumn
+from app.kernel.codes import CodeEnum, EnumColumn, code_of
+from app.kernel.rules import aggregate
 from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
+
+if TYPE_CHECKING:
+    from app.kernel.contracts.payment import PaymentReceived
+
+
+class PaymentError(ValueError):
+    """A domain rule of payment was violated (CR-13 phase 2, §B4.4).
+
+    English since phase 2: one exception class per domain, English, and the
+    Dutch name it had before (`BetalingFout`) stays as an alias of it. A kind of
+    `ValueError`, so the services' existing `except ValueError` still catch it.
+    Not an HTTPException: the entrance decides how to answer.
+    """
+
+
+def _amount(value: object) -> Decimal:
+    return Decimal(str(value if value is not None else 0))
 
 
 def _now_utc() -> datetime:
@@ -177,9 +198,36 @@ class PaymentProviderLabel(Base):
     )
 
 
+@aggregate
 class PaymentRecord(TenantMixin, SoftDeleteMixin, Base):
+    """What is owed or to be paid back, and what came in: the aggregate of CR-13 phase 2.
+
+    Its state follows from its amounts (#720): `mark_paid` books money and decides
+    paid or not by whether it covers the record, never by which button was pressed.
+    Its rules, at their addresses (§B4.2):
+
+    - **several fields** — `check()`, run on every flush by the kernel's listener:
+      a charge is positive and a refund negative (#94, #83) on a living row, and
+      what came in lies between nothing and the amount, on the amount's side of
+      zero (#146, #219);
+    - **at rest** — the same two as CHECKs (migration of phase 2): the sign rule on
+      living rows only — a soft-deleted row is still a row — the bounds on all rows.
+    """
+
     __tablename__ = "payment_records"
-    __table_args__ = {"schema": "payment"}
+    __table_args__ = (
+        CheckConstraint(
+            "deleted_at IS NOT NULL OR (type = 'charge' AND amount > 0) "
+            "OR (type = 'refund' AND amount < 0)",
+            name="ck_payment_records_sign",
+        ),
+        CheckConstraint(
+            "amount_paid IS NULL OR (type = 'charge' AND amount_paid BETWEEN 0 AND amount) "
+            "OR (type = 'refund' AND amount_paid BETWEEN amount AND 0)",
+            name="ck_payment_records_amount_paid_bounds",
+        ),
+        {"schema": "payment"},
+    )
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid_lib.uuid4()))
     # The four vocabulary columns, as `Mapped[]` + `EnumColumn` (§B4.8). They
@@ -221,6 +269,90 @@ class PaymentRecord(TenantMixin, SoftDeleteMixin, Base):
 
     gateway_payment = relationship("GatewayPayment")
     refund_of = relationship("PaymentRecord", remote_side=[id])
+
+    def check(self) -> None:
+        """The sign of the amount, and what came in within it — on a living row."""
+        amount = _amount(self.amount)
+        if self.type == PaymentType.CHARGE and amount <= 0:
+            raise PaymentError(f"Een betaling heeft een positief bedrag, niet {amount}.")
+        if self.type == PaymentType.REFUND and amount >= 0:
+            raise PaymentError(f"Een terugbetaling heeft een negatief bedrag, niet {amount}.")
+        if self.amount_paid is not None:
+            low, high = sorted((Decimal("0"), amount))
+            if not (low <= _amount(self.amount_paid) <= high):
+                raise PaymentError(
+                    f"Betaald bedrag ({_amount(self.amount_paid)}) moet tussen {low} en {high} liggen."
+                )
+
+    def covers(self, booked: Decimal) -> bool:
+        """Whether `booked` pays this record in full. `abs`, because a refund carries
+        a negative amount and "full" is its most negative value (#219)."""
+        return abs(_amount(booked)) >= abs(_amount(self.amount))
+
+    def validate_booking(self, booked: Decimal) -> None:
+        """What comes in lies between nothing and the amount, on its side of zero."""
+        amount = _amount(self.amount)
+        low, high = sorted((Decimal("0"), amount))
+        if not (low <= _amount(booked) <= high):
+            raise PaymentError(
+                f"Betaald bedrag ({_amount(booked)}) moet tussen {low} en {high} liggen."
+            )
+
+    def received(self, *, source: str, actor: Optional[str]) -> "PaymentReceived":
+        """The event for what is booked on this record now."""
+        from app.kernel.contracts.payment import PaymentReceived
+
+        return PaymentReceived(
+            payment_record_id=self.id,
+            payable_type=code_of(self.payable_type) or "",
+            payable_id=self.payable_id,
+            amount_booked=str(_amount(self.amount_paid)),
+            fully_paid=self.covers(_amount(self.amount_paid)),
+            method=code_of(self.method) or "",
+            source=source,
+            actor=actor,
+        )
+
+    def mark_paid(
+        self,
+        booked: Optional[Decimal],
+        *,
+        at: datetime,
+        source: str = "system",
+        actor: Optional[str] = None,
+    ) -> "PaymentReceived":
+        """Book what came in, and let the amounts decide the state (#720).
+
+        `booked=None` books the full amount (#199: one click on "paid" settles it).
+        A partial amount keeps the record pending — `state()` says "partial" — and
+        `paid_at` is set either way: money did come in. Returns the event the
+        service publishes; the record never touches a session.
+        """
+        booked_amount = _amount(self.amount) if booked is None else _amount(booked)
+        self.validate_booking(booked_amount)
+        self.amount_paid = booked_amount
+        self.paid_at = at
+        self.status = PaymentStatus.PAID if self.covers(booked_amount) else PaymentStatus.PENDING
+        return self.received(source=source, actor=actor)
+
+    def cancel(self, status: PaymentStatus) -> None:
+        """Set a status that is not "paid": what came in no longer counts (#455)."""
+        if status is PaymentStatus.PAID:
+            raise PaymentError("Een betaling wordt als betaald geboekt met mark_paid.")
+        self.status = status
+        self.paid_at = None
+        self.amount_paid = None
+
+    def state(self) -> str:
+        """The state as a screen shows it: paid · refund_due · partial · pending · …
+
+        Delegates to `payment.service.derived_status`, its owner (CR-13 §B4.3). The
+        rule stays there because it is also asked of objects that are not records —
+        a test double, a row of a listing — and the owner must answer them too.
+        """
+        from app.domains.payment.service import derived_status
+
+        return derived_status(self)
 
 
 class GatewayPayment(TenantMixin, SoftDeleteMixin, Base):

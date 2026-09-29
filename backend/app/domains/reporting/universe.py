@@ -1524,9 +1524,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         role=Role.ADMIN,
         fact="f_members",
         description=(
-            "Of dit gezin vandaag een geldig lidmaatschap heeft. Iets anders dan "
-            "'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is "
-            "vandaag geldig en hoort bij volgend jaar."
+            "Of dit gezin vandaag lid is: een actief lidmaatschap waarvan de "
+            "geldigheid vandaag omvat (#1307, dezelfde regel als het ledenbeheer). "
+            "Iets anders dan 'lid voor dit jaar': wie in oktober voor volgend jaar "
+            "aansluit, is vandaag geldig en hoort bij volgend jaar."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -2354,7 +2355,8 @@ OBJECTS: tuple[UniverseObject, ...] = (
         fact="f_memberships",
         description=(
             "Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen "
-            "gezinnen — dat is wat de dashboardtegel telt."
+            "gezinnen. De dashboardtegel 'Actieve gezinnen' telt sinds #1307 de "
+            "gezinnen die vandaag lid zijn, met 'Vandaag geldig lid'."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),

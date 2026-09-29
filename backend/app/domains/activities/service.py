@@ -14,8 +14,11 @@ De transactiegrens ligt hier (§635 regel 2): de service commit, het scherm niet
 Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 
+from __future__ import annotations
+
+from contextlib import AbstractContextManager
 from datetime import date
-from typing import TYPE_CHECKING, NamedTuple, Optional
+from typing import TYPE_CHECKING, Any, Callable, Iterable, Iterator, NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
 from sqlalchemy.orm import Session
@@ -33,14 +36,23 @@ from app.domains.mdm.api import CONTACT
 from app.kernel.codes import code_label, code_of
 
 if TYPE_CHECKING:
-    from app.schemas.activity import RegistrationCreate
+    from app.domains.activities.models import ActivityOrganiser, ActivityProduct, RegistrationItem
+    from app.schemas.activity import (
+        ActivityDateCreate,
+        ActivityDateResponse,
+        ActivityResponse,
+        ComponentCreate,
+        ComponentResponse,
+        ProductCreate,
+        RegistrationCreate,
+    )
 
 
-def _effective_end(ad: ActivityDate) -> date:
+def _effective_end(ad: ActivityDate | ActivityDateResponse) -> date:
     return ad.end_date or ad.start_date
 
 
-def is_upcoming(activity_date: ActivityDate, today: date) -> bool:
+def is_upcoming(activity_date: ActivityDate | ActivityDateResponse, today: date) -> bool:
     """Whether a date of an activity still lies ahead: its last day is today or later.
 
     The one place that says it (CR-13 phase 1): `registration_state` asks it for
@@ -50,7 +62,7 @@ def is_upcoming(activity_date: ActivityDate, today: date) -> bool:
     return _effective_end(activity_date) >= today
 
 
-def _deadline_van(component) -> Optional[date]:
+def _deadline_van(component: ActivitySubRegistration | ComponentResponse) -> Optional[date]:
     return getattr(component, "registration_closes_on", None)
 
 
@@ -103,7 +115,9 @@ def deadline_is_near(deadline: Optional[date], *, today: Optional[date] = None) 
     return 0 <= (deadline - vandaag).days <= DEADLINE_ATTENTIE_DAGEN
 
 
-def card_deadline(activity, *, today: Optional[date] = None) -> Optional[date]:
+def card_deadline(
+    activity: Activity | ActivityResponse, *, today: Optional[date] = None
+) -> Optional[date]:
     """De ene uiterste datum die de publieke kaart onder datum en locatie zet,
     of None wanneer er geen zo'n datum is (#1053, dat de aanpak van #1051 vervangt).
 
@@ -131,7 +145,10 @@ def card_deadline(activity, *, today: Optional[date] = None) -> Optional[date]:
 
 
 def registration_state(
-    activity: Activity, *, component=None, today: Optional[date] = None
+    activity: Activity | ActivityResponse,
+    *,
+    component: ActivitySubRegistration | ComponentResponse | None = None,
+    today: Optional[date] = None,
 ) -> RegistrationState:
     """The one place that decides whether an activity takes a new registration.
 
@@ -203,7 +220,10 @@ def status_label(activity: Activity, *, today: Optional[date] = None) -> str:
 
 
 def registration_refusal(
-    activity: Activity, *, component=None, today: Optional[date] = None
+    activity: Activity,
+    *,
+    component: ActivitySubRegistration | ComponentResponse | None = None,
+    today: Optional[date] = None,
 ) -> Optional[str]:
     """Why a new registration is refused, in the words the visitor reads — or None.
 
@@ -242,7 +262,7 @@ class ActivityOption(NamedTuple):
     first_date: Optional[date]
 
 
-def _rollback_on_rule_violation(db):
+def _rollback_on_rule_violation(db: Session) -> AbstractContextManager[None]:
     """A rejected write leaves no half transaction behind (#792).
 
     The coherence rule of a date row fires during the flush, and the session is then in
@@ -256,7 +276,7 @@ def _rollback_on_rule_violation(db):
     from contextlib import contextmanager
 
     @contextmanager
-    def _guard():
+    def _guard() -> Iterator[None]:
         try:
             yield
         except ActiviteitFout:
@@ -281,7 +301,7 @@ def slugify(naam: str) -> str:
     return re.sub(r"-{2,}", "-", kaal)[:255]
 
 
-def slug_is_vrij(db, slug: str, *, behalve_id: int | None = None) -> bool:
+def slug_is_vrij(db: Session, slug: str, *, behalve_id: int | None = None) -> bool:
     """Is deze slug nog vrij binnen de actieve tenant? (#884)
 
     De globale tenant-filter doet hier het werk: dezelfde slug bij twee verschillende
@@ -293,7 +313,7 @@ def slug_is_vrij(db, slug: str, *, behalve_id: int | None = None) -> bool:
     return query.first() is None
 
 
-def activity_by_key(db, key: str):
+def activity_by_key(db: Session, key: str) -> Activity | None:
     """Een activiteit op id ÓF op slug (#884).
 
     De nummer-URL blijft werken, en dat is geen hoffelijkheid: er staan nummer-URL's in
@@ -308,7 +328,7 @@ def activity_by_key(db, key: str):
     return db.query(Activity).filter(Activity.slug == sleutel.lower()).first()
 
 
-def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> str | None:
+def _controleer_slug(db: Session, slug: str | None, *, behalve_id: int | None = None) -> str | None:
     """Normaliseer en controleer een ingetypte slug; None blijft None (optioneel)."""
     if slug is None:
         return None
@@ -328,15 +348,15 @@ def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> 
 
 
 def create_activity(
-    db,
+    db: Session,
     *,
     name: str,
-    location=None,
-    poster_url=None,
-    description=None,
+    location: str | None = None,
+    poster_url: str | None = None,
+    description: str | None = None,
     members_only: bool = False,
-    dates=(),
-    actor=None,
+    dates: Iterable[ActivityDateCreate] = (),
+    actor: str | None = None,
     slug: str | None = None,
 ) -> Activity:
     """Maak een activiteit met haar eerste datums (#679, batch 1).
@@ -399,7 +419,9 @@ def create_activity(
     return activity
 
 
-def update_activity(db, activity_id: int, velden: dict, *, actor=None) -> Optional[Activity]:
+def update_activity(
+    db: Session, activity_id: int, velden: dict, *, actor: str | None = None
+) -> Optional[Activity]:
     """Werk de velden van een activiteit bij. Geeft None als ze niet bestaat.
 
     De aanroeper beslist wat een ontbrekende activiteit betekent — de JSON-router
@@ -432,7 +454,7 @@ def update_activity(db, activity_id: int, velden: dict, *, actor=None) -> Option
     return activity
 
 
-def delete_activity(db, activity_id: int, *, actor=None) -> bool:
+def delete_activity(db: Session, activity_id: int, *, actor: str | None = None) -> bool:
     """Soft delete van de hele boom (#166). Geeft False als ze niet bestaat.
 
     Datums, onderdelen, producten, inschrijvingen en bestelregels gaan mee.
@@ -492,7 +514,9 @@ def delete_activity(db, activity_id: int, *, actor=None) -> bool:
     return True
 
 
-def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional[ActivityDate]:
+def add_activity_date(
+    db: Session, activity_id: int, gegevens: ActivityDateCreate, *, actor: str | None = None
+) -> Optional[ActivityDate]:
     """Voeg een datum toe. None als de activiteit niet bestaat (#679, batch 2)."""
     from app.domains.audit.api import snapshot_activity_date
 
@@ -517,7 +541,7 @@ def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional
 
 
 def update_activity_date(
-    db, activity_id: int, date_id: int, velden: dict, *, actor=None
+    db: Session, activity_id: int, date_id: int, velden: dict, *, actor: str | None = None
 ) -> Optional[ActivityDate]:
     """Werk een datum bij. None als ze niet bij deze activiteit hoort.
 
@@ -541,7 +565,9 @@ def update_activity_date(
     return ad
 
 
-def delete_activity_date(db, activity_id: int, date_id: int, *, actor=None) -> bool:
+def delete_activity_date(
+    db: Session, activity_id: int, date_id: int, *, actor: str | None = None
+) -> bool:
     """Soft delete van één datum. False als ze niet bij deze activiteit hoort."""
     from app.domains.audit.api import snapshot_activity_date
     from app.soft_delete import soft_delete
@@ -557,7 +583,7 @@ def delete_activity_date(db, activity_id: int, date_id: int, *, actor=None) -> b
     return True
 
 
-def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
+def _datum(db: Session, activity_id: int, date_id: int) -> Optional[ActivityDate]:
     return (
         db.query(ActivityDate)
         .filter(ActivityDate.id == date_id, ActivityDate.activity_id == activity_id)
@@ -575,7 +601,9 @@ def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
 # stay in the route, and then it would not apply to anyone calling the service directly.
 
 
-def add_component(db, activity_id: int, gegevens, *, actor=None):
+def add_component(
+    db: Session, activity_id: int, gegevens: ComponentCreate, *, actor: str | None = None
+) -> ActivitySubRegistration | None:
     """Voeg een onderdeel toe. None als de activiteit niet bestaat."""
     from app.domains.audit.api import snapshot_component
 
@@ -612,7 +640,9 @@ def add_component(db, activity_id: int, gegevens, *, actor=None):
     return component
 
 
-def update_component(db, activity_id: int, component_id: int, velden: dict, *, actor=None):
+def update_component(
+    db: Session, activity_id: int, component_id: int, velden: dict, *, actor: str | None = None
+) -> ActivitySubRegistration | None:
     """Werk een onderdeel bij. None als het niet bij deze activiteit hoort."""
     from app.domains.audit.api import snapshot_component
 
@@ -634,7 +664,9 @@ def update_component(db, activity_id: int, component_id: int, velden: dict, *, a
     return component
 
 
-def delete_component(db, activity_id: int, component_id: int, *, actor=None) -> bool:
+def delete_component(
+    db: Session, activity_id: int, component_id: int, *, actor: str | None = None
+) -> bool:
     """Soft delete van een onderdeel én zijn producten. False als het niet bestaat."""
     from app.domains.audit.api import snapshot_component, snapshot_product
     from app.soft_delete import soft_delete
@@ -665,7 +697,7 @@ def delete_component(db, activity_id: int, component_id: int, *, actor=None) -> 
     return True
 
 
-def _controleer_afrekening(is_free, pay_on_site) -> None:
+def _controleer_afrekening(is_free: bool | None, pay_on_site: bool | None) -> None:
     """Gratis én ter plaatse te betalen sluiten elkaar uit.
 
     Een domeinregel, dus hier en niet in de route: ze geldt voor élke ingang.
@@ -678,7 +710,14 @@ def _controleer_afrekening(is_free, pay_on_site) -> None:
         )
 
 
-def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None):
+def add_product(
+    db: Session,
+    activity_id: int,
+    component_id: int,
+    gegevens: ProductCreate,
+    *,
+    actor: str | None = None,
+) -> ActivityProduct | None:
     """Voeg een product toe. None als het onderdeel niet bij de activiteit hoort."""
     from app.domains.activities.models import ActivityProduct
     from app.domains.audit.api import snapshot_product
@@ -712,7 +751,9 @@ def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None
     return product
 
 
-def update_product(db, component_id: int, product_id: int, velden: dict, *, actor=None):
+def update_product(
+    db: Session, component_id: int, product_id: int, velden: dict, *, actor: str | None = None
+) -> ActivityProduct | None:
     """Werk een product bij. None als het niet bij dit onderdeel hoort."""
     from app.domains.audit.api import snapshot_product
 
@@ -736,7 +777,9 @@ def update_product(db, component_id: int, product_id: int, velden: dict, *, acto
     return product
 
 
-def delete_product(db, component_id: int, product_id: int, *, actor=None) -> bool:
+def delete_product(
+    db: Session, component_id: int, product_id: int, *, actor: str | None = None
+) -> bool:
     """Soft delete van één product. False als het niet bij dit onderdeel hoort."""
     from app.domains.audit.api import snapshot_product
     from app.soft_delete import soft_delete
@@ -757,7 +800,7 @@ def delete_product(db, component_id: int, product_id: int, *, actor=None) -> boo
     return True
 
 
-def _product(db, component_id: int, product_id: int):
+def _product(db: Session, component_id: int, product_id: int) -> ActivityProduct | None:
     from app.domains.activities.models import ActivityProduct
 
     return (
@@ -770,7 +813,7 @@ def _product(db, component_id: int, product_id: int):
 # ── Bestelregels en inschrijvingen (#679, batch 4) ────────────────────────────
 
 
-def _registratie(db, activity_id: int, registration_id: int):
+def _registratie(db: Session, activity_id: int, registration_id: int) -> Registration | None:
     return (
         db.query(Registration)
         .filter(Registration.id == registration_id, Registration.activity_id == activity_id)
@@ -778,7 +821,7 @@ def _registratie(db, activity_id: int, registration_id: int):
     )
 
 
-def _regel(db, registration_id: int, item_id: int):
+def _regel(db: Session, registration_id: int, item_id: int) -> RegistrationItem | None:
     from app.domains.activities.models import RegistrationItem
 
     return (
@@ -788,7 +831,7 @@ def _regel(db, registration_id: int, item_id: int):
     )
 
 
-def publicly_bookable_products(component) -> list:
+def publicly_bookable_products(component: ActivitySubRegistration) -> list:
     """The products a visitor may pick on the public registration form (#1191).
 
     One source for everything the form derives from its product list: the rows it
@@ -802,7 +845,7 @@ def publicly_bookable_products(component) -> list:
     return [p for p in (component.products or []) if p.is_active]
 
 
-def check_publicly_bookable(activity, product_ids) -> None:
+def check_publicly_bookable(activity: Activity, product_ids: Iterable[int]) -> None:
     """Refuse a PUBLIC registration on an inactive product (#1191).
 
     In the service layer and not in the template. `_inschrijf_form.html` leaves an
@@ -834,7 +877,9 @@ def check_publicly_bookable(activity, product_ids) -> None:
         raise ActiviteitFout(vertaal("Dit product is niet beschikbaar om online in te schrijven."))
 
 
-def controleer_bestelproduct(db, activity_id: int, registration, product_id: int):
+def controleer_bestelproduct(
+    db: Session, activity_id: int, registration: Registration, product_id: int
+) -> ActivityProduct | None:
     """Een bestelregel mag enkel een product van deze activiteit/dit onderdeel dragen.
 
     Domeinregel, dus hier: ze beschermt de koppeling tussen inschrijving en
@@ -858,8 +903,14 @@ def controleer_bestelproduct(db, activity_id: int, registration, product_id: int
 
 
 def add_order_line(
-    db, activity_id: int, registration_id: int, product_id: int, quantity: int, *, actor=None
-):
+    db: Session,
+    activity_id: int,
+    registration_id: int,
+    product_id: int,
+    quantity: int,
+    *,
+    actor: str | None = None,
+) -> Registration | None:
     """Voeg een bestelregel toe, of hoog een bestaande regel op (#197).
 
     Geeft de inschrijving terug, of None als activiteit/inschrijving/product niet
@@ -910,15 +961,15 @@ def add_order_line(
 
 
 def update_order_line(
-    db,
+    db: Session,
     activity_id: int,
     registration_id: int,
     item_id: int,
     *,
-    product_id=None,
-    quantity=None,
-    actor=None,
-):
+    product_id: int | None = None,
+    quantity: int | None = None,
+    actor: str | None = None,
+) -> Registration | None:
     """Wijzig een bestelregel. None als activiteit/inschrijving/regel niet bestaat."""
     from app.domains.audit.api import snapshot_registration_item
     from app.i18n import _ as vertaal
@@ -948,7 +999,9 @@ def update_order_line(
     return reg
 
 
-def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, *, actor=None):
+def delete_order_line(
+    db: Session, activity_id: int, registration_id: int, item_id: int, *, actor: str | None = None
+) -> Registration | None:
     """Soft delete van één bestelregel. None als ze niet gevonden wordt.
 
     Snapshot vóór het schrappen (#84/#166): de bronrij blijft bestaan maar wordt
@@ -1265,7 +1318,7 @@ def delete_registration(
 # ── Export (#679, batch 5) ────────────────────────────────────────────────────
 
 
-def component_export(db, activity_id: int, component_id: int):
+def component_export(db: Session, activity_id: int, component_id: int) -> tuple[bytes, str] | None:
     """De .ods van één onderdeel, plus een veilige bestandsnaam.
 
     De opbouw zelf staat al in `activities/export.py` en verhuist niet — die was
@@ -1292,7 +1345,7 @@ def component_export(db, activity_id: int, component_id: int):
     return inhoud, f"{veilig}.ods"
 
 
-def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
+def _activity_met_boom(db: Session, activity_id: int) -> Optional[Activity]:
     """Eén activiteit met haar datums, onderdelen en producten in één keer."""
     from sqlalchemy.orm import selectinload
 
@@ -1307,7 +1360,9 @@ def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
     )
 
 
-def get_activity(db, activity_id: int, include_deleted: bool = False) -> Optional[Activity]:
+def get_activity(
+    db: Session, activity_id: int, include_deleted: bool = False
+) -> Optional[Activity]:
     query = db.query(Activity)
     if include_deleted:
         query = query.execution_options(include_deleted=True)
@@ -1315,7 +1370,7 @@ def get_activity(db, activity_id: int, include_deleted: bool = False) -> Optiona
 
 
 def get_component(
-    db, component_id: int, activity_id: Optional[int] = None
+    db: Session, component_id: int, activity_id: Optional[int] = None
 ) -> Optional[ActivitySubRegistration]:
     """Een onderdeel, eventueel binnen één activiteit.
 
@@ -1330,7 +1385,7 @@ def get_component(
 
 
 def get_registration(
-    db, registration_id: int, include_deleted: bool = False
+    db: Session, registration_id: int, include_deleted: bool = False
 ) -> Optional[Registration]:
     """Een inschrijving. Met `include_deleted` ook een geschrapte.
 
@@ -1343,7 +1398,7 @@ def get_registration(
     return query.filter(Registration.id == registration_id).first()
 
 
-def activity_options(db) -> list[ActivityOption]:
+def activity_options(db: Session) -> list[ActivityOption]:
     """Élke activiteit als (id, naam, vroegste datum) — voor een keuzelijst.
 
     Bestaat omdat een `<select>` iets anders nodig heeft dan een lijstscherm. Het
@@ -1386,7 +1441,7 @@ def activity_options(db) -> list[ActivityOption]:
     return [ActivityOption(id=rij[0], name=rij[1], first_date=rij[2]) for rij in rijen]
 
 
-def registrations_without_component_count(db, activity_id: int) -> int:
+def registrations_without_component_count(db: Session, activity_id: int) -> int:
     """Inschrijvingen op deze activiteit die aan geen enkel onderdeel hangen (#650).
 
     `Registration.component_id` is nullable met `ondelete="SET NULL"`: verwijder je
@@ -1407,7 +1462,12 @@ def registrations_without_component_count(db, activity_id: int) -> int:
 
 
 def record_kop_ctx(
-    db, activiteit, viewer_email: str, actief: str, *, reg_count: int | None = None
+    db: Session,
+    activiteit: Activity | ActivityResponse,
+    viewer_email: str,
+    actief: str,
+    *,
+    reg_count: int | None = None,
 ) -> dict:
     """Alles wat `_aa_recordkop.html` nodig heeft, op één plek (#1070).
 
@@ -1448,7 +1508,12 @@ def record_kop_ctx(
 
 
 def record_tabs(
-    db, activiteit, viewer_email: str, actief: str, *, reg_count: int | None = None
+    db: Session,
+    activiteit: Activity | ActivityResponse,
+    viewer_email: str,
+    actief: str,
+    *,
+    reg_count: int | None = None,
 ) -> list[dict]:
     """De tabbalk van de activiteit-recordpagina (golf 8, #913) — P13 in
     tabvorm: elke tab een bestaand lijstscherm in de scope van dit record.
@@ -1491,7 +1556,9 @@ def record_tabs(
 INSCHRIJVING_SORT_VELDEN = ("datum", "naam")
 
 
-def sorteer_inschrijvingen(regs, sort: str, richting: str):
+def sorteer_inschrijvingen(
+    regs: list[dict], sort: str, richting: str
+) -> tuple[list[dict], str, str]:
     """Whitelist-sortering van verrijkte inschrijvingsrijen — één bron voor de
     Inschrijvingen-tab van activiteit én gezin (Koens unificatievraag, 15 sep).
     Geeft (rijen, sort, richting) terug met gevalideerde waarden; #761-tiebreaker
@@ -1512,7 +1579,7 @@ def sorteer_inschrijvingen(regs, sort: str, richting: str):
 
 
 def inschrijving_tabs(
-    db, registration_id: int, viewer_email: str, actief: str, *, terug: str = ""
+    db: Session, registration_id: int, viewer_email: str, actief: str, *, terug: str = ""
 ) -> list[dict]:
     """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Overzicht ·
     Betalingen N — zelfde patroon als activiteit en gezin; de P13-chip op dat
@@ -1545,7 +1612,7 @@ def inschrijving_tabs(
 
 
 def inschrijving_kop_ctx(
-    db, registration_id: int, viewer_email: str, actief: str, terug: str = ""
+    db: Session, registration_id: int, viewer_email: str, actief: str, terug: str = ""
 ) -> dict | None:
     """Context van `_insch_recordkop.html`, op één plek: de Overzicht-pagina en
     de ingebedde Betalingen-tab renderen dezelfde kop — naam, contextregel,
@@ -1586,7 +1653,7 @@ def inschrijving_kop_ctx(
     }
 
 
-def registration_contact_names(db) -> list[str]:
+def registration_contact_names(db: Session) -> list[str]:
     """De contactnamen op inschrijvingen — vrije tekst, dus geen `Person` (#1135).
 
     De naadwachter scant elk uitgaand AI-bericht op namen uit de administratie, en
@@ -1614,7 +1681,7 @@ def registration_contact_names(db) -> list[str]:
     return [rij[0] for rij in rijen]
 
 
-def registration_count_for(db, activity_id: int) -> int:
+def registration_count_for(db: Session, activity_id: int) -> int:
     """Alleen het aantal (golf 8, #913) — één rij, hoe groot de lijst ook is;
     de query-budget-gate (#651) rekent in opgehaalde rijen."""
     from sqlalchemy import func as _func
@@ -1627,7 +1694,7 @@ def registration_count_for(db, activity_id: int) -> int:
     )
 
 
-def registration_ids_for(db, activity_id: int) -> list[int]:
+def registration_ids_for(db: Session, activity_id: int) -> list[int]:
     """Alleen de ids van de inschrijvingen van één activiteit (golf 8, #913).
 
     Voor tellers en scopes: de recordpagina en de betalingen-activiteitscope
@@ -1639,7 +1706,7 @@ def registration_ids_for(db, activity_id: int) -> list[int]:
     ]
 
 
-def enrich_registration(reg, activity) -> dict:
+def enrich_registration(reg: Registration, activity: Activity) -> dict:
     """Eén inschrijving met de namen erbij die het scherm toont (#679, batch 6).
 
     De regels dragen enkel een `product_id`; product- en onderdeelnaam komen uit de
@@ -1682,7 +1749,7 @@ def enrich_registration(reg, activity) -> dict:
 
 
 def registrations_for(
-    db,
+    db: Session,
     activity_id: int,
     *,
     component_id: Optional[int] = None,
@@ -1733,7 +1800,7 @@ class ActivitySpan(NamedTuple):
     capacity: Optional[int]
 
 
-def _spans(db, having) -> list[ActivitySpan]:
+def _spans(db: Session, having: Callable[[Any, Any], Any]) -> list[ActivitySpan]:
     """Activities whose span matches `having`, chronologically.
 
     `having` receives the aggregated first/last columns so both callers express
@@ -1763,7 +1830,7 @@ def _spans(db, having) -> list[ActivitySpan]:
     ]
 
 
-def activities_active_between(db, start: date, end: date) -> list[ActivitySpan]:
+def activities_active_between(db: Session, start: date, end: date) -> list[ActivitySpan]:
     """Activities that were running or started in the window [start, end).
 
     What a meeting evaluates: everything since the previous meeting, a still
@@ -1773,7 +1840,7 @@ def activities_active_between(db, start: date, end: date) -> list[ActivitySpan]:
     return _spans(db, lambda first, last: (first < end) & (last >= start))
 
 
-def activities_from(db, day: date) -> list[ActivitySpan]:
+def activities_from(db: Session, day: date) -> list[ActivitySpan]:
     """Activities starting on or after `day` — the whole planned programme.
 
     No time window (CR-09 §3.21): booking a venue a year ahead is a normal agenda
@@ -1782,7 +1849,9 @@ def activities_from(db, day: date) -> list[ActivitySpan]:
     return _spans(db, lambda first, last: first >= day)
 
 
-def registration_counts(db, activity_ids: list[int]) -> dict[int, tuple[int, Optional[int]]]:
+def registration_counts(
+    db: Session, activity_ids: list[int]
+) -> dict[int, tuple[int, Optional[int]]]:
     """Per activity: registrations booked, and the capacity if one is set.
 
     The counting rule — the sum of the item quantities, or one per registration
@@ -1836,7 +1905,7 @@ def registration_counts(db, activity_ids: list[int]) -> dict[int, tuple[int, Opt
     }
 
 
-def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
+def _booked_per_component(db: Session, activity_ids: list[int]) -> dict[int, int]:
     """Booked places per component: the sum of the item quantities, or one per
     registration without items. One batched query; the global soft-delete and
     tenant filters apply, so deleted registrations do not count."""
@@ -1904,7 +1973,7 @@ class OrganiserView(NamedTuple):
     sort_order: int
 
 
-def _organiser_rows(db, activity_id: int):
+def _organiser_rows(db: Session, activity_id: int) -> list[ActivityOrganiser]:
     from app.domains.activities.models import ActivityOrganiser
 
     return (
@@ -1915,7 +1984,7 @@ def _organiser_rows(db, activity_id: int):
     )
 
 
-def organisers_for(db, activity_id: int) -> list:
+def organisers_for(db: Session, activity_id: int) -> list:
     """The organisers of one activity, in their own order (#1004)."""
     from app.domains.mdm.api import ContactDetail, Person
 
@@ -1961,7 +2030,7 @@ def organisers_for(db, activity_id: int) -> list:
     return gezien
 
 
-def board_notes(db, activity_id: int) -> str:
+def board_notes(db: Session, activity_id: int) -> str:
     """De interne bestuursnota van één activiteit (#1028), of "".
 
     Met `db.get` en niet met een query: de recordpagina heeft de rij vlak
@@ -1976,7 +2045,7 @@ def board_notes(db, activity_id: int) -> str:
     return (rij.board_notes if rij is not None else "") or ""
 
 
-def add_organiser(db, activity_id: int, person_id: int):
+def add_organiser(db: Session, activity_id: int, person_id: int) -> ActivityOrganiser:
     """Add one organiser. Refuses a fourth, and someone who is no member."""
     from app.domains.activities.models import ActivityOrganiser
     from app.domains.mdm.api import Person, is_member
@@ -2008,7 +2077,9 @@ def add_organiser(db, activity_id: int, person_id: int):
     return rij
 
 
-def update_organiser(db, activity_id: int, organiser_id: int, velden: dict):
+def update_organiser(
+    db: Session, activity_id: int, organiser_id: int, velden: dict
+) -> ActivityOrganiser:
     """The tick and the two overrides. An empty override means "the member's own"."""
     rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
     if rij is None:
@@ -2025,7 +2096,7 @@ def update_organiser(db, activity_id: int, organiser_id: int, velden: dict):
     return rij
 
 
-def remove_organiser(db, activity_id: int, organiser_id: int) -> bool:
+def remove_organiser(db: Session, activity_id: int, organiser_id: int) -> bool:
     rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
     if rij is None:
         return False
