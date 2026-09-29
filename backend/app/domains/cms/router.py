@@ -21,17 +21,6 @@ def _public_page(page: CmsPage) -> CmsPageResponse:
     return resp
 
 
-@router.get("/pages", response_model=List[CmsPageResponse])
-def list_pages(db: Session = Depends(get_db)):
-    pages = (
-        db.query(CmsPage)
-        .filter(CmsPage.is_published == True)
-        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
-        .all()
-    )
-    return [_public_page(p) for p in pages]
-
-
 @router.get("/pages/{slug}", response_model=CmsPageResponse)
 def get_page(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published == True).first()

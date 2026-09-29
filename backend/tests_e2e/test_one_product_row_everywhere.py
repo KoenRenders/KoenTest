@@ -36,8 +36,7 @@ from tests_e2e.schermen import BASE, htmx_stil, login_met_sessie, pagina_klaar  
 
 @pytest.fixture(scope="module")
 def setup():
-    """A paid component at €10, a registration of 2 through the public API, and a
-    board member."""
+    """A paid component at €10 and a board member."""
     import secrets
 
     import app.models  # noqa: F401
@@ -76,23 +75,34 @@ def browser():
 
 
 @pytest.fixture(scope="module")
-def registration(browser, setup):
-    context = browser.new_context(base_url=BASE)
-    answer = context.request.post(
-        f"/api/v1/activities/{setup['activity']}/register",
-        data={
-            "contact_name": "E2E Regel",
-            "phone": "0470000000",
-            "contact_email": "regel@example.com",
-            "component_id": setup["component"],
-            "payment_method": "transfer",
-            "items": [{"product_id": setup["product"], "quantity": 2}],
-        },
-    )
-    assert answer.ok, answer.text()
-    registration_id = answer.json()["id"]
-    context.close()
-    return registration_id
+def registration(setup):
+    """A registration of 2, made through the registration service — the one the
+    public form uses — and not through a JSON route (CR-13 phase 4b: the route had
+    no caller but this set-up)."""
+    from fastapi import BackgroundTasks
+
+    import app.models  # noqa: F401
+    from app.database import SessionLocal
+    from app.domains.activities.api import RegistrationCreate, register_for_activity
+
+    db = SessionLocal()
+    try:
+        result = register_for_activity(
+            db,
+            setup["activity"],
+            RegistrationCreate(
+                contact_name="E2E Regel",
+                phone="0470000000",
+                contact_email="regel@example.com",
+                component_id=setup["component"],
+                payment_method="transfer",
+                items=[{"product_id": setup["product"], "quantity": 2}],
+            ),
+            BackgroundTasks(),
+        )
+    finally:
+        db.close()
+    return result["id"]
 
 
 def _page(browser, width, session=None):

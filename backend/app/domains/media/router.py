@@ -16,7 +16,6 @@ from fastapi import (
     File,
     Form,
     HTTPException,
-    Query,
     Request,
     UploadFile,
 )
@@ -216,18 +215,6 @@ def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     return _serve(blob, ctype, request, f"thumb-{a.id}")
 
 
-@router.get("/sponsors")
-def list_sponsors(db: Session = Depends(get_db)):
-    """Actieve sponsorlogo's voor footer en homepage."""
-    rows = (
-        db.query(MediaAsset)
-        .filter(MediaAsset.kind == MediaKind.SPONSOR, MediaAsset.is_active == True)  # noqa: E712
-        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
-        .all()
-    )
-    return [_meta(a) for a in rows]
-
-
 @router.get("/media/activity-photos/availability")
 def activity_photos_availability(db: Session = Depends(get_db)):
     """Activity-id's die actieve foto's hebben — in één query.
@@ -263,14 +250,6 @@ def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 # Admin
 # ---------------------------------------------------------------------------
-@router.get("/admin/media")
-def admin_list_media(
-    kind: Optional[str] = Query(None),
-    activity_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    return _service.list_media(db, kind=kind, activity_id=activity_id)
 
 
 @router.post("/admin/media")

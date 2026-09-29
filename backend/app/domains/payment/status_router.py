@@ -9,7 +9,6 @@ from app.i18n import _
 
 from .models import PaymentError, PaymentRecord
 from .schemas import (
-    EnrichedPaymentRecord,
     PaymentRecordResponse,
     PaymentRecordUpdate,
     RefundCreate,
@@ -44,23 +43,6 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
         structured_communication=r.structured_communication,
         created_at=r.created_at,
     )
-
-
-@router.get("/records", response_model=List[EnrichedPaymentRecord])
-def list_all_payment_records(
-    db: Session = Depends(get_db),
-    _viewer: User = Depends(get_finance_or_admin),
-):
-    """List all payment records, enriched with contact name and description.
-
-    De verrijking zelf staat in `payment.service.enriched_records`: ze is
-    gebatcht (#645 — de vorige lus deed vijf queries per record) en wordt ook
-    door het beheerscherm gebruikt, dat anders een routerfunctie zou moeten
-    importeren (#635).
-    """
-    from app.domains.payment.service import enriched_records
-
-    return enriched_records(db)
 
 
 @router.get("/records/export")

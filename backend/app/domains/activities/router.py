@@ -31,12 +31,10 @@ from app.kernel.contracts.activities import RegistrationConfirmed
 from app.kernel.events import publish
 from app.limiter import registration_limiter
 from app.schemas.activity import (
-    ActivityCreate,
     ActivityDateCreate,
     ActivityDateResponse,
     ActivityDateUpdate,
     ActivityResponse,
-    ActivityUpdate,
     ComponentCreate,
     ComponentResponse,
     ComponentUpdate,
@@ -174,11 +172,15 @@ def _build_response(
 # ── Activities ────────────────────────────────────────────────────────────────
 
 
-@router.get("/activities", response_model=List[ActivityResponse])
 def list_activities(
     scope: str = "upcoming", db: Session = Depends(get_db)
 ) -> List[ActivityResponse]:
-    """Eén endpoint met een scope-param (#136):
+    """The activity list for the screens, through `activities.api` — no longer a
+    JSON route (CR-13 phase 4b: `GET /api/v1/activities` had no caller). It still
+    lives here and not in `service.py`; that move comes with the phase-4 step for
+    the routers' leftovers.
+
+    Eén lijst met een scope-param (#136):
     - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
       de eerstvolgende datum; enkel de toekomstige datums worden getoond.
     - ``archived``: activiteiten met ≥1 voorbije datum, gesorteerd op de meest
@@ -313,70 +315,6 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
     _mark_full([resp], _component_occupancy(db, [activity.id]))
     _mark_card_deadline([resp])
     return resp
-
-
-@router.post("/activities", response_model=ActivityResponse)
-def create_activity(
-    data: ActivityCreate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityResponse:
-    # #679: het aanmaken zelf (velden, datums, audit-snapshots, commit) staat in
-    # de service. Wat hier overblijft is HTTP: het schema uitpakken en de respons
-    # vormgeven.
-    from app.domains.activities import service
-
-    try:
-        nieuw = service.create_activity(
-            db,
-            name=data.name,
-            location=data.location,
-            poster_url=data.poster_url,
-            description=data.description,
-            members_only=bool(data.members_only),
-            dates=data.dates,
-            actor=admin.email,
-        )
-    except service.ActiviteitFout as fout:
-        raise HTTPException(status_code=422, detail=str(fout))
-    activity = service._activity_met_boom(db, nieuw.id)
-    assert activity is not None  # net aangemaakt in dezelfde transactie
-    # #977: ook een verse activiteit krijgt het label van de service en niet een vast
-    # "Open" — ze kan met een voorbije deadline of een voorbije datum aangemaakt zijn.
-    info = compute_activity_status(activity, 0)
-    return _build_response(activity, belgian_today(), status=info["status"], reg_count=0)
-
-
-@router.put("/activities/{activity_id}", response_model=ActivityResponse)
-def update_activity(
-    activity_id: int,
-    data: ActivityUpdate,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> ActivityResponse:
-    from app.domains.activities import service
-
-    velden = data.model_dump(exclude_none=True)
-    activity = service.update_activity(db, activity_id, velden, actor=admin.email)
-    if activity is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    info = compute_activity_status(activity)
-    return _build_response(
-        activity, belgian_today(), status=info["status"], reg_count=info["registration_count"]
-    )
-
-
-@router.delete("/activities/{activity_id}", response_model=None)
-def delete_activity(
-    activity_id: int,
-    db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
-) -> dict[str, str]:
-    from app.domains.activities import service
-
-    if not service.delete_activity(db, activity_id, actor=admin.email):
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    return {"detail": "deleted"}
 
 
 # ── Activity dates ────────────────────────────────────────────────────────────

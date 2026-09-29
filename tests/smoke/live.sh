@@ -19,22 +19,24 @@ for _ in $(seq 1 30); do
 done
 [ "$ready" = "1" ] || fatal "stack niet gezond binnen de tijd (/api/health gaf geen 200 op ${BASE})"
 
-# 2) Publieke leesendpoints moeten 200 geven (app + DB verbonden).
+# 2) Publieke pagina's moeten 200 geven (app + DB verbonden). Wat een bezoeker
+#    ziet, niet een JSON-route die niemand anders gebruikt (CR-13 fase 4b, #1251):
+#    de startpagina draagt de footer met sponsors, de activiteitenlijst leest de
+#    activiteiten, "Word lid" leest de postcodes.
 check_get() {  # URL OMSCHRIJVING
   local code
   code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}$1" 2>/dev/null || echo 000)
   expect_status 200 "$code" "$2"
 }
 check_get "/api/health"            "health-endpoint"
-check_get "/api/v1/activities"     "publieke activiteitenlijst"
-check_get "/api/v1/postal-codes"   "postcode-lookup"
-check_get "/api/v1/pages"          "publieke CMS-pagina's"
-check_get "/api/v1/sponsors"       "sponsorlijst (footer)"
+check_get "/"                      "startpagina (met sponsors in de footer)"
+check_get "/activiteiten"          "publieke activiteitenlijst"
+check_get "/lid-worden"            "word-lid (postcodes uit de DB)"
 
-# 3) Admin-administratie moet afgeschermd zijn zonder token (geen datalek).
-code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/v1/payment-status/records" 2>/dev/null || echo 000)
-expect_status 401 "$code" "betaaladministratie eist auth"
-code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/api/v1/admin/media" 2>/dev/null || echo 000)
-expect_status_one_of "$code" "media-beheer eist auth" 401 403
+# 3) De beheerschermen moeten afgeschermd zijn zonder sessie (geen datalek).
+code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/admin/betalingen" 2>/dev/null || echo 000)
+expect_status 401 "$code" "betaalbeheer eist een sessie"
+code=$(curl -s -o /dev/null -w '%{http_code}' "${BASE}/admin/media" 2>/dev/null || echo 000)
+expect_status 401 "$code" "mediabeheer eist een sessie"
 
 t_summary

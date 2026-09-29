@@ -81,19 +81,6 @@ t_summary() {
   exit 1
 }
 
-# discover_product — zoekt een activiteit met minstens één product.
-# Echoot "ACT_ID COMP_ID PROD_ID" of niets. Vereist jq.
-discover_product() {
-  curl -fsS "${BASE}/api/v1/activities" 2>/dev/null | jq -r '
-    [ .[] as $a | $a.sub_registrations[]? as $c | $c.products[]? as $p
-      | "\($a.id) \($c.id) \($p.id)" ] | first // empty'
-}
-
-# discover_postal_code — echoot een geldige postcode of niets. Vereist jq.
-discover_postal_code() {
-  curl -fsS "${BASE}/api/v1/postal-codes" 2>/dev/null | jq -r '.[0].postal_code // empty'
-}
-
 # require_admin_token — staakt de test als SKIP (exit 2) wanneer er geen
 # ADMIN_TOKEN in de omgeving staat. De admin-login is passwordless via een
 # magic-link (mail), dus niet automatiseerbaar; we hergebruiken daarom het JWT
