@@ -94,9 +94,15 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
 5. **Single editor.** One person types during the meeting (the secretary
    model) — no concurrent editing.
 6. **Action items stay free text inside the notes**, as today — no
-   structured owner/status tracking. Only ideas/misc items carry over
-   between meetings (§4); everything else is retyped or dropped by the
-   person preparing the agenda.
+   structured owner/status tracking. Ideas/misc items carry over between
+   meetings (§4). **Changed on 29 September 2026 (Koen, #1355):** the notes
+   of an upcoming activity carry over too, *copied* into the new point as a
+   starting value that the secretary adapts or clears. Matched on the
+   activity **date** (`activity_date_id`, #1335), not the activity alone, and
+   only from "Volgende activiteiten" to "Volgende activiteiten": a date that
+   has passed lands under "Evaluatie" without a note (Koen's choice). Points
+   without a date, from before #1335, take part in none of this. Everything
+   else is still retyped or dropped by the person preparing the agenda.
 7. **Attendance is ticked off from the participant list** (present /
    excused), not typed.
 8. **The meeting PDF is a clean portal-styled document** (logo, header with
