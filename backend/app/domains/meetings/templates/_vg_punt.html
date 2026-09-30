@@ -2,9 +2,19 @@
    teruggestuurd wordt: de notitie-editor swapt zijn eigen rij, zodat een klik
    elders op het scherm de editor niet onder je handen wegtrekt. #}
 {% import "_macros.html" as ui %}
-<div id="vg-punt-{{ item.id }}" class="py-3 {% if not loop_first|default(False) %}border-t border-line{% endif %}">
+{# #1359: a free point's title can be changed in place. A linked point takes its
+   name from its source, so only a free point, while editable, gets the pencil. #}
+{% set title_editable = editable and not item.source_url %}
+{% set item_error = item_error|default(None) %}
+<div id="vg-punt-{{ item.id }}" class="py-3 {% if not loop_first|default(False) %}border-t border-line{% endif %}"
+     {% if title_editable %}x-data="{ edit: {{ 'true' if item_error else 'false' }} }"{% endif %}>
     <div class="flex items-center gap-2.5 flex-wrap">
-      <span class="font-semibold text-sm text-ink">{{ item.label }}</span>
+      <span class="font-semibold text-sm text-ink" {% if title_editable %}x-show="!edit"{% endif %}>{{ item.label }}</span>
+      {% if title_editable %}
+      <button type="button" x-show="!edit" @click="edit = true"
+              class="text-ink-soft hover:text-ink p-1 rounded"
+              aria-label="{{ _("Titel van het punt wijzigen") }}">{{ ui.icon("pencil", 14) }}</button>
+      {% endif %}
       {% if item.meta %}<span class="text-sm text-ink-soft">{{ item.meta }}</span>{% endif %}
       {% if item.is_full %}{{ ui.badge(_("Volzet"), "red") }}{% endif %}
       {% if item.source_url %}
@@ -28,6 +38,25 @@
       </form>
       {% endif %}
     </div>
+
+    {% if title_editable %}
+    {# No `id` on this form: htmx's settle restores the attributes of an element
+       with an id, and would put a literal `display: none` back after Alpine
+       opened the form for a refused title (#726). The save button sits inside. #}
+    <form class="mt-2" x-show="edit" x-cloak
+          hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+          hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {# The field over the full width, the buttons under it: beside them the
+         field was squeezed to 97 px at 390 px. #}
+      {{ ui.input_control("title", id="vg-titel-" ~ item.id, value=item.label, cls="w-full",
+                          aria_label=_("Titel van het punt")) }}
+      {{ ui.action_bar(cancel_attrs='@click="edit = false"', cls="mt-2") }}
+    </form>
+    {% endif %}
+    {# The reason a change of this point was refused — a title, or any edit after
+       sending — in the point itself, which is what the form swaps (#1359). #}
+    {% if item_error %}<div class="mt-2">{{ ui.error_banner(item_error) }}</div>{% endif %}
 
     {% if item.is_member %}
     {# #1365: the hint goes UNDER the dropdown, over the full width of the point.

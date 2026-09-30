@@ -545,8 +545,11 @@ def _document_view(
     )
 
 
-def _item_response(request: Request, db: Session, meeting, item_id: int):
-    """Eén punt als fragment — het antwoord op een notitie of een wijkmeesterkeuze."""
+def _item_response(
+    request: Request, db: Session, meeting, item_id: int, error: Optional[str] = None
+):
+    """Eén punt als fragment — het antwoord op een notitie, een wijkmeesterkeuze of
+    een titel (#1359), met de reden erin als de bewerking geweigerd werd."""
     from app.domains.mdm.api import organization_circle
 
     punt = next(
@@ -563,6 +566,7 @@ def _item_response(request: Request, db: Session, meeting, item_id: int):
             editable=meeting.status != MeetingStatus.SENT,
             circle=organization_circle(db, on_day=meeting.meeting_date),
             csrf_token=_csrf(request),
+            item_error=error,
         ).as_context(),
     )
 
@@ -662,7 +666,9 @@ def item_update(
         if notes is not None or title is not None:
             update_item(db, meeting, item_id, notes=notes, title=title)
     except MeetingError as exc:
-        return _document_response(request, db, meeting, error=str(exc))
+        # #1359: the refusal comes back in this point, which is what the form
+        # swaps. The whole document here landed inside the point.
+        return _item_response(request, db, meeting, item_id, error=str(exc))
     # Alleen dít punt terug: het hele document vervangen zou elke andere open
     # editor op het scherm opnieuw opbouwen, midden in het typen.
     return _item_response(request, db, meeting, item_id)

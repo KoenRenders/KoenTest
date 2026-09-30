@@ -546,9 +546,21 @@ def update_item(
     notes: Optional[str] = None,
     title: Optional[str] = None,
 ) -> MeetingItem:
-    """Write the minutes on one point. `None` means "left alone", not "cleared"."""
+    """Write the minutes on one point. `None` means "left alone", not "cleared".
+
+    The title is a free point's own (#1359): a point linked to an activity or a
+    household takes its name from that source, so it has no title to change. A
+    free point cannot lose its title either — it is the only thing it shows. Both
+    refusals come before anything changes.
+    """
     _refuse_when_sent(meeting)
     item = _item_of(db, meeting, item_id)
+    if title is not None:
+        if item.activity_id is not None or item.member_id is not None:
+            raise MeetingError(_("Dit punt neemt zijn naam over van de bron; wijzig die daar."))
+        title = title.strip()
+        if not title:
+            raise MeetingError(_("Een vrij punt heeft een titel nodig."))
     if notes is not None:
         # De notities komen uit een WYSIWYG-editor en gaan als HTML naar het
         # scherm én de PDF. Ontsmetten bij het OPSLAAN en niet bij het tonen: dan
