@@ -500,7 +500,9 @@ def content_for(db: Session, design: Design, facts: Optional[dict] = None) -> Po
         explanation_md=design.explanation_md or facts["description"],
         main_image=_image(db, design.main_image_id, (design.main_focus_x, design.main_focus_y)),
         inset_image=_image(db, design.inset_image_id),
-        inset_corner=design.inset_corner or "bottom_right",
+        # A member, as `PosterContent` holds it (#1388); the renderer compares
+        # members. The editor's form turns it into its code on its own boundary.
+        inset_corner=design.inset_corner or InsetCorner.BOTTOM_RIGHT,
         third_image=_image(db, design.third_image_id),
         website=facts["website"],
         email=facts["email"],
