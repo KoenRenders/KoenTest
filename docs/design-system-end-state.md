@@ -408,7 +408,7 @@ screen's phase. "Save" is the save model of Part 2.
 | Pagina's | table | gepubliceerd · concept | yes | — |
 | Media | **cards (grid)** | — | yes | — |
 | Design Studio | table with thumbnail column | — | yes | — |
-| Gebruikers | table | actief | no (small) | — |
+| Gebruikers | table | actief | yes — small today, but no screen is the exception for being small (CR-11 row 44) | — |
 | Organisaties · Tenants | table | — | no (small) | — |
 | Rapporten | table | — | no | — |
 | Wijzigingen | table | — | yes | — |
@@ -444,14 +444,23 @@ screen's phase. "Save" is the save model of Part 2.
 
 ## 6. What refuses a deviation
 
-The gates of CR-11 B7, all in `test_ui_conventions_gate.py` and the e2e
-job, ratchets from phase 2 on the counts of CR-11 A2, hard from phase 5:
-layout extended · no raw form element · no raw spacing · no raw surface ·
-no raw checkbox · no typed "+" · no custom save label without a
-consequence · no header button to another module · no "Bewerken" in row
-actions · no `overflow-x-auto` on a list · no `max-w-*` on a screen · no
-one-off control · declared save model matches the macros · Raakje trigger
-by rule · one toolbar per rich text · screenshot baselines diffed. What
-stays with judgment, decided once per screen in Part 5 and reviewed at the
-merge gate with the eye: which columns a list needs, what a card shows,
-whether a screen is a record or a document.
+Two kinds, kept apart (CR-11 B8).
+
+**Mechanical** — `test_ui_conventions_gate.py` and the e2e job, ratchets
+from phase 2 on the counts of CR-11 A2, and each one hard on its own the
+moment its count reaches zero: layout extended · no raw form element · no
+raw spacing class · no raw surface class · no raw checkbox outside a
+multi-choice group or consent · no typed "+" in a label · no header button
+to another module · no "Bewerken" in row actions · no `overflow-x-auto` on
+a list · no `max-w-*` on a screen · no `action_bar` in a repeating-group
+row · no `code_label` twice on a row · the declared save model matches the
+macros used · the Raakje trigger by rule · one toolbar per rich text ·
+screenshot baselines diffed (with the stability protocol of CR-11 B7).
+
+**The eye** — the merge gate and the classification of Part 5, where a
+test can list candidates from word lists but a person decides: whether a
+custom button label names a consequence · whether a tile filters what it
+counts · whether a control is a one-off or a legitimate new component ·
+whether a link's text names its target · whether a screen is a record or a
+document · which columns a list needs · what a card shows. This document
+does not claim hardness there.

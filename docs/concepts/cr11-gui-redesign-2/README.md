@@ -17,7 +17,10 @@ concepten en toont drie ervan in een telefoonkader van 390 px.
 De pagina's laden de echte kit-stylesheet van het portaal
 (`backend/app/static/app.css`, relatief vanuit deze map — open ze vanuit
 een checkout, dan renderen ze met de echte kleuren en letters; GitHub toont
-alleen de bron); `concept.css` is de laag erbovenop met wat de eindtoestand
+alleen de bron; en de lettertypes laden alleen achter de draaiende server,
+want `app.css` verwijst er absoluut naar — buiten de server vallen de
+pagina's terug op het systeemlettertype, wat lichter oogt dan Inter en
+Radio Canada Big in het echte portaal); `concept.css` is de laag erbovenop met wat de eindtoestand
 nieuw introduceert. Alle namen, initialen en cijfers zijn verzonnen.
 
 Het ontwerp waar deze schermen bij horen: `docs/design-system-end-state.md`

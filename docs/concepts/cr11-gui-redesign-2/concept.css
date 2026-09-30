@@ -3,9 +3,11 @@
    samenvattingskaart, herhalende groep, schakelaar, plakkende actiebalk.
    Kleuren komen uit de tokens van app.css (--c-*). */
 :root{--gap-4:4px;--gap-8:8px;--gap-12:12px;--gap-16:16px;--gap-24:24px;--gap-32:32px;--gap-48:48px;
-  --surface-page:var(--c-ground,#f5f6f8);--surface-card:var(--c-surface,#fff);--surface-inset:#f3f4f6;
-  --line:var(--c-line,#e5e7eb);--ink:var(--c-ink,#111827);--ink-soft:var(--c-ink-soft,#6b7280);
-  --kop:var(--c-kop,#0051a4);--brand:var(--c-brand,#0051a4);--link:var(--c-link,#2367bd);}
+  /* app.css defines its colour tokens as RGB triplets ("25 38 56"), so they are wrapped in rgb(); the fallbacks are the kit's own values */
+  --surface-page:rgb(var(--c-ground,245 246 248));--surface-card:rgb(var(--c-surface,255 255 255));--surface-inset:#f3f4f6;
+  --line:rgb(var(--c-line,229 231 235));--ink:rgb(var(--c-ink,17 24 39));--ink-soft:rgb(var(--c-ink-soft,107 114 128));
+  --kop:rgb(var(--c-kop,25 38 56));--brand:rgb(var(--c-brand,0 81 164));--link:rgb(var(--c-link,35 103 189));}
+/* CONCEPT-ONLY: the hex values below (badges, accents, inset) are placeholders for tokens phase 2 defines; they must not be copied into the macros as they stand. */
 *{box-sizing:border-box}
 body{margin:0;background:var(--surface-page);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.45}
 a{color:var(--link)}
@@ -36,7 +38,7 @@ main{flex:1;min-width:0}
 /* list page */
 .titlerow{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:12px}
 .titlerow h1{font-size:26px;font-weight:700;color:var(--kop);margin:0;font-family:"Radio Canada Big",Inter,sans-serif}
-.tiles{display:flex;gap:20px;margin-left:8px}
+.tiles{display:flex;gap:24px;margin-left:8px}
 .tile{text-decoration:none;color:var(--ink);padding:4px 10px;border-radius:8px;border:1px solid transparent}
 .tile:hover{background:var(--surface-card);border-color:var(--line)}
 .tile.active{background:var(--surface-card);border-color:var(--line)}
@@ -45,7 +47,7 @@ main{flex:1;min-width:0}
 .tile .sub{font-size:11px;color:var(--ink-soft)}
 .tile.warn .n{color:#c2410c}
 .titlerow .actions{margin-left:auto;display:flex;gap:8px}
-.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--surface-card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:12px}
+.toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--surface-card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:12px}
 .chips{display:flex;gap:6px}
 .chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;background:var(--surface-card);cursor:pointer}
 .chip.active{background:#e8f0fb;border-color:#bfd3ef;color:var(--kop);font-weight:600}

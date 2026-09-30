@@ -982,7 +982,7 @@ goes back to the business before the build, not after.
 | P12 | Close with ×, Escape or a click outside; the sheet scrolls within 90 vh (#601) | the overlay | the browser's back button and the "‹ Terug" link; a page scrolls |
 | P13 | Rate limit on the public submit (`registration_limiter`) | ui.py | unchanged |
 | P14 | A component switch: **the board has it** (buttons for the activity's components), the public does not | board page | the public page gets it too when the activity has more than one component — the one thing the public *gains* from the board's page |
-| P15 | Compact, phone-first: the modal was a full-width sheet at 390 px | overlay `max-w-md` | the page's form column keeps `max-w-xl` on desktop (the board page's width) and full width on a phone |
+| P15 | Compact, phone-first: the modal was a full-width sheet at 390 px | overlay `max-w-md` | the page's form column is the reading width of the design system's end state — `max-w-3xl`, 768 px, the width the two-column form grid needs (CR-11 §1.4; proposed there, Q11 of CR-11, to replace the `max-w-xl` first written here) — and full width on a phone |
 
 What the board page has that the public page must **not** get: the CSRF
 hidden field is the admin's (the public form has its own guard), the

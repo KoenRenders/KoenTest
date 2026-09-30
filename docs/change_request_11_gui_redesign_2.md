@@ -125,8 +125,6 @@ Not quantified in money; the first line is the one that decides.
 
 ## A5. Supplied material — and what it taught us
 
-## A5. Supplied material — and what it taught us
-
 Where each parked item comes from, so the original context can be reread
 instead of reconstructed:
 
@@ -200,7 +198,7 @@ concept is drawn (B2.1).
 
 ## B1. Solution outline — the solution and the decisions that shape it
 
-Not forty-five fixes but **one kit with three layouts**, and a portal
+Not fifty fixes but **one kit with three layouts**, and a portal
 rebuilt onto it screen by screen. The end state (B4) says what a list, a
 record and a document look like and how they behave, down to the field,
 the button and the pixel; the kit makes it (layouts, macros, tokens); the
@@ -211,7 +209,7 @@ one pilot per kind lived with for a release, then roll-out.
 Decisions that shape it, with the alternatives:
 
 - **Rebuild onto a kit, not restyle screen by screen.** Restyling each
-  screen would give forty-five improvements and the forty-sixth drift; the
+  screen would give fifty improvements and the fifty-first drift; the
   rows of A2 exist because the kit stops at the control and the screens
   compose the rest. So the kit grows upward — to layouts — and the screens
   shrink to composition.
@@ -724,7 +722,18 @@ violation in its docstring.
     rendered twice on a row → red.
 11. **Pixels.** Every screen has a baseline PNG at 390 px and at desktop
     width; a diff above the threshold fails the e2e job; the design-system
-    page is in the set.
+    page is in the set. **Stability protocol**, because a pixel diff is the
+    one gate that can go red for nothing and a gate that cries wolf gets
+    switched off: fixed seed data for the screenshot run; a fixed viewport
+    and device scale; the clock frozen so no date or "x minutes ago"
+    moves; fonts self-hosted (they are) and the browser pinned with the
+    Playwright version; a threshold *per screen* (a few pixels of
+    antialiasing pass, a shifted label does not); dynamic regions masked
+    by a `data-screenshot="mask"` attribute; and **the baseline-update
+    rule**: an intended visual change ships its new baseline in the same
+    pull request, reviewed at the merge gate as part of the eye — a
+    baseline updated without a design change in that PR is refused. If the
+    run exceeds ten minutes it diffs the screens the PR touches (B3).
 12. **The frame does not move.** Switching from Gegevens to Betalingen on
     an activity leaves the header, tabs and summary card at the same
     coordinates (measured from the DOM).
@@ -738,6 +747,8 @@ violation in its docstring.
 16. **The nudge looks nothing up.** The public registration view-model
     makes no query by the typed e-mail address (a query counter on the
     session).
+
+Tests 5, 7, 10 and the "one-off control" of test 8 carry a judgment part; there the test flags a candidate and the merge gate decides (B8).
 
 **Impact on the test landscape:** every screen that moves onto a layout
 redoes its screenshots and, where it has one, its e2e flow (registration,
@@ -755,8 +766,8 @@ screens (30 September 2026), before the solution is designed:**
 > **made automatically** by the kit — a macro, a layout, a token — or
 > **strictly validated** by a gate that runs on every push. A convention that
 > is neither is not a convention: it drifts at the next new screen and at
-> the next change to an existing one. That is how the thirty-one rows of A2
-> came to be.*
+> the next change to an existing one. That is how the rows of A2 came
+> to be.*
 
 Every solution idea in A2 therefore ends in one of the two: a macro or
 layout the template cannot get wrong, or a gate that goes red. Reach,
@@ -773,11 +784,26 @@ classes · 65 raw checkboxes · 14 per-card edit toggles · 34 action bars ·
 their own width · 5 lists with "Bewerken" as a row action. Target after
 this change request: 0 for each, and the gates hard.
 
-**The gate.** B7, tests 1 and 8–14, in `test_ui_conventions_gate.py` and
-the e2e job; ratchets from phase 2, hard from phase 5. What stays with
-judgment: whether a screen is a record or a document, which columns a list
-needs, what a card should show — the classification table, decided once
-per screen and reviewed at the merge gate with the eye.
+**The gate — two kinds, said apart.** *Mechanical*, in
+`test_ui_conventions_gate.py` and the e2e job: the layouts extended, the raw
+form elements, spacing classes, surface classes and checkboxes, the typed
+"+", a `max-w-*` on a screen, `overflow-x-auto` on a list, "Bewerken" among
+row actions, a header link to another module, a `code_label` twice on a
+row, an `action_bar` inside a repeating-group row, the declared save model
+against the macros used, the Raakje trigger by rule, one toolbar per rich
+text, the screenshot baselines. Each is a count or a structural fact a test
+reads without judgment. *The eye*, at the merge gate and in the
+classification table: whether a custom label names a consequence, whether
+a tile filters what it counts, whether a control is a one-off, whether a
+link's text names its target, whether a screen is a record or a document,
+which columns a list needs, what a card shows — a test can approximate
+these with word lists and will flag candidates, but the verdict is a
+person's; the document does not claim hardness there. **Ratchets from
+phase 2; and each mechanical gate goes hard on its own, the moment its count
+reaches zero** — not all at once at the end of phase 5, which would make
+"hard" a deadline that one lagging screen breaks on `master`. Hardness is
+then a consequence of the roll-out, per rule, and phase 5 may be split over
+releases without a cliff.
 
 ## B9. Prototype findings — what was measured before the build
 
@@ -807,7 +833,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
 | 30 Sep 2026 | Pilot order: A (activity record, Betalingen list) before B (public household, forms, registration). | Koen |
 | 30 Sep 2026 | Lists: in the admin every list is a table, a picture is a thumbnail column; cards only on the public site and in the media library. P2 decided. | Koen |
-| 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the forty-five rows of A2: three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
+| 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the rows of A2 (fifty by the end of the day): three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
 
 ## Q&A log — asked once, answered here
 
@@ -815,15 +841,15 @@ title and toolbar; the e2e job's duration with the pixel diff.
 |---|---|---|---|
 | Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
 | Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | Koen, 30 Sep: none stays on hold — the parking lot was context; whatever fits the phasing goes in. Placed: P1, P3, P5, P6 (first half) in phase 5, P2 in phases 0 and 3–5, P4 in phase 4, P6's second half after 5, P8 and P9 as their own change requests. A6, B6, B3. |
+| Q11 | 30 Sep 2026 | Width conflict found by the review: this CR and the end state put the form column at 768 px (`max-w-3xl`, the two-column grid); CR-14's parity list P15 keeps the registration page at `max-w-xl` (576 px). Which wins at pilot B? (Claude, from the review) | *proposed:* the end state — 768 px is what the two-column form grid needs; CR-14's P15 is updated to say so, before phase 4. *Koen decides.* |
+| Q10 | 30 Sep 2026 | External review (Mistral, on the rewritten CR-11 and the end-state document, pasted by Koen): three row counts for one table; two duplicated headings; decide Q4 (own release); the gates promise hardness that the semantic ones cannot deliver — split mechanical from eye; the pixel diff needs a stability protocol; "hard from phase 5" is a cliff — go hard per rule at zero; the width conflict with CR-14; the users list "pages: no (small)" contradicts row 44. | Taken in: counts and headings fixed; Q4 proposed as an own release; B8 splits the gates and makes hardness per rule at zero; B7 test 11 carries the protocol; Q11 for the width; the users list pages. |
 | Q9 | 30 Sep 2026 | External review (Mistral, on the 74-line parking-lot version of this document, pasted by Koen): take pagination, tables-versus-cards and the table conventions as one change, not three; give the list a return moment; add a uniqueness rule like CR-14's B8; un-park bulk only for a concrete repeated task; close the featured activity rather than park it. | All but one were already the shape of the rewrite it had not seen (the list layout, the roadmap, B8, P3 as Could where a list needs it). Taken from it: P4 closes as Won't at phase 4 if the board has not asked; and its measurement — only Betalingen pages, Leden and the registrations load everything — is now row 6's baseline. |
 | Q8 | 30 Sep 2026 | Does F1 — every screen extends one of three layouts — clash with the modular architecture? (Koen) | No: extending is what every domain template does today with the shell and the macros, both the kit's; a layout is one level more in the same place; the dependency stays domain → `ui`, and the template-variables gate covers the layout's blocks as promises. B2.2. |
 | Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | Reworded twice on Koen's reading. First to "table when scanned, cards when the picture is the content"; then, on "why would the designs be cards — they are a list too", to a rule by place with no judgment in it: **in the admin every list is a table** (a picture is a thumbnail column); **cards only on the public site and in the media library**. Koen, 30 Sep: that is the decision. |
-| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
+| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *proposed, with the external review's advice:* a release of their own — the point of phase 1 is that the eight land together and are seen together; scattered over other releases they lose exactly that. *Koen decides.* |
 | Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | Koen, 30 Sep: pilot A first — the activity record and the Betalingen list — then pilot B as proposed. |
 | Q6 | 30 Sep 2026 | Phase 5's roll-out is the largest block (~14 days): one release, or split per module over releases with the ratchets keeping it safe? (Claude) | Koen, 30 Sep: deferred until phase 5 is due — nothing before it depends on the answer, the ratchets of phase 2 make either safe. Leaning: split over releases with the ratchets as the net. *Decided at phase 5.* |
 | Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | Koen, 30 Sep: not one first — both at once, Mistral and ChatGPT, the same brief, the answers compared in one round; agreement adopted, contradictions decided by us. B6. |
-
-## Non-goals — deliberately outside this change
 
 ## Non-goals — deliberately outside this change
 

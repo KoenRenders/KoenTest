@@ -2,7 +2,7 @@
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Betalingen — concept lijstpagina</title>
 <link rel="stylesheet" href="../../../backend/app/static/app.css"><link rel="stylesheet" href="concept.css"></head>
-<body><div class="shell">
+<body data-shell="admin"><div class="shell">
 <nav class="sidebar"><div class="brand">RaaK beheer</div>
 <div class="group">Vereniging</div><a href="#">Activiteiten</a><a href="#">Leden</a><a href="#">Vergaderingen</a>
 <div class="group">Financieel</div><a href="#" class="active">Betalingen</a><a href="#">Rapporten</a>
@@ -16,17 +16,17 @@
   <div class="tiles">
    <a class="tile" href="#"><div class="n">€ 4 210</div><div class="l">Netto te betalen · 312 boekingen</div></a>
    <a class="tile" href="#"><div class="n">€ 3 640</div><div class="l">Ontvangen · na terugbetalingen</div></a>
-   <a class="tile warn active" href="#"><div class="n">€ 0</div><div class="l">Openstaand · 6 boekingen</div><div class="sub">€ 120 te ontvangen · € 120 terug te betalen</div></a>
+   <a class="tile warn" href="#"><div class="n">€ 0</div><div class="l">Openstaand · 6 boekingen</div><div class="sub">€ 120 te ontvangen · € 120 terug te betalen</div></a>
   </div>
   <div class="actions"><a class="btn btn-primary btn-sm" href="#"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nieuwe betaling</a></div>
  </div>
  <div class="toolbar">
-  <div class="chips"><span class="chip">Alle</span><span class="chip active">Openstaand</span><span class="chip">Betaald</span><span class="chip">Terugbetaald</span></div>
+  <div class="chips"><span class="chip active">Alle</span><span class="chip">Openstaand</span><span class="chip">Betaald</span><span class="chip">Terugbetaald</span></div>
   <input class="search" placeholder="Zoek op naam, activiteit of OGM…">
   <select class="select"><option>Alle betaalwijzen</option><option>Online</option><option>Overschrijving</option><option>Contant</option></select>
   <select class="select"><option>Alle activiteiten</option></select>
   <span class="count">1–6 van 6 · <select class="select" style="padding:2px 4px"><option>50</option><option>25</option><option>100</option></select></span>
-  <span class="more" title="Export (.ods), kolommen, Raakje">⋯</span>
+  <span class="more" role="button" aria-label="Meer: export (.ods), kolommen, Raakje" title="Meer">⋯</span>
  </div>
  <p class="caption">Gegroepeerd per inschrijving, recentste eerst · bedragen: alleen Finance</p>
  <table class="list">
