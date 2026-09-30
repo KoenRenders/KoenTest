@@ -39,8 +39,9 @@ class AiCallListView(ViewModel):
 
     calls: list[AiCallLine]
     page: int
-    has_prev: bool
-    has_next: bool
+    per_page: int
+    # Every call of the tenant, counted (#1391, CR-11 W8).
+    total: int
 
 
 @dataclass(frozen=True, kw_only=True)

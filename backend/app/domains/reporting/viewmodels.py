@@ -122,8 +122,9 @@ class ReportPanelView(ViewModel):
     direction: str
     page: int
     per_page: int
-    has_prev: bool
-    has_next: bool
+    # The rows of the whole table, not the page (#1391, CR-11 W8); 0 where
+    # nothing pages (a crosstab, a chart, a refusal).
+    total_rows: int
 
     # ── The report this panel is showing, if it was saved ───────────────────
     report_id: int | None

@@ -702,29 +702,25 @@
    die groeien zegt een reeks knoppen weinig en breekt ze op mobiel. Verbergt
    zichzelf als alles op één pagina past, zodat een lijst met drie rijen geen
    navigatie krijgt. #}
-{% macro pager(page, per_page=None, total=None, hx_get="", hx_target="", include="",
-               has_prev=None, has_next=None) -%}
-{# Twee modi. Mét `total` toont hij "x–y van n" en leidt hij zelf af of er nog een
-   pagina is. Zonder totaal — voor lijsten die bewust géén COUNT doen en één rij
-   extra ophalen — geef je has_prev/has_next mee en toont hij enkel "Pagina n".
-   Een COUNT afdwingen zou die optimalisatie slopen voor een cijfertje. #}
-{% set weet_totaal = total is not none and per_page %}
-{% set pages = ((total - 1) // per_page + 1) if weet_totaal and total else 1 %}
-{% set _prev = (page > 1) if has_prev is none else has_prev %}
-{% set _next = (page < pages) if has_next is none else has_next %}
+{% macro pager(page, per_page, total, hx_get="", hx_target="", include="", param="page") -%}
+{# One wording: "x–y van n" (#1391, CR-11 W8). The "Pagina n" mode for lists
+   that fetched one row extra instead of counting is gone — every list that
+   pages now counts, because "page 3" does not tell anyone how far they are.
+   `param` names the query parameter (the report panel reads `goto`). Without
+   `hx_target` the buttons set no target or swap and inherit them from an
+   ancestor, as the report panel's commands do. #}
+{% set pages = ((total - 1) // per_page + 1) if total else 1 %}
+{% set _prev = page > 1 %}
+{% set _next = page < pages %}
 {% if _prev or _next %}
 <nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="Paginering">
-  {% if weet_totaal %}
   <span class="text-ink-soft">{{ (page - 1) * per_page + 1 }}–{{ [page * per_page, total] | min }} van {{ total }}</span>
-  {% else %}
-  <span class="text-ink-soft">{{ _("Pagina") }} {{ page }}</span>
-  {% endif %}
   <span class="flex gap-1">
     {% for label, target, enabled in [("‹ Vorige", page - 1, _prev), ("Volgende ›", page + 1, _next)] %}
     <button type="button"
             class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if enabled else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
-            {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}page={{ target }}"
-              hx-target="{{ hx_target }}" hx-swap="innerHTML"
+            {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}{{ param }}={{ target }}"
+              {% if hx_target %}hx-target="{{ hx_target }}" hx-swap="innerHTML"{% endif %}
               {% if include %}hx-include="{{ include }}"{% endif %}
             {% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
     {% endfor %}

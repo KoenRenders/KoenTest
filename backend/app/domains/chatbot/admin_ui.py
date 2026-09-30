@@ -91,10 +91,10 @@ def _shift(d: date, months: int) -> str:
     return f"{index // 12:04d}-{index % 12 + 1:02d}"
 
 
-def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], bool]:
+def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], int]:
     from zoneinfo import ZoneInfo
 
-    rows, has_next = list_calls(db, tenant_id=tenant, page=page, per_page=PER_PAGE)
+    rows, total = list_calls(db, tenant_id=tenant, page=page, per_page=PER_PAGE)
     brussel = ZoneInfo("Europe/Brussels")
     lines = []
     for r in rows:
@@ -121,7 +121,7 @@ def _call_lines(db: Session, tenant: int, page: int) -> tuple[list[AiCallLine], 
                 cost=cost,
             )
         )
-    return lines, has_next
+    return lines, total
 
 
 @router.get(PATH, response_class=HTMLResponse)
@@ -137,14 +137,12 @@ def ai_costs(
 
     tenant = current_tenant_id.get() or DEFAULT_TENANT_ID
     page = max(1, page)
-    calls, has_next = _call_lines(db, tenant, page)
+    calls, total = _call_lines(db, tenant, page)
     if is_fragment_request(request):
         return templates.TemplateResponse(
             request,
             "_ai_kosten_lijst.html",
-            AiCallListView(
-                calls=calls, page=page, has_prev=page > 1, has_next=has_next
-            ).as_context(),
+            AiCallListView(calls=calls, page=page, per_page=PER_PAGE, total=total).as_context(),
         )
 
     eerste = _month(maand)
@@ -163,8 +161,8 @@ def ai_costs(
     view = AiCostView(
         calls=calls,
         page=page,
-        has_prev=page > 1,
-        has_next=has_next,
+        per_page=PER_PAGE,
+        total=total,
         month_label=format_date(eerste, "LLLL yyyy", locale=current_locale.get()),
         prev_month=_shift(eerste, -1),
         next_month=_shift(eerste, 1),

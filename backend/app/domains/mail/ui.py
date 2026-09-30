@@ -87,7 +87,7 @@ def _ctx(request: Request, db: Session) -> dict:
     # querystring komt. De whitelist staat sinds #1083 in `app.ui`, want de
     # keuzelijst in de meta-regel wordt uit diezelfde reeks gevuld.
     per_page = per_page_from(stand.get("per_page"))
-    rows, has_next = list_email_log(
+    rows, total = list_email_log(
         db,
         email_type=email_type,
         status=status,
@@ -131,19 +131,16 @@ def _ctx(request: Request, db: Session) -> dict:
         "status": status,
         "recipient": recipient,
         "page": page,
-        "has_prev": page > 1,
-        "has_next": has_next,
+        "total": total,
         "sort": sort,
         "richting": richting,
         "per_page": per_page,
         "sorteer_urls": {key: _sorteer_url(key) for key in EMAIL_LOG_SORT_KEYS},
         "sorteer_labels": labels,
         "per_page_options": PER_PAGE_OPTIONS,
-        # De meta-regel boven de tabel (§2.3). Bewust "op deze pagina": dit scherm
-        # doet met opzet GEEN COUNT (§2.3 noemt het als het geval daarvoor) en
-        # haalt één rij extra op om te weten of er nog een pagina is. "N e-mails"
-        # zou dus een totaal suggereren dat we niet gemeten hebben.
-        "meta_telling": _("%(aantal)s e-mails op deze pagina") % {"aantal": len(rows)},
+        # The meta line above the table (§2.3). The list counts since #1391
+        # (CR-11 W8), so it states the total rather than "op deze pagina".
+        "meta_telling": _("%(aantal)s e-mails") % {"aantal": total},
         "meta_volgorde": sort_description(labels[sort], richting, is_date=(sort == "datum")),
         # `(code, word)` for the two filters, in the lists' own order.
         "type_options": code_labels(EMAIL_TYPE.name, db=db),

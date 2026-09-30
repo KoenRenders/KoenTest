@@ -65,8 +65,8 @@ def test_tiebreaker_maakt_paging_sluitend_bij_gelijke_datums(db_session):
     de heapvolgorde kiezen en dan is de vereniging van de pagina's niet meer
     gegarandeerd volledig."""
     _seed(db_session, "tieb-x@example.com", "tieb-y@example.com", "tieb-z@example.com")
-    p1, nog = list_email_log(db_session, recipient="tieb-", page=1, page_size=2)
-    assert nog is True
+    p1, total = list_email_log(db_session, recipient="tieb-", page=1, page_size=2)
+    assert total == 3
     p2, _ = list_email_log(db_session, recipient="tieb-", page=2, page_size=2)
     gezien = [r.id for r in p1] + [r.id for r in p2]
     assert len(gezien) == 3 and len(set(gezien)) == 3

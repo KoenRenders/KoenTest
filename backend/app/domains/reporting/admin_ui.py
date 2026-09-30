@@ -410,7 +410,7 @@ def _selection(state: dict) -> Selection:
         object_keys=tuple(state["objects"]),
         filters=tuple(filters),
         sort=sort,
-        limit=PER_PAGE + 1,
+        limit=PER_PAGE,
         offset=(state["page"] - 1) * PER_PAGE,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
@@ -493,7 +493,7 @@ def _panel(
     chart: dict | None = None
     message: str | None = None
     refused = False
-    has_next = False
+    total_rows = 0
 
     persoonlijk = False
     if state["objects"]:
@@ -518,10 +518,12 @@ def _panel(
                     # number (#835 test 6).
                     pivot = gedraaid.as_context()
             else:
-                result = run_validated(db, selection, tenant_id=tenant_id, viewer=_viewer(request))
+                result = run_validated(
+                    db, selection, tenant_id=tenant_id, viewer=_viewer(request), with_count=True
+                )
                 columns = result.columns
-                rows = result.rows[:PER_PAGE]
-                has_next = len(result.rows) > PER_PAGE
+                rows = result.rows
+                total_rows = result.total_rows or 0
                 totals = result.totals
                 drill_aliases = result.drill_aliases
         except SelectionError as exc:
@@ -563,8 +565,7 @@ def _panel(
         direction=state["direction"],
         page=state["page"],
         per_page=PER_PAGE,
-        has_prev=state["page"] > 1,
-        has_next=has_next,
+        total_rows=total_rows,
         report_id=report.id if report else None,
         name=report.name if report else "",
         description=(report.description or "") if report else "",
