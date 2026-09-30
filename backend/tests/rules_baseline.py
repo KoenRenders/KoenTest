@@ -679,12 +679,16 @@ COMMIT_BEHIND_API: frozenset[str] = frozenset(
 # One entry was ADDED after the freeze, by decision (Koen, 29 September 2026, CR-14
 # §B4.2): a registration's answers are a synchronous command into `forms` — the
 # refusal must come back to the screen and the submission's id to the registration,
-# in the registration's own transaction — which an event cannot do. Should a second
-# and a third synchronous command of this kind come, it becomes a command port in
-# the kernel, and that port replaces these entries.
+# in the registration's own transaction — which an event cannot do. A second entry of
+# the same coupling followed (`edit_answers → update_attached`, CR-14 §B4.7, Koen, 29
+# September 2026: the same pair of domains, a second verb). Should a third come, or a
+# second pair of domains, it becomes a command port in the kernel, and that port
+# replaces these entries.
 COMMAND_CALLS: frozenset[str] = frozenset(
     {
         "domains/activities/service.py::take_answers → forms.api.submit_attached",  # CR-14 §B4.2: synchronous refusal and returned id; flush, no commit; Koen 29 Sep 2026
+        "domains/activities/service.py::edit_answers → forms.api.update_attached",  # CR-14 §B4.7: synchronous refusal; same coupling as submit_attached; Koen 29 Sep 2026
+        "domains/newsletter/service.py::_pictures → media.api.activity_image_path",  # #1368, measured 30 Sep 2026: the walk now sees a flush; media caches a PDF poster's rendering (poster.thumbnail + db.flush) — a read with a cache write, not a coupling to move
         "domains/activities/admin_ui.py::activiteit_bijwerken → media.api.replace_activity_poster",
         "domains/activities/admin_ui.py::affiche_uploaden → media.api.replace_activity_poster",
         "domains/activities/admin_ui.py::affiche_verwijderen → media.api.delete_activity_poster",

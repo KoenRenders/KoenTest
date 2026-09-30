@@ -787,8 +787,12 @@ event: the refusal must come back to the screen, the submission's id must come
 back to the registration, and both must stay in the registration's own
 transaction (flush, no commit). So it is one named entry in that baseline,
 `activities/service.py::take_answers → forms.api.submit_attached`, with this
-reason on its line. Should a second and a third synchronous command of this kind
-come, it becomes a command port in the kernel, and that port replaces the entry.
+reason on its line. Phase 3 added the second of the same coupling,
+`edit_answers → forms.api.update_attached` (§B4.7; Koen, 29 September 2026: the
+same pair of domains, a second verb, still an exception). Should a third come, or
+a second pair of domains, it becomes a command port in the kernel, and that port
+replaces these entries. (The walk that finds such calls did not see the second
+at first — a write through a mapped collection and a flush; #1368 taught it.)
 
 The answers are validated *before* the registration's own "full" and
 "already registered" checks? No — after `service.register` has passed them,
@@ -1214,6 +1218,7 @@ None yet. To measure before the build of phase 2:
 | 29 Sep 2026 | Built phase 2: no foreign key across the schemas — soft references into `form`, and a `form_submissions.attached` mark for F11 (measured: `registrations.person_id` has been a soft reference since 078; `test_schema_boundaries` refuses the key). B2.2, B2.3, B5 and F11 say so. A spent answer link answers the same 404 as an unknown one (B5 and the CHECK), with "already answered is all well" in its text; B7 test 3's "al ingevuld" on a second visit is not built. | master CLI |
 | 29 Sep 2026 | The answers are a synchronous command into `forms` — one named exception in CR-13's `COMMAND_CALLS` baseline (B4.2); a second and a third of the kind become a kernel command port. | Koen |
 | 29 Sep 2026 | No ORM relationship across the schema line either: the component's form and the submission are read through `forms.api`; "the answers belong to the component's form" holds at its one writer, not in `check()` (B2.2, B4.2, B7 tests 8 and 14). | master CLI, after review by the architecture track |
+| 30 Sep 2026 | `update_attached` stays a deliberate exception next to `submit_attached` (same coupling); the port comes with a third case or a second pair of domains (B4.2). | Koen |
 
 ## Q&A log — asked once, answered here
 
