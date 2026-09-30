@@ -8,13 +8,13 @@
     body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; color: #111; }
     h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 1.5rem; border-bottom: 1px solid #999; }
     .veld { margin: 0.9rem 0; page-break-inside: avoid; }
-    .label { font-weight: 600; } .hulp { color: #555; font-size: 0.85rem; }
+    .label { font-weight: 600; } .hulp { color: #555; font-size: 0.85rem; white-space: pre-line; }
     .lijn { border-bottom: 1px solid #888; height: 1.4rem; margin-top: 0.3rem; }
     /* Losstaande afdrukpagina: laadt bewust GEEN app.css (Tailwind-preflight zou
        de printopmaak wijzigen, #523). De tokens staan daarom lokaal — hex hoort
        enkel in een tokendefinitie, nooit in de opmaak zelf (#528 as A). */
     :root { --surface-2: #f7fafd; }
-    .optie { margin: 0.15rem 0; } .info { background: var(--surface-2); padding: 0.5rem; }
+    .optie { margin: 0.15rem 0; } .info { background: var(--surface-2); padding: 0.5rem; white-space: pre-line; }
     @media print { .noprint { display: none; } }
   </style>
 </head>

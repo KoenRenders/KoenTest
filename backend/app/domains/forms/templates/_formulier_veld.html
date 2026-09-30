@@ -27,11 +27,12 @@
   {% if f.kind.is_info %}
   <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
     {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
-    {% if f.help_text %}<p>{{ f.help_text }}</p>{% endif %}
+    {% if f.help_text %}<p class="whitespace-pre-line">{{ f.help_text }}</p>{% endif %}
   </div>
   {% else %}
   {{ ui.vraag(f.label, key, required=f.required) }}
-  {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
+  {# #1379: a line break in the help text stays a line break. #}
+  {% if f.help_text %}<p class="text-xs text-gray-500 mb-1 whitespace-pre-line">{{ f.help_text }}</p>{% endif %}
   {% if f.kind.is_single_line %}
   {{ ui.input_control(key, type=f.kind.input_type, value=(val if val is string else ""),
                       required=(f.required and not wiz), cls="w-full") }}

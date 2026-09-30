@@ -1,6 +1,6 @@
 <div data-veld="f<F:text>" class="border-l-4 border-transparent pl-3 -ml-4">
 <label for="f<F:text>" class="block text-base font-semibold text-ink mb-2">Korte vraag <span class="text-red-600">*</span></label>
-<p class="text-xs text-gray-500 mb-1">Hulp bij tekst</p>
+<p class="text-xs text-gray-500 mb-1 whitespace-pre-line">Hulp bij tekst</p>
 <input type="text" name="f<F:text>" id="f<F:text>" value="Een antwoord"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full" >
 </div>
@@ -9,11 +9,17 @@
 <textarea name="f<F:textarea>" id="f<F:textarea>" rows="4"
  class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none w-full"
  x-data="{ bodem: 0,
+ init() { this.groei(); if (this.bodem) return;
+ const vak = this.$el, zelf = this;
+ const ro = new ResizeObserver(function () {
+ if (vak.offsetHeight) { ro.disconnect(); zelf.groei(); } });
+ ro.observe(vak); },
  meet() { this.$el.style.height = ``; this.bodem = this.$el.offsetHeight; },
  groei() { if (!this.bodem) this.meet(); if (!this.bodem) return;
  this.$el.style.height = `auto`;
- this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight, this.bodem), 400) + `px`; } }"
- x-init="groei()" x-on:input="groei()" >Een lang antwoord</textarea>
+ const rand = this.$el.offsetHeight - this.$el.clientHeight;
+ this.$el.style.height = Math.min(Math.max(this.$el.scrollHeight + rand, this.bodem), 400) + `px`; } }"
+ x-on:input="groei()" >Een lang antwoord</textarea>
 </div>
 <div data-veld="f<F:number>" class="border-l-4 border-transparent pl-3 -ml-4">
 <label for="f<F:number>" class="block text-base font-semibold text-ink mb-2">Getal</label>
@@ -110,7 +116,7 @@
 <div data-veld="f<F:info>" class="border-l-4 border-transparent pl-3 -ml-4">
 <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
 <p class="font-medium mb-1">Ter info</p>
-<p>Dit is uitleg</p>
+<p class="whitespace-pre-line">Dit is uitleg</p>
 </div>
 </div>
 <div data-veld="f970050" class="border-l-4 border-transparent pl-3 -ml-4">
