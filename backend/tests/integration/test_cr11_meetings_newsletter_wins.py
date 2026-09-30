@@ -44,7 +44,9 @@ def test_w4_the_settings_are_linked_once_in_the_header(client, db_session):
 
     links = re.findall(r'href="/admin/vergaderingen/kring"', html)
     assert len(links) == 1, f"one link to the circle page, found {len(links)}"
-    assert re.search(r'href="/admin/vergaderingen/kring"[^>]*>\s*(<[^>]+>\s*)*Instellingen', html)
+    button = re.search(r'<a href="/admin/vergaderingen/kring"[^>]*>(.*?)</a>', html, re.S)
+    assert button and "Instellingen" in button.group(1)
+    assert "<svg" in button.group(1), "with the gear (lead_icon settings)"
     assert "Beheer de kring" not in html and "Vergaderkring" not in html
 
     page = client.get("/admin/vergaderingen/kring").text
