@@ -409,6 +409,24 @@ are shaped:*
 > *   language, an `Enum` member and a label call") and fails on the one that was*
 > *   forgotten, with the name of the missing piece.*
 
+**The rule of this change request, stated by the person who lives with the
+screens (30 September 2026), before the solution is designed:**
+
+> *Everything a screen must have in common with the other screens is either
+> **made automatically** by the kit — a macro, a layout, a token — or
+> **strictly validated** by a gate that runs on every push. A convention that
+> is neither is not a convention: it drifts at the next new screen and at
+> the next change to an existing one. That is how the thirty-one rows of A2
+> came to be.*
+
+Every solution idea in A2 therefore ends in one of the two: a macro or
+layout the template cannot get wrong, or a gate that goes red. Reach,
+baseline and the gates themselves are written per item in Part B when the
+solution is designed; the measured counts in A2 (raw form elements, raw
+spacing classes, raw surface classes, raw checkboxes, per-card editors,
+sideways scrolls, hand-placed creates) are the first baselines.
+
+
 ## B9. Prototype findings — what was measured before the build
 
 > [!NOTE]
@@ -422,6 +440,7 @@ are shaped:*
 | 20 Sep 2026 | CR-11 is a parking lot, not a work order; pagination in v2.5 on Betalingen only; the rest decided piece by piece later. | Koen |
 | 20 Sep 2026 | STT/TTS in the Raakje overlay un-parked: mic + read-aloud, the same Raakje everywhere (#1075). | Koen |
 | 30 Sep 2026 | Brought onto the change-request template of 30 September; the parked items are candidate requirements P1–P6 in A6. | Koen |
+| 30 Sep 2026 | The rule of CR-11: what screens must share is made automatically by the kit or strictly validated by a gate; a convention that is neither drifts with every new screen or change. | Koen |
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
 
