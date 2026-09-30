@@ -206,6 +206,34 @@ flowchart TB
 
 Rules that hold on master: kernel imports no domain; cross-domain imports target only `.api`; no cross-schema foreign keys except towards a code table of `mdm` or `auth` (§2.1); a UI module never touches the session. Two facades still delegate part of their implementation back into a router (`activities`, `forms`), which the layer gate tolerates for services but not for screens. That is honest debt, and it is listed in Chapter 9.
 
+### 3.2.1 Events, ports and reads: which one, and when to build more
+
+Decided with Koen on 30 September 2026, after CR-14 needed two synchronous calls from `activities` into `forms`. This section is the rule; `kernel/events.py`, `kernel/jobs.py` and the `COMMAND_CALLS` gate (CR-13 §B4.9) are its mechanics.
+
+**The choice is made by what the caller says, not by transactional integrity.**
+
+| The caller… | Use | Receivers | Answer back |
+|---|---|---|---|
+| reports a fact ("a payment was received") | an **event** (`publish` / `@subscribe`, contract in `kernel/contracts/`) | zero or more | none |
+| needs something done *and* the result to continue ("store these answers, tell me whether they are valid and their id") | a **port** (a command with one handler) | exactly one | yes |
+| only wants to know something | a **read** through the other domain's `api.py` | — | yes |
+
+Integrity is not what separates them. Today events run synchronously in the caller's transaction (rung 1), and a port would too, so both are all-or-nothing. The difference only surfaces when a component is extracted. An event then goes through an outbox and tolerates delay (eventual consistency). A port cannot wait, because the caller needs the answer, so it needs its own means (idempotent calls, compensation). That is why the default is an event, and a port is used only where an answer is really needed.
+
+**Where it lives: the kernel, not a domain.** Messaging is plumbing without business meaning. In `workflow` (a business domain that *consumes* events) it would make every domain depend on a business domain. In `kernel/rules.py` it would mix *whether something may happen* with *how domains talk*. As a domain of its own it would become the hub everything couples to. When ports are built, events and ports move together into one small kernel package (for example `kernel/messaging/`), so the kernel does not become a junk drawer.
+
+**When to build more — three steps, each only when its trigger occurs:**
+
+1. **Now: nothing.** A synchronous command into another domain is a named exception in the `COMMAND_CALLS` baseline, with its reason on the line. On 30 September 2026 there are two, both `activities → forms` for attached answers (`submit_attached`, `update_attached`, CR-14 §B4.2 and §B4.7).
+2. **Trigger: a third synchronous command, or a second domain pair.** Build the port mechanism next to events: a contract in `kernel/contracts/`, a registry with one handler per port, and the gate treating a call through a port as allowed. The named exceptions then leave the baseline in the same change.
+3. **Trigger: a component is actually extracted (R7).** Build the outbox on the existing job table (`kernel_jobs`: enqueued in the business transaction, retried, `FOR UPDATE SKIP LOCKED`), not as a second mechanism beside it. Mail already works this way in the small: its event handler enqueues a job. Which ports become network calls is decided at that moment, not in advance.
+
+**Deliberately not done**, because at this scale each only adds upkeep:
+
+- no message broker (RabbitMQ, Kafka);
+- no general workflow engine — `workflow` stays the werkbank for people;
+- no event sourcing, and no permanent log of every event — the history tables and `audit` keep what must be kept.
+
 ## 3.3 Master data and membership
 
 The MDM domain is generic on purpose: an `Organization` tree (ACCOUNT above UNIT) is the tenant registry; `Person` and `Member` (a household) are linked through a junction with a relation type; addresses use a postal-code lookup table; contact details are typed rows rather than columns on the person; legacy identifiers live in a separate external-number table. Every entity has an append-only history table with no foreign keys, so history survives the deletion of its subject (the figure shows the person's; membership has its own).
