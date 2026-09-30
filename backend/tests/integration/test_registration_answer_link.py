@@ -91,7 +91,7 @@ def test_later_sends_one_mail_with_the_link_and_the_page_repeats_it(db_session, 
 
 def test_the_link_shows_the_questions_and_no_more_than_the_mail(client, later):
     html = client.get(f"/inschrijving/{later.token}/vragen").text
-    assert "Inschrijving van Lore." in html
+    assert "Inschrijving van Lore voor " in html
     assert later.activity.name in html
     for field in later.form.fields:
         assert f'name="f{field.id}"' in html

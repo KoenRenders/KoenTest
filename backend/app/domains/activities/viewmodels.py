@@ -59,6 +59,9 @@ class AdminInschrijvingView(ViewModel):
     # CR-14 phase 3 (§B4.7): the questions to correct the answers in, the answers as
     # the field partial reads them, and the question a refusal names.
     vragen: list[Any]
+    vraagformulier: Any
+    vraag_groepen: list[dict[str, Any]]
+    vraag_los: list[Any]
     values: dict[str, Any]
     vraag_fout: int | None
 

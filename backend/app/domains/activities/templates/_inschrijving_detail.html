@@ -170,13 +170,12 @@
     {# CR-14 phase 3 (§B4.7): the answers, corrected in the form builder's own
        fields and checked by its own rules; its own form and button — a correction
        of what the member said is not saved along with the quantities. #}
-    {% from "_formulier_veld.html" import veld with context %}
+    {% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
     <form class="space-y-3 border-t border-gray-200 pt-3" hx-post="/admin/inschrijvingen/{{ reg.id }}/antwoorden"
           hx-target="closest .bg-gray-50" hx-swap="outerHTML">
-      <p class="font-medium text-ink">{{ _("Antwoorden") }}</p>
-      {% for f in vragen %}
-      <div class="{{ 'rounded-lg ring-2 ring-red-600 p-2' if vraag_fout == f.id else '' }}">{{ veld(f) }}</div>
-      {% endfor %}
+      {# #1380: the form's own question block. #}
+      <div>{{ vragen_kop(vraagformulier, heading="h3") }}</div>
+      {{ vragen_kaarten(vraag_groepen, vraag_los, vraag_fout=vraag_fout) }}
       {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
     </form>
     {% endif %}

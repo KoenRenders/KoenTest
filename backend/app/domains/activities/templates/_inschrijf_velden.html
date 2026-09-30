@@ -35,25 +35,28 @@
       {% include "_inschrijf_prijsblok.html" %}
     </div>
     {% if vragen %}
-    {# CR-14 phase 2 (§B4.8): the component's questions, after the products and
-       before the payment — rendered by the form builder's own partial, with its
-       keys (`f<field id>`), so its own parser reads them (§B4.3). One explicit
-       choice above them, the same on the member's page and the board's, "nu" by
-       default. "Later" hides the questions and posts none: the registration gets
-       the answer link in its confirmation mail. The fields are never `required`
-       in the browser — hidden behind "later" they would block the submit; the
-       server judges them (`build_answers`) and names the one it refuses. #}
-    {% from "_formulier_veld.html" import veld with context %}
-    <div x-data="{ nu: {{ 'true' if vragen_nu else 'false' }} }" class="space-y-3">
-      <fieldset>
-        <legend class="text-sm font-medium text-ink mb-1">{{ _("Vragen") }}</legend>
-        <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="now" @change="nu = true" {% if vragen_nu %}checked{% endif %}> {{ _("Nu invullen") }}</label>
-        <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="later" @change="nu = false" {% if not vragen_nu %}checked{% endif %}> {{ _("Later, via de link in de bevestigingsmail") }}</label>
-      </fieldset>
-      <div id="inschrijf-vragen" x-show="nu" {% if not vragen_nu %}style="display: none"{% endif %}>
-        {% for f in vragen %}
-        <div class="{{ 'rounded-lg ring-2 ring-red-600 p-2' if vraag_fout == f.id else '' }}">{{ veld(f, True) }}</div>
-        {% endfor %}
+    {# CR-14 phase 2 (§B4.8), #1380: the component's questions in the form's OWN
+       block (`_formulier_vragen.html`) — its title and description, its section
+       cards, its spacing — the same the form's own page renders, so an improvement
+       there reaches the registration. What the registration adds sits between the
+       head and the cards: one white card with the choice, "nu" by default on both
+       pages. "Later" hides the cards only; the title, the description and the
+       choice stay. The questions are never `required` in the browser here — hidden
+       behind "later" they would block the submit; the server judges them
+       (`build_answers`) and names the one it refuses. #}
+    {% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
+    <div x-data="{ nu: {{ 'true' if vragen_nu else 'false' }} }">
+      <div>{{ vragen_kop(vraagformulier, heading="h2") }}</div>
+      <div class="space-y-6">
+        {% call ui.card() %}
+        <fieldset>
+          <legend class="text-sm font-medium text-ink mb-1">{{ _("Vragen") }}</legend>
+          <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="now" @change="nu = true" {% if vragen_nu %}checked{% endif %}> {{ _("Nu invullen") }}</label>
+          <label class="flex items-center gap-2 text-sm py-0.5 cursor-pointer"><input type="radio" name="questions" value="later" @change="nu = false" {% if not vragen_nu %}checked{% endif %}> {{ _("Later, via de link in de bevestigingsmail") }}</label>
+        </fieldset>
+        {% endcall %}
+        {{ vragen_kaarten(vraag_groepen, vraag_los, browser_required=False, vraag_fout=vraag_fout,
+                          cards_attrs='id="inschrijf-vragen" x-show="nu"' ~ ('' if vragen_nu else ' style="display: none"')) }}
       </div>
     </div>
     {% else %}

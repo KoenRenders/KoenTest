@@ -40,7 +40,13 @@ MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html")
 # macro rendert. De opmaak van een vraag staat dus daar; de pagina eromheen (de
 # `space-y` tussen de vragen, de sectietitel) staat nog in formulier.html.
 _FORMS = Path(__file__).resolve().parents[1] / "app/domains/forms/templates"
-FORMULIER = (_FORMS / "formulier.html").read_text() + (_FORMS / "_formulier_veld.html").read_text()
+# #1380: the question block (section title, `space-y` between the questions) moved
+# into the shared `_formulier_vragen.html`, which the form's page renders.
+FORMULIER = (
+    (_FORMS / "formulier.html").read_text()
+    + (_FORMS / "_formulier_vragen.html").read_text()
+    + (_FORMS / "_formulier_veld.html").read_text()
+)
 
 
 def test_de_drie_niveaus_zijn_onderscheiden():

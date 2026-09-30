@@ -3,12 +3,24 @@
 {% block title %}{{ _("Bedankt — Raak") }}{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto">
-{% if updated %}
+{# #1380: the answer link of a registration ends here too. Its route passes its
+   own thanks (`bedankt`) and the answers as stored (`antwoorden`, label and value);
+   the form's own route passes neither. #}
+{% if bedankt|default(none) %}
+{{ ui.success_banner(bedankt) }}
+{% elif updated %}
 {{ ui.success_banner(_("✅ Je wijzigingen zijn opgeslagen.")) }}
 {% else %}
 {{ ui.success_banner(_("✅ Bedankt! Je inzending is ontvangen.") ~ (_(" Je krijgt een bevestiging per e-mail.") if form.send_confirmation and not form.is_anonymous else "")) }}
 {% endif %}
-{% if form.confirmation_message %}
+{% if antwoorden|default(none) %}
+<dl class="text-sm space-y-2 mt-4">
+  {% for label, waarde in antwoorden %}
+  <div><dt class="font-medium text-ink">{{ label }}</dt><dd class="text-ink-soft">{{ waarde or "—" }}</dd></div>
+  {% endfor %}
+</dl>
+{% endif %}
+{% if form.confirmation_message and not bedankt|default(none) %}
 <p class="text-gray-700 mt-4 whitespace-pre-wrap">{{ form.confirmation_message }}</p>
 {% endif %}
 {% if edit_link %}
