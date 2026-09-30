@@ -649,6 +649,27 @@ session.
 | **5 — roll-out** | every remaining screen onto its layout; pagination on every list (P1); the column chooser and, where a list needs it, the selection mode with scopes-with-preview (P3, P6); Raakje's trigger and panel with its insights (P5); the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
 | **after 5** | saved views and the command palette (P6's second half); the block editor (P8) and Raakje as data-entry agent (P9) as their own change requests | 5 | — | own change requests |
 
+**Phase 1 — the quick wins, one by one.** Each is a small pull request
+on its own, visible the moment it lands, and needs no new component, no
+layout and no migration — only what the kit has today. Together they are
+what is shown first: "look, it already looks better."
+
+| # | Screen | What changes | Row |
+|---|---|---|---|
+| Q1 | Betalingen | The total row under the table and the summary block below it go; the totals live in the three tiles only. The "Openstaand" tile shows both sides when they are not both zero ("€ 120 te ontvangen · € 120 terug te betalen") and colours when either is open, so a coincidental net of zero never reads as "nothing to do". | 10 |
+| Q2 | Activiteit › onderdeel | The three external links move into a collapsed section "Externe koppelingen" at the bottom of the component's form, closed by default, with a one-line summary when set. | 3 |
+| Q3 | Pagina's (CMS) | The editor's toolbar sticks to the top of the viewport while the page scrolls, so an image can be inserted at the bottom without scrolling up. | 15 |
+| Q4 | Vergaderingen | The header button "Vergaderkring" becomes "Instellingen" with the gear, its page holding the circle; the stray line "De vergaderkring telt 3 personen. Beheer de kring" under the list goes. | 34 |
+| Q5 | Organisaties · Raakje-pagina | The header buttons "Naar de tenants" and "Naar de rapporten" go; the menu already has both. | 35 |
+| Q6 | Vergaderingen (list) | The status words at the right of each row go; the badge stays as the one status. | 38 |
+| Q7 | Nieuwsbrief · Vergadering | Every send button that opens a further step ends in "Versturen…"; the last button on the send page names the consequence ("Verstuur naar 312 abonnees"); the card "Zo vertrekt hij" moves from the editor to the send page. | 42 |
+| Q8 | AI-oproepen · Rapporten | The pager says "x–y van n" instead of "Pagina n"; the count is queried. | 6 |
+
+Not in phase 1, on purpose: anything that needs a new macro or layout
+(rows 1, 2, 22, 23…), the JSON import (row 17 — small, but not worth
+showing), and every rename of a screen's shape. Those wait for the
+foundations of phase 2.
+
 Each phase rides a release of its own or shares one with functional work;
 none spans two. Phase 5 may be split per module across releases — the
 gates, as ratchets, make every split safe. "Na de merge" per phase: no
