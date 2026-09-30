@@ -1,74 +1,790 @@
 # Change Request 11 — GUI redesign 2 (parking lot)
 
-> Deliberately a **parking lot**, not a work order (Koen, 20 September 2026):
-> the place where GUI work lands that we consciously do NOT do in v2.5, so the
-> v2.5 scope can be decided piece by piece without losing the rest. Nothing on
-> this list is assigned; each item returns to Koen for a separate decision
-> before anyone builds it. When an item is picked up, it gets its own issue —
-> this document only remembers what was parked and why.
-
 **Project:** Web Portal "Raak Millegem"
-**Status:** shaped with Koen on 20 September 2026 · on hold (parking lot)
-**Applies to:** admin list screens, the public homepage/cards, the admin
-assistant — GUI work deferred from the v2.5 design track (#913, #996).
+**Status:** parked on 20 September 2026 · shaped on 30 September 2026 as the GUI's end state and roadmap · draft, for the business to read · not assigned
+**Applies to:** admin list screens, the public homepage and cards, the admin assistant — GUI work deferred from the v2.5 design track (#913, #996).
+
+> Once a parking lot for GUI work deferred from v2.5; since 30 September
+> 2026 the change request that fixes **where the portal's screens are going**
+> — the end state in B4 — and **how to get there** — the roadmap in B6. The
+> pains it answers are listed in A2, one row each, measured; the candidates
+> parked earlier are still in A6 as P-rows until one is taken up.
 
 ---
 
 # Part A — The business
 
-## A1. Reason to act
+## A1. Reason to act — the trigger
 
-In Koen's words (20 September 2026, deciding the pagination scope):
+Deciding every GUI candidate the moment it surfaces keeps widening a
+release. v2.5 carried the design track plus four other work streams, so the
+candidates that were not needed for v2.5 were parked here, to be decided
+one by one later — "laten we dat enkel inbouwen in betalingen, de rest is
+voor later; dan kunnen we stuk per stuk bekijken wat we nog doen en de rest
+parkeren we naar later" (20 September 2026).
 
-> "laten we dat enkel inbouwen in betalingen, de rest is voor later (bekijken
-> we dan samen met de cards). [...] Dan kunnen we stuk per stuk bekijken wat
-> we nog in v2.5 doen en de rest parkeren we naar later."
+**Background that shapes the end state without being in scope:** the
+platform will be used by other organisations than RAAK — a company that
+wants a webshop on it, another association with its own menu and brand.
+That is a separate change request (the menu structure and more are fixed
+for RAAK today); nothing in this one builds for it. But the patterns and
+the style decided here are the platform's, not RAAK's: the end state keeps
+apart what belongs to the **kit** (behaviour patterns, layout grammar,
+control shapes, icons' meanings) and what belongs to a **tenant's brand**
+(colours, fonts, wordmark, the icon set's look), so a second organisation
+changes the second and inherits the first.
 
-v2.5 carries the design track plus four other work streams. Deciding each GUI
-candidate the moment it surfaces would keep widening the release; parking them
-here keeps v2.5 decidable and nothing gets lost.
+## A2. As-is process — how it works today, and where it hurts
 
-## A2. As-is / A3. To-be
+Not one process but the screens and the behaviour patterns of the admin and
+the public site as they are lived with today. Listed with the person who
+uses them daily (Koen, 30 September 2026), one row per pain: which screen or
+pattern, what hurts, and — where there is one — a first idea for a solution.
+An idea is not a direction: the direction is chosen in Part B, per item,
+with the usability arguments beside it.
 
-Not applicable in process terms — this is a collection CR. Per item the as-is
-and the intended direction are noted inline below.
+| # | Screen or pattern | What hurts today | Solution idea | Source |
+|---|---|---|---|---|
+| 1 | **A repeating group inside a detail** — several e-mail addresses on a person; the same shape for contact details, products under a component, dates on an activity, options on a form field, lines on an order | Every time such a group is built, its behaviour and its look are described again from scratch: where the save button sits, how "make this the main address" looks, that the row title does not repeat per row, the size of the group's heading, the "add" button to the right of the heading. The multiple e-mail addresses (this week: #1223, #1229) were first built as a different screen — ugly, taking far more room than the group deserves — and then corrected point by point, each point a decision the person asking already made elsewhere. A lot of work for the asker, for a thing the application already does several times. | Name it once and build it once: a **repeating group** pattern in the design system (§4, next to P1–P12) with one macro that renders the heading, the "add" action at its right, the rows with their row actions, the one-among-many marker ("hoofdadres") and the save behaviour — rendered live on `/admin/design-system` like the other components. Every existing instance is listed under the pattern and migrated to the macro, so an issue can say "a repeating group of e-mail addresses" and nothing more. The gate that already checks that promised macros exist then guards it. | Koen, 30 Sep 2026 |
+| 2 | **Cluttered edit screens** — the activity detail with its components (`_aa_detail.html`) as the example | The screen reads as if each field, radio button and button was added one under the other as it came up: 37 labels, 32 inputs, 7 radio or check controls and 4 action bars in one 422-line template, in one column. Nothing groups what belongs together (a product's price, member price, free and pay-on-site are four separate rows), settings and content sit in one stream, and the eye finds no rhythm. It looks amateurish next to the redesigned list screens. | A **form layout grammar** in the design system, as the list screens got one (§3.2): a screen is sections with a heading, each section a grid that lays related fields side by side on a desktop and stacks on a phone; a small set of control shapes per kind of choice (a segmented control for two or three options instead of a row of radios, a switch for a yes/no, a select above five); settings apart from content; one action bar per section or one per screen, never four. Written once with a live example, then each edit screen is laid out on it — the components screen first, as the worst and the most used. | Koen, 30 Sep 2026 |
+| 3 | **Rarely used, discouraged settings take the front row** — the three external links on a component (`external_register_url`, `external_registrations_url`, `info_url`) | They date from the very start, when documents lived in Google Drive and registrations ran on external systems. They are still needed for the odd case and may stay, but they are used in perhaps 2 to 5 % of components, and the platform wants to *discourage* them — yet they take half of the component's form, three full-width fields, as prominent as the name and the price. | A pattern for **the rare and the discouraged**: progressive disclosure. Such settings live in a collapsed section at the bottom of the form ("Externe koppelingen" or "Geavanceerd"), closed by default, with a one-line summary when something is set ("2 externe links") and a short note that the platform's own registration is preferred. Open it and the three fields are there as today. The same shape serves every other rarely used group, so an issue can say "in the advanced section" and be done. Measure the real share on PROD before deciding the wording — 2 % and 20 % ask for a different default. | Koen, 30 Sep 2026 |
+| 4 | **Saving behaves differently per detail screen** — a CMS page has a save button at the top and stays open; a meeting saves itself while you type; almost every other screen edits per card with edit → save / cancel | Three ways of saving on screens that are all "a record in detail". The design system decided one (§3.4 record management, P1 *edit and stay*: save and cancel at the bottom, the screen stays, a toast), but two screens went their own way without a rule that says when that is allowed. The user learns three habits for one job, and each new screen is a fresh argument. | Decide **one default** and write the **deviation rule** next to it, so a deviation is a decision and not a habit. The default is P1 — and row 14 makes it "whole screen, one save" rather than per card. Deviations are allowed by kind of screen, not by taste: **autosave** where the screen is a *document* — one long text, nothing a rule can refuse, losing typed text is the real risk (meeting notes; possibly the CMS body) — and never on a *record* with fields that validation can refuse; a save button at the top only on a document long enough that the bottom is out of sight, and then the same button at the bottom too. Each detail screen names its save model in one line in §3.4's register; the gate that reads templates checks that a screen declaring "record" uses the edit-toggle macros and one declaring "document" uses the autosave form — so a fourth way cannot appear unnoticed. | Koen, 30 Sep 2026 |
+| 5 | **List screens: some are tables, some are cards** — the admin lists (Betalingen a dense table since v2.5; Leden, Activiteiten and others still cards) | Two shapes for one kind of screen, and the split follows the order in which the screens were redesigned, not a rule. The person using them daily calls it his own doing and wants one choice, applied consistently — this is P2 in A6, and it carries P1 (pagination) with it, because a table and a card list page differently. | Not "tables everywhere" or "cards everywhere" but **one rule by content, applied to every list**: a **table** where the user scans and compares many rows on a few attributes and sorts or filters them (payments, members, registrations — the ERP side, where P6's sortable columns land); **cards** where each row is a thing with a face — an image, a title, a state to read at a glance — and the list is short (activities on the public side, media, meetings). §3.2 already fixes everything above the list (header, KPI row, search, filters); the rule fixes the list itself. Then classify every list screen in one table in the design system, migrate the ones on the wrong side, and let the doubt about Betalingen (P2) be settled by the rule rather than by mood. On a phone the difference shrinks: a table row stacks into a card-like block, which is what makes the table safe as the admin default. | Koen, 30 Sep 2026 |
+| 6 | **Pagination is there on some lists and not on others, sits in a different place each time, and does not always say how many** — the page-size choice (25 / 50 / 100) sometimes at the bottom, sometimes top right; the pager itself at the bottom; Wijzigingen says "1–50 van 312" while the AI calls list (Betalingen › info) says only "Pagina 1" | On Betalingen the person using it daily did not see that the list was paged at all: the pager sat bottom right, after a full scroll. Two lists page, the rest do not (P1), and where they page the controls are not where the eye looks first. The design system decided a pager (§2.3: server-side, 50 per page, `ui.pager()`, "x–y van n", hides itself when everything fits) but not its *place*, the page-size choice is not part of it, and it allows a second form — "Pagina n" with only previous/next, for a list whose total is not counted — which is what the AI calls list shows: the reader does not learn how many there are or where they stand. | **One pager, two places, one rule.** The fact that there are pages must be visible **before scrolling**: a compact count "1–50 van 312" in the toolbar row at the top, right of search and filters, with the page-size choice beside it — the place where every mail client and every ERP list puts it. The page navigation (vorige / volgende) repeats at the **bottom**, where the eye arrives after reading, and never only there. Both come from the one `ui.pager()` macro (extended with the size choice), so no screen can invent a third place; on a phone the top row keeps the count and the bottom keeps the buttons. And **one wording**: "x–y van n" everywhere — a list always knows its total (a count in PostgreSQL costs nothing at these sizes; where a log ever grows large, an approximate count "van meer dan 10 000" still says more than "Pagina 3"); the "Pagina n" form goes. Apply it to every list that pages (P1 brings Leden and Activiteiten), and the classification table of row 5 says per list whether it pages at all. | Koen, 30 Sep 2026 |
+| 7 | **Read mode hides what could be filled in** — a card in read mode shows only the fields that have a value; a yes/no that is off disappears with them | You cannot see what a card *can* hold until you press "Bewerken": an empty field is simply absent, and a switch that is off is absent too, so "off" and "does not exist" look the same, so the map of the record differs between reading and editing, and the user does not know where something sits, or that it exists, until they open the editor. | **Read and edit share one map.** In read mode a card shows every field the editor has, in the same order and the same grid, the empty ones with a quiet placeholder ("—" in grey, or "niet ingevuld") instead of vanishing; a yes/no shows its state either way — an *off* switch or "nee" in grey, not nothing — so "not set" is readable and not mistaken for "not there". Switching to edit then changes the *controls*, never the layout — nothing jumps, nothing appears. Two exceptions, both by rule: the rare-and-discouraged section of row 3 stays collapsed in both modes, and a repeating group (row 1) with no items shows its heading, its "add" action and one line "nog geen …". This is the read-side half of the layout grammar of row 2; it goes into the same design-system section and the same live example. | Koen, 30 Sep 2026 |
+| 8 | **The checkbox as the control for every yes/no** — 65 raw `type="checkbox"` inputs in the domain templates; the kit has no switch macro | A checkbox looks dated next to the rest of the redesigned screens, and it is used for two different things at once: a setting that is on or off, and a choice among several. Modern web apps show a **switch** for the first, and it reads better: the state is visible at a glance, on a phone it is a larger target, and it says "this is a setting". | **One rule, two controls, one macro each.** A **switch** for every boolean *setting* on a record — is active, publicly bookable, members only, requires a team name, free, pay on site — rendered by one `ui.switch()` macro, with its label on the left and the state word ("aan" / "uit") for the screen reader, and in read mode the same switch disabled (row 7). The **checkbox** stays where it belongs: choosing several out of a list (a form's checkbox question, the rows of a bulk selection when P3 comes) and an explicit consent. The rule lives in the design system §2.2 next to the field family; the UI gate that already refuses raw hex and `alert()` learns to refuse a raw `type="checkbox"` outside those two uses, so the 65 shrink to the ones the rule allows and no new one appears. A switch inside an edit-and-stay form does not save on its own: it changes with the form and is saved with it, and the toast of P1 says when. | Koen, 30 Sep 2026 |
+| 9 | **Surfaces and their colours differ per screen** — some pages grey on a grey ground, some cards white on grey with the text on the card; this morning the public registration page and the public form, two screens of one solution, came in a different colour combination (#1380) | Every template picks its own ground and card colour: 224 raw `bg-white` / `bg-gray-50` / `bg-gray-100` classes in the domain templates. Two screens built by the same team in the same week look like two products, and the volunteer who uses both sides sees no family resemblance where §3.1 promises one. | **A surface scale, three levels, named once.** Tokens for the *page ground* (one grey), the *card* (white, with its border and shadow) and the *inset* (a light grey block inside a card), each with its text and border colours — nothing else. The card macro and the page shell apply them; a template names a surface, never a colour. The same three levels on the public side and in the admin: §3.1 keeps "family, not twins" for type scale, photos and decoration, but the ground and the cards are the same, so a registration page and a form can only look alike. The UI gate that refuses a raw hex learns to refuse a raw surface class outside the kit, and the 224 become a migration list. | Koen, 30 Sep 2026 |
+| 10 | **Betalingen shows its totals three times** — the KPI tiles at the top (Netto te betalen · Ontvangen · Openstaand), a total row as the last row of the table, and a summary block under the table with payments, claims and a grand total | Three places for one set of figures; the eye does not know which one to trust, and the bottom two only appear after a scroll. The KPI row at the top is the standard (§3.2: the management summary, the quick look "what is the state of this module") — the other two are leftovers. One thing must survive their removal: the **open** position must stay unmistakable. Today the "Openstaand" tile shows the *net* balance and colours orange only when that net is above zero — so when open claims and open refunds happen to cancel out, the tile shows € 0 in neutral ink and reads as "nothing to do", which is wrong. | **Totals live in the KPI row and nowhere else**, on this screen and as the rule for every list with figures (the classification table of row 5 carries a "KPI row" column). The table's total row and the summary block go. The "Openstaand" tile keeps its size and gains one small line under the amount when the two sides are not both zero: "€ 120 te ontvangen · € 120 terug te betalen" — and it colours when *either* side is open, not only when the net is positive. So a coincidental net of zero still says there is work, without a bigger bar and without a fourth place. | Koen, 30 Sep 2026 |
+| 11 | **List screens are not all the same width** — some use the full width, others leave five to ten centimetres empty on each side and then scroll sideways inside the table | The admin shell defaults to a reading width (`max-w-5xl`, meant for forms, #620) and lets a screen opt into the wide one (`max-w-7xl`) by itself — so the width is a per-screen decision, and eight list templates answer the squeeze with `overflow-x-auto`: a scroll bar inside the table under a page that scrolls too. Two scrolls for one list, and the reader never knows whether the columns end where the table ends. | **Width by kind of screen, never per screen; no sideways scroll in a list.** A list screen — table or cards — always takes the wide width; the list layout sets the shell's width block itself, so no screen chooses. An edit or document screen keeps the reading width, because long lines hurt reading there. Inside a list there is no horizontal scrolling: a table fits its columns to the width, hides the secondary ones as the width shrinks (`hidden md:table-cell`, already the practice for status and balance) and stacks into blocks on a phone; what does not fit is a column too many, to be solved by the column chooser (P6), not by a scroll bar. The page scrolls vertically, with the browser, and nothing else scrolls. The gate on templates refuses `overflow-x-auto` on a list, so the eight become a migration list. | Koen, 30 Sep 2026 |
+| 12 | **Detail screens differ in width and alignment too** — editing a household became wider a few releases ago; becoming a member on the public site is narrower; the public registration page (with the component chips on top) does not use its width and sits left-aligned, while the admin centres its screens | The same per-screen freedom as in row 11, on the screens where reading and editing happen. Measured: the admin shell defaults to `max-w-5xl` and three screens set `max-w-none` or `max-w-7xl` themselves; the public shell is `max-w-7xl` and the registration page narrows itself to `max-w-xl` *without* centring — hence a narrow form hugging the left edge of a wide page. Each screen chose; nobody chose for all. | **Two formats for a detail screen, fixed once**: on a **phone**, full width with the 16 px gutters the design system already prescribes; on a **desktop**, one reading width (`max-w-3xl`, about 770 px — long enough for a two-column field grid, short enough to read), **centred**, the same on the public site and in the admin. The detail layout sets it; a screen never does. Together with row 11 that gives the whole portal three widths and no more: *list — wide*, *detail — reading width, centred*, *phone — full*. The design system carries the table, the shells apply it through the layout blocks, and the template gate refuses a `max-w-*` on a screen's own root — the width is not the screen's to choose. The household form, "Word lid" and the registration page are the first three to fall in line. | Koen, 30 Sep 2026 |
+| 13 | **Creating and editing the same thing differs by where you do it** — becoming a member on the public site creates a household in one screen: fill in, press save, pay, done; in the admin the same household is edited per card — the head member, the address, the members — and on some screens a single line inside a card is saved on its own | One record, two behaviours, depending on the door. The public flow is the one the volunteer finds natural; the admin makes the same person work three or four times for one change, and the difference is not a decision anyone took — the admin screens grew card by card. | **One behaviour per kind of screen, whatever the door.** The public creation and the admin editing of a household are the same screen type (a *record*) and follow the same save model — the one row 14 fixes. Where the public side is one form with one save, the admin side becomes one form with one save too; the per-card and per-line saves go, except where row 14's exception rule says so. The classification table (rows 5 and 12) gets a column "save model" per screen, public and admin on one line, so a difference is visible before it is built. | Koen, 30 Sep 2026 |
+| 14 | **Too many save buttons** — 14 per-card edit toggles across the admin, and on some screens a save per line inside the card; once a change was lost because one of the small buttons was not pressed | Every card and some lines are their own editor with their own button. The user has to remember which of the several saves on the page is still open; a missed one is silent. And it contradicts the ideal the daily user names: *open the detail as a whole, change what you want, save once; what changed is written and lands in the change log; leaving the page with unsaved changes warns you.* | **One screen, one save, by default — with one rule for the exception.** A detail screen opens as a whole (read mode, row 7), "Bewerken" turns the whole screen into an editor, one save at the bottom (and at the top when the screen is long, row 4) writes everything at once; the service saves only what changed and the history rows say what — the change log already records per field. Leaving with unsaved changes warns, as a property of this editor kind (which brings back, for this kind, the promise dropped on 13 September as a *system* rule). Repeating groups (row 1) live inside that one form: add a row, change a row, remove a row, all committed with the screen. The **exception is by rule, not by size**: a part of a screen keeps its own save only when it is a *sub-record with its own lifecycle and consequences* — a payment, a registration line that reconciles money, a person's membership — because saving it is an action with effects elsewhere (P4), not an edit. Everything else, however complex, is one save. This is row 4's default made concrete: P1 becomes "whole screen, one save"; per-card editing stops being the norm and the 14 toggles become a migration list. | Koen, 30 Sep 2026 |
+| 15 | **Editing a web page (CMS) is clumsy** — one long rich-text field (Trix) with its toolbar at the top: to insert an image at the bottom you scroll all the way up; indenting an image is two unobvious buttons; the whole thing reads as fiddly | The page editor is a single rich-text control stretched over a page's length, so every tool is where the page starts and not where the cursor is. Good enough for a paragraph, not for a page with headings, images and layout. Explicitly **not urgent** and only about the CMS pages; noted so it is not forgotten. | Two steps, far apart. **Now, if wanted**: a toolbar that sticks to the top of the viewport while the editor scrolls — one CSS change, no new library. **Later, when the portal aims at beautiful public pages** (a club or a company wanting it for its own site): a **block editor** instead of one rich-text field — a page is a list of blocks (heading, text, image with its alignment and width, gallery, call-to-action, embed), each with its own small toolbar where it sits, dragged to reorder. That is what makes professional pages editable by non-designers, and it changes how a page is stored, so it is its own change request. Europe First applies to the library choice then (Trix is Basecamp's; an EU-made block editor exists — TipTap, on ProseMirror, from Germany). **Parked as P8**; only the sticky toolbar is a quick win. | Koen, 30 Sep 2026 |
+| 16 | **The icons on the buttons are gone** — download, upload, add and the like on the forms screens once carried an icon; after some release or refactoring they are plain text, and "+ Nieuw formulier" carries a typed plus instead | Measured: zero icons on the forms admin screens today, while the button macros *can* carry one (`lead_icon`); the labels carry a typed "+" — the loose-glyph remnant the icon rule (§1.4) already rejects for ⬇ and 📄. When the icons went is not traced; that they went unnoticed is the point: nothing says **when** a button has an icon, so a rebuild through the kit dropped them without breaking a rule. | **A rule for icons on buttons, with a vocabulary.** Three cases: a *text button* carries a lead icon **when its verb has an established glyph** — add, download, upload, delete, edit, copy, print, send, filter — and then always that glyph through `lead_icon`, never a typed "+" or arrow in the label; a *verb without a glyph* ("Formaat (voor AI)", "Importeren") stays text only; an *icon-only button* exists only in row actions and toolbars, with its `aria-label` (the gate already checks). The vocabulary is one table in §1.4, verb → Lucide glyph, next to the one-meaning-per-glyph table, and the gate learns two more things: a typed "+" at the start of a button label is red, and a label whose verb is in the vocabulary without its icon is red. The forms screens are the first to get their icons back — through the vocabulary, not by hand. | Koen, 30 Sep 2026 |
+| 17 | **Importing a form from JSON: two ways in, and one step too many** — the import block offers a paste box *and* a file upload (the file wins when both are given); and the flow is: create a form, type its name, open it, import — and the import overwrites the name you just typed | The paste box was a concession that introduced a second concept for one action; the daily user wants it gone: a file can always be made, one way is simpler. And the creation step is wasted effort: a name typed only to be replaced. Low priority, noted as an optimisation. | **One way in, at the right moment.** The import is a **file upload only** — the paste box goes; `ui.upload_field` alone, as everywhere else a file comes in (§2.6). And the **creation screen offers the import as a way to create**: next to "+ Nieuw formulier" the choice "…of importeer een .json" creates the form *from* the file, name included, so nothing is typed twice; the import on an existing form stays for replacing its build-up (with #665's refusal once it has submissions). One concept — a file — in two places that make sense. | Koen, 30 Sep 2026 |
+| 18 | **Two imports, one with a dry run and one without** — the member import from the national report shows what it will do and asks before it does it; the JSON import of a form replaces the form's whole build-up on one click behind a confirm text | The design system has the pattern (P6 *Import in steps*: dry run → report → an explicit commit whose label names the consequence; "forbidden: a commit without a dry run") but scopes it to "bulk input that can go wrong halfway", so the form import was built outside it — and it is exactly the kind of action where you want to see the consequences first: fields added, changed, removed, answers affected. | **Every import of data follows one behaviour: show what you are about to do, then "doe maar".** P6's "when" becomes *any upload or import that creates, updates or deletes records* — the member import, the form JSON import, and every import to come — with the report always in the same three lines: *nieuw · gewijzigd · verwijderd*, each with a count and the names, plus the consequences ("3 antwoorden op inzendingen vervallen"). The commit button names the consequence; leaving before it changes nothing. The same principle already governs the command line (`raak run`: dry run by default, `--apply` does what the dry run showed), so screen and script say the same thing. The form import is the first to be brought under it. | Koen, 30 Sep 2026 |
+| 19 | **A good pattern exists in one place and not in the others** — from an activity you see its registrations, per component, on a sheet beside it, and from there the payments linked through those registrations; a person's page has a registrations tab too, but a household's does not, and on the public side a family cannot see for which activities it is registered and whether it has paid | Measured: the related lists exist as hand-built screens — registrations per activity and per person; payments per activity, per household, per registration — each its own build; the family portal shows no registrations at all. Yet "for which activities are we registered, and is it paid?" is a question the association gets asked. | **The related-records pattern, named and generalised.** The detail of a core entity — activity, household, person, registration — carries one fixed set of tabs to its related records, in one order (registrations · payments · …), each tab being the *list screen* filtered on that entity, not a new screen: the same table or cards, the same KPI row, the same pager (rows 5, 6, 10, 11), with the filter shown and removable. Written once in the design system next to P8 (*list, detail, edit*), applied to the four existing screens first, then to the household and the person. The **same pattern on the public side**: the family portal gets a tab "Onze inschrijvingen" — the upcoming activities the household is registered for, with the payment state per registration (betaald · openstaand · ter plaatse) — the member's own answer to the question. Decide on the fine-tuning first (which entities, which tabs, which order), then implement where it is wanted. | Koen, 30 Sep 2026 |
+| 20 | **Jumping from a detail to the record it points at exists in one place and not in the others** — on a person's registrations tab each row has "Open activiteit" (the kit's `ui.spronglink`, used on two screens — a person's registrations and the werkbank — and shown on the design-system page); in a registration you read the household's name and the activity's name and cannot click through | Elsewhere a detail names its related records as text. To look at the household behind a registration you leave the screen, open the list, search, open. An application designed twenty-five years ago had it: a small red mark next to every reference, one click, and you were on that record's detail. Not a priority; a pattern to fix. | **The reference is a link — always, and always the same link.** Wherever a detail shows a field that *is* another record (the household of a registration, the activity of a registration, the person of a payment, the component of a product), the value is rendered by one macro — `ui.spronglink`, which already exists, generalised and given its English name: the name as a link to that record's detail, with a small consistent glyph after it (the successor of the red mark, from the vocabulary of row 16), same hover, same colour, and the way back of P3 (*the way back*) so the jump is not a dead end. Row 19 is the same idea in the other direction — from the record to the lists that point at it; together they make the portal navigable as a graph: down to the lists, up to the owners. One macro, one rule in the design system, and the template gate flags a related name rendered as plain text where a reference macro exists. | Koen, 30 Sep 2026 |
+| 21 | **A member registers publicly without logging in and nothing tells them they could** — the address they type is a member's, but they are not signed in, so the registration is not tied to their household and they miss the member price | A member who lands on the registration page from a mail or a share link fills it in as a guest. Nothing says "you are a member, sign in first". The wish: a **non-blocking** hint when the address is recognised — "Ben je lid? Log je dan eerst aan" with the link — and they can carry on regardless. Usability, and a little new functionality. | **The hint, yes — but for everyone, not on recognition.** Recognising the typed address means the public form looks it up, and today it deliberately never does (`registration_form.py`: whoever types a member's address would get the member price); a hint on recognition leaks the same fact in the other direction — type any address and learn whether it belongs to a member. So the hint is shown **unconditionally**, once, above the contact fields of every public registration and of "Word lid": *"Lid van RAAK? Log je eerst aan: dan staat de inschrijving bij je gezin en geldt de ledenprijs."* with the sign-in link that returns to this page (P3). No lookup, no leak, the same nudge for the person it is meant for; a signed-in member never sees it. The design system gets it as a small pattern (*the member nudge*) so it looks the same everywhere. | Koen, 30 Sep 2026 |
+| 22 | **Buttons take too much room, and say and sit differently per screen** — Opslaan, Verwijderen, Annuleren as three large buttons, on many cards, and on a phone they wrap and jump (#1367, #1387: buttons pushing a 390 px page to 682 px); editing a meeting's header ends in "Annuleren" and "Wijzigingen bewaren" at the bottom, where other screens say "Opslaan" and put it at the top right | 34 action bars and 10 separate delete buttons across the admin, each bar three buttons of the same weight and size. Three equal buttons say nothing about which one matters; on a card they take a full row; on a phone they break the line or the page. | **Fewer bars, and a hierarchy inside the bar.** Fewer: rows 14 and 2 leave one action bar per screen (or per sub-record with its own lifecycle), so most of the 34 disappear with the per-card editors. Inside the one bar, three weights instead of three equals: **one primary** (Opslaan, filled), **cancel as a text button** (no border, no fill — it is the way back, not an action), and **delete apart** — a red text action at the far left, or in the `⋯` menu of the record header (row actions already cap at two plus `⋯`), never a third big button beside save. Sizes: `sm` in bars, `md` only for the one call to action on a public page. On a phone the bar sticks to the bottom of the viewport, primary full width, cancel as text beside it, delete in the menu — nothing wraps, nothing jumps, and the save is reachable without scrolling back. **The words and the place are one too:** the primary says **Opslaan** (never "Wijzigingen bewaren" or another variant — the macro's default label, and a custom label only for a consequence that must be named, as P6's "Definitief importeren"), the way back says **Annuleren**, the destructive one says **Verwijderen**; the bar sits at the **bottom** of the editor on every screen (and repeats at the top only on a document long enough, row 4), never top right on one screen and bottom on another. Where a record can be deleted — a meeting that does not take place is one — the delete is always present in that same place, the `⋯` of the record header, so the user never hunts for it. `ui.action_bar()` renders it so, with its default labels; the gate flags a custom save label that is not a named consequence; the screenshot set at 390 px (the merge-gate eye) is the proof. | Koen, 30 Sep 2026 |
+| 23 | **Spacing and grouping are decided per screen** — the distance between fields, the margins left and right, how many fields share a row, which fields sit together in a zone: each screen gets the best insight of its day, and no two agree | The tokens exist (§1.3: one 4 px scale — 12 field gap, 16 card padding, 24 between cards, 32 section) but nothing says *where each one goes* on a form, and nothing says what to group. Measured: 1 215 raw spacing classes in the domain templates — every template spaces itself. The address grid is the one grouping rule written down (a fixed UI decision), because it was argued once; every other grouping is improvised. | **The form grid, written once — the missing half of row 2's layout grammar.** Three rules. **Rhythm**: page gap > section gap (32) > field gap (12) > label gap (4), from the tokens, applied by the section and field macros — a template never writes a spacing class. **Columns**: at the reading width (row 12) a form is a two-column grid; a field is *half* by default, *full* when its content is long (a description, a URL, a textarea), *quarter* when it is a number or a code; on a phone everything is one column. **Grouping**: fields that describe one thing sit in one section with a heading, in the order a person would say them; fields share a *row* only when they are read together (street · number · bus; price · member price; from · to) — the address grid is the first instance, not an exception. Zones are sections; a section is a card or a heading in a card, never a nested box. The gate refuses a raw spacing class on a form element, and the 1 215 shrink as screens are laid out on the grid — the activity detail first (the pilot). | Koen, 30 Sep 2026 |
+| 24 | **Small layout faults reach the person who validates** — "two labels stuck against each other", a badge out of line, a clipped plus: things that have to be *reported* after the build, screen by screen | Such a fault can only exist because a screen writes its own markup around a field: measured, 456 raw `<label>` / `<input>` / `<select>` / `<textarea>` elements in the domain templates next to the kit's macros, and every one of them is a place where a distance is the template's to get wrong. Standards on paper do not stop it; only markup that the template cannot write wrongly does. And nothing compares a screen with how it looked yesterday — the screenshot set exists, but it is looked at, not diffed. | **Two mechanical layers, so it cannot happen and, if it does, it is seen before the validator sees it.** First, **the kit owns the layout**: a field is only ever `ui.field(...)` — label, control, help and error placed by the macro on the form grid of row 23 — and a template composes sections and fields, never a raw form element; the UI gate refuses a raw `<label>`, `<input>`, `<select>` or `<textarea>` in a domain template, and the 456 become the migration list of rows 2 and 23. Two labels cannot touch when no template positions a label. Second, **visual regression in CI**: the 390 px screenshot set gets a baseline per screen in the repository and the e2e job fails on a pixel difference above a small threshold, so a spacing regression is red on the pull request — before the merge-gate eye, and long before HDEV. The eye stays for judgment; the diff catches what eyes miss on the fortieth screen. | Koen, 30 Sep 2026 |
+| 25 | **The summary card sits right on one screen and left on another** — on the activity detail it is on the right, on the newsletter on the left | The same element, two positions, decided per screen. The reader who learned one screen looks in the wrong place on the next. | **Right, always — and on a phone, first.** On a desktop the main content and the form take the left column, in reading direction, and the summary card sits in a narrower column on the **right**: that is where every record-centred application puts the "at a glance" panel (the order page of a shop, the sidebar of a pull request), so the eye expects it there, and it keeps the form's reading width (row 12) intact. On a phone there is no side column: the summary becomes a compact strip **above** the content — state, the two or three key figures, the main action — because it is what you check before you scroll. One macro (`ui.summary_card`) with those two renderings, so no screen chooses; the newsletter moves to the right. | Koen, 30 Sep 2026 |
+| 26 | **Opening a record from a list: sometimes a "Bewerken" button on the row, sometimes the row itself, and on the payments table a click on the row opens nothing** — activities and payments show the button at the right; newsletters and meetings do not, you click the row; on Betalingen the row is inert and the detail unfolds in place through the button (§3.4's inline disclosure) | Three ways to do the most frequent thing on a list. Measured: five list templates carry a "Bewerken" row action, the others rely on the row, and the payments table answers a click with nothing. The daily user's preference: no button — click the row, and you are on the record, where you can edit if you want. | **The row is the link; "Bewerken" is not a row action.** Opening a record is done by clicking the row (or the card), everywhere: the whole row is the target (the stretched-link pattern the design system already names, §2.7), with a visible hover, a focus ring for the keyboard, and on a phone the whole card as the 44 px tap target. Editing is not a list action at all: it happens in the detail, from read mode (row 7) through its one "Bewerken" (row 14). The row actions (`⋯`, §2.4) keep only what is *not* opening — delete, duplicate, a quick state change — and the gate refuses a "Bewerken" among them, so the five become a migration list and the shapes become one. **One gesture, two depths, by place:** on a *top-level* list (Betalingen, Leden, Activiteiten) the row opens the **record page**; inside a *record's related list* (the payments of an activity, the lines of a registration — the embedded lists of rows 19 and 29) the same click unfolds the record **in place** as a preview, with the jump link of row 20 to its full page — because there the context is the parent and leaving it would lose it. The inline disclosure stays for that second depth only; a top-level table never uses it, and no row is ever inert. | Koen, 30 Sep 2026 |
+| 27 | **To take along, not a pain yet: the width jump between a detail and its related list** — reading an activity at reading width, centred (row 12), then opening its "Betalingen" tab, a list at full width (row 11): the screen would widen with a jump | Rows 11, 12 and 19 together create this: a record page holds both a detail and lists, and the two widths meet on one page. Noted before it is built, so the experience is designed rather than discovered. | **One frame for the record page; only the inner column changes.** A record page — header, summary card (row 25), the tabs of row 19 — takes the **wide** frame of a list screen, always. Inside it the "Gegevens" tab centres its form at the reading width (a column within the frame, not a narrower page), and a related-list tab fills the frame. The shell, the header, the tab bar and the summary card do not move between tabs; only the content column below the tabs is narrow or wide, and the switch happens inside a stable frame — the same way a mail client keeps its chrome and changes the pane. On a phone there is one width anyway. So the rule of row 12 is refined: *reading width* is a property of a **form**, not of a page. | Koen, 30 Sep 2026 |
+| 28 | **Action point: "‹ Terug naar alle activiteiten" sits on the activity and not on every entity** | The way back (P3) is a button on some record pages and absent on others; the user who has it once expects it everywhere. | Decide once and apply everywhere: every record page carries the same way back, in the same place (the first line above the header, as the board registration page has it), to the list it came from — with the list's filter state preserved, which P3 already asks. One macro, one gate line: a record page without it is red. | Koen, 30 Sep 2026 |
+| 29 | **The payments tab inside an activity is a heavy screen** — the activity's header, its summary, the record actions on the right (photos, Design Studio, AI), the tabs (overzicht · inschrijvingen · betalingen); then, under *Betalingen*, the three KPI cards, the status sheets (alle · openstaand · betaald · terugbetaald), the search, the status filter, export .ods, AI, the line "4 boekingen, recentste eerst, gegroepeerd per inschrijving, alleen finance" — and only then the table | All of it is relevant; nothing asks to be thrown away. What makes it heavy is not the content but **two full screens stacked**: the record page with all its chrome, and under it the complete payments list screen with all of *its* chrome. Each was designed to stand alone; together they say everything twice. | **The embedded list is a lighter variant of the list screen, not the whole screen inside another.** One list component with two renderings: *standalone* (everything it has today) and *embedded* (row 19), which drops what the record already gives and folds the rest: no page header; the KPI figures become one line of three numbers **in the summary card** (row 25), which already shows amounts; the status sheets become one status chip filter in the toolbar; the toolbar is **one row** — search · status · count — with export and AI in its `⋯` (rarely used per visit, row 3's principle); the group/sort line becomes a small caption over the table. The record actions on the right (photos, Design Studio, AI) go into one "Acties" menu on the header, shown once for the record rather than as a row of buttons. Result under *Betalingen*: one toolbar row and the table; above it the record's header, summary and tabs — the frame of row 27. Nothing lost: every control is one click away, and the standalone Betalingen screen keeps its full layout. Recognisable, because it is the same list, lighter, in the same place on every record page. | Koen, 30 Sep 2026 |
+| 30 | **A blue name that leads somewhere else than its name says** — on the person's registrations tab the name "Koen Renders" is blue; clicking it opens the *registration*, where the reader expected the household; the component's name, which the registration is about, is plain | A link's text is a promise about its target. When the name of a person opens a registration, the promise is broken and the reader stops trusting blue. And the row already opens the registration by itself (row 26), so the blue name was never needed for that. | **The link text names its target, always.** Blue on a name means "go to that record": a person's name goes to the person, an activity's name to the activity (`ui.spronglink`, row 20). What is not a record's name is not blue: opening the row is done by the row (row 26), and a component's name is not a destination — it stays plain, or it is the row's title. One line in the design system under P8, and the gate flags a link whose text is a person's or activity's name pointing at another kind of record. | Koen, 30 Sep 2026 |
+| 31 | **"+ Nieuw" is top right on one screen and left under the title on another** | The rule exists for list screens (§3.2: the create button right-aligned in the page header row, "+ Nieuwe <item>", no exceptions) and, measured, all list screens honour it on a desktop — the button sits in the header's call slot. Where it drifts is **below the page**: a create inside a record or a card ("+ Persoon" in a household, "+ Onderdeel" in an activity, "+ Optie" in the form builder) has no rule and lands wherever the section was drawn; and on a **phone** the header row wraps, so the button drops under the title, left. A rule that is not gated and stops at the page level is not one rule. | **One rule at every level, gated.** A create sits **at the right of the heading of the thing it creates into**: the page header for a list, the section heading for a group inside a record (the repeating group of row 1 gets it from its macro), never in the body and never at the bottom. On a phone the heading row does not wrap: the title truncates and the button stays at the right, compact ("+ Nieuw", or the icon alone with its `aria-label` when the title needs the room). The gate: a primary button whose label starts with "+" is red unless it is rendered inside a `page_header` or `section_header` call slot — the rule of row 16 then also removes the typed "+" in favour of the *add* glyph. | Koen, 30 Sep 2026 |
+| 32 | **Raakje looks and behaves differently per place** — on the public site a floating icon; in the admin a button; sometimes a page of its own (`/admin/rapporten/raakje`), sometimes an overlay in front of the record, and on the newsletter a right-hand panel with selectors above it (past and future activities to pick) | The design system made the *controls* one (§2.11, #1075, #1115: one modal, one row of controls) but not the *invocation* or the *place*: three surfaces and two triggers for one assistant, so it is not recognisable as one thing. The wish: always callable the same way, always in front of or beside the screen, big enough and not too big, public and admin alike. And a vision behind it: Raakje should be able to take over data entry — "maak een activiteit aan" and it knows which objects an activity needs, what is required, and fills it in while you talk or type, then "make the poster". | **One trigger, one surface, one place — and the screen keeps its own selectors.** The **trigger** is the same control in the shell chrome on both sides (the `sparkles` button in the header bar of the admin and of the site; the floating bell goes), the same everywhere. The **surface** is a **side panel docked on the right**, not a modal: on a wide screen it sits in the column the reading-width form leaves free (row 12) — beside the record, so Raakje can fill the form while the user watches it happen, which the data-entry vision needs; on a phone it is a bottom sheet over the page. The assistant page goes: it becomes the panel opened on an empty context. **What the screen has selected is Raakje's context** (#1060): the newsletter's activity picker is a control of the newsletter screen, not of the panel — Raakje reads the selection, it does not carry it. Recognisable because the same button always opens the same panel in the same place. Parked with it, as **P9**: Raakje as the data-entry agent, filling a record's form from a conversation — the reason the panel must sit beside the form, not on top of it. | Koen, 30 Sep 2026 |
+| 33 | **Where Raakje can be called from in the admin is decided per screen** — measured: an `AI · <Scherm>` button on the activity record header, on the payments screen and on the reports; nowhere else, and not on a list screen or a person's detail | Which screens offer Raakje follows which screens happened to get an overlay, not a rule. The daily user's rule: Raakje is offered for a module when it can **read** its data (the module is in the reporting universe) or **act** on it (it can create or change its records) — and then it is offered at both levels, the module's list and each record's detail. | **Offered by rule, in one place per level.** A module is *Raakje-enabled* when at least one holds: its objects are in the reporting universe (`reporting/universe.py`), or its facade exposes commands Raakje may run (the agent of P9, later). For an enabled module the trigger of row 32 is **on** — in the header bar on its list screen (context: the module, the filter) and on each record page (context: the record) — and for a module that is neither, the trigger is **off**, greyed with "Raakje kent deze gegevens nog niet" on hover, never absent, so the place stays the same. The enabled set is one table in the design system (§2.11), derived from the universe and the facades rather than typed by hand, and the gate asserts that every screen of an enabled module renders the trigger and no screen of another module does. The per-screen `AI · <Scherm>` buttons go: one trigger, one rule, no exceptions per screen. | Koen, 30 Sep 2026 |
+| 34 | **A module's configuration is reached through a button named after one of its parts, and sometimes from a second place too** — on Vergaderingen the header button says "Vergaderkring" while it manages more than the circle, and under the list a stray sentence "De vergaderkring telt 3 personen. Beheer de kring" links to the same page again; on Nieuwsbrieven the same kind of button says "Instellingen" | Measured on the list headers: Vergaderingen → "Vergaderkring", Nieuwsbrieven → "Instellingen" (and "Abonnees"), Formulieren → "Formaat (voor AI)", the others nothing. Three names for the same idea — where a module's configuration lives — one of them names a part rather than the whole, and one module offers it twice on one screen. | **"Instellingen", the moment a module has configuration.** One name, one place, one glyph: a secondary button "Instellingen" with the *settings* glyph (the gear, which by §1.4 means settings and nothing else) at the right of the list's page header, next to "+ Nieuw", for every module that has configuration; its page holds all of that module's configuration (the meeting circle becomes a section of Vergaderingen › Instellingen; the newsletter's already is). A module's *other* records (Abonnees) are a related list, not settings, and keep their own button; a reference document ("Formaat (voor AI)") is a link inside the settings page, not a header button; and the sentence under the meetings list goes — a count of the circle, if worth showing, is a KPI tile (row 36), not a footnote, and the way to the settings is the one button. The design system names it in §3.2 as an optional slot of the records-list header — [+ Nieuw] [Instellingen] — and the gate refuses a header button that leads to a settings page under another name, and a screen that links to the same settings page from two places. *Weighed against two alternatives and kept:* naming each button after its part (rejected — it names one part of the configuration and hides the rest, the Vergaderkring case); one global settings page with a tab per module (rejected — far from the module, and the roles differ: module settings are the organiser's, the tenant's settings under `/admin/tenants` are the operator's and keep their own place and name). "Instellingen" is the word every application uses for this, so nothing has to be learned. | Koen (suggestion), analyst (weighed), 30 Sep 2026 |
+| 35 | **A header button that only repeats the menu** — on Organisaties a button "Naar de tenants" at the right of the page header, while Tenants is one click away in the menu on the left; on the AI-Raakje page a button to the reports, while Rapporten is in the menu too (noted apart from row 32, which may fold that page into the panel) | A header button is a promise that this is an action or a place of this screen; a link to another module's list is neither, and the menu already has it. It costs a slot in the header, draws the eye, and teaches that header buttons may point anywhere. | **The page header holds only what belongs to this screen; navigation is the menu's.** The header's slots are fixed by rows 31 and 34 — [+ Nieuw] [Instellingen] — plus at most one action of the screen itself (export, print); a link to another module is never one of them. Going elsewhere is the menu, or a jump link from a record that points there (row 20), or a related-records tab (row 19). "Naar de tenants" and the Raakje page's button to the reports go; the gate refuses a header button whose target is another module's list. | Koen, 30 Sep 2026 |
+| 36 | **The activities list: a KPI that cannot be found, and a count that means nothing on some rows** — the KPI row says "Open inschrijvingen 13" but no filter or row shows which they are; the cards say "0 inschrijvingen" on an activity nobody can register for (a photo hunt with no registration at all) | A KPI that does not lead to the rows it counts is a number without a use; a count on a card that has no meaning for that card ("0 inschrijvingen" where registration does not exist) reads as a problem that is not one. One screen, but the shape repeats: what a KPI row and a card show was chosen per module, with no rule about relevance. | **Two conventions, for every list.** *KPI tiles*: a tile shows a figure the reader can act on **and** it is a filter — clicking it filters the list to the rows it counts (as the payments' status tabs do), so "Toekomstige activiteiten 4" opens them and "Volzette onderdelen 11" shows the activities that have one; a figure that cannot filter the list is not a tile. For activities the two tiles become *toekomstige activiteiten* and *volzette onderdelen*; "open inschrijvingen" goes or becomes a filter. *Cards and rows*: a card shows only what is **relevant for that record** — a value is omitted, not zeroed, when the concept does not apply (no registration count on an activity without registration; no "volzet" on a component without a maximum); what is shown is the same three or four things for every record of the list, in the same order, so the eye scans. Both live in §3.2 (the records list) with one live example, and the classification table of row 5 gets two columns — *tiles* and *card fields* — per list. | Koen, 30 Sep 2026 |
+| 37 | **"Wat Raakje weet" manages three kinds of things on one scrolling page, with a control that exists nowhere else** — documents first, then, far below, CMS pages, then notes (three `h2` groups in one list); each card has "Toon gelezen tekst / Verberg gelezen tekst", a disclosure used on this screen only | Two faults. The reader cannot see what the page is about without scrolling: three kinds stacked assume you already know they are there. And the read-text toggle is a one-off: a control invented for one screen, so nobody recognises it, and it duplicates what the detail is for. | **Tabs for several kinds on one page; the detail for the text; no one-off controls.** A page that manages more than one kind of object shows them as **tabs** with the count in the label — *Documenten (12) · Pagina's (4) · Notities (3)* — one kind visible at a time, the page header saying what the whole is about; the same shape as the related-records tabs of row 19, so it is already familiar. The read text is not on the card: the row opens the detail (row 26) and the detail shows the text — read mode, row 7. The toggle goes. And the general rule it stands for: **a control that exists on one screen only is either promoted to the kit, with a name and a place in the design system, or removed** — the gate that checks promised macros exist gets its mirror: no interaction (an `x-data` toggle, a bespoke button) in a domain template that the kit does not provide. Row 3's collapsed section is what the external links get instead of this toggle. | Koen, 30 Sep 2026 |
+| 38 | **The meetings list says the status twice** — each row shows the status badge ("Verslag verstuurd", green) *and*, at the right where actions sit, the same words as plain text ("verslag verstuurd", "agenda verstuurd") | Measured in the list partial: the badge from the code list (`code_label`, `tone`) and, two lines later, a hand-written text at the right that repeats it — in the place of a row action, so it reads as one and is not. The daily user likes the status words; he does not want them twice, and he wants the row to open the detail. | **One status, in the badge.** A row states its status once, as the badge the code list gives it (§2.5) — the badge *is* the status, coloured by its tone — and nothing else on the row repeats it in words; the right of the row holds row actions or nothing (row 26: the row opens the detail). The general rule: **a fact appears once per screen, in the element made for it** — a status in its badge, a count in a tile (row 36), a setting behind Instellingen (row 34); the gate flags a row that renders a `code_label` twice. | Koen, 30 Sep 2026 |
+| 39 | **The record header is built by hand per screen** — on a meeting the status badge ("Verslag bezig") sits on the line of the buttons, and the header's own fields are edited through a button that names them ("Datum, uur, locatie", with a pencil); on an activity the badges sit in the title and the date and place under it, and editing is "Bewerken" | Measured: the kit has a `page_header` for lists and no record header; the activity draws its own (`_aa_recordkop.html`: title, badges, facts line, actions), the meeting draws another (`_vg_document.html`: badge beside the buttons, a bespoke edit button for three fields). Same element, two builds, and the status lands wherever the builder put it. The pencil button exists because a meeting is a *document* (row 4): its body autosaves, so its header fields needed an editor of their own — and got a button named after the fields instead of the one word every other screen uses. | **One record header, from the kit.** `ui.record_header` with fixed slots: the way back above it (row 28); the **title with its badges in the title line, status first** (§2.5 — the badge is the status, and it lives in one place on every record); the **facts line** under the title (date · time · place, or what the record's key facts are); the **actions** at the right as one "Acties" menu (row 29) plus the one primary of the screen; the summary card (row 25) and the tabs (row 19) attached. Editing the header's fields is **"Bewerken"**, one word, on every record — on a *document* screen it opens the header's small editor (the body keeps its autosave), on a *record* screen it opens the whole (row 14); never a button named after the fields it edits. The activity and the meeting are the first two to move onto the macro; the gate refuses a title-and-badge block in a domain template outside it. | Koen, 30 Sep 2026 |
+| 40 | **The rich-text editor behaves differently on the newsletter and on a page** — the newsletter puts "Activiteit invoegen · Kalender invoegen · Bijlage invoegen · Afsluiting invoegen" as buttons beside the header, hides the HTML button and shows no undo/redo; the page puts an "Afbeelding" button and an HTML-source toggle *inside* the editor's own toolbar, in grey, with undo/redo | Measured: one editor (Trix, through `ui.rich_text`), extended in two different ways — the newsletter inserts HTML snippets from buttons outside the toolbar, the page adds its own buttons and an Alpine source toggle to the toolbar, and each screen hides different toolbar groups. Two toolbars for one editor: the writer who learned one is lost on the other. | **One editor, one toolbar, one insert slot.** `ui.rich_text` renders the **same toolbar everywhere** — the format groups, lists, link, undo/redo, and the HTML-source toggle when the screen allows it — hidden until focus by one rule, not per screen. What differs per screen is only *what can be inserted*, and that goes into **one "Invoegen ▾" menu in the toolbar**, always in the same place, fed by the screen as a list of (label, glyph, snippet or picker): the newsletter's four items, the page's image from the library, a meeting's agenda point later. The screen supplies content; the macro supplies the behaviour and the look. No `trix-toolbar` markup, no extra button and no toolbar CSS in a domain template — the gate refuses them — and the sticky toolbar of row 15 comes with the macro, so both screens get it at once. | Koen, 30 Sep 2026 |
+| 41 | **The newsletter's "Raakje schrijft mee" panel owns choices that are not Raakje's** — top right, the panel lists the past activities, the coming activities (the next three months) and the meeting reports since the last newsletter, each with checkboxes; meanwhile the content's own "Kalender invoegen" inserts the coming activities without that choice, and there is no manual "voorbije activiteiten invoegen" at all | The selection of what the newsletter covers has been filed under the assistant, so the person writing by hand does not get it and the person writing with Raakje ticks boxes that are really the newsletter's. And the meeting reports are a choice that need not be one: a newsletter covers the past month, exceptionally two, so "the reports since the last newsletter" is always the right set — and Raakje's text is a suggestion that is read before it goes out. | **The screen owns the selection; hand and Raakje use the same one; what has one right answer is not a choice.** The activities to cover — past since the last newsletter, coming in the next three months, each activity tickable — become a section of the **newsletter screen** (the frame of row 32: selectors are the screen's, Raakje reads them). Two manual inserts use it: "Kalender invoegen" (the coming ones ticked) and a new **"Voorbije activiteiten invoegen"** (the past ones ticked, as text to edit); Raakje writes from the same ticks — so anyone can do everything by hand, and Raakje can do all of it too. The meeting reports lose their checkboxes: Raakje always uses the reports since the last newsletter, said in one line of the panel, nothing to tick. The panel itself becomes the docked Raakje panel of row 32 with the newsletter as context. | Koen, 30 Sep 2026 |
+| 42 | **"Versturen" on the newsletter reads as "send now", while it opens a step in between** — the writer hesitated, afraid the mail would leave at once; it did not, there is a send page first. And the editor carries a card "Zo vertrekt hij" bottom right, on a screen that already holds a lot | Measured: the newsletter's buttons say "Versturen" (twice) and, in one place, "Versturen…"; the meeting says "Verstuur agenda" / "Verstuur verslag". The same word for a button that *does* it and for one that *leads to* it, so the reader cannot tell, and hesitates — on the one action that cannot be undone. | **A button says whether it acts or leads on, by one convention.** A button that opens a further step ends in an **ellipsis** — "Versturen…" — the convention every desktop and web application uses for "a dialog or page follows"; a button that executes an irreversible action names the consequence — "Verstuur naar 312 abonnees" — and sits on that last page only (P6's shape: report, then a commit whose label says what happens). The card "Zo vertrekt hij" is that report: it moves to the send page, where it is read at the moment it matters, and the editor loses one card. The meeting's "Verstuur agenda" and "Verstuur verslag" follow the same rule. One line in §2.1 (buttons), and the gate flags a button label that names an irreversible action without a consequence in it and without the ellipsis. | Koen, 30 Sep 2026 |
+| 43 | **The organisation and tenant screens look like no other, and not like each other** — the organisation: no cards, a button back to the list, one long form ending in Annuleren / Opslaan at the bottom; the tenant: Opslaan / Annuleren at the *top*, above them a line "Code: /platform" whose purpose is unclear, a button "De organisatie" and, at the far right, "‹ Alle tenants" as a button; the record pages elsewhere have a header with badges, a summary, cards or sections, and their own way back | Measured: the organisation detail (`admin_organisatie.html`, 110 lines) is built from the kit — a page header, five section headers, labels and inputs, an action bar — and yet reads as foreign, because it uses the *list* page header where the others draw a record header, has no summary card, and lays its sections as one plain column. The tenant page (`admin_tenant.html`) is the same story in another arrangement: its action bar sits at the top, the way back is a button at the right instead of the line above the header (row 28), the jump to the organisation is a button rather than the reference link of row 20, and "Code: /platform" is the tenant's URL prefix shown as a bare fact line without a label a reader understands. Both are record pages built from the kit's parts without the record page's *shape*; the parts are right, the assembly is not. That is what happens when a screen type exists as a description and not as a layout. | **The record page is a layout, not a description.** Rows 12, 22, 25, 27, 28 and 39 together define it: the way back, the record header with its badges and facts line, the actions menu, the summary card on the right, the sections on the form grid in the reading-width column, one action bar at the bottom. That shape becomes **one layout template** (`record_page.html`, with blocks for header, summary, sections and bar) that every record page extends — organisation, activity, meeting, household, person — so a screen cannot assemble the right parts into the wrong shape. The organisation and the tenant move onto it first: they are the smallest, and the two that show the gap most clearly — the way back above the header, the organisation as a reference link in the facts line, the code as a labelled fact ("Adres op het platform: /platform") or in the settings section, the bar at the bottom. The gate: a template that renders a form for a record without extending the record layout is red. | Koen, 30 Sep 2026 |
+| 44 | **Users are edited on their card: one line with an "actief" tick and a tick per role** — three roles today, fitting on a row; a fourth is certain (ledenadministratie) and more will follow, and a row of ticks will not hold them | The users list was built as the one list without a detail — "an account is one line with role ticks, no editor page belongs to it" says its own template — because three roles fit. The moment roles grow, the row breaks, and the users screen becomes the one place that edits differently from every other record. The daily user's point is the general one: a pattern is worth more than a locally better design, because *everywhere the same* is what makes screens bug-free, well laid out and usable without questions or support. | **A user is a record like any other: the row opens the detail, the detail edits.** The list shows name, e-mail, the active state as a badge and the roles as chips (read, row 36's card rule); clicking the row opens the user's record page (row 43's layout) where "Bewerken" (row 14) edits everything at once — the active switch (row 8) and the roles as a checkbox group (the multi-choice case row 8 keeps for checkboxes), with room for ten roles and a line of help per role. Inline editing on the card goes, as it goes everywhere (row 26). The general rule this decides, for every future case: **no screen is the exception because it is small today**; a record that has three fields follows the record pattern as one that has thirty, and the pattern is chosen for how the module will look when it has grown. | Koen, 30 Sep 2026 |
+| 45 | **On Betalingen the list starts halfway down a large screen** — above it, top to bottom: the navigation, the breadcrumb "Financieel › Betalingen", the page title with its description line, the three KPI cards, the status sheets (alle · openstaand · betaald · terugbetaald), the search and filters, a line of explanation — and only then the first row | Every element above the list is legitimate on its own (§3.2 fixes that order); stacked, each on its own line with its own padding, they use half the height of a wide screen before the content the user came for. The list screen is designed as a column of blocks, not as a **toolbar over a table**. | **Compress the chrome into two rows; the list starts on the third.** Row one, the **title row**: title at the left, and at its right the three KPI figures as compact tiles *in the same row* (row 36: tiles are filters — number and label, no card around them), with "+ Nieuw" / "Instellingen" at the far right (rows 31, 34). Row two, the **toolbar**: the status chips (the sheets, as chips), the search, the filters, the count and page size of row 6, export and the rest in `⋯` — one row, wrapping only on a phone. The breadcrumb goes where the menu already shows the place, or becomes part of the title row; the description line becomes a tooltip on the title or the empty-state text, not a permanent line; the explanation line above the table becomes the caption of row 29. Vertical rhythm from the spacing scale (row 23), no extra padding per block. Measured target: on a 1080-px-high screen the first row of the table sits within the top third; the 390 px set proves nothing is lost on a phone. This is the standalone version of the embedded list of row 29 — the same rows, the same components, so the two stay one. | Koen, 30 Sep 2026 |
 
-## A4. Parked items
+## A3. To-be process — how it should work afterwards
 
-Each item names its source, so the original context can be reread instead of
-reconstructed.
+The same lanes as today — the daily user in the admin, the member on the
+public site, the person who asks for a change — and one difference in each:
 
-1. **Pagination on Leden and Activiteiten.** v2.5 builds pagination on
-   Betalingen only (#1059, scoped down 20 Sep). The other two lists follow
-   later, decided **together with item 2** — paginating a card list and a
-   dense table are different designs.
-2. **Lists vs. cards, reconsidered.** Koen (19 Sep): *"Ik twijfel nog altijd
-   of we betalingen ook niet terug moeten zetten naar de cards."* And F10
-   (ledenlijst densify to table, #996) stays deliberately undecided until he
-   has lived with the dense Betalingen screen. One future decision covers
-   both directions — table-ward or card-ward — for the admin list screens.
-3. **Bulk selection on admin lists.** Meetronde candidate; Koen (19 Sep):
-   *"bulk selectie zou ik voorlopig niet doen."* The conventions debate
-   (A17 on #785) already sketches scopes-with-preview when it comes.
-4. **Featured activity on the homepage.** The big blue hero card from the
-   Cobalt sketch — deliberately left out of golf 11 (needs a "which
-   activity" choice and the agenda sits directly below). Candidate: a CMS
-   choice once the board misses it.
-5. **AI insights, phase 2.** v2.5 gives the admin assistant the screen
-   context it is called from (#1060, "niet meer, niet minder"). Parked:
-   language-model *insights* on top of that context (Mistral, Europe First),
-   under the standing rule that every claim carries a clickable source and
-   unsupported claims are dropped.
-6. ~~STT/TTS in the Raakje overlay~~ — **un-parked 20 September 2026**:
-   Koen chose mic + read-aloud, identical to the rapporten-Raakje, with the
-   wider principle "Raakje is the same everywhere; the only difference is the
-   public security boundary". Now issue #1075 (scheduled via the master CLI).
-7. **Table conventions from the conventions debate** (#785 triage, A12/A17):
-   sortable columns as the norm, column chooser, saved views, Ctrl-K command
-   palette. Independently confirmed by all three maker-round directions;
-   sized for the ERP ambition, not for one release.
+| Who | Today | Afterwards |
+|---|---|---|
+| The board member in the admin | Learns each screen on its own: where save is, whether the row opens, where the pager sits, what a blue name does. | Learns **three screens once** — a list, a record, a document — and finds every module the same: the row opens, "Bewerken" edits, one save, the summary on the right, the tabs to related records, Raakje in the same place. |
+| The member on the public site | Registers in a modal, becomes a member on a narrower page, sees a form in other colours; is not told they could sign in. | Meets the same page shape, surfaces and buttons everywhere; is nudged to sign in; sees in the family portal for which activities the household is registered and what is paid. |
+| The person who asks for a change | Describes the look and the behaviour of a repeating group, a button bar, a pager, again for every screen; reports two labels stuck together after the build. | Names a pattern ("a repeating group of e-mail addresses", "a record page") and nothing more; a fault in spacing is red in CI before anyone sees it. |
+| The developer (a CLI) | Assembles each screen from parts with the best insight of the day; drifts. | Extends a layout, composes macros, and is refused by a gate the moment a screen writes its own markup, spacing, colour or control. |
+
+What changes is not what the portal does but how many ways it has of doing
+it: one per thing, made by the kit or refused by a gate (B8).
+
+## A4. Benefits — what the change earns
+
+| Benefit | Measure |
+|---|---|
+| Screens that impress at first sight — the portal shown to a board, a club or a company reads as one product. | the attraction the association wants; judged by the people it is shown to |
+| Less to explain and less to support: one way per thing means no question "where is save on this screen?". | fewer of the small validation reports (six of twenty-four issues in v2.6.0 were visible faults, per `CLAUDE.md`) |
+| Faster change requests: a pattern is named, not described; a screen extends a layout instead of being drawn. | the hours the person asking spends describing the same thing again — row 1 was one evening for one group |
+| Fewer bugs and fewer regressions: what the template cannot write wrongly does not break, and a pixel diff catches the rest. | the 390 px faults per release, today found by eye |
+| A platform a second organisation can wear: kit apart from brand. | the separate change request for other organisations starts from a base that allows it |
+
+Not quantified in money; the first line is the one that decides.
+
+## A5. Supplied material — and what it taught us
+
+## A5. Supplied material — and what it taught us
+
+Where each parked item comes from, so the original context can be reread
+instead of reconstructed:
+
+| Source | What it holds |
+|---|---|
+| #913, #996 — the v2.5 design track and its golf packages | the screens as they were redesigned; F10 (ledenlijst as a dense table) left undecided there |
+| #1059 — server-side pagination | built for Betalingen only, scoped down on 20 September 2026; Leden and Activiteiten deferred |
+| #785 triage, the conventions debate (A12, A17) | sortable columns, column chooser, saved views, command palette, scopes-with-preview for bulk actions — confirmed by all three maker-round directions |
+| the Cobalt sketch | the big blue hero card for a featured activity on the homepage |
+| #1060 — the admin assistant with screen context | the base on which language-model insights could be built |
+
+## A6. Business requirements — what the board asks, with MoSCoW
+
+Two kinds of row. **R1–R12** are the requirements this change request
+delivers, each traced to the rows of A2 it answers. **P1–P9** are the parked
+candidates from before: still parked, unless a row of A2 raised them.
+
+| # | Requirement | MoSCoW | Source | Comment |
+|---|---|---|---|---|
+| R1 | Every admin screen is one of three kinds — a list, a record, a document — and every screen of a kind looks and behaves the same, whatever the module. | Must | Koen, 30 Sep 2026 | rows 4, 5, 11, 12, 13, 26, 27, 43, 44 |
+| R2 | A record is read as a whole, edited as a whole with one save, and warns when left with unsaved changes; the only separate saves are sub-records with their own lifecycle. | Must | Koen, 30 Sep 2026 | rows 7, 14, 22, 39 |
+| R3 | A list is a toolbar over a table or cards: the count and the pages visible before scrolling, the KPI figures as filters, the row as the way in, the list starting in the top third of a large screen. | Must | Koen, 30 Sep 2026 | rows 5, 6, 10, 26, 36, 45 |
+| R4 | From any record the user reaches the records it points at and the lists that point at it — with one click, in one look. | Must | Koen, 30 Sep 2026 | rows 19, 20, 28, 30 |
+| R5 | Fields, groups, buttons, spacing, surfaces and icons are the same everywhere, and a screen cannot deviate: what the kit does not make, a gate refuses. | Must | Koen, 30 Sep 2026 | rows 1, 2, 3, 8, 9, 16, 22, 23, 24, 31, 34, 35, 38; B8 |
+| R6 | Rare and discouraged settings are out of the way; what a card shows is only what applies to it. | Should | Koen, 30 Sep 2026 | rows 3, 36 |
+| R7 | Raakje is one thing: called from one place, shown in one place, offered where the module's data allows, reading what the screen has selected. | Should | Koen, 30 Sep 2026 | rows 32, 33, 41 |
+| R8 | A rich-text editor behaves the same on every screen that has one, with its tools where the cursor is. | Should | Koen, 30 Sep 2026 | rows 15, 40 |
+| R9 | An import always shows what it will do before it does it; a button says whether it acts or leads on. | Should | Koen, 30 Sep 2026 | rows 17, 18, 42 |
+| R10 | A member on the public site is nudged to sign in, without being told whether an address is known. | Should | Koen, 30 Sep 2026 | row 21 |
+| R11 | The change arrives in steps that each impress on their own: quick wins first, then one pilot screen per kind, lived with for a release, then rolled out. | Must | Koen, 30 Sep 2026 | B6 |
+| R12 | What belongs to the kit and what belongs to a tenant's brand stay apart, so another organisation can wear the platform later. | Should | Koen, 30 Sep 2026 | A1 background; own change request |
+| P1 | The admin lists Leden and Activiteiten page like Betalingen does. | Parked → **raised** 30 Sep 2026 (A2 row 6) | Koen, 20 Sep 2026 | as-is: only Betalingen pages (#1059); decided **together with P2**, because a card list and a dense table page differently |
+| P2 | The admin list screens have one settled shape — table or cards — for Leden, Activiteiten and Betalingen alike. | Parked → **raised** 30 Sep 2026 (A2 row 5) | Koen, 19 Sep 2026 | "Ik twijfel nog altijd of we betalingen ook niet terug moeten zetten naar de cards"; F10 waits until the dense Betalingen screen has been lived with; one decision covers both directions |
+| P3 | Bulk actions on admin lists (select many, act once). | Parked | Koen, 19 Sep 2026 | "bulk selectie zou ik voorlopig niet doen"; when it comes, scopes-with-preview as sketched in the conventions debate |
+| P4 | The homepage can feature one activity in a large hero card. | Parked | the Cobalt sketch; left out of golf 11 | needs a "which activity" choice by the board and sits above an agenda that already shows the same; candidate: a CMS choice once the board misses it |
+| P5 | The admin assistant offers language-model insights on top of the screen context it already has (#1060). | Parked | 20 Sep 2026 | Mistral, Europe First; under the standing rule that every claim carries a clickable source and unsupported claims are dropped |
+| P6 | Admin tables follow one set of conventions: sortable columns as the norm, a column chooser, saved views, a Ctrl-K command palette. | Parked | #785 triage | sized for the ERP ambition, not for one release |
+| ~~P7~~ | ~~STT and TTS in the Raakje overlay~~ | **un-parked** 20 Sep 2026 | Koen | mic + read-aloud, identical to the rapporten-Raakje — "Raakje is the same everywhere; the only difference is the public security boundary"; now #1075 |
+| P8 | Web pages are edited as blocks — heading, text, image, gallery, call-to-action — each with its tools where it sits, so a non-designer can make a page that looks professional. | Parked | Koen, 30 Sep 2026 | from A2 row 15; not urgent; taken up when the portal aims at public pages for a club or a company; its own change request then |
+| P9 | Raakje takes over data entry: "maak een activiteit aan" and it knows the objects an activity needs, what is required, fills the form while the user talks or types, then hands over to the Design Studio for the poster. | Parked | Koen, 30 Sep 2026 | from A2 row 32; it builds on P5 (insights on the screen context) and on the panel beside the form; its own change request when taken up |
+
+## A7. Non-functional requirements — security, privacy, house style, tenants
+
+| Concern | This change |
+|---|---|
+| **Security** | No new entrance and no new data. One touch: the member nudge (R10) is shown to everyone, never on recognition of an address, so the public form still looks nothing up. |
+| **Privacy** | Nothing new is stored or sent. The family portal's "Onze inschrijvingen" shows a household its own registrations only, behind its login. |
+| **House style / UI norm** | This change request *is* the house style's next version: `docs/design-system.md` and the live page become the end state of B4, section by section, as the phases land. The fixed UI decisions in `CLAUDE.md` are revisited at the phase that touches them: the modal is already a page (CR-14); the address grid stays as the first instance of the form grid; row actions capped at two plus `⋯` stays. |
+| **Multi-tenant** | Nothing per tenant changes now. Tokens for colour, type and the icon set are kept apart from patterns and layouts (R12), so that a later change request can give a second organisation its own brand without touching behaviour. |
+| **Reporting** | None: no view, no export, no count changes. |
+
+## A8. Acceptance criteria — what the business signs off on HDEV
+
+Per phase (B6); the walkthrough per pilot is written when that pilot's
+concept is drawn (B2.1).
+
+| # | Criterion | Requirement | Walkthrough steps (B2.1) |
+|---|---|---|---|
+| AC1 | After the quick wins: Betalingen shows its totals once, the open tile shows both sides; the component's external links sit in a collapsed section; the CMS toolbar stays in view while scrolling; "Naar de tenants" and "Naar de rapporten" are gone; the meetings card shows its status once; every send button ends in an ellipsis and the last one names its consequence. | R3, R5, R6, R8, R9 | phase 1 |
+| AC2 | On the design-system page every element of the end state is rendered live: the three layouts, the form grid with its field macro, the repeating group, the switch, the surfaces, the icon vocabulary, the record header, the summary card, the pager, the action bar. | R5 | phase 2 |
+| AC3 | The activity record page (pilot A) opens from its row, reads as a whole with empty fields shown, edits as a whole with one save at the bottom, warns on leaving, shows its summary on the right and its registrations and payments as embedded tabs in one stable frame; the payments tab is one toolbar row over the table. | R1, R2, R3, R4 | phase 3 |
+| AC4 | The Betalingen list (pilot A) starts in the top third of a 1080 px screen: title row with inline tiles, one toolbar row with count and page size, the row opens the record. | R3 | phase 3 |
+| AC5 | Becoming a member, registering for an activity and answering a form on the public site (pilot B) share one page width, one surface scale, one button bar and the member nudge; the family portal shows the household's registrations with their payment state. | R1, R5, R10, R4 | phase 4 |
+| AC6 | After roll-out every list and record screen of the admin passes the same checks as the pilots, Raakje opens from the same button into the same panel on every enabled module, and the rich-text editor shows one toolbar on the newsletter and the page. | R1, R7, R8 | phase 5 |
+| AC7 | Every gate of B7 is red on its additive violation and green on `master`; the screenshot baselines exist for every screen and a one-pixel shift fails the e2e job. | R5 | phase 2 onward |
+
+---
 
 # Part B — The solution
 
-Empty by design. Part B is written per item, in that item's own issue, when
-Koen un-parks it.
+## B1. Solution outline — the solution and the decisions that shape it
+
+Not forty-five fixes but **one kit with three layouts**, and a portal
+rebuilt onto it screen by screen. The end state (B4) says what a list, a
+record and a document look like and how they behave, down to the field,
+the button and the pixel; the kit makes it (layouts, macros, tokens); the
+gates refuse anything else; the roadmap (B6) brings the screens onto it in
+the order that impresses first and risks least: quick wins, foundations,
+one pilot per kind lived with for a release, then roll-out.
+
+Decisions that shape it, with the alternatives:
+
+- **Rebuild onto a kit, not restyle screen by screen.** Restyling each
+  screen would give forty-five improvements and the forty-sixth drift; the
+  rows of A2 exist because the kit stops at the control and the screens
+  compose the rest. So the kit grows upward — to layouts — and the screens
+  shrink to composition.
+- **Three layouts, not one and not ten.** One layout cannot hold a dense
+  list and a long document; ten is a screen each. A *list*, a *record*, a
+  *document* cover every admin screen measured (A2) and the public pages.
+- **Gates before roll-out, as ratchets.** A gate written after the
+  roll-out has nothing to catch; one written before it, as a ratchet on
+  today's counts, turns the roll-out into a shrinking list and makes drift
+  impossible from day one (the CR-12/13 pattern).
+- **Pilots, then roll-out, not a big bang.** The pilots are chosen for
+  coverage and visibility: the activity record page and the Betalingen list
+  exercise every part of the record and list layouts; the public household
+  creation with the forms exercises the surfaces and the form grid where the
+  member sees them.
+- **Kit apart from brand.** Patterns, layouts and control shapes are the
+  kit's; colours, fonts, wordmark and the icon set's look are brand tokens —
+  so that another organisation can wear the platform later (R12) and so
+  that the graphic-design review of B6 has one place to look.
+
+### B1.1 Functional analysis — the derived requirements
+
+| # | Derived requirement | From |
+|---|---|---|
+| F1 | Three layout templates — `list_page`, `record_page`, `document_page` — that every admin screen and public page extends; a template that renders a list, a record or a document without extending its layout is red. | R1, R5 |
+| F2 | The list layout: title row (title · inline KPI tiles that filter · create · settings), toolbar row (status chips · search · filters · count and page size · `⋯`), the list (table or cards by the content rule), bottom navigation; the row is the way in; wide width. | R3 |
+| F3 | The record layout: the way back, the record header (title, badges with status first, facts line, "Acties"), the summary card right, tabs (Gegevens · related lists in the embedded rendering), the form on the form grid in the reading-width column, one action bar at the bottom; read mode shows every field; one save; leave-warning. | R1, R2, R4 |
+| F4 | The document layout: reading width, autosave body, a header editor opened by "Bewerken", the rich-text toolbar sticky; declared per screen, allowed only where no rule can refuse the body. | R1, R2, R8 |
+| F5 | The form grid and the field macro: rhythm from the tokens, half/full/quarter columns, sections with headings, a rule for what shares a row; no raw form element, no raw spacing in a domain template. | R5 |
+| F6 | The repeating group macro (heading, add at the right, rows with row actions, the one-among-many marker, save with the screen) and the rare-settings disclosure. | R5, R6 |
+| F7 | Control shapes: switch for a boolean setting, checkbox for multi-choice and consent, segmented control for two or three options, select above five; the button hierarchy (one primary, text cancel, delete apart) with fixed labels and the ellipsis/consequence rule. | R5, R9 |
+| F8 | Tokens: a three-level surface scale, the spacing scale applied by macros, the icon vocabulary verb → glyph; kit tokens apart from brand tokens. | R5, R12 |
+| F9 | Reference links (`spronglink` generalised) wherever a field is another record; related-records tabs on every core entity; the family portal's "Onze inschrijvingen". | R4 |
+| F10 | One pager macro with count, page size and navigation, "x–y van n" only; the classification table per list (shape · tiles · card fields · pages · save model). | R3 |
+| F11 | Raakje: one trigger in the shell, one docked panel (bottom sheet on a phone), enabled per module by rule from the reporting universe and the facades, the screen's selection as context; the assistant page and the per-screen buttons go. | R7 |
+| F12 | Rich text: one toolbar from the macro, one "Invoegen ▾" menu fed by the screen, sticky. | R8 |
+| F13 | Import in steps for every import; the form import as a file, offered as a way to create. | R9 |
+| F14 | The gates of B7, one per rule, ratchets on today's counts, hard after the phase that clears them; screenshot baselines diffed in CI. | R5 |
+| F15 | The member nudge, unconditional, on every public registration and on "Word lid". | R10 |
+
+## B2. Architecture — three readers, three questions
+
+### B2.1 Fit with the process and the requirements — for the business
+
+The process drawing of A3 is a table because the change is not a process
+but the shape of every screen; the fit is read in the **traceability
+matrix**, one row per requirement, followed left to right:
+
+| R | How the end state meets it | F | Module (B2.3) | Test (B7) | AC (A8) |
+|---|---|---|---|---|---|
+| R1 three kinds, each the same everywhere | three layouts every screen extends; the classification table names each screen's kind | F1, F2, F3, F4, F10 | kit; every domain at roll-out | 1, 2, 12 | AC3, AC5, AC6 |
+| R2 read whole, edit whole, one save | the record layout's read mode, "Bewerken", one action bar, leave-warning; the document layout's autosave by declaration | F3, F4 | kit; activities (pilot), then all | 3, 4 | AC3 |
+| R3 a list is a toolbar over a table | the list layout's two rows, inline tiles as filters, the pager macro, the row as the way in, the content rule | F2, F10 | kit; payment (pilot), then all | 5, 6 | AC1, AC4 |
+| R4 reach what a record points at and what points at it | reference links, related-records tabs in the embedded rendering, the way back | F3, F9 | kit; activities, mdm, membership | 7 | AC3, AC5 |
+| R5 the same everywhere, no deviation possible | the form grid, field macro, repeating group, control shapes, tokens; a gate per rule | F5, F6, F7, F8, F14 | kit; tests | 1, 8, 9, 10, 11 | AC2, AC7 |
+| R6 the rare out of the way, cards relevant | the rare-settings disclosure; the card rule in the classification table | F6, F10 | activities (pilot) | 8 | AC1 |
+| R7 Raakje is one thing | one trigger, one panel, enabled by rule, the screen's selection | F11 | chatbot, ui shell; newsletter | 13 | AC6 |
+| R8 one rich-text editor | one toolbar, one Invoegen menu, sticky | F12 | kit; cms, newsletter, meetings | 14 | AC1, AC6 |
+| R9 imports show first; buttons say what they do | P6 for every import; the label rule | F7, F13 | forms, mdm import; kit | 15 | AC1 |
+| R10 the member nudge | unconditional hint, no lookup | F15 | activities, membership (public) | 16 | AC5 |
+| R11 steps that impress | the phases of B6 | — | — | — | AC1–AC6 in order |
+| R12 kit apart from brand | two token files, the design-system page split accordingly | F8 | kit | 9 | AC2 |
+
+**The walkthrough** is written per pilot, on its concept screenshots,
+before that pilot is built (B6, the concept step); AC3 and AC5 point at
+them then.
+
+### B2.2 The whole across the modules — for the architect
+
+```mermaid
+flowchart TB
+  subgraph kit["ui — the kit"]
+    L["layouts — new:<br/>list_page · record_page · document_page"]
+    M["macros — new: field · form grid · section · repeating_group ·<br/>rare_settings · switch · segmented · record_header · summary_card ·<br/>reference (spronglink) · related_tabs · raakje_panel · rich_text toolbar<br/>— changed: action_bar · pager · page_header · badge"]
+    T["tokens — changed:<br/>surfaces · spacing on macros · icon vocabulary<br/>— split: kit tokens / brand tokens"]
+    DS["design-system.md + /admin/design-system — changed:<br/>the end state, section by section"]
+    L --> M --> T
+    DS -.-> L
+  end
+  subgraph gates["tests — the gates"]
+    G["test_ui_conventions_gate — changed: raw form element · raw spacing ·<br/>raw surface · raw checkbox · typed '+' · custom save label · header link ·<br/>Bewerken in row actions · overflow-x on a list · max-w on a screen ·<br/>one-off control · layout not extended<br/>— new: screenshot baselines diffed in the e2e job"]
+  end
+  subgraph domains["every domain — changed at roll-out"]
+    D1["activities · payment — pilot A"]
+    D2["membership · mdm · forms · public pages — pilot B"]
+    D3["the rest — roll-out: cms · newsletter · meetings · auth · chatbot ·<br/>reporting · designstudio · media · workflow · tenants/organisations"]
+  end
+  domains --> L
+  domains --> M
+  G -.-> domains
+  classDef new fill:#dcfce7,stroke:#15803d,color:#111
+  classDef chg fill:#ffedd5,stroke:#c2410c,color:#111
+  class L new
+  class M,T,DS,G,D1,D2,D3 chg
+```
+
+**Data model at a glance:** none. No table, no column, no migration
+anywhere in this change request; the classification of screens is a table
+in the design system, not in the database.
+
+Who depends on whom: every domain template extends a layout and calls
+macros from `ui`; `ui` depends on nothing in a domain; the gates read
+templates and models and depend on the kit's names. Raakje's panel
+(`chatbot`) is mounted by the shell and receives the screen's context
+through the existing mechanism (#1060); the enabled-module table is
+derived from `reporting/universe.py` and the domain facades. **Impact on
+the existing architecture:** the layer gate and the template-variables gate
+stay and gain the layouts as one more promise (a layout's blocks are named
+in the view-model); `StrictUndefined` still catches a missing name. No
+route changes except those the pilots' screens already have (the modal is a
+page since CR-14). The fixed UI decisions of `CLAUDE.md` change at the
+phase that touches them, in the "Na de merge" block of that phase.
+
+### B2.3 Per module: what must happen — for the build teams
+
+#### ui — the kit (phases 2, 5)
+
+- **Screens:** the design-system page renders every new element live
+  (AC2).
+- **Code:** three layout templates; the macros of F5–F12; the token split;
+  view-model promises for the layouts' blocks.
+- **Database:** none.
+- **Templates and mail:** `_macros.html` grows; `admin_base.html` and
+  `site_base.html` mount the layouts and the Raakje trigger; the brand
+  tokens move to their own file.
+- **Tests:** B7 1, 8, 9, 10, 11, 14; the design-system page rendered in the
+  screenshot set.
+
+#### tests — the gates (phase 2, hardened at 5)
+
+- **Code:** the additions to `test_ui_conventions_gate.py` listed in B2.2,
+  each a ratchet on the count A2 measured, each proven by an additive
+  violation; the screenshot baseline mechanism in `tests_e2e/screenshots.py`
+  with a per-screen baseline in the repository and a threshold.
+- **Tests:** B7 1, 11.
+
+#### activities and payment — pilot A (phase 3)
+
+- **Screens:** the activity record page onto `record_page` (header, summary,
+  tabs, read/edit whole, one save, rare settings, repeating groups for
+  dates, components and products); the Betalingen list onto `list_page`
+  (title row with tiles, toolbar row, row opens the record, totals once);
+  the embedded payments and registrations tabs.
+- **Code:** view-models for the layout blocks; the save model declared;
+  `spronglink` on every reference; the open tile with two sides.
+- **Database:** none.
+- **Tests:** B7 2, 3, 4, 5, 6, 7, 12.
+
+#### membership, mdm, forms, public pages — pilot B (phase 4)
+
+- **Screens:** "Word lid", the household portal (with "Onze
+  inschrijvingen"), the registration page (CR-14) and the public form onto
+  the same width, surfaces, form grid and button bar; the member nudge; the
+  household record page in the admin onto `record_page` (one save instead of
+  per card).
+- **Code:** view-models; the nudge (no lookup); the family portal's
+  registrations read through `activities.api`.
+- **Database:** none.
+- **Tests:** B7 2, 3, 7, 16.
+
+#### quick wins — phase 1, across modules
+
+- payment (row 10), activities (row 3), cms (row 15 sticky toolbar), ui
+  shell (rows 35), meetings (row 38), newsletter and meetings (row 42
+  labels), chatbot and reporting (row 6 wording), meetings (row 34
+  naming). Each a small PR on its own; none needs a new component beyond
+  what the kit has.
+
+#### the rest — roll-out (phase 5)
+
+- **Screens:** every remaining list and record screen onto its layout;
+  Raakje's trigger and panel replacing the page and the overlays; the
+  rich-text toolbar on cms, newsletter, meetings; users as a record; the
+  organisation and tenant pages; forms import as a file and as a way to
+  create.
+- **Tests:** the gates go hard; every screen in the screenshot set.
+
+#### reporting — untouched
+
+No view, no object, no export changes; the enabled-module table reads the
+universe, it does not change it.
+
+### B2.4 Cross-cutting impact — the checklist of what gets forgotten
+
+| Concern | Touched? | Where |
+|---|---|---|
+| Reporting views and saved reports | no | B2.3 reporting |
+| Existing tests, e2e golden flows, 390 px screenshots | **yes** — every screen that moves onto a layout redoes its screenshots and, where it has one, its e2e flow; the baselines become the regression net | B7, second level |
+| Fixed UI decisions, `CLAUDE.md` | **yes** — revisited per phase (A7 house style); the "Na de merge" block of each phase names the change | B6 |
+| Design-system documentation | **yes** — it *is* the deliverable of phase 2 and grows with every phase | B4 |
+| Code lists (CR-12) | no | — |
+| Events and handlers (CR-13) | no | — |
+| Mail templates | no | — |
+| Migration | none | — |
+| Tenant settings | no now; the token split prepares the later change request | R12 |
+| Env vars | no | — |
+| JSON routes and API callers | no | — |
+| External services (Mollie, mail, AI) | no; Raakje's calls are unchanged, only where it is opened from | F11 |
+
+## B3. Cost — investment and running cost, and what operations must know
+
+**Investment — effort to build**, in CLI-days, a first estimate against
+the track record (a golf package of the v2.5 design track was one to two
+days; #1284's one form for two channels one day), to be re-estimated when
+each phase's issues are written:
+
+| Phase | ui (kit) | tests (gates) | activities · payment | membership · mdm · forms · public | the rest | Total |
+|---|---|---|---|---|---|---|
+| 0 — end state and concepts | 2 (design-system text, concept screenshots, the two reviews) | — | — | — | — | 2 |
+| 1 — quick wins | — | — | 0.5 | — | 1 | 1.5 |
+| 2 — foundations | 5 | 3 | — | — | — | 8 |
+| 3 — pilot A | 1 (tuning) | 0.5 | 4 | — | — | 5.5 |
+| 4 — pilot B | 1 (tuning) | 0.5 | — | 3.5 | — | 5 |
+| 5 — roll-out | 1 | 1 | 1 | 1 | 8 | 12 |
+| **Total** | **10** | **5** | **5.5** | **4.5** | **9** | **~34** |
+
+Around it: this analysis (done); a review per pilot on its concept (the
+external advice of B6); the parity walks on HDEV per phase. No purchase,
+no licence, no new dependency (the switch, the segmented control and the
+panel are CSS and Alpine on what is there; the screenshot diff uses the
+Playwright already in CI).
+
+**Running cost.** None: no service, no job, no storage. The screenshot
+baselines add a few megabytes of PNG to the repository.
+
+**Operations.** No env var, no setting, no migration, no kill switch — a
+screen either extends a layout or it does not, and `master` always builds.
+What operations must know: the e2e job takes longer with the screenshot
+diff (measure at phase 2; if it exceeds ten minutes, the diff runs on the
+screens a PR touches).
+
+**Against A4:** thirty-four days for a portal that reads as one product,
+that a change request can name in a sentence, and that cannot drift again.
+
+## B4. Detailed decisions — one subsection each, with the reasons
+
+This is the **end state** — Rome, the North Star — written as the
+decisions it is made of. Each subsection is what one section of
+`docs/design-system.md` will say when the roadmap is done; the rows of A2
+it answers are named so the reasons can be reread there.
+
+### B4.1 Three layouts, and every screen is one of them
+
+`list_page`, `record_page`, `document_page`. A screen extends one; a
+template that renders a list, a record or a document without extending its
+layout is red. The **widths** are the layouts', never the screen's: a list
+page is wide; a record page has a wide frame with a reading-width column
+for its form; a document page is reading width. On a phone every layout is
+one column with 16 px gutters. Reading width is a property of a form, not a
+page: inside the record frame the "Gegevens" tab centres its form and a
+related-list tab fills the frame, and the header, tabs and summary card
+never move between tabs. (Rows 11, 12, 27, 43.)
+
+### B4.2 The list page
+
+Two rows of chrome, then the list. **Title row:** the title; the KPI tiles
+inline at its right — a tile is a figure the reader can act on *and* a
+filter, clicking it filters the list to what it counts; a figure that
+cannot filter is not a tile; then "+ Nieuw" and, when the module has
+configuration, "Instellingen" with the gear; nothing else — no link to
+another module, no explanation line. **Toolbar row:** status chips, search,
+filters, the count "x–y van n" with the page size, and `⋯` for export and
+the rest; one row, wrapping only on a phone. **The list:** a table where
+the user scans and compares many rows on few attributes and sorts or
+filters them; cards where each row is a thing with a face and the list is
+short — decided per list in the classification table, never per taste; no
+horizontal scrolling ever: columns fit, hide or stack. **The row is the way
+in:** click it and the record opens; "Bewerken" is not a row action; row
+actions keep delete, duplicate and quick state changes under `⋯`. **Bottom:**
+the page navigation, from the same pager macro. A card shows only what
+applies to that record — omitted, not zeroed. Totals live in the tiles and
+nowhere else. Target: on a 1080 px screen the first row sits in the top
+third. (Rows 5, 6, 10, 11, 26, 31, 34, 35, 36, 45.)
+
+### B4.3 The record page
+
+Top to bottom: **the way back** ("‹ Alle activiteiten", the list's filter
+state preserved); **the record header** — title with its badges on the
+title line, status first; the facts line (date · time · place, or the
+record's key facts) with every reference rendered as a jump link; the
+actions at the right as one "Acties" menu plus the screen's one primary;
+**the summary card** on the right (a compact strip above the content on a
+phone); **the tabs** — Gegevens first, then the related lists in their
+embedded rendering (one toolbar row over the table, no page header, no
+tiles: the summary card carries the figures), clicking a row there unfolds
+it in place with a jump link to its page; **the form** on the form grid in
+the reading-width column; **one action bar** at the bottom. (Rows 7, 19,
+20, 22, 25, 27, 28, 29, 30, 39, 43, 44.)
+
+### B4.4 Reading and editing a record
+
+A record is read as a whole: every field the editor has, in the same order
+and grid, the empty ones with a quiet placeholder, a yes/no showing its
+state either way. "Bewerken" turns the whole screen into the editor;
+nothing moves. One save writes what changed; the history says what.
+Leaving with unsaved changes warns. A repeating group lives inside the one
+form. The only separate saves are **sub-records with their own lifecycle
+and consequences** — a payment, a registration line, a membership — by
+rule, never by size. The **document** is the one declared deviation:
+autosave for a long text no rule can refuse, a header editor opened by the
+same "Bewerken"; each screen declares record or document, and the gate
+checks the declaration against the macros used. A user, an organisation, a
+tenant: records like any other. (Rows 4, 13, 14, 39, 44.)
+
+### B4.5 The form grid and the field
+
+Rhythm from the tokens: section (32) > field (12) > label (4); a template
+writes no spacing. Two columns at reading width: a field is half by
+default, full for long content, quarter for a number or code; one column
+on a phone. Fields that describe one thing sit in one section with a
+heading, in the order a person would say them; fields share a row only when
+they are read together — the address grid is the first instance. A field
+is only ever the field macro, which places label, control, help and error;
+no raw form element in a domain template. **Rare and discouraged
+settings** sit in a collapsed section at the bottom, closed, with a
+one-line summary when set. A **repeating group** is one macro: heading,
+"add" at its right, rows with row actions, the one-among-many marker, saved
+with the screen, "nog geen …" when empty. (Rows 1, 2, 3, 7, 23, 24.)
+
+### B4.6 Controls, buttons, words
+
+A **switch** for a boolean setting; a **checkbox** only for choosing
+several from a list and for consent; a **segmented control** for two or
+three options; a select above five. **One action bar** per screen: one
+primary "Opslaan", "Annuleren" as a text button, "Verwijderen" apart (far
+left, or the header's `⋯`); `sm` in bars; sticky at the bottom on a phone.
+A button that leads on ends in "…"; a button that executes an irreversible
+action names the consequence and sits on the last page only; the words are
+the macro's defaults, a custom label only for a named consequence. A create
+sits at the right of the heading of the thing it creates into, at every
+level. Icons: a text button carries the lead glyph its verb has in the
+vocabulary (add, download, upload, delete, edit, copy, print, send, filter)
+and never a typed "+"; icon-only buttons only in row actions and toolbars.
+A fact appears once per screen, in the element made for it. (Rows 8, 16,
+22, 31, 38, 42.)
+
+### B4.7 Surfaces, colour, brand
+
+Three surface levels — page ground, card, inset — as tokens with their text
+and border colours; the card macro and the shell apply them; a template
+names a surface, never a colour; the same three on the public side and in
+the admin. **Kit tokens** (surfaces, spacing, radii, the icon vocabulary's
+meanings, the control shapes) are the platform's; **brand tokens** (the
+eight brand colours, the two fonts, the wordmark, the icon set's line
+style) are the tenant's — two files, so a second organisation changes the
+second and inherits the first. (Rows 9, 16; R12.)
+
+### B4.8 Navigation between records
+
+Every reference is a link, rendered by one macro, with one glyph; a link's
+text names its target — a blue name goes to the record it names, and what
+is not a record's name is not blue. Every core entity carries the same
+related-records tabs in the same order. The public family portal gets
+"Onze inschrijvingen" with the payment state per registration. (Rows 19,
+20, 30.)
+
+### B4.9 Raakje and the rich-text editor
+
+**Raakje:** one trigger in the shell chrome on both sides; one surface, a
+side panel docked right (a bottom sheet on a phone), in the column the
+reading-width form leaves free, so it can fill a form while the user
+watches; offered where the module's objects are in the reporting universe
+or its facade exposes commands, greyed elsewhere, derived not typed; the
+screen owns its selections and Raakje reads them; the assistant page and
+the per-screen buttons go. **Rich text:** one toolbar from the macro,
+hidden until focus, sticky while scrolling, with one "Invoegen ▾" menu the
+screen feeds; no toolbar markup in a template. (Rows 15, 32, 33, 40, 41.)
+
+### B4.10 Imports, nudges, and what the gates hold
+
+Every import shows *nieuw · gewijzigd · verwijderd* and the consequences,
+then a commit whose label names them; the form import is a file, offered
+as a way to create. The member nudge is unconditional. And **the rule of
+B8** over all of it: a macro or layout the template cannot get wrong, or a
+gate that goes red — never a convention on paper. (Rows 17, 18, 21, 24.)
+
+## B5. Privacy and security — the mechanics behind A7
+
+Nothing new is stored, sent or exposed. The one mechanism worth naming: the
+member nudge renders the same text for every visitor from the template,
+with no request to the server about the typed address — measured by the
+gate's absence check on the public registration view-model (no lookup by
+e-mail on the public channel, the rule `registration_form.py` already
+states). The family portal's registrations tab reads through the
+activities facade filtered on the signed-in household, behind the existing
+session.
+
+## B6. Phasing — shippable phases, and what changes on the failure paths
+
+**The approach:**
+
+- **An end state first.** Part B fixes where the design is going — the
+  North Star — including what is not needed yet, so that every step can be
+  judged by whether it moves towards it.
+- **A roadmap in smart steps**, release by release, piece by piece. No
+  big-bang redesign.
+- **Quick wins up front**, because the portal must impress: whoever is
+  shown it should say "that looks good". Rows 3, 10 and 15's sticky
+  toolbar are the first candidates (list below).
+- **Concept → pilot → release → roll-out.** A concept is prepared with
+  screenshots first, then built on **one screen**, tested, and run through a
+  release so it is lived with and tuned; only then does a developer roll it
+  out everywhere. Pilots are chosen on purpose: the **activity detail**
+  (the richest edit screen, rows 2, 3, 7, 8, 14), the **public household
+  creation** (public, and the same record as the admin household — rows 12,
+  13) **combined with the forms** (row 9). Once those are right they are the
+  standard — "this is our core" — finished and then carried through.
+- **External advice, at two moments, from a second model rather than a
+  hired designer** (a separate Claude, ChatGPT or Mistral session — Mistral
+  first, Europe First; it has been done before for laying out screens).
+  Two expertises, asked separately because they answer different questions:
+  **graphic design** — surfaces, type, spacing, icons, the weight of buttons
+  (rows 8, 9, 16, 22) — asked once, when the end state is drafted and before
+  the first pilot, on the design-system page and a handful of screenshots;
+  **usability** — does the pattern do what the user expects (rows 2, 7, 14,
+  19, 20) — asked per pilot, on the concept's screenshots, before it is
+  built. Not at roll-out: by then the questions are answered. What such a
+  review says is checked against our own measurements before it changes a
+  decision (unsupported claims are dropped, as with every AI answer), and
+  its dated findings land in the Q&A log. Much we can decide ourselves;
+  the review is for what we cannot see because we look at it every day.
+- The design system (`docs/design-system.md` and the live page) is where
+  the end state is written and where each rolled-out pattern lands; this
+  change request holds the roadmap.
+
+
+| Phase | Delivers | Depends on | Failure paths that change | Manual validation |
+|---|---|---|---|---|
+| **0 — end state and concepts** | B4 written into `docs/design-system.md` as its next version (marked "end state, not yet built" per section); concept screenshots of the three layouts and of pilot A and B drawn against real screens; the graphic-design review on them; the classification table of every list and record screen (kind · shape · tiles · card fields · pages · save model) | this document | none | Koen reads the design system and the concepts; the review's findings in the Q&A |
+| **1 — quick wins** | rows 3, 10, 15 (sticky toolbar), 34 (naming), 35, 38, 42 (labels), 6 (wording) — each a small PR that is visible at once | none | none on the happy path; a send button that reads "Versturen…" where it read "Versturen" | AC1 on HDEV |
+| **2 — foundations** | the three layouts, the macros of F5–F12, the token split, the design-system page rendering all of it live; every gate of B7 as a ratchet on A2's counts; screenshot baselines for every existing screen | 0 | none: nothing existing moves yet | AC2, AC7 on HDEV |
+| **3 — pilot A** | the activity record page and the Betalingen list on the layouts, with their embedded tabs; lived with for a release and tuned; the usability review on the concept before the build | 2 | a record saved as a whole: a failed save keeps every change on screen (today a per-card save loses the others); leaving with unsaved changes now warns | AC3, AC4 on HDEV, then one release in use |
+| **4 — pilot B** | "Word lid", the family portal with "Onze inschrijvingen", the registration page and the public form on the layouts, surfaces and grid; the nudge; the household record page in the admin as one save; usability review first | 2 (3 for the household record page) | the household saved as a whole, same as pilot A; the nudge appears for everyone | AC5 on HDEV, then one release in use |
+| **5 — roll-out** | every remaining screen onto its layout; Raakje's trigger and panel; the rich-text toolbar; users, organisation, tenant as records; the gates hard; the fixed UI decisions in `CLAUDE.md` rewritten | 3, 4 tuned | per screen the same as the pilots; the assistant page and the per-screen AI buttons gone | AC6, AC7 on HDEV; the screenshot set |
+| **later — parked** | P3 bulk, P4 hero, P5 insights, P6 table conventions, P8 block editor, P9 Raakje as agent | 5 | — | own change requests |
+
+Each phase rides a release of its own or shares one with functional work;
+none spans two. Phase 5 may be split per module across releases — the
+gates, as ratchets, make every split safe. "Na de merge" per phase: no
+migration, no env var; the `CLAUDE.md` decisions touched.
+
+## B7. Tests — what the build must prove
+
+Each able to go red; every gate proven by an additive violation, with the
+violation in its docstring.
+
+1. **Layout extended.** A domain template that renders a list, record or
+   document without extending its layout → red with the layout's name.
+2. **Read whole, edit whole.** The activity in read mode renders every
+   field the editor has, empty ones as placeholders, a false switch as
+   "uit"; one save writes every changed field and one history row per
+   field.
+3. **Leave-warning.** A record editor with a changed field blocks
+   navigation with the warning; an unchanged one does not.
+4. **The declared save model.** A screen declaring "record" that uses the
+   autosave form, or "document" that uses the edit toggle → red.
+5. **Tiles filter.** Clicking "Volzette onderdelen 11" yields the 11 rows;
+   a tile without a filter → red.
+6. **The row is the way in.** Every list row carries the record's link; a
+   "Bewerken" in row actions → red; a top-level table with inline
+   disclosure → red.
+7. **References are links.** A field whose value is another record renders
+   the reference macro; a person's name pointing at a registration → red.
+8. **The kit owns the field.** A raw `<label>`, `<input>`, `<select>`,
+   `<textarea>`, a raw spacing class on a form element, a raw surface
+   class → red; the counts of A2 (456, 1 215, 224) are the ratchet's
+   baselines and may only fall.
+9. **Control shapes.** A raw `type="checkbox"` outside a multi-choice group
+   or a consent → red; a boolean setting without the switch → red.
+10. **Buttons and words.** A typed "+" at the start of a label, a custom
+    save label without a named consequence, a header button targeting
+    another module's list, a create outside a header slot, a `code_label`
+    rendered twice on a row → red.
+11. **Pixels.** Every screen has a baseline PNG at 390 px and at desktop
+    width; a diff above the threshold fails the e2e job; the design-system
+    page is in the set.
+12. **The frame does not move.** Switching from Gegevens to Betalingen on
+    an activity leaves the header, tabs and summary card at the same
+    coordinates (measured from the DOM).
+13. **Raakje by rule.** Every screen of an enabled module renders the
+    trigger; a screen of another module renders it disabled; no `AI ·`
+    button survives.
+14. **One toolbar.** The newsletter and the page render the same toolbar
+    groups; a `trix-toolbar` element in a domain template → red.
+15. **Import in steps.** The form import shows nieuw · gewijzigd ·
+    verwijderd and writes nothing until the commit.
+16. **The nudge looks nothing up.** The public registration view-model
+    makes no query by the typed e-mail address (a query counter on the
+    session).
+
+**Impact on the test landscape:** every screen that moves onto a layout
+redoes its screenshots and, where it has one, its e2e flow (registration,
+household, forms, payments); the layer and template-variables gates gain
+the layouts' blocks as promises; the UI conventions gate grows by the rules
+above, as ratchets first; the e2e job gains the pixel diff and its baseline
+directory.
+
+## B8. Rule and gatekeeper — what this fixes for all future work
+
+**The rule of this change request, stated by the person who lives with the
+screens (30 September 2026), before the solution is designed:**
+
+> *Everything a screen must have in common with the other screens is either
+> **made automatically** by the kit — a macro, a layout, a token — or
+> **strictly validated** by a gate that runs on every push. A convention that
+> is neither is not a convention: it drifts at the next new screen and at
+> the next change to an existing one. That is how the thirty-one rows of A2
+> came to be.*
+
+Every solution idea in A2 therefore ends in one of the two: a macro or
+layout the template cannot get wrong, or a gate that goes red. Reach,
+baseline and the gates themselves are written per item in Part B when the
+solution is designed; the measured counts in A2 (raw form elements, raw
+spacing classes, raw surface classes, raw checkboxes, per-card editors,
+sideways scrolls, hand-placed creates) are the first baselines.
+
+**Reach and baseline.** Every template under `app/domains/*/templates` and
+`app/ui/templates`. Baselines measured on 30 September 2026, before the
+build: 456 raw form elements · 1 215 raw spacing classes · 224 raw surface
+classes · 65 raw checkboxes · 14 per-card edit toggles · 34 action bars ·
+10 separate delete buttons · 8 lists scrolling sideways · 3 screens setting
+their own width · 5 lists with "Bewerken" as a row action. Target after
+this change request: 0 for each, and the gates hard.
+
+**The gate.** B7, tests 1 and 8–14, in `test_ui_conventions_gate.py` and
+the e2e job; ratchets from phase 2, hard from phase 5. What stays with
+judgment: whether a screen is a record or a document, which columns a list
+needs, what a card should show — the classification table, decided once
+per screen and reviewed at the merge gate with the eye.
+
+## B9. Prototype findings — what was measured before the build
+
+None yet. Phase 0 produces them: the concept screenshots of the three
+layouts and of both pilots, drawn against the real activity, Betalingen,
+household and registration screens; the graphic-design review on them;
+the measured height of the Betalingen chrome before and after the two-row
+title and toolbar; the e2e job's duration with the pixel diff.
+
+## B10. Decisions log — dated answers and open proposals
+
+| Date | Decision | By |
+|---|---|---|
+| 20 Sep 2026 | CR-11 is a parking lot, not a work order; pagination in v2.5 on Betalingen only; the rest decided piece by piece later. | Koen |
+| 20 Sep 2026 | STT/TTS in the Raakje overlay un-parked: mic + read-aloud, the same Raakje everywhere (#1075). | Koen |
+| 30 Sep 2026 | Brought onto the change-request template of 30 September; the parked items are candidate requirements P1–P6 in A6. | Koen |
+| 30 Sep 2026 | The rule of CR-11: what screens must share is made automatically by the kit or strictly validated by a gate; a convention that is neither drifts with every new screen or change. | Koen |
+| 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
+| 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
+| 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the forty-five rows of A2: three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
+
+## Q&A log — asked once, answered here
+
+| # | Date | Question (who) | Answer |
+|---|---|---|---|
+| Q1 | 30 Sep 2026 | Does CR-11 become a real change request on the new template, or stay a parking lot from which each item gets its own CR or issue? (Claude) | Koen, 30 Sep: a real change request — the end state of the GUI and the roadmap towards it; the parked items stay in A6 as candidates, the pains are listed in A2 first, then the solution and the approach (B6). |
+| Q2 | 30 Sep 2026 | Which of P1–P6 are taken up now, and is there new material — the dense Betalingen screen lived with (P2), the board missing a featured activity (P4)? (Claude) | *open* |
+| Q3 | 30 Sep 2026 | Tables versus cards (row 5): is the content rule — a table to scan and compare, cards for things with a face — the decision, so that Betalingen stays a table and Leden becomes one? (Claude) | *open* |
+| Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
+| Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | *open* |
+| Q6 | 30 Sep 2026 | Phase 5's roll-out is the largest block (~12 days): one release, or split per module over releases with the ratchets keeping it safe? (Claude) | *open* |
+| Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | *open* |
+
+## Non-goals — deliberately outside this change
+
+## Non-goals — deliberately outside this change
+
+- Building anything from this list without an un-park decision and its own issue.
+- Parking new GUI candidates on a release tracker instead of here.
+- Making the platform usable by other organisations (a webshop for a company, another association's menu and brand) — its own change request; this one only keeps kit and brand apart so that one becomes possible.
+- New functionality: no new record, field or report; the family portal's "Onze inschrijvingen" tab and the member nudge are the only two additions, both small and both named in A6.
+- The parked candidates P3–P6, P8, P9 — each its own change request when un-parked.
+
+## Relationship to existing work — issues and change requests
+
+- **#913, #996** — the v2.5 design track this list was deferred from.
+- **#1059** — pagination, built for Betalingen; P1 is its continuation.
+- **#785** — the conventions debate; P3 and P6 come from its triage.
+- **#1060** — the admin assistant's screen context; P5 builds on it.
+- **#1075** — STT/TTS in the Raakje overlay, the one item un-parked so far.
+- **CR-08 (visual), CR-10 (Design Studio)** — the design work this list sits next to.
+- **CR-14** — the registration page is already a page; pilot B builds on it.
+- **#1367, #1387, #1380, #1223, #1229** — the recent validation issues that are instances of rows 22, 9 and 1.
