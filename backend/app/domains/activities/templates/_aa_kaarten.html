@@ -17,7 +17,7 @@
           {% if a.registration_count is not none %}<span class="text-sm text-ink-soft">· {{ a.registration_count }} {{ _("inschrijvingen") }}</span>{% endif %}
         </div>
       </div>
-      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
     </div>
   </a>
   {% endfor %}

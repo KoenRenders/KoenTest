@@ -26,7 +26,7 @@
           <span class="text-sm text-ink-soft">{% if _adres %}· {% endif %}{{ _n }} {{ _("persoon") if _n == 1 else _("personen") }}</span>
         </div>
       </div>
-      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+      <span class="shrink-0 text-sm text-ink-soft" aria-hidden="true">›</span>
     </div>
   </a>
   {% endfor %}
