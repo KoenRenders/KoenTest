@@ -8,7 +8,6 @@ vraagt wat hier niet staat.
 """
 
 from dataclasses import dataclass, field
-from decimal import Decimal
 from typing import Any
 
 from app.ui.viewmodel import ViewModel
@@ -27,7 +26,6 @@ class BetalingenView(ViewModel):
     # De gefilterde records en hun kaartgroepering (payment.service).
     records: list[Any]
     groepen: list[dict[str, Any]]
-    matrix: dict[str, dict[str, Decimal]]
 
     # Actieve filterstand — de balk leest ze terug, de export-link geeft ze door.
     context: str

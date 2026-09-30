@@ -976,6 +976,25 @@ def aggregate(records) -> dict:
     return {"due": due, "paid": paid, "saldo": due - paid}
 
 
+def open_sides(records) -> dict:
+    """What is still to be handled, as two amounts that never net out (#1391, W1).
+
+    Per record: a positive balance is money still to come in, a negative one is
+    money still to go back (a pending refund, or an overpaid charge). They are
+    summed apart on purpose: € 120 to receive and € 120 to refund is two things
+    to do, and their net € 0 would read as "nothing to do" (CR-11 Q19).
+    """
+    to_receive = Decimal("0")
+    to_refund = Decimal("0")
+    for r in records:
+        saldo = aggregate([r])["saldo"]
+        if saldo > 0:
+            to_receive += saldo
+        elif saldo < 0:
+            to_refund -= saldo
+    return {"to_receive": to_receive, "to_refund": to_refund}
+
+
 def derived_status(record) -> str:
     """De status zoals ze op het scherm hoort te staan.
 
