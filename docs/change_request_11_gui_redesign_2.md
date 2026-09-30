@@ -781,9 +781,15 @@ per screen and reviewed at the merge gate with the eye.
 
 ## B9. Prototype findings — what was measured before the build
 
-None yet. Phase 0 produces them: the concept screenshots of the three
-layouts and of both pilots, drawn against the real activity, Betalingen,
-household and registration screens; the graphic-design review on them;
+**Concept screens, 30 September 2026:** six static HTML pages on the
+real kit stylesheet plus one layer for what the end state introduces — the
+Betalingen list, the activity record page in read and in edit mode, its
+embedded Betalingen tab, the meeting as a document page, the public
+registration page — each with the rows of A2 it answers noted at the
+bottom, and an index that shows three of them in a 390 px phone frame.
+They live in Koen's project folder outside the repository (with a README),
+not in `docs/`: design material with invented data. Still to produce in
+phase 0: the two external reviews on them, and the measurements — the graphic-design review on them;
 the measured height of the Betalingen chrome before and after the two-row
 title and toolbar; the e2e job's duration with the pixel diff.
 
