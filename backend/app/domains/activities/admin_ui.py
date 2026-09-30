@@ -105,6 +105,14 @@ def _lijst_ctx(db: Session, scope: str = "all", q: str = "") -> dict:
             for a in activiteiten
             if term in (a.name or "").lower() or term in (a.location or "").lower()
         ]
+    # #1391 (CR-11 W12): an activity without a single component has nothing to
+    # register for, so its card says nothing about registrations rather than
+    # "0 inschrijvingen". The criterion is "has a component", not "is open": a
+    # closed component with 23 registrations still shows its 23.
+    activiteiten = [
+        a if a.sub_registrations else a.model_copy(update={"registration_count": None})
+        for a in activiteiten
+    ]
     return {"activities": activiteiten, "scope": scope, "q": q}
 
 
@@ -237,7 +245,7 @@ def admin_activiteiten(
 ) -> Response:
     lijst = _lijst_ctx(db, scope, q)
     # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
-    # een zoekterm mag "Open inschrijvingen" niet doen dalen. Zonder filter is de
+    # een zoekterm mag "Activiteiten met open inschrijving" niet doen dalen. Zonder filter is de
     # getoonde lijst al de juiste bron en blijft het bij één query.
     kpi_bron = (
         lijst["activities"]

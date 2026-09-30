@@ -131,8 +131,6 @@
                                placeholder=_("Afspraken, contacten, wat je jezelf wil herinneren."),
                                cls="w-full") }}
         <p class="text-xs text-ink-soft mt-1">{{ INTERNE_NOTA_BELOFTE }}</p></div>
-      <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
-        {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}</div>
       {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
                          current_url=a.poster_asset_url,
                          preview_url=(a.poster_asset_url ~ "/thumb") if a.poster_asset_url else None,
@@ -142,6 +140,15 @@
                          hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
+      {# #1391 (CR-11 W2): the poster URL folds away at the bottom, like the
+         component's external links. #}
+      {% set _links = 1 if a.poster_url else 0 %}
+      <details data-external-links>
+        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+        <div class="mt-2 max-w-md">{{ ui.label(_("Poster-URL"), "poster_url") }}
+          {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}
+          <p class="text-xs text-ink-soft mt-1">{{ _("De affiche maak je in de Design Studio; een adres intypen is de oude weg.") }}</p></div>
+      </details>
     </form>
   </div>
 
@@ -217,12 +224,19 @@
       <div>{{ ui.label(_("Inschrijven tot"), "nc-deadline") }}
         {{ ui.input_control("registration_closes_on", id="nc-deadline", type="date") }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
+      {# #1391 (CR-11 W2): the external links fold away, closed by default. #}
+      {% set _links = 0 %}
+      <details class="w-full" data-external-links>
+        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+        <div class="mt-2 flex flex-wrap gap-2">
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
         {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
         {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "nc-info") }}
         {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
+        </div>
+      </details>
       {# Geen current_url/delete_attrs: een onderdeel dat nog niet bestaat heeft
          niets te tonen en niets te verwijderen. #}
       <div class="w-full border-t border-blue-100 pt-2">
@@ -251,8 +265,6 @@
            naar de Inschrijvingen-tab — daar staat de lijst per onderdeel
            gegroepeerd, met een exportknop per groep. #}
         {{ ui.edit_toggle("edit") }}
-        <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-comp-" ~ c.id, cancel_attrs='@click="edit = false"',
-             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}</div>
       </div>
     </div>
     {# Leeslink naar de info-bijlage (#655). De activiteit had er al een voor haar
@@ -292,12 +304,19 @@
       {# The hint on its own line, not in the column: this form aligns its columns
          on their bottom edge (#656). #}
       <p class="w-full text-xs text-ink-soft -mt-1">{{ _("Extra vragen: het onderdeel bepaalt wie inschrijft en tot wanneer; de instellingen van het formulier gelden hier niet.") }}</p>
+      {# #1391 (CR-11 W2): closed by default; the summary says how many are filled. #}
+      {% set _links = [c.external_register_url, c.external_registrations_url, c.info_url] | select | list | length %}
+      <details class="w-full" data-external-links>
+        <summary class="cursor-pointer text-sm font-medium text-ink select-none">{{ _("Externe koppelingen") }}{% if _links %}<span class="font-normal text-ink-soft"> · {{ ngettext("%(num)d externe link", "%(num)d externe links", _links) }}</span>{% endif %}</summary>
+        <div class="mt-2 flex flex-wrap gap-2">
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
         {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
         {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "cinfo-" ~ c.id) }}
         {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
+        </div>
+      </details>
       {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
          (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
          velden én het bestand. De verwijderknop blijft een aparte actie — dat is
@@ -312,6 +331,11 @@
                            hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
       </div>
     </form>
+    {# #1391 (CR-11 W15): the bar sits in the card's foot, right-aligned, and no
+       longer beside the title; the arrows and the edit toggle stay in the head.
+       `form=` ties the buttons to the form above. #}
+    <div x-show="edit" x-cloak class="mt-3 flex justify-end" data-card-foot style="display: none">{{ ui.action_bar(form="aa-comp-" ~ c.id, cancel_attrs='@click="edit = false"',
+         delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}</div>
     {# "+ Product" in de paneelkop (#623-4): de toevoegvorm stond permanent open,
        terwijl de meeste onderdelen één product hebben. #}
     {% call ui.nested_panel(_("Producten"), _("+ Product"), '@click="addprod = !addprod"') %}
@@ -332,8 +356,6 @@
                  up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
                  down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
             {{ ui.edit_toggle("ed") }}
-            <div x-show="ed" x-cloak>{{ ui.action_bar(form="aa-prod-" ~ p.id, cancel_attrs='@click="ed = false"',
-                 delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}</div>
           </div>
         </div>
         <form id="aa-prod-{{ p.id }}" x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
@@ -358,6 +380,9 @@
              add it to an existing registration from here. Label and hint: #1201. #}
           <label class="flex items-center gap-2 text-sm" title="{{ PRODUCT_ZICHTBAAR_HINT }}"><input type="checkbox" name="is_active" value="1" {% if p.is_active %}checked{% endif %}> {{ PRODUCT_ZICHTBAAR_LABEL }}</label>
         </form>
+        {# #1391 (CR-11 W15): the product's bar in the foot, as the component's. #}
+        <div x-show="ed" x-cloak class="mt-2 flex justify-end" data-card-foot style="display: none">{{ ui.action_bar(form="aa-prod-" ~ p.id, cancel_attrs='@click="ed = false"',
+             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}</div>
       </div>
       {% endfor %}
       <form x-show="addprod" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
