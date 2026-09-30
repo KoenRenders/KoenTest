@@ -27,26 +27,15 @@ parkeren we naar later" (20 September 2026).
 
 ## A2. As-is process — how it works today, and where it hurts
 
-> [!NOTE]
-> *How the work is done today, by whom, with which tools and material.*
-> *Measured where possible: how often, how long, how many. Name the pain per*
-> *step. Two forms, both: a **process drawing** and a **step table** with the*
-> *pain column.*
->
-> *The drawing is a Mermaid flowchart that follows BPMN Level 1 as Bruce*
-> *Silver's "Method and Style" defines it. The Level 1 palette, in Mermaid:*
-> *one `subgraph` per actor as its lane (member, organiser, treasurer, the*
-> *portal), in the same order in A2 and A3 so the difference is visible; a*
-> *rectangle per activity, labelled verb + noun ("Register", "Send link");*
-> *one start circle and one named end circle per outcome ("Registered",*
-> *"Refused"); a diamond for an exclusive gateway with its question inside*
-> *and the answers on the arrows; a dashed arrow for a message between*
-> *lanes; at most fifteen activities per drawing — more becomes a subprocess*
-> *in its own drawing. No intermediate events, no timers, no data objects:*
-> *Level 1 stops there on purpose.*
+Not one process but the screens and the behaviour patterns of the admin and
+the public site as they are lived with today. Listed with the person who
+uses them daily (Koen, 30 September 2026), one row per pain: which screen or
+pattern, what hurts, and — where there is one — a first idea for a solution.
+An idea is not a direction: the direction is chosen in Part B, per item,
+with the usability arguments beside it.
 
-*Per parked item the as-is is one line in A6; the process drawing is made
-when an item is un-parked.*
+| # | Screen or pattern | What hurts today | Solution idea | Source |
+|---|---|---|---|---|
 
 ## A3. To-be process — how it should work afterwards
 
@@ -271,6 +260,12 @@ recognisable; every note block below is the template's.*
 > *"no functional change" is a claim about the happy path with the failure*
 > *paths listed beside it, and an e2e test that goes red on one of them is*
 > *expected, not a surprise. "None" is an answer.*
+
+*Remarks made while listing the as-is that concern phasing — quick wins,
+what can wait, what belongs together — are collected here until the phases
+are shaped:*
+
+- —
 
 ## B7. Tests — what the build must prove
 
