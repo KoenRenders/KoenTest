@@ -8,7 +8,9 @@
    knoppen: `page_header` levert die rij zelf, en een tweede laag eromheen zou de
    afstanden per scherm laten verschillen. #}
 {% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm.")) %}
-    {{ ui.btn_secondary(_("Vergaderkring"), href="/admin/vergaderingen/kring") }}
+    {# CR-11 W4 (#1391): the settings of the module, with the circle as their
+       section; the address stays until phase 5 renames it. #}
+    {{ ui.btn_secondary(_("Instellingen"), href="/admin/vergaderingen/kring") }}
     {{ ui.btn_primary(_("+ Nieuwe vergadering"), href="/admin/vergaderingen/nieuw") }}
   {% endcall %}
 

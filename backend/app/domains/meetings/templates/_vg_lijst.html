@@ -12,17 +12,10 @@
       {{ ui.badge(meeting.status | code_label("meeting_status"),
                   meeting.status | tone("meeting_status")) }}
       {% if meeting.location %}<span class="text-sm text-ink-soft">{{ meeting.location }}</span>{% endif %}
-      {% if meeting.report_sent_at %}
-      <span class="text-sm text-ink-soft ml-auto">{{ _("verslag verstuurd") }}</span>
-      {% elif meeting.agenda_sent_at %}
-      <span class="text-sm text-ink-soft ml-auto">{{ _("agenda verstuurd") }}</span>
-      {% endif %}
+      {# CR-11 W6 (#1391): the badge from the code list is the status; a
+         hand-written "agenda verstuurd" beside it said the same thing twice. #}
     </div>
   </a>
   {% endfor %}
 </div>
 {% endif %}
-<p class="text-sm text-ink-soft mt-4">
-  {{ _("De vergaderkring telt %(n)s personen.", n=circle_size) }}
-  <a href="/admin/vergaderingen/kring" class="underline">{{ _("Beheer de kring") }}</a>
-</p>
