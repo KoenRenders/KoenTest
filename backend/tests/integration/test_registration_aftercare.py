@@ -17,7 +17,8 @@ the answer link sent (again) by the board (§B4.8).
 Broken on purpose to check these tests can go red (run, then restored), with what
 failed: `answers=answers,` dropped from the mail handler → the "now" test; the
 `record_registration_history(...)` call removed from `send_answer_link` → the two
-send tests; `answer_link_action` answering "opnieuw" for an answered registration
+send tests; the toast back to `ui.toast_oob()` without the route's words (the
+#1367 quirk) → the send-again test; `answer_link_action` answering "opnieuw" for an answered registration
 → the answered test; `update_attached` changed to skip `build_answers` (rows
 from the posted answers unvalidated) → the refusal test, and the correction
 test with it (the checkbox answer is lost unparsed); the `if changes:` guard
@@ -147,10 +148,9 @@ def test_the_board_sends_an_open_link_again(client, db_session, sint):
     r = client.post(
         f"/admin/inschrijvingen/{registration.id}/antwoordlink", headers={"X-CSRF-Token": csrf}
     )
-    # The detail's toast shows its fixed "Opgeslagen ✓" whatever the route passes
-    # (a quirk of `_inschrijving_detail.html`, reported, not changed here); what
-    # counts is below: the mail, the kept token and the history row.
-    assert r.status_code == 200 and 'hx-swap-oob="afterbegin:#toasts"' in r.text
+    # #1367: the toast says what happened, not the fixed "Opgeslagen ✓".
+    assert r.status_code == 200 and "De link naar de vragen is verstuurd." in r.text
+    assert "Opgeslagen ✓" not in r.text
 
     db_session.expire_all()
     assert db_session.get(Registration, registration.id).answer_token == token
