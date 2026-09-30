@@ -30,18 +30,23 @@
     </div>
 
     {% if item.is_member %}
-    <form class="mt-2 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+    {# #1365: the hint goes UNDER the dropdown, over the full width of the point.
+       Beside it, it was squeezed into a narrow column that stuck out of the card
+       at 390 px, and a long name in the dropdown made the page scroll sideways.
+       The dropdown may shrink (`min-w-0`) and keeps its width where there is room. #}
+    <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
           hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML" hx-trigger="change">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <span class="text-sm text-ink-soft">{{ _("wijkmeester") }}</span>
-      {% call ui.select_control("steward_person_id", cls="w-56", aria_label=_("Wijkmeester"), disabled=not editable) %}
-        <option value="">{{ _("— kies bestuurder —") }}</option>
-        {% for entry in circle %}
-        <option value="{{ entry.person.id }}" {% if item.steward_person_id == entry.person.id %}selected{% endif %}>{{ entry.person.first_name }} {{ entry.person.last_name }}</option>
-      
-        {% endfor %}
-      {% endcall %}
-      <span class="text-xs text-ink-soft">{{ _("genotuleerd — de toewijzing zelf gebeurt in de Raak-administratie") }}</span>
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-ink-soft">{{ _("wijkmeester") }}</span>
+        {% call ui.select_control("steward_person_id", cls="w-56 min-w-0", aria_label=_("Wijkmeester"), disabled=not editable) %}
+          <option value="">{{ _("— kies bestuurder —") }}</option>
+          {% for entry in circle %}
+          <option value="{{ entry.person.id }}" {% if item.steward_person_id == entry.person.id %}selected{% endif %}>{{ entry.person.first_name }} {{ entry.person.last_name }}</option>
+          {% endfor %}
+        {% endcall %}
+      </div>
+      <p class="mt-1 text-xs text-ink-soft">{{ _("genotuleerd — de toewijzing zelf gebeurt in de Raak-administratie") }}</p>
     </form>
     {% endif %}
 
