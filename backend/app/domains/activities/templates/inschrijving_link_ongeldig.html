@@ -1,0 +1,12 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Vragen bij je inschrijving") }}{% endblock %}
+{% block content %}
+{# CR-14 §B5: a spent answer link and an unknown one answer the same 404 — nothing
+   revealed. A spent one is simply answered, and this says that is fine. Not a
+   question page: the questions are the form's own page (`formulier.html`, #1380). #}
+<div class="max-w-md mx-auto">
+  {{ ui.page_header(_("Vragen bij je inschrijving")) }}
+  <p class="text-sm text-ink">{{ _("Deze link is niet (meer) geldig. Heb je de vragen al beantwoord? Dan is alles in orde — de organisatie heeft je antwoorden.") }}</p>
+</div>
+{% endblock %}

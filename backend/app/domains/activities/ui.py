@@ -280,31 +280,39 @@ async def inschrijf_submit(
 # ── The answer link (CR-14 phase 2, §B4.8) ────────────────────────────────────
 
 
-def _answer_ctx(request: Request, db: Session, registration: Any, **extra: Any) -> dict:
-    """The answer page: whose registration, for what, and the questions. The first
-    name and the activity only — whoever holds a forwarded link learns no more than
-    the mail already said (§B5)."""
+def _answer_page(
+    request: Request, db: Session, registration: Any, token: str, **route: Any
+) -> HTMLResponse:
+    """The answer link's page IS the form's own page (`formulier.html`, #1380): the
+    same shell, title, description, section cards, steps and submit. Only what this
+    route decides differs, and it goes in as data: where it posts, no name and
+    e-mail card (the registration has its contact), and a line saying whose
+    registration it is — the first name and the activity only, no more than the
+    mail said (§B5)."""
     from app.domains.activities.api import question_form
-    from app.domains.forms.api import screen_fields
+    from app.domains.forms.api import form_page_context
 
-    component = registration.component
-    form = question_form(db, component)
-    return {
-        **site_context(db, request),
-        "voornaam": (registration.contact_name or "").split(" ")[0],
-        "activiteit": registration.activity.name,
-        "onderdeel": component.name,
+    voornaam = (registration.contact_name or "").split(" ")[0]
+    questions = question_form(db, registration.component)
+    if questions is None:
         # Only reached for a registration that awaits answers, whose form exists
-        # (`registration_awaiting_answers`); an empty list rather than a crash if
-        # it vanished in between.
-        "vragen": screen_fields(list(form.fields) if form is not None else []),
-        "values": {},
-        "error": None,
-        "vraag_fout": None,
-        "ongeldig": False,
-        "beantwoord": None,
-        **extra,
-    }
+        # (`registration_awaiting_answers`); gone in between is the same 404.
+        return _answer_link_gone(request, db)
+    return templates.TemplateResponse(
+        request,
+        "formulier.html",
+        {
+            **site_context(db, request),
+            **form_page_context(
+                questions,
+                action=f"/inschrijving/{token}/vragen",
+                show_submitter=False,
+                intro=_("Inschrijving van %(naam)s voor %(activiteit)s.")
+                % {"naam": voornaam, "activiteit": registration.activity.name},
+                **route,
+            ),
+        },
+    )
 
 
 def _answer_link_gone(request: Request, db: Session) -> HTMLResponse:
@@ -312,19 +320,8 @@ def _answer_link_gone(request: Request, db: Session) -> HTMLResponse:
     answered, and the page says that is fine (§B5: nothing revealed)."""
     return templates.TemplateResponse(
         request,
-        "inschrijving_vragen.html",
-        {
-            **site_context(db, request),
-            "ongeldig": True,
-            "voornaam": "",
-            "activiteit": "",
-            "onderdeel": "",
-            "vragen": [],
-            "values": {},
-            "error": None,
-            "vraag_fout": None,
-            "beantwoord": None,
-        },
+        "inschrijving_link_ongeldig.html",
+        site_context(db, request),
         status_code=404,
     )
 
@@ -340,9 +337,7 @@ def answer_page(token: str, request: Request, db: Session = Depends(get_db)) -> 
     registration = registration_awaiting_answers(db, token)
     if registration is None:
         return _answer_link_gone(request, db)
-    return templates.TemplateResponse(
-        request, "inschrijving_vragen.html", _answer_ctx(request, db, registration)
-    )
+    return _answer_page(request, db, registration, token)
 
 
 @router.post(
@@ -353,43 +348,48 @@ def answer_page(token: str, request: Request, db: Session = Depends(get_db)) -> 
 async def answer_submit(
     token: str, request: Request, db: Session = Depends(get_db)
 ) -> HTMLResponse:
-    from app.domains.activities.api import answer_questions, registration_awaiting_answers
+    from app.domains.activities.api import (
+        answer_questions,
+        form_values,
+        question_form,
+        registration_awaiting_answers,
+    )
     from app.domains.forms.api import answers_from_form, submission_views
 
     registration = registration_awaiting_answers(db, token)
     if registration is None:
         return _answer_link_gone(request, db)
     form = await request.form()
-    from app.domains.activities.api import form_values
-
-    values = form_values(form)
-    from app.domains.activities.api import question_form
-
-    answers = answers_from_form(question_form(db, registration.component), form)
+    questions = question_form(db, registration.component)
+    answers = answers_from_form(questions, form)
     try:
         answer_questions(db, token, answers)
     except LookupError:
         return _answer_link_gone(request, db)
     except HTTPException as exc:
-        return templates.TemplateResponse(
+        return _answer_page(
             request,
-            "inschrijving_vragen.html",
-            _answer_ctx(
-                request,
-                db,
-                registration,
-                values=values,
-                error=str(exc.detail),
-                vraag_fout=getattr(exc, "veld_id", None),
-            ),
+            db,
+            registration,
+            token,
+            values=form_values(form),
+            error=str(exc.detail),
+            fout_veld_id=getattr(exc, "veld_id", None),
         )
+    # The form's own thank-you page, with the answers as they were stored.
     rows = submission_views(db, [registration.form_submission_id])
     return templates.TemplateResponse(
         request,
-        "inschrijving_vragen.html",
-        _answer_ctx(
-            request, db, registration, beantwoord=rows.get(registration.form_submission_id, [])
-        ),
+        "formulier_klaar.html",
+        {
+            **site_context(db, request),
+            "form": questions,
+            "updated": False,
+            "edit_link": None,
+            "bedankt": _("✅ Bedankt, %(naam)s! Je antwoorden zijn bewaard.")
+            % {"naam": (registration.contact_name or "").split(" ")[0]},
+            "antwoorden": rows.get(registration.form_submission_id, []),
+        },
     )
 
 

@@ -200,16 +200,31 @@ def questions_context(component: ActivitySubRegistration, values: Mapping[str, A
     from sqlalchemy.orm import object_session
 
     from app.domains.activities.service import question_form
-    from app.domains.forms.api import screen_fields
 
     # A soft reference (#396), read through `forms.api`: a form deleted in the
     # builder is None, and then the component asks nothing.
     form = question_form(object_session(component), component)
-    fields = [f for f in form.fields] if form is not None else []
     return {
-        "vragen": screen_fields(fields),
+        **question_block_context(form),
         "vragen_nu": values.get("questions", "now") != "later",
         "vraag_fout": None,
+    }
+
+
+def question_block_context(form: Any) -> dict:
+    """What the form's own question block needs (#1380, `_formulier_vragen.html`):
+    the form (its title and description), its sections with their fields, and the
+    fields in no section — grouped by `forms.api.question_groups`, as the form's own
+    page groups them. `vragen` is every question in order, empty when the component
+    asks none. For the registration page, the answer link and the detail alike."""
+    from app.domains.forms.api import question_groups
+
+    grouped, loose = question_groups(form) if form is not None else ([], [])
+    return {
+        "vraagformulier": form,
+        "vraag_groepen": grouped,
+        "vraag_los": loose,
+        "vragen": [f for g in grouped for f in g["fields"]] + list(loose),
     }
 
 

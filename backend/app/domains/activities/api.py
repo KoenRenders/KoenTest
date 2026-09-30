@@ -53,6 +53,7 @@ from app.domains.activities.registration_form import (  # noqa: F401
     is_member,
     opening_quantity,
     public_channel,
+    question_block_context,
     submit,
     total_context,
 )

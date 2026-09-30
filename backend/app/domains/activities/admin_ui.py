@@ -1008,10 +1008,11 @@ def _detail_ctx(
     verrijkt = enrich_registration(reg, activity)
     from app.domains.activities.api import (
         answer_link_action,
+        question_block_context,
         question_form,
         registration_answers,
     )
-    from app.domains.forms.api import screen_fields, submission_form_values
+    from app.domains.forms.api import submission_form_values
 
     antwoorden, gevraagd_op = registration_answers(db, reg)
     link_actie = answer_link_action(db, reg)
@@ -1066,7 +1067,8 @@ def _detail_ctx(
         "link_actie": link_actie,
         # CR-14 phase 3 (§B4.7): the answers, editable — the form builder's field
         # partial reads `values`; `vraag_fout` marks the question a refusal names.
-        "vragen": screen_fields(list(vragenformulier.fields)) if vragenformulier else [],
+        # #1380: the form's own question block.
+        **question_block_context(vragenformulier),
         "values": submission_form_values(db, reg.form_submission_id) if vragenformulier else {},
         "vraag_fout": None,
     }

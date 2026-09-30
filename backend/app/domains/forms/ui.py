@@ -13,8 +13,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.forms.api import FieldType, answers_from_form
-from app.domains.forms.screenfields import screen_fields
+from app.domains.forms.api import answers_from_form
 from app.i18n import _
 from app.limiter import form_submit_limiter
 from app.ui import templates
@@ -145,83 +144,13 @@ def _form_render_ctx(
         db, request, submitter_name, submitter_email
     )
 
-    # Veldenlijst in weergavevolgorde: secties (op positie) met hun velden,
-    # daarna de ongegroepeerde velden.
-    sections = sorted(form_model.sections, key=lambda s: (s.position, s.id))
-    grouped = []
-    for section in sections:
-        grouped.append(
-            {
-                "section": section,
-                "fields": screen_fields(f for f in form_model.fields if f.section_id == section.id),
-            }
-        )
-    loose = screen_fields(f for f in form_model.fields if f.section_id is None)
-
-    # Stap-per-stap-wizard (#454): enkel bij ≥2 secties en geen losse velden —
-    # de branching (sectie- en optie-niveau) wordt vertaald naar stap-indices zodat
-    # de Alpine-wizard client-side dezelfde route volgt als de server (#336). Bij
-    # afwijking blijft de server de waarheid (die valideert de bereikte route).
-    idx_by_id = {s.id: i for i, s in enumerate(sections)}
-    wizard = len(sections) >= 2 and not loose
-    wizard_steps = []
-    if wizard:
-        for section in sections:
-            skips = []
-            for f in (fld for fld in form_model.fields if fld.section_id == section.id):
-                for o in f.options:
-                    if o.skip_to_section_id is not None or o.skip_to_end:
-                        skips.append(
-                            {
-                                "opt": o.id,
-                                "section": idx_by_id.get(o.skip_to_section_id),
-                                "end": bool(o.skip_to_end),
-                            }
-                        )
-            wizard_steps.append(
-                {
-                    "id": section.id,
-                    "end": bool(section.next_is_end),
-                    "next": idx_by_id.get(section.next_section_id)
-                    if section.next_section_id is not None
-                    else None,
-                    "skips": skips,
-                    # #724: welke velden van déze stap verplicht zijn. Het HTML-attribuut
-                    # `required` staat er bewust niet op (#688) — de browser valideert het
-                    # hele formulier bij verzending, ook de stappen die je nooit ziet —
-                    # dus de wizard heeft die lijst zelf nodig om per stap te kunnen
-                    # controleren. Een `info`-blok is geen vraag.
-                    "req": [
-                        f.id
-                        for f in form_model.fields
-                        if f.section_id == section.id
-                        and f.required
-                        and f.field_type is not FieldType.INFO
-                    ],
-                }
-            )
-
-    # #724: openen op de stap van het gemelde veld. De foutweg rendert deze pagina
-    # opnieuw en Alpine initialiseert het component vers — dus zonder dit stond je
-    # weer op stap 0, met een melding over een vraag die je niet ziet.
-    start_step = 0
-    if wizard and fout_veld_id is not None:
-        veld = next((f for f in form_model.fields if f.id == fout_veld_id), None)
-        if veld is not None:
-            start_step = idx_by_id.get(veld.section_id, 0)
+    from app.domains.forms.api import form_page_context
 
     return {
         **site_context(db, request),
-        "form": form_model,
-        "grouped": grouped,
-        "loose_fields": loose,
-        "values": values or {},
-        "error": error,
+        **form_page_context(form_model, values=values, error=error, fout_veld_id=fout_veld_id),
         "submitter_name": submitter_name,
         "submitter_email": submitter_email,
-        "wizard": wizard,
-        "wizard_steps": wizard_steps,
-        "start_step": start_step,
     }
 
 

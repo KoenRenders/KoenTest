@@ -3,7 +3,7 @@
 {% block title %}{{ form.title }} — Raak{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 
-{% from "_formulier_veld.html" import veld with context %}
+{% from "_formulier_vragen.html" import vragen_kop, vragen_kaarten with context %}
 
 {% block content %}
 {# #688: bij een wizard omvat de Alpine-scope de héle pagina, niet alleen de
@@ -11,20 +11,26 @@
    er niet bij en ze bleven op élke stap staan. De TITEL blijft wel staan: die zegt
    waar je bent, en dat wil je op elke stap zien. #}
 <div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }}, {{ start_step }})' @change="recompute()"{% endif %}>
-  <h1 class="text-2xl font-bold text-kop mb-2">{{ form.title }}</h1>
-  {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
+  {# #1380: the question block — title and description (`vragen_kop`), the section
+     cards (`vragen_kaarten`) — is the shared `_formulier_vragen.html`, the same the
+     registration renders. What this page adds stays here: its error banner, the
+     name and e-mail card, the wizard's message, its submit and wizard buttons. #}
+  {{ vragen_kop(form, heading="h1", wizard=wizard) }}
+  {# #1380: a line the route adds under the description — the answer link of a
+     registration says whose registration it is. #}
+  {% if intro %}<p class="text-sm text-ink mb-4">{{ intro }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
   {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met
      server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
      verzend-flow (en de URL in de geschiedenis) exact blijft zoals ze was. #}
-  <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
+  <form method="post" action="{{ form_action }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
         hx-boost="false" class="space-y-6"
         {# #724: Verzenden is geen `next()`, dus de laatste stap heeft haar eigen
            controle nodig — anders verschuift het probleem naar het einde. #}
         {% if wizard %}@submit="if (!controleer()) $event.preventDefault()"{% endif %}>
-    {% if not form.is_anonymous %}
+    {% if show_submitter %}
     {# #688: `required` valt weg zodra dit een wizard is, precies zoals bij de
-       sectievelden hierboven. Een verborgen veld met `required` laat de browser bij
+       sectievelden. Een verborgen veld met `required` laat de browser bij
        verzenden falen met "An invalid form control is not focusable" — de
        constraint-validatie wil naar een onzichtbaar veld springen en het verzenden
        mislukt geruisloos. Dat is erger dan het probleem dat we oplossen.
@@ -45,64 +51,21 @@
     {% endcall %}
     </div>
     {% endif %}
-    {# De stappen houden hun eigen `x-cloak`: zonder dat staan ze allemaal tegelijk
-       op het scherm tot Alpine geladen is. #}
     {# #741: de melding. Zonder haar markeerde `controleer()` alleen en scrolde ze —
-       en op een keuzevraag was die markering onzichtbaar, dus je zag het scherm een
-       paar centimeter schuiven en verder niets. Dat leest als "er ging iets stuk".
-       Zelfde vorm als ui.error_banner, zodat het scherm dezelfde taal spreekt als de
-       rest van de app (§2.9). #}
+       en op een keuzevraag was die markering onzichtbaar. Zelfde vorm als
+       ui.error_banner (§2.9). #}
     {% if wizard %}
     <div x-show="fout" x-cloak role="alert" x-text="fout"
          class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800"></div>
     {% endif %}
-    {% if wizard %}<div x-cloak>{% endif %}
-    {% for g in grouped %}
-    {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
-    {% call ui.card() %}
-      {# #749: één stap boven de vraag, zodat de drietrap sectie → vraag → optie
-         zichtbaar is. Niet in merkblauw: §2.5 houdt kaarttitels in inktkleur.
-
-         #768: `pl-3` erbij, dezelfde insprong als een vraagblok. Die blokken
-         reserveren sinds #741 4 px rand + 12 px ruimte voor de rode foutbalk, zodat
-         de vraag niet verspringt op het moment dat ze gemarkeerd wordt. De titel
-         stond buiten die reservering en stak dus 16 px links uit. Gelijktrekken door
-         de titel mee te laten inspringen — NIET door de reservering weg te halen,
-         want dan springt de vraag weer bij elke fout.
-
-         `pl-4` en niet `pl-3`: de doorzichtige rand van 4 px telt mee, dus de tekst
-         van een vraag begint op 4+12 = 16 px. #}
-      {% if g.section.title %}<h2 class="text-lg font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
-      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
-      {# #749: ruim tussen de vragen, dicht bij de opties. De typografie alleen loste
-         het half op — alles stond op gelijke afstand, en dáárom las de lijst als één
-         massa. Nabijheid doet het werk.
-
-         #768/#774: de afstand tussen twee vraagblokken is 22 px doos-ruimte plus de
-         8 px padding onder het laatste antwoord = 30 px wit. Een arbitraire waarde en
-         geen `space-y-5`/`space-y-6`, omdat die op 28 of 32 px uitkomen en de drie
-         afstanden hier bewust op 16 : 20 : 30 staan — de verhouding is de reden dat
-         je ziet welke antwoorden bij welke vraag horen. #}
-      <div class="space-y-[22px]">
-        {% for f in g.fields %}{{ veld(f, wizard) }}{% endfor %}
-      </div>
-    {% endcall %}
-    {% if wizard %}</div>{% endif %}
-    {% endfor %}
-    {% if loose_fields %}
-    {% call ui.card() %}
-      <div class="space-y-[22px]">
-        {% for f in loose_fields %}{{ veld(f) }}{% endfor %}
-      </div>
-    {% endcall %}
-    {% endif %}
+    {{ vragen_kaarten(grouped, loose_fields, wizard=wizard, vraag_fout=vraag_fout) }}
     {% if wizard %}
     {% set submit_label = _("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden") %}
     {# #768: één voet in plaats van een losse stapregel bóven een `justify-between`
        die de knoppen naar de uiterste randen duwt. De stapaanduiding staat er nu ín,
        en de knoppen staan bij elkaar rechts — met "Vorige" links, want dat is de weg
        terug en geen tegenhanger van "Volgende". #}
-    <div class="mt-4 flex items-center gap-3">
+    <div class="!mt-4 flex items-center gap-3" x-cloak>
       <span class="text-xs text-gray-400" x-text="'{{ _('Stap') }} ' + (stack.length + 1)"></span>
       <div class="ml-auto flex items-center gap-2">
         {# x-show i.p.v. een opacity-class: Tailwind purget dynamisch-in-:class
