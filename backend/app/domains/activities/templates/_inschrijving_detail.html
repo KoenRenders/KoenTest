@@ -17,15 +17,19 @@
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
      {% if editable %}x-data="{ edit: {{ 'true' if edit_open else 'false' }} }"{% endif %}>
   {{ ui.error_banner(error|default(None)) }}
-  <div class="flex items-start justify-between gap-2">
-    <div>
+  {# #1367: the row wraps — without room the buttons drop under the name — and the
+     contact block may shrink and break a long address, so nothing pushes the page
+     wider than the screen (it scrolled sideways at 390 px, in edit mode and with a
+     long address in read mode too). #}
+  <div class="flex flex-wrap items-start justify-between gap-2">
+    <div class="min-w-0 break-words">
       <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>
       {% if reg.contact_email or reg.phone %}
-      <div class="text-gray-500">{{ reg.contact_email or "" }}{% if reg.phone %} · {{ reg.phone }}{% endif %}</div>
+      <div class="text-gray-500 [overflow-wrap:anywhere]">{{ reg.contact_email or "" }}{% if reg.phone %} · {{ reg.phone }}{% endif %}</div>
       {% endif %}
     </div>
     {% if editable %}
-    <div class="flex gap-2">
+    <div class="flex flex-wrap justify-end gap-2 ml-auto">
       {{ ui.edit_toggle("edit", size="sm") }}
       <div x-show="edit" x-cloak>{{ ui.action_bar(form="insch-form-" ~ reg.id, cancel_attrs='@click="edit = false"',
            delete_attrs=('hx-post="/admin/activiteiten/' ~ reg.activity_id ~ '/inschrijvingen/' ~ reg.id ~ '/verwijderen?vanuit=pagina" ' ~ confirm_attrs(_("Inschrijving"), reg.contact_name)) if op_pagina|default(false) else "") }}</div>
@@ -196,4 +200,5 @@
    `toast_bericht` staat alleen op het succespad van /opslaan. De detailroute,
    /totaal en /regels renderen ditzelfde fragment en horen geen bevestiging te
    tonen — daar is de vlag None. #}
-{% if toast_bericht %}{{ ui.toast_oob() }}{% endif %}
+{# #1367: the route's own words; "Opgeslagen ✓" only when it passes none. #}
+{% if toast_bericht %}{{ ui.toast_oob(toast_bericht if toast_bericht is string else None) }}{% endif %}
