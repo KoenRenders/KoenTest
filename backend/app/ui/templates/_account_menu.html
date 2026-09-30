@@ -1,6 +1,14 @@
 {# Inhoud van het accountmenu (#963) — lui geladen door admin_base.html zodra
    het menu voor het eerst opengaat. "Werkruimte wisselen" bestaat alleen voor
-   wie meer dan één werkruimte heeft. #}
+   wie meer dan één werkruimte heeft.
+
+   #1391 (CR-11 W9): the first line says who is signed in — the address left the
+   trigger in the bar. It comes from the same cookie-only helper as the initials,
+   so the fragment costs no extra query. admin_base.html includes this same file
+   as the fallback until the lazy swap. #}
+{% set _signed_in = beheer_account(request) %}
+{% if _signed_in %}<p class="px-4 pt-2 pb-1 text-xs text-ink-soft">{{ _("Aangemeld als") }}<span class="block text-sm text-ink truncate" title="{{ _signed_in.email }}">{{ _signed_in.email }}</span></p>
+<div class="border-t border-line my-1"></div>{% endif %}
 <a href="/admin/profiel" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Mijn profiel") }}</a>
 {% if toon_wisselen %}
 <a href="/admin/werkruimte-wisselen" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Werkruimte wisselen") }}</a>

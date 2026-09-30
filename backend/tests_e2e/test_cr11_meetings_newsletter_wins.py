@@ -118,7 +118,7 @@ def test_w4_one_link_to_the_settings_in_the_header(phone):
     links = page.evaluate(
         """() => [...document.querySelectorAll('a[href="/admin/vergaderingen/kring"]')]
              .map(a => ({text: a.textContent.trim(),
-                         inHeader: !!a.closest('.justify-between'),
+                         inHeader: !!a.closest('[data-page-header]'),
                          visible: !!a.offsetHeight}))"""
     )
     print("MEASURE W4", links)

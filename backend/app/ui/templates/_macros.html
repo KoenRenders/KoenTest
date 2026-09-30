@@ -287,17 +287,31 @@
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>
 {%- endmacro %}
 
+{# On a phone the create button stays on the title line (#1391, CR-11 W10).
+   Before, the whole action row wrapped under the title, flush left. Below `md`
+   the action wrapper dissolves (`contents`) so its buttons join the header's
+   own flex row: the LAST action — the primary one, by convention the rightmost
+   — keeps its place beside the title, the others move to a row of their own
+   underneath (`order-1`), right-aligned, and the subtitle comes last, full
+   width. The title truncates (Koen accepted a truncated title, 30 September
+   2026); its 33 % basis is what pushes the secondary buttons off the title
+   line, while it still grows into whatever the primary button leaves. From
+   `md` a grid restores the desktop layout: title and subtitle left, the
+   actions right in their DOM order, aligned to the bottom.
+   `data-page-header` marks the macro's output for tests, so they do not pin
+   the class string. An empty call block (a screen with nothing to add) counts
+   as no actions. #}
 {% macro page_header(title, subtitle=None) -%}
-<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-  <div>
-    <h1 tabindex="-1" class="text-3xl font-bold text-kop">{{ title }}</h1>
-    {% if subtitle %}<p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>{% endif %}
-  </div>
+{% set actions = caller() if caller is defined else "" %}
+{% set has_actions = actions | trim | length > 0 %}
+<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
+  <h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1{% if has_actions %} truncate md:whitespace-normal{% endif %}">{{ title }}</h1>
   {# `caller is defined` en niet `if caller` (#643): onder StrictUndefined klapt
      een waarheidstest op een niet-bestaande variabele eruit, en Jinja zet
      `caller` juist op undefined wanneer de macro zónder {% call %} gebruikt
      wordt. `is defined` vraagt naar het bestaan i.p.v. naar de waarde. #}
-  {% if caller is defined %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
+  {% if has_actions %}<div class="contents [&>*:not(:last-child)]:order-1 md:flex md:flex-wrap md:justify-end md:items-center md:gap-2 md:col-start-2 md:row-start-1 md:row-span-2 md:[&>*:not(:last-child)]:order-none">{{ actions }}</div>{% endif %}
+  {% if subtitle %}<p class="order-2 basis-full text-sm text-gray-500 mt-1 md:order-none md:col-start-1 md:row-start-2">{{ subtitle }}</p>{% endif %}
 </div>
 {%- endmacro %}
 

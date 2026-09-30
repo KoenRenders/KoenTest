@@ -1,11 +1,9 @@
 <main id="main" class="flex-1 px-4 py-8">
 <div class="max-w-none mx-auto">
 <div class="text-[11px] text-ink-soft mb-2">Financieel › Betalingen</div>
-<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
-<div>
-<h1 tabindex="-1" class="text-3xl font-bold text-kop">Betalingen</h1>
-<p class="text-sm text-gray-500 mt-1">Vorderingen, ontvangsten en terugbetalingen op één plek.</p>
-</div>
+<div data-page-header class="flex flex-wrap items-start justify-end gap-x-3 gap-y-2 mb-6 md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-y-0">
+<h1 tabindex="-1" class="min-w-0 flex-[1_1_33%] text-3xl font-bold text-kop md:col-start-1 md:row-start-1">Betalingen</h1>
+<p class="order-2 basis-full text-sm text-gray-500 mt-1 md:order-none md:col-start-1 md:row-start-2">Vorderingen, ontvangsten en terugbetalingen op één plek.</p>
 </div>
 <div id="bt-boven">
 <input type="hidden" name="zicht" value="openstaand" form="bt-filter">

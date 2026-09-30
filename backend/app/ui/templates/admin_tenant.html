@@ -5,11 +5,11 @@
 {# Paginabrede editor van één tenant (#581). Alle settings die vroeger op
    /admin/instellingen stonden, nu zonder afdelingskiezer: welke tenant je bewerkt
    volgt uit de URL. #}
+{{ ui.back_link(_("Alle tenants"), "/admin/tenants") }}
 {% call ui.page_header(unit.name, _("Instellingen van deze site. Een leeg veld = de standaardwaarde (Millegem/.env).")) %}
   {# #971: de weg naar de organisatie erachter. Naam, rechtsvorm, adres, rekening en
      nummers staan daar — dit scherm gaat over de site. #}
   {{ ui.btn_secondary(_("De organisatie"), href="/admin/organisaties/" ~ tenant_id, size="sm") }}
-  {{ ui.btn_secondary(_("‹ Alle tenants"), href="/admin/tenants", size="sm") }}
 {% endcall %}
 {{ ui.error_banner(error) }}
 

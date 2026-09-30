@@ -117,8 +117,8 @@ def test_teruglink_benoemt_de_herkomst(client, db_session):
     via_betalingen = client.get(
         f"/admin/inschrijvingen/{reg.id}", params={"terug": "/admin/betalingen"}
     ).text
-    assert "← Betalingen" in via_betalingen
+    assert "‹ Betalingen" in via_betalingen
     vervalst = client.get(
         f"/admin/inschrijvingen/{reg.id}", params={"terug": "https://evil.example"}
     ).text
-    assert f"← {activity.name}" in vervalst
+    assert f"‹ {activity.name}" in vervalst

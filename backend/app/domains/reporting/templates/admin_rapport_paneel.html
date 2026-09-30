@@ -5,8 +5,8 @@
    een tabel met maten erbij passen niet in max-w-5xl. #}
 {% block content_width %}max-w-7xl{% endblock %}
 {% block content %}
+{{ ui.back_link(_("Alle rapporten"), "/admin/rapporten") }}
 {% call ui.page_header(name or _("Nieuw rapport"), description or _("Kies objecten links, filters rechts. Het resultaat verschijnt meteen.")) %}
-  {{ ui.btn_secondary(_("‹ Alle rapporten"), href="/admin/rapporten", size="sm") }}
 {% endcall %}
 {% include "_rp_paneel.html" %}
 {% endblock %}
