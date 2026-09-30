@@ -90,6 +90,21 @@ docker compose exec backend alembic upgrade head
 
 See `caddy/Caddyfile` for domain configuration.
 
+## Branches and pull requests
+
+The rules live in one place, `CLAUDE.md` under *Development workflow* and
+*Releases and hotfixes*; this section only tells you where to look. In short:
+
+- Every deployable change goes through a GitHub issue.
+- Feature work happens on its own branch (`feature/<who>-<issue>-<slug>`) and
+  reaches `master` through a pull request with green CI.
+- The master CLI performs every merge, and only for work that is assigned to a
+  release; unassigned work waits on its branch.
+- A merged branch is deleted on GitHub automatically ("Automatically delete head
+  branches" is on since 30 September 2026). Clean up your local copy with
+  `git fetch --prune`. A branch that still exists on GitHub is either open work
+  or parked for a later release.
+
 ## Claude Code tooling
 
 Project-specific helpers for [Claude Code](https://claude.com/claude-code) live in
