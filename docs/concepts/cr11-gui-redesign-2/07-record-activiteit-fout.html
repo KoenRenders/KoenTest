@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Activiteit — concept recordpagina (bewerken)</title>
+<title>Activiteit — concept recordpagina (validatiefout bij Opslaan)</title>
 <link rel="stylesheet" href="../../../backend/app/static/app.css"><link rel="stylesheet" href="concept.css"></head>
 <body data-shell="admin"><div class="shell">
 <nav class="sidebar"><div class="brand">RaaK beheer</div>
@@ -22,6 +22,7 @@
   <div>
    <div class="tabs"><a class="active" href="#">Gegevens</a><a href="#">Inschrijvingen (23)</a><a href="#">Betalingen (23)</a></div>
    <div class="formcol">
+    <div class="banner-error" role="alert"><b>Niet opgeslagen.</b> Twee velden vragen aandacht: <a href="#f-tot" style="color:inherit">Inschrijven tot</a> en <a href="#f-prijs" style="color:inherit">de prijs van Kind</a>. Alles wat je typte staat er nog.</div>
     <div class="section"><h2>Activiteit</h2>
      <div class="grid2">
       <div class="field full"><label>Naam</label><input value="Sinterklaas huisbezoeken 2026"></div>
@@ -40,17 +41,17 @@
     <div class="section rg"><h2>Onderdelen &amp; producten <span class="btn btn-secondary btn-sm"><svg class="ico" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Onderdeel</span></h2>
      <div class="row" style="background:var(--surface-inset);border-radius:8px;margin-top:8px"><span class="handle">≡</span><span class="cell"><b>Onderdeel: Huisbezoek</b></span><span class="ellip">⋯</span></div>
      <div class="grid2" style="padding:4px 4px 12px 30px">
-      <div class="field"><label>Inschrijven tot</label><input type="date" value="2026-11-15"></div>
+      <div class="field invalid" id="f-tot"><label>Inschrijven tot</label><input type="date" value="2026-11-29" aria-invalid="true" aria-describedby="e-tot"><div class="err" id="e-tot">Moet vóór de eerste datum van de activiteit liggen (27 november).</div></div>
       <div class="field"><label>Maximum deelnemers</label><input value="" placeholder="geen"></div>
       <div class="field"><label>Ploegnaam vereist</label><div class="val"><span class="switch"><span class="track"></span><span class="word">uit</span></span></div></div>
       <div class="field"><label>Extra vragen</label><select><option>Sinterklaas — vragen bij je inschrijving</option><option>— geen —</option></select></div>
      </div>
      <div style="padding:4px 4px 0 30px;font-size:13px;font-weight:600;color:var(--ink-soft)">Producten van dit onderdeel</div>
-     <div class="row" style="padding-left:32px"><span class="handle">≡</span><span class="cell"><input value="Kind" style="width:160px"></span><span class="cell small">€ <input value="5,00" style="width:64px"></span><span class="cell small"><span class="switch on"><span class="track"></span><span class="word">publiek</span></span></span><span class="ellip">⋯</span></div>
+     <div class="row" style="padding-left:32px"><span class="handle">≡</span><span class="cell"><input value="Kind" style="width:160px"></span><span class="cell small field invalid" id="f-prijs" style="margin:0">€ <input value="-5,00" style="width:64px" aria-invalid="true"><div class="err">Een prijs is nul of meer.</div></span><span class="cell small"><span class="switch on"><span class="track"></span><span class="word">publiek</span></span></span><span class="ellip">⋯</span></div>
      <div style="padding-left:32px"><span class="btn btn-text btn-sm">+ Product</span></div>
     </div>
     <details class="rare"><summary>▸ Externe koppelingen <span class="badge gray">geen</span></summary><div class="inner"><div class="field"><label>Affiche-URL</label><input placeholder="https://…"><div class="help">De affiche komt uit de Design Studio; een adres intypen is de oude weg, bewaard voor het uitzonderlijke geval.</div></div></div></details>
-    <div class="bar"><span class="btn btn-danger-text btn-sm">Verwijderen</span><div class="right"><span class="btn btn-text btn-sm">Annuleren</span><span class="btn btn-primary">Opslaan</span></div></div>
+    <div class="bar"><span class="btn btn-danger-text btn-sm">Verwijderen</span><div class="right"><span class="btn btn-text btn-sm">Annuleren</span><span class="btn btn-primary">Opnieuw opslaan</span></div></div>
    </div>
   </div>
   <aside class="summary">
@@ -60,5 +61,5 @@
    <div class="fig"><span>Openstaand</span><b style="color:#c2410c">€ 25,00</b></div>
   </aside>
  </div>
- <div class="note" style="margin-top:24px"><b>Wat dit concept toont</b> · "Bewerken" maakte het hele scherm de editor zonder dat iets verschoof; het raster in twee kolommen, lange velden vol; schakelaars voor ja/nee; datums als eenvoudige groep en onderdelen als samengestelde groep — een titelrij per onderdeel met zijn instellingen eronder en zijn producten als eigen groep daarin — met de greep links waar de volgorde telt, "+ item" rechts van de kop, ⋯ rechts op de rij, allemaal opgeslagen met het ene Opslaan; de zeldzame instellingen ingeklapt; één actiebalk onderaan, Verwijderen apart links, Annuleren als tekst — op een telefoon plakt ze onderaan.</div>
+ <div class="note" style="margin-top:24px"><b>Wat dit concept toont</b> · de toestand "validatiefout bij Opslaan" van §3.18: het scherm blijft de editor, de balk blijft staan, één banner bovenaan het formulier noemt de geweigerde velden als sprongen, het eerste geweigerde veld is gemarkeerd en gescrold in beeld, de fout staat onder het veld zelf en elke getypte waarde is bewaard — ook in de rij van de herhalende groep; de primaire knop zegt wat hij nu doet. Geen toast, geen modal, niets verloren.</div>
 </div></main></div></body></html>

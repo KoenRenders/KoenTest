@@ -8,6 +8,11 @@
   --line:rgb(var(--c-line,229 231 235));--ink:rgb(var(--c-ink,17 24 39));--ink-soft:rgb(var(--c-ink-soft,107 114 128));
   --kop:rgb(var(--c-kop,25 38 56));--brand:rgb(var(--c-brand,0 81 164));--link:rgb(var(--c-link,35 103 189));}
 /* CONCEPT-ONLY: the hex values below (badges, accents, inset) are placeholders for tokens phase 2 defines; they must not be copied into the macros as they stand. */
+/* fonts by relative path, so a checkout renders the real letters (app.css points at /static/fonts/, which only exists behind the server) */
+@font-face{font-family:Inter;font-weight:400;src:url(../../../backend/app/static/fonts/Inter-Regular.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:500;src:url(../../../backend/app/static/fonts/Inter-Medium.woff2) format("woff2")}
+@font-face{font-family:Inter;font-weight:700;src:url(../../../backend/app/static/fonts/Inter-Bold.woff2) format("woff2")}
+@font-face{font-family:"Radio Canada Big";font-weight:400 700;src:url(../../../backend/app/static/fonts/RadioCanadaBig-VariableFont_wght.ttf) format("truetype")}
 *{box-sizing:border-box}
 body{margin:0;background:var(--surface-page);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.45}
 a{color:var(--link)}
@@ -43,9 +48,11 @@ main{flex:1;min-width:0}
 .tile:hover{background:var(--surface-card);border-color:var(--line)}
 .tile.active{background:var(--surface-card);border-color:var(--line)}
 .tile .n{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
-.tile .l{font-size:11px;color:var(--ink-soft)}
+.tile .l{font-size:13px;color:var(--ink-soft)}
 .tile .sub{font-size:11px;color:var(--ink-soft)}
 .tile.warn .n{color:#c2410c}
+.tile .two{display:flex;gap:14px}.tile .two b{font-size:20px;font-variant-numeric:tabular-nums}
+.field .val.word{font-weight:500}
 .titlerow .actions{margin-left:auto;display:flex;gap:8px}
 .toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--surface-card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:12px}
 .chips{display:flex;gap:6px}
@@ -88,7 +95,7 @@ table.list td.ellip{text-align:right;color:var(--ink-soft)}
 .section h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
 .full{grid-column:1/-1}.quarter{grid-column:span 1}
-.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
+.field label{display:block;font-size:13px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
 .field .val{font-size:15px;min-height:22px}
 .field .val.empty{color:#9ca3af}
 .field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;background:#fff}
@@ -124,8 +131,41 @@ table.list td.ellip{text-align:right;color:var(--ink-soft)}
 .doc-toolbar .sep{width:1px;background:var(--line);margin:0 4px}
 .doc{background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:24px 28px;min-height:520px;font-size:15px}
 .doc h3{margin:18px 0 6px}
+/* raakje panel */
+.rbody.with-panel{grid-template-columns:minmax(0,1fr) 300px 360px}
+.panel{background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:16px;position:sticky;top:16px;height:calc(100vh - 48px);display:flex;flex-direction:column}
+.panel h2{font-size:15px;margin:0 0 8px;display:flex;justify-content:space-between}
+.panel .ctx{font-size:12px;color:var(--ink-soft);background:var(--surface-inset);border-radius:8px;padding:6px 8px;margin-bottom:10px}
+.panel .msgs{flex:1;overflow:auto;font-size:14px}.panel .msg{border-radius:12px;padding:8px 10px;margin-bottom:8px;background:var(--surface-inset)}.panel .msg.me{background:#e8f0fb}
+.panel .ask{display:flex;gap:6px;margin-top:8px}.panel .ask input{flex:1}
+/* validation error */
+.banner-error{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+.field.invalid input,.field.invalid textarea{border-color:#dc2626;box-shadow:0 0 0 2px #fecaca}
+.field .err{font-size:12px;color:#b91c1c;margin-top:4px}
+/* stacked choices (now/later) */
+.choice{display:flex;flex-direction:column;gap:8px}
+.choice label{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:400}
+.choice label.on{border-color:var(--brand);background:#e8f0fb}
+.choice small{display:block;color:var(--ink-soft);font-size:12px}
+/* small laptop: content decides */
+@media (max-width:1100px){
+  .sidebar{width:56px;flex-basis:56px;padding:12px 6px}.sidebar .brand{font-size:0}.sidebar .brand::before{content:"R";font-size:20px}.sidebar .group{display:none}.sidebar a{font-size:0;height:36px}.sidebar a::before{content:"•";font-size:16px}
+  .rbody,.rbody.with-panel{grid-template-columns:1fr}.summary{position:static;display:flex;gap:16px;align-items:center;padding:10px 12px}.summary .fig{border:0;padding:0;flex-direction:column;font-size:12px}.panel{position:static;height:auto}
+}
+@media (max-width:900px){.grid2{grid-template-columns:1fr}}
+.phonebar{display:none}
 /* phone */
 @media (max-width:767px){
+  .phonebar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface-card);border-bottom:1px solid var(--line)}
+  .phonebar .brand{font-family:"Radio Canada Big",Inter,sans-serif;font-weight:800;color:var(--kop)}
+  table.list thead{display:none}
+  table.list tbody tr{display:flex;flex-wrap:wrap;gap:2px 10px;padding:8px 12px;border-bottom:1px solid var(--line)}
+  table.list td{border:0;padding:0;font-size:13px}
+  table.list td.name{order:-2;flex:1;font-weight:600;font-size:14px}
+  table.list td.saldo{order:-1;font-weight:600;font-size:14px}
+  table.list td.ellip{order:5;flex-basis:100%;text-align:right}
+  .opts.slots{columns:1}
+  .scale{flex-wrap:wrap}
   .shell{flex-direction:column}.sidebar{display:none}
   .frame{padding:12px 16px 96px}
   .titlerow .actions{margin-left:0}.tiles{gap:12px;margin-left:0;width:100%}

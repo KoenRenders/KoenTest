@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activiteit — concept publieke activiteitpagina</title>
+<link rel="stylesheet" href="../../../backend/app/static/app.css"><link rel="stylesheet" href="concept.css">
+<style>
+.site-top{background:var(--surface-card);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;align-items:center;gap:24px}
+.site-top .brand{font-family:"Radio Canada Big",Inter,sans-serif;font-weight:800;color:var(--kop);font-size:22px}
+.site-top nav a{margin-right:16px;text-decoration:none;color:var(--ink);font-size:14px}
+@media (max-width:767px){.site-nav{display:none}.phone-only{display:inline-flex!important}.site-top .right .raakje{display:none}}
+.site-top .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+.qcard .q{margin-bottom:14px}
+.qcard .q label{font-weight:600;display:block;margin-bottom:4px}
+.qcard .q .help{margin:0 0 6px}
+.opts label{display:block;font-weight:400;padding:3px 0}
+.scale{display:flex;gap:14px;align-items:center;font-size:13px;color:var(--ink-soft)}
+.scale input{margin:0 4px}
+
+.hero{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:32px;align-items:start}
+.poster{aspect-ratio:3/4;border-radius:18px;background:linear-gradient(160deg,#0051a4,#2367bd 60%,#f3c400);display:flex;align-items:flex-end;padding:20px;color:#fff;font-family:"Radio Canada Big",Inter,sans-serif;font-weight:800;font-size:26px;line-height:1.1}
+.keyfacts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:16px 0 24px}
+.keyfacts div{font-size:14px}.keyfacts b{display:block;font-size:12px;color:var(--ink-soft);font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.cta{position:sticky;top:16px;background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:16px}
+.cta .price{font-size:24px;font-weight:800}.cta .price small{font-size:13px;font-weight:400;color:var(--ink-soft)}
+.who{display:flex;flex-wrap:wrap;gap:6px}.who span{background:var(--surface-inset);border-radius:999px;padding:3px 10px;font-size:12px}
+@media (max-width:767px){.hero{grid-template-columns:1fr}.poster{aspect-ratio:16/9;font-size:20px}.cta{position:fixed;left:0;right:0;bottom:0;border-radius:18px 18px 0 0;padding:12px 16px;display:flex;align-items:center;gap:12px;justify-content:space-between;z-index:5}.cta .more{display:none}.frame{padding-bottom:96px}}
+</style></head>
+<body data-shell="site">
+<div class="site-top"><span class="brand">RaaK</span><span class="btn btn-secondary btn-sm phone-only" aria-label="Menu" style="display:none">☰</span><nav class="site-nav"><a href="#">Activiteiten</a><a href="#">Foto's</a><a href="#">Word lid</a><a href="#">Contact</a></nav><div class="right"><span class="raakje">✦ Raakje</span><a class="btn btn-secondary btn-sm" href="#">Aanmelden</a></div></div>
+<main><div class="frame" style="max-width:1100px;margin:0 auto">
+ <div class="wayback"><a href="#">‹ Alle activiteiten</a></div>
+ <div class="hero">
+  <div>
+   <div class="rhead"><h1>Sinterklaas huisbezoeken 2026 <span class="badge blue">enkel leden</span></h1></div>
+   <div class="facts">vr 27 nov 17–21 u · za 28 nov 8–17 u · bij jou thuis</div>
+   <div class="keyfacts">
+    <div><b>Wanneer</b>vrijdag 27 november, 17–21 u<br>zaterdag 28 november, 8–17 u</div>
+    <div><b>Waar</b>Aan huis, in Millegem</div>
+    <div><b>Voor wie</b>Kinderen van RAAK-leden tot 10 jaar</div>
+    <div><b>Inschrijven tot</b>15 november · 8 plaatsen vrij op zaterdag</div>
+   </div>
+   <div class="section" style="border:0;padding:0"><h2>Wat mag je verwachten?</h2>
+    <p style="font-size:15px;line-height:1.6">De Sint komt bij RAAK-leden aan huis, op vrijdag 27 november tussen 17u en 21u of op zaterdag 28 november tussen 8u en 17u. Tijdens dit bezoek brengt de Sint pakjes met wat lekkers. Vertel ons vooraf iets over je kind: wat het goed kan, wat het nog leert — de Sint leest het in zijn boek.</p>
+    <p style="font-size:15px;line-height:1.6">Het bezoek duurt een kwartier. Je kiest bij het inschrijven drie voorkeurstijdstippen; de planning krijg je een week vooraf per mail.</p>
+   </div>
+   <div class="section" style="border:0;padding:0;margin-top:24px"><h2>Wie doet er mee?</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin:0 0 8px">23 gezinnen ingeschreven</p>
+    <div class="who"><span>Gezin Peeters</span><span>Gezin Claes</span><span>Gezin De Smet</span><span>Gezin Willems</span><span>Gezin Jacobs</span><span>+ 18 andere</span></div>
+   </div>
+   <div class="section" style="border:0;padding:0;margin-top:24px"><h2>Praktisch</h2>
+    <p style="font-size:14px;line-height:1.6;margin:0">Organisator: <a href="#">Gezin Peeters</a> · vragen via <a href="#">sint@…</a> · betaling online of per overschrijving, € 5,00 per kind.</p>
+   </div>
+  </div>
+  <div>
+   <div class="poster">Sinterklaas<br>huisbezoeken 2026</div>
+   <div class="cta" style="margin-top:16px">
+    <div><div class="price">€ 5,00 <small>per kind</small></div><div class="more" style="font-size:13px;color:var(--ink-soft);margin:4px 0 12px">Inschrijven tot 15 november</div></div>
+    <a class="btn btn-primary" href="06-publiek-inschrijven.html" style="white-space:nowrap">Inschrijven</a>
+    <div class="more" style="font-size:12px;color:var(--ink-soft);margin-top:10px">Lid van RAAK? <a href="#">Log je eerst aan</a>.</div>
+   </div>
+  </div>
+ </div>
+ <div class="note" style="margin-top:32px"><b>Wat dit concept toont</b> · de publieke site deelt de kit, niet de layouts (§2.4): een activiteitpagina is geen formulierpagina maar een eigen samenstelling rond de taken van de bezoeker — ontdekken (affiche, titel, kernfeiten), beoordelen (voor wie, wanneer, wat je mag verwachten, wie doet er mee), inschrijven (één duidelijke knop met de prijs, die de bezoeker naar concept 06 brengt), en de ledenduw op de plek waar de prijs staat. Op een telefoon wordt de prijs-en-knop een strook onderaan, de affiche een banner bovenaan. Dezelfde tokens, velden, knoppen, badges en spronglinks als in het beheer.</div>
+</div></main></body></html>
