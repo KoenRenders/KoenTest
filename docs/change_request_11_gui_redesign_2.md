@@ -620,20 +620,26 @@ session.
   creation** (public, and the same record as the admin household — rows 12,
   13) **combined with the forms** (row 9). Once those are right they are the
   standard — "this is our core" — finished and then carried through.
-- **External advice, at two moments, from a second model rather than a
-  hired designer** (a separate Claude, ChatGPT or Mistral session — Mistral
-  first, Europe First; it has been done before for laying out screens).
-  Two expertises, asked separately because they answer different questions:
-  **graphic design** — surfaces, type, spacing, icons, the weight of buttons
-  (rows 8, 9, 16, 22) — asked once, when the end state is drafted and before
-  the first pilot, on the design-system page and a handful of screenshots;
-  **usability** — does the pattern do what the user expects (rows 2, 7, 14,
-  19, 20) — asked per pilot, on the concept's screenshots, before it is
-  built. Not at roll-out: by then the questions are answered. What such a
-  review says is checked against our own measurements before it changes a
-  decision (unsupported claims are dropped, as with every AI answer), and
-  its dated findings land in the Q&A log. Much we can decide ourselves;
-  the review is for what we cannot see because we look at it every day.
+- **External advice from other models, at two moments, both models at
+  once.** Not a hired designer: a Mistral session and a ChatGPT session,
+  given the **same brief at the same time**; their answers are read side by
+  side — where they agree, that is a strong signal; where they contradict
+  each other, we decide, with our own measurements; where one sees what the
+  other misses, we gain it. One round per moment, not two. The two moments,
+  because they ask different questions: **at phase 0**, the graphic-design
+  question — on the design-system page and the concept screenshots of the
+  three layouts: *what would a graphic designer change in surfaces, type,
+  spacing, icons and the weight of buttons* (rows 8, 9, 16, 22); **before
+  each pilot is built**, the usability question — on that pilot's concept
+  screenshots and its walkthrough: *where would a user hesitate, what would
+  they look for and not find* (rows 2, 7, 14, 19, 20). Not at roll-out: by
+  then the questions are answered. The brief names the screens, the rows of
+  A2 in play and the rule of B8, so the answer is about our portal and not
+  about web design in general. What comes back is checked against our
+  measurements before it changes a decision — unsupported claims are
+  dropped, as with every AI answer — and the dated findings of both, agreed
+  and contradictory, land in the Q&A log. Much we can decide ourselves; the
+  round is for what we no longer see because we look at it every day.
 - The design system (`docs/design-system.md` and the live page) is where
   the end state is written and where each rolled-out pattern lands; this
   change request holds the roadmap.
@@ -783,6 +789,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | 30 Sep 2026 | The rule of CR-11: what screens must share is made automatically by the kit or strictly validated by a gate; a convention that is neither drifts with every new screen or change. | Koen |
 | 30 Sep 2026 | Background: the platform will serve other organisations than RAAK (a company's webshop among them) — a separate change request; here the end state keeps kit and brand apart. | Koen |
 | 30 Sep 2026 | CR-11 becomes the GUI redesign's end state and roadmap: North Star first, quick wins up front for attraction, each concept prepared with screenshots, built on one pilot screen, run through a release and tuned, then rolled out; pilots: the activity detail, the public household creation with the forms. The as-is (A2) is listed first, the solution and the approach follow. | Koen |
+| 30 Sep 2026 | External reviews: Mistral and ChatGPT together, same brief, one round per moment — the graphic-design question at phase 0, the usability question before each pilot. | Koen |
 | 30 Sep 2026 | Pilot order: A (activity record, Betalingen list) before B (public household, forms, registration). | Koen |
 | 30 Sep 2026 | Lists: in the admin every list is a table, a picture is a thumbnail column; cards only on the public site and in the media library. P2 decided. | Koen |
 | 30 Sep 2026 | The end state (B4) and the roadmap (B6) written from the forty-five rows of A2: three layouts, a kit that owns fields, buttons, surfaces and spacing, gates as ratchets, quick wins → foundations → pilot A (activity record, Betalingen list) → pilot B (public household, forms, registration) → roll-out. | author, for Koen to confirm |
@@ -798,7 +805,7 @@ title and toolbar; the e2e job's duration with the pixel diff.
 | Q4 | 30 Sep 2026 | Do the quick wins (phase 1) ride the next functional release, or a release of their own so they are seen together? (Claude) | *open* |
 | Q5 | 30 Sep 2026 | Is the order pilot A (admin: activity record, Betalingen list) before pilot B (public: household, forms, registration) right, or should the public side — what members see — come first? (Claude) | Koen, 30 Sep: pilot A first — the activity record and the Betalingen list — then pilot B as proposed. |
 | Q6 | 30 Sep 2026 | Phase 5's roll-out is the largest block (~12 days): one release, or split per module over releases with the ratchets keeping it safe? (Claude) | *open* |
-| Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | *open* |
+| Q7 | 30 Sep 2026 | The two external reviews (graphic design at phase 0, usability per pilot): which model first — Mistral, as Europe First says? (Claude) | Koen, 30 Sep: not one first — both at once, Mistral and ChatGPT, the same brief, the answers compared in one round; agreement adopted, contradictions decided by us. B6. |
 
 ## Non-goals — deliberately outside this change
 
