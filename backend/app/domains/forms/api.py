@@ -55,7 +55,7 @@ def submit_bericht(
     the screen thanks the bot as it thanks a person."""
     from app.kernel import form_guard
 
-    if form_guard.refused(proof, "berichten"):
+    if form_guard.refused(proof, CONTACT_FORM_SLUG):
         return None
 
     from app.domains.forms.service import build_answers
@@ -63,7 +63,7 @@ def submit_bericht(
     from app.kernel.contracts.forms import SubmissionCreated
     from app.kernel.events import publish
 
-    form = db.query(Form).filter(Form.slug == "berichten").first()
+    form = db.query(Form).filter(Form.slug == CONTACT_FORM_SLUG).first()
     if form is None or not form.fields:
         return None
     # De invariant gold "voor élke ingang", maar juist deze riep hem niet aan
@@ -163,6 +163,7 @@ from app.domains.forms.schemas import AnswerIn  # noqa: E402,F401
 # posted form), `submit_attached` (inside the registration's transaction),
 # `submission_views` and `form_questions` (many registrations in one read).
 from app.domains.forms.service import (  # noqa: E402,F401
+    CONTACT_FORM_SLUG,
     FormulierFout,
     VeldFout,
     add_field,

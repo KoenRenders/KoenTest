@@ -1034,8 +1034,24 @@ def delete_form(db, form_id: int) -> None:
                 "de inschrijvingen, dus het formulier blijft zolang zij er zijn."
             )
         )
+    # #1377: the submissions go with the form (cascade), and each one is a deleted
+    # submission like any other, so workflow closes their open tasks too.
+    for submission_id in [s.id for s in form.submissions]:
+        _publish_submission_deleted(db, form, submission_id)
     db.delete(form)
     db.commit()
+
+
+def _publish_submission_deleted(db, form: Form, submission_id: int) -> None:
+    """Report a deleted submission (#1377), in the caller's transaction, before
+    the delete: forms says what happened, workflow closes the open task."""
+    from app.kernel.contracts.forms import SubmissionDeleted
+    from app.kernel.events import publish
+
+    publish(
+        SubmissionDeleted(form_id=form.id, form_slug=form.slug, submission_id=submission_id),
+        db,
+    )
 
 
 def delete_submission(db, form_id: int, submission_id: int) -> None:
@@ -1055,6 +1071,8 @@ def delete_submission(db, form_id: int, submission_id: int) -> None:
                 "de inschrijving; verwijderen kan hier niet."
             )
         )
+    # #1377: forms reports the fact; workflow closes the submission's open task.
+    _publish_submission_deleted(db, inzending.form, inzending.id)
     db.delete(inzending)
     db.commit()
 
@@ -1108,10 +1126,17 @@ def list_forms(db, *, q: str = "", status: str = ""):
     return query.order_by(Form.id.desc()).all()
 
 
+#: The slug of the seeded contact form ("Contacteer ons", `/berichten`). The one
+#: place it is written (#1377): the screen, the write path, the reserved slugs
+#: and workflow's task for a new message all read it from here, through
+#: `forms.api` outside this domain. Two copies drifted silently: change one, and
+#: the werkbank stopped making tasks without an error.
+CONTACT_FORM_SLUG = "berichten"
+
 # Slugs die de site zelf gebruikt en die een formulier dus niet mag inpikken.
 # `/berichten` zoekt het contactformulier op slug op (`forms/ui.py`); een tweede
 # formulier met die naam kaapt dat scherm.
-GERESERVEERDE_SLUGS = frozenset({"berichten"})
+GERESERVEERDE_SLUGS = frozenset({CONTACT_FORM_SLUG})
 
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 

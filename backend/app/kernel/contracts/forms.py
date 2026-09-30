@@ -18,3 +18,14 @@ class SubmissionCreated(KernelEvent):
     submission_id: int
     submitter_name: Optional[str]
     submitter_email: Optional[str]
+
+
+@dataclass(frozen=True)
+class SubmissionDeleted(KernelEvent):
+    """A form submission was deleted (synchronous, in-transaction). Consumers:
+    workflow closes the open task of this submission (#1377), so the werkbank no
+    longer points at a submission that does not exist."""
+
+    form_id: int
+    form_slug: Optional[str]
+    submission_id: int

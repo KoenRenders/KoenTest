@@ -13,20 +13,18 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.forms.api import answers_from_form
+from app.domains.forms.api import CONTACT_FORM_SLUG, answers_from_form
 from app.i18n import _
 from app.limiter import form_submit_limiter
 from app.ui import templates
 
 router = APIRouter(include_in_schema=False)
 
-BERICHTEN_SLUG = "berichten"
-
 
 def _berichten_form(db: Session):
     from app.domains.forms.api import get_form_by_slug
 
-    return get_form_by_slug(db, BERICHTEN_SLUG)
+    return get_form_by_slug(db, CONTACT_FORM_SLUG)
 
 
 @router.get("/berichten", response_class=HTMLResponse)
