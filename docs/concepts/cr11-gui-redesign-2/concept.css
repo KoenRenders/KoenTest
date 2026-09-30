@@ -1,0 +1,139 @@
+/* Conceptschermen CR-11 — laag bovenop de echte kit (app.css).
+   Alleen wat de eindtoestand nieuw introduceert: layouts, tegels, werkbalk,
+   samenvattingskaart, herhalende groep, schakelaar, plakkende actiebalk.
+   Kleuren komen uit de tokens van app.css (--c-*). */
+:root{--gap-4:4px;--gap-8:8px;--gap-12:12px;--gap-16:16px;--gap-24:24px;--gap-32:32px;--gap-48:48px;
+  /* app.css defines its colour tokens as RGB triplets ("25 38 56"), so they are wrapped in rgb(); the fallbacks are the kit's own values */
+  --surface-page:rgb(var(--c-ground,245 246 248));--surface-card:rgb(var(--c-surface,255 255 255));--surface-inset:#f3f4f6;
+  --line:rgb(var(--c-line,229 231 235));--ink:rgb(var(--c-ink,17 24 39));--ink-soft:rgb(var(--c-ink-soft,107 114 128));
+  --kop:rgb(var(--c-kop,25 38 56));--brand:rgb(var(--c-brand,0 81 164));--link:rgb(var(--c-link,35 103 189));}
+/* CONCEPT-ONLY: the hex values below (badges, accents, inset) are placeholders for tokens phase 2 defines; they must not be copied into the macros as they stand. */
+*{box-sizing:border-box}
+body{margin:0;background:var(--surface-page);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:15px;line-height:1.45}
+a{color:var(--link)}
+/* shell */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:220px;flex:0 0 220px;background:var(--surface-card);border-right:1px solid var(--line);padding:16px 12px}
+.sidebar .brand{font-family:"Radio Canada Big",Inter,sans-serif;font-weight:800;color:var(--kop);font-size:20px;margin:4px 8px 20px}
+.sidebar a{display:block;padding:8px 10px;border-radius:8px;color:var(--ink);text-decoration:none;font-size:14px}
+.sidebar a.active{background:#e8f0fb;color:var(--kop);font-weight:600}
+.sidebar .group{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin:16px 10px 4px}
+.topbar{display:flex;justify-content:flex-end;align-items:center;gap:12px;padding:10px 24px;border-bottom:1px solid var(--line);background:var(--surface-card)}
+.account{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px 3px 3px;background:var(--surface-card);cursor:pointer}
+.account .initials{width:28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;font-weight:700;font-size:12px;display:grid;place-items:center}
+.account .chev{font-size:11px;color:var(--ink-soft)}
+.raakje{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;background:var(--surface-card);cursor:pointer}
+.raakje.off{color:var(--ink-soft);opacity:.55;cursor:default}
+main{flex:1;min-width:0}
+.frame{max-width:1280px;margin:0 auto;padding:24px 24px 96px}
+.frame.reading{max-width:768px}
+/* buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 12px;font-size:14px;font-weight:600;border:1px solid transparent;cursor:pointer;text-decoration:none;line-height:1.2}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-secondary{background:var(--surface-card);border-color:var(--line);color:var(--ink)}
+.btn-text{background:transparent;color:var(--ink-soft)}
+.btn-danger-text{background:transparent;color:#b91c1c}
+.btn-sm{padding:5px 10px;font-size:13px}
+.ico{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+/* list page */
+.titlerow{display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-bottom:12px}
+.titlerow h1{font-size:26px;font-weight:700;color:var(--kop);margin:0;font-family:"Radio Canada Big",Inter,sans-serif}
+.tiles{display:flex;gap:24px;margin-left:8px}
+.tile{text-decoration:none;color:var(--ink);padding:4px 10px;border-radius:8px;border:1px solid transparent}
+.tile:hover{background:var(--surface-card);border-color:var(--line)}
+.tile.active{background:var(--surface-card);border-color:var(--line)}
+.tile .n{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .l{font-size:11px;color:var(--ink-soft)}
+.tile .sub{font-size:11px;color:var(--ink-soft)}
+.tile.warn .n{color:#c2410c}
+.titlerow .actions{margin-left:auto;display:flex;gap:8px}
+.toolbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:var(--surface-card);border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin-bottom:12px}
+.chips{display:flex;gap:6px}
+.chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:13px;background:var(--surface-card);cursor:pointer}
+.chip.active{background:#e8f0fb;border-color:#bfd3ef;color:var(--kop);font-weight:600}
+.search{flex:1;min-width:180px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:14px;background:#fff}
+.select{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px;background:#fff}
+.count{font-size:13px;color:var(--ink-soft);margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+.more{border:1px solid var(--line);border-radius:8px;padding:5px 9px;background:#fff;cursor:pointer}
+table.list{width:100%;border-collapse:separate;border-spacing:0;background:var(--surface-card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+table.list th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);background:var(--surface-inset)}
+table.list th.sort::after{content:" ↕";opacity:.5}
+table.list td{padding:11px 12px;border-bottom:1px solid var(--line);font-size:14px}
+table.list tr:last-child td{border-bottom:0}
+table.list tbody tr{cursor:pointer}
+table.list tbody tr:hover{background:#f8fafc}
+table.list td.num{text-align:right;font-variant-numeric:tabular-nums}
+table.list td.ellip{text-align:right;color:var(--ink-soft)}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600}
+.badge.green{background:#dcfce7;color:#166534}.badge.orange{background:#ffedd5;color:#9a3412}.badge.gray{background:#f3f4f6;color:#374151}.badge.blue{background:#e8f0fb;color:var(--kop)}.badge.teal{background:#ccfbf1;color:#115e59}
+.pager{display:flex;justify-content:flex-end;gap:8px;margin-top:12px;font-size:13px}
+/* record page */
+.wayback{font-size:13px;margin-bottom:8px}
+.wayback a{text-decoration:none;color:var(--link)}
+.rhead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:4px}
+.rhead h1{font-size:28px;font-weight:700;color:var(--kop);margin:0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:"Radio Canada Big",Inter,sans-serif}
+.facts{font-size:14px;color:var(--ink-soft);margin:2px 0 20px}
+.facts a{color:var(--link);text-decoration:none}
+.facts a::after{content:" ↗";font-size:12px}
+.rbody{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start}
+.summary{background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:16px;position:sticky;top:16px}
+.summary .state{margin-bottom:12px}
+.summary .fig{display:flex;justify-content:space-between;font-size:14px;padding:6px 0;border-top:1px solid var(--line)}
+.summary .fig b{font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:24px}
+.tabs a{padding:10px 14px;text-decoration:none;color:var(--ink-soft);font-weight:600;font-size:14px;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a.active{color:var(--kop);border-bottom-color:var(--kop)}
+.formcol{max-width:768px}
+.section{background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:16px 20px;margin-bottom:24px}
+.section h2{font-size:15px;font-weight:600;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.full{grid-column:1/-1}.quarter{grid-column:span 1}
+.field label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:4px}
+.field .val{font-size:15px;min-height:22px}
+.field .val.empty{color:#9ca3af}
+.field input,.field textarea,.field select{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:14px;font-family:inherit;background:#fff}
+.field textarea{min-height:72px}
+.help{font-size:12px;color:var(--ink-soft);margin-top:4px}
+.switch{display:inline-flex;align-items:center;gap:8px;font-size:14px}
+.switch .track{width:36px;height:20px;border-radius:999px;background:#d1d5db;position:relative;flex:0 0 36px}
+.switch .track::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .15s}
+.switch.on .track{background:var(--brand)}.switch.on .track::after{left:18px}
+.switch .word{font-size:12px;color:var(--ink-soft)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg span{padding:5px 12px;font-size:13px;cursor:pointer}
+.seg span.on{background:#e8f0fb;color:var(--kop);font-weight:600}
+.rg .row{display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--line)}
+.rg .row:first-of-type{border-top:0}
+.rg .handle{color:#9ca3af;cursor:grab;width:16px}
+.rg .row .cell{flex:1;font-size:14px}
+.rg .row .cell.small{flex:0 0 120px;color:var(--ink-soft)}
+.rg .row .ellip{margin-left:auto;color:var(--ink-soft)}
+.rare{margin-bottom:24px;font-size:14px;color:var(--ink-soft)}
+.rare summary{cursor:pointer;padding:8px 4px}
+.rare .inner{background:var(--surface-card);border:1px solid var(--line);border-radius:12px;padding:12px 16px;margin-top:8px}
+.bar{position:sticky;bottom:0;display:flex;align-items:center;gap:8px;background:var(--surface-card);border-top:1px solid var(--line);padding:10px 16px;margin:0 -4px;border-radius:12px 12px 0 0}
+.bar .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.embedded .toolbar{margin-top:0}
+.caption{font-size:12px;color:var(--ink-soft);margin:0 0 6px}
+.note{background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:10px 14px;font-size:13px;color:#78350f;margin-bottom:16px}
+.nudge{background:#e8f0fb;border:1px solid #bfd3ef;border-radius:12px;padding:10px 14px;font-size:14px;margin-bottom:16px}
+/* editor (document) */
+.doc-toolbar{position:sticky;top:0;z-index:2;display:flex;gap:4px;background:var(--surface-card);border:1px solid var(--line);border-radius:10px;padding:6px;margin-bottom:12px}
+.doc-toolbar span{padding:4px 8px;border-radius:6px;font-size:13px;color:var(--ink);cursor:pointer}
+.doc-toolbar span:hover{background:var(--surface-inset)}
+.doc-toolbar .sep{width:1px;background:var(--line);margin:0 4px}
+.doc{background:var(--surface-card);border:1px solid var(--line);border-radius:18px;padding:24px 28px;min-height:520px;font-size:15px}
+.doc h3{margin:18px 0 6px}
+/* phone */
+@media (max-width:767px){
+  .shell{flex-direction:column}.sidebar{display:none}
+  .frame{padding:12px 16px 96px}
+  .titlerow .actions{margin-left:0}.tiles{gap:12px;margin-left:0;width:100%}
+  .toolbar{gap:8px}.count{margin-left:0;width:100%}
+  table.list .hide-phone{display:none}
+  .rbody{grid-template-columns:1fr}.summary{position:static;order:-1;display:flex;gap:16px;align-items:center;padding:10px 12px}
+  .summary .fig{border:0;padding:0;flex-direction:column;font-size:12px}
+  .grid2{grid-template-columns:1fr}
+  .bar{position:fixed;left:0;right:0;bottom:0;margin:0;border-radius:0}
+  .bar .btn-primary{flex:1;justify-content:center}
+}

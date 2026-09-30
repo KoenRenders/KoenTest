@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activiteit — tabblad Betalingen (ingebedde lijst)</title>
+<link rel="stylesheet" href="../../../backend/app/static/app.css"><link rel="stylesheet" href="concept.css"></head>
+<body data-shell="admin"><div class="shell">
+<nav class="sidebar"><div class="brand">RaaK beheer</div>
+<div class="group">Vereniging</div><a href="#" class="active">Activiteiten</a><a href="#">Leden</a><a href="#">Vergaderingen</a>
+<div class="group">Financieel</div><a href="#">Betalingen</a><a href="#">Rapporten</a>
+<div class="group">Communicatie</div><a href="#">Nieuwsbrieven</a><a href="#">Pagina's</a><a href="#">Formulieren</a><a href="#">Media</a>
+<div class="group">Beheer</div><a href="#">Gebruikers</a><a href="#">Werkbank</a></nav>
+<main>
+<div class="topbar"><span class="raakje">✦ Raakje</span><span class="account"><span class="initials">RM</span><span class="chev">▾</span></span></div>
+<div class="frame">
+ <div class="wayback"><a href="#">‹ Alle activiteiten</a></div>
+ <div class="rhead">
+  <h1>Sinterklaas huisbezoeken 2026 <span class="badge green">actief</span> <span class="badge blue">enkel leden</span></h1>
+  <div style="display:flex;gap:8px"><a class="btn btn-primary btn-sm" href="03-record-activiteit-bewerken.html">Bewerken</a><span class="btn btn-secondary btn-sm">Acties ▾</span></div>
+ </div>
+ <div class="facts">vr 27 nov 17–21 u · za 28 nov 8–17 u · aan huis · organisator <a href="#">Gezin Peeters</a></div>
+ <div class="rbody">
+  <div class="embedded">
+   <div class="tabs"><a href="02-record-activiteit-lezen.html">Gegevens</a><a href="#">Inschrijvingen (23)</a><a class="active" href="#">Betalingen (23)</a></div>
+   <div class="toolbar">
+    <div class="chips"><span class="chip active">Alle</span><span class="chip">Openstaand</span><span class="chip">Betaald</span></div>
+    <input class="search" placeholder="Zoek op naam…">
+    <span class="count">1–23 van 23</span>
+    <span class="more" role="button" aria-label="Meer: export (.ods), Raakje" title="Meer">⋯</span>
+   </div>
+   <p class="caption">Gegroepeerd per inschrijving, recentste eerst</p>
+   <table class="list">
+    <thead><tr><th class="sort">Datum</th><th class="sort">Gezin</th><th class="hide-phone">Betaalwijze</th><th>Status</th><th class="num">Bedrag</th><th class="num">Saldo</th><th></th></tr></thead>
+    <tbody>
+     <tr><td>28 sep</td><td>Gezin Peeters</td><td class="hide-phone">Overschrijving</td><td><span class="badge orange">Openstaand</span></td><td class="num">€ 10,00</td><td class="num" style="color:#c2410c">€ 10,00</td><td class="ellip">⋯</td></tr>
+     <tr style="background:#f8fafc"><td>27 sep</td><td>Gezin Claes</td><td class="hide-phone">Overschrijving</td><td><span class="badge orange">Openstaand</span></td><td class="num">€ 15,00</td><td class="num" style="color:#c2410c">€ 15,00</td><td class="ellip">▾</td></tr>
+     <tr><td colspan="7" style="background:var(--surface-inset);padding:12px 16px">
+       <div style="display:flex;gap:24px;flex-wrap:wrap;font-size:13px">
+        <div><div class="field"><label>Gestructureerde mededeling</label><div class="val">+++ 026/1234/56789 +++</div></div></div>
+        <div><div class="field"><label>Aangemaakt</label><div class="val">27 sep 2026, 19:34</div></div></div>
+        <div><div class="field"><label>Inschrijving</label><div class="val"><a href="#">Gezin Claes · Huisbezoek · 3 kinderen ↗</a></div></div></div>
+        <div style="margin-left:auto;display:flex;gap:8px;align-items:flex-end"><span class="btn btn-secondary btn-sm">Bevestig betaald…</span><a class="btn btn-text btn-sm" href="#">Open betaling ↗</a></div>
+       </div>
+     </td></tr>
+     <tr><td>26 sep</td><td>Gezin De Smet</td><td class="hide-phone">Online</td><td><span class="badge green">Betaald</span></td><td class="num">€ 10,00</td><td class="num">€ 0,00</td><td class="ellip">⋯</td></tr>
+     <tr><td>26 sep</td><td>Gezin Willems</td><td class="hide-phone">Online</td><td><span class="badge green">Betaald</span></td><td class="num">€ 15,00</td><td class="num">€ 0,00</td><td class="ellip">⋯</td></tr>
+     <tr><td>25 sep</td><td>Gezin Jacobs</td><td class="hide-phone">Online</td><td><span class="badge green">Betaald</span></td><td class="num">€ 5,00</td><td class="num">€ 0,00</td><td class="ellip">⋯</td></tr>
+    </tbody>
+   </table>
+  </div>
+  <aside class="summary">
+   <div class="state"><span class="badge green">actief</span></div>
+   <div class="fig"><span>Netto te betalen</span><b>€ 205,00</b></div>
+   <div class="fig"><span>Ontvangen</span><b>€ 180,00</b></div>
+   <div class="fig"><span>Openstaand</span><b style="color:#c2410c">€ 25,00</b></div>
+  </aside>
+ </div>
+ <div class="note" style="margin-top:24px"><b>Wat dit concept toont</b> · hetzelfde kader als het tabblad Gegevens: kop, tabbladen en samenvatting bewegen niet, alleen de inhoudskolom werd breed; de ingebedde lijst is de lichte weergave: geen paginakop, geen tegels (de samenvatting draagt de cijfers), één werkbalkrij, export en Raakje onder ⋯; een klik op een rij klapt ze ter plaatse open met een spronglink naar de volledige betaling.</div>
+</div></main></div></body></html>
